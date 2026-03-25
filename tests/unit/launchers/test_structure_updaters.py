@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.geographic.structure_binders import (
+from hydromodpy.spatial.geographic.structure_binders import (
     apply_catchment_zones_to_domain,
     apply_geology_to_domain,
 )
@@ -19,7 +19,7 @@ from hydromodpy.process.flow.structure_binders import (
     apply_simulation_time_to_flow_boundary_conditions,
     apply_simulation_time_to_flow_wells,
 )
-from hydromodpy.simulation.time import ResolvedSimulationTimeWindow
+from hydromodpy.core.time import ResolvedSimulationTimeWindow
 
 
 class _DummyDomain:
@@ -78,7 +78,7 @@ def test_apply_catchment_zones_to_domain_sets_zone(monkeypatch, tmp_path: Path) 
         )
 
     monkeypatch.setattr(
-        "hydromodpy.geographic.structure_binders.build_catchment_zone_codes",
+        "hydromodpy.spatial.geographic.structure_binders.build_catchment_zone_codes",
         _fake_build_catchment_zone_codes,
     )
 
@@ -121,7 +121,7 @@ def test_apply_catchment_zones_to_domain_sets_uniform_zone(monkeypatch, tmp_path
         )
 
     monkeypatch.setattr(
-        "hydromodpy.geographic.structure_binders.build_uniform_zone_codes",
+        "hydromodpy.spatial.geographic.structure_binders.build_uniform_zone_codes",
         _fake_build_uniform_zone_codes,
     )
 
@@ -152,8 +152,8 @@ def test_apply_catchment_zones_to_domain_is_noop_with_missing_artifacts() -> Non
 
 
 def test_apply_oceanic_to_flow_updates_ocean_boundary_value() -> None:
-    from hydromodpy.data_managers.contracts.load_result import LoadResult
-    from hydromodpy.data_managers.contracts.timeseries import PointRecord
+    from hydromodpy.data.contracts.load_result import LoadResult
+    from hydromodpy.data.contracts.timeseries import PointRecord
 
     flow = SimpleNamespace(boundary_conditions={"ocean": SimpleNamespace(value=None)})
     msl_data = pd.DataFrame({"datetime": [pd.Timestamp.now()], "value": [7.5]})
@@ -173,8 +173,8 @@ def test_apply_oceanic_to_flow_updates_ocean_boundary_value() -> None:
 
 
 def test_apply_oceanic_to_flow_fallback_to_series_mean() -> None:
-    from hydromodpy.data_managers.contracts.load_result import LoadResult
-    from hydromodpy.data_managers.contracts.timeseries import PointRecord
+    from hydromodpy.data.contracts.load_result import LoadResult
+    from hydromodpy.data.contracts.timeseries import PointRecord
 
     flow = SimpleNamespace(boundary_conditions={"ocean": SimpleNamespace(value=None)})
     ts_data = pd.DataFrame({
@@ -196,7 +196,7 @@ def test_apply_oceanic_to_flow_fallback_to_series_mean() -> None:
 
 
 def test_apply_oceanic_to_flow_is_noop_without_ocean_boundary() -> None:
-    from hydromodpy.data_managers.contracts.load_result import LoadResult
+    from hydromodpy.data.contracts.load_result import LoadResult
 
     flow = SimpleNamespace(boundary_conditions={})
     oceanic = LoadResult(points=[])

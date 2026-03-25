@@ -10,8 +10,8 @@ from rasterio.transform import from_origin
 from shapely.geometry import box
 from shapely.geometry import Polygon
 
-from hydromodpy.geographic.core.catchment_domain import derive_catchment_domain
-from hydromodpy.geographic.core.catchment_zones import (
+from hydromodpy.spatial.geographic.core.catchment_domain import derive_catchment_domain
+from hydromodpy.spatial.geographic.core.catchment_zones import (
     CatchmentZoneCode,
     build_catchment_zone_codes,
     build_uniform_zone_codes,

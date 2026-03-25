@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from hydromodpy.display.transport_plots import (
+from hydromodpy.analysis.display.transport_plots import (
     _load_concentration_cube,
     _load_outflow_drain_array,
     _resolve_ucn_path,

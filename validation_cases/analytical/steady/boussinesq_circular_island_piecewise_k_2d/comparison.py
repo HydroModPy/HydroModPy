@@ -1,4 +1,4 @@
-﻿"""Comparison workflow for the steady circular-island piecewise-K validation case."""
+"""Comparison workflow for the steady circular-island piecewise-K validation case."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.geographic.synthetic import SyntheticGridConfig, SyntheticTopographyConfig
-from hydromodpy.geographic.synthetic.topography import build_topography_values
+from hydromodpy.spatial.geographic.synthetic import SyntheticGridConfig, SyntheticTopographyConfig
+from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
 from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,

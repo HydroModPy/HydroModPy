@@ -16,18 +16,18 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from hydromodpy.data_managers.common.base_field_manager import BaseFieldManager
-from hydromodpy.data_managers.common.geo_helpers import bbox_hash as _bbox_hash
-from hydromodpy.data_managers.common.custom_grid_loader import (
+from hydromodpy.data.common.base_field_manager import BaseFieldManager
+from hydromodpy.data.common.geo_helpers import bbox_hash as _bbox_hash
+from hydromodpy.data.common.custom_grid_loader import (
     _find_coord,
     _find_time_dim,
     load_custom_nc,
 )
-from hydromodpy.data_managers.contracts.load_result import LoadResult
-from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
-from hydromodpy.data_managers.contracts.timeseries import PointRecord
-from hydromodpy.data_managers.variables.recharge.config import RechargeSourceConfig
-from hydromodpy.data_managers.registry.catalog import DataCatalog
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
+from hydromodpy.data.registry.catalog import DataCatalog
 
 
 # ── helpers ──────────────────────────────────────────────────────────
@@ -578,7 +578,7 @@ class TestLoadCustomTif:
             import rioxarray  # noqa: F401
             pytest.skip("rioxarray is available; skip-test not applicable")
         except ImportError:
-            from hydromodpy.data_managers.common.custom_grid_loader import (
+            from hydromodpy.data.common.custom_grid_loader import (
                 load_custom_tif,
             )
             with pytest.raises(ImportError):
@@ -660,7 +660,7 @@ class TestRechargeBridge:
     """Tests for the forcing bridge (LoadResult → flow-ready series)."""
 
     def test_extract_single_station(self):
-        from hydromodpy.forcing.forcing_bridge import extract_homogeneous_series
+        from hydromodpy.process.forcing.forcing_bridge import extract_homogeneous_series
 
         rec = _make_point_record("A", n=5)
         result = LoadResult(points=[rec])
@@ -671,7 +671,7 @@ class TestRechargeBridge:
         assert series.iloc[4] == 4.0
 
     def test_extract_multiple_stations_averages(self):
-        from hydromodpy.forcing.forcing_bridge import extract_homogeneous_series
+        from hydromodpy.process.forcing.forcing_bridge import extract_homogeneous_series
 
         dates = pd.date_range("2020-01-01", periods=3, freq="D")
         rec1 = PointRecord(
@@ -694,19 +694,19 @@ class TestRechargeBridge:
         assert series.iloc[1] == pytest.approx(30.0)
 
     def test_extract_no_points_returns_none(self):
-        from hydromodpy.forcing.forcing_bridge import extract_homogeneous_series
+        from hydromodpy.process.forcing.forcing_bridge import extract_homogeneous_series
 
         result = LoadResult(fields=[_make_field_record()])
         assert extract_homogeneous_series(result) is None
 
     def test_extract_empty_result_returns_none(self):
-        from hydromodpy.forcing.forcing_bridge import extract_homogeneous_series
+        from hydromodpy.process.forcing.forcing_bridge import extract_homogeneous_series
 
         result = LoadResult()
         assert extract_homogeneous_series(result) is None
 
     def test_build_forcing_series_converts_units(self):
-        from hydromodpy.forcing.forcing_bridge import (
+        from hydromodpy.process.forcing.forcing_bridge import (
             build_forcing_series,
             _MM_PER_DAY_TO_M_PER_S,
         )
@@ -721,7 +721,7 @@ class TestRechargeBridge:
         assert series.iloc[1] == pytest.approx(1.0 * _MM_PER_DAY_TO_M_PER_S)
 
     def test_build_forcing_series_no_points_returns_none(self):
-        from hydromodpy.forcing.forcing_bridge import build_forcing_series, _MM_PER_DAY_TO_M_PER_S
+        from hydromodpy.process.forcing.forcing_bridge import build_forcing_series, _MM_PER_DAY_TO_M_PER_S
 
         result = LoadResult(fields=[_make_field_record()])
         assert build_forcing_series(
@@ -729,7 +729,7 @@ class TestRechargeBridge:
         ) is None
 
     def test_build_forcing_series_runoff_converts_units(self):
-        from hydromodpy.forcing.forcing_bridge import (
+        from hydromodpy.process.forcing.forcing_bridge import (
             build_forcing_series,
             _MM_PER_DAY_TO_M_PER_S,
         )

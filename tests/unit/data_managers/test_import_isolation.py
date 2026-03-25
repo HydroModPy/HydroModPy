@@ -30,9 +30,9 @@ def _isolated_module_state(*prefixes: str) -> Iterator[None]:
 
 def test_hydromodpy_config_import_does_not_eagerly_load_sql_catalog() -> None:
     with _isolated_module_state(
-        "hydromodpy.config.hydromodpy_config",
-        "hydromodpy.data_managers",
+        "hydromodpy.core.config.hydromodpy_config",
+        "hydromodpy.data",
     ):
-        importlib.import_module("hydromodpy.config.hydromodpy_config")
+        importlib.import_module("hydromodpy.core.config.hydromodpy_config")
 
-        assert "hydromodpy.data_managers.registry.catalog" not in sys.modules
+        assert "hydromodpy.data.registry.catalog" not in sys.modules

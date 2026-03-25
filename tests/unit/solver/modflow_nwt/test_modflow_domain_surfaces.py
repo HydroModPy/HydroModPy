@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from types import SimpleNamespace
 
-from hydromodpy.domain import Domain, DomainConfig
+from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.solver.modflow_nwt.modflow import Modflow
 from hydromodpy.solver.modflow_nwt.modflow.discretization import (

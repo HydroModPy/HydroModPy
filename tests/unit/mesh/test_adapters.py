@@ -5,12 +5,12 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 
 
 class TestFieldMeshAdapter:
     def test_from_gmsh_planar(self) -> None:
-        from hydromodpy.mesh.adapters.field_mesh_adapter import from_gmsh_planar
+        from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import from_gmsh_planar
 
         planar = SimpleNamespace(
             points_xy=np.array([[0, 0], [1, 0], [0.5, 1]], dtype=float),
@@ -23,7 +23,7 @@ class TestFieldMeshAdapter:
         assert mesh.single_cell_type is CellType.TRIANGLE
 
     def test_from_extruded_prism(self) -> None:
-        from hydromodpy.mesh.adapters.field_mesh_adapter import from_extruded_prism
+        from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import from_extruded_prism
 
         # 1 triangle extruded into 1 wedge
         extruded = SimpleNamespace(
@@ -46,8 +46,8 @@ class TestFieldMeshAdapter:
         assert "base_index" in mesh.point_data
 
     def test_from_field_mesh_structured(self) -> None:
-        from hydromodpy.mesh.adapters.field_mesh_adapter import from_field_mesh
-        from hydromodpy.field.meshes import StructuredFieldMesh
+        from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import from_field_mesh
+        from hydromodpy.spatial.field.meshes import StructuredFieldMesh
 
         x, y = np.meshgrid([0, 1, 2], [0, 1])
         fm = StructuredFieldMesh(x_plot=x, y_plot=y)
@@ -59,7 +59,7 @@ class TestFieldMeshAdapter:
 
 class TestFlopyAdapter:
     def test_from_flopy_structured_via_delr_delc(self) -> None:
-        from hydromodpy.mesh.adapters.flopy_adapter import from_flopy_structured
+        from hydromodpy.spatial.mesh.adapters.flopy_adapter import from_flopy_structured
 
         sgrid = SimpleNamespace(
             delr=np.array([100.0, 100.0]),
@@ -76,7 +76,7 @@ class TestFlopyAdapter:
         assert mesh.single_cell_type is CellType.QUADRILATERAL
 
     def test_to_flopy_disv_args(self) -> None:
-        from hydromodpy.mesh.adapters.flopy_adapter import to_flopy_disv_args
+        from hydromodpy.spatial.mesh.adapters.flopy_adapter import to_flopy_disv_args
 
         verts = np.array([[0, 0], [1, 0], [0.5, 1]], dtype=float)
         mesh = HydroMesh(
@@ -90,7 +90,7 @@ class TestFlopyAdapter:
         assert len(result["vertices"]) == 3
 
     def test_to_flopy_disv_rejects_3d(self) -> None:
-        from hydromodpy.mesh.adapters.flopy_adapter import to_flopy_disv_args
+        from hydromodpy.spatial.mesh.adapters.flopy_adapter import to_flopy_disv_args
 
         verts = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0],
                           [0, 0, 1], [1, 0, 1], [0, 1, 1]], dtype=float)
@@ -105,7 +105,7 @@ class TestFlopyAdapter:
 class TestMeshioAdapter:
     def test_roundtrip(self) -> None:
         meshio = pytest.importorskip("meshio")
-        from hydromodpy.mesh.adapters.meshio_adapter import from_meshio, to_meshio
+        from hydromodpy.spatial.mesh.adapters.meshio_adapter import from_meshio, to_meshio
 
         verts = np.array([[0, 0], [1, 0], [0.5, 1], [1.5, 1]], dtype=float)
         conn = np.array([[0, 1, 2], [1, 3, 2]], dtype=int)

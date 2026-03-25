@@ -34,7 +34,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
 from typing import Generic, TypeVar
 
-from hydromodpy.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.process.prototype.boundary_conditions import BoundaryCondition
 from hydromodpy.process.prototype.initial_conditions import InitialCondition
 from hydromodpy.process.prototype.process_spatial_config import ProcessSpatialConfig

@@ -7,9 +7,9 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
-from hydromodpy.data_managers.contracts.location import StationLocation
-from hydromodpy.data_managers.contracts.timeseries import PointRecord
-from hydromodpy.display.adapters import (
+from hydromodpy.data.contracts.location import StationLocation
+from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.analysis.display.adapters import (
     observed_discharge_series,
     observed_piezometry_series,
 )

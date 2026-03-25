@@ -16,8 +16,8 @@ import numpy as np
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
-from hydromodpy.data_managers.variables.geology.io import load_vector_geology_dataframe
-from hydromodpy.data_managers.variables.geology.processing import normalize_zone_key
+from hydromodpy.data.variables.geology.io import load_vector_geology_dataframe
+from hydromodpy.data.variables.geology.processing import normalize_zone_key
 from hydromodpy.solver.utils.mesh.gmsh_grid._deps import require_gmsh as _require_gmsh
 from hydromodpy.solver.utils.mesh.gmsh_grid._trace import trace_mesh_stage
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (

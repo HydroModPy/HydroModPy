@@ -48,7 +48,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from hydromodpy.support.units.volumetric_flow import normalize_m3_per_s_unit
+from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_common.grid_context import GridReference

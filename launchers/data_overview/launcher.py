@@ -26,7 +26,7 @@ def _ensure_repo_root_on_sys_path() -> Path:
 
 _REPO_ROOT = _ensure_repo_root_on_sys_path()
 
-from hydromodpy.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 from launchers.data_overview.config import DataOverviewConfig
 from launchers.data_overview.state import DataOverviewState
@@ -81,7 +81,7 @@ class DataOverviewLauncher:
 
     @staticmethod
     def _setup_workspace(state: DataOverviewState) -> None:
-        from hydromodpy.simulation.workspace.workspace import Workspace
+        from hydromodpy.core.workspace.workspace import Workspace
 
         state.workspace = Workspace(config=state.cfg.workspace)
         print(f"[overview] Workspace: {state.workspace.project_root}")
@@ -128,7 +128,7 @@ class DataOverviewLauncher:
         bbox = (x_out - _BUFFER_M, y_out - _BUFFER_M,
                 x_out + _BUFFER_M, y_out + _BUFFER_M)
 
-        from hydromodpy.data_managers.variables.dem.apis.ign_bdalti import (
+        from hydromodpy.data.variables.dem.apis.ign_bdalti import (
             fetch_bdalti,
         )
 
@@ -150,10 +150,10 @@ class DataOverviewLauncher:
 
     @staticmethod
     def _setup_geographic(state: DataOverviewState) -> None:
-        from hydromodpy.geographic.core.domain_geographic_pipeline import (
+        from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
             build_domain_geographic_context,
         )
-        from hydromodpy.geographic.geographic import Geographic
+        from hydromodpy.spatial.geographic.geographic import Geographic
 
         geographic = Geographic(state.cfg.geographic, state.workspace)
         state.geographic = geographic
@@ -173,7 +173,7 @@ class DataOverviewLauncher:
     # ------------------------------------------------------------------
 
     def _load_data(self, state: DataOverviewState) -> None:
-        from hydromodpy.data_managers.plan import DataLoadPlan
+        from hydromodpy.data.plan import DataLoadPlan
         from launchers.data_overview.data_loader import OverviewDataLoader
 
         # Build a minimal data plan from the explicit types list.
@@ -195,7 +195,7 @@ class DataOverviewLauncher:
 
     @staticmethod
     def _generate_report(state: DataOverviewState) -> list[Path]:
-        from hydromodpy.display.report.overview_report import (
+        from hydromodpy.analysis.display.report.overview_report import (
             generate_overview_report,
         )
 

@@ -9,14 +9,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from hydromodpy.simulation.state.data import LoadedDataContext
+from hydromodpy.core.state.data import LoadedDataContext
 
 if TYPE_CHECKING:
-    from hydromodpy.geographic.core.domain_geographic_pipeline import (
+    from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
         DomainGeographicContext,
     )
-    from hydromodpy.geographic.geographic import Geographic
-    from hydromodpy.simulation.workspace.workspace import Workspace
+    from hydromodpy.spatial.geographic.geographic import Geographic
+    from hydromodpy.core.workspace.workspace import Workspace
     from launchers.data_overview.config import DataOverviewConfig
 
 

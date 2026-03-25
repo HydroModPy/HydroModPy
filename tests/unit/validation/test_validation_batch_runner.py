@@ -4,7 +4,9 @@ from pathlib import Path
 import sys
 
 from validation_cases.run_cases import (
+    ValidationCaseExecution,
     build_run_command,
+    build_execution_report,
     discover_validation_cases,
     filter_validation_cases,
 )
@@ -83,3 +85,32 @@ def test_build_run_command_includes_solver_timeout_and_show_flag(tmp_path: Path)
         "321",
         "--show",
     ]
+
+
+def test_build_execution_report_summarizes_case_runs(tmp_path: Path) -> None:
+    case_dir = tmp_path / "validation_cases" / "analytical" / "steady" / "case_demo"
+    _write_case(case_dir, regime="steady", solvers=("modflownwt", "modflow6"))
+    case = discover_validation_cases(package_root=tmp_path / "validation_cases")[0]
+
+    report = build_execution_report(
+        solver="modflow6",
+        regime="steady",
+        show_plot=False,
+        selected_cases=[case],
+        executions=[
+            ValidationCaseExecution(
+                case=case,
+                command=("python", str(case.run_case_path), "--solver", "modflow6"),
+                returncode=0,
+                duration_seconds=1.25,
+            )
+        ],
+    )
+
+    assert report["solver"] == "modflow6"
+    assert report["regime"] == "steady"
+    assert report["all_passed"] is True
+    assert report["completed_case_count"] == 1
+    assert report["failed_case_count"] == 0
+    assert report["cases"][0]["module_name"] == case.module_name
+    assert report["cases"][0]["duration_seconds"] == 1.25

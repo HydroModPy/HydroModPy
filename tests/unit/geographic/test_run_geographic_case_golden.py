@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.geographic.cases import run_geographic_cases_from_toml
+from hydromodpy.spatial.geographic.cases import run_geographic_cases_from_toml
 from tests.support.whitebox import configure_whitebox_single_thread
 
 
@@ -63,7 +63,7 @@ def _load_json(path: Path) -> dict:
 
 def _write_tmp_config(tmp_path: Path) -> Path:
     config_path = tmp_path / "run_geographic_config.toml"
-    dem_path = (REPO_ROOT / "data" / "Brittany" / "dem" / "regional dem.tif").as_posix()
+    dem_path = (REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif").as_posix()
     out_path = (tmp_path / "results").as_posix()
 
     config_path.write_text(

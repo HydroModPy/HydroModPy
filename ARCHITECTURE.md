@@ -213,9 +213,9 @@ module/cases/
 Execution :
 
 ```bash
-python hydromodpy/geographic/cases/run_geographic_case.py
-python hydromodpy/field/cases/square/run_field_demo.py
-python hydromodpy/calibration/cases/reservoir/run_calibration.py
+python hydromodpy/spatial/geographic/cases/run_geographic_case.py
+python hydromodpy/spatial/field/cases/square/run_field_demo.py
+python hydromodpy/analysis/calibration/cases/reservoir/run_calibration.py
 ```
 
 ---
@@ -230,9 +230,9 @@ un config Pydantic et produit un resultat sans connaitre le contexte global.
 
 ```python
 # Script de prototypage : flow seul, sans launcher
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.config import HydroModPyConfig
 import hydromodpy as hmp
-from hydromodpy.domain import Domain
+from hydromodpy.spatial.domain import Domain
 from hydromodpy.process import Flow
 from hydromodpy.solver.modflow_nwt import (
     Modflow, ModflowPreprocessOptions, ModflowRunOptions, ModflowPostprocessOptions,
@@ -300,7 +300,7 @@ instancie. La dispatch automatique (adapter registry) est reservee a
 L'utilisateur peut court-circuiter le TOML a tout moment :
 
 ```python
-from hydromodpy.geographic.geographic_config import GeographicConfig
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 # Config construite en Python, pas depuis un TOML
 geo_cfg = GeographicConfig(
@@ -730,7 +730,7 @@ HydroModPyConfig
 cfg = HydroModPyConfig.from_toml("config.toml")
 
 # Depuis Python (prototypage)
-from hydromodpy.simulation.workspace.config import WorkspaceConfig
+from hydromodpy.core.workspace.config import WorkspaceConfig
 ws_cfg = WorkspaceConfig(catch_name="test", out_dir_path="/tmp/out")
 ```
 
@@ -744,8 +744,8 @@ Le generateur TOML filtre les champs selon le profil cible :
 - `expert` : parametres internes (tolerances numeriques)
 
 ```bash
-python -m hydromodpy.config --level user    # TOML minimal
-python -m hydromodpy.config --level expert  # TOML complet
+python -m hydromodpy.core.config --level user    # TOML minimal
+python -m hydromodpy.core.config --level expert  # TOML complet
 ```
 
 ### 8.4 Sections optionnelles
@@ -777,7 +777,7 @@ lance pas de modele.
 ## 10. Calibration (calibration/)
 
 > Module existant mais hors perimetre pour le moment. Sera documente
-> quand il sera stabilise. Voir `hydromodpy/calibration/` pour le code.
+> quand il sera stabilise. Voir `hydromodpy/analysis/calibration/` pour le code.
 
 ---
 
@@ -787,11 +787,11 @@ lance pas de modele.
 
 ```python
 import hydromodpy as hmp
-from hydromodpy.config import HydroModPyConfig
-from hydromodpy.domain import Domain
+from hydromodpy.core.config import HydroModPyConfig
+from hydromodpy.spatial.domain import Domain
 from hydromodpy.process import Flow, Transport
 from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
-from hydromodpy.data_managers.climatic import Climatic
+from hydromodpy.data.climatic import Climatic
 
 cfg = HydroModPyConfig.from_toml("config.toml")
 

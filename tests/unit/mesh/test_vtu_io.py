@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from hydromodpy.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def triangle_mesh() -> HydroMesh:
 
 def test_vtu_roundtrip(tmp_path, triangle_mesh) -> None:
     meshio = pytest.importorskip("meshio")
-    from hydromodpy.mesh.io import read_vtu, write_vtu
+    from hydromodpy.spatial.mesh.io import read_vtu, write_vtu
 
     path = write_vtu(tmp_path / "test.vtu", triangle_mesh)
     assert path.exists()

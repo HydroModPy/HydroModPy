@@ -16,6 +16,11 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
         "modflow6",
         "boussinesq",
     )
+    assert records["dupuit_circular_island_ocean_2d"].metadata["solver_variants"] == (
+        "modflownwt",
+        "modflow6",
+        "boussinesq",
+    )
     assert records["linearized_unconfined_boundary_piecewise_1d"].metadata["solver_variants"] == (
         "modflownwt",
         "modflow6",
@@ -27,6 +32,11 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
         "boussinesq",
     )
     assert records["boussinesq_hillslope_interception_1d"].metadata["solver_variants"] == (
+        "boussinesq",
+    )
+    assert records["late_time_unconfined_pumping_2d"].metadata["solver_variants"] == (
+        "modflownwt",
+        "modflow6",
         "boussinesq",
     )
     assert records["late_time_unconfined_pumping_2d"].equations_rst

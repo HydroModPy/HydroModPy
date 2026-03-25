@@ -1,4 +1,4 @@
-﻿"""Comparison workflow for the steady circular-island ocean validation case."""
+"""Comparison workflow for the steady circular-island ocean validation case."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.geographic.synthetic import SyntheticGridConfig, SyntheticTopographyConfig
-from hydromodpy.geographic.synthetic.topography import build_topography_values
+from hydromodpy.spatial.geographic.synthetic import SyntheticGridConfig, SyntheticTopographyConfig
+from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
 from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
@@ -20,6 +20,7 @@ from validation_cases.shared import (
 )
 
 from .reference import expected_dupuit_circular_island_head
+from .runtime_boussinesq import run_boussinesq_dupuit_circular_island_ocean_case
 
 
 CASE_DIR = Path(__file__).resolve().parent
@@ -160,12 +161,16 @@ def build_dupuit_circular_island_ocean_comparison(
     sea_level = float(reference_cfg["sea_level_m"])
     land_mask = dem > sea_level
     ocean_mask = dem <= sea_level
+    comparison_radius_max_by_solver = reference_cfg.get("comparison_radius_max_by_solver", {})
+    comparison_radius_max_m = float(reference_cfg["comparison_radius_max_m"])
+    if isinstance(comparison_radius_max_by_solver, dict) and solver_name in comparison_radius_max_by_solver:
+        comparison_radius_max_m = float(comparison_radius_max_by_solver[solver_name])
     annular_radius, annular_counts, numerical_profile, annular_std = _build_annular_profile(
         heads=np.asarray(heads, dtype=float),
         radius=radius,
         land_mask=land_mask,
         bin_width_m=float(reference_cfg["radial_bin_width_m"]),
-        max_radius_m=float(reference_cfg["comparison_radius_max_m"]),
+        max_radius_m=comparison_radius_max_m,
     )
     analytical_profile = expected_dupuit_circular_island_head(
         radius_m=annular_radius,
@@ -216,12 +221,19 @@ def run_dupuit_circular_island_ocean_comparison(
     """Run the launcher case and return the full comparison payload."""
     metadata = load_case_metadata(CASE_DIR)
     tolerances = load_case_tolerances(CASE_DIR, solver=solver)
-    result = run_launcher_validation_case(
-        case_dir=CASE_DIR,
-        test_file=caller_file,
-        timeout=timeout,
-        solver=solver,
-    )
+    normalized_solver = None if solver is None else str(solver).strip().lower()
+    if normalized_solver == "boussinesq":
+        result = run_boussinesq_dupuit_circular_island_ocean_case(
+            caller_file=caller_file,
+            timeout=timeout,
+        )
+    else:
+        result = run_launcher_validation_case(
+            case_dir=CASE_DIR,
+            test_file=caller_file,
+            timeout=timeout,
+            solver=solver,
+        )
     return build_dupuit_circular_island_ocean_comparison(
         result=result,
         metadata=metadata,

@@ -712,7 +712,7 @@ class ExtrudedPrismMesh3D:
 
     def to_hydro_mesh(self):
         """Convert to a ``HydroMesh`` pivot (3D, with layer/source metadata)."""
-        from hydromodpy.mesh.adapters.field_mesh_adapter import from_extruded_prism
+        from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import from_extruded_prism
 
         return from_extruded_prism(self)
 

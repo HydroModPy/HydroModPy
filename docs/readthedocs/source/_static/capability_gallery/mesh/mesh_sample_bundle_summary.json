@@ -3,13 +3,13 @@
   "slug": "mesh_sample_bundle",
   "title": "Mesh Sample Bundle",
   "category": "mesh",
-  "deck": "Standalone overview of a tiny bundled mesh, with geology and topography panels.",
-  "summary": "This sample bundle is the smallest self-contained mesh illustration shipped with the repository. It is stable enough for documentation and still exposes the main viewer concepts: cells, edges, rivers, geology interfaces, and topography rendering.",
+  "deck": "Standalone overview of one bundled catchment mesh, with geology and topography panels.",
+  "summary": "This sample bundle is a versioned catchment mesh illustration shipped with the repository. It is stable enough for documentation and exposes the main viewer concepts: cells, edges, rivers, geology interfaces, and topography rendering.",
   "case_setup": [],
   "what_it_shows": [
     "How the standalone bundle viewer turns one versioned mesh export into a didactic figure.",
     "How geology keys, river edges, and topographic information are surfaced in one compact layout.",
-    "What a minimal bundle looks like when used as a reproducible documentation artifact."
+    "What one real exported bundle looks like when used as a reproducible documentation artifact."
   ],
   "reference_highlights": [],
   "equations_rst": [],
@@ -17,15 +17,15 @@
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
     "examples/mesh_viewer/config_example.toml",
-    "examples/mesh_viewer/sample_bundle/README.md",
+    "examples/mesh_viewer/default_bundle/README.md",
     "tools/mesh_bundle_viewer/README.md",
     "tools/mesh_bundle_viewer/runner/visualization_runner.py",
     "tools/mesh_bundle_viewer/display/figure.py",
     "tools/mesh_bundle_viewer/display/summary.py"
   ],
   "source_hashes": {
-    "examples/mesh_viewer/config_example.toml": "354602f4dc12630c6e8875cb524f57e8338817ba7ecdad9ae57b9c7ed1f649bb",
-    "examples/mesh_viewer/sample_bundle/README.md": "38eac70bd7733cb322454b3475d682ce819fdb3fda7218fbaa9ab51eaa0e7610",
+    "examples/mesh_viewer/config_example.toml": "d313f355fd61e1d34fe85ea9ced9895f44e89785006a655523df37b21c4aa56d",
+    "examples/mesh_viewer/default_bundle/README.md": "44d8359209d029cc02d8f9f9d31da522369d090983d4bc12dff6781da6e98bd1",
     "tools/mesh_bundle_viewer/README.md": "563695ceaf5f7c62cc42a3e16637c8fbe4cad128af808b50846f259c4887de88",
     "tools/mesh_bundle_viewer/runner/visualization_runner.py": "b632662cb73a1abface0b6b0b47c4c09d24488a961f75db909e8dbc100468d8b",
     "tools/mesh_bundle_viewer/display/figure.py": "17f37cfe7752be2c0753e1d3c2fe958b1e34df6ba06329c6831f142b46339c74",
@@ -71,8 +71,8 @@
     "config_path": "examples/mesh_viewer/config_example.toml",
     "viewer_summary": {
       "summary_schema_version": "mesh_distribution_v1",
-      "bundle_dir": "examples/mesh_viewer/sample_bundle",
-      "mesh_file": "examples/mesh_viewer/sample_bundle/mesh_2d.msh",
+      "bundle_dir": "examples/mesh_viewer/default_bundle",
+      "mesh_file": "examples/mesh_viewer/default_bundle/mesh_2d.msh",
       "node_count": 4,
       "cell_count": 2,
       "edge_count": 5,

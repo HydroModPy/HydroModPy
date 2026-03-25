@@ -21,7 +21,7 @@ The forcing path now separates three responsibilities:
 
 - ``hydromodpy.simulation.forcing.recharge_chronicle_config`` validates modes,
   generators, and inline rate units.
-- ``hydromodpy.hydrology.synthetic.forcing`` generates conceptual hydrological
+- ``hydromodpy.process.hydrology.synthetic.forcing`` generates conceptual hydrological
   signals such as ``seasonal_step``.
 - ``hydromodpy.simulation.forcing.recharge_chronicle`` converts these series to
   ``m/s`` and aligns them on simulation stress-period boundaries.

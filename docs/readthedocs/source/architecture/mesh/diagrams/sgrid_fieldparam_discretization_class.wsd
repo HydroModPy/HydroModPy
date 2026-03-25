@@ -36,7 +36,7 @@ package "hydromodpy.solver.utils.mesh.cartesian_grid" {
   }
 }
 
-package "hydromodpy.field.core.field_mesh" {
+package "hydromodpy.spatial.field.core.field_mesh" {
   abstract class BaseFieldMesh {
     +shape
     +n_cells
@@ -51,11 +51,11 @@ package "hydromodpy.field.core.field_mesh" {
   }
 }
 
-package "hydromodpy.field.cases.square.field_mesh_square" {
+package "hydromodpy.spatial.field.cases.square.field_mesh_square" {
   class StructuredFieldMesh
 }
 
-package "hydromodpy.field.core.field_spatial" {
+package "hydromodpy.spatial.field.core.field_spatial" {
   abstract class Field {
     +identifier: str
     +on_mesh(mesh, cell_samples_per_axis=10) FieldDiscretization
@@ -69,14 +69,14 @@ package "hydromodpy.field.core.field_spatial" {
   }
 }
 
-package "hydromodpy.field.core.field_spatial_weighted_discretization" {
+package "hydromodpy.spatial.field.core.field_spatial_weighted_discretization" {
   class WeightedAverageFieldDiscretization {
     +zone_keys: tuple[str, ...]
     +fractions_by_zone: dict[str, np.ndarray]
   }
 }
 
-package "hydromodpy.field.core.field_param" {
+package "hydromodpy.spatial.field.core.field_param" {
   class FieldParam {
     +identifier: str
     +kind: str

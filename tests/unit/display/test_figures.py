@@ -1,4 +1,4 @@
-"""Tests for the generic figure functions in hydromodpy.display.figures."""
+"""Tests for the generic figure functions in hydromodpy.analysis.display.figures."""
 from __future__ import annotations
 
 import matplotlib
@@ -12,7 +12,7 @@ import pytest
 
 class TestCrossSection:
     def test_render_cross_section_draws_on_axes(self):
-        from hydromodpy.display.figures.cross_section import render_cross_section
+        from hydromodpy.analysis.display.figures.cross_section import render_cross_section
 
         fig, ax = plt.subplots()
         x = np.arange(10, dtype=float)
@@ -23,7 +23,7 @@ class TestCrossSection:
         plt.close(fig)
 
     def test_render_cross_section_handles_nan(self):
-        from hydromodpy.display.figures.cross_section import render_cross_section
+        from hydromodpy.analysis.display.figures.cross_section import render_cross_section
 
         fig, ax = plt.subplots()
         x = np.arange(5, dtype=float)
@@ -35,7 +35,7 @@ class TestCrossSection:
 
 class TestBoussinesqState:
     def test_render_boussinesq_state_draws_map_and_profile(self):
-        from hydromodpy.display.figures.boussinesq import render_boussinesq_state
+        from hydromodpy.analysis.display.figures.boussinesq import render_boussinesq_state
 
         fig, (ax_map, ax_profile) = plt.subplots(1, 2)
         render_boussinesq_state(
@@ -56,7 +56,7 @@ class TestBoussinesqState:
 
 class TestDischarge:
     def test_render_discharge_overview_mode(self):
-        from hydromodpy.display.figures.timeseries import render_discharge
+        from hydromodpy.analysis.display.figures.timeseries import render_discharge
 
         fig, ax = plt.subplots()
         dates = pd.date_range("2020-01-01", periods=12, freq="ME")
@@ -66,7 +66,7 @@ class TestDischarge:
         plt.close(fig)
 
     def test_render_discharge_simulation_mode(self):
-        from hydromodpy.display.figures.timeseries import render_discharge
+        from hydromodpy.analysis.display.figures.timeseries import render_discharge
 
         fig, ax = plt.subplots()
         dates = pd.date_range("2020-01-01", periods=12, freq="ME")
@@ -77,7 +77,7 @@ class TestDischarge:
         plt.close(fig)
 
     def test_render_discharge_empty(self):
-        from hydromodpy.display.figures.timeseries import render_discharge
+        from hydromodpy.analysis.display.figures.timeseries import render_discharge
 
         fig, ax = plt.subplots()
         render_discharge(ax)
@@ -89,7 +89,7 @@ class TestDischarge:
 
 class TestPiezometry:
     def test_render_piezometry_overview_mode(self):
-        from hydromodpy.display.figures.timeseries import render_piezometry
+        from hydromodpy.analysis.display.figures.timeseries import render_piezometry
 
         fig, ax = plt.subplots()
         dates = pd.date_range("2020-01-01", periods=12, freq="ME")
@@ -99,7 +99,7 @@ class TestPiezometry:
         plt.close(fig)
 
     def test_render_piezometry_simulation_mode(self):
-        from hydromodpy.display.figures.timeseries import render_piezometry
+        from hydromodpy.analysis.display.figures.timeseries import render_piezometry
 
         fig, ax = plt.subplots()
         dates = pd.date_range("2020-01-01", periods=12, freq="ME")
@@ -111,7 +111,7 @@ class TestPiezometry:
 
 class TestClimaticSummary:
     def test_render_climatic_summary_with_data(self):
-        from hydromodpy.display.figures.timeseries import render_climatic_summary
+        from hydromodpy.analysis.display.figures.timeseries import render_climatic_summary
 
         fig, ax = plt.subplots()
         precip = {m: float(m * 10) for m in range(1, 13)}
@@ -121,7 +121,7 @@ class TestClimaticSummary:
         plt.close(fig)
 
     def test_render_climatic_summary_empty(self):
-        from hydromodpy.display.figures.timeseries import render_climatic_summary
+        from hydromodpy.analysis.display.figures.timeseries import render_climatic_summary
 
         fig, ax = plt.subplots()
         render_climatic_summary(ax)
@@ -132,7 +132,7 @@ class TestClimaticSummary:
 
 class TestIntermittency:
     def test_render_intermittency_single_station(self):
-        from hydromodpy.display.figures.timeseries import render_intermittency
+        from hydromodpy.analysis.display.figures.timeseries import render_intermittency
 
         fig, ax = plt.subplots()
         df = pd.DataFrame({
@@ -148,7 +148,7 @@ class TestIntermittency:
         plt.close(fig)
 
     def test_render_intermittency_categorical_yaxis(self):
-        from hydromodpy.display.figures.timeseries import render_intermittency
+        from hydromodpy.analysis.display.figures.timeseries import render_intermittency
 
         fig, ax = plt.subplots()
         df = pd.DataFrame({
@@ -164,7 +164,7 @@ class TestIntermittency:
 
 class TestWaterQuality:
     def test_render_water_quality(self):
-        from hydromodpy.display.figures.timeseries import render_water_quality
+        from hydromodpy.analysis.display.figures.timeseries import render_water_quality
 
         fig, ax = plt.subplots()
         df = pd.DataFrame({
@@ -185,7 +185,7 @@ class TestWaterQuality:
 
 class TestTables:
     def test_render_stats_card(self):
-        from hydromodpy.display.figures.tables import render_stats_card
+        from hydromodpy.analysis.display.figures.tables import render_stats_card
         from types import SimpleNamespace
 
         fig, ax = plt.subplots()
@@ -208,7 +208,7 @@ class TestTables:
         plt.close(fig)
 
     def test_render_station_inventory_empty(self):
-        from hydromodpy.display.figures.tables import render_station_inventory
+        from hydromodpy.analysis.display.figures.tables import render_station_inventory
 
         fig, ax = plt.subplots()
         render_station_inventory(ax, inventory=[])
@@ -219,7 +219,7 @@ class TestTables:
 
 class TestAnimation:
     def test_build_gif_returns_none_on_empty(self):
-        from hydromodpy.display.figures.animation import build_gif
+        from hydromodpy.analysis.display.figures.animation import build_gif
         from pathlib import Path
 
         result = build_gif(frame_paths=[], gif_path=Path("/tmp/test.gif"))
@@ -228,7 +228,7 @@ class TestAnimation:
 
 class TestMakeFigure:
     def test_make_figure_returns_fig_and_axes(self):
-        from hydromodpy.display.common import make_figure, _single_axes
+        from hydromodpy.analysis.display.common import make_figure, _single_axes
 
         fig, axs = make_figure(figsize=(4, 3), dpi=72)
         ax = _single_axes(axs)
@@ -237,7 +237,7 @@ class TestMakeFigure:
         plt.close(fig)
 
     def test_make_figure_multi_axes(self):
-        from hydromodpy.display.common import make_figure
+        from hydromodpy.analysis.display.common import make_figure
 
         fig, axs = make_figure(nrows=2, ncols=1, figsize=(4, 6), dpi=72)
         assert fig is not None

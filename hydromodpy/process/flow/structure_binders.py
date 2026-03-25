@@ -10,20 +10,20 @@ from hydromodpy.process.flow.sinks_sources import FlowSinksSourcesConfig
 from hydromodpy.process.flow.time_forcing import (
     resolve_period_values_from_forcing,
 )
-from hydromodpy.support.units import convert_payload_to_m, normalize_length_unit
-from hydromodpy.support.units.volumetric_flow import (
+from hydromodpy.core.units import convert_payload_to_m, normalize_length_unit
+from hydromodpy.core.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
 )
-from hydromodpy.simulation.time import (
+from hydromodpy.core.time import (
     ResolvedSimulationTimeWindow,
     build_simulation_time_boundaries,
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.data_managers.contracts.load_result import LoadResult
+    from hydromodpy.data.contracts.load_result import LoadResult
     from hydromodpy.process import Flow
-    from hydromodpy.simulation.time import ResolvedSimulationTimeWindow
+    from hydromodpy.core.time import ResolvedSimulationTimeWindow
 
 
 def apply_oceanic_to_flow(
@@ -67,8 +67,8 @@ def apply_recharge_load_result_to_flow(
     if recharge_result is None:
         return False
 
-    from hydromodpy.forcing.forcing_bridge import resolve_forcing
-    from hydromodpy.forcing.forcing_bridge import _MM_PER_DAY_TO_M_PER_S
+    from hydromodpy.process.forcing.forcing_bridge import resolve_forcing
+    from hydromodpy.process.forcing.forcing_bridge import _MM_PER_DAY_TO_M_PER_S
 
     sinks_sources = getattr(flow, "sinks_sources", {})
     recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, dict) else None

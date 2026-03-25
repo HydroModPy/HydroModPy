@@ -7,6 +7,7 @@ from pathlib import Path
 
 from tools.doc_gallery.gallery_manifest import build_repo_mesh_gallery_case_specs
 from tools.doc_gallery.import_mesh_bundle import import_mesh_bundle_case
+from tools.doc_gallery.update_gallery import _build_category_page
 from tools.doc_gallery.mesh_case_registry import (
     MESH_GALLERY_CASE_SCHEMA_VERSION,
     MESH_GALLERY_REQUIRED_BUNDLE_FILES,
@@ -103,3 +104,42 @@ def test_build_repo_mesh_gallery_case_specs_discovers_imported_cases(tmp_path: P
         "examples/mesh_gallery/100km2/headwater_100km2_outlet_27_rivers_only_buffer30/viewer_config.toml"
     )
     assert spec.case_setup
+
+
+def test_build_mesh_category_page_renders_scale_variant_coverage_matrix() -> None:
+    page = _build_category_page(
+        "mesh",
+        [
+            {
+                "title": "10 km2 geology+rivers",
+                "deck": "Deck",
+                "docname": "cases/mesh_10km2_outlet_1_geology_rivers_buffer30",
+                "metadata": {
+                    "scale": "10km2",
+                    "scale_label": "10 km2",
+                    "variant": "geology_rivers_buffer30",
+                    "variant_label": "Geology + rivers, 30% buffer",
+                    "outlet_id": "1",
+                },
+            },
+            {
+                "title": "100 km2 rivers only",
+                "deck": "Deck",
+                "docname": "cases/mesh_100km2_outlet_27_rivers_only_buffer30",
+                "metadata": {
+                    "scale": "100km2",
+                    "scale_label": "100 km2",
+                    "variant": "rivers_only_buffer30",
+                    "variant_label": "Rivers only, 30% buffer",
+                    "outlet_id": "27",
+                },
+            },
+        ],
+    )
+
+    assert "Coverage Matrix" in page
+    assert "Geology + rivers, 30% buffer" in page
+    assert "Rivers only, 30% buffer" in page
+    assert "Versioned (outlet 1)" in page
+    assert "Versioned (outlet 27)" in page
+    assert "Missing" in page

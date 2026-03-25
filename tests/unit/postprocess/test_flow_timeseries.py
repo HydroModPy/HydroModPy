@@ -7,7 +7,7 @@ import numpy as np
 import rasterio
 from rasterio.transform import from_origin
 
-from hydromodpy.postprocess.timeseries.flow_timeseries import FlowTimeseriesPostprocess
+from hydromodpy.analysis.postprocess.timeseries.flow_timeseries import FlowTimeseriesPostprocess
 
 
 def _write_raster(

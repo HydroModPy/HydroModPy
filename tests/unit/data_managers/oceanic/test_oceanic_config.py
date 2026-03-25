@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.data_managers.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
+from hydromodpy.data.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
 
 
 @pytest.mark.fast

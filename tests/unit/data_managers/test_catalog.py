@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from hydromodpy.data_managers.registry.catalog import DataCatalog
+from hydromodpy.data.registry.catalog import DataCatalog
 
 
 @pytest.fixture

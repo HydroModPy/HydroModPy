@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from hydromodpy.backends import WhiteboxBackend
-from hydromodpy.geographic.core.flow_products import build_regional_flow_products
+from hydromodpy.core.backends import WhiteboxBackend
+from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
 
 
 @dataclass(frozen=True, slots=True)

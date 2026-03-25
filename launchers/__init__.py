@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from hydromodpy.simulation.state.run_state import LauncherRunState
+    from hydromodpy.core.state.run_state import LauncherRunState
     from launchers.data_overview.launcher import DataOverviewLauncher
     from launchers.mesh_catchment.launcher import MeshCatchmentLauncher
     from launchers.process_simulation.launcher import HydroModPyLauncher
@@ -36,7 +36,7 @@ def __getattr__(name: str):
 
         return MeshCatchmentLauncher
     if name == "LauncherRunState":
-        from hydromodpy.simulation.state.run_state import LauncherRunState
+        from hydromodpy.core.state.run_state import LauncherRunState
 
         return LauncherRunState
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

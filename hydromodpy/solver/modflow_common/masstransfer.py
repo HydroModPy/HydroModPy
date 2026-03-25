@@ -16,10 +16,10 @@
 import os
 
 import rasterio
-from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
+from hydromodpy.core.backends import WhiteboxBackend, get_whitebox_backend
 
 # HydroModPy
-from hydromodpy.support.tools import get_logger, toolbox
+from hydromodpy.core.tools import get_logger, toolbox
 
 logger = get_logger(__name__)
 

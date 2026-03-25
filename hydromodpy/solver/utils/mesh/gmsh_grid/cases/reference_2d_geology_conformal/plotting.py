@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
+from matplotlib.collections import LineCollection
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
@@ -42,10 +43,22 @@ def _build_zone_color_map(zone_keys: list[str]):
 def _draw_mesh_edges(
     ax, mesh, *, color: str = "0.20", lw: float = 0.28, alpha: float = 0.65
 ) -> None:
+    segments: list[np.ndarray] = []
     for cell in mesh.cells:
         vertices = np.asarray(cell.vertices, dtype=float)
         closed = np.vstack((vertices, vertices[0]))
-        ax.plot(closed[:, 0], closed[:, 1], color=color, lw=lw, alpha=alpha)
+        segments.append(closed)
+    if not segments:
+        return
+    ax.add_collection(
+        LineCollection(
+            segments,
+            colors=color,
+            linewidths=lw,
+            alpha=alpha,
+            zorder=5,
+        )
+    )
 
 
 def _draw_domain_outline(ax, domain_gdf: gpd.GeoDataFrame) -> None:
@@ -119,9 +132,28 @@ def _draw_river_lines(
     lw: float = 1.05,
     alpha: float = 0.9,
 ) -> int:
+    segments: list[np.ndarray] = []
     for line in river_lines:
-        x_vals, y_vals = line.xy
-        ax.plot(x_vals, y_vals, color=color, lw=lw, alpha=alpha, zorder=7)
+        geom_type = getattr(line, "geom_type", "")
+        if geom_type == "MultiLineString":
+            parts = tuple(line.geoms)
+        else:
+            parts = (line,)
+        for part in parts:
+            x_vals, y_vals = part.xy
+            segments.append(np.column_stack((x_vals, y_vals)).astype(float, copy=False))
+    if segments:
+        ax.add_collection(
+            LineCollection(
+                segments,
+                colors=color,
+                linewidths=lw,
+                alpha=alpha,
+                zorder=7,
+                capstyle="round",
+                joinstyle="round",
+            )
+        )
     return int(len(river_lines))
 
 
@@ -149,17 +181,29 @@ def _load_catchment_outline(
     return gdf
 
 
-def _load_topography_background(
-    domain_geographic: object | None,
+def _read_dem_for_plot(
+    dem_path: object | None,
+    *,
+    max_dim: int,
 ) -> tuple[np.ndarray, tuple[float, float, float, float]] | None:
-    if domain_geographic is None:
-        return None
-    dem_path = getattr(domain_geographic, "watershed_box_buff_dem", None)
     if dem_path is None:
         return None
     try:
         with rasterio.open(str(dem_path)) as src:
-            dem = src.read(1)
+            scale = max(
+                float(src.width) / float(max_dim),
+                float(src.height) / float(max_dim),
+                1.0,
+            )
+            out_height = max(1, int(round(float(src.height) / scale)))
+            out_width = max(1, int(round(float(src.width) / scale)))
+            read_kwargs: dict[str, object] = {}
+            if out_height != src.height or out_width != src.width:
+                read_kwargs = {
+                    "out_shape": (out_height, out_width),
+                    "resampling": Resampling.bilinear,
+                }
+            dem = src.read(1, **read_kwargs)
             nodata = src.nodata
             if nodata is not None:
                 dem = np.where(dem == nodata, np.nan, dem)
@@ -172,6 +216,17 @@ def _load_topography_background(
     except Exception:
         return None
     return np.asarray(dem, dtype=float), extent
+
+
+def _load_topography_background(
+    domain_geographic: object | None,
+    *,
+    max_dim: int = 2400,
+) -> tuple[np.ndarray, tuple[float, float, float, float]] | None:
+    if domain_geographic is None:
+        return None
+    dem_path = getattr(domain_geographic, "watershed_box_buff_dem", None)
+    return _read_dem_for_plot(dem_path, max_dim=max_dim)
 
 
 def _load_regional_topography_background(
@@ -180,35 +235,7 @@ def _load_regional_topography_background(
     if domain_geographic is None:
         return None
     dem_path = getattr(domain_geographic, "regional_dem_path", None)
-    if dem_path is None:
-        return None
-    try:
-        with rasterio.open(str(dem_path)) as src:
-            max_dim = 1400
-            scale = max(
-                float(src.width) / float(max_dim),
-                float(src.height) / float(max_dim),
-                1.0,
-            )
-            out_height = max(1, int(round(float(src.height) / scale)))
-            out_width = max(1, int(round(float(src.width) / scale)))
-            dem = src.read(
-                1,
-                out_shape=(out_height, out_width),
-                resampling=Resampling.bilinear,
-            )
-            nodata = src.nodata
-            if nodata is not None:
-                dem = np.where(dem == nodata, np.nan, dem)
-            extent = (
-                float(src.bounds.left),
-                float(src.bounds.right),
-                float(src.bounds.bottom),
-                float(src.bounds.top),
-            )
-    except Exception:
-        return None
-    return np.asarray(dem, dtype=float), extent
+    return _read_dem_for_plot(dem_path, max_dim=1400)
 
 
 def _set_panel_limits(
@@ -612,13 +639,20 @@ def _build_figure(
     catchment_boundary_gdf: gpd.GeoDataFrame | None = None,
     domain_geographic: object | None = None,
     river_trace: object | None = None,
+    river_lines: list[object] | None = None,
+    topo_background: tuple[np.ndarray, tuple[float, float, float, float]] | None = None,
     figure_dpi: int = 300,
 ):
-    topo_background = _load_topography_background(domain_geographic)
-    river_lines = _resolve_river_lines_for_plot(
-        river_trace=river_trace,
-        domain_geographic=domain_geographic,
-    )
+    if topo_background is None:
+        topo_background = _load_topography_background(
+            domain_geographic,
+            max_dim=max(1600, int(round(float(figure_dpi) * 8.0))),
+        )
+    if river_lines is None:
+        river_lines = _resolve_river_lines_for_plot(
+            river_trace=river_trace,
+            domain_geographic=domain_geographic,
+        )
     if catchment_gdf is not None or topo_background is not None or river_lines:
         return _build_geographic_mesh_figure(
             domain_gdf=domain_gdf,
@@ -730,24 +764,37 @@ def _write_optional_figure_artifacts(
         "river_trace": meshing_inputs.diagnostics.river_trace,
         "figure_dpi": figure_dpi,
     }
+    need_main_figure = bool(figure_path is not None or show_plot)
+    need_regional_figure = bool(figure_regional_path is not None or show_plot)
+    river_lines = (
+        _resolve_river_lines_for_plot(
+            river_trace=meshing_inputs.diagnostics.river_trace,
+            domain_geographic=domain_geographic,
+        )
+        if (need_main_figure or need_regional_figure)
+        else []
+    )
+    if need_main_figure:
+        common_plot_kwargs["river_lines"] = river_lines
+        common_plot_kwargs["topo_background"] = _load_topography_background(
+            domain_geographic,
+            max_dim=max(1600, int(round(float(figure_dpi) * 8.0))),
+        )
 
     fig = None
     regional_fig = None
     updates: dict[str, str] = {}
     try:
-        if figure_path is not None or show_plot:
+        if need_main_figure:
             fig = _build_figure(**common_plot_kwargs)
 
-        if figure_regional_path is not None or show_plot:
+        if need_regional_figure:
             regional_fig = _build_regional_context_figure(
                 domain_gdf=meshing_inputs.effective_domain_payload.gdf,
                 catchment_gdf=catchment_gdf,
                 catchment_boundary_gdf=catchment_boundary_gdf,
                 topo_background=_load_regional_topography_background(domain_geographic),
-                river_lines=_resolve_river_lines_for_plot(
-                    river_trace=meshing_inputs.diagnostics.river_trace,
-                    domain_geographic=domain_geographic,
-                ),
+                river_lines=river_lines,
                 outlet_xy=_resolve_outlet_xy(domain_geographic),
                 figure_dpi=figure_regional_dpi,
             )

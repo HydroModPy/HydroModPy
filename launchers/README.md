@@ -212,9 +212,9 @@ Le launcher orchestre sans implementer de logique solveur :
 
 ## Separation des responsabilites
 
-- Chargement donnees : `hydromodpy/data_managers/runtime_loader.py`
-- Binders structurels : `hydromodpy/domain/structure_binders.py`,
+- Chargement donnees : `hydromodpy/data/runtime_loader.py`
+- Binders structurels : `hydromodpy/spatial/geographic/structure_binders.py`,
   `hydromodpy/process/flow/structure_binders.py`
 - Planification : `hydromodpy/simulation/planning/`
-- Execution : `hydromodpy/simulation/runtime/runner.py`
-- Postprocess : `hydromodpy/postprocess/runner.py`
+- Execution : `hydromodpy/simulation/execution/runner.py`
+- Postprocess : `hydromodpy/analysis/postprocess/runner.py`

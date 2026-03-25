@@ -163,6 +163,10 @@ def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSp
                 equations_rst=tuple(str(item) for item in payload.get("equations_rst", ())),
                 metadata={
                     "scale": str(payload["scale"]),
+                    "scale_label": str(payload.get("scale_label", payload["scale"])),
+                    "variant": str(payload["variant"]),
+                    "variant_label": str(payload.get("variant_label", payload["variant"])),
+                    "outlet_id": str(payload["outlet_id"]),
                     "config_path": str(payload["config_path"]),
                 },
             )
@@ -186,23 +190,23 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
             slug="mesh_sample_bundle",
             title="Mesh Sample Bundle",
             category="mesh",
-            deck="Standalone overview of a tiny bundled mesh, with geology and topography panels.",
+            deck="Standalone overview of one bundled catchment mesh, with geology and topography panels.",
             summary=(
-                "This sample bundle is the smallest self-contained mesh illustration shipped with "
-                "the repository. It is stable enough for documentation and still exposes the main "
-                "viewer concepts: cells, edges, rivers, geology interfaces, and topography rendering."
+                "This sample bundle is a versioned catchment mesh illustration shipped with the "
+                "repository. It is stable enough for documentation and exposes the main viewer "
+                "concepts: cells, edges, rivers, geology interfaces, and topography rendering."
             ),
             what_it_shows=(
                 "How the standalone bundle viewer turns one versioned mesh export into a didactic figure.",
                 "How geology keys, river edges, and topographic information are surfaced in one compact layout.",
-                "What a minimal bundle looks like when used as a reproducible documentation artifact.",
+                "What one real exported bundle looks like when used as a reproducible documentation artifact.",
             ),
             reproduction_command=(
                 "python -m tools.mesh_bundle_viewer --config examples/mesh_viewer/config_example.toml"
             ),
             source_paths=(
                 "examples/mesh_viewer/config_example.toml",
-                "examples/mesh_viewer/sample_bundle/README.md",
+                "examples/mesh_viewer/default_bundle/README.md",
                 "tools/mesh_bundle_viewer/README.md",
                 "tools/mesh_bundle_viewer/runner/visualization_runner.py",
                 "tools/mesh_bundle_viewer/display/figure.py",

@@ -16,7 +16,7 @@ from pathlib import Path
 import matplotlib.tri as mtri
 import numpy as np
 
-from hydromodpy.field.core.field_mesh import BaseFieldMesh, MeshCell
+from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh, MeshCell
 from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_reader import (
     GmshCellBlock,
     GmshMeshData,
@@ -106,7 +106,7 @@ class GmshPlanarMesh2D(BaseFieldMesh):
     @classmethod
     def from_hydro_mesh(cls, hydro_mesh) -> "GmshPlanarMesh2D":
         """Build a ``GmshPlanarMesh2D`` from a 2D ``HydroMesh``."""
-        from hydromodpy.mesh.hydro_mesh import HydroMesh
+        from hydromodpy.spatial.mesh.hydro_mesh import HydroMesh
 
         if not isinstance(hydro_mesh, HydroMesh):
             raise TypeError("Expected a HydroMesh instance")
@@ -160,7 +160,7 @@ class GmshPlanarMesh2D(BaseFieldMesh):
 
     def to_hydro_mesh(self):
         """Convert to a ``HydroMesh`` pivot (optimized: direct array access)."""
-        from hydromodpy.mesh.adapters.field_mesh_adapter import from_gmsh_planar
+        from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import from_gmsh_planar
 
         return from_gmsh_planar(self)
 
@@ -174,7 +174,7 @@ class GmshPlanarMesh2D(BaseFieldMesh):
         vmin=None,
         vmax=None,
     ):
-        from hydromodpy.mesh.plotting import plot_cell_values as _unified_plot
+        from hydromodpy.spatial.mesh.plotting import plot_cell_values as _unified_plot
 
         values1d = np.asarray(self.to_cell_values(cell_values), dtype=float)
         return _unified_plot(

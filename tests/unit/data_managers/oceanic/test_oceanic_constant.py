@@ -4,8 +4,8 @@ from datetime import datetime
 
 import pytest
 
-from hydromodpy.data_managers.variables.oceanic.config import OceanicSourceConfig
-from hydromodpy.data_managers.variables.oceanic.constant import generate_constant
+from hydromodpy.data.variables.oceanic.config import OceanicSourceConfig
+from hydromodpy.data.variables.oceanic.constant import generate_constant
 
 
 @pytest.mark.fast

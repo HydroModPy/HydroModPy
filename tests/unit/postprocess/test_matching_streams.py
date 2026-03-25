@@ -10,7 +10,7 @@ import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import Point
 
-from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
+from hydromodpy.analysis.postprocess.flow.matching_streams import MatchingStreams
 
 
 def _write_raster(path: Path, data: np.ndarray, *, nodata: float = -9999.0) -> None:
@@ -127,11 +127,11 @@ def test_matching_streams_skips_empty_simulated_support(tmp_path: Path, monkeypa
         shutil.copyfile(tif_path, out_path)
 
     monkeypatch.setattr(
-        "hydromodpy.postprocess.flow.matching_streams.get_whitebox_backend",
+        "hydromodpy.analysis.postprocess.flow.matching_streams.get_whitebox_backend",
         lambda: backend,
     )
     monkeypatch.setattr(
-        "hydromodpy.postprocess.flow.matching_streams.toolbox.clip_tif",
+        "hydromodpy.analysis.postprocess.flow.matching_streams.toolbox.clip_tif",
         _fake_clip_tif,
     )
 

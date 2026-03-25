@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils._config_helpers import resolve_path
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases._common import (
     load_case_section,

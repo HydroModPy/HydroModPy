@@ -4,7 +4,7 @@ skinparam componentStyle rectangle
 
 component "Launcher TOML\n[simulation.time] + [recharge_chronicle]" as LauncherToml
 component "HydroModPyConfig\n(Pydantic tree)" as TypedConfig
-component "Time Core\nhydromodpy.simulation.time.window" as TimeCore
+component "Time Core\nhydromodpy.core.time.window" as TimeCore
 component "Launcher Orchestrator\nHydroModPyLauncher" as Launcher
 component "Runtime State\nsetup.time_grid" as RuntimeState
 component "Solver TGrid Sections\nmodflownwt.tgrid / modflow6.tgrid" as SolverTgrid

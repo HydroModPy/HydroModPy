@@ -12,7 +12,7 @@ package "launchers" {
   }
 }
 
-package "hydromodpy.simulation.state" {
+package "hydromodpy.core.state" {
   class LauncherRunState {
     +raw_toml: dict
     +data_plan: DataLoadPlan
@@ -33,7 +33,7 @@ package "hydromodpy.simulation.state" {
   }
 }
 
-package "hydromodpy.data_managers" {
+package "hydromodpy.data" {
   class DataManagersPlanner {
     +build(config, domain_zone_ids, raw_toml, flow_active_bc)
   }
@@ -49,19 +49,19 @@ package "hydromodpy.data_managers" {
   }
 }
 
-package "hydromodpy.field.geology" {
+package "hydromodpy.spatial.field.geology" {
   class GeologyField {
     +from_watershed_config(...)
   }
 }
 
-package "hydromodpy.data_managers.hydrometry" {
+package "hydromodpy.data.hydrometry" {
   class StationSet {
     +from_config(config_data)
   }
 }
 
-package "hydromodpy.domain" {
+package "hydromodpy.spatial.domain" {
   class Domain {
     +set_zone(name, zone)
   }

@@ -6,12 +6,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hydromodpy.data_managers.variables.intermittency.config import (
+from hydromodpy.data.variables.intermittency.config import (
     IntermittencyConfig,
     IntermittencySourceConfig,
 )
-from hydromodpy.data_managers.variables.intermittency.custom import load_custom
-from hydromodpy.data_managers.variables.intermittency.manager import IntermittencyManager
+from hydromodpy.data.variables.intermittency.custom import load_custom
+from hydromodpy.data.variables.intermittency.manager import IntermittencyManager
 
 
 @pytest.fixture
@@ -75,7 +75,7 @@ class TestIntermittencyConfig:
             )
 
     def test_data_managers_config_accepts_intermittency(self):
-        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+        from hydromodpy.data.data_managers_config import DataManagersConfig
         cfg = DataManagersConfig.model_validate({
             "types": ["intermittency"],
             "intermittency": {

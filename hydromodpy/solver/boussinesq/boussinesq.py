@@ -51,7 +51,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.planar_forcing_discretization import
     discretize_fields_on_planar_mesh,
     discretize_points_on_planar_mesh,
 )
-from hydromodpy.support.units.volumetric_flow import (
+from hydromodpy.core.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
 )

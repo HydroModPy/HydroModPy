@@ -53,6 +53,13 @@ Run the full analytical inventory for one solver:
 ```powershell
 python -m validation_cases.run_cases --solver modflownwt --regime both --no-show
 python -m validation_cases.run_cases --solver modflow6 --regime both --no-show
+python -m validation_cases.run_cases --solver boussinesq --regime both --no-show
+```
+
+Refresh the committed JSON batch reports consumed by the documentation gallery:
+
+```powershell
+python -m validation_cases.update_reports --no-show
 ```
 
 Run with figures enabled:
@@ -75,8 +82,8 @@ Current cases are mostly:
 - analytical,
 - deterministic,
 - groundwater-flow oriented,
-- built around `modflownwt` launcher runs, with incremental `modflow6`
-  parity introduced case by case.
+- shared across `modflownwt`, `modflow6`, and the in-house `boussinesq`
+  backend where the benchmark physics remains defensible.
 
 One helper module, `analytical/transient/linearized_unconfined_1d.py`, is
 module-only and exists to share analytical formulas across transient cases.

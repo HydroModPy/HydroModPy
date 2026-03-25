@@ -5,9 +5,9 @@ from datetime import datetime, timedelta
 import pandas as pd
 import pytest
 
-from hydromodpy.data_managers.common.base_manager import BaseVariableManager
-from hydromodpy.data_managers.contracts.timeseries import PointRecord
-from hydromodpy.data_managers.registry.catalog import DataCatalog
+from hydromodpy.data.common.base_manager import BaseVariableManager
+from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.registry.catalog import DataCatalog
 
 
 class _DummyManager(BaseVariableManager):

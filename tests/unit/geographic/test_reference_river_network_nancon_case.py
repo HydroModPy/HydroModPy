@@ -8,7 +8,7 @@ from uuid import uuid4
 
 import pytest
 
-from hydromodpy.geographic.cases.reference_river_network_nancon.run_case_river_network_nancon import (
+from hydromodpy.spatial.geographic.cases.reference_river_network_nancon.run_case_river_network_nancon import (
     run_reference_river_network_nancon_from_toml,
 )
 from tests.support.whitebox import configure_whitebox_single_thread

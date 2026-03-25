@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from hydromodpy.mesh.cell_types import CellType
-from hydromodpy.mesh.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.cell_types import CellType
+from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
 
 
 def _make_triangle_mesh() -> HydroMesh:

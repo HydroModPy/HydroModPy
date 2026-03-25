@@ -37,9 +37,9 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.backends import get_whitebox_backend
+from hydromodpy.core.backends import get_whitebox_backend
 from hydromodpy.solver.modflow_common import ensure_platform_executable
-from hydromodpy.support.tools import toolbox, get_logger
+from hydromodpy.core.tools import toolbox, get_logger
 logger = get_logger(__name__)
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 

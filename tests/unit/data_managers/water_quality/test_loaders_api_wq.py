@@ -8,8 +8,8 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from hydromodpy.data_managers.variables.water_quality.apis import hubeau as hubeau_api
-from hydromodpy.data_managers.variables.water_quality.apis.hubeau import (
+from hydromodpy.data.variables.water_quality.apis import hubeau as hubeau_api
+from hydromodpy.data.variables.water_quality.apis.hubeau import (
     _normalize_dataframe,
     fetch,
 )

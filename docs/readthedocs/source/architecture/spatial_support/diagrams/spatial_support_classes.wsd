@@ -1,14 +1,14 @@
 @startuml
 title Spatial Support - Class Diagram
 
-package "hydromodpy.domain.domain_config" {
+package "hydromodpy.spatial.domain.domain_config" {
   class DomainConfig {
     +zone_ids: list[str]
     +supports: dict[str, DomainSupportConfig]
   }
 }
 
-package "hydromodpy.domain.spatial_support_config" {
+package "hydromodpy.spatial.domain.spatial_support_config" {
   abstract class DomainSupportBaseConfig {
     +provider: str
   }
@@ -37,7 +37,7 @@ package "hydromodpy.domain.spatial_support_config" {
   class DomainSupportConfig <<union>>
 }
 
-package "hydromodpy.domain.spatial_support" {
+package "hydromodpy.spatial.domain.spatial_support" {
   interface SpatialSupportProvider {
     +provider_name
     +build_phase
@@ -61,7 +61,7 @@ package "hydromodpy.domain.spatial_support" {
   class GeologySupportProvider
 }
 
-package "hydromodpy.domain.domain" {
+package "hydromodpy.spatial.domain.domain" {
   class Domain {
     +zones: dict[str, object]
     +set_zone(zone_id, zone_obj)
@@ -70,7 +70,7 @@ package "hydromodpy.domain.domain" {
   }
 }
 
-package "hydromodpy.domain.catchment_zones_field" {
+package "hydromodpy.spatial.domain.catchment_zones_field" {
   class CatchmentZonesField {
     +identifier: str
     +encoded_codes: np.ndarray
@@ -79,7 +79,7 @@ package "hydromodpy.domain.catchment_zones_field" {
   }
 }
 
-package "hydromodpy.field.geology.geology_field" {
+package "hydromodpy.spatial.field.geology.geology_field" {
   class GeologyField {
     +identifier: str
     +encoded_codes: np.ndarray
@@ -89,7 +89,7 @@ package "hydromodpy.field.geology.geology_field" {
   }
 }
 
-package "hydromodpy.field.core.field_spatial" {
+package "hydromodpy.spatial.field.core.field_spatial" {
   abstract class Field {
     +identifier: str
     +on_mesh(mesh, cell_samples_per_axis)
@@ -103,14 +103,14 @@ package "hydromodpy.field.core.field_spatial" {
   }
 }
 
-package "hydromodpy.field.core.field_spatial_weighted_discretization" {
+package "hydromodpy.spatial.field.core.field_spatial_weighted_discretization" {
   class WeightedAverageFieldDiscretization {
     +zone_keys: tuple[str, ...]
     +fractions_by_zone: dict[str, np.ndarray]
   }
 }
 
-package "hydromodpy.field.core.field_param" {
+package "hydromodpy.spatial.field.core.field_param" {
   class FieldParam {
     +identifier: str
     +kind: homogeneous | heterogeneous

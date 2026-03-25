@@ -10,6 +10,7 @@ base_config = "config_modflownwt.toml"
 [config_files]
 modflownwt = "config_modflownwt.toml"
 modflow6 = "config_modflow6.toml"
+boussinesq = "config_boussinesq.toml"
 
 
 [workspace]
@@ -38,4 +39,7 @@ radial_bin_width_m = 10.0
 substratum_elevation_m = -5.0
 hydraulic_conductivity_m_per_s = 5e-6
 recharge_mm_day = 1.0
+
+[reference.comparison_radius_max_by_solver]
+boussinesq = 170.0
 

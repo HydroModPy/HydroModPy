@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from hydromodpy.mesh import CellBlock, CellType, HydroMesh
-from hydromodpy.mesh.plotting import plot_cell_values
+from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.plotting import plot_cell_values
 
 
 @pytest.fixture

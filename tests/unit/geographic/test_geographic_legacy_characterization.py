@@ -1,4 +1,4 @@
-"""Characterization tests for legacy ``hydromodpy.geographic.Geographic``.
+"""Characterization tests for legacy ``hydromodpy.spatial.geographic.Geographic``.
 
 Goal:
 - lock the current public contract of the legacy class before migration,
@@ -21,9 +21,9 @@ from rasterio.features import geometry_mask, rasterize, shapes
 from rasterio.transform import from_origin
 from shapely.geometry import box, shape as shapely_shape
 
-from hydromodpy.geographic.geographic import Geographic
-from hydromodpy.geographic.geographic_config import GeographicConfig
-from hydromodpy.legacy.geographic.dem_metadata import _resolve_dep_code
+from hydromodpy.spatial.geographic.geographic import Geographic
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+from hydromodpy.spatial.geographic.dem_metadata import _resolve_dep_code
 
 
 GOLDEN_FILE = (
@@ -265,7 +265,7 @@ def _write_json(path: Path, payload: dict) -> None:
 
 
 def _build_geographic_legacy_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Geographic:
-    import hydromodpy.geographic.geographic as geo_mod
+    import hydromodpy.spatial.geographic.geographic as geo_mod
 
     fake_wbt = _FakeWhiteboxBackend()
     monkeypatch.setattr(geo_mod, "get_whitebox_backend", lambda: fake_wbt)
@@ -289,7 +289,7 @@ def _build_geographic_legacy_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
 
 def _build_geographic_legacy_outlet_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Geographic:
-    import hydromodpy.geographic.geographic as geo_mod
+    import hydromodpy.spatial.geographic.geographic as geo_mod
 
     fake_wbt = _FakeWhiteboxBackend()
     monkeypatch.setattr(geo_mod, "get_whitebox_backend", lambda: fake_wbt)

@@ -16,6 +16,7 @@ from validation_cases.analytical.transient.common import (
 from validation_cases.shared import max_abs_error, rmse, run_launcher_validation_case
 
 from .reference import expected_late_time_unconfined_pumping_drawdown
+from .runtime_boussinesq import run_boussinesq_late_time_unconfined_pumping_case
 
 
 CASE_DIR = Path(__file__).resolve().parent
@@ -111,12 +112,19 @@ def run_late_time_unconfined_pumping_comparison(
     solver: str | None = None,
 ) -> TransientRadialDrawdownComparison:
     """Run the launcher case and return the full radial-drawdown comparison payload."""
-    result = run_launcher_validation_case(
-        case_dir=CASE_DIR,
-        test_file=caller_file,
-        timeout=timeout,
-        solver=solver,
-    )
+    normalized_solver = None if solver is None else str(solver).strip().lower()
+    if normalized_solver == "boussinesq":
+        result = run_boussinesq_late_time_unconfined_pumping_case(
+            caller_file=caller_file,
+            timeout=timeout,
+        )
+    else:
+        result = run_launcher_validation_case(
+            case_dir=CASE_DIR,
+            test_file=caller_file,
+            timeout=timeout,
+            solver=solver,
+        )
     return build_late_time_unconfined_pumping_comparison(result=result, solver=solver)
 
 

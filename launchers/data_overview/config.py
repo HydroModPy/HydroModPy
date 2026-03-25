@@ -11,9 +11,9 @@ from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
-from hydromodpy.data_managers.data_managers_config import DataManagersConfig
-from hydromodpy.geographic.geographic_config import GeographicConfig
-from hydromodpy.simulation.workspace.config import WorkspaceConfig
+from hydromodpy.data.data_managers_config import DataManagersConfig
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+from hydromodpy.core.workspace.config import WorkspaceConfig
 
 
 class OverviewPanelsConfig(BaseModel):

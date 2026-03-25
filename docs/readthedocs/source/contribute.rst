@@ -67,7 +67,9 @@ Documentation workflow
    gallery sources or generated outputs.
 6. Keep PlantUML tooling available with ``python tools/setup_plantuml.py`` if
    you work on UML-based architecture pages.
-7. Run ``pip install -e '.[docs]'`` after changing the doc extras.
+7. Refresh committed validation batch reports with ``python -m validation_cases.update_reports --no-show``
+   if you changed analytical solver coverage shown on the validation gallery landing page.
+8. Run ``pip install -e '.[docs]'`` after changing the doc extras.
 
 Submitting changes
 ------------------

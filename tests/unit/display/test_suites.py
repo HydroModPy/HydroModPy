@@ -6,8 +6,8 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 
-from hydromodpy.display.options import DisplayOptions, DisplaySectionOptions
-from hydromodpy.display.suites import (
+from hydromodpy.analysis.display.options import DisplayOptions, DisplaySectionOptions
+from hydromodpy.analysis.display.suites import (
     plot_boussinesq_flow_suite,
     plot_flow_suite,
     plot_particles_suite,
@@ -59,24 +59,24 @@ def test_plot_flow_suite_uses_solver_base_raster(monkeypatch) -> None:
 
     captured_dem: list[Path] = []
     monkeypatch.setattr(
-        "hydromodpy.display.suites._load_flow_timeseries",
+        "hydromodpy.analysis.display.suites._load_flow_timeseries",
         lambda result: pd.DataFrame({"dummy": [0.0]}),
     )
     monkeypatch.setattr(
-        "hydromodpy.display.suites._load_observed_streamflow",
+        "hydromodpy.analysis.display.suites._load_observed_streamflow",
         lambda result: pd.DataFrame({"Q": [0.0]}),
     )
     # Mock _extract_cross_section_data to capture the DEM path
     monkeypatch.setattr(
-        "hydromodpy.display.suites._extract_cross_section_data",
+        "hydromodpy.analysis.display.suites._extract_cross_section_data",
         lambda dem_path, wt_path, x_index=None: (
             captured_dem.append(dem_path),
             (np.array([0.0]), np.array([0.0]), np.array([0.0])),
         )[1],
     )
-    monkeypatch.setattr("hydromodpy.display.suites.plot_cross_section", lambda **kwargs: None)
-    monkeypatch.setattr("hydromodpy.display.suites.plot_discharge", lambda **kwargs: None)
-    monkeypatch.setattr("hydromodpy.display.suites.plot_piezometry", lambda **kwargs: None)
+    monkeypatch.setattr("hydromodpy.analysis.display.suites.plot_cross_section", lambda **kwargs: None)
+    monkeypatch.setattr("hydromodpy.analysis.display.suites.plot_discharge", lambda **kwargs: None)
+    monkeypatch.setattr("hydromodpy.analysis.display.suites.plot_piezometry", lambda **kwargs: None)
 
     options = DisplayOptions(
         enabled=True,
@@ -113,7 +113,7 @@ def test_plot_particles_suite_uses_solver_base_raster(monkeypatch) -> None:
         lambda path, **kw: _dummy_gdf,
     )
     monkeypatch.setattr(
-        "hydromodpy.display.suites.plot_pathlines_map",
+        "hydromodpy.analysis.display.suites.plot_pathlines_map",
         lambda **kwargs: captured.append(kwargs["dem_path"]),
     )
 
@@ -142,7 +142,7 @@ def test_plot_transport_suite_passes_solver_base_raster(monkeypatch) -> None:
 
     captured: list[Path] = []
     monkeypatch.setattr(
-        "hydromodpy.display.suites.plot_concentration_frames",
+        "hydromodpy.analysis.display.suites.plot_concentration_frames",
         lambda **kwargs: captured.append(kwargs["base_raster_path"]) or [],
     )
 

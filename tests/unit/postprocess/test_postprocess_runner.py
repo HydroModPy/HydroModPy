@@ -2,10 +2,10 @@
 
 from types import SimpleNamespace
 
-import hydromodpy.postprocess.netcdf as netcdf_postprocess
+import hydromodpy.analysis.postprocess.netcdf as netcdf_postprocess
 
-from hydromodpy.postprocess.postprocess_config import PostprocessConfig
-from hydromodpy.postprocess.runner import PostprocessRunner
+from hydromodpy.analysis.postprocess.postprocess_config import PostprocessConfig
+from hydromodpy.analysis.postprocess.runner import PostprocessRunner
 
 
 def test_postprocess_runner_is_disabled_by_default() -> None:
@@ -212,7 +212,7 @@ def test_postprocess_runner_passes_flow_model_to_matching_streams(monkeypatch) -
             }
         )
 
-    monkeypatch.setattr("hydromodpy.postprocess.runner.run_matching_streams", _fake_run_matching_streams)
+    monkeypatch.setattr("hydromodpy.analysis.postprocess.runner.run_matching_streams", _fake_run_matching_streams)
 
     flow_model = SimpleNamespace(model_name="flow_main")
     hydrography = SimpleNamespace()
@@ -256,11 +256,11 @@ def test_postprocess_runner_calls_boussinesq_display_when_enabled(monkeypatch) -
     captured: list[dict] = []
 
     monkeypatch.setattr(
-        "hydromodpy.postprocess.runner.plot_flow_suite",
+        "hydromodpy.analysis.postprocess.runner.plot_flow_suite",
         lambda state, options: captured.append({"suite": "modflow"}),
     )
     monkeypatch.setattr(
-        "hydromodpy.postprocess.runner.plot_boussinesq_flow_suite",
+        "hydromodpy.analysis.postprocess.runner.plot_boussinesq_flow_suite",
         lambda state, options: captured.append(
             {"suite": "boussinesq", "state": state, "options": options}
         ),

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import text
 
-from hydromodpy.data_managers.registry.catalog import DataCatalog
+from hydromodpy.data.registry.catalog import DataCatalog
 
 pytestmark = pytest.mark.fast
 

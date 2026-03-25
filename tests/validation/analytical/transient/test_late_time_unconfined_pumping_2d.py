@@ -20,6 +20,7 @@ from validation_cases.analytical.transient.late_time_unconfined_pumping_2d.compa
     [
         pytest.param("modflownwt", True, False, id="modflownwt"),
         pytest.param("modflow6", False, True, id="modflow6"),
+        pytest.param("boussinesq", False, False, id="boussinesq"),
     ],
 )
 

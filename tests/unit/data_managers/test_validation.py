@@ -5,7 +5,7 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
-from hydromodpy.data_managers.common.validation import check_required_columns, compute_completeness
+from hydromodpy.data.common.validation import check_required_columns, compute_completeness
 
 
 class TestComputeCompleteness:

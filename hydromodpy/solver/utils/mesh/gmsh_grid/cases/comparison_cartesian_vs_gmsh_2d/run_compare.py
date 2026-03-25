@@ -20,8 +20,8 @@ from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 import numpy as np
 
-from hydromodpy.field.geology.geology_field import GeologyField
-from hydromodpy.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.geology.geology_field import GeologyField
+from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.case_runner import (
     run_discretization_case,
 )

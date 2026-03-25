@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.backends.whitebox_workflows_backend import WhiteboxWorkflowsBackend
-from hydromodpy.geographic.core.catchment_from_point import extract_catchment_from_point
+from hydromodpy.core.backends.whitebox_workflows_backend import WhiteboxWorkflowsBackend
+from hydromodpy.spatial.geographic.core.catchment_from_point import extract_catchment_from_point
 
 
 class _DummyVector:
@@ -20,7 +20,7 @@ def test_extract_catchment_from_point_rejects_empty_snapped_outlet(
     backend = WhiteboxWorkflowsBackend()
 
     monkeypatch.setattr(
-        "hydromodpy.geographic.core.catchment_from_point.ensure_crs",
+        "hydromodpy.spatial.geographic.core.catchment_from_point.ensure_crs",
         lambda *args, **kwargs: None,
     )
     monkeypatch.setattr(backend, "read_vector", lambda path: _DummyVector([object()]))
@@ -54,7 +54,7 @@ def test_extract_catchment_from_point_rejects_empty_watershed_polygon(
     write_targets: list[str] = []
 
     monkeypatch.setattr(
-        "hydromodpy.geographic.core.catchment_from_point.ensure_crs",
+        "hydromodpy.spatial.geographic.core.catchment_from_point.ensure_crs",
         lambda *args, **kwargs: None,
     )
     monkeypatch.setattr(backend, "read_vector", lambda path: _DummyVector([object()]))

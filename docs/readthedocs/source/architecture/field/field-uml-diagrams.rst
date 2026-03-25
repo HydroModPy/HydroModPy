@@ -5,7 +5,7 @@ Scope
 -----
 
 These diagrams document class structure and typical runtime flows for
-``hydromodpy.field``.
+``hydromodpy.spatial.field``.
 
 Core Class Diagram
 ------------------

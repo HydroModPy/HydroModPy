@@ -2,13 +2,13 @@
 
 import pytest
 
-from hydromodpy.data_managers.common.geo_helpers import (
+from hydromodpy.data.common.geo_helpers import (
     bbox_contains,
     filter_locations_by_bbox,
     haversine_km,
     nearest_location,
 )
-from hydromodpy.data_managers.contracts.location import StationLocation
+from hydromodpy.data.contracts.location import StationLocation
 
 
 def _loc(id, x, y):

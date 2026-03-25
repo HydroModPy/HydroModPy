@@ -1,20 +1,20 @@
-﻿"""Unit tests for refactored reference-case calibration core."""
+"""Unit tests for refactored reference-case calibration core."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from hydromodpy.calibration.core.engine_config import (
+from hydromodpy.analysis.calibration.core.engine_config import (
     resolve_calibration_settings,
 )
-from hydromodpy.calibration.core.methods_config import (
+from hydromodpy.analysis.calibration.core.methods_config import (
     normalize_format_method_kwargs,
 )
-from hydromodpy.calibration.core.engine import CalibrationEngine
-from hydromodpy.calibration.core.methods_dispatcher import CalibrationMethod
-from hydromodpy.calibration.core.results import CalibrationResults
-from hydromodpy.calibration.core.objective_function import ObjectiveFunction
+from hydromodpy.analysis.calibration.core.engine import CalibrationEngine
+from hydromodpy.analysis.calibration.core.methods_dispatcher import CalibrationMethod
+from hydromodpy.analysis.calibration.core.results import CalibrationResults
+from hydromodpy.analysis.calibration.core.objective_function import ObjectiveFunction
 
 
 def test_da_mh_forces_rmse_metric_with_warning():

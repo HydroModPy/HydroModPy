@@ -11,12 +11,12 @@ import numpy as np
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 
-from hydromodpy.field.meshes import (
+from hydromodpy.spatial.field.meshes import (
     StructuredFieldMesh,
     TriangularStructuredFieldMesh,
     TriangularUnstructuredFieldMesh,
 )
-from hydromodpy.field.cases.square.field_mesh_square import FieldMeshSquare
+from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
 
 
 def test_structured_mesh_geometry_and_cells():
@@ -124,13 +124,13 @@ def test_unstructured_triangular_mesh_has_approx_target_cell_count():
 
 
 def test_square_module_reexports_generic_mesh_classes():
-    from hydromodpy.field.cases.square.field_mesh_square import (
+    from hydromodpy.spatial.field.cases.square.field_mesh_square import (
         StructuredFieldMesh as StructuredFieldMeshFromSquare,
     )
-    from hydromodpy.field.cases.square.field_mesh_square import (
+    from hydromodpy.spatial.field.cases.square.field_mesh_square import (
         TriangularStructuredFieldMesh as TriangularStructuredFieldMeshFromSquare,
     )
-    from hydromodpy.field.cases.square.field_mesh_square import (
+    from hydromodpy.spatial.field.cases.square.field_mesh_square import (
         TriangularUnstructuredFieldMesh as TriangularUnstructuredFieldMeshFromSquare,
     )
 

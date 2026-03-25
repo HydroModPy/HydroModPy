@@ -8,11 +8,11 @@ import textwrap
 import numpy as np
 import pytest
 
-from hydromodpy.field.core.field_spatial import Field, FieldDiscretization
-from hydromodpy.field.cases.square.field_spatial_square import FieldSquare
-from hydromodpy.field.cases.square.field_mesh_square import FieldMeshSquare
-from hydromodpy.field.core.field_param import FieldParam
-from hydromodpy.field.core.field_spatial_weighted_discretization import (
+from hydromodpy.spatial.field.core.field_spatial import Field, FieldDiscretization
+from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
+from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
+from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
 
@@ -180,7 +180,7 @@ def test_field_param_rejects_incompatible_unit_family():
 
 def test_field_param_heterogeneous_from_toml():
     param = FieldParam.from_toml(
-        "hydromodpy/field/cases/square/field_param_config.toml"
+        "hydromodpy/spatial/field/cases/square/field_param_config.toml"
     )
     assert param.is_heterogeneous
     assert param.identifier == "K"

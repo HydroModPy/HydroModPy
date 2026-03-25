@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.geographic.core.river_network import (
+from hydromodpy.spatial.geographic.core.river_network import (
     build_river_network_products,
     resolve_stream_threshold_cells,
 )
-from hydromodpy.geographic.geographic_config import RiverNetworkConfig
+from hydromodpy.spatial.geographic.geographic_config import RiverNetworkConfig
 
 
 class _FailIfCalledBackend:
@@ -149,7 +149,7 @@ def test_build_river_network_products_skips_empty_vector_export(tmp_path: Path, 
     stale_dbf.touch()
 
     monkeypatch.setattr(
-        "hydromodpy.geographic.core.river_network.compute_river_network_summary",
+        "hydromodpy.spatial.geographic.core.river_network.compute_river_network_summary",
         lambda **_: {
             "enabled": True,
             "threshold_mode": "area_km2",

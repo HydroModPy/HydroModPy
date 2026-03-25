@@ -2,7 +2,7 @@
 
 import pytest
 
-from hydromodpy.data_managers.variables.hydrography.config import (
+from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
     HydrographySourceConfig,
 )
@@ -71,7 +71,7 @@ class TestHydrographyConfigInDataManagers:
     """Verify that HydrographyConfig integrates with DataManagersConfig."""
 
     def test_typed_config_round_trip(self, tmp_path):
-        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+        from hydromodpy.data.data_managers_config import DataManagersConfig
 
         payload = {
             "types": ["hydrography"],
@@ -86,7 +86,7 @@ class TestHydrographyConfigInDataManagers:
         assert cfg.hydrography.sources[0].source == "custom"
 
     def test_from_toml_section(self, tmp_path):
-        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+        from hydromodpy.data.data_managers_config import DataManagersConfig
 
         section = {
             "types": ["hydrography"],

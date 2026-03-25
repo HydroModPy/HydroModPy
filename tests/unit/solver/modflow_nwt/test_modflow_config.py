@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.solver.modflow_nwt.modflow import (
     ModflowConfig,
     ModflowSpecifParams,

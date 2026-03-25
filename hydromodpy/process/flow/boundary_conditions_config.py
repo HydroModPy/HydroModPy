@@ -23,7 +23,7 @@ from hydromodpy.process.flow.boundary_conditions import (
     FlowBoundaryForcingConfig,
     FlowBoundaryConditionConfig,
 )
-from hydromodpy.support.units import (
+from hydromodpy.core.units import (
     normalize_length_unit,
     parse_to_m,
     parse_to_m2_per_s,

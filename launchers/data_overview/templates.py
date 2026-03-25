@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.config.generate_toml import generate_toml
+from hydromodpy.core.config.generate_toml import generate_toml
 
 
 def render_overview_template(

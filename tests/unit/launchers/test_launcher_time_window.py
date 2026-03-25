@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from hydromodpy.simulation.time import (
+from hydromodpy.core.time import (
     ResolvedSteadySimulationTimeGrid,
     apply_explicit_time_window_to_tgrids,
     require_flow_simulation_time_grid,

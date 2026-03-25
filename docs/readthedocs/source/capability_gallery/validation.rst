@@ -8,6 +8,18 @@ Validation Benchmarks
 
 These cases show how HydroModPy validates numerical behaviour against lightweight analytical references, with metrics that stay readable in a doc page.
 
+Current Coverage
+----------------
+
+- Solver variants discovered: MODFLOW-NWT (16), MODFLOW 6 (16), Boussinesq (16).
+
+Latest Batch Reports
+--------------------
+
+- MODFLOW-NWT: 16/16 cases passed on 2026-03-25T01:08:23.198947+00:00 (201.5 s), report ``validation_cases/reports/latest/modflownwt_both.json``.
+- MODFLOW 6: 16/16 cases passed on 2026-03-25T01:12:15.031190+00:00 (227.2 s), report ``validation_cases/reports/latest/modflow6_both.json``.
+- Boussinesq: 16/16 cases passed on 2026-03-25T01:15:21.022580+00:00 (181.1 s), report ``validation_cases/reports/latest/boussinesq_both.json``.
+
 .. grid:: 1 1 2 2
    :gutter: 2 2 3 3
 

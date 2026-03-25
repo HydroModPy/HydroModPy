@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.config.toml_loader import load_toml_with_base_config, merge_toml_payloads
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config, merge_toml_payloads
 
 
 def _load_toml(path: Path) -> dict:

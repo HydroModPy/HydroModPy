@@ -56,12 +56,12 @@ import pytest
 from pydantic import BaseModel, ValidationError
 from shapely.geometry import LineString, MultiLineString, Point, Polygon
 
-from hydromodpy.config.param_level import ParamLevel
-from hydromodpy.data_managers.variables.hydrography.config import (
+from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
     HydrographySourceConfig,
 )
-from hydromodpy.data_managers.variables.hydrography.result import HydrographyResult
+from hydromodpy.data.variables.hydrography.result import HydrographyResult
 
 
 # =====================================================================
@@ -312,13 +312,13 @@ class TestDataManagersConfigIntegration:
 
     def test_hydrography_field_is_typed(self):
         """The hydrography field on DataManagersConfig should be HydrographyConfig."""
-        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+        from hydromodpy.data.data_managers_config import DataManagersConfig
         info = DataManagersConfig.model_fields["hydrography"]
         # The annotation is Annotated[HydrographyConfig | None, ...]
         assert "HydrographyConfig" in str(info.annotation)
 
     def test_model_validate_with_hydrography(self, tmp_path):
-        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+        from hydromodpy.data.data_managers_config import DataManagersConfig
         payload = {
             "types": ["hydrography"],
             "hydrography": {
@@ -334,7 +334,7 @@ class TestDataManagersConfigIntegration:
         """Relative paths in nested source configs are kept as-is by the
         top-level resolver (only top-level Path fields are resolved).
         The Pydantic model still accepts the relative string."""
-        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+        from hydromodpy.data.data_managers_config import DataManagersConfig
         section = {
             "types": ["hydrography"],
             "hydrography": {
@@ -349,7 +349,7 @@ class TestDataManagersConfigIntegration:
 
     def test_hydrography_in_typed_sections(self):
         """HydrographyConfig is registered in _TYPED_SECTIONS dict."""
-        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+        from hydromodpy.data.data_managers_config import DataManagersConfig
         # from_toml_section validates hydrography as typed — just check it doesn't error
         section = {
             "types": ["hydrography"],
@@ -360,7 +360,7 @@ class TestDataManagersConfigIntegration:
 
     def test_hydrography_not_in_types_but_section_present(self, tmp_path):
         """If hydrography is not in types but section is present, it should still validate."""
-        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+        from hydromodpy.data.data_managers_config import DataManagersConfig
         section = {
             "types": ["geology"],
             "hydrography": {"sources": [{"source": "osm"}]},
@@ -370,7 +370,7 @@ class TestDataManagersConfigIntegration:
         assert "hydrography" not in cfg.types
 
     def test_with_resolved_types_adds_hydrography(self, tmp_path):
-        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+        from hydromodpy.data.data_managers_config import DataManagersConfig
         section = {
             "types": [],
             "hydrography": {"sources": [{"source": "osm"}]},
@@ -417,7 +417,7 @@ class TestCustomLoader:
         return path
 
     def test_load_shp_file(self, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_custom
         shp = self._write_shp(tmp_path / "rivers.shp")
         cfg = HydrographySourceConfig(source="custom", path=shp)
         gdf = load_custom(cfg)
@@ -425,7 +425,7 @@ class TestCustomLoader:
         assert gdf.crs is not None
 
     def test_load_gpkg_file(self, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_custom
         gpkg = tmp_path / "rivers.gpkg"
         _make_lines_gdf().to_file(gpkg, driver="GPKG")
         cfg = HydrographySourceConfig(source="custom", path=gpkg)
@@ -433,7 +433,7 @@ class TestCustomLoader:
         assert not gdf.empty
 
     def test_load_geojson_file(self, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_custom
         gj = tmp_path / "rivers.geojson"
         _make_lines_gdf().to_file(gj, driver="GeoJSON")
         cfg = HydrographySourceConfig(source="custom", path=gj)
@@ -441,7 +441,7 @@ class TestCustomLoader:
         assert not gdf.empty
 
     def test_directory_auto_detection(self, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_custom
         subdir = tmp_path / "data"
         subdir.mkdir()
         self._write_shp(subdir / "streams.shp")
@@ -450,7 +450,7 @@ class TestCustomLoader:
         assert not gdf.empty
 
     def test_directory_empty_raises(self, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_custom
         empty_dir = tmp_path / "empty"
         empty_dir.mkdir()
         cfg = HydrographySourceConfig(source="custom", path=empty_dir)
@@ -481,9 +481,9 @@ class TestOsmApi:
             })
         return {"elements": elements}
 
-    @patch("hydromodpy.data_managers.variables.hydrography.apis.osm.requests.get")
+    @patch("hydromodpy.data.variables.hydrography.apis.osm.requests.get")
     def test_fetch_parses_features(self, mock_get):
-        from hydromodpy.data_managers.variables.hydrography.apis.osm import fetch
+        from hydromodpy.data.variables.hydrography.apis.osm import fetch
 
         resp = MagicMock()
         resp.text = json.dumps(self._overpass_response(5, "river"))
@@ -498,9 +498,9 @@ class TestOsmApi:
         assert "waterway" in gdf.columns
         assert "intermit" in gdf.columns
 
-    @patch("hydromodpy.data_managers.variables.hydrography.apis.osm.requests.get")
+    @patch("hydromodpy.data.variables.hydrography.apis.osm.requests.get")
     def test_fetch_empty_response(self, mock_get):
-        from hydromodpy.data_managers.variables.hydrography.apis.osm import fetch
+        from hydromodpy.data.variables.hydrography.apis.osm import fetch
 
         resp = MagicMock()
         resp.text = json.dumps({"elements": []})
@@ -512,9 +512,9 @@ class TestOsmApi:
         gdf = fetch(cfg, self.BBOX)
         assert gdf.empty
 
-    @patch("hydromodpy.data_managers.variables.hydrography.apis.osm.requests.get")
+    @patch("hydromodpy.data.variables.hydrography.apis.osm.requests.get")
     def test_custom_waterway_types_in_query(self, mock_get):
-        from hydromodpy.data_managers.variables.hydrography.apis.osm import fetch
+        from hydromodpy.data.variables.hydrography.apis.osm import fetch
 
         resp = MagicMock()
         resp.text = json.dumps(self._overpass_response(2, "canal"))
@@ -530,9 +530,9 @@ class TestOsmApi:
         query_data = call_params[1]["params"]["data"] if "params" in call_params[1] else call_params[0][1]
         assert "canal" in str(call_params)
 
-    @patch("hydromodpy.data_managers.variables.hydrography.apis.osm.requests.get")
+    @patch("hydromodpy.data.variables.hydrography.apis.osm.requests.get")
     def test_intermittent_flag(self, mock_get):
-        from hydromodpy.data_managers.variables.hydrography.apis.osm import fetch
+        from hydromodpy.data.variables.hydrography.apis.osm import fetch
 
         elements = [{
             "type": "way", "id": 1,
@@ -590,9 +590,9 @@ class TestBdTopageApi:
             })
         return {"type": "FeatureCollection", "features": features}
 
-    @patch("hydromodpy.data_managers.variables.hydrography.apis.bdtopage.requests.get")
+    @patch("hydromodpy.data.variables.hydrography.apis.bdtopage.requests.get")
     def test_fetch_with_features(self, mock_get):
-        from hydromodpy.data_managers.variables.hydrography.apis.bdtopage import fetch
+        from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
 
         hits_resp = MagicMock()
         hits_resp.content = self._hits_xml(3)
@@ -610,9 +610,9 @@ class TestBdTopageApi:
         assert str(gdf.crs) == "EPSG:4326"
         assert "gid" in gdf.columns
 
-    @patch("hydromodpy.data_managers.variables.hydrography.apis.bdtopage.requests.get")
+    @patch("hydromodpy.data.variables.hydrography.apis.bdtopage.requests.get")
     def test_fetch_zero_hits(self, mock_get):
-        from hydromodpy.data_managers.variables.hydrography.apis.bdtopage import fetch
+        from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
 
         resp = MagicMock()
         resp.content = self._hits_xml(0)
@@ -623,9 +623,9 @@ class TestBdTopageApi:
         gdf = fetch(cfg, self.BBOX)
         assert gdf.empty
 
-    @patch("hydromodpy.data_managers.variables.hydrography.apis.bdtopage.requests.get")
+    @patch("hydromodpy.data.variables.hydrography.apis.bdtopage.requests.get")
     def test_pagination(self, mock_get):
-        from hydromodpy.data_managers.variables.hydrography.apis.bdtopage import fetch
+        from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
 
         hits_resp = MagicMock()
         hits_resp.content = self._hits_xml(5)
@@ -646,9 +646,9 @@ class TestBdTopageApi:
         assert len(gdf) == 3  # 2 + 1
         assert mock_get.call_count == 3  # hits + 2 pages
 
-    @patch("hydromodpy.data_managers.variables.hydrography.apis.bdtopage.requests.get")
+    @patch("hydromodpy.data.variables.hydrography.apis.bdtopage.requests.get")
     def test_custom_typename(self, mock_get):
-        from hydromodpy.data_managers.variables.hydrography.apis.bdtopage import fetch
+        from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
 
         hits_resp = MagicMock()
         hits_resp.content = self._hits_xml(1)
@@ -707,9 +707,9 @@ class TestEuHydroApi:
             })
         return {"type": "FeatureCollection", "features": features}
 
-    @patch("hydromodpy.data_managers.variables.hydrography.apis.euhydro.requests.get")
+    @patch("hydromodpy.data.variables.hydrography.apis.euhydro.requests.get")
     def test_fetch_two_layers(self, mock_get):
-        from hydromodpy.data_managers.variables.hydrography.apis.euhydro import fetch
+        from hydromodpy.data.variables.hydrography.apis.euhydro import fetch
 
         ms_resp = MagicMock()
         ms_resp.json.return_value = self._mapserver_json(layer_ids=(5, 6))
@@ -739,9 +739,9 @@ class TestEuHydroApi:
         assert "layer_id" in gdf.columns
         assert "layer_name" in gdf.columns
 
-    @patch("hydromodpy.data_managers.variables.hydrography.apis.euhydro.requests.get")
+    @patch("hydromodpy.data.variables.hydrography.apis.euhydro.requests.get")
     def test_no_layers_found(self, mock_get):
-        from hydromodpy.data_managers.variables.hydrography.apis.euhydro import fetch
+        from hydromodpy.data.variables.hydrography.apis.euhydro import fetch
 
         ms_resp = MagicMock()
         ms_resp.json.return_value = {"layers": []}
@@ -752,10 +752,10 @@ class TestEuHydroApi:
         gdf = fetch(cfg, self.BBOX)
         assert gdf.empty
 
-    @patch("hydromodpy.data_managers.variables.hydrography.apis.euhydro.requests.get")
+    @patch("hydromodpy.data.variables.hydrography.apis.euhydro.requests.get")
     def test_strahler_fallback(self, mock_get):
         """When group_name doesn't match, fallback finds layers with 'Strahler' in name."""
-        from hydromodpy.data_managers.variables.hydrography.apis.euhydro import (
+        from hydromodpy.data.variables.hydrography.apis.euhydro import (
             _feature_layer_ids_in_group,
         )
 
@@ -768,9 +768,9 @@ class TestEuHydroApi:
         ids = _feature_layer_ids_in_group(ms, "River_Net_lines")
         assert 10 in ids
 
-    @patch("hydromodpy.data_managers.variables.hydrography.apis.euhydro.requests.get")
+    @patch("hydromodpy.data.variables.hydrography.apis.euhydro.requests.get")
     def test_custom_group_and_page_size(self, mock_get):
-        from hydromodpy.data_managers.variables.hydrography.apis.euhydro import fetch
+        from hydromodpy.data.variables.hydrography.apis.euhydro import fetch
 
         ms_resp = MagicMock()
         ms_resp.json.return_value = self._mapserver_json(
@@ -803,7 +803,7 @@ class TestEuHydroApi:
 class TestHydrographyManager:
 
     def _make_manager(self, tmp_path, sources, crs="EPSG:2154"):
-        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         geo = _fake_geographic(tmp_path, crs=crs)
         cfg = HydrographyConfig(sources=sources)
@@ -813,11 +813,11 @@ class TestHydrographyManager:
         mgr = self._make_manager(tmp_path, [{"source": "osm"}])
         assert (tmp_path / "results_stable" / "hydrography").is_dir()
 
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
+    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
     def test_load_pipeline_line_geometry(self, mock_backend_factory, mock_fetch, tmp_path):
         """Full pipeline with LineString data and mocked backend."""
-        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         # Prepare fetched data in project CRS
         lines_gdf = _make_lines_gdf(crs="EPSG:2154", n=3)
@@ -850,10 +850,10 @@ class TestHydrographyManager:
         # Backend was called with vector_lines_to_raster
         backend.vector_lines_to_raster.assert_called_once()
 
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
+    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
     def test_load_pipeline_polygon_geometry(self, mock_backend_factory, mock_fetch, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         poly_gdf = gpd.GeoDataFrame(
             {"id": [1]},
@@ -878,10 +878,10 @@ class TestHydrographyManager:
         mgr.load()
         backend.vector_polygons_to_raster.assert_called_once()
 
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
+    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
     def test_load_pipeline_point_geometry(self, mock_backend_factory, mock_fetch, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         pt_gdf = gpd.GeoDataFrame(
             {"id": [1, 2]},
@@ -903,11 +903,11 @@ class TestHydrographyManager:
         mgr.load()
         backend.vector_points_to_raster.assert_called_once()
 
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
+    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
     def test_synthetic_fid_field(self, mock_backend_factory, mock_fetch, tmp_path):
         """When rasterize_field doesn't exist in data, manager creates sequential FID."""
-        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         gdf = gpd.GeoDataFrame(
             {"name": ["Aven", "Odet"]},  # No "FID" column
@@ -937,9 +937,9 @@ class TestHydrographyManager:
         assert "FID" in saved_gdf.columns
         assert list(saved_gdf["FID"]) == [1, 2]
 
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.HydrographyManager._fetch_from_source")
+    @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
     def test_all_sources_empty_raises(self, mock_fetch, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         mock_fetch.return_value = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
@@ -951,7 +951,7 @@ class TestHydrographyManager:
             mgr.load()
 
     def test_get_bbox_wgs84(self, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         geo = _fake_geographic(tmp_path)
         cfg = HydrographyConfig(sources=[{"source": "osm"}])
@@ -964,11 +964,11 @@ class TestHydrographyManager:
         assert -10 < lon_min < lon_max < 15
         assert 40 < lat_min < lat_max < 55
 
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.HydrographyManager._fetch_from_source")
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
+    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
     def test_crs_reprojection(self, mock_backend_factory, mock_fetch, tmp_path):
         """Data in EPSG:4326 gets reprojected to project CRS before clip."""
-        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         # Data in WGS84 — inside the watershed after reprojection
         gdf_4326 = gpd.GeoDataFrame(
@@ -1005,7 +1005,7 @@ class TestCatalogHydrography:
     """Test that hydrography data can be registered in the DataCatalog."""
 
     def test_register_hydrography_entry(self):
-        from hydromodpy.data_managers.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog import DataCatalog
 
         cat = DataCatalog(db_path=None)  # in-memory
         entry_id = cat.register(
@@ -1020,7 +1020,7 @@ class TestCatalogHydrography:
         assert entry_id > 0
 
     def test_find_cached_hydrography(self):
-        from hydromodpy.data_managers.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog import DataCatalog
 
         cat = DataCatalog(db_path=None)
         cat.register(
@@ -1042,7 +1042,7 @@ class TestCatalogHydrography:
         assert result is not None
 
     def test_upsert_same_key(self):
-        from hydromodpy.data_managers.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog import DataCatalog
 
         cat = DataCatalog(db_path=None)
         id1 = cat.register(
@@ -1061,7 +1061,7 @@ class TestCatalogHydrography:
         assert id1 == id2
 
     def test_list_entries(self):
-        from hydromodpy.data_managers.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog import DataCatalog
 
         cat = DataCatalog(db_path=None)
         cat.register(
@@ -1076,7 +1076,7 @@ class TestCatalogHydrography:
         assert len(df) == 2
 
     def test_invalidate_entry(self):
-        from hydromodpy.data_managers.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog import DataCatalog
 
         cat = DataCatalog(db_path=None)
         cat.register(
@@ -1088,7 +1088,7 @@ class TestCatalogHydrography:
         assert len(df) == 0
 
     def test_sqlite_persistence(self, tmp_path):
-        from hydromodpy.data_managers.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog import DataCatalog
 
         db = tmp_path / "catalog.db"
         cat1 = DataCatalog(db_path=db)
@@ -1113,7 +1113,7 @@ class TestTomlFormatAcceptance:
     """Verify various TOML layouts produce valid configs."""
 
     def test_minimal_custom(self, tmp_path):
-        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+        from hydromodpy.data.data_managers_config import DataManagersConfig
         section = {
             "types": ["hydrography"],
             "hydrography": {
@@ -1124,7 +1124,7 @@ class TestTomlFormatAcceptance:
         assert cfg.hydrography.sources[0].source == "custom"
 
     def test_minimal_osm(self):
-        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+        from hydromodpy.data.data_managers_config import DataManagersConfig
         section = {
             "types": ["hydrography"],
             "hydrography": {"sources": [{"source": "osm"}]},
@@ -1133,7 +1133,7 @@ class TestTomlFormatAcceptance:
         assert cfg.hydrography.sources[0].waterway_types == ["river", "stream"]
 
     def test_minimal_bdtopage(self):
-        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+        from hydromodpy.data.data_managers_config import DataManagersConfig
         section = {
             "types": ["hydrography"],
             "hydrography": {"sources": [{"source": "bdtopage"}]},
@@ -1142,7 +1142,7 @@ class TestTomlFormatAcceptance:
         assert cfg.hydrography.sources[0].typename == "sa:CoursEau_FXX_Topage2025"
 
     def test_minimal_euhydro(self):
-        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+        from hydromodpy.data.data_managers_config import DataManagersConfig
         section = {
             "types": ["hydrography"],
             "hydrography": {"sources": [{"source": "euhydro"}]},
@@ -1151,7 +1151,7 @@ class TestTomlFormatAcceptance:
         assert cfg.hydrography.sources[0].group_name == "River_Net_lines"
 
     def test_multi_source_toml(self, tmp_path):
-        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+        from hydromodpy.data.data_managers_config import DataManagersConfig
         section = {
             "types": ["hydrography"],
             "hydrography": {
@@ -1167,7 +1167,7 @@ class TestTomlFormatAcceptance:
         assert len(cfg.hydrography.sources) == 4
 
     def test_invalid_source_in_toml(self):
-        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+        from hydromodpy.data.data_managers_config import DataManagersConfig
         section = {
             "types": ["hydrography"],
             "hydrography": {"sources": [{"source": "invalid_api"}]},
@@ -1177,17 +1177,17 @@ class TestTomlFormatAcceptance:
 
 
 # =====================================================================
-# 13. Backward compatibility (legacy imports)
+# 13. Watershed-facing aliases
 # =====================================================================
 
 @pytest.mark.fast
-class TestBackwardCompatibility:
-    def test_legacy_hydrography_alias(self):
-        from hydromodpy.legacy.watershed.hydrography import Hydrography
+class TestWatershedAliases:
+    def test_watershed_hydrography_module_alias(self):
+        from hydromodpy.watershed.hydrography import Hydrography
         assert Hydrography is HydrographyResult
 
-    def test_legacy_watershed_init_alias(self):
-        from hydromodpy.legacy.watershed import Hydrography
+    def test_watershed_package_alias(self):
+        from hydromodpy.watershed import Hydrography
         assert Hydrography is HydrographyResult
 
 
@@ -1216,7 +1216,7 @@ class TestDocumentedContracts:
 
     def test_custom_vector_formats(self):
         """custom.py supports SHP, GPKG, GeoJSON."""
-        from hydromodpy.data_managers.variables.hydrography.custom import _VECTOR_EXTENSIONS
+        from hydromodpy.data.variables.hydrography.custom import _VECTOR_EXTENSIONS
         assert "*.shp" in _VECTOR_EXTENSIONS
         assert "*.gpkg" in _VECTOR_EXTENSIONS
         assert "*.geojson" in _VECTOR_EXTENSIONS
@@ -1230,17 +1230,17 @@ class TestDocumentedContracts:
         """Documented contract: all API fetch() functions return EPSG:4326."""
         # This is verified in the individual API tests above; here we just
         # verify the modules are importable and have a fetch function.
-        from hydromodpy.data_managers.variables.hydrography.apis import osm, bdtopage, euhydro
+        from hydromodpy.data.variables.hydrography.apis import osm, bdtopage, euhydro
         assert callable(osm.fetch)
         assert callable(bdtopage.fetch)
         assert callable(euhydro.fetch)
 
     def test_manager_variable_name(self):
-        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
         assert HydrographyManager.VARIABLE_NAME == "hydrography"
 
     def test_package_exports(self):
-        import hydromodpy.data_managers.variables.hydrography as pkg
+        import hydromodpy.data.variables.hydrography as pkg
         assert hasattr(pkg, "HydrographyConfig")
         assert hasattr(pkg, "HydrographySourceConfig")
         assert hasattr(pkg, "HydrographyManager")
@@ -1256,7 +1256,7 @@ class TestCustomLoaderTif:
     """TIF files should be returned as Path, not GeoDataFrame."""
 
     def test_tif_file_returns_path(self, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_custom
 
         tif = tmp_path / "hydro.tif"
         _write_dummy_tif(tif)
@@ -1266,7 +1266,7 @@ class TestCustomLoaderTif:
         assert result == tif
 
     def test_tiff_file_returns_path(self, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_custom
 
         tif = tmp_path / "hydro.tiff"
         _write_dummy_tif(tif)
@@ -1275,7 +1275,7 @@ class TestCustomLoaderTif:
         assert isinstance(result, Path)
 
     def test_tif_in_directory(self, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_custom
 
         subdir = tmp_path / "data"
         subdir.mkdir()
@@ -1287,7 +1287,7 @@ class TestCustomLoaderTif:
         assert result.suffix == ".tif"
 
     def test_vector_file_still_returns_gdf(self, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_custom
 
         shp = tmp_path / "rivers.shp"
         _make_lines_gdf().to_file(shp)
@@ -1297,7 +1297,7 @@ class TestCustomLoaderTif:
 
     def test_directory_prefers_raster_over_vector(self, tmp_path):
         """When a directory has both TIF and SHP, TIF wins."""
-        from hydromodpy.data_managers.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_custom
 
         _make_lines_gdf().to_file(tmp_path / "rivers.shp")
         _write_dummy_tif(tmp_path / "streams.tif")
@@ -1306,7 +1306,7 @@ class TestCustomLoaderTif:
         assert isinstance(result, Path)
 
     def test_empty_dir_raises(self, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import load_custom
 
         subdir = tmp_path / "empty"
         subdir.mkdir()
@@ -1315,7 +1315,7 @@ class TestCustomLoaderTif:
             load_custom(cfg)
 
     def test_raster_extensions_constant(self):
-        from hydromodpy.data_managers.variables.hydrography.custom import _RASTER_EXTENSIONS
+        from hydromodpy.data.variables.hydrography.custom import _RASTER_EXTENSIONS
         assert "*.tif" in _RASTER_EXTENSIONS
         assert "*.tiff" in _RASTER_EXTENSIONS
 
@@ -1328,9 +1328,9 @@ class TestCustomLoaderTif:
 class TestManagerTifPipeline:
     """Manager should use _load_from_tif when custom returns a Path."""
 
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
     def test_tif_custom_skips_vector_pipeline(self, mock_backend_factory, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         backend = MagicMock()
         mock_backend_factory.return_value = backend
@@ -1353,10 +1353,10 @@ class TestManagerTifPipeline:
         # Vector rasterisation backend should NOT have been called
         backend.vector_lines_to_raster.assert_not_called()
 
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
     def test_tif_array_negative_to_nan(self, mock_backend_factory, tmp_path):
         """Negative values in the TIF should become NaN in streams_array."""
-        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
         import rasterio
         from rasterio.transform import from_bounds
 
@@ -1396,8 +1396,8 @@ class TestCatalogCacheManager:
     """Test cache hit, miss+register, force_refresh, and subsomption."""
 
     def _make_cached_manager(self, tmp_path, *, force_refresh=False):
-        from hydromodpy.data_managers.registry.catalog import DataCatalog
-        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.registry.catalog import DataCatalog
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         catalog = DataCatalog(db_path=None)
         data_dir = tmp_path / "cache"
@@ -1413,11 +1413,11 @@ class TestCatalogCacheManager:
         )
         return mgr, catalog, data_dir
 
-    @patch("hydromodpy.data_managers.variables.hydrography.apis.osm.fetch")
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.data.variables.hydrography.apis.osm.fetch")
+    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
     def test_cache_miss_then_hit(self, mock_backend_factory, mock_osm_fetch, tmp_path):
         """First call fetches API + registers; second call hits cache."""
-        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         backend = MagicMock()
         mock_backend_factory.return_value = backend
@@ -1457,10 +1457,10 @@ class TestCatalogCacheManager:
         # API was NOT called again
         assert mock_osm_fetch.call_count == 1
 
-    @patch("hydromodpy.data_managers.variables.hydrography.apis.osm.fetch")
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.data.variables.hydrography.apis.osm.fetch")
+    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
     def test_force_refresh_bypasses_cache(self, mock_backend_factory, mock_osm_fetch, tmp_path):
-        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         backend = MagicMock()
         mock_backend_factory.return_value = backend
@@ -1491,7 +1491,7 @@ class TestCatalogCacheManager:
 
     def test_no_catalog_skips_cache(self, tmp_path):
         """Without catalog, _try_load_cached returns None."""
-        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         geo = _fake_geographic(tmp_path)
         cfg = HydrographyConfig(sources=[{"source": "osm"}])
@@ -1504,7 +1504,7 @@ class TestCatalogCacheManager:
 
     def test_subsume_removes_smaller_bbox(self, tmp_path):
         """After registering a bigger bbox, smaller one is subsumed."""
-        from hydromodpy.data_managers.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog import DataCatalog
 
         catalog = DataCatalog(db_path=None)
         data_dir = tmp_path / "cache"
@@ -1543,7 +1543,7 @@ class TestCatalogCacheManager:
 
     def test_custom_never_subsumed(self, tmp_path):
         """Custom entries (is_custom=True) are never subsumed."""
-        from hydromodpy.data_managers.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog import DataCatalog
 
         catalog = DataCatalog(db_path=None)
         catalog.register(
@@ -1620,13 +1620,13 @@ class TestForceRefreshConfig:
 class TestDataStoreHydrography:
 
     def test_load_hydrography_method_exists(self):
-        from hydromodpy.data_managers.store import DataStore
+        from hydromodpy.data.store import DataStore
         assert hasattr(DataStore, "load_hydrography")
 
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.HydrographyManager.load")
-    @patch("hydromodpy.data_managers.variables.hydrography.manager.get_whitebox_backend")
+    @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager.load")
+    @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
     def test_load_hydrography_delegates(self, mock_backend, mock_load, tmp_path):
-        from hydromodpy.data_managers.store import DataStore
+        from hydromodpy.data.store import DataStore
 
         mock_load.return_value = HydrographyResult(
             streams=None, tif_streams="/tmp/s.tif", streams_array=np.zeros((5, 5)),
