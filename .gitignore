@@ -62,10 +62,12 @@ Thumbs.db
 # Testing & coverage
 # ──────────────────────────────────────────────
 .pytest_cache/
+.pytest*/
 .pytest_tmp*/
 pytest_tmp*/
 pytest-cache-*/
 pytestscratch*/
+pytest-temp-root/
 test_tmp*/
 test/results/
 test_*/
@@ -141,6 +143,7 @@ hydromodpy_annex/preprocess/catchment_identification_scan/outputs/
 # Temporary files & scratch
 # ──────────────────────────────────────────────
 tmp*/
+.tmp*/
 z/
 *.tmp
 *.bak
@@ -151,6 +154,8 @@ tools/vendor/
 .tmp_launcher*
 **/_tmp_outputs_env*
 scratch_*/
+mesh-sim-int-*/
+river_trace_smoke_*/
 hydromodpy/solver/utils/mesh/gmsh_grid/cases/**/scratch_tests/
 validation_cases/**/.__validation_runtime_*.toml
 launchers/mesh_catchment/._run*.toml
