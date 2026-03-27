@@ -1,0 +1,31 @@
+[mesh_distribution]
+# Versioned example pointed at one bundled catchment mesh copied from
+# `C:/results/HydromodPy/mesh_catchment_runs/headwater_100km2/mesh_outlet_5/`.
+bundle_dir = "./mesh_catchment_outlet_5_bundle"
+
+# Optional output PNG written under the repository outputs directory.
+figure_output_path = "../../outputs/mesh_viewer/mesh_catchment_outlet_5_overview.png"
+
+# Optional JSON summary written under the repository outputs directory.
+summary_output_path = "../../outputs/mesh_viewer/mesh_catchment_outlet_5_summary.json"
+
+# Open or not an interactive matplotlib window at the end of the run.
+show_window = false
+
+[mesh_distribution.plot]
+color_field = "geology_key"
+color_map = "tab20"
+figure_size = [16.0, 8.0]
+dpi = 170
+title = "Headwater catchment mesh, outlet 5"
+show_topography_panel = true
+topography_field = "z_top_mean"
+topography_cmap = "terrain"
+topography_title = "Topography overview"
+show_mesh_edges = true
+mesh_edge_color = "0.30"
+mesh_edge_linewidth = 0.65
+show_boundaries = true
+show_geology_interfaces = true
+show_river_edges = true
+annotate_cell_ids = false

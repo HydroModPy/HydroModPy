@@ -22,6 +22,7 @@ Important convention
 --------------------
 `top_surface` and `bottom_surface` are absolute altitudes in the same datum.
 No additive combination is done between the two surfaces.
+HydroModPy assumes metric geometry throughout this workflow.
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ from collections.abc import Mapping
 import numpy as np
 from flopy.discretization import StructuredGrid
 
-from hydromodpy.domain.surface import Surface
+from hydromodpy.spatial.surface import Surface
 from .sgrid_config import VerticalGridConfig
 
 
@@ -131,7 +132,6 @@ class StructuredGridBuilder:
             nrow=nrow,
             ncol=ncol,
             crs=support.crs,
-            lenuni=cfg.lenuni,
         )
 
     @staticmethod

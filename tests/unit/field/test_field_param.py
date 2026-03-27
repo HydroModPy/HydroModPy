@@ -8,11 +8,11 @@ import textwrap
 import numpy as np
 import pytest
 
-from hydromodpy.field.core.field_spatial import Field, FieldDiscretization
-from hydromodpy.field.cases.square.field_spatial_square import FieldSquare
-from hydromodpy.field.cases.square.field_mesh_square import FieldMeshSquare
-from hydromodpy.field.core.field_param import FieldParam
-from hydromodpy.field.core.field_spatial_weighted_discretization import (
+from hydromodpy.spatial.field.core.field_spatial import Field, FieldDiscretization
+from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
+from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
+from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
 
@@ -20,14 +20,12 @@ from hydromodpy.field.core.field_spatial_weighted_discretization import (
 def test_field_param_homogeneous_from_toml(tmp_path: Path):
     path = tmp_path / "field_homogeneous.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "homogeneous"
             value = 12.5
-            """
-        ),
+            """),
         encoding="utf-8",
     )
 
@@ -108,6 +106,27 @@ def test_field_param_converts_k_from_m_per_day_to_si():
     assert float(param.value) == pytest.approx(1e-4)
 
 
+def test_field_param_converts_k_from_mm_per_day_to_si():
+    param = FieldParam(
+        identifier="K",
+        kind="homogeneous",
+        unit="mm/day",
+        value=8640.0,
+    )
+    assert param.unit == "m/s"
+    assert float(param.value) == pytest.approx(1e-4)
+
+
+def test_field_param_accepts_inline_k_unit_without_explicit_field_unit():
+    param = FieldParam(
+        identifier="K",
+        kind="homogeneous",
+        value="8.64 m/day",
+    )
+    assert param.unit == "m/s"
+    assert float(param.value) == pytest.approx(1e-4)
+
+
 def test_field_param_converts_ss_from_cm_inverse_to_m_inverse():
     param = FieldParam(
         identifier="Ss",
@@ -117,6 +136,36 @@ def test_field_param_converts_ss_from_cm_inverse_to_m_inverse():
     )
     assert param.unit == "m-1"
     assert float(param.value) == pytest.approx(1e-4)
+
+
+def test_field_param_accepts_inline_ss_unit_without_explicit_field_unit():
+    param = FieldParam(
+        identifier="Ss",
+        kind="homogeneous",
+        value="1e-6 cm-1",
+    )
+    assert param.unit == "m-1"
+    assert float(param.value) == pytest.approx(1e-4)
+
+
+def test_field_param_accepts_inline_dimensionless_sy():
+    param = FieldParam(
+        identifier="Sy",
+        kind="homogeneous",
+        value="0.2 -",
+    )
+    assert param.unit == "-"
+    assert float(param.value) == pytest.approx(0.2)
+
+
+def test_field_param_rejects_conflicting_inline_unit_with_explicit_field_unit():
+    with pytest.raises(ValueError, match="mixes conflicting units"):
+        _ = FieldParam(
+            identifier="K",
+            kind="homogeneous",
+            unit="m/day",
+            value="1.0 m/s",
+        )
 
 
 def test_field_param_rejects_incompatible_unit_family():
@@ -130,7 +179,9 @@ def test_field_param_rejects_incompatible_unit_family():
 
 
 def test_field_param_heterogeneous_from_toml():
-    param = FieldParam.from_toml("hydromodpy/field/cases/square/field_param_config.toml")
+    param = FieldParam.from_toml(
+        "hydromodpy/spatial/field/cases/square/field_param_config.toml"
+    )
     assert param.is_heterogeneous
     assert param.identifier == "K"
     assert param.field_spatial_id == "field_square"
@@ -167,6 +218,19 @@ def test_field_param_heterogeneous_with_vertical_profile_tabulated():
     zones = np.array(["granite", "micaschists", "granite"], dtype=object)
     values = param.to_array(zone_ids=zones, depth=10.0)
     assert np.allclose(values, np.array([7.5, 3.0, 7.5], dtype=float))
+
+
+def test_field_param_heterogeneous_accepts_inline_units_without_explicit_field_unit():
+    param = FieldParam(
+        identifier="K",
+        kind="heterogeneous",
+        values_by_key={"granite": "10.0 m/day", "micaschists": "2.0 m/day"},
+        field_spatial_id="field_square",
+    )
+
+    zones = np.array(["granite", "micaschists"], dtype=object)
+    values = param.to_array(zone_ids=zones)
+    assert np.allclose(values, np.array([10.0 / 86400.0, 2.0 / 86400.0], dtype=float))
 
 
 def test_heterogeneous_requires_zone_ids():
@@ -212,16 +276,14 @@ def test_field_from_dict_with_family_orientation():
 def test_field_from_toml(tmp_path: Path):
     path = tmp_path / "field_geometry.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "field_square"
             line = "axis_vertical"
             zone1_side = "negative"
             zone1_name = "granite"
             zone2_name = "micaschists"
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     field = FieldSquare.from_toml(path, section="field")
@@ -235,14 +297,12 @@ def test_field_from_toml(tmp_path: Path):
 def test_field_param_heterogeneous_requires_field_spatial_id(tmp_path: Path):
     path = tmp_path / "field_missing_id.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "heterogeneous"
             values = { granite = 1.0, micaschists = 3.0 }
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     with pytest.raises(KeyError, match="field_spatial_id"):
@@ -252,13 +312,11 @@ def test_field_param_heterogeneous_requires_field_spatial_id(tmp_path: Path):
 def test_field_param_requires_identifier(tmp_path: Path):
     path = tmp_path / "field_missing_identifier.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             kind = "homogeneous"
             value = 1.0
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     with pytest.raises(KeyError, match="id"):
@@ -268,16 +326,14 @@ def test_field_param_requires_identifier(tmp_path: Path):
 def test_field_param_selects_kind_from_base_section(tmp_path: Path):
     path = tmp_path / "field_kind_select.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "Sy"
             kind = "homogeneous"
 
             [field_homogeneous]
             value = 0.21
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     param = FieldParam.from_toml(path)
@@ -289,8 +345,7 @@ def test_field_param_selects_kind_from_base_section(tmp_path: Path):
 def test_field_param_from_toml_with_vertical_profile_exponential(tmp_path: Path):
     path = tmp_path / "field_vertical_exp.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "homogeneous"
@@ -299,8 +354,31 @@ def test_field_param_from_toml_with_vertical_profile_exponential(tmp_path: Path)
             [field_vertical_profile]
             mode = "exponential"
             characteristic_depth = 30.0
-            """
-        ),
+            """),
+        encoding="utf-8",
+    )
+
+    param = FieldParam.from_toml(path)
+    assert param.is_homogeneous
+    assert param.has_vertical_variation
+    assert float(param.to_array(depth=30.0)) == pytest.approx(12.0 * np.exp(-1.0))
+
+
+def test_field_param_from_toml_with_vertical_profile_exponential_characteristic_depth_unit(
+    tmp_path: Path,
+):
+    path = tmp_path / "field_vertical_exp_units.toml"
+    path.write_text(
+        textwrap.dedent("""
+            [field]
+            id = "K"
+            kind = "homogeneous"
+            value = 12.0
+
+            [field_vertical_profile]
+            mode = "exponential"
+            characteristic_depth = "30.0 m"
+            """),
         encoding="utf-8",
     )
 
@@ -313,22 +391,18 @@ def test_field_param_from_toml_with_vertical_profile_exponential(tmp_path: Path)
 def test_field_param_heterogeneous_from_toml_with_csv_values(tmp_path: Path):
     csv_path = tmp_path / "geology_values.csv"
     csv_path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             zone_key,property_value
             2141,12.0
             1501,8.5
             SEA,1.0
-            """
-        ).strip()
-        + "\n",
+            """).strip() + "\n",
         encoding="utf-8",
     )
 
     toml_path = tmp_path / "field_param_csv.toml"
     toml_path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "heterogeneous"
@@ -339,8 +413,7 @@ def test_field_param_heterogeneous_from_toml_with_csv_values(tmp_path: Path):
             csv_key_column = "zone_key"
             csv_value_column = "property_value"
             field_spatial_id = "field_geology"
-            """
-        ),
+            """),
         encoding="utf-8",
     )
 
@@ -357,20 +430,16 @@ def test_field_param_heterogeneous_from_toml_with_csv_values(tmp_path: Path):
 def test_field_param_from_toml_with_csv_rejects_duplicate_key(tmp_path: Path):
     csv_path = tmp_path / "dup.csv"
     csv_path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             zone_key,value
             2141,1.0
             2141,2.0
-            """
-        ).strip()
-        + "\n",
+            """).strip() + "\n",
         encoding="utf-8",
     )
     toml_path = tmp_path / "field_param_dup.toml"
     toml_path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "heterogeneous"
@@ -381,8 +450,7 @@ def test_field_param_from_toml_with_csv_rejects_duplicate_key(tmp_path: Path):
             csv_key_column = "zone_key"
             csv_value_column = "value"
             field_spatial_id = "field_geology"
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="Duplicate key"):
@@ -405,7 +473,9 @@ def test_field_param_to_mesh_field_applies_vertical_profile():
 
 
 def test_field_to_mesh_then_param_to_value_mesh():
-    mesh = FieldMeshSquare.from_unit_square(target_n_cells=20, mesh_kind="triangular_structured")
+    mesh = FieldMeshSquare.from_unit_square(
+        target_n_cells=20, mesh_kind="triangular_structured"
+    )
     field = FieldSquare(
         line="diag_main",
         zone1_side="positive",
@@ -427,10 +497,9 @@ def test_field_to_mesh_then_param_to_value_mesh():
     assert field_discretization.aggregation == "weighted_average"
     assert set(field_discretization.zone_keys) == {"granite", "micaschists"}
     assert field_discretization.mesh.n_cells == mesh.n_cells
-    frac_sum = (
-        np.asarray(field_discretization.fractions_by_zone["granite"], dtype=float)
-        + np.asarray(field_discretization.fractions_by_zone["micaschists"], dtype=float)
-    )
+    frac_sum = np.asarray(
+        field_discretization.fractions_by_zone["granite"], dtype=float
+    ) + np.asarray(field_discretization.fractions_by_zone["micaschists"], dtype=float)
     assert np.allclose(frac_sum, 1.0)
     assert values_mesh.n_cells == mesh.n_cells
     value_arr = np.asarray(values_mesh.cell_values, dtype=float)

@@ -1,7 +1,7 @@
 @startuml
 title Calibration2 Core - Config Classes
 
-package "hydromodpy.calibration2.core.engine_config" {
+package "hydromodpy.analysis.calibration.core.engine_config" {
   class "engine_config.py" as EngineConfigModule <<module>> {
     +validate_calibration_config_data(config_data)
     +load_calibration_toml(config_path)
@@ -23,7 +23,7 @@ package "hydromodpy.calibration2.core.engine_config" {
   }
 }
 
-package "hydromodpy.calibration2.core.methods_config" {
+package "hydromodpy.analysis.calibration.core.methods_config" {
   class "methods_config.py" as MethodsConfigModule <<module>> {
     +canonical_method_name(method)
     +is_supported_method(method_name)
@@ -40,11 +40,11 @@ package "hydromodpy.calibration2.core.methods_config" {
   class DaMhGpKwargs <<pydantic>>
 }
 
-package "hydromodpy.calibration2.core.parameters" {
+package "hydromodpy.analysis.calibration.core.parameters" {
   class CalibrationParameterSet
 }
 
-package "hydromodpy.calibration2.core.objective_function" {
+package "hydromodpy.analysis.calibration.core.objective_function" {
   class ObjectiveFunction
 }
 

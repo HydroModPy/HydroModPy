@@ -1,10 +1,10 @@
-"""Adapters from solver ``StructuredGrid`` objects to field-mesh objects.
+"""Adapters from structured-grid objects to field-mesh objects.
 
 Why this module exists
 ----------------------
-The solver side (FloPy ``StructuredGrid``) and the field side
-(``StructuredFieldMesh`` used by field/geology discretization) do not share
-the same object model. This module is the bridge between both worlds.
+The solver side (``SolverMesh`` or FloPy ``StructuredGrid``) and the field
+side (``StructuredFieldMesh`` used by field/geology discretization) do not
+share the same object model.  This module is the bridge between both worlds.
 
 The adapter follows a simple contract:
 1) recover consistent vertex coordinates from the solver grid,
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.field.cases.square.field_mesh_square import StructuredFieldMesh
+from hydromodpy.spatial.field.meshes import StructuredFieldMesh
 
 
 def extract_structured_vertices(sgrid) -> tuple[np.ndarray, np.ndarray]:

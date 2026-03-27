@@ -3,4 +3,3 @@
 from .modpath import Modpath
 
 __all__ = ["Modpath"]
-

@@ -1,0 +1,34 @@
+case_id = "linearized_unconfined_drainage_1d"
+category = "analytical"
+regime = "steady"
+dimension = "1d"
+launcher = "launcher_simulation"
+config_file = "config_modflownwt.toml"
+default_solver = "modflownwt"
+base_config = "config_modflownwt.toml"
+
+[config_files]
+modflownwt = "config_modflownwt.toml"
+modflow6 = "config_modflow6.toml"
+
+
+[workspace]
+results_folder_name = "results_simulations"
+
+[output]
+observable_name = "watertable_elevation"
+expected_shape = [5, 50]
+
+[reference]
+xmin = 0.0
+xmax = 100.0
+length_y_m = 10.0
+west_head_m = 6.2
+east_head_m = 5.8
+drainage_elevation_m = 0.0
+drainage_conductance_m2_per_s = 1e-7
+hydraulic_conductivity_m_per_s = 1e-4
+reference_saturated_thickness_m = 26.0
+aquifer_thickness_m = 20.0
+profile_axis = 0
+

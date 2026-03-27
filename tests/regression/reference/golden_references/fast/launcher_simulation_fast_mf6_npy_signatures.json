@@ -1,0 +1,97 @@
+{
+  "modflow_expected": {
+    "watertable_elevation": {
+      "count": 3600,
+      "mean": 115.49128824357688,
+      "p50": 120.21306854636553,
+      "p95": 128.36300326576995,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 415768.63767687674
+    },
+    "watertable_depth": {
+      "count": 3600,
+      "mean": 6.155645493284803,
+      "p50": 3.5159480548248396,
+      "p95": 6.707461220563519,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 22160.32377582529
+    },
+    "seepage_areas": {
+      "count": 3600,
+      "mean": 0.06388888888888888,
+      "p50": 0.0,
+      "p95": 1.0,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 230.0
+    },
+    "outflow_drain": {
+      "count": 3600,
+      "mean": 2.5444700021003656e-05,
+      "p50": 0.0,
+      "p95": 0.00012812213406643286,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 0.09160092007561316
+    },
+    "accumulation_flux": {
+      "count": 3600,
+      "mean": 0.0004318552112628203,
+      "p50": 0.0,
+      "p95": 0.00024332794127985657,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 1.5546787605461532
+    }
+  },
+  "transport_expected": {
+    "concentration_seepage": {
+      "count": 3600,
+      "mean": -9360.174999826582,
+      "p50": -9999.0,
+      "p95": 2.714228708068909e-06,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": -33696629.99937569
+    },
+    "mass_seepage": {
+      "count": 3600,
+      "mean": -9360.17499999993,
+      "p50": -9999.0,
+      "p95": 3.477808116825854e-10,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": -33696629.99999975
+    }
+  }
+}

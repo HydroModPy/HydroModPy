@@ -235,72 +235,56 @@ except metadata.PackageNotFoundError:
     with _pyproject.open("rb") as fh:
         __version__ = tomllib.load(fh)["project"]["version"]
 
-__author__ = "Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy"
+__author__ = "Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy"
 __email__ = "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
 
 # Initialize logging system
-from hydromodpy.tools.log_manager import LogManager
+from hydromodpy.core.tools.log_manager import LogManager
 _log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
 # Public access to log manager for users
 log_manager = _log_manager
 
-# Import main class (optional dependency chain: geopandas/raster stack).
-try:
-    from hydromodpy.watershed_root import Watershed
-except ModuleNotFoundError as exc:  # pragma: no cover - depends on local env
-    _watershed_import_error = exc
-
-    class Watershed:  # type: ignore[no-redef]
-        """Placeholder raised when optional watershed dependencies are missing."""
-
-        def __init__(self, *args, **kwargs):
-            raise ModuleNotFoundError(
-                "Watershed requires optional dependencies that are not installed "
-                f"(original error: {_watershed_import_error})."
-            ) from _watershed_import_error
-
-# Import submodules for convenience
-from hydromodpy import watershed
-from hydromodpy import modeling
-from hydromodpy import tools
-from hydromodpy import pyhelp
-from hydromodpy import calibration
-from hydromodpy import data_managers
-from hydromodpy import domain
-from hydromodpy import geographic
+_MODULE_EXPORTS = {
+    "analysis": "hydromodpy.analysis",
+    "core": "hydromodpy.core",
+    "data": "hydromodpy.data",
+    "modeling": "hydromodpy.modeling",
+    "process": "hydromodpy.process",
+    "simulation": "hydromodpy.simulation",
+    "solver": "hydromodpy.solver",
+    "spatial": "hydromodpy.spatial",
+    "watershed": "hydromodpy.watershed",
+}
 
 _LAZY_IMPORTS = {
-    # watershed classes
-    "Climatic": "hydromodpy.watershed.climatic",
-    "Driasclimat": "hydromodpy.watershed.driasclimat",
-    "Driaseau": "hydromodpy.watershed.driaseau",
-    "Geographic": "hydromodpy.geographic.geographic",
-    "Geology": "hydromodpy.watershed.geology",
-    "Hydraulic": "hydromodpy.watershed.hydraulic",
-    "Hydrography": "hydromodpy.watershed.hydrography",
-    "Hydrometry": "hydromodpy.watershed.hydrometry",
-    "Workspace": "hydromodpy.watershed.workspace",
-    "Initializing": "hydromodpy.watershed.initializing",
-    "Intermittency": "hydromodpy.watershed.intermittency",
-    "Oceanic": "hydromodpy.watershed.oceanic",
-    "Piezometry": "hydromodpy.watershed.piezometry",
-    "SafranSurfex": "hydromodpy.watershed.safransurfex",
-    "Settings": "hydromodpy.watershed.settings",
-    "Subbasin": "hydromodpy.watershed.subbasin",
-    "Transport": "hydromodpy.watershed.transport",
+    "Geographic": "hydromodpy.spatial.geographic.geographic",
+    "HydrographyResult": "hydromodpy.data.variables.hydrography.result",
+    "HydrographyManager": "hydromodpy.data.variables.hydrography.manager",
+    "HydrographyConfig": "hydromodpy.data.variables.hydrography.config",
+    "Hydrometry": "hydromodpy.data.variables.hydrometry.hydrometry",
+    "Workspace": "hydromodpy.core.workspace",
+    "IntermittencyManager": "hydromodpy.data.variables.intermittency.manager",
+    "IntermittencyConfig": "hydromodpy.data.variables.intermittency.config",
+    "OceanicManager": "hydromodpy.data.variables.oceanic",
+    "OceanicConfig": "hydromodpy.data.variables.oceanic",
+    "Piezometry": "hydromodpy.data.variables.piezometry.piezometry",
+    "Subbasin": "hydromodpy.spatial.geographic.subbasin",
     # config
-    "HydroModPyConfig": "hydromodpy.config.hydromodpy_config",
-    "WorkspaceConfig": "hydromodpy.watershed.workspace_config",
-    "InitializingConfig": "hydromodpy.watershed.initializing_config",
-    "GeographicConfig": "hydromodpy.geographic.geographic_config",
+    "HydroModPyConfig": "hydromodpy.core.config.hydromodpy_config",
+    "WorkspaceConfig": "hydromodpy.core.workspace",
+    "GeographicConfig": "hydromodpy.spatial.geographic.geographic_config",
     # modeling
-    "Modflow": "hydromodpy.solver.modflow",
-    "Modpath": "hydromodpy.modeling.modpath",
-    "Mt3dms": "hydromodpy.modeling.mt3dms",
+    "Modflow": "hydromodpy.solver.modflow_nwt",
+    "Modpath": "hydromodpy.solver.modflow_nwt",
+    "Mt3dms": "hydromodpy.solver.modflow_nwt",
 }
 
 
 def __getattr__(name):
+    if name in _MODULE_EXPORTS:
+        module = importlib.import_module(_MODULE_EXPORTS[name])
+        globals()[name] = module
+        return module
     if name in _LAZY_IMPORTS:
         module = importlib.import_module(_LAZY_IMPORTS[name])
         attr = getattr(module, name)
@@ -310,16 +294,17 @@ def __getattr__(name):
 
 
 __all__ = [
-    "Watershed",
-    "watershed",
-    "modeling",
-    "tools",
-    "pyhelp",
-    "calibration",
-    "data_managers",
-    "domain",
-    "geographic",
+    "analysis",
+    "core",
+    "data",
     "log_manager",
+    "modeling",
+    "process",
+    "simulation",
+    "solver",
+    "spatial",
+    "watershed",
     "__version__",
     *_LAZY_IMPORTS,
 ]
+

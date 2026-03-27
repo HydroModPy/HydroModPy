@@ -13,7 +13,7 @@ Compatibility
 
 - Supports Python 3.8–3.10 only.
 - Package layout still uses ``src`` (pre-refactor).
-- Pip distribution is not available; use the conda environment file (see :doc:`install`).
+- Pip distribution is not available; use the conda environment file (see :doc:`../install`).
 
 Status
 ------

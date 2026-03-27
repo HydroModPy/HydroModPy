@@ -1,0 +1,100 @@
+[simulation]
+name = "LU boundary piecewise val"
+description = "Synthetic transient unconfined flow with a piecewise west-boundary head series and a fixed east boundary."
+
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2003-01-12 23:00:00"
+step_value = "12 hour"
+coverage_policy = "ignore"
+
+[[simulation.process]]
+id = "flow_validation"
+type = "flow"
+solvers = ["modflownwt"]
+
+[workspace]
+project_root = "."
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "val_lu_boundary_piecewise"
+
+[geographic.synthetic.grid]
+length_x = "100.0 m"
+length_y = "10.0 m"
+nx = 50
+ny = 5
+
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 20.0
+
+[domain]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "20.0 m"
+
+[flow]
+flow_regime = "transient"
+active_sinks_sources = []
+active_bc = ["west_side", "east_side"]
+param_list = ["K", "Ss", "Sy"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+
+[flow.param.K.field_homogeneous]
+value = "1e-4 m/s"
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+
+[flow.param.Ss.field_homogeneous]
+value = "1e-10 m-1"
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+
+[flow.param.Sy.field_homogeneous]
+value = "0.10 -"
+
+[flow.ic]
+type = "custom"
+value = "10.0 m"
+
+[flow.bc.dirichlet.west_side]
+type = "dirichlet"
+
+[flow.bc.dirichlet.west_side.forcing]
+mode = "csv"
+path_file = "west_head_piecewise.csv"
+aggregate = "last"
+
+[flow.bc.dirichlet.east_side]
+type = "dirichlet"
+value = "10.0 m"
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 50
+ny = 5
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+[modflownwt.tgrid]
+firstpersteady = false
+
+[display]
+enabled = false
+
+
+

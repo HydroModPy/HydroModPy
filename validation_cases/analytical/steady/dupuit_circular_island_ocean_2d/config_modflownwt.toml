@@ -1,0 +1,94 @@
+[simulation]
+name = "Analytical circular island ocean validation"
+description = "Synthetic steady-state unconfined flow on a circular island with uniform recharge and sea level imposed through the ocean boundary condition."
+
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2003-01-02 00:00:00"
+step_value = "1 day"
+coverage_policy = "ignore"
+
+[[simulation.process]]
+id = "flow_validation"
+type = "flow"
+solvers = ["modflownwt"]
+
+[workspace]
+project_root = "."
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "validation_circular_island_ocean"
+
+[geographic.synthetic.grid]
+length_x = "610.0 m"
+length_y = "610.0 m"
+nx = 61
+ny = 61
+
+[geographic.synthetic.topography]
+kind = "radial_island"
+base_elevation = -1.0
+crest_elevation = 12.0
+island_radius = "200.0 m"
+
+[domain]
+
+[domain.depth_model]
+type = "flat_substratum"
+substratum_elevation = -5.0
+
+[data]
+types = ["oceanic", "recharge"]
+inference_mode = "strict"
+
+[data.oceanic]
+[[data.oceanic.sources]]
+source = "constant"
+value = 0.0
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["ocean"]
+param_list = ["K"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+
+[flow.param.K.field_homogeneous]
+value = "5e-6 m/s"
+
+[flow.ic]
+type = "custom"
+value = "1.0 m"
+
+[flow.bc.dirichlet.ocean]
+type = "dirichlet"
+value = "0.0 m"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [1.0]
+runoff_ratio = 0.0
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 61
+ny = 61
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+[display]
+enabled = false
+
+
+

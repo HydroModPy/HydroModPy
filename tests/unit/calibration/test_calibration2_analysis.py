@@ -1,4 +1,4 @@
-﻿"""Unit tests for calibration2 analysis helpers."""
+"""Unit tests for calibration2 analysis helpers."""
 
 from __future__ import annotations
 
@@ -8,20 +8,20 @@ import numpy as np
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from hydromodpy.calibration.analysis.diagnostics import (
+from hydromodpy.analysis.calibration.analysis.diagnostics import (
     build_calibration_result_view,
 )
-from hydromodpy.calibration.analysis.objective_surface import (
+from hydromodpy.analysis.calibration.analysis.objective_surface import (
     build_objective_surface_approximation,
 )
-from hydromodpy.calibration.analysis.plotting import (
+from hydromodpy.analysis.calibration.analysis.plotting import (
     apply_parameter_axis_scales,
     build_calibration_performance_lines,
     build_parameter_summary_lines,
     build_posterior_summary_lines,
     plot_objective_surface,
 )
-from hydromodpy.calibration.core.results import CalibrationResults
+from hydromodpy.analysis.calibration.core.results import CalibrationResults
 
 
 def test_build_calibration_result_view_prefers_chain_when_posterior_not_diverse():

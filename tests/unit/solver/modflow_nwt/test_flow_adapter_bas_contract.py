@@ -5,7 +5,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow_nwt.flow_to_modflow_adapter import FlowToModflowAdapter
+from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
+from hydromodpy.solver.modflow_nwt.modflow.flow_to_modflow_adapter import FlowToModflowAdapter
 
 
 def _build_adapter(
@@ -25,8 +26,6 @@ def _build_adapter(
     bottom = dem - 10.0
 
     bc = {} if boundary_conditions is None else boundary_conditions
-    # Default active_bc: activate all BCs present in boundary_conditions so
-    # that existing tests continue to pass without requiring explicit lists.
     if active_bc is None:
         active_bc = list(bc.keys())
 
@@ -41,19 +40,18 @@ def _build_adapter(
         parameters={},
     )
     domain = SimpleNamespace(zones={})
-    sgrid = SimpleNamespace()
+
+    solver_mesh = SolverMesh.from_structured_arrays(
+        nrow=dem.shape[0], ncol=dem.shape[1],
+        top=dem, botm=np.stack([bottom, bottom - 5.0]),
+        dx=5.0, dy=5.0,
+    )
 
     return FlowToModflowAdapter(
         flow=flow,
         domain=domain,
-        sgrid=sgrid,
-        dem=dem,
-        bottom_layer=bottom,
-        nlay=2,
-        nrow=dem.shape[0],
-        ncol=dem.shape[1],
+        solver_mesh=solver_mesh,
         nper=1,
-        resolution=5.0,
         sink_fill=False,
     )
 

@@ -1,0 +1,270 @@
+{
+  "breach": {
+    "dem_correc_type": "breach",
+    "catchment_area_km2": 1.594375,
+    "flow_products": {
+      "dem_correc": {
+        "shape": [
+          141,
+          165
+        ],
+        "dtype": "float64",
+        "nodata": -99999.0,
+        "valid_pixel_count": 23265,
+        "nodata_pixel_count": 0,
+        "min": 86.999999999964,
+        "max": 138.7,
+        "mean": 119.4348119492791,
+        "std": 11.170021620982263,
+        "q05": 98.4,
+        "q50": 121.8,
+        "q95": 134.1,
+        "sum": 2778650.899999978
+      },
+      "dem_direc": {
+        "shape": [
+          141,
+          165
+        ],
+        "dtype": "int16",
+        "nodata": -32768.0,
+        "valid_pixel_count": 23265,
+        "nodata_pixel_count": 0,
+        "min": 0.0,
+        "max": 128.0,
+        "mean": 25.00232108317215,
+        "std": 34.94359697995236,
+        "q05": 1.0,
+        "q50": 8.0,
+        "q95": 128.0,
+        "sum": 581679.0
+      },
+      "dem_acc": {
+        "shape": [
+          141,
+          165
+        ],
+        "dtype": "float32",
+        "nodata": -32768.0,
+        "valid_pixel_count": 23265,
+        "nodata_pixel_count": 0,
+        "min": 0.0,
+        "max": 9.312536239624023,
+        "mean": 1.5737635601522486,
+        "std": 1.479113880518789,
+        "q05": 0.0,
+        "q50": 1.3862943649291992,
+        "q95": 4.2626800537109375,
+        "sum": 36613.60922694206
+      }
+    },
+    "domain_products": {
+      "watershed_box_buff_dem": {
+        "shape": [
+          77,
+          84
+        ],
+        "dtype": "float64",
+        "nodata": -9999.0,
+        "valid_pixel_count": 6468,
+        "nodata_pixel_count": 0,
+        "min": 98.1,
+        "max": 135.0,
+        "mean": 121.64567099567098,
+        "std": 8.588456290000565,
+        "q05": 104.5,
+        "q50": 123.5,
+        "q95": 132.6,
+        "sum": 786804.2
+      },
+      "watershed_dem": {
+        "shape": [
+          77,
+          84
+        ],
+        "dtype": "float64",
+        "nodata": -9999.0,
+        "valid_pixel_count": 2551,
+        "nodata_pixel_count": 3917,
+        "min": 101.3,
+        "max": 133.3,
+        "mean": 120.91462171697374,
+        "std": 7.280522998742891,
+        "q05": 107.7,
+        "q50": 122.0,
+        "q95": 131.5,
+        "sum": 308453.2
+      },
+      "watershed_fill": {
+        "shape": [
+          57,
+          64
+        ],
+        "dtype": "float64",
+        "nodata": -99999.0,
+        "valid_pixel_count": 2551,
+        "nodata_pixel_count": 1097,
+        "min": 101.3,
+        "max": 133.3,
+        "mean": 120.91481771854086,
+        "std": 7.280682782796457,
+        "q05": 107.7,
+        "q50": 122.0,
+        "q95": 131.5,
+        "sum": 308453.69999999774
+      },
+      "watershed_direc": {
+        "shape": [
+          57,
+          64
+        ],
+        "dtype": "int16",
+        "nodata": -32768.0,
+        "valid_pixel_count": 2551,
+        "nodata_pixel_count": 1097,
+        "min": 1.0,
+        "max": 128.0,
+        "mean": 28.82830262642101,
+        "std": 31.552553315963387,
+        "q05": 4.0,
+        "q50": 16.0,
+        "q95": 64.0,
+        "sum": 73541.0
+      }
+    }
+  },
+  "fill": {
+    "dem_correc_type": "fill",
+    "catchment_area_km2": 1.598125,
+    "flow_products": {
+      "dem_correc": {
+        "shape": [
+          141,
+          165
+        ],
+        "dtype": "float64",
+        "nodata": -99999.0,
+        "valid_pixel_count": 23265,
+        "nodata_pixel_count": 0,
+        "min": 87.3,
+        "max": 138.7,
+        "mean": 119.46044702343126,
+        "std": 11.113146787540437,
+        "q05": 98.4,
+        "q50": 121.8,
+        "q95": 134.1,
+        "sum": 2779247.3000001283
+      },
+      "dem_direc": {
+        "shape": [
+          141,
+          165
+        ],
+        "dtype": "int16",
+        "nodata": -32768.0,
+        "valid_pixel_count": 23265,
+        "nodata_pixel_count": 0,
+        "min": 0.0,
+        "max": 128.0,
+        "mean": 24.9879647539222,
+        "std": 34.925673208247005,
+        "q05": 1.0,
+        "q50": 8.0,
+        "q95": 128.0,
+        "sum": 581345.0
+      },
+      "dem_acc": {
+        "shape": [
+          141,
+          165
+        ],
+        "dtype": "float32",
+        "nodata": -32768.0,
+        "valid_pixel_count": 23265,
+        "nodata_pixel_count": 0,
+        "min": 0.0,
+        "max": 9.312174797058105,
+        "mean": 1.5881569351402889,
+        "std": 1.4840265276508025,
+        "q05": 0.0,
+        "q50": 1.3862943649291992,
+        "q95": 4.290459632873535,
+        "sum": 36948.47109603882
+      }
+    },
+    "domain_products": {
+      "watershed_box_buff_dem": {
+        "shape": [
+          77,
+          84
+        ],
+        "dtype": "float64",
+        "nodata": -9999.0,
+        "valid_pixel_count": 6468,
+        "nodata_pixel_count": 0,
+        "min": 98.1,
+        "max": 135.0,
+        "mean": 121.64567099567098,
+        "std": 8.588456290000565,
+        "q05": 104.5,
+        "q50": 123.5,
+        "q95": 132.6,
+        "sum": 786804.2
+      },
+      "watershed_dem": {
+        "shape": [
+          77,
+          84
+        ],
+        "dtype": "float64",
+        "nodata": -9999.0,
+        "valid_pixel_count": 2557,
+        "nodata_pixel_count": 3911,
+        "min": 101.3,
+        "max": 133.3,
+        "mean": 120.93199061400077,
+        "std": 7.281106401455851,
+        "q05": 107.7,
+        "q50": 122.0,
+        "q95": 131.5,
+        "sum": 309223.1
+      },
+      "watershed_fill": {
+        "shape": [
+          57,
+          64
+        ],
+        "dtype": "float64",
+        "nodata": -99999.0,
+        "valid_pixel_count": 2557,
+        "nodata_pixel_count": 1091,
+        "min": 101.3,
+        "max": 133.3,
+        "mean": 120.9332420805637,
+        "std": 7.279677285281781,
+        "q05": 107.7,
+        "q50": 122.0,
+        "q95": 131.5,
+        "sum": 309226.3000000014
+      },
+      "watershed_direc": {
+        "shape": [
+          57,
+          64
+        ],
+        "dtype": "int16",
+        "nodata": -32768.0,
+        "valid_pixel_count": 2557,
+        "nodata_pixel_count": 1091,
+        "min": 1.0,
+        "max": 128.0,
+        "mean": 28.999608916699255,
+        "std": 31.736381142109284,
+        "q05": 4.0,
+        "q50": 16.0,
+        "q95": 64.0,
+        "sum": 74152.0
+      }
+    }
+  }
+}

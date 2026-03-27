@@ -1,0 +1,25 @@
+{
+  "value_name": "field_param_value",
+  "depth_name": "prism_center_depth",
+  "cmap": "viridis",
+  "show_edges": false,
+  "opacity": 1.0,
+  "vertical_exaggeration": 1.0,
+  "n_cells_3d": 2400,
+  "n_points_3d": 1764,
+  "display_n_cells": 2400,
+  "display_n_points": 1764,
+  "cell_data_keys": [
+    "field_param_value",
+    "layer_index",
+    "prism_center_depth",
+    "source_cell_index"
+  ],
+  "point_data_keys": [
+    "point_base_index",
+    "point_layer_index"
+  ],
+  "selection": null,
+  "show": true,
+  "off_screen": false
+}

@@ -1,7 +1,7 @@
 @startuml
 title Calibration2 Core - Main Runtime Classes
 
-package "hydromodpy.calibration2.core.parameters" {
+package "hydromodpy.analysis.calibration.core.parameters" {
   class CalibrationParameter {
     +name: str
     +lower: float
@@ -22,7 +22,7 @@ package "hydromodpy.calibration2.core.parameters" {
   CalibrationParameterSet "1" *-- "1..*" CalibrationParameter
 }
 
-package "hydromodpy.calibration2.core.objective_function" {
+package "hydromodpy.analysis.calibration.core.objective_function" {
   class "objective_function.py" as ObjectiveModule <<module>> {
     +rmse(observed, simulated)
     +mae(observed, simulated)
@@ -41,7 +41,7 @@ package "hydromodpy.calibration2.core.objective_function" {
   }
 }
 
-package "hydromodpy.calibration2.core.results" {
+package "hydromodpy.analysis.calibration.core.results" {
   class CalibrationResults {
     +method: str
     +x_best: np.ndarray
@@ -59,7 +59,7 @@ package "hydromodpy.calibration2.core.results" {
   }
 }
 
-package "hydromodpy.calibration2.core.methods_dispatcher" {
+package "hydromodpy.analysis.calibration.core.methods_dispatcher" {
   class "methods_dispatcher.py" as DispatcherModule <<module>> {
     +DEFAULT_CALIBRATION_METHOD
     +_first_docline(func)
@@ -74,7 +74,7 @@ package "hydromodpy.calibration2.core.methods_dispatcher" {
   }
 }
 
-package "hydromodpy.calibration2.core.engine" {
+package "hydromodpy.analysis.calibration.core.engine" {
   class CalibrationEngine {
     +observed: np.ndarray
     +simulator: callable
@@ -92,7 +92,7 @@ package "hydromodpy.calibration2.core.engine" {
   }
 }
 
-package "hydromodpy.calibration2.core.methods" {
+package "hydromodpy.analysis.calibration.core.methods" {
   class "grid_search.py" as GridSearchModule <<module>> {
     +grid_search_calibrate(objective_cost, bounds, ...)
   }

@@ -16,8 +16,7 @@ from pathlib import Path
 import re
 import sys
 
-import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
+import matplotlib
 import numpy as np
 
 # Allow running this file directly without installing the package.
@@ -28,21 +27,22 @@ if __package__ in (None, ""):
     if str(_PROJECT_ROOT) not in sys.path:
         sys.path.insert(0, str(_PROJECT_ROOT))
 
-from hydromodpy.domain.raster_support import RasterSupport
-from hydromodpy.domain.surface import Surface
+from hydromodpy.spatial.raster_support import RasterSupport
+from hydromodpy.spatial.surface import Surface
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
+from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
 from hydromodpy.solver.utils.mesh.cartesian_grid.utils.raster_grid_reader import (
     RasterGridReader,
 )
+from hydromodpy.solver.utils._config_helpers import resolve_path
 
 
 DEFAULT_TOP_PATH = "watershed_box_buff_dem.tif"
 DEFAULT_CRS = "EPSG:2154"
-DEFAULT_PLAN_DISCRETIZATION_MODE = "shape"
+DEFAULT_PLAN_DISCRETIZATION_MODE = "resample_to_shape"
 DEFAULT_NX = 150
 DEFAULT_NY = 150
-DEFAULT_LENUNI = "m"
 DEFAULT_NODATA = -9999.0
 
 DEFAULT_SCENARIOS = [
@@ -78,7 +78,50 @@ DEFAULT_SCENARIOS = [
 ]
 
 
-def _parse_args(default_top_path: Path) -> argparse.Namespace:
+def _is_non_interactive_backend(backend_name: str) -> bool:
+    """Return True only for known non-interactive/inline Matplotlib backends."""
+    key = str(backend_name).strip().lower()
+    if "inline" in key:
+        return True
+    return key in {
+        "agg",
+        "cairo",
+        "pdf",
+        "pgf",
+        "ps",
+        "svg",
+        "template",
+    }
+
+
+def _configure_matplotlib_backend_from_argv(argv: list[str]) -> None:
+    """Prefer a GUI backend by default; keep Agg only for explicit no-show runs."""
+    if "--no-show" in argv:
+        try:
+            matplotlib.use("Agg", force=True)
+        except Exception:
+            pass
+        return
+
+    backend = str(matplotlib.get_backend()).strip()
+    if not _is_non_interactive_backend(backend):
+        return
+
+    for candidate in ("TkAgg", "QtAgg"):
+        try:
+            matplotlib.use(candidate, force=True)
+            return
+        except Exception:
+            continue
+
+
+_configure_matplotlib_backend_from_argv(sys.argv[1:])
+
+import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
+
+
+def _parse_args(default_top_path: Path, argv=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate and visualize structured grid scenarios from explicit surfaces."
     )
@@ -105,14 +148,21 @@ def _parse_args(default_top_path: Path) -> argparse.Namespace:
         action="store_true",
         help="Do not display figures interactively.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def _resolve_path(path_value: str, base_dir: Path) -> Path:
-    path = Path(path_value).expanduser()
-    if not path.is_absolute():
-        path = (base_dir / path).resolve()
-    return path
+def _ensure_gui_backend_for_blocking_show() -> None:
+    """Switch away from inline/non-GUI backends before blocking `show()`."""
+    backend = str(plt.get_backend()).strip()
+    if not _is_non_interactive_backend(backend):
+        return
+
+    for candidate in ("TkAgg", "QtAgg"):
+        try:
+            plt.switch_backend(candidate)
+            return
+        except Exception:
+            continue
 
 
 def _masked(arr, nodata=DEFAULT_NODATA):
@@ -172,11 +222,12 @@ def _build_top_surface(
         support=support,
         name="surface_topo",
     )
-    if plan_mode == "raster_native":
+    if plan_mode == "keep_native":
         return top_surface
-    if plan_mode != "shape":
+    if plan_mode != "resample_to_shape":
         raise ValueError(
-            f"Unsupported plan_discretization_mode '{plan_mode}'. Allowed: raster_native, shape."
+            "Unsupported plan_discretization_mode "
+            f"'{plan_mode}'. Allowed: keep_native, resample_to_shape."
         )
     return top_surface.resample_to_shape(
         int(ny),
@@ -208,7 +259,6 @@ def _build_bottom_surface(top_surface: Surface, scenario: dict) -> Surface:
 
 def _build_vertical_config(scenario: dict) -> VerticalGridConfig:
     payload = {
-        "lenuni": DEFAULT_LENUNI,
         "nodata": DEFAULT_NODATA,
         "genmtd_lay": scenario["genmtd_lay"],
     }
@@ -343,32 +393,66 @@ def _plot_single_scenario(scenario, output_png, figure_size, save_dpi):
     fig.tight_layout(rect=[0, 0, 1, 0.96])
     fig.savefig(output_png, bbox_inches="tight", dpi=save_dpi)
     print(f"Saved visualization to: {output_png}")
+    return fig
+
+
+def _show_figures_blocking(*figures) -> None:
+    visible = [fig for fig in figures if fig is not None]
+    if not visible:
+        return
+    _ensure_gui_backend_for_blocking_show()
+    backend = str(plt.get_backend()).strip()
+    if _is_non_interactive_backend(backend):
+        print(
+            "Interactive figure display is unavailable with backend "
+            f"'{plt.get_backend()}'; PNG files were saved only."
+        )
+        for fig in visible:
+            plt.close(fig)
+        return
+    plt.ioff()
+    for fig in visible:
+        try:
+            manager = getattr(fig.canvas, "manager", None)
+            if manager is not None and hasattr(manager, "show"):
+                manager.show()
+            fig.show()
+        except Exception:
+            continue
+    maximize_figure_windows(*visible)
+    plt.pause(0.05)
+    plt.show(block=True)
+    for fig in visible:
+        plt.close(fig)
 
 
 def _plot_scenarios(scenarios, output_dir, show_plots=True, figure_size=(15.8, 5.0), save_dpi=140):
     """Generate one figure per scenario."""
+    figures = []
     for scenario in scenarios:
         slug = _scenario_slug(scenario["name"])
         output_png = os.path.join(output_dir, f"sgrid_generation_{slug}.png")
-        _plot_single_scenario(
+        fig = _plot_single_scenario(
             scenario,
             output_png,
             figure_size=figure_size,
             save_dpi=save_dpi,
         )
+        figures.append(fig)
 
-    backend = plt.get_backend().lower()
-    if show_plots and "agg" not in backend:
-        plt.show()
-    elif not show_plots:
+    if show_plots:
+        _show_figures_blocking(*figures)
+    else:
         plt.close("all")
 
 
-def main():
+def main(argv=None):
     cfolder = Path(os.path.dirname(os.path.realpath(__file__)))
-    args = _parse_args(default_top_path=cfolder / DEFAULT_TOP_PATH)
+    args = _parse_args(default_top_path=cfolder / DEFAULT_TOP_PATH, argv=argv)
+    if not bool(args.no_show):
+        _ensure_gui_backend_for_blocking_show()
 
-    top_path = _resolve_path(args.top_path, cfolder)
+    top_path = Path(resolve_path(args.top_path, cfolder))
     top_surface = _build_top_surface(
         top_path=top_path,
         crs=DEFAULT_CRS,
@@ -378,7 +462,7 @@ def main():
         nodata=DEFAULT_NODATA,
     )
 
-    output_dir = _resolve_path(args.output_dir, cfolder)
+    output_dir = Path(resolve_path(args.output_dir, cfolder))
     output_dir.mkdir(parents=True, exist_ok=True)
 
     scenarios = [_build_scenario_grid(top_surface, s) for s in DEFAULT_SCENARIOS]
@@ -391,7 +475,8 @@ def main():
         save_dpi=int(args.dpi),
     )
     print(f"Output directory: {output_dir}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

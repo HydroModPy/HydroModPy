@@ -15,22 +15,31 @@ dependencies:
 - netcdf4
 - numpy>=2.0
 - pandas
+- pint
 - pydantic
 - pytest
 - pytest-xdist
 - sphinx
 - plotly
+- pyproj
 - pyshp
+- pyvista
 - python>=3.11,<3.14
 - rasterio
 - rioxarray
 - scikit-learn
+- scipy
 - selenium
+- sqlalchemy>=2.0
 - spyder-kernels
 - spyder
 - vedo
-- whitebox
 - xarray
 - pyside6
 - pysheds
+- dask
 - pip
+- pip:
+  - gmsh
+  - meshio
+  - whitebox-workflows

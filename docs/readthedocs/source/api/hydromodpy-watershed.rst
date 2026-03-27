@@ -1,8 +1,11 @@
+:orphan:
+
 hydromodpy.watershed
 ====================
 
-Core data-model objects that describe a watershed and expose helper descriptors
-for geospatial, geological, climatic and hydraulic inputs.
+Historical watershed runtime preserved for notebooks and regression assets.
+New projects should start from ``hydromodpy.spatial.geographic`` and the
+modern runtime packages.
 
 Class overview
 --------------
@@ -11,15 +14,15 @@ Class overview
    :nosignatures:
    :toctree: generated/watershed
 
-   ~hydromodpy.watershed_root.Watershed
-   ~hydromodpy.watershed.initializing.Initializing
-   ~hydromodpy.watershed.geographic.Geographic
-   ~hydromodpy.watershed.geology.Geology
+   ~hydromodpy.watershed.watershed.Watershed
+   ~hydromodpy.spatial.geographic.Geographic
+   ~hydromodpy.spatial.field.geology.GeologyField
    ~hydromodpy.watershed.hydrography.Hydrography
-   ~hydromodpy.watershed.hydrometry.Hydrometry
-   ~hydromodpy.watershed.intermittency.Intermittency
-   ~hydromodpy.watershed.piezometry.Piezometry
-   ~hydromodpy.watershed.oceanic.Oceanic
+   ~hydromodpy.data.variables.hydrometry.manager.HydrometryManager
+   ~hydromodpy.data.variables.intermittency.manager.IntermittencyManager
+   ~hydromodpy.data.variables.piezometry.manager.PiezometryManager
+   ~hydromodpy.data.variables.oceanic.manager.OceanicManager
+   ~hydromodpy.data.climatic.Climatic
    ~hydromodpy.watershed.settings.Settings
    ~hydromodpy.watershed.hydraulic.Hydraulic
-   ~hydromodpy.watershed.climatic.Climatic
+

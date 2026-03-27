@@ -1,0 +1,38 @@
+@startuml
+title Spatial Support - Support Resolution Activity Diagram
+
+start
+
+:Validate DomainConfig;
+:Inspect flow parameters and\nrequested field_spatial_id values;
+
+if (Any heterogeneous FieldParam?) then (yes)
+  if (Any requested support missing in\ndomain.supports?) then (yes)
+    :Reject configuration;\neach heterogeneous field_spatial_id\nmust match a declared domain support;
+    stop
+  else (no)
+    :Attach setup-time zone sources\n(catchment and custom domain zones);
+
+    if (Any requested support uses\nprovider = geology?) then (yes)
+      :Infer/load geology data\nthrough DataManagersPlanner\nand runtime loader;
+      :Attach GeologyField to Domain;
+    endif
+
+    :Build requested explicit supports\nusing generated_bands,\ngenerated_rings, catchment_zones,\nor geology providers;
+    :Domain now exposes support ids\nthrough zones + resolve_spatial_support(...);
+    :During property mapping,\nresolve field_spatial_id on Domain;
+
+    if (Support found?) then (yes)
+      :Project support on mesh\nvia Field.on_mesh(...);
+      :Map values with FieldParam.to_mesh_field(...);
+    else (no)
+      :Fail fast;\nmissing spatial support for\nheterogeneous mapping;
+      stop
+    endif
+  endif
+else (no)
+  :Use homogeneous FieldParam mapping;\nno spatial support required;
+endif
+
+stop
+@enduml

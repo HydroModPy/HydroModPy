@@ -19,6 +19,7 @@ import numpy as np
 import os
 import rasterio
 import sys
+from tqdm import tqdm
 from os.path import dirname, abspath
 import flopy.utils.binaryfile as fpu
 
@@ -27,15 +28,32 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.tools import toolbox, get_logger
-from hydromodpy.modeling import masstransfer
+# Map MODFLOW ITMUNI codes to seconds per time unit.
+# Used to convert FieldParam SI values (m/s) to solver time units.
+_ITMUNI_TO_SECONDS: dict[int, float] = {
+    0: 1.0,         # undefined → treat as seconds
+    1: 1.0,         # seconds
+    2: 60.0,        # minutes
+    3: 3600.0,      # hours
+    4: 86400.0,     # days
+    5: 31557600.0,  # years (365.25 days)
+}
+
+from hydromodpy.core.tools import toolbox, get_logger
+from hydromodpy.solver.modflow_common import (
+    ensure_platform_executable,
+    SolverGridContext,
+    SolverRoutingContext,
+    build_solver_routing_context,
+    masstransfer,
+    write_grid_array_to_raster,
+)
 from hydromodpy.solver import Solver
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
-from .cross_section_plots import plot_cross_section
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 from .diagnostics import check_water_flow_connectivity
 from .discretization import (
     build_spatial_discretization,
-    build_temporal_discretization,
+    build_temporal_discretization_from_time_grid,
     resolve_domain_surfaces,
 )
 from .flow_to_modflow_adapter import FlowToModflowAdapter
@@ -60,6 +78,68 @@ from .postprocess import (
 )
 
 logger = get_logger(__name__)
+MODFLOW_LENUNI_METERS = 2
+
+# ---------------------------------------------------------------------------
+# Helper: run MODFLOW with a tqdm progress bar on stress periods
+# ---------------------------------------------------------------------------
+
+import re as _re
+
+_SOLVING_RE = _re.compile(
+    r"Solving:\s+Stress period:\s+(\d+)\s+Time step:\s+(\d+)",
+    _re.IGNORECASE,
+)
+
+
+def _run_model_with_progress(
+    mf_model,
+    nper: int,
+) -> tuple[bool, list[str]]:
+    """Run a MODFLOW model while showing a tqdm progress bar.
+
+    Intercepts solver stdout, parses "Solving: Stress period: N …" lines
+    to advance the bar, and suppresses the raw output.  Non-solving lines
+    (header, termination message, etc.) are forwarded to the logger.
+    """
+    import flopy.mbase as _mbase
+
+    pbar = tqdm(
+        total=nper,
+        desc="[INFO] MODFLOW solving",
+        unit="sp",
+        disable=nper <= 1,
+    )
+    _last_sp = 0
+
+    def _progress_print(line: str) -> None:
+        nonlocal _last_sp
+        m = _SOLVING_RE.search(line)
+        if m:
+            sp = int(m.group(1))
+            if sp > _last_sp:
+                pbar.update(sp - _last_sp)
+                _last_sp = sp
+            return
+        # Forward important non-solving lines (header, termination, etc.)
+        stripped = line.strip()
+        if stripped:
+            logger.debug("%s", stripped)
+
+    try:
+        success, buff = _mbase.run_model(
+            mf_model.exe_name,
+            mf_model.namefile,
+            model_ws=mf_model.model_ws,
+            silent=False,
+            report=True,
+            custom_print=_progress_print,
+        )
+    finally:
+        pbar.close()
+
+    return success, buff
+
 
 # %% CLASS
 
@@ -96,7 +176,9 @@ class Modflow(Solver):
             Location folder of the modflow executables. The default is 'bin'.
         modflow_config : ModflowConfig | Mapping | None, optional
             Expert MODFLOW-NWT package parameters loaded from
-            `[modflownwt.runtime]`, `[modflownwt.process_specific]`, and `[modflownwt.sgrid]` in TOML.
+            `[modflownwt.runtime]`, `[modflownwt.process_specific]`,
+            `[modflownwt.sgrid.planar]`, and `[modflownwt.sgrid.vertical]`
+            in TOML.
             If None, internal defaults from ModflowConfig are used.
         preprocess_options : ModflowPreprocessOptions | None
             Optional typed options for pre_processing stage.
@@ -106,7 +188,7 @@ class Modflow(Solver):
 
         self.model_folder = model_folder
         if not os.path.exists(self.model_folder):
-            toolbox.create(self.model_folder)
+            toolbox.create_folder(self.model_folder)
 
         self.model_name = model_name
 
@@ -116,6 +198,7 @@ class Modflow(Solver):
             self.exe = os.path.join(bin_path, "linux", "mfnwt")
         if sys.platform == "darwin":
             self.exe = os.path.join(bin_path, "mac", "mfnwt")
+        self.exe = str(ensure_platform_executable(self.exe))
 
         self.full_path = os.path.join(model_folder, model_name)  #'modraw'
 
@@ -149,8 +232,10 @@ class Modflow(Solver):
             self.modflow_config = ModflowConfig.model_validate(dict(modflow_config))
 
         self._params: ModflowSpecifParams = specif_params
-        self.sgrid_config: VerticalGridConfig | None = specif_params.sgrid
+        self.sgrid_config: SolverSGridConfig | None = specif_params.sgrid
         self.tgrid_config = specif_params.tgrid
+        self.grid_ctx: SolverGridContext | None = None
+        self.routing_ctx: SolverRoutingContext | None = None
 
         # dis_itmuni is mutable: may be updated in _build_temporal_discretization
         self.dis_itmuni = specif_params.runtime.dis_itmuni
@@ -167,7 +252,6 @@ class Modflow(Solver):
         self.box = bool(box)
         dem = np.asarray(dem_source, dtype=float).copy()
         dem[(dem <= NODATA) | (dem >= 9999)] = NODATA
-        self.dem = dem
         self.nrow = int(dem.shape[0])
         self.ncol = int(dem.shape[1])
 
@@ -184,8 +268,7 @@ class Modflow(Solver):
 
         self.preprocess_options = options
         self.sink_fill = bool(options.sink_fill)
-        self.plot_cross = bool(options.plot_cross)
-        self.cross_ylim = [] if options.cross_ylim is None else list(options.cross_ylim)
+        self.time_grid = getattr(options, "time_grid", None)
         self.check_grid = bool(options.check_grid)
         self._select_active_dem(box=bool(options.box))
 
@@ -197,7 +280,6 @@ class Modflow(Solver):
         """
         return resolve_domain_surfaces(
             domain=self.domain,
-            dem_shape=tuple(self.dem.shape),
         )
 
     def _resolve_flow_regime(self) -> str | None:
@@ -226,17 +308,6 @@ class Modflow(Solver):
         if self.domain is None:
             raise ValueError("pre_processing requires a configured Domain object.")
 
-        if self.tgrid_config is None:
-            raise ValueError(
-                "Missing [modflownwt.tgrid] configuration: a typed TMeshConfigModel "
-                "is required to generate temporal discretization."
-            )
-        if self.sgrid_config is None:
-            raise ValueError(
-                "Missing [modflownwt.sgrid] configuration: a typed VerticalGridConfig "
-                "is required to generate the structured grid."
-            )
-
         flow_regime = self._resolve_flow_regime()
         if flow_regime is None:
             raise ValueError(
@@ -244,6 +315,14 @@ class Modflow(Solver):
                 "must be driven by [flow].flow_regime."
             )
         self.flow_regime = flow_regime
+
+        launcher_time_grid = getattr(self.preprocess_options, "time_grid", None)
+        if launcher_time_grid is None and self.flow_regime != "steady":
+            raise ValueError(
+                "Launcher flow preprocessing requires preprocess_options.time_grid "
+                "derived from [simulation.time] for transient flow runs. "
+                "Solver tgrid fallback is no longer supported."
+            )
 
     def _initialize_solver_packages(self) -> None:
         """Initialize FLOPY MODFLOW and NWT solver packages."""
@@ -274,10 +353,11 @@ class Modflow(Solver):
 
     def _build_temporal_discretization(self) -> dict[str, object]:
         """Build temporal discretization arrays from tgrid configuration."""
-        result = build_temporal_discretization(
-            tgrid_config=self.tgrid_config,
+        launcher_time_grid = getattr(self.preprocess_options, "time_grid", None)
+        result = build_temporal_discretization_from_time_grid(
+            time_grid=launcher_time_grid,
             flow_regime=self.flow_regime,
-            default_itmuni=self.dis_itmuni,
+            firstpersteady=bool(getattr(self.tgrid_config, "firstpersteady", True)),
         )
 
         self.dis_itmuni = result.itmuni
@@ -291,35 +371,69 @@ class Modflow(Solver):
 
     def _build_spatial_discretization(self):
         """Build structured spatial grid from validated domain surfaces."""
-        result = build_spatial_discretization(
+        self.grid_ctx = build_spatial_discretization(
             domain=self.domain,
-            dem_shape=tuple(self.dem.shape),
-            vertical_config=self.sgrid_config,
+            sgrid_config=self.sgrid_config,
         )
-        self.dem = result.dem
-        self.nlay = result.nlay
-        self.nrow = result.nrow
-        self.ncol = result.ncol
-        self.zbot = result.zbot
-        self.bottom_layer = result.bottom_layer
-        return result.sgrid
+        if not self.grid_ctx.solver_mesh.is_structured:
+            raise ValueError("MODFLOW NWT requires a structured grid")
+        self.solver_mesh = self.grid_ctx.solver_mesh
+        self.top_elevation = self.solver_mesh.reshape_to_grid(self.solver_mesh.top)
+        self.inactive_mask = self.solver_mesh.reshape_to_grid(self.solver_mesh.inactive_mask[0])
+        self.nlay = self.solver_mesh.nlay
+        self.nrow = self.solver_mesh.nrow
+        self.ncol = self.solver_mesh.ncol
+        self.bottom_layer = self.solver_mesh.reshape_to_grid(self.solver_mesh.botm[-1])
+        self.zbot = self.solver_mesh.botm_grid
+        self.cell_area = float(self.grid_ctx.grid.cell_area)
+        self.resolution = float(self.grid_ctx.grid.characteristic_length)
+        self.dem_watershed_path = self._write_solver_grid_template()
+        return self.solver_mesh
 
-    def _build_dis_package(self, sgrid, temporal_dis: Mapping[str, object]) -> None:
+    def _write_solver_grid_template(self) -> str:
+        """Persist one solver-grid-aligned raster template used by exports."""
+        if self.grid_ctx is None:
+            raise ValueError("grid_ctx must exist before writing a solver grid template")
+        os.makedirs(self.full_path, exist_ok=True)
+        template_path = os.path.join(self.full_path, "_solver_grid_template.tif")
+        top_flat = np.asarray(self.grid_ctx.top_elevation, dtype=float)
+        top_2d = self.solver_mesh.reshape_to_grid(top_flat)
+        write_grid_array_to_raster(
+            grid=self.grid_ctx.grid,
+            data=top_2d,
+            output_path=template_path,
+            nodata=float(self.grid_ctx.grid.nodata),
+        )
+        self.grid_ctx.template_raster_path = template_path
+        return template_path
+
+    def _ensure_solver_routing_context(self) -> SolverRoutingContext:
+        """Build hydrologic routing rasters aligned with the solver grid."""
+        if self.routing_ctx is not None:
+            return self.routing_ctx
+        if self.grid_ctx is None:
+            raise ValueError("grid_ctx must exist before building solver routing products")
+
+        self.routing_ctx = build_solver_routing_context(
+            dem_path=self.dem_watershed_path,
+            output_dir=os.path.join(self.full_path, "_solver_routing"),
+            dem_correc_type=str(getattr(self.geographic, "dem_correc_type", "breach")),
+            crs_project=getattr(self.geographic, "crs_proj", None),
+        )
+        return self.routing_ctx
+
+    def _build_dis_package(self, solver_mesh, temporal_dis: Mapping[str, object]) -> None:
         """Create FLOPY DIS package from spatial and temporal discretization."""
+        dis_kwargs = solver_mesh.to_dis_kwargs()
+        verts = np.asarray(solver_mesh.planar_mesh.vertices, dtype=float)
+        xmin = float(verts[:, 0].min())
+        ymax = float(verts[:, 1].max())
         self.dis = flopy.modflow.ModflowDis(
             self.mf,
-            # Spatial grid parameters
-            lenuni=sgrid.lenuni,
-            nlay=sgrid.nlay,
-            nrow=sgrid.nrow,
-            ncol=sgrid.ncol,
-            delr=sgrid.delr,
-            delc=sgrid.delc,
-            top=sgrid.top,
-            botm=sgrid.botm,
-            xul=sgrid.xoffset,
-            yul=sgrid.extent[3],
-            # Temporal grid parameters
+            lenuni=MODFLOW_LENUNI_METERS,
+            xul=xmin,
+            yul=ymax,
+            **dis_kwargs,
             itmuni=temporal_dis["itmuni"],
             nper=temporal_dis["nper"],
             perlen=temporal_dis["perlen"],
@@ -328,19 +442,15 @@ class Modflow(Solver):
             start_datetime=temporal_dis["start_datetime"],
         )
 
-    def _build_flow_modflow_inputs(self, sgrid):
+    def _build_flow_modflow_inputs(self, solver_mesh):
         """Adapt Flow+Domain data into solver-ready payloads."""
         adapter = FlowToModflowAdapter(
             flow=self.flow,
             domain=self.domain,
-            sgrid=sgrid,
-            dem=self.dem,
-            bottom_layer=self.bottom_layer,
-            nlay=self.nlay,
-            nrow=self.nrow,
-            ncol=self.ncol,
+            solver_mesh=solver_mesh,
             nper=int(self.nper),
-            resolution=float(self.resolution),
+            grid=None if self.grid_ctx is None else self.grid_ctx.grid,
+            simulation_window=None if self.time_grid is None else self.time_grid.window,
             sink_fill=bool(self.sink_fill),
             sink=getattr(self, "sink", None),
         )
@@ -383,6 +493,11 @@ class Modflow(Solver):
         # %% Flow adaptation (process -> solver-ready payloads)
         flow_inputs = self._build_flow_modflow_inputs(sgrid)
 
+        # FieldParam stores hydraulic properties in SI (m/s). MODFLOW
+        # interprets values according to itmuni. Convert K (and derived
+        # conductances) from SI to solver time units.
+        _si_to_solver = _ITMUNI_TO_SECONDS.get(self.dis_itmuni, 1.0)
+
         # Boundary conditions arrays
         self.drain_array = flow_inputs.drain_array
 
@@ -411,8 +526,8 @@ class Modflow(Solver):
         self.laywet = np.zeros(self.nlay)  # wettable
         self.laytype = np.ones(self.nlay)  # convertible
 
-        self.hk = flow_inputs.hk
-        self.hk_value = flow_inputs.hk_value
+        self.hk = flow_inputs.hk * _si_to_solver
+        self.hk_value = flow_inputs.hk_value * _si_to_solver
         self.sy = flow_inputs.sy
         self.sy_value = flow_inputs.sy_value
         self.ss = flow_inputs.ss
@@ -442,7 +557,7 @@ class Modflow(Solver):
             self.evt = flopy.modflow.ModflowEvt(
                 self.mf,
                 evtr=flow_inputs.evt_spd,
-                surf=self.dem,
+                surf=self.top_elevation,
                 nevtop=self._params.runtime.evt_nevtop,
                 exdp=self._params.process_specific.exdp,
                 ievt=self._params.runtime.evt_ievt,
@@ -465,6 +580,10 @@ class Modflow(Solver):
 
         # DRN is applied to all the surface of the model: enables seepage on the top layer
         if flow_inputs.drn_spd is not None:
+            # Drainage conductance [L²/T] was derived from hk in SI;
+            # convert to solver time units (column index 4 = conductance).
+            for _kper_data in flow_inputs.drn_spd.values():
+                _kper_data[:, 4] *= _si_to_solver
             self.drn = flopy.modflow.ModflowDrn(
                 self.mf,
                 stress_period_data=flow_inputs.drn_spd,
@@ -509,13 +628,6 @@ class Modflow(Solver):
                 )
                 self.prob_cells = len(problematic_cells)
 
-        # %% Cross-section figure
-
-        if active_options.plot_cross:
-            plot_cross_section(
-                self.mf, self.hk, self.sy, self.dem, self.model_name, active_options
-            )
-
     # %% PROCESSING
 
     def processing(
@@ -559,9 +671,12 @@ class Modflow(Solver):
         # Run modflow files
         success_model = False
         if options.run_model:
-            success_model, tempo = self.mf.run_model(
-                silent=not options.verbose
-            )  # True without msg
+            if options.verbose:
+                success_model, _ = _run_model_with_progress(
+                    self.mf, int(self.nper),
+                )
+            else:
+                success_model, _ = self.mf.run_model(silent=True)
 
         return success_model
 
@@ -610,8 +725,10 @@ class Modflow(Solver):
         # Modflow specific files (written in the processing phase)
         self.path_file = os.path.join(self.full_path, self.model_name)
 
-        # Files have been output in the processing phase and are re-read here
-        self.dem_mask = self.dem == NODATA
+        # Files have been output in the processing phase and are re-read here.
+        if not hasattr(self, "inactive_mask"):
+            raise ValueError("inactive_mask must be set before MODFLOW post-processing.")
+        inactive_mask = np.asarray(self.inactive_mask, dtype=bool)
         # heads
         self.head_fpu = fpu.HeadFile(self.path_file + ".hds")
         # fluxes
@@ -647,10 +764,12 @@ class Modflow(Solver):
 
         # %% Loop over stress periods
 
-        for item, time in enumerate(self.times):
-            logger.info(
-                "Post-processing stress period %d/%d", item + 1, len(self.times)
-            )
+        for item, time in enumerate(tqdm(
+            self.times,
+            desc="[INFO] Post-processing",
+            unit="sp",
+            disable=len(self.times) <= 1,
+        )):
 
             if len(self.times) == 1:
                 self.kstpkper = self.kstpkpers[0]
@@ -664,7 +783,7 @@ class Modflow(Solver):
 
             if options.watertable_elevation:
                 self.wt_elev = compute_watertable_elevation(self.head, self.nlay)
-                self.wt_elev[self.dem_mask] = NODATA
+                self.wt_elev[inactive_mask] = NODATA
                 output_path = (
                     self.tifs_file + f"/watertable_elevation_t({lead_numb}).tif"
                 )
@@ -676,7 +795,7 @@ class Modflow(Solver):
 
             if options.watertable_depth:
                 self.wt_depth = compute_watertable_depth(
-                    self.wt_elev, self.dem, self.dem_mask
+                    self.wt_elev, self.top_elevation, inactive_mask
                 )
                 output_path = (
                     self.tifs_file + f"/watertable_depth_t({lead_numb}).tif"
@@ -689,7 +808,7 @@ class Modflow(Solver):
 
             if options.seepage_areas:
                 self.seep_area = compute_seepage_areas(
-                    self.wt_elev, self.dem, self.dem_mask
+                    self.wt_elev, self.top_elevation, inactive_mask
                 )
                 output_path = self.tifs_file + f"/seepage_areas_t({lead_numb}).tif"
                 if export_tif:
@@ -707,7 +826,7 @@ class Modflow(Solver):
                     self.drain_array,
                     self.dis.nrow,
                     self.dis.ncol,
-                    self.dem_mask,
+                    inactive_mask,
                 )
                 output_path = self.tifs_file + f"/outflow_drain_t({lead_numb}).tif"
                 if options.accumulation_flux or export_tif:
@@ -718,7 +837,7 @@ class Modflow(Solver):
 
             if options.groundwater_flux:
                 self.flux_top = compute_groundwater_flux(
-                    self.cbb, self.kstpkper, time, self.nlay, self.dem_mask
+                    self.cbb, self.kstpkper, time, self.nlay, inactive_mask
                 )
                 output_path = (
                     self.tifs_file + f"/groundwater_flux_t({lead_numb}).tif"
@@ -731,7 +850,11 @@ class Modflow(Solver):
 
             if options.groundwater_storage:
                 self.wt_sto = compute_groundwater_storage(
-                    self.wt_elev, self.zbot, self.sy, self.dem, self.resolution
+                    self.wt_elev,
+                    self.zbot,
+                    self.sy,
+                    self.top_elevation,
+                    cell_area=float(self.cell_area),
                 )
                 output_path = (
                     self.tifs_file + f"/groundwater_storage_t({lead_numb}).tif"
@@ -743,12 +866,15 @@ class Modflow(Solver):
                 self.dict_groundwater_storage[item] = self.wt_sto
 
             if options.accumulation_flux:
+                routing_ctx = self._ensure_solver_routing_context()
                 accumulated_flow = masstransfer.Masstransfer(
                     self.geographic,
                     f"outflow_drain_t({lead_numb}).tif",
                     f"tracept_t({lead_numb}).shp",
                     f"accumulation_flux_t({lead_numb}).tif",
                     extraction_folder=self.save_file,
+                    routing_fill_path=routing_ctx.correc_path,
+                    routing_direc_path=routing_ctx.direc_path,
                 )
                 accumulated_flow.trace_cumulated()
                 output_path = (
@@ -768,23 +894,27 @@ class Modflow(Solver):
             (options.groundwater_storage, self.dict_groundwater_storage, "groundwater_storage"),
             (options.accumulation_flux, self.dict_accumulation_flux, "accumulation_flux"),
         ]
+        _exported = []
         for flag, data, name in _timeseries_exports:
             if flag:
-                logger.info("Exporting %s time series", name.replace("_", " "))
                 np.save(self.save_file + "/" + name, data)
+                _exported.append(name.replace("_", " "))
+        if _exported:
+            logger.info("Exported time series: %s", ", ".join(_exported))
 
         # %% Persistency index
 
-        if options.persistency_index:
+        accumulation_flux_path = os.path.join(self.save_file, "accumulation_flux.npy")
+
+        if options.persistency_index and os.path.exists(accumulation_flux_path):
             logger.info("Exporting persistency index maps")
             acc_npy_raw = np.load(
-                os.path.join(self.save_file, "accumulation_flux.npy"), allow_pickle=True
+                accumulation_flux_path, allow_pickle=True
             ).item()
             acc_npy = list(acc_npy_raw.items())[:]
+            mask = inactive_mask
             for key in range(len(acc_npy)):
-                with rasterio.open(self.geographic.watershed_box_buff_dem) as src:
-                    mask = src.read(1)
-                acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask < 0))
+                acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=mask)
             zero = acc_npy_raw[0] * 0
             for i in range(len(acc_npy)):
                 tempo = acc_npy[i].copy()
@@ -795,7 +925,7 @@ class Modflow(Solver):
             self.pi = np.ma.masked_where(days_flux <= 0, days_flux)
             self.dict_persistency_index[0] = self.pi
             pi_export[days_flux <= 0] = NODATA
-            pi_export[mask <= 0] = NODATA
+            pi_export[mask] = NODATA
             output_path = self.tifs_file + "/persistency_index_t(-).tif"
             toolbox.export_tif(self.dem_watershed_path, pi_export, output_path, NODATA)
             np.save(self.save_file + "/persistency_index", self.dict_persistency_index)
@@ -808,58 +938,59 @@ class Modflow(Solver):
             or options.intermittency_monthly
             or options.intermittency_yearly
         )
-        if _any_intermittency:
+        acc_npy_raw = None
+        if _any_intermittency and os.path.exists(accumulation_flux_path):
             acc_npy_raw = np.load(
-                os.path.join(self.save_file, "accumulation_flux.npy"), allow_pickle=True
+                accumulation_flux_path, allow_pickle=True
             ).item()
 
-        if options.intermittency_daily:
+        if options.intermittency_daily and acc_npy_raw is not None:
             export_intermittency(
                 label="daily",
                 window_size=365,
                 acc_npy_raw=acc_npy_raw,
                 result_dict=self.dict_intermittency_daily,
                 tifs_file=self.tifs_file,
-                watershed_dem=self.geographic.watershed_dem,
+                watershed_dem=self.dem_watershed_path,
                 save_file=self.save_file,
                 save_filename="intermittency_daily",
                 toolbox=toolbox,
             )
 
-        if options.intermittency_weekly:
+        if options.intermittency_weekly and acc_npy_raw is not None:
             export_intermittency(
                 label="weekly",
                 window_size=52,
                 acc_npy_raw=acc_npy_raw,
                 result_dict=self.dict_intermittency_weekly,
                 tifs_file=self.tifs_file,
-                watershed_dem=self.geographic.watershed_dem,
+                watershed_dem=self.dem_watershed_path,
                 save_file=self.save_file,
                 save_filename="intermittency_weekly",
                 toolbox=toolbox,
             )
 
-        if options.intermittency_monthly:
+        if options.intermittency_monthly and acc_npy_raw is not None:
             export_intermittency(
                 label="monthly",
                 window_size=12,
                 acc_npy_raw=acc_npy_raw,
                 result_dict=self.dict_intermittency_monthly,
                 tifs_file=self.tifs_file,
-                watershed_dem=self.geographic.watershed_dem,
+                watershed_dem=self.dem_watershed_path,
                 save_file=self.save_file,
                 save_filename="intermittency_monthly",
                 toolbox=toolbox,
             )
 
-        if options.intermittency_yearly:
+        if options.intermittency_yearly and acc_npy_raw is not None:
             export_intermittency(
                 label="yearly",
                 window_size=1,
                 acc_npy_raw=acc_npy_raw,
                 result_dict=self.dict_intermittency_yearly,
                 tifs_file=self.tifs_file,
-                watershed_dem=self.geographic.watershed_dem,
+                watershed_dem=self.dem_watershed_path,
                 save_file=self.save_file,
                 save_filename="intermittency_yearly",
                 toolbox=toolbox,

@@ -1,0 +1,30 @@
+@startuml
+title Spatial Discretization - Activity (SGrid to FieldParam 3D values)
+
+start
+
+:Validate runtime contracts\n(support_field, field_param, sgrid);
+
+if (Heterogeneous and strict id match?) then (yes)
+  :Compare field_param.field_spatial_id\nwith support_field.identifier;
+  if (Mismatch?) then (yes)
+    :Raise ValueError;
+    stop
+  endif
+endif
+
+:Build planar mesh view from solver grid\nbuild_field_mesh_from_sgrid(sgrid);
+:Project support field on this mesh\nfield_discretization = support_field.on_mesh(...);
+
+:Compute planar reference map\nvalues_2d = field_param.to_mesh_field(..., depth);
+
+:Read sgrid dimensions\n(nlay, nrow, ncol);
+:Compute layer-center depths from top/botm\n+ global depth offset;
+:Allocate values_3d[nlay, nrow, ncol];
+
+:For each layer:\n1) extract depth map\n2) evaluate field_param.to_mesh_field(..., depth=layer_depth)\n3) assign values_3d[layer, :, :];
+
+:Return SGridFieldParamDiscretizationResult\n(values_3d, values_2d, mesh, field_discretization);
+stop
+
+@enduml

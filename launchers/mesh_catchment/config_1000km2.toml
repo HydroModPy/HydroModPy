@@ -1,0 +1,19 @@
+# Batch mesh-catchment launcher config for the preprocess run:
+#   hydromodpy_annex/preprocess/catchment_identification_scan/config_1000km2.toml
+#
+# Run with:
+#   python -m launchers mesh-catchment run launchers/mesh_catchment/config_1000km2.toml
+#
+# Inherits the shared batch DEM, geology source, conductivity demo mapping,
+# output naming, and the default profile where rivers and geology constrain the mesh.
+
+base_config = "config_batch_common.toml"
+
+[workspace]
+# One output folder is created per selected outlet_id under this prefix.
+project_root = "~/HydroModPy/mesh_1000km2"
+
+[mesh_catchment_batch]
+outlets_table_path = "~/HydroModPy/catchment_identification_scan/1000km2/exutoires_1000km2.csv"
+# The preprocess summary reports 11 selected basins in this table.
+# selected_outlet_ids = [34, 28]

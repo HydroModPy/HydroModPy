@@ -66,12 +66,22 @@ Guides
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: capability_gallery/index
+      :link-type: doc
+
+      **Capability gallery**
+      ^^^
+      Static mesh illustrations, validation figures, and watershed diagnostics
+      curated for documentation and teaching.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: api-reference
       :link-type: doc
 
       **API reference**
       ^^^
-      Browse the package tree exactly as in ``hydromodpy/`` (watershed, modeling,
+      Browse the package tree exactly as in ``hydromodpy/`` (spatial, modeling,
       display, pyhelp, and tooling APIs).
 
    .. grid-item-card::
@@ -143,6 +153,7 @@ For any question or collaboration request, contact:
    news
    install
    examples
+   capability_gallery/index
    architecture/index
    api-reference
    contribute

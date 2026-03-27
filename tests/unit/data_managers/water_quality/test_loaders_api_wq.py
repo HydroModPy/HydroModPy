@@ -1,73 +1,98 @@
+"""Unit tests for water quality Hub'Eau API adapter (mocked)."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from types import SimpleNamespace
 
 import pandas as pd
+import pytest
 
-from hydromodpy.data_managers.water_quality.loaders_api import ApiWaterQualityLoader
-
-
-def _make_resp(status_code: int, data: list):
-    resp = SimpleNamespace()
-    resp.status_code = status_code
-    resp.json = lambda: {"data": data}
-    return resp
+from hydromodpy.data.variables.water_quality.apis import hubeau as hubeau_api
+from hydromodpy.data.variables.water_quality.apis.hubeau import (
+    _normalize_dataframe,
+    fetch,
+)
 
 
-def test_get_station_info_river(monkeypatch):
-    loader = ApiWaterQualityLoader(site_type="river")
-    sample = {"code_station": "R1", "libelle_station": "River 1"}
+class TestNormalizeDataframe:
+    def test_river_dataframe(self):
+        df = pd.DataFrame({
+            "date_prelevement": ["2020-01-15", "2020-02-10"],
+            "libelle_parametre": ["pH", "Nitrates"],
+            "resultat": [7.2, 15.3],
+            "symbole_unite": ["U pH", "mg/L"],
+        })
+        out = _normalize_dataframe(df, is_river=True)
+        assert len(out) == 2
+        assert "datetime" in out.columns
+        assert "parameter" in out.columns
+        assert "value" in out.columns
+        assert "unit" in out.columns
+        assert out["parameter"].iloc[0] == "pH"
 
-    def fake_get(url, params=None, timeout=None):
-        return _make_resp(200, [sample])
+    def test_piezometer_dataframe(self):
+        df = pd.DataFrame({
+            "date_debut_prelevement": ["2020-03-01"],
+            "nom_param": ["Conductivite"],
+            "resultat": [450.0],
+            "nom_unite": ["uS/cm"],
+        })
+        out = _normalize_dataframe(df, is_river=False)
+        assert len(out) == 1
+        assert out["parameter"].iloc[0] == "Conductivite"
 
-    monkeypatch.setattr("requests.get", fake_get)
-    out = loader._get_station_info("R1")
-    assert isinstance(out, dict)
-    assert out.get("code_station") == "R1"
-
-
-def test_get_station_info_piezometer(monkeypatch):
-    loader = ApiWaterQualityLoader(site_type="pz")
-    sample = {"code_bss": "PZ1", "nom_station": "PZ One", "geometry": {"coordinates": [1.0, 2.0]}}
-
-    def fake_get(url, params=None, timeout=None):
-        return _make_resp(200, [sample])
-
-    monkeypatch.setattr("requests.get", fake_get)
-    out = loader._get_station_info("PZ1")
-    assert out.get("code_bss") == "PZ1"
-
-
-def test_build_metadata_and_dates(monkeypatch):
-    loader = ApiWaterQualityLoader(site_type="pz")
-    station_info = {
-        "libelle_station": "My Station",
-        "geometry": {"coordinates": [10.0, 50.0]},
-        "date_debut_mesure": "2020-01-01",
-    }
-    meta = loader._build_metadata("S1", station_info)
-    assert meta["site_id"] == "S1"
-    assert isinstance(meta["start_date"], datetime)
-    assert meta["x_wgs84"] == 10.0
-    assert meta["y_wgs84"] == 50.0
+    def test_empty_dataframe(self):
+        out = _normalize_dataframe(pd.DataFrame(), is_river=True)
+        assert out.empty
 
 
-def test_get_time_series_single_year(monkeypatch):
-    loader = ApiWaterQualityLoader(site_type="pz")
-    # small date window
-    loader.date_start = datetime(2020, 1, 1)
-    loader.date_end = datetime(2020, 1, 2)
+class TestFetchMocked:
+    def test_fetch_with_mocked_api(self, monkeypatch):
+        """Test fetch logic with mocked get_json calls."""
+        call_count = {"n": 0}
 
-    sample_record = {"date_prelevement": "2020-01-01", "resultat": 42, "libelle_parametre": "param"}
+        def fake_get_json(url, *, params=None, **kwargs):
+            call_count["n"] += 1
+            if "station_pc" in url or "stations" in url:
+                return {
+                    "data": [{
+                        "code_station": "R1",
+                        "longitude": 2.35,
+                        "latitude": 48.85,
+                        "libelle_station": "River 1",
+                    }]
+                }
+            # analyses endpoint
+            return {
+                "data": [
+                    {
+                        "date_prelevement": "2020-01-15",
+                        "libelle_parametre": "pH",
+                        "resultat": 7.2,
+                        "symbole_unite": "U pH",
+                    },
+                    {
+                        "date_prelevement": "2020-02-10",
+                        "libelle_parametre": "Nitrates",
+                        "resultat": 12.0,
+                        "symbole_unite": "mg/L",
+                    },
+                ]
+            }
 
-    def fake_get(url, params=None, timeout=None):
-        return _make_resp(200, [sample_record])
+        monkeypatch.setattr(hubeau_api, "get_json", fake_get_json)
 
-    monkeypatch.setattr("requests.get", fake_get)
-    df, missing = loader._get_time_series("S1")
-    assert isinstance(df, pd.DataFrame)
-    assert not df.empty
-    assert "date_measure" in df.columns
-    assert df["site_id"].iloc[0] == "S1"
+        records = fetch(
+            site_type="river",
+            station_ids=["R1"],
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 3, 31),
+        )
+
+        assert len(records) == 2
+        variables = {r.variable for r in records}
+        assert "pH" in variables
+        assert "Nitrates" in variables
+        assert records[0].source == "hubeau"
+        assert records[0].location is not None

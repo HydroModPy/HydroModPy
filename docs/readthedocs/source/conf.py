@@ -20,6 +20,30 @@ from sphinx.builders.html import StandaloneHTMLBuilder
 package_path = Path(__file__).resolve().parents[3]
 os.environ['PYTHONPATH'] = ':'.join((str(package_path), os.environ.get('PYTHONPATH', '')))
 
+
+def _resolve_vendor_graphviz_dot() -> Path | None:
+    relative = ("tools", "vendor", "graphviz", "bin", "dot.exe" if os.name == "nt" else "dot")
+    dot_path = package_path.joinpath(*relative)
+    return dot_path if dot_path.exists() else None
+
+
+def _resolve_plantuml_command() -> str:
+    env_command = os.environ.get("PLANTUML_COMMAND")
+    if env_command:
+        return env_command
+
+    vendor_jar = package_path / "tools" / "vendor" / "plantuml" / "plantuml.jar"
+    if vendor_jar.exists():
+        return f'java -jar "{vendor_jar}"'
+
+    return "plantuml"
+
+
+_vendor_graphviz_dot = _resolve_vendor_graphviz_dot()
+if _vendor_graphviz_dot is not None:
+    os.environ.setdefault("GRAPHVIZ_DOT", str(_vendor_graphviz_dot))
+    os.environ["PATH"] = str(_vendor_graphviz_dot.parent) + os.pathsep + os.environ.get("PATH", "")
+
 # Make the editable install (or cloned repo) importable without relying on src/
 sys.path.insert(0, str(package_path))
 sys.path.insert(0, str(package_path / "hydromodpy"))
@@ -87,6 +111,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'sphinx.ext.autosummary',
+    'sphinx.ext.mathjax',
     'nbsphinx',
     "sphinx_gallery.load_style",
     "myst_parser",
@@ -102,7 +127,7 @@ autoclass_content = 'both'
 autosummary_generate = True
 nbsphinx_allow_errors = True
 nbsphinx_execute = "never"
-plantuml = "plantuml"
+plantuml = _resolve_plantuml_command()
 plantuml_output_format = "svg"
 
 # ---------------------------------------------------------------------------
@@ -315,7 +340,6 @@ autodoc_mock_imports = [
     "pyside6",
     "vedo",
     "vtk",
-    "whitebox",
     "whitebox_workflows",
     "xarray",
     "pysheds",

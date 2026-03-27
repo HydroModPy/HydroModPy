@@ -2,7 +2,7 @@ name: pytest
 
 on:
   push:
-    branches: [master, dev-refact]
+    branches: [master, dev-refact, dev-data]
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -18,6 +18,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
 
       - name: Install dependencies
         run: |
@@ -39,7 +42,7 @@ jobs:
         run: |
           coverage run --rcfile=/dev/null \
             --include="hydromodpy/*" \
-            --omit="hydromodpy/*/cases/*/run_*.py,hydromodpy/*/cases/*/plotting.py,hydromodpy/*/examples/*/run_*.py,hydromodpy/calibration_legacy/*,hydromodpy/calibration2/*" \
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*,hydromodpy/calibration_legacy/*,hydromodpy/calibration2/*" \
             -m pytest tests/unit/ -v
 
       - name: Report coverage
@@ -47,10 +50,10 @@ jobs:
         run: |
           coverage report --rcfile=/dev/null --show-missing \
             --include="hydromodpy/*" \
-            --omit="hydromodpy/*/cases/*/run_*.py,hydromodpy/*/cases/*/plotting.py,hydromodpy/*/examples/*/run_*.py,hydromodpy/calibration_legacy/*,hydromodpy/calibration2/*"
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*,hydromodpy/calibration_legacy/*,hydromodpy/calibration2/*"
           coverage xml --rcfile=/dev/null \
             --include="hydromodpy/*" \
-            --omit="hydromodpy/*/cases/*/run_*.py,hydromodpy/*/cases/*/plotting.py,hydromodpy/*/examples/*/run_*.py,hydromodpy/calibration_legacy/*,hydromodpy/calibration2/*"
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*,hydromodpy/calibration_legacy/*,hydromodpy/calibration2/*"
 
       - name: Upload to Codecov
         if: always()
@@ -72,6 +75,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
       - name: Install dependencies
         run: |
           pip install --upgrade pip
@@ -88,15 +94,13 @@ jobs:
               print(f'Removed {pth}')
           "
 
-      - name: Make MODFLOW binaries executable
-        run: chmod +x bin/linux/*
-
       - name: Run regression tests
         env:
           HYDROMODPY_COVERAGE: "1"
         run: |
           python -m pytest \
-            tests/regression/test_example12_npy_regression.py -v
+            tests/regression/fast/ \
+            tests/regression/extensive/ -v
 
       - name: Combine and report coverage
         if: always()

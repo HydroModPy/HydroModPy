@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.field.core.field_param_config import (
+from hydromodpy.spatial.field.core.field_param_config import (
     load_field_param_toml,
     validate_resolved_field_param_data,
 )
@@ -16,8 +16,7 @@ from hydromodpy.field.core.field_param_config import (
 def test_load_field_param_toml_validates_sections(tmp_path: Path):
     path = tmp_path / "field_param_config.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "heterogeneous"
@@ -26,8 +25,7 @@ def test_load_field_param_toml_validates_sections(tmp_path: Path):
             [field_heterogeneous]
             values = { granite = 10.0, micaschists = 2.0 }
             field_spatial_id = "field_square"
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     payload = load_field_param_toml(path)
@@ -40,8 +38,7 @@ def test_load_field_param_toml_validates_sections(tmp_path: Path):
 def test_load_field_param_toml_accepts_empty_inactive_mode_sections(tmp_path: Path):
     path = tmp_path / "field_param_with_empty_inactive_sections.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "heterogeneous"
@@ -52,8 +49,7 @@ def test_load_field_param_toml_accepts_empty_inactive_mode_sections(tmp_path: Pa
             [field_heterogeneous]
             values = { granite = 10.0, micaschists = 2.0 }
             field_spatial_id = "field_square"
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     payload = load_field_param_toml(path)
@@ -66,8 +62,7 @@ def test_load_field_param_toml_accepts_empty_inactive_mode_sections(tmp_path: Pa
 def test_load_field_param_toml_accepts_unit_alias_for_dimensionless(tmp_path: Path):
     path = tmp_path / "field_param_unit_alias.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "Sy"
             kind = "homogeneous"
@@ -75,19 +70,35 @@ def test_load_field_param_toml_accepts_unit_alias_for_dimensionless(tmp_path: Pa
 
             [field_homogeneous]
             value = 0.2
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     payload = load_field_param_toml(path)
     assert payload["field"]["unit"] == "-"
 
 
+def test_load_field_param_toml_accepts_hourly_k_unit(tmp_path: Path):
+    path = tmp_path / "field_param_unit_hourly.toml"
+    path.write_text(
+        textwrap.dedent("""
+            [field]
+            id = "K"
+            kind = "homogeneous"
+            unit = "m/h"
+
+            [field_homogeneous]
+            value = 0.01
+            """),
+        encoding="utf-8",
+    )
+    payload = load_field_param_toml(path)
+    assert payload["field"]["unit"] == "m/h"
+
+
 def test_load_field_param_toml_rejects_unknown_unit(tmp_path: Path):
     path = tmp_path / "field_param_invalid_unit.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "homogeneous"
@@ -95,8 +106,7 @@ def test_load_field_param_toml_rejects_unknown_unit(tmp_path: Path):
 
             [field_homogeneous]
             value = 1.0
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="Unsupported field.unit"):
@@ -106,8 +116,7 @@ def test_load_field_param_toml_rejects_unknown_unit(tmp_path: Path):
 def test_load_field_param_toml_rejects_unknown_field_homogeneous_key(tmp_path: Path):
     path = tmp_path / "field_param_invalid.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "homogeneous"
@@ -115,8 +124,7 @@ def test_load_field_param_toml_rejects_unknown_field_homogeneous_key(tmp_path: P
             [field_homogeneous]
             value = 12.5
             unexpected = 1
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="field_homogeneous"):
@@ -126,8 +134,7 @@ def test_load_field_param_toml_rejects_unknown_field_homogeneous_key(tmp_path: P
 def test_load_field_param_toml_rejects_field_common_section(tmp_path: Path):
     path = tmp_path / "field_param_with_common.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "homogeneous"
@@ -137,8 +144,7 @@ def test_load_field_param_toml_rejects_field_common_section(tmp_path: Path):
 
             [field_homogeneous]
             value = 12.5
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="field_common"):
@@ -161,11 +167,57 @@ def test_validate_resolved_field_param_data_accepts_homogeneous_payload():
     assert "values" not in payload
 
 
+def test_validate_resolved_field_param_data_accepts_homogeneous_inline_value():
+    payload = validate_resolved_field_param_data(
+        {
+            "id": "K",
+            "kind": "homogeneous",
+            "value": "3.5 m/day",
+        }
+    )
+    assert payload["value"] == "3.5 m/day"
+
+
+def test_validate_resolved_field_param_data_rejects_homogeneous_boolean_value():
+    with pytest.raises(ValueError, match="value must be numeric"):
+        _ = validate_resolved_field_param_data(
+            {
+                "id": "K",
+                "kind": "homogeneous",
+                "value": True,
+            }
+        )
+
+
+def test_validate_resolved_field_param_data_accepts_heterogeneous_inline_values():
+    payload = validate_resolved_field_param_data(
+        {
+            "id": "K",
+            "kind": "heterogeneous",
+            "values": {"granite": "10 m/day", "micaschists": "2 m/day"},
+            "field_spatial_id": "field_geology",
+        }
+    )
+    assert payload["values"]["granite"] == "10 m/day"
+    assert payload["values"]["micaschists"] == "2 m/day"
+
+
+def test_validate_resolved_field_param_data_rejects_heterogeneous_boolean_value():
+    with pytest.raises(ValueError, match="must be numeric"):
+        _ = validate_resolved_field_param_data(
+            {
+                "id": "K",
+                "kind": "heterogeneous",
+                "values": {"granite": True},
+                "field_spatial_id": "field_geology",
+            }
+        )
+
+
 def test_load_field_param_toml_accepts_csv_values_source(tmp_path: Path):
     path = tmp_path / "field_param_csv.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "heterogeneous"
@@ -176,8 +228,7 @@ def test_load_field_param_toml_accepts_csv_values_source(tmp_path: Path):
             csv_key_column = "zone_key"
             csv_value_column = "value"
             field_spatial_id = "field_geology"
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     payload = load_field_param_toml(path)
@@ -190,8 +241,7 @@ def test_load_field_param_toml_accepts_csv_values_source(tmp_path: Path):
 def test_load_field_param_toml_rejects_csv_source_without_file(tmp_path: Path):
     path = tmp_path / "field_param_csv_invalid.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "heterogeneous"
@@ -199,8 +249,7 @@ def test_load_field_param_toml_rejects_csv_source_without_file(tmp_path: Path):
             [field_heterogeneous]
             values_source = "csv"
             field_spatial_id = "field_geology"
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="values_csv_file"):
@@ -210,8 +259,7 @@ def test_load_field_param_toml_rejects_csv_source_without_file(tmp_path: Path):
 def test_load_field_param_toml_accepts_vertical_profile_exponential(tmp_path: Path):
     path = tmp_path / "field_param_vertical_exp.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "homogeneous"
@@ -220,8 +268,7 @@ def test_load_field_param_toml_accepts_vertical_profile_exponential(tmp_path: Pa
             [field_vertical_profile]
             mode = "exponential"
             characteristic_depth = 30.0
-            """
-        ),
+            """),
         encoding="utf-8",
     )
 
@@ -231,11 +278,12 @@ def test_load_field_param_toml_accepts_vertical_profile_exponential(tmp_path: Pa
     assert float(vertical["characteristic_depth"]) == pytest.approx(30.0)
 
 
-def test_load_field_param_toml_accepts_vertical_profile_exponential_with_min_factor(tmp_path: Path):
+def test_load_field_param_toml_accepts_vertical_profile_exponential_with_min_factor(
+    tmp_path: Path,
+):
     path = tmp_path / "field_param_vertical_exp_min_factor.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "homogeneous"
@@ -245,8 +293,7 @@ def test_load_field_param_toml_accepts_vertical_profile_exponential_with_min_fac
             mode = "exponential"
             characteristic_depth = 30.0
             min_factor = 1e-3
-            """
-        ),
+            """),
         encoding="utf-8",
     )
 
@@ -257,13 +304,36 @@ def test_load_field_param_toml_accepts_vertical_profile_exponential_with_min_fac
     assert float(vertical["min_factor"]) == pytest.approx(1e-3)
 
 
+def test_load_field_param_toml_accepts_vertical_profile_exponential_characteristic_depth_with_unit(
+    tmp_path: Path,
+):
+    path = tmp_path / "field_param_vertical_exp_units.toml"
+    path.write_text(
+        textwrap.dedent("""
+            [field]
+            id = "K"
+            kind = "homogeneous"
+            value = 10.0
+
+            [field_vertical_profile]
+            mode = "exponential"
+            characteristic_depth = "30.0 m"
+            """),
+        encoding="utf-8",
+    )
+
+    payload = load_field_param_toml(path)
+    vertical = payload["field_vertical_profile"]
+    assert vertical["mode"] == "exponential"
+    assert float(vertical["characteristic_depth"]) == pytest.approx(30.0)
+
+
 def test_load_field_param_toml_rejects_vertical_profile_exponential_with_invalid_min_factor(
     tmp_path: Path,
 ):
     path = tmp_path / "field_param_vertical_exp_invalid_min_factor.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "homogeneous"
@@ -273,8 +343,7 @@ def test_load_field_param_toml_rejects_vertical_profile_exponential_with_invalid
             mode = "exponential"
             characteristic_depth = 30.0
             min_factor = 1.2
-            """
-        ),
+            """),
         encoding="utf-8",
     )
 
@@ -282,11 +351,12 @@ def test_load_field_param_toml_rejects_vertical_profile_exponential_with_invalid
         _ = load_field_param_toml(path)
 
 
-def test_load_field_param_toml_rejects_vertical_profile_exponential_without_depth(tmp_path: Path):
+def test_load_field_param_toml_rejects_vertical_profile_exponential_without_depth(
+    tmp_path: Path,
+):
     path = tmp_path / "field_param_vertical_exp_invalid.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [field]
             id = "K"
             kind = "homogeneous"
@@ -294,8 +364,7 @@ def test_load_field_param_toml_rejects_vertical_profile_exponential_without_dept
 
             [field_vertical_profile]
             mode = "exponential"
-            """
-        ),
+            """),
         encoding="utf-8",
     )
 
@@ -317,7 +386,9 @@ def test_validate_resolved_field_param_data_accepts_vertical_profile_alias():
     )
 
     assert payload["vertical_profile"]["mode"] == "exponential"
-    assert float(payload["vertical_profile"]["characteristic_depth"]) == pytest.approx(50.0)
+    assert float(payload["vertical_profile"]["characteristic_depth"]) == pytest.approx(
+        50.0
+    )
 
 
 def test_validate_resolved_field_param_data_accepts_vertical_profile_alias_with_min_factor():
@@ -335,7 +406,9 @@ def test_validate_resolved_field_param_data_accepts_vertical_profile_alias_with_
     )
 
     assert payload["vertical_profile"]["mode"] == "exponential"
-    assert float(payload["vertical_profile"]["characteristic_depth"]) == pytest.approx(50.0)
+    assert float(payload["vertical_profile"]["characteristic_depth"]) == pytest.approx(
+        50.0
+    )
     assert float(payload["vertical_profile"]["min_factor"]) == pytest.approx(0.01)
 
 

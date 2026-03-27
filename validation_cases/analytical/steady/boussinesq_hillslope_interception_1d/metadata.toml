@@ -1,0 +1,31 @@
+case_id = "boussinesq_hillslope_interception_1d"
+category = "analytical"
+regime = "steady"
+dimension = "1d"
+launcher = "launcher_simulation"
+config_file = "config_boussinesq.toml"
+default_solver = "boussinesq"
+
+[config_files]
+boussinesq = "config_boussinesq.toml"
+
+[workspace]
+results_folder_name = "results_simulations"
+
+[output]
+observable_name = "watertable_elevation"
+expected_shape = [3, 40]
+
+[reference]
+xmin = 0.0
+xmax = 400.0
+length_y_m = 30.0
+east_head_m = 5.0
+toe_elevation_m = 5.0
+topography_slope_m_per_m = 0.0125
+recharge_mm_day = 2.0
+hydraulic_conductivity_m_per_s = 1e-4
+bottom_elevation_m = 0.0
+profile_axis = 0
+numerical_contact_tolerance_m = 0.05
+interception_search_samples = 20001

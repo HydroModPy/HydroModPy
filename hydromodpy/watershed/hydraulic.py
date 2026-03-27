@@ -14,15 +14,12 @@
 
 # Python
 import numpy as np
-import whitebox
 from os.path import dirname
 from typing import Union
 import os
 import rasterio
-from hydromodpy.tools import get_logger
-wbt = whitebox.WhiteboxTools()
-# wbt.set_compress_rasters(True)
-wbt.verbose = False
+from hydromodpy.core.backends import get_whitebox_backend
+from hydromodpy.core.tools import get_logger
 
 logger = get_logger(__name__)
 
@@ -111,6 +108,7 @@ class Hydraulic:
             Ratio of horizontal to vertical hydraulic conductivity. The default is 1.
         """
         logger.info('Initializing hydraulic module for parameter setup')
+        self._backend = get_whitebox_backend()
         
         self.box_dem = box_dem
         
@@ -326,7 +324,7 @@ class Hydraulic:
         """
         output = os.path.join(dirname(self.box_dem), 'calib_raster_zones.tif')
         
-        wbt.vector_polygons_to_raster(
+        self._backend.vector_polygons_to_raster(
             shp_path, 
             output, 
             field="FID", #Field name should be changed , error : thread 'main' panicked at 'Error: Specified field is greater than the number of fields.'

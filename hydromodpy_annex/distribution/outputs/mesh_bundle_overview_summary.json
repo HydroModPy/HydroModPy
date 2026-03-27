@@ -1,0 +1,26 @@
+{
+  "summary_schema_version": "mesh_bundle_viewer_v1",
+  "bundle_dir": "C:\\codes\\HydroModPy-GH\\launchers\\mesh_catchment\\mesh_catchment_nancon_scoped\\results_stable\\mesh\\gmsh\\mesh_catchment_bundle",
+  "mesh_path": "C:\\codes\\HydroModPy-GH\\launchers\\mesh_catchment\\mesh_catchment_nancon_scoped\\results_stable\\mesh\\gmsh\\mesh_catchment_bundle\\mesh_2d.msh",
+  "n_nodes": 1531,
+  "n_cells": 2976,
+  "n_edges": 4506,
+  "crs": "EPSG:2154",
+  "constraints_mode": "geology_rivers",
+  "geology_available": true,
+  "geology_keys": [
+    "1961",
+    "2021",
+    "2061",
+    "301"
+  ],
+  "river_edge_count": 301,
+  "boundary_edge_count": 84,
+  "geology_interface_edge_count": 92,
+  "color_by": "geology_key",
+  "show_topography_panel": true,
+  "topography_color_by": "z_top_mean",
+  "topography_render_mode": "node_continuous",
+  "output_figure": "C:\\codes\\HydroModPy-GH\\hydromodpy_annex\\distribution\\outputs\\mesh_bundle_overview.png",
+  "output_summary_json": "C:\\codes\\HydroModPy-GH\\hydromodpy_annex\\distribution\\outputs\\mesh_bundle_overview_summary.json"
+}

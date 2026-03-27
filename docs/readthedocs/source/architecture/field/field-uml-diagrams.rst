@@ -5,25 +5,31 @@ Scope
 -----
 
 These diagrams document class structure and typical runtime flows for
-``hydromodpy.field``.
+``hydromodpy.spatial.field``.
 
-Class Diagram
--------------
+Core Class Diagram
+------------------
+
+This view is intentionally limited to the reusable ``field.core``
+abstractions.
 
 .. uml:: diagrams/field_classes.wsd
 
 .. literalinclude:: diagrams/field_classes.wsd
    :language: text
-   :caption: PlantUML (.wsd) source - field class diagram
+   :caption: PlantUML (.wsd) source - field core class diagram
 
-Spatial Cases Class Diagram
----------------------------
+Square Case Relation Diagram
+----------------------------
+
+This view shows how the square example specializes the core abstractions and
+which concrete mesh implementations it reuses.
 
 .. uml:: diagrams/field_spatial_cases_classes.wsd
 
 .. literalinclude:: diagrams/field_spatial_cases_classes.wsd
    :language: text
-   :caption: PlantUML (.wsd) source - field spatial cases class diagram
+   :caption: PlantUML (.wsd) source - field square case relation diagram
 
 Activity Diagram
 ----------------

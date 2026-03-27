@@ -13,7 +13,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
 
-from hydromodpy.config.param_level import ParamLevel
+from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.process.flow.boundary_conditions import (
     DIRICHLET_BC_CANONICAL_DOMAINS,
     FlowBoundaryConditionConfig,
@@ -62,6 +62,36 @@ class FlowConfig(ProcessSpatialConfig):
             "(steady or transient)."
         ),
     )
+    runtime_backend: Annotated[
+        Literal["local", "scipy", "scipy_sparse"], ParamLevel("dev")
+    ] = Field(
+        default="local",
+        description=(
+            "Optional nonlinear runtime backend hint used by the Boussinesq "
+            "solver implementation. Other flow solvers may ignore this field."
+        ),
+    )
+    runtime_max_iterations: Annotated[int | None, ParamLevel("dev")] = Field(
+        default=None,
+        description=(
+            "Optional override for the nonlinear iteration budget used by the "
+            "Boussinesq runtime backend."
+        ),
+    )
+    runtime_tol_residual_inf: Annotated[float | None, ParamLevel("dev")] = Field(
+        default=None,
+        description=(
+            "Optional override for the infinity-norm residual tolerance used "
+            "by the Boussinesq runtime backend."
+        ),
+    )
+    runtime_tol_state_update_inf: Annotated[float | None, ParamLevel("dev")] = Field(
+        default=None,
+        description=(
+            "Optional override for the infinity-norm state-update tolerance "
+            "used by Boussinesq backends that track it."
+        ),
+    )
     param_list: list[str] = Field(
         default_factory=list,
         description=(
@@ -85,7 +115,7 @@ class FlowConfig(ProcessSpatialConfig):
             "south_side, east_side, west_side; "
             "[flow.bc.cauchy.drainage]; [flow.bc.robin.drainage]; "
             "and generic [flow.bc.<custom_id>] payloads. "
-            "Common required key: value. "
+            "Common required key: value (numeric or '<value> <unit>'). "
             "Dirichlet keys may omit application_domain when <id> implies it "
             "(for example west_side -> 'west side'). "
             "Drainage (cauchy/robin) requires application_domain explicitly. "
@@ -94,8 +124,8 @@ class FlowConfig(ProcessSpatialConfig):
             "Default units: m for dirichlet, m2/s for cauchy/robin."
         ),
     )
-    ic: FlowInitialConditions | None = Field(
-        default=None,
+    ic: FlowInitialConditions = Field(
+        default_factory=FlowInitialConditions,
         description=(
             "Validated flow initial-condition structure parsed from [flow.ic]. "
             "Stored as FlowInitialConditions(h=FlowInitialCondition)."
@@ -201,6 +231,43 @@ class FlowConfig(ProcessSpatialConfig):
             raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
         return text
 
+    @field_validator("runtime_backend", mode="before")
+    @classmethod
+    def _validate_runtime_backend(cls, value):
+        """Normalize the optional Boussinesq runtime backend selector."""
+        text = str(value or "local").strip().lower()
+        if text not in {"local", "scipy", "scipy_sparse"}:
+            raise ValueError(
+                "flow.runtime_backend must be 'local', 'scipy', or 'scipy_sparse'"
+            )
+        return text
+
+    @field_validator("runtime_max_iterations", mode="before")
+    @classmethod
+    def _validate_runtime_max_iterations(cls, value):
+        """Validate one optional nonlinear iteration-budget override."""
+        if value is None or value == "":
+            return None
+        if isinstance(value, bool):
+            raise ValueError("flow.runtime_max_iterations must be a positive integer")
+        numeric = float(value)
+        if not numeric.is_integer() or numeric <= 0:
+            raise ValueError("flow.runtime_max_iterations must be a positive integer")
+        return int(numeric)
+
+    @field_validator("runtime_tol_residual_inf", "runtime_tol_state_update_inf", mode="before")
+    @classmethod
+    def _validate_runtime_tolerances(cls, value, info):
+        """Validate optional positive runtime tolerances."""
+        if value is None or value == "":
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"flow.{info.field_name} must be a positive number")
+        numeric = float(value)
+        if numeric <= 0.0:
+            raise ValueError(f"flow.{info.field_name} must be a positive number")
+        return numeric
+
     @field_validator("bc", mode="before")
     @classmethod
     def _validate_bc(cls, value):
@@ -212,8 +279,11 @@ class FlowConfig(ProcessSpatialConfig):
     def _validate_ic(cls, value):
         """Normalize initial-condition payload from `[flow.ic]`."""
         if value is None:
-            return None
-        return normalize_flow_initial_conditions(value, location_prefix="flow.ic")
+            return FlowInitialConditions()
+        result = normalize_flow_initial_conditions(value, location_prefix="flow.ic")
+        if result is None:
+            return FlowInitialConditions()
+        return result
 
     @field_validator("sinks_sources", mode="before")
     @classmethod
@@ -381,11 +451,25 @@ class FlowConfig(ProcessSpatialConfig):
         #   detections (for example normalized key "drainage" seen as deprecated
         #   input on second pass).
         parsed_ic = raw_ic
-        parsed_bc = raw_bc
-        parsed_sinks_sources = raw_sinks_sources
+        parsed_bc = _resolve_boundary_condition_forcing_paths(
+            raw_bc,
+            base_dir=base_dir,
+        )
+        parsed_sinks_sources = _resolve_well_forcing_paths(
+            raw_sinks_sources,
+            base_dir=base_dir,
+        )
         raw_flow_regime = flow_section.get("flow_regime", "transient")
+        raw_runtime_backend = flow_section.get("runtime_backend", "local")
+        raw_runtime_max_iterations = flow_section.get("runtime_max_iterations")
+        raw_runtime_tol_residual_inf = flow_section.get("runtime_tol_residual_inf")
+        raw_runtime_tol_state_update_inf = flow_section.get("runtime_tol_state_update_inf")
         return cls(
             flow_regime=raw_flow_regime,
+            runtime_backend=raw_runtime_backend,
+            runtime_max_iterations=raw_runtime_max_iterations,
+            runtime_tol_residual_inf=raw_runtime_tol_residual_inf,
+            runtime_tol_state_update_inf=raw_runtime_tol_state_update_inf,
             param_list=declared_param,
             param=parsed_param,
             ic=parsed_ic,
@@ -399,8 +483,80 @@ def _parse_flow_ic_section(ic_cfg: Mapping[str, object]) -> FlowInitialCondition
     Parse and normalize one single `[flow.ic]` payload.
 
     Supported shapes:
-    - Preferred: flat `[flow.ic]` with keys `type`, `value`, `unit|units`, `description`.
+    - Preferred: flat `[flow.ic]` with keys `type`, `value`, `unit|units`, `description`,
+      where `value` can be numeric or `"<value> <unit>"`.
     """
     return normalize_flow_initial_conditions(ic_cfg, location_prefix="flow.ic")
+
+
+def _resolve_well_forcing_paths(
+    raw_sinks_sources: Mapping[str, object],
+    *,
+    base_dir: Path,
+) -> dict[str, object]:
+    """Resolve relative CSV paths declared under flow.sinks_sources.wells.*.forcing."""
+    payload = dict(raw_sinks_sources)
+    wells = payload.get("wells")
+    if not isinstance(wells, Mapping):
+        return payload
+
+    resolved_wells: dict[str, object] = {}
+    for well_id, raw_well in wells.items():
+        if not isinstance(raw_well, Mapping):
+            resolved_wells[str(well_id)] = raw_well
+            continue
+        well_payload = dict(raw_well)
+        forcing = well_payload.get("forcing")
+        if isinstance(forcing, Mapping):
+            forcing_payload = dict(forcing)
+            path_value = forcing_payload.get("path_file")
+            if isinstance(path_value, str) and path_value.strip() != "":
+                path = Path(path_value).expanduser()
+                if not path.is_absolute():
+                    path = (base_dir / path).resolve()
+                forcing_payload["path_file"] = path
+            well_payload["forcing"] = forcing_payload
+        resolved_wells[str(well_id)] = well_payload
+    payload["wells"] = resolved_wells
+    return payload
+
+
+def _resolve_boundary_condition_forcing_paths(
+    raw_bc: Mapping[str, object],
+    *,
+    base_dir: Path,
+) -> dict[str, object]:
+    """Resolve relative CSV paths declared under flow.bc.*.forcing."""
+    payload = dict(raw_bc)
+
+    def _resolve_forcing_mapping(item: object) -> object:
+        if not isinstance(item, Mapping):
+            return item
+        item_payload = dict(item)
+        forcing = item_payload.get("forcing")
+        if isinstance(forcing, Mapping):
+            forcing_payload = dict(forcing)
+            path_value = forcing_payload.get("path_file")
+            if isinstance(path_value, str) and path_value.strip() != "":
+                path = Path(path_value).expanduser()
+                if not path.is_absolute():
+                    path = (base_dir / path).resolve()
+                forcing_payload["path_file"] = path
+            item_payload["forcing"] = forcing_payload
+        return item_payload
+
+    dirichlet = payload.get("dirichlet")
+    if isinstance(dirichlet, Mapping):
+        resolved_dirichlet: dict[str, object] = {}
+        for bc_id, raw_item in dirichlet.items():
+            resolved_dirichlet[str(bc_id)] = _resolve_forcing_mapping(raw_item)
+        payload["dirichlet"] = resolved_dirichlet
+
+    for key, raw_item in list(payload.items()):
+        if key in {"dirichlet", "cauchy", "robin"}:
+            continue
+        payload[key] = _resolve_forcing_mapping(raw_item)
+
+    return payload
 
 

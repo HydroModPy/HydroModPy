@@ -1,0 +1,162 @@
+@startuml
+title Simulation Time Cycle - Class Diagram
+
+package "hydromodpy.simulation.planning.config" {
+  class SimulationTimeConfig {
+    +mode: "explicit"
+    +start_datetime: datetime
+    +end_datetime: datetime
+    +step_value: int
+    +step_unit: hour|day|month|year
+    +coverage_policy: error|warn|ignore
+  }
+}
+
+package "hydromodpy.core.time.window" {
+  class ResolvedSimulationTimeWindow {
+    +start: Timestamp
+    +end: Timestamp
+    +step_value: int
+    +step_unit: str
+    +coverage_policy: str
+    +to_date_bounds(): tuple[str, str]
+  }
+
+  class ResolvedSimulationTimeGrid {
+    +window: ResolvedSimulationTimeWindow
+    +boundaries: tuple[Timestamp, ...]
+    +period_lengths_seconds: tuple[float, ...]
+    +nper: int
+    +period_starts: tuple[Timestamp, ...]
+    +period_ends_exclusive: tuple[Timestamp, ...]
+  }
+
+  class "Time Window Services" as TimeWindowServices <<module>> {
+    +resolve_simulation_time_window(cfg)
+    +resolve_simulation_time_grid(cfg)
+    +require_flow_simulation_time_grid(cfg)
+    +apply_explicit_time_window_to_tgrids(cfg)
+    +resolve_simulation_time_window_dates(cfg)
+    +validate_recharge_coverage(recharge, window)
+  }
+}
+
+package "launchers.process_simulation" {
+  class HydroModPyLauncher {
+    +cfg: HydroModPyConfig
+    +time_grid: ResolvedSimulationTimeGrid?
+    +run()
+    +_run_data()
+    +_apply_recharge_chronicle_from_toml()
+  }
+}
+
+package "hydromodpy.process.forcing.recharge_chronicle_config" {
+  class SeasonalStepRechargeChronicleConfig {
+    +wet_months: list[int]
+    +wet_value: float
+    +dry_value: float
+  }
+
+  class SyntheticGeneratedRechargeChronicleConfig {
+    +values: float|list[float]|None
+    +units: str
+    +runoff_ratio: float
+    +generator: str?
+    +generation_step: str
+    +seasonal_step: SeasonalStepRechargeChronicleConfig?
+  }
+
+  class ObservedRechargeChronicleConfig {
+    +path_file: str
+    +clim_mod: str
+    +clim_sce: str
+    +first_year: int?
+    +last_year: int?
+    +time_step: str?
+  }
+
+  class SyntheticCsvRechargeChronicleConfig {
+    +path_file: str
+    +units: str
+    +runoff_units: str?
+    +time_step: str?
+  }
+
+  class RechargeChronicleConfig {
+    +mode: observed_csv|synthetic_generated|synthetic_csv
+    +observed_csv: ObservedRechargeChronicleConfig?
+    +synthetic_generated: SyntheticGeneratedRechargeChronicleConfig?
+    +synthetic_csv: SyntheticCsvRechargeChronicleConfig?
+  }
+
+  class "Recharge Chronicle Validation" as RechargeValidation <<module>> {
+    +validate_recharge_chronicle_section(value)
+  }
+}
+
+package "hydromodpy.process.forcing.recharge_chronicle" {
+  class ObservedRechargeChronicleRequest {
+    +first_year: int
+    +last_year: int
+    +time_step: str
+  }
+
+  class RechargeChroniclePayload {
+    +mode: observed_csv|synthetic_generated|synthetic_csv
+    +observed: ObservedRechargeChronicleRequest?
+    +recharge: Series?
+    +runoff: Series?
+  }
+
+  class "Recharge Chronicle Services" as RechargeServices <<module>> {
+    +build_recharge_chronicle_payload(raw_toml, simulation_window)
+    +align_forcing_series_to_simulation_window(series, simulation_window)
+  }
+}
+
+package "hydromodpy.process.hydrology.synthetic.forcing" {
+  class "Synthetic Forcing Builders" as HydrologyForcing <<module>> {
+    +build_hydrological_step_series(dates, wet_months, wet_value, dry_value)
+    +build_recharge_from_reservoir_chronicle(...)
+  }
+}
+
+package "hydromodpy.data.runtime_loader" {
+  class DataManagersRuntimeLoader {
+    +_resolve_simulation_time_window_dates(result)
+    +_apply_simulation_window_to_station_section(...)
+  }
+}
+
+package "hydromodpy.solver" {
+  class Modflow
+  class Modflow6
+}
+
+SimulationTimeConfig --> TimeWindowServices : input section
+TimeWindowServices ..> ResolvedSimulationTimeWindow : creates
+TimeWindowServices ..> ResolvedSimulationTimeGrid : creates
+
+HydroModPyLauncher --> TimeWindowServices : require_flow_time_grid/apply
+HydroModPyLauncher --> ResolvedSimulationTimeGrid : stores on launcher state
+
+HydroModPyLauncher --> RechargeServices : passes simulation_window
+RechargeServices --> RechargeValidation : validates raw section
+RechargeValidation ..> RechargeChronicleConfig : returns
+RechargeServices ..> ResolvedSimulationTimeWindow : aligns forcing series
+RechargeServices ..> RechargeChroniclePayload : returns payload
+RechargeServices ..> HydrologyForcing : seasonal generator path
+RechargeChroniclePayload *-- ObservedRechargeChronicleRequest
+RechargeChronicleConfig *-- ObservedRechargeChronicleConfig
+RechargeChronicleConfig *-- SyntheticGeneratedRechargeChronicleConfig
+RechargeChronicleConfig *-- SyntheticCsvRechargeChronicleConfig
+SyntheticGeneratedRechargeChronicleConfig *-- SeasonalStepRechargeChronicleConfig
+
+DataManagersRuntimeLoader --> TimeWindowServices : date bounds lookup
+
+HydroModPyLauncher --> Modflow : passes required preprocess options.time_grid
+HydroModPyLauncher --> Modflow6 : passes required preprocess options.time_grid
+Modflow ..> ResolvedSimulationTimeGrid : consumes nper/perlen
+Modflow6 ..> ResolvedSimulationTimeGrid : consumes nper/perlen
+@enduml

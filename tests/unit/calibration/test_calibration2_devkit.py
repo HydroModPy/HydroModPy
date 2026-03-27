@@ -1,16 +1,16 @@
-﻿"""Unit tests for calibration2 devkit helpers."""
+"""Unit tests for calibration devkit helpers."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.calibration.devkit.check_case import check_case
-from hydromodpy.calibration.devkit.config_reference import (
+from hydromodpy.analysis.calibration.devkit.check_case import check_case
+from hydromodpy.analysis.calibration.devkit.config_reference import (
     build_config_reference_markdown,
     write_config_reference_markdown,
 )
-from hydromodpy.calibration.devkit.doctor import format_doctor_report, run_doctor
-from hydromodpy.calibration.devkit.new_case import scaffold_case
+from hydromodpy.analysis.calibration.devkit.doctor import format_doctor_report, run_doctor
+from hydromodpy.analysis.calibration.devkit.new_case import scaffold_case
 
 
 def test_scaffold_case_creates_expected_files(tmp_path: Path):
@@ -75,13 +75,13 @@ def test_run_doctor_returns_structured_report():
     assert "simplex" in report["methods"]
 
     text = format_doctor_report(report)
-    assert "Calibration2 doctor report" in text
+    assert "Calibration doctor report" in text
     assert "Core modules:" in text
 
 
 def test_config_reference_markdown_generation(tmp_path: Path):
     markdown = build_config_reference_markdown()
-    assert "# Calibration2 Config Reference" in markdown
+    assert "# Calibration Config Reference" in markdown
     assert "## Built-in Method Kwargs" in markdown
     assert "[calibration_method.simplex]" in markdown
 

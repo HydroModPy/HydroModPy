@@ -1,0 +1,94 @@
+# ======================================================================
+# Ex03 — Hub'Eau API: discharge, piezometric levels, water quality.
+# Requires internet connection.
+# 
+# Hydrometry : J709063002 = Vilaine at Cesson-Sevigne
+# Piezometry : 03175X0338/PZ = Saint-Jacques-de-la-Lande (Rennes aquifer)
+# Water quality : 04204300 = Rennes area river station
+# ======================================================================
+# Generated from Pydantic config export.
+
+
+# ----------------------------------------------------------------------
+# Top-level hydrometry configuration (list of sources).
+# ----------------------------------------------------------------------
+
+[hydrometry]
+# Project start date (ISO format, e.g.
+# '2019-01-01').
+# Type: string (optional) | Optional
+date_start = "2022-01-01"
+
+# Project end date (ISO format, e.g.
+# '2025-12-31').
+# Type: string (optional) | Optional
+date_end = "2022-03-31"
+
+
+# At least one data source.
+[[hydrometry.sources]]
+# Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
+# Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
+source = "hubeau"
+
+# Hub'Eau variable code (e.g.
+# 'QmnJ', 'QmM', 'HmnJ').
+# Type: string (optional) | Optional
+product = "QmnJ"
+
+# Explicit list of station ids to load.
+# Type: list (optional) | Optional
+station_ids = ["J709063002"]
+
+
+# ----------------------------------------------------------------------
+# Top-level piezometry configuration.
+# ----------------------------------------------------------------------
+
+[piezometry]
+# Project start date (ISO format, e.g.
+# '2019-01-01').
+# Type: string (optional) | Optional
+date_start = "2022-01-01"
+
+# Project end date (ISO format, e.g.
+# '2025-12-31').
+# Type: string (optional) | Optional
+date_end = "2022-03-31"
+
+
+# At least one data source.
+[[piezometry.sources]]
+# Data provider.
+# Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
+source = "hubeau"
+
+# Hub'Eau measurement type: 'level' or 'depth'.
+# Type: Literal (optional) | Optional
+product = "level"
+
+# Explicit station ids.
+# Type: list (optional) | Optional
+station_ids = ["03175X0338/PZ"]
+
+
+# ----------------------------------------------------------------------
+# Top-level water quality configuration (list of sources).
+# ----------------------------------------------------------------------
+
+# At least one data source.
+[[water_quality.sources]]
+# Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
+# Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
+source = "hubeau"
+
+# Parameters to keep (e.g.
+# ['pH', 'Nitrates']).
+# None = all parameters.
+# Type: list (optional) | Optional
+parameters = ["pH", "Nitrates"]
+
+# Explicit station ids.
+# Type: list (optional) | Optional
+station_ids = ["04204300"]
+

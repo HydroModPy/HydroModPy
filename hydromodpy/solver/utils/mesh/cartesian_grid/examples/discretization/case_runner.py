@@ -1,4 +1,4 @@
-﻿"""Accessory case runners for SGrid/FieldParam discretization workflows."""
+"""Accessory case runners for SGrid/FieldParam discretization workflows."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.data_managers.geology.geology_field import GeologyField
-from hydromodpy.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.geology.geology_field import GeologyField
+from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
     build_sgrid_from_config,

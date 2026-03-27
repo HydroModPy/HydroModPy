@@ -8,8 +8,8 @@ import textwrap
 
 import numpy as np
 
-from hydromodpy.data_managers.geology import run_geology_property_demo as demo
-from hydromodpy.data_managers.geology.geology_mesh import GeologyStructuredMesh
+from hydromodpy.data.variables.geology.cases import run_geology_property_case as demo
+from hydromodpy.spatial.field.geology.geology_mesh import GeologyStructuredMesh
 
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
@@ -37,8 +37,8 @@ def _load_json(path: Path) -> dict:
 
 def _write_demo_tomls(tmp_path: Path) -> tuple[Path, Path]:
     repo_root = _repo_root()
-    subset_dir = repo_root / "data" / "Brittany_small_test_example" / "geology"
-    dem_path = repo_root / "data" / "Brittany" / "dem" / "regional dem.tif"
+    subset_dir = repo_root / "examples" / "data" / "geology"
+    dem_path = repo_root / "examples" / "data" / "dem" / "regional_dem_naizin.tif"
 
     if not (subset_dir / "GEO1M_brittany.shp").exists():
         raise FileNotFoundError("Missing Brittany geology subset shapefile for test")

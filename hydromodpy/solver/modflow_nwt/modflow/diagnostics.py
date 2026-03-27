@@ -14,7 +14,7 @@
 
 import numpy as np
 
-from hydromodpy.tools import get_logger
+from hydromodpy.core.tools import get_logger
 
 logger = get_logger(__name__)
 

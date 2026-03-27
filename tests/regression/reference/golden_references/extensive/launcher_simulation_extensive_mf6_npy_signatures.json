@@ -1,0 +1,97 @@
+{
+  "modflow_expected": {
+    "watertable_elevation": {
+      "count": 6468,
+      "mean": -9542.960332970766,
+      "p50": -9999.0,
+      "p95": -9999.0,
+      "shape": [
+        77,
+        84
+      ],
+      "timestep": 11,
+      "available_timesteps": 12,
+      "sum": -61723867.43365491
+    },
+    "watertable_depth": {
+      "count": 6468,
+      "mean": 9664.606496603992,
+      "p50": 10122.5,
+      "p95": 10131.6,
+      "shape": [
+        77,
+        84
+      ],
+      "timestep": 11,
+      "available_timesteps": 12,
+      "sum": 62510674.82003462
+    },
+    "seepage_areas": {
+      "count": 6468,
+      "mean": 0.02504638218923933,
+      "p50": 0.0,
+      "p95": 0.0,
+      "shape": [
+        77,
+        84
+      ],
+      "timestep": 11,
+      "available_timesteps": 12,
+      "sum": 162.0
+    },
+    "outflow_drain": {
+      "count": 6468,
+      "mean": 1.4437561162197521e-05,
+      "p50": 0.0,
+      "p95": 0.0,
+      "shape": [
+        77,
+        84
+      ],
+      "timestep": 11,
+      "available_timesteps": 12,
+      "sum": 0.09338214559709357
+    },
+    "accumulation_flux": {
+      "count": 6468,
+      "mean": 0.0002668069643464967,
+      "p50": 0.0,
+      "p95": 0.0,
+      "shape": [
+        77,
+        84
+      ],
+      "timestep": 11,
+      "available_timesteps": 12,
+      "sum": 1.725707445393141
+    }
+  },
+  "transport_expected": {
+    "concentration_seepage": {
+      "count": 6468,
+      "mean": -9748.561223932453,
+      "p50": -9999.0,
+      "p95": -9999.0,
+      "shape": [
+        77,
+        84
+      ],
+      "timestep": 11,
+      "available_timesteps": 12,
+      "sum": -63053693.9963951
+    },
+    "mass_seepage": {
+      "count": 6468,
+      "mean": -9748.561224489484,
+      "p50": -9999.0,
+      "p95": -9999.0,
+      "shape": [
+        77,
+        84
+      ],
+      "timestep": 11,
+      "available_timesteps": 12,
+      "sum": -63053693.99999798
+    }
+  }
+}

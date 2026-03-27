@@ -1,0 +1,13 @@
+[onset]
+time_error_days = 10.0
+
+[trajectory]
+rmse_m = 5.0
+max_abs_error_m = 12.0
+reversal_m = 1e-6
+
+[uniformity]
+row_spread = 1e-4
+
+[contact]
+max_positive_clearance_m = 1e-6

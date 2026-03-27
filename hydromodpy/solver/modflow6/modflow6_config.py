@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from hydromodpy.config.param_level import ParamLevel
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
+from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
 
 
@@ -29,6 +29,26 @@ class Modflow6RuntimeConfig(BaseModel):
     mf_verbose: Annotated[bool, ParamLevel("expert")] = Field(
         default=False,
         description="Enable verbose FloPy logging for MODFLOW 6 setup and execution.",
+    )
+    mf6_outer_dvclose: Annotated[float, ParamLevel("expert")] = Field(
+        default=1e-4,
+        gt=0.0,
+        description="IMS outer-iteration head-change convergence criterion.",
+    )
+    mf6_inner_dvclose: Annotated[float, ParamLevel("expert")] = Field(
+        default=1e-4,
+        gt=0.0,
+        description="IMS inner-iteration head-change convergence criterion.",
+    )
+    mf6_outer_maximum: Annotated[int, ParamLevel("expert")] = Field(
+        default=500,
+        ge=1,
+        description="Maximum number of IMS outer iterations.",
+    )
+    mf6_inner_maximum: Annotated[int, ParamLevel("expert")] = Field(
+        default=500,
+        ge=1,
+        description="Maximum number of IMS inner iterations.",
     )
 
 
@@ -56,13 +76,18 @@ class Modflow6Config(BaseModel):
         default_factory=Modflow6ProcessSpecificConfig,
         description="Process-specific controls for MODFLOW 6 flow packages.",
     )
-    sgrid: Annotated[VerticalGridConfig | None, ParamLevel("user")] = Field(
-        default=None,
-        description="Optional vertical discretization payload as VerticalGridConfig.",
+    sgrid: Annotated[SolverSGridConfig, ParamLevel("user")] = Field(
+        default_factory=SolverSGridConfig,
+        description="Solver-grid payload split into planar and vertical sections.",
     )
     tgrid: Annotated[TMeshConfigModel | None, ParamLevel("user")] = Field(
         default=None,
-        description="Optional temporal discretization payload as TMeshConfigModel.",
+        description=(
+            "Optional temporal discretization payload as TMeshConfigModel. In "
+            "launcher mode, stress periods are driven by [simulation.time]; "
+            "this section is mirrored for compatibility and mainly keeps "
+            "`firstpersteady`."
+        ),
     )
 
 
@@ -85,6 +110,10 @@ class Modflow6RuntimeParams:
     mf6_executable_name: str = "mf6"
     mf6_ims_complexity: str = "COMPLEX"
     mf_verbose: bool = False
+    mf6_outer_dvclose: float = 1e-4
+    mf6_inner_dvclose: float = 1e-4
+    mf6_outer_maximum: int = 500
+    mf6_inner_maximum: int = 500
 
 
 @dataclass(frozen=True)
@@ -100,7 +129,7 @@ class Modflow6SpecifParams:
 
     runtime: Modflow6RuntimeParams = Modflow6RuntimeParams()
     process_specific: Modflow6ProcessSpecificParams = Modflow6ProcessSpecificParams()
-    sgrid: VerticalGridConfig | None = None
+    sgrid: SolverSGridConfig = field(default_factory=SolverSGridConfig)
     tgrid: TMeshConfigModel | None = None
 
     @classmethod

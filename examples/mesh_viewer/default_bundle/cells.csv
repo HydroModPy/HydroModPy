@@ -1,0 +1,3 @@
+cell_id,geom_type,n0,n1,n2,n3,centroid_x,centroid_y,area_m2,z_top_centroid,z_top_mean,geology_code,geology_key
+0,triangle,0,1,2,,0.666667,0.333333,0.5,12.0,12.0,1,granite
+1,triangle,0,2,3,,0.333333,0.666667,0.5,14.0,13.0,2,schist

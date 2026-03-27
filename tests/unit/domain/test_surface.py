@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.domain.raster_support import RasterSupport
-from hydromodpy.domain.surface import Surface
+from hydromodpy.spatial.raster_support import RasterSupport
+from hydromodpy.spatial.surface import Surface
 
 
 def _build_surface(

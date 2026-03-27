@@ -4,38 +4,34 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+import sys
 import tomllib
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from hydromodpy.data_managers.geology.geology_config import validate_geology_config_data
-from hydromodpy.field.core.field_param_config import (
+
+def _find_repo_root() -> Path:
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / "hydromodpy").is_dir():
+            return parent
+    return current.parents[0]
+
+
+REPO_ROOT = _find_repo_root()
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from hydromodpy.data.variables.geology.config import validate_geology_config_data
+from hydromodpy.spatial.field.core.field_param_config import (
     resolve_field_param_config_payload,
     validate_resolved_field_param_data,
 )
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import (
     validate_sgrid_config_data,
 )
-
-
-def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
-    """Resolve one nested section using dotted syntax (for example ``case``)."""
-    current: Any = payload
-    for token in str(dotted_path).split("."):
-        if not isinstance(current, Mapping) or token not in current:
-            raise KeyError(f"Missing TOML section '{dotted_path}'")
-        current = current[token]
-    if not isinstance(current, Mapping):
-        raise ValueError(f"TOML section '{dotted_path}' must be a mapping")
-    return current
-
-
-def _resolve_relative_path(raw_path: str | Path, *, base_dir: Path) -> str:
-    path = Path(str(raw_path)).expanduser()
-    if not path.is_absolute():
-        path = (base_dir / path).resolve()
-    return str(path)
+from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
 
 
 def _resolve_optional_mapping_path(
@@ -47,7 +43,7 @@ def _resolve_optional_mapping_path(
     raw = payload.get(key)
     if raw is None:
         return
-    payload[key] = _resolve_relative_path(raw, base_dir=base_dir)
+    payload[key] = resolve_path(raw, base_dir=base_dir)
 
 
 def _resolve_geology_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[str, Any]:
@@ -83,7 +79,7 @@ def _resolve_field_param_paths(
     heterogeneous_data = dict(heterogeneous)
     source = str(heterogeneous_data.get("values_source", "inline")).strip().lower()
     if source == "csv" and heterogeneous_data.get("values_csv_file") is not None:
-        heterogeneous_data["values_csv_file"] = _resolve_relative_path(
+        heterogeneous_data["values_csv_file"] = resolve_path(
             heterogeneous_data["values_csv_file"],
             base_dir=base_dir,
         )
@@ -208,7 +204,7 @@ class SGridFieldParamDiscretizationConfig(BaseModel):
         """Load one case section from TOML and resolve relative paths."""
         path = Path(config_path).expanduser().resolve()
         payload = tomllib.loads(path.read_text(encoding="utf-8-sig"))
-        section_cfg = dict(_get_nested_section(payload, section))
+        section_cfg = dict(get_nested_section(payload, section))
         base = path.parent
 
         geology_cfg = section_cfg.get("geology")
@@ -232,7 +228,7 @@ class SGridFieldParamDiscretizationConfig(BaseModel):
             raw = section_cfg.get(key)
             if raw is None:
                 continue
-            section_cfg[key] = _resolve_relative_path(raw, base_dir=base)
+            section_cfg[key] = resolve_path(raw, base_dir=base)
 
         return cls.model_validate(section_cfg)
 

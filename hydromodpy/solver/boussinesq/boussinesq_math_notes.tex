@@ -1,0 +1,369 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\geometry{margin=2.5cm}
+\setlist[itemize]{itemsep=0.25em, topsep=0.4em}
+\setlist[enumerate]{itemsep=0.25em, topsep=0.4em}
+
+\title{Mathematical Notes For The HydroModPy Boussinesq Backend}
+\author{HydroModPy}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\section{Purpose Of This Note}
+
+This note gives a mathematical reading of the Boussinesq backend implemented in
+\texttt{hydromodpy/solver/boussinesq}. It is not a full research-paper style
+derivation. Its role is more practical:
+
+\begin{itemize}
+\item define the unknowns and the sign conventions used by the code,
+\item show how the finite-volume residual is assembled,
+\item explain the additional regularized source terms currently present in the
+      implementation,
+\item connect the equations to the main Python modules.
+\end{itemize}
+
+The intended audience is a developer or modeller who wants to understand what
+the backend solves and how that solve is encoded.
+
+\section{Geometric Setting And Unknowns}
+
+The solver works on a 2D triangular mesh of aquifer cells. Each cell $i$ has:
+
+\begin{itemize}
+\item area $A_i$,
+\item top elevation $z^{\text{top}}_i$,
+\item bottom elevation $z^{\text{bot}}_i$,
+\item hydraulic conductivity $K_i$,
+\item storage coefficient $S_i$.
+\end{itemize}
+
+The primary unknown is the cell-centered hydraulic head
+\[
+h_i.
+\]
+
+From $h_i$, the code reconstructs the saturated thickness
+\[
+b_i(h) = \min\!\left(
+    \max\!\left(h_i - z^{\text{bot}}_i, 0\right),
+    z^{\text{top}}_i - z^{\text{bot}}_i
+\right).
+\]
+
+This clipping is important. It means the nonlinear iterate is always interpreted
+through a physically admissible thickness, even if the head temporarily
+overshoots during Newton iterations.
+
+The cell transmissivity is then
+\[
+T_i(h) = K_i\,b_i(h).
+\]
+
+\section{Cell Balance And Sign Convention}
+
+The solver is built around a residual balance written per cell. The convention
+used by the code is:
+
+\begin{itemize}
+\item positive residual contributions tend to remove water from the cell,
+\item recharge and positive well injection add water and therefore appear with a
+      minus sign in the residual,
+\item a converged solution satisfies $R_i \approx 0$ for every cell $i$.
+\end{itemize}
+
+This convention is the one implemented in
+\texttt{assemble\_steady\_residual()} and
+\texttt{assemble\_transient\_residual()}.
+
+\section{Internal Edge Fluxes}
+
+Consider an internal edge $e$ shared by cells $a$ and $b$. The code defines one
+oriented flux $q^{\text{int}}_e$ that is positive when water leaves cell $a$ and
+enters cell $b$:
+\[
+q^{\text{int}}_e = -\tau_e(h_b - h_a).
+\]
+
+The edge transmissive factor is
+\[
+\tau_e
+=
+K^{H}_e\,\bar{b}_e\,\frac{L_e}{d_e},
+\]
+where:
+
+\begin{itemize}
+\item $K^{H}_e$ is the harmonic mean of $K_a$ and $K_b$,
+\item $\bar{b}_e = \frac{1}{2}(b_a + b_b)$ is the averaged saturated thickness,
+\item $L_e$ is the edge length,
+\item $d_e$ is the centroid-to-centroid distance between the two cells.
+\end{itemize}
+
+The residual contribution of internal fluxes is conservative:
+\[
+R^{\text{int}}_a \mathrel{+}= q^{\text{int}}_e,
+\qquad
+R^{\text{int}}_b \mathrel{-}= q^{\text{int}}_e.
+\]
+
+This part is implemented by:
+
+\begin{itemize}
+\item \texttt{internal\_edge\_flux\_from\_head()},
+\item \texttt{accumulate\_internal\_flux\_residual()}.
+\end{itemize}
+
+\section{Imposed-Head Exchanges}
+
+Some edges carry an imposed stage $H_e$, for example:
+
+\begin{itemize}
+\item side Dirichlet conditions,
+\item stream supports,
+\item ocean supports.
+\end{itemize}
+
+For such edges, the code builds cell-to-edge transmissive coefficients
+\[
+\tau_{a,e} = K_a\,b_a\,\frac{L_e}{d_{a,e}},
+\]
+and similarly for $\tau_{b,e}$ when a second owner cell exists.
+
+The corresponding exchange fluxes are
+\[
+q^{D}_{a,e} = -\tau_{a,e}(H_e - h_a),
+\qquad
+q^{D}_{b,e} = -\tau_{b,e}(H_e - h_b).
+\]
+
+Those fluxes are accumulated directly into the owner-cell residuals. In the
+current mesh usage, imposed-head support is mainly used on boundary edges, but
+the implementation is slightly more general and can also account for an edge
+with two owner cells.
+
+\section{Recharge, Wells, Drainage And Saturation Excess}
+
+\subsection{Recharge}
+
+Recharge is represented as a surface rate $r_i$ in m/s. In the current first
+slice of the backend, recharge is homogeneous in space for a given stress
+period. Its volumetric contribution in cell $i$ is
+\[
+A_i r_i.
+\]
+
+\subsection{Wells}
+
+Wells are converted to cell-based volumetric rates $Q^{\text{well}}_i$ in m$^3$/s.
+The sign convention is:
+
+\begin{itemize}
+\item positive value: injection into the aquifer,
+\item negative value: pumping from the aquifer.
+\end{itemize}
+
+Since injection adds water, the residual contains $-Q^{\text{well}}_i$.
+
+\subsection{Drainage}
+
+Drainage is a simple top leakage law that activates only when the head exceeds
+the cell top elevation:
+\[
+q^{\text{drain}}_i = C_i^{\text{drain}}
+\max(h_i - z^{\text{top}}_i, 0).
+\]
+
+This term is always treated as an outflow from the aquifer and therefore enters
+the residual with a positive sign.
+
+\subsection{Regularized Saturation Excess}
+
+The current backend includes a regularized saturation-excess source term. Its
+goal is pragmatic: avoid a sharp on/off overflow law exactly at full saturation
+while still allowing near-surface water release when the cell is almost full.
+
+Define the saturation ratio
+\[
+\sigma_i(h) =
+\frac{b_i(h)}{z^{\text{top}}_i - z^{\text{bot}}_i}.
+\]
+
+Let $R^{\text{lat}}_i$ be the lateral balance rate converted back to a surface
+flux by division through $A_i$. The code forms
+\[
+\beta_i
+=
+\max\!\left(
+    -\frac{R^{\text{lat}}_i}{A_i} + \max(r_i, 0),
+    0
+\right),
+\]
+and then applies the regularization
+\[
+s_i(h)
+=
+\exp\!\left(
+    -\frac{1 - \sigma_i(h)}{\varepsilon}
+\right)
+\beta_i,
+\]
+where $\varepsilon > 0$ is the regularization radius.
+
+This term is not meant to be a final physically complete overland-flow model.
+It is a smooth release mechanism used by the current backend close to full
+saturation.
+
+\section{Steady Residual}
+
+The steady residual assembled by the code is
+\[
+R_i^{\text{steady}}(h)
+=
+R_i^{\text{int}}(h)
++
+R_i^{D}(h)
++
+q_i^{\text{drain}}(h)
++
+A_i s_i(h)
+-
+A_i r_i
+-
+Q_i^{\text{well}}.
+\]
+
+The steady solve therefore searches for
+\[
+R_i^{\text{steady}}(h) = 0
+\qquad \text{for all cells } i.
+\]
+
+\section{Transient Residual}
+
+For one fully implicit backward-Euler time step from $t^n$ to $t^{n+1}$, the
+additional storage term is
+\[
+R_i^{\text{storage}}
+=
+A_i S_i \frac{h_i^{n+1} - h_i^n}{\Delta t}.
+\]
+
+The transient residual is then
+\[
+R_i^{\text{transient}}(h^{n+1})
+=
+A_i S_i \frac{h_i^{n+1} - h_i^n}{\Delta t}
++
+R_i^{\text{int}}(h^{n+1})
++
+R_i^{D}(h^{n+1})
++
+q_i^{\text{drain}}(h^{n+1})
++
+A_i s_i(h^{n+1})
+-
+A_i r_i^{n+1}
+-
+Q_{i}^{\text{well},\,n+1}.
+\]
+
+The backend solves
+\[
+R_i^{\text{transient}}(h^{n+1}) = 0
+\qquad \text{for all cells } i.
+\]
+
+\section{Nonlinear Solution Strategy}
+
+\subsection{Local Runtime}
+
+The local runtime uses a dense damped Newton loop:
+
+\begin{enumerate}
+\item start from an initial head guess,
+\item assemble the residual,
+\item build a dense Jacobian by forward finite differences,
+\item solve the linearized Newton system,
+\item backtrack the Newton update until the residual decreases,
+\item stop when the infinity norm of the residual is below tolerance.
+\end{enumerate}
+
+This strategy is transparent and easy to debug, which is why it is useful in an
+early implementation slice.
+
+\subsection{SciPy Runtime}
+
+The SciPy runtime keeps the same residual and the same finite-difference
+Jacobian, but delegates the nonlinear solve to
+\texttt{scipy.optimize.root}. The important point is that the physics does not
+change; only the nonlinear driver changes.
+
+\section{Mapping Between Equations And Code}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Mathematical object & Main implementation point \\
+\midrule
+$b_i(h)$ & \texttt{saturated\_thickness\_from\_head()} \\
+$T_i(h)$ & \texttt{transmissivity\_from\_head()} \\
+$q^{\text{int}}_e$ & \texttt{internal\_edge\_flux\_from\_head()} \\
+$q^{D}_e$ & \texttt{imposed\_head\_edge\_flux\_from\_head()} \\
+$q_i^{\text{drain}}$ & \texttt{drainage\_outflow\_from\_head()} \\
+$s_i(h)$ & \texttt{saturation\_excess\_rate\_from\_balance()} \\
+$R_i^{\text{steady}}$ & \texttt{assemble\_steady\_residual()} \\
+$R_i^{\text{transient}}$ & \texttt{assemble\_transient\_residual()} \\
+runtime solve & \texttt{local\_runtime.py} / \texttt{scipy\_runtime.py} \\
+problem orchestration & \texttt{boussinesq.py} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Interpretation And Current Limits}
+
+The current backend is best viewed as a clear and auditable first finite-volume
+Boussinesq implementation, not yet as the final production solver. In
+particular:
+
+\begin{itemize}
+\item the Jacobian is still dense,
+\item the overflow-related term is regularized rather than derived from a full
+      coupled surface-flow model,
+\item the current slice focuses on small validation meshes and controlled test
+      cases.
+\end{itemize}
+
+That is acceptable at this stage because the code is optimized for
+interpretability, validation and iterative refinement of the physics.
+
+\section{Compilation Hint}
+
+If a LaTeX distribution is installed, this note can usually be compiled from
+the package directory with either:
+
+\begin{verbatim}
+pdflatex -interaction=nonstopmode boussinesq_math_notes.tex
+\end{verbatim}
+
+or:
+
+\begin{verbatim}
+latexmk -pdf boussinesq_math_notes.tex
+\end{verbatim}
+
+\end{document}
