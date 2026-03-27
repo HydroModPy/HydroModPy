@@ -162,7 +162,7 @@ mask_path = "will be dynamically set from Geographic class"
 [hydrometry_stations.output]
 # Export loaded data after selection.
 enabled = true
-# Export destination directory (résolu dynamiquement depuis workspace.stable_folder dans le code).
+# Export destination directory.
 path = "../results/example12/results_stable/hydrometry"
 # Export mode: "lite" or "full".
 export_mode = "lite"
@@ -494,8 +494,7 @@ plot_conc = true
 # ----------------------------------------------------------------------
 
 [solver]
-# Solver backend: "nwt" (legacy) or "mf6" (MODFLOW 6).
-solver_engine = "nwt"
+# Solver backend: default is "modflownwt" (same as example12.py)
 
 # ----------------------------------------------------------------------
 # MODFLOW-NWT expert configuration

@@ -93,10 +93,8 @@ from hydromodpy.solver.modflow6 import Modflow6, Modflow6Transport
 from hydromodpy.solver import SolverEngine
 from hydromodpy.modeling import timeseries, netcdf
 from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
-from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
-from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 #import importlib
 # Import complete workflow functions from modeling_workflow_complete.py (relative import)
@@ -863,7 +861,7 @@ DATA_MODULES = {
 
 PARAM_CONFIG = {
     "ex12": {
-        "check_model": {"plot_cross": True, "check_grid": True},
+        "check_model": {"plot_cross": True, "check_grid": True, "cross_ylim": [0, 200]},
         "climatic": {
             "recharge_from_results": True,
             "runoff_factor": 0.1
@@ -1780,13 +1778,14 @@ def parametrization(results):
             pass
 
         elif config["climatic"].get("recharge_from_results"):
+            R_mm_day_filt = results.get('R_mm_day_filt')
             R_mm_day = results.get('R_mm_day')
-            if R_mm_day is not None:
-                # Handle both pandas Series (ex00, ex09, ex12) and scalar (ex01)
-                if isinstance(R_mm_day, pd.Series):
-                    recharge = R_mm_day / 1000
-                else:  # scalar value
-                    recharge = R_mm_day / 1000
+            # Use synthetic filtered recharge (R_mm_day_filt) when available,
+            # exactly like example12.py: rec = R_mm_day_filt[:] / 1000
+            if R_mm_day_filt is not None and isinstance(R_mm_day_filt, pd.Series):
+                recharge = R_mm_day_filt / 1000
+            elif R_mm_day is not None:
+                recharge = R_mm_day / 1000
             else:
                 recharge = pd.Series([0.1] * 365) / 1000
             climatic_object.update_recharge(recharge, sim_state=p["sim_state"])
@@ -2027,6 +2026,7 @@ def mt3dms_ex12(results):
         return results
     except Exception as e:
         print(f"MT3DMS error: {e}")
+        import traceback; traceback.print_exc()
         return results
 # ============================================================================
 # STEP 6: POSTPROCESSING - TIMESERIES (MODFLOW ONLY)
@@ -2804,7 +2804,7 @@ def main():
 
     # Extraire les paramètres globaux pour les plots
     vers = config.get("vers", "TRANS1")
-    factor = config.get("factor", 1.0)
+    factor = PARAMS.get(example_key, {}).get("plot_params", {}).get("factor", 30)
 
     print("\n" + "="*70)
     print(f"HYDROMODPY - {example_key.upper()} ORCHESTRATOR".center(70))
@@ -2865,46 +2865,68 @@ def main():
             elif "pathlines" in function_name:
                 # Correction typo: success_modpath
                 if results.get("success_modpath"):
-                    plot_ex12.plot_pathlines(
-                        results.get('simulations_folder'), results.get('model_name'),
-                        results.get('stable_folder'), results.get('geographic')
-                    )
-                    plot_ex12.plot_2d(
-                        results.get("workspace"), results.get("geographic"),
-                        results.get("hydrography"), results.get("model_name")
-                    )
-                    plot_ex12.plot_3d(
-                        results.get("workspace"), results.get("geographic"),
-                        results.get("hydrography"), results.get("model_name")
-                    )
+                    try:
+                        plot_ex12.plot_pathlines(
+                            results.get('simulations_folder'), results.get('model_name'),
+                            results.get('stable_folder'), results.get('geographic')
+                        )
+                    except Exception as e:
+                        print(f"  Warning plot_pathlines: {e}")
+                        import traceback; traceback.print_exc()
+                    try:
+                        plot_ex12.plot_2d(
+                            results.get("workspace"), results.get("geographic"),
+                            results.get("hydrography"), results.get("model_name")
+                        )
+                    except Exception as e:
+                        print(f"  Warning plot_2d: {e}")
+                        import traceback; traceback.print_exc()
+                    try:
+                        plot_ex12.plot_3d(
+                            results.get("workspace"), results.get("geographic"),
+                            results.get("hydrography"), results.get("model_name")
+                        )
+                    except Exception as e:
+                        print(f"  Warning plot_3d: {e}")
+                        import traceback; traceback.print_exc()
 
             elif "concentration" in function_name:
+                if not results.get('success_mt3dms'):
+                    print(f"  Skipping concentration plots: success_mt3dms={results.get('success_mt3dms')}, model_mt3dms={results.get('model_mt3dms')}")
                 if results.get('success_mt3dms'):
-                    # Préparation des données MT3DMS avant le plot
-                    results = ex12_prepare_concentration_data(results)
-
-                    plot_ex12.plot_concentration(
-                        vers=vers,
-                        model_mt3dms=results.get('model_mt3dms'),
-                        model_modflow=results.get('model_modflow'),
-                        simulations_folder=results.get('simulations_folder'),
-                        stable_folder=results.get('stable_folder'),
-                        R_mm_day_filt=results.get('R_mm_day_filt'),
-                        geographic=results.get('geographic'),
-                        hydrography=results.get('hydrography'),
-                        initializing=results.get('workspace')
-                    )
-                    # Corre
-                    # ction syntaxe .get()
-                    plot_ex12.plot_interactive_section(
-                        results.get("stable_folder"),
-                        results.get("simulations_folder"),
-                        results.get("model_name"),
-                        results.get("workspace"),
-                        results.get("geographic"),
-                        results.get("hydrography")
-                    )
-                    plot_ex12.plot_web_animation(results.get('simulations_folder'), vers=vers)
+                    try:
+                        results = ex12_prepare_concentration_data(results)
+                        plot_ex12.plot_concentration(
+                            vers=vers,
+                            model_mt3dms=results.get('model_mt3dms'),
+                            model_modflow=results.get('model_modflow'),
+                            simulations_folder=results.get('simulations_folder'),
+                            stable_folder=results.get('stable_folder'),
+                            R_mm_day_filt=results.get('R_mm_day_filt'),
+                            geographic=results.get('geographic'),
+                            hydrography=results.get('hydrography'),
+                            initializing=results.get('workspace')
+                        )
+                    except Exception as e:
+                        print(f"  Warning plot_concentration: {e}")
+                        import traceback; traceback.print_exc()
+                    try:
+                        plot_ex12.plot_interactive_section(
+                            results.get("stable_folder"),
+                            results.get("simulations_folder"),
+                            results.get("model_name"),
+                            results.get("workspace"),
+                            results.get("geographic"),
+                            results.get("hydrography")
+                        )
+                    except Exception as e:
+                        print(f"  Warning plot_interactive_section: {e}")
+                        import traceback; traceback.print_exc()
+                    try:
+                        plot_ex12.plot_web_animation(results.get('simulations_folder'), vers=vers)
+                    except Exception as e:
+                        print(f"  Warning plot_web_animation: {e}")
+                        import traceback; traceback.print_exc()
 
         # --- BLOC CALCULS ---
         elif section == "watershed":

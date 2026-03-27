@@ -118,8 +118,12 @@ def complete_modflow(geographic, flow, domain, settings, climatic, oceanic_objec
                     watertable_elevation=True,
                     seepage_areas=True,
                     outflow_drain=True,
+                    accumulation_flux=True,
                     watertable_depth=True,
-                    intermittency_monthly=True
+                    intermittency_weekly=False,
+                    intermittency_monthly=True,
+                    intermittency_yearly=False,
+                    export_all_tif=False,
                 )
             )
 
