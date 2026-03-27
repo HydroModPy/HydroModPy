@@ -1,0 +1,6 @@
+[radial_profile]
+rmse = 0.06
+max_abs_error = 0.10
+azimuthal_spread = 0.10
+ocean_head_max_error = 1e-8
+min_land_clearance = 0.75

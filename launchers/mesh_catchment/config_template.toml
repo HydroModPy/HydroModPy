@@ -1,0 +1,492 @@
+# Auto-generated mesh-catchment launcher template.
+# Regenerate with:
+#   python -m launchers mesh-catchment template --profile user
+
+# Shared launcher bootstrap. Override this if your project uses another common base.
+base_config = "config_common.toml"
+# ======================================================================
+# HydroModPy Configuration
+# Profile: user | Modules: mesh_catchment
+# Auto-generated from Pydantic models.
+# Edit values below. Comments describe each parameter.
+# ======================================================================
+
+
+# ----------------------------------------------------------------------
+# Top-level launcher contract for one mono-catchment meshing run.
+# ----------------------------------------------------------------------
+
+[mesh_catchment]
+# Meshing compliance target.
+# 'geology_only' conforms the mesh to geology interfaces only, 'rivers_only' conforms the mesh to river traces only, and 'geology_rivers' enforces both sets of constraints in one mesh.
+# Type: string | REQUIRED
+constraints_mode = ""
+
+# Optional `.msh` output path for the generated planar mesh.
+# When omitted, the launcher writes the mesh to `results_stable/mesh/mesh_catchment.msh` inside the active catchment workspace in standard layout, or directly to `workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used.
+# Type: string (optional) | Optional
+# output_mesh = ""
+
+# Optional JSON sidecar path for QA metrics, cleaned-input diagnostics, and summary metadata describing the generated mesh.
+# When omitted, the launcher writes it next to the default mesh output.
+# Type: string (optional) | Optional
+# output_summary_json = ""
+
+# Optional overview figure path.
+# Use it when you want a quick visual QA artifact showing the support domain, geology zones, river constraints, and final mesh footprint.
+# Type: string (optional) | Optional
+# output_figure = ""
+
+# Optional regional overview figure path.
+# When omitted but output_figure is set, the launcher writes a second figure next to the main one with suffix `_regional` to show where the catchment sits on the full DEM.
+# Type: string (optional) | Optional
+# output_figure_regional = ""
+
+# If true, generate the overview figure artifacts when figure output paths are configured.
+# Set it to false to skip figure creation entirely, even in batch mode where default filename patterns are present.
+# Type: bool | Default: true
+figures_enabled = true
+
+# Pixel density used when rendering the main mesh overview figure.
+# Increase it when you need to inspect mesh edges and constraints more closely in the saved PNG.
+# Type: int | > 0 | Default: 300
+figure_dpi = 300
+
+# Pixel density used when rendering the regional overview figure.
+# Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy.
+# Type: int | > 0 | Default: 220
+figure_regional_dpi = 220
+
+# Dedicated-launcher output layout.
+# Use 'standard' to keep final mesh artifacts under `results_stable/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime folders out of that final directory.
+# Type: string | Default: "standard"
+output_layout = "standard"
+
+# If true, open the generated overview figure interactively at the end of the run.
+# Keep it false for batch or headless execution.
+# Type: bool | Default: false
+show_plot = false
+
+# Control what happens to intermediate geographic preprocessing artifacts after the mesh run.
+# Use 'keep' to preserve the canonical `results_stable/geographic` and `results_stable/demcorrecflow` folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs and exchange bundle have been written.
+# Type: string | Default: "keep"
+geographic_outputs_mode = "keep"
+
+
+# River-constraint section used when constraints_mode includes rivers.
+# The default behavior is to reuse the in-memory river trace already built by the geographic pipeline.
+
+[mesh_catchment.rivers]
+# Origin of the river constraints used to force mesh edges along the river network.
+# Use 'domain_geographic' for the in-memory river trace produced by geographic preprocessing, or 'file' to reload a vector river dataset from disk.
+# Type: string | Default: "domain_geographic"
+source = "domain_geographic"
+
+# Vector file path used only when source='file'.
+# The path may be absolute or relative to the TOML location and should point to a line dataset describing the river centerlines to honor during meshing.
+# Type: string (optional) | Optional
+# path = ""
+
+# If true, clip the river trace to the effective meshing support before sending it to Gmsh.
+# Keep this enabled in most workflows to avoid constraining the mesh with segments that lie outside the chosen domain or scope.
+# Type: bool | Default: true
+clip_to_domain = true
+
+# Minimum retained river segment length, in projected metres after reprojection.
+# Use this to discard tiny residual segments created by clipping or noisy hydrography that would only add mesh complexity without hydraulic meaning.
+# Type: float | >= 0.0 | Default: 0.0
+min_segment_length = 0.0
+
+# Reserved snapping tolerance, in projected metres, for possible future cleanup of nearly coincident river vertices.
+# The current workflow stores the value in the launcher contract but does not apply an additional snapping pass.
+# Type: float | >= 0.0 | Default: 0.0
+snap_tolerance = 0.0
+
+
+# Optional geology support used when constraints_mode includes geology.
+# This section defines which polygon source represents lithological zones and how those polygons should be interpreted before conformal meshing.
+
+# [mesh_catchment.geology]
+# Logical identifier of the geology field once loaded into HydroModPy.
+# This id is reused by support discretization and by parameter mappings that target geology-based zonation.
+# Type: string | Default: "field_geology"
+# id = "field_geology"
+
+# Optional polygon mask applied before meshing or field projection.
+# Use it to crop a very large national dataset to one smaller study area before further processing.
+# Type: string (optional) | Optional
+# clip_polygon_path = ""
+
+# Default sampling density used later when projecting geology fractions onto a target mesh.
+# Higher values improve fraction estimates in narrow or irregular polygons at the cost of runtime.
+# Type: int | Default: 8
+# cell_samples_per_axis = 8
+
+
+# Raw geology source definition.
+# This section explains where the geology polygons or raster come from and how they should be interpreted.
+
+# [mesh_catchment.geology.source]
+# Path to the raw geology dataset used by the meshing workflow.
+# It can point to a raster or polygon vector file depending on kind.
+# Type: string | REQUIRED
+# path = ""
+
+# How to interpret the geology source.
+# Use 'vector' for polygon geology, 'raster' for an already rasterized grid, or 'auto' to infer the type from the file.
+# Type: string | Default: "auto"
+# kind = "auto"
+
+# Attribute column carrying the geology code for each polygon when kind='vector'.
+# Type: string (optional) | Optional
+# code_field = ""
+
+# Reference raster used when vector geology must be rasterized.
+# Its extent and resolution define the target encoding grid.
+# Type: string (optional) | Optional
+# reference_raster_path = ""
+
+# Rasterization rule for vector geology.
+# When true, any pixel touched by a polygon is filled; when false, only pixels whose center falls inside are filled.
+# Type: bool | Default: false
+# all_touched = false
+
+
+# Optional coastal override applied after loading the base geology source.
+
+# [mesh_catchment.geology.landsea]
+# Enable the coastal override that replaces geology values over sea areas.
+# Type: bool | Default: false
+# enabled = false
+
+# Mask raster or vector path used when landsea.enabled=true.
+# The mask is interpreted so that sea pixels/features overwrite the base geology code.
+# Type: string (optional) | Optional
+# path = ""
+
+# Numeric value in the mask that represents the sea class.
+# It is compared against the loaded mask before applying override_code.
+# Type: float | Default: 0.0
+# sea_value = 0.0
+
+# Geology code written into sea areas after applying the land/sea mask.
+# Choose a stable code that is meaningful in downstream parameter tables.
+# Type: string | Default: "1"
+# override_code = "1"
+
+
+# Optional watershed-boundary mesh constraint.
+# Enable it to force a conformal mesh line along the catchment boundary while keeping the geology zonation represented on the whole support domain.
+
+[mesh_catchment.watershed_boundary]
+# If true, inject the watershed boundary as one dedicated linear constraint in addition to geology and/or river constraints.
+# Type: bool | Default: false
+enabled = false
+
+# Optional influence distance, in projected metres, used for the watershed-boundary refinement family.
+# When omitted, the mesher derives one conservative distance from the boundary extent.
+# Type: float (optional) | >= 0.0 | Optional
+# boundary_refinement_distance = 0.0
+
+
+# Optional regularization controls applied before the watershed boundary is converted to a linear constraint.
+
+[mesh_catchment.watershed_boundary.smoothing]
+# If true, apply the smoothing controls below before converting the watershed boundary into one linear constraint.
+# Type: bool | Default: false
+enabled = false
+
+# Optional regularization tolerance, in projected metres, used to simplify the watershed boundary at roughly the target internal mesh scale before it is injected as a linear mesh constraint.
+# When omitted, the mesher reuses zone_meshing.global_size.
+# Type: float (optional) | >= 0.0 | Optional
+# distance = 0.0
+
+# Optional protective buffer around river traces, in projected metres, merged into the boundary-support polygon before smoothing so the final watershed boundary stays slightly outside river corridors near the basin edge.
+# Type: float (optional) | >= 0.0 | Optional
+# river_buffer_distance = 0.0
+
+# Optional outward bias, in projected metres, applied after smoothing so the final watershed boundary remains slightly englobing instead of cutting back toward the raw catchment contour.
+# Type: float (optional) | >= 0.0 | Optional
+# outer_bias_distance = 0.0
+
+
+# Optional coarse-background size field applied outside the regularized watershed while keeping the geology partition unchanged.
+
+[mesh_catchment.watershed_boundary.outside_coarsening]
+# If true, add one regional mesh-size field that keeps the current background size inside the watershed and coarsens the mesh outside it.
+# Type: bool | Default: false
+enabled = false
+
+# Multiplicative factor applied to zone_meshing.global_size outside the watershed.
+# Use 2.0 for an outside background roughly twice as coarse as the internal baseline.
+# Type: float | >= 1.0 | Default: 2.0
+size_factor = 2.0
+
+# Optional transition width, in projected metres, used to ramp from the internal background size to the coarser outside size away from the watershed boundary.
+# Type: float (optional) | >= 0.0 | Optional
+# transition_distance = 0.0
+
+# Optional structured-grid resolution, in projected metres, used to discretize the outside coarsening field.
+# When omitted, the mesher reuses zone_meshing.global_size.
+# Type: float (optional) | > 0.0 | Optional
+# grid_resolution = 1.0
+
+
+# Optional control of where geology remains conformal relative to the watershed.
+# Keep the default full_domain mode to preserve the current behavior.
+
+[mesh_catchment.watershed_boundary.geology_conformity]
+# Control where geology remains conformal.
+# Use 'full_domain' to keep the current behavior, or 'buffered_watershed_envelope' to keep geology interfaces active only inside one buffered envelope around the regularized watershed, without creating one strict partition boundary on that envelope.
+# Type: string | Default: "full_domain"
+mode = "full_domain"
+
+# Optional outward buffer, in projected metres, added around the regularized watershed before selecting where geology interfaces remain active.
+# When omitted in buffered_watershed_envelope mode, the mesher reuses zone_meshing.global_size.
+# Type: float (optional) | >= 0.0 | Optional
+# buffer_distance = 0.0
+
+
+# Optional hydraulic-property tables keyed by geology zones.
+# The launcher projects geology on the mesh and exports per-cell conductivity/storage values as weighted averages of geology fractions.
+
+# Optional hydraulic-conductivity mapping by geology key.
+# When provided, the bundle exports one `hydraulic_conductivity_m_s` value per cell.
+
+# [mesh_catchment.hydraulic_properties.conductivity]
+# Source of the geology-key to property mapping.
+# Use 'inline' for TOML dictionaries or 'csv' for an external table.
+# Type: string | Default: "inline"
+# values_source = "inline"
+
+# Inline mapping from geology zone key to property value.
+# Keys must match the normalized `zone_key` values exported by the geology loader.
+# Type: dict (optional) | Optional
+# values = {}
+
+# CSV file used when values_source='csv'.
+# Relative paths are resolved from the launcher TOML directory.
+# Type: string (optional) | Optional
+# values_csv_file = ""
+
+# CSV column containing geology zone keys.
+# Type: string | Default: "zone_key"
+# csv_key_column = "zone_key"
+
+# CSV column containing numeric property values.
+# Type: string | Default: "value"
+# csv_value_column = "value"
+
+# Fallback value applied when one geology zone has no explicit mapping.
+# Leave empty to keep exported cell values undefined for unmapped zones.
+# Type: object (optional) | Optional
+# default_value = ""
+
+# Input unit used by conductivity values.
+# Exported bundle values are always converted to `m/s`.
+# Type: string | Default: "m/s"
+# unit = "m/s"
+
+
+# Optional storage-coefficient mapping by geology key.
+# When provided, the bundle exports one `storage_coefficient` value per cell.
+
+# [mesh_catchment.hydraulic_properties.storage_coefficient]
+# Source of the geology-key to property mapping.
+# Use 'inline' for TOML dictionaries or 'csv' for an external table.
+# Type: string | Default: "inline"
+# values_source = "inline"
+
+# Inline mapping from geology zone key to property value.
+# Keys must match the normalized `zone_key` values exported by the geology loader.
+# Type: dict (optional) | Optional
+# values = {}
+
+# CSV file used when values_source='csv'.
+# Relative paths are resolved from the launcher TOML directory.
+# Type: string (optional) | Optional
+# values_csv_file = ""
+
+# CSV column containing geology zone keys.
+# Type: string | Default: "zone_key"
+# csv_key_column = "zone_key"
+
+# CSV column containing numeric property values.
+# Type: string | Default: "value"
+# csv_value_column = "value"
+
+# Fallback value applied when one geology zone has no explicit mapping.
+# Leave empty to keep exported cell values undefined for unmapped zones.
+# Type: object (optional) | Optional
+# default_value = ""
+
+
+# Effective support domain to mesh.
+# The default `geographic_box_buffer` mode reuses the catchment bounding box plus geographic buffer prepared during delineation, which is usually the right support for mono-catchment meshing.
+
+[mesh_catchment.domain]
+# Type: string | Default: "geographic_box_buffer"
+kind = "geographic_box_buffer"
+
+
+# Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, and interface refinement.
+# Defaults are valid, but project examples typically override them to target a desired number of cells.
+
+[mesh_catchment.zone_meshing]
+# Planar Gmsh algorithm name.
+# In practice the examples use 'delaunay', which is a robust default for irregular geological and river-constrained domains.
+# Type: string | Default: "delaunay"
+algorithm = "delaunay"
+
+# Baseline target cell size in projected metres over the full support domain.
+# Think of it as the coarse background resolution before local interface refinement is added.
+# Type: float | Default: 250.0
+global_size = 250.0
+
+# Lower bound on local cell size in projected metres.
+# Use it to prevent extreme refinement from generating very small cells in narrow features.
+# Type: float (optional) | Optional
+# min_size = 0.0
+
+# Upper bound on local cell size in projected metres.
+# Use it when you want to cap the coarsening far from interfaces.
+# Type: float (optional) | Optional
+# max_size = 0.0
+
+# Geometry simplification tolerance, in projected metres, applied before meshing.
+# Increase it only when the source polygons contain excessive vertex noise that does not carry hydrogeological meaning.
+# Type: float | Default: 0.0
+simplify_tolerance = 0.0
+
+# Cleanup tolerance, in projected metres, used to repair tiny gaps or slivers between input polygons.
+# Keep it near zero unless the source dataset is known to contain topology artifacts.
+# Type: float | Default: 0.0
+heal_tolerance = 0.0
+
+# Optional global snapping tolerance, in projected metres, applied to internal linear constraints such as rivers or watershed-boundary segments before partition splitting and Gmsh embedding.
+# Type: float | Default: 0.0
+linear_constraint_snap_tolerance = 0.0
+
+# Minimum polygon area, in square metres, kept after cleaning.
+# Use it to drop microscopic remnants that would otherwise create meaningless tiny mesh patches.
+# Type: float | Default: 0.0
+min_polygon_area = 0.0
+
+# Enable a distance-based size field around geology or river interfaces.
+# When false, the mesh uses only the global background size constraints.
+# Type: bool | Default: false
+refine_interfaces = false
+
+# Target local size, in projected metres, close to constrained interfaces.
+# When omitted and refine_interfaces=true, the schema derives a conservative default from global_size/min_size.
+# Type: float (optional) | Optional
+# interface_size = 0.0
+
+# Influence distance, in projected metres, over which the local interface refinement fades back to the background size.
+# Larger values spread refinement farther away from the interface network.
+# Type: float (optional) | Optional
+# interface_distance = 0.0
+
+# Sampling density used to discretize interface-based distance fields.
+# Higher values better capture long and sinuous interfaces but increase Gmsh preprocessing cost.
+# Type: int | Default: 64
+interface_sampling = 64
+
+
+# Optional local hotspot policy used to selectively thin low-priority refinement families when the mixed interface network becomes too dense for one robust Gmsh Delaunay run.
+
+# [mesh_catchment.zone_meshing.refinement_policy]
+# Type: bool | Default: false
+# enabled = false
+
+# Type: string | Default: "family_priority_local_budget"
+# mode = "family_priority_local_budget"
+
+
+# [mesh_catchment.zone_meshing.refinement_policy.hotspot]
+# Type: float (optional) | Optional
+# radius = 0.0
+
+# Type: int | Default: 180
+# max_curve_count = 180
+
+# Type: int | Default: 2
+# max_family_count = 2
+
+# Type: float | Default: 80.0
+# min_gap = 80.0
+
+# Type: int | Default: 4
+# max_node_degree = 4
+
+# Type: float | Default: 120.0
+# short_segment_length = 120.0
+
+# Type: int | Default: 12
+# max_short_segment_count = 12
+
+
+# [mesh_catchment.zone_meshing.refinement_policy.grid]
+# Type: float (optional) | Optional
+# cell_size = 0.0
+
+# Type: int | Default: 1
+# neighborhood_rings = 1
+
+# Type: bool | Default: true
+# enable_exact_gap_check = true
+
+# Type: int | Default: 256
+# max_exact_gap_candidates = 256
+
+
+# [mesh_catchment.zone_meshing.refinement_policy.families.river]
+# Type: bool | Default: true
+# enabled = true
+
+# Type: int | Default: 0
+# priority = 0
+
+# Type: float (optional) | Optional
+# interface_size = 0.0
+
+# Type: float (optional) | Optional
+# interface_distance = 0.0
+
+# Type: int (optional) | Optional
+# interface_sampling = 0
+
+
+# [mesh_catchment.zone_meshing.refinement_policy.families.geology_interface]
+# Type: bool | Default: true
+# enabled = true
+
+# Type: int | Default: 0
+# priority = 0
+
+# Type: float (optional) | Optional
+# interface_size = 0.0
+
+# Type: float (optional) | Optional
+# interface_distance = 0.0
+
+# Type: int (optional) | Optional
+# interface_sampling = 0
+
+
+# [mesh_catchment.zone_meshing.refinement_policy.families.watershed_boundary]
+# Type: bool | Default: true
+# enabled = true
+
+# Type: int | Default: 0
+# priority = 0
+
+# Type: float (optional) | Optional
+# interface_size = 0.0
+
+# Type: float (optional) | Optional
+# interface_distance = 0.0
+
+# Type: int (optional) | Optional
+# interface_sampling = 0
+

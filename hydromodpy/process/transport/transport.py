@@ -38,8 +38,9 @@ class Transport(ProcessSpatial[TransportInitialConditions]):
     def __init__(self, config: TransportConfig | Mapping[str, object] | None = None):
         super().__init__()
         self.config: TransportConfig | None = None
-        self.particle = _TransportComponent()
-        self.conc = _TransportComponent()
+        self.modpath = _TransportComponent()
+        self.mt3dms = _TransportComponent()
+        self.modflow6gwt = _TransportComponent()
         if config is not None:
             self.set_config(config)
 
@@ -52,31 +53,40 @@ class Transport(ProcessSpatial[TransportInitialConditions]):
             raise TypeError("Transport config must be a TransportConfig instance or a mapping")
 
         self.config = transport_cfg
-        self.particle.set_parameters(transport_cfg.particle.parameters.model_dump())
-        self.conc.set_parameters(transport_cfg.conc.parameters.model_dump())
+        self.modpath.set_parameters(transport_cfg.modpath.parameters.model_dump())
+        self.mt3dms.set_parameters(transport_cfg.mt3dms.parameters.model_dump())
+        self.modflow6gwt.set_parameters(transport_cfg.modflow6gwt.parameters.model_dump())
 
-        self.parameters["particle"] = self.particle.parameters
-        self.parameters["conc"] = self.conc.parameters
+        self.parameters["modpath"] = self.modpath.parameters
+        self.parameters["mt3dms"] = self.mt3dms.parameters
+        self.parameters["modflow6gwt"] = self.modflow6gwt.parameters
 
     def set_parameters(self, parameters: dict):
         if not isinstance(parameters, Mapping):
             raise TypeError("Transport parameters must be provided as a mapping")
 
-        particle_payload = parameters.get("particle")
-        if isinstance(particle_payload, Mapping):
-            nested = particle_payload.get("parameters", particle_payload)
+        modpath_payload = parameters.get("modpath")
+        if isinstance(modpath_payload, Mapping):
+            nested = modpath_payload.get("parameters", modpath_payload)
             if isinstance(nested, Mapping):
-                self.particle.set_parameters(nested)
+                self.modpath.set_parameters(nested)
 
-        conc_payload = parameters.get("conc")
-        if isinstance(conc_payload, Mapping):
-            nested = conc_payload.get("parameters", conc_payload)
+        mt3dms_payload = parameters.get("mt3dms")
+        if isinstance(mt3dms_payload, Mapping):
+            nested = mt3dms_payload.get("parameters", mt3dms_payload)
             if isinstance(nested, Mapping):
-                self.conc.set_parameters(nested)
+                self.mt3dms.set_parameters(nested)
+
+        modflow6gwt_payload = parameters.get("modflow6gwt")
+        if isinstance(modflow6gwt_payload, Mapping):
+            nested = modflow6gwt_payload.get("parameters", modflow6gwt_payload)
+            if isinstance(nested, Mapping):
+                self.modflow6gwt.set_parameters(nested)
 
         self.parameters.update(dict(parameters))
-        self.parameters["particle"] = self.particle.parameters
-        self.parameters["conc"] = self.conc.parameters
+        self.parameters["modpath"] = self.modpath.parameters
+        self.parameters["mt3dms"] = self.mt3dms.parameters
+        self.parameters["modflow6gwt"] = self.modflow6gwt.parameters
 
     def build_initial_conditions(
         self,
@@ -99,16 +109,17 @@ class Transport(ProcessSpatial[TransportInitialConditions]):
     def set_sinks_sources(self, sinks_sources: dict):
         self.sinks_sources.update(sinks_sources)
 
-    def update_particle_parameters(self, **kwargs) -> None:
-        """Compatibility helper to update `transport.particle.parameters`."""
-        self.particle.set_parameters(kwargs)
-        self.parameters["particle"] = self.particle.parameters
-
-    def update_conc_parameters(self, **kwargs) -> None:
-        """Compatibility helper to update `transport.conc.parameters`."""
-        self.conc.set_parameters(kwargs)
-        self.parameters["conc"] = self.conc.parameters
+    def update_modpath_parameters(self, **kwargs) -> None:
+        """Update `transport.modpath.parameters`."""
+        self.modpath.set_parameters(kwargs)
+        self.parameters["modpath"] = self.modpath.parameters
 
     def update_mt3dms_parameters(self, **kwargs) -> None:
-        """Backward-compatible alias now routed to `transport.conc.parameters`."""
-        self.update_conc_parameters(**kwargs)
+        """Update `transport.mt3dms.parameters`."""
+        self.mt3dms.set_parameters(kwargs)
+        self.parameters["mt3dms"] = self.mt3dms.parameters
+
+    def update_modflow6gwt_parameters(self, **kwargs) -> None:
+        """Update `transport.modflow6gwt.parameters`."""
+        self.modflow6gwt.set_parameters(kwargs)
+        self.parameters["modflow6gwt"] = self.modflow6gwt.parameters

@@ -27,18 +27,28 @@ from __future__ import annotations
 import json
 import os
 import platform
+import gc
 import shutil
+import stat
 import subprocess
 import sys
+import tempfile
+import time
 from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
 import pytest
+from hydromodpy.solver.modflow_common import ensure_platform_executable
 
 
 # Repository root for every path assembled in the regression helpers.
 REPO_ROOT = Path(__file__).resolve().parents[2]
+REGRESSION_GOLDENS_ROOT = (
+    Path(__file__).resolve().parent
+    / "reference"
+    / "golden_references"
+)
 
 # Common MODFLOW outputs checked by many tests.
 # Individual tests can override this list when needed.
@@ -49,6 +59,54 @@ DEFAULT_MODFLOW_OUTPUT_NAMES = [
     "groundwater_storage",
     "accumulation_flux",
 ]
+
+
+def _rmtree_onerror(func, path, exc_info) -> None:
+    """Retry one failed ``rmtree`` step after clearing a read-only bit.
+
+    Windows test runs sometimes inherit read-only flags on generated artefacts.
+    ``shutil.rmtree`` can recover from that case by marking the current path
+    writable and replaying the failed removal callback once.
+    """
+
+    del exc_info
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+def remove_tree_with_retry(
+    path: Path,
+    *,
+    retries: int = 5,
+    base_delay_s: float = 0.2,
+) -> None:
+    """Remove one directory tree with a few retries for transient Windows locks.
+
+    HydroModPy regression outputs contain GIS artefacts (`.shp`, `.dbf`, `.tif`)
+    that can remain briefly locked on Windows after a previous run, even though
+    the producing process has already exited. Retrying the cleanup avoids
+    spurious test failures when the lock clears a fraction of a second later.
+    """
+
+    if not path.exists():
+        return
+
+    last_error: PermissionError | None = None
+    for attempt in range(retries):
+        try:
+            shutil.rmtree(path, onerror=_rmtree_onerror)
+            return
+        except FileNotFoundError:
+            return
+        except PermissionError as exc:
+            last_error = exc
+            gc.collect()
+            if attempt == retries - 1:
+                raise
+            time.sleep(base_delay_s * (attempt + 1))
+
+    if last_error is not None:
+        raise last_error
 
 
 def load_golden_reference(path: Path) -> dict:
@@ -67,6 +125,65 @@ def load_golden_reference(path: Path) -> dict:
     """
     with path.open("r", encoding="utf-8") as stream:
         return json.load(stream)
+
+
+def load_json_payload(path: Path) -> dict:
+    """Load one JSON file into a plain dictionary."""
+    with path.open("r", encoding="utf-8") as stream:
+        return json.load(stream)
+
+
+def resolve_tiered_golden_file(
+    *,
+    test_file: str | Path,
+    filename: str,
+) -> Path:
+    """
+    Build the canonical golden path for one regression test file.
+
+    Goldens are tiered by test location:
+    - tests under ``tests/regression/extensive`` -> ``.../golden_references/extensive/``
+    - tests under ``tests/regression/fast`` -> ``.../golden_references/fast/``
+    """
+    file_path = Path(test_file).resolve()
+    file_parts = set(file_path.parts)
+    tier = "extensive" if "extensive" in file_parts else "fast"
+    return REGRESSION_GOLDENS_ROOT / tier / str(filename)
+
+
+def resolve_tiered_results_dir(
+    *,
+    test_file: str | Path,
+    run_name: str,
+) -> Path:
+    """
+    Build and prepare one deterministic output directory for a regression test.
+
+    Outputs are tiered by test location under ``HYDROMODPY_OUT_PATH`` when set:
+    - ``.../fast/<run_name>/``
+    - ``.../extensive/<run_name>/``
+
+    If ``HYDROMODPY_OUT_PATH`` is not set, a deterministic temporary root is
+    used: ``<tempdir>/hydromodpy_regression_outputs``.
+
+    The target directory is cleaned before each run to avoid stale artifacts.
+    """
+    base_out_path = os.environ.get("HYDROMODPY_OUT_PATH")
+    if base_out_path:
+        results_root = Path(base_out_path).expanduser().resolve()
+    else:
+        results_root = (
+            Path(tempfile.gettempdir())
+            / "hydromodpy_regression_outputs"
+        )
+    file_path = Path(test_file).resolve()
+    file_parts = set(file_path.parts)
+    tier = "extensive" if "extensive" in file_parts else "fast"
+    out_dir = results_root / tier / str(run_name)
+    if out_dir.exists():
+        remove_tree_with_retry(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir
 
 
 def write_golden_reference(path: Path, payload: dict) -> None:
@@ -124,6 +241,19 @@ def array_stats(values) -> dict:
         "p50": float(np.percentile(finite, 50)),
         "p95": float(np.percentile(finite, 95)),
     }
+
+
+def array_signature(values) -> dict:
+    """Build one compact signature from a generic numeric array."""
+    arr = np.asarray(values, dtype=float)
+    sig = array_stats(arr)
+    sig["shape"] = list(arr.shape)
+    if sig["count"] == 0:
+        sig["sum"] = None
+    else:
+        finite = arr[np.isfinite(arr)]
+        sig["sum"] = float(finite.sum())
+    return sig
 
 
 def assert_stats(
@@ -222,6 +352,30 @@ def collect_modpath_signatures(particles_dir: Path, filenames: list[str]) -> dic
     return {name: snapshot_signature(particles_dir / name) for name in filenames}
 
 
+def collect_npz_signatures(
+    npz_path: Path,
+    names: list[str] | None = None,
+) -> dict:
+    """Collect compact signatures for arrays stored in one `.npz` file."""
+    with np.load(npz_path) as payload:
+        ordered_names = sorted(payload.files) if names is None else list(names)
+        return {
+            name: array_signature(np.asarray(payload[name], dtype=float))
+            for name in ordered_names
+        }
+
+
+def collect_json_signatures(
+    json_path: Path,
+    *,
+    keys: list[str] | None = None,
+) -> dict:
+    """Collect selected scalar/list JSON fields for regression comparison."""
+    payload = load_json_payload(json_path)
+    ordered_keys = sorted(payload) if keys is None else list(keys)
+    return {key: payload[key] for key in ordered_keys}
+
+
 def assert_modflow_signatures(
     actual_by_name: dict,
     expected_by_name: dict,
@@ -267,9 +421,87 @@ def assert_modpath_signatures(actual_by_name: dict, expected_by_name: dict) -> N
         assert_stats(actual["time"], expected["time"])
 
 
-def assert_required_executables(repo_root: Path = REPO_ROOT) -> None:
+def assert_array_signatures(
+    actual_by_name: dict,
+    expected_by_name: dict,
+    *,
+    rel: float = 1e-4,
+    abs_tol: float = 1e-6,
+) -> None:
+    """Validate generic array signatures against golden expectations."""
+    assert set(actual_by_name) == set(expected_by_name)
+    for name, expected in expected_by_name.items():
+        actual = actual_by_name[name]
+        assert actual["shape"] == expected["shape"]
+        assert_stats(actual, expected, rel=rel, abs_tol=abs_tol)
+        if expected["sum"] is None:
+            assert actual["sum"] is None
+        else:
+            assert actual["sum"] == pytest.approx(expected["sum"], rel=rel, abs=abs_tol)
+
+
+def _assert_json_signature_value(
+    actual,
+    expected,
+    *,
+    rel: float,
+    abs_tol: float,
+) -> None:
+    if isinstance(expected, bool) or expected is None or isinstance(expected, str):
+        assert actual == expected
+        return
+    if isinstance(expected, int) and not isinstance(expected, bool):
+        assert actual == expected
+        return
+    if isinstance(expected, float):
+        assert float(actual) == pytest.approx(expected, rel=rel, abs=abs_tol)
+        return
+    if isinstance(expected, list):
+        assert isinstance(actual, list)
+        assert len(actual) == len(expected)
+        for actual_item, expected_item in zip(actual, expected, strict=True):
+            _assert_json_signature_value(
+                actual_item,
+                expected_item,
+                rel=rel,
+                abs_tol=abs_tol,
+            )
+        return
+    if isinstance(expected, dict):
+        assert isinstance(actual, dict)
+        assert_json_signatures(actual, expected, rel=rel, abs_tol=abs_tol)
+        return
+    raise TypeError(f"Unsupported JSON signature value type: {type(expected)!r}")
+
+
+def assert_json_signatures(
+    actual: dict,
+    expected: dict,
+    *,
+    rel: float = 1e-4,
+    abs_tol: float = 1e-6,
+) -> None:
+    """Validate one JSON signature payload with tolerant float comparison."""
+    assert set(actual) == set(expected)
+    for key, expected_value in expected.items():
+        _assert_json_signature_value(
+            actual[key],
+            expected_value,
+            rel=rel,
+            abs_tol=abs_tol,
+        )
+
+
+def assert_required_executables(
+    repo_root: Path = REPO_ROOT,
+    *,
+    require_modflow: bool = True,
+    require_modflow6: bool = False,
+    require_modpath: bool = True,
+    require_mt3dms: bool = False,
+) -> None:
     """
-    Ensure bundled MODFLOW/MODPATH executables are available for this platform.
+    Ensure bundled solver executables are available for this platform.
 
     The function *skips* the test (instead of failing) when binaries are
     missing, because this is an environment issue, not a model-regression
@@ -278,19 +510,37 @@ def assert_required_executables(repo_root: Path = REPO_ROOT) -> None:
     # Resolve executable names from OS-specific bundled folders.
     if platform.system() == "Windows":
         mf_exe = repo_root / "bin" / "win" / "mfnwt.exe"
+        mf6_exe = repo_root / "bin" / "win" / "mf6.exe"
         mp_exe = repo_root / "bin" / "win" / "mp6.exe"
+        mt_exe = repo_root / "bin" / "win" / "mt3d-usgs_1.1.0_64.exe"
     elif platform.system() == "Linux":
         mf_exe = repo_root / "bin" / "linux" / "mfnwt"
+        mf6_exe = repo_root / "bin" / "linux" / "mf6"
         mp_exe = repo_root / "bin" / "linux" / "mp6"
+        mt_exe = repo_root / "bin" / "linux" / "mt3dusgs"
     elif platform.system() == "Darwin":
         mf_exe = repo_root / "bin" / "mac" / "mfnwt"
+        mf6_exe = repo_root / "bin" / "mac" / "mf6"
         mp_exe = repo_root / "bin" / "mac" / "mp6"
+        mt_exe = repo_root / "bin" / "mac" / "mt3dusgs"
     else:
         pytest.skip(f"Unsupported platform for bundled executables: {platform.system()}")
 
-    missing = [str(p) for p in (mf_exe, mp_exe) if not p.exists()]
+    required_paths = []
+    if require_modflow:
+        required_paths.append(mf_exe)
+    if require_modflow6:
+        required_paths.append(mf6_exe)
+    if require_modpath:
+        required_paths.append(mp_exe)
+    if require_mt3dms:
+        required_paths.append(mt_exe)
+
+    missing = [str(p) for p in required_paths if not p.exists()]
     if missing:
         pytest.skip(f"Required executables are missing: {missing}")
+    for path in required_paths:
+        ensure_platform_executable(path)
 
 
 def require_url_available(url: str, *, timeout: float = 15.0, attempts: int = 3) -> None:
@@ -332,30 +582,22 @@ def resolve_model_workspace(
     """
     Resolve generated workspace folders for a completed example run.
 
-    Typical structure:
-    `<out_path>/<watershed>/<results_folder>/<model>/_postprocess/...`
+    With the project-root layout, ``out_path`` IS the project root and
+    results live directly at ``out_path/<results_folder>/<model>/...``.
+
+    The legacy ``watershed_name`` parameter is accepted but ignored — there
+    is no longer a watershed subfolder between out_path and results.
 
     Returns
     -------
     tuple
         (model_ws, postprocess_dir, particles_dir)
     """
-    # 1) Resolve watershed folder.
-    if watershed_name is None:
-        # Most tests produce exactly one watershed folder in `out_path`.
-        watershed_dirs = sorted(p for p in out_path.iterdir() if p.is_dir())
-        assert watershed_dirs, f"No watershed folder found in {out_path}"
-        watershed_dir = watershed_dirs[0]
-    else:
-        # Some tests prefer explicit watershed naming to avoid ambiguity.
-        watershed_dir = out_path / watershed_name
-        assert watershed_dir.is_dir(), f"Watershed folder not found: {watershed_dir}"
-
-    # 2) Resolve results folder (`results_simulations` or `results_calibration`).
-    results_dir = watershed_dir / results_folder_name
+    # 1) Resolve results folder directly under project root.
+    results_dir = out_path / results_folder_name
     assert results_dir.is_dir(), f"Results folder not found: {results_dir}"
 
-    # 3) Resolve model folder (exact name or first matching folder).
+    # 2) Resolve model folder (exact name or first matching folder).
     if model_name is not None:
         model_ws = results_dir / model_name
         assert model_ws.is_dir(), f"Model folder not found: {model_ws}"
@@ -369,7 +611,7 @@ def resolve_model_workspace(
         assert model_dirs, f"No model folder found in {results_dir}"
         model_ws = model_dirs[0]
 
-    # 4) Return canonical workspace paths used by most regression tests.
+    # 3) Return canonical workspace paths used by most regression tests.
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
     return model_ws, postprocess_dir, particles_dir
@@ -421,6 +663,18 @@ def update_or_assert_goldens(
         assert "modpath_expected" in expected
         assert_modpath_signatures(actual["modpath_expected"], expected["modpath_expected"])
 
+    if "transport_expected" in actual:
+        expected_transport = expected.get("transport_expected", expected.get("mt3dms_expected"))
+        assert expected_transport is not None
+        # Transport solvers (advection-dispersion) are inherently noisier
+        # than flow solvers; allow a wider tolerance for transport outputs.
+        assert_modflow_signatures(
+            actual["transport_expected"],
+            expected_transport,
+            rel=5e-4,
+            abs_tol=1e-5,
+        )
+
     if "mt3dms_expected" in actual:
         assert "mt3dms_expected" in expected
         # Transport solvers (advection-dispersion) are inherently noisier
@@ -432,6 +686,20 @@ def update_or_assert_goldens(
             abs_tol=1e-5,
         )
 
+    if "boussinesq_state_history_expected" in actual:
+        assert "boussinesq_state_history_expected" in expected
+        assert_array_signatures(
+            actual["boussinesq_state_history_expected"],
+            expected["boussinesq_state_history_expected"],
+        )
+
+    if "boussinesq_summary_expected" in actual:
+        assert "boussinesq_summary_expected" in expected
+        assert_json_signatures(
+            actual["boussinesq_summary_expected"],
+            expected["boussinesq_summary_expected"],
+        )
+
 
 def run_example_script(
     *,
@@ -439,6 +707,7 @@ def run_example_script(
     out_path: Path,
     out_env_var: str,
     extra_env: dict | None = None,
+    script_args: list[str] | None = None,
     timeout: int = 1200,
     cwd: Path = REPO_ROOT,
 ) -> None:
@@ -450,8 +719,9 @@ def run_example_script(
     - non-interactive execution without monkeypatching.
     """
     env = os.environ.copy()
-    # Redirect outputs into a pytest temporary directory.
+    # Redirect outputs into the per-test output directory via project root override.
     env[out_env_var] = str(out_path)
+    env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
     # Force non-interactive plotting backend for headless execution.
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
@@ -461,11 +731,12 @@ def run_example_script(
     # When coverage is active, use a wrapper that starts coverage
     # programmatically before any project imports.  This avoids the numpy
     # double-load crashes caused by .pth files or "coverage run".
+    run_args = [] if script_args is None else list(script_args)
     if os.environ.get("HYDROMODPY_COVERAGE"):
         wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
-        command = [sys.executable, str(wrapper), str(script_path)]
+        command = [sys.executable, str(wrapper), str(script_path), *run_args]
     else:
-        command = [sys.executable, str(script_path)]
+        command = [sys.executable, str(script_path), *run_args]
     completed = subprocess.run(
         command,
         cwd=str(cwd),
@@ -497,7 +768,7 @@ def run_legacy_example_script(
     extra_env: dict | None = None,
 ) -> None:
     """
-    Run a legacy example script that hardcodes `examples/results`.
+    Run a legacy example script that hardcodes `examples_legacy/results`.
 
     Legacy scripts are executed through an inline wrapper. The wrapper:
     1. redirects only the canonical hardcoded results path,
@@ -544,7 +815,7 @@ orig_join = os.path.join
 
 def patched_join(*parts):
     # Redirect only the canonical hardcoded pattern, keep all other joins intact.
-    if len(parts) == 3 and parts[1] == "examples" and parts[2] == "results":
+    if len(parts) == 3 and parts[1] == "examples_legacy" and parts[2] == "results":
         return str(out_path)
     return orig_join(*parts)
 
@@ -572,7 +843,7 @@ if patch_ipython_inline:
     except Exception:
         pass
 
-from hydromodpy.watershed_root import Watershed
+from hydromodpy.watershed.watershed import Watershed
 assert hasattr(Watershed, stop_method), f"Unknown Watershed method: {stop_method}"
 orig_method = getattr(Watershed, stop_method)
 stop_counter = {"calls": 0}
@@ -627,4 +898,7 @@ except SystemExit as exc:
         f"Stdout:\n{completed.stdout}\n"
         f"Stderr:\n{completed.stderr}"
     )
+
+
+
 

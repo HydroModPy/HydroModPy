@@ -1,0 +1,43 @@
+[case]
+cell_samples_per_axis = 8
+depth = 0.0
+strict_field_spatial_id_match = true
+output_figure = "outputs/gmsh_reference.png"
+output_summary_json = "outputs/gmsh_summary.json"
+
+[case.mesh]
+path = "data/mesh/comparison_triangles_3x.msh"
+cell_type = "triangle"
+
+[case.geology]
+id = "field_geology"
+cell_samples_per_axis = 8
+
+[case.geology.source]
+path = "../../../../../../../examples/data/geology/GEO1M_brittany.shp"
+kind = "vector"
+code_field = "CODE_LEG"
+reference_raster_path = "../../../cartesian_grid/examples/discretization/demo_top_bretagne_10km.tif"
+all_touched = false
+
+[case.geology.landsea]
+enabled = false
+sea_value = 0
+override_code = "1"
+
+[case.field_param.field]
+id = "K"
+kind = "heterogeneous"
+
+[case.field_param.field_homogeneous]
+value = 1e-6
+
+[case.field_param.field_heterogeneous]
+values_source = "csv"
+values_csv_file = "../../../../../../../examples/data/geology/geology_K_dummy_demo.csv"
+csv_key_column = "zone_key"
+csv_value_column = "K_value"
+field_spatial_id = "field_geology"
+
+[case.field_param.field_vertical_profile]
+mode = "none"

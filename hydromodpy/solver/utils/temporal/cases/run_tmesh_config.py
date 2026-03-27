@@ -3,44 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-import importlib.util
 from pathlib import Path
-import sys
 import tomllib
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-try:
-    from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
-except Exception:
-    module_path = Path(__file__).resolve().parents[1] / "tmesh_config.py"
-    module_name = "_local_tmesh_config"
-    spec = importlib.util.spec_from_file_location(module_name, module_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load local tmesh_config module from {module_path}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
-    TMeshConfigModel = module.TMeshConfigModel
-
-
-def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
-    current: Any = payload
-    for token in str(dotted_path).split("."):
-        if not isinstance(current, Mapping) or token not in current:
-            raise KeyError(f"Missing TOML section '{dotted_path}'")
-        current = current[token]
-    if not isinstance(current, Mapping):
-        raise ValueError(f"TOML section '{dotted_path}' must be a mapping")
-    return current
-
-
-def _resolve_path(path_value: str | Path, base_dir: Path) -> str:
-    path = Path(str(path_value)).expanduser()
-    if not path.is_absolute():
-        path = (base_dir / path).resolve()
-    return str(path)
+from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
+from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
 
 
 class TMeshCaseScenarioConfig(TMeshConfigModel):
@@ -102,16 +72,16 @@ class TMeshCasesConfig(BaseModel):
     ) -> "TMeshCasesConfig":
         path = Path(config_path).expanduser().resolve()
         payload = tomllib.loads(path.read_text(encoding="utf-8-sig"))
-        section_cfg = dict(_get_nested_section(payload, section))
+        section_cfg = dict(get_nested_section(payload, section))
         base = path.parent
 
         if section_cfg.get("output_summary_json") is not None:
-            section_cfg["output_summary_json"] = _resolve_path(
+            section_cfg["output_summary_json"] = resolve_path(
                 section_cfg["output_summary_json"],
                 base,
             )
         if section_cfg.get("output_figures_dir") is not None:
-            section_cfg["output_figures_dir"] = _resolve_path(
+            section_cfg["output_figures_dir"] = resolve_path(
                 section_cfg["output_figures_dir"],
                 base,
             )
@@ -124,7 +94,7 @@ class TMeshCasesConfig(BaseModel):
                     raise ValueError("each scenario must be a mapping")
                 item = dict(raw)
                 if item.get("chron_path") is not None:
-                    item["chron_path"] = _resolve_path(item["chron_path"], base)
+                    item["chron_path"] = resolve_path(item["chron_path"], base)
                 resolved_scenarios.append(item)
             section_cfg["scenarios"] = resolved_scenarios
 

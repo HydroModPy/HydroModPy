@@ -1,0 +1,19 @@
+# Example TOML for Field geometry
+#
+# Read with:
+#   FieldSquare.from_toml(
+#       "hydromodpy/spatial/field/cases/square/field_spatial_config.toml",
+#       section="field",
+#   )
+
+[field]
+# Geometry identifier used by field_heterogeneous.field_spatial_id.
+id = "field_square"
+# "diag_main", "diag_anti", "axis_vertical", or "axis_horizontal"
+line = "diag_main"
+# Which signed side is zone 1: "positive" or "negative"
+zone1_side = "positive"
+# Zone names used as heterogeneous dictionary keys.
+zone1_name = "granite"
+zone2_name = "micaschists"
+

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
  * Author: T. Babey
  * Guidel field site simulation
@@ -34,10 +34,6 @@ get_ipython().run_line_magic('matplotlib', 'inline')
 import flopy
 import imageio
 
-import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
-
 #%% ROOT
 
 from os.path import dirname, abspath
@@ -52,10 +48,12 @@ import importlib
 importlib.reload(src)
 
 # Import HydroModPy modules
-from src import watershed_root
+from hydromodpy.backends import get_whitebox_backend
+from hydromodpy.legacy.watershed import watershed_root_legacy
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox, folder_root
 
+wbt = get_whitebox_backend()
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% ---- PATHS
@@ -77,52 +75,52 @@ print('The results of the example will be saved here :', out_path)
 
 #%% USER INPUTS
 
-# Nom du fichier MNT (doit être présent dans dossier "data")
-# Conseil : utiliser un MNT de résolution 50m voire plus large (75, 100) pour 
+# Nom du fichier MNT (doit Ãªtre prÃ©sent dans dossier "data")
+# Conseil : utiliser un MNT de rÃ©solution 50m voire plus large (75, 100) pour 
 # commencer afin de limiter le temps de simulation
 dem_name = 'dem_guidel_75m.tif'
 
-# Option pour importer le réseau hydrographique depuis un fichier extérieur
+# Option pour importer le rÃ©seau hydrographique depuis un fichier extÃ©rieur
 # (ex: bdtopage) : oui (True) ou non (False)
 isUsed_hydroNetwork = True
-# Si utilisé, nom du fichier de réseau hydro (doit être présent dans dossier 
+# Si utilisÃ©, nom du fichier de rÃ©seau hydro (doit Ãªtre prÃ©sent dans dossier 
 # "data")
 hydroNetwork_name = 'tronconhydro_guidel_bdtopage'
 
 # Nom bu bassin versant (BV)
 watershed_name = 'Guidel_Lannenec'
 
-# Coordonnées de l'exutoire du BV
+# CoordonnÃ©es de l'exutoire du BV
 # [x, y, snap_distance, buffer_size, coordinate_system]
-#    -  x,y, coordinate_system : coordonnées en x et y de l'exutoire dans le
-#                                le système de coordonées coordinate_system
-#                                (par défaut en France : 'EPSG:2154' pour 
+#    -  x,y, coordinate_system : coordonnÃ©es en x et y de l'exutoire dans le
+#                                le systÃ¨me de coordonÃ©es coordinate_system
+#                                (par dÃ©faut en France : 'EPSG:2154' pour 
 #                                Lambert 93)
-#    -  snap_distance : [m] Distance maximum où la position de l'exutoire peut
-#                       être ajustée (par défaut: 200m)
-#    -  buffer_size : [en % de la taille du BV] Taille totale du modèle autour
-#                     du BV (par défaut : 10%)
+#    -  snap_distance : [m] Distance maximum oÃ¹ la position de l'exutoire peut
+#                       Ãªtre ajustÃ©e (par dÃ©faut: 200m)
+#    -  buffer_size : [en % de la taille du BV] Taille totale du modÃ¨le autour
+#                     du BV (par dÃ©faut : 10%)
 outlet_coordinates = [214866, 6758551 , 200 , 10 , 'EPSG:2154'] 
 
 # Calcule les dimensions du BV (load = False) ou charge les dimensions du BV 
-# calculées lors des simulations précédentes (load = True). Si load = False 
-# renvoie une erreur disant qu'un des fichiers ne peut pas être supprimé :
-# supprimer toutes les variables dans la fenêtre "Variable explorer" (haut 
-# droit de l'écran sous Spyder)
-# Utile pour éviter de re-calculer les dimensions du BV quand non nécessaire
+# calculÃ©es lors des simulations prÃ©cÃ©dentes (load = True). Si load = False 
+# renvoie une erreur disant qu'un des fichiers ne peut pas Ãªtre supprimÃ© :
+# supprimer toutes les variables dans la fenÃªtre "Variable explorer" (haut 
+# droit de l'Ã©cran sous Spyder)
+# Utile pour Ã©viter de re-calculer les dimensions du BV quand non nÃ©cessaire
 load = False
 
 recharge = 300        # Recharge, en mm/an
-nlay = 1              # Nombre de couches verticales du modèle, défaut : 1
-layer_thickness = 20  # Epaisseur de l'aquifère
-hk = 1e-5             # Conductivité hydraulique, en m/s
-sy = 1 / 100          # Rendement specifque (specific yield), ~ porosité
+nlay = 1              # Nombre de couches verticales du modÃ¨le, dÃ©faut : 1
+layer_thickness = 20  # Epaisseur de l'aquifÃ¨re
+hk = 1e-5             # ConductivitÃ© hydraulique, en m/s
+sy = 1 / 100          # Rendement specifque (specific yield), ~ porositÃ©
 
 # A noter / faire attention:
 #    - Prendre un DEM suffisament grand pour bien prendre en compte la zone 
-#      d'étude et son buffer  
-#    - Toutes les figures montrées dans la fenêtre "Plot" sont aussi
-#      enregistrées en format image dans le dossier de résultats (à explorer
+#      d'Ã©tude et son buffer  
+#    - Toutes les figures montrÃ©es dans la fenÃªtre "Plot" sont aussi
+#      enregistrÃ©es en format image dans le dossier de rÃ©sultats (Ã  explorer
 #      pour les trouver)  
 
 #%% INPUT CONSOLIDATION
@@ -142,7 +140,7 @@ save_object = True
 
 print('##### '+watershed_name.upper()+' #####')
 
-BV = watershed_root.Watershed(dem_path=dem_path,
+BV = watershed_root_legacy.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
                               watershed_name=watershed_name,
@@ -485,5 +483,8 @@ os.chdir(root_dir)
 #     forms=True, 
 #     residuals=False, 
 # )
+
+
+
 
 

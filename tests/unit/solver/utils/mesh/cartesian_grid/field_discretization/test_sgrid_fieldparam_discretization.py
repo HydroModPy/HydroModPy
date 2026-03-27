@@ -12,8 +12,8 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-from hydromodpy.data_managers.geology.geology_field import GeologyField
-from hydromodpy.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.geology.geology_field import GeologyField
+from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.case_runner import (
     run_discretization_case_from_toml,
 )
@@ -65,7 +65,7 @@ def _build_sgrid(
         "nlay": int(nlay),
     }
     if nx is not None and ny is not None:
-        cfg_kwargs["plan_discretization_mode"] = "shape"
+        cfg_kwargs["plan_discretization_mode"] = "resample_to_shape"
         cfg_kwargs["nx"] = int(nx)
         cfg_kwargs["ny"] = int(ny)
     return build_sgrid_from_config(SGridConfig(**cfg_kwargs))

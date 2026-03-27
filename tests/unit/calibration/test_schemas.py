@@ -1,4 +1,4 @@
-﻿"""Unit tests for pydantic schemas used in calibration2 configuration."""
+"""Unit tests for pydantic schemas used in calibration2 configuration."""
 
 from __future__ import annotations
 
@@ -7,18 +7,18 @@ import textwrap
 
 import pytest
 
-from hydromodpy.calibration.core.engine_config import validate_calibration_config_data
-from hydromodpy.calibration.cases.recession_brutsaert.case_config import (
+from hydromodpy.analysis.calibration.core.engine_config import validate_calibration_config_data
+from hydromodpy.analysis.calibration.cases.recession_brutsaert.case_config import (
     validate_brutsaert_chronicle_config,
 )
-from hydromodpy.calibration.cases.groundwater_1d.case_config import (
+from hydromodpy.analysis.calibration.cases.groundwater_1d.case_config import (
     validate_groundwater_1d_chronicle_config,
 )
-from hydromodpy.calibration.cases.reservoir.case_config import (
+from hydromodpy.analysis.calibration.cases.reservoir.case_config import (
     validate_reservoir_chronicle_config,
 )
-from hydromodpy.calibration.core.methods_config import validate_method_kwargs
-from hydromodpy.calibration.core.engine_config import load_calibration_toml
+from hydromodpy.analysis.calibration.core.methods_config import validate_method_kwargs
+from hydromodpy.analysis.calibration.core.engine_config import load_calibration_toml
 
 
 def _base_config():
@@ -68,6 +68,54 @@ def test_validate_calibration_config_data_rejects_unknown_output_key():
     config = _base_config()
     config["output"] = {"show_plot": True, "legacy_output_key": 1}
     with pytest.raises(ValueError, match="Extra inputs are not permitted"):
+        validate_calibration_config_data(config)
+
+
+def test_validate_calibration_config_data_accepts_objective_transform_section():
+    config = _base_config()
+    config["objective"] = {
+        "transform": "log",
+        "transform_params": {"epsilon": 1.0e-8},
+    }
+    validated = validate_calibration_config_data(config)
+    assert validated["objective"]["transform"] == "log"
+    assert validated["objective"]["transform_params"]["epsilon"] == pytest.approx(1.0e-8)
+
+
+def test_validate_calibration_config_data_rejects_unknown_objective_key():
+    config = _base_config()
+    config["objective"] = {
+        "transform": "log",
+        "legacy_objective_key": True,
+    }
+    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
+        validate_calibration_config_data(config)
+
+
+def test_validate_calibration_config_data_rejects_invalid_objective_transform():
+    config = _base_config()
+    config["objective"] = {"transform": "legacy_log"}
+    with pytest.raises(ValueError, match="Unsupported objective transform"):
+        validate_calibration_config_data(config)
+
+
+def test_validate_calibration_config_data_rejects_invalid_transform_params_for_transform():
+    config = _base_config()
+    config["objective"] = {
+        "transform": "sqrt",
+        "transform_params": {"epsilon": 1.0e-6},
+    }
+    with pytest.raises(ValueError, match="Unsupported transform_params"):
+        validate_calibration_config_data(config)
+
+
+def test_validate_calibration_config_data_rejects_non_positive_log_epsilon():
+    config = _base_config()
+    config["objective"] = {
+        "transform": "log",
+        "transform_params": {"epsilon": 0.0},
+    }
+    with pytest.raises(ValueError, match="transform_params.epsilon must be > 0"):
         validate_calibration_config_data(config)
 
 

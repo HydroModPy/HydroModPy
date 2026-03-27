@@ -13,8 +13,11 @@
 #%% LIBRAIRIES
 
 # Python
+import io
 import os
 import sys
+from contextlib import redirect_stdout
+
 import flopy
 import flopy.utils.binaryfile as fpu
 import numpy as np
@@ -34,7 +37,9 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.tools import toolbox, get_logger
+from hydromodpy.core.backends import get_whitebox_backend
+from hydromodpy.solver.modflow_common import ensure_platform_executable
+from hydromodpy.core.tools import toolbox, get_logger
 logger = get_logger(__name__)
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
@@ -131,14 +136,13 @@ class Modpath(Solver):
             self.exe = os.path.join(bin_path, 'linux' ,'mp6')
         if (sys.platform == 'darwin'):
             self.exe = os.path.join(bin_path, 'mac' ,'mp6')
-        
-        # Parameters for particles
+        self.exe = str(ensure_platform_executable(self.exe))
+
+        # Parameters for the Modpath transport solver
         particle_params = {}
-        transport_particle = getattr(transport, 'particle', None)
-        if transport_particle is not None:
-            raw_params = getattr(transport_particle, 'parameters', None)
-            if isinstance(raw_params, Mapping):
-                particle_params = dict(raw_params)
+        raw_params = getattr(transport.modpath, 'parameters', None)
+        if isinstance(raw_params, Mapping):
+            particle_params = dict(raw_params)
 
         def _pick(key, explicit, default):
             if explicit is not None:
@@ -146,10 +150,7 @@ class Modpath(Solver):
             return particle_params.get(key, default)
 
         zone_partic_val = _pick('zone_partic', zone_partic, 'domain')
-        if zone_partic_val == 'domain':
-            self.zone_partic = self._resolve_domain_raster()
-        else:
-            self.zone_partic = zone_partic_val
+        self.zone_partic = self._resolve_zone_partic(zone_partic_val)
 
         self.track_dir = _pick('track_dir', track_dir, 'forward')
         self.bore_depth = _pick('bore_depth', bore_depth, None)
@@ -204,7 +205,8 @@ class Modpath(Solver):
 
     def _get_geographic(self):
         """Return geographic context from MODFLOW model when available."""
-        return getattr(self.model_modflow, 'geographic', None)
+        model_modflow = getattr(self, 'model_modflow', None)
+        return getattr(model_modflow, 'geographic', None)
 
     def _get_crs_proj(self):
         """Resolve CRS from geographic context, else from domain support."""
@@ -223,9 +225,105 @@ class Modpath(Solver):
         if raster_path is None:
             raise ValueError(
                 "Cannot resolve default zone_partic='domain'. "
-                "Provide transport.particle.parameters.zone_partic as a raster path."
+                "Provide transport.modpath.parameters.zone_partic as a raster path."
             )
         return raster_path
+
+    def _get_base_raster_path(self):
+        """Resolve the raster template used to export seepage products."""
+        model_modflow = getattr(self, 'model_modflow', None)
+        base_raster = getattr(model_modflow, 'dem_watershed_path', None)
+        if base_raster is not None:
+            return base_raster
+
+        geo = self._get_geographic()
+        if geo is None:
+            return None
+        for attr_name in ('watershed_dem', 'watershed_box_buff_dem', 'watershed_buff_dem'):
+            candidate = getattr(geo, attr_name, None)
+            if candidate is not None:
+                return candidate
+        return None
+
+    def _restore_seepage_raster_from_npy(self, seepage_tif: str) -> bool:
+        """Try rebuilding the seepage GeoTIFF from ``seepage_areas.npy``."""
+        seepage_npy = os.path.join(self.full_path, '_postprocess', 'seepage_areas.npy')
+        base_raster = self._get_base_raster_path()
+        if not os.path.isfile(seepage_npy) or base_raster is None or not os.path.isfile(base_raster):
+            return False
+
+        try:
+            payload = np.load(seepage_npy, allow_pickle=True).item()
+            if not payload:
+                return False
+            first_key = sorted(payload)[0]
+            seepage_array = np.asarray(payload[first_key], dtype=float)
+            toolbox.export_tif(base_raster, seepage_array, seepage_tif, -9999.0)
+        except Exception as exc:
+            logger.warning(
+                "Failed to rebuild seepage raster from %s for zone_partic='seepage_clip'. "
+                "Error: %s",
+                seepage_npy,
+                exc,
+            )
+            return False
+        return os.path.isfile(seepage_tif)
+
+    def _resolve_seepage_clip_raster(self):
+        """Build and return clipped seepage raster path for particle injection."""
+        seepage_tif = os.path.join(
+            self.full_path,
+            '_postprocess',
+            '_rasters',
+            'seepage_areas_t(0).tif',
+        )
+        if not os.path.isfile(seepage_tif):
+            rebuilt = self._restore_seepage_raster_from_npy(seepage_tif)
+            if not rebuilt:
+                raise FileNotFoundError(
+                    "zone_partic='seepage_clip' requested but missing seepage raster at "
+                    f"{seepage_tif}."
+                )
+
+        watershed_shp = self._get_watershed_shp()
+        if watershed_shp is None:
+            logger.warning(
+                "zone_partic='seepage_clip' requested but watershed polygon is unavailable; "
+                "using raw seepage raster %s.",
+                seepage_tif,
+            )
+            return seepage_tif
+
+        seepage_clip_tif = os.path.join(
+            self.full_path,
+            '_postprocess',
+            '_rasters',
+            'seepage_areas_t(0)_clip.tif',
+        )
+        try:
+            get_whitebox_backend().clip_raster_to_polygon(
+                str(seepage_tif),
+                str(watershed_shp),
+                str(seepage_clip_tif),
+                maintain_dimensions=True,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to build clipped seepage raster for zone_partic='seepage_clip'; "
+                "using raw seepage raster %s instead. Error: %s",
+                seepage_tif,
+                exc,
+            )
+            return seepage_tif
+        return seepage_clip_tif
+
+    def _resolve_zone_partic(self, zone_partic_val):
+        """Resolve ``zone_partic`` aliases to concrete raster paths."""
+        if zone_partic_val == 'domain':
+            return self._resolve_domain_raster()
+        if zone_partic_val == 'seepage_clip':
+            return self._resolve_seepage_clip_raster()
+        return zone_partic_val
 
     def _get_watershed_shp(self):
         """Resolve watershed polygon path when available."""
@@ -341,7 +439,7 @@ class Modpath(Solver):
                       self.zone_opt, 
                       self.retardation_option, 
                       self.advective_observations_option] 
-        print('Option flags:', option_flags)
+        logger.debug('Option flags: %s', option_flags)
               
         logger.debug('Modpath settings - track: %s, zone_opt: %s, zone_inj: %s', self.track, self.zone_opt, type(self.zone_inj))
         
@@ -518,7 +616,8 @@ class Modpath(Solver):
         """
         # Create modflow files
         if write_model == True:
-            self.mp.write_input()
+            with redirect_stdout(io.StringIO()):
+                self.mp.write_input()
        
         # Run modflow files
         success_model = False
@@ -640,23 +739,23 @@ class Modpath(Solver):
             
             # Create pathlines file
             if pathlines_shp == True:
-                with warnings.catch_warnings():
+                with warnings.catch_warnings(), redirect_stdout(io.StringIO()):
                     warnings.filterwarnings("ignore", message="Truncating shapefile fieldname.*")
                     pthobj.write_shapefile(pathline_data=pth_data_save,
                                             shpname=os.path.join(self.particles_file, 'pathlines.shp'),
-                                            one_per_particle=True, 
+                                            one_per_particle=True,
                                             direction='ending',
                                             mg=grid_model,
                                             crs=crs_for_write,
                                             verbose=False)
-            
+
             # Create particles file
             if particles_shp == True:
-                with warnings.catch_warnings():
+                with warnings.catch_warnings(), redirect_stdout(io.StringIO()):
                     warnings.filterwarnings("ignore", message="Truncating shapefile fieldname.*")
                     pthobj.write_shapefile(pathline_data=pth_data_save,
                                             shpname=os.path.join(self.particles_file, 'particles.shp'),
-                                            one_per_particle=False, 
+                                            one_per_particle=False,
                                             direction='ending',
                                             mg=grid_model,
                                             crs=crs_for_write,

@@ -6,10 +6,30 @@ import argparse
 from pathlib import Path
 import sys
 
-import matplotlib.pyplot as plt
+import matplotlib
 import matplotlib.colors as mcolors
 from matplotlib.ticker import ScalarFormatter
 import numpy as np
+
+
+def _configure_matplotlib_backend_from_argv(argv: list[str]) -> None:
+    """Pick one GUI backend early when interactive display is expected."""
+    if "--no-show-plot" in argv:
+        return
+    backend = str(matplotlib.get_backend()).strip().lower()
+    if ("inline" not in backend) and ("agg" not in backend):
+        return
+    for candidate in ("TkAgg", "QtAgg"):
+        try:
+            matplotlib.use(candidate, force=True)
+            return
+        except Exception:
+            continue
+
+
+_configure_matplotlib_backend_from_argv(sys.argv[1:])
+
+import matplotlib.pyplot as plt
 
 # Ensure repository root is importable when script is launched directly.
 def _find_repo_root() -> Path:
@@ -24,7 +44,7 @@ REPO_ROOT = _find_repo_root()
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.case_runner import (
     run_discretization_case,
 )
@@ -34,6 +54,10 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.run_dem
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
     build_sgrid_from_config,
+)
+from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
+    _compute_layer_center_depths,
 )
 
 
@@ -137,17 +161,18 @@ def _resolve_output_path(raw_output: str, *, config_path: Path) -> Path:
     return output
 
 
-def _compute_layer_center_depths(sgrid) -> np.ndarray:
-    top = np.asarray(getattr(sgrid, "top"), dtype=float)
-    botm = np.asarray(getattr(sgrid, "botm"), dtype=float)
-    if botm.ndim != 3:
-        raise ValueError("sgrid.botm must be 3D")
-    ztop = np.empty_like(botm, dtype=float)
-    ztop[0, :, :] = top
-    if botm.shape[0] > 1:
-        ztop[1:, :, :] = botm[:-1, :, :]
-    zmid = 0.5 * (ztop + botm)
-    return np.maximum(0.0, top[None, :, :] - zmid)
+def _ensure_gui_backend_for_blocking_show() -> None:
+    """Switch away from inline/non-GUI backends before blocking `show()`."""
+    backend = str(plt.get_backend()).strip().lower()
+    if ("inline" not in backend) and ("agg" not in backend):
+        return
+
+    for candidate in ("TkAgg", "QtAgg"):
+        try:
+            plt.switch_backend(candidate)
+            return
+        except Exception:
+            continue
 
 
 def _extract_xy_from_sgrid(sgrid) -> tuple[np.ndarray, np.ndarray]:
@@ -392,7 +417,7 @@ def _plot_3d_demo_figure(
     show_plot: bool,
     norm: mcolors.Normalize | None = None,
     use_log: bool | None = None,
-) -> None:
+):
     arr3d = np.asarray(values_3d, dtype=float)
     if norm is None:
         norm, use_log_auto = _build_color_norm(arr3d)
@@ -463,9 +488,32 @@ def _plot_3d_demo_figure(
     fig.savefig(output_path)
     print(f"saved_figure={output_path}")
 
-    if show_plot:
-        plt.show()
-    else:
+    if not show_plot:
+        plt.close(fig)
+        return None
+    return fig
+
+
+def _show_figures_blocking(*figures) -> None:
+    visible = [fig for fig in figures if fig is not None]
+    if not visible:
+        return
+    print(f"matplotlib_backend={plt.get_backend()}")
+    print("showing_figure=interactive_blocking")
+    # Force blocking behavior even when an interactive backend is active.
+    plt.ioff()
+    for fig in visible:
+        try:
+            manager = getattr(fig.canvas, "manager", None)
+            if manager is not None and hasattr(manager, "show"):
+                manager.show()
+            fig.show()
+        except Exception:
+            continue
+    maximize_figure_windows(*visible)
+    plt.pause(0.05)
+    plt.show(block=True)
+    for fig in visible:
         plt.close(fig)
 
 
@@ -498,9 +546,13 @@ def _build_projected_field_on_sgrid_3d(
 
 def main(argv=None) -> int:
     args = _parse_args(argv)
+    if not bool(args.no_show_plot):
+        _ensure_gui_backend_for_blocking_show()
     config_path = _resolve_config_path(args.config_file)
     cfg = SGridFieldParamDiscretizationConfig.from_toml(config_path, section=args.section)
 
+    print(f"config={config_path}")
+    print("step=run_discretization_case")
     result = run_discretization_case(cfg)
     field_param = FieldParam.from_dict(cfg.field_param)
     sgrid = build_sgrid_from_config(SGridConfig.from_mapping(cfg.sgrid))
@@ -535,7 +587,7 @@ def main(argv=None) -> int:
     else:
         final_subtitle = f"vertical profile: {mode}"
 
-    _plot_3d_demo_figure(
+    fig_final = _plot_3d_demo_figure(
         values_3d=values_3d,
         sgrid=sgrid,
         field_param=field_param,
@@ -546,7 +598,7 @@ def main(argv=None) -> int:
         norm=shared_norm,
         use_log=shared_use_log,
     )
-    _plot_3d_demo_figure(
+    fig_projected = _plot_3d_demo_figure(
         values_3d=projected_field_3d,
         sgrid=sgrid,
         field_param=field_param,
@@ -560,6 +612,8 @@ def main(argv=None) -> int:
         norm=shared_norm,
         use_log=shared_use_log,
     )
+    if not bool(args.no_show_plot):
+        _show_figures_blocking(fig_final, fig_projected)
     return 0
 
 

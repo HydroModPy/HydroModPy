@@ -1,0 +1,94 @@
+[simulation]
+name = "Bsq recharge piecewise K 1D"
+description = "Synthetic steady-state unconfined flow with uniform recharge, fixed heads, and piecewise-constant hydraulic conductivity."
+
+[[simulation.process]]
+id = "flow_validation"
+type = "flow"
+solvers = ["modflownwt"]
+
+[workspace]
+project_root = "."
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "validation_boussinesq_uniform_recharge_piecewise_k"
+
+[geographic.synthetic.grid]
+length_x = "400.0 m"
+length_y = "50.0 m"
+nx = 40
+ny = 5
+
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 20.0
+
+[domain]
+
+[domain.supports.k_bands]
+provider = "generated_bands"
+axis = "x"
+coordinate_mode = "relative"
+breaks = [0.3, 0.7]
+labels = ["west_zone", "middle_zone", "east_zone"]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "20.0 m"
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["west_side", "east_side"]
+param_list = ["K"]
+
+[flow.param.K.field]
+id = "K"
+kind = "heterogeneous"
+
+[flow.param.K.field_heterogeneous]
+values_source = "inline"
+values = { west_zone = "2e-4 m/s", middle_zone = "5e-5 m/s", east_zone = "1e-4 m/s" }
+field_spatial_id = "k_bands"
+
+[flow.ic]
+type = "custom"
+value = "6.0 m"
+
+[flow.bc.dirichlet.west_side]
+type = "dirichlet"
+value = "5.0 m"
+
+[flow.bc.dirichlet.east_side]
+type = "dirichlet"
+value = "5.0 m"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+[data]
+types = ["recharge"]
+inference_mode = "warn"
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [3.0]
+runoff_ratio = 0.0
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 40
+ny = 5
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+[display]
+enabled = false
+
+
+

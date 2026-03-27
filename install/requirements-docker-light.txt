@@ -16,7 +16,7 @@ pysheds
 rasterio
 rioxarray
 scikit-learn
-whitebox
+whitebox-workflows
 xarray
 requests
 geopy

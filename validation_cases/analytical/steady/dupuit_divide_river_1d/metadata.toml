@@ -1,0 +1,32 @@
+case_id = "dupuit_divide_river_1d"
+category = "analytical"
+regime = "steady"
+dimension = "1d"
+launcher = "launcher_simulation"
+config_file = "config_modflownwt.toml"
+default_solver = "modflownwt"
+base_config = "config_modflownwt.toml"
+
+[config_files]
+modflownwt = "config_modflownwt.toml"
+modflow6 = "config_modflow6.toml"
+boussinesq = "config_boussinesq.toml"
+
+
+[workspace]
+results_folder_name = "results_simulations"
+
+[output]
+observable_name = "watertable_elevation"
+expected_shape = [5, 40]
+
+[reference]
+xmin = 0.0
+xmax = 400.0
+river_head = 5.0
+recharge_mm_day = 1.0
+hydraulic_conductivity_m_per_s = 1e-4
+aquifer_thickness_m = 20.0
+profile_axis = 0
+divide_side = "west"
+

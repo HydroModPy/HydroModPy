@@ -20,11 +20,12 @@ Raw `[flow.ic]` configuration payloads are normalized separately in
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 from hydromodpy.process.prototype import InitialCondition as BaseInitialCondition
+from hydromodpy.core.units import normalize_length_unit
 
 
 class FlowInitialCondition(BaseInitialCondition):
@@ -55,6 +56,10 @@ class FlowInitialCondition(BaseInitialCondition):
         """Require `value` whenever `type='custom'`."""
         if self.type == "custom" and self.value is None:
             raise ValueError("flow.ic.value is required when flow.ic.type='custom'")
+        normalized_units = normalize_length_unit(str(self.units).strip() or "m")
+        if normalized_units != "m":
+            raise ValueError("flow.ic.units must be normalized to 'm' in runtime objects")
+        self.units = "m"
         return self
 
 
@@ -66,7 +71,11 @@ class FlowInitialConditions(BaseModel):
     API to remain extensible when adding future IC variables.
     """
 
+    # Tell the TOML generator to emit fields from the single nested model
+    # directly at the parent section level ([flow.ic] instead of [flow.ic.h]).
+    toml_flatten: ClassVar[bool] = True
+
     h: FlowInitialCondition = Field(
-        ...,
+        default_factory=lambda: FlowInitialCondition(type="top", id="h", units="m", description="Initial condition 'h'"),
         description="Hydraulic-head initial condition payload.",
     )

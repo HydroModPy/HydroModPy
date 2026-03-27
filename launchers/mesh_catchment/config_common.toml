@@ -1,0 +1,144 @@
+# Shared mesh-catchment settings aligned with process_simulation bootstrap.
+#
+# This file intentionally mirrors the early catchment-construction sections
+# used by process_simulation:
+# - [workspace]
+# - [geographic]
+# - [geographic.river_network]
+#
+# It also carries the mesh-catchment settings shared by the bundled examples:
+# - [mesh_catchment]
+# - [mesh_catchment.geology.source]
+# - [mesh_catchment.hydraulic_properties.conductivity]
+# - [mesh_catchment.zone_meshing]
+#
+# Batch scenarios add their outlet-table settings through config_batch_common.toml.
+
+base_config = "../../examples/projects/launcher_simulation/project.toml"
+
+[workspace]
+# Keep generated mesh-catchment workspaces outside the git repository.
+project_root = "~/HydroModPy/mesh_catchment_nancon"
+
+[geographic]
+catch_def = "from_outlet_coord"
+# Lightweight Naizin DEM used by the mono-catchment examples.
+# Batch scenarios override this with a wider DEM covering all outlets.
+dem_init_path = "../../examples/data/dem/regional_dem_naizin.tif"
+# In batch mode, x_outlet/y_outlet are seed values only; they are overridden
+# from the outlets table at runtime.
+x_outlet = 265611.933
+y_outlet = 6784182.776
+snap_dist = "50 m"
+buff_area = "30%"
+crs_project = "EPSG:2154"
+
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 1.0
+prune_short_streams = false
+compute_strahler_order = true
+compute_stream_links = true
+all_vertices = true
+
+[domain.depth_model]
+# Exported mesh bundles derive `z_bottom` / substratum fields from this section.
+# Override it in scenario files when you want another vertical assumption.
+type = "constant_thickness"
+thickness = "50.0 m"
+
+[mesh_catchment]
+constraints_mode = "geology_rivers"
+output_layout = "flat"
+figures_enabled = true
+figure_dpi = 300
+figure_regional_dpi = 220
+# Shared launcher profile:
+# - constrain the mesh with rivers and geology
+# - use one single support domain without extra public scoping layers
+# - optionally add one smoothed watershed-boundary constraint without changing
+#   the geology zonation outside the basin
+
+[mesh_catchment.watershed_boundary]
+enabled = true
+boundary_refinement_distance = 500.0
+
+[mesh_catchment.watershed_boundary.smoothing]
+enabled = true
+distance = 200.0
+river_buffer_distance = 100.0
+outer_bias_distance = 10.0
+
+[mesh_catchment.watershed_boundary.outside_coarsening]
+enabled = true
+size_factor = 3.0
+transition_distance = 680.0
+grid_resolution = 680.0
+
+[mesh_catchment.watershed_boundary.geology_conformity]
+# Keep geology interfaces active only inside one buffered envelope around the
+# regularized watershed, while leaving the full geology visible in diagnostic figures.
+mode = "buffered_watershed_envelope"
+buffer_distance = 100.0
+
+[mesh_catchment.geology.source]
+# Use the France-wide geology source, then clip/rasterize locally on the
+# effective meshing support.
+path = "../../examples/data/geology/GEO1M.shp"
+kind = "vector"
+code_field = "CODE_LEG"
+reference_raster_path = "../../examples/data/dem/regional_dem_naizin.tif"
+
+[mesh_catchment.hydraulic_properties.conductivity]
+# Demonstration geology -> K mapping for bundle export.
+# Values come from `geology_K_dummy_demo.csv` and are already in m/s.
+# The demo CSV is expected to cover the bundled `GEO1M.shp` codes directly.
+values_source = "csv"
+values_csv_file = "../../examples/data/geology/geology_K_dummy_demo.csv"
+csv_value_column = "K_value"
+
+[mesh_catchment.zone_meshing]
+# Default mesh profile used by the bundled examples.
+global_size = 680.0
+min_size = 340.0
+max_size = 1080.0
+min_polygon_area = 1.0
+refine_interfaces = true
+interface_size = 250.0
+interface_distance = 610.0
+interface_sampling = 96
+
+[mesh_catchment.zone_meshing.refinement_policy]
+# Local hotspot-aware refinement budget used to keep Delaunay robust on mixed
+# river/geology/watershed cases without dropping any geometric constraint.
+# The default shared mode now uses one locality grid so large catchments do not
+# spend most of their time in pairwise Shapely distance scans.
+enabled = true
+mode = "grid_local_budget"
+
+[mesh_catchment.zone_meshing.refinement_policy.grid]
+neighborhood_rings = 1
+enable_exact_gap_check = false
+max_exact_gap_candidates = 128
+
+[mesh_catchment.zone_meshing.refinement_policy.hotspot]
+radius = 610.0
+max_curve_count = 180
+max_family_count = 2
+min_gap = 80.0
+max_node_degree = 4
+short_segment_length = 120.0
+max_short_segment_count = 12
+
+[mesh_catchment.zone_meshing.refinement_policy.families.river]
+enabled = true
+priority = 300
+
+[mesh_catchment.zone_meshing.refinement_policy.families.geology_interface]
+enabled = true
+priority = 200
+
+[mesh_catchment.zone_meshing.refinement_policy.families.watershed_boundary]
+enabled = true
+priority = 100

@@ -1,0 +1,65 @@
+name: docs
+
+on:
+  push:
+    branches: [master, dev-refact, dev-data]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  gallery_sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa graphviz
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[docs]"
+
+      - name: Install pinned docs tooling
+        run: python tools/setup_plantuml.py --skip-graphviz
+
+      - name: Verify capability gallery sync
+        env:
+          HYDROMODPY_NO_DISPLAY: "1"
+        run: python -m tools.doc_gallery --check
+
+  html:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa graphviz
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[docs]"
+
+      - name: Install pinned docs tooling
+        run: python tools/setup_plantuml.py --skip-graphviz
+
+      - name: Build documentation
+        env:
+          HYDROMODPY_NO_DISPLAY: "1"
+        run: |
+          cd docs/readthedocs
+          python -m sphinx -E -a -W -b html source _build/html

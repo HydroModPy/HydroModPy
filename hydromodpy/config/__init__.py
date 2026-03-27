@@ -1,17 +1,16 @@
-"""
-HydroModPy configuration module.
+"""Compatibility wrapper for :mod:`hydromodpy.core.config`."""
 
-Generate TOML templates:
-    python -m hydromodpy.config --profile user --modules geographic
-    python -m hydromodpy.config --profile expert
-"""
+from importlib import import_module as _import_module
+
+_target = _import_module("hydromodpy.core.config")
+__all__ = getattr(_target, "__all__", [])
+__doc__ = _target.__doc__
+__path__ = getattr(_target, "__path__", [])
 
 
 def __getattr__(name: str):
-    if name == "HydroModPyConfig":
-        from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-        return HydroModPyConfig
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    return getattr(_target, name)
 
 
-__all__ = ["HydroModPyConfig"]
+def __dir__():
+    return sorted(set(globals()) | set(dir(_target)))

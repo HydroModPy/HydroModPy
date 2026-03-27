@@ -1,0 +1,36 @@
+case_id = "boussinesq_hillslope_recharge_step_interception_1d"
+category = "analytical"
+regime = "transient"
+dimension = "1d"
+launcher = "launcher_simulation"
+config_file = "config_boussinesq.toml"
+default_solver = "boussinesq"
+
+[config_files]
+boussinesq = "config_boussinesq.toml"
+
+[workspace]
+results_folder_name = "results_simulations"
+
+[output]
+observable_name = "watertable_elevation"
+expected_periods = 13
+expected_spatial_shape = [3, 40]
+
+[time]
+dt_seconds = 864000.0
+
+[reference]
+xmin = 0.0
+xmax = 400.0
+base_head_m = 5.0
+toe_elevation_m = 5.0
+topography_slope_m_per_m = 0.0125
+recharge_mm_day = 2.0
+hydraulic_conductivity_m_per_s = 1e-4
+reference_saturated_thickness_m = 5.0
+specific_yield = 0.1
+profile_axis = 0
+numerical_contact_tolerance_m = 0.05
+inland_contact_threshold_x_m = 385.0
+n_terms = 400

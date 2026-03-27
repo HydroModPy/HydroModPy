@@ -1,0 +1,76 @@
+{
+  "mesh_kind": "extruded_prism_3d",
+  "cell_type_2d": "triangle",
+  "cell_type_3d": "triangular_prism",
+  "field_id": "field_geology",
+  "field_param_id": "K",
+  "field_param_kind": "heterogeneous",
+  "shape_2d": [
+    800
+  ],
+  "shape_3d": [
+    3,
+    800
+  ],
+  "n_layers": 3,
+  "n_cells_2d": 800,
+  "n_cells_3d": 2400,
+  "stats_2d": {
+    "min": 2e-06,
+    "max": 7.205e-05,
+    "mean": 1.6566898e-05,
+    "sum": 0.013253518071
+  },
+  "stats_3d": {
+    "min": 5.27194e-07,
+    "max": 5.8500014e-05,
+    "mean": 8.658953e-06,
+    "sum": 0.020781486806
+  },
+  "depth_stats": {
+    "min": 12.5,
+    "max": 80.0,
+    "mean": 45.0,
+    "sum": 108000.0
+  },
+  "layer_means": [
+    1.3451266e-05,
+    8.158605e-06,
+    4.366987e-06
+  ],
+  "layer_depth_means": [
+    12.5,
+    42.5,
+    80.0
+  ],
+  "center_profile": [
+    8.119363e-06,
+    4.924643e-06,
+    2.635971e-06
+  ],
+  "center_depth_profile": [
+    12.5,
+    42.5,
+    80.0
+  ],
+  "surface_signature_head": [
+    2e-06,
+    2e-06,
+    2e-06,
+    2e-06,
+    3.142857e-06,
+    4.857143e-06,
+    6e-06,
+    7.714286e-06
+  ],
+  "values_3d_signature_head": [
+    1.623873e-06,
+    1.623873e-06,
+    1.623873e-06,
+    1.623873e-06,
+    2.5518e-06,
+    3.943691e-06,
+    4.871618e-06,
+    6.263509e-06
+  ]
+}

@@ -1,20 +1,20 @@
-﻿"""Unit tests for refactored reference-case calibration core."""
+"""Unit tests for refactored reference-case calibration core."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from hydromodpy.calibration.core.engine_config import (
+from hydromodpy.analysis.calibration.core.engine_config import (
     resolve_calibration_settings,
 )
-from hydromodpy.calibration.core.methods_config import (
+from hydromodpy.analysis.calibration.core.methods_config import (
     normalize_format_method_kwargs,
 )
-from hydromodpy.calibration.core.engine import CalibrationEngine
-from hydromodpy.calibration.core.methods_dispatcher import CalibrationMethod
-from hydromodpy.calibration.core.results import CalibrationResults
-from hydromodpy.calibration.core.objective_function import ObjectiveFunction
+from hydromodpy.analysis.calibration.core.engine import CalibrationEngine
+from hydromodpy.analysis.calibration.core.methods_dispatcher import CalibrationMethod
+from hydromodpy.analysis.calibration.core.results import CalibrationResults
+from hydromodpy.analysis.calibration.core.objective_function import ObjectiveFunction
 
 
 def test_da_mh_forces_rmse_metric_with_warning():
@@ -35,6 +35,30 @@ def test_da_mh_forces_rmse_metric_with_warning():
             model_parameter_order=("a",),
         )
     assert settings["objective_metric"] == "rmse"
+
+
+def test_resolve_calibration_settings_exposes_objective_options():
+    """Objective section should be validated then propagated to runtime settings."""
+    config = {
+        "chronicle": {},
+        "calibration": {
+            "objective_metric": "rmse",
+            "global_method": "random_search",
+        },
+        "objective": {
+            "transform": "inverse",
+            "transform_params": {"epsilon": 0.1},
+        },
+        "bounds": {"a": [0.05, 0.95]},
+        "calibration_method": {"random_search": {"n_samples": 10, "seed": 1}},
+    }
+
+    settings = resolve_calibration_settings(
+        config,
+        model_parameter_order=("a",),
+    )
+    assert settings["objective"]["transform"] == "inverse"
+    assert settings["objective"]["transform_params"] == {"epsilon": 0.1}
 
 
 def test_unknown_method_kwargs_are_rejected():
@@ -104,6 +128,37 @@ def test_objective_value_to_cost_respects_metric_direction():
 
     assert np.isclose(maximize_obj.value_to_cost(0.8), 0.2)
     assert np.isclose(minimize_obj.value_to_cost(0.8), 0.8)
+
+
+def test_calibration_engine_applies_objective_transformation_before_scoring():
+    """Configured objective transform must be applied to observed/simulated series."""
+    eps = 1.0e-12
+    observed = np.array([1.0, 100.0], dtype=float)
+
+    def _simulator(params):
+        return np.array([float(params["a"]), float(params["a"])], dtype=float)
+
+    engine = CalibrationEngine(
+        observed=observed,
+        simulator=_simulator,
+        bounds={"a": (1.0, 100.0)},
+        objective_metric="rmse",
+        objective_config={"transform": "log", "transform_params": {"epsilon": eps}},
+    )
+
+    value = engine.score(np.array([10.0], dtype=float))
+    expected = float(
+        np.sqrt(
+            np.mean(
+                (
+                    np.log10(np.array([10.0, 10.0], dtype=float) + eps)
+                    - np.log10(observed + eps)
+                )
+                ** 2
+            )
+        )
+    )
+    assert value == pytest.approx(expected, abs=1.0e-12, rel=0.0)
 
 
 def test_calibration_results_prefers_posterior_samples_and_keeps_chain():

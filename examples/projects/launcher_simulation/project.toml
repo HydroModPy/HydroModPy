@@ -1,0 +1,119 @@
+# Shared launcher_simulation settings for all example12 regression variants.
+
+[workspace]
+project_root = "."
+
+[geographic]
+catch_def = "from_outlet_coord"
+dem_init_path = "../../data/dem/regional_dem_naizin.tif"
+x_outlet = 265611.933
+y_outlet = 6784182.776
+snap_dist = "50 m"
+buff_area = "20%"
+crs_project = "EPSG:2154"
+
+[domain]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "50.0 m"
+
+[data]
+types = ["hydrography"]
+
+[data.hydrography]
+[[data.hydrography.sources]]
+source = "custom"
+path = "../../../examples_legacy/example12/data/botopage2024_naizin_streams_perennial-intermittent.shp"
+rasterize_field = "FID"
+
+[data.oceanic]
+[[data.oceanic.sources]]
+source = "custom"
+path = "../../data/oceanic"
+col_datetime = "timestamp"
+
+[data.hydrometry]
+
+[[data.hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+extent = "watershed"
+require_observations = true
+station_ids = ["J736422001"]
+
+[flow]
+flow_regime = "transient"
+active_sinks_sources = ["recharge", "wells"]
+active_bc = ["ocean", "drainage"]
+param_list = ["K", "Ss", "Sy"]
+
+[flow.param.K.field]
+kind = "homogeneous"
+
+[flow.param.K.field_homogeneous]
+value = "5e-5 m/s"
+
+[flow.param.K.field_vertical_profile]
+mode = "exponential"
+characteristic_depth = "15.0 m"
+min_factor = 2e-4
+
+[flow.param.Ss.field]
+kind = "homogeneous"
+
+[flow.param.Ss.field_homogeneous]
+value = "1e-10 m-1"
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+
+[flow.param.Sy.field_homogeneous]
+value = "0.02 -"
+
+[flow.param.Sy.field_vertical_profile]
+mode = "exponential"
+characteristic_depth = "30.0 m"
+min_factor = 5e-2
+
+[flow.ic]
+type = "top"
+
+[flow.bc.cauchy.drainage]
+application_domain = "top"
+value = "0.0 m2/s"
+
+[flow.bc.dirichlet.ocean]
+value = "1.0 m"
+data_value = true
+
+[flow.sinks_sources.wells.W1]
+location_mode = "absolute_xy"
+x = 265611.933
+y = 6784182.776
+units = "m3/day"
+
+[flow.sinks_sources.wells.W1.forcing]
+mode = "csv"
+date_column = "date"
+date_format = "%Y-%m-%d"
+value_column = "W1_m3_day"
+aggregate = "mean"
+
+[flow.sinks_sources.wells.W2]
+location_mode = "relative_xy"
+units = "m3/day"
+
+[flow.sinks_sources.wells.W2.forcing]
+mode = "csv"
+date_column = "date"
+date_format = "%Y-%m-%d"
+value_column = "W2_m3_day"
+aggregate = "mean"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+negative_to_evt = true
+
+[postprocess]
+enabled = true

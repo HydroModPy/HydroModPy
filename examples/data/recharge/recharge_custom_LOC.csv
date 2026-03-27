@@ -1,0 +1,6 @@
+id,x,y,crs,name,unit
+RECH01,-1.685,48.128,EPSG:4326,Station Recharge Nord,mm/day
+RECH02,-1.672,48.121,EPSG:4326,Station Recharge Sud,mm/day
+RECH03,-1.678,48.130,EPSG:4326,Station Recharge Centre,mm/day
+NANCON,389285.910,6816518.749,EPSG:2154,Nancon,mm/day
+00,150727.164,6858066.520,EPSG:2154,Example 00 Outlet,mm/day

@@ -5,7 +5,7 @@ Scope
 -----
 
 These diagrams document architecture and execution flows for
-``hydromodpy.calibration``.
+``hydromodpy.analysis.calibration``.
 
 Calibration Activity
 --------------------

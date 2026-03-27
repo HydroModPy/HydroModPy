@@ -2,12 +2,89 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.domain import Domain, DomainConfig, RasterSupport, Surface
+from hydromodpy.spatial.domain import Domain, DomainConfig
+from hydromodpy.spatial import RasterSupport, Surface
 
 def test_domain_depth_model_default_is_constant_thickness():
     cfg = DomainConfig()
     assert cfg.depth_model.type == "constant_thickness"
     assert float(cfg.depth_model.thickness) == 50.0
+    assert cfg.supports == {}
+    assert cfg.zone_ids == []
+
+
+def test_domain_config_accepts_geology_supports() -> None:
+    cfg = DomainConfig.model_validate(
+        {
+            "supports": {
+                "field_geology": {
+                    "provider": "geology",
+                }
+            }
+        }
+    )
+
+    assert cfg.supports["field_geology"].provider == "geology"
+
+
+def test_domain_config_accepts_generated_supports() -> None:
+    cfg = DomainConfig.model_validate(
+        {
+            "supports": {
+                "halves": {
+                    "provider": "generated_bands",
+                    "axis": "x",
+                    "breaks": [0.5],
+                    "labels": ["left", "right"],
+                }
+            }
+        }
+    )
+
+    assert cfg.supports["halves"].provider == "generated_bands"
+
+
+def test_domain_config_accepts_generated_rings_supports() -> None:
+    cfg = DomainConfig.model_validate(
+        {
+            "supports": {
+                "rings": {
+                    "provider": "generated_rings",
+                    "coordinate_mode": "relative",
+                    "radii": [0.4, 0.7],
+                    "labels": ["inner", "middle", "outer"],
+                }
+            }
+        }
+    )
+
+    assert cfg.supports["rings"].provider == "generated_rings"
+
+
+def test_domain_config_accepts_mixed_support_providers() -> None:
+    cfg = DomainConfig.model_validate(
+        {
+            "supports": {
+                "field_geology": {
+                    "provider": "geology",
+                },
+                "halves": {
+                    "provider": "generated_bands",
+                    "axis": "x",
+                    "breaks": [0.5],
+                    "labels": ["left", "right"],
+                },
+            }
+        }
+    )
+
+    assert cfg.supports["field_geology"].provider == "geology"
+    assert cfg.supports["halves"].provider == "generated_bands"
+
+
+def test_domain_config_rejects_legacy_support_key() -> None:
+    with np.testing.assert_raises(ValueError):
+        DomainConfig.model_validate({"support_mode": "zones"})
 
 
 def test_domain_builds_top_and_bottom_with_constant_thickness():
@@ -17,6 +94,22 @@ def test_domain_builds_top_and_bottom_with_constant_thickness():
             "depth_model": {
                 "type": "constant_thickness",
                 "thickness": 30.0,
+            }
+        }
+    )
+
+    domain = Domain(config=cfg, surface_topo=Surface(name="surface_topo", values=dem))
+    np.testing.assert_allclose(domain.surface_topo.as_array(), dem)
+    np.testing.assert_allclose(domain.substratum.as_array(), dem - 30.0)
+
+
+def test_domain_builds_top_and_bottom_with_constant_thickness_unit_string():
+    dem = np.array([[110.0, 120.0], [100.0, 90.0]], dtype=float)
+    cfg = DomainConfig.model_validate(
+        {
+            "depth_model": {
+                "type": "constant_thickness",
+                "thickness": "30.0 m",
             }
         }
     )

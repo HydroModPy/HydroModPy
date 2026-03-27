@@ -1,0 +1,6 @@
+# This case keeps the dense local backend because its custom steady initial
+# guess and relaxed residual acceptance currently validate better than the
+# SciPy root solve for the seepage-onset position benchmark.
+
+[flow]
+runtime_backend = "local"

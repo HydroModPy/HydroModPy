@@ -158,3 +158,21 @@ def test_legacy_sim_state_key_is_rejected():
                 }
             }
         )
+
+
+def test_end_datetime_must_be_after_start_datetime():
+    mod = _load_tmesh_config_module()
+
+    with pytest.raises(ValueError, match="end_datetime must be greater than or equal"):
+        _ = mod.TMeshConfigModel.from_mapping(
+            {
+                "tmesh": {
+                    "genmtd": "synthetic_regular",
+                    "flow_regime": "transient",
+                    "nper": 1,
+                    "lenper": 1,
+                    "start_datetime": "2020-01-02 00:00:00",
+                    "end_datetime": "2020-01-01 00:00:00",
+                }
+            }
+        )

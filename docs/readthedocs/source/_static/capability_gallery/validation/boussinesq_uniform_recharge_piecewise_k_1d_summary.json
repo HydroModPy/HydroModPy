@@ -1,0 +1,367 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "boussinesq_uniform_recharge_piecewise_k_1d",
+  "title": "Boussinesq Uniform-Recharge Piecewise-K 1D",
+  "category": "validation",
+  "deck": "1D recharge benchmark with exact piecewise-constant `K` reference.",
+  "summary": "Steady synthetic groundwater-flow case used to validate the launcher workflow against the exact 1D Boussinesq solution written on `U = h^2` for an unconfined aquifer with:",
+  "case_setup": [
+    "Strip with piecewise-constant `K`, fixed west/east heads, uniform recharge",
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
+  ],
+  "what_it_shows": [
+    "validate recharge together with heterogeneous `K` mapping,",
+    "keep one analytical 1D benchmark where all conductivity jumps align with the mesh,",
+    "extend the homogeneous recharge case without leaving the current launcher workflow.",
+    "Coupling between recharge and conductivity jumps on a benchmark that remains analytical",
+    "Primary metrics: head-profile RMSE, max abs error, cross-row spread.",
+    "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
+  ],
+  "reference_highlights": [
+    "compared quantity: domain-averaged head profile along `x`",
+    "reference: steady 1D Boussinesq profile with uniform recharge and piecewise `K`"
+  ],
+  "equations_rst": [
+    "U=h^2,\\qquad \\frac{\\mathrm{d}}{\\mathrm{d}x}\\left(K(x)\\,\\frac{\\mathrm{d}U}{\\mathrm{d}x}\\right)+2R=0",
+    "U(x)=h_w^2+C\\int_{x_{\\min}}^{x}\\frac{\\mathrm{d}s}{K(s)}-2R\\int_{x_{\\min}}^{x}\\frac{s\\,\\mathrm{d}s}{K(s)}"
+  ],
+  "reproduction_command": "python -m validation_cases.analytical.steady.boussinesq_uniform_recharge_piecewise_k_1d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/README.md",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/reference.py",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/comparison.py",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/plotting.py",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/run_case.py",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/metadata.toml",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/runtime_boussinesq.py",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances.toml",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_boussinesq.toml",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6.toml",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflow6.toml",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_boussinesq.toml",
+    "validation_cases/analytical/steady/boussinesq_piecewise.py"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "e8816ee7e26d91bab06083a0cf94488715ef11820d2a0440c76ca10b2f239df2",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/README.md": "629fed23316ccf2a60052fc9f95a2e2cbc6666f9c7ca5ab6bde514746d1e43d8",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/reference.py": "1c5352e1c9738fbdcf9a8b4e8d83e58d123e6692cfe76ec8264c9dbf431132fa",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/comparison.py": "cec1a05afa7385de4f6e0d83cab30bde64285dc34d50a9439ebad3af7c0c3f99",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/plotting.py": "2452ce18820c4484c91db7020fafb909ccaf51ff7fd1cd30b59f95c4f9f15913",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/run_case.py": "60903b6d77dc68723f8e816180e6fc29de44d752441228b5ca9eee078b6adcbe",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/metadata.toml": "bc9c28b34590de30040864edff33a1b58effc6dcc24b048f49ac2e54e5f1f638",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/runtime_boussinesq.py": "b3a9b71cffb86411b2b5291c9019e115aa38f874c443e9ad4feb88ac123ba2b7",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_boussinesq.toml": "a00090a6139af223dc8e6188ce18d5d1802237baf5f6092ff9004bffc27fd5ed",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6.toml": "fade1971f0a3ef48eb2d413d66e5f1050aaa17b2b0e5e28bbe2a5497e68f6c2c",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml": "1d7fa3e4ea7f6091f89aa7c72f440709e964b12187968408362d404b6c2d293b",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflow6.toml": "e668647e68535e36fad07cfad44315d3cdf951c3667fbd299c05faadb166252d",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_boussinesq.toml": "aaebad7805cda1a24b2ee2a9aefb95270df1b1e498044e123a4ad0e9be5f28e8",
+    "validation_cases/analytical/steady/boussinesq_piecewise.py": "27d1932778c87f2e71920b00f583eee731a29734e95e56e2ec3674008379a857"
+  },
+  "docname": "cases/boussinesq_uniform_recharge_piecewise_k_1d",
+  "images": [
+    {
+      "filename": "boussinesq_uniform_recharge_piecewise_k_1d__modflownwt.png",
+      "caption": "Boussinesq Uniform-Recharge Piecewise-K 1D rendered with MODFLOW-NWT for the analytical gallery.",
+      "alt_text": "Boussinesq Uniform-Recharge Piecewise-K 1D validation figure for MODFLOW-NWT",
+      "doc_path": "/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__modflownwt.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__modflownwt.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d",
+    "default_solver": "modflownwt",
+    "solver_variants": [
+      "modflownwt",
+      "modflow6",
+      "boussinesq"
+    ],
+    "solver_details": {
+      "modflownwt": {
+        "display_name": "MODFLOW-NWT",
+        "config_path": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml",
+        "expected_output": "Expected shape: 5 x 40",
+        "tolerance_path": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances.toml"
+      },
+      "modflow6": {
+        "display_name": "MODFLOW 6",
+        "config_path": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflow6.toml",
+        "expected_output": "Expected shape: 5 x 40",
+        "tolerance_path": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6.toml"
+      },
+      "boussinesq": {
+        "display_name": "Boussinesq",
+        "config_path": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_boussinesq.toml",
+        "expected_output": "Expected shape: 3 x 40",
+        "tolerance_path": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_boussinesq.toml"
+      }
+    },
+    "regime": "steady",
+    "dimension": "1d",
+    "inventory_reference": "Boussinesq, recharge, piecewise `K`",
+    "case_sheet": {
+      "numerical_setup": "Strip with piecewise-constant `K`, fixed west/east heads, uniform recharge",
+      "analytical_target": "Exact steady piecewise-`K` Boussinesq recharge solution",
+      "primary_metrics": "head-profile RMSE, max abs error, cross-row spread",
+      "what_it_validates": "Coupling between recharge and conductivity jumps on a benchmark that remains analytical"
+    }
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__modflownwt.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__boussinesq.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "modflownwt",
+      "solver_display_name": "MODFLOW-NWT",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml",
+      "tolerance_path": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances.toml",
+      "expected_output": "Expected shape: 5 x 40",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_uniform_recharge_piecewise_k_1d.run_case --no-show --solver modflownwt",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0324 m",
+        "Head-profile max abs error: 0.0465 m",
+        "Cross-row head spread: 2.34e-07 m"
+      ],
+      "image": {
+        "filename": "boussinesq_uniform_recharge_piecewise_k_1d__modflownwt.png",
+        "caption": "Boussinesq Uniform-Recharge Piecewise-K 1D rendered with MODFLOW-NWT for the analytical gallery.",
+        "alt_text": "Boussinesq Uniform-Recharge Piecewise-K 1D validation figure for MODFLOW-NWT",
+        "doc_path": "/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__modflownwt.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__modflownwt.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "boussinesq_uniform_recharge_piecewise_k_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              40
+            ],
+            "expected_shape_by_solver": {
+              "boussinesq": [
+                3,
+                40
+              ]
+            }
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "west_head": 5.0,
+            "east_head": 5.0,
+            "recharge_mm_day": 3.0,
+            "x_zone_breaks_m": [
+              120.0,
+              280.0
+            ],
+            "hydraulic_conductivity_m_per_s_by_zone": [
+              0.0002,
+              5e-05,
+              0.0001
+            ],
+            "aquifer_thickness_m": 20.0,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.05,
+            "max_abs_error": 0.1,
+            "row_spread": 2e-05
+          }
+        },
+        "timestep": 0
+      }
+    },
+    {
+      "solver": "modflow6",
+      "solver_display_name": "MODFLOW 6",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflow6.toml",
+      "tolerance_path": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6.toml",
+      "expected_output": "Expected shape: 5 x 40",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_uniform_recharge_piecewise_k_1d.run_case --no-show --solver modflow6",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0280 m",
+        "Head-profile max abs error: 0.0403 m",
+        "Cross-row head spread: 1.59e-06 m"
+      ],
+      "image": {
+        "filename": "boussinesq_uniform_recharge_piecewise_k_1d__modflow6.png",
+        "caption": "Boussinesq Uniform-Recharge Piecewise-K 1D rendered with MODFLOW 6 for the analytical gallery.",
+        "alt_text": "Boussinesq Uniform-Recharge Piecewise-K 1D validation figure for MODFLOW 6",
+        "doc_path": "/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__modflow6.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__modflow6.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "boussinesq_uniform_recharge_piecewise_k_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              40
+            ],
+            "expected_shape_by_solver": {
+              "boussinesq": [
+                3,
+                40
+              ]
+            }
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "west_head": 5.0,
+            "east_head": 5.0,
+            "recharge_mm_day": 3.0,
+            "x_zone_breaks_m": [
+              120.0,
+              280.0
+            ],
+            "hydraulic_conductivity_m_per_s_by_zone": [
+              0.0002,
+              5e-05,
+              0.0001
+            ],
+            "aquifer_thickness_m": 20.0,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.035,
+            "max_abs_error": 0.05,
+            "row_spread": 1e-05
+          }
+        },
+        "timestep": 0
+      }
+    },
+    {
+      "solver": "boussinesq",
+      "solver_display_name": "Boussinesq",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_boussinesq.toml",
+      "tolerance_path": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_boussinesq.toml",
+      "expected_output": "Expected shape: 3 x 40",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_uniform_recharge_piecewise_k_1d.run_case --no-show --solver boussinesq",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0631 m",
+        "Head-profile max abs error: 0.0770 m",
+        "Cross-row head spread: 2.59e-02 m"
+      ],
+      "image": {
+        "filename": "boussinesq_uniform_recharge_piecewise_k_1d__boussinesq.png",
+        "caption": "Boussinesq Uniform-Recharge Piecewise-K 1D rendered with Boussinesq for the analytical gallery.",
+        "alt_text": "Boussinesq Uniform-Recharge Piecewise-K 1D validation figure for Boussinesq",
+        "doc_path": "/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__boussinesq.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__boussinesq.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "boussinesq_uniform_recharge_piecewise_k_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              40
+            ],
+            "expected_shape_by_solver": {
+              "boussinesq": [
+                3,
+                40
+              ]
+            }
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "west_head": 5.0,
+            "east_head": 5.0,
+            "recharge_mm_day": 3.0,
+            "x_zone_breaks_m": [
+              120.0,
+              280.0
+            ],
+            "hydraulic_conductivity_m_per_s_by_zone": [
+              0.0002,
+              5e-05,
+              0.0001
+            ],
+            "aquifer_thickness_m": 20.0,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.08,
+            "max_abs_error": 0.1,
+            "row_spread": 0.04
+          }
+        },
+        "timestep": 0
+      }
+    }
+  ]
+}

@@ -1,5 +1,5 @@
-hydromodpy.display
-==================
+hydromodpy.analysis.display
+===========================
 
 Visualization helpers for watershed descriptors, MODFLOW/MODPATH outputs, and
 3D exports.
@@ -11,6 +11,6 @@ Overview
    :nosignatures:
    :toctree: generated/display
 
-   ~hydromodpy.display.visualization_watershed
-   ~hydromodpy.display.visualization_results
-   ~hydromodpy.display.export_vtuvtk.VTK
+   ~hydromodpy.analysis.display.visualization_watershed
+   ~hydromodpy.analysis.display.visualization_results
+   ~hydromodpy.analysis.display.export_vtuvtk.VTK

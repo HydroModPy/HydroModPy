@@ -1,0 +1,15 @@
+# Example mesh-only launcher config.
+# Run with:
+#   python -m launchers mesh-catchment run launchers/mesh_catchment/config_example.toml
+#
+# Inherits the shared Naizin DEM, geology source, conductivity demo mapping,
+# and the simplified geology/rivers-only meshing contract.
+
+base_config = "config_common.toml"
+
+[mesh_catchment]
+# Optional:
+# output_mesh = "outputs/mesh_catchment_example.msh"
+# output_summary_json = "outputs/mesh_catchment_example_summary.json"
+# geographic_outputs_mode = "cleanup"
+output_figure = "~/HydroModPy/mesh_catchment_nancon/mesh_catchment_nancon_overview.png"

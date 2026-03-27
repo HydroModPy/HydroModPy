@@ -1,7 +1,7 @@
 @startuml
-title Field - Class Diagram (Core + Square Case)
+title Field - Core Class Diagram
 
-package "hydromodpy.field.core.field_mesh" {
+package "hydromodpy.spatial.field.core.field_mesh" {
   class MeshCell {
     +index: int
     +kind: str
@@ -38,7 +38,7 @@ package "hydromodpy.field.core.field_mesh" {
   }
 }
 
-package "hydromodpy.field.core.field_spatial" {
+package "hydromodpy.spatial.field.core.field_spatial" {
   abstract class Field {
     +identifier: str
     +on_mesh(mesh, cell_samples_per_axis=10)
@@ -55,7 +55,7 @@ package "hydromodpy.field.core.field_spatial" {
   }
 }
 
-package "hydromodpy.field.core.field_spatial_weighted_discretization" {
+package "hydromodpy.spatial.field.core.field_spatial_weighted_discretization" {
   class WeightedAverageFieldDiscretization {
     +zone_keys: tuple[str, ...]
     +fractions_by_zone: dict[str, np.ndarray]
@@ -64,7 +64,7 @@ package "hydromodpy.field.core.field_spatial_weighted_discretization" {
   }
 }
 
-package "hydromodpy.field.core.field_param" {
+package "hydromodpy.spatial.field.core.field_param" {
   class FieldParam {
     +identifier: str
     +kind: str
@@ -80,45 +80,16 @@ package "hydromodpy.field.core.field_param" {
   }
 }
 
-package "hydromodpy.field.cases.square.field_mesh_square" {
-  class FieldMeshSquare {
-    +from_unit_square(target_n_cells, mesh_kind, seed)
-    +from_dict(config)
-  }
-  class StructuredFieldMesh
-  abstract class _TriangularBaseFieldMesh
-  class TriangularStructuredFieldMesh
-  class TriangularUnstructuredFieldMesh
-}
-
-package "hydromodpy.field.cases.square.field_spatial_square" {
-  class FieldSquare {
-    +line: str
-    +zone1_side: str
-    +zone1_name: str
-    +zone2_name: str
-    +zone_id(x, y)
-    +zone_display(n_plot=320)
-    +on_mesh(mesh, cell_samples_per_axis=10)
-    +from_dict(config)
-    +from_toml(toml_path, section="field")
-  }
-}
-
 BaseFieldMesh "1" *-- "0..*" MeshCell
 MeshWithValues --> BaseFieldMesh
 BaseFieldMesh --> MeshWithValues : attach_cell_values(...)
 
-FieldMesh <|.. FieldMeshSquare
-BaseFieldMesh <|-- StructuredFieldMesh
-BaseFieldMesh <|-- _TriangularBaseFieldMesh
-_TriangularBaseFieldMesh <|-- TriangularStructuredFieldMesh
-_TriangularBaseFieldMesh <|-- TriangularUnstructuredFieldMesh
+FieldMesh ..> BaseFieldMesh : builds one concrete mesh
 
-Field <|-- FieldSquare
-FieldDiscretization <|-- WeightedAverageFieldDiscretization
 FieldDiscretization --> BaseFieldMesh
-FieldSquare --> WeightedAverageFieldDiscretization : on_mesh(...)
+FieldDiscretization <|-- WeightedAverageFieldDiscretization
+
+Field ..> FieldDiscretization : on_mesh(...)
 
 FieldParam ..> BaseFieldMesh : homogeneous mapping
 FieldParam ..> FieldDiscretization : heterogeneous mapping
