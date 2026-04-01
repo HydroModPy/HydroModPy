@@ -40,6 +40,22 @@ class FlowDisplayConfig(BaseModel):
         default=True,
         description="Render the piezometry plot.",
     )
+    watertable_map: bool = Field(
+        default=True,
+        description="Render water-table depth and elevation maps.",
+    )
+    dem_map: bool = Field(
+        default=True,
+        description="Render a DEM overview map with watershed contour.",
+    )
+    budget: bool = Field(
+        default=False,
+        description="Render groundwater budget bar chart.",
+    )
+    hydrography: bool = Field(
+        default=True,
+        description="Render hydrography map (stream network or flow accumulation drainage pattern).",
+    )
 
     def to_section_options(self) -> "DisplaySectionOptions":
         """Convert validated flow flags into the lightweight runtime container."""
@@ -50,6 +66,10 @@ class FlowDisplayConfig(BaseModel):
                 "cross_section": self.cross_section,
                 "streamflow": self.streamflow,
                 "piezometry": self.piezometry,
+                "watertable_map": self.watertable_map,
+                "dem_map": self.dem_map,
+                "hydrography": self.hydrography,
+                "budget": self.budget,
             },
         )
 

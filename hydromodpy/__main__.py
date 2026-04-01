@@ -14,6 +14,10 @@ Usage (hmp and hydromodpy are interchangeable):
 
     hmp run config.toml                   # run a simulation from a TOML file
 
+    hmp display config.toml               # generate figures from existing outputs
+    hmp display config.toml --save        # force saving figures to disk
+    hmp display config.toml --no-show     # headless mode (no interactive display)
+
     hmp list                              # list projects in workspace
     hmp list my_project                   # list runs in a project
 
@@ -472,6 +476,52 @@ def _cmd_overview(args: argparse.Namespace) -> None:
         print("Overview complete - no panels generated.", file=sys.stderr)
 
 
+def _cmd_display(args: argparse.Namespace) -> None:
+    """Generate display figures from existing simulation outputs."""
+    import tomllib
+
+    from hydromodpy.analysis.display.options import display_options_from_raw_toml
+    from hydromodpy.analysis.display.posthoc import PosthocContext
+    from hydromodpy.analysis.display.posthoc_orchestration import plot_posthoc_all
+
+    config_path = Path(args.config).expanduser().resolve()
+    if not config_path.is_file():
+        print(f"Configuration file not found: {config_path}", file=sys.stderr)
+        sys.exit(1)
+
+    with open(config_path, "rb") as f:
+        raw_toml = tomllib.load(f)
+
+    # Override show/save from CLI flags
+    display_section = dict(raw_toml.get("display", {}))
+    if args.save:
+        display_section["save"] = True
+    if args.no_show:
+        display_section["show"] = False
+    raw_toml_patched = dict(raw_toml)
+    raw_toml_patched["display"] = display_section
+    options = display_options_from_raw_toml(raw_toml_patched)
+
+    ctx = PosthocContext.from_toml(config_path)
+    if not ctx.runs:
+        print("No simulation runs found. Run a simulation first.", file=sys.stderr)
+        sys.exit(1)
+
+    print(
+        f"Generating figures for {len(ctx.runs)} run(s): "
+        f"{', '.join(r.run_id for r in ctx.runs)}",
+        file=sys.stderr,
+    )
+
+    figure_dirs = plot_posthoc_all(ctx, options)
+    for d in figure_dirs:
+        n_figs = len(list(d.glob("*.png")))
+        print(f"  {d.relative_to(config_path.parent)}: {n_figs} figure(s)", file=sys.stderr)
+
+    if not figure_dirs:
+        print("No figures generated. Check display options.", file=sys.stderr)
+
+
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
@@ -553,6 +603,27 @@ def main() -> None:
         "config",
         type=Path,
         help="Path to the run TOML file",
+    )
+
+    # --- display subcommand ---
+    display_parser = subparsers.add_parser(
+        "display",
+        help="Generate figures from existing simulation outputs",
+    )
+    display_parser.add_argument(
+        "config",
+        type=Path,
+        help="Path to the project TOML file",
+    )
+    display_parser.add_argument(
+        "--save",
+        action="store_true",
+        help="Force saving figures to disk (overrides TOML display.save)",
+    )
+    display_parser.add_argument(
+        "--no-show",
+        action="store_true",
+        help="Disable interactive display (overrides TOML display.show)",
     )
 
     # --- overview subcommand ---
@@ -680,6 +751,8 @@ def main() -> None:
         _cmd_run(args)
     elif args.command == "simulation":
         _cmd_run(args)
+    elif args.command == "display":
+        _cmd_display(args)
     elif args.command == "overview":
         _cmd_overview(args)
     elif args.command == "list":
