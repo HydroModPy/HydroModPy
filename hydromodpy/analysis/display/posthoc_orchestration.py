@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -42,6 +43,34 @@ def _load_npy_dict(path: Path | None) -> dict[int, np.ndarray] | None:
     if path is None or not path.exists():
         return None
     return np.load(path, allow_pickle=True).item()
+
+
+def _load_field_dict_from_store(
+    store: Any,
+    sim_id: str,
+    variable: str,
+) -> dict[int, np.ndarray] | None:
+    """Load a multi-timestep spatial field from a ResultStore.
+
+    Returns a dict mapping timestep index → ndarray, matching the
+    legacy ``.npy`` dict layout used by the posthoc helpers.
+    Returns ``None`` if the variable is not found.
+    """
+    try:
+        sims = store.list_simulations(sim_id=sim_id)
+        if sims.empty:
+            return None
+        n_timesteps = int(sims.iloc[0].get("n_timesteps") or 1)
+    except Exception:
+        n_timesteps = 1
+
+    result: dict[int, np.ndarray] = {}
+    for t in range(n_timesteps):
+        try:
+            result[t] = store.query_field(sim_id, variable, t)
+        except KeyError:
+            break
+    return result if result else None
 
 
 def _load_raster(path: Path):
@@ -91,6 +120,9 @@ def _plot_watertable_maps(
     geo: GeographicArtifacts,
     options: DisplayOptions,
     output_dir: Path,
+    *,
+    store: Any = None,
+    sim_id: str | None = None,
 ) -> None:
     """Water-table depth and elevation raster maps."""
     dem_path = run.base_raster(geo)
@@ -107,12 +139,47 @@ def _plot_watertable_maps(
         ("seepage_areas", run.seepage_areas_npy,
          run.seepage_areas_rasters, "Reds", "Seepage [m/d]"),
     ]:
-        # Prefer raster files; fall back to .npy
+        # Prefer raster files; fall back to .npy or ResultStore
         if raster_list:
             raster_path = raster_list[-1]  # last stress period
         elif npy_path is not None:
             # Load from npy dict and overlay on DEM grid
             data_dict = _load_npy_dict(npy_path)
+            if data_dict is None:
+                continue
+            last_key = max(data_dict.keys())
+            arr = data_dict[last_key].astype(float)
+
+            dem_masked, transform, nodata = _load_raster(dem_path)
+            if nodata is not None:
+                arr_masked = np.ma.masked_where(
+                    np.isclose(dem_masked.data, float(nodata)), arr,
+                )
+            else:
+                arr_masked = np.ma.masked_where(arr < -9000, arr)
+
+            import geopandas as gpd
+
+            ws_gdf = None
+            if geo.watershed_shp is not None:
+                ws_gdf = gpd.read_file(str(geo.watershed_shp))
+
+            fig, axs = make_figure(figsize=(7, 6), dpi=options.dpi)
+            ax = _single_axes(axs)
+            render_raster_field(
+                ax,
+                raster_masked=arr_masked,
+                transform=transform,
+                watershed_gdf=ws_gdf,
+                cmap=cmap,
+                colorbar_label=cb_label,
+            )
+            ax.set_title(f"{label.replace('_', ' ').title()} — {run.run_id}", fontsize=10)
+            fig.tight_layout()
+            finalize_figure(fig, options=options, save_path=output_dir / f"{label}.png")
+            continue
+        elif store is not None and sim_id is not None:
+            data_dict = _load_field_dict_from_store(store, sim_id, label)
             if data_dict is None:
                 continue
             last_key = max(data_dict.keys())
@@ -178,13 +245,18 @@ def _plot_cross_section(
     geo: GeographicArtifacts,
     options: DisplayOptions,
     output_dir: Path,
+    *,
+    store: Any = None,
+    sim_id: str | None = None,
 ) -> None:
     """Cross-section from watertable elevation .npy and DEM."""
     dem_path = run.base_raster(geo)
-    if dem_path is None or run.watertable_elevation_npy is None:
+    if dem_path is None:
         return
 
     wt_dict = _load_npy_dict(run.watertable_elevation_npy)
+    if wt_dict is None and store is not None and sim_id is not None:
+        wt_dict = _load_field_dict_from_store(store, sim_id, "watertable_elevation")
     if wt_dict is None:
         return
 
@@ -383,9 +455,19 @@ def _plot_budget(
     geo: GeographicArtifacts,
     options: DisplayOptions,
     output_dir: Path,
+    *,
+    store: Any = None,
+    sim_id: str | None = None,
 ) -> None:
     """Groundwater budget bar chart from .npy budget files."""
     import matplotlib.pyplot as plt
+
+    _BUDGET_VARIABLE_MAP = {
+        "Recharge": "accumulation_flux",
+        "GW Flux": "groundwater_flux",
+        "GW Storage": "groundwater_storage",
+        "Drain Outflow": "outflow_drain",
+    }
 
     budget_items: list[tuple[str, float]] = []
     for label, npy_path in [
@@ -395,6 +477,10 @@ def _plot_budget(
         ("Drain Outflow", run.outflow_drain_npy),
     ]:
         data = _load_npy_dict(npy_path)
+        if data is None and store is not None and sim_id is not None:
+            data = _load_field_dict_from_store(
+                store, sim_id, _BUDGET_VARIABLE_MAP[label],
+            )
         if data is None:
             continue
         last_key = max(data.keys())
@@ -435,8 +521,20 @@ def plot_posthoc_flow_suite(
     run: RunArtifacts,
     geo: GeographicArtifacts,
     options: DisplayOptions,
+    *,
+    store: Any = None,
+    sim_id: str | None = None,
 ) -> None:
-    """Run all enabled flow figures from post-hoc disk data."""
+    """Run all enabled flow figures from post-hoc disk data.
+
+    Parameters
+    ----------
+    store : ResultStore, optional
+        When provided, spatial fields are loaded from the store as
+        fallback when ``.npy`` files are absent.
+    sim_id : str, optional
+        Simulation UUID in the store.
+    """
     if not options.should_render():
         return
 
@@ -448,15 +546,15 @@ def plot_posthoc_flow_suite(
 
     if options.flow.is_enabled("watertable_map", default=True):
         logger.info("Generating watertable maps: %s", run.run_id)
-        _plot_watertable_maps(run, geo, options, output_dir)
+        _plot_watertable_maps(run, geo, options, output_dir, store=store, sim_id=sim_id)
 
     if options.flow.is_enabled("cross_section", default=True):
         logger.info("Generating cross section: %s", run.run_id)
-        _plot_cross_section(run, geo, options, output_dir)
+        _plot_cross_section(run, geo, options, output_dir, store=store, sim_id=sim_id)
 
     if options.flow.is_enabled("budget", default=False):
         logger.info("Generating budget chart: %s", run.run_id)
-        _plot_budget(run, geo, options, output_dir)
+        _plot_budget(run, geo, options, output_dir, store=store, sim_id=sim_id)
 
     if options.flow.is_enabled("hydrography", default=True):
         logger.info("Generating hydrography map: %s", run.run_id)
@@ -483,8 +581,16 @@ def plot_posthoc_particles_suite(
 def plot_posthoc_all(
     ctx: PosthocContext,
     options: DisplayOptions,
+    *,
+    store: Any = None,
 ) -> list[Path]:
     """Run all post-hoc display suites for every run in *ctx*.
+
+    Parameters
+    ----------
+    store : ResultStore, optional
+        When provided, spatial fields and timeseries are loaded from
+        the store as fallback when disk files are absent.
 
     Returns the list of directories where figures were saved.
     """
@@ -494,7 +600,10 @@ def plot_posthoc_all(
     figure_dirs: list[Path] = []
     for run in ctx.runs:
         output_dir = run.postprocess_dir / "_figures"
-        plot_posthoc_flow_suite(run, ctx.geographic, options)
+        plot_posthoc_flow_suite(
+            run, ctx.geographic, options,
+            store=store, sim_id=run.run_id,
+        )
         plot_posthoc_particles_suite(run, ctx.geographic, options)
         if output_dir.is_dir():
             figure_dirs.append(output_dir)

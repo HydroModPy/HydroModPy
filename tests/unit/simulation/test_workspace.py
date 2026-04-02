@@ -65,7 +65,7 @@ def test_workspace_data_path_from_workspace_root(tmp_path) -> None:
         project_root=ws_root / "projects" / "demo",
     )
     assert cfg.data_path == ws_root / "data"
-    assert cfg.catalog_path == ws_root / "catalog.db"
+    assert cfg.catalog_path == ws_root / "catalog.duckdb"
 
 
 def test_workspace_data_path_none_without_workspace_root(tmp_path) -> None:

@@ -6,7 +6,9 @@ from orchestration avoids accidental import-path breakage in tests.
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -23,6 +25,16 @@ from hydromodpy.analysis.display.figures.maps import plot_pathlines_map
 from hydromodpy.analysis.display.figures.timeseries import plot_discharge, plot_piezometry
 from hydromodpy.analysis.display.options import DisplayOptions
 from hydromodpy.analysis.display.transport_plots import plot_concentration_frames
+
+logger = logging.getLogger(__name__)
+
+_CATCHMENT_STATION = "_catchment"
+
+_FLOW_TIMESERIES_VARIABLES = [
+    "recharge", "runoff", "watertable_elevation", "watertable_depth",
+    "seepage_areas", "outflow_drain", "groundwater_flux",
+    "groundwater_storage", "accumulation_flux",
+]
 
 
 # ------------------------------------------------------------------
@@ -101,6 +113,28 @@ def _load_flow_timeseries(result) -> pd.DataFrame:
     return pd.read_csv(smod_path, sep=";", index_col=0, parse_dates=True)
 
 
+def _load_flow_timeseries_from_store(
+    store: Any,
+    sim_id: str,
+) -> pd.DataFrame | None:
+    """Load catchment-aggregated timeseries from a ResultStore.
+
+    Queries the store for each standard flow variable using the
+    ``_catchment`` synthetic station.  Returns ``None`` if no
+    variables are found.
+    """
+    columns: dict[str, pd.Series] = {}
+    for var in _FLOW_TIMESERIES_VARIABLES:
+        try:
+            ts = store.query_timeseries(sim_id, _CATCHMENT_STATION, var)
+            columns[var] = ts
+        except KeyError:
+            continue
+    if not columns:
+        return None
+    return pd.DataFrame(columns)
+
+
 def _extract_cross_section_data(
     dem_path: Path,
     wt_path: Path,
@@ -147,8 +181,27 @@ def _prepare_streamflow_series(
 # Suites
 # ------------------------------------------------------------------
 
-def plot_flow_suite(result, options: DisplayOptions) -> None:
-    """Run all enabled flow figures for one completed simulation result."""
+def plot_flow_suite(
+    result,
+    options: DisplayOptions,
+    *,
+    store: Any = None,
+    sim_id: str | None = None,
+) -> None:
+    """Run all enabled flow figures for one completed simulation result.
+
+    Parameters
+    ----------
+    result
+        Runtime simulation result object.
+    options : DisplayOptions
+        Rendering options.
+    store : ResultStore, optional
+        When provided, timeseries are loaded from the store instead of
+        the legacy ``_postprocess/_timeseries/`` CSV path.
+    sim_id : str, optional
+        Simulation UUID in the store.  Required when *store* is given.
+    """
     if not options.should_render():
         return
 
@@ -156,7 +209,13 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
     run_id = flow_model.model_name
     output_dir = resolve_model_figure_dir(result.setup.workspace, run_id)
     base_raster = resolve_flow_base_raster(flow_model, result.setup.geographic)
-    simulated_timeseries = _load_flow_timeseries(result)
+
+    simulated_timeseries = None
+    if store is not None and sim_id is not None:
+        simulated_timeseries = _load_flow_timeseries_from_store(store, sim_id)
+    if simulated_timeseries is None:
+        simulated_timeseries = _load_flow_timeseries(result)
+
     observed_streamflow = _load_observed_streamflow(result)
 
     if options.flow.is_enabled("cross_section", default=True):

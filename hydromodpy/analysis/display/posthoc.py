@@ -191,3 +191,52 @@ class PosthocContext:
         """
         toml_path = Path(toml_path).resolve()
         return cls.from_project_dir(toml_path.parent)
+
+    @classmethod
+    def from_result_store(
+        cls,
+        project_dir: Path,
+        store,
+    ) -> PosthocContext:
+        """Build a context using ``ResultStore.list_simulations()`` for run discovery.
+
+        Falls back to filesystem scanning for geographic artifacts (those
+        are not stored in the ResultStore).
+
+        Parameters
+        ----------
+        project_dir : Path
+            Project root directory (for geographic artifacts).
+        store : ResultStore
+            An open ResultStore instance.
+        """
+        project_dir = Path(project_dir).resolve()
+
+        geo_dir = project_dir / "results_stable" / "geographic"
+        geographic = GeographicArtifacts.discover(geo_dir)
+
+        sims_df = store.list_simulations()
+        runs: list[RunArtifacts] = []
+        sims_dir = project_dir / "results_simulations"
+
+        for _, row in sims_df.iterrows():
+            sim_id = row.get("sim_id", "")
+            run_name = row.get("name") or sim_id
+            run_dir = sims_dir / run_name
+            if run_dir.is_dir():
+                pp = run_dir / "_postprocess"
+                if pp.is_dir():
+                    runs.append(RunArtifacts.discover(run_dir))
+
+        if not runs and sims_dir.is_dir():
+            for run_dir in sorted(sims_dir.iterdir()):
+                if run_dir.is_dir() and not run_dir.name.startswith("_"):
+                    pp = run_dir / "_postprocess"
+                    if pp.is_dir():
+                        runs.append(RunArtifacts.discover(run_dir))
+
+        return cls(
+            project_dir=project_dir,
+            geographic=geographic,
+            runs=runs,
+        )

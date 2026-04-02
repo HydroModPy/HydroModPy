@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 
 from hydromodpy.data.common.progress import data_phase
 from hydromodpy.data.plan import DataLoadPlan
-from hydromodpy.data.registry.catalog import DataCatalog
+from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 from hydromodpy.core.time import resolve_simulation_time_window_dates
 from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
 
@@ -37,11 +37,11 @@ class DataManagersRuntimeLoader:
     def __init__(self, *, config_path: str | Path, data_plan: DataLoadPlan) -> None:
         self.config_path = Path(config_path).resolve()
         self.data_plan = data_plan
-        self._catalog: DataCatalog | None = None
+        self._catalog: DataCatalogDuckDB | None = None
         self._cache_root: Path | None = None
 
     def _init_catalog(self, workspace_paths: WorkspacePathRegistry) -> None:
-        """Lazily create the shared DataCatalog backed by ``catalog.db``."""
+        """Lazily create the shared DataCatalogDuckDB backed by ``catalog.duckdb``."""
         if self._catalog is not None:
             return
         self._cache_root = workspace_paths.data_path
@@ -49,9 +49,9 @@ class DataManagersRuntimeLoader:
             self._cache_root.mkdir(parents=True, exist_ok=True)
         catalog_path = workspace_paths.catalog_path
         if catalog_path is None and self._cache_root is not None:
-            catalog_path = self._cache_root / "catalog.db"
+            catalog_path = self._cache_root / "catalog.duckdb"
         if catalog_path is not None:
-            self._catalog = DataCatalog(catalog_path)
+            self._catalog = DataCatalogDuckDB(catalog_path)
 
     def _data_dir(self, variable: str) -> Path | None:
         """Return ``data_path/<variable>/`` for cache storage, or None."""
