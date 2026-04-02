@@ -95,10 +95,15 @@ class ProcessCallbacks:
     These callbacks are coarse-grained on purpose: they are triggered once per
     contiguous block of runs with the same ``process_type``, not once per
     solver execution.
+
+    ``after_run`` is finer-grained: it fires after each individual solver
+    execution completes, receiving the run and its result. This is the hook
+    point for ResultStore ingestion.
     """
 
     before_process: Callable[[str], None] | None = None
     after_process: Callable[[str], None] | None = None
+    after_run: Callable[[ProcessRun, RunExecutionResult, Any], None] | None = None
 
 
 class SimulationRunner:
@@ -175,6 +180,12 @@ class SimulationRunner:
         if self.callbacks.after_process is not None:
             self.callbacks.after_process(process_type)
 
+    def _call_after_run(
+        self, run: ProcessRun, result: RunExecutionResult, state: Any,
+    ) -> None:
+        if self.callbacks.after_run is not None:
+            self.callbacks.after_run(run, result, state)
+
     def _run_process_run(
         self,
         plan: SimulationPlan,
@@ -194,6 +205,7 @@ class SimulationRunner:
             )
         )
         self._record_run_output(state, run, result)
+        self._call_after_run(run, result, state)
 
     def _resolve_dependency_models(
         self,

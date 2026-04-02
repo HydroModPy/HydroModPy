@@ -8,6 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from hydromodpy.simulation.results.config import ResultsConfig
 from hydromodpy.solver.compatibility import known_process_types
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
 
@@ -227,6 +228,14 @@ class SimulationConfig(BaseModel):
         description=(
             "Ordered list of requested processes loaded from "
             "[[simulation.process]]. At most one process per type is supported."
+        ),
+    )
+    results: ResultsConfig = Field(
+        default_factory=ResultsConfig,
+        description=(
+            "Results storage and export configuration loaded from "
+            "[simulation.results]. Controls ResultStore, derived variables, "
+            "and automated exports."
         ),
     )
 
