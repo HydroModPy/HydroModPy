@@ -530,6 +530,8 @@ class ResultStore:
 
     # -- Export ----------------------------------------------------------------
 
+    _EXPORT_FORMATS = {"netcdf", "csv", "vtu", "geotiff", "shapefile"}
+
     def export(
         self,
         sim_id: str | UUID,
@@ -538,8 +540,65 @@ class ResultStore:
         path: Path | str,
         **kwargs,
     ) -> Path:
-        """Export results to a standard format (placeholder for Phase 4)."""
-        raise NotImplementedError(f"Export format '{fmt}' not yet implemented")
+        """Export results to a standard format.
+
+        Parameters
+        ----------
+        sim_id : str or UUID
+            Simulation identifier.
+        variable : str
+            Variable name (or comma-separated list for netcdf).
+        fmt : str
+            Output format: ``"netcdf"``, ``"csv"``, ``"vtu"``,
+            ``"geotiff"``, or ``"shapefile"``.
+        path : Path or str
+            Destination file path.
+        **kwargs
+            Extra arguments forwarded to the format-specific exporter.
+
+        Returns
+        -------
+        Path
+            The written file path.
+        """
+        sid = str(sim_id)
+        path = Path(path)
+
+        if fmt == "netcdf":
+            from hydromodpy.simulation.results.exporters.netcdf import export_netcdf
+            variables = [v.strip() for v in variable.split(",")]
+            return export_netcdf(
+                self._zarr_path, sid, variables, path, **kwargs,
+            )
+        elif fmt == "csv":
+            from hydromodpy.simulation.results.exporters.csv import export_csv
+            return export_csv(
+                self._db, sid, path,
+                variable=variable if variable != "*" else None,
+                **kwargs,
+            )
+        elif fmt == "vtu":
+            from hydromodpy.simulation.results.exporters.vtu import export_vtu
+            timestep = kwargs.pop("timestep", 0)
+            return export_vtu(
+                self._zarr_path, sid, variable, timestep, path, **kwargs,
+            )
+        elif fmt == "geotiff":
+            from hydromodpy.simulation.results.exporters.geotiff import export_geotiff
+            timestep = kwargs.pop("timestep", 0)
+            return export_geotiff(
+                self._zarr_path, sid, variable, timestep, path, **kwargs,
+            )
+        elif fmt == "shapefile":
+            from hydromodpy.simulation.results.exporters.shapefile import export_shapefile
+            timestep = kwargs.pop("timestep", 0)
+            return export_shapefile(
+                self._zarr_path, sid, variable, timestep, path, **kwargs,
+            )
+        else:
+            raise ValueError(
+                f"Unknown export format '{fmt}'. Supported: {', '.join(sorted(self._EXPORT_FORMATS))}"
+            )
 
     # -- Delete ----------------------------------------------------------------
 
