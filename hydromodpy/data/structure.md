@@ -1,6 +1,6 @@
 # Data Managers — Architecture complete
 
-> Derniere mise a jour : 2026-03-18
+> Derniere mise a jour : 2026-04-02
 
 ---
 
@@ -102,11 +102,13 @@ Tous les managers retournent un `LoadResult`.
 class LoadResult:
     points: list[PointRecord]    # Chroniques stationnelles
     fields: list[FieldRecord]    # Grilles / vecteurs spatiaux
+    warnings: list[str]          # Erreurs non-bloquantes (source indisponible, etc.)
 ```
 
 - `len()` = points + fields
 - `bool()` = True si au moins un enregistrement
 - `all_records` = liste plate (retro-compat)
+- `warnings` : trace les sources en echec partiel sans bloquer le chargement
 
 ### PointRecord
 
@@ -124,9 +126,25 @@ class PointRecord:
     location: StationLocation | None
     is_constant: bool        # True si valeur unique etendue
     file_path: Path | None   # Fichier source
+    quality: dict | None     # Rapport de qualite automatique (voir ci-dessous)
 ```
 
 Validation `__post_init__` : colonnes `datetime`/`value` requises, coercion dtypes.
+
+**Champ `quality`** (rempli automatiquement au `load()` si `data` non vide) :
+
+```python
+quality = {
+    "completeness_pct": 94.5,    # % jours presents vs attendus
+    "n_expected": 365,
+    "n_actual": 345,
+    "n_missing": 20,
+    "n_gaps": 2,                 # nombre de trous (periodes consecutives manquantes)
+    "n_duplicates": 0,           # doublons datetime detectes
+}
+```
+
+Calcule via `compute_completeness()` qui existe deja dans `common/validation.py`.
 
 ### FieldRecord
 
@@ -146,6 +164,11 @@ class FieldRecord:
 
 - `is_static` : True si pas de bornes temporelles
 - `is_file_reference` : True si `data` est un `Path`
+
+**Lazy loading** : quand `data` est un `Path`, le `FieldRecord` charge le
+dataset a la demande via une propriete `dataset` qui ouvre le fichier
+(NetCDF ou GeoTIFF) au premier acces. Evite les `isinstance(rec.data, Path)`
+dans le code consommateur.
 
 ### StationLocation
 
@@ -219,6 +242,11 @@ architecture car leurs pipelines sont specifiques :
 - **Hydrography** : vecteur → clip bassin → rasterisation (WhiteBox) →
   `HydrographyResult(streams_shp, tif_streams, streams_array)`
 
+> **A aligner** : `HydrographyManager` retourne un `HydrographyResult` custom
+> qui casse le contrat `LoadResult`. Objectif : retourner un `LoadResult` avec
+> `FieldRecord` pour le raster + metadonnees specifiques dans un champ dedie,
+> sans perdre les attributs existants (`streams_shp`, etc.).
+
 ---
 
 ## 5. Les 17 variables
@@ -280,47 +308,102 @@ Source `constant` : valeur scalaire etendue en serie journaliere.
 
 ---
 
-## 6. Catalogue SQL (`registry/catalog.py`)
+## 6. Catalogue DuckDB (`registry/catalog.py`)
 
 ### Technologie
 
-SQLAlchemy ORM, backend SQLite (defaut : `workspace/catalog.db`),
-PostgreSQL ready.
+**DuckDB natif** (API Python `duckdb.connect()`), fichier
+`workspace/catalog.duckdb`. Remplace SQLAlchemy ORM + SQLite.
+
+Le catalogue data est au **niveau workspace** (partage entre tous les projets
+du workspace). Les resultats de simulation sont dans un fichier DuckDB
+separe au niveau projet (`projects/{name}/project.duckdb`).
+
+### Concurrence
+
+`catalog.duckdb` est partage entre projets. Ecritures concurrentes gerees
+par WAL mode (DuckDB par defaut) + retry avec backoff exponentiel sur
+`IOException`. Voir `simulation/results/ARCHITECTURE.md` §2 pour les details.
 
 ### Schema
 
 ```sql
 CREATE TABLE entries (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    variable    VARCHAR NOT NULL,   -- index
-    source      VARCHAR NOT NULL,   -- index
-    station_id  VARCHAR,            -- NULL pour les grilles
-    bbox_xmin   FLOAT,
-    bbox_ymin   FLOAT,
-    bbox_xmax   FLOAT,
-    bbox_ymax   FLOAT,
-    crs         VARCHAR,
-    date_start  VARCHAR,            -- ISO format
-    date_end    VARCHAR,
-    frequency   VARCHAR,
-    unit        VARCHAR,
-    file_path   TEXT NOT NULL,      -- relatif ou absolu
-    file_mtime  FLOAT,              -- Unix mtime
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-    is_custom   INTEGER DEFAULT 0   -- 0=API, 1=utilisateur
+    id            INTEGER PRIMARY KEY,
+    variable      VARCHAR NOT NULL,
+    source        VARCHAR NOT NULL,
+    station_id    VARCHAR,              -- NULL pour les grilles
+    bbox_xmin     DOUBLE,
+    bbox_ymin     DOUBLE,
+    bbox_xmax     DOUBLE,
+    bbox_ymax     DOUBLE,
+    crs           VARCHAR,
+    date_start    VARCHAR,              -- ISO format
+    date_end      VARCHAR,
+    frequency     VARCHAR,
+    unit          VARCHAR,
+    source_unit   VARCHAR,              -- unite d'origine de l'API
+    file_path     TEXT NOT NULL,         -- relatif ou absolu
+    file_mtime    DOUBLE,               -- Unix mtime
+    created_at    TIMESTAMP NOT NULL DEFAULT now(),
+    is_custom     INTEGER NOT NULL DEFAULT 0,  -- 0=API, 1=utilisateur
+    fetch_metadata JSON                 -- URL, params, timestamp du telechargement
 );
 
+CREATE INDEX ix_entries_var_src_station ON entries(variable, source, station_id);
+CREATE INDEX ix_entries_bbox ON entries(bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax);
+
 CREATE TABLE api_coverage (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    variable    VARCHAR NOT NULL,
-    source      VARCHAR NOT NULL,
-    country     VARCHAR,
-    description TEXT,
-    bbox_xmin   FLOAT,
-    bbox_ymin   FLOAT,
-    bbox_xmax   FLOAT,
-    bbox_ymax   FLOAT
+    id            INTEGER PRIMARY KEY,
+    variable      VARCHAR NOT NULL,
+    source        VARCHAR NOT NULL,
+    country       VARCHAR,
+    description   TEXT,
+    bbox_xmin     DOUBLE,
+    bbox_ymin     DOUBLE,
+    bbox_xmax     DOUBLE,
+    bbox_ymax     DOUBLE
 );
+
+-- Registre inter-projets des simulations (annuaire leger).
+-- Alimente automatiquement par ResultStore.finalize().
+-- Voir simulation/results/ARCHITECTURE.md §6 pour le schema complet.
+CREATE TABLE simulation_registry (
+    sim_id         UUID PRIMARY KEY,
+    project        VARCHAR NOT NULL,
+    project_path   TEXT NOT NULL,
+    name           VARCHAR,
+    solver         VARCHAR NOT NULL,
+    process_types  VARCHAR[],
+    status         VARCHAR NOT NULL,
+    n_cells        INTEGER,
+    n_layers       INTEGER,
+    bbox           DOUBLE[4],
+    period_start   DATE,
+    period_end     DATE,
+    duration_s     DOUBLE,
+    best_nse       DOUBLE,
+    best_kge       DOUBLE,
+    best_rmse      DOUBLE,
+    tags           VARCHAR[],
+    forcing_sources VARCHAR[],
+    config_hash     VARCHAR,
+    created_at     TIMESTAMP DEFAULT now()
+);
+```
+
+### Champ `fetch_metadata` (provenance API)
+
+Enregistre les details du telechargement pour la reproductibilite :
+
+```python
+fetch_metadata = {
+    "fetched_at": "2026-03-15T14:32:00",
+    "api_url": "https://hubeau.eaufrance.fr/api/v1/...",
+    "params": {"code_station": "J7214001", "size": 20000},
+    "http_status": 200,
+    "n_records_raw": 3650,        # avant filtrage/dedup
+}
 ```
 
 ### Operations du catalogue
@@ -366,13 +449,23 @@ Parcourt toutes les entrees, supprime celles dont le fichier n'existe plus.
 #### list_entries() — Audit
 
 DataFrame avec colonnes : id, variable, source, station_id, date_start,
-date_end, file_path, is_custom.
+date_end, file_path, is_custom, fetch_metadata.
 
-### Fallback sans SQLAlchemy
+### Migration SQLite → DuckDB
 
-`_FallbackDataCatalog` dans `store.py` : liste en memoire, `find_cached()`
-retourne toujours `None`, pas de subsumption. Fonctionnel mais sans
-persistence ni cache intelligent.
+```python
+import duckdb
+conn = duckdb.connect("workspace/catalog.duckdb")
+conn.execute("INSTALL sqlite; LOAD sqlite")
+conn.execute("ATTACH 'catalog.db' AS legacy (TYPE SQLITE)")
+conn.execute("CREATE TABLE entries AS SELECT * FROM legacy.entries")
+conn.execute("CREATE TABLE api_coverage AS SELECT * FROM legacy.api_coverage")
+conn.execute("DETACH legacy")
+# Ajouter la colonne fetch_metadata (absente de l'ancien schema)
+conn.execute("ALTER TABLE entries ADD COLUMN fetch_metadata JSON")
+```
+
+Migration automatique au premier lancement si `catalog.db` (SQLite) detecte.
 
 ---
 
@@ -452,6 +545,7 @@ class {VarName}Config(BaseModel):
 class DataManagersConfig(BaseModel):
     types: list[str]                    # ["hydrometry", "precipitation", ...]
     inference_mode: Literal["warn", "strict"] = "warn"
+    project_crs: str | None = None     # CRS cible (ex. "EPSG:2154")
     dem: DemConfig | None
     geology: GeologyConfig | None
     hydrography: HydrographyConfig | None
@@ -473,6 +567,14 @@ class DataManagersConfig(BaseModel):
 
 Validation : normalisation `types` (lowercase, deduplique), verification
 coherence `types` vs sections declarees, resolution chemins relatifs au TOML.
+
+**`project_crs`** : si specifie, toutes les coordonnees des `StationLocation`
+et les grilles `FieldRecord` sont reprojetees vers ce CRS au chargement.
+Evite les melanges WGS84/Lambert dans le code consommateur.
+
+Si absent, infere automatiquement depuis `geographic.crs_project`
+(`GeographicConfig.crs_project`, defini dans
+`spatial/geographic/geographic_config.py:242`). Valeur typique : `"EPSG:2154"`.
 
 ---
 
@@ -514,6 +616,42 @@ DataManagersRuntimeLoader.load_all(result):
 Dates de simulation injectees automatiquement si absentes du TOML
 (`_apply_simulation_window_dates`).
 
+### Chargement parallele
+
+Les managers sont independants les uns des autres (pas de dependances
+croisees entre variables). `load_all()` peut paralleliser les appels
+`manager.load()` via `concurrent.futures.ThreadPoolExecutor`.
+
+```python
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+def load_all(self, result):
+    loaders = self._build_loaders(result)  # list[(type_name, callable)]
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {pool.submit(fn): name for name, fn in loaders}
+        for future in as_completed(futures):
+            type_name = futures[future]
+            try:
+                load_result = future.result()
+                setattr(result.loaded_data, type_name, load_result)
+            except Exception as exc:
+                logger.error("Chargement %s echoue : %s", type_name, exc)
+                setattr(result.loaded_data, type_name, LoadResult(
+                    warnings=[f"{type_name}: {exc}"],
+                ))
+```
+
+Le parallelisme est I/O-bound (appels HTTP vers Hub'Eau, SIM2) donc
+`ThreadPoolExecutor` suffit — pas besoin d'`asyncio`.
+
+### Gestion d'erreur partielle
+
+Si un manager echoue (API indisponible, timeout, format inattendu), le
+chargement continue pour les autres variables. L'erreur est tracee dans
+`LoadResult.warnings` et loguee. Le consommateur en aval (forcing bridge,
+display) recoit un `LoadResult` vide avec le warning, et peut decider
+de continuer ou d'echouer.
+
 ---
 
 ## 11. Utilitaires communs
@@ -541,6 +679,14 @@ Dates de simulation injectees automatiquement si absentes du TOML
 - `compute_completeness()` : jours attendus/reels/manquants, % completude
 - `check_required_columns()` : verification colonnes DataFrame
 
+### Resampling (`resample.py`)
+- `resample_timeseries(df, freq, method='mean')` : resampling standardise
+  des chroniques (datetime, value) → evite la duplication de code dans les
+  consommateurs (forcing bridge fait `resample('D').mean()`, display fait
+  `resample('ME').mean()`)
+- `align_timeseries(series_list, freq)` : aligne N series sur un index commun
+- Methodes supportees : `mean`, `sum`, `min`, `max`, `nearest`
+
 ### Export (`export.py`)
 - `export_records()` : 1 CSV par station + metadata.csv + table_of_contents.csv
 
@@ -553,9 +699,10 @@ Dates de simulation injectees automatiquement si absentes du TOML
 
 ---
 
-## 12. DataStore (facade utilisateur)
+## 12. DataStore (facade unifiee)
 
-`store.py` fournit une API simplifiee pour le chargement interactif :
+`store.py` est le **seul point d'entree** pour le chargement de donnees,
+que ce soit en mode interactif ou via le pipeline de simulation.
 
 ```python
 store = DataStore(workspace_root="~/hydromodpy")
@@ -566,8 +713,65 @@ store.clear_cache(variable="precipitation", delete_files=True)
 store.cleanup()                      # Purger orphelins
 ```
 
-Utilise `DataCatalog` en interne, avec fallback `_FallbackDataCatalog` si
-SQLAlchemy absent.
+### Fusion DataStore / DataManagersRuntimeLoader
+
+Actuellement deux points d'entree coexistent :
+- `DataStore` (facade interactive, registre `_MANAGER_REGISTRY`)
+- `DataManagersRuntimeLoader` (pipeline simulation, dispatch `_LOADER_DISPATCH`)
+
+**Objectif** : `DataManagersRuntimeLoader` delegue a `DataStore` en interne.
+Un seul registre de managers, un seul chemin d'instantiation. L'ajout d'un
+18e manager ne se fait qu'a un seul endroit.
+
+**Approche retenue** : methodes nommees dans `DataStore` avec kwargs
+specifiques par variable, plus un registre unique. Certains managers
+ont besoin d'arguments supplementaires (GeologyManager → `geographic`,
+DemManager → `geographic`, OceanicManager → centroide bassin). Des methodes
+nommees rendent ces dependances explicites et faciles a maintenir.
+
+```python
+class DataStore:
+    # Registre unique (remplace _MANAGER_REGISTRY et _LOADER_DISPATCH)
+    _REGISTRY = {
+        "hydrometry": ("...hydrometry.manager", "HydrometryManager"),
+        "geology":    ("...geology.manager",    "GeologyManager"),
+        # ... 17 entrees
+    }
+
+    def load_hydrometry(self, config) -> LoadResult:
+        return self._load("hydrometry", config)
+
+    def load_geology(self, config, *, geographic=None) -> LoadResult:
+        return self._load("geology", config, geographic=geographic)
+
+    def load_dem(self, config, *, geographic=None) -> LoadResult:
+        return self._load("dem", config, geographic=geographic)
+
+    def _load(self, variable, config, **extra_kwargs) -> LoadResult:
+        cls = self._resolve_manager_class(variable)
+        mgr = cls(config=config, catalog=self.catalog,
+                  project_extent=self.project_extent,
+                  project_period=self.project_period,
+                  data_dir=self._data_dir(variable),
+                  **extra_kwargs)
+        return mgr.load()
+
+# RuntimeLoader simplifie — delegue tout a DataStore
+class DataManagersRuntimeLoader:
+    def load_all(self, result):
+        store = DataStore(workspace_root=..., ...)
+        for type_name in self.data_plan.types:
+            cfg = self._get_data_section(result, type_name)
+            extra = self._extra_kwargs(result, type_name)
+            load_result = store._load(type_name, cfg, **extra)
+            setattr(result.loaded_data, type_name, load_result)
+```
+
+### Suppression de `_FallbackDataCatalog`
+
+Le fallback en memoire (`_FallbackDataCatalog`) etait un workaround pour
+l'absence de SQLAlchemy. Avec DuckDB comme dependance obligatoire, le
+fallback n'a plus de raison d'etre. `duckdb` est toujours disponible.
 
 ---
 
@@ -575,8 +779,10 @@ SQLAlchemy absent.
 
 ```
 workspace_root/                   (defaut: ~/hydromodpy)
-├── catalog.db                    # SQLite
-├── data/
+├── catalog.duckdb                # DuckDB (partage entre projets)
+│                                 # tables: entries, api_coverage,
+│                                 #         simulation_registry
+├── data/                         # Cache partage entre projets
 │   ├── hydrometry/               # CSV chroniques + LOC
 │   ├── piezometry/
 │   ├── water_quality/
@@ -597,8 +803,15 @@ workspace_root/                   (defaut: ~/hydromodpy)
 └── projects/
     └── {nom_projet}/
         ├── project.toml
+        ├── project.duckdb         # Resultats de simulation (par projet)
+        ├── project_results.zarr/  # Champs volumiques (par projet)
         └── run_demo.toml
 ```
+
+Le catalogue data (`catalog.duckdb`) est partage entre tous les projets du
+workspace. Les donnees telechargees depuis les APIs sont mises en cache dans
+`data/` et indexees dans `catalog.duckdb`. Un changement de projet ne
+retelecharge pas les donnees deja en cache.
 
 ---
 
@@ -634,3 +847,22 @@ workspace_root/                   (defaut: ~/hydromodpy)
   decoupe les grilles au chargement.
 - **force_refresh** : bypass complet du cache pour une source donnee.
 - **Legacy** : le dossier `climatic/` est deprecie et ne doit plus etre utilise.
+
+---
+
+## 16. Evolutions planifiees
+
+| Sujet | Statut | Section |
+|-------|--------|---------|
+| Migration catalogue SQLite → DuckDB | Planifie | §6 |
+| Fusion DataStore / RuntimeLoader | Planifie | §12 |
+| Suppression `_FallbackDataCatalog` | Planifie (apres migration DuckDB) | §12 |
+| `LoadResult.warnings` (erreur partielle) | Planifie | §3, §10 |
+| `PointRecord.quality` (completude auto) | Planifie | §3 |
+| `FieldRecord` lazy loading (`Path` → `Dataset` a la demande) | Planifie | §3 |
+| `HydrographyResult` → `LoadResult` | Planifie | §4.3 |
+| `project_crs` (reprojection auto) | Planifie | §8 |
+| Chargement parallele (`ThreadPoolExecutor`) | Planifie | §10 |
+| `fetch_metadata` (provenance API) | Planifie | §6 |
+| `resample.py` (resampling standardise) | Planifie | §11 |
+| Suppression dependance SQLAlchemy | Planifie (apres migration DuckDB) | §6 |
