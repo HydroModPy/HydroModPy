@@ -1005,7 +1005,7 @@ class TestCatalogHydrography:
     """Test that hydrography data can be registered in the DataCatalog."""
 
     def test_register_hydrography_entry(self):
-        from hydromodpy.data.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
         cat = DataCatalog(db_path=None)  # in-memory
         entry_id = cat.register(
@@ -1020,7 +1020,7 @@ class TestCatalogHydrography:
         assert entry_id > 0
 
     def test_find_cached_hydrography(self):
-        from hydromodpy.data.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
         cat = DataCatalog(db_path=None)
         cat.register(
@@ -1042,7 +1042,7 @@ class TestCatalogHydrography:
         assert result is not None
 
     def test_upsert_same_key(self):
-        from hydromodpy.data.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
         cat = DataCatalog(db_path=None)
         id1 = cat.register(
@@ -1061,7 +1061,7 @@ class TestCatalogHydrography:
         assert id1 == id2
 
     def test_list_entries(self):
-        from hydromodpy.data.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
         cat = DataCatalog(db_path=None)
         cat.register(
@@ -1076,7 +1076,7 @@ class TestCatalogHydrography:
         assert len(df) == 2
 
     def test_invalidate_entry(self):
-        from hydromodpy.data.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
         cat = DataCatalog(db_path=None)
         cat.register(
@@ -1087,10 +1087,10 @@ class TestCatalogHydrography:
         df = cat.list_entries(variable="hydrography")
         assert len(df) == 0
 
-    def test_sqlite_persistence(self, tmp_path):
-        from hydromodpy.data.registry.catalog import DataCatalog
+    def test_duckdb_persistence(self, tmp_path):
+        from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
-        db = tmp_path / "catalog.db"
+        db = tmp_path / "catalog.duckdb"
         cat1 = DataCatalog(db_path=db)
         cat1.register(
             variable="hydrography", source="euhydro",
@@ -1396,7 +1396,7 @@ class TestCatalogCacheManager:
     """Test cache hit, miss+register, force_refresh, and subsomption."""
 
     def _make_cached_manager(self, tmp_path, *, force_refresh=False):
-        from hydromodpy.data.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         catalog = DataCatalog(db_path=None)
@@ -1504,7 +1504,7 @@ class TestCatalogCacheManager:
 
     def test_subsume_removes_smaller_bbox(self, tmp_path):
         """After registering a bigger bbox, smaller one is subsumed."""
-        from hydromodpy.data.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
         catalog = DataCatalog(db_path=None)
         data_dir = tmp_path / "cache"
@@ -1543,7 +1543,7 @@ class TestCatalogCacheManager:
 
     def test_custom_never_subsumed(self, tmp_path):
         """Custom entries (is_custom=True) are never subsumed."""
-        from hydromodpy.data.registry.catalog import DataCatalog
+        from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
         catalog = DataCatalog(db_path=None)
         catalog.register(

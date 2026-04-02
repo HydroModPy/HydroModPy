@@ -27,7 +27,7 @@ from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
-from hydromodpy.data.registry.catalog import DataCatalog
+from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
 
 # ── helpers ──────────────────────────────────────────────────────────
