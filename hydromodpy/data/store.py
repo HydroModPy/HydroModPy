@@ -1,11 +1,12 @@
 """DataStore: unified entry point for all data loading operations.
 
 The DataStore is the main interface for loading data. It manages the catalog
-(metadata registry) and delegates to variable-specific managers.
+(metadata registry backed by DuckDB) and delegates to variable-specific
+managers.
 
 If *workspace_root* is provided (path to an ``hmp init`` workspace), API
 results are persisted as CSV files in ``data/<variable>/`` and registered
-in ``catalog.db`` at the workspace root. Custom data stays at the path
+in ``catalog.duckdb`` at the workspace root. Custom data stays at the path
 specified by the user in the TOML.
 
 If *workspace_root* is None, data is loaded in memory only (no persistence).
@@ -15,134 +16,28 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-import warnings
 
 import pandas as pd
 
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.registry.constants import (
-    SENTINEL_CUSTOM,
-    SENTINEL_EMPTY,
-)
-
-_CATALOG_IMPORT_WARNING_SHOWN = False
-
-
-class _FallbackDataCatalog:
-    """Minimal in-memory catalog used when SQLAlchemy is unavailable.
-
-    The fallback deliberately disables smart cache lookups but preserves the
-    DataStore/DataManager call contract for lightweight unit tests and
-    no-persistence local usage.
-    """
-
-    def __init__(self, *_args, **_kwargs) -> None:
-        self._entries: list[dict[str, object]] = []
-        self._next_id = 1
-
-    def find_cached(self, **_kwargs):
-        return None
-
-    def register(self, **kwargs) -> int:
-        entry_id = self._next_id
-        self._next_id += 1
-
-        record = dict(kwargs)
-        bbox = record.pop("bbox", None)
-        if bbox is not None:
-            record["bbox_xmin"], record["bbox_ymin"], record["bbox_xmax"], record["bbox_ymax"] = bbox
-        else:
-            record["bbox_xmin"] = None
-            record["bbox_ymin"] = None
-            record["bbox_xmax"] = None
-            record["bbox_ymax"] = None
-
-        for key in ("date_start", "date_end"):
-            value = record.get(key)
-            if hasattr(value, "isoformat"):
-                record[key] = value.isoformat()
-
-        record["id"] = entry_id
-        self._entries.append(record)
-        return entry_id
-
-    def subsume_entries(self, **_kwargs) -> int:
-        return 0
-
-    def list_entries(self, variable: str | None = None) -> pd.DataFrame:
-        rows = self._entries
-        if variable is not None:
-            rows = [row for row in rows if row.get("variable") == variable]
-        return pd.DataFrame(rows)
-
-    def cleanup(self) -> int:
-        return 0
-
-    def invalidate(
-        self,
-        *,
-        variable: str | None = None,
-        source: str | None = None,
-        station_id: str | None = None,
-        delete_files: bool = False,
-    ) -> int:
-        removed = 0
-        kept: list[dict[str, object]] = []
-        for row in self._entries:
-            matches = True
-            if variable is not None and row.get("variable") != variable:
-                matches = False
-            if source is not None and row.get("source") != source:
-                matches = False
-            if station_id is not None and row.get("station_id") != station_id:
-                matches = False
-
-            if not matches:
-                kept.append(row)
-                continue
-
-            removed += 1
-            if delete_files:
-                file_path = row.get("file_path")
-                if isinstance(file_path, str) and file_path not in {SENTINEL_CUSTOM, SENTINEL_EMPTY}:
-                    try:
-                        candidate = Path(file_path)
-                        if candidate.exists():
-                            candidate.unlink()
-                    except OSError:
-                        pass
-        self._entries = kept
-        return removed
-
-
-def _build_data_catalog(*args, **kwargs):
-    """Create the persisted catalog, or a lightweight fallback when optional SQL support is absent."""
-    global _CATALOG_IMPORT_WARNING_SHOWN
-    try:
-        from hydromodpy.data.registry.catalog import DataCatalog
-    except ModuleNotFoundError as exc:
-        if exc.name != "sqlalchemy":
-            raise
-        if not _CATALOG_IMPORT_WARNING_SHOWN:
-            warnings.warn(
-                "sqlalchemy is not installed; DataStore is using an in-memory fallback catalog. "
-                "Catalog persistence and smart cache lookups are disabled.",
-                stacklevel=2,
-            )
-            _CATALOG_IMPORT_WARNING_SHOWN = True
-        return _FallbackDataCatalog(*args, **kwargs)
-    return DataCatalog(*args, **kwargs)
+from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 
 def _find_workspace_root(start_path: Path) -> Path | None:
-    """Walk up from *start_path* looking for a directory containing ``catalog.db``
-    and ``data/``.  Returns the workspace root or None."""
+    """Walk up from *start_path* looking for a workspace directory.
+
+    Recognises both the new ``catalog.duckdb`` and legacy ``catalog.db``.
+    """
     current = start_path.resolve()
     if current.is_file():
         current = current.parent
-    for _ in range(10):  # limit depth
-        if (current / "catalog.db").exists() and (current / "data").is_dir():
+    for _ in range(10):
+        has_catalog = (
+            (current / "catalog.duckdb").exists()
+            or (current / "catalog.db").exists()
+        )
+        if has_catalog and (current / "data").is_dir():
             return current
         parent = current.parent
         if parent == current:
@@ -181,10 +76,10 @@ class DataStore:
                     f"Workspace invalide : dossier 'data/' introuvable dans "
                     f"{self.workspace_root}. Lancez 'hmp init' ou verifiez le chemin."
                 )
-            self.catalog = _build_data_catalog(self.workspace_root / "catalog.db")
+            self.catalog = DataCatalogDuckDB(self.workspace_root / "catalog.duckdb")
         else:
             self.workspace_root = None
-            self.catalog = _build_data_catalog()  # in-memory
+            self.catalog = DataCatalogDuckDB()  # in-memory
 
         self.project_extent = project_extent
         self.project_period = project_period
