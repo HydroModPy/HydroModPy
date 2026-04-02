@@ -1,4 +1,4 @@
-"""Data catalog package with lazy SQLAlchemy-backed catalog import."""
+"""Data catalog package backed by DuckDB."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from hydromodpy.data.registry.constants import (
     SENTINEL_EMPTY,
 )
 
-__all__ = ["DataCatalog", "SENTINEL_CUSTOM", "SENTINEL_EMPTY"]
+__all__ = ["DataCatalogDuckDB", "DataCatalog", "SENTINEL_CUSTOM", "SENTINEL_EMPTY"]
 
 
 def __getattr__(name: str):
-    if name == "DataCatalog":
-        from hydromodpy.data.registry.catalog import DataCatalog
+    if name in ("DataCatalog", "DataCatalogDuckDB"):
+        from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
-        return DataCatalog
+        return DataCatalogDuckDB
     raise AttributeError(f"module 'hydromodpy.data.registry' has no attribute {name!r}")
