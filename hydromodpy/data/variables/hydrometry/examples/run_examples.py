@@ -22,7 +22,7 @@ def example_custom_csv():
     print("\n=== Example: Custom CSV ===")
     from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
     from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
-    from hydromodpy.data.registry.catalog import DataCatalog
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
@@ -76,7 +76,7 @@ def example_custom_csv_one_line():
     print("\n=== Example: Custom CSV Single Line (Constant) ===")
     from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
     from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
-    from hydromodpy.data.registry.catalog import DataCatalog
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
@@ -117,7 +117,7 @@ def example_custom_unit_conversion():
     print("\n=== Example: Custom with Unit Conversion ===")
     from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
     from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
-    from hydromodpy.data.registry.catalog import DataCatalog
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
@@ -165,7 +165,7 @@ def example_hubeau_api():
     print("  (requires internet connection)")
     from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
     from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
-    from hydromodpy.data.registry.catalog import DataCatalog
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
     cfg = HydrometryConfig(sources=[
         HydrometrySourceConfig(

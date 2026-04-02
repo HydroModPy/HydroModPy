@@ -20,7 +20,7 @@ def example_custom_csv():
     print("\n=== Example: Piezometry Custom CSV ===")
     from hydromodpy.data.variables.piezometry.config import PiezometrySourceConfig, PiezometryConfig
     from hydromodpy.data.variables.piezometry.manager import PiezometryManager
-    from hydromodpy.data.registry.catalog import DataCatalog
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
@@ -65,7 +65,7 @@ def example_custom_constant():
     print("\n=== Example: Piezometry Constant (single-line CSV) ===")
     from hydromodpy.data.variables.piezometry.config import PiezometrySourceConfig, PiezometryConfig
     from hydromodpy.data.variables.piezometry.manager import PiezometryManager
-    from hydromodpy.data.registry.catalog import DataCatalog
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
@@ -103,7 +103,7 @@ def example_hubeau_api():
     print("  (requires internet connection)")
     from hydromodpy.data.variables.piezometry.config import PiezometrySourceConfig, PiezometryConfig
     from hydromodpy.data.variables.piezometry.manager import PiezometryManager
-    from hydromodpy.data.registry.catalog import DataCatalog
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
     cfg = PiezometryConfig(sources=[
         PiezometrySourceConfig(
