@@ -78,7 +78,6 @@ dependencies = [
     "pytest-xdist",
     "dask",
     "duckdb",
-    "sqlalchemy>=2.0",
     "tqdm",
     "zarr>=3.0",
     "blosc2",
