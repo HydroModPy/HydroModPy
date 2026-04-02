@@ -77,8 +77,11 @@ dependencies = [
     "pytest",
     "pytest-xdist",
     "dask",
+    "duckdb",
     "sqlalchemy>=2.0",
     "tqdm",
+    "zarr>=3.0",
+    "blosc2",
 ]
 
 [project.optional-dependencies]
@@ -99,6 +102,7 @@ docs = [
     "autodoc-pydantic>=2.0",
 ]
 ide = ["spyder>=6.0", "jupyterlab>=4.0"]
+ugrid = ["xugrid"]
 viewer3d = ["pyvista"]
 
 [project.scripts]
