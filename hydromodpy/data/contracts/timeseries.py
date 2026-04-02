@@ -9,6 +9,7 @@ from typing import Optional
 
 import pandas as pd
 
+from hydromodpy.data.common.validation import compute_completeness
 from hydromodpy.data.contracts.location import StationLocation
 
 REQUIRED_COLUMNS = ("datetime", "value")
@@ -33,6 +34,7 @@ class PointRecord:
     is_constant: bool = False
     file_path: Optional[Path] = None
     source_unit: Optional[str] = None
+    quality: Optional[dict] = None
 
     def __post_init__(self):
         missing = [c for c in REQUIRED_COLUMNS if c not in self.data.columns]
@@ -43,6 +45,21 @@ class PointRecord:
             )
         self.data["datetime"] = pd.to_datetime(self.data["datetime"], errors="coerce")
         self.data["value"] = pd.to_numeric(self.data["value"], errors="coerce")
+
+        if self.quality is None and not self.data.empty:
+            stats = compute_completeness(
+                self.data,
+                start_date=self.date_start,
+                end_date=self.date_end,
+                station_id=self.station_id,
+            )
+            self.quality = {
+                "completeness_pct": stats["completeness_pct"],
+                "n_expected": stats["expected_days"],
+                "n_actual": stats["actual_days"],
+                "n_missing": stats["missing_days"],
+                "n_gaps": stats["gaps_detected"],
+            }
 
     @property
     def n_records(self) -> int:

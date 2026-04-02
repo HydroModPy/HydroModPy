@@ -18,6 +18,7 @@ class LoadResult:
 
     points: list[PointRecord] = field(default_factory=list)
     fields: list[FieldRecord] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
     def __len__(self) -> int:
         return len(self.points) + len(self.fields)
