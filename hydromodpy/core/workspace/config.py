@@ -112,5 +112,5 @@ class WorkspaceConfig(BaseModel):
     def catalog_path(self) -> Path | None:
         """Path to the shared catalog database, or None if no workspace root."""
         if self.workspace_root is not None:
-            return self.workspace_root / "catalog.db"
+            return self.workspace_root / "catalog.duckdb"
         return None
