@@ -23,14 +23,26 @@ RUN_DESCRIPTION = "Run the deep-aquifer Brutsaert recession validation case."
 
 
 def _build_metric_lines(comparison) -> tuple[str, ...]:
-    return (
+    lines = [
         f"Solution: {comparison.solution_name}",
         f"Initial discharge: {comparison.initial_discharge_m3_s:.6e} m3/s",
         f"Characteristic time: {comparison.characteristic_time_days:.2f} d",
         f"Relative RMSE: {comparison.relative_rmse:.4f}",
         f"Relative max abs error: {comparison.relative_max_error:.4f}",
         f"Cross-row head spread: {comparison.row_spread:.2e} m",
-    )
+    ]
+    if comparison.solver_budget_max_abs_rate_discrepancy_percent is not None:
+        budget_line = (
+            "MODFLOW-NWT rate budget max abs discrepancy: "
+            f"{comparison.solver_budget_max_abs_rate_discrepancy_percent:.2f}%"
+        )
+        if comparison.solver_budget_first_bad_stress_period is not None:
+            budget_line += (
+                f" (first bad stress period: "
+                f"{comparison.solver_budget_first_bad_stress_period})"
+            )
+        lines.append(budget_line)
+    return tuple(lines)
 
 
 def main(argv: list[str] | None = None) -> None:

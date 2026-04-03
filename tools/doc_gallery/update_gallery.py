@@ -827,9 +827,8 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                             "",
                         ]
                     )
-                    image = list(case.get("images", []))
-                    if image:
-                        _append_figure(lines, image[0], indent="      ", width="85%")
+                    images = list(case.get("images", []))
+                    _append_mesh_tab_images(lines, images, indent="      ")
                     lines.extend(
                         [
                             f"      **{case['title']}**",
@@ -886,9 +885,8 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                             "",
                         ]
                     )
-                    image = list(case.get("images", []))
-                    if image:
-                        _append_figure(lines, image[0], indent="      ", width="85%")
+                    images = list(case.get("images", []))
+                    _append_mesh_tab_images(lines, images, indent="      ")
                     lines.extend(
                         [
                             f"      **{case['title']}**",
@@ -1003,6 +1001,19 @@ def _append_figure(
             "",
         ]
     )
+
+
+def _append_mesh_tab_images(
+    lines: list[str],
+    images: list[dict[str, Any]],
+    *,
+    indent: str = "",
+) -> None:
+    if not images:
+        return
+    _append_figure(lines, images[0], indent=indent, width="85%")
+    if len(images) > 1:
+        _append_figure(lines, images[1], indent=indent, width="35%")
 
 
 def _render_validation_solver_block(run: dict[str, Any], *, indent: str = "") -> list[str]:

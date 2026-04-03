@@ -73,6 +73,9 @@ def run_boussinesq_brutsaert_recession_case(
 ) -> ValidationRunResult:
     """Run one transient Brutsaert recession benchmark on the local Boussinesq backend."""
     del timeout
+    # Keep small validation strips on the historical dense backend, but switch
+    # larger aligned strips to the sparse Newton path before the 256-cell limit.
+    runtime_backend = "scipy_sparse" if int(nx) * int(ny) > 256 else "local"
 
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
@@ -97,6 +100,7 @@ def run_boussinesq_brutsaert_recession_case(
         build_flow_config(
             {
                 "flow_regime": "steady",
+                "runtime_backend": runtime_backend,
                 "ic": {"type": "custom", "value": float(east_head_m)},
                 "active_sinks_sources": ["recharge"],
                 "active_bc": ["east_side"],
@@ -142,6 +146,7 @@ def run_boussinesq_brutsaert_recession_case(
         build_flow_config(
             {
                 "flow_regime": "transient",
+                "runtime_backend": runtime_backend,
                 "ic": {"type": "custom", "value": float(east_head_m)},
                 "active_bc": ["east_side"],
                 "bc": {
@@ -228,6 +233,7 @@ def run_boussinesq_brutsaert_recession_case(
         "z_bottom_m": float(z_bottom_m),
         "east_head_m": float(east_head_m),
         "steady_recharge_mm_day": float(steady_recharge_mm_day),
+        "runtime_backend": runtime_backend,
     }
     (postprocess_dir / "brutsaert_context.json").write_text(
         json.dumps(context_payload, indent=2, ensure_ascii=True) + "\n",

@@ -31,7 +31,7 @@ dt_seconds = 86400.0
 
 [geometry]
 nx = 40
-ny = 3
+ny = 24
 length_x_m = 50.0
 width_y_m = 30.0
 z_top_m = 5.0

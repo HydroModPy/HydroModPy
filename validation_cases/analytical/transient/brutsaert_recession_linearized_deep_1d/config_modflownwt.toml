@@ -12,3 +12,10 @@ nlay = 1
 
 [modflownwt.tgrid]
 firstpersteady = true
+
+# MODFLOW-NWT can falsely accept the steady warm-up from a perfectly flat
+# initial head equal to the east-side Dirichlet boundary. A small positive
+# offset avoids that false convergence and restores the expected recharge
+# balance during the warm-up period.
+[flow.ic]
+value = "50.1 m"
