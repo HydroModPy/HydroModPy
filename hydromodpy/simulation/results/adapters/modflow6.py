@@ -26,6 +26,7 @@ class Modflow6OutputAdapter:
         store: ResultStore,
         *,
         model_name: str | None = None,
+        budget_spatial_fields: bool = False,
     ) -> None:
         """Read MF6 .hds and .cbc files and write into the store."""
         import flopy.utils.binaryfile as bf
@@ -70,7 +71,14 @@ class Modflow6OutputAdapter:
             )
 
         if cbc_path.exists():
-            self._extract_budget(sim_id, store, cbc_path, times, kstpkpers)
+            self._extract_budget(
+                sim_id, store, cbc_path, times, kstpkpers,
+                spatial_fields=budget_spatial_fields,
+            )
+
+        lst_path = solver_output_dir / f"{model_name}.lst"
+        if lst_path.exists():
+            self._extract_mass_balance(sim_id, store, lst_path)
 
         head_file.close()
 
@@ -81,6 +89,8 @@ class Modflow6OutputAdapter:
         cbc_path: Path,
         times: list,
         kstpkpers: list,
+        *,
+        spatial_fields: bool = False,
     ) -> None:
         """Extract cell budget data from MF6 .cbc file."""
         import flopy.utils.binaryfile as bf
@@ -105,10 +115,47 @@ class Modflow6OutputAdapter:
                         sim_id, t, 0, component.lower().strip(),
                         flux_in, abs(flux_out),
                     )
+                    if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
+                        store.write_field(
+                            sim_id, component.lower().strip(), t,
+                            arr.reshape(-1) if arr.ndim == 1 else arr,
+                            n_timesteps=len(times) if t == 0 else None,
+                            subgroup="budget",
+                        )
                 except Exception:
                     logger.debug("Could not read MF6 budget '%s' at t=%d", component, t)
 
         cbb.close()
+
+    def _extract_mass_balance(
+        self,
+        sim_id: str,
+        store: ResultStore,
+        lst_path: Path,
+    ) -> None:
+        """Parse MODFLOW 6 listing file for mass balance summary.
+
+        Uses ``flopy.utils.Mf6ListBudget`` to read volumetric budget
+        from the listing file.
+        """
+        try:
+            from flopy.utils import Mf6ListBudget
+
+            mf6_list = Mf6ListBudget(str(lst_path))
+            inc, cum = mf6_list.get_budget()
+            if inc is not None:
+                names = inc.dtype.names
+                for t in range(len(inc)):
+                    total_in = float(inc[t]["TOTAL_IN"]) if "TOTAL_IN" in names else 0.0
+                    total_out = float(inc[t]["TOTAL_OUT"]) if "TOTAL_OUT" in names else 0.0
+                    pct_err = (
+                        float(inc[t]["PERCENT_DISCREPANCY"])
+                        if "PERCENT_DISCREPANCY" in names
+                        else 0.0
+                    )
+                    store.write_mass_balance(sim_id, t, total_in, total_out, pct_err)
+        except Exception:
+            logger.debug("Could not parse MF6 listing file %s", lst_path)
 
     def derive(
         self,
