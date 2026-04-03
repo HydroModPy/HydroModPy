@@ -208,7 +208,21 @@ def _budget_term_sum_m3_s(
 ) -> float | None:
     """Return the summed rate [m3/s] for one cell-budget term and period."""
     budget_path = model_ws / f"{model_name}.cbc"
-    cbb = CellBudgetFile(str(budget_path))
+    cbb = None
+    for kwargs in ({}, {"precision": "double"}, {"precision": "single"}):
+        try:
+            cbb = CellBudgetFile(str(budget_path), **kwargs)
+            break
+        except TypeError:
+            if kwargs:
+                continue
+            raise
+        except Exception:
+            if kwargs == {"precision": "single"}:
+                return None
+            continue
+    if cbb is None:
+        return None
     try:
         records = cbb.get_data(kstpkper=kstpkper, text=text)
     except Exception:
@@ -764,9 +778,10 @@ def _build_summary(
         "single east-side Dirichlet boundary: steady warm-up heads match the NWT "
         "steady state once NWT is nudged off the flat IC, but NWT still diverges "
         "in every transient variant tested: split run, restart from the MF6 steady "
-        "head field, and one-shot validation-like execution. The boundary geometry "
-        "therefore looks consistent; the remaining failure is solver-side and "
-        "specific to the NWT transient behavior on this setup."
+        "head field, one-shot validation-like execution, and a confined-like "
+        "variant with Sy removed. The boundary geometry therefore looks consistent; "
+        "the remaining failure is solver-side and specific to the NWT transient "
+        "behavior on this setup."
     )
     return {
         "case_id": CASE_ID,
@@ -824,6 +839,16 @@ def _build_summary(
                 ),
             },
             "confined_variant": {
+                "nwt_one_shot_confined_last_outlet_discharge_m3_s": (
+                    None
+                    if not nwt_one_shot_confined.outlet_series_m3_s
+                    else float(nwt_one_shot_confined.outlet_series_m3_s[-1])
+                ),
+                "mf6_one_shot_confined_last_outlet_discharge_m3_s": (
+                    None
+                    if not mf6_one_shot_confined.outlet_series_m3_s
+                    else float(mf6_one_shot_confined.outlet_series_m3_s[-1])
+                ),
                 "nwt_one_shot_confined_recession_outlet_drop_fraction": (
                     _series_drop_fraction(nwt_one_shot_confined_recession)
                 ),
