@@ -94,6 +94,10 @@ class DataStore:
 
     # Registry: variable_name → (module_path, class_name)
     _MANAGER_REGISTRY: dict[str, tuple[str, str]] = {
+        "dem": ("hydromodpy.data.variables.dem.manager", "DemManager"),
+        "geology": ("hydromodpy.data.variables.geology.manager", "GeologyManager"),
+        "hydrography": ("hydromodpy.data.variables.hydrography.manager", "HydrographyManager"),
+        "oceanic": ("hydromodpy.data.variables.oceanic.manager", "OceanicManager"),
         "hydrometry": ("hydromodpy.data.variables.hydrometry.manager", "HydrometryManager"),
         "piezometry": ("hydromodpy.data.variables.piezometry.manager", "PiezometryManager"),
         "water_quality": ("hydromodpy.data.variables.water_quality.manager", "WaterQualityManager"),

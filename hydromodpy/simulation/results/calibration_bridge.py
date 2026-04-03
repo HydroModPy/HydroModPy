@@ -76,6 +76,7 @@ def persist_calibration_result(
     *,
     solver: str = "unknown",
     name: str | None = None,
+    metrics: list[tuple[str, str, float]] | None = None,
 ) -> None:
     """Re-run the best calibration result and persist it into the store.
 
@@ -95,6 +96,8 @@ def persist_calibration_result(
         Solver name for registration.
     name : str, optional
         Human-readable name for the simulation.
+    metrics : list of (station_id, metric_name, value), optional
+        Performance metrics to write (e.g. NSE, KGE, RMSE per station).
     """
     store.register_simulation(sim_id, solver=solver, name=name or "calibration_best")
 
@@ -109,6 +112,12 @@ def persist_calibration_result(
             ts = results.get(variable)
         if ts is not None:
             store.write_timeseries(sim_id, station_id, variable, ts)
+
+    if metrics:
+        for station_id, metric_name, value in metrics:
+            store.write_metric(sim_id, station_id, metric_name, value)
+
+    store.write_calibration_params(sim_id, best_params)
 
     store.finalize(sim_id, status="calibrated")
     logger.info("Persisted calibration result for sim %s", sim_id)

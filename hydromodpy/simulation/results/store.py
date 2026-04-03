@@ -219,6 +219,52 @@ class ResultStore:
             ],
         )
 
+    def write_metric(
+        self,
+        sim_id: str | UUID,
+        station_id: str,
+        metric_name: str,
+        value: float,
+    ) -> None:
+        """Write a performance metric into DuckDB.
+
+        Parameters
+        ----------
+        sim_id : str or UUID
+            Simulation identifier.
+        station_id : str
+            Station at which the metric was computed.
+        metric_name : str
+            Metric name (e.g. ``"nse"``, ``"kge"``, ``"rmse"``).
+        value : float
+            Metric value.
+        """
+        self._db.execute(
+            """INSERT INTO metrics
+               (sim_id, station_id, metric_name, value)
+               VALUES (?, ?, ?, ?)""",
+            [str(sim_id), station_id, metric_name, value],
+        )
+
+    def write_calibration_params(
+        self,
+        sim_id: str | UUID,
+        params: dict,
+    ) -> None:
+        """Store calibration best-fit parameters as JSON.
+
+        Parameters
+        ----------
+        sim_id : str or UUID
+            Simulation identifier.
+        params : dict
+            Best parameter set found by the optimizer.
+        """
+        self._db.execute(
+            "UPDATE simulations SET calibration_params = ? WHERE sim_id = ?",
+            [json.dumps(params), str(sim_id)],
+        )
+
     def record_provenance(
         self,
         sim_id: str | UUID,
@@ -276,8 +322,32 @@ class ResultStore:
         sim_id: str | UUID,
         status: str = "completed",
         duration_s: float | None = None,
+        *,
+        crs: str | None = None,
+        period_start: Any = None,
+        period_end: Any = None,
+        time_unit: str | None = None,
+        process_types: list[str] | None = None,
     ) -> None:
-        """Mark a simulation as finished and update the registry."""
+        """Mark a simulation as finished and update the registry.
+
+        Parameters
+        ----------
+        sim_id : str or UUID
+            Simulation identifier.
+        status : str
+            Final status (``"completed"``, ``"failed"``, ``"calibrated"``).
+        duration_s : float, optional
+            Wall-clock duration in seconds.
+        crs : str, optional
+            Coordinate reference system (e.g. ``"EPSG:2154"``).
+        period_start, period_end : date-like, optional
+            Simulation temporal extent.
+        time_unit : str, optional
+            Time discretisation unit (e.g. ``"days"``).
+        process_types : list[str], optional
+            List of process types (e.g. ``["flow", "transport"]``).
+        """
         sid = str(sim_id)
         self._db.execute(
             "UPDATE simulations SET status = ?, duration_s = ? WHERE sim_id = ?",
@@ -319,6 +389,17 @@ class ResultStore:
         ).fetchall()
         forcing_sources = [r[0] for r in forcing] if forcing else None
 
+        # Derive period from provenance if not provided
+        if period_start is None or period_end is None:
+            prov_dates = self._db.execute(
+                "SELECT MIN(period_start), MAX(period_end) FROM input_provenance WHERE sim_id = ?",
+                [sid],
+            ).fetchone()
+            if prov_dates[0] is not None and period_start is None:
+                period_start = prov_dates[0]
+            if prov_dates[1] is not None and period_end is None:
+                period_end = prov_dates[1]
+
         config_hash = None
         if sim.get("config_toml"):
             import hashlib
@@ -335,17 +416,17 @@ class ResultStore:
             "project_path": project_path,
             "name": sim.get("name"),
             "solver": sim.get("solver", "unknown"),
-            "process_types": None,
+            "process_types": process_types,
             "status": status,
             "n_cells": sim.get("n_cells"),
             "n_layers": sim.get("n_layers"),
             "cell_types": sim.get("cell_types"),
             "bbox": sim.get("bbox"),
-            "crs": None,
+            "crs": crs,
             "n_timesteps": sim.get("n_timesteps"),
-            "period_start": None,
-            "period_end": None,
-            "time_unit": None,
+            "period_start": period_start,
+            "period_end": period_end,
+            "time_unit": time_unit,
             "duration_s": duration_s or sim.get("duration_s"),
             "best_nse": best_nse,
             "best_kge": best_kge,
@@ -382,13 +463,26 @@ class ResultStore:
     # -- Read methods ----------------------------------------------------------
 
     def list_simulations(self, **filters) -> pd.DataFrame:
-        """List simulations, optionally filtered by column values."""
+        """List simulations, optionally filtered by column values.
+
+        Supports comparison suffixes: ``column__gt``, ``column__lt``,
+        ``column__gte``, ``column__lte`` for range queries.
+        """
         query = "SELECT * FROM simulations"
         params = []
         if filters:
             clauses = []
-            for col, val in filters.items():
-                clauses.append(f"{col} = ?")
+            for key, val in filters.items():
+                if key.endswith("__gt"):
+                    clauses.append(f"{key[:-4]} > ?")
+                elif key.endswith("__gte"):
+                    clauses.append(f"{key[:-5]} >= ?")
+                elif key.endswith("__lt"):
+                    clauses.append(f"{key[:-4]} < ?")
+                elif key.endswith("__lte"):
+                    clauses.append(f"{key[:-5]} <= ?")
+                else:
+                    clauses.append(f"{key} = ?")
                 params.append(val)
             query += " WHERE " + " AND ".join(clauses)
         return self._db.execute(query, params).fetchdf()

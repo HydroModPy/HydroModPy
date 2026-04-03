@@ -27,7 +27,6 @@ dependencies:
   - scikit-learn
   - scipy
   - selenium
-  - sqlalchemy>=2.0
   - xarray
   - pysheds
   - dask

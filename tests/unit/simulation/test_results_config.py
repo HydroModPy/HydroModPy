@@ -23,8 +23,8 @@ class TestResultsConfigDefaults:
         assert cfg.derived.watertable_depth is True
         assert cfg.derived.seepage_areas is True
         assert cfg.budget.spatial_fields is False
-        assert cfg.export.netcdf is False
-        assert cfg.export.csv_timeseries is False
+        assert cfg.export.netcdf is True
+        assert cfg.export.csv_timeseries is True
 
     def test_from_dict(self):
         cfg = ResultsConfig.model_validate({
@@ -51,16 +51,21 @@ class TestDerivedConfig:
             watertable_depth=False,
             seepage_areas=False,
         )
-        assert cfg.model_dump() == {
-            "watertable_elevation": False,
-            "watertable_depth": False,
-            "seepage_areas": False,
-        }
+        dump = cfg.model_dump()
+        assert dump["watertable_elevation"] is False
+        assert dump["watertable_depth"] is False
+        assert dump["seepage_areas"] is False
+        # New variables default to False
+        assert dump["groundwater_flux"] is False
+        assert dump["accumulation_flux"] is False
+        assert dump["concentration_seepage"] is False
+        assert dump["mass_seepage"] is False
+        assert dump["mass_accumulated"] is False
 
 
 class TestExportConfig:
     def test_any_enabled_false(self):
-        cfg = ExportConfig()
+        cfg = ExportConfig(netcdf=False, csv_timeseries=False)
         assert cfg.any_enabled() is False
 
     def test_any_enabled_true(self):
