@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from types import SimpleNamespace
 import sys
+from typing import Any, Callable
 
 import numpy as np
 from flopy.utils.binaryfile import CellBudgetFile, HeadFile
@@ -49,9 +50,11 @@ PROBE_IDS = {
     "nwt_transient_complex": "nwt_transient_complex",
     "nwt_transient_from_mf6_head": "nwt_from_mf6_head",
     "nwt_one_shot": "nwt_one_shot",
+    "nwt_one_shot_confined": "nwt_one_shot_conf",
     "mf6_steady_flat": "mf6_steady_flat",
     "mf6_steady_nudged": "mf6_steady_nudged",
     "mf6_transient": "mf6_transient",
+    "mf6_one_shot_confined": "mf6_one_shot_conf",
 }
 
 
@@ -73,6 +76,9 @@ class ProbeResult:
     first_bad_stress_period: int | None
     model_ws: str
     note: str
+
+
+ModelMutator = Callable[[Any], None]
 
 
 def _build_validation_launcher(*, solver_name: str) -> HydroModPyLauncher:
@@ -289,6 +295,7 @@ def _run_nwt_probe(
     modflow_config,
     time_grid,
     restart_head: np.ndarray | None = None,
+    model_mutator: ModelMutator | None = None,
     note: str,
 ) -> tuple[ProbeResult, np.ndarray | None]:
     """Run one direct MODFLOW-NWT probe and return its summary plus final head."""
@@ -313,6 +320,8 @@ def _run_nwt_probe(
             nrow=int(model.nrow),
             ncol=int(model.ncol),
         )
+    if model_mutator is not None:
+        model_mutator(model)
 
     success = bool(
         model.processing(
@@ -378,6 +387,7 @@ def _run_mf6_probe(
     modflow_config,
     time_grid,
     restart_head: np.ndarray | None = None,
+    model_mutator: ModelMutator | None = None,
     note: str,
 ) -> tuple[ProbeResult, np.ndarray | None]:
     """Run one direct MODFLOW 6 probe and return its summary plus final head."""
@@ -405,6 +415,8 @@ def _run_mf6_probe(
             model.ic.strt.set_data(start_heads)
         else:
             model.ic.strt = start_heads
+    if model_mutator is not None:
+        model_mutator(model)
 
     success = bool(
         model.processing(
@@ -481,6 +493,33 @@ def _drop_leading_periods(series: tuple[float, ...], *, count: int) -> tuple[flo
     return tuple(series[count:])
 
 
+def _make_nwt_confined(model: Any) -> None:
+    """Force one NWT model into a confined-like variant for diagnosis only."""
+    laytype = np.zeros((int(model.nlay),), dtype=int)
+    sy = np.zeros_like(np.asarray(model.sy, dtype=float))
+    sy_value = np.zeros_like(np.asarray(model.sy_value, dtype=float))
+    model.laytype = laytype
+    model.sy = sy
+    model.sy_value = sy_value
+    model.upw.laytyp = laytype
+    model.upw.sy = sy
+
+
+def _make_mf6_confined(model: Any) -> None:
+    """Force one MF6 model into a confined-like variant for diagnosis only."""
+    iconvert = np.zeros((int(model.nlay),), dtype=int)
+    sy = np.zeros_like(np.asarray(model.sy, dtype=float))
+    model.sy = sy
+    if hasattr(model.sto.iconvert, "set_data"):
+        model.sto.iconvert.set_data(iconvert)
+    else:
+        model.sto.iconvert = iconvert
+    if hasattr(model.sto.sy, "set_data"):
+        model.sto.sy.set_data(sy)
+    else:
+        model.sto.sy = sy
+
+
 def _head_rmse_m(reference: np.ndarray, candidate: np.ndarray) -> float:
     """Return head RMSE between two arrays once flattened."""
     ref = np.asarray(reference, dtype=float).reshape(-1)
@@ -541,12 +580,22 @@ def _build_summary(
     nwt_transient_complex = by_probe[PROBE_IDS["nwt_transient_complex"]]
     nwt_transient_from_mf6_head = by_probe[PROBE_IDS["nwt_transient_from_mf6_head"]]
     nwt_one_shot = by_probe[PROBE_IDS["nwt_one_shot"]]
+    nwt_one_shot_confined = by_probe[PROBE_IDS["nwt_one_shot_confined"]]
     mf6_flat = by_probe[PROBE_IDS["mf6_steady_flat"]]
     mf6_nudged = by_probe[PROBE_IDS["mf6_steady_nudged"]]
     mf6_transient = by_probe[PROBE_IDS["mf6_transient"]]
+    mf6_one_shot_confined = by_probe[PROBE_IDS["mf6_one_shot_confined"]]
 
     nwt_one_shot_recession = _drop_leading_periods(
         nwt_one_shot.outlet_series_m3_s,
+        count=1,
+    )
+    nwt_one_shot_confined_recession = _drop_leading_periods(
+        nwt_one_shot_confined.outlet_series_m3_s,
+        count=1,
+    )
+    mf6_one_shot_confined_recession = _drop_leading_periods(
+        mf6_one_shot_confined.outlet_series_m3_s,
         count=1,
     )
 
@@ -576,8 +625,14 @@ def _build_summary(
         nwt_transient_simple.outlet_series_m3_s,
         nwt_one_shot_recession,
     )
+    confined_nwt_vs_confined_mf6_rel_l2 = _relative_series_l2_error(
+        mf6_one_shot_confined_recession,
+        nwt_one_shot_confined_recession,
+    )
     nwt_one_shot_ws = Path(nwt_one_shot.model_ws)
     mf6_transient_ws = Path(mf6_transient.model_ws)
+    nwt_confined_ws = Path(nwt_one_shot_confined.model_ws)
+    mf6_confined_ws = Path(mf6_one_shot_confined.model_ws)
     nwt_head_change_signature = _load_head_change_signature(
         nwt_one_shot_ws,
         nwt_one_shot.probe_id,
@@ -585,6 +640,14 @@ def _build_summary(
     mf6_head_change_signature = _load_head_change_signature(
         mf6_transient_ws,
         mf6_transient.probe_id,
+    )
+    nwt_confined_head_change_signature = _load_head_change_signature(
+        nwt_confined_ws,
+        nwt_one_shot_confined.probe_id,
+    )
+    mf6_confined_head_change_signature = _load_head_change_signature(
+        mf6_confined_ws,
+        mf6_one_shot_confined.probe_id,
     )
     nwt_budget_signature = {
         "stress_period_2_storage_rate_m3_s": _budget_term_sum_m3_s(
@@ -636,6 +699,58 @@ def _build_summary(
             mf6_transient.probe_id,
             text="CHD",
             kstpkper=(0, 1),
+        ),
+    }
+    nwt_confined_budget_signature = {
+        "stress_period_2_storage_rate_m3_s": _budget_term_sum_m3_s(
+            nwt_confined_ws,
+            nwt_one_shot_confined.probe_id,
+            text="STORAGE",
+            kstpkper=(0, 1),
+        ),
+        "stress_period_2_constant_head_rate_m3_s": _budget_term_sum_m3_s(
+            nwt_confined_ws,
+            nwt_one_shot_confined.probe_id,
+            text="CONSTANT HEAD",
+            kstpkper=(0, 1),
+        ),
+        "stress_period_3_storage_rate_m3_s": _budget_term_sum_m3_s(
+            nwt_confined_ws,
+            nwt_one_shot_confined.probe_id,
+            text="STORAGE",
+            kstpkper=(0, 2),
+        ),
+        "stress_period_3_constant_head_rate_m3_s": _budget_term_sum_m3_s(
+            nwt_confined_ws,
+            nwt_one_shot_confined.probe_id,
+            text="CONSTANT HEAD",
+            kstpkper=(0, 2),
+        ),
+    }
+    mf6_confined_budget_signature = {
+        "stress_period_2_sto_ss_rate_m3_s": _budget_term_sum_m3_s(
+            mf6_confined_ws,
+            mf6_one_shot_confined.probe_id,
+            text="STO-SS",
+            kstpkper=(0, 1),
+        ),
+        "stress_period_2_chd_rate_m3_s": _budget_term_sum_m3_s(
+            mf6_confined_ws,
+            mf6_one_shot_confined.probe_id,
+            text="CHD",
+            kstpkper=(0, 1),
+        ),
+        "stress_period_3_sto_ss_rate_m3_s": _budget_term_sum_m3_s(
+            mf6_confined_ws,
+            mf6_one_shot_confined.probe_id,
+            text="STO-SS",
+            kstpkper=(0, 2),
+        ),
+        "stress_period_3_chd_rate_m3_s": _budget_term_sum_m3_s(
+            mf6_confined_ws,
+            mf6_one_shot_confined.probe_id,
+            text="CHD",
+            kstpkper=(0, 2),
         ),
     }
 
@@ -708,13 +823,31 @@ def _build_summary(
                     nwt_one_shot.budget_max_abs_rate_discrepancy_percent
                 ),
             },
+            "confined_variant": {
+                "nwt_one_shot_confined_recession_outlet_drop_fraction": (
+                    _series_drop_fraction(nwt_one_shot_confined_recession)
+                ),
+                "mf6_one_shot_confined_recession_outlet_drop_fraction": (
+                    _series_drop_fraction(mf6_one_shot_confined_recession)
+                ),
+                "nwt_one_shot_confined_budget_max_abs_rate_discrepancy_percent": (
+                    nwt_one_shot_confined.budget_max_abs_rate_discrepancy_percent
+                ),
+                "nwt_one_shot_confined_vs_mf6_confined_relative_l2_error": (
+                    confined_nwt_vs_confined_mf6_rel_l2
+                ),
+            },
             "budget_package_signature": {
                 "nwt_one_shot": nwt_budget_signature,
                 "mf6_transient": mf6_budget_signature,
+                "nwt_one_shot_confined": nwt_confined_budget_signature,
+                "mf6_one_shot_confined": mf6_confined_budget_signature,
             },
             "head_change_signature": {
                 "nwt_one_shot_first_transitions": nwt_head_change_signature,
                 "mf6_transient_first_transitions": mf6_head_change_signature,
+                "nwt_one_shot_confined_first_transitions": nwt_confined_head_change_signature,
+                "mf6_one_shot_confined_first_transitions": mf6_confined_head_change_signature,
             },
         },
         "probes": [asdict(result) for result in results],
