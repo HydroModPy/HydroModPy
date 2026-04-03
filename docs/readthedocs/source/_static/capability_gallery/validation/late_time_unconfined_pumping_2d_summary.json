@@ -1,0 +1,392 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "late_time_unconfined_pumping_2d",
+  "title": "Late-Time Unconfined Pumping 2D",
+  "category": "validation",
+  "deck": "2D radial pumping benchmark in the late-time unconfined regime.",
+  "summary": "This `v1` case validates one transient non-confined pumping response in a pragmatic way.",
+  "case_setup": [
+    "geometry: square Cartesian grid (`101 x 101`, single layer),",
+    "flow regime: transient unconfined flow,",
+    "all outer boundaries: fixed at the initial head,",
+    "initial condition: uniform `30.0 m`,",
+    "forcing: one constant pumping well at the domain center,",
+    "simulated observable: `watertable_elevation`.",
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
+  ],
+  "what_it_shows": [
+    "Transient well forcing, late-time radial drawdown scaling, and numerical radial symmetry around the well",
+    "Primary metrics: space-time RMSE, space-time max abs error, final-time RMSE, final-time max abs error, azimuthal spread.",
+    "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
+  ],
+  "reference_highlights": [
+    "the numerical model is non-confined,",
+    "the analytical reference is intentionally limited to the late-time regime,",
+    "drawdown is compared against the Theis well function using `T = K * href` and `S = Sy`,",
+    "early delayed-yield effects are excluded from the comparison window."
+  ],
+  "equations_rst": [
+    "s(r,t)=\\frac{Q}{4\\pi T}E_1(u)",
+    "u=\\frac{r^2S}{4Tt},\\qquad T=K\\,h_{\\mathrm{ref}},\\qquad S=S_y"
+  ],
+  "reproduction_command": "python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/README.md",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/reference.py",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/comparison.py",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/plotting.py",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/run_case.py",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/runtime_boussinesq.py",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml",
+    "validation_cases/analytical/transient/common.py"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/README.md": "cdba73415cb6cdf40efb64533e69557f1dbb22925a19eb1a958b0cdb0bc2f6be",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/reference.py": "5c3d1bea642b740f45d14f1ceea796b1fd623b0e7f5ac9378ebd76b72e6ac250",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/comparison.py": "e2404ce54213f66e6a183bfc2fe0f1e3e5b331908adce54d6cf3dcdb6fe8ef7f",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/plotting.py": "3efe041c4eee90ab1ea8a745e20abcefcca3372fcbb4c9979f186a7db3de1f73",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/run_case.py": "30edc1834d44344aeffcc55186bba0086307569e9f8e6ea389c3a5b57452193f",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml": "90f09f9727a490b485da488ff56aeb495a4f70acfb8f9187a38a859e251205d7",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml": "2499c5dc3eb3499a032b0e1cb32286cd8bd620b488ea7ff73e1c0591f0e3da63",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/runtime_boussinesq.py": "2d6c117bb8526fd4f2411cee7d3335eb282edc1ad59ef63fb1bf3aee0f87da4d",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml": "c065df515c704e832e6772e79034beec0da01d52eaa91137b210f4acaa95f9df",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml": "75158836e2768446918d346c654e529b687085975a11ab20061637ad70997586",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml": "f95ffc83e8b3904d388b5c6a0bb2d06e7f6ae533a0f7c2948221a9a06a99abc0",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml": "c2c4343a64f46d1f7e049897084e9202c440b1f0069156f2799072b925918758",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml": "aaebad7805cda1a24b2ee2a9aefb95270df1b1e498044e123a4ad0e9be5f28e8",
+    "validation_cases/analytical/transient/common.py": "ad794d0407af9e7dbbd5669bae60ae0c43ecafbad49181b64320421050a3de93"
+  },
+  "docname": "cases/late_time_unconfined_pumping_2d",
+  "images": [
+    {
+      "filename": "late_time_unconfined_pumping_2d__modflownwt.png",
+      "caption": "Late-Time Unconfined Pumping 2D rendered with MODFLOW-NWT for the analytical gallery.",
+      "alt_text": "Late-Time Unconfined Pumping 2D validation figure for MODFLOW-NWT",
+      "doc_path": "/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d",
+    "default_solver": "modflownwt",
+    "solver_variants": [
+      "modflownwt",
+      "modflow6",
+      "boussinesq"
+    ],
+    "solver_details": {
+      "modflownwt": {
+        "display_name": "MODFLOW-NWT",
+        "config_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml",
+        "expected_output": "Expected output: 30 periods, spatial shape 101 x 101",
+        "tolerance_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml"
+      },
+      "modflow6": {
+        "display_name": "MODFLOW 6",
+        "config_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml",
+        "expected_output": "Expected output: 30 periods, spatial shape 101 x 101",
+        "tolerance_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml"
+      },
+      "boussinesq": {
+        "display_name": "Boussinesq",
+        "config_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml",
+        "expected_output": "Expected output: 30 periods, spatial shape 101 x 101",
+        "tolerance_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml"
+      }
+    },
+    "regime": "transient",
+    "dimension": "2d",
+    "inventory_reference": "late-time Theis proxy",
+    "case_sheet": {
+      "numerical_setup": "Square unconfined domain, fixed heads on outer boundary, central pumping well, transient run",
+      "analytical_target": "Late-time radial Theis proxy using `T = K * href` and `S = Sy`",
+      "primary_metrics": "space-time RMSE, space-time max abs error, final-time RMSE, final-time max abs error, azimuthal spread",
+      "what_it_validates": "Transient well forcing, late-time radial drawdown scaling, and numerical radial symmetry around the well"
+    }
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/late_time_unconfined_pumping_2d_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__boussinesq.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "modflownwt",
+      "solver_display_name": "MODFLOW-NWT",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml",
+      "tolerance_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml",
+      "expected_output": "Expected output: 30 periods, spatial shape 101 x 101",
+      "command": "python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case --no-show --solver modflownwt",
+      "metric_lines": [
+        "Space-time RMSE: 0.0113 m",
+        "Space-time max abs error: 0.0624 m",
+        "Final-time RMSE: 0.0053 m",
+        "Azimuthal spread: 1.91e-06 m"
+      ],
+      "image": {
+        "filename": "late_time_unconfined_pumping_2d__modflownwt.png",
+        "caption": "Late-Time Unconfined Pumping 2D rendered with MODFLOW-NWT for the analytical gallery.",
+        "alt_text": "Late-Time Unconfined Pumping 2D validation figure for MODFLOW-NWT",
+        "doc_path": "/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "late_time_unconfined_pumping_2d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "2d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_periods": 30,
+            "expected_spatial_shape": [
+              101,
+              101
+            ]
+          },
+          "time": {
+            "dt_seconds": 43200.0
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 2000.0,
+            "ymin": 0.0,
+            "ymax": 2000.0,
+            "center_x_m": 1000.0,
+            "center_y_m": 1000.0,
+            "base_head_m": 30.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 30.0,
+            "specific_yield": 0.15,
+            "pumping_rate_m3_day": 1000.0,
+            "compare_start_day": 4.0
+          },
+          "plot": {
+            "monitor_offsets_cells": [
+              3,
+              5,
+              8,
+              12
+            ]
+          }
+        },
+        "tolerances": {
+          "space_time": {
+            "rmse": 0.03,
+            "max_abs_error": 0.08,
+            "azimuthal_spread": 0.0005
+          },
+          "final_time": {
+            "rmse": 0.02,
+            "max_abs_error": 0.03
+          }
+        },
+        "final_elapsed_days": 15.0
+      }
+    },
+    {
+      "solver": "modflow6",
+      "solver_display_name": "MODFLOW 6",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml",
+      "tolerance_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml",
+      "expected_output": "Expected output: 30 periods, spatial shape 101 x 101",
+      "command": "python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case --no-show --solver modflow6",
+      "metric_lines": [
+        "Space-time RMSE: 0.0114 m",
+        "Space-time max abs error: 0.0623 m",
+        "Final-time RMSE: 0.0057 m",
+        "Azimuthal spread: 1.96e-07 m"
+      ],
+      "image": {
+        "filename": "late_time_unconfined_pumping_2d__modflow6.png",
+        "caption": "Late-Time Unconfined Pumping 2D rendered with MODFLOW 6 for the analytical gallery.",
+        "alt_text": "Late-Time Unconfined Pumping 2D validation figure for MODFLOW 6",
+        "doc_path": "/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "late_time_unconfined_pumping_2d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "2d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_periods": 30,
+            "expected_spatial_shape": [
+              101,
+              101
+            ]
+          },
+          "time": {
+            "dt_seconds": 43200.0
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 2000.0,
+            "ymin": 0.0,
+            "ymax": 2000.0,
+            "center_x_m": 1000.0,
+            "center_y_m": 1000.0,
+            "base_head_m": 30.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 30.0,
+            "specific_yield": 0.15,
+            "pumping_rate_m3_day": 1000.0,
+            "compare_start_day": 4.0
+          },
+          "plot": {
+            "monitor_offsets_cells": [
+              3,
+              5,
+              8,
+              12
+            ]
+          }
+        },
+        "tolerances": {
+          "space_time": {
+            "rmse": 0.015,
+            "max_abs_error": 0.07,
+            "azimuthal_spread": 1e-05
+          },
+          "final_time": {
+            "rmse": 0.008,
+            "max_abs_error": 0.015
+          }
+        },
+        "final_elapsed_days": 15.0
+      }
+    },
+    {
+      "solver": "boussinesq",
+      "solver_display_name": "Boussinesq",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml",
+      "tolerance_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml",
+      "expected_output": "Expected output: 30 periods, spatial shape 101 x 101",
+      "command": "python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case --no-show --solver boussinesq",
+      "metric_lines": [
+        "Space-time RMSE: 0.0640 m",
+        "Space-time max abs error: 0.0989 m",
+        "Final-time RMSE: 0.0705 m",
+        "Azimuthal spread: 1.36e-01 m"
+      ],
+      "image": {
+        "filename": "late_time_unconfined_pumping_2d__boussinesq.png",
+        "caption": "Late-Time Unconfined Pumping 2D rendered with Boussinesq for the analytical gallery.",
+        "alt_text": "Late-Time Unconfined Pumping 2D validation figure for Boussinesq",
+        "doc_path": "/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__boussinesq.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__boussinesq.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "late_time_unconfined_pumping_2d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "2d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_periods": 30,
+            "expected_spatial_shape": [
+              101,
+              101
+            ]
+          },
+          "time": {
+            "dt_seconds": 43200.0
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 2000.0,
+            "ymin": 0.0,
+            "ymax": 2000.0,
+            "center_x_m": 1000.0,
+            "center_y_m": 1000.0,
+            "base_head_m": 30.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 30.0,
+            "specific_yield": 0.15,
+            "pumping_rate_m3_day": 1000.0,
+            "compare_start_day": 4.0
+          },
+          "plot": {
+            "monitor_offsets_cells": [
+              3,
+              5,
+              8,
+              12
+            ]
+          }
+        },
+        "tolerances": {
+          "space_time": {
+            "rmse": 0.1,
+            "max_abs_error": 0.12,
+            "azimuthal_spread": 0.15
+          },
+          "final_time": {
+            "rmse": 0.1,
+            "max_abs_error": 0.12
+          }
+        },
+        "final_elapsed_days": 15.0
+      }
+    }
+  ]
+}

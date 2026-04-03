@@ -1,0 +1,248 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "linearized_unconfined_drainage_1d",
+  "title": "Linearized Unconfined Drainage 1D",
+  "category": "validation",
+  "deck": "1D equilibrium benchmark for the top-drainage boundary condition.",
+  "summary": "Steady synthetic groundwater-flow case used to validate HydroModPy's top drainage boundary condition against a closed-form linearized 1D reference with:",
+  "case_setup": [
+    "Homogeneous strip, fixed west/east heads, distributed top drainage everywhere, flat drainage level",
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6."
+  ],
+  "what_it_shows": [
+    "validate the `drainage` boundary-condition path with an analytical benchmark,",
+    "keep drainage active everywhere so the reference stays closed-form,",
+    "isolate one lightweight 1D equilibrium before tackling more complex seepage-face cases.",
+    "`drainage` boundary-condition path in a controlled analytical setting",
+    "Primary metrics: head-profile RMSE, max abs error, cross-row spread.",
+    "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
+  ],
+  "reference_highlights": [
+    "compared quantity: domain-averaged head profile along `x`",
+    "reference: steady linearized unconfined profile with distributed top drainage"
+  ],
+  "equations_rst": [
+    "T_0\\,\\frac{\\mathrm{d}^2u}{\\mathrm{d}x^2}-\\lambda_d\\,u=0,\\qquad u=h-z_d,\\qquad \\lambda_d=\\frac{C_d}{A}",
+    "u(x)=u_w\\frac{\\sinh\\left(\\beta(L-x)\\right)}{\\sinh\\left(\\beta L\\right)}+u_e\\frac{\\sinh\\left(\\beta x\\right)}{\\sinh\\left(\\beta L\\right)},\\qquad \\beta=\\sqrt{\\frac{\\lambda_d}{T_0}}"
+  ],
+  "reproduction_command": "python -m validation_cases.analytical.steady.linearized_unconfined_drainage_1d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/README.md",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/reference.py",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/comparison.py",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/plotting.py",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/run_case.py",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances_modflow6.toml",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/README.md": "e68111bc871dc4ea01c720b68182ce7a562b290164572db6f235d855cf450d09",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/reference.py": "e8e33ca2c545632f5768410853fd582d3588cdacf5ae1e473dc517128d9e417c",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/comparison.py": "69cec8a628f8e9123f7a772884a51561b1aa4934577991d790de3edd1764579c",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/plotting.py": "f466df2fec5c05d49b60b6a0ddd3413e711b642459c499de4fcd86046f91328b",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/run_case.py": "38a620d23d5395b85bea400a02f37f204b38b90ce499d8d7beb6715b2cfa9026",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml": "53ff5eae4a89bd75437f3f74f3ecb35b711102a40c41a2e918c13c1fdc1f43e4",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml": "8266c8cfa29d940c0438909814c86000fd6dc42342a78821ae5b56ef8685eace",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances_modflow6.toml": "ce0c971ead1206504eb87b87624b3dcb1ce88d4a5dfb1d2a7391c8fd8bc14588",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml": "4ab7535546b2a0fc5c5389fee0095b7f83bd23bc3440b2f0717d04ba663b0f2a",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "87bd0c802ef3b86b88f5791b1ece5a70095f146920ffb3ad44aab32115921b00"
+  },
+  "docname": "cases/linearized_unconfined_drainage_1d",
+  "images": [
+    {
+      "filename": "linearized_unconfined_drainage_1d__modflownwt.png",
+      "caption": "Linearized Unconfined Drainage 1D rendered with MODFLOW-NWT for the analytical gallery.",
+      "alt_text": "Linearized Unconfined Drainage 1D validation figure for MODFLOW-NWT",
+      "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflownwt.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflownwt.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d",
+    "default_solver": "modflownwt",
+    "solver_variants": [
+      "modflownwt",
+      "modflow6"
+    ],
+    "solver_details": {
+      "modflownwt": {
+        "display_name": "MODFLOW-NWT",
+        "config_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml",
+        "expected_output": "Expected shape: 5 x 50",
+        "tolerance_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml"
+      },
+      "modflow6": {
+        "display_name": "MODFLOW 6",
+        "config_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml",
+        "expected_output": "Expected shape: 5 x 50",
+        "tolerance_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances_modflow6.toml"
+      }
+    },
+    "regime": "steady",
+    "dimension": "1d",
+    "inventory_reference": "linearized unconfined drainage",
+    "case_sheet": {
+      "numerical_setup": "Homogeneous strip, fixed west/east heads, distributed top drainage everywhere, flat drainage level",
+      "analytical_target": "Steady linearized unconfined solution with distributed drainage",
+      "primary_metrics": "head-profile RMSE, max abs error, cross-row spread",
+      "what_it_validates": "`drainage` boundary-condition path in a controlled analytical setting"
+    }
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/linearized_unconfined_drainage_1d_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_drainage_1d_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflownwt.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflow6.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "modflownwt",
+      "solver_display_name": "MODFLOW-NWT",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml",
+      "tolerance_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml",
+      "expected_output": "Expected shape: 5 x 50",
+      "command": "python -m validation_cases.analytical.steady.linearized_unconfined_drainage_1d.run_case --no-show --solver modflownwt",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0127 m",
+        "Head-profile max abs error: 0.0175 m",
+        "Cross-row head spread: 1.91e-07 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_drainage_1d__modflownwt.png",
+        "caption": "Linearized Unconfined Drainage 1D rendered with MODFLOW-NWT for the analytical gallery.",
+        "alt_text": "Linearized Unconfined Drainage 1D validation figure for MODFLOW-NWT",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflownwt.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflownwt.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "linearized_unconfined_drainage_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              50
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "length_y_m": 10.0,
+            "west_head_m": 6.2,
+            "east_head_m": 5.8,
+            "drainage_elevation_m": 0.0,
+            "drainage_conductance_m2_per_s": 1e-07,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 26.0,
+            "aquifer_thickness_m": 20.0,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.05,
+            "max_abs_error": 0.1,
+            "row_spread": 2e-05
+          }
+        },
+        "timestep": 0
+      }
+    },
+    {
+      "solver": "modflow6",
+      "solver_display_name": "MODFLOW 6",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml",
+      "tolerance_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances_modflow6.toml",
+      "expected_output": "Expected shape: 5 x 50",
+      "command": "python -m validation_cases.analytical.steady.linearized_unconfined_drainage_1d.run_case --no-show --solver modflow6",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0127 m",
+        "Head-profile max abs error: 0.0175 m",
+        "Cross-row head spread: 1.59e-07 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_drainage_1d__modflow6.png",
+        "caption": "Linearized Unconfined Drainage 1D rendered with MODFLOW 6 for the analytical gallery.",
+        "alt_text": "Linearized Unconfined Drainage 1D validation figure for MODFLOW 6",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflow6.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflow6.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "linearized_unconfined_drainage_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              50
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "length_y_m": 10.0,
+            "west_head_m": 6.2,
+            "east_head_m": 5.8,
+            "drainage_elevation_m": 0.0,
+            "drainage_conductance_m2_per_s": 1e-07,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 26.0,
+            "aquifer_thickness_m": 20.0,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.015,
+            "max_abs_error": 0.02,
+            "row_spread": 5e-06
+          }
+        },
+        "timestep": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,190 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "boussinesq_hillslope_recharge_step_interception_1d",
+  "title": "Boussinesq Hillslope Recharge-Step Interception 1D",
+  "category": "validation",
+  "deck": "1D sloping-topography benchmark for transient interception onset on the dense in-house Boussinesq runtime.",
+  "summary": "Transient synthetic groundwater-flow case used to validate the dense in-house `flow/boussinesq` runtime on a sloping hillslope where a recharge step causes an interception zone to appear progressively from the outlet toward the divide.",
+  "case_setup": [
+    "same sloping strip geometry as the steady interception benchmark (`40 x 3`),",
+    "linear topography from `10 m` to `5 m`,",
+    "flat bottom at `0 m`,",
+    "initial state: constant head `5 m`,",
+    "east fixed head `5 m`,",
+    "recharge step to `2 mm/day` from the first transient period,",
+    "`12` periods of `10 days`.",
+    "Available solver variants: Boussinesq."
+  ],
+  "what_it_shows": [
+    "validate the transient onset of interception on a topographic slope,",
+    "compare the **time of first inland interception** against a linearized approximation,",
+    "compare the discrete interception trajectory `x_int(t)` on the early-moving front where the approximation remains informative.",
+    "Transient appearance of seepage/interception on a hillslope with the dense in-house Boussinesq runtime",
+    "Primary metrics: onset-time error, interception-trajectory RMSE, interception-trajectory max abs error, cross-row spread."
+  ],
+  "reference_highlights": [
+    "Linearized onset approximation for the moving interception front"
+  ],
+  "equations_rst": [
+    "S_y\\frac{\\partial \\eta}{\\partial t}=T_0\\frac{\\partial^2 \\eta}{\\partial x^2}+R_0\\,H(t),\\qquad \\eta_{\\mathrm{steady}}(x)=\\frac{R_0}{2T_0}\\left(L^2-x^2\\right)",
+    "z_{\\mathrm{top}}(x)=z_{\\mathrm{toe}}+S\\left(L-x\\right),\\qquad h(x,t)=z_{\\mathrm{top}}(x)\\ \\text{defines the interception front}"
+  ],
+  "reproduction_command": "python -m validation_cases.analytical.transient.boussinesq_hillslope_recharge_step_interception_1d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/README.md",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/reference.py",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/comparison.py",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/plotting.py",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/run_case.py",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/runtime_boussinesq.py",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/tolerances.toml",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/config_boussinesq.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/README.md": "59f722297510422aa8721d320ac4327cb4122f529a71463288a0f4452ead3812",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/reference.py": "528724f9ca8fb3caf10594f3b705cfe624f2794034060c7da691d0f908eed8c8",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/comparison.py": "804a1483606b8c730ab8bb50cc199be0258ee89fc7c4f5a0f11a1e1436350f16",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/plotting.py": "5c628e501d6b336bed4bbc3c9e4cf6af25f767c74a45b3bc56cdc287a211b458",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/run_case.py": "70b7b0e065e43ae9be74c2902db58e349109fbfeb363570195a2c1d86ddcd53a",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml": "e83bf55abb3b5dd2df193ce876492095295756935180bf174ad5d7da84321464",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/runtime_boussinesq.py": "d2127927c7b543f987aa5b21d53d898db2a39a027d3207da8275ad4105b7069e",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/tolerances.toml": "b8bf119b2332494d4b8e7526e3d9b2346fe77e6d167ea77daf6a9636006de321",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/config_boussinesq.toml": "ea18211445a04869af95f98936f99cc1bb4877e552b6df975d5fef96ba303884",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "87bd0c802ef3b86b88f5791b1ece5a70095f146920ffb3ad44aab32115921b00"
+  },
+  "docname": "cases/boussinesq_hillslope_recharge_step_interception_1d",
+  "images": [
+    {
+      "filename": "boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png",
+      "caption": "Boussinesq Hillslope Recharge-Step Interception 1D rendered with Boussinesq for the analytical gallery.",
+      "alt_text": "Boussinesq Hillslope Recharge-Step Interception 1D validation figure for Boussinesq",
+      "doc_path": "/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d",
+    "default_solver": "boussinesq",
+    "solver_variants": [
+      "boussinesq"
+    ],
+    "solver_details": {
+      "boussinesq": {
+        "display_name": "Boussinesq",
+        "config_path": "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/config_boussinesq.toml",
+        "expected_output": "Expected output: 13 periods, spatial shape 3 x 40",
+        "tolerance_path": "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/tolerances.toml"
+      }
+    },
+    "regime": "transient",
+    "dimension": "1d",
+    "inventory_reference": "linearized hillslope interception onset",
+    "case_sheet": {
+      "numerical_setup": "Sloping strip, east fixed head, recharge step from the first transient period",
+      "analytical_target": "Linearized onset approximation for the moving interception front",
+      "primary_metrics": "onset-time error, interception-trajectory RMSE, interception-trajectory max abs error, cross-row spread",
+      "what_it_validates": "Transient appearance of seepage/interception on a hillslope with the dense in-house Boussinesq runtime"
+    }
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "boussinesq",
+      "solver_display_name": "Boussinesq",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/config_boussinesq.toml",
+      "tolerance_path": "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/tolerances.toml",
+      "expected_output": "Expected output: 13 periods, spatial shape 3 x 40",
+      "command": "python -m validation_cases.analytical.transient.boussinesq_hillslope_recharge_step_interception_1d.run_case --no-show",
+      "metric_lines": [
+        "Analytical onset time: 80.0 d",
+        "Numerical onset time: 80.0 d",
+        "Onset-time error: 0.0 d",
+        "Interception-trajectory RMSE: 2.89 m",
+        "Interception-trajectory max abs error: 10.00 m",
+        "Trajectory reversal: 0.00e+00 m",
+        "Cross-row head spread: 6.41e-09 m"
+      ],
+      "image": {
+        "filename": "boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png",
+        "caption": "Boussinesq Hillslope Recharge-Step Interception 1D rendered with Boussinesq for the analytical gallery.",
+        "alt_text": "Boussinesq Hillslope Recharge-Step Interception 1D validation figure for Boussinesq",
+        "doc_path": "/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "boussinesq_hillslope_recharge_step_interception_1d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_boussinesq.toml",
+          "default_solver": "boussinesq",
+          "config_files": {
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_periods": 13,
+            "expected_spatial_shape": [
+              3,
+              40
+            ]
+          },
+          "time": {
+            "dt_seconds": 864000.0
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "base_head_m": 5.0,
+            "toe_elevation_m": 5.0,
+            "topography_slope_m_per_m": 0.0125,
+            "recharge_mm_day": 2.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 5.0,
+            "specific_yield": 0.1,
+            "profile_axis": 0,
+            "numerical_contact_tolerance_m": 0.05,
+            "inland_contact_threshold_x_m": 385.0,
+            "n_terms": 400
+          }
+        },
+        "tolerances": {
+          "onset": {
+            "time_error_days": 10.0
+          },
+          "trajectory": {
+            "rmse_m": 5.0,
+            "max_abs_error_m": 12.0,
+            "reversal_m": 1e-06
+          },
+          "uniformity": {
+            "row_spread": 0.0001
+          },
+          "contact": {
+            "max_positive_clearance_m": 1e-06
+          }
+        },
+        "final_elapsed_days": 120.0
+      }
+    }
+  ]
+}
