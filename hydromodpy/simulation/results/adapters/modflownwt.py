@@ -26,6 +26,7 @@ class ModflowNwtOutputAdapter:
         store: ResultStore,
         *,
         model_name: str | None = None,
+        budget_spatial_fields: bool = False,
     ) -> None:
         """Read .hds and .cbc files and write fields into the store."""
         import flopy.utils.binaryfile as bf
@@ -70,6 +71,7 @@ class ModflowNwtOutputAdapter:
             self._extract_budget(
                 sim_id, store, cbc_path, times, kstpkpers,
                 nlay, nrow, ncol,
+                spatial_fields=budget_spatial_fields,
             )
 
         # Write mass balance from listing file
@@ -89,6 +91,8 @@ class ModflowNwtOutputAdapter:
         nlay: int,
         nrow: int,
         ncol: int,
+        *,
+        spatial_fields: bool = False,
     ) -> None:
         """Extract cell budget data from .cbc file."""
         import flopy.utils.binaryfile as bf
@@ -113,6 +117,14 @@ class ModflowNwtOutputAdapter:
                         sim_id, t, 0, component.lower().strip(),
                         flux_in, abs(flux_out),
                     )
+                    if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 2:
+                        n_cells = nrow * ncol
+                        field = arr.reshape(nlay, n_cells) if arr.ndim == 3 else arr.reshape(1, n_cells)
+                        store.write_field(
+                            sim_id, component.lower().strip(), t, field,
+                            n_timesteps=len(times) if t == 0 else None,
+                            subgroup="budget",
+                        )
                 except Exception:
                     logger.debug("Could not read budget component '%s' at t=%d", component, t)
 
