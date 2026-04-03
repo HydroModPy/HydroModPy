@@ -222,51 +222,58 @@ class DataCatalogDuckDB:
                 [variable, source, str(file_path)],
             ).fetchone()
 
-        try:
-            if existing is not None:
-                eid = existing[0]
-                self._conn.execute(
-                    """UPDATE entries SET
-                       bbox_xmin=?, bbox_ymin=?, bbox_xmax=?, bbox_ymax=?,
-                       crs=?, date_start=?, date_end=?, frequency=?,
-                       unit=?, source_unit=?, file_path=?, file_mtime=?,
-                       is_custom=?, fetch_metadata=?
-                       WHERE id=?""",
-                    [
-                        bx[0], bx[1], bx[2], bx[3],
-                        crs, ds, de, frequency,
-                        unit, source_unit, str(file_path), mtime,
-                        1 if is_custom else 0,
-                        _json_or_none(fetch_metadata),
-                        eid,
-                    ],
-                )
-                return eid
-            else:
-                self._conn.execute(
-                    """INSERT INTO entries
-                       (variable, source, station_id,
-                        bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
-                        crs, date_start, date_end, frequency,
-                        unit, source_unit, file_path, file_mtime,
-                        is_custom, fetch_metadata)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    [
-                        variable, source, station_id,
-                        bx[0], bx[1], bx[2], bx[3],
-                        crs, ds, de, frequency,
-                        unit, source_unit, str(file_path), mtime,
-                        1 if is_custom else 0,
-                        _json_or_none(fetch_metadata),
-                    ],
-                )
-                row = self._conn.execute(
-                    "SELECT currval('entries_seq')"
-                ).fetchone()
-                return row[0]
-        except Exception as exc:
-            logger.warning("register() failed: %s", exc)
-            return -1
+        for attempt in range(_RETRY):
+            try:
+                if existing is not None:
+                    eid = existing[0]
+                    self._conn.execute(
+                        """UPDATE entries SET
+                           bbox_xmin=?, bbox_ymin=?, bbox_xmax=?, bbox_ymax=?,
+                           crs=?, date_start=?, date_end=?, frequency=?,
+                           unit=?, source_unit=?, file_path=?, file_mtime=?,
+                           is_custom=?, fetch_metadata=?
+                           WHERE id=?""",
+                        [
+                            bx[0], bx[1], bx[2], bx[3],
+                            crs, ds, de, frequency,
+                            unit, source_unit, str(file_path), mtime,
+                            1 if is_custom else 0,
+                            _json_or_none(fetch_metadata),
+                            eid,
+                        ],
+                    )
+                    return eid
+                else:
+                    self._conn.execute(
+                        """INSERT INTO entries
+                           (variable, source, station_id,
+                            bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
+                            crs, date_start, date_end, frequency,
+                            unit, source_unit, file_path, file_mtime,
+                            is_custom, fetch_metadata)
+                           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        [
+                            variable, source, station_id,
+                            bx[0], bx[1], bx[2], bx[3],
+                            crs, ds, de, frequency,
+                            unit, source_unit, str(file_path), mtime,
+                            1 if is_custom else 0,
+                            _json_or_none(fetch_metadata),
+                        ],
+                    )
+                    row = self._conn.execute(
+                        "SELECT currval('entries_seq')"
+                    ).fetchone()
+                    return row[0]
+            except duckdb.IOException:
+                if attempt < _RETRY - 1:
+                    time.sleep(_BACKOFF * (2 ** attempt))
+                else:
+                    raise
+            except Exception as exc:
+                logger.warning("register() failed: %s", exc)
+                return -1
+        return -1
 
     # -- find_cached -----------------------------------------------------------
 
@@ -320,7 +327,7 @@ class DataCatalogDuckDB:
         offset: int = 0,
     ) -> pd.DataFrame:
         """List catalog entries as a DataFrame."""
-        query = "SELECT id, variable, source, station_id, date_start, date_end, file_path, source_unit, is_custom FROM entries"
+        query = "SELECT id, variable, source, station_id, date_start, date_end, file_path, source_unit, is_custom, fetch_metadata FROM entries"
         params: list = []
         clauses = []
         if variable:
@@ -350,10 +357,17 @@ class DataCatalogDuckDB:
         station_id: str | None = None,
         delete_files: bool = False,
     ) -> int:
-        """Remove matching entries. Returns count deleted."""
+        """Remove matching entries. Returns count deleted.
+
+        Sentinel entries (SENTINEL_CUSTOM, SENTINEL_EMPTY file_path) are
+        excluded from deletion to preserve placeholder records.
+        """
         try:
             clauses, params = _build_filter(variable, source, station_id)
-            where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+            # Protect sentinel entries
+            clauses.append("file_path NOT IN (?, ?)")
+            params.extend([SENTINEL_CUSTOM, SENTINEL_EMPTY])
+            where = " WHERE " + " AND ".join(clauses)
 
             if delete_files:
                 rows = self._conn.execute(
