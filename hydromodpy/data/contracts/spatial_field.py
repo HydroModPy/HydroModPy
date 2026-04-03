@@ -38,3 +38,14 @@ class FieldRecord:
     @property
     def is_file_reference(self) -> bool:
         return isinstance(self.data, (str, Path))
+
+    @property
+    def dataset(self) -> "xr.Dataset":
+        """Return the xarray Dataset, loading from disk if needed."""
+        if isinstance(self.data, (str, Path)):
+            if xr is None:
+                raise ImportError("xarray is required to load FieldRecord data from disk")
+            ds = xr.open_dataset(str(self.data))
+            self.data = ds
+            return ds
+        return self.data
