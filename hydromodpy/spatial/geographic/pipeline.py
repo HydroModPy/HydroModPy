@@ -14,6 +14,7 @@ from geopy.geocoders import Nominatim
 from hydromodpy.core.backends import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts, build_regional_flow_products
+from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from hydromodpy.spatial.geographic.core.pipeline_steps import (
     build_standard_catchment,
     build_standard_domain_polygons,
@@ -40,6 +41,7 @@ class LegacyGeographicContext:
     flow_products: FlowProducts
     raster_products: LegacyDomainRasterProducts
     dem_metadata: LegacyDemMetadata
+    river_network_products: RiverNetworkProducts
     catchment_area_km2: float
     crs_project: str | None
     epsg: int | None
@@ -56,6 +58,8 @@ class LegacyGeographicContext:
                 "dem_res": self.dem_res,
                 "_paths": self.paths,
                 "_dem_metadata": self.dem_metadata,
+                "_river_network_products": self.river_network_products,
+                "river_mesh_trace": self.river_network_products.river_mesh_trace,
             }
         )
         attrs.update(self.dem_metadata.legacy_attributes())
@@ -112,7 +116,7 @@ def build_legacy_geographic_context(
         crs_project=setup.crs_project,
     )
 
-    build_river_network_products(
+    river_network_products = build_river_network_products(
         river_network=config.river_network,
         dem_correc_path=flow_products.correc,
         d8_pointer_path=flow_products.direc,
@@ -156,6 +160,7 @@ def build_legacy_geographic_context(
         flow_products=flow_products,
         raster_products=raster_products,
         dem_metadata=dem_metadata,
+        river_network_products=river_network_products,
         catchment_area_km2=catchment_area_km2,
         crs_project=setup.crs_project,
         epsg=setup.epsg,

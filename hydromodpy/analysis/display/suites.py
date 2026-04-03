@@ -17,8 +17,16 @@ from hydromodpy.analysis.display.common import (
     resolve_model_figure_dir,
 )
 from hydromodpy.analysis.display.figures.animation import build_gif, build_plotly_slider
-from hydromodpy.analysis.display.figures.boussinesq import plot_boussinesq_state
+from hydromodpy.analysis.display.figures.boussinesq import (
+    plot_boussinesq_diagnostics,
+    plot_boussinesq_edge_flux_map,
+    plot_boussinesq_state,
+)
 from hydromodpy.analysis.display.figures.cross_section import plot_cross_section
+from hydromodpy.analysis.display.figures.flow_diagnostics import (
+    plot_flow_mass_balance,
+    plot_flow_probe_timeseries,
+)
 from hydromodpy.analysis.display.figures.maps import plot_pathlines_map
 from hydromodpy.analysis.display.figures.timeseries import plot_discharge, plot_piezometry
 from hydromodpy.analysis.display.options import DisplayOptions
@@ -53,25 +61,241 @@ def _resolve_boussinesq_triangles(mesh) -> np.ndarray:
     )
 
 
-def _resolve_boussinesq_head(model) -> np.ndarray | None:
-    """Return the final Boussinesq head array from memory or disk."""
+def _load_boussinesq_state_payload(model) -> dict[str, np.ndarray]:
+    """Load available Boussinesq state arrays from memory and optional disk."""
+    payload: dict[str, np.ndarray] = {}
     state = getattr(model, "state", None)
-    head_m = getattr(state, "head_m", None)
-    if head_m is not None:
-        return np.asarray(head_m, dtype=float).reshape(-1)
+    state_mapping = {
+        "head_m": "final_head_m",
+        "recharge_rate_m_s": "final_recharge_rate_m_s",
+        "well_flux_m3_s": "final_well_flux_m3_s",
+        "saturation_excess_rate_m_s": "final_saturation_excess_rate_m_s",
+        "head_history_m": "head_history_m",
+        "saturated_thickness_history_m": "saturated_thickness_history_m",
+        "saturation_excess_history_m_s": "saturation_excess_history_m_s",
+        "recharge_rate_history_m_s": "recharge_rate_history_m_s",
+        "well_flux_history_m3_s": "well_flux_history_m3_s",
+        "internal_edge_flux_m3_s": "internal_edge_flux_m3_s",
+        "internal_edge_flux_history_m3_s": "internal_edge_flux_history_m3_s",
+        "imposed_head_edge_flux_m3_s": "imposed_head_edge_flux_m3_s",
+        "imposed_head_edge_flux_history_m3_s": "imposed_head_edge_flux_history_m3_s",
+        "drainage_flux_m3_s": "drainage_flux_m3_s",
+        "drainage_flux_history_m3_s": "drainage_flux_history_m3_s",
+        "period_lengths_seconds": "period_lengths_seconds",
+    }
+    if state is not None:
+        for attr_name, key in state_mapping.items():
+            values = getattr(state, attr_name, None)
+            if values is None:
+                continue
+            array = np.asarray(values, dtype=float)
+            if array.size == 0:
+                continue
+            payload[key] = array.copy()
 
     full_path = getattr(model, "full_path", None)
     if full_path is None:
-        return None
+        return payload
 
     state_history_path = Path(full_path) / "_boussinesq_state_history.npz"
     if not state_history_path.exists():
+        return payload
+
+    with np.load(state_history_path) as npz_payload:
+        for key in npz_payload.files:
+            if key in payload:
+                continue
+            array = np.asarray(npz_payload[key], dtype=float)
+            if array.size == 0:
+                continue
+            payload[key] = array
+    return payload
+
+
+def _resolve_boussinesq_head(model) -> np.ndarray | None:
+    """Return the final Boussinesq head array from memory or disk."""
+    payload = _load_boussinesq_state_payload(model)
+    head = payload.get("final_head_m")
+    if head is None:
+        return None
+    return np.asarray(head, dtype=float).reshape(-1)
+
+
+def _resolve_boussinesq_edge_node_indices(mesh) -> tuple[np.ndarray, np.ndarray]:
+    """Return edge endpoint indices aligned with node coordinate arrays."""
+    return (
+        np.asarray(
+            [int(mesh.node_index_by_id[int(node_id)]) for node_id in mesh.edge_node_a],
+            dtype=int,
+        ),
+        np.asarray(
+            [int(mesh.node_index_by_id[int(node_id)]) for node_id in mesh.edge_node_b],
+            dtype=int,
+        ),
+    )
+
+
+def _boussinesq_time_axis_days(period_lengths_seconds: np.ndarray) -> np.ndarray:
+    """Return the cumulative time at the end of each stress period in days."""
+    periods = np.asarray(period_lengths_seconds, dtype=float).reshape(-1)
+    if periods.size == 0:
+        return np.asarray([], dtype=float)
+    return np.cumsum(periods) / 86_400.0
+
+
+def _align_boussinesq_step_history(values: np.ndarray | None, *, n_steps: int) -> np.ndarray | None:
+    """Align one history array to one row per solved stress period."""
+    if values is None:
+        return None
+    array = np.asarray(values, dtype=float)
+    if array.size == 0:
+        return None
+    if array.ndim == 1:
+        array = array.reshape(1, -1)
+    if array.shape[0] == int(n_steps) + 1:
+        return array[1:]
+    if array.shape[0] == int(n_steps):
+        return array
+    if array.shape[0] > int(n_steps):
+        return array[-int(n_steps):]
+    return None
+
+
+def _select_boussinesq_probe_indices(mesh, *, max_probes: int = 5) -> np.ndarray:
+    """Pick a few representative cells spanning the x-extent of the mesh."""
+    x = np.asarray(mesh.cell_centroid_x_m, dtype=float).reshape(-1)
+    y = np.asarray(mesh.cell_centroid_y_m, dtype=float).reshape(-1)
+    n_cells = int(x.size)
+    if n_cells == 0:
+        return np.asarray([], dtype=int)
+    n_probes = min(int(max_probes), n_cells)
+    x_targets = np.linspace(float(np.min(x)), float(np.max(x)), n_probes)
+    y_mid = 0.5 * (float(np.min(y)) + float(np.max(y)))
+    chosen: list[int] = []
+    for target_x in x_targets.tolist():
+        distance = ((x - float(target_x)) ** 2) + ((y - y_mid) ** 2)
+        for candidate in np.argsort(distance).tolist():
+            if int(candidate) not in chosen:
+                chosen.append(int(candidate))
+                break
+    return np.asarray(chosen, dtype=int)
+
+
+def _build_boussinesq_probe_series(mesh, payload: dict[str, np.ndarray]) -> tuple[np.ndarray, dict[str, np.ndarray]] | None:
+    """Build a compact set of representative probe head series."""
+    period_lengths = np.asarray(payload.get("period_lengths_seconds", []), dtype=float).reshape(-1)
+    head_history = payload.get("head_history_m")
+    if head_history is None:
+        return None
+    history = np.asarray(head_history, dtype=float)
+    if history.ndim == 1:
+        history = history.reshape(1, -1)
+    if history.shape[0] <= 1:
         return None
 
-    with np.load(state_history_path) as payload:
-        if "final_head_m" not in payload:
-            return None
-        return np.asarray(payload["final_head_m"], dtype=float).reshape(-1)
+    probe_indices = _select_boussinesq_probe_indices(mesh)
+    if probe_indices.size == 0:
+        return None
+    time_days = _boussinesq_time_axis_days(period_lengths)
+    if time_days.size == 0 or history.shape[0] != int(time_days.size) + 1:
+        time_days = np.arange(1, int(history.shape[0]), dtype=float)
+
+    series_by_label: dict[str, np.ndarray] = {}
+    x_values = np.asarray(mesh.cell_centroid_x_m, dtype=float).reshape(-1)
+    y_values = np.asarray(mesh.cell_centroid_y_m, dtype=float).reshape(-1)
+    for probe_index in probe_indices.tolist():
+        series_by_label[
+            f"Cell {int(mesh.cell_ids[probe_index])} (x={x_values[probe_index]:.0f}, y={y_values[probe_index]:.0f})"
+        ] = np.asarray(history[1:, probe_index], dtype=float)
+    return time_days, series_by_label
+
+
+def _build_boussinesq_mass_balance(mesh, payload: dict[str, np.ndarray]):
+    """Build signed mass-balance components for one transient Boussinesq run."""
+    period_lengths = np.asarray(payload.get("period_lengths_seconds", []), dtype=float).reshape(-1)
+    n_steps = int(period_lengths.size)
+    if n_steps == 0:
+        return None
+
+    required_keys = (
+        "head_history_m",
+        "recharge_rate_history_m_s",
+        "saturation_excess_history_m_s",
+        "imposed_head_edge_flux_history_m3_s",
+        "drainage_flux_history_m3_s",
+    )
+    if any(key not in payload for key in required_keys):
+        return None
+
+    head_history = np.asarray(payload["head_history_m"], dtype=float)
+    if head_history.ndim == 1:
+        head_history = head_history.reshape(1, -1)
+    if head_history.shape[0] < n_steps + 1:
+        return None
+
+    recharge_history = _align_boussinesq_step_history(
+        payload.get("recharge_rate_history_m_s"),
+        n_steps=n_steps,
+    )
+    saturation_excess_history = _align_boussinesq_step_history(
+        payload.get("saturation_excess_history_m_s"),
+        n_steps=n_steps,
+    )
+    well_history = _align_boussinesq_step_history(
+        payload.get("well_flux_history_m3_s"),
+        n_steps=n_steps,
+    )
+    imposed_head_history = _align_boussinesq_step_history(
+        payload.get("imposed_head_edge_flux_history_m3_s"),
+        n_steps=n_steps,
+    )
+    drainage_history = _align_boussinesq_step_history(
+        payload.get("drainage_flux_history_m3_s"),
+        n_steps=n_steps,
+    )
+    if (
+        recharge_history is None
+        or saturation_excess_history is None
+        or imposed_head_history is None
+        or drainage_history is None
+    ):
+        return None
+
+    cell_area = np.asarray(mesh.cell_area_m2, dtype=float).reshape(1, -1)
+    storage = (
+        cell_area
+        * np.asarray(mesh.storage_coefficient, dtype=float).reshape(1, -1)
+        * (head_history[1 : n_steps + 1] - head_history[:n_steps])
+        / period_lengths.reshape(-1, 1)
+    ).sum(axis=1)
+    recharge = (recharge_history * cell_area).sum(axis=1)
+    saturation_excess = -(saturation_excess_history * cell_area).sum(axis=1)
+    drainage = -np.asarray(drainage_history, dtype=float).sum(axis=1)
+    imposed_head = -np.asarray(imposed_head_history, dtype=float).sum(axis=1)
+
+    components = {
+        "Recharge": recharge,
+        "Head BC": imposed_head,
+        "Drainage": drainage,
+        "Sat. excess": saturation_excess,
+        "Storage": -storage,
+    }
+    if well_history is not None:
+        well_signed = np.asarray(well_history, dtype=float).sum(axis=1)
+        if np.any(np.abs(well_signed) > 0.0):
+            components["Wells"] = well_signed
+
+    filtered_components = {
+        name: series
+        for name, series in components.items()
+        if np.any(np.abs(np.asarray(series, dtype=float)) > 0.0)
+    }
+    if not filtered_components:
+        return None
+    net = np.zeros(n_steps, dtype=float)
+    for series in filtered_components.values():
+        net = net + np.asarray(series, dtype=float)
+    return _boussinesq_time_axis_days(period_lengths), filtered_components, net
 
 
 def _load_observed_streamflow(result) -> pd.DataFrame | None:
@@ -210,7 +434,7 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
 
 
 def plot_boussinesq_flow_suite(result, options: DisplayOptions) -> None:
-    """Render the Boussinesq-specific launcher display figure."""
+    """Render the Boussinesq-specific launcher display figures."""
     if not options.should_render() or not options.flow.enabled:
         return
 
@@ -219,23 +443,95 @@ def plot_boussinesq_flow_suite(result, options: DisplayOptions) -> None:
         return
 
     mesh = getattr(model, "mesh", None)
+    payload = _load_boussinesq_state_payload(model)
     head_m = _resolve_boussinesq_head(model)
     if mesh is None or head_m is None:
         return
 
     run_id = str(getattr(model, "model_name", "")).strip() or "boussinesq"
     output_dir = resolve_model_figure_dir(result.setup.workspace, run_id)
-    plot_boussinesq_state(
-        node_x_m=np.asarray(mesh.node_x_m, dtype=float),
-        node_y_m=np.asarray(mesh.node_y_m, dtype=float),
-        triangles=_resolve_boussinesq_triangles(mesh),
-        cell_head_m=head_m,
-        cell_centroid_x_m=np.asarray(mesh.cell_centroid_x_m, dtype=float),
-        cell_z_top_m=np.asarray(mesh.z_top_m, dtype=float),
-        cell_z_bottom_m=np.asarray(mesh.z_bottom_m, dtype=float),
-        options=options,
-        save_path=output_dir / "boussinesq_state.png",
-    )
+    triangles = _resolve_boussinesq_triangles(mesh)
+    node_x = np.asarray(mesh.node_x_m, dtype=float)
+    node_y = np.asarray(mesh.node_y_m, dtype=float)
+    cell_top = np.asarray(mesh.z_top_m, dtype=float)
+    cell_bottom = np.asarray(mesh.z_bottom_m, dtype=float)
+    raw_cell_area = getattr(mesh, "cell_area_m2", None)
+    cell_area = None if raw_cell_area is None else np.asarray(raw_cell_area, dtype=float)
+
+    if options.flow.is_enabled("boussinesq_state", default=True):
+        plot_boussinesq_state(
+            node_x_m=node_x,
+            node_y_m=node_y,
+            triangles=triangles,
+            cell_head_m=head_m,
+            cell_centroid_x_m=np.asarray(mesh.cell_centroid_x_m, dtype=float),
+            cell_z_top_m=cell_top,
+            cell_z_bottom_m=cell_bottom,
+            options=options,
+            save_path=output_dir / "boussinesq_state.png",
+        )
+
+    if options.flow.is_enabled("boussinesq_diagnostics", default=True):
+        plot_boussinesq_diagnostics(
+            node_x_m=node_x,
+            node_y_m=node_y,
+            triangles=triangles,
+            cell_head_m=head_m,
+            cell_z_top_m=cell_top,
+            cell_z_bottom_m=cell_bottom,
+            cell_area_m2=cell_area,
+            cell_saturation_excess_rate_m_s=payload.get("final_saturation_excess_rate_m_s"),
+            cell_drainage_flux_m3_s=payload.get("drainage_flux_m3_s"),
+            options=options,
+            save_path=output_dir / "boussinesq_diagnostics.png",
+        )
+
+    if options.flow.is_enabled("boussinesq_edge_flux", default=True):
+        internal_flux = payload.get("internal_edge_flux_m3_s")
+        if (
+            internal_flux is not None
+            and hasattr(mesh, "edge_node_a")
+            and hasattr(mesh, "edge_node_b")
+            and hasattr(mesh, "boundary_edge_mask")
+        ):
+            edge_node_a, edge_node_b = _resolve_boussinesq_edge_node_indices(mesh)
+            plot_boussinesq_edge_flux_map(
+                node_x_m=node_x,
+                node_y_m=node_y,
+                edge_node_a_indices=edge_node_a,
+                edge_node_b_indices=edge_node_b,
+                boundary_edge_mask=np.asarray(mesh.boundary_edge_mask, dtype=bool),
+                internal_edge_flux_m3_s=internal_flux,
+                imposed_head_edge_flux_m3_s=payload.get("imposed_head_edge_flux_m3_s"),
+                options=options,
+                save_path=output_dir / "boussinesq_edge_flux.png",
+            )
+
+    if options.flow.is_enabled("boussinesq_mass_balance", default=True):
+        balance_payload = _build_boussinesq_mass_balance(mesh, payload)
+        if balance_payload is not None:
+            time_days, components, net = balance_payload
+            plot_flow_mass_balance(
+                time_values=time_days,
+                components_by_name=components,
+                net_series=net,
+                title="Boussinesq Mass Balance",
+                options=options,
+                save_path=output_dir / "boussinesq_mass_balance.png",
+            )
+
+    if options.flow.is_enabled("boussinesq_probes", default=True):
+        probe_payload = _build_boussinesq_probe_series(mesh, payload)
+        if probe_payload is not None:
+            time_days, series_by_label = probe_payload
+            plot_flow_probe_timeseries(
+                time_values=time_days,
+                series_by_label=series_by_label,
+                title="Boussinesq Probe Heads",
+                ylabel="Head [m]",
+                options=options,
+                save_path=output_dir / "boussinesq_probe_heads.png",
+            )
 
 
 def plot_particles_suite(result, options: DisplayOptions) -> None:

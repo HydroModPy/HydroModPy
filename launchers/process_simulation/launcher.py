@@ -59,6 +59,9 @@ from hydromodpy.spatial.domain.spatial_support import (
     SupportBuildContext,
     build_default_spatial_support_provider_registry,
 )
+from hydromodpy.spatial.geographic.core.derived_features import (
+    coerce_geographic_derived_features,
+)
 from hydromodpy.spatial.geographic.structure_binders import apply_catchment_zones_to_domain, apply_geology_to_domain
 from hydromodpy.analysis.postprocess.runner import PostprocessRunner
 from hydromodpy.process.flow.structure_binders import (
@@ -556,6 +559,7 @@ class HydroModPyLauncher:
             flow=setup_state.flow,
             loaded_data=run_state.loaded_data,
             time_grid=setup_state.time_grid,
+            geographic_features=setup_state.geographic_features,
         )
 
         for support_id, support_cfg in requested_domain_supports.items():
@@ -602,8 +606,17 @@ class HydroModPyLauncher:
 
         setup_state.workspace = hmp.Workspace(config=cfg.workspace)
         setup_state.geographic = self._build_geographic_runtime(setup_state.workspace)
-        setup_state.domain_geographic = setup_state.geographic.get_domain_geographic_context()
-        surface_topo = setup_state.domain_geographic.surface_topo
+        setup_state.geographic_features = coerce_geographic_derived_features(
+            geographic=setup_state.geographic,
+        )
+        if setup_state.geographic_features is None:
+            raise ValueError(
+                "Could not resolve geographic derived features from the runtime geographic object."
+            )
+        setup_state.domain_geographic = (
+            setup_state.geographic_features.to_domain_geographic_context()
+        )
+        surface_topo = setup_state.geographic_features.surface_topo
 
         domain_cfg = cfg.domain
         if hasattr(domain_cfg, "model_copy"):
@@ -676,6 +689,7 @@ class HydroModPyLauncher:
             domain_cfg=self.cfg.domain,
             constraints_mode=self.mesh_constraints_mode,
             workspace=setup_state.workspace,
+            geographic_features=setup_state.geographic_features,
             domain_geographic=setup_state.domain_geographic,
         )
         setup_state.mesh_summary = mesh_runtime.summary

@@ -111,3 +111,21 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
     assert cfg.workspace.catch_name == "demo"
     assert str(cfg.geographic.dem_init_path) == str(dem_path.resolve())
     assert cfg.flow.active_bc == ["ocean", "drainage"]
+
+
+def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data_types() -> None:
+    example_config = (
+        Path(__file__).resolve().parents[3]
+        / "examples"
+        / "projects"
+        / "launcher_simulation"
+        / "run_fast_mf6.toml"
+    )
+
+    payload = load_toml_with_base_config(example_config)
+
+    assert payload["flow"]["active_bc"] == ["ocean", "drainage"]
+    assert payload["data"]["types"] == ["recharge"]
+    assert "hydrography" not in payload["data"]
+    assert payload["data"]["oceanic"]["sources"][0]["source"] == "custom"
+    assert payload["data"]["recharge"]["sources"][0]["source"] == "synthetic"

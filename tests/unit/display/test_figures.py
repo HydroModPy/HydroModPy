@@ -53,6 +53,85 @@ class TestBoussinesqState:
         assert len(ax_profile.lines) > 0
         plt.close(fig)
 
+    def test_render_boussinesq_diagnostics_draws_maps(self):
+        from hydromodpy.analysis.display.figures.boussinesq import (
+            render_boussinesq_diagnostics,
+        )
+
+        fig, axs = plt.subplots(2, 2)
+        render_boussinesq_diagnostics(
+            axs,
+            node_x_m=np.array([0.0, 1.0, 0.0, 1.0]),
+            node_y_m=np.array([0.0, 0.0, 1.0, 1.0]),
+            triangles=np.array([[0, 1, 2], [1, 3, 2]], dtype=int),
+            cell_head_m=np.array([9.0, 8.5]),
+            cell_z_top_m=np.array([10.0, 10.0]),
+            cell_z_bottom_m=np.array([5.0, 5.0]),
+            cell_area_m2=np.array([0.5, 0.5]),
+            cell_saturation_excess_rate_m_s=np.array([1.0e-8, 2.0e-8]),
+            cell_drainage_flux_m3_s=np.array([1.0e-6, 2.0e-6]),
+        )
+        for ax in np.asarray(axs, dtype=object).reshape(-1):
+            assert len(ax.collections) > 0
+        plt.close(fig)
+
+    def test_render_boussinesq_edge_flux_map_draws_collections(self):
+        from hydromodpy.analysis.display.figures.boussinesq import (
+            render_boussinesq_edge_flux_map,
+        )
+
+        fig, ax = plt.subplots()
+        render_boussinesq_edge_flux_map(
+            ax,
+            node_x_m=np.array([0.0, 1.0, 0.0, 1.0]),
+            node_y_m=np.array([0.0, 0.0, 1.0, 1.0]),
+            edge_node_a_indices=np.array([0, 1, 2, 0, 1]),
+            edge_node_b_indices=np.array([1, 3, 3, 2, 2]),
+            boundary_edge_mask=np.array([True, True, True, True, False]),
+            internal_edge_flux_m3_s=np.array([0.0, 0.0, 0.0, 0.0, 3.0e-4]),
+            imposed_head_edge_flux_m3_s=np.array([1.0e-4, -2.0e-4, 0.0, 3.0e-4, 0.0]),
+        )
+        assert len(ax.collections) > 0
+        plt.close(fig)
+
+
+class TestFlowDiagnostics:
+    def test_render_flow_mass_balance_draws_lines(self):
+        from hydromodpy.analysis.display.figures.flow_diagnostics import (
+            render_flow_mass_balance,
+        )
+
+        fig, ax = plt.subplots()
+        render_flow_mass_balance(
+            ax,
+            time_values=np.array([1.0, 2.0, 3.0]),
+            components_by_name={
+                "Recharge": np.array([1.0, 1.5, 1.2]),
+                "Drainage": np.array([-0.4, -0.8, -0.7]),
+            },
+            net_series=np.array([0.1, -0.05, 0.02]),
+        )
+        assert len(ax.lines) >= 3
+        plt.close(fig)
+
+    def test_render_flow_probe_timeseries_draws_lines(self):
+        from hydromodpy.analysis.display.figures.flow_diagnostics import (
+            render_flow_probe_timeseries,
+        )
+
+        fig, ax = plt.subplots()
+        render_flow_probe_timeseries(
+            ax,
+            time_values=np.array([1.0, 2.0, 3.0]),
+            series_by_label={
+                "Cell 1": np.array([9.8, 9.6, 9.5]),
+                "Cell 2": np.array([9.2, 9.1, 9.0]),
+            },
+            ylabel="Head [m]",
+        )
+        assert len(ax.lines) == 2
+        plt.close(fig)
+
 
 class TestDischarge:
     def test_render_discharge_overview_mode(self):

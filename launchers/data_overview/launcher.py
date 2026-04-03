@@ -150,18 +150,23 @@ class DataOverviewLauncher:
 
     @staticmethod
     def _setup_geographic(state: DataOverviewState) -> None:
-        from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
-            build_domain_geographic_context,
+        from hydromodpy.spatial.geographic.core.derived_features import (
+            coerce_geographic_derived_features,
         )
         from hydromodpy.spatial.geographic.geographic import Geographic
 
         geographic = Geographic(state.cfg.geographic, state.workspace)
         state.geographic = geographic
 
-        domain_geo = build_domain_geographic_context(
-            config=state.cfg.geographic,
-            workspace=state.workspace,
+        geographic_features = coerce_geographic_derived_features(
+            geographic=geographic,
         )
+        if geographic_features is None:
+            raise ValueError(
+                "Could not resolve geographic derived features from the overview geographic runtime."
+            )
+        state.geographic_features = geographic_features
+        domain_geo = geographic_features.to_domain_geographic_context()
         state.domain_geographic = domain_geo
         print(
             f"[overview] Catchment area: "

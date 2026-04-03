@@ -7,10 +7,13 @@ from tools.doc_gallery.update_gallery import _build_case_page
 from tools.doc_gallery.validation_case_registry import build_validation_case_records
 
 
+EXPECTED_VALIDATION_CASE_COUNT = 20
+
+
 def test_build_validation_case_records_discovers_solver_coverage() -> None:
     records = {record.slug: record for record in build_validation_case_records()}
 
-    assert len(records) == 18
+    assert len(records) == EXPECTED_VALIDATION_CASE_COUNT
     assert records["dupuit_fixed_head_1d"].metadata["solver_variants"] == (
         "modflownwt",
         "modflow6",
@@ -39,13 +42,25 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
         "modflow6",
         "boussinesq",
     )
+    assert records["brutsaert_recession_linearized_deep_1d"].metadata["solver_variants"] == (
+        "modflownwt",
+        "modflow6",
+        "boussinesq",
+    )
+    assert records["brutsaert_recession_boussinesq_thin_1d"].metadata["solver_variants"] == (
+        "modflownwt",
+        "modflow6",
+        "boussinesq",
+    )
     assert records["late_time_unconfined_pumping_2d"].equations_rst
 
 
 def test_build_gallery_specs_exposes_validation_inventory() -> None:
     validation_specs = [spec for spec in build_gallery_specs() if spec.category == "validation"]
+    record_slugs = {record.slug for record in build_validation_case_records()}
 
-    assert len(validation_specs) == 18
+    assert len(validation_specs) == EXPECTED_VALIDATION_CASE_COUNT
+    assert {spec.slug for spec in validation_specs} == record_slugs
     assert validation_specs[0].generator == "validation_case"
     assert validation_specs[0].metadata["solver_variants"]
 

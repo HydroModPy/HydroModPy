@@ -20,7 +20,7 @@ y_rel = 0.33
 path_file = "../../data/wells/normal_wells_2003.csv"
 
 [data]
-types = ["hydrography", "recharge"]
+types = ["recharge"]
 
 [[data.recharge.sources]]
 source = "synthetic"

@@ -85,6 +85,21 @@ BOUSSINESQ_SUMMARY_KEYS = [
     "steady_termination_reason",
 ]
 
+BOUSSINESQ_STATE_HISTORY_NAMES = [
+    "drainage_flux_m3_s",
+    "final_head_m",
+    "final_recharge_rate_m_s",
+    "final_saturated_thickness_m",
+    "final_saturation_excess_rate_m_s",
+    "final_well_flux_m3_s",
+    "head_history_m",
+    "imposed_head_edge_flux_m3_s",
+    "internal_edge_flux_m3_s",
+    "period_lengths_seconds",
+    "saturated_thickness_history_m",
+    "saturation_excess_history_m_s",
+]
+
 SHOM_HEALTHCHECK_URL = "https://services.data.shom.fr"
 SHOM_TIDE_GAUGE_ID = "152"
 SHOM_START_DATE = "2003-01-01"
@@ -318,6 +333,7 @@ def run_launcher_simulation_boussinesq_regression(
         ),
         "boussinesq_state_history_expected": collect_npz_signatures(
             model_ws / "_boussinesq_state_history.npz",
+            names=BOUSSINESQ_STATE_HISTORY_NAMES,
         ),
     }
     update_or_assert_goldens(

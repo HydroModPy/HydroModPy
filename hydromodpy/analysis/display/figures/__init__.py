@@ -10,12 +10,22 @@ so they can be called from any context (simulation, overview, standalone).
 
 from hydromodpy.analysis.display.figures.animation import build_gif, build_plotly_slider
 from hydromodpy.analysis.display.figures.boussinesq import (
+    plot_boussinesq_diagnostics,
+    plot_boussinesq_edge_flux_map,
     plot_boussinesq_state,
+    render_boussinesq_diagnostics,
+    render_boussinesq_edge_flux_map,
     render_boussinesq_state,
 )
 from hydromodpy.analysis.display.figures.cross_section import (
     plot_cross_section,
     render_cross_section,
+)
+from hydromodpy.analysis.display.figures.flow_diagnostics import (
+    plot_flow_mass_balance,
+    plot_flow_probe_timeseries,
+    render_flow_mass_balance,
+    render_flow_probe_timeseries,
 )
 from hydromodpy.analysis.display.figures.maps import (
     plot_dem_map,
@@ -82,8 +92,17 @@ __all__ = [
     "render_concentration_map",
     "plot_raster_field",
     "plot_concentration_map",
+    # generic flow diagnostics
+    "render_flow_mass_balance",
+    "render_flow_probe_timeseries",
+    "plot_flow_mass_balance",
+    "plot_flow_probe_timeseries",
     # boussinesq
+    "render_boussinesq_diagnostics",
+    "render_boussinesq_edge_flux_map",
     "render_boussinesq_state",
+    "plot_boussinesq_diagnostics",
+    "plot_boussinesq_edge_flux_map",
     "plot_boussinesq_state",
     # cross section
     "render_cross_section",

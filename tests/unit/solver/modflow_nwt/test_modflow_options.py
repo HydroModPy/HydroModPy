@@ -43,6 +43,7 @@ def test_postprocess_options_defaults_are_stable():
     assert options.watertable_elevation is True
     assert options.watertable_depth is True
     assert options.seepage_areas is True
+    assert options.outlet_discharge_east_side_m3_s is False
     assert options.export_all_tif is False
 
 

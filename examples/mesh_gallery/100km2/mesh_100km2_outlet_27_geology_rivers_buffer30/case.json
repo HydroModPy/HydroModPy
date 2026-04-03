@@ -23,7 +23,7 @@
   "constraints_mode": "geology_rivers",
   "reproduction_command": "python -m launchers mesh-catchment run launchers/mesh_catchment/config_headwater_100km2.toml",
   "config_path": "examples/mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/viewer_config.toml",
-  "image_caption": "Mesh overview rendered from the versioned bundle stored under `examples/mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/bundle`.",
+  "image_caption": "Original mesh figure copied from the imported meshing run and reused directly in the documentation.",
   "image_alt_text": "100 km2 Mesh, Outlet 27, Geology + rivers, 30% buffer overview",
   "source_paths": [
     "launchers/mesh_catchment/config_headwater_100km2.toml",
@@ -37,6 +37,12 @@
     "examples/mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/bundle/cell_geology_fractions.csv",
     "examples/mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/bundle/metadata.json",
     "examples/mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/bundle/mesh_summary.json",
-    "examples/mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/bundle/README.md"
-  ]
+    "examples/mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/bundle/README.md",
+    "examples/mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/figures/mesh_overview.png",
+    "examples/mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/figures/mesh_regional.png"
+  ],
+  "preferred_doc_figure_path": "examples/mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/figures/mesh_overview.png",
+  "preferred_doc_regional_figure_path": "examples/mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/figures/mesh_regional.png",
+  "regional_image_caption": "Regional framing figure copied from the imported meshing run.",
+  "regional_image_alt_text": "100 km2 Mesh, Outlet 27, Geology + rivers, 30% buffer regional context"
 }

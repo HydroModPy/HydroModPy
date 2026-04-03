@@ -40,6 +40,26 @@ class FlowDisplayConfig(BaseModel):
         default=True,
         description="Render the piezometry plot.",
     )
+    boussinesq_state: bool = Field(
+        default=True,
+        description="Render the canonical Boussinesq state figure.",
+    )
+    boussinesq_diagnostics: bool = Field(
+        default=True,
+        description="Render Boussinesq physical diagnostic maps.",
+    )
+    boussinesq_mass_balance: bool = Field(
+        default=True,
+        description="Render Boussinesq mass-balance diagnostics when histories are available.",
+    )
+    boussinesq_probes: bool = Field(
+        default=True,
+        description="Render Boussinesq probe time series when histories are available.",
+    )
+    boussinesq_edge_flux: bool = Field(
+        default=True,
+        description="Render the final Boussinesq edge-flux map when flux arrays are available.",
+    )
 
     def to_section_options(self) -> "DisplaySectionOptions":
         """Convert validated flow flags into the lightweight runtime container."""
@@ -50,6 +70,11 @@ class FlowDisplayConfig(BaseModel):
                 "cross_section": self.cross_section,
                 "streamflow": self.streamflow,
                 "piezometry": self.piezometry,
+                "boussinesq_state": self.boussinesq_state,
+                "boussinesq_diagnostics": self.boussinesq_diagnostics,
+                "boussinesq_mass_balance": self.boussinesq_mass_balance,
+                "boussinesq_probes": self.boussinesq_probes,
+                "boussinesq_edge_flux": self.boussinesq_edge_flux,
             },
         )
 

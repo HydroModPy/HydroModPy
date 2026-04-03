@@ -544,7 +544,8 @@ def test_boussinesq_initializes_head_from_flow_initial_conditions(tmp_path: Path
     assert success is True
     assert model.state is not None
     assert np.allclose(model.state.head_m, [10.0, 11.0])
-    assert np.allclose(model.state.saturated_thickness_m, [5.0, 7.0])
+    # Smooth operators introduce O(eps_thickness/2) ≈ 2.5 mm bias at h = z_top.
+    assert np.allclose(model.state.saturated_thickness_m, [5.0, 7.0], atol=5.0e-3)
     assert model.has_numerical_solution is False
 
 
@@ -593,8 +594,9 @@ def test_assembly_with_positive_recharge_balances_by_saturation_excess(
 
     assert np.allclose(assembly.internal_edge_flux_m3_s, 0.0)
     assert np.all(assembly.saturation_excess_rate_m_s > 0.0)
-    assert np.allclose(assembly.saturation_excess_rate_m_s, 2.0e-7, atol=1.0e-12)
-    assert np.allclose(assembly.residual_m3_s, 0.0, atol=1.0e-12)
+    # Smooth operators introduce < 1 % bias at full saturation.
+    assert np.allclose(assembly.saturation_excess_rate_m_s, 2.0e-7, rtol=0.01)
+    assert np.allclose(assembly.residual_m3_s, 0.0, atol=2.0e-9)
 
 
 def test_local_backward_euler_step_with_side_dirichlet_boundary_injects_water(
@@ -696,7 +698,8 @@ def test_assembly_steady_state_balances_uniform_fixed_head(tmp_path: Path) -> No
         imposed_head_m_by_edge=imposed_heads,
     )
 
-    assert np.allclose(assembly.residual_m3_s, 0.0, atol=1.0e-12)
+    # Smooth saturation-excess adds O(eps_qex²) residual at balance_rate = 0.
+    assert np.allclose(assembly.residual_m3_s, 0.0, atol=1.0e-11)
 
 
 def test_local_steady_state_with_side_dirichlet_relaxes_between_boundary_heads(
