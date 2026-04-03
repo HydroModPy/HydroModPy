@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS simulations (
     zarr_group    VARCHAR,
     status        VARCHAR,
     duration_s    DOUBLE,
-    tags          VARCHAR[]
+    tags          VARCHAR[],
+    calibration_params JSON
 );
 
 CREATE TABLE IF NOT EXISTS timeseries (
