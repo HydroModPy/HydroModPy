@@ -35,6 +35,13 @@ python -m tools.doc_gallery.import_mesh_bundle \
   --outlet-id 27
 ```
 
+Sync the repeated mesh-gallery families directly from existing batch results and
+refresh the generated docs in one go:
+
+```bash
+python -m tools.doc_gallery.sync_mesh_catchment_runs --update-gallery
+```
+
 ## What It Writes
 
 The generator rewrites:
@@ -61,6 +68,7 @@ For future mesh-gallery cases, the canonical repository input tree lives under
 `examples/mesh_gallery/`.
 
 - `tools/doc_gallery/import_mesh_bundle.py` copies one local bundle into that tree
+- `tools/doc_gallery/sync_mesh_catchment_runs.py` bulk-refreshes repeated mesh families from `C:/results/Hydromodpy/mesh_catchment_runs/`
 - `tools/doc_gallery/mesh_case_registry.py` defines the shared case schema and naming
 - `tools/doc_gallery/gallery_manifest.py` auto-discovers `examples/mesh_gallery/**/case.json`
 

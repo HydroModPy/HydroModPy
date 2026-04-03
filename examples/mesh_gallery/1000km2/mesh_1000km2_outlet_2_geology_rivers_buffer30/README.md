@@ -1,6 +1,6 @@
 # 1000 km2 Mesh, Outlet 2, Geology + rivers, 30% buffer
 
-This case is reserved for a conformal catchment mesh where HydroModPy keeps both river traces and geology interfaces as active constraints while preserving the current watershed-boundary handling and de-refinement outside the basin.
+This family captures repeated conformal meshing runs on the 1000 km2 selection so the gallery can compare several larger outlets under one stable geology-plus-rivers setup.
 
 ## Gallery Metadata
 
