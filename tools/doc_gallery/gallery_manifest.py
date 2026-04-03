@@ -128,7 +128,18 @@ def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSp
     """Discover versioned mesh-gallery cases imported under ``examples/mesh_gallery``."""
 
     scale_rank = {scale: index for index, scale in enumerate(MESH_GALLERY_SCALE_ORDER)}
-    discovered_specs: list[GalleryCaseSpec] = []
+    optional_metadata_keys = (
+        "case_family_key",
+        "case_family_label",
+        "case_family_order",
+        "site_tabs_group_key",
+        "site_tabs_group_title",
+        "site_tabs_label",
+        "site_tabs_order",
+        "source_results_family_dir",
+        "source_results_manifest_path",
+    )
+    discovered_specs: list[tuple[tuple[Any, ...], GalleryCaseSpec]] = []
     discovery_kwargs = {} if repo_root is None else {"repo_root": repo_root}
     for case_json_path in iter_mesh_case_json_paths(**discovery_kwargs):
         payload = load_mesh_case_metadata(case_json_path)
@@ -139,6 +150,8 @@ def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSp
         outlet_id = str(payload["outlet_id"])
         variant = str(payload["variant"])
         variant_label = str(payload.get("variant_label", variant))
+        family_order = int(payload.get("case_family_order", scale_rank.get(scale, 999)))
+        site_tabs_order = int(payload.get("site_tabs_order", 999))
         preferred_doc_figure_path = str(payload.get("preferred_doc_figure_path", "")).strip()
         preferred_doc_regional_figure_path = str(
             payload.get("preferred_doc_regional_figure_path", "")
@@ -185,44 +198,50 @@ def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSp
                     alt_text=str(payload.get("image_alt_text", f"{title} overview")),
                 )
             )
+        metadata = {
+            "scale": scale,
+            "scale_label": scale_label,
+            "variant": variant,
+            "variant_label": variant_label,
+            "outlet_id": outlet_id,
+            "comparison_group": f"{scale}::outlet::{outlet_id}",
+            "comparison_group_title": f"{scale_label}, outlet {outlet_id}",
+            "config_path": str(payload["config_path"]),
+            "constraints_mode": str(payload.get("constraints_mode", "")),
+        }
+        for key in optional_metadata_keys:
+            if key in payload:
+                metadata[key] = payload[key]
+
         discovered_specs.append(
-            GalleryCaseSpec(
-                slug=slug,
-                title=title,
-                category="mesh",
-                deck=str(payload["deck"]),
-                summary=str(payload["summary"]),
-                what_it_shows=tuple(str(item) for item in payload["what_it_shows"]),
-                reproduction_command=str(payload["reproduction_command"]),
-                source_paths=tuple(str(item) for item in payload["source_paths"]),
-                generator="mesh_viewer",
-                image_assets=tuple(image_assets),
-                metric_specs=_MESH_GALLERY_METRIC_SPECS,
-                case_setup=tuple(str(item) for item in payload.get("case_setup", ())),
-                reference_highlights=tuple(str(item) for item in payload.get("reference_highlights", ())),
-                equations_rst=tuple(str(item) for item in payload.get("equations_rst", ())),
-                metadata={
-                    "scale": scale,
-                    "scale_label": scale_label,
-                    "variant": variant,
-                    "variant_label": variant_label,
-                    "outlet_id": outlet_id,
-                    "comparison_group": f"{scale}::outlet::{outlet_id}",
-                    "comparison_group_title": f"{scale_label}, outlet {outlet_id}",
-                    "config_path": str(payload["config_path"]),
-                    "constraints_mode": str(payload.get("constraints_mode", "")),
-                },
+            (
+                (
+                    family_order,
+                    scale_rank.get(scale, 999),
+                    site_tabs_order,
+                    int(outlet_id) if outlet_id.isdigit() else outlet_id,
+                    slug,
+                ),
+                GalleryCaseSpec(
+                    slug=slug,
+                    title=title,
+                    category="mesh",
+                    deck=str(payload["deck"]),
+                    summary=str(payload["summary"]),
+                    what_it_shows=tuple(str(item) for item in payload["what_it_shows"]),
+                    reproduction_command=str(payload["reproduction_command"]),
+                    source_paths=tuple(str(item) for item in payload["source_paths"]),
+                    generator="mesh_viewer",
+                    image_assets=tuple(image_assets),
+                    metric_specs=_MESH_GALLERY_METRIC_SPECS,
+                    case_setup=tuple(str(item) for item in payload.get("case_setup", ())),
+                    reference_highlights=tuple(str(item) for item in payload.get("reference_highlights", ())),
+                    equations_rst=tuple(str(item) for item in payload.get("equations_rst", ())),
+                    metadata=metadata,
+                ),
             )
         )
-    return tuple(
-        sorted(
-            discovered_specs,
-            key=lambda spec: (
-                scale_rank.get(str(spec.metadata.get("scale", "")), 999),
-                spec.slug,
-            ),
-        )
-    )
+    return tuple(spec for _, spec in sorted(discovered_specs, key=lambda item: item[0]))
 
 
 def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:

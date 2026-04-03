@@ -1,22 +1,22 @@
 {
   "summary_schema_version": "zone_conformal_sidecar_v1",
-  "output_mesh": "C:\\results\\HydromodPy\\profiling\\mesh_1000km2_outlet_2_outlet_2\\mesh_catchment_outlet_2.msh",
+  "output_mesh": "C:\\results\\HydromodPy\\mesh_catchment_runs\\1000km2\\mesh_outlet_2\\mesh_catchment_outlet_2.msh",
   "mesh_kind": "gmsh_2d",
   "cell_type": "triangle",
-  "n_nodes": 19969,
-  "n_cells": 39774,
-  "n_partition_faces": 118,
+  "n_nodes": 19078,
+  "n_cells": 38030,
+  "n_partition_faces": 116,
   "zone_keys": [
     "domain"
   ],
   "face_counts_by_zone": {
-    "domain": 118
+    "domain": 116
   },
   "face_areas_by_zone": {
-    "domain": 6667683749.999997
+    "domain": 3817968750.000001
   },
-  "domain_area": 6667683750.0,
-  "covered_area": 6667683750.0,
+  "domain_area": 3817968750.0,
+  "covered_area": 3817968749.9999995,
   "interface_group_count": 0,
   "boundary_group_count": 1,
   "global_size": 680.0,
@@ -55,10 +55,10 @@
     "domain_polygon_parts_removed_by_area_threshold_count": 0,
     "domain_polygon_parts_kept_count": 1,
     "constraints_partitioning_enabled": true,
-    "constraint_line_count_input": 1063,
-    "constraint_line_count_used": 1063,
+    "constraint_line_count_input": 1065,
+    "constraint_line_count_used": 1065,
     "partition_faces_before_constraints": 1,
-    "partition_faces_after_constraints": 118
+    "partition_faces_after_constraints": 116
   },
   "cleaning_summary": {
     "mode": "tolerant",
@@ -75,9 +75,9 @@
     "river::trace": {
       "provided": true,
       "kind": "river_trace",
-      "line_count": 606,
-      "curve_count": 6911,
-      "embedded_surface_curve_pairs": 6911,
+      "line_count": 608,
+      "curve_count": 6915,
+      "embedded_surface_curve_pairs": 6915,
       "embed_failures": 0,
       "refined_with_interface_field": true,
       "participates_in_refinement": true
@@ -86,8 +86,8 @@
       "provided": true,
       "kind": "geology_interface",
       "line_count": 457,
-      "curve_count": 366,
-      "embedded_surface_curve_pairs": 366,
+      "curve_count": 367,
+      "embedded_surface_curve_pairs": 367,
       "embed_failures": 0,
       "refined_with_interface_field": false,
       "participates_in_refinement": true
@@ -95,9 +95,9 @@
   },
   "river_trace": {
     "provided": true,
-    "line_count": 606,
-    "curve_count": 6911,
-    "embedded_surface_curve_pairs": 6911,
+    "line_count": 608,
+    "curve_count": 6915,
+    "embedded_surface_curve_pairs": 6915,
     "embed_failures": 0,
     "refined_with_interface_field": true
   },
@@ -108,9 +108,9 @@
     "boundary_group_count": 1
   },
   "qa_checks": {
-    "coverage_gap": 0.0,
+    "coverage_gap": 4.76837e-07,
     "coverage_tolerance": 1e-09,
-    "coverage_within_tolerance": true,
+    "coverage_within_tolerance": false,
     "has_interface_groups": false,
     "has_zone_surface_groups": true,
     "constraints_contract_pass": true
@@ -118,7 +118,7 @@
   "mesh_size_fields": {
     "interface_refinement": {
       "enabled": true,
-      "interface_curve_count": 6911,
+      "interface_curve_count": 6915,
       "active_families": [
         "river"
       ],
@@ -131,7 +131,7 @@
         "river": {
           "enabled": true,
           "priority": 300,
-          "interface_curve_count": 6911,
+          "interface_curve_count": 6915,
           "interface_size": 250.0,
           "interface_distance": 610.0,
           "interface_sampling": 96,
@@ -149,8 +149,8 @@
           2
         ]
       },
-      "candidate_interface_curve_count": 6911,
-      "scope_filtered_interface_curve_count": 6911,
+      "candidate_interface_curve_count": 6915,
+      "scope_filtered_interface_curve_count": 6915,
       "refinement_scope_applied": false
     },
     "regional_background": {
@@ -164,13 +164,13 @@
           "transition_distance": 680.0,
           "grid_resolution": 680.0,
           "grid_shape": [
-            130,
-            113,
+            101,
+            84,
             1
           ],
           "grid_spacing": [
-            679.6511627906976,
-            679.0178571428571,
+            678.75,
+            677.710843373494,
             1.0
           ],
           "field_tag": 3
@@ -185,7 +185,7 @@
       "tag": 1,
       "name": "zone::domain",
       "group_kind": "zone_surface",
-      "entity_count": 118,
+      "entity_count": 116,
       "zone_keys": [
         "domain"
       ]
@@ -207,7 +207,7 @@
       "tag": 3,
       "name": "geology::active_interfaces",
       "group_kind": "geology_interface_curve",
-      "entity_count": 366,
+      "entity_count": 367,
       "zone_keys": []
     },
     {
@@ -215,21 +215,21 @@
       "tag": 4,
       "name": "river::trace",
       "group_kind": "river_curve",
-      "entity_count": 6911,
+      "entity_count": 6915,
       "zone_keys": []
     }
   ],
   "effective_max_size": 2040.0,
   "refinement_policy": {
-    "candidate_curve_count": 6911,
-    "active_curve_count": 6911,
+    "candidate_curve_count": 6915,
+    "active_curve_count": 6915,
     "filtered_curve_count": 0,
     "family_curve_counts_before": {
-      "river": 6911
+      "river": 6915
     },
     "family_curve_counts_after": {
       "geology_interface": 0,
-      "river": 6911,
+      "river": 6915,
       "watershed_boundary": 0
     },
     "family_curve_counts_filtered": {
@@ -247,63 +247,54 @@
   "source_kind": "vector",
   "source_path": "C:\\codes\\HydroModPy-GH\\examples\\data\\geology\\GEO1M.shp",
   "n_source_features_total": 26833,
-  "n_source_features_clipped": 314,
+  "n_source_features_clipped": 185,
   "zone_feature_counts": {
-    "1": 2,
-    "11": 4,
-    "1181": 2,
+    "1": 1,
     "1241": 1,
-    "1301": 2,
-    "1321": 37,
-    "1341": 23,
-    "1381": 24,
-    "1421": 17,
-    "1481": 17,
-    "1511": 1,
-    "1521": 7,
-    "1561": 19,
-    "1591": 1,
-    "161": 2,
-    "1621": 13,
-    "1641": 16,
-    "1701": 37,
-    "1981": 15,
-    "2041": 20,
+    "1321": 21,
+    "1341": 12,
+    "1381": 19,
+    "1421": 14,
+    "1481": 10,
+    "1561": 10,
+    "1621": 7,
+    "1641": 15,
+    "1701": 25,
+    "1981": 5,
+    "2041": 12,
     "2061": 7,
     "2081": 5,
-    "21": 4,
-    "2101": 15,
-    "2121": 9,
-    "2151": 1,
+    "21": 3,
+    "2101": 7,
+    "2121": 3,
     "2161": 4,
-    "2201": 8,
-    "2301": 1
+    "2201": 4
   },
   "domain_kind": "geographic_box_buffer",
   "domain_bounds": [
-    165112.5,
-    6785437.5,
-    252787.5,
-    6861487.5
+    175012.5,
+    6795337.5,
+    242887.5,
+    6851587.5
   ],
   "domain_geometry_type": "Polygon",
-  "domain_source_path": "C:\\results\\HydromodPy\\profiling\\_mesh_runtime\\mesh_1000km2_outlet_2_outlet_2\\results_stable\\geographic\\watershed_box_buff.shp",
+  "domain_source_path": "C:\\results\\HydromodPy\\mesh_catchment_runs\\1000km2\\_mesh_runtime\\mesh_outlet_2\\results_stable\\geographic\\watershed_box_buff.shp",
   "domain_source_feature_count": 1,
   "domain_crs": "EPSG:2154",
-  "n_cells_in_watershed": 35212,
-  "n_cells_outside_watershed": 4562,
+  "n_cells_in_watershed": 35237,
+  "n_cells_outside_watershed": 2793,
   "constraints_mode": "geology_rivers",
   "effective_domain": {
     "domain_kind": "geographic_box_buffer",
-    "domain_area": 6667683750.0,
+    "domain_area": 3817968750.0,
     "domain_bounds": [
-      165112.5,
-      6785437.5,
-      252787.5,
-      6861487.5
+      175012.5,
+      6795337.5,
+      242887.5,
+      6851587.5
     ],
     "domain_geometry_type": "Polygon",
-    "domain_source_path": "C:\\results\\HydromodPy\\profiling\\_mesh_runtime\\mesh_1000km2_outlet_2_outlet_2\\results_stable\\geographic\\watershed_box_buff.shp",
+    "domain_source_path": "C:\\results\\HydromodPy\\mesh_catchment_runs\\1000km2\\_mesh_runtime\\mesh_outlet_2\\results_stable\\geographic\\watershed_box_buff.shp",
     "domain_source_feature_count": 1,
     "domain_crs": "EPSG:2154"
   },
@@ -312,8 +303,8 @@
     "configured": true,
     "explicit_constraint_applied": false,
     "geometry_mode": "buffered_watershed_envelope",
-    "boundary_length": 159507.01881469454,
-    "boundary_area_source": 1204790589.459026,
+    "boundary_length": 159494.2821617368,
+    "boundary_area_source": 1204797866.5598526,
     "boundary_refinement_distance": 500.0,
     "smoothing": {
       "distance": 200.0,
@@ -324,7 +315,7 @@
   "geology_conformity": {
     "mode": "buffered_watershed_envelope",
     "buffer_distance": 680.0,
-    "conformity_area": 1204790589.459026,
+    "conformity_area": 1204797866.5598526,
     "active_geology_feature_count": 81,
     "active_geology_zone_count": 19,
     "constraint_line_count": 457,
@@ -401,17 +392,17 @@
       "zone_count": 1,
       "interface_group_count": 0,
       "river_trace_provided": true,
-      "river_line_count": 606,
-      "river_curve_count": 6911,
+      "river_line_count": 608,
+      "river_curve_count": 6915,
       "river_curve_group_present": true,
-      "river_embed_success_pairs": 6911,
+      "river_embed_success_pairs": 6915,
       "river_embed_failures": 0,
-      "river_embed_attempts": 6911,
+      "river_embed_attempts": 6915,
       "river_embed_success_rate": 1.0,
       "river_embed_pairs_per_curve": 1.0,
       "river_refined_with_interface_field": true,
       "refine_interfaces_config": true,
-      "geology_constraint_curve_count": 366
+      "geology_constraint_curve_count": 367
     },
     "checks": {
       "has_zone_partition": true,
@@ -425,7 +416,7 @@
     },
     "overall_pass": true
   },
-  "output_figure": "C:\\results\\HydromodPy\\profiling\\mesh_1000km2_outlet_2_outlet_2\\mesh_catchment_outlet_2.png",
-  "output_figure_regional": "C:\\results\\HydromodPy\\profiling\\mesh_1000km2_outlet_2_outlet_2\\mesh_catchment_outlet_2_regional.png",
-  "output_summary_json": "C:\\results\\HydromodPy\\profiling\\mesh_1000km2_outlet_2_outlet_2\\mesh_catchment_outlet_2_summary.json"
+  "output_figure": "C:\\results\\HydromodPy\\mesh_catchment_runs\\1000km2\\mesh_outlet_2\\mesh_catchment_outlet_2.png",
+  "output_figure_regional": "C:\\results\\HydromodPy\\mesh_catchment_runs\\1000km2\\mesh_outlet_2\\mesh_catchment_outlet_2_regional.png",
+  "output_summary_json": "C:\\results\\HydromodPy\\mesh_catchment_runs\\1000km2\\mesh_outlet_2\\mesh_catchment_outlet_2_summary.json"
 }
