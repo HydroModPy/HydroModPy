@@ -40,6 +40,22 @@ class FlowDisplayConfig(BaseModel):
         default=True,
         description="Render the piezometry plot.",
     )
+    watertable_map: bool = Field(
+        default=True,
+        description="Render water-table depth and elevation maps.",
+    )
+    dem_map: bool = Field(
+        default=True,
+        description="Render a DEM overview map with watershed contour.",
+    )
+    budget: bool = Field(
+        default=False,
+        description="Render groundwater budget bar chart.",
+    )
+    hydrography: bool = Field(
+        default=True,
+        description="Render hydrography map (stream network or flow accumulation drainage pattern).",
+    )
     boussinesq_state: bool = Field(
         default=True,
         description="Render the canonical Boussinesq state figure.",
@@ -70,6 +86,10 @@ class FlowDisplayConfig(BaseModel):
                 "cross_section": self.cross_section,
                 "streamflow": self.streamflow,
                 "piezometry": self.piezometry,
+                "watertable_map": self.watertable_map,
+                "dem_map": self.dem_map,
+                "hydrography": self.hydrography,
+                "budget": self.budget,
                 "boussinesq_state": self.boussinesq_state,
                 "boussinesq_diagnostics": self.boussinesq_diagnostics,
                 "boussinesq_mass_balance": self.boussinesq_mass_balance,

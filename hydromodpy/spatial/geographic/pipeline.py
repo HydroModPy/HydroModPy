@@ -94,27 +94,41 @@ def build_legacy_geographic_context(
         backend=tool,
     )
 
-    build_standard_catchment(
-        config=config,
-        paths=setup.paths,
-        direc_path=flow_products.direc,
-        acc_path=flow_products.acc,
-        direc_data=flow_products.direc_data,
-        acc_data=flow_products.acc_data,
-        crs_project=setup.crs_project,
-        backend=tool,
-        unsupported_mode="ignore",
-    )
+    if config.catch_def == "dem":
+        dem_products = build_direct_dem_domain(
+            dem_init_path=setup.dem_init_path,
+            paths=setup.paths,
+            crs_project=setup.crs_project,
+        )
+        catchment_area_km2 = float(dem_products.domain_area_km2)
+        domain_products = CatchmentDomainProducts(
+            catchment_area_km2=catchment_area_km2,
+            buffer_distance_m=0.0,
+            watershed_buff_shp=dem_products.watershed_buff_shp,
+            watershed_box_shp=dem_products.watershed_box_shp,
+            watershed_box_buff_shp=dem_products.watershed_box_buff_shp,
+        )
+    else:
+        build_standard_catchment(
+            config=config,
+            paths=setup.paths,
+            direc_path=flow_products.direc,
+            acc_path=flow_products.acc,
+            direc_data=flow_products.direc_data,
+            acc_data=flow_products.acc_data,
+            crs_project=setup.crs_project,
+            backend=tool,
+            unsupported_mode="ignore",
+        )
+        catchment_area_km2 = float(compute_catchment_area_km2(setup.paths.watershed_shp))
+        domain_products = build_standard_domain_polygons(
+            config=config,
+            paths=setup.paths,
+            dem_init_path=setup.dem_init_path,
+            crs_project=setup.crs_project,
+        )
 
     tool.polygons_to_lines(setup.paths.watershed_shp, setup.paths.watershed_contour_shp)
-    catchment_area_km2 = float(compute_catchment_area_km2(setup.paths.watershed_shp))
-
-    domain_products = build_standard_domain_polygons(
-        config=config,
-        paths=setup.paths,
-        dem_init_path=setup.dem_init_path,
-        crs_project=setup.crs_project,
-    )
 
     river_network_products = build_river_network_products(
         river_network=config.river_network,

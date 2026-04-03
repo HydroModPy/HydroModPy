@@ -20,22 +20,8 @@ import whitebox
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from PIL import Image
 import flopy.utils.binaryfile as bf
-import plotly.graph_objects as go
 import base64
 from io import BytesIO
-from PIL import Image
-import os, glob
-import flopy.utils.binaryfile as bf
-import imageio
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import matplotlib.colors as mcolors
-import matplotlib.cm as cm
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import rasterio
-import geopandas as gpd
-import os, glob
-from PIL import Image
 try:
     import plotly.graph_objects as go
     import base64
@@ -60,10 +46,10 @@ def plot_cross_section(stable_folder, simulations_folder, model_name, geographic
         fig, ax = plt.subplots(1, 1, figsize=(6,4), dpi=300)
         print(stable_folder)
 
-        mask = imageio.v2.imread(os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'))
+        mask = imageio.imread(os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'))
         watertable_elevation = np.load(os.path.join(simulations_folder, model_name, '_postprocess', 'watertable_elevation.npy'), allow_pickle=True).item()
 
-        dem_data = imageio.v2.imread(geographic.watershed_dem)
+        dem_data = imageio.imread(geographic.watershed_dem)
         wt_data = watertable_elevation[2]
 
         xvalues = np.linspace(-1,1,dem_data.shape[1])
@@ -104,13 +90,15 @@ def plot_cross_section(stable_folder, simulations_folder, model_name, geographic
 # PLOT STREAMFLOW - WITH DYNAMIC FACTOR PARAMETER
 # ============================================================================
 
-def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30):
+def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30, time_index=None):
     """Plot streamflow - with dynamic factor for different examples
 
     Parameters:
     -----------
     factor : int, default=30
         Scaling factor for data (30 for monthly ex12, 7 for weekly ex09)
+    time_index : DatetimeIndex, optional
+        Real datetime index to remap Smod when CSV stores integers
     """
     area = int(round(geographic.catch_area))
 
@@ -140,31 +128,26 @@ def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30):
     simul_list = sorted(glob.glob(os.path.join(simulations_folder, vers + '*')), key=os.path.getmtime)
 
     for i, simul in enumerate(simul_list[:]):
-        fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]}, figsize=(12, 3.5), dpi=300)
+        fig, a0 = plt.subplots(1, 1, figsize=(12, 3.5), dpi=300)
 
         model_name = os.path.split(simul)[-1]
 
-        # Try to load timeseries file with multiple possible names
-        timeseries_dir = os.path.join(simul, '_postprocess', '_timeseries')
-        possible_files = [
-            '_simulated_timeseries_s1.csv',
-            '_simulated_timeseries.csv',
-            '_simulated_timeseries_modflow_only.csv'
-        ]
-        Smod = None
-        for fname in possible_files:
-            Smod_path = os.path.join(timeseries_dir, fname)
-            if os.path.exists(Smod_path):
-                try:
-                    Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-                    break
-                except Exception:
-                    continue
+        Smod_path = os.path.join(simul, '_postprocess/_timeseries/_simulated_timeseries.csv')
+        Smod = pd.read_csv(Smod_path, sep=';', index_col=0)
 
-        if Smod is None:
-            print(f"Warning: Could not find timeseries file for {model_name}, skipping...")
-            plt.close(fig)
-            continue
+        # Remap integer index to real datetime when the CSV stores step numbers
+        if time_index is not None and not pd.api.types.is_datetime64_any_dtype(Smod.index):
+            n = min(len(time_index), len(Smod))
+            Smod = Smod.iloc[:n].copy()
+            Smod.index = time_index[:n]
+        elif pd.api.types.is_datetime64_any_dtype(Smod.index):
+            pass  # already datetime
+        else:
+            # Fallback: try parsing as dates
+            try:
+                Smod.index = pd.to_datetime(Smod.index)
+            except Exception:
+                pass
 
         Rmod = Smod['recharge'] * factor * 1000
         rmod = Smod['runoff'] * factor * 1000
@@ -182,7 +165,8 @@ def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30):
         ax.xaxis.set_major_locator(mdates.YearLocator(1))
         ax.xaxis.set_minor_locator(mdates.MonthLocator())
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-        ax.set_xlim(pd.to_datetime('2002'), pd.to_datetime('2005'))
+        if pd.api.types.is_datetime64_any_dtype(Smod.index):
+            ax.set_xlim(Smod.index[0] - pd.DateOffset(months=1), Smod.index[-1] + pd.DateOffset(months=1))
         ax.legend(loc='upper left')
         ax.set_title(model_name.upper(), fontsize=10)
         ax.set_ylim(-5, 100)
@@ -193,13 +177,15 @@ def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30):
 # PLOT PIEZOMETRY - WITH DYNAMIC FACTOR PARAMETER
 # ============================================================================
 
-def plot_piezometry(geographic, simulations_folder, vers, factor=30):
+def plot_piezometry(geographic, simulations_folder, vers, factor=30, time_index=None):
     """Plot piezometry - with dynamic factor for different examples
 
     Parameters:
     -----------
     factor : int, default=30
         Scaling factor for data (30 for monthly ex12, 7 for weekly ex09)
+    time_index : DatetimeIndex, optional
+        Real datetime index to remap Smod when CSV stores integers
     """
     area = int(round(geographic.catch_area))
 
@@ -207,33 +193,28 @@ def plot_piezometry(geographic, simulations_folder, vers, factor=30):
     for i, simul in enumerate(simul_list[:]):
         model_name = os.path.split(simul)[-1]
 
-        # Try to load timeseries file with multiple possible names
-        timeseries_dir = os.path.join(simul, '_postprocess', '_timeseries')
-        possible_files = [
-            '_simulated_timeseries_s1.csv',
-            '_simulated_timeseries.csv',
-            '_simulated_timeseries_modflow_only.csv'
-        ]
-        Smod = None
-        for fname in possible_files:
-            Smod_path = os.path.join(timeseries_dir, fname)
-            if os.path.exists(Smod_path):
-                try:
-                    Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-                    break
-                except Exception:
-                    continue
+        Smod_path = os.path.join(simul, '_postprocess/_timeseries/_simulated_timeseries.csv')
+        Smod = pd.read_csv(Smod_path, sep=';', index_col=0)
 
-        if Smod is None:
-            print(f"  ⚠ Warning: Could not find timeseries file for {model_name}, skipping...")
-            continue
+        # Remap integer index to real datetime when the CSV stores step numbers
+        if time_index is not None and not pd.api.types.is_datetime64_any_dtype(Smod.index):
+            n = min(len(time_index), len(Smod))
+            Smod = Smod.iloc[:n].copy()
+            Smod.index = time_index[:n]
+        elif pd.api.types.is_datetime64_any_dtype(Smod.index):
+            pass  # already datetime
+        else:
+            try:
+                Smod.index = pd.to_datetime(Smod.index)
+            except Exception:
+                pass
 
         Rmod = Smod['recharge'] * factor * 1000
 
         WTEmod = Smod['watertable_elevation']
         WTDmod = Smod['watertable_depth']
 
-        fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]}, figsize=(12, 3.5), dpi=300)
+        fig, a0 = plt.subplots(1, 1, figsize=(12, 3.5), dpi=300)
 
         ax = a0
         ax.plot(WTDmod, marker='o', color='red', lw=2, label='Simulated: watertable')
@@ -242,7 +223,8 @@ def plot_piezometry(geographic, simulations_folder, vers, factor=30):
         ax.xaxis.set_major_locator(mdates.YearLocator(1))
         ax.xaxis.set_minor_locator(mdates.MonthLocator())
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-        ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2005'))
+        if pd.api.types.is_datetime64_any_dtype(Smod.index):
+            ax.set_xlim(Smod.index[0] - pd.DateOffset(months=1), Smod.index[-1] + pd.DateOffset(months=1))
         ax.legend(loc='upper left')
         ax.set_title(model_name.upper(), fontsize=10)
         ax.set_ylim(0, None)
@@ -252,6 +234,7 @@ def plot_piezometry(geographic, simulations_folder, vers, factor=30):
         axb.bar(Rmod.index, Rmod, color='dodgerblue', width=10, edgecolor='None', lw=0, alpha=1, label='Recharge')
         axb.set_ylim(0, 100)
         axb.invert_yaxis()
+        axb.set_yticks([0, 100])
         axb.set_yticklabels([0, 100])
         axb.legend(loc='upper right')
         plt.show()
@@ -262,6 +245,8 @@ def plot_piezometry(geographic, simulations_folder, vers, factor=30):
 # ============================================================================
 
 def plot_pathlines( simulations_folder, model_name, stable_folder, geographic):
+    print(f"  [plot_pathlines] model_name={model_name}")
+    print(f"  [plot_pathlines] simulations_folder={simulations_folder}")
 
     shp_pathlines = gpd.read_file(os.path.join(simulations_folder, model_name, '_postprocess', '_particles', 'pathlines_weighted.shp'))
     shp_endpoints = gpd.read_file(os.path.join(simulations_folder, model_name, '_postprocess', '_particles', 'starting_weighted.shp'))
@@ -308,7 +293,7 @@ def plot_concentration( vers, model_mt3dms, model_modflow, simulations_folder, s
 
     for i in range((model_mt3dms.model_modflow.nper)):
         the_time = i
-        seep = imageio.v2.imread(os.path.join(model_modflow.full_path, f'_postprocess/_rasters/outflow_drain_t({int(the_time)}).tif'))
+        seep = imageio.imread(os.path.join(model_modflow.full_path, f'_postprocess/_rasters/outflow_drain_t({int(the_time)}).tif'))
         concobj_1c_fil_surf[the_time] = concobj_1c_fil[the_time+1][0]
         concobj_1c_fil_surf[the_time] = np.ma.masked_where(seep <= 0, concobj_1c_fil_surf[the_time])
         the_mins.append(np.nanmin(concobj_1c_fil_surf[the_time]))
@@ -319,8 +304,15 @@ def plot_concentration( vers, model_mt3dms, model_modflow, simulations_folder, s
     if not os.path.exists(figures_dir): os.makedirs(figures_dir)
     mean_vals, mean_times = [], []
 
+    # Generate hillshade first if not already present (like example12.py line 1157)
+    hill_path = os.path.join(stable_folder, 'geographic', 'watershed_hill.tif')
+    if not os.path.exists(hill_path):
+        wbt.hillshade(
+            os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'),
+            hill_path
+        )
     dem = rasterio.open(os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'))
-    hill = rasterio.open(os.path.join(stable_folder, 'geographic', 'watershed_hill.tif'))
+    hill = rasterio.open(hill_path)
 
     for i in range(len(concobj_1c_fil_surf)):
         the_time = i
@@ -344,16 +336,24 @@ def plot_concentration( vers, model_mt3dms, model_modflow, simulations_folder, s
 
         for xpos_b, box_stat in all_box_stats:
             ax[0].bxp(box_stat, positions=[xpos_b], widths=5, showfliers=False, showmeans=True, meanline=False,
-                    boxprops=dict(color='forestgreen'), medianprops=dict(color='forestgreen'),
-                    meanprops=dict(marker='o', markerfacecolor='k', markeredgecolor='k', markersize=5))
+                    boxprops=dict(color='forestgreen', alpha=1, linewidth=1), medianprops=dict(color='forestgreen', linewidth=1),
+                    meanprops=dict(marker='o', markerfacecolor='k', markeredgecolor='k', markersize=5),
+                    whiskerprops=dict(linestyle='-', linewidth=0), capprops=dict(linewidth=0), zorder=1)
 
         ax[0].axvline(x=xpos, color='black', linestyle='--', lw=0.5, zorder=-1)
-        ax[0].axhline(y=input_no3, color='darkorange', linestyle='-', lw=1, zorder=-1, label='Injection: 50 mg/L')
+        ax[0].axhline(y=input_no3, color='darkorange', linestyle='-', lw=1, zorder=-1,
+                    label='Injection: 50 mg/L \nNO3 decay : 1/2 y$^{-1}$ \nDispersivity: 5 m longi., 0.5 m trans h., 0.05 m trans v. \nDiffusion: 10$^{-10}$ m²/s',
+                    )
         ax[0].set_ylabel('[NO3] mg/L', color='forestgreen')
+        ax[0].set_title('Synthetic drought year - Initial: mean recharge and aquifer at 100 mg/L', fontsize=10)
+        ax[0].xaxis.set_major_locator(mdates.MonthLocator(bymonthday=1))
         ax[0].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+        ax[0].tick_params(axis='x', labelrotation=90, labelsize=8)
         ax[0].set_ylim(30, 100); ax[0].set_xlim(pd.to_datetime('01-2003'), pd.to_datetime('01-2004'))
-        ax[0].plot(mean_times, mean_vals, color='black', lw=2)
-        axb.step(R_mm_day_filt.index, R_mm_day_filt * 30, lw=2, color='dodgerblue')
+        ax[0].plot(mean_times, mean_vals, color='black', lw=2, linestyle='-', zorder=2)
+        ax[0].legend(loc='upper center', frameon=False)
+        axb.step(R_mm_day_filt.index, R_mm_day_filt * 30, lw=2, color='dodgerblue', zorder=0)
+        axb.set_ylabel('Recharge [mm/month]', color='dodgerblue')
 
         norm = mcolors.LogNorm(vmin=30, vmax=100)
         sm = cm.ScalarMappable(cmap='turbo', norm=norm); sm.set_array([])
@@ -366,32 +366,43 @@ def plot_concentration( vers, model_mt3dms, model_modflow, simulations_folder, s
         divider = make_axes_locatable(ax[1])
         cax = divider.new_vertical(size='5%', pad=0.6, pack_start=True)
         fig.add_axes(cax)
-        fig.colorbar(sm, cax=cax, orientation='horizontal', label='[NO3]')
+        cbar = fig.colorbar(sm, cax=cax, orientation='horizontal', label='[NO3]')
+        cbar.ax.set_xticks([30, 50, 70, 100])
+        cbar.ax.set_xticklabels([30, 50, 70, 100])
+        fig.tight_layout()
         fig.savefig(figures_dir+vgif_name+'_'+str(i)+'_'+model_modflow.model_name+'.png', dpi=300, bbox_inches='tight')
-        plt.close(fig)
-        plt.show()
+        if i < (len(concobj_1c_fil_surf)-1):
+            plt.close(fig)
+        else:
+            plt.show()
     if plot_gif:
         filenames = sorted(glob.glob(figures_dir + vgif_name + '*.png'), key=os.path.getmtime)
         images = [Image.open(img) for img in filenames]
         images[0].save(figures_dir + '_' + gif_name, save_all=True, append_images=images[1:], duration=200, loop=0)
-
-    # PLOT INTERACTIVE
-    dem_data_int = imageio.v2.imread(os.path.join(stable_folder,'geographic','watershed_box_buff_dem.tif'))
-    stream_data_int = imageio.v2.imread(os.path.join(stable_folder,'hydrography','botopage2024_naizin_streams_perennial-intermittent.tif'))
-    watertable_data_int = imageio.v2.imread(os.path.join(simulations_folder,model_modflow.model_name,'_postprocess/_rasters/','watertable_elevation_t(0).tif'))
-    from hydromodpy.viz import visualization_results
-    visu = visualization_results.Visualization(initializing, geographic, hydrography, model_modflow.model_name)
-    visu.interactive_cross_section(dem_data_int, watertable_data_int, stream_data_int, True)
 # ============================================================================
 # PLOT 2D - EXACT FROM example12.py lines 708-735
 # ============================================================================
 
 def plot_2d(initializing, geographic, hydrography, model_name):
     """Plot 2D visualization - EXACT from example12.py"""
+    import traceback
+    print(f"  [plot_2d] model_name={model_name}, hydrography={hydrography}")
     try:
         if hydrography is None:
             print(" Warning: Hydrography data not available, skipping 2D visualization")
             return
+
+        # Ensure streams shapefile has MultiLineString geometry before VTK export
+        from shapely.geometry import MultiLineString
+        _streams_shp = gpd.read_file(hydrography.streams)
+        _streams_shp['geometry'] = _streams_shp['geometry'].apply(
+            lambda g: MultiLineString([g]) if g.geom_type == 'LineString' else g
+        )
+        _streams_shp.to_file(hydrography.streams)
+
+        # Generate VTK files first — exactly like example12.py before visual2D
+        export_vtuvtk.VTK(initializing, geographic, hydrography, model_name)
+
         visu = visualization_results.Visualization(initializing, geographic, hydrography, model_name)
         visu.visual2D(object_list=[
             'map',
@@ -405,17 +416,18 @@ def plot_2d(initializing, geographic, hydrography, model_name):
         ],
         color_scale=[
             (None, None),
-            (80, 150),
-            (80, 150),
+            (None, None),
+            (None, None),
+            (None, None),
+            (None, None),
+            (None, None),
             (0, 10),
-            (0, 200),
-            (0, 30000),
-            (0, 3),
-            (0, 3),
+            (0, 10),
         ],
         lines=1000)
     except Exception as e:
         print(f" Error in 2D visualization: {e}")
+        traceback.print_exc()
 
 
 # ============================================================================
@@ -424,10 +436,22 @@ def plot_2d(initializing, geographic, hydrography, model_name):
 
 def plot_3d(initializing, geographic, hydrography, model_name):
     """Plot 3D visualization - EXACT from example12.py"""
+    import traceback
+    print(f"  [plot_3d] model_name={model_name}, hydrography={hydrography}")
     try:
         if hydrography is None:
             print(" Warning: Hydrography data not available, skipping 3D visualization")
             return
+
+        # Ensure streams shapefile has MultiLineString geometry (not LineString)
+        # gpd.clip() can return LineString depending on geopandas version, but
+        # export_vtuvtk.py expects MultiLineString (.geoms attribute)
+        from shapely.geometry import MultiLineString
+        _streams_shp = gpd.read_file(hydrography.streams)
+        _streams_shp['geometry'] = _streams_shp['geometry'].apply(
+            lambda g: MultiLineString([g]) if g.geom_type == 'LineString' else g
+        )
+        _streams_shp.to_file(hydrography.streams)
 
         # Create VTU files first (they will be generated if not present)
         export_vtuvtk.VTK(initializing, geographic, hydrography, model_name)
@@ -447,7 +471,8 @@ def plot_3d(initializing, geographic, hydrography, model_name):
         cloc=(0.7, 0.1),
         z_scale=10)
     except Exception as e:
-        print(f"  ⚠ Error in 3D visualization: {e}")
+        print(f"  [plot_3d] Error: {e}")
+        traceback.print_exc()
 
 
 # ============================================================================
@@ -540,7 +565,8 @@ def plot_web_animation(simulations_folder, vers):
 
 def plot_recharge_summary(R_mm_day, r_mm_day, R_mm_day_filt, title="Recharge Analysis", save_path=None):
     """Affiche la recharge et le runoff en mode linéaire, log et filtré."""
-    fig, axs = plt.subplots(3, 1, figsize=(8, 10), sharex=True)
+    fig, axs = plt.subplots(3, 1, figsize=(8, 8), sharex=True)
+    axs = axs.ravel()
 
     # Conversion jour -> mois approximative (*30)
     recharge_month = 30 * R_mm_day
@@ -549,27 +575,27 @@ def plot_recharge_summary(R_mm_day, r_mm_day, R_mm_day_filt, title="Recharge Ana
     # 1. Linéaire
     axs[0].plot(recharge_month, label='Recharge', c='navy', lw=1)
     axs[0].fill_between(R_mm_day.index, recharge_month, total_month,
-                        label='Recharge + Runoff', color='dodgerblue', alpha=0.8)
+                        label='Recharge + Runoff', color='dodgerblue', lw=0.5, alpha=1)
     axs[0].set_ylabel('R [mm/month]')
     axs[0].legend(loc='upper right')
-    axs[0].set_title(f'{title} - Linear scale', fontsize=10)
+    axs[0].set_title('No log', fontsize=8)
 
     # 2. Log
     axs[1].plot(recharge_month, c='navy', lw=1)
-    axs[1].fill_between(R_mm_day.index, recharge_month, total_month, color='dodgerblue', alpha=0.8)
+    axs[1].fill_between(R_mm_day.index, recharge_month, total_month, color='dodgerblue', lw=0.5, alpha=1)
     axs[1].set_yscale('log')
     axs[1].set_ylabel('R [mm/month]')
-    axs[1].set_title('Log scale', fontsize=10)
+    axs[1].set_title('Log', fontsize=8)
 
     # 3. Filtré (SAFRAN-ISBA style)
-    axs[2].plot(30 * R_mm_day_filt, label='Filtered Recharge', c='dodgerblue', lw=2)
+    axs[2].plot(30 * R_mm_day_filt, label='Recharge', c='dodgerblue', lw=2)
     axs[2].set_ylabel('R [mm/month]')
-    axs[2].set_title('Filtered Signal', fontsize=10)
+    axs[2].set_title('SAFRAN-ISBA', fontsize=8)
     axs[2].set_xlabel('Date')
 
-    plt.tight_layout()
-    plt.show()
+    fig.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=300)
+        fig.savefig(save_path, dpi=300)
+    plt.show()
     return fig, axs
 
