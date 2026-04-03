@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,6 +32,43 @@ _SOLVER_DISPLAY_NAMES = {
     "boussinesq": "Boussinesq",
 }
 
+_LEGEND_STYLE_MAIN = {
+    "loc": "best",
+    "fontsize": 8.4,
+    "title_fontsize": 8.8,
+    "frameon": True,
+    "fancybox": True,
+    "framealpha": 0.95,
+    "borderpad": 0.42,
+    "labelspacing": 0.28,
+    "handlelength": 1.7,
+    "handletextpad": 0.5,
+    "markerscale": 0.9,
+}
+
+_LEGEND_STYLE_SECONDARY = {
+    "loc": "best",
+    "fontsize": 7.8,
+    "title_fontsize": 8.1,
+    "frameon": True,
+    "fancybox": True,
+    "framealpha": 0.94,
+    "borderpad": 0.38,
+    "labelspacing": 0.24,
+    "handlelength": 1.6,
+    "handletextpad": 0.46,
+    "markerscale": 0.88,
+}
+
+_NWT_BUDGET_HEADER_RE = re.compile(
+    r"VOLUMETRIC BUDGET FOR ENTIRE MODEL AT END OF TIME STEP\s+(\d+), STRESS PERIOD\s+(\d+)",
+    re.IGNORECASE,
+)
+_NWT_PERCENT_RE = re.compile(
+    r"PERCENT DISCREPANCY =\s*([+-]?\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class BrutsaertRecessionComparison:
@@ -56,6 +94,9 @@ class BrutsaertRecessionComparison:
     relative_max_error: float
     relative_final_error: float
     max_positive_increment_m3_s: float
+    solver_budget_max_abs_rate_discrepancy_percent: float | None = None
+    solver_budget_last_rate_discrepancy_percent: float | None = None
+    solver_budget_first_bad_stress_period: int | None = None
 
     @property
     def final_elapsed_days(self) -> float:
@@ -86,12 +127,61 @@ def _solver_display_name(solver_name: str | None) -> str:
     return _SOLVER_DISPLAY_NAMES.get(normalized, normalized or "Numerical solver")
 
 
+def _apply_legend_style(ax, *, title: str, secondary: bool = False):
+    """Draw one consistently styled legend for Brutsaert validation figures."""
+    style = dict(_LEGEND_STYLE_SECONDARY if secondary else _LEGEND_STYLE_MAIN)
+    legend = ax.legend(title=title, **style)
+    frame = legend.get_frame()
+    frame.set_facecolor("white")
+    frame.set_edgecolor("#b9c2cf")
+    frame.set_linewidth(0.9)
+    return legend
+
+
 def _load_optional_brutsaert_context(postprocess_dir: Path) -> dict | None:
     context_path = postprocess_dir / "brutsaert_context.json"
     if not context_path.exists():
         return None
     with context_path.open("r", encoding="utf-8") as stream:
         return json.load(stream)
+
+
+def _load_modflownwt_budget_diagnostics(model_ws: Path) -> dict[str, np.ndarray] | None:
+    list_paths = sorted(model_ws.glob("*.list"))
+    if not list_paths:
+        return None
+
+    stress_periods: list[int] = []
+    time_steps: list[int] = []
+    rate_percent_discrepancies: list[float] = []
+    current_header: tuple[int, int] | None = None
+
+    for raw_line in list_paths[0].read_text(encoding="utf-8", errors="ignore").splitlines():
+        header_match = _NWT_BUDGET_HEADER_RE.search(raw_line)
+        if header_match is not None:
+            current_header = (
+                int(header_match.group(1)),
+                int(header_match.group(2)),
+            )
+            continue
+        if current_header is None:
+            continue
+        percent_matches = _NWT_PERCENT_RE.findall(raw_line)
+        if not percent_matches:
+            continue
+        time_step, stress_period = current_header
+        stress_periods.append(int(stress_period))
+        time_steps.append(int(time_step))
+        rate_percent_discrepancies.append(float(percent_matches[-1]))
+        current_header = None
+
+    if not rate_percent_discrepancies:
+        return None
+    return {
+        "stress_periods": np.asarray(stress_periods, dtype=int),
+        "time_steps": np.asarray(time_steps, dtype=int),
+        "rate_percent_discrepancies": np.asarray(rate_percent_discrepancies, dtype=float),
+    }
 
 
 def _load_scalar_series(
@@ -225,6 +315,37 @@ def build_brutsaert_recession_comparison(
             )
         row_spread = max_std_along_axis(heads[compare_mask], axis=1)
 
+    solver_budget_max_abs_rate_discrepancy_percent = None
+    solver_budget_last_rate_discrepancy_percent = None
+    solver_budget_first_bad_stress_period = None
+    if solver_name == "modflownwt":
+        budget_diagnostics = _load_modflownwt_budget_diagnostics(result.model_ws)
+        if budget_diagnostics is not None:
+            raw_rate_percent = np.asarray(
+                budget_diagnostics["rate_percent_discrepancies"],
+                dtype=float,
+            )
+            raw_stress_periods = np.asarray(
+                budget_diagnostics["stress_periods"],
+                dtype=int,
+            )
+            if warmup_periods < raw_rate_percent.size:
+                compared_rate_percent = raw_rate_percent[warmup_periods:]
+                compared_stress_periods = raw_stress_periods[warmup_periods:]
+            else:
+                compared_rate_percent = raw_rate_percent
+                compared_stress_periods = raw_stress_periods
+            if compared_rate_percent.size > 0:
+                abs_percent = np.abs(compared_rate_percent)
+                worst_index = int(np.argmax(abs_percent))
+                solver_budget_max_abs_rate_discrepancy_percent = float(abs_percent[worst_index])
+                solver_budget_last_rate_discrepancy_percent = float(compared_rate_percent[-1])
+                bad_indices = np.flatnonzero(abs_percent > 5.0)
+                if bad_indices.size > 0:
+                    solver_budget_first_bad_stress_period = int(
+                        compared_stress_periods[int(bad_indices[0])]
+                    )
+
     normalization = max(abs(initial_discharge_m3_s), np.finfo(float).eps)
     residual_discharge = np.asarray(
         numerical_discharge - analytical_discharge,
@@ -274,6 +395,9 @@ def build_brutsaert_recession_comparison(
         max_positive_increment_m3_s=(
             float(np.max(positive_increments)) if positive_increments.size else 0.0
         ),
+        solver_budget_max_abs_rate_discrepancy_percent=solver_budget_max_abs_rate_discrepancy_percent,
+        solver_budget_last_rate_discrepancy_percent=solver_budget_last_rate_discrepancy_percent,
+        solver_budget_first_bad_stress_period=solver_budget_first_bad_stress_period,
     )
 
 
@@ -335,7 +459,7 @@ def plot_brutsaert_recession_comparison(
     ax_discharge.set_xlabel("Time [day]")
     ax_discharge.set_ylabel("Q(t) [m3/s]")
     ax_discharge.grid(True, which="both", ls=":", alpha=0.4)
-    ax_discharge.legend(loc="best")
+    _apply_legend_style(ax_discharge, title="Discharge series")
     ax_discharge.text(
         0.01,
         0.03,
@@ -366,7 +490,7 @@ def plot_brutsaert_recession_comparison(
     ax_normalized.set_xlabel("Time [day]")
     ax_normalized.set_ylabel("Q / Q0 [-]")
     ax_normalized.grid(True, ls=":", alpha=0.4)
-    ax_normalized.legend(loc="best")
+    _apply_legend_style(ax_normalized, title="Normalized series", secondary=True)
 
     ax_residual.axhline(0.0, color="0.45", lw=1.0, ls="--")
     ax_residual.plot(
@@ -406,6 +530,20 @@ def plot_brutsaert_recession_comparison(
             f"rmax<={max_tol:.4f}   "
             f"positive increment<={increase_tol:.2e} m3/s"
         )
+    if comparison.solver_budget_max_abs_rate_discrepancy_percent is not None:
+        budget_line = (
+            "MODFLOW-NWT rate budget discrepancy: "
+            f"max|%|={comparison.solver_budget_max_abs_rate_discrepancy_percent:.2f}"
+        )
+        if comparison.solver_budget_first_bad_stress_period is not None:
+            budget_line += (
+                f"   first bad stress period={comparison.solver_budget_first_bad_stress_period}"
+            )
+        if comparison.solver_budget_last_rate_discrepancy_percent is not None:
+            budget_line += (
+                f"   final signed %={comparison.solver_budget_last_rate_discrepancy_percent:.2f}"
+            )
+        footer_lines.append(budget_line)
 
     figure.suptitle(title, fontsize=13)
     figure.text(

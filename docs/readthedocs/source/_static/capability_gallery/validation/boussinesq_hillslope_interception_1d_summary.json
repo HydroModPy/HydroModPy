@@ -1,0 +1,177 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "boussinesq_hillslope_interception_1d",
+  "title": "Boussinesq Hillslope Interception 1D",
+  "category": "validation",
+  "deck": "1D sloping-topography benchmark for emergence position and dry-zone profile on the dense in-house runtime.",
+  "summary": "Steady synthetic groundwater-flow case used to validate the dense local `flow/boussinesq` runtime on a sloping hillslope where the water table reaches the land surface near the outlet.",
+  "case_setup": [
+    "quasi-1D strip (`40 x 3`) with alternating triangle diagonals,",
+    "linear topography descending from `10 m` to `5 m`,",
+    "flat impermeable bottom at `0 m`,",
+    "uniform recharge `2 mm/day`,",
+    "homogeneous hydraulic conductivity `1e-4 m/s`,",
+    "fixed head `5 m` on the east side,",
+    "west side left as the natural divide/no-flow boundary.",
+    "Available solver variants: Boussinesq."
+  ],
+  "what_it_shows": [
+    "validate the emergence/interception position on a topographic slope,",
+    "keep a closed-form inland Boussinesq profile on the dry part of the hillslope,",
+    "benchmark the current saturation-excess regularization with a metric that is physically meaningful for seepage onset.",
+    "Steady seepage/interception onset on a sloping hillslope with the dense in-house Boussinesq runtime",
+    "Primary metrics: interception-position error, topography-overshoot check, cross-row spread."
+  ],
+  "reference_highlights": [
+    "reference: analytical no-drain steady Boussinesq recharge profile with west divide and east fixed head, intersected with the linear topography,"
+  ],
+  "equations_rst": [
+    "h(x)^2=h_e^2+\\frac{R}{K}\\left(L^2-x^2\\right)",
+    "z_{\\mathrm{top}}(x)=z_{\\mathrm{toe}}+S\\left(L-x\\right),\\qquad h(x_{\\mathrm{int}})=z_{\\mathrm{top}}(x_{\\mathrm{int}})"
+  ],
+  "reproduction_command": "python -m validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/README.md",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/reference.py",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/comparison.py",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/plotting.py",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/run_case.py",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/runtime_boussinesq.py",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/tolerances.toml",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/config_boussinesq.toml"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/README.md": "43ee14e9d296e8257f30adcdab2c087f3c04999c50947958e73a29929da61407",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/reference.py": "efb54edf826b20f9e99209a991e8a04943db888040893a92c5b343742e018aac",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/comparison.py": "277099514246dcc66530c23b0e2d55d9814e972869fc5fb464e244145ab8d0d4",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/plotting.py": "ab443f22e76d481b9b1eb76910a6a4f246f9d19222a37369ce8ad2833162eef8",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/run_case.py": "8b950105fc17eb0aba41ce975b206205c9df7649184d06b7beaa0d577380fa54",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml": "ca0e4fe029f5cda14dc760c16eb3473127956ef24ab3a8fcab6a53d369520ed9",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/runtime_boussinesq.py": "ff3ce52d4144805933c33164e06d7461b4ceac8c2e336a7338956a83efc0557c",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/tolerances.toml": "773923ba998eadfd1d246a5e135904392d8cb479f7b152e25584916eab5c1d53",
+    "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/config_boussinesq.toml": "2e37f851a5c3016410454b545f48310b319fb912b8c5038be0addc1d26c1b633"
+  },
+  "docname": "cases/boussinesq_hillslope_interception_1d",
+  "images": [
+    {
+      "filename": "boussinesq_hillslope_interception_1d__boussinesq.png",
+      "caption": "Boussinesq Hillslope Interception 1D rendered with Boussinesq for the analytical gallery.",
+      "alt_text": "Boussinesq Hillslope Interception 1D validation figure for Boussinesq",
+      "doc_path": "/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d__boussinesq.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d__boussinesq.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d",
+    "default_solver": "boussinesq",
+    "solver_variants": [
+      "boussinesq"
+    ],
+    "solver_details": {
+      "boussinesq": {
+        "display_name": "Boussinesq",
+        "config_path": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/config_boussinesq.toml",
+        "expected_output": "Expected shape: 3 x 40",
+        "tolerance_path": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/tolerances.toml"
+      }
+    },
+    "regime": "steady",
+    "dimension": "1d",
+    "inventory_reference": "Boussinesq hillslope interception",
+    "case_sheet": {
+      "numerical_setup": "Strip with west divide, east fixed head, uniform recharge, and linear topography",
+      "analytical_target": "Approximate inland interception point from the dry no-drain Boussinesq profile",
+      "primary_metrics": "interception-position error, topography-overshoot check, cross-row spread",
+      "what_it_validates": "Steady seepage/interception onset on a sloping hillslope with the dense in-house Boussinesq runtime"
+    }
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d__boussinesq.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "boussinesq",
+      "solver_display_name": "Boussinesq",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/config_boussinesq.toml",
+      "tolerance_path": "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/tolerances.toml",
+      "expected_output": "Expected shape: 3 x 40",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.run_case --no-show",
+      "metric_lines": [
+        "Analytical interception x: 244.776 m",
+        "Numerical interception x: 255.000 m",
+        "Interception x error: 10.224 m",
+        "Diagnostic dry-zone RMSE: 0.0477 m",
+        "Diagnostic dry-zone max abs error: 0.0673 m",
+        "Cross-row head spread: 2.23e-04 m"
+      ],
+      "image": {
+        "filename": "boussinesq_hillslope_interception_1d__boussinesq.png",
+        "caption": "Boussinesq Hillslope Interception 1D rendered with Boussinesq for the analytical gallery.",
+        "alt_text": "Boussinesq Hillslope Interception 1D validation figure for Boussinesq",
+        "doc_path": "/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d__boussinesq.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d__boussinesq.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "boussinesq_hillslope_interception_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_boussinesq.toml",
+          "default_solver": "boussinesq",
+          "config_files": {
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              3,
+              40
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "length_y_m": 30.0,
+            "east_head_m": 5.0,
+            "toe_elevation_m": 5.0,
+            "topography_slope_m_per_m": 0.0125,
+            "recharge_mm_day": 2.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "bottom_elevation_m": 0.0,
+            "profile_axis": 0,
+            "numerical_contact_tolerance_m": 0.05,
+            "interception_search_samples": 20001
+          }
+        },
+        "tolerances": {
+          "interception": {
+            "x_error_m": 15.0
+          },
+          "uniformity": {
+            "row_spread": 0.001
+          },
+          "contact": {
+            "max_positive_clearance_m": 1e-06
+          }
+        },
+        "timestep": 0
+      }
+    }
+  ]
+}

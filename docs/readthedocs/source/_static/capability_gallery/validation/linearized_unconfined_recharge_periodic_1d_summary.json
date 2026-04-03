@@ -1,0 +1,407 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "linearized_unconfined_recharge_periodic_1d",
+  "title": "Linearized Unconfined 1D Periodic Recharge",
+  "category": "validation",
+  "deck": "1D sinusoidal recharge benchmark.",
+  "summary": "This case validates the transient linearized Boussinesq-Dupuit response of an unconfined 1D aquifer submitted to a sinusoidal recharge forcing.",
+  "case_setup": [
+    "geometry: quasi-1D Cartesian grid (`50 x 5`, single layer),",
+    "flow regime: transient unconfined flow,",
+    "west/east boundaries: fixed at `10.0 m`,",
+    "recharge forcing: `5.0 + 5.0 * sin(2\u03c0 t / 10 d)` mm/day sampled every `1 day`,",
+    "initial condition: uniform `10.0 m`,",
+    "simulated observable: `watertable_elevation`.",
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
+  ],
+  "what_it_shows": [
+    "Periodic recharge forcing and phase/amplitude propagation in transient flow",
+    "Primary metrics: space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread.",
+    "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
+  ],
+  "reference_highlights": [
+    "Linearized transient response to sinusoidal recharge"
+  ],
+  "equations_rst": [
+    "S_y\\frac{\\partial \\eta}{\\partial t}=T_0\\frac{\\partial^2 \\eta}{\\partial x^2}+R(t),\\qquad h=h_0+\\eta",
+    "R(t)=\\overline{R}+A\\sin\\left(2\\pi t/P+\\phi\\right)"
+  ],
+  "reproduction_command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_periodic_1d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/README.md",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/reference.py",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/comparison.py",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/plotting.py",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/run_case.py",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/runtime_boussinesq.py",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances_modflow6.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflow6.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_boussinesq.toml",
+    "validation_cases/shared/boussinesq_uniform_strip.py",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/README.md": "6bab3c7b7c3c818637045e93918404018f95954ecc69f511b6946e60d1fe0a1d",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/reference.py": "b93972d2b0b9223efaa86f81bfe5c7f3e353057f8eef8ea429575a2300c1c8c6",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/comparison.py": "28e52e1f78bc815ed5a596e2b2d4989f78bbb3c1cdc4d1a841445ee002cdeaba",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/plotting.py": "9d29990987a0c9bd4e694cae0a937ce123dbc8c599d32a95a5d0bb447317e6e7",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/run_case.py": "720379ac53d68ea6ed8b30b35b4094ef45c28d2d268c80c306b6464975981b86",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml": "ccceac56375326b34342e11e6d8f933d9ac32730ee9e21202da48ce544737123",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml": "42925f1dcda9a960c0022033bc935ea79a08f12c6dadc9f5e2b84307c8665a2a",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/runtime_boussinesq.py": "f6b9e640459a4cd2edd7fcc71038ca3f39ad891677c92bb22de2a51f3b6b79b9",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml": "32b1e0a1c039cae537c6a4a1a25f78663882c27642cc21fd5092ce217dbe02e6",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances_modflow6.toml": "c2c6077d9fb01c6c226efbc96672482b509882109942eb0266be8efa154e1a1f",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflow6.toml": "e39bd40d3d962745dc1d30349d41115a95f59f27f6bf2f907395e15a689fb526",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "a30de1464b42072886201ce1a46b12a0cb486e357b757b5bc69a9e2add48729e",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "87bd0c802ef3b86b88f5791b1ece5a70095f146920ffb3ad44aab32115921b00"
+  },
+  "docname": "cases/linearized_unconfined_recharge_periodic_1d",
+  "images": [
+    {
+      "filename": "linearized_unconfined_recharge_periodic_1d__modflownwt.png",
+      "caption": "Linearized Unconfined 1D Periodic Recharge rendered with MODFLOW-NWT for the analytical gallery.",
+      "alt_text": "Linearized Unconfined 1D Periodic Recharge validation figure for MODFLOW-NWT",
+      "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_recharge_periodic_1d__modflownwt.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_periodic_1d__modflownwt.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d",
+    "default_solver": "modflownwt",
+    "solver_variants": [
+      "modflownwt",
+      "modflow6",
+      "boussinesq"
+    ],
+    "solver_details": {
+      "modflownwt": {
+        "display_name": "MODFLOW-NWT",
+        "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml",
+        "expected_output": "Expected output: 40 periods, spatial shape 5 x 50",
+        "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml"
+      },
+      "modflow6": {
+        "display_name": "MODFLOW 6",
+        "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflow6.toml",
+        "expected_output": "Expected output: 40 periods, spatial shape 5 x 50",
+        "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances_modflow6.toml"
+      },
+      "boussinesq": {
+        "display_name": "Boussinesq",
+        "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_boussinesq.toml",
+        "expected_output": "Expected output: 40 periods, spatial shape 5 x 50",
+        "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml"
+      }
+    },
+    "regime": "transient",
+    "dimension": "1d",
+    "inventory_reference": "linearized periodic recharge",
+    "case_sheet": {
+      "numerical_setup": "Homogeneous strip, fixed west/east heads, periodic recharge chronicle from CSV",
+      "analytical_target": "Linearized transient response to sinusoidal recharge",
+      "primary_metrics": "space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread",
+      "what_it_validates": "Periodic recharge forcing and phase/amplitude propagation in transient flow"
+    }
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/linearized_unconfined_recharge_periodic_1d_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_periodic_1d_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_periodic_1d__modflownwt.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_periodic_1d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_periodic_1d__boussinesq.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "modflownwt",
+      "solver_display_name": "MODFLOW-NWT",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml",
+      "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml",
+      "expected_output": "Expected output: 40 periods, spatial shape 5 x 50",
+      "command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_periodic_1d.run_case --no-show --solver modflownwt",
+      "metric_lines": [
+        "Space-time RMSE: 0.0078 m",
+        "Space-time max abs error: 0.0194 m",
+        "Final-profile RMSE: 0.0010 m",
+        "Cross-row head spread: 9.99e-06 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_recharge_periodic_1d__modflownwt.png",
+        "caption": "Linearized Unconfined 1D Periodic Recharge rendered with MODFLOW-NWT for the analytical gallery.",
+        "alt_text": "Linearized Unconfined 1D Periodic Recharge validation figure for MODFLOW-NWT",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_recharge_periodic_1d__modflownwt.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_periodic_1d__modflownwt.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "lu_recharge_periodic_1d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_periods": 40,
+            "expected_spatial_shape": [
+              5,
+              50
+            ]
+          },
+          "time": {
+            "dt_seconds": 86400.0
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "base_head_m": 10.0,
+            "mean_recharge_mm_day": 5.0,
+            "amplitude_mm_day": 5.0,
+            "period_days": 10.0,
+            "phase_radians": 0.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 10.0,
+            "specific_yield": 0.1,
+            "profile_axis": 0,
+            "n_terms": 400
+          },
+          "plot": {
+            "profile_times_days": [
+              30.0,
+              32.0,
+              35.0,
+              38.0,
+              40.0
+            ],
+            "monitor_positions_m": [
+              25.0,
+              50.0,
+              75.0
+            ]
+          }
+        },
+        "tolerances": {
+          "space_time": {
+            "rmse": 0.02,
+            "max_abs_error": 0.03,
+            "row_spread": 0.0001
+          },
+          "final_profile": {
+            "rmse": 0.02,
+            "max_abs_error": 0.03
+          }
+        },
+        "final_elapsed_days": 40.0
+      }
+    },
+    {
+      "solver": "modflow6",
+      "solver_display_name": "MODFLOW 6",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflow6.toml",
+      "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances_modflow6.toml",
+      "expected_output": "Expected output: 40 periods, spatial shape 5 x 50",
+      "command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_periodic_1d.run_case --no-show --solver modflow6",
+      "metric_lines": [
+        "Space-time RMSE: 0.0065 m",
+        "Space-time max abs error: 0.0167 m",
+        "Final-profile RMSE: 0.0009 m",
+        "Cross-row head spread: 8.19e-07 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_recharge_periodic_1d__modflow6.png",
+        "caption": "Linearized Unconfined 1D Periodic Recharge rendered with MODFLOW 6 for the analytical gallery.",
+        "alt_text": "Linearized Unconfined 1D Periodic Recharge validation figure for MODFLOW 6",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_recharge_periodic_1d__modflow6.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_periodic_1d__modflow6.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "lu_recharge_periodic_1d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_periods": 40,
+            "expected_spatial_shape": [
+              5,
+              50
+            ]
+          },
+          "time": {
+            "dt_seconds": 86400.0
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "base_head_m": 10.0,
+            "mean_recharge_mm_day": 5.0,
+            "amplitude_mm_day": 5.0,
+            "period_days": 10.0,
+            "phase_radians": 0.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 10.0,
+            "specific_yield": 0.1,
+            "profile_axis": 0,
+            "n_terms": 400
+          },
+          "plot": {
+            "profile_times_days": [
+              30.0,
+              32.0,
+              35.0,
+              38.0,
+              40.0
+            ],
+            "monitor_positions_m": [
+              25.0,
+              50.0,
+              75.0
+            ]
+          }
+        },
+        "tolerances": {
+          "space_time": {
+            "rmse": 0.01,
+            "max_abs_error": 0.02,
+            "row_spread": 1e-05
+          },
+          "final_profile": {
+            "rmse": 0.002,
+            "max_abs_error": 0.003
+          }
+        },
+        "final_elapsed_days": 40.0
+      }
+    },
+    {
+      "solver": "boussinesq",
+      "solver_display_name": "Boussinesq",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_boussinesq.toml",
+      "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml",
+      "expected_output": "Expected output: 40 periods, spatial shape 5 x 50",
+      "command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_periodic_1d.run_case --no-show --solver boussinesq",
+      "metric_lines": [
+        "Space-time RMSE: 0.0060 m",
+        "Space-time max abs error: 0.0138 m",
+        "Final-profile RMSE: 0.0023 m",
+        "Cross-row head spread: 4.35e-08 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_recharge_periodic_1d__boussinesq.png",
+        "caption": "Linearized Unconfined 1D Periodic Recharge rendered with Boussinesq for the analytical gallery.",
+        "alt_text": "Linearized Unconfined 1D Periodic Recharge validation figure for Boussinesq",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_recharge_periodic_1d__boussinesq.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_periodic_1d__boussinesq.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "lu_recharge_periodic_1d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_periods": 40,
+            "expected_spatial_shape": [
+              5,
+              50
+            ]
+          },
+          "time": {
+            "dt_seconds": 86400.0
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "base_head_m": 10.0,
+            "mean_recharge_mm_day": 5.0,
+            "amplitude_mm_day": 5.0,
+            "period_days": 10.0,
+            "phase_radians": 0.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 10.0,
+            "specific_yield": 0.1,
+            "profile_axis": 0,
+            "n_terms": 400
+          },
+          "plot": {
+            "profile_times_days": [
+              30.0,
+              32.0,
+              35.0,
+              38.0,
+              40.0
+            ],
+            "monitor_positions_m": [
+              25.0,
+              50.0,
+              75.0
+            ]
+          }
+        },
+        "tolerances": {
+          "space_time": {
+            "rmse": 0.02,
+            "max_abs_error": 0.03,
+            "row_spread": 0.0001
+          },
+          "final_profile": {
+            "rmse": 0.02,
+            "max_abs_error": 0.03
+          }
+        },
+        "final_elapsed_days": 40.0
+      }
+    }
+  ]
+}
