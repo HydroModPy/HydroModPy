@@ -507,7 +507,7 @@ def _make_nwt_confined(model: Any) -> None:
 
 def _make_mf6_confined(model: Any) -> None:
     """Force one MF6 model into a confined-like variant for diagnosis only."""
-    iconvert = np.zeros((int(model.nlay),), dtype=int)
+    iconvert = np.zeros((int(model.nlay), int(model.ncpl)), dtype=int)
     sy = np.zeros_like(np.asarray(model.sy, dtype=float))
     model.sy = sy
     if hasattr(model.sto.iconvert, "set_data"):
@@ -1043,6 +1043,21 @@ def main() -> None:
     )
     results.append(nwt_one_shot_result)
 
+    nwt_one_shot_confined_result, _ = _run_nwt_probe(
+        probe_id=PROBE_IDS["nwt_one_shot_confined"],
+        stage="transient",
+        flow=_clone_flow(nwt_base_flow),
+        domain=nwt_setup.domain,
+        geographic=nwt_setup.geographic,
+        model_folder=model_folder,
+        bin_path=nwt_setup.workspace.bin_path,
+        modflow_config=nwt_cfg.model_copy(deep=True),
+        time_grid=nwt_setup.time_grid,
+        model_mutator=_make_nwt_confined,
+        note="NWT one-shot run forced to a confined-like variant (laytyp=0, Sy=0).",
+    )
+    results.append(nwt_one_shot_confined_result)
+
     mf6_transient_cfg = mf6_cfg.model_copy(deep=True)
     mf6_transient_cfg.tgrid = mf6_transient_cfg.tgrid.model_copy(update={"firstpersteady": False})
     mf6_transient_result, _ = _run_mf6_probe(
@@ -1059,6 +1074,21 @@ def main() -> None:
         note="MF6 restarted recession on the same strip and boundary geometry.",
     )
     results.append(mf6_transient_result)
+
+    mf6_one_shot_confined_result, _ = _run_mf6_probe(
+        probe_id=PROBE_IDS["mf6_one_shot_confined"],
+        stage="transient",
+        flow=_clone_flow(mf6_base_flow),
+        domain=mf6_setup.domain,
+        geographic=mf6_setup.geographic,
+        model_folder=model_folder,
+        bin_path=mf6_setup.workspace.bin_path,
+        modflow_config=mf6_cfg.model_copy(deep=True),
+        time_grid=mf6_setup.time_grid,
+        model_mutator=_make_mf6_confined,
+        note="MF6 one-shot run forced to a confined-like variant (iconvert=0, Sy=0).",
+    )
+    results.append(mf6_one_shot_confined_result)
 
     summary = _build_summary(
         results=results,
