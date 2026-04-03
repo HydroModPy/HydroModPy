@@ -48,8 +48,9 @@ data_managers/
 │   ├── spatial_field.py        # FieldRecord
 │   └── location.py             # StationLocation
 │
-├── registry/                   # Catalogue SQL
-│   └── catalog.py              # DataCatalog (SQLAlchemy ORM)
+├── registry/                   # Catalogue DuckDB
+│   ├── catalog_duckdb.py       # DataCatalogDuckDB (DuckDB natif, retry backoff)
+│   └── constants.py            # SENTINEL_CUSTOM, SENTINEL_EMPTY
 │
 ├── common/                     # Utilitaires partages
 │   ├── base_manager.py         # BaseVariableManager (donnees ponctuelles)
@@ -308,12 +309,12 @@ Source `constant` : valeur scalaire etendue en serie journaliere.
 
 ---
 
-## 6. Catalogue DuckDB (`registry/catalog.py`)
+## 6. Catalogue DuckDB (`registry/catalog_duckdb.py`)
 
 ### Technologie
 
 **DuckDB natif** (API Python `duckdb.connect()`), fichier
-`workspace/catalog.duckdb`. Remplace SQLAlchemy ORM + SQLite.
+`workspace/catalog.duckdb`. SQLAlchemy est supprime du framework.
 
 Le catalogue data est au **niveau workspace** (partage entre tous les projets
 du workspace). Les resultats de simulation sont dans un fichier DuckDB
@@ -517,7 +518,7 @@ recharge_custom_synthetic_20200101_20251231_D.csv
 - **Point (API)** : CSV dans `workspace/data/{variable}/`
 - **Grille (API)** : NetCDF dans `workspace/data/{variable}/`
 - **Custom** : reference au fichier utilisateur (pas de copie)
-- **Catalogue** : SQLite `workspace/catalog.db`
+- **Catalogue** : DuckDB `workspace/catalog.duckdb` (migration auto depuis SQLite)
 
 ---
 
@@ -857,12 +858,12 @@ retelecharge pas les donnees deja en cache.
 | Migration catalogue SQLite → DuckDB | Planifie | §6 |
 | Fusion DataStore / RuntimeLoader | Planifie | §12 |
 | Suppression `_FallbackDataCatalog` | Planifie (apres migration DuckDB) | §12 |
-| `LoadResult.warnings` (erreur partielle) | Planifie | §3, §10 |
-| `PointRecord.quality` (completude auto) | Planifie | §3 |
-| `FieldRecord` lazy loading (`Path` → `Dataset` a la demande) | Planifie | §3 |
+| `LoadResult.warnings` (erreur partielle) | **Fait** — RuntimeLoader propage | §3, §10 |
+| `PointRecord.quality` (`n_duplicates` dans completude) | **Fait** — `compute_completeness()` | §3 |
+| `FieldRecord` lazy loading (`dataset` property) | **Fait** — `spatial_field.py` | §3 |
 | `HydrographyResult` → `LoadResult` | Planifie | §4.3 |
-| `project_crs` (reprojection auto) | Planifie | §8 |
-| Chargement parallele (`ThreadPoolExecutor`) | Planifie | §10 |
-| `fetch_metadata` (provenance API) | Planifie | §6 |
-| `resample.py` (resampling standardise) | Planifie | §11 |
-| Suppression dependance SQLAlchemy | Planifie (apres migration DuckDB) | §6 |
+| `project_crs` (reprojection auto) | **Fait** — champ dans `DataManagersConfig` | §8 |
+| Chargement parallele (`ThreadPoolExecutor`) | **Fait** — `runtime_loader.py` | §10 |
+| `fetch_metadata` (provenance API) | **Fait** — dans `list_entries()` | §6 |
+| `resample.py` (resampling standardise) | **Fait** — stub dans `results/` | §11 |
+| Suppression dependance SQLAlchemy | **Fait** — retiree des env_*.yml | §6 |

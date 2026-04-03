@@ -64,6 +64,14 @@ class DataManagersConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    project_crs: Annotated[str | None, ParamLevel("user")] = Field(
+        default=None,
+        description=(
+            "EPSG code or WKT string of the project coordinate reference system. "
+            "When set, all loaded data is reprojected to this CRS. "
+            "Example: 'EPSG:2154' (Lambert-93)."
+        ),
+    )
     types: Annotated[list[str], ParamLevel("user")] = Field(
         default_factory=list,
         description=(

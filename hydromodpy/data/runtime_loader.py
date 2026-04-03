@@ -82,21 +82,64 @@ class DataManagersRuntimeLoader:
         "soil_moisture": "_climatic",
     }
 
+    # Types that must be loaded sequentially (have dependencies on earlier loads).
+    _SEQUENTIAL_TYPES = {"dem", "geology", "hydrography"}
+
     def load_all(self, result: "LauncherRunState") -> None:
-        """Load active data-manager families into ``result``."""
+        """Load active data-manager families into ``result``.
+
+        Sequential types (dem, geology, hydrography) are loaded first in
+        order. Remaining independent types (observation + climatic) are
+        loaded in parallel via a thread pool.
+        """
         workspace_paths = self._workspace_paths(result)
         self._init_catalog(workspace_paths)
 
+        sequential = []
+        parallel = []
         for type_name in self.data_plan.types:
-            method_key = self._LOADER_DISPATCH.get(type_name)
-            if method_key is None:
-                logger.warning("Unsupported data type '%s' in plan.", type_name)
-                continue
-            with data_phase(type_name):
-                if method_key == "_climatic":
-                    self._load_climatic_variable(result, type_name)
-                else:
-                    getattr(self, method_key)(result)
+            if type_name in self._SEQUENTIAL_TYPES:
+                sequential.append(type_name)
+            else:
+                parallel.append(type_name)
+
+        # Phase 1: sequential types (dependency order preserved)
+        for type_name in sequential:
+            self._load_single(result, type_name)
+
+        # Phase 2: independent types in parallel
+        if len(parallel) <= 1:
+            for type_name in parallel:
+                self._load_single(result, type_name)
+        else:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            errors: list[tuple[str, Exception]] = []
+            with ThreadPoolExecutor(max_workers=min(4, len(parallel))) as pool:
+                futures = {
+                    pool.submit(self._load_single, result, t): t
+                    for t in parallel
+                }
+                for future in as_completed(futures):
+                    t = futures[future]
+                    exc = future.exception()
+                    if exc is not None:
+                        errors.append((t, exc))
+
+            for type_name, exc in errors:
+                logger.error("Parallel load of '%s' failed: %s", type_name, exc)
+
+    def _load_single(self, result: "LauncherRunState", type_name: str) -> None:
+        """Load a single data-manager type."""
+        method_key = self._LOADER_DISPATCH.get(type_name)
+        if method_key is None:
+            logger.warning("Unsupported data type '%s' in plan.", type_name)
+            return
+        with data_phase(type_name):
+            if method_key == "_climatic":
+                self._load_climatic_variable(result, type_name)
+            else:
+                getattr(self, method_key)(result)
 
     def _load_dem_data(self, result: "LauncherRunState") -> None:
         """Load DEM data via DemManager."""
@@ -682,6 +725,10 @@ class DataManagersRuntimeLoader:
         if self._is_required_data_type(result, type_name):
             raise ValueError(message) from exc
         logger.warning("%s", message)
+        # Propagate warning to any existing LoadResult on the attribute
+        existing = getattr(result.loaded_data, type_name, None)
+        if existing is not None and hasattr(existing, "warnings"):
+            existing.warnings.append(message)
 
     def _is_required_data_type(self, result: "LauncherRunState", type_name: str) -> bool:
         inferred_set = set(self.data_plan.inferred_types)
