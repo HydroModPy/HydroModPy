@@ -16,6 +16,12 @@ from hydromodpy.analysis.display.orchestration import (
     plot_particles_suite,
     plot_transport_suite,
 )
+from hydromodpy.analysis.display.posthoc import PosthocContext
+from hydromodpy.analysis.display.posthoc_orchestration import (
+    plot_posthoc_all,
+    plot_posthoc_flow_suite,
+    plot_posthoc_particles_suite,
+)
 
 __all__ = [
     "DisplayConfig",
@@ -28,4 +34,8 @@ __all__ = [
     "plot_flow_suite",
     "plot_particles_suite",
     "plot_transport_suite",
+    "PosthocContext",
+    "plot_posthoc_all",
+    "plot_posthoc_flow_suite",
+    "plot_posthoc_particles_suite",
 ]

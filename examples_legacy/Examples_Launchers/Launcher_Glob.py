@@ -5,6 +5,7 @@
  * Complete example 12 with ALL functions from launcher.py, only adapted for ex12
 """
 import traceback
+import glob
 import sys
 import hydromodpy as hmp
 import os
@@ -201,10 +202,12 @@ CONFIG_OPTIONS = {
             "recharge": True,
             "parametrization": True,
             "modeling": True,
+            "timeseries_modflow": True,
             "plot": True,
             "matching_streams": True,
             "modpath": True,
             "mt3dms": True,
+            "timeseries_complete": True,
             "plot_animation_interactive": False
         },
         "plots": {
@@ -851,7 +854,7 @@ DATA_MODULES = {
 
 PARAM_CONFIG = {
     "ex12": {
-        "check_model": {"plot_cross": True, "check_grid": True},
+        "check_model": {"plot_cross": True, "check_grid": True, "cross_ylim": [0, 200]},
         "climatic": {
             "recharge_from_results": True,
             "runoff_factor": 0.1
@@ -950,192 +953,35 @@ PARAM_CONFIG = {
 MODELING_CONFIG = {
     "ex12": {
         "type": "single",
-        "preprocessing": {"for_calib": False},
-        "processing": {
-            "write_model": True,
-            "run_model": True,
-            "link_mt3dms": True
-        },
-        "postprocessing_modflow": {
-            "watertable_elevation": True,
-            "watertable_depth": True,
-            "seepage_areas": True,
-            "outflow_drain": True,
-            "groundwater_flux": False,
-            "groundwater_storage": False,
-            "accumulation_flux": True,
-            "intermittency_weekly": False,
-            "intermittency_monthly": True,
-            "intermittency_yearly": False,
-            "export_all_tif": False
-        },
-        "postprocessing_timeseries": {
-            "datetime_format": True,
-            "subbasin_results": True,
-            "intermittency_weekly": True
-        },
-        "postprocessing_netcdf": False,
-        "check_model": {
-            "plot_cross": True,
-            "check_grid": True,
-            "cross_ylim": [0, 200]
-        }
+        "for_calib": False,
+        "link_mt3dms": True
     },
     "ex09": {
         "type": "single",
-        "preprocessing": {"for_calib": True},
-        "processing": {
-            "write_model": True,
-            "run_model": True,
-            "link_mt3dms": True
-        },
-        "postprocessing_modflow": {
-            "watertable_elevation": True,
-            "watertable_depth": True,
-            "seepage_areas": True,
-            "outflow_drain": True,
-            "groundwater_flux": False,
-            "groundwater_storage": False,
-            "accumulation_flux": True,
-            "intermittency_weekly": True
-        },
-        "postprocessing_timeseries": {
-            "datetime_format": True,
-            "subbasin_results": True,
-            "intermittency_weekly": True
-        },
-        "postprocessing_netcdf": False,
-        "check_model": {
-            "plot_cross": True,
-            "check_grid": True,
-            "cross_ylim": [0, 200]
-        }
+        "for_calib": True, # On veut que ex09 aille dans le dossier calibration
+        "link_mt3dms": True
     },
     "ex04": {
-        "type": "multiple",
-        "preprocessing": {"for_calib": False},
-        "processing": {
-            "write_model": True,
-            "run_model": True,
-            "link_mt3dms": False
-        },
-        "postprocessing_modflow": {
-            "watertable_elevation": True,
-            "watertable_depth": True,
-            "seepage_areas": True,
-            "outflow_drain": True,
-            "groundwater_flux": True,
-            "groundwater_storage": True,
-            "accumulation_flux": True,
-            "persistency_index": True,
-            "intermittency_monthly": True,
-            "intermittency_daily": False,
-            "export_all_tif": False
-        },
-        "postprocessing_timeseries": {
-            "datetime_format": True,
-            "subbasin_results": True
-        },
-        "postprocessing_netcdf": True,
-        "check_model": {
-            "plot_cross": False,
-            "check_grid": False
-        }
+        "type": "multiple", # On boucle sur Sy
+        "for_calib": False,
+        "link_mt3dms": False
     },
     "ex03": {
-        "type": "multiple",
-        "preprocessing": {"for_calib": False},
-        "processing": {
-            "write_model": True,
-            "run_model": True,
-            "link_mt3dms": False
-        },
-        "postprocessing_modflow": {
-            "watertable_elevation": True,
-            "watertable_depth": True,
-            "seepage_areas": True,
-            "outflow_drain": True,
-            "groundwater_flux": True,
-            "groundwater_storage": True,
-            "accumulation_flux": True
-        },
-        "postprocessing_timeseries": {
-            "datetime_format": False,
-            "subbasin_results": True
-        },
-        "postprocessing_netcdf": True
+        "type": "multiple", # On boucle sur K
+        "for_calib": False,
+        "link_mt3dms": False
     },
     "ex00": {
         "type": "single",
-        "preprocessing": {"for_calib": False},
-        "processing": {
-            "write_model": True,
-            "run_model": True,
-            "link_mt3dms": False
-        },
-        "postprocessing_modflow": {
-            "watertable_elevation": True,
-            "watertable_depth": True,
-            "seepage_areas": True,
-            "outflow_drain": True,
-            "groundwater_flux": True,
-            "groundwater_storage": True,
-            "accumulation_flux": True,
-            "persistency_index": True,
-            "intermittency_monthly": True,
-            "intermittency_weekly": False,
-            "intermittency_daily": False,
-            "export_all_tif": True
-        },
-        "postprocessing_timeseries": {
-            "datetime_format": False,
-            "subbasin_results": False
-        },
-        "postprocessing_netcdf": {
-            "datetime_format": False
-        },
-        "check_model": {
-            "plot_cross": True,
-            "check_grid": True
-        }
+        "for_calib": False,
+        "link_mt3dms": False
     },
     "ex01": {
         "type": "single",
-        "preprocessing": {"for_calib": False},
-        "processing": {
-            "write_model": True,
-            "run_model": True,
-            "link_mt3dms": False
-        },
-        "postprocessing_modflow": {
-            "watertable_elevation": True,
-            "watertable_depth": True,
-            "seepage_areas": True,
-            "outflow_drain": True,
-            "groundwater_flux": True,
-            "groundwater_storage": True,
-            "accumulation_flux": True,
-            "persistency_index": False,
-            "intermittency_monthly": False,
-            "intermittency_weekly": False,
-            "intermittency_daily": False,
-            "export_all_tif": False
-        },
-        "postprocessing_timeseries": {
-            "datetime_format": False,
-            "subbasin_results": True
-        },
-        "postprocessing_netcdf": {
-            "datetime_format": False
-        },
-        "check_model": {
-            "plot_cross": False,
-            "check_grid": True
-        }
+        "for_calib": False,
+        "link_mt3dms": False
     }
 }
-
-
 # ============================================================================
 # MODPATH CONFIG - EXAMPLE 12
 # ============================================================================
@@ -1399,8 +1245,17 @@ def watershed(example_id):
 
         # Mise ÃƒÂ  jour de la config globale pour les objets HMP
         cfg.workspace.data_path = Path(absolute_data_path)
-        cfg.workspace.catch_name = p.get("catch_name", cfg.workspace.catch_name)
-
+        # Only reset out_dir_path to project default if it was not already
+        # overridden by the caller (e.g., run_launcher_glob sets a temp path
+        # for test isolation).  An explicit absolute path that differs from the
+        # default means "keep it"; anything else (None, relative, or already
+        # equal to the default) means "set the default".
+        _project_default_out = Path(root_dir) / "examples" / "results"
+        _current_out = cfg.workspace.out_dir_path
+        if not (_current_out and Path(_current_out).is_absolute() and Path(_current_out) != _project_default_out):
+            cfg.workspace.out_dir_path = _project_default_out
+        watershed_name=cfg.workspace.catch_name = p.get("catch_name", cfg.workspace.catch_name)
+        print('##### '+watershed_name.upper()+' #####')
         if not os.path.exists(absolute_data_path):
             print(f"Ã¢Å“â€” Data path not found: {absolute_data_path}\n")
             return None
@@ -1426,11 +1281,11 @@ def watershed(example_id):
         # 4. Objets de calcul
         flow = Flow(config=cfg.flow)
         settings_object = Settings()
-        hydraulic_object = Hydraulic(
+        """hydraulic_object = Hydraulic(
             nrow=geographic_object.y_pixel,
             ncol=geographic_object.x_pixel,
             box_dem=geographic_object.watershed_box_buff_dem
-        )
+        )"""
         transport = Transport()
         climatic_object = Climatic(out_path=workspace_object.catch_folder)
 
@@ -1480,8 +1335,9 @@ def watershed(example_id):
             'workspace': workspace_object,
             'geographic': geographic_object,
             'settings': settings_object,
-            'hydraulic': hydraulic_object,
+            #'hydraulic': hydraulic_object,
             'domain': domain,
+            'surface':surface_topo,
             'flow': flow,
             'msl': msl,
             'climatic': climatic_object,
@@ -1828,7 +1684,7 @@ def parametrization(results):
 
         # Get individual objects created in watershed() and recharge()
         settings_object = results['settings']
-        hydraulic_object = results['hydraulic']
+        #hydraulic_object = results['hydraulic']
         climatic_object = results.get('climatic')
         msl_value = results['msl']
 
@@ -1867,12 +1723,12 @@ def parametrization(results):
         settings_object.update_check_model(check_grid=check_grid)
 
         # Configure Hydraulic (like example12.py)
-        print("Hydraulic...")
+        """print("Hydraulic...")
         hydraulic_object.update_nlay(p["nlay"])
         hydraulic_object.update_cond_drain(p["cond_drain"])
         hydraulic_object.update_lay_decay(p["lay_decay"])
         hydraulic_object.update_bottom(p["bottom"])
-        #hydraulic_object.update_exdp(p.get("exdp", 1.0))
+        #hydraulic_object.update_exdp(p.get("exdp", 1.0))"""
 
         # Configure Transport (created for all, configured as needed)
         print("Transport...")
@@ -1909,13 +1765,14 @@ def parametrization(results):
             pass
 
         elif config["climatic"].get("recharge_from_results"):
+            R_mm_day_filt = results.get('R_mm_day_filt')
             R_mm_day = results.get('R_mm_day')
-            if R_mm_day is not None:
-                # Handle both pandas Series (ex00, ex09, ex12) and scalar (ex01)
-                if isinstance(R_mm_day, pd.Series):
-                    recharge = R_mm_day / 1000
-                else:  # scalar value
-                    recharge = R_mm_day / 1000
+            # Use synthetic filtered recharge (R_mm_day_filt) when available,
+            # exactly like example12.py: rec = R_mm_day_filt[:] / 1000
+            if R_mm_day_filt is not None and isinstance(R_mm_day_filt, pd.Series):
+                recharge = R_mm_day_filt / 1000
+            elif R_mm_day is not None:
+                recharge = R_mm_day / 1000
             else:
                 recharge = pd.Series([0.1] * 365) / 1000
             climatic_object.update_recharge(recharge, sim_state=p["sim_state"])
@@ -1972,7 +1829,10 @@ def parametrization(results):
 
 
 def modeling(results):
-    """MODELING - Run MODFLOW and related modules using generic workflow functions"""
+    """
+    MODELING - Exécute MODFLOW.
+    Gère le mode 'single' (ex: ex12) et le mode 'multiple' (ex: ex03, ex04).
+    """
     print("\n" + "="*70)
     example_key = results.get('example_key', CONFIG["example"])
     print(f"EXEMPLE {example_key.upper()} - MODELING".center(70))
@@ -1994,29 +1854,23 @@ def modeling(results):
 
         p = PARAMS[example_key]
         config = MODELING_CONFIG[example_key]
-
-        # --- AJOUT 3 : GESTION DYNAMIQUE DU DOSSIER ---
-        for_calib = config.get("preprocessing", {}).get("for_calib", False)
-        if for_calib:
-            model_folder = workspace_object.calibration_folder
-        else:
-            model_folder = workspace_object.simulations_folder
-
+        workspace = results['workspace']
 
         print(f"\n  Running MODFLOW for {example_key}...")
 
-        # For single model execution (example 12 uses "single" type)
+        # ====================================================================
+        # CAS 1 : EXÉCUTION SIMPLE (ex: exemple 12)
+        # ====================================================================
         if config["type"] == "single":
-            # Generate model name
+            # 1. Calcul du nom du modèle (exactement comme dans ton bloc)
             the_K0 = p.get("the_K0")
             if the_K0 is not None:
-                the_K0_ms = the_K0 / 24 / 3600
+                the_K0_ms = the_K0 / 24 / 3600 # Conversion m/d en m/s pour le nom
                 model_name = f"{p['vers']}_{p.get('compt', 0)}_K{the_K0_ms:.1e}_a{p['alpha']:.1f}_Sy{p['the_sy0']*100:.1f}"
             else:
-                # ex01: use hk from PARAMS, no version/alpha naming
-                model_name = f"{example_key}_hk{p['hk']:.1e}"
+                model_name = f"{example_key}_hk{p.get('hk', 0):.1e}"
 
-            # Call refactored complete_modflow function with individual objects
+            # 2. Appel du workflow complet (logique interne déplacée dans modeling_workflow_complete)
             result = complete_modflow(
                 geographic=geographic_object,
                 flow=flow_object,
@@ -2036,24 +1890,30 @@ def modeling(results):
             results['model_modflow'] = result['model_modflow']
             results['success_modflow'] = result['success']
 
-            print("MODFLOW model created\n")
+            print(f"MODFLOW model {model_name} created successfully.")
             return results
 
-        # For multiple models (example 03 uses "multiple" type OR example 04 loops over Sy)
+        # ====================================================================
+        # CAS 2 : BOUCLES (ex: exemple 03 sur K ou exemple 04 sur Sy)
+        # ====================================================================
         else:
-            base_name = p["iD_set_simulations"]
+            base_name = p.get("iD_set_simulations", "simu")
             list_model_name = []
             list_success_modflow = []
             list_model_modflow = []
 
-            # Check if this is ex03 (loops over HK) or ex04 (loops over Sy/porosity)
+            # --- BOUCLE A : SUR LA CONDUCTIVITÉ HYDRAULIQUE (ex03) ---
             if example_key == "ex03" and p.get("list_hyd_cond"):
-                # EX03: Loop over hydraulic conductivity
-                hk_values = [h * 24 * 3600 for h in p["list_hyd_cond"]]
-                model_names = [f"{base_name}_{round(h, 3)}" for h in hk_values]
+                hk_list = p["list_hyd_cond"]
+                print(f"Looping over {len(hk_list)} HK values...")
 
-                for i, (hk_value, model_name) in enumerate(zip(hk_values, model_names)):
-                    print(f" Model {i+1}/{len(hk_values)}: {model_name}")
+                for hk_ms in hk_list:
+                    hk_md = hk_ms * 24 * 3600 # m/s to m/day
+                    model_name = f"{base_name}_{hk_ms:.1e}"
+                    print(f" -> Current Model: {model_name}")
+
+                    # On met à jour l'objet hydraulique avant de lancer
+                    results['hydraulic'].update_hk(hk_md)
 
                     result = complete_modflow(
                         geographic=geographic_object,
@@ -2068,22 +1928,23 @@ def modeling(results):
                         config=config,
                         cfg=cfg,
                     )
+
                     list_model_name.append(result['model_name'])
                     list_success_modflow.append(result['success'])
                     list_model_modflow.append(result['model_modflow'])
 
+            # --- BOUCLE B : SUR LA POROSITÉ / SY (ex04) ---
             elif example_key == "ex04" and p.get("list_porosity"):
-                # EX04: Loop over porosity (Sy)
-                sy_values = [s / 100 for s in p["list_porosity"]]  # Convert percent to fraction
-                hk_fixed = p["hk"]  # Fixed HK value for ex04
+                sy_list = p["list_porosity"]
+                print(f"Looping over {len(sy_list)} Sy values...")
 
-                for i, sy_value in enumerate(sy_values):
-                    model_name = f"{base_name}_{i}_{round(sy_value, 3)}"
-                    print(f"Model {i+1}/{len(sy_values)}: {model_name}")
+                for i, sy_percent in enumerate(sy_list):
+                    sy_val = sy_percent / 100.0
+                    model_name = f"{base_name}_{i}_{sy_val:.3f}"
+                    print(f" -> Current Model: {model_name}")
 
-                    # Update Sy for this iteration (like example_04.py line 275)
-                    hydraulic_object.update_sy(sy_value)
-                    settings_object.update_model_name(model_name)
+                    # Mise à jour Sy pour cette itération
+                    results['hydraulic'].update_sy(sy_val)
 
                     result = complete_modflow(
                         geographic=geographic_object,
@@ -2097,105 +1958,58 @@ def modeling(results):
                         bin_path=CONFIG.get("bin_path", workspace_object.bin_path),
                         config=config
                     )
+
                     list_model_name.append(result['model_name'])
                     list_success_modflow.append(result['success'])
                     list_model_modflow.append(result['model_modflow'])
 
+            # Stockage des listes de résultats pour les plots futurs
             results['list_model_name'] = list_model_name
             results['list_success_modflow'] = list_success_modflow
             results['list_model_modflow'] = list_model_modflow
-            results['iD_set_simulations'] = p.get("iD_set_simulations", "")
 
+            # On définit par défaut le dernier modèle comme modèle principal
             if list_model_name:
-                results['model_name'] = list_model_name[0]
-                results['model_modflow'] = list_model_modflow[0]
-                results['success_modflow'] = list_success_modflow[0]
+                results['model_name'] = list_model_name[-1]
+                results['model_modflow'] = list_model_modflow[-1]
+                results['success_modflow'] = any(list_success_modflow)
 
-            print("Modeling completed\n")
+            print(f"Multiple modeling completed ({len(list_model_name)} models).")
             return results
 
     except Exception as e:
-        print(f"Error: {e}\n")
+        print(f"Error in modeling workflow: {e}")
         import traceback
         traceback.print_exc()
         return results
-
 
 # ============================================================================
 # SPECIALIZED MODELING METHODS FOR EXAMPLE 12
 # ============================================================================
 
 def modpath_ex12(results):
-    """SPECIALIZED MODPATH for Example 12 - calls generic modpath() with MODPATH_CONFIG"""
     print("\n Executing MODPATH for Example 12...")
-
-    # Initialize success_modpath to False
-    results['success_modpath'] = False
-    results['model_modpath'] = None
-
     try:
-        # Get individual objects
-        geographic_object = results['geographic']
-        settings_object = results['settings']
-        model_modflow = results['model_modflow']
-        workspace_object = results['workspace']
-        model_name = results['model_name']
+        p = PARAMS[results['example_key']]
+        solver_engine = cfg.solver.solver_engine
 
-        # CRITICAL: Ensure seepage_areas raster exists before MODPATH
-        # (it should have been created by MODFLOW postprocessing, but verify)
-        simulations_folder = results['simulations_folder']
-        raster_folder = os.path.join(simulations_folder, model_name, '_postprocess/_rasters')
-        seepage_tif = os.path.join(raster_folder, 'seepage_areas_t(0).tif')
-
-        if not os.path.exists(seepage_tif):
-            print(" WARNING: seepage_areas_t(0).tif missing - regenerating from MODFLOW...")
-            try:
-                # Call MODFLOW postprocessing specifically to generate seepage_areas rasters
-                if model_modflow:
-                    print("Re-running MODFLOW.post_processing()...")
-                    postproc_config = MODELING_CONFIG['ex12'].get('postprocessing_modflow', {})
-                    model_modflow.post_processing(model_modflow, **postproc_config)
-
-                    if os.path.exists(seepage_tif):
-                        print(f"seepage_areas_t(0).tif regenerated successfully")
-                    else:
-                        print(f"seepage_areas_t(0).tif still not found after postprocessing")
-            except Exception as e:
-                print(f"Could not regenerate seepage_areas: {e}")
-
-        # Use MODPATH_CONFIG with all parameter subsections
-        config = MODPATH_CONFIG.get('ex12', {})
-
-        # Call refactored complete_modpath with config
-        # for_calib=False because we're in simulations mode (not calibration)
-        modpath_result = complete_modpath(
-            geographic=geographic_object,
-            settings=settings_object,
-            model_modflow=model_modflow,
-            workspace=workspace_object,
-            model_name=model_name,
-            for_calib=False,
-            config=config
-        )
-
-        results['model_modpath'] = modpath_result.get('model_modpath')
-        results['success_modpath'] = modpath_result.get('success', False)
-
-        if results['success_modpath']:
-            print("MODPATH completed\n")
-        else:
-            print("MODPATH returned success=False\n")
+        # APPEL DE LA FONCTION DU WORKFLOW
+        # On passe l'objet workspace, domain, transport et la version ('TRANS1')
+        res = complete_modpath(
+        results['domain'],
+        results['transport'],
+        solver_engine,
+        results['workspace'],
+        p['vers']
+    )
+        # On range le résultat dans le dictionnaire global
+        results['model_modpath'] = res.get('model_modpath')
+        results['success_modpath'] = res.get('success', False)
 
         return results
     except Exception as e:
-        print(f" MODPATH error: {e}")
-        import traceback
-        traceback.print_exc()
-        results['success_modpath'] = False
-        results['model_modpath'] = None
+        print(f"MODPATH error: {e}")
         return results
-
-
 def mt3dms_ex12(results):
     """SPECIALIZED MT3DMS for Example 12 - uses transport_object configuration"""
     print("\n  Ã¢â‚¬Â¢ Executing MT3DMS for Example 12...")
@@ -2252,24 +2066,18 @@ def mt3dms_ex12(results):
             config=config
         )
 
-        results['model_mt3dms'] = mt3dms_result['model_mt3dms']
-        results['success_mt3dms'] = mt3dms_result['success']
-        results['scenario'] = scenario
+        results['model_mt3dms'] = res.get('model_mt3dms')
+        results['success_mt3dms'] = res.get('success', False)
 
-        if results['success_mt3dms']:
-            print("MT3DMS completed successfully\n")
-        else:
-            print("MT3DMS failed\n")
+        # Si la fonction a aussi généré les timeseries
+        if 'timeseries' in res:
+            results['timeseries_results'] = res['timeseries']
 
         return results
     except Exception as e:
-        print(f"MT3DMS error: {e}\n")
-        import traceback
-        traceback.print_exc()
-        results['success_mt3dms'] = False
+        print(f"MT3DMS error: {e}")
+        import traceback; traceback.print_exc()
         return results
-
-
 # ============================================================================
 # STEP 6: POSTPROCESSING - TIMESERIES (MODFLOW ONLY)
 # ============================================================================
@@ -2291,6 +2099,7 @@ def ex12_postprocessing_timeseries_modflow(results):
         ts_result = complete_timeseries(
             geographic=geographic_object,
             model_modflow=model_modflow,
+            runoff=results.get('runoff'),
             model_modpath=None,
             model_mt3dms=None,
             scenario=None,
@@ -2336,6 +2145,7 @@ def ex12_postprocessing_timeseries_complete(results):
         ts_result = complete_timeseries(
             geographic=geographic_object,
             model_modflow=model_modflow,
+            runoff=results.get('runoff'),
             model_modpath=model_modpath,
             model_mt3dms=model_mt3dms,
             scenario=scenario,
@@ -2483,7 +2293,7 @@ def ex12_matching_streams(results):
 # WORKFLOW VALIDATION
 # ============================================================================
 
-WORKFLOW_DEFINITION = WORKFLOW_DEFINITION = {
+WORKFLOW_DEFINITION  = {
     "ex12": [
         {
             "step": 1,
@@ -2527,6 +2337,13 @@ WORKFLOW_DEFINITION = WORKFLOW_DEFINITION = {
             "requires": [ "settings", "hydraulic_params"],
             "provides": ["model_name", "success_modflow", "model_modflow"]
         },
+        {
+            "step": 7.5,
+            "section": "timeseries_modflow",
+            "function": "ex12_postprocessing_timeseries_modflow()",
+            "requires": ["model_modflow", "geographic"],
+            "provides": ["timeseries_results_modflow", "success_timeseries_modflow"]
+        },
          {
             "step": 8,
             "section": "matching_streams",
@@ -2562,6 +2379,13 @@ WORKFLOW_DEFINITION = WORKFLOW_DEFINITION = {
             "function": "mt3dms_ex12()",
             "requires": ["model_modflow", "success_modflow"],
             "provides": ["model_mt3dms", "success_mt3dms"]
+        },
+        {
+            "step": 13.5,
+            "section": "timeseries_complete",
+            "function": "ex12_postprocessing_timeseries_complete()",
+            "requires": ["model_modflow", "model_modpath", "model_mt3dms", "geographic"],
+            "provides": ["timeseries_results_complete", "success_timeseries_complete"]
         },
         {
             "step": 14,
@@ -2988,14 +2812,28 @@ except ImportError:
         def plot_map_ex03(*args, **kwargs): pass
         def plot_graph_ex03(*args, **kwargs): pass
 
+# Import plot_ex12 with fallback
+try:
+    import plot_ex12
+except ImportError:
+    try:
+        import importlib.util as _ilu
+        _spec12 = _ilu.spec_from_file_location("plot_ex12", Path(__file__).parent / "plot_ex12.py")
+        plot_ex12 = _ilu.module_from_spec(_spec12)
+        _spec12.loader.exec_module(plot_ex12)
+    except Exception:
+        plot_ex12 = None
+
 FUNCTION_MAPPING = {
     "watershed": watershed,
     "data": data,
     "recharge": recharge,
     "parametrization": parametrization,
     "modeling": modeling,
+    "timeseries_modflow": ex12_postprocessing_timeseries_modflow,
     "matching_streams": ex12_matching_streams,
     "modpath": modpath_ex12,
+    "timeseries_complete": ex12_postprocessing_timeseries_complete,
     "mt3dms": mt3dms_ex12,
     "plot_cross_section": plot_cross_section_ex03,
     "plot_map": plot_map_ex03,
@@ -3051,8 +2889,6 @@ def main():
 
         # --- BLOC PLOT CORRIGÃƒâ€° ---
         if section == "plot":
-            import plot_ex12
-
             if "recharge" in function_name:
                 # Le plot de recharge s'exÃƒÂ©cute car il ne dÃƒÂ©pend pas de MODFLOW
                 plot_ex12.plot_recharge_summary(
@@ -3064,29 +2900,49 @@ def main():
             elif "cross_section" in function_name:
                 # Correction typo: success_modflow
                 if results.get("success_modflow"):
-                    plot_ex12.plot_cross_section(results.get("stable_folder"), results.get("simulations_folder"), results.get("model_name"), results.get("simulation_folder"))
+                    plot_ex12.plot_cross_section(results.get("stable_folder"), results.get("simulations_folder"), results.get("model_name"), results.get("geographic"))
+                    _time_idx = results.get('R_mm_day_filt').index if results.get('R_mm_day_filt') is not None else None
                     plot_ex12.plot_streamflow(
                         results.get('geographic'), results.get('data_path'),
-                        results.get('simulations_folder'), vers, factor=factor
+                        results.get('simulations_folder'), vers, factor=factor,
+                        time_index=_time_idx
                     )
                     plot_ex12.plot_piezometry(
                         results.get('geographic'), results.get('simulations_folder'),
-                        vers, factor=factor
+                        vers, factor=factor, time_index=_time_idx
                     )
 
             elif "pathlines" in function_name:
                 # Correction typo: success_modpath
                 if results.get("success_modpath"):
-                    plot_ex12.plot_pathlines(
-                        results.get('simulations_folder'), results.get('model_name'),
-                        results.get('stable_folder'), results.get('geographic')
-                    )
-                    plot_ex12.plot_2d(
-                        results.get("workspace"), results.get("geographic"),
-                        results.get("hydrography"), results.get("model_name")
-                    )
+                    try:
+                        plot_ex12.plot_pathlines(
+                            results.get('simulations_folder'), results.get('model_name'),
+                            results.get('stable_folder'), results.get('geographic')
+                        )
+                    except Exception as e:
+                        print(f"  Warning plot_pathlines: {e}")
+                        import traceback; traceback.print_exc()
+                    try:
+                        plot_ex12.plot_2d(
+                            results.get("workspace"), results.get("geographic"),
+                            results.get("hydrography"), results.get("model_name")
+                        )
+                    except Exception as e:
+                        print(f"  Warning plot_2d: {e}")
+                        import traceback; traceback.print_exc()
+                    try:
+                        plot_ex12.plot_3d(
+                            results.get("workspace"), results.get("geographic"),
+                            results.get("hydrography"), results.get("model_name")
+                        )
+                    except Exception as e:
+                        print(f"  Warning plot_3d: {e}")
+                        import traceback; traceback.print_exc()
 
             elif "concentration" in function_name:
+                if not results.get('success_mt3dms'):
+                    print(f"  Skipping concentration plots: success_mt3dms={results.get('success_mt3dms')}, model_mt3dms={results.get('model_mt3dms')}")
                 if results.get('success_mt3dms'):
                     # PrÃƒÂ©paration des donnÃƒÂ©es MT3DMS avant le plot
                     results = ex12_prepare_concentration_data(results)
