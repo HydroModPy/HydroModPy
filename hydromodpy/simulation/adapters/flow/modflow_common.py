@@ -174,6 +174,7 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
             if str(name).strip()
         }
         has_drainage = "drainage" in active_bc
+        has_east_side_dirichlet = "east_side" in active_bc
         postprocess_cfg = getattr(getattr(ctx.state.cfg, "postprocess", None), "flow", None)
         intermittency_cfg = getattr(postprocess_cfg, "intermittency", None)
 
@@ -185,6 +186,7 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
                 watertable_depth=True,
                 seepage_areas=True,
                 outflow_drain=has_drainage,
+                outlet_discharge_east_side_m3_s=has_east_side_dirichlet,
                 accumulation_flux=has_drainage,
                 intermittency_yearly=bool(
                     getattr(intermittency_cfg, "yearly", False)

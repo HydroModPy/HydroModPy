@@ -134,6 +134,57 @@ def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSp
         payload = load_mesh_case_metadata(case_json_path)
         slug = str(payload["slug"])
         title = str(payload["title"])
+        scale = str(payload["scale"])
+        scale_label = str(payload.get("scale_label", scale))
+        outlet_id = str(payload["outlet_id"])
+        variant = str(payload["variant"])
+        variant_label = str(payload.get("variant_label", variant))
+        preferred_doc_figure_path = str(payload.get("preferred_doc_figure_path", "")).strip()
+        preferred_doc_regional_figure_path = str(
+            payload.get("preferred_doc_regional_figure_path", "")
+        ).strip()
+        image_assets = []
+        if preferred_doc_figure_path:
+            image_assets.append(
+                GalleryImageAsset(
+                    filename=f"{slug}_overview.png",
+                    caption=str(
+                        payload.get(
+                            "image_caption",
+                            "Original mesh figure copied from the imported meshing run.",
+                        )
+                    ),
+                    alt_text=str(payload.get("image_alt_text", f"{title} overview")),
+                    source_path=preferred_doc_figure_path,
+                )
+            )
+            if preferred_doc_regional_figure_path:
+                image_assets.append(
+                    GalleryImageAsset(
+                        filename=f"{slug}_regional.png",
+                        caption=str(
+                            payload.get(
+                                "regional_image_caption",
+                                "Regional framing figure copied from the imported meshing run.",
+                            )
+                        ),
+                        alt_text=str(payload.get("regional_image_alt_text", f"{title} regional context")),
+                        source_path=preferred_doc_regional_figure_path,
+                    )
+                )
+        else:
+            image_assets.append(
+                GalleryImageAsset(
+                    filename=f"{slug}_overview.png",
+                    caption=str(
+                        payload.get(
+                            "image_caption",
+                            f"Mesh overview rendered from the versioned bundle shipped with `{slug}`.",
+                        )
+                    ),
+                    alt_text=str(payload.get("image_alt_text", f"{title} overview")),
+                )
+            )
         discovered_specs.append(
             GalleryCaseSpec(
                 slug=slug,
@@ -145,29 +196,21 @@ def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSp
                 reproduction_command=str(payload["reproduction_command"]),
                 source_paths=tuple(str(item) for item in payload["source_paths"]),
                 generator="mesh_viewer",
-                image_assets=(
-                    GalleryImageAsset(
-                        filename=f"{slug}_overview.png",
-                        caption=str(
-                            payload.get(
-                                "image_caption",
-                                f"Mesh overview rendered from the versioned bundle shipped with `{slug}`.",
-                            )
-                        ),
-                        alt_text=str(payload.get("image_alt_text", f"{title} overview")),
-                    ),
-                ),
+                image_assets=tuple(image_assets),
                 metric_specs=_MESH_GALLERY_METRIC_SPECS,
                 case_setup=tuple(str(item) for item in payload.get("case_setup", ())),
                 reference_highlights=tuple(str(item) for item in payload.get("reference_highlights", ())),
                 equations_rst=tuple(str(item) for item in payload.get("equations_rst", ())),
                 metadata={
-                    "scale": str(payload["scale"]),
-                    "scale_label": str(payload.get("scale_label", payload["scale"])),
-                    "variant": str(payload["variant"]),
-                    "variant_label": str(payload.get("variant_label", payload["variant"])),
-                    "outlet_id": str(payload["outlet_id"]),
+                    "scale": scale,
+                    "scale_label": scale_label,
+                    "variant": variant,
+                    "variant_label": variant_label,
+                    "outlet_id": outlet_id,
+                    "comparison_group": f"{scale}::outlet::{outlet_id}",
+                    "comparison_group_title": f"{scale_label}, outlet {outlet_id}",
                     "config_path": str(payload["config_path"]),
+                    "constraints_mode": str(payload.get("constraints_mode", "")),
                 },
             )
         )

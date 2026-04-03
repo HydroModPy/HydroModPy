@@ -71,6 +71,7 @@ from .postprocess import (
     NODATA,
     compute_groundwater_flux,
     compute_groundwater_storage,
+    compute_outlet_discharge_east_side_m3_s,
     compute_outflow_drain,
     compute_seepage_areas,
     compute_watertable_depth,
@@ -750,6 +751,7 @@ class Modflow(Solver):
         self.dict_watertable_depth = {}
         self.dict_seepage_areas = {}
         self.dict_outflow_drain = {}
+        self.dict_outlet_discharge_east_side_m3_s = {}
         self.dict_groundwater_flux = {}
         self.dict_specific_discharge = {}
         self.dict_accumulation_flux = {}
@@ -835,6 +837,29 @@ class Modflow(Solver):
                     )
                 self.dict_outflow_drain[item] = self.out_drn
 
+            if options.outlet_discharge_east_side_m3_s:
+                try:
+                    constant_head = self.cbb.get_data(
+                        text="CONSTANT HEAD",
+                        kstpkper=self.kstpkper,
+                        totim=time,
+                    )
+                except Exception as exc:
+                    message = str(exc).lower()
+                    if "text string is not in the budget file" in message:
+                        constant_head = None
+                    else:
+                        raise
+                outlet_discharge_m3_s = compute_outlet_discharge_east_side_m3_s(
+                    constant_head,
+                    nrow=self.dis.nrow,
+                    ncol=self.dis.ncol,
+                )
+                self.dict_outlet_discharge_east_side_m3_s[item] = np.asarray(
+                    [outlet_discharge_m3_s],
+                    dtype=float,
+                )
+
             if options.groundwater_flux:
                 self.flux_top = compute_groundwater_flux(
                     self.cbb, self.kstpkper, time, self.nlay, inactive_mask
@@ -890,6 +915,11 @@ class Modflow(Solver):
             (options.watertable_depth, self.dict_watertable_depth, "watertable_depth"),
             (options.seepage_areas, self.dict_seepage_areas, "seepage_areas"),
             (options.outflow_drain, self.dict_outflow_drain, "outflow_drain"),
+            (
+                options.outlet_discharge_east_side_m3_s,
+                self.dict_outlet_discharge_east_side_m3_s,
+                "outlet_discharge_east_side_m3_s",
+            ),
             (options.groundwater_flux, self.dict_groundwater_flux, "groundwater_flux"),
             (options.groundwater_storage, self.dict_groundwater_storage, "groundwater_storage"),
             (options.accumulation_flux, self.dict_accumulation_flux, "accumulation_flux"),

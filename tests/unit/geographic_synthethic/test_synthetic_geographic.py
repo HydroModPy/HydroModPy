@@ -86,6 +86,12 @@ def test_domain_context_is_uniform_and_uses_synthetic_surface(tmp_path: Path) ->
     assert context.catchment_area_km2 == 0.01
     np.testing.assert_allclose(context.surface_topo.as_array(), np.full((2, 2), 20.0))
 
+    features = geographic.get_geographic_derived_features()
+    assert features.catch_def == "synthetic"
+    assert features.zone_kind == "uniform"
+    assert features.rivers.river_mesh_trace is None
+    np.testing.assert_allclose(features.surface_topo.as_array(), np.full((2, 2), 20.0))
+
 
 def test_radial_island_surface_is_emerged_at_center_and_submerged_offshore(tmp_path: Path) -> None:
     config = SyntheticGeographicConfig(

@@ -160,6 +160,59 @@ def compute_outflow_drain(
     return out
 
 
+def compute_outlet_discharge_east_side_m3_s(
+    constant_head_data: list | None,
+    *,
+    nrow: int,
+    ncol: int,
+) -> float:
+    """
+    Sum east-side constant-head outflow from one MODFLOW-NWT budget record.
+
+    Parameters
+    ----------
+    constant_head_data : list | None
+        Output of ``CellBudgetFile.get_data(text="CONSTANT HEAD", ...)``.
+        When missing or empty, the returned discharge is ``0.0``.
+    nrow, ncol : int
+        Structured-grid dimensions used to map MODFLOW node numbers to the
+        east boundary cells.
+
+    Returns
+    -------
+    float
+        Total positive outflow [m3/s] leaving the east-side constant-head
+        boundary for the requested stress period.
+    """
+    if not constant_head_data:
+        return 0.0
+
+    record = constant_head_data[0]
+    if record is None or len(record) == 0:
+        return 0.0
+
+    ncpl = int(nrow) * int(ncol)
+    discharge_m3_s = 0.0
+
+    if getattr(record, "dtype", None) is not None and record.dtype.names is not None:
+        node_field = "node" if "node" in record.dtype.names else record.dtype.names[0]
+        q_field = "q" if "q" in record.dtype.names else record.dtype.names[-1]
+        iterator = ((int(item[node_field]), float(item[q_field])) for item in record)
+    else:
+        iterator = ((int(item[0]), float(item[-1])) for item in record)
+
+    for node, q in iterator:
+        if node <= 0:
+            continue
+        cell_index = (int(node) - 1) % ncpl
+        col = cell_index % int(ncol)
+        if col != int(ncol) - 1:
+            continue
+        discharge_m3_s += max(-float(q), 0.0)
+
+    return float(discharge_m3_s)
+
+
 # ---------------------------------------------------------------------------
 # Groundwater flux
 # ---------------------------------------------------------------------------

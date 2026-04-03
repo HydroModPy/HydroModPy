@@ -1,0 +1,14 @@
+[[simulation.process]]
+solvers = ["modflownwt"]
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 40
+ny = 3
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+[modflownwt.tgrid]
+firstpersteady = true

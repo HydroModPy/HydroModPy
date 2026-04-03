@@ -11,8 +11,10 @@ from rasterio.transform import from_origin
 
 from hydromodpy.spatial.geographic import GeographicConfig
 from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
+    build_geographic_derived_features,
     build_domain_geographic_context,
 )
+from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.core.workspace.config import WorkspaceConfig
 
@@ -85,6 +87,37 @@ def test_build_domain_geographic_context_from_dem(tmp_path: Path):
     assert float(watershed_gdf.geometry.area.sum() / 1_000_000.0) == pytest.approx(
         context.catchment_area_km2
     )
+
+
+def test_build_geographic_derived_features_from_dem(tmp_path: Path):
+    dem_path = tmp_path / "domain_dem.tif"
+    _write_dem(dem_path)
+
+    workspace = Workspace(
+        WorkspaceConfig(
+            project_root=tmp_path / "results",
+        )
+    )
+    config = GeographicConfig(
+        catch_def="dem",
+        dem_init_path=dem_path,
+        crs_project="EPSG:2154",
+    )
+
+    features = build_geographic_derived_features(
+        config=config,
+        workspace=workspace,
+    )
+
+    assert features.catch_def == "dem"
+    assert features.zone_kind == "uniform"
+    assert features.rivers.river_mesh_trace is None
+    assert Path(features.watershed_box_buff_dem).exists()
+    assert Path(features.boundaries.watershed_shp).exists()
+    assert Path(features.boundaries.box_buff_shp).exists()
+    roundtrip = features.to_domain_geographic_context()
+    assert roundtrip.zone_kind == "uniform"
+    assert roundtrip.river_mesh_trace is None
 
 
 def test_build_domain_geographic_context_from_synthetic_mode(tmp_path: Path):
@@ -216,7 +249,7 @@ def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_wa
     )
     monkeypatch.setattr(
         "hydromodpy.spatial.geographic.core.domain_geographic_pipeline.build_river_network_products",
-        lambda **kwargs: SimpleNamespace(river_mesh_trace=None),
+        lambda **kwargs: RiverNetworkProducts(enabled=False),
     )
     monkeypatch.setattr(
         "hydromodpy.spatial.geographic.core.domain_geographic_pipeline.build_surface_topo_from_dem",

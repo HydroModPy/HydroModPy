@@ -86,6 +86,16 @@ Guides
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: scientific/index
+      :link-type: doc
+
+      **Scientific documentation**
+      ^^^
+      Method notes, solver equations, and modelling assumptions separated from
+      the software architecture.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: contribute
       :link-type: doc
 
@@ -154,6 +164,7 @@ For any question or collaboration request, contact:
    install
    examples
    capability_gallery/index
+   scientific/index
    architecture/index
    api-reference
    contribute

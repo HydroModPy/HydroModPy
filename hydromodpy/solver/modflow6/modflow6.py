@@ -1079,6 +1079,61 @@ class Modflow6(Solver):
 				return None
 			raise
 
+	@staticmethod
+	def _open_budget_file(path: str):
+		"""Open one MF6 cell-budget file with a small precision fallback chain."""
+		for kwargs in ({}, {"precision": "double"}, {"precision": "single"}):
+			try:
+				return bf.CellBudgetFile(path, **kwargs)
+			except TypeError:
+				if kwargs:
+					continue
+				raise
+			except Exception:
+				if kwargs == {"precision": "single"}:
+					raise
+				continue
+
+	def _east_side_cell_ids(self) -> set[int]:
+		"""Return structured east-boundary cell ids for one DISV topological layer."""
+		if not getattr(self.solver_mesh, "is_structured", False):
+			return set()
+		nrow = int(self.nrow)
+		ncol = int(self.ncol)
+		return {row * ncol + (ncol - 1) for row in range(nrow)}
+
+	def _compute_chd_outlet_discharge_east_side_m3_s(
+		self,
+		chd_records,
+		*,
+		ncpl: int,
+		east_side_cell_ids: set[int],
+	) -> float:
+		"""Return total positive east-side CHD outflow [m3/s] for one stress period."""
+		if not chd_records or not east_side_cell_ids:
+			return 0.0
+
+		record = chd_records[0]
+		if record is None or len(record) == 0:
+			return 0.0
+
+		if getattr(record, "dtype", None) is not None and record.dtype.names is not None:
+			node_field = "node" if "node" in record.dtype.names else record.dtype.names[0]
+			q_field = "q" if "q" in record.dtype.names else record.dtype.names[-1]
+			iterator = ((int(item[node_field]), float(item[q_field])) for item in record)
+		else:
+			iterator = ((int(item[0]), float(item[-1])) for item in record)
+
+		discharge_m3_s = 0.0
+		for node, q in iterator:
+			if node <= 0:
+				continue
+			cell_id = (int(node) - 1) % int(ncpl)
+			if cell_id not in east_side_cell_ids:
+				continue
+			discharge_m3_s += max(-float(q), 0.0)
+		return float(discharge_m3_s)
+
 	def post_processing(self, options: ModflowPostprocessOptions | None = None):
 		if options is None:
 			options = ModflowPostprocessOptions()
@@ -1093,7 +1148,7 @@ class Modflow6(Solver):
 		head_path = os.path.join(self.full_path, f"{self.model_name}.hds")
 		cbc_path = os.path.join(self.full_path, f"{self.model_name}.cbc")
 		head_fpu = bf.HeadFile(head_path)
-		cbb = bf.CellBudgetFile(cbc_path)
+		cbb = self._open_budget_file(cbc_path)
 
 		times = head_fpu.get_times()
 		self.times = times
@@ -1101,11 +1156,13 @@ class Modflow6(Solver):
 		dict_watertable_depth = {}
 		dict_seepage_areas = {}
 		dict_outflow_drain = {}
+		dict_outlet_discharge_east_side_m3_s = {}
 		dict_accumulation_flux = {}
 
 		ncpl = int(self.ncpl)
 		dem_mask_flat = np.asarray(self.dem_mask, dtype=bool).reshape(-1)
 		dem_flat = np.asarray(self.dem, dtype=float).reshape(-1)
+		east_side_cell_ids = self._east_side_cell_ids()
 
 		for item, time in enumerate(times):
 			head = head_fpu.get_data(totim=time)
@@ -1169,6 +1226,22 @@ class Modflow6(Solver):
 				if options.export_all_tif or item == 0:
 					toolbox.export_tif(self.dem_watershed_path, self._to_export_array(seepage), os.path.join(self.tifs_file, f"seepage_areas_t({item}).tif"), -9999)
 
+			if options.outlet_discharge_east_side_m3_s:
+				chd = self._get_budget_records_or_none(
+					cbb,
+					kstpkper=(0, item),
+					text="CHD",
+				)
+				outlet_discharge_m3_s = self._compute_chd_outlet_discharge_east_side_m3_s(
+					chd,
+					ncpl=ncpl,
+					east_side_cell_ids=east_side_cell_ids,
+				)
+				dict_outlet_discharge_east_side_m3_s[item] = np.asarray(
+					[outlet_discharge_m3_s],
+					dtype=float,
+				)
+
 			if options.accumulation_flux and self.solver_mesh.is_structured:
 				routing_ctx = self._ensure_solver_routing_context()
 				accumulated_flow = masstransfer.Masstransfer(
@@ -1192,6 +1265,11 @@ class Modflow6(Solver):
 			np.save(os.path.join(self.save_file, "seepage_areas"), dict_seepage_areas)
 		if options.outflow_drain:
 			np.save(os.path.join(self.save_file, "outflow_drain"), dict_outflow_drain)
+		if options.outlet_discharge_east_side_m3_s:
+			np.save(
+				os.path.join(self.save_file, "outlet_discharge_east_side_m3_s"),
+				dict_outlet_discharge_east_side_m3_s,
+			)
 		if options.accumulation_flux:
 			np.save(os.path.join(self.save_file, "accumulation_flux"), dict_accumulation_flux)
 

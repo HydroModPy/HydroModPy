@@ -18,8 +18,13 @@ from hydromodpy.core.backends import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.dem_metadata import read_legacy_dem_metadata
 from hydromodpy.spatial.geographic.pipeline import build_legacy_geographic_context
+from hydromodpy.spatial.geographic.core.derived_features import (
+    GeographicBoundaryFeatures,
+    GeographicDerivedFeatures,
+)
 from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import DomainGeographicContext
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
+from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
 from hydromodpy.core.tools import get_logger
 
@@ -137,6 +142,50 @@ class Geographic:
         """
         return build_surface_topo_from_dem(self.watershed_box_buff_dem)
 
+    def get_geographic_derived_features(self) -> GeographicDerivedFeatures:
+        """Return the canonical bundle of derived geographic artifacts."""
+        box_buff_shp = getattr(self, "box_buff_shp", None)
+        if box_buff_shp is None:
+            box_buff_shp = getattr(self, "box_buff", None)
+        if box_buff_shp is None:
+            raise ValueError("Missing box-buffer shapefile path on Geographic runtime object.")
+
+        river_products = getattr(self, "_river_network_products", None)
+        if not isinstance(river_products, RiverNetworkProducts):
+            river_products = RiverNetworkProducts(
+                enabled=bool(getattr(self, "river_mesh_trace", None) is not None),
+                network_shp=(
+                    str(getattr(self, "river_network_shp", ""))
+                    or None
+                ),
+                summary_json=(
+                    str(getattr(self, "river_network_summary_json", ""))
+                    or None
+                ),
+                river_mesh_trace=getattr(self, "river_mesh_trace", None),
+            )
+
+        return GeographicDerivedFeatures(
+            surface_topo=self.get_domain_surface_topo(),
+            boundaries=GeographicBoundaryFeatures(
+                watershed_shp=str(self.watershed_shp),
+                watershed_box_shp=str(getattr(self, "watershed_box_shp", "")) or None,
+                box_buff_shp=str(box_buff_shp),
+            ),
+            rivers=river_products,
+            catchment_area_km2=float(self.catch_area),
+            catch_def=str(self.catch_def),
+            x_outlet=float(self.x_outlet) if self.x_outlet is not None else None,
+            y_outlet=float(self.y_outlet) if self.y_outlet is not None else None,
+            zone_kind=(
+                "uniform"
+                if str(self.catch_def).strip().lower() == "dem"
+                else "catchment"
+            ),
+            watershed_box_buff_dem=str(self.watershed_box_buff_dem),
+            regional_dem_path=str(getattr(self, "dem_init_path", "")) or None,
+        )
+
     def get_domain_geographic_context(self) -> DomainGeographicContext:
         """
         Return the narrow geographic payload consumed by `Domain`.
@@ -145,29 +194,7 @@ class Geographic:
         while allowing newer orchestration code to depend on an explicit,
         smaller contract.
         """
-        box_buff_shp = getattr(self, "box_buff_shp", None)
-        if box_buff_shp is None:
-            box_buff_shp = getattr(self, "box_buff", None)
-        if box_buff_shp is None:
-            raise ValueError("Missing box-buffer shapefile path on Geographic runtime object.")
-
-        return DomainGeographicContext(
-            surface_topo=self.get_domain_surface_topo(),
-            watershed_shp=str(self.watershed_shp),
-            catchment_area_km2=float(self.catch_area),
-            catch_def=str(self.catch_def),
-            x_outlet=float(self.x_outlet) if self.x_outlet is not None else None,
-            y_outlet=float(self.y_outlet) if self.y_outlet is not None else None,
-            watershed_box_buff_dem=str(self.watershed_box_buff_dem),
-            watershed_box_shp=str(getattr(self, "watershed_box_shp", "")) or None,
-            box_buff_shp=str(box_buff_shp),
-            zone_kind=(
-                "uniform"
-                if str(self.catch_def).strip().lower() == "dem"
-                else "catchment"
-            ),
-            regional_dem_path=str(getattr(self, "dem_init_path", "")) or None,
-        )
+        return self.get_geographic_derived_features().to_domain_geographic_context()
 
     def processing(self):
         """Build and hydrate the full legacy geographic runtime payload."""

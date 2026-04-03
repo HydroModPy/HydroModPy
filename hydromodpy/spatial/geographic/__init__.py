@@ -79,9 +79,29 @@ _LAZY_V2_EXPORTS: dict[str, tuple[str, str]] = {
         "hydromodpy.spatial.geographic.core.surface_from_dem",
         "build_surface_topo_from_dem",
     ),
+    "GeographicBoundaryFeatures": (
+        "hydromodpy.spatial.geographic.core.derived_features",
+        "GeographicBoundaryFeatures",
+    ),
+    "GeographicDerivedFeatures": (
+        "hydromodpy.spatial.geographic.core.derived_features",
+        "GeographicDerivedFeatures",
+    ),
+    "coerce_geographic_derived_features": (
+        "hydromodpy.spatial.geographic.core.derived_features",
+        "coerce_geographic_derived_features",
+    ),
+    "resolve_river_mesh_trace": (
+        "hydromodpy.spatial.geographic.core.derived_features",
+        "resolve_river_mesh_trace",
+    ),
     "DomainGeographicContext": (
         "hydromodpy.spatial.geographic.core.domain_geographic_pipeline",
         "DomainGeographicContext",
+    ),
+    "build_geographic_derived_features": (
+        "hydromodpy.spatial.geographic.core.domain_geographic_pipeline",
+        "build_geographic_derived_features",
     ),
     "build_domain_geographic_context": (
         "hydromodpy.spatial.geographic.core.domain_geographic_pipeline",

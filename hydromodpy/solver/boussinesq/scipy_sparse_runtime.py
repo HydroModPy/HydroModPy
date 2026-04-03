@@ -14,8 +14,11 @@ dense prototypes and a later fully analytic or PETSc-based backend.
 
 from __future__ import annotations
 
+import logging
 import warnings
 from collections.abc import Callable
+
+_log = logging.getLogger(__name__)
 
 import numpy as np
 
@@ -190,6 +193,10 @@ def _solve_nonlinear_system(
             termination_reason="initial residual already satisfies tol_residual_inf",
         )
 
+    _log.debug(
+        "sparse Newton start: residual_norm=%.4e tol=%.4e max_iter=%d",
+        residual_norm, float(tol_residual_inf), int(max_iterations),
+    )
     termination_reason = (
         "sparse Newton max_iterations reached before tol_residual_inf"
     )
@@ -236,6 +243,10 @@ def _solve_nonlinear_system(
                 break
             damping *= 0.5
 
+        _log.debug(
+            "  iter %3d: residual_norm=%.4e damping=%.2e",
+            iteration, residual_norm, damping,
+        )
         if not accepted:
             termination_reason = (
                 "sparse Newton line search failed to reduce the residual"

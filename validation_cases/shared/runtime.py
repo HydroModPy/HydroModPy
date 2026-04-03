@@ -95,6 +95,8 @@ _VALIDATION_PROFILES_BY_SOLVER_AND_CASE: dict[str, dict[str, str]] = {
     "modflownwt": {
         "boussinesq_fixed_head_piecewise_k_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
         "boussinesq_uniform_recharge_piecewise_k_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
+        "brutsaert_recession_linearized_deep_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
+        "brutsaert_recession_boussinesq_thin_1d": _NWT_VALIDATION_PROFILE_COMPLEX,
         "dupuit_divide_river_1d": _NWT_VALIDATION_PROFILE_COMPLEX,
         "dupuit_fixed_head_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
         "dupuit_uniform_recharge_1d": _NWT_VALIDATION_PROFILE_SIMPLE,

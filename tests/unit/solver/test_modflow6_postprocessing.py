@@ -52,6 +52,30 @@ class _DummyBudgetFileWithDrn:
         return [np.array([[1.0, -2.5], [4.0, 1.0]], dtype=float)]
 
 
+class _DummyBudgetFileWithDrnAndChd:
+    def __init__(self, path: str):
+        self.path = path
+
+    def get_data(self, *, kstpkper, text: str):
+        del kstpkper
+        if text == "DRN":
+            return [np.array([[1.0, -2.5], [4.0, 1.0]], dtype=float)]
+        if text == "CHD":
+            dtype = np.dtype([("node", "<i4"), ("node2", "<i4"), ("q", "<f8")])
+            return [
+                np.array(
+                    [
+                        (1, 0, 1.5),
+                        (2, 0, -2.5),
+                        (3, 0, 0.5),
+                        (4, 0, -3.5),
+                    ],
+                    dtype=dtype,
+                )
+            ]
+        raise ValueError("The specified text string is not in the budget file")
+
+
 class _DummyBudgetFileUnexpectedValueError:
     def __init__(self, path: str):
         self.path = path
@@ -146,6 +170,30 @@ def test_modflow6_post_processing_reads_drn_budget_when_present(
         seepage[0],
         np.array([[1.0, 0.0], [0.0, 0.0]], dtype=float),
     )
+
+
+def test_modflow6_post_processing_exports_east_side_chd_discharge(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    work_dir = _workspace_dir(tmp_path, "mf6_postprocess_with_chd")
+    model = _build_model(work_dir)
+    _patch_postprocess_runtime(monkeypatch, _DummyBudgetFileWithDrnAndChd)
+
+    model.post_processing(
+        ModflowPostprocessOptions(
+            accumulation_flux=False,
+            outlet_discharge_east_side_m3_s=True,
+        )
+    )
+
+    save_dir = Path(model.full_path) / "_postprocess"
+    discharge = np.load(
+        save_dir / "outlet_discharge_east_side_m3_s.npy",
+        allow_pickle=True,
+    ).item()
+
+    np.testing.assert_allclose(discharge[0], np.array([6.0], dtype=float))
 
 
 def test_modflow6_post_processing_reraises_unexpected_budget_value_errors(

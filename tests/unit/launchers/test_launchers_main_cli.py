@@ -63,6 +63,14 @@ class _DummyCliDomainGeographic:
         self.river_mesh_trace = river_mesh_trace
 
 
+class _DummyCliGeographicFeatures:
+    def __init__(self, river_mesh_trace=None) -> None:
+        self.rivers = SimpleNamespace(river_mesh_trace=river_mesh_trace)
+
+    def to_domain_geographic_context(self) -> _DummyCliDomainGeographic:
+        return _DummyCliDomainGeographic(river_mesh_trace=self.rivers.river_mesh_trace)
+
+
 def _minimal_geology_toml_lines() -> list[str]:
     return [
         "[mesh_catchment.geology.source]",
@@ -158,6 +166,11 @@ def _install_mesh_catchment_runtime_stubs(monkeypatch, tmp_path: Path):
 
     monkeypatch.setattr(launcher_module, "_load_standard_section", _fake_load_standard_section)
     monkeypatch.setattr(runtime_module.hmp, "Workspace", _DummyCliWorkspace)
+    monkeypatch.setattr(
+        runtime_module,
+        "build_geographic_derived_features",
+        lambda **_: _DummyCliGeographicFeatures(river_mesh_trace=None),
+    )
     monkeypatch.setattr(
         runtime_module,
         "build_domain_geographic_context",

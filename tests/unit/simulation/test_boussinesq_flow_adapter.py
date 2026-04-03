@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import xarray as xr
+from shapely.geometry import LineString
 
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
@@ -451,6 +452,100 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_heterogeneous_flow_param
     assert np.allclose(model.mesh.storage_coefficient, [0.08, 0.22])
     assert model.state is not None
     assert np.allclose(model.state.head_m, [5.0, 5.0])
+
+
+def test_boussinesq_flow_adapter_uses_geographic_features_for_stream_runtime_mesh(
+    tmp_path: Path,
+) -> None:
+    planar_mesh = GmshPlanarMesh2D(
+        points_xy=np.asarray(
+            [
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [1.0, 1.0],
+                [0.0, 1.0],
+            ],
+            dtype=float,
+        ),
+        connectivity=np.asarray(
+            [
+                [0, 1, 2],
+                [0, 2, 3],
+            ],
+            dtype=int,
+        ),
+        cell_type="triangle",
+    )
+    support = _DummyRasterSupport(
+        xmin=0.0,
+        xmax=2.0,
+        ymin=0.0,
+        ymax=2.0,
+        dx=1.0,
+        dy=1.0,
+        nrows=2,
+        ncols=2,
+    )
+    domain = SimpleNamespace(
+        surface_topo=_DummySurface(np.full((2, 2), 10.0, dtype=float), support),
+        substratum=_DummySurface(np.full((2, 2), 5.0, dtype=float), support),
+        zones={},
+    )
+    flow = Flow(
+        FlowConfig.model_validate(
+            {
+                "param_list": ["K", "Sy"],
+                "param": {
+                    "K": {"kind": "homogeneous", "value": 1.0e-5},
+                    "Sy": {"kind": "homogeneous", "value": 0.2},
+                },
+                "ic": {"type": "custom", "value": 8.0},
+                "active_bc": ["stream"],
+                "bc": {
+                    "dirichlet": {
+                        "stream": {"value": 7.0},
+                    }
+                },
+            }
+        )
+    )
+    river_trace = SimpleNamespace(lines=[LineString([(0.0, 0.0), (1.0, 1.0)])])
+    state = SimpleNamespace(
+        setup=SimpleNamespace(
+            mesh_planar=planar_mesh,
+            mesh_bundle=None,
+            mesh_summary=None,
+            flow=flow,
+            domain=domain,
+            geographic_features=SimpleNamespace(
+                rivers=SimpleNamespace(river_mesh_trace=river_trace)
+            ),
+            domain_geographic=None,
+            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
+            workspace=SimpleNamespace(simulations_folder=tmp_path),
+        ),
+    )
+    run = ProcessRun(
+        id="flow_main::boussinesq_runtime_mesh_stream",
+        process_id="flow_main",
+        process_type="flow",
+        solver="boussinesq",
+    )
+    ctx = RunContext(
+        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
+        run=run,
+        state=state,
+    )
+
+    result = BoussinesqFlowAdapter().execute(ctx)
+    model = result.primary_model
+
+    assert model.mesh is not None
+    river_edges = model.mesh.river_edge_indices()
+    assert river_edges.shape == (1,)
+    assert model.state is not None
+    assert model.state.imposed_head_edge_flux_m3_s is not None
+    assert model.state.imposed_head_edge_flux_m3_s[int(river_edges[0])] > 0.0
 
 
 def test_boussinesq_flow_adapter_loads_bundle_from_mesh_summary(tmp_path: Path) -> None:
