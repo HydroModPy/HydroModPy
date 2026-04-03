@@ -41,7 +41,9 @@ def compute_completeness(
         return empty
 
     expected = pd.date_range(start=start_date, end=end_date, freq="D")
-    actual = dates.dt.normalize().unique()
+    actual_days = dates.dt.normalize()
+    n_duplicates = int(actual_days.duplicated().sum())
+    actual = actual_days.unique()
     missing = set(expected) - set(pd.to_datetime(actual))
 
     gaps = 0
@@ -63,6 +65,7 @@ def compute_completeness(
         "first_date": dates.min(),
         "last_date": dates.max(),
         "gaps_detected": gaps,
+        "n_duplicates": n_duplicates,
     }
 
 
