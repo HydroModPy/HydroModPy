@@ -24,6 +24,26 @@ class DerivedConfig(BaseModel):
         default=True,
         description="Identify seepage areas where water table >= surface elevation.",
     )
+    groundwater_flux: bool = Field(
+        default=False,
+        description="Magnitude of inter-cell flow (right/front/lower face). Volumetric.",
+    )
+    accumulation_flux: bool = Field(
+        default=False,
+        description="Drain flux routed on the drainage network.",
+    )
+    concentration_seepage: bool = Field(
+        default=False,
+        description="Concentration at seepage cells only. Requires transport.",
+    )
+    mass_seepage: bool = Field(
+        default=False,
+        description="Mass flux at seepage cells. Requires transport + budget.",
+    )
+    mass_accumulated: bool = Field(
+        default=False,
+        description="Cumulative mass_seepage over time.",
+    )
 
 
 class ExportVariablesConfig(BaseModel):
@@ -57,8 +77,8 @@ class ExportConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    netcdf: bool = Field(default=False, description="Export to NetCDF-4/UGRID.")
-    csv_timeseries: bool = Field(default=False, description="Export time series to CSV.")
+    netcdf: bool = Field(default=True, description="Export to NetCDF-4/UGRID.")
+    csv_timeseries: bool = Field(default=True, description="Export time series to CSV.")
     vtu: bool = Field(default=False, description="Export to VTU (ParaView).")
     geotiff: bool = Field(default=False, description="Export to GeoTIFF.")
     shapefile: bool = Field(default=False, description="Export to Shapefile.")
