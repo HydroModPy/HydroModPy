@@ -78,6 +78,8 @@ Two ready-to-use Conda recipes live in `install/`:
   can run scripts and notebooks right away.
 - `env_hydromodpy_pkg.yml` mirrors the same stack but finishes with
   `pip install -e ..` to expose the local repository as a package.
+- `env_hydromodpy_light_pkg.yml` provides a lighter editable stack, recommended
+  for Linux/WSL command-line development and test runs.
 
 ```bash
 # from the repository root
@@ -87,6 +89,41 @@ conda activate hydromodpy
 # editable/package variant
 conda env create -f install/env_hydromodpy_pkg.yml -n hydromodpy-pkg
 conda activate hydromodpy-pkg
+
+# lightweight editable variant (recommended on Linux/WSL)
+conda env create -f install/env_hydromodpy_light_pkg.yml -n hydromodpy-light-pkg
+conda activate hydromodpy-light-pkg
+```
+
+### Linux / WSL quick start
+
+For Ubuntu or WSL, the repository now includes a helper script that installs
+the minimal Linux system dependency, creates an editable Conda environment, and
+can optionally add PETSc:
+
+```bash
+bash install/setup_wsl_dev.sh --env-name hydromodpy-wsl
+# optional PETSc add-on
+bash install/setup_wsl_dev.sh --env-name hydromodpy-wsl --with-petsc
+```
+
+If Conda is not available inside WSL yet, Miniforge is the simplest route:
+
+```bash
+sudo apt update && sudo apt install -y curl git libglu1-mesa libxft2
+curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+bash Miniforge3-Linux-x86_64.sh
+source ~/miniforge3/etc/profile.d/conda.sh
+```
+
+Typical Linux/WSL test commands after activation:
+
+```bash
+export HYDROMODPY_NO_DISPLAY=1
+export MPLBACKEND=Agg
+python -m pytest tests/unit -q
+hmp test regression --fast -j 2
+hmp test validation --fast
 ```
 
 ### Git installation
@@ -187,6 +224,9 @@ python -m pytest tests/unit -q
 python -m pytest tests/regression -q
 python -m pytest tests/validation -q
 python -m pytest -m "validation and fast" -q
+hmp test unit
+hmp test regression --fast
+hmp test validation --fast
 ```
 
 For the detailed validation workflow, available analytical cases, and guidance
