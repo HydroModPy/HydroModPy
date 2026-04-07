@@ -10,7 +10,8 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.analysis.postprocess.netcdf.netcdf_writer import NetcdfWriter
-from hydromodpy.core.tools import get_logger, toolbox
+from hydromodpy.core.tools import get_logger
+from hydromodpy.core.tools.filesystem import create_folder
 
 logger = get_logger(__name__)
 
@@ -51,11 +52,11 @@ class FlowNetcdfPostprocess(NetcdfWriter):
         self.full_path = os.path.join(self.model_folder, self.model_name)
         self.save_file = os.path.join(self.full_path, "_postprocess")
         if not os.path.exists(self.save_file):
-            toolbox.create_folder(self.save_file)
+            create_folder(self.save_file)
 
         self.netcdf_file = os.path.join(self.save_file, "_netcdf")
         if not os.path.exists(self.netcdf_file):
-            toolbox.create_folder(self.netcdf_file)
+            create_folder(self.netcdf_file)
 
         times = self._resolve_time_axis(self.recharge, self.datetime_format)
         self._export_flow_outputs(times=times)

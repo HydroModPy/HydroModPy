@@ -18,7 +18,6 @@ class _DummyWorkspace:
     def __init__(self, config) -> None:
         self.config = config
         self.project_root = Path("workspace")
-        self.catch_folder = self.project_root
         self.stable_folder = self.project_root / "results_stable"
         self.simulations_folder = self.project_root / "results_simulations"
 

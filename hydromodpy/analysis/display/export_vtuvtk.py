@@ -22,7 +22,8 @@ import flopy
 import flopy.utils.binaryfile as bf
 
 # HydroModPy
-from hydromodpy.core.tools import toolbox, get_logger
+from hydromodpy.core.tools import get_logger
+from hydromodpy.core.tools.filesystem import create_folder
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.spatial.geographic.geographic import Geographic
 from hydromodpy.data.variables.hydrography.result import HydrographyResult
@@ -107,7 +108,7 @@ class VTK():
         if modelname != None:
             modelfolder= os.path.join(initializing.simulations_folder, modelname)
             save_file = os.path.join(modelfolder, '_postprocess','_vtuvtk')
-            toolbox.create_folder(save_file)
+            create_folder(save_file)
             logger.info("Exporting VTU/VTK grid mesh for model %s", modelname)
             self.grid(modelname, modelfolder, save_file, geographic)
             logger.info("Exporting VTU/VTK water table surfaces for model %s", modelname)

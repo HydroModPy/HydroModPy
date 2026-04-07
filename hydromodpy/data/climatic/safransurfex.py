@@ -83,8 +83,8 @@ class SafranSurfex:
         for sim in simulations:
             try:
                 os.remove(data_folder+sim+'.h5')
-            except:
-                pass
+            except Exception:
+                logger.debug("Could not remove old h5 file for %s", sim, exc_info=True)
             self.values[sim] = {}
             h5file = (data_folder+sim+'.h5')
             for var in variables:
@@ -159,7 +159,7 @@ class Merge:
                     try:
                         hdf = pd.read_hdf(self.data_folder+sim+'.h5',var+'/'+sce) # mm/day or °C
                         df[sim+'_'+sce] = hdf.MEAN               
-                    except:
+                    except Exception:
                         continue
             
             # if (self.time_step == 'ME'):

@@ -131,7 +131,7 @@ def test_matching_streams_skips_empty_simulated_support(tmp_path: Path, monkeypa
         lambda: backend,
     )
     monkeypatch.setattr(
-        "hydromodpy.analysis.postprocess.flow.matching_streams.toolbox.clip_tif",
+        "hydromodpy.analysis.postprocess.flow.matching_streams.clip_tif",
         _fake_clip_tif,
     )
 

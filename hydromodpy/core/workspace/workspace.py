@@ -14,7 +14,8 @@
 
 from pathlib import Path
 
-from hydromodpy.core.tools import get_logger, setup_simulation_log, toolbox
+from hydromodpy.core.tools import get_logger, setup_simulation_log
+from hydromodpy.core.tools.filesystem import create_folder
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
 
@@ -48,26 +49,22 @@ class Workspace:
         self.workspace_root = self.paths.workspace_root
         self.catch_name = self.paths.catch_name
 
-        toolbox.create_folder(self.project_root)
+        create_folder(self.project_root)
         setup_simulation_log(self.project_root)
 
         self.stable_folder = self.paths.stable_folder
-        toolbox.create_folder(self.stable_folder)
+        create_folder(self.stable_folder)
 
         self.simulations_folder = self.paths.simulations_folder
-        toolbox.create_folder(self.simulations_folder)
+        create_folder(self.simulations_folder)
 
         self.calibration_folder = self.paths.calibration_folder
-        toolbox.create_folder(self.calibration_folder)
+        create_folder(self.calibration_folder)
 
         self.add_data_folder = self.paths.add_data_folder
-        toolbox.create_folder(self.add_data_folder)
+        create_folder(self.add_data_folder)
 
         self.figure_folder = self.paths.figures_folder
-        toolbox.create_folder(self.figure_folder)
+        create_folder(self.figure_folder)
 
         self.bin_path = _resolve_bin_path()
-
-        # Backwards-compatible aliases
-        self.catch_folder = self.project_root
-        self.data_path = self.paths.data_path

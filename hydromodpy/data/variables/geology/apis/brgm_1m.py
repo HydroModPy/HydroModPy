@@ -7,9 +7,12 @@ License: ETALAB Open Licence v2.0 (open data, attribution required)
 from __future__ import annotations
 
 import io
+import logging
 import urllib.request
 import zipfile
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 BRGM_1M_URL = "http://infoterre.brgm.fr/telechargements/BDCharm50/FR_vecteur.zip"
 FGEOL_LAYER_PATTERN = "S_FGEOL_2154"
@@ -56,12 +59,12 @@ def fetch_brgm_1m(
     full_gpkg = output_dir / "geology_brgm_1m_france.gpkg"
 
     if not full_gpkg.exists():
-        print("[geology] Downloading BRGM 1:1M geological map...")
+        logger.info("[geology] Downloading BRGM 1:1M geological map...")
         zip_path = output_dir / "FR_vecteur.zip"
 
         if not zip_path.exists():
             urllib.request.urlretrieve(BRGM_1M_URL, str(zip_path))
-            print(f"[geology] Downloaded: {zip_path}")
+            logger.info("[geology] Downloaded: %s", zip_path)
 
         extract_dir = output_dir / "_brgm_1m_extract"
         extract_dir.mkdir(parents=True, exist_ok=True)
@@ -70,7 +73,7 @@ def fetch_brgm_1m(
             zf.extractall(str(extract_dir))
 
         shp_path = _find_fgeol_shp(extract_dir)
-        print(f"[geology] Loading shapefile: {shp_path.name}")
+        logger.info("[geology] Loading shapefile: %s", shp_path.name)
 
         gdf = gpd.read_file(str(shp_path))
         gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()].copy()
@@ -79,7 +82,7 @@ def fetch_brgm_1m(
             gdf = gdf.to_crs("EPSG:2154")
 
         gdf.to_file(str(full_gpkg), driver="GPKG")
-        print(f"[geology] Cached national map: {full_gpkg}")
+        logger.info("[geology] Cached national map: %s", full_gpkg)
 
         # Cleanup extracted files
         import shutil
@@ -103,7 +106,7 @@ def fetch_brgm_1m(
                     "No geology feature from the 1M map intersects the requested bbox"
                 )
             gdf.to_file(str(cropped_gpkg), driver="GPKG")
-            print(f"[geology] Cropped 1M map: {cropped_gpkg}")
+            logger.info("[geology] Cropped 1M map: %s", cropped_gpkg)
 
         return cropped_gpkg
 

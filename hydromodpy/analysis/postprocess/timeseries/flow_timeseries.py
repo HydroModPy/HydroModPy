@@ -35,7 +35,8 @@ from rasterio.enums import Resampling
 from rasterio.warp import reproject
 
 from hydromodpy.analysis.postprocess.flow.intermittency import apply_intermittency_columns
-from hydromodpy.core.tools import get_logger, toolbox
+from hydromodpy.core.tools import get_logger
+from hydromodpy.core.tools.filesystem import create_folder
 
 logger = get_logger(__name__)
 # Silence pandas masked-to-nan spam when handling masked arrays
@@ -121,11 +122,11 @@ class FlowTimeseriesPostprocess:
 
         self.save_file = os.path.join(self.full_path, "_postprocess")
         if not os.path.exists(self.save_file):
-            toolbox.create_folder(self.save_file)
+            create_folder(self.save_file)
 
         self.timeseries_file = os.path.join(self.save_file, "_timeseries")
         if not os.path.exists(self.timeseries_file):
-            toolbox.create_folder(self.timeseries_file)
+            create_folder(self.timeseries_file)
 
         self.watertable_elevation: dict[Any, np.ndarray] | None = None
         self.watertable_depth: dict[Any, np.ndarray] | None = None
@@ -238,7 +239,7 @@ class FlowTimeseriesPostprocess:
             for zi, zone_name in enumerate(os.listdir(zones_folder)):
                 sub_file = os.path.join(self.full_path, "_subbasins", zone_name)
                 if not os.path.exists(sub_file):
-                    toolbox.create_folder(sub_file)
+                    create_folder(sub_file)
                 try:
                     dem_clip = self._load_mask_raster(
                         os.path.join(zones_folder, zone_name, "watershed_dem.tif")

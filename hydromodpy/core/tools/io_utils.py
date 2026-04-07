@@ -13,12 +13,16 @@ Provides generalized functions for loading and saving data across examples:
 - extract_watershed(): Legacy watershed extraction helper
 """
 
+import logging
 import os
+
 import numpy as np
 import pandas as pd
 import rasterio
 import geopandas as gpd
 import imageio.v2 as imageio
+
+logger = logging.getLogger(__name__)
 
 
 def setup_paths(root_dir, example_name, results_dir="results", env_var_name=None):
@@ -230,11 +234,11 @@ def load_simulation_results(simulations_folder, model_name, result_types=None):
             ts_path = os.path.join(model_path, '_postprocess/_timeseries/_simulated_timeseries.csv')
             results['timeseries'] = load_csv(ts_path, parse_dates=True)
 
-        print(f"✓ Loaded {len(results)} result(s) for model '{model_name}'")
+        logger.info("Loaded %d result(s) for model '%s'", len(results), model_name)
         return results
 
     except FileNotFoundError as e:
-        print(f"⚠ Warning: Some files not found - {e}")
+        logger.warning("Some files not found - %s", e)
         return results
 
 
@@ -302,7 +306,7 @@ def save_results(data, filepath, format='csv'):
     elif format == 'netcdf':
         if hasattr(data, 'to_netcdf'):
             data.to_netcdf(filepath)
-    print(f"✓ Saved to {filepath}")
+    logger.info("Saved to %s", filepath)
 
 
 def extract_watershed(dem_path, out_path, watershed_name, from_xyv=None, from_shp=None,
@@ -368,7 +372,7 @@ def extract_watershed(dem_path, out_path, watershed_name, from_xyv=None, from_sh
         bottom_path=bottom_path,
         save_object=save_object
     )
-    print(f"✓ Watershed '{watershed_name}' extracted successfully")
+    logger.info("Watershed '%s' extracted successfully", watershed_name)
     return BV
 
 

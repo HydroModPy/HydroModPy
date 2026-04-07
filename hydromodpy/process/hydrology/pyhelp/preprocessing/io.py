@@ -24,7 +24,7 @@ import logging
 from .pyhelp_grid import PyhelpGrid
 from .pyhelp_era5 import PyhelpEra5
 from ..core.processing import read_daily_help_output
-from hydromodpy.core.tools.toolbox import transform_coordinates, filter_coordinates_by_shape
+from hydromodpy.core.tools.geospatial import transform_coordinates, filter_coordinates_by_shape
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +111,7 @@ def make_pyhelp_inputs(grid_base, dem, shp, outdir, *, nc_folder=None, ready_csv
         )
 
     if grid_params is not None:
-        print("test")
+        logger.debug("Updating grid parameters from config")
         grid.update_parameters(**vars(grid_params))
     else:
         grid.update_parameters()

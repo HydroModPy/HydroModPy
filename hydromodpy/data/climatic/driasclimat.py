@@ -21,8 +21,8 @@ import numpy as np
 xr.set_options(keep_attrs = True)
 try:
     import rioxarray as rio
-except:
-    pass
+except Exception:
+    logger.debug("Failed to import rioxarray", exc_info=True)
 import rasterio
 import matplotlib.pyplot as plt
 import gc
@@ -155,21 +155,21 @@ class Driasclimat:
             # Comme les latitudes sont fausses, il vaut mieux les supprimer :
             ds = ds.drop_vars('lon')
             ds = ds.drop_vars('lat')
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to drop lon/lat vars", exc_info=True)
         try:
             # Créer les coordonnées 'x' et 'y' à partir de i et j
             ds = ds.assign_coords(
                 x = ('i', 52000 + ds.i.values*8000))
             ds = ds.assign_coords(
                 y = ('j', 1609000 + ds.j.values*8000))
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to assign x/y coordinates from i/j", exc_info=True)
         try:
             # Remplacer i et j par x et y comme coordonnées
             ds = ds.swap_dims(i = 'x', j = 'y')
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to swap dims i/j to x/y", exc_info=True)
         try:
             # Ajouter les attributs standards
             ds.x.attrs = {'standard_name': 'projection_x_coordinate',
@@ -178,12 +178,12 @@ class Driasclimat:
             ds.y.attrs = {'standard_name': 'projection_y_coordinate',
                                 'long_name': 'y coordinate of projection',
                                 'units': 'Meter'}
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to set x/y coordinate attributes", exc_info=True)
         try:
             ds.rio.write_crs("epsg:27572", inplace = True)
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to write CRS epsg:27572", exc_info=True)
 
         geodf = gpd.read_file(shp_path)
         geom = geodf.geometry.apply(mapping)
@@ -206,8 +206,8 @@ class Driasclimat:
             clipped_ds['lat'] = clipped_ds['lat'].where(pd.notnull(clipped_ds['lat']), -9999).astype('int32')
             clipped_ds['lon'] = clipped_ds['lon'].where(pd.notnull(clipped_ds['lon']), -9999).astype('int32')
             # del clipped_ds.lon.attrs['_FillValue']
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to fix lat/lon missing_value attributes", exc_info=True)
 
         clipped_ds.to_netcdf(outfile_path)
 
@@ -355,9 +355,8 @@ def driasclimat_extract_values(data_folder, list_of_paths, df):
 
             df[name_col] = serie
 
-        except:
+        except Exception:
             df[name_col] = np.nan
-            pass
 
     df.to_csv(data_folder+'/'+'_ALL_D.csv', sep=';')
     # df.to_csv('C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/Bretagne/results_stable/drias/'+

@@ -54,7 +54,6 @@ class _DummyCliWorkspace:
         self.catch_name = str(
             getattr(config, "catch_name", self.project_root.name)
         )
-        self.catch_folder = self.project_root
         self.stable_folder = self.project_root / "results_stable"
 
 

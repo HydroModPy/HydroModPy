@@ -22,7 +22,6 @@ class _DummyWorkspace:
     def __init__(self, config) -> None:
         self.config = config
         self.project_root = Path(config.project_root)
-        self.catch_folder = self.project_root
         self.stable_folder = self.project_root / "results_stable"
 
 
@@ -31,7 +30,6 @@ class _DummyBatchWorkspace:
         self.config = config
         self.project_root = Path(config.project_root)
         self.catch_name = str(config.catch_name)
-        self.catch_folder = self.project_root
         self.stable_folder = self.project_root / "results_stable"
 
 
