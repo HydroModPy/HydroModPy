@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from hydromodpy.simulation.results.store import ResultStore
+from hydromodpy.results.store import ResultStore
 
 
 @pytest.fixture

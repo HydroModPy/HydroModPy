@@ -13,22 +13,22 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from hydromodpy.simulation.results.config import ResultsConfig
+from hydromodpy.results.config import ResultsConfig
 
 logger = logging.getLogger(__name__)
 
 # Mapping solver name → output adapter module/class
 _ADAPTER_REGISTRY: dict[str, tuple[str, str]] = {
     "modflownwt": (
-        "hydromodpy.simulation.results.adapters.modflownwt",
+        "hydromodpy.simulation.results.extractors.modflownwt",
         "ModflowNwtOutputAdapter",
     ),
     "modflow6": (
-        "hydromodpy.simulation.results.adapters.modflow6",
+        "hydromodpy.simulation.results.extractors.modflow6",
         "Modflow6OutputAdapter",
     ),
     "gr4j": (
-        "hydromodpy.simulation.results.adapters.gr4j",
+        "hydromodpy.simulation.results.extractors.gr4j",
         "GR4JOutputAdapter",
     ),
 }
@@ -85,7 +85,7 @@ def post_run_results(
 
     # Cleanup solver files
     if not results_config.keep_solver_files and solver_output_dir is not None:
-        from hydromodpy.simulation.results.adapters.base import cleanup_solver_files
+        from hydromodpy.simulation.results.extractors.base import cleanup_solver_files
         try:
             cleanup_solver_files(solver_output_dir)
         except Exception:
@@ -104,7 +104,7 @@ def _auto_export(sim_id: str, store: Any, config: ResultsConfig) -> None:
 
     output_dir = Path(export.output_dir) if export.output_dir else None
     if output_dir is None:
-        output_dir = store._project_path / "exports"
+        output_dir = store.project_path / "exports"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if export.netcdf and var_names:

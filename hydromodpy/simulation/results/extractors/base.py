@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from typing import Protocol
 
-from hydromodpy.simulation.results.store import ResultStore
+from hydromodpy.results.store import ResultStore
 
 
 class OutputAdapter(Protocol):

@@ -12,7 +12,7 @@ from hydromodpy.simulation.results.calibration_bridge import (
     make_hot_simulator,
     persist_calibration_result,
 )
-from hydromodpy.simulation.results.store import ResultStore
+from hydromodpy.results.store import ResultStore
 
 
 @pytest.fixture

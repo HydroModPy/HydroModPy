@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.simulation.results.store import ResultStore
+from hydromodpy.results.store import ResultStore
 
 logger = logging.getLogger(__name__)
 
@@ -78,9 +78,7 @@ class ModpathOutputAdapter:
             z[i, :n] = particle["z"]
             t[i, :n] = particle["time"]
 
-        import zarr
-        root = zarr.open_group(store._zarr_path, mode="a")
-        grp = root[sim_id]
+        grp = store.open_zarr_group(sim_id, mode="a")
         pathlines_grp = grp.require_group("pathlines")
         for name, arr in [("x", x), ("y", y), ("z", z), ("time", t)]:
             pathlines_grp.create_array(
@@ -108,9 +106,7 @@ class ModpathOutputAdapter:
             logger.debug("Empty endpoint file %s", ept_path)
             return
 
-        import zarr
-        root = zarr.open_group(store._zarr_path, mode="a")
-        grp = root[sim_id]
+        grp = store.open_zarr_group(sim_id, mode="a")
         pathlines_grp = grp.require_group("pathlines")
 
         pathlines_grp.create_array(

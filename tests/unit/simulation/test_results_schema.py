@@ -5,7 +5,7 @@ from __future__ import annotations
 import duckdb
 import pytest
 
-from hydromodpy.simulation.results.schema import (
+from hydromodpy.results.schema import (
     PROJECT_TABLE_NAMES,
     create_project_tables,
     create_registry_table,
@@ -37,7 +37,8 @@ class TestProjectTables:
         count = mem_conn.execute(
             "SELECT COUNT(*) FROM information_schema.tables"
         ).fetchone()[0]
-        assert count == len(PROJECT_TABLE_NAMES)
+        # +1 for the _schema_version metadata table
+        assert count == len(PROJECT_TABLE_NAMES) + 1
 
     def test_simulations_columns(self, mem_conn):
         create_project_tables(mem_conn)

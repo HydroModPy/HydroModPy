@@ -45,7 +45,10 @@ def export_csv(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    query = "SELECT station_id, variable, timestamps, values, unit FROM timeseries WHERE sim_id = ?"
+    query = (
+        "SELECT timestamp AS datetime, station_id, variable, value, unit "
+        "FROM timeseries WHERE sim_id = ?"
+    )
     params: list = [sim_id]
 
     if station_id is not None:
@@ -55,28 +58,17 @@ def export_csv(
         query += " AND variable = ?"
         params.append(variable)
 
-    rows = conn.execute(query, params).fetchall()
+    query += " ORDER BY station_id, variable, datetime"
 
-    if not rows:
+    result = conn.execute(query, params).fetchdf()
+
+    if result.empty:
         logger.warning("No timeseries found for sim=%s", sim_id)
-        pd.DataFrame(columns=["datetime", "station_id", "variable", "value", "unit"]).to_csv(
-            output_path, index=False,
-        )
+        pd.DataFrame(
+            columns=["datetime", "station_id", "variable", "value", "unit"]
+        ).to_csv(output_path, index=False)
         return output_path
 
-    frames = []
-    for sid, var, ts, vals, unit in rows:
-        df = pd.DataFrame({
-            "datetime": pd.DatetimeIndex(ts),
-            "station_id": sid,
-            "variable": var,
-            "value": vals,
-            "unit": unit or "",
-        })
-        frames.append(df)
-
-    result = pd.concat(frames, ignore_index=True)
-    result.sort_values(["station_id", "variable", "datetime"], inplace=True)
     result.to_csv(output_path, index=False)
     logger.info("Exported CSV: %s (%d rows)", output_path, len(result))
     return output_path

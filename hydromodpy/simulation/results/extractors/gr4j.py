@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from hydromodpy.simulation.results.store import ResultStore
+from hydromodpy.results.store import ResultStore
 
 logger = logging.getLogger(__name__)
 

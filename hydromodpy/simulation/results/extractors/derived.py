@@ -6,7 +6,7 @@ import logging
 
 import numpy as np
 
-from hydromodpy.simulation.results.store import ResultStore
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ DERIVED_VARIABLES = {
 
 def compute_derived(
     sim_id: str,
-    store: ResultStore,
+    store: Any,
     config: dict,
 ) -> None:
     """Compute all enabled derived variables for a simulation.
@@ -44,9 +44,7 @@ def compute_derived(
 
     # Determine how many timesteps the head field has
     try:
-        import zarr
-        root = zarr.open_group(store._zarr_path, mode="r")
-        grp = root[sim_id]
+        grp = store.open_zarr_group(sim_id, mode="r")
         if "head" not in grp:
             logger.debug("No head field stored for sim %s, skipping derived", sim_id)
             return
@@ -85,7 +83,7 @@ def compute_derived(
 
 def _compute_watertable_elevation(
     sim_id: str,
-    store: ResultStore,
+    store: Any,
     head_arr,
     n_timesteps: int,
     n_layers: int,
@@ -118,7 +116,7 @@ def _compute_watertable_elevation(
 
 def _compute_watertable_depth(
     sim_id: str,
-    store: ResultStore,
+    store: Any,
     head_arr,
     n_timesteps: int,
     n_layers: int,
@@ -130,9 +128,7 @@ def _compute_watertable_depth(
     in the store. Falls back to a simple top-layer-head approach if mesh data
     is unavailable.
     """
-    import zarr
-    root = zarr.open_group(store._zarr_path, mode="r")
-    grp = root[sim_id]
+    grp = store.open_zarr_group(sim_id, mode="r")
 
     # Try to read surface elevation from z_interfaces
     top_elev = None
@@ -164,7 +160,7 @@ def _compute_watertable_depth(
 
 def _compute_seepage_areas(
     sim_id: str,
-    store: ResultStore,
+    store: Any,
     n_timesteps: int,
     n_cells: int,
 ) -> None:
@@ -172,9 +168,7 @@ def _compute_seepage_areas(
 
     Requires both ``watertable_elevation`` and ``z_interfaces``.
     """
-    import zarr
-    root = zarr.open_group(store._zarr_path, mode="r")
-    grp = root[sim_id]
+    grp = store.open_zarr_group(sim_id, mode="r")
 
     if "mesh" not in grp or "z_interfaces" not in grp["mesh"]:
         logger.debug("No mesh z_interfaces, skipping seepage_areas for sim %s", sim_id)
@@ -203,7 +197,7 @@ def _compute_seepage_areas(
 
 def _compute_groundwater_flux(
     sim_id: str,
-    store: ResultStore,
+    store: Any,
     n_timesteps: int,
     n_layers: int,
     n_cells: int,
@@ -213,9 +207,7 @@ def _compute_groundwater_flux(
     Reads right-face, front-face, and lower-face flow from the budget
     Zarr subgroup and computes the vector magnitude per cell.
     """
-    import zarr
-    root = zarr.open_group(store._zarr_path, mode="r")
-    grp = root[sim_id]
+    grp = store.open_zarr_group(sim_id, mode="r")
     budget_grp = grp.get("budget")
     if budget_grp is None:
         logger.debug("No budget fields, skipping groundwater_flux for sim %s", sim_id)
@@ -249,7 +241,7 @@ def _compute_groundwater_flux(
 
 def _compute_accumulation_flux(
     sim_id: str,
-    store: ResultStore,
+    store: Any,
     n_timesteps: int,
     n_cells: int,
 ) -> None:
@@ -257,9 +249,7 @@ def _compute_accumulation_flux(
 
     Reads DRN budget component and accumulates outflow per cell.
     """
-    import zarr
-    root = zarr.open_group(store._zarr_path, mode="r")
-    grp = root[sim_id]
+    grp = store.open_zarr_group(sim_id, mode="r")
     budget_grp = grp.get("budget")
     if budget_grp is None:
         logger.debug("No budget fields, skipping accumulation_flux for sim %s", sim_id)
@@ -293,14 +283,12 @@ def _compute_accumulation_flux(
 
 def _compute_concentration_seepage(
     sim_id: str,
-    store: ResultStore,
+    store: Any,
     n_timesteps: int,
     n_cells: int,
 ) -> None:
     """Concentration at seepage cells only. Zero elsewhere."""
-    import zarr
-    root = zarr.open_group(store._zarr_path, mode="r")
-    grp = root[sim_id]
+    grp = store.open_zarr_group(sim_id, mode="r")
     derived_grp = grp.get("derived")
 
     if "concentration" not in grp:
@@ -330,14 +318,12 @@ def _compute_concentration_seepage(
 
 def _compute_mass_seepage(
     sim_id: str,
-    store: ResultStore,
+    store: Any,
     n_timesteps: int,
     n_cells: int,
 ) -> None:
     """Mass flux at seepage cells = concentration_seepage * drain outflow."""
-    import zarr
-    root = zarr.open_group(store._zarr_path, mode="r")
-    grp = root[sim_id]
+    grp = store.open_zarr_group(sim_id, mode="r")
     budget_grp = grp.get("budget")
 
     if budget_grp is None:
@@ -375,7 +361,7 @@ def _compute_mass_seepage(
 
 def _compute_mass_accumulated(
     sim_id: str,
-    store: ResultStore,
+    store: Any,
     n_timesteps: int,
     n_cells: int,
 ) -> None:

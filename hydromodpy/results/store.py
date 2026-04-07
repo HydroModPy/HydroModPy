@@ -15,14 +15,15 @@ import numpy as np
 import pandas as pd
 import zarr
 
-from hydromodpy.simulation.results.provenance import fingerprint, verify_fingerprint
-from hydromodpy.simulation.results.schema import (
+from hydromodpy.results.provenance import fingerprint, verify_fingerprint
+from hydromodpy.results.schema import (
     PROJECT_TABLE_NAMES,
+    SIMULATIONS_COLUMNS,
     create_project_tables,
     create_registry_table,
 )
-from hydromodpy.simulation.results.spatial_index import point_in_cell
-from hydromodpy.simulation.results.zarr_layout import (
+from hydromodpy.results.spatial_index import point_in_cell
+from hydromodpy.results.zarr_layout import (
     create_simulation_group,
     write_field_chunk,
     write_mesh_arrays,
@@ -77,6 +78,36 @@ class ResultStore:
             cat = duckdb.connect(str(self._catalog_path))
             create_registry_table(cat)
             cat.close()
+
+    # -- Public accessors -------------------------------------------------------
+
+    @property
+    def project_path(self) -> Path:
+        """Project directory containing ``project.duckdb`` and Zarr store."""
+        return self._project_path
+
+    @property
+    def zarr_path(self) -> str:
+        """Path to the ``project_results.zarr`` store."""
+        return self._zarr_path
+
+    def open_zarr_group(
+        self,
+        sim_id: str | UUID,
+        *,
+        mode: str = "r",
+    ) -> zarr.Group:
+        """Open the Zarr group for a simulation.
+
+        Parameters
+        ----------
+        sim_id : str or UUID
+            Simulation identifier.
+        mode : str
+            Zarr open mode (``"r"`` for read, ``"a"`` for append).
+        """
+        root = zarr.open_group(self._zarr_path, mode=mode)
+        return root[str(sim_id)]
 
     def close(self) -> None:
         self._db.close()
@@ -169,14 +200,26 @@ class ResultStore:
         ts: pd.Series,
         unit: str = "",
     ) -> None:
-        """Write a point time series into DuckDB."""
-        timestamps = ts.index.tolist()
-        values = ts.values.tolist()
+        """Write a point time series into DuckDB (one row per timestamp)."""
+        n = len(ts)
+        if n == 0:
+            return
+        sid = str(sim_id)
+        insert_df = pd.DataFrame(
+            {
+                "sim_id": np.full(n, sid, dtype=object),
+                "station_id": np.full(n, station_id, dtype=object),
+                "variable": np.full(n, variable, dtype=object),
+                "timestamp": ts.index,
+                "value": ts.values.astype("float64"),
+                "unit": np.full(n, unit, dtype=object),
+            }
+        )
         self._db.execute(
-            """INSERT INTO timeseries
-               (sim_id, station_id, variable, timestamps, values, unit)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            [str(sim_id), station_id, variable, timestamps, values, unit],
+            "INSERT INTO timeseries "
+            "(sim_id, station_id, variable, timestamp, value, unit) "
+            "SELECT sim_id, station_id, variable, timestamp, value, unit "
+            "FROM insert_df"
         )
 
     def write_budget(
@@ -467,22 +510,34 @@ class ResultStore:
 
         Supports comparison suffixes: ``column__gt``, ``column__lt``,
         ``column__gte``, ``column__lte`` for range queries.
+
+        Raises
+        ------
+        ValueError
+            If a filter key references an unknown column.
         """
         query = "SELECT * FROM simulations"
-        params = []
+        params: list = []
         if filters:
             clauses = []
             for key, val in filters.items():
-                if key.endswith("__gt"):
-                    clauses.append(f"{key[:-4]} > ?")
-                elif key.endswith("__gte"):
-                    clauses.append(f"{key[:-5]} >= ?")
-                elif key.endswith("__lt"):
-                    clauses.append(f"{key[:-4]} < ?")
-                elif key.endswith("__lte"):
-                    clauses.append(f"{key[:-5]} <= ?")
+                for suffix, op in (
+                    ("__gte", ">="),
+                    ("__gt", ">"),
+                    ("__lte", "<="),
+                    ("__lt", "<"),
+                ):
+                    if key.endswith(suffix):
+                        col = key[: -len(suffix)]
+                        break
                 else:
-                    clauses.append(f"{key} = ?")
+                    col, op = key, "="
+                if col not in SIMULATIONS_COLUMNS:
+                    raise ValueError(
+                        f"Unknown filter column '{col}'. "
+                        f"Allowed: {', '.join(sorted(SIMULATIONS_COLUMNS))}"
+                    )
+                clauses.append(f"{col} {op} ?")
                 params.append(val)
             query += " WHERE " + " AND ".join(clauses)
         return self._db.execute(query, params).fetchdf()
@@ -494,20 +549,30 @@ class ResultStore:
         variable: str,
         period: tuple | None = None,
     ) -> pd.Series:
-        """Extract a point time series from DuckDB."""
-        row = self._db.execute(
-            """SELECT timestamps, values, unit FROM timeseries
-               WHERE sim_id = ? AND station_id = ? AND variable = ?""",
-            [str(sim_id), station_id, variable],
-        ).fetchone()
-        if row is None:
+        """Extract a point time series from DuckDB.
+
+        The normalized storage allows efficient SQL-level filtering by
+        period, avoiding full-series loading for range queries.
+        """
+        query = (
+            "SELECT timestamp, value FROM timeseries "
+            "WHERE sim_id = ? AND station_id = ? AND variable = ?"
+        )
+        params: list = [str(sim_id), station_id, variable]
+        if period is not None:
+            query += " AND timestamp >= ? AND timestamp <= ?"
+            params.extend([period[0], period[1]])
+        query += " ORDER BY timestamp"
+        result = self._db.execute(query, params).fetchdf()
+        if result.empty:
             raise KeyError(
                 f"No timeseries for sim={sim_id}, station={station_id}, var={variable}"
             )
-        ts = pd.Series(row[1], index=pd.DatetimeIndex(row[0]), name=variable)
-        if period is not None:
-            ts = ts.loc[period[0]:period[1]]
-        return ts
+        return pd.Series(
+            result["value"].values,
+            index=pd.DatetimeIndex(result["timestamp"]),
+            name=variable,
+        )
 
     def query_field(
         self,
@@ -659,32 +724,32 @@ class ResultStore:
         path = Path(path)
 
         if fmt == "netcdf":
-            from hydromodpy.simulation.results.exporters.netcdf import export_netcdf
+            from hydromodpy.results.exporters.netcdf import export_netcdf
             variables = [v.strip() for v in variable.split(",")]
             return export_netcdf(
                 self._zarr_path, sid, variables, path, **kwargs,
             )
         elif fmt == "csv":
-            from hydromodpy.simulation.results.exporters.csv import export_csv
+            from hydromodpy.results.exporters.csv import export_csv
             return export_csv(
                 self._db, sid, path,
                 variable=variable if variable != "*" else None,
                 **kwargs,
             )
         elif fmt == "vtu":
-            from hydromodpy.simulation.results.exporters.vtu import export_vtu
+            from hydromodpy.results.exporters.vtu import export_vtu
             timestep = kwargs.pop("timestep", 0)
             return export_vtu(
                 self._zarr_path, sid, variable, timestep, path, **kwargs,
             )
         elif fmt == "geotiff":
-            from hydromodpy.simulation.results.exporters.geotiff import export_geotiff
+            from hydromodpy.results.exporters.geotiff import export_geotiff
             timestep = kwargs.pop("timestep", 0)
             return export_geotiff(
                 self._zarr_path, sid, variable, timestep, path, **kwargs,
             )
         elif fmt == "shapefile":
-            from hydromodpy.simulation.results.exporters.shapefile import export_shapefile
+            from hydromodpy.results.exporters.shapefile import export_shapefile
             timestep = kwargs.pop("timestep", 0)
             return export_shapefile(
                 self._zarr_path, sid, variable, timestep, path, **kwargs,
@@ -697,11 +762,22 @@ class ResultStore:
     # -- Delete ----------------------------------------------------------------
 
     def delete_simulation(self, sim_id: str | UUID) -> None:
-        """Remove a simulation from all stores."""
+        """Remove a simulation from all stores.
+
+        DuckDB deletions are wrapped in a single transaction so that a
+        crash mid-way does not leave the project database in an
+        inconsistent state.
+        """
         sid = str(sim_id)
 
-        for table in PROJECT_TABLE_NAMES:
-            self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
+        self._db.begin()
+        try:
+            for table in PROJECT_TABLE_NAMES:
+                self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
+            self._db.commit()
+        except Exception:
+            self._db.rollback()
+            raise
 
         try:
             root = zarr.open_group(self._zarr_path, mode="a")

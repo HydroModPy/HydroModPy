@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.simulation.results.store import ResultStore
+from hydromodpy.results.store import ResultStore
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +164,7 @@ class Modflow6OutputAdapter:
         config: dict | None = None,
     ) -> None:
         """Compute derived variables from stored head fields."""
-        from hydromodpy.simulation.results.adapters.derived import compute_derived
+        from hydromodpy.simulation.results.extractors.derived import compute_derived
 
         cfg = config or {}
         compute_derived(sim_id, store, cfg)
