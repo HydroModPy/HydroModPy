@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
@@ -9,6 +10,8 @@ from typing import Any, List, Optional, Union
 
 import pandas as pd
 import requests
+
+logger = logging.getLogger(__name__)
 
 try:
     from ..common.base_station_set import BaseStationSet
@@ -71,7 +74,7 @@ class StationDiscovery(BaseStationSet):
             elif len(id_val) == 8:
                 station_ids.append(id_val + "01")
                 site_ids.append(id_val)
-                print(f"{id_val} is a site ID, by default, the station ID is {station_ids[-1]}")
+                logger.info("%s is a site ID, by default, the station ID is %s", id_val, station_ids[-1])
             else:
                 raise ValueError(f"Invalid ID length: {id_val}. Expected 8 or 10 characters.")
 
@@ -152,7 +155,7 @@ class StationDiscovery(BaseStationSet):
         )
 
         if not candidate_data and radius_m > 0 and reference_point is not None:
-            print(f"No stations found in initial area. Trying with {radius_m / 1000.0:.3f} km buffer...")
+            logger.info("No stations found in initial area. Trying with %.3f km buffer...", radius_m / 1000.0)
             lon, lat = reference_point
             lat_offset = radius_m / 111_000.0
             lon_offset = radius_m / (111_000.0 * cos(radians(lat)))
@@ -196,7 +199,7 @@ class StationDiscovery(BaseStationSet):
         fallback_search_radius_km: Optional[Any] = None,
     ) -> tuple[list[str], list[str]]:
         """Select station identifiers located inside a mask geometry."""
-        print(f"Loading geographic mask from: {mask_path}")
+        logger.info("Loading geographic mask from: %s", mask_path)
         mask_gdf = self._load_mask_geometry(mask_path)
         mode = str(source_mode).strip().lower()
         if fallback_search_radius_m is not None and fallback_search_radius_km is not None:
@@ -389,7 +392,7 @@ class StationDiscovery(BaseStationSet):
         fallback_search_radius_m: float,
     ) -> tuple[list[str], list[str]]:
         bounds = mask_gdf.total_bounds
-        print(f"Searching stations in bounding box: {bounds}")
+        logger.info("Searching stations in bounding box: %s", bounds)
 
         try:
             candidate_data = self._search_stations_in_bbox(
@@ -400,14 +403,14 @@ class StationDiscovery(BaseStationSet):
                 mask_gdf=mask_gdf,
             )
         except RuntimeError as exc:
-            print(f"Warning: failed to retrieve stations from API on initial bbox: {exc}")
+            logger.warning("Failed to retrieve stations from API on initial bbox: %s", exc)
             return [], []
 
         if not candidate_data:
-            print("No stations found within the mask polygon.")
-            print(
-                "Activating automatic fallback search: "
-                f"{fallback_search_radius_m / 1000.0:.3f} km radius buffer..."
+            logger.info("No stations found within the mask polygon.")
+            logger.info(
+                "Activating automatic fallback search: %.3f km radius buffer...",
+                fallback_search_radius_m / 1000.0,
             )
 
             centroid = self._mask_centroid(mask_gdf)
@@ -424,7 +427,7 @@ class StationDiscovery(BaseStationSet):
                     mask_gdf=None,
                 )
             except RuntimeError as exc:
-                print(f"Warning: fallback station API request failed: {exc}")
+                logger.warning("Fallback station API request failed: %s", exc)
                 candidate_data = []
 
             if candidate_data:
@@ -433,17 +436,18 @@ class StationDiscovery(BaseStationSet):
                     if item["coords"] is None
                     else self._haversine_distance(ref_lon, ref_lat, item["coords"][0], item["coords"][1])
                 )
-                print(f"Using all {len(candidate_data)} stations from fallback search (sorted by distance)")
+                logger.info("Using all %d stations from fallback search (sorted by distance)", len(candidate_data))
             else:
-                print(
-                    "Warning: no stations found within the specified geographic mask "
-                    f"or in {fallback_search_radius_m / 1000.0:.3f} km fallback radius."
+                logger.warning(
+                    "No stations found within the specified geographic mask "
+                    "or in %.3f km fallback radius.",
+                    fallback_search_radius_m / 1000.0,
                 )
                 return [], []
 
         station_ids = [item["id"] for item in candidate_data]
         site_ids = [station_id[:8] for station_id in station_ids]
-        print(f"Found {len(station_ids)} stations within geographic mask")
+        logger.info("Found %d stations within geographic mask", len(station_ids))
         return station_ids, site_ids
 
     def _load_local_station_catalog(self) -> pd.DataFrame:
@@ -504,7 +508,7 @@ class StationDiscovery(BaseStationSet):
 
         station_ids = sorted(stations_in_mask["station_id"].astype(str).unique().tolist())
         site_ids = [station_id[:8] for station_id in station_ids]
-        print(f"Found {len(station_ids)} local stations within geographic mask")
+        logger.info("Found %d local stations within geographic mask", len(station_ids))
         return station_ids, site_ids
 
 

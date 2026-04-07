@@ -16,9 +16,12 @@ from __future__ import annotations
 
 import hashlib
 import io
+import logging
 import urllib.request
 import zipfile
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 import geopandas as gpd
 from shapely.geometry import box
@@ -67,14 +70,14 @@ def _download_department(
 
     # Download ZIP
     if not zip_path.exists():
-        print(f"[geology] Downloading 50K map for department {brgm_code}...")
+        logger.info("[geology] Downloading 50K map for department %s...", brgm_code)
         try:
             urllib.request.urlretrieve(url, str(zip_path))
         except urllib.error.HTTPError as exc:
-            print(f"[geology] Warning: department {brgm_code} not available: {exc}")
+            logger.warning("[geology] Department %s not available: %s", brgm_code, exc)
             return None
         except Exception as exc:
-            print(f"[geology] Warning: failed to download {brgm_code}: {exc}")
+            logger.warning("[geology] Failed to download %s: %s", brgm_code, exc)
             return None
 
     # Extract
@@ -83,14 +86,14 @@ def _download_department(
         with zipfile.ZipFile(str(zip_path)) as zf:
             zf.extractall(str(dept_dir))
     except zipfile.BadZipFile:
-        print(f"[geology] Warning: bad ZIP for department {brgm_code}, skipping")
+        logger.warning("[geology] Bad ZIP for department %s, skipping", brgm_code)
         zip_path.unlink(missing_ok=True)
         return None
 
     # Find S_FGEOL shapefile
     shp_path = _find_fgeol_shp(dept_dir)
     if shp_path is None:
-        print(f"[geology] Warning: no S_FGEOL shapefile in {dept_dir}")
+        logger.warning("[geology] No S_FGEOL shapefile in %s", dept_dir)
         return None
 
     # Convert to GeoPackage for faster future reads
@@ -141,7 +144,7 @@ def fetch_brgm_50k(
             f"No department found overlapping bbox {bbox}. "
             "Ensure the bbox is in EPSG:2154 (Lambert-93)."
         )
-    print(f"[geology] Departments overlapping bbox: {dept_codes}")
+    logger.info("[geology] Departments overlapping bbox: %s", dept_codes)
 
     # Step 2: download each department
     dept_cache = output_dir / "departments_50k"
@@ -175,6 +178,6 @@ def fetch_brgm_50k(
 
     # Step 5: save
     merged.to_file(str(merged_gpkg), driver="GPKG")
-    print(f"[geology] Merged 50K geology map: {merged_gpkg}")
+    logger.info("[geology] Merged 50K geology map: %s", merged_gpkg)
 
     return merged_gpkg
