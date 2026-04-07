@@ -34,6 +34,7 @@
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/plotting.py",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/run_case.py",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/runtime_boussinesq.py",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_modflow6.toml",
@@ -43,13 +44,14 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "e8816ee7e26d91bab06083a0cf94488715ef11820d2a0440c76ca10b2f239df2",
+    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/README.md": "d6d472127a3024358f3ae2deadf26adf42d5e74c5acf44fc40873823f89752f1",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/reference.py": "1aaa4f200c51669c4664e6266f892224855f63f9bd134ae3441069ad53c5383c",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/comparison.py": "b2274f04cd93aeb4278ffb9b38b78f67cc6e0059a7c0d88be6cc3ecc93c81f69",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/plotting.py": "03c726f8fff47defc3459665f89e7274e1c0ba43ed88defa97341388a927b861",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/run_case.py": "c758f25e44acc2fd7716fe5ce4b4f4f72b719cc99c24a0c59ced85d3cc91b4b6",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml": "42a5ed29d4d35160a8e6131577bee5b897524696bbd11edb92d3340bfd614307",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml": "482843ea4f67e697406e3e1dab95cd0891627b55e0612f2fad4581592974df52",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/runtime_boussinesq.py": "fbc759be451a114a2c4931a779bfe7c55693299df3e4c0d07178ed98d90fce24",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_modflow6.toml": "2416096ac36036afd72b2c681546cd6682bf59faa92ce2cbc1a79de39d9ab297",

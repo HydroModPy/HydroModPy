@@ -18,6 +18,10 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
+from hydromodpy.spatial.geographic.core.derived_features import (
+    GeographicBoundaryFeatures,
+    GeographicDerivedFeatures,
+)
 from hydromodpy.spatial.geographic.core.direct_dem_domain import build_direct_dem_domain
 from hydromodpy.spatial.geographic.core.domain_dem import clip_dem_to_box_buffer
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
@@ -26,7 +30,10 @@ from hydromodpy.spatial.geographic.core.pipeline_steps import (
     build_standard_domain_polygons,
     prepare_geographic_run,
 )
-from hydromodpy.spatial.geographic.core.river_network import build_river_network_products
+from hydromodpy.spatial.geographic.core.river_network import (
+    RiverNetworkProducts,
+    build_river_network_products,
+)
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
 from hydromodpy.core.tools import get_logger
 
@@ -65,7 +72,9 @@ class DomainGeographicContext:
         ``"catchment"`` for the historical 3-zone raster, ``"uniform"`` for
         direct-DEM domains with no catchment/buffer notion.
     river_mesh_trace:
-        Optional in-memory river trace used by river-conformal mesh builders.
+        Compatibility alias of ``GeographicDerivedFeatures.rivers.river_mesh_trace``.
+        New orchestration code should prefer the richer geographic-features
+        bundle instead of attaching river products directly to the domain view.
     regional_dem_path:
         Full-resolution regional DEM used to contextualize the catchment on
         a broader map when needed.
@@ -98,6 +107,18 @@ def build_domain_geographic_context(
     config: GeographicConfig,
     workspace: Workspace,
 ) -> DomainGeographicContext:
+    """Compute the historical domain-geographic compatibility payload."""
+    return build_geographic_derived_features(
+        config=config,
+        workspace=workspace,
+    ).to_domain_geographic_context()
+
+
+def build_geographic_derived_features(
+    *,
+    config: GeographicConfig,
+    workspace: Workspace,
+) -> GeographicDerivedFeatures:
     """Compute all geographic products required by one domain run.
 
     The sequence depends on the selected mode:
@@ -116,7 +137,7 @@ def build_domain_geographic_context(
             output_dir=workspace.stable_folder / "geographic",
             workspace=workspace,
         )
-        return geographic.get_domain_geographic_context()
+        return geographic.get_geographic_derived_features()
 
     if config.dem_init_path is None:
         raise ValueError("geographic.dem_init_path is required")
@@ -133,16 +154,18 @@ def build_domain_geographic_context(
             crs_project=setup.crs_project,
         )
         surface_topo = build_surface_topo_from_dem(dem_products.watershed_box_buff_dem)
-        return DomainGeographicContext(
+        return GeographicDerivedFeatures(
             surface_topo=surface_topo,
-            watershed_shp=dem_products.watershed_shp,
+            boundaries=GeographicBoundaryFeatures(
+                watershed_shp=dem_products.watershed_shp,
+                watershed_box_shp=dem_products.watershed_box_shp,
+                box_buff_shp=dem_products.watershed_box_buff_shp,
+            ),
             catchment_area_km2=float(dem_products.domain_area_km2),
             catch_def=str(config.catch_def),
             x_outlet=None,
             y_outlet=None,
             watershed_box_buff_dem=dem_products.watershed_box_buff_dem,
-            watershed_box_shp=dem_products.watershed_box_shp,
-            box_buff_shp=dem_products.watershed_box_buff_shp,
             zone_kind="uniform",
             regional_dem_path=dem_products.watershed_box_buff_dem,
         )
@@ -230,18 +253,33 @@ def build_domain_geographic_context(
 
     surface_topo = build_surface_topo_from_dem(setup.paths.watershed_box_buff_dem)
 
-    return DomainGeographicContext(
+    return GeographicDerivedFeatures(
         surface_topo=surface_topo,
-        watershed_shp=setup.paths.watershed_shp,
+        boundaries=GeographicBoundaryFeatures(
+            watershed_shp=setup.paths.watershed_shp,
+            watershed_box_shp=setup.paths.watershed_box_shp,
+            box_buff_shp=setup.paths.box_buff,
+        ),
+        rivers=RiverNetworkProducts(
+            enabled=river_network_products.enabled,
+            threshold_cells=river_network_products.threshold_cells,
+            flow_acc_cells_tif=river_network_products.flow_acc_cells_tif,
+            streams_tif=river_network_products.streams_tif,
+            active_streams_tif=river_network_products.active_streams_tif,
+            streams_pruned_tif=river_network_products.streams_pruned_tif,
+            stream_order_strahler_tif=river_network_products.stream_order_strahler_tif,
+            stream_link_id_tif=river_network_products.stream_link_id_tif,
+            network_shp=river_network_products.network_shp,
+            network_crs=river_network_products.network_crs,
+            river_mesh_trace=river_mesh_trace,
+            summary_json=river_network_products.summary_json,
+        ),
         catchment_area_km2=float(catchment_area_km2),
         catch_def=str(config.catch_def),
         x_outlet=float(config.x_outlet) if config.x_outlet is not None else None,
         y_outlet=float(config.y_outlet) if config.y_outlet is not None else None,
         watershed_box_buff_dem=setup.paths.watershed_box_buff_dem,
-        watershed_box_shp=setup.paths.watershed_box_shp,
-        box_buff_shp=setup.paths.box_buff,
         zone_kind="catchment",
-        river_mesh_trace=river_mesh_trace,
         regional_dem_path=setup.dem_init_path,
     )
 

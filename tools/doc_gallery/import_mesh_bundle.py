@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import tempfile
 from pathlib import Path
 
 from .mesh_case_registry import (
@@ -99,6 +100,29 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 
 
+def _resolve_existing_path(candidate: object, *, base_dir: Path) -> Path | None:
+    token = "" if candidate is None else str(candidate).strip()
+    if token == "":
+        return None
+
+    path = Path(token).expanduser()
+    candidates = [path.resolve()]
+    if not path.is_absolute():
+        candidates.insert(0, (base_dir / path).resolve())
+    for resolved in candidates:
+        if resolved.exists():
+            return resolved
+    return None
+
+
+def _copy_optional_figure(source_path: Path | None, destination_path: Path) -> Path | None:
+    if source_path is None:
+        return None
+    destination_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_path, destination_path)
+    return destination_path
+
+
 def import_mesh_bundle_case(
     *,
     source_bundle: Path,
@@ -118,8 +142,8 @@ def import_mesh_bundle_case(
 ) -> Path:
     """Import one local bundle into the canonical gallery-case layout."""
 
-    bundle_dir = source_bundle.expanduser().resolve()
-    validate_bundle_dir(bundle_dir)
+    source_bundle_dir = source_bundle.expanduser().resolve()
+    validate_bundle_dir(source_bundle_dir)
     repo_root = repo_root.expanduser().resolve()
     gallery_root = (
         destination_root.expanduser().resolve()
@@ -135,61 +159,91 @@ def import_mesh_bundle_case(
         paths = paths.__class__(
             case_dir=base_scale_dir / slug,
             bundle_dir=base_scale_dir / slug / "bundle",
+            figures_dir=base_scale_dir / slug / "figures",
             case_json_path=base_scale_dir / slug / "case.json",
             viewer_config_path=base_scale_dir / slug / "viewer_config.toml",
             readme_path=base_scale_dir / slug / "README.md",
         )
 
-    if paths.case_dir.exists():
-        if not force:
-            raise FileExistsError(
-                f"Destination case directory already exists: {paths.case_dir}. Use --force to overwrite it."
-            )
-        shutil.rmtree(paths.case_dir)
-    paths.bundle_dir.mkdir(parents=True, exist_ok=True)
+    temp_source_root: tempfile.TemporaryDirectory[str] | None = None
+    bundle_dir = source_bundle_dir
+    try:
+        if paths.case_dir.exists():
+            if not force:
+                raise FileExistsError(
+                    f"Destination case directory already exists: {paths.case_dir}. Use --force to overwrite it."
+                )
+            # When re-importing an already versioned case, stage the current bundle before deleting it.
+            if source_bundle_dir == paths.bundle_dir or paths.case_dir in source_bundle_dir.parents:
+                temp_source_root = tempfile.TemporaryDirectory(prefix="hydromodpy_mesh_gallery_import_")
+                staged_bundle_dir = Path(temp_source_root.name) / source_bundle_dir.name
+                shutil.copytree(source_bundle_dir, staged_bundle_dir)
+                bundle_dir = staged_bundle_dir
+            shutil.rmtree(paths.case_dir)
+        paths.bundle_dir.mkdir(parents=True, exist_ok=True)
 
-    copied_filenames: list[str] = []
-    for child in sorted(bundle_dir.iterdir()):
-        if not child.is_file():
-            continue
-        shutil.copy2(child, paths.bundle_dir / child.name)
-        copied_filenames.append(child.name)
+        copied_filenames: list[str] = []
+        for child in sorted(bundle_dir.iterdir()):
+            if not child.is_file():
+                continue
+            shutil.copy2(child, paths.bundle_dir / child.name)
+            copied_filenames.append(child.name)
 
-    imported_summary = load_bundle_summary(paths.bundle_dir)
-    imported_summary["bundle_readme_present"] = "README.md" in copied_filenames
+        imported_summary = load_bundle_summary(paths.bundle_dir)
+        imported_summary["bundle_readme_present"] = "README.md" in copied_filenames
 
-    launcher_config = launcher_config_path or default_launcher_config_for_scale(scale)
-    launcher_abs = repo_root / launcher_config
-    if not launcher_abs.exists():
-        raise FileNotFoundError(
-            f"Launcher config path does not exist under repo root: {launcher_config}"
+        preferred_doc_figure = _copy_optional_figure(
+            _resolve_existing_path(imported_summary.get("output_figure"), base_dir=bundle_dir.parent),
+            paths.figures_dir / "mesh_overview.png",
+        )
+        preferred_doc_regional_figure = _copy_optional_figure(
+            _resolve_existing_path(imported_summary.get("output_figure_regional"), base_dir=bundle_dir.parent),
+            paths.figures_dir / "mesh_regional.png",
         )
 
-    case_rel_dir = repo_relative(paths.case_dir, repo_root=repo_root)
-    metadata = build_default_case_metadata(
-        scale=scale,
-        variant=variant,
-        outlet_id=outlet_id,
-        slug=slug,
-        case_rel_dir=case_rel_dir,
-        launcher_config_path=launcher_config,
-        source_bundle_summary=imported_summary,
-        title=title,
-        deck=deck,
-        summary=summary,
-        what_it_shows=what_it_shows,
-        reproduction_command=reproduction_command,
-    )
+        launcher_config = launcher_config_path or default_launcher_config_for_scale(scale)
+        launcher_abs = repo_root / launcher_config
+        if not launcher_abs.exists():
+            raise FileNotFoundError(
+                f"Launcher config path does not exist under repo root: {launcher_config}"
+            )
 
-    color_field = str(MESH_GALLERY_VARIANT_SPECS[variant]["color_field"])
-    viewer_config_text = build_viewer_config_text(
-        title=str(metadata["title"]),
-        color_field=color_field,
-    )
-    _write_text(paths.viewer_config_path, viewer_config_text)
-    _write_json(paths.case_json_path, metadata)
-    _write_text(paths.readme_path, build_case_readme_text(metadata))
-    return paths.case_dir
+        case_rel_dir = repo_relative(paths.case_dir, repo_root=repo_root)
+        metadata = build_default_case_metadata(
+            scale=scale,
+            variant=variant,
+            outlet_id=outlet_id,
+            slug=slug,
+            case_rel_dir=case_rel_dir,
+            launcher_config_path=launcher_config,
+            source_bundle_summary=imported_summary,
+            title=title,
+            deck=deck,
+            summary=summary,
+            what_it_shows=what_it_shows,
+            reproduction_command=reproduction_command,
+            preferred_doc_figure_path=(
+                None if preferred_doc_figure is None else repo_relative(preferred_doc_figure, repo_root=repo_root)
+            ),
+            preferred_doc_regional_figure_path=(
+                None
+                if preferred_doc_regional_figure is None
+                else repo_relative(preferred_doc_regional_figure, repo_root=repo_root)
+            ),
+        )
+
+        color_field = str(MESH_GALLERY_VARIANT_SPECS[variant]["color_field"])
+        viewer_config_text = build_viewer_config_text(
+            title=str(metadata["title"]),
+            color_field=color_field,
+        )
+        _write_text(paths.viewer_config_path, viewer_config_text)
+        _write_json(paths.case_json_path, metadata)
+        _write_text(paths.readme_path, build_case_readme_text(metadata))
+        return paths.case_dir
+    finally:
+        if temp_source_root is not None:
+            temp_source_root.cleanup()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -218,7 +272,7 @@ def main(argv: list[str] | None = None) -> int:
     for filename in MESH_GALLERY_REQUIRED_BUNDLE_FILES:
         print(f"  - {filename}")
     print("Next steps:")
-    print("  1. Review case.json / viewer_config.toml wording and plot settings.")
+    print("  1. Review case.json / viewer_config.toml wording and imported figure selection.")
     print("  2. Run `python -m tools.doc_gallery` to regenerate the documentation pages.")
     return 0
 

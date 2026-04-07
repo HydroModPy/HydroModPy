@@ -70,15 +70,27 @@ def _rmtree_onerror(func, path, exc_info) -> None:
     """
 
     del exc_info
-    os.chmod(path, stat.S_IWRITE)
-    func(path)
+    try:
+        os.chmod(path, stat.S_IWRITE)
+    except OSError:
+        # Some locked files reject direct bit flips. Keep the cleanup loop alive
+        # and let the outer retry logic handle the transient lock.
+        try:
+            os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+        except OSError:
+            pass
+    try:
+        func(path)
+    except OSError:
+        # Let ``remove_tree_with_retry`` retry the whole tree once the lock clears.
+        pass
 
 
 def remove_tree_with_retry(
     path: Path,
     *,
-    retries: int = 5,
-    base_delay_s: float = 0.2,
+    retries: int = 12,
+    base_delay_s: float = 0.5,
 ) -> None:
     """Remove one directory tree with a few retries for transient Windows locks.
 
@@ -91,14 +103,15 @@ def remove_tree_with_retry(
     if not path.exists():
         return
 
-    last_error: PermissionError | None = None
+    last_error: OSError | None = None
     for attempt in range(retries):
         try:
+            gc.collect()
             shutil.rmtree(path, onerror=_rmtree_onerror)
             return
         except FileNotFoundError:
             return
-        except PermissionError as exc:
+        except (PermissionError, OSError) as exc:
             last_error = exc
             gc.collect()
             if attempt == retries - 1:

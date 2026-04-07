@@ -11,7 +11,7 @@ These cases show how HydroModPy validates numerical behaviour against lightweigh
 Current Coverage
 ----------------
 
-- Solver variants discovered: MODFLOW-NWT (16), MODFLOW 6 (16), Boussinesq (16).
+- Solver variants discovered: MODFLOW-NWT (18), MODFLOW 6 (18), Boussinesq (18).
 
 Latest Batch Reports
 --------------------
@@ -133,6 +133,24 @@ Latest Batch Reports
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/brutsaert_recession_boussinesq_thin_1d
+      :link-type: doc
+
+      **Brutsaert Recession Validation: Thin Nonlinear Aquifer**
+      ^^^
+      1D outlet-discharge benchmark for thin-aquifer nonlinear recession across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq backend.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/brutsaert_recession_linearized_deep_1d
+      :link-type: doc
+
+      **Brutsaert Recession Validation: Deep Linearized Aquifer**
+      ^^^
+      1D outlet-discharge benchmark for deep-aquifer recession across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq backend.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: cases/linearized_unconfined_boundary_piecewise_1d
       :link-type: doc
 
@@ -201,6 +219,8 @@ Latest Batch Reports
    cases/boussinesq_circular_island_piecewise_k_2d
    cases/dupuit_circular_island_ocean_2d
    cases/boussinesq_hillslope_recharge_step_interception_1d
+   cases/brutsaert_recession_boussinesq_thin_1d
+   cases/brutsaert_recession_linearized_deep_1d
    cases/linearized_unconfined_boundary_piecewise_1d
    cases/linearized_unconfined_boundary_step_1d
    cases/linearized_unconfined_recharge_periodic_1d

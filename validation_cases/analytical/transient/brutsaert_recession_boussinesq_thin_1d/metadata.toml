@@ -1,0 +1,53 @@
+case_id = "brutsaert_recession_boussinesq_thin_1d"
+category = "analytical"
+regime = "transient"
+dimension = "1d"
+launcher = "launcher_simulation"
+config_file = "config_modflownwt.toml"
+default_solver = "modflownwt"
+base_config = "config_common.toml"
+
+[config_files]
+modflownwt = "config_modflownwt.toml"
+modflow6 = "config_modflow6.toml"
+boussinesq = "config_boussinesq.toml"
+
+[workspace]
+results_folder_name = "results_simulations"
+
+[output]
+observable_name = "outlet_discharge_east_side_m3_s"
+expected_periods = 16
+head_observable_name = "watertable_elevation"
+
+[output.warmup_periods_by_solver]
+modflownwt = 1
+modflow6 = 1
+boussinesq = 0
+
+[time]
+nper = 16
+dt_seconds = 86400.0
+
+[geometry]
+nx = 40
+ny = 24
+length_x_m = 50.0
+width_y_m = 30.0
+z_top_m = 5.0
+z_bottom_m = 0.0
+
+[runtime]
+east_head_m = 1.0
+steady_recharge_mm_day = 2.0
+acceptable_steady_residual_inf = 1e-6
+
+[reference]
+solution = "boussinesq"
+hydraulic_conductivity_m_per_s = 1e-4
+specific_yield = 0.1
+watershed_area_m2 = 5000.0
+channel_length_m = 100.0
+active_drainage_fraction = 1.0
+linearization_constant = 0.25
+compare_start_day = 0.0

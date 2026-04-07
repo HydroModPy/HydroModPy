@@ -15,7 +15,12 @@ from shapely.geometry import box
 
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
+from hydromodpy.spatial.geographic.core.derived_features import (
+    GeographicBoundaryFeatures,
+    GeographicDerivedFeatures,
+)
 from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import DomainGeographicContext
+from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
 from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
 
@@ -209,6 +214,8 @@ class SyntheticGeographic:
         self.watershed_buff_dem = str(self.paths.watershed_buff_dem)
         self.watershed_box_buff_dem = str(self.paths.watershed_box_buff_dem)
         self.watershed_contour_tif = str(self.paths.watershed_contour_tif)
+        self._river_network_products = RiverNetworkProducts(enabled=False)
+        self.river_mesh_trace = None
 
     def _hydrate_workspace_paths(self) -> None:
         """Expose legacy workspace-derived paths expected by post-processors."""
@@ -301,21 +308,28 @@ class SyntheticGeographic:
         """Return the synthetic topographic surface used to build the domain."""
         return self.surface_topo
 
-    def get_domain_geographic_context(self) -> DomainGeographicContext:
-        """Return the narrow V2 context consumed by ``Domain`` binders."""
-        return DomainGeographicContext(
+    def get_geographic_derived_features(self) -> GeographicDerivedFeatures:
+        """Return the canonical bundle of derived geographic artifacts."""
+        return GeographicDerivedFeatures(
             surface_topo=self.get_domain_surface_topo(),
-            watershed_shp=str(self.paths.watershed_shp),
+            boundaries=GeographicBoundaryFeatures(
+                watershed_shp=str(self.paths.watershed_shp),
+                watershed_box_shp=str(self.paths.watershed_box_shp),
+                box_buff_shp=str(self.paths.watershed_box_buff_shp),
+            ),
+            rivers=self._river_network_products,
             catchment_area_km2=float(self.catch_area),
             catch_def=str(self.catch_def),
             x_outlet=None,
             y_outlet=None,
-            watershed_box_buff_dem=str(self.paths.watershed_box_buff_dem),
-            watershed_box_shp=str(self.paths.watershed_box_shp),
-            box_buff_shp=str(self.paths.watershed_box_buff_shp),
             zone_kind=str(self.zone_kind),
+            watershed_box_buff_dem=str(self.paths.watershed_box_buff_dem),
             regional_dem_path=str(self.paths.watershed_box_buff_dem),
         )
+
+    def get_domain_geographic_context(self) -> DomainGeographicContext:
+        """Return the narrow V2 context consumed by ``Domain`` binders."""
+        return self.get_geographic_derived_features().to_domain_geographic_context()
 
 
 def build_synthetic_geographic(

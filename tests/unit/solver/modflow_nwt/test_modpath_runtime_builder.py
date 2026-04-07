@@ -1,6 +1,7 @@
 """Unit tests for Modpath zone_partic runtime resolution."""
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -11,6 +12,7 @@ from hydromodpy.solver.modflow_nwt.modpath.modpath import Modpath
 def _make_modpath_stub(tmp_path: Path) -> Modpath:
     model = Modpath.__new__(Modpath)
     model.full_path = str(tmp_path)
+    model.model_name = "test_model"
     return model
 
 
@@ -145,3 +147,28 @@ def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_npy(
     assert clip_calls["in_polygon"] == str(watershed_shp)
     assert clip_calls["out_raster"] == str(expected_clip)
     assert clip_calls["maintain_dimensions"] is True
+
+
+def test_modpath_ensure_modflow_name_file_rebuilds_missing_namefile(
+    tmp_path: Path,
+) -> None:
+    model = _make_modpath_stub(tmp_path)
+    namefile_path = tmp_path / "test_model.nam"
+    write_calls: list[str] = []
+
+    class _FakeMf:
+        def __init__(self) -> None:
+            self.model_ws = "stale-workspace"
+            self.namefile = "test_model.nam"
+
+        def write_name_file(self) -> None:
+            write_calls.append(self.model_ws)
+            namefile_path.write_text("dummy name file", encoding="utf-8")
+
+    model.model_modflow = SimpleNamespace(mf=_FakeMf())
+
+    resolved = model._ensure_modflow_name_file()
+
+    assert resolved == str(namefile_path)
+    assert namefile_path.exists()
+    assert write_calls == [str(tmp_path)]

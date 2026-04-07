@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import hashlib
 import importlib
 import json
+import os
+import stat
+import time
 from dataclasses import replace
 from pathlib import Path
 import shutil
@@ -85,6 +89,65 @@ def _render_mesh_coverage_matrix(cases: list[dict[str, Any]]) -> list[str]:
             else:
                 cell_value = "Missing"
             lines.append(f"     - {cell_value}")
+    lines.append("")
+    return lines
+
+
+def _render_mesh_family_matrix(cases: list[dict[str, Any]]) -> list[str]:
+    """Render one compact family/outlet matrix when repeated mesh families are declared."""
+
+    families: dict[str, dict[str, Any]] = {}
+    for case in cases:
+        metadata = dict(case.get("metadata", {}))
+        family_key = str(metadata.get("case_family_key", "")).strip()
+        family_label = str(metadata.get("case_family_label", "")).strip()
+        if family_key == "" or family_label == "":
+            continue
+        entry = families.setdefault(
+            family_key,
+            {
+                "label": family_label,
+                "order": int(metadata.get("case_family_order", 999)),
+                "scale_label": str(metadata.get("scale_label", metadata.get("scale", ""))).strip(),
+                "variant_label": str(metadata.get("variant_label", metadata.get("variant", ""))).strip(),
+                "outlet_ids": [],
+            },
+        )
+        outlet_id = str(metadata.get("outlet_id", "")).strip()
+        if outlet_id != "":
+            entry["outlet_ids"].append(outlet_id)
+
+    if not families:
+        return []
+
+    lines = [
+        "Family Coverage",
+        "---------------",
+        "",
+        ".. list-table::",
+        "   :header-rows: 1",
+        "",
+        "   * - Case family",
+        "     - Scale",
+        "     - Variant",
+        "     - Imported outlets",
+    ]
+    for family in sorted(
+        families.values(),
+        key=lambda item: (int(item["order"]), str(item["label"])),
+    ):
+        ordered_outlets = sorted(
+            set(str(item) for item in family["outlet_ids"]),
+            key=lambda item: int(item) if str(item).isdigit() else str(item),
+        )
+        lines.extend(
+            [
+                f"   * - {family['label']}",
+                f"     - {family['scale_label']}",
+                f"     - {family['variant_label']}",
+                f"     - {', '.join(f'outlet {item}' for item in ordered_outlets)}",
+            ]
+        )
     lines.append("")
     return lines
 
@@ -176,6 +239,44 @@ def _import_symbol(import_path: str):
     return getattr(module, symbol_name)
 
 
+def _rmtree_onerror(func, path, exc_info) -> None:
+    """Retry one failed ``rmtree`` step after clearing a read-only bit."""
+
+    del exc_info
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+def _remove_tree_with_retry(
+    path: Path,
+    *,
+    retries: int = 12,
+    base_delay_s: float = 0.5,
+) -> None:
+    """Remove one generated directory with retries for transient Windows locks."""
+
+    if not path.exists():
+        return
+
+    last_error: PermissionError | None = None
+    for attempt in range(retries):
+        try:
+            gc.collect()
+            shutil.rmtree(path, onerror=_rmtree_onerror)
+            return
+        except FileNotFoundError:
+            return
+        except PermissionError as exc:
+            last_error = exc
+            gc.collect()
+            if attempt == retries - 1:
+                raise
+            time.sleep(base_delay_s * (attempt + 1))
+
+    if last_error is not None:
+        raise last_error
+
+
 def _reset_generated_dirs(source_root: Path) -> None:
     for relative_path in (
         Path("capability_gallery"),
@@ -183,7 +284,7 @@ def _reset_generated_dirs(source_root: Path) -> None:
     ):
         target = source_root / relative_path
         if target.exists():
-            shutil.rmtree(target)
+            _remove_tree_with_retry(target)
         target.mkdir(parents=True, exist_ok=True)
 
 
@@ -261,15 +362,32 @@ def _build_case_summary(
 
 
 def _generate_mesh_viewer_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
-    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
-    config = load_toml_config(_repo_path(str(spec.metadata["config_path"])))
-    config = replace(
-        config,
-        figure_output_path=figure_path.resolve(),
-        summary_output_path=None,
-        show_window=False,
-    )
-    raw_summary = run_visualization(config)
+    preferred_assets = [asset for asset in spec.image_assets if asset.source_path is not None]
+    if preferred_assets:
+        with tempfile.TemporaryDirectory(prefix="hydromodpy_doc_gallery_mesh_viewer_") as temp_dir:
+            temp_figure_path = Path(temp_dir) / spec.image_assets[0].filename
+            config = load_toml_config(_repo_path(str(spec.metadata["config_path"])))
+            config = replace(
+                config,
+                figure_output_path=temp_figure_path.resolve(),
+                summary_output_path=None,
+                show_window=False,
+            )
+            raw_summary = run_visualization(config)
+        for asset in preferred_assets:
+            destination = source_root / _docs_relative_static_path(spec.category, asset.filename)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(_repo_path(str(asset.source_path)), destination)
+    else:
+        figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+        config = load_toml_config(_repo_path(str(spec.metadata["config_path"])))
+        config = replace(
+            config,
+            figure_output_path=figure_path.resolve(),
+            summary_output_path=None,
+            show_window=False,
+        )
+        raw_summary = run_visualization(config)
     sanitized_viewer_summary = {
         key: _json_ready(value)
         for key, value in raw_summary.items()
@@ -284,6 +402,7 @@ def _generate_mesh_viewer_case(spec: GalleryCaseSpec, source_root: Path) -> dict
         spec,
         metrics_source={metric.key: raw_summary[metric.key] for metric in spec.metric_specs},
         metadata={
+            **dict(spec.metadata),
             "config_path": str(spec.metadata["config_path"]),
             "viewer_summary": sanitized_viewer_summary,
         },
@@ -309,6 +428,7 @@ def _generate_copy_assets_case(spec: GalleryCaseSpec, source_root: Path) -> dict
         spec,
         metrics_source={},
         metadata={
+            **dict(spec.metadata),
             "copied_assets": copied_assets,
         },
     )
@@ -469,6 +589,112 @@ def _render_grid_card(*, link: str, title: str, deck: str) -> list[str]:
     ]
 
 
+def _variant_rank(variant: str) -> int:
+    for index, key in enumerate(MESH_GALLERY_VARIANT_SPECS):
+        if key == variant:
+            return index
+    return len(MESH_GALLERY_VARIANT_SPECS)
+
+
+def _mesh_case_sort_token(value: str) -> int | str:
+    token = str(value).strip()
+    return int(token) if token.isdigit() else token
+
+
+def _group_mesh_cases_for_site_tabs(
+    cases: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    grouped_candidates: dict[str, list[dict[str, Any]]] = {}
+    standalone_cases: list[dict[str, Any]] = []
+
+    for case in cases:
+        metadata = dict(case.get("metadata", {}))
+        group_key = str(metadata.get("site_tabs_group_key", "")).strip()
+        if group_key == "":
+            standalone_cases.append(case)
+            continue
+        grouped_candidates.setdefault(group_key, []).append(case)
+
+    tabbed_groups: list[dict[str, Any]] = []
+    for _, group_cases in sorted(
+        grouped_candidates.items(),
+        key=lambda item: (
+            int(item[1][0].get("metadata", {}).get("case_family_order", 999)),
+            str(item[1][0].get("metadata", {}).get("site_tabs_group_title", item[0])),
+        ),
+    ):
+        ordered_cases = sorted(
+            group_cases,
+            key=lambda case: (
+                int(case.get("metadata", {}).get("site_tabs_order", 999)),
+                _mesh_case_sort_token(str(case.get("metadata", {}).get("outlet_id", ""))),
+                str(case.get("title", "")),
+            ),
+        )
+        if len(ordered_cases) > 1:
+            metadata = dict(ordered_cases[0].get("metadata", {}))
+            tabbed_groups.append(
+                {
+                    "title": str(
+                        metadata.get(
+                            "site_tabs_group_title",
+                            metadata.get("case_family_label", "Repeated Sites"),
+                        )
+                    ),
+                    "cases": ordered_cases,
+                }
+            )
+        else:
+            standalone_cases.extend(ordered_cases)
+    return standalone_cases, tabbed_groups
+
+
+def _group_mesh_cases_for_tabs(
+    cases: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    grouped_candidates: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    standalone_cases: list[dict[str, Any]] = []
+
+    for case in cases:
+        metadata = dict(case.get("metadata", {}))
+        scale = str(metadata.get("scale", "")).strip()
+        outlet_id = str(metadata.get("outlet_id", "")).strip()
+        if scale == "" or outlet_id == "":
+            standalone_cases.append(case)
+            continue
+        grouped_candidates.setdefault((scale, outlet_id), []).append(case)
+
+    scale_rank = {scale: index for index, scale in enumerate(MESH_GALLERY_SCALE_ORDER)}
+    tabbed_groups: list[dict[str, Any]] = []
+    for (scale, outlet_id), group_cases in sorted(
+        grouped_candidates.items(),
+        key=lambda item: (
+            scale_rank.get(item[0][0], 999),
+            int(item[0][1]) if item[0][1].isdigit() else item[0][1],
+        ),
+    ):
+        ordered_cases = sorted(
+            group_cases,
+            key=lambda case: _variant_rank(str(case.get("metadata", {}).get("variant", ""))),
+        )
+        if len(ordered_cases) > 1:
+            metadata = dict(ordered_cases[0].get("metadata", {}))
+            tabbed_groups.append(
+                {
+                    "title": str(
+                        metadata.get(
+                            "comparison_group_title",
+                            f"{metadata.get('scale_label', scale)}, outlet {outlet_id}",
+                        )
+                    ),
+                    "cases": ordered_cases,
+                }
+            )
+        else:
+            standalone_cases.extend(ordered_cases)
+    return standalone_cases, tabbed_groups
+
+
 def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str:
     lines = [
         AUTO_GENERATED_COMMENT,
@@ -511,6 +737,7 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
 
 def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str:
     category = CATEGORY_SPECS[category_slug]
+    all_cases = list(cases)
     lines = [
         AUTO_GENERATED_COMMENT,
         "",
@@ -537,6 +764,13 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 if str(case.get("metadata", {}).get("variant", "")).strip()
             }
         )
+        imported_case_family_labels = sorted(
+            {
+                str(case.get("metadata", {}).get("case_family_label", "")).strip()
+                for case in cases
+                if str(case.get("metadata", {}).get("case_family_label", "")).strip()
+            }
+        )
         missing_scale_labels = [
             scale_label
             for scale_label in ("10 km2", "100 km2", "1000 km2")
@@ -547,13 +781,133 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 "Current Coverage",
                 "----------------",
                 "",
+                "- Imported case families: "
+                + (", ".join(imported_case_family_labels) if imported_case_family_labels else "none yet")
+                + ".",
                 "- Imported scales: " + (", ".join(imported_scale_labels) if imported_scale_labels else "none yet") + ".",
                 "- Present variants: " + (", ".join(present_variants) if present_variants else "none yet") + ".",
                 "- Prepared but not yet versioned: " + (", ".join(missing_scale_labels) if missing_scale_labels else "none") + ".",
                 "",
             ]
         )
-        lines.extend(_render_mesh_coverage_matrix(cases))
+        family_matrix = _render_mesh_family_matrix(cases)
+        lines.extend(family_matrix if family_matrix else _render_mesh_coverage_matrix(cases))
+        standalone_cases, site_tab_groups = _group_mesh_cases_for_site_tabs(cases)
+        if site_tab_groups:
+            lines.extend(
+                [
+                    "Repeated Sites",
+                    "--------------",
+                    "",
+                    "These tab sets group one repeated mesh family across several outlets imported from the batch runs.",
+                    "",
+                ]
+            )
+            for group in site_tab_groups:
+                title = str(group["title"])
+                lines.extend(
+                    [
+                        title,
+                        "~" * len(title),
+                        "",
+                        ".. tab-set::",
+                        "",
+                    ]
+                )
+                for case in group["cases"]:
+                    tab_label = str(
+                        case.get("metadata", {}).get(
+                            "site_tabs_label",
+                            f"Outlet {case.get('metadata', {}).get('outlet_id', '')}",
+                        )
+                    ).strip()
+                    lines.extend(
+                        [
+                            f"   .. tab-item:: {tab_label}",
+                            "",
+                        ]
+                    )
+                    images = list(case.get("images", []))
+                    _append_mesh_tab_images(lines, images, indent="      ")
+                    lines.extend(
+                        [
+                            f"      **{case['title']}**",
+                            "",
+                            f"      {case['deck']}",
+                            "",
+                        ]
+                    )
+                    outlet_id = str(case.get("metadata", {}).get("outlet_id", "")).strip()
+                    if outlet_id:
+                        lines.append(f"      - Outlet: ``{outlet_id}``")
+                    constraints_mode = str(case.get("metadata", {}).get("constraints_mode", "")).strip()
+                    if constraints_mode:
+                        lines.append(f"      - Constraints mode: ``{constraints_mode}``")
+                    for metric in list(case.get("metrics", []))[:4]:
+                        lines.append(f"      - {metric['label']}: {metric['display']}")
+                    lines.extend(
+                        [
+                            "",
+                            f"      See :doc:`the full case page <{case['docname']}>`.",
+                            "",
+                        ]
+                    )
+
+        standalone_cases, tabbed_groups = _group_mesh_cases_for_tabs(standalone_cases)
+        if tabbed_groups:
+            lines.extend(
+                [
+                    "Comparable Variants",
+                    "-------------------",
+                    "",
+                    "These tab sets group the same support and outlet across multiple meshing policies.",
+                    "",
+                ]
+            )
+            for group in tabbed_groups:
+                title = str(group["title"])
+                lines.extend(
+                    [
+                        title,
+                        "~" * len(title),
+                        "",
+                        ".. tab-set::",
+                        "",
+                    ]
+                )
+                for case in group["cases"]:
+                    variant_label = str(
+                        case.get("metadata", {}).get("variant_label", case.get("title", "Variant"))
+                    )
+                    lines.extend(
+                        [
+                            f"   .. tab-item:: {variant_label}",
+                            "",
+                        ]
+                    )
+                    images = list(case.get("images", []))
+                    _append_mesh_tab_images(lines, images, indent="      ")
+                    lines.extend(
+                        [
+                            f"      **{case['title']}**",
+                            "",
+                            f"      {case['deck']}",
+                            "",
+                        ]
+                    )
+                    constraints_mode = str(case.get("metadata", {}).get("constraints_mode", "")).strip()
+                    if constraints_mode:
+                        lines.append(f"      - Constraints mode: ``{constraints_mode}``")
+                    for metric in list(case.get("metrics", []))[:4]:
+                        lines.append(f"      - {metric['label']}: {metric['display']}")
+                    lines.extend(
+                        [
+                            "",
+                            f"      See :doc:`the full case page <{case['docname']}>`.",
+                            "",
+                        ]
+                    )
+        cases = standalone_cases
     elif category_slug == "validation":
         solver_counts = {
             solver: sum(
@@ -601,21 +955,22 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
             lines.append("- No committed validation batch reports yet.")
         lines.append("")
 
-    lines.extend(
-        [
-        ".. grid:: 1 1 2 2",
-        "   :gutter: 2 2 3 3",
-        "",
-        ]
-    )
-    for case in cases:
+    if cases:
         lines.extend(
-            _render_grid_card(
-                link=case["docname"],
-                title=case["title"],
-                deck=case["deck"],
-            )
+            [
+            ".. grid:: 1 1 2 2",
+            "   :gutter: 2 2 3 3",
+            "",
+            ]
         )
+        for case in cases:
+            lines.extend(
+                _render_grid_card(
+                    link=case["docname"],
+                    title=case["title"],
+                    deck=case["deck"],
+                )
+            )
     lines.extend(
         [
             ".. toctree::",
@@ -624,22 +979,41 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
             "",
         ]
     )
-    for case in cases:
+    for case in all_cases:
             lines.append(f"   {case['docname']}")
     return "\n".join(lines)
 
 
-def _append_figure(lines: list[str], image: dict[str, Any], *, indent: str = "") -> None:
+def _append_figure(
+    lines: list[str],
+    image: dict[str, Any],
+    *,
+    indent: str = "",
+    width: str = "100%",
+) -> None:
     lines.extend(
         [
             f"{indent}.. figure:: {image['doc_path']}",
             f"{indent}   :alt: {image['alt_text']}",
-            f"{indent}   :width: 100%",
+            f"{indent}   :width: {width}",
             "",
             f"{indent}   {image['caption']}",
             "",
         ]
     )
+
+
+def _append_mesh_tab_images(
+    lines: list[str],
+    images: list[dict[str, Any]],
+    *,
+    indent: str = "",
+) -> None:
+    if not images:
+        return
+    _append_figure(lines, images[0], indent=indent, width="85%")
+    if len(images) > 1:
+        _append_figure(lines, images[1], indent=indent, width="35%")
 
 
 def _render_validation_solver_block(run: dict[str, Any], *, indent: str = "") -> list[str]:
@@ -750,6 +1124,8 @@ def _build_case_page(case: dict[str, Any]) -> str:
                     "",
                 ]
             )
+        if lines[-1] != "":
+            lines.append("")
 
     if solver_runs:
         metadata = dict(case.get("metadata", {}))

@@ -343,6 +343,7 @@ class SupportBuildContext:
     flow: object | None
     loaded_data: object | None
     time_grid: object | None
+    geographic_features: object | None = None
 
 
 class SpatialSupportProvider(Protocol):

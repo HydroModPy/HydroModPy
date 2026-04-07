@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
+from hydromodpy.spatial.geographic.core.derived_features import resolve_river_mesh_trace
 from hydromodpy.solver.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.property_mapping import (
@@ -127,11 +128,11 @@ def _resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
         ),
         dtype=float,
     )
+    geographic_features = getattr(setup_state, "geographic_features", None)
     domain_geographic = getattr(setup_state, "domain_geographic", None)
-    river_trace = (
-        None
-        if domain_geographic is None
-        else getattr(domain_geographic, "river_mesh_trace", None)
+    river_trace = resolve_river_mesh_trace(
+        geographic_features=geographic_features,
+        domain_geographic=domain_geographic,
     )
     if _flow_uses_stream_bc(flow) and river_trace is None:
         return None

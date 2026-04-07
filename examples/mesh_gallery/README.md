@@ -64,5 +64,12 @@ After import:
 2. run `python -m tools.doc_gallery`
 3. rebuild the docs
 
+For the repeated batch-backed mesh cases committed in this repository, refresh
+the whole imported tree directly from the existing batch outputs with:
+
+```bash
+python -m tools.doc_gallery.sync_mesh_catchment_runs --update-gallery
+```
+
 Imported cases are discovered automatically by `tools.doc_gallery` as soon as
 their `case.json` file is present under this tree.

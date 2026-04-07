@@ -365,6 +365,17 @@ def test_geographic_legacy_from_polygon_contract(tmp_path: Path, monkeypatch: py
     )
     assert domain_geographic.surface_topo.support is not None
 
+    features = geo.get_geographic_derived_features()
+    assert features.catch_def == "from_polyg_shp"
+    assert features.zone_kind == "catchment"
+    assert features.boundaries.watershed_shp == geo.watershed_shp
+    assert features.boundaries.box_buff_shp == geo.box_buff
+    assert features.rivers.river_mesh_trace is None
+    assert float(features.catchment_area_km2) == pytest.approx(
+        float(geo.catch_area),
+        abs=1e-9,
+    )
+
 
 def test_geographic_legacy_from_polygon_golden(
     update_goldens: bool,

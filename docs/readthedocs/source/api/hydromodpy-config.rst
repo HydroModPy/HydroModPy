@@ -24,6 +24,7 @@ hydromodpy.core.config.hydromodpy_config
    :members:
    :undoc-members:
    :member-order: bysource
+   :no-index:
 
 ----
 
@@ -34,6 +35,7 @@ hydromodpy.core.workspace.config
    :members:
    :undoc-members:
    :member-order: bysource
+   :no-index:
 
 ----
 
@@ -44,3 +46,4 @@ hydromodpy.spatial.geographic.geographic_config
    :members:
    :undoc-members:
    :member-order: bysource
+   :no-index:

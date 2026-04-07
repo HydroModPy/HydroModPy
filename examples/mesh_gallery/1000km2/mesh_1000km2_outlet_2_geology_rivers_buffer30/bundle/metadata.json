@@ -4,8 +4,8 @@
   "cell_type": "triangle",
   "indexing": "zero_based",
   "crs": "EPSG:2154",
-  "n_nodes": 19969,
-  "n_cells": 39774,
+  "n_nodes": 19078,
+  "n_cells": 38030,
   "constraints_mode": "geology_rivers",
   "topography": {
     "node_field": "z_top",
@@ -13,7 +13,7 @@
       "z_top_centroid",
       "z_top_mean"
     ],
-    "source_path": "C:\\results\\HydromodPy\\profiling\\_mesh_runtime\\mesh_1000km2_outlet_2_outlet_2\\results_stable\\geographic\\watershed_box_buff_dem.tif"
+    "source_path": "C:\\results\\HydromodPy\\mesh_catchment_runs\\1000km2\\_mesh_runtime\\mesh_outlet_2\\results_stable\\geographic\\watershed_box_buff_dem.tif"
   },
   "vertical": {
     "available": true,
@@ -395,5 +395,5 @@
     "readme": "README.md",
     "mesh_summary": "mesh_summary.json"
   },
-  "source_mesh_path": "C:\\results\\HydromodPy\\profiling\\mesh_1000km2_outlet_2_outlet_2\\mesh_catchment_outlet_2.msh"
+  "source_mesh_path": "C:\\results\\HydromodPy\\mesh_catchment_runs\\1000km2\\mesh_outlet_2\\mesh_catchment_outlet_2.msh"
 }

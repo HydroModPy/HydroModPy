@@ -291,10 +291,24 @@ def _extra_source_paths_for_case(slug: str) -> tuple[str, ...]:
         extra_paths.append("validation_cases/analytical/transient/linearized_unconfined_1d.py")
     if slug == "late_time_unconfined_pumping_2d":
         extra_paths.append("validation_cases/analytical/transient/common.py")
+    if slug.startswith("brutsaert_recession_"):
+        extra_paths.extend(
+            [
+                "validation_cases/analytical/transient/brutsaert_common.py",
+                "validation_cases/analytical/transient/brutsaert_reference.py",
+                "validation_cases/analytical/transient/runtime_boussinesq_brutsaert_1d.py",
+            ]
+        )
     return tuple(extra_paths)
 
 
-def _build_source_paths(case_dir: Path, *, repo_root: Path, config_files: dict[str, str]) -> tuple[str, ...]:
+def _build_source_paths(
+    case_dir: Path,
+    *,
+    repo_root: Path,
+    config_files: dict[str, str],
+    metadata_payload: dict[str, Any],
+) -> tuple[str, ...]:
     relative_paths = [
         "validation_cases/README.md",
         _repo_relative(case_dir / "README.md", repo_root=repo_root),
@@ -304,6 +318,9 @@ def _build_source_paths(case_dir: Path, *, repo_root: Path, config_files: dict[s
         _repo_relative(case_dir / "run_case.py", repo_root=repo_root),
         _repo_relative(case_dir / "metadata.toml", repo_root=repo_root),
     ]
+    base_config_name = str(metadata_payload.get("base_config", "")).strip()
+    if base_config_name:
+        relative_paths.append(_repo_relative(case_dir / base_config_name, repo_root=repo_root))
     for runtime_path in sorted(case_dir.glob("runtime_*.py")):
         relative_paths.append(_repo_relative(runtime_path, repo_root=repo_root))
     for tolerance_path in sorted(case_dir.glob("tolerances*.toml")):
@@ -485,7 +502,12 @@ def build_validation_case_records(*, repo_root: Path | None = None) -> tuple[Val
                 regime=str(metadata_payload.get("regime", inventory_entry.regime if inventory_entry is not None else "")),
                 dimension=str(metadata_payload.get("dimension", inventory_entry.dimension if inventory_entry is not None else "")),
                 reproduction_command=reproduction_command,
-                source_paths=_build_source_paths(case_dir, repo_root=resolved_repo_root, config_files=config_files),
+                source_paths=_build_source_paths(
+                    case_dir,
+                    repo_root=resolved_repo_root,
+                    config_files=config_files,
+                    metadata_payload=metadata_payload,
+                ),
                 case_setup=_dedupe_preserve_order(case_setup_bullets),
                 what_it_shows=_dedupe_preserve_order(what_it_shows),
                 reference_highlights=_dedupe_preserve_order(reference_highlights),

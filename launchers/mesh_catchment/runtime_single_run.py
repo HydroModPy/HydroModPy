@@ -9,6 +9,10 @@ import shutil
 from types import SimpleNamespace
 from typing import Any
 
+from hydromodpy.spatial.geographic.core.derived_features import (
+    coerce_geographic_derived_features,
+    resolve_river_mesh_trace,
+)
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.solver.utils.mesh.gmsh_grid._bundle_export_contracts import (
     CatchmentBundleGeologyExportConfig,
@@ -60,6 +64,7 @@ class MeshCatchmentSingleRunDependencies:
     build_domain_geographic_context_fn: Callable[..., object]
     run_reference_case_fn: Callable[..., Any]
     export_catchment_mesh_bundle_fn: Callable[..., dict[str, Any]]
+    build_geographic_derived_features_fn: Callable[..., object] | None = None
 
 
 @dataclass(frozen=True)
@@ -71,6 +76,7 @@ class PreparedMeshCatchmentRuntime:
     runtime_project_root: Path | None
     runtime_workspace_cfg: object
     workspace: object
+    geographic_features: object | None
     domain_geographic: object
     built_domain_geographic_locally: bool
 
@@ -224,11 +230,17 @@ def _resolve_river_trace(
     *,
     constraints_mode: str,
     geographic_cfg: GeographicConfig,
+    geographic_features: object | None,
     domain_geographic: object | None,
 ) -> object | None:
     """Return the in-memory river trace required by river-constrained meshing."""
-    river_trace = (
-        None if domain_geographic is None else getattr(domain_geographic, "river_mesh_trace", None)
+    features = coerce_geographic_derived_features(
+        geographic_features=geographic_features,
+        domain_geographic=domain_geographic,
+    )
+    river_trace = resolve_river_mesh_trace(
+        geographic_features=features,
+        domain_geographic=domain_geographic,
     )
     if not constraints_mode_requires_river_trace(constraints_mode):
         return river_trace
@@ -252,10 +264,11 @@ def _prepare_runtime_environment(
     workspace_cfg: object,
     geographic_cfg: GeographicConfig,
     workspace: object | None,
+    geographic_features: object | None,
     domain_geographic: object | None,
     deps: MeshCatchmentSingleRunDependencies,
 ) -> PreparedMeshCatchmentRuntime:
-    """Resolve the runtime workspace and domain_geographic context for one run."""
+    """Resolve the runtime workspace and geographic context for one run."""
 
     dedicated_flat_layout = section_cfg.output_layout == "flat" and workspace is None
     effective_output_layout = "flat" if dedicated_flat_layout else "standard"
@@ -279,14 +292,38 @@ def _prepare_runtime_environment(
         if workspace is not None
         else deps.workspace_factory(config=runtime_workspace_cfg)
     )
+    local_geographic_features = coerce_geographic_derived_features(
+        geographic_features=geographic_features,
+        domain_geographic=domain_geographic,
+    )
     local_domain_geographic = domain_geographic
     built_domain_geographic_locally = False
-    if local_domain_geographic is None:
-        local_domain_geographic = deps.build_domain_geographic_context_fn(
-            config=geographic_cfg,
-            workspace=local_workspace,
+    if local_geographic_features is None and local_domain_geographic is None:
+        if deps.build_geographic_derived_features_fn is not None:
+            local_geographic_features = deps.build_geographic_derived_features_fn(
+                config=geographic_cfg,
+                workspace=local_workspace,
+            )
+            built_domain_geographic_locally = True
+        else:
+            local_domain_geographic = deps.build_domain_geographic_context_fn(
+                config=geographic_cfg,
+                workspace=local_workspace,
+            )
+            built_domain_geographic_locally = True
+
+    if local_geographic_features is None:
+        local_geographic_features = coerce_geographic_derived_features(
+            domain_geographic=local_domain_geographic,
         )
-        built_domain_geographic_locally = True
+
+    if local_domain_geographic is None:
+        if local_geographic_features is None:
+            raise ValueError(
+                "mesh_catchment runtime could not resolve geographic features "
+                "or domain_geographic context."
+            )
+        local_domain_geographic = local_geographic_features.to_domain_geographic_context()
 
     return PreparedMeshCatchmentRuntime(
         effective_output_layout=effective_output_layout,
@@ -294,6 +331,7 @@ def _prepare_runtime_environment(
         runtime_project_root=runtime_project_root,
         runtime_workspace_cfg=runtime_workspace_cfg,
         workspace=local_workspace,
+        geographic_features=local_geographic_features,
         domain_geographic=local_domain_geographic,
         built_domain_geographic_locally=built_domain_geographic_locally,
     )
@@ -402,6 +440,7 @@ def run_single_mesh_catchment_workflow_typed(
     constraints_mode: str,
     output_overrides: Mapping[str, Path | str | None] | None = None,
     workspace: object | None = None,
+    geographic_features: object | None = None,
     domain_geographic: object | None = None,
     section_name: str,
     deps: MeshCatchmentSingleRunDependencies,
@@ -413,6 +452,7 @@ def run_single_mesh_catchment_workflow_typed(
         workspace_cfg=workspace_cfg,
         geographic_cfg=geographic_cfg,
         workspace=workspace,
+        geographic_features=geographic_features,
         domain_geographic=domain_geographic,
         deps=deps,
     )
@@ -420,6 +460,7 @@ def run_single_mesh_catchment_workflow_typed(
     river_trace = _resolve_river_trace(
         constraints_mode=constraints_mode,
         geographic_cfg=geographic_cfg,
+        geographic_features=prepared_runtime.geographic_features,
         domain_geographic=prepared_runtime.domain_geographic,
     )
     resolved_outputs = _resolve_output_overrides(

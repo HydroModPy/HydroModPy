@@ -138,6 +138,8 @@ The shared runtime used by all cases lives under `validation_cases/shared/`.
 | `analytical/transient/boussinesq_hillslope_recharge_step_interception_1d` | launcher-backed | transient | linearized hillslope interception onset | 1D sloping-topography benchmark for transient interception onset on the dense in-house Boussinesq runtime. |
 | `analytical/transient/linearized_unconfined_boundary_step_1d` | launcher-backed | transient | linearized boundary step | 1D west-boundary step benchmark with fixed east head. |
 | `analytical/transient/linearized_unconfined_recharge_step_deep_1d` | launcher-backed | transient | linearized recharge step, deep aquifer | 1D recharge-step benchmark with a much deeper reference thickness to reduce linearization error. |
+| `analytical/transient/brutsaert_recession_linearized_deep_1d` | launcher-backed | transient | Brutsaert linearized recession | 1D outlet-discharge benchmark for deep-aquifer recession across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq backend. |
+| `analytical/transient/brutsaert_recession_boussinesq_thin_1d` | launcher-backed | transient | Brutsaert nonlinear recession | 1D outlet-discharge benchmark for thin-aquifer nonlinear recession across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq backend. |
 | `analytical/transient/linearized_unconfined_recharge_periodic_1d` | launcher-backed | transient | linearized periodic recharge | 1D sinusoidal recharge benchmark. |
 | `analytical/transient/linearized_unconfined_boundary_piecewise_1d` | launcher-backed | transient | linearized piecewise boundary forcing | 1D multi-step west-boundary benchmark using CSV forcing. |
 | `analytical/transient/late_time_unconfined_pumping_2d` | launcher-backed | transient | late-time Theis proxy | 2D radial pumping benchmark in the late-time unconfined regime. |
@@ -179,13 +181,15 @@ Some recurring conventions apply across several cases:
 | `boussinesq_hillslope_recharge_step_interception_1d` | Sloping strip, east fixed head, recharge step from the first transient period | Linearized onset approximation for the moving interception front | onset-time error, interception-trajectory RMSE, interception-trajectory max abs error, cross-row spread | Transient appearance of seepage/interception on a hillslope with the dense in-house Boussinesq runtime |
 | `linearized_unconfined_boundary_step_1d` | Homogeneous strip, fixed east head, west-head step applied through CSV forcing | Linearized transient response to a west-boundary step | space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread | Launcher-managed transient side-Dirichlet forcing using one simple head step |
 | `linearized_unconfined_recharge_step_deep_1d` | Homogeneous strip, fixed west/east heads, recharge step from the first transient period, deep reference thickness | Linearized transient response to a recharge step in the near-linear regime | space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread | Separation between true transient-code issues and expected nonlinear deviation from the linearized theory |
+| `brutsaert_recession_linearized_deep_1d` | Homogeneous strip, west divide, east fixed head, steady recharge pre-run followed by recession | Exponential Brutsaert recession law for a deep aquifer | relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check | Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq runtime in the near-linear regime |
+| `brutsaert_recession_boussinesq_thin_1d` | Homogeneous strip, west divide, east fixed head, steady recharge pre-run followed by recession | Nonlinear Brutsaert recession law for a thin aquifer | relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check | Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq runtime in the nonlinear regime |
 | `linearized_unconfined_boundary_piecewise_1d` | Homogeneous strip, fixed east head, piecewise west-head series from CSV, no recharge | Linearized transient response to a multi-step west-boundary forcing | space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread | Multi-step boundary forcing and superposition behavior beyond the single-step case |
 | `linearized_unconfined_recharge_periodic_1d` | Homogeneous strip, fixed west/east heads, periodic recharge chronicle from CSV | Linearized transient response to sinusoidal recharge | space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread | Periodic recharge forcing and phase/amplitude propagation in transient flow |
 | `late_time_unconfined_pumping_2d` | Square unconfined domain, fixed heads on outer boundary, central pumping well, transient run | Late-time radial Theis proxy using `T = K * href` and `S = Sy` | space-time RMSE, space-time max abs error, final-time RMSE, final-time max abs error, azimuthal spread | Transient well forcing, late-time radial drawdown scaling, and numerical radial symmetry around the well |
 
 ## Comparison Patterns
 
-The suite currently uses three main comparison patterns:
+The suite currently uses four main comparison patterns:
 
 - `1D strip profile`: mean head along `x`, plus a transverse spread metric to
   ensure the supposed 1D solution remains laterally uniform;
@@ -211,7 +215,8 @@ Scientifically, the current suite provides direct validation for:
 - uniform and transient recharge forcing,
 - one deep-aquifer transient benchmark used to suppress linearization error when validating the Boussinesq transient path,
 - one transient hillslope-interception onset benchmark for the dense in-house `boussinesq` runtime,
-- top `ocean` boundary condition,
+- two transient integrated-discharge Brutsaert recession benchmarks available on `modflownwt`, `modflow6`, and `boussinesq`,
+  - top `ocean` boundary condition,
 - top distributed `drainage` behavior,
 - steady topographic interception / seepage-onset position on a hillslope for the dense in-house `boussinesq` runtime,
 - one sloping-topography drainage benchmark that keeps the analytical assumptions explicit,

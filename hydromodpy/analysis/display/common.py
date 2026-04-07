@@ -123,6 +123,24 @@ def resolve_flow_base_raster(flow_model, geographic) -> Path:
     return Path(path)
 
 
+def _maximize_figure_window() -> None:
+    """Maximize the current matplotlib window (best-effort, backend-agnostic)."""
+    try:
+        mgr = plt.get_current_fig_manager()
+        try:
+            mgr.window.showMaximized()       # Qt5 / Qt6
+        except AttributeError:
+            try:
+                mgr.window.state("zoomed")   # TkAgg on Windows
+            except AttributeError:
+                try:
+                    mgr.frame.Maximize(True)  # WxAgg
+                except AttributeError:
+                    pass
+    except Exception:
+        pass
+
+
 def finalize_figure(
     fig,
     *,
@@ -145,6 +163,7 @@ def finalize_figure(
         fig.savefig(save_path, dpi=options.dpi, bbox_inches="tight")
 
     if options.show:
+        _maximize_figure_window()
         plt.show()
     else:
         # Always close in non-interactive mode to avoid leaking Matplotlib state.

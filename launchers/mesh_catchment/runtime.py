@@ -14,6 +14,7 @@ from typing import Any
 
 import hydromodpy as hmp
 from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
+    build_geographic_derived_features,
     build_domain_geographic_context,
 )
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
@@ -124,6 +125,7 @@ def run_single_mesh_catchment_workflow(
     constraints_mode: str,
     output_overrides: Mapping[str, Path | str | None] | None = None,
     workspace: object | None = None,
+    geographic_features: object | None = None,
     domain_geographic: object | None = None,
     section_name: str = DEFAULT_SECTION_NAME,
 ) -> dict[str, Any]:
@@ -137,11 +139,13 @@ def run_single_mesh_catchment_workflow(
         constraints_mode=constraints_mode,
         output_overrides=output_overrides,
         workspace=workspace,
+        geographic_features=geographic_features,
         domain_geographic=domain_geographic,
         section_name=section_name,
         deps=MeshCatchmentSingleRunDependencies(
             workspace_factory=hmp.Workspace,
             build_domain_geographic_context_fn=build_domain_geographic_context,
+            build_geographic_derived_features_fn=build_geographic_derived_features,
             run_reference_case_fn=run_reference_2d_zone_conformal_case_from_toml,
             export_catchment_mesh_bundle_fn=export_catchment_mesh_bundle,
         ),
@@ -158,6 +162,7 @@ def run_single_mesh_catchment_workflow_with_runtime_artifacts(
     constraints_mode: str,
     output_overrides: Mapping[str, Path | str | None] | None = None,
     workspace: object | None = None,
+    geographic_features: object | None = None,
     domain_geographic: object | None = None,
     section_name: str = DEFAULT_SECTION_NAME,
 ) -> MeshCatchmentWorkflowRuntimeArtifacts:
@@ -171,11 +176,13 @@ def run_single_mesh_catchment_workflow_with_runtime_artifacts(
         constraints_mode=constraints_mode,
         output_overrides=output_overrides,
         workspace=workspace,
+        geographic_features=geographic_features,
         domain_geographic=domain_geographic,
         section_name=section_name,
         deps=MeshCatchmentSingleRunDependencies(
             workspace_factory=hmp.Workspace,
             build_domain_geographic_context_fn=build_domain_geographic_context,
+            build_geographic_derived_features_fn=build_geographic_derived_features,
             run_reference_case_fn=run_reference_2d_zone_conformal_case_from_toml,
             export_catchment_mesh_bundle_fn=export_catchment_mesh_bundle,
         ),

@@ -81,11 +81,32 @@ hmp test regression --update-goldens
 hmp test regression launcher_simulation_fast_mf6 --update-goldens
 ```
 
+### Validation tests
+
+Run all validation tests:
+
+```bash
+hmp test validation
+```
+
+Filter by marker:
+
+```bash
+hmp test validation --fast
+hmp test validation --slow
+hmp test validation --steady
+hmp test validation --transient
+hmp test validation --analytical
+hmp test validation --mf6
+hmp test validation --nwt
+```
+
 ### Notes
 
 - The current launcher regression set is: `launcher_simulation_fast_nwt`, `launcher_simulation_fast_mf6`, `launcher_simulation_extensive_nwt`, and `launcher_simulation_extensive_mf6`.
 - `--fast` and `--extensive` select regression tiers; `--slow` remains a pytest marker filter.
 - `--nwt` and `--mf6` filter regression tests by solver family.
+- `hmp test validation` always adds the `validation` marker and then appends any extra marker filters you pass.
 - `--normal` is kept as a deprecated alias for `--fast`.
 - `-j` maps to pytest-xdist `-n` flag. Without it, tests run sequentially.
 - The command prints the actual `pytest` invocation to stderr before running it.

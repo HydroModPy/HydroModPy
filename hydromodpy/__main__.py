@@ -35,6 +35,9 @@ Usage (hmp and hydromodpy are interchangeable):
     hmp test regression launcher_simulation_extensive_nwt --extensive --nwt
     hmp test regression launcher_simulation_extensive_mf6 --extensive --mf6
     hmp test regression --update-goldens
+    hmp test validation
+    hmp test validation --fast
+    hmp test validation --steady --nwt
 """
 
 from __future__ import annotations
@@ -89,27 +92,54 @@ def _append_marker_filter(
     slow: bool,
     nwt: bool,
     mf6: bool,
+    *,
+    validation: bool = False,
+    steady: bool = False,
+    transient: bool = False,
+    analytical: bool = False,
 ) -> None:
     """Append pytest marker filters from CLI flags."""
-    if (normal or fast) and slow:
+    if fast and slow:
         print("Cannot use --fast and --slow together.", file=sys.stderr)
         sys.exit(2)
     if nwt and mf6:
         print("Cannot use --nwt and --mf6 together.", file=sys.stderr)
         sys.exit(2)
+    if steady and transient:
+        print("Cannot use --steady and --transient together.", file=sys.stderr)
+        sys.exit(2)
+    if validation and normal:
+        print("Cannot use --normal with validation tests.", file=sys.stderr)
+        sys.exit(2)
+    if validation and extensive:
+        print("Cannot use --extensive with validation tests.", file=sys.stderr)
+        sys.exit(2)
 
     markers: list[str] = []
-    selected_tiers = _selected_tiers(normal, extensive, fast)
-    if selected_tiers == ["fast"]:
-        markers.append("fast")
-    elif selected_tiers == ["extensive"]:
-        markers.append("extensive")
-    if slow:
-        markers.append("slow")
+    if validation:
+        markers.append("validation")
+        if fast:
+            markers.append("fast")
+        if slow:
+            markers.append("slow")
+    else:
+        selected_tiers = _selected_tiers(normal, extensive, fast)
+        if selected_tiers == ["fast"]:
+            markers.append("fast")
+        elif selected_tiers == ["extensive"]:
+            markers.append("extensive")
+        if slow:
+            markers.append("slow")
     if nwt:
         markers.append("nwt")
     if mf6:
         markers.append("mf6")
+    if analytical:
+        markers.append("analytical")
+    if steady:
+        markers.append("steady")
+    if transient:
+        markers.append("transient")
 
     if markers:
         pytest_args.extend(["-m", " and ".join(markers)])
@@ -447,10 +477,42 @@ def _cmd_test(args: argparse.Namespace) -> None:
             slow=args.slow,
             nwt=args.nwt,
             mf6=args.mf6,
+            steady=args.steady,
+            transient=args.transient,
+            analytical=args.analytical,
         )
 
         if args.update_goldens:
             pytest_args.append("--update-goldens")
+
+    elif args.suite == "validation":
+        if args.list:
+            print("--list is only available for regression tests.", file=sys.stderr)
+            sys.exit(2)
+        if args.name is not None:
+            print("Validation tests do not accept a named regression target.", file=sys.stderr)
+            sys.exit(2)
+        if args.short:
+            print("--short is only available for regression tests.", file=sys.stderr)
+            sys.exit(2)
+        if args.update_goldens:
+            print("--update-goldens is only available for regression tests.", file=sys.stderr)
+            sys.exit(2)
+
+        pytest_args.append(str(root / "tests" / "validation"))
+        _append_marker_filter(
+            pytest_args=pytest_args,
+            normal=args.normal,
+            extensive=args.extensive,
+            fast=args.fast,
+            slow=args.slow,
+            nwt=args.nwt,
+            mf6=args.mf6,
+            validation=True,
+            steady=args.steady,
+            transient=args.transient,
+            analytical=args.analytical,
+        )
 
     if args.jobs is not None:
         pytest_args.extend(["-n", args.jobs])
@@ -672,11 +734,11 @@ def main() -> None:
     # --- test subcommand ---
     test_parser = subparsers.add_parser(
         "test",
-        help="Run unit or regression tests",
+        help="Run unit, regression, or validation tests",
     )
     test_parser.add_argument(
         "suite",
-        choices=["unit", "regression"],
+        choices=["unit", "regression", "validation"],
         help="Test suite to run",
     )
     test_parser.add_argument(
@@ -722,6 +784,21 @@ def main() -> None:
         "--mf6",
         action="store_true",
         help="Only run MODFLOW 6 / GWT regression tests",
+    )
+    test_parser.add_argument(
+        "--steady",
+        action="store_true",
+        help="Filter to steady-state tests when the marker is available",
+    )
+    test_parser.add_argument(
+        "--transient",
+        action="store_true",
+        help="Filter to transient tests when the marker is available",
+    )
+    test_parser.add_argument(
+        "--analytical",
+        action="store_true",
+        help="Filter to analytical validation tests",
     )
     test_parser.add_argument(
         "--short",

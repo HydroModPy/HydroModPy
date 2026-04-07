@@ -133,6 +133,7 @@ Source Pointers
 - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/plotting.py``
 - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/run_case.py``
 - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml``
+- ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml``
 - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/runtime_boussinesq.py``
 - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml``
 - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_modflow6.toml``
