@@ -12,7 +12,7 @@ import pytest
 from hydromodpy.analysis.display.suites import _CATCHMENT_STATION
 from hydromodpy.analysis.postprocess.postprocess_config import PostprocessConfig
 from hydromodpy.analysis.postprocess.runner import PostprocessRunner
-from hydromodpy.simulation.results.store import ResultStore
+from hydromodpy.results.store import ResultStore
 
 
 @pytest.fixture
