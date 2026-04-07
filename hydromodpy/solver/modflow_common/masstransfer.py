@@ -19,7 +19,9 @@ import rasterio
 from hydromodpy.core.backends import WhiteboxBackend, get_whitebox_backend
 
 # HydroModPy
-from hydromodpy.core.tools import get_logger, toolbox
+from hydromodpy.core.tools import get_logger
+from hydromodpy.core.tools.filesystem import create_folder
+from hydromodpy.core.tools.raster_io import export_tif
 
 logger = get_logger(__name__)
 
@@ -95,10 +97,10 @@ class Masstransfer:
             )
 
         self.shp_folder = os.path.join(self.extraction_folder, "_temporary")
-        toolbox.create_folder(self.shp_folder)
+        create_folder(self.shp_folder)
 
         self.tifs_folder = os.path.join(self.extraction_folder, "_rasters")
-        toolbox.create_folder(self.tifs_folder)
+        create_folder(self.tifs_folder)
 
         self.raw_rast_path = os.path.join(self.tifs_folder, raw_rast_name)
 
@@ -125,17 +127,17 @@ class Masstransfer:
         with rasterio.open(self.raw_rast_path) as src:
             im = src.read(1)
         im[im < 0] = 0
-        toolbox.export_tif(self.watershed_buff_fill_surflow, im, self.load_rast_path, -99999)
+        export_tif(self.watershed_buff_fill_surflow, im, self.load_rast_path, -99999)
         ### Efficiency ###
         with rasterio.open(self.watershed_buff_fill_surflow) as src:
             im = src.read(1)
         im[im >= 0] = 1
-        toolbox.export_tif(self.watershed_buff_fill_surflow, im, self.eff_rast_path, -99999)
+        export_tif(self.watershed_buff_fill_surflow, im, self.eff_rast_path, -99999)
         ### Adsorption ###
         with rasterio.open(self.watershed_buff_fill_surflow) as src:
             im = src.read(1)
         im[im >= 0] = 0
-        toolbox.export_tif(self.watershed_buff_fill_surflow, im, self.abs_rast_path, -99999)
+        export_tif(self.watershed_buff_fill_surflow, im, self.abs_rast_path, -99999)
         ### d8massflux ###
         self._backend.d8_mass_flux(
             self.watershed_buff_fill_surflow,
