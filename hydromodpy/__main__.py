@@ -373,7 +373,7 @@ def _derive_run_id_from_filename(toml_path: Path) -> str:
 
 def _cmd_run(args: argparse.Namespace) -> None:
     """Run a simulation from a TOML configuration file."""
-    from hydromodpy.core.tools.toolbox import print_hydromodpy
+    from hydromodpy.core.tools.display import print_hydromodpy
     from launchers import HydroModPyLauncher
 
     print_hydromodpy()
