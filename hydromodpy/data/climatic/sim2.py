@@ -39,7 +39,8 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.core.tools import toolbox, get_logger
+from hydromodpy.core.tools import get_logger
+from hydromodpy.core.tools.raster_io import load_to_xarray, load_to_numpy
 from hydromodpy.analysis.postprocess.netcdf import NetcdfWriter
 
 logger = get_logger(__name__)
@@ -270,7 +271,7 @@ class Sim2:
 
             encodings = self.raw_values[var][sim_var_name].encoding
             # Clip on watershed bounds (to avoid useless computations in the following steps)
-            mask = toolbox.load_to_xarray(
+            mask = load_to_xarray(
                 self.geographic.watershed_dem,
                 src_crs = self.geographic.crs_proj,
                 dst_crs = self.raw_values[var].rio.crs)
@@ -309,12 +310,12 @@ class Sim2:
             # Reprojection
             logger.debug("Reprojecting %s to model grid", var)
 
-            self.values[var] = toolbox.load_to_xarray(
+            self.values[var] = load_to_xarray(
                 # self.final_filelist[var],
                 self.values[var],
                 base_path = self.geographic.watershed_box_buff_dem,
                 dst_crs = self.geographic.crs_proj)
-            mask_reproj, _, _, _ = toolbox.load_to_numpy(
+            mask_reproj, _, _, _ = load_to_numpy(
                 self.geographic.watershed_dem,
                 dst_crs = self.geographic.crs_proj
                 )

@@ -89,8 +89,8 @@ class Climatic:
                     self.runoff = np.mean(self.runoff)
                     if isinstance(self.runoff,(int,float))==False:
                         self.runoff = self.runoff[0]
-                except:
-                    pass
+                except Exception:
+                    logger.debug("Failed to compute mean runoff for steady state", exc_info=True)
 
     def update_first_clim(self, first_clim):
         """
