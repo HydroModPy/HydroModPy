@@ -184,72 +184,19 @@ def _get_schema_version(conn: duckdb.DuckDBPyConnection) -> int:
         return 0
 
 
-def _migrate_v0_to_v1(conn: duckdb.DuckDBPyConnection) -> None:
-    """Migrate from v0 (array-based timeseries) to v1 (normalized rows).
-
-    On fresh databases the table is already created with the v1 schema by
-    ``_PROJECT_TABLES_SQL``, so this migration only performs work when an
-    existing ``timeseries`` table contains the legacy ``timestamps`` column.
-    """
-    cols = {
-        r[0]
-        for r in conn.execute(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name = 'timeseries'"
-        ).fetchall()
-    }
-
-    if "timestamps" in cols:
-        logger.info("Migrating timeseries from array-based to normalized schema")
-        conn.execute(
-            "CREATE TABLE _timeseries_new ("
-            "  sim_id     UUID REFERENCES simulations(sim_id),"
-            "  station_id VARCHAR NOT NULL,"
-            "  variable   VARCHAR NOT NULL,"
-            "  timestamp  TIMESTAMP NOT NULL,"
-            "  value      DOUBLE,"
-            "  unit       VARCHAR"
-            ")"
-        )
-        try:
-            conn.execute(
-                "INSERT INTO _timeseries_new "
-                "SELECT sim_id, station_id, variable, "
-                "       UNNEST(timestamps), UNNEST(values), unit "
-                "FROM timeseries"
-            )
-        except Exception:
-            logger.warning("Could not migrate existing timeseries data")
-        conn.execute("DROP TABLE timeseries")
-        conn.execute("ALTER TABLE _timeseries_new RENAME TO timeseries")
-
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS ix_ts_lookup "
-        "ON timeseries(sim_id, station_id, variable, timestamp)"
-    )
-
-
-_MIGRATIONS: dict[int, callable] = {
-    1: _migrate_v0_to_v1,
-}
-
-
 def _ensure_schema(conn: duckdb.DuckDBPyConnection) -> None:
-    """Apply all pending schema migrations."""
+    """Stamp the schema version if not already set."""
     conn.execute(_SCHEMA_VERSION_DDL)
     current = _get_schema_version(conn)
 
     if current >= _CURRENT_SCHEMA_VERSION:
         return
 
-    for version in range(current + 1, _CURRENT_SCHEMA_VERSION + 1):
-        migration = _MIGRATIONS.get(version)
-        if migration is not None:
-            migration(conn)
-        conn.execute(
-            "INSERT INTO _schema_version (version) VALUES (?)", [version]
-        )
-    logger.debug("Schema upgraded to version %d", _CURRENT_SCHEMA_VERSION)
+    conn.execute(
+        "INSERT INTO _schema_version (version) VALUES (?)",
+        [_CURRENT_SCHEMA_VERSION],
+    )
+    logger.debug("Schema stamped at version %d", _CURRENT_SCHEMA_VERSION)
 
 
 # -- Public API --------------------------------------------------------------
