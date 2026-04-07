@@ -40,7 +40,8 @@ import matplotlib as mpl
 from matplotlib import rcsetup
 
 # HydroModPy
-from hydromodpy.core.tools import toolbox, get_logger
+from hydromodpy.core.tools import get_logger
+from hydromodpy.core.tools.display import plot_params
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.spatial.geographic.geographic import Geographic
 from hydromodpy.data.variables.hydrography.result import HydrographyResult
@@ -139,53 +140,53 @@ class Visualization():
             return axs[:N]
         
         modelfolder = os.path.join(self.initializing.simulations_folder, self.modelname)
-        fontprop = toolbox.plot_params(8,15,18,20)
+        fontprop = plot_params(8,15,18,20)
         
         path_res = os.path.join(modelfolder,'_postprocess')
         
         try:
             contour = gpd.read_file(self.geographic.watershed_contour_shp)
             crs = contour.crs
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to read watershed contour shapefile", exc_info=True)
         
         try:
             dem = rasterio.open(self.geographic.watershed_box_buff_dem)
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to open DEM raster", exc_info=True)
         
         try:
             streams = gpd.read_file(self.hydrography.streams)
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to read streams shapefile", exc_info=True)
         
         # open the watertable elevation files
         try:
             watertable_file = os.path.join(path_res,'watertable_elevation.npy')
             watertable_elevation = np.load(watertable_file, allow_pickle=True).item()
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to load watertable elevation file", exc_info=True)
         
         # open the watertable depth files
         try:
             watertable_depth_file = os.path.join(path_res,'watertable_depth.npy')
             watertable_depth= np.load(watertable_depth_file, allow_pickle=True).item()
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to load watertable depth file", exc_info=True)
         
         # open the drain flux files
         try:
             drain_file = os.path.join(path_res,'outflow_drain.npy')
             drain_area = np.load(drain_file, allow_pickle=True).item()
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to load drain flux file", exc_info=True)
         
         # open the surface flux files
         try:
             surface_file = os.path.join(path_res,'accumulation_flux.npy')
             surface_area = np.load(surface_file, allow_pickle=True).item()
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to load surface flux file", exc_info=True)
         
         N = len(object_list)
         if structure == 'v':
@@ -214,14 +215,14 @@ class Visualization():
                     streams.plot(ax=axs[i], lw=2, color='b', zorder=4, legend=False,
                                  # label='Hydrography'
                                  )
-                except:
-                    pass
+                except Exception:
+                    logger.debug("Failed to plot streams on grid view", exc_info=True)
                 try:
                     contour.plot(ax=axs[i], lw=2, edgecolor='k', facecolor='None', zorder=4, legend=False,
                                  # label='Watershed'
                                  )
-                except:
-                    pass
+                except Exception:
+                    logger.debug("Failed to plot contour on grid view", exc_info=True)
                 
             if obj == 'watertable':
                 axs[i].set_title('Watertable elevation [m]')
@@ -233,9 +234,9 @@ class Visualization():
                      transform=dem.transform, cmap='Blues_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
                 try:
                     contour.plot(ax=axs[i], lw=2, edgecolor='k', facecolor='None', zorder=4, legend=False)
-                except:
-                    pass
-                
+                except Exception:
+                    logger.debug("Failed to plot contour on watertable view", exc_info=True)
+
             if obj == 'watertable_depth':
                 axs[i].set_title('Watertable depth [m]')
                 image_hidden = axs[i].imshow(np.ma.masked_where((watertable_depth[time_step]< -100) | (dem.read(1) < -100), watertable_depth[time_step]), 
@@ -246,9 +247,9 @@ class Visualization():
                      transform=dem.transform, cmap='coolwarm_r', alpha=1, zorder=2, aspect="auto", vmin=color_scale[i][0], vmax=color_scale[i][1])
                 try:
                     contour.plot(ax=axs[i], lw=2, edgecolor='k', facecolor='None', zorder=4, legend=False)
-                except:
-                    pass
-                
+                except Exception:
+                    logger.debug("Failed to plot contour on watertable depth view", exc_info=True)
+
             if obj == 'drain_flow':
                 # axs[i].set_title('Seepage rates, log(Q) [m/d]')
                 axs[i].set_title('Seepage outflow [m$^3$/d]')
@@ -270,9 +271,9 @@ class Visualization():
                      vmax=color_scale[i][1])
                 try:
                     contour.plot(ax=axs[i], lw=2, edgecolor='k', facecolor='None', zorder=4, legend=False)
-                except:
-                    pass
-                
+                except Exception:
+                    logger.debug("Failed to plot contour on drain flow view", exc_info=True)
+
             if obj == 'surface_flow':
                 # axs[i].set_title('Cumulate seepage rates, log(Q) [m/d]')
                 axs[i].set_title('Accumulated outflow [m$^3$/d]')
@@ -293,9 +294,9 @@ class Visualization():
                      vmax=color_scale[i][1])
                 try:
                     contour.plot(ax=axs[i], lw=2, edgecolor='k', facecolor='None', zorder=4, legend=False)
-                except:
-                    pass
-                
+                except Exception:
+                    logger.debug("Failed to plot contour on surface flow view", exc_info=True)
+
             if obj == 'pathlines':
                 # show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
                 #          transform=dem.transform, cmap='Greys', alpha=0.3, zorder=0, aspect="auto")
@@ -345,9 +346,9 @@ class Visualization():
                 basemap.append(0)
                 try:
                     contour.plot(ax=axs[i], lw=2, edgecolor='k', facecolor='None', zorder=4, legend=False)
-                except:
-                    pass
-                
+                except Exception:
+                    logger.debug("Failed to plot contour on pathlines view", exc_info=True)
+
             if obj == 'residence_times':
                 axs[i].set_title('Residence times [y]')
                 res_time = np.zeros(np.shape(dem))
@@ -369,21 +370,21 @@ class Visualization():
                      vmin=color_scale[i][0], vmax=color_scale[i][1])                
                 try:
                     contour.plot(ax=axs[i], lw=2, edgecolor='k', facecolor='None', zorder=4, legend=False)
-                except:
-                    pass
-                
+                except Exception:
+                    logger.debug("Failed to plot contour on residence times view", exc_info=True)
+
             if obj == 'map':
                 axs[i].set_title('Watershed boundary')
                 basemap.append(1)
                 image.append(None)
                 try:
                     contour.plot(ax=axs[i], lw=2, edgecolor='k', facecolor='None', zorder=4, legend=True, label='Watershed')
-                except:
-                    pass
+                except Exception:
+                    logger.debug("Failed to plot contour on map view", exc_info=True)
                 try:
                     streams.plot(ax=axs[i], lw=2, color='b', zorder=4, legend=True, label='Hydrography')
-                except:
-                    pass
+                except Exception:
+                    logger.debug("Failed to plot streams on map view", exc_info=True)
             
         compt = 0
         for ax in axs:
@@ -413,8 +414,8 @@ class Visualization():
                 try:
                     if cx is not None:
                         cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
-                except:
-                    pass
+                except Exception:
+                    logger.debug("Failed to add basemap tile layer", exc_info=True)
             handles, labels = ax.get_legend_handles_labels()
             if handles:
                 ax.legend(loc='best', framealpha=0.8)
@@ -516,8 +517,8 @@ class Visualization():
             contour.scale([1,1,z_scale])
             contour.color('k').lw(2)
             contour.render_lines_as_tubes(value=True)
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to load 3D watershed contour VTK mesh", exc_info=True)
             
         try:
             stream = vedo.Mesh(os.path.join(self.initializing.simulations_folder, self.modelname,
@@ -525,9 +526,9 @@ class Visualization():
             stream.scale([1,1,z_scale])
             stream.color('b').lw(5)
             stream.render_lines_as_tubes(value=True)
-        except:
+        except Exception:
             stream=None
-            pass
+            logger.debug("Failed to load 3D streams VTK mesh", exc_info=True)
         
         try:
             grid = os.path.join(self.initializing.simulations_folder, self.modelname,
