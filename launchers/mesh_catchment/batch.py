@@ -15,11 +15,14 @@ The supporting pieces are intentionally split by concern:
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 import sys
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from launchers.mesh_catchment.batch_io import (
     MeshCatchmentOutletRecord,
@@ -433,10 +436,12 @@ class MeshCatchmentBatchRunner:
 
     @staticmethod
     def _emit_batch_error(*, catch_name: str, outlet_id: str, message: str) -> None:
-        """Print one short error line while keeping the batch loop alive."""
-        print(
-            f"[ERROR] mesh_catchment batch outlet={outlet_id} catch={catch_name}: {message}",
-            file=sys.stderr,
+        """Log one short error line while keeping the batch loop alive."""
+        logger.error(
+            "mesh_catchment batch outlet=%s catch=%s: %s",
+            outlet_id,
+            catch_name,
+            message,
         )
 
     def _detect_failed_mesh_run(
