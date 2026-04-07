@@ -84,6 +84,7 @@ class ImportedMeshCasePaths:
 
     case_dir: Path
     bundle_dir: Path
+    figures_dir: Path
     case_json_path: Path
     viewer_config_path: Path
     readme_path: Path
@@ -145,6 +146,7 @@ def case_paths(*, scale: str, slug: str, repo_root: Path = REPO_ROOT) -> Importe
     return ImportedMeshCasePaths(
         case_dir=case_dir,
         bundle_dir=case_dir / "bundle",
+        figures_dir=case_dir / "figures",
         case_json_path=case_dir / "case.json",
         viewer_config_path=case_dir / "viewer_config.toml",
         readme_path=case_dir / "README.md",
@@ -206,6 +208,8 @@ def build_default_case_metadata(
     summary: str | None = None,
     what_it_shows: tuple[str, ...] | None = None,
     reproduction_command: str | None = None,
+    preferred_doc_figure_path: str | None = None,
+    preferred_doc_regional_figure_path: str | None = None,
 ) -> dict[str, Any]:
     """Build the canonical ``case.json`` payload for one mesh-gallery case."""
 
@@ -265,8 +269,18 @@ def build_default_case_metadata(
     ]
     if source_bundle_summary.get("bundle_readme_present", True):
         source_paths.append(f"{rel_prefix}/README.md")
+    if preferred_doc_figure_path:
+        source_paths.append(preferred_doc_figure_path)
+    if preferred_doc_regional_figure_path:
+        source_paths.append(preferred_doc_regional_figure_path)
 
-    return {
+    image_caption = (
+        "Original mesh figure copied from the imported meshing run and reused directly in the documentation."
+        if preferred_doc_figure_path
+        else f"Mesh overview rendered from the versioned bundle stored under `{case_rel_dir}/bundle`."
+    )
+
+    payload: dict[str, Any] = {
         "case_schema_version": MESH_GALLERY_CASE_SCHEMA_VERSION,
         "slug": slug,
         "title": title_value,
@@ -282,10 +296,19 @@ def build_default_case_metadata(
         "constraints_mode": constraints_mode,
         "reproduction_command": reproduction_value,
         "config_path": f"{case_rel_dir}/viewer_config.toml",
-        "image_caption": f"Mesh overview rendered from the versioned bundle stored under `{case_rel_dir}/bundle`.",
+        "image_caption": image_caption,
         "image_alt_text": f"{title_value} overview",
         "source_paths": source_paths,
     }
+    if preferred_doc_figure_path:
+        payload["preferred_doc_figure_path"] = preferred_doc_figure_path
+    if preferred_doc_regional_figure_path:
+        payload["preferred_doc_regional_figure_path"] = preferred_doc_regional_figure_path
+        payload["regional_image_caption"] = (
+            "Regional framing figure copied from the imported meshing run."
+        )
+        payload["regional_image_alt_text"] = f"{title_value} regional context"
+    return payload
 
 
 def load_mesh_case_metadata(case_json_path: Path) -> dict[str, Any]:
@@ -375,8 +398,20 @@ def build_case_readme_text(metadata: dict[str, Any]) -> str:
             "## Files",
             "",
             "- `case.json`: gallery metadata consumed by `tools.doc_gallery`",
-            "- `viewer_config.toml`: standalone mesh-viewer config used to render the page figure",
+            "- `viewer_config.toml`: standalone mesh-viewer config kept as fallback and used for bundle metrics",
             "- `bundle/`: versioned mesh bundle imported from one local meshing run",
+        ]
+    )
+    if metadata.get("preferred_doc_figure_path"):
+        lines.extend(
+            [
+                "- `figures/mesh_overview.png`: copied original figure reused on the documentation page",
+            ]
+        )
+        if metadata.get("preferred_doc_regional_figure_path"):
+            lines.append("- `figures/mesh_regional.png`: copied regional context figure")
+    lines.extend(
+        [
             "",
             "## Reproduction",
             "",

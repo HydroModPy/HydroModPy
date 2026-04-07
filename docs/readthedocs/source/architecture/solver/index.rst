@@ -1,19 +1,11 @@
-Solver Architecture
-===================
+:orphan:
 
-This section documents solver-level notes implemented in
-``hydromodpy.solver``.
+Solver Notes Moved
+==================
 
-It focuses on:
+Scientific solver notes now live under
+:doc:`../../scientific/solvers/index`.
 
-- backend-specific mathematical formulations,
-- nonlinear runtime strategies,
-- mappings between equations and implementation points.
-
-For higher-level runtime handoffs from process objects to solver wrappers, see
+For runtime handoffs from process objects to solver wrappers, keep using the
+architecture pages such as
 :doc:`../process/process-runtime-to-solver-sequence-diagram`.
-
-.. toctree::
-   :maxdepth: 2
-
-   boussinesq-mathematical-notes

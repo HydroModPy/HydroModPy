@@ -1,25 +1,28 @@
-# Reduced pure-flow Boussinesq example on one precomputed Gmsh catchment mesh.
+# Reduced pure-flow Boussinesq example with embedded catchment meshing.
 #
-# Update [mesh_input] with the output of one previous `mesh_catchment` run
-# before launching this config.
-base_config = "config_fast_common.toml"
+# The launcher rebuilds the geographic domain and the conformal mesh before
+# solving, using the same mesh-catchment profile as the dedicated examples.
+base_config = "config_boussinesq_mesh_catchment_common.toml"
 
 [simulation]
-name = "Example 12 launcher fast boussinesq mesh_input"
+name = "Example 12 launcher fast boussinesq"
 
 [[simulation.process]]
 id = "flow_main"
 type = "flow"
 solvers = ["boussinesq"]
 
-[mesh_input]
-mesh_path = "../../../results/mesh_catchment/example/mesh_2d.msh"
-bundle_dir = "../../../results/mesh_catchment/example/mesh_2d_bundle"
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2003-03-31 00:00:00"
+step_value = "30 day"
+coverage_policy = "warn"
 
-[flow]
-runtime_backend = "scipy_sparse"
-active_sinks_sources = ["recharge"]
-active_bc = ["drainage"]
+[data]
+types = ["recharge"]
 
-[postprocess]
-enabled = false
+[[data.recharge.sources]]
+source = "synthetic"
+values = [2.0, 2.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0]
+freq = "MS"
+runoff_ratio = 0.1

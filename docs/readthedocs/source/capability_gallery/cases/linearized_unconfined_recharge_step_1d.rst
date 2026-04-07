@@ -138,11 +138,11 @@ Source Pointers
 - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/plotting.py``
 - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/run_case.py``
 - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/metadata.toml``
+- ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/config_modflownwt.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/runtime_boussinesq.py``
 - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/tolerances.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/tolerances_boussinesq.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/tolerances_modflow6.toml``
-- ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/config_modflownwt.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/config_modflow6.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/config_boussinesq.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_1d.py``

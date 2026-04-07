@@ -141,11 +141,11 @@ Source Pointers
 - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/plotting.py``
 - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/run_case.py``
 - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+- ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
 - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/runtime_boussinesq.py``
 - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml``
 - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml``
 - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml``
-- ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
 - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml``
 - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml``
 - ``validation_cases/analytical/transient/common.py``

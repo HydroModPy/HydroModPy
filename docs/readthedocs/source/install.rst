@@ -44,7 +44,7 @@ releases should rely on the conda environment and the ``v0.2.0`` tag.
 Install with conda
 ------------------
 
-Two ready-to-use environment files live in ``install/``. Pick the tabbed recipe
+Three ready-to-use environment files live in ``install/``. Pick the tabbed recipe
 that matches your workflow.
 
 .. tab-set::
@@ -86,6 +86,20 @@ that matches your workflow.
       level) so the relative ``pip install -e ..`` executed by the YAML file can
       reach the project.
 
+   .. tab-item:: Conda (Light editable stack)
+
+      Uses a smaller editable stack intended for Linux/WSL command-line
+      development and test execution without the Spyder bundle.
+
+      .. code-block:: bash
+
+         conda env create -n <env>-light -f install/env_hydromodpy_light_pkg.yml
+         conda activate <env>-light
+
+      As with the other editable recipe, run the command from the repository
+      root so the relative ``pip install -e ..`` in the YAML file resolves back
+      to ``HydroModPy/``.
+
 Command recipes
 ---------------
 
@@ -117,6 +131,16 @@ environment name, set ``<py>`` to the desired Python version (3.11–3.13), and 
 
       # Already cloned: create/activate the editable env
       conda env create -n <env>-pkg -f install/env_hydromodpy_pkg.yml && conda activate <env>-pkg
+
+   .. code-block:: bash
+
+      # Clone + light editable stack (recommended on Linux/WSL)
+      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && conda env create -n <env>-light -f install/env_hydromodpy_light_pkg.yml && conda activate <env>-light
+
+   .. code-block:: bash
+
+      # Already cloned: create/activate the light editable env
+      conda env create -n <env>-light -f install/env_hydromodpy_light_pkg.yml && conda activate <env>-light
 
 .. dropdown:: Conda + PyPI
    :color: secondary
@@ -171,6 +195,42 @@ environment name, set ``<py>`` to the desired Python version (3.11–3.13), and 
       py -<py> -m venv <env> && call <env>\Scripts\activate.bat && python -m pip install --upgrade pip && pip install --upgrade hydromodpy
 
    Append ``"hydromodpy[ide]"`` to either command if you want the IDE extras.
+
+Linux / WSL quick start
+-----------------------
+
+Ubuntu and WSL users can bootstrap the editable development environment with
+the helper script shipped in ``install/``:
+
+.. code-block:: bash
+
+   bash install/setup_wsl_dev.sh --env-name hydromodpy-wsl
+
+Add ``--with-petsc`` to install PETSc, ``petsc4py``, ``mpi4py``, and ``mpich``
+inside the same environment:
+
+.. code-block:: bash
+
+   bash install/setup_wsl_dev.sh --env-name hydromodpy-wsl --with-petsc
+
+If Conda is not installed inside WSL yet, Miniforge is a compact default:
+
+.. code-block:: bash
+
+   sudo apt update && sudo apt install -y curl git libglu1-mesa libxft2
+   curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+   bash Miniforge3-Linux-x86_64.sh
+   source ~/miniforge3/etc/profile.d/conda.sh
+
+After activation, a typical Linux/WSL non-interactive test session is:
+
+.. code-block:: bash
+
+   export HYDROMODPY_NO_DISPLAY=1
+   export MPLBACKEND=Agg
+   python -m pytest tests/unit -q
+   hmp test regression --fast -j 2
+   hmp test validation --fast
 
 Upgrade
 -------

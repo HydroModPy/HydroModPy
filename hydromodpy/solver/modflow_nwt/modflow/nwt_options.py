@@ -85,6 +85,7 @@ class ModflowPostprocessOptions:
     watertable_depth: bool = True
     seepage_areas: bool = True
     outflow_drain: bool = True
+    outlet_discharge_east_side_m3_s: bool = False
     groundwater_flux: bool = True
     groundwater_storage: bool = True
     accumulation_flux: bool = True

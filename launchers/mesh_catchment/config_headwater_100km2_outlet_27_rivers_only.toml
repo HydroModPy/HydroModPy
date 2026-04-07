@@ -1,0 +1,17 @@
+base_config = "config_headwater_100km2.toml"
+
+[workspace]
+project_root = "~/HydroModPy/mesh_gallery_headwater_100km2_outlet_27_rivers_only"
+
+[mesh_catchment]
+constraints_mode = "rivers_only"
+
+[mesh_catchment_batch]
+selection_mode = "selected"
+selected_outlet_ids = [27]
+
+[mesh_catchment.watershed_boundary.geology_conformity]
+mode = "full_domain"
+
+[mesh_catchment.zone_meshing.refinement_policy.families.geology_interface]
+enabled = false

@@ -40,6 +40,35 @@ class _DummyDomainGeographic:
         self.river_mesh_trace = river_mesh_trace
 
 
+class _DummyGeographicFeatures:
+    def __init__(self, river_mesh_trace=object()) -> None:
+        self.rivers = SimpleNamespace(river_mesh_trace=river_mesh_trace)
+
+    def to_domain_geographic_context(self) -> _DummyDomainGeographic:
+        return _DummyDomainGeographic(river_mesh_trace=self.rivers.river_mesh_trace)
+
+
+def _patch_dummy_geographic_builders(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    builder=None,
+    river_mesh_trace=object(),
+) -> None:
+    build_fn = (
+        builder
+        if builder is not None
+        else (lambda **_: _DummyGeographicFeatures(river_mesh_trace=river_mesh_trace))
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.build_geographic_derived_features",
+        build_fn,
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
+        lambda **kwargs: build_fn(**kwargs).to_domain_geographic_context(),
+    )
+
+
 def _write_test_raster(path: Path, *, xmin: float, ymin: float, xmax: float, ymax: float) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     pixel_size = 100.0
@@ -138,10 +167,7 @@ def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path:
         "launchers.mesh_catchment.runtime.hmp.Workspace",
         _DummyWorkspace,
     )
-    monkeypatch.setattr(
-        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
-        lambda **_: _DummyDomainGeographic(),
-    )
+    _patch_dummy_geographic_builders(monkeypatch)
 
     def _fake_run_case(config_toml, **kwargs):
         captured["config_toml"] = config_toml
@@ -243,10 +269,7 @@ def test_mesh_catchment_launcher_accepts_watershed_boundary_section(
         "launchers.mesh_catchment.runtime.hmp.Workspace",
         _DummyWorkspace,
     )
-    monkeypatch.setattr(
-        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
-        lambda **_: _DummyDomainGeographic(),
-    )
+    _patch_dummy_geographic_builders(monkeypatch)
     captured: dict[str, object] = {}
 
     def _fake_run_case(config_toml, **kwargs):
@@ -305,17 +328,17 @@ def test_mesh_catchment_launcher_flat_output_layout_writes_directly_to_project_r
         _DummyWorkspace,
     )
 
-    def _fake_build_domain_geographic_context(**kwargs):
+    def _fake_build_geographic_derived_features(**kwargs):
         runtime_root = Path(kwargs["workspace"].project_root)
         captured["runtime_workspace_project_root"] = runtime_root
         (runtime_root / "results_stable" / "geographic").mkdir(parents=True, exist_ok=True)
         (runtime_root / "results_simulations").mkdir(parents=True, exist_ok=True)
         (runtime_root / "results_calibration").mkdir(parents=True, exist_ok=True)
-        return _DummyDomainGeographic()
+        return _DummyGeographicFeatures()
 
-    monkeypatch.setattr(
-        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
-        _fake_build_domain_geographic_context,
+    _patch_dummy_geographic_builders(
+        monkeypatch,
+        builder=_fake_build_geographic_derived_features,
     )
 
     def _fake_run_case(config_toml, **kwargs):
@@ -396,10 +419,7 @@ def test_mesh_catchment_launcher_passes_domain_depth_model_to_bundle_export(
         "launchers.mesh_catchment.runtime.hmp.Workspace",
         _DummyWorkspace,
     )
-    monkeypatch.setattr(
-        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
-        lambda **_: _DummyDomainGeographic(),
-    )
+    _patch_dummy_geographic_builders(monkeypatch)
 
     def _fake_run_case(config_toml, **kwargs):
         kwargs["output_mesh"].parent.mkdir(parents=True, exist_ok=True)
@@ -465,10 +485,7 @@ def test_mesh_catchment_launcher_run_uses_section_output_overrides(
         "launchers.mesh_catchment.runtime.hmp.Workspace",
         _DummyWorkspace,
     )
-    monkeypatch.setattr(
-        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
-        lambda **_: _DummyDomainGeographic(),
-    )
+    _patch_dummy_geographic_builders(monkeypatch)
 
     def _fake_run_case(config_toml, **kwargs):
         captured["config_toml"] = config_toml
@@ -532,10 +549,7 @@ def test_mesh_catchment_launcher_disables_figure_outputs_when_requested(
         "launchers.mesh_catchment.runtime.hmp.Workspace",
         _DummyWorkspace,
     )
-    monkeypatch.setattr(
-        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
-        lambda **_: _DummyDomainGeographic(),
-    )
+    _patch_dummy_geographic_builders(monkeypatch)
 
     def _fake_run_case(config_toml, **kwargs):
         captured["config_toml"] = config_toml
@@ -588,10 +602,7 @@ def test_mesh_catchment_launcher_cleanup_mode_removes_geographic_outputs(
         "launchers.mesh_catchment.runtime.hmp.Workspace",
         _DummyWorkspace,
     )
-    monkeypatch.setattr(
-        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
-        lambda **_: _DummyDomainGeographic(),
-    )
+    _patch_dummy_geographic_builders(monkeypatch)
 
     def _fake_run_case(config_toml, **kwargs):
         stable_folder = kwargs["output_mesh"].parent.parent
@@ -646,10 +657,7 @@ def test_mesh_catchment_launcher_keep_mode_preserves_geographic_outputs(
         "launchers.mesh_catchment.runtime.hmp.Workspace",
         _DummyWorkspace,
     )
-    monkeypatch.setattr(
-        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
-        lambda **_: _DummyDomainGeographic(),
-    )
+    _patch_dummy_geographic_builders(monkeypatch)
 
     def _fake_run_case(config_toml, **kwargs):
         stable_folder = kwargs["output_mesh"].parent.parent
@@ -728,6 +736,48 @@ def test_mesh_runtime_cleanup_mode_skips_external_domain_geographic(
     assert (stable_folder / "demcorrecflow").exists()
 
 
+def test_mesh_runtime_accepts_external_geographic_features(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace_cfg = SimpleNamespace(project_root=tmp_path / "projects" / "mesh_catchment_case")
+    geographic_cfg = SimpleNamespace(
+        uses_synthetic_geographic=lambda: False,
+        river_network=SimpleNamespace(enabled=True),
+    )
+    local_workspace = _DummyWorkspace(workspace_cfg)
+    captured: dict[str, object] = {}
+
+    def _fake_run_case(config_toml, **kwargs):
+        _ = config_toml
+        captured["kwargs"] = kwargs
+        return {"summary_schema_version": "zone_conformal_sidecar_v1"}
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        _fake_run_case,
+    )
+
+    summary = mesh_runtime.run_single_mesh_catchment_workflow(
+        config_path=tmp_path / "config.toml",
+        section_data=MeshCatchmentConfigSchema.model_validate(
+            {
+                "constraints_mode": "rivers_only",
+            }
+        ),
+        workspace_cfg=workspace_cfg,
+        geographic_cfg=geographic_cfg,
+        domain_cfg=None,
+        constraints_mode="rivers_only",
+        workspace=local_workspace,
+        geographic_features=_DummyGeographicFeatures(river_mesh_trace="trace-1"),
+    )
+
+    assert summary["summary_schema_version"] == "zone_conformal_sidecar_v1"
+    assert captured["kwargs"]["river_trace"] == "trace-1"
+    assert captured["kwargs"]["domain_geographic"].river_mesh_trace == "trace-1"
+
+
 def test_mesh_catchment_launcher_requires_mesh_section(monkeypatch, tmp_path: Path) -> None:
     config_path = tmp_path / "config.toml"
     config_path.write_text("# no section\n", encoding="utf-8")
@@ -792,10 +842,7 @@ def test_mesh_catchment_launcher_geology_mode_skips_river_trace_requirement(
         "launchers.mesh_catchment.runtime.hmp.Workspace",
         _DummyWorkspace,
     )
-    monkeypatch.setattr(
-        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
-        lambda **_: _DummyDomainGeographic(river_mesh_trace=None),
-    )
+    _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
 
     def _fake_run_case(config_toml, **kwargs):
         captured["config_toml"] = config_toml
@@ -889,10 +936,7 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
         "launchers.mesh_catchment.runtime.hmp.Workspace",
         _DummyBatchWorkspace,
     )
-    monkeypatch.setattr(
-        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
-        lambda **_: _DummyDomainGeographic(river_mesh_trace=None),
-    )
+    _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
 
     def _fake_run_case(config_toml, **kwargs):
         captured_calls.append({"config_toml": config_toml, "kwargs": kwargs})
@@ -995,10 +1039,7 @@ def test_mesh_catchment_launcher_batch_flat_layout_writes_directly_to_catchment_
         "launchers.mesh_catchment.runtime.hmp.Workspace",
         _DummyBatchWorkspace,
     )
-    monkeypatch.setattr(
-        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
-        lambda **_: _DummyDomainGeographic(river_mesh_trace=None),
-    )
+    _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
 
     def _fake_run_case(config_toml, **kwargs):
         captured_calls.append({"config_toml": config_toml, "kwargs": kwargs})
@@ -1084,10 +1125,7 @@ def test_mesh_catchment_launcher_batch_can_disable_figures(
         "launchers.mesh_catchment.runtime.hmp.Workspace",
         _DummyBatchWorkspace,
     )
-    monkeypatch.setattr(
-        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
-        lambda **_: _DummyDomainGeographic(river_mesh_trace=None),
-    )
+    _patch_dummy_geographic_builders(monkeypatch, river_mesh_trace=None)
 
     def _fake_run_case(config_toml, **kwargs):
         captured_calls.append({"config_toml": config_toml, "kwargs": kwargs})

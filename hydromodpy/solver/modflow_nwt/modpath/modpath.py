@@ -329,6 +329,24 @@ class Modpath(Solver):
         """Resolve watershed polygon path when available."""
         geo = self._get_geographic()
         return getattr(geo, 'watershed_shp', None) if geo is not None else None
+
+    def _ensure_modflow_name_file(self) -> str:
+        """Ensure the paired MODFLOW-NWT name file exists before loading it."""
+        mf = getattr(self.model_modflow, "mf", None)
+        namefile = getattr(mf, "namefile", f"{self.model_name}.nam")
+        nam_file = os.path.join(self.full_path, namefile)
+        if os.path.exists(nam_file):
+            return nam_file
+
+        if mf is None:
+            raise FileNotFoundError(f"cannot find name file: {nam_file}")
+
+        mf.model_ws = self.full_path
+        mf.write_name_file()
+        if os.path.exists(nam_file):
+            return nam_file
+
+        raise FileNotFoundError(f"cannot find name file: {nam_file}")
     
     def pre_processing(self):
         """
@@ -342,7 +360,7 @@ class Modpath(Solver):
         
         # Load and import
         prefix = os.path.join(self.full_path, self.model_name)
-        nam_file = '{}.nam'.format(prefix)
+        nam_file = self._ensure_modflow_name_file()
         dis_file = '{}.dis'.format(prefix)
         head_file = '{}.hds'.format(prefix)
         bud_file = '{}.cbc'.format(prefix)

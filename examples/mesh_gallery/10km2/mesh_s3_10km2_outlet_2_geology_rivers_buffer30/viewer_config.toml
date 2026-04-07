@@ -1,0 +1,21 @@
+[mesh_distribution]
+bundle_dir = "./bundle"
+show_window = false
+
+[mesh_distribution.plot]
+color_field = "geology_key"
+color_map = "tab20"
+figure_size = [16.0, 8.0]
+dpi = 170
+title = "10 km2, Strahler 3 Mesh, Outlet 2, Geology + rivers, 30% buffer"
+show_topography_panel = true
+topography_field = "z_top_mean"
+topography_cmap = "terrain"
+topography_title = "Topographic overview"
+show_mesh_edges = true
+mesh_edge_color = "0.30"
+mesh_edge_linewidth = 0.65
+show_boundaries = true
+show_geology_interfaces = true
+show_river_edges = true
+annotate_cell_ids = false

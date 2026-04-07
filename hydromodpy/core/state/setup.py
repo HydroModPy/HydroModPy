@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.domain import Domain
+    from hydromodpy.spatial.geographic.core.derived_features import GeographicDerivedFeatures
     from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import DomainGeographicContext
     from hydromodpy.process import Flow, Transport
     from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
@@ -24,6 +25,7 @@ class SetupContext:
 
     workspace: Workspace | None = None
     geographic: Any = None  # Geographic
+    geographic_features: GeographicDerivedFeatures | None = None
     domain_geographic: DomainGeographicContext | None = None
     domain: Domain | None = None
     flow: Flow | None = None

@@ -202,3 +202,104 @@ def test_plot_boussinesq_flow_suite_saves_figure(tmp_path) -> None:
         / "_figures"
         / "boussinesq_state.png"
     ).exists()
+
+
+def test_plot_boussinesq_flow_suite_emits_diagnostics_when_histories_exist(tmp_path) -> None:
+    mesh = SimpleNamespace(
+        cell_ids=np.array([10, 11], dtype=int),
+        node_x_m=np.array([0.0, 20.0, 0.0, 20.0], dtype=float),
+        node_y_m=np.array([0.0, 0.0, 10.0, 10.0], dtype=float),
+        cell_node_ids=((0, 1, 2), (1, 3, 2)),
+        node_index_by_id={0: 0, 1: 1, 2: 2, 3: 3},
+        edge_node_a=np.array([0, 1, 2, 0, 1], dtype=int),
+        edge_node_b=np.array([1, 3, 3, 2, 2], dtype=int),
+        edge_cell_a=np.array([0, 1, 1, 0, 0], dtype=int),
+        edge_cell_b=np.array([-1, -1, -1, -1, 1], dtype=int),
+        cell_centroid_x_m=np.array([20.0 / 3.0, 40.0 / 3.0], dtype=float),
+        cell_centroid_y_m=np.array([10.0 / 3.0, 20.0 / 3.0], dtype=float),
+        cell_area_m2=np.array([100.0, 100.0], dtype=float),
+        z_top_m=np.array([12.0, 11.5], dtype=float),
+        z_bottom_m=np.array([5.0, 5.0], dtype=float),
+        storage_coefficient=np.array([0.15, 0.15], dtype=float),
+        boundary_edge_mask=np.array([True, True, True, True, False], dtype=bool),
+    )
+    state = SimpleNamespace(
+        head_m=np.array([10.0, 9.5], dtype=float),
+        head_history_m=np.array(
+            [
+                [9.5, 9.0],
+                [9.8, 9.3],
+                [10.0, 9.5],
+            ],
+            dtype=float,
+        ),
+        recharge_rate_history_m_s=np.array(
+            [
+                [0.0, 0.0],
+                [1.0e-8, 1.0e-8],
+                [1.0e-8, 1.0e-8],
+            ],
+            dtype=float,
+        ),
+        well_flux_history_m3_s=np.zeros((3, 2), dtype=float),
+        saturation_excess_history_m_s=np.array(
+            [
+                [0.0, 0.0],
+                [0.0, 0.0],
+                [1.0e-9, 2.0e-9],
+            ],
+            dtype=float,
+        ),
+        internal_edge_flux_m3_s=np.array([0.0, 0.0, 0.0, 0.0, 1.0e-4], dtype=float),
+        internal_edge_flux_history_m3_s=np.array(
+            [
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 8.0e-5],
+                [0.0, 0.0, 0.0, 0.0, 1.0e-4],
+            ],
+            dtype=float,
+        ),
+        imposed_head_edge_flux_m3_s=np.array([2.0e-5, -1.0e-5, 0.0, 0.0, 0.0], dtype=float),
+        imposed_head_edge_flux_history_m3_s=np.array(
+            [
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [1.0e-5, -5.0e-6, 0.0, 0.0, 0.0],
+                [2.0e-5, -1.0e-5, 0.0, 0.0, 0.0],
+            ],
+            dtype=float,
+        ),
+        drainage_flux_m3_s=np.array([0.0, 1.0e-5], dtype=float),
+        drainage_flux_history_m3_s=np.array(
+            [
+                [0.0, 0.0],
+                [0.0, 5.0e-6],
+                [0.0, 1.0e-5],
+            ],
+            dtype=float,
+        ),
+        saturation_excess_rate_m_s=np.array([1.0e-9, 2.0e-9], dtype=float),
+        period_lengths_seconds=(86_400.0, 86_400.0),
+    )
+    boussinesq_model = SimpleNamespace(
+        model_name="bouss_diag",
+        mesh=mesh,
+        state=state,
+    )
+    result = _build_result(flow_model=None, boussinesq_model=boussinesq_model)
+    result.setup.workspace.simulations_folder = tmp_path
+
+    options = DisplayOptions(
+        enabled=True,
+        show=False,
+        save=True,
+        flow=DisplaySectionOptions(enabled=True),
+    )
+
+    plot_boussinesq_flow_suite(result, options)
+
+    figure_dir = tmp_path / "bouss_diag" / "_postprocess" / "_figures"
+    assert (figure_dir / "boussinesq_state.png").exists()
+    assert (figure_dir / "boussinesq_diagnostics.png").exists()
+    assert (figure_dir / "boussinesq_edge_flux.png").exists()
+    assert (figure_dir / "boussinesq_mass_balance.png").exists()
+    assert (figure_dir / "boussinesq_probe_heads.png").exists()

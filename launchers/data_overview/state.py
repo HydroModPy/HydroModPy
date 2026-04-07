@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from hydromodpy.core.state.data import LoadedDataContext
 
 if TYPE_CHECKING:
+    from hydromodpy.spatial.geographic.core.derived_features import GeographicDerivedFeatures
     from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
         DomainGeographicContext,
     )
@@ -27,5 +28,6 @@ class DataOverviewState:
     cfg: DataOverviewConfig
     workspace: Workspace | None = None
     geographic: Geographic | None = None
+    geographic_features: GeographicDerivedFeatures | None = None
     domain_geographic: DomainGeographicContext | None = None
     loaded_data: LoadedDataContext = field(default_factory=LoadedDataContext)

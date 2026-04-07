@@ -144,11 +144,11 @@ Source Pointers
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/plotting.py``
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/run_case.py``
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+- ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/runtime_boussinesq.py``
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml``
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml``
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml``
-- ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml``
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml``
 

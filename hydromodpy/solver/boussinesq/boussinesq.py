@@ -74,12 +74,17 @@ class BoussinesqState:
     recharge_rate_m_s: np.ndarray | None = None
     well_flux_m3_s: np.ndarray | None = None
     saturation_excess_rate_m_s: np.ndarray | None = None
+    recharge_rate_history_m_s: np.ndarray | None = None
+    well_flux_history_m3_s: np.ndarray | None = None
     head_history_m: np.ndarray | None = None
     saturated_thickness_history_m: np.ndarray | None = None
     saturation_excess_history_m_s: np.ndarray | None = None
     internal_edge_flux_m3_s: np.ndarray | None = None
+    internal_edge_flux_history_m3_s: np.ndarray | None = None
     imposed_head_edge_flux_m3_s: np.ndarray | None = None
+    imposed_head_edge_flux_history_m3_s: np.ndarray | None = None
     drainage_flux_m3_s: np.ndarray | None = None
+    drainage_flux_history_m3_s: np.ndarray | None = None
     period_lengths_seconds: tuple[float, ...] = ()
     nonlinear_iterations: tuple[int, ...] = ()
     converged_by_period: tuple[bool, ...] = ()
@@ -196,6 +201,12 @@ class Boussinesq(Solver):
             state_history_path = self.full_path / "_boussinesq_state_history.npz"
             np.savez(
                 state_history_path,
+                recharge_rate_history_m_s=self._as_export_array(
+                    self.state.recharge_rate_history_m_s
+                ),
+                well_flux_history_m3_s=self._as_export_array(
+                    self.state.well_flux_history_m3_s
+                ),
                 head_history_m=self._as_export_array(self.state.head_history_m),
                 saturated_thickness_history_m=self._as_export_array(
                     self.state.saturated_thickness_history_m
@@ -218,10 +229,19 @@ class Boussinesq(Solver):
                 internal_edge_flux_m3_s=self._as_export_array(
                     self.state.internal_edge_flux_m3_s
                 ),
+                internal_edge_flux_history_m3_s=self._as_export_array(
+                    self.state.internal_edge_flux_history_m3_s
+                ),
                 imposed_head_edge_flux_m3_s=self._as_export_array(
                     self.state.imposed_head_edge_flux_m3_s
                 ),
+                imposed_head_edge_flux_history_m3_s=self._as_export_array(
+                    self.state.imposed_head_edge_flux_history_m3_s
+                ),
                 drainage_flux_m3_s=self._as_export_array(self.state.drainage_flux_m3_s),
+                drainage_flux_history_m3_s=self._as_export_array(
+                    self.state.drainage_flux_history_m3_s
+                ),
                 period_lengths_seconds=np.asarray(
                     self.state.period_lengths_seconds,
                     dtype=float,
@@ -433,6 +453,21 @@ class Boussinesq(Solver):
         saturation_excess_history = [
             np.zeros(self.mesh.n_cells, dtype=float)
         ]
+        recharge_rate_history = [
+            np.zeros(self.mesh.n_cells, dtype=float)
+        ]
+        well_flux_history = [
+            np.zeros(self.mesh.n_cells, dtype=float)
+        ]
+        internal_edge_flux_history = [
+            np.zeros(self.mesh.n_edges, dtype=float)
+        ]
+        imposed_head_edge_flux_history = [
+            np.zeros(self.mesh.n_edges, dtype=float)
+        ]
+        drainage_flux_history = [
+            np.zeros(self.mesh.n_cells, dtype=float)
+        ]
         nonlinear_iterations: list[int] = []
         converged_by_period: list[bool] = []
         final_internal_flux = internal_edge_flux_from_head(self.mesh, head_prev)
@@ -508,6 +543,11 @@ class Boussinesq(Solver):
             head_history.append(head_prev.copy())
             thickness_history.append(step.assembly.saturated_thickness_m.copy())
             saturation_excess_history.append(final_saturation_excess_rate.copy())
+            recharge_rate_history.append(final_recharge_rate.copy())
+            well_flux_history.append(final_well_flux.copy())
+            internal_edge_flux_history.append(final_internal_flux.copy())
+            imposed_head_edge_flux_history.append(final_imposed_head_flux.copy())
+            drainage_flux_history.append(final_drainage_flux.copy())
             if not step.converged:
                 # Keep the partial state on failure so the caller can inspect
                 # how far the solve got and what the last iterate looked like.
@@ -517,14 +557,23 @@ class Boussinesq(Solver):
                     recharge_rate_m_s=final_recharge_rate.copy(),
                     well_flux_m3_s=final_well_flux.copy(),
                     saturation_excess_rate_m_s=final_saturation_excess_rate.copy(),
+                    recharge_rate_history_m_s=np.vstack(recharge_rate_history),
+                    well_flux_history_m3_s=np.vstack(well_flux_history),
                     head_history_m=np.vstack(head_history),
                     saturated_thickness_history_m=np.vstack(thickness_history),
                     saturation_excess_history_m_s=np.vstack(
                         saturation_excess_history
                     ),
                     internal_edge_flux_m3_s=final_internal_flux.copy(),
+                    internal_edge_flux_history_m3_s=np.vstack(
+                        internal_edge_flux_history
+                    ),
                     imposed_head_edge_flux_m3_s=final_imposed_head_flux.copy(),
+                    imposed_head_edge_flux_history_m3_s=np.vstack(
+                        imposed_head_edge_flux_history
+                    ),
                     drainage_flux_m3_s=final_drainage_flux.copy(),
+                    drainage_flux_history_m3_s=np.vstack(drainage_flux_history),
                     period_lengths_seconds=period_lengths,
                     nonlinear_iterations=tuple(nonlinear_iterations),
                     converged_by_period=tuple(converged_by_period),
@@ -555,12 +604,19 @@ class Boussinesq(Solver):
             recharge_rate_m_s=final_recharge_rate.copy(),
             well_flux_m3_s=final_well_flux.copy(),
             saturation_excess_rate_m_s=final_saturation_excess_rate.copy(),
+            recharge_rate_history_m_s=np.vstack(recharge_rate_history),
+            well_flux_history_m3_s=np.vstack(well_flux_history),
             head_history_m=np.vstack(head_history),
             saturated_thickness_history_m=np.vstack(thickness_history),
             saturation_excess_history_m_s=np.vstack(saturation_excess_history),
             internal_edge_flux_m3_s=final_internal_flux.copy(),
+            internal_edge_flux_history_m3_s=np.vstack(internal_edge_flux_history),
             imposed_head_edge_flux_m3_s=final_imposed_head_flux.copy(),
+            imposed_head_edge_flux_history_m3_s=np.vstack(
+                imposed_head_edge_flux_history
+            ),
             drainage_flux_m3_s=final_drainage_flux.copy(),
+            drainage_flux_history_m3_s=np.vstack(drainage_flux_history),
             period_lengths_seconds=period_lengths,
             nonlinear_iterations=tuple(nonlinear_iterations),
             converged_by_period=tuple(converged_by_period),
@@ -653,6 +709,14 @@ class Boussinesq(Solver):
                 steady.assembly.saturation_excess_rate_m_s,
                 dtype=float,
             ).copy(),
+            recharge_rate_history_m_s=np.asarray(
+                [steady.assembly.recharge_rate_m_s],
+                dtype=float,
+            ),
+            well_flux_history_m3_s=np.asarray(
+                [steady.assembly.well_flux_m3_s],
+                dtype=float,
+            ),
             head_history_m=np.asarray([steady.head_m], dtype=float),
             saturated_thickness_history_m=np.asarray(
                 [steady.assembly.saturated_thickness_m],
@@ -666,14 +730,26 @@ class Boussinesq(Solver):
                 steady.assembly.internal_edge_flux_m3_s,
                 dtype=float,
             ).copy(),
+            internal_edge_flux_history_m3_s=np.asarray(
+                [steady.assembly.internal_edge_flux_m3_s],
+                dtype=float,
+            ),
             imposed_head_edge_flux_m3_s=np.asarray(
                 steady.assembly.imposed_head_edge_flux_m3_s,
                 dtype=float,
             ).copy(),
+            imposed_head_edge_flux_history_m3_s=np.asarray(
+                [steady.assembly.imposed_head_edge_flux_m3_s],
+                dtype=float,
+            ),
             drainage_flux_m3_s=np.asarray(
                 steady.assembly.drainage_flux_m3_s,
                 dtype=float,
             ).copy(),
+            drainage_flux_history_m3_s=np.asarray(
+                [steady.assembly.drainage_flux_m3_s],
+                dtype=float,
+            ),
             period_lengths_seconds=(),
             nonlinear_iterations=(int(steady.iterations),),
             converged_by_period=(bool(steady.converged),),

@@ -399,6 +399,17 @@ class FlowToModflowAdapter:
             value, bool
         )
 
+    def _is_constant_scalar_forcing(self, forcing: object) -> bool:
+        """Return True when one forcing payload is a scalar constant."""
+        if forcing is None:
+            return False
+        if getattr(forcing, "mode", None) != "constant":
+            return False
+        try:
+            return self._is_scalar_number(forcing.as_constant().value)
+        except Exception:
+            return False
+
     def _normalize_boundary_series(
         self,
         *,
@@ -501,7 +512,12 @@ class FlowToModflowAdapter:
         )
 
     def _side_boundary_is_static(self, boundary: object) -> bool:
-        """Return True when one side boundary is a scalar head without forcing."""
+        """Return True only for direct scalar ``value`` side boundaries.
+
+        Constant side forcing declared via ``forcing.mode="constant"`` still
+        travels through the CHD package path so it behaves like other forcing-
+        resolved boundary series and stays consistent with the MF6 adapter.
+        """
         return (
             getattr(boundary, "forcing", None) is None
             and self._is_scalar_number(getattr(boundary, "value", None))
