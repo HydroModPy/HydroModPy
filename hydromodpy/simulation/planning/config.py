@@ -8,7 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.simulation.results.config import ResultsConfig
+from hydromodpy.results.config import ResultsConfig
 from hydromodpy.solver.compatibility import known_process_types
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
 
