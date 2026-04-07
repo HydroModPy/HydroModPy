@@ -1,54 +1,57 @@
-# -*- coding: utf-8 -*-
-"""
-Classe abstraite pour les solveurs HydroModPy (Modflow, Modpath, Mt3dms).
-Regroupe les signatures et attributs communs pour uniformiser l'API.
+"""Abstract base class for HydroModPy solvers (Modflow, Modpath, Mt3dms).
+
+Defines the common interface that every concrete solver must implement.
 """
 
 from abc import ABC, abstractmethod
 
 
 class Solver(ABC):
-    """
-    Classe abstraite pour les solveurs HydroModPy.
-    DÃ©finit l'interface commune pour tous les solveurs (prÃ©traitement, calcul, post-traitement).
-    """
+    """Abstract base class for HydroModPy solvers."""
 
     @abstractmethod
-    def pre_processing(self):
-        """
-        PrÃ©traitement : prÃ©paration des fichiers d'entrÃ©e, initialisation des structures de donnÃ©es, etc.
-        """
-        pass
+    def pre_processing(self) -> None:
+        """Prepare input files and data structures before the solver run."""
 
     @abstractmethod
-    def processing(self, write_model: bool = True, run_model: bool = False, **kwargs):
-        """
-        Lancement du solveur : Ã©criture des fichiers, exÃ©cution du modÃ¨le, etc.
+    def processing(self, write_model: bool = True, run_model: bool = False, **kwargs) -> bool:
+        """Write model files and optionally execute the solver.
 
         Parameters
         ----------
-        write_model : bool
-            Ã‰crire les fichiers d'entrÃ©e du modÃ¨le.
-        run_model : bool
-            ExÃ©cuter le solveur.
-        kwargs : dict
-            ParamÃ¨tres additionnels pour certains solveurs (ex: verbose, link_mt3dms).
+        write_model:
+            Write the solver input files.
+        run_model:
+            Execute the solver binary.
+
         Returns
         -------
-        success_model : bool
-            Indique si la simulation s'est terminÃ©e correctement.
+        bool
+            Whether the simulation completed successfully.
         """
-        pass
 
     @abstractmethod
-    def post_processing(self, *args, **kwargs):
-        """
-        Post-traitement : analyse et export des rÃ©sultats, figures, rasters, etc.
+    def post_processing(self, *args, **kwargs) -> None:
+        """Analyse and export results (figures, rasters, etc.)."""
 
-        Parameters
-        ----------
-        args, kwargs :
-            ParamÃ¨tres spÃ©cifiques selon le solveur et le type de post-traitement.
-        """
-        pass
+    def validate_config(self) -> None:
+        """Validate solver-specific configuration before execution.
 
+        Subclasses should override this to check parameter ranges, file
+        existence, etc. The default implementation is a no-op.
+        """
+
+    def get_results(self) -> dict:
+        """Return a summary of solver outputs.
+
+        Subclasses should override this to return paths to output files,
+        convergence metrics, etc. The default returns an empty dict.
+        """
+        return {}
+
+    def cleanup(self) -> None:
+        """Release resources and remove temporary files.
+
+        Subclasses should override this when the solver creates large
+        scratch files that should be removed after post-processing.
+        """
