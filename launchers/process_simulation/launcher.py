@@ -41,15 +41,22 @@ The launcher itself does not hard-code "run flow then transport". It only:
 - builds a plan from the TOML,
 - runs optional launcher-managed postprocess actions after process families,
 - executes the resolved plan.
+
+Phase logic is delegated to dedicated modules:
+
+- ``setup_phase``: structural bootstrap (workspace, geographic, domain)
+- ``data_phase``: data loading and structural bindings
+- ``mesh_phase``: optional mesh generation or external mesh loading
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 import json
+import logging
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import hydromodpy as hmp
 from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
@@ -89,9 +96,36 @@ from launchers.mesh_catchment.runtime import (
     run_single_mesh_catchment_workflow_with_runtime_artifacts,
 )
 
+# Phase modules ---------------------------------------------------------
+from launchers.process_simulation.setup_phase import (
+    build_geographic_runtime as _phase_build_geographic_runtime,
+    collect_requested_support_ids,
+    support_provider_names,
+    resolve_support_configs,
+    flow_requires_spatial_support,
+    augment_runtime_zone_ids,
+    validate_domain_support_contract,
+    build_domain_spatial_supports,
+    run_setup,
+)
+from launchers.process_simulation.data_phase import (
+    log_data_plan,
+    run_data,
+    apply_structural_updates_from_data,
+)
+from launchers.process_simulation.mesh_phase import (
+    resolve_optional_mesh_section,
+    resolve_optional_mesh_input,
+    run_mesh_phase,
+    run_mesh_input_phase,
+    load_mesh_artifacts_from_summary,
+)
+
 if TYPE_CHECKING:
     from hydromodpy.data import DataLoadPlan
     from launchers.mesh_catchment.config import MeshCatchmentConfigSchema
+
+logger = logging.getLogger(__name__)
 
 
 def _build_data_plan(*args, **kwargs):
@@ -221,69 +255,63 @@ class HydroModPyLauncher:
         self.run_state.data_plan = data_plan
         self.postprocess_runner = PostprocessRunner(self.cfg.postprocess)
 
+    # ------------------------------------------------------------------
+    # Thin delegation to setup_phase
+    # ------------------------------------------------------------------
+
     @staticmethod
     def _log_data_plan(data_plan: DataLoadPlan) -> None:
-        """Print concise planner diagnostics when inferred types are present."""
-        if not data_plan.inferred_types:
-            return
-        print(
-            "[DataManagersPlanner] inferred data types: "
-            + ", ".join(data_plan.inferred_types)
-        )
-        for type_name in data_plan.inferred_types:
-            reasons = data_plan.reasons_for(type_name)
-            if reasons:
-                print(
-                    f"[DataManagersPlanner] {type_name}: "
-                    + "; ".join(reasons)
-                )
+        """Log concise planner diagnostics when inferred types are present."""
+        log_data_plan(data_plan)
 
     def _resolve_optional_mesh_section(
         self,
-        raw_toml: Mapping[str, object],
+        raw_toml,
     ) -> MeshCatchmentConfigSchema | None:
-        section = get_optional_mesh_section(raw_toml)
-        batch_section = raw_toml.get("mesh_catchment_batch")
-        if batch_section is None:
-            return section
-        batch_cfg = parse_mesh_catchment_batch_config_data(batch_section)
-        if batch_cfg.enabled:
-            raise ValueError(
-                "Embedded [mesh_catchment_batch] is not supported in process_simulation. "
-                "Use the dedicated mesh-catchment launcher for batch runs."
-            )
-        return section
+        return resolve_optional_mesh_section(raw_toml)
 
     def _resolve_optional_mesh_input(
         self,
-        raw_toml: Mapping[str, object],
+        raw_toml,
     ) -> dict[str, str] | None:
-        """Resolve one optional external mesh-input block from raw launcher TOML."""
-        section = raw_toml.get("mesh_input")
-        if section is None:
-            return None
-        if not isinstance(section, Mapping):
-            raise ValueError("[mesh_input] configuration must be a mapping when provided.")
+        return resolve_optional_mesh_input(raw_toml, self.config_path)
 
-        def _resolve_optional_path(raw_value: object) -> str:
-            text = str(raw_value or "").strip()
-            if text == "":
-                return ""
-            path = Path(text).expanduser()
-            if not path.is_absolute():
-                path = (self.config_path.parent / path).resolve()
-            return str(path)
+    @staticmethod
+    def _collect_requested_support_ids_from_flow_config(flow_cfg: object) -> tuple[str, ...]:
+        return collect_requested_support_ids(flow_cfg)
 
-        mesh_path = _resolve_optional_path(section.get("mesh_path"))
-        bundle_dir = _resolve_optional_path(section.get("bundle_dir"))
-        if mesh_path == "" and bundle_dir == "":
-            raise ValueError(
-                "[mesh_input] requires at least one of 'mesh_path' or 'bundle_dir'."
-            )
-        return {
-            "mesh_path": mesh_path,
-            "bundle_dir": bundle_dir,
-        }
+    @staticmethod
+    def _support_provider_names(domain_supports: dict[str, object]) -> tuple[str, ...]:
+        return support_provider_names(domain_supports)
+
+    def _resolve_requested_support_configs(
+        self,
+        *,
+        domain_cfg: object,
+        requested_support_ids: tuple[str, ...],
+    ) -> dict[str, object]:
+        return resolve_support_configs(domain_cfg, requested_support_ids)
+
+    @staticmethod
+    def _flow_requires_spatial_support(flow: object | None) -> bool:
+        return flow_requires_spatial_support(flow)
+
+    def _augment_runtime_zone_ids(self, domain_cfg: object) -> object:
+        return augment_runtime_zone_ids(
+            domain_cfg,
+            getattr(self, "requested_spatial_support_ids", ()),
+        )
+
+    def _validate_domain_support_contract(self, *, domain_cfg: object, flow: object | None) -> None:
+        validate_domain_support_contract(
+            domain_cfg,
+            flow,
+            getattr(self, "requested_domain_supports", {}),
+        )
+
+    # ------------------------------------------------------------------
+    # Main run orchestration
+    # ------------------------------------------------------------------
 
     def run(self) -> LauncherRunState:
         """Execute one full launcher session and return the populated runtime state.
@@ -325,12 +353,20 @@ class HydroModPyLauncher:
         execution_state.process_runs_by_id = {run.id: run for run in plan.runs}
 
         wall_start = time.monotonic()
+
+        # Phase 1: Setup
         self._run_setup()
         self._build_domain_spatial_supports(phase="setup")
+
+        # Phase 2: Data
         self._run_data()
         self._build_domain_spatial_supports(phase="data")
+
+        # Phase 3: Mesh
         self._run_mesh_phase()
         self._run_mesh_input_phase()
+
+        # Phase 4: Execution
         # The runner owns the fine-grained solver dispatch. The launcher
         # only provides process-family callbacks for managed postprocess.
         SimulationRunner(
@@ -345,45 +381,9 @@ class HydroModPyLauncher:
 
         return run_state
 
-    def _save_run_artifacts(self, run_state: LauncherRunState, wall_seconds: float) -> None:
-        """Save config snapshot and metrics into the run output folder."""
-        run_id = run_state.setup.run_id
-        run_folder = run_state.setup.workspace.simulations_folder / run_id
-        run_folder.mkdir(parents=True, exist_ok=True)
-
-        # Config snapshot
-        snapshot_path = run_folder / "_config_snapshot.toml"
-        try:
-            import tomli_w
-            snapshot_path.write_bytes(tomli_w.dumps(run_state.raw_toml).encode())
-        except Exception:
-            pass
-
-        # Metrics
-        metrics_path = run_folder / "_metrics.json"
-        solvers_used = [
-            r.solver for r in (run_state.execution.simulation_plan.runs if run_state.execution.simulation_plan else ())
-        ]
-        metrics = {
-            "wall_time_seconds": round(wall_seconds, 2),
-            "solvers": solvers_used,
-            "success": True,
-        }
-        mesh_summary = run_state.setup.mesh_summary
-        if isinstance(mesh_summary, dict):
-            metrics["mesh_constraints_mode"] = mesh_summary.get("constraints_mode")
-            metrics["mesh_output_mesh"] = mesh_summary.get("output_mesh")
-            metrics["mesh_output_summary_json"] = mesh_summary.get(
-                "output_summary_json"
-            )
-            metrics["mesh_output_figure"] = mesh_summary.get("output_figure")
-            metrics["mesh_output_exchange_bundle_dir"] = mesh_summary.get(
-                "output_exchange_bundle_dir"
-            )
-        try:
-            metrics_path.write_text(json.dumps(metrics, indent=2))
-        except Exception:
-            pass
+    # ------------------------------------------------------------------
+    # Setup phase
+    # ------------------------------------------------------------------
 
     def _build_geographic_runtime(self, workspace):
         """Build the geographic runtime selected by the validated TOML config."""
@@ -396,194 +396,6 @@ class HydroModPyLauncher:
                 workspace=workspace,
             )
         return hmp.Geographic(geographic_cfg, workspace)
-
-    @staticmethod
-    def _collect_requested_support_ids_from_flow_config(flow_cfg: object) -> tuple[str, ...]:
-        """Return the ordered support ids referenced by heterogeneous flow parameters."""
-        raw_param_cfg = getattr(flow_cfg, "param", {})
-        if not isinstance(raw_param_cfg, dict):
-            return ()
-
-        requested: list[str] = []
-        seen: set[str] = set()
-        for param_cfg in raw_param_cfg.values():
-            if not isinstance(param_cfg, dict):
-                continue
-            kind = str(param_cfg.get("kind", "")).strip().lower()
-            if kind != "heterogeneous":
-                continue
-            support_id = str(param_cfg.get("field_spatial_id", "")).strip()
-            if support_id == "":
-                raise ValueError(
-                    "Heterogeneous flow parameters require a non-empty field_spatial_id."
-                )
-            normalized = support_id.lower()
-            if normalized in seen:
-                continue
-            seen.add(normalized)
-            requested.append(support_id)
-        return tuple(requested)
-
-    @staticmethod
-    def _support_provider_names(domain_supports: dict[str, object]) -> tuple[str, ...]:
-        """Return the ordered provider names declared by resolved support configs."""
-        provider_names: list[str] = []
-        seen: set[str] = set()
-        for support_cfg in domain_supports.values():
-            provider_name = str(getattr(support_cfg, "provider", "")).strip().lower()
-            if provider_name == "" or provider_name in seen:
-                continue
-            seen.add(provider_name)
-            provider_names.append(provider_name)
-        return tuple(provider_names)
-
-    def _resolve_requested_support_configs(
-        self,
-        *,
-        domain_cfg: object,
-        requested_support_ids: tuple[str, ...],
-    ) -> dict[str, object]:
-        """Resolve support configs actually needed by the current flow parameters."""
-        if not requested_support_ids:
-            return {}
-
-        explicit_supports = getattr(domain_cfg, "supports", {})
-        if explicit_supports is None:
-            explicit_supports = {}
-        if not isinstance(explicit_supports, dict):
-            raise TypeError("domain.supports must be a dictionary")
-
-        explicit_by_lower = {
-            str(support_id).strip().lower(): support_cfg
-            for support_id, support_cfg in explicit_supports.items()
-        }
-
-        resolved: dict[str, object] = {}
-        for support_id in requested_support_ids:
-            support_cfg = explicit_by_lower.get(str(support_id).strip().lower())
-            if support_cfg is not None:
-                resolved[support_id] = support_cfg
-                continue
-            raise ValueError(
-                f"Missing domain support declaration for '{support_id}'. "
-                "Declare [domain.supports.<id>] with an explicit provider."
-            )
-        return resolved
-
-    @staticmethod
-    def _flow_requires_spatial_support(flow: object | None) -> bool:
-        """Return True when at least one flow parameter is heterogeneous."""
-        if flow is None:
-            return False
-        parameters = getattr(flow, "parameters", {})
-        if not isinstance(parameters, dict):
-            return False
-        return any(bool(getattr(param, "is_heterogeneous", False)) for param in parameters.values())
-
-    def _augment_runtime_zone_ids(self, domain_cfg: object) -> object:
-        """Ensure runtime-only zone ids required by launcher bindings are declared."""
-        zone_ids = getattr(domain_cfg, "zone_ids", None)
-        if zone_ids is None:
-            zone_ids = []
-            setattr(domain_cfg, "zone_ids", zone_ids)
-        if not isinstance(zone_ids, list):
-            zone_ids = list(zone_ids)
-            setattr(domain_cfg, "zone_ids", zone_ids)
-
-        normalized_zone_ids = {str(item).strip().lower() for item in zone_ids}
-        if "catchment" not in normalized_zone_ids:
-            zone_ids.append("catchment")
-            normalized_zone_ids.add("catchment")
-
-        for support_id in getattr(self, "requested_spatial_support_ids", ()):
-            normalized_support_id = str(support_id).strip().lower()
-            if normalized_support_id in normalized_zone_ids:
-                continue
-            zone_ids.append(str(support_id).strip())
-            normalized_zone_ids.add(normalized_support_id)
-        return domain_cfg
-
-    def _validate_domain_support_contract(self, *, domain_cfg: object, flow: object | None) -> None:
-        """Fail early when heterogeneous flow parameters reference undeclared supports."""
-        _ = domain_cfg
-        if not self._flow_requires_spatial_support(flow):
-            return
-        parameters = getattr(flow, "parameters", {})
-        if not isinstance(parameters, dict):
-            return
-
-        declared_supports = {
-            str(support_id).strip().lower()
-            for support_id in getattr(self, "requested_domain_supports", {})
-            if str(support_id).strip()
-        }
-        missing_supports: list[str] = []
-        seen: set[str] = set()
-        for param in parameters.values():
-            if not bool(getattr(param, "is_heterogeneous", False)):
-                continue
-            support_id = str(getattr(param, "field_spatial_id", "")).strip()
-            if support_id == "":
-                raise ValueError(
-                    "Heterogeneous flow parameters require a non-empty field_spatial_id."
-                )
-            normalized_support_id = support_id.lower()
-            if normalized_support_id in declared_supports or normalized_support_id in seen:
-                continue
-            seen.add(normalized_support_id)
-            missing_supports.append(support_id)
-
-        if missing_supports:
-            raise ValueError(
-                "Heterogeneous flow parameters require explicit "
-                "[domain.supports.<id>] declarations for: "
-                + ", ".join(missing_supports)
-                + "."
-            )
-
-    def _build_domain_spatial_supports(self, *, phase: str) -> None:
-        """Materialize declared spatial supports for the requested launcher phase."""
-        requested_domain_supports = getattr(self, "requested_domain_supports", {})
-        if not requested_domain_supports:
-            return
-
-        run_state = self.run_state
-        setup_state = run_state.setup
-        context = SupportBuildContext(
-            cfg=self.cfg,
-            raw_toml=run_state.raw_toml,
-            workspace=setup_state.workspace,
-            geographic=setup_state.geographic,
-            domain_geographic=setup_state.domain_geographic,
-            domain=setup_state.domain,
-            flow=setup_state.flow,
-            loaded_data=run_state.loaded_data,
-            time_grid=setup_state.time_grid,
-            geographic_features=setup_state.geographic_features,
-        )
-
-        for support_id, support_cfg in requested_domain_supports.items():
-            existing_zone = None
-            domain_get_zone = getattr(setup_state.domain, "get_zone", None)
-            if callable(domain_get_zone):
-                existing_zone = domain_get_zone(support_id)
-            elif str(support_id).strip().lower() in getattr(setup_state.domain, "zones", {}):
-                existing_zone = setup_state.domain.zones[str(support_id).strip().lower()]
-            if existing_zone is not None and str(
-                getattr(existing_zone, "identifier", "")
-            ).strip() == str(support_id).strip():
-                continue
-            provider = self.spatial_support_provider_registry.get(
-                getattr(support_cfg, "provider", "")
-            )
-            if str(provider.build_phase).strip().lower() != str(phase).strip().lower():
-                continue
-            support_field = provider.build(
-                support_id=support_id,
-                config=support_cfg,
-                context=context,
-            )
-            setup_state.domain.set_zone(support_id, support_field)
 
     def _run_setup(self) -> None:
         """Initialise the structural objects shared by all later process runs.
@@ -639,6 +451,54 @@ class HydroModPyLauncher:
             domain_cfg=domain_cfg, flow=setup_state.flow,
         )
 
+    def _build_domain_spatial_supports(self, *, phase: str) -> None:
+        """Materialize declared spatial supports for the requested launcher phase."""
+        requested_domain_supports = getattr(self, "requested_domain_supports", {})
+        if not requested_domain_supports:
+            return
+
+        run_state = self.run_state
+        setup_state = run_state.setup
+        context = SupportBuildContext(
+            cfg=self.cfg,
+            raw_toml=run_state.raw_toml,
+            workspace=setup_state.workspace,
+            geographic=setup_state.geographic,
+            domain_geographic=setup_state.domain_geographic,
+            domain=setup_state.domain,
+            flow=setup_state.flow,
+            loaded_data=run_state.loaded_data,
+            time_grid=setup_state.time_grid,
+            geographic_features=setup_state.geographic_features,
+        )
+
+        for support_id, support_cfg in requested_domain_supports.items():
+            existing_zone = None
+            domain_get_zone = getattr(setup_state.domain, "get_zone", None)
+            if callable(domain_get_zone):
+                existing_zone = domain_get_zone(support_id)
+            elif str(support_id).strip().lower() in getattr(setup_state.domain, "zones", {}):
+                existing_zone = setup_state.domain.zones[str(support_id).strip().lower()]
+            if existing_zone is not None and str(
+                getattr(existing_zone, "identifier", "")
+            ).strip() == str(support_id).strip():
+                continue
+            provider = self.spatial_support_provider_registry.get(
+                getattr(support_cfg, "provider", "")
+            )
+            if str(provider.build_phase).strip().lower() != str(phase).strip().lower():
+                continue
+            support_field = provider.build(
+                support_id=support_id,
+                config=support_cfg,
+                context=context,
+            )
+            setup_state.domain.set_zone(support_id, support_field)
+
+    # ------------------------------------------------------------------
+    # Data phase
+    # ------------------------------------------------------------------
+
     def _run_data(self) -> None:
         """Load the external forcings shared by all process runs.
 
@@ -674,6 +534,10 @@ class HydroModPyLauncher:
             recharge_result=data_state.recharge,
             simulation_window=window,
         )
+
+    # ------------------------------------------------------------------
+    # Mesh phase
+    # ------------------------------------------------------------------
 
     def _run_mesh_phase(self) -> None:
         """Run the optional catchment meshing phase embedded in simulation TOML."""
@@ -755,6 +619,50 @@ class HydroModPyLauncher:
             return
         if setup_state.mesh_planar is None:
             setup_state.mesh_planar = load_planar_mesh(mesh_path_obj)
+
+    # ------------------------------------------------------------------
+    # Orchestration-level helpers (kept in launcher)
+    # ------------------------------------------------------------------
+
+    def _save_run_artifacts(self, run_state: LauncherRunState, wall_seconds: float) -> None:
+        """Save config snapshot and metrics into the run output folder."""
+        run_id = run_state.setup.run_id
+        run_folder = run_state.setup.workspace.simulations_folder / run_id
+        run_folder.mkdir(parents=True, exist_ok=True)
+
+        # Config snapshot
+        snapshot_path = run_folder / "_config_snapshot.toml"
+        try:
+            import tomli_w
+            snapshot_path.write_bytes(tomli_w.dumps(run_state.raw_toml).encode())
+        except Exception:
+            pass
+
+        # Metrics
+        metrics_path = run_folder / "_metrics.json"
+        solvers_used = [
+            r.solver for r in (run_state.execution.simulation_plan.runs if run_state.execution.simulation_plan else ())
+        ]
+        metrics = {
+            "wall_time_seconds": round(wall_seconds, 2),
+            "solvers": solvers_used,
+            "success": True,
+        }
+        mesh_summary = run_state.setup.mesh_summary
+        if isinstance(mesh_summary, dict):
+            metrics["mesh_constraints_mode"] = mesh_summary.get("constraints_mode")
+            metrics["mesh_output_mesh"] = mesh_summary.get("output_mesh")
+            metrics["mesh_output_summary_json"] = mesh_summary.get(
+                "output_summary_json"
+            )
+            metrics["mesh_output_figure"] = mesh_summary.get("output_figure")
+            metrics["mesh_output_exchange_bundle_dir"] = mesh_summary.get(
+                "output_exchange_bundle_dir"
+            )
+        try:
+            metrics_path.write_text(json.dumps(metrics, indent=2))
+        except Exception:
+            pass
 
     def _create_simulation_plan(self):
         """Resolve the declarative ``[simulation]`` block into concrete runs.
