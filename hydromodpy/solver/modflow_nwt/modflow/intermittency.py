@@ -24,6 +24,7 @@ import numpy as np
 import rasterio
 
 from hydromodpy.core.tools import get_logger
+from hydromodpy.core.tools.raster_io import export_tif
 
 from .postprocess import NODATA
 
@@ -39,7 +40,6 @@ def export_intermittency(
     watershed_dem: str,
     save_file: str,
     save_filename: str,
-    toolbox,
 ) -> None:
     """
     Compute and export the intermittency index for a given time window.
@@ -66,14 +66,12 @@ def export_intermittency(
         Output folder for per-window raster files.
     watershed_dem : str
         Path to the reference DEM raster used for nodata masking and GeoTIFF
-        metadata (via ``toolbox.export_tif``).
+        metadata (via ``export_tif``).
     save_file : str
         Output folder for the aggregated ``.npy`` dictionary.
     save_filename : str
         Base file name (without extension) for the ``.npy`` output
         (e.g. ``"intermittency_daily"``).
-    toolbox : module
-        HydroModPy toolbox module providing ``export_tif``.
     """
     if len(acc_npy_raw) < window_size:
         logger.warning(
@@ -131,7 +129,7 @@ def export_intermittency(
                 tifs_file,
                 f"intermittency_{label}_t({compt}).tif",
             )
-            toolbox.export_tif(watershed_dem, tempo_export, output_path, NODATA)
+            export_tif(watershed_dem, tempo_export, output_path, NODATA)
             compt += 1
 
         inf += window_size

@@ -40,8 +40,11 @@ from hydromodpy.solver.modflow_common import ensure_platform_executable
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
 )
-from hydromodpy.core.tools import toolbox, get_logger
-fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+from hydromodpy.core.tools import get_logger
+from hydromodpy.core.tools.filesystem import create_folder
+from hydromodpy.core.tools.raster_io import export_tif
+from hydromodpy.core.tools.display import plot_params
+fontprop = plot_params(8,15,18,20) # small, medium, interm, large
 MT3DMS_NORMAL_MESSAGES = ["normal termination", "program completed"]
 
 #%% CLASS
@@ -326,19 +329,19 @@ class Mt3dms:
         """
         # Create folders
         self.save_file = os.path.join(self.full_path, '_postprocess')
-        toolbox.create_folder(self.save_file)
+        create_folder(self.save_file)
 
         self.figure_file = os.path.join(self.full_path, '_postprocess', '_figures')
-        toolbox.create_folder(self.figure_file)
+        create_folder(self.figure_file)
 
         self.temporary_file = os.path.join(self.full_path, '_postprocess','_temporary')
-        toolbox.create_folder(self.temporary_file)
+        create_folder(self.temporary_file)
 
         self.tifs_file = os.path.join(self.full_path, '_postprocess', '_rasters')
-        toolbox.create_folder(self.tifs_file)
+        create_folder(self.tifs_file)
 
         self.save_fig = os.path.join(self.model_folder, '_figures')
-        toolbox.create_folder(self.save_fig)
+        create_folder(self.save_fig)
 
         #%% Load essential data
 
@@ -376,10 +379,10 @@ class Mt3dms:
             the_time = str(i+1)
             logger.info("Processing MT3DMS timestep %d/%d", i+1, model_mt3dms.model_modflow.nper)
 
-            export_tif = True
+            do_export_tif = True
             if export_all_tif == False:
                 if i > 0:
-                    export_tif = False
+                    do_export_tif = False
 
             seep = self.outflow_drain[i]
 
@@ -391,8 +394,8 @@ class Mt3dms:
                 concobj_1c_fil_surf[self.inactive_mask] = -9999
 
                 output_path = self.tifs_file+'/concentration_seepage_t('+the_time+').tif'
-                if export_tif==True:
-                    toolbox.export_tif(self.model_modflow.dem_watershed_path, concobj_1c_fil_surf, output_path, -9999)
+                if do_export_tif:
+                    export_tif(self.model_modflow.dem_watershed_path, concobj_1c_fil_surf, output_path, -9999)
                 self.dict_concentration_seepage[i] = concobj_1c_fil_surf
 
                 the_mins.append(np.nanmin(concobj_1c_fil_surf))
@@ -408,8 +411,8 @@ class Mt3dms:
                 massobj_1c_fil_surf = np.where(np.isnan(massobj_1c_fil_surf), -9999, massobj_1c_fil_surf)
 
                 output_path = self.tifs_file+'/mass_seepage_t('+the_time+').tif'
-                if export_tif==True:
-                    toolbox.export_tif(self.model_modflow.dem_watershed_path, massobj_1c_fil_surf, output_path, -9999)
+                if do_export_tif:
+                    export_tif(self.model_modflow.dem_watershed_path, massobj_1c_fil_surf, output_path, -9999)
                 self.dict_mass_seepage[i] = massobj_1c_fil_surf
 
             if mass_accumulated==True:

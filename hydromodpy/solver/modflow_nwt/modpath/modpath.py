@@ -39,9 +39,12 @@ sys.path.append(df)
 # HydroModPy
 from hydromodpy.core.backends import get_whitebox_backend
 from hydromodpy.solver.modflow_common import ensure_platform_executable
-from hydromodpy.core.tools import toolbox, get_logger
+from hydromodpy.core.tools import get_logger
+from hydromodpy.core.tools.filesystem import create_folder
+from hydromodpy.core.tools.raster_io import export_tif
+from hydromodpy.core.tools.display import plot_params
 logger = get_logger(__name__)
-fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+fontprop = plot_params(8,15,18,20) # small, medium, interm, large
 
 from hydromodpy.solver import Solver
 
@@ -258,7 +261,7 @@ class Modpath(Solver):
                 return False
             first_key = sorted(payload)[0]
             seepage_array = np.asarray(payload[first_key], dtype=float)
-            toolbox.export_tif(base_raster, seepage_array, seepage_tif, -9999.0)
+            export_tif(base_raster, seepage_array, seepage_tif, -9999.0)
         except Exception as exc:
             logger.warning(
                 "Failed to rebuild seepage raster from %s for zone_partic='seepage_clip'. "
@@ -683,7 +686,7 @@ class Modpath(Solver):
         self.full_path = os.path.join(model_modpath.model_folder, model_modpath.model_name)
         
         self.particles_file = os.path.join(self.full_path, '_postprocess', '_particles')
-        toolbox.create_folder(self.particles_file)
+        create_folder(self.particles_file)
                 
         grid_model = model_modpath.mf.modelgrid
         
@@ -796,8 +799,8 @@ class Modpath(Solver):
                 df['time_y'] = df['time'] / 365 # convert in years
                 try:
                     df['time_win_y'] = df['time_win'] / 365 # convert in years
-                except:
-                    pass
+                except Exception:
+                    logger.debug("Failed to convert 'time_win' to years", exc_info=True)
                 df = df[df['time']>0]
             return df
         
@@ -895,7 +898,7 @@ class Modpath(Solver):
             start_weighted_shp = os.path.join(particles_dir, 'starting_weighted.shp')
             end_weighted_shp = os.path.join(particles_dir, 'ending_weighted.shp')
 
-            toolbox.export_tif(self._resolve_domain_raster(), sflows, sflows_tif, -9999)
+            export_tif(self._resolve_domain_raster(), sflows, sflows_tif, -9999)
 
             start = gpd.read_file(start_shp)
             start = ensure_crs(start)
@@ -988,8 +991,8 @@ class Modpath(Solver):
                 if watershed_shp is not None:
                     shp = gpd.read_file(watershed_shp)
                     end = end.clip(shp)
-            except:
-                pass
+            except Exception:
+                logger.debug("Failed to clip particles to watershed boundary", exc_info=True)
             end.loc[end['time_win']==0, :] = np.nan
             end = end.dropna()
             try:
@@ -1012,8 +1015,8 @@ class Modpath(Solver):
                 y_log = np.log10(yfil)
                 # x_log = (xfil)
                 # y_log = (yfil)
-            except:
-                pass
+            except Exception:
+                logger.debug("Failed to compute log-scale residence time bins", exc_info=True)
             def func(x, a, b, c, d, e):
                 return a * x**4 + b * x**3 + c * x**2 + d * x + e
             try:
@@ -1034,8 +1037,8 @@ class Modpath(Solver):
                 ax.legend(loc='upper right')
                 # ax.set_xlim(tmin, tmax)
                 # ax.set_ylim(-0.1, 13)
-            except:
-                pass
+            except Exception:
+                logger.debug("Failed to fit and plot residence time distribution curve", exc_info=True)
 
 #%% NOTES
 
