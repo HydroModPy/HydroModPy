@@ -8,7 +8,7 @@ from pathlib import Path
 import rasterio
 
 from hydromodpy.core.backends import WhiteboxBackend, WhiteboxWorkflowsBackend, get_whitebox_backend
-from hydromodpy.core.tools import toolbox
+from hydromodpy.core.tools.raster_io import export_tif
 from hydromodpy.spatial.geographic.core.domain_dem import clip_dem_to_box_buffer
 from hydromodpy.spatial.geographic.geographic_io import ensure_crs
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
@@ -72,7 +72,7 @@ def _export_reshaped_rasters(
     for src_path, dst_path, nodata in jobs:
         with rasterio.open(src_path) as src:
             data = src.read(1)
-        toolbox.export_tif(paths.watershed_box_buff_dem, data, dst_path, nodata)
+        export_tif(paths.watershed_box_buff_dem, data, dst_path, nodata)
 
 
 def build_legacy_domain_rasters(

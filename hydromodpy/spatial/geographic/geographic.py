@@ -94,7 +94,7 @@ class Geographic:
         logger.info("Extracting geographic data for model area")
 
         self._config = config
-        self.out_dir_path = initializing.catch_folder
+        self.out_dir_path = initializing.project_root
         self.catch_def = config.catch_def
         self.dem_init_path = str(config.dem_init_path)
         self.x_outlet = config.x_outlet
