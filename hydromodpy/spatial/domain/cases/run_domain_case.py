@@ -186,7 +186,7 @@ def run_domain_case_from_toml(
 
     # 4) Return a small summary payload used by CLI logs/tests.
     summary = {
-        "catch_folder": str(workspace.catch_folder),
+        "project_root": str(workspace.project_root),
         "watershed_shp": str(geographic_context.watershed_shp),
         "catchment_area_km2": float(geographic_context.catchment_area_km2),
         "surface_topo_shape": tuple(int(v) for v in domain.surface_topo.as_array().shape),
@@ -615,7 +615,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     # Print concise key/value diagnostics for quick inspection and CI logs.
-    print(f"[{args.case_id}] catch_folder={workspace.catch_folder}")
+    print(f"[{args.case_id}] catch_folder={workspace.project_root}")
     print(f"[{args.case_id}] watershed_shp={summary['watershed_shp']}")
     print(f"[{args.case_id}] catchment_area_km2={summary['catchment_area_km2']:.3f}")
     print(
