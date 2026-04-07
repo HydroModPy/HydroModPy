@@ -25,7 +25,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Callable
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.fields import FieldInfo
 
 from hydromodpy.spatial.domain.domain_config import DomainConfig
@@ -151,11 +151,6 @@ class HydroModPyConfig(BaseModel):
         ),
     )
 
-    @model_validator(mode="after")
-    def _validate_cross_section_constraints(self) -> "HydroModPyConfig":
-        """Validate constraints that depend on several top-level sections."""
-        return self
-
     @classmethod
     def from_toml(cls, toml_path: "Path | str") -> "HydroModPyConfig":
         """
@@ -218,9 +213,9 @@ class HydroModPyConfig(BaseModel):
                 {},
                 lambda data, b: _load_standard_section(data, SimulationConfig, b),
             ),
-            "solver": ({}, _load_solver_section),
-            "modflownwt": ({}, _load_modflow_nwt_section),
-            "modflow6": ({}, _load_modflow6_section),
+            "solver": ({}, lambda data, b: _load_standard_section(data, SolverConfig, b)),
+            "modflownwt": ({}, lambda data, b: _load_standard_section(data, ModflowConfig, b)),
+            "modflow6": ({}, lambda data, b: _load_standard_section(data, Modflow6Config, b)),
             "display": ({}, lambda data, b: _load_standard_section(data, DisplayConfig, b)),
             "postprocess": (
                 {},
@@ -293,28 +288,3 @@ def _load_data_section(section_data: Any, base: Path) -> DataManagersConfig:
     return DataManagersConfig.from_toml_section(section_data, base_dir=base)
 
 
-def _load_solver_section(section_data: Any, base: Path) -> SolverConfig:
-    """Load solver section."""
-    if section_data is None:
-        section_data = {}
-    if not isinstance(section_data, Mapping):
-        raise ValueError("TOML section must be a mapping for SolverConfig")
-    return SolverConfig.model_validate(dict(section_data))
-
-
-def _load_modflow_nwt_section(section_data: Any, base: Path) -> ModflowConfig:
-    """Load modflownwt section."""
-    if section_data is None:
-        section_data = {}
-    if not isinstance(section_data, Mapping):
-        raise ValueError("TOML section must be a mapping for ModflowConfig")
-    return ModflowConfig.model_validate(dict(section_data))
-
-
-def _load_modflow6_section(section_data: Any, base: Path) -> Modflow6Config:
-    """Load modflow6 section."""
-    if section_data is None:
-        section_data = {}
-    if not isinstance(section_data, Mapping):
-        raise ValueError("TOML section must be a mapping for Modflow6Config")
-    return Modflow6Config.model_validate(dict(section_data))
