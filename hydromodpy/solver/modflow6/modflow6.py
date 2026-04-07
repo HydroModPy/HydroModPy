@@ -54,7 +54,9 @@ from hydromodpy.core.units.volumetric_flow import (
 	convert_to_m3_per_s,
 	normalize_m3_per_s_unit,
 )
-from hydromodpy.core.tools import get_logger, toolbox
+from hydromodpy.core.tools import get_logger
+from hydromodpy.core.tools.filesystem import create_folder
+from hydromodpy.core.tools.raster_io import export_tif
 
 logger = get_logger(__name__)
 
@@ -96,7 +98,7 @@ class Modflow6(Solver):
 	):
 		self.model_folder = model_folder
 		if not os.path.exists(self.model_folder):
-			toolbox.create_folder(self.model_folder)
+			create_folder(self.model_folder)
 
 		self.model_name = model_name
 		self.model_name_mf6 = _mf6_safe_name(model_name)
@@ -1141,9 +1143,9 @@ class Modflow6(Solver):
 			raise TypeError("post_processing options must be ModflowPostprocessOptions")
 
 		self.save_file = os.path.join(self.full_path, "_postprocess")
-		toolbox.create_folder(self.save_file)
+		create_folder(self.save_file)
 		self.tifs_file = os.path.join(self.save_file, "_rasters")
-		toolbox.create_folder(self.tifs_file)
+		create_folder(self.tifs_file)
 
 		head_path = os.path.join(self.full_path, f"{self.model_name}.hds")
 		cbc_path = os.path.join(self.full_path, f"{self.model_name}.cbc")
@@ -1176,13 +1178,13 @@ class Modflow6(Solver):
 				wt_out[dem_mask_flat] = -9999
 				dict_watertable_elevation[item] = self._to_export_array(wt_out)
 				if options.export_all_tif or item == 0:
-					toolbox.export_tif(self.dem_watershed_path, self._to_export_array(wt_out), os.path.join(self.tifs_file, f"watertable_elevation_t({item}).tif"), -9999)
+					export_tif(self.dem_watershed_path, self._to_export_array(wt_out), os.path.join(self.tifs_file, f"watertable_elevation_t({item}).tif"), -9999)
 
 			if options.watertable_depth:
 				wtd = np.where(dem_mask_flat, -9999, np.maximum(dem_flat - wt, 0))
 				dict_watertable_depth[item] = self._to_export_array(wtd)
 				if options.export_all_tif or item == 0:
-					toolbox.export_tif(self.dem_watershed_path, self._to_export_array(wtd), os.path.join(self.tifs_file, f"watertable_depth_t({item}).tif"), -9999)
+					export_tif(self.dem_watershed_path, self._to_export_array(wtd), os.path.join(self.tifs_file, f"watertable_depth_t({item}).tif"), -9999)
 
 			drn = self._get_budget_records_or_none(
 				cbb,
@@ -1220,11 +1222,11 @@ class Modflow6(Solver):
 				dict_outflow_drain[item] = self._to_export_array(outflow)
 			if options.outflow_drain or options.accumulation_flux:
 				if options.accumulation_flux or options.export_all_tif or item == 0:
-					toolbox.export_tif(self.dem_watershed_path, self._to_export_array(outflow), outflow_tif_path, -9999)
+					export_tif(self.dem_watershed_path, self._to_export_array(outflow), outflow_tif_path, -9999)
 			if options.seepage_areas:
 				dict_seepage_areas[item] = self._to_export_array(seepage)
 				if options.export_all_tif or item == 0:
-					toolbox.export_tif(self.dem_watershed_path, self._to_export_array(seepage), os.path.join(self.tifs_file, f"seepage_areas_t({item}).tif"), -9999)
+					export_tif(self.dem_watershed_path, self._to_export_array(seepage), os.path.join(self.tifs_file, f"seepage_areas_t({item}).tif"), -9999)
 
 			if options.outlet_discharge_east_side_m3_s:
 				chd = self._get_budget_records_or_none(
@@ -1420,9 +1422,9 @@ class Modflow6Transport:
 		export_all_tif: bool = False,
 	):
 		self.save_file = os.path.join(self.full_path, "_postprocess")
-		toolbox.create_folder(self.save_file)
+		create_folder(self.save_file)
 		self.tifs_file = os.path.join(self.save_file, "_rasters")
-		toolbox.create_folder(self.tifs_file)
+		create_folder(self.tifs_file)
 
 		path_ucn = os.path.join(self.full_path, f"{self.model_name_mt}.ucn")
 		try:
@@ -1464,7 +1466,7 @@ class Modflow6Transport:
 				conc_surf[dem_mask] = -9999
 				dict_concentration_seepage[i] = _reshape_for_export(conc_surf)
 				if export_all_tif or i == 0:
-					toolbox.export_tif(self.model_modflow.dem_watershed_path, _reshape_for_export(conc_surf), os.path.join(self.tifs_file, f"concentration_seepage_t({the_time}).tif"), -9999)
+					export_tif(self.model_modflow.dem_watershed_path, _reshape_for_export(conc_surf), os.path.join(self.tifs_file, f"concentration_seepage_t({the_time}).tif"), -9999)
 
 			if mass_seepage:
 				mass_surf = np.asarray(concobj_1c[conc_time_idx][0], dtype=float).reshape(-1).copy()
@@ -1474,7 +1476,7 @@ class Modflow6Transport:
 				mass_surf = np.where(np.isnan(mass_surf), -9999, mass_surf)
 				dict_mass_seepage[i] = _reshape_for_export(mass_surf)
 				if export_all_tif or i == 0:
-					toolbox.export_tif(self.model_modflow.dem_watershed_path, _reshape_for_export(mass_surf), os.path.join(self.tifs_file, f"mass_seepage_t({the_time}).tif"), -9999)
+					export_tif(self.model_modflow.dem_watershed_path, _reshape_for_export(mass_surf), os.path.join(self.tifs_file, f"mass_seepage_t({the_time}).tif"), -9999)
 
 			if mass_accumulated:
 				routing_ctx = self.model_modflow._ensure_solver_routing_context()
