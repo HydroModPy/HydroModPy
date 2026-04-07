@@ -164,7 +164,7 @@ def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_wa
     tmp_path: Path,
 ) -> None:
     workspace = SimpleNamespace(
-        catch_folder=tmp_path / "results",
+        project_root=tmp_path / "results",
         stable_folder=tmp_path / "results" / "results_stable",
     )
     config = GeographicConfig(

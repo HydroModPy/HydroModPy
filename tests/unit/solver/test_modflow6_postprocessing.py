@@ -123,7 +123,7 @@ def _patch_postprocess_runtime(monkeypatch, budget_file_cls: type[object]) -> No
         lambda head, nodata: np.asarray(head[0], dtype=float),
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.modflow6.export_tif",
         lambda *args, **kwargs: None,
     )
 
@@ -266,7 +266,7 @@ def test_modflow6_post_processing_routes_accumulation_flux_via_masstransfer(
             return accumulated
 
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.modflow6.export_tif",
         _fake_export_tif,
     )
     monkeypatch.setattr(

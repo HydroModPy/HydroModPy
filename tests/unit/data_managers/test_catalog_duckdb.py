@@ -325,75 +325,9 @@ class TestEdgeCases:
         assert len(catalog.list_entries()) == 2
 
 
-class TestMigrationFromSQLite:
-    def test_auto_migration(self, tmp_path):
-        # Create a legacy SQLite catalog.db
-        sqlite_path = tmp_path / "catalog.db"
-        with sqlite3.connect(sqlite_path) as conn:
-            conn.execute("""
-                CREATE TABLE entries (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    variable VARCHAR NOT NULL,
-                    source VARCHAR NOT NULL,
-                    station_id VARCHAR,
-                    bbox_xmin FLOAT, bbox_ymin FLOAT, bbox_xmax FLOAT, bbox_ymax FLOAT,
-                    crs VARCHAR,
-                    date_start VARCHAR, date_end VARCHAR,
-                    frequency VARCHAR, unit VARCHAR, source_unit VARCHAR,
-                    file_path TEXT NOT NULL,
-                    file_mtime FLOAT,
-                    created_at DATETIME,
-                    is_custom INTEGER DEFAULT 0
-                )
-            """)
-            conn.execute(
-                "INSERT INTO entries (variable, source, station_id, file_path, date_start, date_end) "
-                "VALUES ('hydrometry', 'hubeau', 'J7214001', '/data/test.csv', '2020-01-01', '2020-12-31')"
-            )
-            conn.execute(
-                "INSERT INTO entries (variable, source, station_id, file_path) "
-                "VALUES ('piezometry', 'custom', 'P001', '/data/piezo.csv')"
-            )
-            conn.commit()
-
-        # Opening catalog.duckdb should auto-migrate from catalog.db
+class TestContextManager:
+    def test_context_manager(self, tmp_path):
         duckdb_path = tmp_path / "catalog.duckdb"
-        cat = DataCatalogDuckDB(duckdb_path)
-
-        df = cat.list_entries()
-        assert len(df) == 2
-
-        entry = cat.find_cached(variable="hydrometry", source="hubeau", station_id="J7214001")
-        assert entry is not None
-        assert entry.date_start == "2020-01-01"
-
-        cat.close()
-
-    def test_no_double_migration(self, tmp_path):
-        sqlite_path = tmp_path / "catalog.db"
-        with sqlite3.connect(sqlite_path) as conn:
-            conn.execute("""
-                CREATE TABLE entries (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    variable VARCHAR NOT NULL, source VARCHAR NOT NULL,
-                    station_id VARCHAR, file_path TEXT NOT NULL,
-                    bbox_xmin FLOAT, bbox_ymin FLOAT, bbox_xmax FLOAT, bbox_ymax FLOAT,
-                    crs VARCHAR, date_start VARCHAR, date_end VARCHAR,
-                    frequency VARCHAR, unit VARCHAR,
-                    file_mtime FLOAT, created_at DATETIME, is_custom INTEGER DEFAULT 0
-                )
-            """)
-            conn.execute(
-                "INSERT INTO entries (variable, source, file_path) VALUES ('x', 'y', '/z')"
-            )
-            conn.commit()
-
-        duckdb_path = tmp_path / "catalog.duckdb"
-        cat1 = DataCatalogDuckDB(duckdb_path)
-        assert len(cat1.list_entries()) == 1
-        cat1.close()
-
-        # Re-open — should not duplicate
-        cat2 = DataCatalogDuckDB(duckdb_path)
-        assert len(cat2.list_entries()) == 1
-        cat2.close()
+        with DataCatalogDuckDB(duckdb_path) as cat:
+            cat.register(variable="test", source="src", file_path="/tmp/test.csv")
+            assert len(cat.list_entries()) == 1

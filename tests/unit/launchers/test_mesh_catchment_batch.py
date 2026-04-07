@@ -169,6 +169,7 @@ def test_write_mesh_catchment_batch_manifest_persists_csv(tmp_path: Path) -> Non
 def test_batch_runner_marks_missing_mesh_output_as_error_and_continues(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     outlets_csv = tmp_path / "outlets.csv"
     outlets_csv.write_text(
@@ -225,4 +226,4 @@ def test_batch_runner_marks_missing_mesh_output_as_error_and_continues(
     assert summary["results"][0]["status"] == "error"
     assert "did not write the expected mesh file" in summary["results"][0]["error"]
     assert summary["results"][1]["status"] == "ok"
-    assert "[ERROR] mesh_catchment batch outlet=1" in capsys.readouterr().err
+    assert "mesh_catchment batch outlet=1" in caplog.text

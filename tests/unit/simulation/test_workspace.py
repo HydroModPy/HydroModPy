@@ -89,7 +89,7 @@ def test_path_registry_run_folder(tmp_path) -> None:
     assert registry.run_folder("steady_nwt") == tmp_path / "demo" / "results_simulations" / "steady_nwt"
 
 
-def test_workspace_catch_folder_alias(tmp_path) -> None:
+def test_workspace_project_root(tmp_path) -> None:
     cfg = WorkspaceConfig(project_root=tmp_path / "demo")
     workspace = Workspace(config=cfg)
-    assert workspace.catch_folder == workspace.project_root
+    assert workspace.project_root == tmp_path / "demo"

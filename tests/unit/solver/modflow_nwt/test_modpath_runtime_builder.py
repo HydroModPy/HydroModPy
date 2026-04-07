@@ -124,7 +124,7 @@ def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_npy(
             Path(out_raster).write_text("dummy")
 
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow_nwt.modpath.modpath.toolbox.export_tif",
+        "hydromodpy.solver.modflow_nwt.modpath.modpath.export_tif",
         _fake_export_tif,
     )
     monkeypatch.setattr(

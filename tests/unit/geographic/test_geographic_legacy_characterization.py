@@ -284,7 +284,7 @@ def _build_geographic_legacy_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         crs_project="EPSG:2154",
         dem_correc_type="breach",
     )
-    initializing = SimpleNamespace(catch_folder=str(tmp_path / "case_run"))
+    initializing = SimpleNamespace(project_root=str(tmp_path / "case_run"))
     return Geographic(config=cfg, initializing=initializing)
 
 
@@ -308,7 +308,7 @@ def _build_geographic_legacy_outlet_case(tmp_path: Path, monkeypatch: pytest.Mon
         crs_project="EPSG:2154",
         dem_correc_type="breach",
     )
-    initializing = SimpleNamespace(catch_folder=str(tmp_path / "case_run_outlet"))
+    initializing = SimpleNamespace(project_root=str(tmp_path / "case_run_outlet"))
     return Geographic(config=cfg, initializing=initializing)
 
 
@@ -502,7 +502,7 @@ def test_geographic_legacy_missing_dem_file_raises(tmp_path: Path) -> None:
         crs_project="EPSG:2154",
         dem_correc_type="breach",
     )
-    initializing = SimpleNamespace(catch_folder=str(tmp_path / "case_missing_dem"))
+    initializing = SimpleNamespace(project_root=str(tmp_path / "case_missing_dem"))
 
     with pytest.raises(RasterioIOError):
         Geographic(config=cfg, initializing=initializing)
