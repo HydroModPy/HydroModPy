@@ -9,12 +9,16 @@ Provides generalized plotting functions for consistent visualization across exam
 - create_timeseries_plot(): Plot timeseries with dual axes
 """
 
+import logging
+
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import rasterio.plot
+
+logger = logging.getLogger(__name__)
 
 
 def create_watershed_plot(dem_path, BV, model_name, visualization_watershed, visualization_results):
@@ -46,11 +50,11 @@ def create_watershed_plot(dem_path, BV, model_name, visualization_watershed, vis
     >>> create_watershed_plot(dem_path, BV, 'test_0',
     ...                       visualization_watershed, visualization_results)
     """
-    print('PLOT: WATERSHED INFO')
+    logger.info("PLOT: WATERSHED INFO")
     visualization_watershed.watershed_local(dem_path, BV)
     visu = visualization_results.Visualization(BV, model_name)
     visu.visual2D(object_list=['map','grid'], color_scale=[(None,None),(None,None)], lines=None)
-    print('✓ Watershed plot created')
+    logger.info("Watershed plot created")
 
 
 def create_map_plot(wtd_data, wtd_rio, seep_data, seep_rio, sim_contour, sim_pathlines,
@@ -135,7 +139,7 @@ def create_map_plot(wtd_data, wtd_rio, seep_data, seep_rio, sim_contour, sim_pat
                  y=1.02, fontsize=12)
     fig.tight_layout()
 
-    print('✓ Map plot created')
+    logger.info("Map plot created")
     return fig, ax
 
 
@@ -232,7 +236,7 @@ def create_crosssection_plot(wte_data, dem_data, wte_col=None,
                  y=1.02, fontsize=12)
     fig.tight_layout()
 
-    print('✓ Cross-section plot created')
+    logger.info("Cross-section plot created")
     return fig, ax
 
 
@@ -307,5 +311,5 @@ def create_timeseries_plot(timeseries, well_1_fluxes, well_2_fluxes,
                  y=1.02, fontsize=12)
     fig.tight_layout()
 
-    print('✓ Timeseries plot created')
+    logger.info("Timeseries plot created")
     return fig, ax
