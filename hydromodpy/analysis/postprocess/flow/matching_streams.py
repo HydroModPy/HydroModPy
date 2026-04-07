@@ -25,7 +25,8 @@ import rasterio
 
 from hydromodpy.core.backends import get_whitebox_backend
 from hydromodpy.core.tools import get_logger
-from hydromodpy.core.tools import toolbox
+from hydromodpy.core.tools.filesystem import create_folder
+from hydromodpy.core.tools.raster_io import load_to_numpy, clip_tif
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.spatial.geographic.geographic import Geographic
 from hydromodpy.data.variables.hydrography.result import HydrographyResult
@@ -140,25 +141,25 @@ class MatchingStreams:
         self.results_folder = os.path.join(
             self.calibration_folder, self.iteration_label, "_postprocess"
         )
-        toolbox.create_folder(self.results_folder)
+        create_folder(self.results_folder)
         self.dichotomy_folder = os.path.join(
             self.calibration_folder, self.iteration_label, "_matchingstreams"
         )
-        toolbox.create_folder(self.dichotomy_folder)
+        create_folder(self.dichotomy_folder)
 
         # Observed stream support: hydrography raster -> watershed-clipped raster.
         self.buff_tif_obs = self.hydrography.tif_streams
         self.tif_obs = os.path.join(self.dichotomy_folder, "obs.tif")
         if self.model_modflow is not None:
             obs_aligned = os.path.join(self.dichotomy_folder, "_obs_base.tif")
-            toolbox.load_to_numpy(
+            load_to_numpy(
                 self.buff_tif_obs,
                 base_path=self.base_dem,
                 out_path=obs_aligned,
             )
-            toolbox.clip_tif(obs_aligned, self.watershed_shp, self.tif_obs, True)
+            clip_tif(obs_aligned, self.watershed_shp, self.tif_obs, True)
         else:
-            toolbox.clip_tif(self.buff_tif_obs, self.watershed_shp, self.tif_obs, False)
+            clip_tif(self.buff_tif_obs, self.watershed_shp, self.tif_obs, False)
 
         # Convert observed stream pixels to points and trace their downslope paths.
         self.pt_obs = os.path.join(self.dichotomy_folder, "obs_pt.shp")
@@ -178,7 +179,7 @@ class MatchingStreams:
         # Simulated stream support comes from seepage raster at t(0).
         tif_sim = os.path.join(self.results_folder, "_rasters", "seepage_areas_t(0).tif")
         self.tif_sim = os.path.join(self.dichotomy_folder, "sim.tif")
-        toolbox.clip_tif(
+        clip_tif(
             tif_sim,
             self.watershed_shp,
             self.tif_sim,
