@@ -42,7 +42,7 @@ except:
     pass
 
 # HydroModPy
-from hydromodpy.core.tools import toolbox
+from hydromodpy.core.tools.display import plot_params
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.spatial.geographic.geographic import Geographic
 from hydromodpy.data.variables.hydrography.result import HydrographyResult
@@ -129,7 +129,7 @@ def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: 
     hydrometry : list[PointRecord], optional
         List of PointRecord objects containing hydrometric stations.
     """
-    fontprop = toolbox.plot_params(8,15,18,20)
+    fontprop = plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     try:
         contour = gpd.read_file(geographic.watershed_contour_shp)
@@ -241,7 +241,7 @@ def watershed_local(regional_dem_path, initializing: Workspace, geographic: Geog
     geographic : Geographic
         Geographic object of the model domain (watershed).
     """
-    fontprop = toolbox.plot_params(8,15,18,20)
+    fontprop = plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     shp = gpd.read_file(geographic.watershed_shp)
     dem = rasterio.open(regional_dem_path)
@@ -284,7 +284,7 @@ def watershed_geology(initializing: Workspace, geographic: Geographic, geology: 
     piezometry : list[PointRecord], optional
         List of PointRecord objects containing piezometric stations.
     """
-    fontprop = toolbox.plot_params(8,15,18,20)
+    fontprop = plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     ax = plt.gca()
     dem = rasterio.open(geographic.watershed_box_buff_dem)
@@ -377,7 +377,7 @@ def watershed_geology(initializing: Workspace, geographic: Geographic, geology: 
         pass
 
 def watershed_zones(BV):
-    fontprop = toolbox.plot_params(8,15,18,20)
+    fontprop = plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     try:
         contour = gpd.read_file(BV.geographic.watershed_contour_shp)
