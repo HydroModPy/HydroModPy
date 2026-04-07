@@ -7,7 +7,7 @@ import warnings
 import numpy as np
 import pytest
 
-from hydromodpy.simulation.results.spatial_index import point_in_cell
+from hydromodpy.results.spatial_index import point_in_cell
 
 
 class TestPointInCellTriangles:

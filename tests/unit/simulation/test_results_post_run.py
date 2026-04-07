@@ -7,9 +7,9 @@ from uuid import uuid4
 import numpy as np
 import pytest
 
-from hydromodpy.simulation.results.config import ResultsConfig
+from hydromodpy.results.config import ResultsConfig
 from hydromodpy.simulation.results.post_run import post_run_results
-from hydromodpy.simulation.results.store import ResultStore
+from hydromodpy.results.store import ResultStore
 
 
 @pytest.fixture

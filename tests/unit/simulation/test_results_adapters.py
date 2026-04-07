@@ -8,10 +8,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.simulation.results.adapters.base import cleanup_solver_files
-from hydromodpy.simulation.results.adapters.derived import compute_derived
-from hydromodpy.simulation.results.adapters.gr4j import GR4JOutputAdapter
-from hydromodpy.simulation.results.store import ResultStore
+from hydromodpy.simulation.results.extractors.base import cleanup_solver_files
+from hydromodpy.simulation.results.extractors.derived import compute_derived
+from hydromodpy.simulation.results.extractors.gr4j import GR4JOutputAdapter
+from hydromodpy.results.store import ResultStore
 
 
 @pytest.fixture

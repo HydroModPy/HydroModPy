@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 import zarr
 
-from hydromodpy.simulation.results.zarr_layout import (
+from hydromodpy.results.zarr_layout import (
     create_simulation_group,
     write_field_chunk,
     write_mesh_arrays,

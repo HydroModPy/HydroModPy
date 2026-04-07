@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.simulation.results.store import ResultStore
+from hydromodpy.results.store import ResultStore
 
 
 @pytest.fixture
@@ -171,7 +171,7 @@ class TestDeleteSimulation:
         assert len(store.list_simulations()) == 0
 
         import zarr
-        root = zarr.open_group(store._zarr_path, mode="r")
+        root = zarr.open_group(store.zarr_path, mode="r")
         assert str(sid) not in root
 
 
