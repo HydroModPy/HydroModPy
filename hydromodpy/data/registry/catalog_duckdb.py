@@ -98,82 +98,14 @@ class DataCatalogDuckDB:
         self._conn.execute(_ENTRIES_DDL)
         self._conn.execute(_API_COVERAGE_DDL)
 
-        # Auto-migrate from legacy SQLite catalog if present
-        if db_path is not None:
-            sqlite_path = Path(db_path).with_suffix(".db")
-            if not str(db_path).endswith(".db") and sqlite_path.exists():
-                self._migrate_from_sqlite(sqlite_path)
-
     def close(self) -> None:
         self._conn.close()
 
-    def _migrate_from_sqlite(self, sqlite_path: Path) -> None:
-        """Import entries from a legacy SQLite catalog.db into DuckDB.
+    def __enter__(self) -> DataCatalogDuckDB:
+        return self
 
-        Skips migration if entries already exist in the DuckDB catalog.
-        """
-        count = self._conn.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
-        if count > 0:
-            logger.debug("DuckDB catalog already has entries, skipping SQLite migration")
-            return
-
-        try:
-            self._conn.execute(
-                f"ATTACH '{sqlite_path}' AS legacy (TYPE SQLITE, READ_ONLY)"
-            )
-
-            # Check which columns exist in the legacy table
-            legacy_cols = {
-                r[0]
-                for r in self._conn.execute(
-                    "SELECT column_name FROM information_schema.columns "
-                    "WHERE table_schema = 'legacy' AND table_name = 'entries'"
-                ).fetchall()
-            }
-
-            target_cols = [
-                "variable", "source", "station_id",
-                "bbox_xmin", "bbox_ymin", "bbox_xmax", "bbox_ymax",
-                "crs", "date_start", "date_end", "frequency",
-                "unit", "file_path", "file_mtime", "created_at", "is_custom",
-            ]
-            if "source_unit" in legacy_cols:
-                target_cols.append("source_unit")
-
-            col_list = ", ".join(target_cols)
-            self._conn.execute(
-                f"INSERT INTO entries ({col_list}) SELECT {col_list} FROM legacy.entries"
-            )
-
-            # Migrate api_coverage if it exists
-            legacy_tables = {
-                r[0]
-                for r in self._conn.execute(
-                    "SELECT table_name FROM information_schema.tables "
-                    "WHERE table_schema = 'legacy'"
-                ).fetchall()
-            }
-            if "api_coverage" in legacy_tables:
-                self._conn.execute(
-                    "INSERT INTO api_coverage (variable, source, country, description, "
-                    "bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax) "
-                    "SELECT variable, source, country, description, "
-                    "bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax "
-                    "FROM legacy.api_coverage"
-                )
-
-            self._conn.execute("DETACH legacy")
-
-            migrated = self._conn.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
-            logger.info(
-                "Migrated %d entries from SQLite catalog %s", migrated, sqlite_path,
-            )
-        except Exception as exc:
-            logger.warning("SQLite migration failed: %s", exc)
-            try:
-                self._conn.execute("DETACH legacy")
-            except Exception:
-                pass
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
 
     # -- register --------------------------------------------------------------
 
