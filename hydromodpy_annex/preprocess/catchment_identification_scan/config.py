@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 DEFAULT_CONFIG_FILE = "config_s3_100km2.toml"
 DEFAULT_SECTION = "catchment_identification_scan"
