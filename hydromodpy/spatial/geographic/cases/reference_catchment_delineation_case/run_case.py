@@ -247,7 +247,7 @@ def run_geographic_cases_from_toml(
 
         summaries[case_id] = {
             "case_label": case_label,
-            "catch_folder": str(workspace.catch_folder),
+            "project_root": str(workspace.project_root),
             "watershed_shp": str(geographic.watershed_shp),
             "watershed_box_buff_dem": str(geographic.watershed_box_buff_dem),
             "shape_box_buff_dem": (

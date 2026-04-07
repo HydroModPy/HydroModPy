@@ -35,10 +35,12 @@ with _warnings.catch_warnings():
     from hydromodpy.data.climatic.driaseau import Driaseau
     from hydromodpy.data.climatic import driasclimat, safransurfex
 from hydromodpy.analysis.postprocess import netcdf
-from hydromodpy.core.tools import toolbox, get_logger
+from hydromodpy.core.tools import get_logger
 from hydromodpy.core.tools import setup_simulation_log
+from hydromodpy.core.tools.display import plot_params, print_hydromodpy
+from hydromodpy.core.tools.filesystem import create_folder
 
-fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+fontprop = plot_params(8,15,18,20) # small, medium, interm, large
 
 logger = get_logger(__name__)
 
@@ -109,7 +111,7 @@ class Watershed:
         should prefer the modern workspace, domain, and data stack.
         """
 
-        toolbox.print_hydromodpy()
+        print_hydromodpy()
                 
         self.watershed_name = initializing_object.catch_name
         self.out_path = initializing_object.out_dir_path
@@ -119,7 +121,7 @@ class Watershed:
         self.bin_path = os.path.join(repo_root, 'bin')
 
         self.watershed_folder = os.path.join(self.out_path, self.watershed_name)
-        toolbox.create_folder(self.watershed_folder)
+        create_folder(self.watershed_folder)
 
         # Setup simulation log in watershed folder
         setup_simulation_log(self.watershed_folder)
@@ -129,10 +131,10 @@ class Watershed:
         self.calibration_folder = initializing_object.calibration_folder
 
         self.add_data_folder = os.path.join(self.stable_folder, 'add_data')
-        toolbox.create_folder(self.add_data_folder)
+        create_folder(self.add_data_folder)
 
         self.figure_folder = os.path.join(self.stable_folder, '_figures')
-        toolbox.create_folder(self.figure_folder)
+        create_folder(self.figure_folder)
 
         self.elt_def = []
 

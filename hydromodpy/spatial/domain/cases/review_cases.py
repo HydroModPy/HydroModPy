@@ -177,7 +177,7 @@ def run_case_reviews(
 
         result = {
             "config": str(spec.config_path),
-            "catch_folder": str(workspace.catch_folder),
+            "project_root": str(workspace.project_root),
             "watershed_shp": str(summary["watershed_shp"]),
             "catchment_area_km2": float(summary["catchment_area_km2"]),
             "surface_topo_shape": tuple(int(v) for v in summary["surface_topo_shape"]),

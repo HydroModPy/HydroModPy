@@ -10,9 +10,12 @@ Orchestrates four phases:
 
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 def _ensure_repo_root_on_sys_path() -> Path:
@@ -84,7 +87,7 @@ class DataOverviewLauncher:
         from hydromodpy.core.workspace.workspace import Workspace
 
         state.workspace = Workspace(config=state.cfg.workspace)
-        print(f"[overview] Workspace: {state.workspace.project_root}")
+        logger.info("[overview] Workspace: %s", state.workspace.project_root)
 
     # ------------------------------------------------------------------
     # Phase 1b — DEM bootstrap (API download)
@@ -133,13 +136,13 @@ class DataOverviewLauncher:
         )
 
         cache_dir = Path.home() / ".cache" / "hydromodpy" / "dem"
-        if state.workspace is not None and state.workspace.data_path is not None:
-            cache_dir = state.workspace.data_path / "dem"
+        if state.workspace is not None and state.workspace.paths.data_path is not None:
+            cache_dir = state.workspace.paths.data_path / "dem"
         cache_dir.mkdir(parents=True, exist_ok=True)
 
-        print(f"[overview] Downloading DEM via {dem_source} API ...")
+        logger.info("[overview] Downloading DEM via %s API ...", dem_source)
         tif_path = fetch_bdalti(output_dir=cache_dir, bbox=bbox)
-        print(f"[overview] DEM downloaded: {tif_path}")
+        logger.info("[overview] DEM downloaded: %s", tif_path)
 
         # Inject into geographic config so the pipeline can use it.
         geo_cfg.dem_init_path = tif_path
@@ -168,9 +171,9 @@ class DataOverviewLauncher:
         state.geographic_features = geographic_features
         domain_geo = geographic_features.to_domain_geographic_context()
         state.domain_geographic = domain_geo
-        print(
-            f"[overview] Catchment area: "
-            f"{domain_geo.catchment_area_km2:.2f} km²"
+        logger.info(
+            "[overview] Catchment area: %.2f km2",
+            domain_geo.catchment_area_km2,
         )
 
     # ------------------------------------------------------------------
@@ -192,7 +195,7 @@ class DataOverviewLauncher:
             data_plan=data_plan,
         )
         loader.load_all(state)
-        print(f"[overview] Data loaded for: {list(data_plan.types)}")
+        logger.info("[overview] Data loaded for: %s", list(data_plan.types))
 
     # ------------------------------------------------------------------
     # Phase 4 — Report generation
@@ -206,11 +209,11 @@ class DataOverviewLauncher:
 
         paths = generate_overview_report(state)
         if paths:
-            print(f"[overview] Generated {len(paths)} panel(s):")
+            logger.info("[overview] Generated %d panel(s):", len(paths))
             for p in paths:
-                print(f"  {p}")
+                logger.info("  %s", p)
         else:
-            print("[overview] No panels enabled — nothing to generate.")
+            logger.info("[overview] No panels enabled -- nothing to generate.")
         return paths
 
 

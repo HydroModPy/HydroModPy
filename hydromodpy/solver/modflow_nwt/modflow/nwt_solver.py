@@ -39,7 +39,9 @@ _ITMUNI_TO_SECONDS: dict[int, float] = {
     5: 31557600.0,  # years (365.25 days)
 }
 
-from hydromodpy.core.tools import toolbox, get_logger
+from hydromodpy.core.tools import get_logger
+from hydromodpy.core.tools.filesystem import create_folder
+from hydromodpy.core.tools.raster_io import export_tif
 from hydromodpy.solver.modflow_common import (
     ensure_platform_executable,
     SolverGridContext,
@@ -189,7 +191,7 @@ class Modflow(Solver):
 
         self.model_folder = model_folder
         if not os.path.exists(self.model_folder):
-            toolbox.create_folder(self.model_folder)
+            create_folder(self.model_folder)
 
         self.model_name = model_name
 
@@ -686,19 +688,19 @@ class Modflow(Solver):
     def _setup_postprocess_folders(self) -> None:
         """Create the output folder hierarchy for post-processing artefacts."""
         self.save_file = os.path.join(self.full_path, "_postprocess")
-        toolbox.create_folder(self.save_file)
+        create_folder(self.save_file)
 
         self.figure_file = os.path.join(self.full_path, "_postprocess", "_figures")
-        toolbox.create_folder(self.figure_file)
+        create_folder(self.figure_file)
 
         self.temporary_file = os.path.join(self.full_path, "_postprocess", "_temporary")
-        toolbox.create_folder(self.temporary_file)
+        create_folder(self.temporary_file)
 
         self.tifs_file = os.path.join(self.full_path, "_postprocess", "_rasters")
-        toolbox.create_folder(self.tifs_file)
+        create_folder(self.tifs_file)
 
         self.save_fig = os.path.join(self.model_folder, "_figures")
-        toolbox.create_folder(self.save_fig)
+        create_folder(self.save_fig)
 
     def post_processing(
         self,
@@ -790,7 +792,7 @@ class Modflow(Solver):
                     self.tifs_file + f"/watertable_elevation_t({lead_numb}).tif"
                 )
                 if export_tif:
-                    toolbox.export_tif(
+                    export_tif(
                         self.dem_watershed_path, self.wt_elev, output_path, NODATA
                     )
                 self.dict_watertable_elevation[item] = self.wt_elev
@@ -803,7 +805,7 @@ class Modflow(Solver):
                     self.tifs_file + f"/watertable_depth_t({lead_numb}).tif"
                 )
                 if export_tif:
-                    toolbox.export_tif(
+                    export_tif(
                         self.dem_watershed_path, self.wt_depth, output_path, NODATA
                     )
                 self.dict_watertable_depth[item] = self.wt_depth
@@ -814,7 +816,7 @@ class Modflow(Solver):
                 )
                 output_path = self.tifs_file + f"/seepage_areas_t({lead_numb}).tif"
                 if export_tif:
-                    toolbox.export_tif(
+                    export_tif(
                         self.dem_watershed_path, self.seep_area, output_path, NODATA
                     )
                 self.dict_seepage_areas[item] = self.seep_area
@@ -832,7 +834,7 @@ class Modflow(Solver):
                 )
                 output_path = self.tifs_file + f"/outflow_drain_t({lead_numb}).tif"
                 if options.accumulation_flux or export_tif:
-                    toolbox.export_tif(
+                    export_tif(
                         self.dem_watershed_path, self.out_drn, output_path, NODATA
                     )
                 self.dict_outflow_drain[item] = self.out_drn
@@ -868,7 +870,7 @@ class Modflow(Solver):
                     self.tifs_file + f"/groundwater_flux_t({lead_numb}).tif"
                 )
                 if export_tif:
-                    toolbox.export_tif(
+                    export_tif(
                         self.dem_watershed_path, self.flux_top, output_path, NODATA
                     )
                 self.dict_groundwater_flux[item] = self.flux_top
@@ -885,7 +887,7 @@ class Modflow(Solver):
                     self.tifs_file + f"/groundwater_storage_t({lead_numb}).tif"
                 )
                 if export_tif:
-                    toolbox.export_tif(
+                    export_tif(
                         self.dem_watershed_path, self.wt_sto, output_path, NODATA
                     )
                 self.dict_groundwater_storage[item] = self.wt_sto
@@ -957,7 +959,7 @@ class Modflow(Solver):
             pi_export[days_flux <= 0] = NODATA
             pi_export[mask] = NODATA
             output_path = self.tifs_file + "/persistency_index_t(-).tif"
-            toolbox.export_tif(self.dem_watershed_path, pi_export, output_path, NODATA)
+            export_tif(self.dem_watershed_path, pi_export, output_path, NODATA)
             np.save(self.save_file + "/persistency_index", self.dict_persistency_index)
 
         # %% Intermittency (daily / weekly / monthly / yearly)
@@ -984,7 +986,6 @@ class Modflow(Solver):
                 watershed_dem=self.dem_watershed_path,
                 save_file=self.save_file,
                 save_filename="intermittency_daily",
-                toolbox=toolbox,
             )
 
         if options.intermittency_weekly and acc_npy_raw is not None:
@@ -997,7 +998,6 @@ class Modflow(Solver):
                 watershed_dem=self.dem_watershed_path,
                 save_file=self.save_file,
                 save_filename="intermittency_weekly",
-                toolbox=toolbox,
             )
 
         if options.intermittency_monthly and acc_npy_raw is not None:
@@ -1010,7 +1010,6 @@ class Modflow(Solver):
                 watershed_dem=self.dem_watershed_path,
                 save_file=self.save_file,
                 save_filename="intermittency_monthly",
-                toolbox=toolbox,
             )
 
         if options.intermittency_yearly and acc_npy_raw is not None:
@@ -1023,7 +1022,6 @@ class Modflow(Solver):
                 watershed_dem=self.dem_watershed_path,
                 save_file=self.save_file,
                 save_filename="intermittency_yearly",
-                toolbox=toolbox,
             )
 
 

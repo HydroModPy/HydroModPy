@@ -29,8 +29,10 @@ root_dir = dirname(dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from hydromodpy.core.tools import toolbox, get_logger
-fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+from hydromodpy.core.tools import get_logger
+from hydromodpy.core.tools.display import plot_params
+from hydromodpy.core.tools.filesystem import create_folder
+fontprop = plot_params(8,15,18,20) # small, medium, interm, large
 
 logger = get_logger(__name__)
 
@@ -71,11 +73,11 @@ class Subbasin:
 
         self.subbasin_path = os.path.join(out_path, 'results_stable/subbasin/')
         if not os.path.exists(self.subbasin_path):
-            toolbox.create_folder(self.subbasin_path)
+            create_folder(self.subbasin_path)
 
         self.adddata_path = os.path.join(out_path, 'results_stable/add_data/')
         if not os.path.exists(self.adddata_path):
-            toolbox.create_folder(self.adddata_path)
+            create_folder(self.adddata_path)
 
         try:
             code_bh = hydrometry.code_bh
@@ -131,7 +133,7 @@ class Subbasin:
         # Path of subbasin
         if os.path.exists(outpath):
             shutil.rmtree(outpath)
-        toolbox.create_folder(outpath)
+        create_folder(outpath)
         # Coordinates
         outpath = outpath + '/'
         df = pd.DataFrame({'x': [X], 'y': [Y]})
