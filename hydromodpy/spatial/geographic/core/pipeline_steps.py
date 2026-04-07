@@ -31,7 +31,7 @@ from hydromodpy.spatial.geographic.core.catchment_from_point import (
     extract_catchment_from_point,
 )
 from hydromodpy.spatial.geographic.core.catchment_from_polygon import extract_catchment_from_polygon
-from hydromodpy.core.tools import toolbox
+from hydromodpy.core.tools.filesystem import create_folder
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
@@ -67,8 +67,8 @@ def prepare_geographic_run(
         raise ValueError("geographic.dem_init_path is required")
 
     paths = build_geographic_paths(out_dir_path)
-    toolbox.create_folder(paths.geographic_path)
-    toolbox.create_folder(paths.correcflow_path)
+    create_folder(paths.geographic_path)
+    create_folder(paths.correcflow_path)
 
     dem_init_path = str(config.dem_init_path)
     with rasterio.open(dem_init_path) as dem_src:

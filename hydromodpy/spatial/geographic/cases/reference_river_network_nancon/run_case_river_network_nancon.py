@@ -166,7 +166,7 @@ def run_reference_river_network_nancon_from_toml(
     plt.close(fig)
 
     return {
-        "catch_folder": str(workspace.catch_folder),
+        "project_root": str(workspace.project_root),
         "watershed_shp": str(geographic.watershed_shp),
         "watershed_box_buff_dem": str(geographic.watershed_box_buff_dem),
         "river_network_shp": str(network_shp),

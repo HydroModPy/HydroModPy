@@ -144,7 +144,7 @@ def build_geographic_derived_features(
 
     setup = prepare_geographic_run(
         config=config,
-        out_dir_path=workspace.catch_folder,
+        out_dir_path=workspace.project_root,
     )
 
     if config.catch_def == "dem":
