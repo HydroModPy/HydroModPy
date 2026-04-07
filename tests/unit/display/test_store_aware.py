@@ -19,7 +19,7 @@ from hydromodpy.analysis.display.suites import (
 from hydromodpy.analysis.display.posthoc_orchestration import (
     _load_field_dict_from_store,
 )
-from hydromodpy.simulation.results.store import ResultStore
+from hydromodpy.results.store import ResultStore
 
 
 @pytest.fixture
