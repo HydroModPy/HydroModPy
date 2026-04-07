@@ -219,7 +219,7 @@ class SyntheticGeographic:
 
     def _hydrate_workspace_paths(self) -> None:
         """Expose legacy workspace-derived paths expected by post-processors."""
-        catch_folder = Path(getattr(self.workspace, "catch_folder", self.output_dir.parent))
+        catch_folder = Path(getattr(self.workspace, "project_root", self.output_dir.parent))
         stable_folder = Path(getattr(self.workspace, "stable_folder", self.output_dir.parent))
         simulations_folder = Path(
             getattr(self.workspace, "simulations_folder", catch_folder / "results_simulations")
