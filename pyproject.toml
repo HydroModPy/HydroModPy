@@ -46,10 +46,8 @@ dependencies = [
     "flopy",
     "geopandas",
     "gmsh",
-    "h5py",                # Required by pyhelp module for HDF5 data files
+    "h5py",
     "imageio",
-    "ipykernel",
-    "ipython",
     "matplotlib",
     "matplotlib-scalebar",
     "meshio",
@@ -59,31 +57,23 @@ dependencies = [
     "plotly",
     "pint",
     "pyproj",
-    "pyshp",
     "pysheds",
-    "pyvista",
     "rasterio",
     "rioxarray",
     "scikit-learn",
     "scipy",
-    "selenium",
+    "ultraplot",
     "vedo",
     "whitebox-workflows",
     "xarray",
     "pydantic>=2.0",
-    "ultraplot",
-    "pyside6",
-    "spyder-kernels",
-    "pytest",
-    "pytest-xdist",
-    "dask",
     "duckdb",
     "tqdm",
     "zarr>=3.0",
-    "blosc2",
 ]
 
 [project.optional-dependencies]
+test = ["pytest", "pytest-xdist", "pytest-timeout"]
 docs = [
     "sphinx>=7.0",
     "sphinx-rtd-theme",
@@ -149,9 +139,15 @@ markers = [
 
 [tool.coverage.run]
 source = [
-    "hydromodpy.spatial.geographic",
-    "hydromodpy.core.tools",
-    "hydromodpy.analysis.display",
+    "hydromodpy.core",
+    "hydromodpy.spatial",
+    "hydromodpy.process",
+    "hydromodpy.data",
+    "hydromodpy.results",
+    "hydromodpy.simulation",
+    "hydromodpy.solver",
+    "hydromodpy.analysis",
+    "launchers",
 ]
 parallel = true
 omit = [
