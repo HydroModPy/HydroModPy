@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from hydromodpy.simulation.adapters.transport.common import (
     required_flow_model,
     transport_output_suffix,
@@ -38,4 +40,7 @@ class Mt3dmsTransportAdapter:
                 f"See {getattr(model_transport, 'full_path', '<unknown>')} for diagnostics."
             )
         model_transport.post_processing(model_transport)
-        return RunExecutionResult(primary_model=model_transport)
+        return RunExecutionResult(
+            primary_model=model_transport,
+            solver_output_dir=Path(model_transport.full_path) if hasattr(model_transport, "full_path") else None,
+        )
