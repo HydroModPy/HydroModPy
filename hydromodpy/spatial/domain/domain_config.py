@@ -5,7 +5,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from hydromodpy.core.config.param_level import ParamLevel
-from hydromodpy.spatial.domain.depth_model import ConstantThicknessDepthModel, DepthModelConfig
+from hydromodpy.spatial.domain.depth_model_config import ConstantThicknessDepthModel, DepthModelConfig
 from hydromodpy.spatial.domain.spatial_support_config import DomainSupportConfig
 
 

@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.units import parse_length_to_m
 
 
@@ -12,16 +13,16 @@ class DomainSupportBaseConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    provider: str
+    provider: Annotated[str, ParamLevel("user")]
 
 
 class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
     """Analytical bands split along one cartesian axis."""
 
-    provider: Literal["generated_bands"]
-    axis: Literal["x", "y"] = "x"
-    coordinate_mode: Literal["relative", "absolute"] = "relative"
-    breaks: list[float | str] = Field(
+    provider: Annotated[Literal["generated_bands"], ParamLevel("user")]
+    axis: Annotated[Literal["x", "y"], ParamLevel("user")] = "x"
+    coordinate_mode: Annotated[Literal["relative", "absolute"], ParamLevel("dev")] = "relative"
+    breaks: Annotated[list[float | str], ParamLevel("user")] = Field(
         default_factory=list,
         description=(
             "Ordered break coordinates delimiting consecutive bands. "
@@ -29,11 +30,11 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
             "With coordinate_mode='absolute', values are converted to metres."
         ),
     )
-    labels: list[str] = Field(
+    labels: Annotated[list[str], ParamLevel("user")] = Field(
         default_factory=list,
         description="Ordered band labels. Length must be len(breaks)+1.",
     )
-    default_cell_samples_per_axis: int = Field(default=8, ge=2)
+    default_cell_samples_per_axis: Annotated[int, ParamLevel("dev")] = Field(default=8, ge=2)
 
     @field_validator("breaks", mode="before")
     @classmethod
@@ -98,9 +99,9 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
 class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
     """Analytical concentric rings centered on one cartesian point."""
 
-    provider: Literal["generated_rings"]
-    coordinate_mode: Literal["relative", "absolute"] = "relative"
-    radii: list[float | str] = Field(
+    provider: Annotated[Literal["generated_rings"], ParamLevel("user")]
+    coordinate_mode: Annotated[Literal["relative", "absolute"], ParamLevel("dev")] = "relative"
+    radii: Annotated[list[float | str], ParamLevel("user")] = Field(
         default_factory=list,
         description=(
             "Ordered ring radii delimiting consecutive concentric zones. "
@@ -109,25 +110,25 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
             "With coordinate_mode='absolute', values are converted to metres."
         ),
     )
-    labels: list[str] = Field(
+    labels: Annotated[list[str], ParamLevel("user")] = Field(
         default_factory=list,
         description="Ordered ring labels. Length must be len(radii)+1.",
     )
-    center_x: float | None = Field(
+    center_x: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Optional x coordinate of the ring center in projected metres. "
             "Defaults to the domain midpoint."
         ),
     )
-    center_y: float | None = Field(
+    center_y: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Optional y coordinate of the ring center in projected metres. "
             "Defaults to the domain midpoint."
         ),
     )
-    default_cell_samples_per_axis: int = Field(default=8, ge=2)
+    default_cell_samples_per_axis: Annotated[int, ParamLevel("dev")] = Field(default=8, ge=2)
 
     @field_validator("radii", mode="before")
     @classmethod
@@ -205,12 +206,12 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
 class CatchmentZonesSupportConfig(DomainSupportBaseConfig):
     """Support built from catchment/domain zonation already prepared in setup."""
 
-    provider: Literal["catchment_zones"]
-    source_zone_id: str = Field(
+    provider: Annotated[Literal["catchment_zones"], ParamLevel("user")]
+    source_zone_id: Annotated[str, ParamLevel("user")] = Field(
         default="catchment",
         description="Domain zone id providing the source catchment zonation.",
     )
-    default_cell_samples_per_axis: int = Field(default=8, ge=2)
+    default_cell_samples_per_axis: Annotated[int, ParamLevel("dev")] = Field(default=8, ge=2)
 
     @field_validator("source_zone_id", mode="before")
     @classmethod
@@ -224,7 +225,7 @@ class CatchmentZonesSupportConfig(DomainSupportBaseConfig):
 class GeologySupportConfig(DomainSupportBaseConfig):
     """Support backed by the geology data manager."""
 
-    provider: Literal["geology"]
+    provider: Annotated[Literal["geology"], ParamLevel("user")]
 
 
 DomainSupportConfig = Annotated[
