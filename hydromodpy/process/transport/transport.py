@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.process.prototype import ProcessSpatial
 from hydromodpy.process.transport.transport_config import TransportConfig
@@ -27,6 +27,8 @@ class _TransportComponent:
 
 class TransportInitialConditions(BaseModel):
     """Transport initial-condition wrapper."""
+
+    model_config = ConfigDict(extra="forbid")
 
     payload: dict[str, Any] = Field(
         default_factory=dict,
