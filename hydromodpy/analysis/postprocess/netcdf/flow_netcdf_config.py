@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import BaseModel, ConfigDict, Field
+
+from hydromodpy.core.config.param_level import ParamLevel
 
 
 class FlowNetcdfPostprocessConfig(BaseModel):
@@ -10,11 +14,11 @@ class FlowNetcdfPostprocessConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(
+    enabled: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description="Enable flow NetCDF export after the flow process family.",
     )
-    datetime_format: bool = Field(
+    datetime_format: Annotated[bool, ParamLevel("dev")] = Field(
         default=True,
         description="Format NetCDF time axis as datetimes when possible.",
     )
