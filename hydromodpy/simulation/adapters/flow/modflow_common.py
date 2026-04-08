@@ -203,4 +203,7 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
             )
         )
 
-    return RunExecutionResult(primary_model=model_modflow)
+    return RunExecutionResult(
+        primary_model=model_modflow,
+        solver_output_dir=Path(model_modflow.full_path),
+    )
