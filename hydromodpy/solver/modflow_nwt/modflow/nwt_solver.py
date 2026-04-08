@@ -781,7 +781,7 @@ class Modflow(Solver):
                 self.kstpkper = (self.kstp[item], self.kper[item])
 
             lead_numb = str(item)
-            export_tif = options.export_all_tif or (item == 0)
+            do_export_tif = options.export_all_tif or (item == 0)
 
             self.head = self.head_fpu.get_data(totim=time)
 
@@ -791,7 +791,7 @@ class Modflow(Solver):
                 output_path = (
                     self.tifs_file + f"/watertable_elevation_t({lead_numb}).tif"
                 )
-                if export_tif:
+                if do_export_tif:
                     export_tif(
                         self.dem_watershed_path, self.wt_elev, output_path, NODATA
                     )
@@ -804,7 +804,7 @@ class Modflow(Solver):
                 output_path = (
                     self.tifs_file + f"/watertable_depth_t({lead_numb}).tif"
                 )
-                if export_tif:
+                if do_export_tif:
                     export_tif(
                         self.dem_watershed_path, self.wt_depth, output_path, NODATA
                     )
@@ -815,7 +815,7 @@ class Modflow(Solver):
                     self.wt_elev, self.top_elevation, inactive_mask
                 )
                 output_path = self.tifs_file + f"/seepage_areas_t({lead_numb}).tif"
-                if export_tif:
+                if do_export_tif:
                     export_tif(
                         self.dem_watershed_path, self.seep_area, output_path, NODATA
                     )
@@ -833,7 +833,7 @@ class Modflow(Solver):
                     inactive_mask,
                 )
                 output_path = self.tifs_file + f"/outflow_drain_t({lead_numb}).tif"
-                if options.accumulation_flux or export_tif:
+                if options.accumulation_flux or do_export_tif:
                     export_tif(
                         self.dem_watershed_path, self.out_drn, output_path, NODATA
                     )
@@ -869,7 +869,7 @@ class Modflow(Solver):
                 output_path = (
                     self.tifs_file + f"/groundwater_flux_t({lead_numb}).tif"
                 )
-                if export_tif:
+                if do_export_tif:
                     export_tif(
                         self.dem_watershed_path, self.flux_top, output_path, NODATA
                     )
@@ -886,7 +886,7 @@ class Modflow(Solver):
                 output_path = (
                     self.tifs_file + f"/groundwater_storage_t({lead_numb}).tif"
                 )
-                if export_tif:
+                if do_export_tif:
                     export_tif(
                         self.dem_watershed_path, self.wt_sto, output_path, NODATA
                     )
