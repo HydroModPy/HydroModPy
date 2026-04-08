@@ -204,19 +204,19 @@ def test_from_chron_requires_exact_window_bounds_in_chronicle(monkeypatch, tmp_p
 
 def test_invalid_genmtd_raises():
     mod = _load_tmesh_module()
-    with pytest.raises(ValueError, match="Invalid genmtd"):
+    with pytest.raises(ValueError, match="synthetic_regular.*from_chron"):
         _ = mod.TMesh_Generation(config=mod.TMeshConfig(genmtd="unknown"))
 
 
 def test_invalid_flow_regime_raises():
     mod = _load_tmesh_module()
-    with pytest.raises(ValueError, match="Invalid flow_regime"):
+    with pytest.raises(ValueError, match="steady.*transient"):
         _ = mod.TMesh_Generation(config=mod.TMeshConfig(flow_regime="unknown"))
 
 
 def test_invalid_nper_raises():
     mod = _load_tmesh_module()
-    with pytest.raises(ValueError, match="positive integer"):
+    with pytest.raises(ValueError, match="nper must be > 0"):
         _ = mod.TMesh_Generation(config=mod.TMeshConfig(nper=0))
 
 
@@ -302,11 +302,10 @@ def test_tsmult_must_be_positive(monkeypatch):
     mod = _load_tmesh_module()
     monkeypatch.setattr(mod, "ModelTime", _FakeModelTime)
 
-    builder = mod.TMesh_Generation(
-        config=mod.TMeshConfig(genmtd="synthetic_regular", nper=2, tsmult=[1.0, 0.0])
-    )
-    with pytest.raises(ValueError, match="strictly positive"):
-        _ = builder.run()
+    with pytest.raises(ValueError, match="tsmult values must be > 0"):
+        mod.TMesh_Generation(
+            config=mod.TMeshConfig(genmtd="synthetic_regular", nper=2, tsmult=[1.0, 0.0])
+        )
 
 
 def test_changing_property_invalidates_cached_mesh(monkeypatch):

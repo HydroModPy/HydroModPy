@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.analysis.display.options import DisplayOptions
+    from hydromodpy.analysis.display.display_config import DisplayOptions
 
 
 # ------------------------------------------------------------------

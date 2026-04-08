@@ -14,14 +14,20 @@ conditions:
 - `units`: engineering units associated with the payload.
 """
 
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from hydromodpy.core.config.param_level import ParamLevel
 
 
 class InitialCondition(BaseModel):
-    id: str = Field(..., description="id of the initial condition (ex: h0, etc.)")
-    value: object | None = Field(
+    model_config = ConfigDict(extra="forbid")
+
+    id: Annotated[str, ParamLevel("user")] = Field(..., description="id of the initial condition (ex: h0, etc.)")
+    value: Annotated[object | None, ParamLevel("user")] = Field(
         None,
         description="Process-specific initial-condition value payload.",
     )
-    description: str = Field("", description="Description of the initial condition")
-    units: str = Field("", description="Units of the initial condition")
+    description: Annotated[str, ParamLevel("user")] = Field("", description="Description of the initial condition")
+    units: Annotated[str, ParamLevel("user")] = Field("", description="Units of the initial condition")

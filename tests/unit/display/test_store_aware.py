@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.analysis.display.options import DisplayOptions, DisplaySectionOptions
+from hydromodpy.analysis.display.display_config import DisplayOptions, DisplaySectionOptions
 from hydromodpy.analysis.display.suites import (
     _CATCHMENT_STATION,
     _FLOW_TIMESERIES_VARIABLES,

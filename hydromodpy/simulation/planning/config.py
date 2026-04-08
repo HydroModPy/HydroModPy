@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.results.config import ResultsConfig
 from hydromodpy.solver.compatibility import known_process_types
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
@@ -87,21 +88,21 @@ class SimulationTimeConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    start_datetime: datetime | None = Field(
+    start_datetime: Annotated[datetime | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Simulation window lower datetime bound used by launcher-level "
             "time alignment and forcing checks."
         ),
     )
-    end_datetime: datetime | None = Field(
+    end_datetime: Annotated[datetime | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Simulation window upper datetime bound, interpreted as inclusive. "
             "Must be greater than or equal to start_datetime."
         ),
     )
-    step_value: int | float | str = Field(
+    step_value: Annotated[int | float | str, ParamLevel("user")] = Field(
         default=1,
         description=(
             "Forcing/stress-period time-step scalar or inline token '<value> <unit>' "
@@ -110,14 +111,14 @@ class SimulationTimeConfig(BaseModel):
             "(for example recharge/runoff) and the resulting stress periods."
         ),
     )
-    step_unit: Literal["hour", "day", "month", "year"] | None = Field(
+    step_unit: Annotated[Literal["hour", "day", "month", "year"] | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Optional forcing/stress-period base time unit used with step_value "
             "when step_value is provided without an inline unit."
         ),
     )
-    coverage_policy: Literal["error", "warn", "ignore"] = Field(
+    coverage_policy: Annotated[Literal["error", "warn", "ignore"], ParamLevel("dev")] = Field(
         default="error",
         description=(
             "Behavior when recharge does not fully cover the declared simulation "
@@ -156,16 +157,16 @@ class SimulationProcessConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str = Field(
+    id: Annotated[str, ParamLevel("user")] = Field(
         description=(
             "User-facing identifier for the process. "
             "This id is required and must be unique within the simulation."
         ),
     )
-    type: str = Field(
+    type: Annotated[str, ParamLevel("user")] = Field(
         description="Requested process family executed by the launcher.",
     )
-    solvers: list[str] = Field(
+    solvers: Annotated[list[str], ParamLevel("user")] = Field(
         min_length=1,
         description=(
             "Ordered list of active solver names for this process. Each listed "
@@ -201,8 +202,8 @@ class SimulationConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(default="", description="Human-readable simulation name.")
-    run_id: str = Field(
+    name: Annotated[str, ParamLevel("user")] = Field(default="", description="Human-readable simulation name.")
+    run_id: Annotated[str, ParamLevel("user")] = Field(
         default="",
         description=(
             "Run identifier used as the output subfolder name under "
@@ -210,11 +211,11 @@ class SimulationConfig(BaseModel):
             "filename at load time (e.g. run_steady_nwt.toml -> steady_nwt)."
         ),
     )
-    description: str = Field(
+    description: Annotated[str, ParamLevel("user")] = Field(
         default="",
         description="Short free-text description of the simulation intent.",
     )
-    time: SimulationTimeConfig | None = Field(
+    time: Annotated[SimulationTimeConfig | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Optional canonical simulation window used to align solver temporal "
@@ -223,14 +224,14 @@ class SimulationConfig(BaseModel):
             "simulation-window dates."
         ),
     )
-    process: list[SimulationProcessConfig] = Field(
+    process: Annotated[list[SimulationProcessConfig], ParamLevel("user")] = Field(
         default_factory=list,
         description=(
             "Ordered list of requested processes loaded from "
             "[[simulation.process]]. At most one process per type is supported."
         ),
     )
-    results: ResultsConfig = Field(
+    results: Annotated[ResultsConfig, ParamLevel("dev")] = Field(
         default_factory=ResultsConfig,
         description=(
             "Results storage and export configuration loaded from "

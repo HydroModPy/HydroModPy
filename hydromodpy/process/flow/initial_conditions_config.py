@@ -112,7 +112,9 @@ def _normalize_single_ic_payload(
 
     # Normalize unit alias and apply process defaults.
     if "units" not in payload_dict and "unit" in payload_dict:
-        payload_dict["units"] = payload_dict["unit"]
+        payload_dict["units"] = payload_dict.pop("unit")
+    else:
+        payload_dict.pop("unit", None)
     payload_dict.setdefault("id", "h")
     payload_dict.setdefault("units", "m")
     payload_dict.setdefault("description", "Initial condition 'h'")

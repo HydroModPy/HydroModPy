@@ -14,9 +14,11 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from hydromodpy.core.config.param_level import ParamLevel
 
 
 class FlowDisplayConfig(BaseModel):
@@ -24,55 +26,55 @@ class FlowDisplayConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(
+    enabled: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Master switch for the flow plotting group.",
     )
-    cross_section: bool = Field(
+    cross_section: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Render the flow cross-section plot.",
     )
-    streamflow: bool = Field(
+    streamflow: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Render the streamflow comparison plot.",
     )
-    piezometry: bool = Field(
+    piezometry: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Render the piezometry plot.",
     )
-    watertable_map: bool = Field(
+    watertable_map: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Render water-table depth and elevation maps.",
     )
-    dem_map: bool = Field(
+    dem_map: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Render a DEM overview map with watershed contour.",
     )
-    budget: bool = Field(
+    budget: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description="Render groundwater budget bar chart.",
     )
-    hydrography: bool = Field(
+    hydrography: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Render hydrography map (stream network or flow accumulation drainage pattern).",
     )
-    boussinesq_state: bool = Field(
+    boussinesq_state: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Render the canonical Boussinesq state figure.",
     )
-    boussinesq_diagnostics: bool = Field(
+    boussinesq_diagnostics: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Render Boussinesq physical diagnostic maps.",
     )
-    boussinesq_mass_balance: bool = Field(
+    boussinesq_mass_balance: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Render Boussinesq mass-balance diagnostics when histories are available.",
     )
-    boussinesq_probes: bool = Field(
+    boussinesq_probes: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Render Boussinesq probe time series when histories are available.",
     )
-    boussinesq_edge_flux: bool = Field(
+    boussinesq_edge_flux: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Render the final Boussinesq edge-flux map when flux arrays are available.",
     )
@@ -104,11 +106,11 @@ class ParticlesDisplayConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(
+    enabled: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Master switch for the particle plotting group.",
     )
-    pathlines: bool = Field(
+    pathlines: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description="Render particle pathlines.",
     )
@@ -129,19 +131,19 @@ class TransportDisplayConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(
+    enabled: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Master switch for the transport plotting group.",
     )
-    concentration: bool = Field(
+    concentration: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description="Render concentration plots.",
     )
-    gif: bool = Field(
+    gif: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description="Export concentration GIF animation.",
     )
-    web_animation: bool = Field(
+    web_animation: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description="Export browser-friendly web animation for concentration outputs.",
     )
@@ -164,40 +166,40 @@ class DisplayConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(
+    enabled: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Master switch for all optional plotting suites.",
     )
-    show: bool = Field(
+    show: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Show interactive figures/windows when rendering is enabled.",
     )
-    save: bool = Field(
+    save: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description="Save figures/animations to disk when rendering is enabled.",
     )
-    dpi: int = Field(
+    dpi: Annotated[int, ParamLevel("dev")] = Field(
         default=300,
         ge=1,
         description="Output resolution used when saving raster figures.",
     )
-    respect_env_no_display: bool = Field(
+    respect_env_no_display: Annotated[bool, ParamLevel("dev")] = Field(
         default=True,
         description="If true, honor HYDROMODPY_NO_DISPLAY=1 by forcing show=false in headless runs.",
     )
-    respect_env_no_save: bool = Field(
+    respect_env_no_save: Annotated[bool, ParamLevel("dev")] = Field(
         default=True,
         description="If true, honor HYDROMODPY_NO_SAVE=1 by forcing save=false in headless runs.",
     )
-    flow: FlowDisplayConfig = Field(
+    flow: Annotated[FlowDisplayConfig, ParamLevel("user")] = Field(
         default_factory=FlowDisplayConfig,
         description="Display flags for flow plots.",
     )
-    particles: ParticlesDisplayConfig = Field(
+    particles: Annotated[ParticlesDisplayConfig, ParamLevel("user")] = Field(
         default_factory=ParticlesDisplayConfig,
         description="Display flags for particle plots.",
     )
-    transport: TransportDisplayConfig = Field(
+    transport: Annotated[TransportDisplayConfig, ParamLevel("user")] = Field(
         default_factory=TransportDisplayConfig,
         description="Display flags for transport plots.",
     )

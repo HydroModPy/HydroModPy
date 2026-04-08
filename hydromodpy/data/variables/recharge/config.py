@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -21,10 +21,10 @@ class RechargeSourceConfig(BaseModel):
     )
 
     # --- Custom source fields ---
-    path: Annotated[Optional[Path], ParamLevel("user")] = Field(
+    path: Annotated[Path | None, ParamLevel("user")] = Field(
         default=None, description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
     )
-    source_unit: Annotated[Optional[str], ParamLevel("user")] = Field(
+    source_unit: Annotated[str | None, ParamLevel("user")] = Field(
         default=None, description="Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
     )
     col_id: Annotated[str, ParamLevel("dev")] = Field(default="id", description="Column name for station identifier in location file.")
@@ -36,39 +36,39 @@ class RechargeSourceConfig(BaseModel):
     col_value: Annotated[str, ParamLevel("dev")] = Field(default="value", description="Column name for value in chronicle CSVs.")
 
     # --- Spatial mask ---
-    mask_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
+    mask_path: Annotated[Path | None, ParamLevel("user")] = Field(
         default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
     )
 
     # --- Synthetic source fields ---
-    values: Annotated[Optional[list[float]], ParamLevel("user")] = Field(
+    values: Annotated[list[float] | None, ParamLevel("user")] = Field(
         default=None, description="Recharge values in mm/day. Single value for constant, list for time-varying.",
     )
-    start_date: Annotated[Optional[str], ParamLevel("user")] = Field(
+    start_date: Annotated[str | None, ParamLevel("user")] = Field(
         default=None, description="Start date for synthetic series (ISO format, e.g. '2020-01-01').",
     )
-    freq: Annotated[Optional[str], ParamLevel("dev")] = Field(
+    freq: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None, description="Frequency for synthetic series (e.g. 'D', 'ME', 'YE').",
     )
-    periods: Annotated[Optional[int], ParamLevel("dev")] = Field(
+    periods: Annotated[int | None, ParamLevel("dev")] = Field(
         default=None, description="Number of periods for synthetic series.",
     )
-    amplitude: Annotated[Optional[float], ParamLevel("expert")] = Field(
+    amplitude: Annotated[float | None, ParamLevel("expert")] = Field(
         default=None, description="Sinusoidal amplitude in mm/day (superimposed on values).",
     )
-    period_days: Annotated[Optional[int], ParamLevel("expert")] = Field(
+    period_days: Annotated[int | None, ParamLevel("expert")] = Field(
         default=None, description="Sinusoidal period in days.",
     )
-    offset: Annotated[Optional[float], ParamLevel("expert")] = Field(
+    offset: Annotated[float | None, ParamLevel("expert")] = Field(
         default=None, description="Sinusoidal baseline offset in mm/day.",
     )
-    runoff_ratio: Annotated[Optional[float], ParamLevel("dev")] = Field(
+    runoff_ratio: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None, description="Fraction of recharge routed to runoff (0.0 to 1.0).",
     )
 
     # --- Common fields ---
-    station_ids: Annotated[Optional[list[str]], ParamLevel("user")] = Field(default=None, description="Explicit station ids (custom source).")
-    extent: Annotated[Optional[Literal["watershed", "study_area"]], ParamLevel("user")] = Field(
+    station_ids: Annotated[list[str] | None, ParamLevel("user")] = Field(default=None, description="Explicit station ids (custom source).")
+    extent: Annotated[Literal["watershed", "study_area"] | None, ParamLevel("user")] = Field(
         default=None, description="Enable bbox-based data retrieval using the project extent.",
     )
     force_refresh: Annotated[bool, ParamLevel("dev")] = Field(

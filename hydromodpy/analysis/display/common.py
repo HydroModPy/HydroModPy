@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from hydromodpy.analysis.display.options import DisplayOptions
+from hydromodpy.analysis.display.display_config import DisplayOptions
 
 if TYPE_CHECKING:
     from hydromodpy.data.contracts.load_result import LoadResult

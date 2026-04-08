@@ -13,7 +13,11 @@ compatibility with projects that do not yet use launcher-managed postprocess.
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import BaseModel, ConfigDict, Field
+
+from hydromodpy.core.config.param_level import ParamLevel
 
 from hydromodpy.analysis.postprocess.flow.intermittency_config import (
     IntermittencyPostprocessConfig,
@@ -37,27 +41,27 @@ class FlowPostprocessConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(
+    enabled: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Enable flow postprocessing after the flow process family.",
     )
-    timeseries: FlowTimeseriesPostprocessConfig = Field(
+    timeseries: Annotated[FlowTimeseriesPostprocessConfig, ParamLevel("user")] = Field(
         default_factory=FlowTimeseriesPostprocessConfig,
         description="Flow timeseries export options.",
     )
-    netcdf: FlowNetcdfPostprocessConfig = Field(
+    netcdf: Annotated[FlowNetcdfPostprocessConfig, ParamLevel("user")] = Field(
         default_factory=FlowNetcdfPostprocessConfig,
         description="Flow NetCDF export options.",
     )
-    intermittency: IntermittencyPostprocessConfig = Field(
+    intermittency: Annotated[IntermittencyPostprocessConfig, ParamLevel("user")] = Field(
         default_factory=IntermittencyPostprocessConfig,
         description="Intermittency indicator options.",
     )
-    matching_streams: bool = Field(
+    matching_streams: Annotated[bool, ParamLevel("dev")] = Field(
         default=True,
         description="Run matching-stream diagnostics after flow postprocessing.",
     )
-    display: bool = Field(
+    display: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Run the flow display suite after flow postprocessing.",
     )
@@ -67,27 +71,27 @@ class TransportPostprocessConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(
+    enabled: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Enable transport postprocessing after transport runs.",
     )
-    timeseries: TransportTimeseriesPostprocessConfig = Field(
+    timeseries: Annotated[TransportTimeseriesPostprocessConfig, ParamLevel("user")] = Field(
         default_factory=TransportTimeseriesPostprocessConfig,
         description="Transport timeseries export options.",
     )
-    netcdf: TransportNetcdfPostprocessConfig = Field(
+    netcdf: Annotated[TransportNetcdfPostprocessConfig, ParamLevel("user")] = Field(
         default_factory=TransportNetcdfPostprocessConfig,
         description="Transport NetCDF export options.",
     )
-    intermittency: IntermittencyPostprocessConfig = Field(
+    intermittency: Annotated[IntermittencyPostprocessConfig, ParamLevel("user")] = Field(
         default_factory=IntermittencyPostprocessConfig,
         description="Intermittency indicator options.",
     )
-    display_particles: bool = Field(
+    display_particles: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Run particle display suite when a particle model is available.",
     )
-    display_transport: bool = Field(
+    display_transport: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Run transport display suite when a transport model is available.",
     )
@@ -97,18 +101,18 @@ class PostprocessConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(
+    enabled: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description=(
             "Enable launcher-managed postprocessing after process runs. "
             "Defaults to false for backward compatibility."
         ),
     )
-    flow: FlowPostprocessConfig = Field(
+    flow: Annotated[FlowPostprocessConfig, ParamLevel("user")] = Field(
         default_factory=FlowPostprocessConfig,
         description="Flow postprocessing configuration.",
     )
-    transport: TransportPostprocessConfig = Field(
+    transport: Annotated[TransportPostprocessConfig, ParamLevel("user")] = Field(
         default_factory=TransportPostprocessConfig,
         description="Transport postprocessing configuration.",
     )

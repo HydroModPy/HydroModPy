@@ -7,10 +7,11 @@ the TOML — no ``[simulation]``, ``[flow]``, ``[transport]``, ``[solver]``.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.core.workspace.config import WorkspaceConfig
@@ -19,39 +20,53 @@ from hydromodpy.core.workspace.config import WorkspaceConfig
 class OverviewPanelsConfig(BaseModel):
     """Toggle individual report panels on/off."""
 
-    map_dem: bool = Field(True, description="DEM elevation map with stations overlay.")
-    map_geology: bool = Field(True, description="Geology lithology map.")
-    map_hydrography: bool = Field(True, description="River network map with Strahler orders.")
-    stats_card: bool = Field(True, description="Key watershed metrics card.")
-    timeseries_discharge: bool = Field(True, description="Observed discharge time series.")
-    timeseries_piezometry: bool = Field(True, description="Observed piezometric levels time series.")
-    climatic_summary: bool = Field(True, description="Mean monthly precipitation and ETP bars.")
-    timeseries_intermittency: bool = Field(True, description="ONDE flow-state observations timeline.")
-    timeseries_water_quality: bool = Field(True, description="Water quality parameters time series.")
-    station_inventory: bool = Field(True, description="Table listing all stations (type, id, coordinates, period).")
+    model_config = ConfigDict(extra="forbid")
+
+    map_dem: Annotated[bool, ParamLevel("user")] = Field(True, description="DEM elevation map with stations overlay.")
+    map_geology: Annotated[bool, ParamLevel("user")] = Field(True, description="Geology lithology map.")
+    map_hydrography: Annotated[bool, ParamLevel("user")] = Field(True, description="River network map with Strahler orders.")
+    stats_card: Annotated[bool, ParamLevel("user")] = Field(True, description="Key watershed metrics card.")
+    timeseries_discharge: Annotated[bool, ParamLevel("user")] = Field(True, description="Observed discharge time series.")
+    timeseries_piezometry: Annotated[bool, ParamLevel("user")] = Field(True, description="Observed piezometric levels time series.")
+    climatic_summary: Annotated[bool, ParamLevel("user")] = Field(True, description="Mean monthly precipitation and ETP bars.")
+    timeseries_intermittency: Annotated[bool, ParamLevel("user")] = Field(True, description="ONDE flow-state observations timeline.")
+    timeseries_water_quality: Annotated[bool, ParamLevel("user")] = Field(True, description="Water quality parameters time series.")
+    station_inventory: Annotated[bool, ParamLevel("user")] = Field(True, description="Table listing all stations (type, id, coordinates, period).")
 
 
 class OverviewSection(BaseModel):
     """Overview report settings (watershed identity card)."""
 
-    name: str = Field("", description="Watershed name displayed on report panels. Defaults to workspace catch_name.")
-    date_start: str | None = Field(None, description="Global start date (YYYY-MM-DD). Injected into data sections without explicit dates.")
-    date_end: str | None = Field(None, description="Global end date (YYYY-MM-DD). Injected into data sections without explicit dates.")
-    panels: OverviewPanelsConfig = Field(default_factory=OverviewPanelsConfig, description="Toggle individual report panels.")
+    model_config = ConfigDict(extra="forbid")
+
+    name: Annotated[str, ParamLevel("user")] = Field("", description="Watershed name displayed on report panels. Defaults to workspace catch_name.")
+    date_start: Annotated[str | None, ParamLevel("user")] = Field(None, description="Global start date (YYYY-MM-DD). Injected into data sections without explicit dates.")
+    date_end: Annotated[str | None, ParamLevel("user")] = Field(None, description="Global end date (YYYY-MM-DD). Injected into data sections without explicit dates.")
+    panels: Annotated[OverviewPanelsConfig, ParamLevel("user")] = Field(default_factory=OverviewPanelsConfig, description="Toggle individual report panels.")
 
 
 class DataOverviewConfig(BaseModel):
     """Top-level configuration for the data-overview launcher."""
 
-    workspace: WorkspaceConfig
-    geographic: GeographicConfig
-    data: DataManagersConfig = DataManagersConfig()
-    overview: OverviewSection = OverviewSection()
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    workspace: Annotated[WorkspaceConfig, ParamLevel("user")] = Field(
+        description="Workspace and folder structure configuration.",
+    )
+    geographic: Annotated[GeographicConfig, ParamLevel("user")] = Field(
+        description="Geographic and watershed delineation parameters.",
+    )
+    data: Annotated[DataManagersConfig, ParamLevel("user")] = Field(
+        default_factory=DataManagersConfig,
+        description="Data-managers configuration for overview.",
+    )
+    overview: Annotated[OverviewSection, ParamLevel("user")] = Field(
+        default_factory=OverviewSection,
+        description="Overview report settings.",
+    )
 
     # Keep raw TOML for data-section forwarding.
     _raw_toml: dict[str, Any] = {}
-
-    model_config = {"arbitrary_types_allowed": True}
 
     @classmethod
     def from_toml(

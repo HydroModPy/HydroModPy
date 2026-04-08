@@ -12,10 +12,11 @@ codebase; this file assembles those pieces into one user-facing TOML contract.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.data.variables.geology.config import GeologyConfigSchema
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
     ZoneMeshingSettingsSchema,
@@ -49,7 +50,7 @@ class MeshCatchmentRiversConfigSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    source: str = Field(
+    source: Annotated[str, ParamLevel("user")] = Field(
         default="domain_geographic",
         description=(
             "Origin of the river constraints used to force mesh edges along the river network. "
@@ -57,7 +58,7 @@ class MeshCatchmentRiversConfigSchema(BaseModel):
             "or 'file' to reload a vector river dataset from disk."
         ),
     )
-    path: str | None = Field(
+    path: Annotated[str | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Vector file path used only when source='file'. "
@@ -65,7 +66,7 @@ class MeshCatchmentRiversConfigSchema(BaseModel):
             "describing the river centerlines to honor during meshing."
         ),
     )
-    clip_to_domain: bool = Field(
+    clip_to_domain: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description=(
             "If true, clip the river trace to the effective meshing support before sending it to Gmsh. "
@@ -73,7 +74,7 @@ class MeshCatchmentRiversConfigSchema(BaseModel):
             "the chosen domain or scope."
         ),
     )
-    min_segment_length: float = Field(
+    min_segment_length: Annotated[float, ParamLevel("user")] = Field(
         default=0.0,
         ge=0.0,
         description=(
@@ -82,7 +83,7 @@ class MeshCatchmentRiversConfigSchema(BaseModel):
             "that would only add mesh complexity without hydraulic meaning."
         ),
     )
-    snap_tolerance: float = Field(
+    snap_tolerance: Annotated[float, ParamLevel("user")] = Field(
         default=0.0,
         ge=0.0,
         description=(
@@ -122,13 +123,13 @@ class MeshCatchmentWatershedBoundarySmoothingConfigSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(
+    enabled: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description=(
             "If true, apply the smoothing controls below before converting the watershed boundary into one linear constraint."
         ),
     )
-    distance: float | None = Field(
+    distance: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None,
         ge=0.0,
         description=(
@@ -137,7 +138,7 @@ class MeshCatchmentWatershedBoundarySmoothingConfigSchema(BaseModel):
             "When omitted, the mesher reuses zone_meshing.global_size."
         ),
     )
-    river_buffer_distance: float | None = Field(
+    river_buffer_distance: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None,
         ge=0.0,
         description=(
@@ -145,7 +146,7 @@ class MeshCatchmentWatershedBoundarySmoothingConfigSchema(BaseModel):
             "polygon before smoothing so the final watershed boundary stays slightly outside river corridors near the basin edge."
         ),
     )
-    outer_bias_distance: float | None = Field(
+    outer_bias_distance: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None,
         ge=0.0,
         description=(
@@ -160,14 +161,14 @@ class MeshCatchmentWatershedOutsideCoarseningConfigSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(
+    enabled: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description=(
             "If true, add one regional mesh-size field that keeps the current background size inside the watershed "
             "and coarsens the mesh outside it."
         ),
     )
-    size_factor: float = Field(
+    size_factor: Annotated[float, ParamLevel("dev")] = Field(
         default=2.0,
         ge=1.0,
         description=(
@@ -175,7 +176,7 @@ class MeshCatchmentWatershedOutsideCoarseningConfigSchema(BaseModel):
             "Use 2.0 for an outside background roughly twice as coarse as the internal baseline."
         ),
     )
-    transition_distance: float | None = Field(
+    transition_distance: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None,
         ge=0.0,
         description=(
@@ -183,7 +184,7 @@ class MeshCatchmentWatershedOutsideCoarseningConfigSchema(BaseModel):
             "to the coarser outside size away from the watershed boundary."
         ),
     )
-    grid_resolution: float | None = Field(
+    grid_resolution: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None,
         gt=0.0,
         description=(
@@ -198,7 +199,7 @@ class MeshCatchmentWatershedGeologyConformityConfigSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: str = Field(
+    mode: Annotated[str, ParamLevel("user")] = Field(
         default="full_domain",
         description=(
             "Control where geology remains conformal. "
@@ -207,7 +208,7 @@ class MeshCatchmentWatershedGeologyConformityConfigSchema(BaseModel):
             "without creating one strict partition boundary on that envelope."
         ),
     )
-    buffer_distance: float | None = Field(
+    buffer_distance: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None,
         ge=0.0,
         description=(
@@ -232,14 +233,14 @@ class MeshCatchmentWatershedBoundaryConfigSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(
+    enabled: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description=(
             "If true, inject the watershed boundary as one dedicated linear constraint in addition to geology "
             "and/or river constraints."
         ),
     )
-    boundary_refinement_distance: float | None = Field(
+    boundary_refinement_distance: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None,
         ge=0.0,
         description=(
@@ -247,19 +248,19 @@ class MeshCatchmentWatershedBoundaryConfigSchema(BaseModel):
             "When omitted, the mesher derives one conservative distance from the boundary extent."
         ),
     )
-    smoothing: MeshCatchmentWatershedBoundarySmoothingConfigSchema = Field(
+    smoothing: Annotated[MeshCatchmentWatershedBoundarySmoothingConfigSchema, ParamLevel("user")] = Field(
         default_factory=MeshCatchmentWatershedBoundarySmoothingConfigSchema,
         description=(
             "Optional regularization controls applied before the watershed boundary is converted to a linear constraint."
         ),
     )
-    outside_coarsening: MeshCatchmentWatershedOutsideCoarseningConfigSchema = Field(
+    outside_coarsening: Annotated[MeshCatchmentWatershedOutsideCoarseningConfigSchema, ParamLevel("user")] = Field(
         default_factory=MeshCatchmentWatershedOutsideCoarseningConfigSchema,
         description=(
             "Optional coarse-background size field applied outside the regularized watershed while keeping the geology partition unchanged."
         ),
     )
-    geology_conformity: MeshCatchmentWatershedGeologyConformityConfigSchema = Field(
+    geology_conformity: Annotated[MeshCatchmentWatershedGeologyConformityConfigSchema, ParamLevel("user")] = Field(
         default_factory=MeshCatchmentWatershedGeologyConformityConfigSchema,
         description=(
             "Optional control of where geology remains conformal relative to the watershed. "
@@ -294,36 +295,36 @@ class MeshCatchmentHydraulicPropertyMappingSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    values_source: str = Field(
+    values_source: Annotated[str, ParamLevel("user")] = Field(
         default="inline",
         description=(
             "Source of the geology-key to property mapping. "
             "Use 'inline' for TOML dictionaries or 'csv' for an external table."
         ),
     )
-    values: dict[str, object] | None = Field(
+    values: Annotated[dict[str, object] | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Inline mapping from geology zone key to property value. "
             "Keys must match the normalized `zone_key` values exported by the geology loader."
         ),
     )
-    values_csv_file: str | None = Field(
+    values_csv_file: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "CSV file used when values_source='csv'. "
             "Relative paths are resolved from the launcher TOML directory."
         ),
     )
-    csv_key_column: str = Field(
+    csv_key_column: Annotated[str, ParamLevel("dev")] = Field(
         default="zone_key",
         description="CSV column containing geology zone keys.",
     )
-    csv_value_column: str = Field(
+    csv_value_column: Annotated[str, ParamLevel("dev")] = Field(
         default="value",
         description="CSV column containing numeric property values.",
     )
-    default_value: object | None = Field(
+    default_value: Annotated[object | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Fallback value applied when one geology zone has no explicit mapping. "
@@ -407,7 +408,7 @@ class MeshCatchmentHydraulicConductivitySchema(
 ):
     """Conductivity mapping exported on mesh cells."""
 
-    unit: str = Field(
+    unit: Annotated[str, ParamLevel("dev")] = Field(
         default="m/s",
         description=(
             "Input unit used by conductivity values. "
@@ -435,14 +436,14 @@ class MeshCatchmentHydraulicPropertiesConfigSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    conductivity: MeshCatchmentHydraulicConductivitySchema | None = Field(
+    conductivity: Annotated[MeshCatchmentHydraulicConductivitySchema | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Optional hydraulic-conductivity mapping by geology key. "
             "When provided, the bundle exports one `hydraulic_conductivity_m_s` value per cell."
         ),
     )
-    storage_coefficient: MeshCatchmentStorageCoefficientSchema | None = Field(
+    storage_coefficient: Annotated[MeshCatchmentStorageCoefficientSchema | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Optional storage-coefficient mapping by geology key. "
@@ -470,7 +471,7 @@ class MeshCatchmentConfigSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    constraints_mode: str = Field(
+    constraints_mode: Annotated[str, ParamLevel("user")] = Field(
         ...,
         description=(
             "Meshing compliance target. "
@@ -479,7 +480,7 @@ class MeshCatchmentConfigSchema(BaseModel):
             "'geology_rivers' enforces both sets of constraints in one mesh."
         ),
     )
-    output_mesh: str | None = Field(
+    output_mesh: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Optional `.msh` output path for the generated planar mesh. "
@@ -488,7 +489,7 @@ class MeshCatchmentConfigSchema(BaseModel):
             "`workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used."
         ),
     )
-    output_summary_json: str | None = Field(
+    output_summary_json: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Optional JSON sidecar path for QA metrics, cleaned-input diagnostics, "
@@ -496,7 +497,7 @@ class MeshCatchmentConfigSchema(BaseModel):
             "When omitted, the launcher writes it next to the default mesh output."
         ),
     )
-    output_figure: str | None = Field(
+    output_figure: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Optional overview figure path. "
@@ -504,7 +505,7 @@ class MeshCatchmentConfigSchema(BaseModel):
             "geology zones, river constraints, and final mesh footprint."
         ),
     )
-    output_figure_regional: str | None = Field(
+    output_figure_regional: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Optional regional overview figure path. "
@@ -512,14 +513,14 @@ class MeshCatchmentConfigSchema(BaseModel):
             "with suffix `_regional` to show where the catchment sits on the full DEM."
         ),
     )
-    figures_enabled: bool = Field(
+    figures_enabled: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description=(
             "If true, generate the overview figure artifacts when figure output paths are configured. "
             "Set it to false to skip figure creation entirely, even in batch mode where default filename patterns are present."
         ),
     )
-    figure_dpi: int = Field(
+    figure_dpi: Annotated[int, ParamLevel("user")] = Field(
         default=300,
         gt=0,
         description=(
@@ -527,7 +528,7 @@ class MeshCatchmentConfigSchema(BaseModel):
             "Increase it when you need to inspect mesh edges and constraints more closely in the saved PNG."
         ),
     )
-    figure_regional_dpi: int = Field(
+    figure_regional_dpi: Annotated[int, ParamLevel("user")] = Field(
         default=220,
         gt=0,
         description=(
@@ -535,7 +536,7 @@ class MeshCatchmentConfigSchema(BaseModel):
             "Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy."
         ),
     )
-    output_layout: str = Field(
+    output_layout: Annotated[str, ParamLevel("user")] = Field(
         default="standard",
         description=(
             "Dedicated-launcher output layout. "
@@ -544,14 +545,14 @@ class MeshCatchmentConfigSchema(BaseModel):
             "while keeping intermediate runtime folders out of that final directory."
         ),
     )
-    show_plot: bool = Field(
+    show_plot: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description=(
             "If true, open the generated overview figure interactively at the end of the run. "
             "Keep it false for batch or headless execution."
         ),
     )
-    geographic_outputs_mode: str = Field(
+    geographic_outputs_mode: Annotated[str, ParamLevel("dev")] = Field(
         default="keep",
         description=(
             "Control what happens to intermediate geographic preprocessing artifacts after the mesh run. "
@@ -560,14 +561,14 @@ class MeshCatchmentConfigSchema(BaseModel):
             "and exchange bundle have been written."
         ),
     )
-    rivers: MeshCatchmentRiversConfigSchema = Field(
+    rivers: Annotated[MeshCatchmentRiversConfigSchema, ParamLevel("user")] = Field(
         default_factory=MeshCatchmentRiversConfigSchema,
         description=(
             "River-constraint section used when constraints_mode includes rivers. "
             "The default behavior is to reuse the in-memory river trace already built by the geographic pipeline."
         ),
     )
-    geology: GeologyConfigSchema | None = Field(
+    geology: Annotated[GeologyConfigSchema | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Optional geology support used when constraints_mode includes geology. "
@@ -575,7 +576,7 @@ class MeshCatchmentConfigSchema(BaseModel):
             "should be interpreted before conformal meshing."
         ),
     )
-    watershed_boundary: MeshCatchmentWatershedBoundaryConfigSchema = Field(
+    watershed_boundary: Annotated[MeshCatchmentWatershedBoundaryConfigSchema, ParamLevel("user")] = Field(
         default_factory=MeshCatchmentWatershedBoundaryConfigSchema,
         description=(
             "Optional watershed-boundary mesh constraint. "
@@ -583,7 +584,7 @@ class MeshCatchmentConfigSchema(BaseModel):
             "represented on the whole support domain."
         ),
     )
-    hydraulic_properties: MeshCatchmentHydraulicPropertiesConfigSchema | None = Field(
+    hydraulic_properties: Annotated[MeshCatchmentHydraulicPropertiesConfigSchema | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Optional hydraulic-property tables keyed by geology zones. "
@@ -591,7 +592,7 @@ class MeshCatchmentConfigSchema(BaseModel):
             "as weighted averages of geology fractions."
         ),
     )
-    domain: ZoneMeshingDomainSchema = Field(
+    domain: Annotated[ZoneMeshingDomainSchema, ParamLevel("user")] = Field(
         default_factory=ZoneMeshingDomainGeographicBoxBufferSchema,
         description=(
             "Effective support domain to mesh. "
@@ -599,7 +600,7 @@ class MeshCatchmentConfigSchema(BaseModel):
             "prepared during delineation, which is usually the right support for mono-catchment meshing."
         ),
     )
-    zone_meshing: ZoneMeshingSettingsSchema = Field(
+    zone_meshing: Annotated[ZoneMeshingSettingsSchema, ParamLevel("dev")] = Field(
         default_factory=ZoneMeshingSettingsSchema,
         description=(
             "Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, "
@@ -679,32 +680,32 @@ class MeshCatchmentBatchOutputsSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    mesh_filename: str | None = Field(
+    mesh_filename: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Relative filename pattern for each generated mesh, resolved inside the outlet-specific mesh output folder. "
             "Use tokens like {outlet_id} and {catch_name}."
         ),
     )
-    summary_filename: str | None = Field(
+    summary_filename: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Relative filename pattern for each JSON mesh summary written in batch mode."
         ),
     )
-    figure_filename: str | None = Field(
+    figure_filename: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Relative filename pattern for each overview figure written in batch mode."
         ),
     )
-    figure_regional_filename: str | None = Field(
+    figure_regional_filename: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Relative filename pattern for each regional overview figure written in batch mode."
         ),
     )
-    manifest_csv: str | None = Field(
+    manifest_csv: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Manifest CSV path summarizing the status of all outlet runs. "
@@ -734,57 +735,57 @@ class MeshCatchmentBatchSectionSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(
+    enabled: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description=(
             "Enable batch mode. When false or omitted, the launcher runs one mono-catchment workflow only."
         ),
     )
-    outlets_table_path: str | None = Field(
+    outlets_table_path: Annotated[str | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "CSV or vector table listing outlet points to process in batch mode."
         ),
     )
-    outlet_id_column: str = Field(
+    outlet_id_column: Annotated[str, ParamLevel("dev")] = Field(
         default="outlet_id",
         description="Column storing the outlet identifier in the batch table.",
     )
-    x_column: str = Field(
+    x_column: Annotated[str, ParamLevel("dev")] = Field(
         default="x_outlet_m",
         description="Column storing the outlet X coordinate in the batch table.",
     )
-    y_column: str = Field(
+    y_column: Annotated[str, ParamLevel("dev")] = Field(
         default="y_outlet_m",
         description="Column storing the outlet Y coordinate in the batch table.",
     )
-    selection_mode: str = Field(
+    selection_mode: Annotated[str, ParamLevel("dev")] = Field(
         default="all",
         description=(
             "Batch selection strategy. Use 'all' to process every outlet in the table, or 'selected' "
             "to restrict the batch to the outlet ids listed in selected_outlet_ids."
         ),
     )
-    selected_outlet_ids: list[str] = Field(
+    selected_outlet_ids: Annotated[list[str], ParamLevel("dev")] = Field(
         default_factory=list,
         description=(
             "Explicit subset of outlet ids to mesh when selection_mode='selected'."
         ),
     )
-    catch_name_pattern: str = Field(
+    catch_name_pattern: Annotated[str, ParamLevel("dev")] = Field(
         default="{catch_name}_outlet_{outlet_id}",
         description=(
             "Pattern used to derive the child catchment workspace name for each outlet. "
             "It must contain the {outlet_id} token."
         ),
     )
-    continue_on_error: bool = Field(
+    continue_on_error: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,
         description=(
             "If true, keep processing later outlets after one batch item fails."
         ),
     )
-    outputs: MeshCatchmentBatchOutputsSchema = Field(
+    outputs: Annotated[MeshCatchmentBatchOutputsSchema, ParamLevel("dev")] = Field(
         default_factory=MeshCatchmentBatchOutputsSchema,
         description=(
             "Optional batch-specific filename patterns. Use them whenever the main [mesh_catchment] section contains fixed output paths, "

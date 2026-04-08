@@ -9,7 +9,7 @@ import numpy as np
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.analysis.display.options import DisplayOptions
+    from hydromodpy.analysis.display.display_config import DisplayOptions
 
 
 def _profile_from_cell_columns(

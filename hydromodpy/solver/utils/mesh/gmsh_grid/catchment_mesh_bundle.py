@@ -28,7 +28,7 @@ from hydromodpy.data.variables.geology.io import (
     resolve_data_path,
 )
 from hydromodpy.data.variables.geology.processing import normalize_zone_key
-from hydromodpy.spatial.domain.depth_model import (
+from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     FlatSubstratumDepthModel,
 )

@@ -13,7 +13,7 @@ import csv
 from pathlib import Path
 import math
 import tomllib
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
 from pydantic import (
     BaseModel,
@@ -23,6 +23,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.units.hydraulic_conductivity import (
     M_PER_S_CANONICAL_UNITS,
     normalize_m_per_s_unit,
@@ -80,19 +81,19 @@ class FieldBaseSectionSchema(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    id: str | None = Field(
+    id: Annotated[str | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Parameter identifier used in outputs and logs " "(for example 'K', 'Sy')."
         ),
     )
-    kind: str | None = Field(
+    kind: Annotated[str | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'."
         ),
     )
-    unit: str | None = Field(
+    unit: Annotated[str | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Unit of parameter values. "
@@ -134,7 +135,7 @@ class FieldHomogeneousSectionSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    value: object | None = Field(
+    value: Annotated[object | None, ParamLevel("user")] = Field(
         default=None,
         description="Scalar surface value used when kind='homogeneous'.",
     )
@@ -165,36 +166,36 @@ class FieldHeterogeneousSectionSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    values_source: str = Field(
+    values_source: Annotated[str, ParamLevel("user")] = Field(
         default="inline",
         description=(
             "Source for heterogeneous values. "
             "Use 'inline' for TOML mapping or 'csv' for external table."
         ),
     )
-    values: dict[str, object] | None = Field(
+    values: Annotated[dict[str, object] | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Inline key/value mapping used when values_source='inline'. "
             "Keys are zone/material ids, values are numeric parameter values."
         ),
     )
-    values_csv_file: str | None = Field(
+    values_csv_file: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Path to CSV mapping file used when values_source='csv'. "
             "Relative paths are resolved from TOML directory."
         ),
     )
-    csv_key_column: str = Field(
+    csv_key_column: Annotated[str, ParamLevel("dev")] = Field(
         default="zone_key",
         description="CSV column name containing zone/material keys.",
     )
-    csv_value_column: str = Field(
+    csv_value_column: Annotated[str, ParamLevel("dev")] = Field(
         default="value",
         description="CSV column name containing numeric parameter values.",
     )
-    field_spatial_id: str | None = Field(
+    field_spatial_id: Annotated[str | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Identifier of the spatial field used to map heterogeneous values "
@@ -324,39 +325,39 @@ class FieldVerticalProfileSectionSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: str = Field(
+    mode: Annotated[str, ParamLevel("user")] = Field(
         default="none",
         description=(
             "Depth dependency mode shared over the full domain. "
             "Allowed values: 'none', 'exponential', 'tabulated'."
         ),
     )
-    characteristic_depth: float | None = Field(
+    characteristic_depth: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Characteristic depth for exponential mode. "
             "Vertical factor is exp(-depth/characteristic_depth)."
         ),
     )
-    min_factor: float | None = Field(
+    min_factor: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Optional floor factor for exponential mode. "
             "If provided, factor is max(exp(-depth/characteristic_depth), min_factor)."
         ),
     )
-    depths: list[float] | None = Field(
+    depths: Annotated[list[float] | None, ParamLevel("dev")] = Field(
         default=None,
         description="Depth nodes for tabulated mode (meters, first value must be 0).",
     )
-    factors: list[float] | None = Field(
+    factors: Annotated[list[float] | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Multiplicative factors aligned with `depths` for tabulated mode "
             "(first value must be 1 at depth 0)."
         ),
     )
-    interpolation: str = Field(
+    interpolation: Annotated[str, ParamLevel("dev")] = Field(
         default="linear",
         description=(
             "Interpolation strategy for tabulated mode. "
@@ -480,19 +481,19 @@ class FieldParamConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    field: FieldBaseSectionSchema | None = Field(
+    field: Annotated[FieldBaseSectionSchema | None, ParamLevel("user")] = Field(
         default=None,
         description="Base section `[field]` with parameter id and kind.",
     )
-    field_homogeneous: FieldHomogeneousSectionSchema | None = Field(
+    field_homogeneous: Annotated[FieldHomogeneousSectionSchema | None, ParamLevel("user")] = Field(
         default=None,
         description="Homogeneous parameters section `[field_homogeneous]`.",
     )
-    field_heterogeneous: FieldHeterogeneousSectionSchema | None = Field(
+    field_heterogeneous: Annotated[FieldHeterogeneousSectionSchema | None, ParamLevel("user")] = Field(
         default=None,
         description="Heterogeneous parameters section `[field_heterogeneous]`.",
     )
-    field_vertical_profile: FieldVerticalProfileSectionSchema | None = Field(
+    field_vertical_profile: Annotated[FieldVerticalProfileSectionSchema | None, ParamLevel("user")] = Field(
         default=None,
         description="Optional depth profile section `[field_vertical_profile]`.",
     )
@@ -517,47 +518,47 @@ class ResolvedFieldParamSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str | None = Field(
+    id: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description="Resolved parameter identifier.",
     )
-    kind: str | None = Field(
+    kind: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description="Resolved parameter kind: homogeneous or heterogeneous.",
     )
-    unit: str | None = Field(
+    unit: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description="Resolved parameter unit (canonical token).",
     )
-    value: object | None = Field(
+    value: Annotated[object | None, ParamLevel("dev")] = Field(
         default=None,
         description="Resolved scalar value for homogeneous kind.",
     )
-    values: dict[str, object] | None = Field(
+    values: Annotated[dict[str, object] | None, ParamLevel("dev")] = Field(
         default=None,
         description="Resolved mapping for heterogeneous kind.",
     )
-    field_spatial_id: str | None = Field(
+    field_spatial_id: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description="Resolved spatial field identifier for heterogeneous kind.",
     )
-    values_source: str | None = Field(
+    values_source: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description="Optional helper flag describing heterogeneous values source.",
     )
-    values_csv_file: str | None = Field(
+    values_csv_file: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description="Optional helper CSV path used before resolution.",
     )
-    csv_key_column: str | None = Field(
+    csv_key_column: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description="Optional helper CSV key column used before resolution.",
     )
-    csv_value_column: str | None = Field(
+    csv_value_column: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description="Optional helper CSV value column used before resolution.",
     )
-    vertical_profile: FieldVerticalProfileSectionSchema | None = Field(
+    vertical_profile: Annotated[FieldVerticalProfileSectionSchema | None, ParamLevel("dev")] = Field(
         default=None,
         description="Resolved optional depth profile configuration.",
     )

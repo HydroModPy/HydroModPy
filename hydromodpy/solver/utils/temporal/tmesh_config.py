@@ -5,11 +5,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 import tomllib
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
 
 
@@ -18,35 +19,35 @@ class TMeshConfigModel(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    itmuni: str = Field(
+    itmuni: Annotated[str, ParamLevel("dev")] = Field(
         default="d",
         description=(
             "Time unit used to interpret lenper values. In launcher mode stress periods "
             "come from [simulation.time], so this field is mirrored only for compatibility."
         ),
     )
-    flow_regime: Literal["steady", "transient"] = Field(
+    flow_regime: Annotated[Literal["steady", "transient"], ParamLevel("user")] = Field(
         default="transient",
         description=(
             "Flow regime used to derive the steady/transient stress-period flags. "
             "In launcher mode this field is generally derived from [flow].flow_regime."
         ),
     )
-    genmtd: Literal["synthetic_regular", "from_chron"] = Field(
+    genmtd: Annotated[Literal["synthetic_regular", "from_chron"], ParamLevel("user")] = Field(
         default="synthetic_regular",
         description=(
             "Temporal generation method. In launcher mode stress periods come from "
             "[simulation.time], so this field is mirrored only for compatibility."
         ),
     )
-    nper: int = Field(
+    nper: Annotated[int, ParamLevel("user")] = Field(
         default=1,
         description=(
             "Stress-period count. In launcher mode this is mirrored from [simulation.time] "
             "and is not the authoritative source."
         ),
     )
-    lenper: float | int | list[int] | list[float] | None = Field(
+    lenper: Annotated[float | int | list[int] | list[float] | None, ParamLevel("user")] = Field(
         default=1,
         description=(
             "Stress-period length(s) interpreted with itmuni. Scalar means one regular "
@@ -55,46 +56,61 @@ class TMeshConfigModel(BaseModel):
             "authoritative source."
         ),
     )
-    chron_path: str | None = Field(
+    chron_path: Annotated[str | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Chronicle file path used when genmtd='from_chron'. In launcher mode this field "
             "is generally not used."
         ),
     )
-    chron_dateformat: str = "%Y-%m-%d %H:%M:%S"
-    chron_colsep: str = "\t"
-    chron_time_col: str = "Date"
-    start_datetime: Any | None = Field(
+    chron_dateformat: Annotated[str, ParamLevel("dev")] = Field(
+        default="%Y-%m-%d %H:%M:%S",
+        description="Date format string used to parse the chronicle file.",
+    )
+    chron_colsep: Annotated[str, ParamLevel("dev")] = Field(
+        default="\t",
+        description="Column separator used in the chronicle file.",
+    )
+    chron_time_col: Annotated[str, ParamLevel("dev")] = Field(
+        default="Date",
+        description="Name of the time/date column in the chronicle file.",
+    )
+    start_datetime: Annotated[Any | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Lower datetime bound used by the temporal mesh. In launcher mode this field is "
             "mirrored from [simulation.time] and is not the authoritative source."
         ),
     )
-    end_datetime: Any | None = Field(
+    end_datetime: Annotated[Any | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Upper datetime bound used by the temporal mesh. In launcher mode this field is "
             "mirrored from [simulation.time] and is not the authoritative source."
         ),
     )
-    firstpersteady: bool = True
-    tsmult: int | float | list[int] | list[float] = Field(
+    firstpersteady: Annotated[bool, ParamLevel("user")] = Field(
+        default=True,
+        description="Whether the first stress period is treated as steady-state.",
+    )
+    tsmult: Annotated[int | float | list[int] | list[float], ParamLevel("dev")] = Field(
         default=1,
         description=(
             "Time-step multiplier per stress period (scalar or list). In launcher mode this "
             "field is currently forced to 1.0 and generally not intended for manual editing."
         ),
     )
-    ntsp: int | list[int] = Field(
+    ntsp: Annotated[int | list[int], ParamLevel("dev")] = Field(
         default=1,
         description=(
             "Number of time steps per stress period (scalar or list). In launcher mode this "
             "field is currently forced to 1 and generally not intended for manual editing."
         ),
     )
-    temporal_nodata: float = -9999.0
+    temporal_nodata: Annotated[float, ParamLevel("dev")] = Field(
+        default=-9999.0,
+        description="No-data sentinel value for temporal data.",
+    )
 
     @field_validator("itmuni", "chron_dateformat", "chron_time_col")
     @classmethod

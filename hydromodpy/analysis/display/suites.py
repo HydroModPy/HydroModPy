@@ -31,7 +31,7 @@ from hydromodpy.analysis.display.figures.flow_diagnostics import (
 )
 from hydromodpy.analysis.display.figures.maps import plot_pathlines_map
 from hydromodpy.analysis.display.figures.timeseries import plot_discharge, plot_piezometry
-from hydromodpy.analysis.display.options import DisplayOptions
+from hydromodpy.analysis.display.display_config import DisplayOptions
 from hydromodpy.analysis.display.transport_plots import plot_concentration_frames
 
 logger = logging.getLogger(__name__)

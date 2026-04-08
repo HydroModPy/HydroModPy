@@ -13,7 +13,7 @@ Low-level array manipulations intentionally remain delegated to `Surface`.
 
 from collections.abc import Mapping
 
-from hydromodpy.spatial.domain.depth_model import (
+from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     FlatSubstratumDepthModel,
 )

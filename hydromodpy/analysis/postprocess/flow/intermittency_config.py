@@ -2,26 +2,30 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import BaseModel, ConfigDict, Field
+
+from hydromodpy.core.config.param_level import ParamLevel
 
 class IntermittencyPostprocessConfig(BaseModel):
     """Intermittency indicators derived from flow accumulation flux."""
 
     model_config = ConfigDict(extra="forbid")
 
-    yearly: bool = Field(
+    yearly: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description="Compute yearly intermittency indicators from accumulation flux.",
     )
-    monthly: bool = Field(
+    monthly: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Compute monthly intermittency indicators from accumulation flux.",
     )
-    weekly: bool = Field(
+    weekly: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description="Compute weekly intermittency indicators from accumulation flux.",
     )
-    daily: bool = Field(
+    daily: Annotated[bool, ParamLevel("user")] = Field(
         default=False,
         description="Compute daily intermittency indicators from accumulation flux.",
     )

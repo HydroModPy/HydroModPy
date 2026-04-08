@@ -8,9 +8,11 @@ dictionaries for the rest of the workflow.
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+from hydromodpy.core.config.param_level import ParamLevel
 
 
 class ReservoirChronicleSchema(BaseModel):
@@ -24,24 +26,61 @@ class ReservoirChronicleSchema(BaseModel):
     # Strict mode: any unknown chronicle key is reported as a validation error.
     model_config = ConfigDict(extra="forbid")
 
-    n_days: int = 365
-    start_year: int = 2000
-    target_annual_precip_mm: float = 800.0
-    precip_seed: int = 42
-    runoff_coeff: float = 0.15
-    losses_mm_day: float = 1.5
-    losses_months: list[int] = Field(default_factory=lambda: [4, 5, 6, 7, 8, 9])
-    error_fraction: float = 0.05
-    error_seed: int = 12345
-    solver_backend: str = "analytic"
-    capacity_mm_true: float | None = None
-    k_per_day_true: float | None = None
-    s0_mm: float = 0.0
-    a_true: float | None = None
-    kq_days_true: float | None = None
-    ks_days_true: float | None = None
-    sq0_mm: float = 0.0
-    ss0_mm: float = 0.0
+    n_days: Annotated[int, ParamLevel("dev")] = Field(
+        default=365, description="Number of simulation days."
+    )
+    start_year: Annotated[int, ParamLevel("dev")] = Field(
+        default=2000, description="Start year for forcing generation."
+    )
+    target_annual_precip_mm: Annotated[float, ParamLevel("dev")] = Field(
+        default=800.0, description="Target annual precipitation in mm."
+    )
+    precip_seed: Annotated[int, ParamLevel("dev")] = Field(
+        default=42, description="Random seed for precipitation."
+    )
+    runoff_coeff: Annotated[float, ParamLevel("dev")] = Field(
+        default=0.15, description="Runoff coefficient."
+    )
+    losses_mm_day: Annotated[float, ParamLevel("dev")] = Field(
+        default=1.5, description="Daily evapotranspiration losses in mm/day."
+    )
+    losses_months: Annotated[list[int], ParamLevel("dev")] = Field(
+        default_factory=lambda: [4, 5, 6, 7, 8, 9],
+        description="Months where losses are applied.",
+    )
+    error_fraction: Annotated[float, ParamLevel("dev")] = Field(
+        default=0.05, description="Fractional noise added to observations."
+    )
+    error_seed: Annotated[int, ParamLevel("dev")] = Field(
+        default=12345, description="Random seed for observation noise."
+    )
+    solver_backend: Annotated[str, ParamLevel("dev")] = Field(
+        default="analytic", description="Numerical solver backend."
+    )
+    capacity_mm_true: Annotated[float | None, ParamLevel("dev")] = Field(
+        default=None, description="True reservoir capacity in mm."
+    )
+    k_per_day_true: Annotated[float | None, ParamLevel("dev")] = Field(
+        default=None, description="True reservoir drainage coefficient in 1/day."
+    )
+    s0_mm: Annotated[float, ParamLevel("dev")] = Field(
+        default=0.0, description="Initial reservoir storage in mm."
+    )
+    a_true: Annotated[float | None, ParamLevel("dev")] = Field(
+        default=None, description="True parameter a for dual-reservoir."
+    )
+    kq_days_true: Annotated[float | None, ParamLevel("dev")] = Field(
+        default=None, description="True quick-flow time constant in days."
+    )
+    ks_days_true: Annotated[float | None, ParamLevel("dev")] = Field(
+        default=None, description="True slow-flow time constant in days."
+    )
+    sq0_mm: Annotated[float, ParamLevel("dev")] = Field(
+        default=0.0, description="Initial quick storage in mm."
+    )
+    ss0_mm: Annotated[float, ParamLevel("dev")] = Field(
+        default=0.0, description="Initial slow storage in mm."
+    )
 
     @field_validator("n_days")
     @classmethod

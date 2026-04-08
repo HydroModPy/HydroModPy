@@ -10,7 +10,6 @@
  * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
-from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +17,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.units import factor_to_seconds, to_pandas_timedelta_unit
+from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
 
 try:
     from flopy.discretization.modeltime import ModelTime
@@ -28,26 +28,9 @@ except ModuleNotFoundError:  # pragma: no cover - used only in minimal local env
 _VALID_FLOW_REGIMES = {"steady", "transient"}
 _VALID_GEN_METHODS = {"synthetic_regular", "from_chron"}
 
-
-@dataclass(frozen=True)
-class TMeshConfig:
-    """Typed temporal mesh configuration."""
-
-    itmuni: str = "d"
-    flow_regime: str = "transient"
-    genmtd: str = "synthetic_regular"
-    nper: int = 1
-    lenper: float | int | list[float] | np.ndarray | None = 1
-    chron_path: str | None = None
-    chron_dateformat: str = "%Y-%m-%d %H:%M:%S"
-    chron_colsep: str = "\t"
-    chron_time_col: str = "Date"
-    start_datetime: Any | None = None
-    end_datetime: Any | None = None
-    firstpersteady: bool = True
-    tsmult: int | float | list[float] | np.ndarray = 1
-    ntsp: int | list[int] | np.ndarray = 1
-    temporal_nodata: float = -9999.0
+# Backward-compatible alias: TMeshConfig was a frozen dataclass, now backed by the
+# validated Pydantic model.  Existing code that imports TMeshConfig still works.
+TMeshConfig = TMeshConfigModel
 
 
 def _as_positive_int(name: str, value: Any) -> int:
@@ -386,7 +369,7 @@ class TMesh_Generation:
         self._tgrid = None
 
     def _set_config_value(self, key: str, value: Any) -> None:
-        new_config = replace(self._config, **{key: value})
+        new_config = self._config.model_copy(update={key: value})
         _validate_config(new_config)
         self._config = new_config
         self._invalidate_mesh()

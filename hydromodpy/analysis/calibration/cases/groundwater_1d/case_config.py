@@ -10,11 +10,12 @@ The goal is to keep all user-facing case parameters in one validated place:
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.analysis.calibration.cases.groundwater_1d.model import SUPPORTED_FORMULATIONS
+from hydromodpy.core.config.param_level import ParamLevel
 
 
 SUPPORTED_RECHARGE_MODES = ("hydro_step", "reservoir_chronicle")
@@ -27,43 +28,105 @@ class Groundwater1DChronicleSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    n_days: int = 120
-    dt_days: float = 1.0
-    L_m: float = 500.0
-    xi_true_m: float = 220.0
-    nx: int = 101
+    n_days: Annotated[int, ParamLevel("dev")] = Field(
+        default=120, description="Number of simulation days."
+    )
+    dt_days: Annotated[float, ParamLevel("dev")] = Field(
+        default=1.0, description="Time step size in days."
+    )
+    L_m: Annotated[float, ParamLevel("dev")] = Field(
+        default=500.0, description="Domain length in metres."
+    )
+    xi_true_m: Annotated[float, ParamLevel("dev")] = Field(
+        default=220.0, description="True interface position in metres."
+    )
+    nx: Annotated[int, ParamLevel("dev")] = Field(
+        default=101, description="Number of spatial cells."
+    )
 
-    formulation_true: str = "boussinesq"
-    H_linearized_m: float = 12.0
+    formulation_true: Annotated[str, ParamLevel("dev")] = Field(
+        default="boussinesq", description="True formulation type for the 1D model."
+    )
+    H_linearized_m: Annotated[float, ParamLevel("dev")] = Field(
+        default=12.0, description="Linearized reference head in metres."
+    )
 
-    Kam_true_m_per_day: float = 5.0
-    Kav_true_m_per_day: float = 1.2
-    Syam_true: float = 0.18
-    Syav_true: float = 0.10
+    Kam_true_m_per_day: Annotated[float, ParamLevel("dev")] = Field(
+        default=5.0, description="True amont hydraulic conductivity in m/day."
+    )
+    Kav_true_m_per_day: Annotated[float, ParamLevel("dev")] = Field(
+        default=1.2, description="True aval hydraulic conductivity in m/day."
+    )
+    Syam_true: Annotated[float, ParamLevel("dev")] = Field(
+        default=0.18, description="True amont specific yield."
+    )
+    Syav_true: Annotated[float, ParamLevel("dev")] = Field(
+        default=0.10, description="True aval specific yield."
+    )
 
-    h0_m: float = 6.0
+    h0_m: Annotated[float, ParamLevel("dev")] = Field(
+        default=6.0, description="Initial head in metres."
+    )
 
-    recharge_mode: str = "hydro_step"
-    recharge_wet_m_per_day: float = 0.003
-    recharge_dry_m_per_day: float = 0.0004
-    recharge_wet_months: list[int] = Field(default_factory=lambda: [10, 11, 12, 1, 2, 3])
+    recharge_mode: Annotated[str, ParamLevel("dev")] = Field(
+        default="hydro_step", description="Recharge generation mode ('constant', 'seasonal', 'weather')."
+    )
+    recharge_wet_m_per_day: Annotated[float, ParamLevel("dev")] = Field(
+        default=0.003, description="Wet-season recharge rate in m/day."
+    )
+    recharge_dry_m_per_day: Annotated[float, ParamLevel("dev")] = Field(
+        default=0.0004, description="Dry-season recharge rate in m/day."
+    )
+    recharge_wet_months: Annotated[list[int], ParamLevel("dev")] = Field(
+        default_factory=lambda: [10, 11, 12, 1, 2, 3],
+        description="Months considered as wet season.",
+    )
 
-    start_year: int = 2000
-    target_annual_precip_mm: float = 800.0
-    precip_seed: int = 42
-    runoff_coeff: float = 0.15
-    losses_mm_day: float = 1.5
-    losses_months: list[int] = Field(default_factory=lambda: [4, 5, 6, 7, 8, 9])
+    start_year: Annotated[int, ParamLevel("dev")] = Field(
+        default=2000, description="Start year for weather-based recharge."
+    )
+    target_annual_precip_mm: Annotated[float, ParamLevel("dev")] = Field(
+        default=800.0, description="Target annual precipitation in mm."
+    )
+    precip_seed: Annotated[int, ParamLevel("dev")] = Field(
+        default=42, description="Random seed for precipitation generation."
+    )
+    runoff_coeff: Annotated[float, ParamLevel("dev")] = Field(
+        default=0.15, description="Runoff coefficient."
+    )
+    losses_mm_day: Annotated[float, ParamLevel("dev")] = Field(
+        default=1.5, description="Daily loss rate in mm/day."
+    )
+    losses_months: Annotated[list[int], ParamLevel("dev")] = Field(
+        default_factory=lambda: [4, 5, 6, 7, 8, 9],
+        description="Months where losses are applied.",
+    )
 
-    obs_x_m: list[float] = Field(default_factory=list)
-    obs_t_stride: int = 2
-    obs_noise_std_m: float = 0.03
-    obs_seed: int = 123
+    obs_x_m: Annotated[list[float], ParamLevel("dev")] = Field(
+        default_factory=list, description="Observation locations along x in metres."
+    )
+    obs_t_stride: Annotated[int, ParamLevel("dev")] = Field(
+        default=2, description="Temporal stride for observations."
+    )
+    obs_noise_std_m: Annotated[float, ParamLevel("dev")] = Field(
+        default=0.03, description="Observation noise standard deviation in metres."
+    )
+    obs_seed: Annotated[int, ParamLevel("dev")] = Field(
+        default=123, description="Random seed for observation noise."
+    )
 
-    picard_max_iter: int = 40
-    picard_tol: float = 1.0e-7
-    picard_relaxation: float = 1.0
-    head_floor_m: float = 1.0e-6
+    picard_max_iter: Annotated[int, ParamLevel("dev")] = Field(
+        default=40, description="Maximum Picard iterations."
+    )
+    picard_tol: Annotated[float, ParamLevel("dev")] = Field(
+        default=1.0e-7, description="Picard convergence tolerance."
+    )
+    picard_relaxation: Annotated[float, ParamLevel("dev")] = Field(
+        default=1.0, description="Picard relaxation factor."
+    )
+    head_floor_m: Annotated[float, ParamLevel("dev")] = Field(
+        default=1.0e-6, description="Minimum allowable head in metres."
+    )
 
     @field_validator("n_days", "nx", "obs_t_stride", "picard_max_iter", "start_year", "precip_seed")
     @classmethod

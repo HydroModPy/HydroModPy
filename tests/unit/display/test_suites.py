@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 
-from hydromodpy.analysis.display.options import DisplayOptions, DisplaySectionOptions
+from hydromodpy.analysis.display.display_config import DisplayOptions, DisplaySectionOptions
 from hydromodpy.analysis.display.suites import (
     plot_boussinesq_flow_suite,
     plot_flow_suite,

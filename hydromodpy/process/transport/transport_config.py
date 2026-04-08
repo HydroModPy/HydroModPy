@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.process.prototype import ProcessSpatialConfig
@@ -12,6 +12,8 @@ from hydromodpy.process.prototype import ProcessSpatialConfig
 
 class ModpathParametersConfig(BaseModel):
     """Configuration payload for the Modpath transport solver."""
+
+    model_config = ConfigDict(extra="forbid")
 
     zone_partic: Annotated[str, ParamLevel("dev")] = Field(
         default="domain",
@@ -51,6 +53,8 @@ class ModpathParametersConfig(BaseModel):
 class TransportModpathConfig(BaseModel):
     """Container for Modpath solver settings."""
 
+    model_config = ConfigDict(extra="forbid")
+
     parameters: ModpathParametersConfig = Field(
         default_factory=ModpathParametersConfig,
         description="Solver parameter block used by Modpath.",
@@ -59,6 +63,8 @@ class TransportModpathConfig(BaseModel):
 
 class ConcentrationTransportParametersConfig(BaseModel):
     """Configuration payload shared by concentration transport solvers."""
+
+    model_config = ConfigDict(extra="forbid")
 
     spc_name: Annotated[str, ParamLevel("dev")] = Field(
         default="NO3",
@@ -105,6 +111,8 @@ class ConcentrationTransportParametersConfig(BaseModel):
 class TransportMt3dmsConfig(BaseModel):
     """Container for MT3DMS solver settings."""
 
+    model_config = ConfigDict(extra="forbid")
+
     parameters: ConcentrationTransportParametersConfig = Field(
         default_factory=ConcentrationTransportParametersConfig,
         description="Solver parameter block used by Mt3dms.",
@@ -113,6 +121,8 @@ class TransportMt3dmsConfig(BaseModel):
 
 class TransportModflow6GwtConfig(BaseModel):
     """Container for MODFLOW 6 GWT solver settings."""
+
+    model_config = ConfigDict(extra="forbid")
 
     parameters: ConcentrationTransportParametersConfig = Field(
         default_factory=ConcentrationTransportParametersConfig,

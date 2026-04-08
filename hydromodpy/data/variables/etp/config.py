@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -21,8 +21,8 @@ class EtpSourceConfig(BaseModel):
     )
 
     # --- Custom source fields ---
-    path: Annotated[Optional[Path], ParamLevel("user")] = Field(default=None, description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.")
-    source_unit: Annotated[Optional[str], ParamLevel("user")] = Field(default=None, description="Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.")
+    path: Annotated[Path | None, ParamLevel("user")] = Field(default=None, description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.")
+    source_unit: Annotated[str | None, ParamLevel("user")] = Field(default=None, description="Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.")
     col_id: Annotated[str, ParamLevel("dev")] = Field(default="id", description="Column name for station identifier in location file.")
     col_x: Annotated[str, ParamLevel("dev")] = Field(default="x", description="Column name for X coordinate in location CSV.")
     col_y: Annotated[str, ParamLevel("dev")] = Field(default="y", description="Column name for Y coordinate in location CSV.")
@@ -32,11 +32,11 @@ class EtpSourceConfig(BaseModel):
     col_value: Annotated[str, ParamLevel("dev")] = Field(default="value", description="Column name for value in chronicle CSVs.")
 
     # --- Spatial mask ---
-    mask_path: Annotated[Optional[Path], ParamLevel("user")] = Field(default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.")
+    mask_path: Annotated[Path | None, ParamLevel("user")] = Field(default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.")
 
     # --- Common fields ---
-    station_ids: Annotated[Optional[list[str]], ParamLevel("user")] = Field(default=None, description="Explicit station ids (custom source).")
-    extent: Annotated[Optional[Literal["watershed", "study_area"]], ParamLevel("user")] = Field(
+    station_ids: Annotated[list[str] | None, ParamLevel("user")] = Field(default=None, description="Explicit station ids (custom source).")
+    extent: Annotated[Literal["watershed", "study_area"] | None, ParamLevel("user")] = Field(
         default=None, description="Enable bbox-based data retrieval using the project extent.",
     )
     force_refresh: Annotated[bool, ParamLevel("dev")] = Field(default=False, description="Ignore cache and re-download from API.")
