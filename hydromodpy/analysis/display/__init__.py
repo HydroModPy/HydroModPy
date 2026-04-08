@@ -4,7 +4,7 @@ from hydromodpy.analysis.display.adapters import (
     observed_discharge_series,
     observed_piezometry_series,
 )
-from hydromodpy.analysis.display.options import (
+from hydromodpy.analysis.display.display_config import (
     DisplayConfig,
     DisplayOptions,
     DisplaySectionOptions,

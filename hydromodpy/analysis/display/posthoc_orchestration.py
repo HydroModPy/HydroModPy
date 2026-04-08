@@ -8,7 +8,7 @@ Usage::
 
     from hydromodpy.analysis.display.posthoc import PosthocContext
     from hydromodpy.analysis.display.posthoc_orchestration import plot_posthoc_all
-    from hydromodpy.analysis.display.options import display_options_from_raw_toml
+    from hydromodpy.analysis.display.display_config import display_options_from_raw_toml
 
     ctx = PosthocContext.from_toml("project/config.toml")
     options = display_options_from_raw_toml(raw_toml)
@@ -28,7 +28,7 @@ from hydromodpy.analysis.display.common import (
     make_figure,
     _single_axes,
 )
-from hydromodpy.analysis.display.options import DisplayOptions
+from hydromodpy.analysis.display.display_config import DisplayOptions
 from hydromodpy.analysis.display.posthoc import GeographicArtifacts, PosthocContext, RunArtifacts
 
 logger = logging.getLogger(__name__)
