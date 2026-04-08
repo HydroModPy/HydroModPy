@@ -20,6 +20,7 @@ and the adapters share a single import source without circular dependencies.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 
@@ -85,6 +86,11 @@ class RunExecutionResult:
 
     ``primary_model`` is the exact model produced by the run and is always
     stored under ``state.execution.models_by_run_id[run.id]`` by the runner.
+
+    ``solver_output_dir`` is the directory where the solver wrote its raw
+    output files (e.g. ``.hds``, ``.cbc``). May be ``None`` for in-memory
+    solvers.
     """
 
     primary_model: Any
+    solver_output_dir: Path | None = None
