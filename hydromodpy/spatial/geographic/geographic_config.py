@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -29,7 +31,7 @@ class RiverNetworkConfig(BaseModel):
         ),
     )
     threshold_area_km2: Annotated[
-        Optional[float],
+        float | None,
         ParamLevel("user"),
         VisibleWhen("threshold_mode", "area_km2"),
     ] = Field(
@@ -40,7 +42,7 @@ class RiverNetworkConfig(BaseModel):
         ),
     )
     threshold_cells: Annotated[
-        Optional[float],
+        float | None,
         ParamLevel("user"),
         VisibleWhen("threshold_mode", "cells"),
     ] = Field(
@@ -154,7 +156,7 @@ class GeographicConfig(BaseModel):
         ),
     )
     catch_def: Annotated[
-        Optional[Literal["dem", "txt", "from_outlet_coord", "from_polyg_shp"]],
+        Literal["dem", "txt", "from_outlet_coord", "from_polyg_shp"] | None,
         ParamLevel("user"),
     ] = Field(
         default=None,
@@ -170,7 +172,7 @@ class GeographicConfig(BaseModel):
     )
 
     dem_init_path: Annotated[
-        Optional[Path],
+        Path | None,
         ParamLevel("user"),
         VisibleWhen("source_mode", "standard"),
     ] = Field(
@@ -182,7 +184,7 @@ class GeographicConfig(BaseModel):
         ),
     )
     cell_size: Annotated[
-        Optional[float],
+        float | None,
         ParamLevel("user"),
         VisibleWhen("catch_def", "txt"),
     ] = Field(
@@ -191,7 +193,7 @@ class GeographicConfig(BaseModel):
         description="Grid cell size in metres used to rasterise the XYZ point cloud. Required for 'txt' mode.",
     )
     x_outlet: Annotated[
-        Optional[float],
+        float | None,
         ParamLevel("user"),
         VisibleWhen("catch_def", "from_outlet_coord"),
     ] = Field(
@@ -199,7 +201,7 @@ class GeographicConfig(BaseModel):
         description="X coordinate of the watershed outlet in the projected CRS. Required for 'from_outlet_coord' mode.",
     )
     y_outlet: Annotated[
-        Optional[float],
+        float | None,
         ParamLevel("user"),
         VisibleWhen("catch_def", "from_outlet_coord"),
     ] = Field(
@@ -207,7 +209,7 @@ class GeographicConfig(BaseModel):
         description="Y coordinate of the watershed outlet in the projected CRS. Required for 'from_outlet_coord' mode.",
     )
     snap_dist: Annotated[
-        Optional[float | str],
+        float | str | None,
         ParamLevel("user"),
         VisibleWhen("catch_def", "from_outlet_coord"),
     ] = Field(
@@ -219,7 +221,7 @@ class GeographicConfig(BaseModel):
         ),
     )
     buff_area: Annotated[
-        Optional[str | float],
+        str | float | None,
         ParamLevel("user"),
         VisibleWhen("catch_def", ("from_outlet_coord", "from_polyg_shp")),
     ] = Field(
@@ -232,14 +234,14 @@ class GeographicConfig(BaseModel):
         ),
     )
     polyg_shp_path: Annotated[
-        Optional[Path],
+        Path | None,
         ParamLevel("user"),
         VisibleWhen("catch_def", "from_polyg_shp"),
     ] = Field(
         default=None,
         description="Path to the watershed polygon shapefile. Required for 'from_polyg_shp' mode.",
     )
-    crs_project: Annotated[Optional[str], ParamLevel("user")] = Field(
+    crs_project: Annotated[str | None, ParamLevel("user")] = Field(
         default=None,
         description="Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM.",
     )
@@ -247,11 +249,11 @@ class GeographicConfig(BaseModel):
         default="breach",
         description="DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.",
     )
-    bottom_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
+    bottom_path: Annotated[Path | None, ParamLevel("user")] = Field(
         default=None,
         description="Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain.",
     )
-    reg_fold: Annotated[Optional[Path], ParamLevel("dev")] = Field(
+    reg_fold: Annotated[Path | None, ParamLevel("dev")] = Field(
         default=None,
         description="Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed.",
     )
