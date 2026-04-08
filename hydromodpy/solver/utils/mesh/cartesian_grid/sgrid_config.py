@@ -15,9 +15,11 @@ from math import isclose
 from pathlib import Path
 import tomllib
 import warnings
-from typing import Any, Literal, Mapping
+from typing import Annotated, Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+
+from hydromodpy.core.config.param_level import ParamLevel
 
 
 def _require_positive_int(value, *, name: str) -> int:
@@ -57,23 +59,23 @@ class VerticalGridConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    genmtd_lay: Literal["constant", "decay", "list"] = Field(
+    genmtd_lay: Annotated[Literal["constant", "decay", "list"], ParamLevel("user")] = Field(
         default="constant",
         description="Vertical-layering strategy.",
     )
-    nlay: int | None = Field(
+    nlay: Annotated[int | None, ParamLevel("user")] = Field(
         default=1,
         description="Number of layers (required for constant/decay, ignored for list).",
     )
-    lay_decay: float | None = Field(
+    lay_decay: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None,
         description="Decay exponent (>1) for decay layering.",
     )
-    lay_proportions: list[float] | None = Field(
+    lay_proportions: Annotated[list[float] | None, ParamLevel("dev")] = Field(
         default=None,
         description="Explicit layer fractions when genmtd_lay='list' (must sum to 1).",
     )
-    nodata: float = Field(
+    nodata: Annotated[float, ParamLevel("dev")] = Field(
         default=-9999.0,
         description="No-data sentinel value.",
     )
@@ -128,24 +130,24 @@ class PlanarGridConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Literal["keep_native", "resample_to_shape"] = Field(
+    mode: Annotated[Literal["keep_native", "resample_to_shape"], ParamLevel("user")] = Field(
         default="keep_native",
         description=(
             "Planar solver-grid mode: keep the native domain support or "
             "resample to an explicit (ny, nx) target shape."
         ),
     )
-    nx: int | None = Field(
+    nx: Annotated[int | None, ParamLevel("user")] = Field(
         default=None,
         ge=1,
         description="Target number of columns when planar mode is 'resample_to_shape'.",
     )
-    ny: int | None = Field(
+    ny: Annotated[int | None, ParamLevel("user")] = Field(
         default=None,
         ge=1,
         description="Target number of rows when planar mode is 'resample_to_shape'.",
     )
-    resampling: Literal["bilinear", "average", "nearest"] = Field(
+    resampling: Annotated[Literal["bilinear", "average", "nearest"], ParamLevel("dev")] = Field(
         default="bilinear",
         description="Resampling rule applied when planar mode is 'resample_to_shape'.",
     )
@@ -165,11 +167,11 @@ class SolverSGridConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    planar: PlanarGridConfig = Field(
+    planar: Annotated[PlanarGridConfig, ParamLevel("user")] = Field(
         default_factory=PlanarGridConfig,
         description="Planar discretization of the solver grid.",
     )
-    vertical: VerticalGridConfig = Field(
+    vertical: Annotated[VerticalGridConfig, ParamLevel("user")] = Field(
         default_factory=VerticalGridConfig,
         description="Vertical layering of the solver grid.",
     )
@@ -193,81 +195,81 @@ class SGridConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    sgrid_type: Literal["structured"] = Field(
+    sgrid_type: Annotated[Literal["structured"], ParamLevel("user")] = Field(
         default="structured",
         description="Spatial grid family. Only 'structured' is supported.",
     )
-    genmtd_top: Literal["filepath"] = Field(
+    genmtd_top: Annotated[Literal["filepath"], ParamLevel("user")] = Field(
         default="filepath",
         description="Method used to define top surface. Currently only raster filepath is supported.",
     )
-    top_path: str = Field(
+    top_path: Annotated[str, ParamLevel("user")] = Field(
         ...,
         description="Path to top DEM raster used as model top surface.",
     )
-    crs: str | None = Field(
+    crs: Annotated[str | None, ParamLevel("user")] = Field(
         default=None,
         description="Optional CRS identifier (for example 'EPSG:2154').",
     )
-    plan_discretization_mode: Literal["keep_native", "resample_to_shape"] = Field(
+    plan_discretization_mode: Annotated[Literal["keep_native", "resample_to_shape"], ParamLevel("user")] = Field(
         default="keep_native",
         description=(
             "Planar discretization strategy: keep native support or "
             "resample to explicit (ny, nx) target shape."
         ),
     )
-    nx: int | None = Field(
+    nx: Annotated[int | None, ParamLevel("user")] = Field(
         default=None,
         ge=1,
         description="Target number of columns when plan_discretization_mode='resample_to_shape'.",
     )
-    ny: int | None = Field(
+    ny: Annotated[int | None, ParamLevel("user")] = Field(
         default=None,
         ge=1,
         description="Target number of rows when plan_discretization_mode='resample_to_shape'.",
     )
 
-    genmtd_bot: Literal["filepath", "raster", "constant_thickness", "constant_altitude"] = Field(
+    genmtd_bot: Annotated[Literal["filepath", "raster", "constant_thickness", "constant_altitude"], ParamLevel("user")] = Field(
         ...,
         description="Bottom-surface generation method.",
     )
-    bot_path: str | None = Field(
+    bot_path: Annotated[str | None, ParamLevel("user")] = Field(
         default=None,
         description="Path to bottom raster when genmtd_bot='filepath'.",
     )
-    bot_raster: Any | None = Field(
+    bot_raster: Annotated[Any | None, ParamLevel("user")] = Field(
         default=None,
         description="In-memory bottom raster array when genmtd_bot='raster'.",
     )
-    thick: float | None = Field(
+    thick: Annotated[float | None, ParamLevel("user")] = Field(
         default=None,
         description="Domain thickness when genmtd_bot='constant_thickness'.",
     )
-    zbot: float | None = Field(
+    zbot: Annotated[float | None, ParamLevel("user")] = Field(
         default=None,
         description="Constant bottom elevation when genmtd_bot='constant_altitude'.",
     )
 
-    genmtd_lay: Literal["constant", "decay", "list"] = Field(
+    genmtd_lay: Annotated[Literal["constant", "decay", "list"], ParamLevel("user")] = Field(
         ...,
         description="Vertical-layering method.",
     )
-    nlay: int | None = Field(
+    nlay: Annotated[int | None, ParamLevel("user")] = Field(
         default=None,
         ge=1,
         description="Number of model layers for constant/decay layering.",
     )
-    lay_decay: float | None = Field(
+    lay_decay: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None,
         gt=1.0,
         description="Decay exponent (>1) for progressively thicker layers with depth.",
     )
-    lay_proportions: list[float] | None = Field(
+    lay_proportions: Annotated[list[float] | None, ParamLevel("dev")] = Field(
         default=None,
         description="Per-layer thickness fractions when genmtd_lay='list' (must sum to 1).",
     )
 
-    nodata: float = Field(
+    nodata: Annotated[float, ParamLevel("dev")] = Field(
         default=-9999.0,
         description="No-data sentinel value used to mask invalid raster cells.",
     )
