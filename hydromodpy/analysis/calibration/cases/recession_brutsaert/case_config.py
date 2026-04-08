@@ -10,9 +10,11 @@ The workflow is:
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+from hydromodpy.core.config.param_level import ParamLevel
 
 
 class BrutsaertChronicleSchema(BaseModel):
@@ -25,20 +27,48 @@ class BrutsaertChronicleSchema(BaseModel):
     # Reject undeclared keys to avoid silent TOML typos.
     model_config = ConfigDict(extra="forbid")
 
-    Q0: float
-    K: float
-    Sy: float
-    solution: str = "boussinesq"
-    A: float | None = None
-    L: float | None = None
-    b: float | None = None
-    ag: float = 0.7
-    p: float = 0.346
-    n_points: int = 50
-    log_spacing: bool = True
-    t_min_days: float = 0.1
-    error_fraction: float = 0.15
-    random_seed: int | None = 12345
+    Q0: Annotated[float, ParamLevel("dev")] = Field(
+        description="Initial discharge."
+    )
+    K: Annotated[float, ParamLevel("dev")] = Field(
+        description="Hydraulic conductivity."
+    )
+    Sy: Annotated[float, ParamLevel("dev")] = Field(
+        description="Specific yield."
+    )
+    solution: Annotated[str, ParamLevel("dev")] = Field(
+        default="boussinesq", description="Analytical solution type."
+    )
+    A: Annotated[float | None, ParamLevel("dev")] = Field(
+        default=None, description="Aquifer cross-sectional area."
+    )
+    L: Annotated[float | None, ParamLevel("dev")] = Field(
+        default=None, description="Aquifer length."
+    )
+    b: Annotated[float | None, ParamLevel("dev")] = Field(
+        default=None, description="Aquifer thickness."
+    )
+    ag: Annotated[float, ParamLevel("dev")] = Field(
+        default=0.7, description="Gravity constant or slope parameter."
+    )
+    p: Annotated[float, ParamLevel("dev")] = Field(
+        default=0.346, description="Brutsaert recession exponent."
+    )
+    n_points: Annotated[int, ParamLevel("dev")] = Field(
+        default=50, description="Number of data points to generate."
+    )
+    log_spacing: Annotated[bool, ParamLevel("dev")] = Field(
+        default=True, description="Use logarithmic spacing for time points."
+    )
+    t_min_days: Annotated[float, ParamLevel("dev")] = Field(
+        default=0.1, description="Minimum time in days."
+    )
+    error_fraction: Annotated[float, ParamLevel("dev")] = Field(
+        default=0.15, description="Fractional error for synthetic noise."
+    )
+    random_seed: Annotated[int | None, ParamLevel("dev")] = Field(
+        default=12345, description="Random seed for reproducibility."
+    )
 
     @field_validator("Q0", "K", "Sy", "t_min_days")
     @classmethod
