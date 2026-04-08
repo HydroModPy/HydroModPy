@@ -1,10 +1,8 @@
 # ======================================================================
 # HydroModPy Configuration
-# Profile: user | Modules: workspace, geographic, domain, data, flow, transport, modflownwt
-# Auto-generated — Exemple 04 : Bassin du Nancon (transitoire)
-#
-# Mode SIMULATION : l'orchestration est definie dans [simulation].
-# Lancer avec :   hmp simulation run_transient_nwt.toml
+# Profile: user | Modules: workspace, geographic, domain
+# Auto-generated from Pydantic models.
+# Edit values below. Comments describe each parameter.
 # ======================================================================
 
 
@@ -17,27 +15,36 @@ name = "Nancon transitoire mensuel"
 
 [simulation.time]
 start_datetime = "2000-01-01"
-end_datetime   = "2002-12-31"
-step_value     = "1 month"
+end_datetime = "2002-12-31"
+step_value = "1 month"
 coverage_policy = "warn"
 
 [[simulation.process]]
-id      = "flow_main"
-type    = "flow"
+id = "flow_main"
+type = "flow"
 solvers = ["modflownwt"]
 
 [[simulation.process]]
-id      = "transport_main"
-type    = "transport"
+id = "transport_main"
+type = "transport"
 solvers = ["modpath"]
 
 
 # ----------------------------------------------------------------------
-# Workspace configuration for watershed project structure.
+# Workspace configuration for project-based workspace structure.
 # ----------------------------------------------------------------------
 
 [workspace]
+# Path to the project directory.
+# Auto-derived from TOML location when absent.
+# Type: path | REQUIRED
 project_root = "."
+
+# Root directory for all outputs (results_stable/, results_simulations/, results_calibration/).
+# Defaults to project_root when not set.
+# Use this to redirect heavy outputs to a separate disk.
+# Type: path (optional) | Optional
+# output_root = ""
 
 
 # ----------------------------------------------------------------------
@@ -73,7 +80,7 @@ cell_size = 1.0
 # X coordinate of the watershed outlet in the projected CRS.
 # Required for 'from_outlet_coord' mode.
 # Type: float (optional) | Optional
-x_outlet = 389285.910
+x_outlet = 389285.91
 
 # Y coordinate of the watershed outlet in the projected CRS.
 # Required for 'from_outlet_coord' mode.
@@ -83,14 +90,14 @@ y_outlet = 6816518.749
 # Maximum snapping distance to move the outlet to the nearest stream cell.
 # Accepts SI-friendly values (for example 50, '50 m', '0.05 km').
 # Required for 'from_outlet_coord' mode.
-# Type: Union[float, str, NoneType] | Optional
+# Type: UnionType[float, str, NoneType] | Optional
 snap_dist = "150 m"
 
 # Buffer around the watershed polygon.
 # Numeric values keep legacy behavior (percentage of sqrt(area [km^2])).
 # String values are interpreted as explicit distances (for example '500 m', '2 km').
 # Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
-# Type: Union[float, str, NoneType] | Optional
+# Type: UnionType[str, float, NoneType] | Optional
 buff_area = "10%"
 
 # Path to the watershed polygon shapefile.
@@ -144,22 +151,6 @@ nx = 100
 # Type: int | >= 1 | Default: 1
 ny = 1
 
-# Lower x coordinate of the support extent.
-# Type: float | Default: 0.0
-xmin = 0.0
-
-# Lower y coordinate of the support extent.
-# Type: float | Default: 0.0
-ymin = 0.0
-
-# Projected CRS attached to synthetic outputs.
-# Type: string | Default: "EPSG:2154"
-crs = "EPSG:2154"
-
-# Nodata sentinel exported to raster artefacts.
-# Type: float | Default: -9999.0
-nodata = -9999.0
-
 
 [geographic.synthetic.topography]
 # Analytical topography law.
@@ -175,31 +166,6 @@ kind = "flat"
 # For 'radial_island' this is the submerged ocean-floor elevation.
 # Type: float | Default: 20.0
 base_elevation = 20.0
-
-# Additional elevation reached on the left boundary relative to the right boundary.
-# Positive values make the surface rise from right to left.
-# Type: float | Default: 0.0
-right_to_left_amplitude = 0.0
-
-# Circular shoreline radius (m) used by 'radial_island'.
-# Defaults to 35% of the smallest domain length.
-# Type: float (optional) | Optional
-island_radius = 0.0
-
-# Central island elevation (m) used by 'radial_island'.
-# The land surface decays nonlinearly to sea level at the shoreline.
-# Type: float | Default: 10.0
-crest_elevation = 10.0
-
-# Optional x coordinate of the radial-island center.
-# Defaults to the grid midpoint.
-# Type: float (optional) | Optional
-center_x = 0.0
-
-# Optional y coordinate of the radial-island center.
-# Defaults to the grid midpoint.
-# Type: float (optional) | Optional
-center_y = 0.0
 
 
 # Optional DEM-derived river-network extraction settings.
@@ -218,11 +184,11 @@ threshold_mode = "area_km2"
 
 # Contributing area threshold (km^2), required when threshold_mode='area_km2'.
 # Type: float (optional) | Optional
-threshold_area_km2 = 0.0
+# threshold_area_km2 = 0.0
 
 # Contributing-cell threshold, required when threshold_mode='cells'.
 # Type: float (optional) | Optional
-threshold_cells = 0.0
+# threshold_cells = 0.0
 
 # If true, remove short stream segments after extraction.
 # Type: bool | Default: false
@@ -264,7 +230,6 @@ zone_ids = ["geology"]
 supports = {}
 
 
-
 # Vertical domain model configuration.
 # Use 'constant_thickness' or 'flat_substratum'.
 
@@ -280,555 +245,50 @@ thickness = 30.0
 
 
 # ----------------------------------------------------------------------
-# Top-level configuration for data-manager families.
+# Data managers configuration
 # ----------------------------------------------------------------------
 
 [data]
-# Ordered list of data-manager types explicitly requested in [data].
-# The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc).
-# Allowed values: 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
-# Type: list[str] | REQUIRED
 types = ["geology", "hydrography", "intermittency", "hydrometry", "recharge"]
 
-
-# Geology configuration used when 'geology' is listed in data.types.
-
 [data.geology]
-# Identifier of the geology spatial field.
-# Type: string | Default: "field_geology"
 id = "field_geology"
 
 [[data.geology.sources]]
 source = "brgm_1m"
 
-
-# Intermittency configuration (ONDE stations).
-
-[data.intermittency]
-intermittency_path = "../../data/intermittency"
-file_name = "regional_onde_stations.shp"
-
-
-# Hydrography configuration (stream network vector data).
-
-# At least one hydrography data source.
 [[data.hydrography.sources]]
-# Data provider.
-# Type: Literal['custom', 'osm', 'bdtopage', 'euhydro'] | one of: "custom", "osm", "bdtopage", "euhydro" | REQUIRED
 source = "bdtopage"
-
-# Path to a vector file (SHP/GPKG/GeoJSON), raster (TIF/TIFF), or directory containing one.
-# Type: path (optional) | Optional
-# path = ""
-
-# Attribute field used when rasterising the vector layer.
-# Type: string | Default: "FID"
 rasterize_field = "FID"
 
-
-# Hydrometry configuration (discharge time-series).
-
-[data.hydrometry]
-# Project start date (ISO format, e.g.
-# '2019-01-01').
-# Type: string (optional) | Optional
-# date_start = ""
-
-# Project end date (ISO format, e.g.
-# '2025-12-31').
-# Type: string (optional) | Optional
-# date_end = ""
-
-
-# At least one data source.
 [[data.hydrometry.sources]]
-# Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
-# Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
 source = "custom"
-
-# Directory containing location file and chronicle CSVs.
-# Type: path (optional) | Optional
 path = "../../data/hydrometry"
-
-# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
-# Type: path (optional) | Optional
-# mask_path = ""
-
-# Hub'Eau variable code (e.g.
-# 'QmnJ', 'QmM', 'HmnJ').
-# Type: string (optional) | Optional
-# product = ""
-
-# Explicit list of station ids to load.
-# Type: list (optional) | Optional
 station_ids = []
-
-# Enable bbox-based station discovery using the project extent.
-# Type: Literal (optional) | Optional
 extent = "watershed"
 
-
-# Oceanic configuration used when 'oceanic' is listed in data.types.
-
-# [data.oceanic]
-# Project start date (ISO format, e.g.
-# '2003-01-01').
-# Type: string (optional) | Optional
-# date_start = ""
-
-# Project end date (ISO format, e.g.
-# '2003-01-30').
-# Type: string (optional) | Optional
-# date_end = ""
-
-
-# At least one data source.
-# [[data.oceanic.sources]]
-# Data provider: 'custom' for user CSV/NC/TIF files, 'shom' for SHOM API, 'constant' for fixed MSL.
-# Type: Literal['custom', 'shom', 'constant'] | one of: "custom", "shom", "constant" | REQUIRED
-# source = "custom"
-
-# Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
-# Type: path (optional) | Optional
-# path = ""
-
-# Constant mean sea-level value in metres.
-# Type: float (optional) | Optional
-# value = 0.0
-
-# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-# Type: path (optional) | Optional
-# mask_path = ""
-
-# Explicit station ids to load (custom source).
-# Type: list (optional) | Optional
-# station_ids = []
-
-# Enable bbox-based data retrieval using the project extent.
-# Type: Literal (optional) | Optional
-# extent = "watershed"
-
-
-# Piezometry configuration (groundwater level time-series).
-
-# [data.piezometry]
-# Project start date (ISO format, e.g.
-# '2019-01-01').
-# Type: string (optional) | Optional
-# date_start = ""
-
-# Project end date (ISO format, e.g.
-# '2025-12-31').
-# Type: string (optional) | Optional
-# date_end = ""
-
-
-# At least one data source.
-# [[data.piezometry.sources]]
-# Data provider.
-# Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
-# source = "custom"
-
-# Directory containing location file and chronicle CSVs.
-# Type: path (optional) | Optional
-# path = ""
-
-# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
-# Type: path (optional) | Optional
-# mask_path = ""
-
-# Hub'Eau measurement type: 'level' or 'depth'.
-# Type: Literal (optional) | Optional
-# product = "level"
-
-# Explicit station ids.
-# Type: list (optional) | Optional
-# station_ids = []
-
-# Enable bbox-based station discovery using the project extent.
-# Type: Literal (optional) | Optional
-# extent = "watershed"
-
-
-# Water quality configuration (physico-chemical parameters).
-
-# At least one data source.
-# [[data.water_quality.sources]]
-# Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
-# Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
-# source = "custom"
-
-# Type of site: 'river' (qualite_rivieres) or 'piezometer' (qualite_nappes).
-# Type: Literal['river', 'piezometer'] | one of: "river", "piezometer" | Default: "river"
-# site_type = "river"
-
-# Parameters to keep (e.g.
-# ['pH', 'Nitrates']).
-# None = all parameters.
-# Type: list (optional) | Optional
-# parameters = []
-
-# Directory containing location file and chronicle CSVs.
-# Type: path (optional) | Optional
-# path = ""
-
-# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
-# Type: path (optional) | Optional
-# mask_path = ""
-
-# Explicit station ids.
-# Type: list (optional) | Optional
-# station_ids = []
-
-# Enable bbox-based station discovery using the project extent.
-# Type: Literal (optional) | Optional
-# extent = "watershed"
-
-
-# Recharge configuration (drainage / soil infiltration time series).
+[[data.intermittency.sources]]
+source = "custom"
+path = "../../data/intermittency"
 
 [data.recharge]
-# Project start date (ISO format, e.g.
-# '2019-01-01').
-# Type: string (optional) | Optional
 date_start = "2000-01-01"
-
-# Project end date (ISO format, e.g.
-# '2025-12-31').
-# Type: string (optional) | Optional
 date_end = "2002-12-31"
 
-
-# --- Option A : donnees locales (CSV custom, cf. data/recharge/) ---
 [[data.recharge.sources]]
-# Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'synthetic' for generated series.
-# Type: Literal['custom', 'sim2', 'synthetic'] | one of: "custom", "sim2", "synthetic" | REQUIRED
 source = "custom"
-
-# Directory containing location file and chronicle CSVs.
-# Type: path (optional) | Optional
 path = "../../data/recharge"
-
-# --- Option B : telecharger la recharge SIM2 (SAFRAN-ISBA grille ~8 km) ---
-# Decommenter le bloc ci-dessous et commenter l'option A pour basculer.
-# [[data.recharge.sources]]
-# source = "sim2"
-# extent = "watershed"
-
-
-# Runoff configuration (surface runoff time series).
-
-# [data.runoff]
-# Project start date (ISO format, e.g.
-# '2019-01-01').
-# Type: string (optional) | Optional
-# date_start = ""
-
-# Project end date (ISO format, e.g.
-# '2025-12-31').
-# Type: string (optional) | Optional
-# date_end = ""
-
-
-# At least one data source.
-# [[data.runoff.sources]]
-# Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
-# Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
-# source = "custom"
-
-# Directory containing location file and chronicle CSVs.
-# Type: path (optional) | Optional
-# path = ""
-
-# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-# Type: path (optional) | Optional
-# mask_path = ""
-
-# Explicit station ids (custom source).
-# Type: list (optional) | Optional
-# station_ids = []
-
-# Enable bbox-based data retrieval using the project extent.
-# Type: Literal (optional) | Optional
-# extent = "watershed"
-
-
-# Precipitation configuration (liquid and solid precipitation).
-
-# [data.precipitation]
-# Project start date (ISO format, e.g.
-# '2019-01-01').
-# Type: string (optional) | Optional
-# date_start = ""
-
-# Project end date (ISO format, e.g.
-# '2025-12-31').
-# Type: string (optional) | Optional
-# date_end = ""
-
-
-# At least one data source.
-# [[data.precipitation.sources]]
-# Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
-# Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
-# source = "custom"
-
-# Precipitation components: 'liquid' (rain), 'solid' (snow), 'total' (sum of both).
-# Type: list[Literal] | Default: ["total"]
-# components = ["total"]
-
-# Directory containing location file and chronicle CSVs.
-# Type: path (optional) | Optional
-# path = ""
-
-# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-# Type: path (optional) | Optional
-# mask_path = ""
-
-# Explicit station ids (custom source).
-# Type: list (optional) | Optional
-# station_ids = []
-
-# Enable bbox-based data retrieval using the project extent.
-# Type: Literal (optional) | Optional
-# extent = "watershed"
-
-
-# ETP configuration (potential evapotranspiration).
-
-# [data.etp]
-# Project start date (ISO format, e.g.
-# '2019-01-01').
-# Type: string (optional) | Optional
-# date_start = ""
-
-# Project end date (ISO format, e.g.
-# '2025-12-31').
-# Type: string (optional) | Optional
-# date_end = ""
-
-
-# At least one data source.
-# [[data.etp.sources]]
-# Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
-# Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
-# source = "custom"
-
-# Directory containing location file and chronicle CSVs.
-# Type: path (optional) | Optional
-# path = ""
-
-# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-# Type: path (optional) | Optional
-# mask_path = ""
-
-# Explicit station ids (custom source).
-# Type: list (optional) | Optional
-# station_ids = []
-
-# Enable bbox-based data retrieval using the project extent.
-# Type: Literal (optional) | Optional
-# extent = "watershed"
-
-
-# Temperature configuration (air temperature time series).
-
-# [data.temperature]
-# Project start date (ISO format, e.g.
-# '2019-01-01').
-# Type: string (optional) | Optional
-# date_start = ""
-
-# Project end date (ISO format, e.g.
-# '2025-12-31').
-# Type: string (optional) | Optional
-# date_end = ""
-
-
-# At least one data source.
-# [[data.temperature.sources]]
-# Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
-# Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
-# source = "custom"
-
-# Directory containing location file and chronicle CSVs.
-# Type: path (optional) | Optional
-# path = ""
-
-# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-# Type: path (optional) | Optional
-# mask_path = ""
-
-# Explicit station ids (custom source).
-# Type: list (optional) | Optional
-# station_ids = []
-
-# Enable bbox-based data retrieval using the project extent.
-# Type: Literal (optional) | Optional
-# extent = "watershed"
-
-
-# Wind configuration (wind speed time series).
-
-# [data.wind]
-# Project start date (ISO format, e.g.
-# '2019-01-01').
-# Type: string (optional) | Optional
-# date_start = ""
-
-# Project end date (ISO format, e.g.
-# '2025-12-31').
-# Type: string (optional) | Optional
-# date_end = ""
-
-
-# At least one data source.
-# [[data.wind.sources]]
-# Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
-# Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
-# source = "custom"
-
-# Directory containing location file and chronicle CSVs.
-# Type: path (optional) | Optional
-# path = ""
-
-# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-# Type: path (optional) | Optional
-# mask_path = ""
-
-# Explicit station ids (custom source).
-# Type: list (optional) | Optional
-# station_ids = []
-
-# Enable bbox-based data retrieval using the project extent.
-# Type: Literal (optional) | Optional
-# extent = "watershed"
-
-
-# Humidity configuration (relative humidity time series).
-
-# [data.humidity]
-# Project start date (ISO format, e.g.
-# '2019-01-01').
-# Type: string (optional) | Optional
-# date_start = ""
-
-# Project end date (ISO format, e.g.
-# '2025-12-31').
-# Type: string (optional) | Optional
-# date_end = ""
-
-
-# At least one data source.
-# [[data.humidity.sources]]
-# Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
-# Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
-# source = "custom"
-
-# Directory containing location file and chronicle CSVs.
-# Type: path (optional) | Optional
-# path = ""
-
-# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-# Type: path (optional) | Optional
-# mask_path = ""
-
-# Explicit station ids (custom source).
-# Type: list (optional) | Optional
-# station_ids = []
-
-# Enable bbox-based data retrieval using the project extent.
-# Type: Literal (optional) | Optional
-# extent = "watershed"
-
-
-# Radiation configuration (atmospheric and visible radiation).
-
-# [data.radiation]
-# Project start date (ISO format, e.g.
-# '2019-01-01').
-# Type: string (optional) | Optional
-# date_start = ""
-
-# Project end date (ISO format, e.g.
-# '2025-12-31').
-# Type: string (optional) | Optional
-# date_end = ""
-
-
-# At least one data source.
-# [[data.radiation.sources]]
-# Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
-# Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
-# source = "custom"
-
-# Radiation components: 'atmospheric' (DLI_Q) and/or 'visible' (SSI_Q).
-# Type: list[Literal] | Default: ["atmospheric", "visible"]
-# components = ["atmospheric", "visible"]
-
-# Directory containing location file and chronicle CSVs.
-# Type: path (optional) | Optional
-# path = ""
-
-# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-# Type: path (optional) | Optional
-# mask_path = ""
-
-# Explicit station ids (custom source).
-# Type: list (optional) | Optional
-# station_ids = []
-
-# Enable bbox-based data retrieval using the project extent.
-# Type: Literal (optional) | Optional
-# extent = "watershed"
-
-
-# Soil moisture configuration (soil moisture index).
-
-# [data.soil_moisture]
-# Project start date (ISO format, e.g.
-# '2019-01-01').
-# Type: string (optional) | Optional
-# date_start = ""
-
-# Project end date (ISO format, e.g.
-# '2025-12-31').
-# Type: string (optional) | Optional
-# date_end = ""
-
-
-# At least one data source.
-# [[data.soil_moisture.sources]]
-# Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
-# Type: Literal['custom', 'sim2'] | one of: "custom", "sim2" | REQUIRED
-# source = "custom"
-
-# Directory containing location file and chronicle CSVs.
-# Type: path (optional) | Optional
-# path = ""
-
-# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-# Type: path (optional) | Optional
-# mask_path = ""
-
-# Explicit station ids (custom source).
-# Type: list (optional) | Optional
-# station_ids = []
-
-# Enable bbox-based data retrieval using the project extent.
-# Type: Literal (optional) | Optional
-# extent = "watershed"
 
 
 # ----------------------------------------------------------------------
-# Flow-process configuration.
+# Flow-process configuration
 # ----------------------------------------------------------------------
 
 [flow]
 flow_regime = "transient"
+param_list = ["K", "Sy", "Ss"]
 active_sinks_sources = ["recharge"]
 active_bc = ["drainage"]
-param_list = ["K", "Sy", "Ss"]
 
 [flow.param.K.field]
 id = "K"
@@ -836,8 +296,7 @@ kind = "homogeneous"
 unit = "m/s"
 
 [flow.param.K.field_homogeneous]
-# K = 5e-5 m/s (valeur legacy example 04)
-value = 5e-5
+value = 5e-05
 
 [flow.param.K.field_vertical_profile]
 mode = "exponential"
@@ -861,7 +320,7 @@ kind = "homogeneous"
 unit = "m-1"
 
 [flow.param.Ss.field_homogeneous]
-value = 1e-5
+value = 1e-05
 
 [flow.ic]
 type = "top"
@@ -879,23 +338,9 @@ data_value = false
 first_clim = "mean"
 negative_to_evt = true
 
-# Route negative recharge to the EVT package and clip RCH to 0.
-# Ignored for mapping payloads.
-# Type: bool | Default: true
-# negative_to_evt = true
-
-# How to interpret spatial data: 'auto' (points→homogeneous, fields→heterogeneous), 'homogeneous' (force spatial averaging), 'heterogeneous' (force per-cell discretization, including point-to-grid interpolation when stations have coordinates).
-# Type: string | Default: "auto"
-# spatial_mode = "auto"
-
-# Spatial interpolation method for gridded/point data onto the MODFLOW grid.
-# Options: 'nearest', 'linear', 'idw'.
-# Type: string | Default: "nearest"
-# interpolation_method = "nearest"
-
 
 # ----------------------------------------------------------------------
-# Transport-process configuration.
+# Transport-process configuration
 # ----------------------------------------------------------------------
 
 [transport.modpath.parameters]
@@ -909,7 +354,131 @@ zloc_div = false
 # Expert-level MODFLOW configuration organized by concern.
 # ----------------------------------------------------------------------
 
-# Optional spatial-grid payload split into `[...sgrid.planar]` and `[...sgrid.vertical]`.
+# MODFLOW runtime package options (NWT/DIS/BAS/UPW/EVT/OC/WEL/LMT).
+
+[modflownwt.runtime]
+# MODFLOW executable/version identifier passed to FloPy.
+# Type: string | Default: "mfnwt"
+mf_version = "mfnwt"
+
+# Fortran unit number used for the MODFLOW list file.
+# Type: int | Default: 2
+mf_listunit = 2
+
+# Enable verbose FloPy logging for model setup.
+# Type: bool | Default: false
+mf_verbose = false
+
+# Head closure criterion for the NWT nonlinear solver.
+# Type: float | Default: 0.0001
+nwt_headtol = 0.0001
+
+# Flux closure criterion for the NWT nonlinear solver.
+# Type: float | Default: 500.0
+nwt_fluxtol = 500.0
+
+# Maximum outer nonlinear iterations in the NWT solver.
+# Type: int | Default: 5000
+nwt_maxiterout = 5000
+
+# NWT wetting/thickness factor controlling nonlinear updates.
+# Type: float | Default: 1e-05
+nwt_thickfact = 1e-05
+
+# Linear solver choice for NWT (see MODFLOW-NWT documentation).
+# Type: int | Default: 1
+nwt_linmeth = 1
+
+# NWT print flag controlling iteration diagnostics in listing outputs.
+# Type: int | Default: 1
+nwt_iprnwt = 1
+
+# NWT option for averaging saturated thickness at the cell bottom.
+# Type: int | Default: 1
+nwt_ibotav = 1
+
+# NWT nonlinear option keyword (for example SIMPLE or COMPLEX).
+# Type: string | Default: "COMPLEX"
+nwt_options = "COMPLEX"
+
+# If true, continue NWT iterations on partially converged stress periods.
+# Type: bool | Default: false
+nwt_continue = false
+
+# NWT backtracking activation flag.
+# Type: int | Default: 0
+nwt_backflag = 0
+
+# NWT backtracking stopping tolerance.
+# Type: float | Default: 1e-10
+nwt_stoptol = 1e-10
+
+# DIS time unit code used by MODFLOW (ITMUNI).
+# Type: int | Default: 0
+dis_itmuni = 0
+
+# BAS no-flow head sentinel value (HNOFLO).
+# Type: float | Default: -9999.0
+bas_hnoflo = -9999.0
+
+# UPW dry-cell head output flag (IPHDRY).
+# Type: int | Default: 1
+upw_iphdry = 1
+
+# UPW dry-cell head value (HDRY).
+# Type: float | Default: -100.0
+upw_hdry = -100.0
+
+# UPW flag controlling VKA interpretation per layer (LAYVKA).
+# Type: int | Default: 1
+upw_layvka = 1
+
+# EVT option code that defines how ET extinction depth is applied (NEVTOP).
+# Type: int | Default: 3
+evt_nevtop = 3
+
+# EVT integer array selector used when NEVTOP requires layer indices (IEVT).
+# Type: int | Default: 1
+evt_ievt = 1
+
+# EVT cell-by-cell budget output flag (IPAKCB).
+# Type: int | Default: 1
+evt_ipakcb = 1
+
+# Enable compact budget format in OC outputs.
+# Type: bool | Default: true
+oc_compact = true
+
+# WEL cell-by-cell budget output flag (IPAKCB).
+# Type: int | Default: 1
+wel_ipakcb = 1
+
+# LMT output filename used to couple MODFLOW to MT3DMS.
+# Type: string | Default: "mt3d_link.ftl"
+lmt_output_file_name = "mt3d_link.ftl"
+
+# LMT package filename extension.
+# Type: string | Default: "lmt8"
+lmt_extension = "lmt8"
+
+# LMT file format (typically 'formatted' or 'unformatted').
+# Type: string | Default: "unformatted"
+lmt_output_format = "unformatted"
+
+
+# Process-specific package controls (currently UPW/EVT knobs).
+
+[modflownwt.process_specific]
+# Vertical hydraulic conductivity control passed to the UPW package (VKA).
+# Type: float | Default: 1.0
+vka = 1.0
+
+# Extinction depth [L] used by the EVT package (EXDP).
+# Type: float | Default: 1.0
+exdp = 1.0
+
+
+# Spatial-grid payload split into `[...sgrid.planar]` and `[...sgrid.vertical]`.
 
 # Planar discretization of the solver grid.
 
@@ -920,15 +489,15 @@ mode = "keep_native"
 
 # Target number of columns when planar mode is 'resample_to_shape'.
 # Type: int (optional) | >= 1 | Optional
-# nx = 60
+# nx = 1
 
 # Target number of rows when planar mode is 'resample_to_shape'.
 # Type: int (optional) | >= 1 | Optional
-# ny = 60
+# ny = 1
 
 # Resampling rule applied when planar mode is 'resample_to_shape'.
 # Type: Literal['bilinear', 'average', 'nearest'] | one of: "bilinear", "average", "nearest" | Default: "bilinear"
-# resampling = "bilinear"
+resampling = "bilinear"
 
 
 # Vertical layering of the solver grid.
@@ -948,11 +517,11 @@ lay_decay = 1.5
 
 # Explicit layer fractions when genmtd_lay='list' (must sum to 1).
 # Type: list (optional) | Optional
-# lay_proportions = [0.2, 0.2, 0.2, 0.2, 0.2]
+# lay_proportions = []
 
 # No-data sentinel value.
 # Type: float | Default: -9999.0
-# nodata = -9999.0
+nodata = -9999.0
 
 
 # Optional temporal discretization payload as one validated `TMeshConfigModel` model.
@@ -990,12 +559,15 @@ lay_decay = 1.5
 # Type: string (optional) | Optional
 # chron_path = ""
 
+# Date format string used to parse the chronicle file.
 # Type: string | Default: "%Y-%m-%d %H:%M:%S"
 # chron_dateformat = "%Y-%m-%d %H:%M:%S"
 
+# Column separator used in the chronicle file.
 # Type: string | Default: "	"
 # chron_colsep = "	"
 
+# Name of the time/date column in the chronicle file.
 # Type: string | Default: "Date"
 # chron_time_col = "Date"
 
@@ -1009,6 +581,7 @@ lay_decay = 1.5
 # Type: Any (optional) | Optional
 # end_datetime = ""
 
+# Whether the first stress period is treated as steady-state.
 # Type: bool | Default: true
 # firstpersteady = true
 
@@ -1022,6 +595,256 @@ lay_decay = 1.5
 # Type: UnionType[int, list] | Default: 1
 # ntsp = 1
 
+# No-data sentinel value for temporal data.
 # Type: float | Default: -9999.0
 # temporal_nodata = -9999.0
+
+
+# ----------------------------------------------------------------------
+# Validated ``[display]`` section used by launcher plotting suites.
+# ----------------------------------------------------------------------
+
+[display]
+# Master switch for all optional plotting suites.
+# Type: bool | Default: true
+enabled = true
+
+# Show interactive figures/windows when rendering is enabled.
+# Type: bool | Default: true
+show = true
+
+# Save figures/animations to disk when rendering is enabled.
+# Type: bool | Default: false
+save = false
+
+
+# Display flags for flow plots.
+
+[display.flow]
+# Master switch for the flow plotting group.
+# Type: bool | Default: true
+enabled = true
+
+# Render the flow cross-section plot.
+# Type: bool | Default: true
+cross_section = true
+
+# Render the streamflow comparison plot.
+# Type: bool | Default: true
+streamflow = true
+
+# Render the piezometry plot.
+# Type: bool | Default: true
+piezometry = true
+
+# Render water-table depth and elevation maps.
+# Type: bool | Default: true
+watertable_map = true
+
+# Render a DEM overview map with watershed contour.
+# Type: bool | Default: true
+dem_map = true
+
+# Render groundwater budget bar chart.
+# Type: bool | Default: false
+budget = false
+
+# Render hydrography map (stream network or flow accumulation drainage pattern).
+# Type: bool | Default: true
+hydrography = true
+
+# Render the canonical Boussinesq state figure.
+# Type: bool | Default: true
+boussinesq_state = true
+
+# Render Boussinesq physical diagnostic maps.
+# Type: bool | Default: true
+boussinesq_diagnostics = true
+
+# Render Boussinesq mass-balance diagnostics when histories are available.
+# Type: bool | Default: true
+boussinesq_mass_balance = true
+
+# Render Boussinesq probe time series when histories are available.
+# Type: bool | Default: true
+boussinesq_probes = true
+
+# Render the final Boussinesq edge-flux map when flux arrays are available.
+# Type: bool | Default: true
+boussinesq_edge_flux = true
+
+
+# Display flags for particle plots.
+
+[display.particles]
+# Master switch for the particle plotting group.
+# Type: bool | Default: true
+enabled = true
+
+# Render particle pathlines.
+# Type: bool | Default: false
+pathlines = false
+
+
+# Display flags for transport plots.
+
+[display.transport]
+# Master switch for the transport plotting group.
+# Type: bool | Default: true
+enabled = true
+
+# Render concentration plots.
+# Type: bool | Default: false
+concentration = false
+
+# Export concentration GIF animation.
+# Type: bool | Default: false
+gif = false
+
+# Export browser-friendly web animation for concentration outputs.
+# Type: bool | Default: false
+web_animation = false
+
+
+# ----------------------------------------------------------------------
+# Top-level `[postprocess]` configuration.
+# ----------------------------------------------------------------------
+
+[postprocess]
+# Enable launcher-managed postprocessing after process runs.
+# Defaults to false for backward compatibility.
+# Type: bool | Default: false
+enabled = false
+
+
+# Flow postprocessing configuration.
+
+[postprocess.flow]
+# Enable flow postprocessing after the flow process family.
+# Type: bool | Default: true
+enabled = true
+
+# Run the flow display suite after flow postprocessing.
+# Type: bool | Default: true
+display = true
+
+
+# Flow timeseries export options.
+
+[postprocess.flow.timeseries]
+# Enable flow timeseries export after the flow process family.
+# Type: bool | Default: true
+enabled = true
+
+# Also export one timeseries file per available subbasin.
+# Type: bool | Default: true
+subbasin_results = true
+
+
+# Flow NetCDF export options.
+
+[postprocess.flow.netcdf]
+# Enable flow NetCDF export after the flow process family.
+# Type: bool | Default: false
+enabled = false
+
+
+# Intermittency indicator options.
+
+[postprocess.flow.intermittency]
+# Compute yearly intermittency indicators from accumulation flux.
+# Type: bool | Default: false
+yearly = false
+
+# Compute monthly intermittency indicators from accumulation flux.
+# Type: bool | Default: true
+monthly = true
+
+# Compute weekly intermittency indicators from accumulation flux.
+# Type: bool | Default: false
+weekly = false
+
+# Compute daily intermittency indicators from accumulation flux.
+# Type: bool | Default: false
+daily = false
+
+
+# Transport postprocessing configuration.
+
+[postprocess.transport]
+# Enable transport postprocessing after transport runs.
+# Type: bool | Default: true
+enabled = true
+
+# Run particle display suite when a particle model is available.
+# Type: bool | Default: true
+display_particles = true
+
+# Run transport display suite when a transport model is available.
+# Type: bool | Default: true
+display_transport = true
+
+
+# Transport timeseries export options.
+
+[postprocess.transport.timeseries]
+# Enable transport timeseries export after transport runs.
+# Type: bool | Default: true
+enabled = true
+
+# Also export one timeseries file per available subbasin.
+# Type: bool | Default: true
+subbasin_results = true
+
+# Export residence-time indicators from particle tracking outputs.
+# Type: bool | Default: true
+residence_times = true
+
+# Export seepage concentration indicators from transport outputs.
+# Type: bool | Default: true
+concentration_seepage = true
+
+# Export accumulated-mass indicators from transport outputs.
+# Type: bool | Default: true
+mass_accumulated = true
+
+
+# Transport NetCDF export options.
+
+[postprocess.transport.netcdf]
+# Enable transport NetCDF export after transport runs.
+# Type: bool | Default: false
+enabled = false
+
+# Export residence-time NetCDF derived from particle outputs.
+# Type: bool | Default: true
+residence_times = true
+
+# Export concentration seepage NetCDF from transport outputs.
+# Type: bool | Default: true
+concentration_seepage = true
+
+# Export accumulated mass NetCDF from transport outputs.
+# Type: bool | Default: true
+mass_accumulated = true
+
+
+# Intermittency indicator options.
+
+[postprocess.transport.intermittency]
+# Compute yearly intermittency indicators from accumulation flux.
+# Type: bool | Default: false
+yearly = false
+
+# Compute monthly intermittency indicators from accumulation flux.
+# Type: bool | Default: true
+monthly = true
+
+# Compute weekly intermittency indicators from accumulation flux.
+# Type: bool | Default: false
+weekly = false
+
+# Compute daily intermittency indicators from accumulation flux.
+# Type: bool | Default: false
+daily = false
 

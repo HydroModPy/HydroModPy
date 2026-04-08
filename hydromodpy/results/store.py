@@ -65,7 +65,12 @@ class ResultStore:
         self._db = duckdb.connect(str(db_path))
         create_project_tables(self._db)
 
-        self._zarr_path = str(self._project_path / "project_results.zarr")
+        self._zarr_path = str(self._project_path / "project_results.zarr.zip")
+        zarr_exists = Path(self._zarr_path).exists()
+        self._zarr_store = zarr.storage.ZipStore(
+            self._zarr_path, mode="a" if zarr_exists else "w",
+        )
+        self._zarr_root = zarr.open_group(self._zarr_store, mode="a" if zarr_exists else "w")
 
         self._workspace_path = Path(workspace_path) if workspace_path else None
         self._catalog_path = (
@@ -104,12 +109,15 @@ class ResultStore:
         sim_id : str or UUID
             Simulation identifier.
         mode : str
-            Zarr open mode (``"r"`` for read, ``"a"`` for append).
+            Ignored (kept for API compatibility). The internal root is
+            always opened at construction time.
         """
-        root = zarr.open_group(self._zarr_path, mode=mode)
-        return root[str(sim_id)]
+        return self._zarr_root[str(sim_id)]
 
     def close(self) -> None:
+        if self._zarr_store is not None:
+            self._zarr_store.close()
+            self._zarr_store = None
         self._db.close()
 
     def __enter__(self):
@@ -166,7 +174,7 @@ class ResultStore:
         source_cell_indices: np.ndarray | None = None,
     ) -> None:
         """Write mesh topology into Zarr."""
-        root = zarr.open_group(self._zarr_path, mode="a")
+        root = self._zarr_root
         grp = root[str(sim_id)]
         write_mesh_arrays(
             grp, vertices, face_node_connectivity, z_interfaces,
@@ -185,8 +193,11 @@ class ResultStore:
         subgroup: str | None = None,
     ) -> None:
         """Write one timestep of a spatial field into Zarr."""
-        root = zarr.open_group(self._zarr_path, mode="a")
-        grp = root[str(sim_id)]
+        root = self._zarr_root
+        sid = str(sim_id)
+        if sid not in root:
+            root.create_group(sid)
+        grp = root[sid]
         write_field_chunk(
             grp, variable, timestep, values,
             n_timesteps=n_timesteps, subgroup=subgroup,
@@ -344,7 +355,7 @@ class ResultStore:
     ) -> None:
         """Register observation points with point-in-cell mapping."""
         sid = str(sim_id)
-        root = zarr.open_group(self._zarr_path, mode="r")
+        root = self._zarr_root
         grp = root[sid]
         mesh = grp["mesh"]
         vertices = mesh["vertices"][:]
@@ -582,7 +593,7 @@ class ResultStore:
         layer: int | None = None,
     ) -> np.ndarray:
         """Load a spatial field for one timestep from Zarr."""
-        root = zarr.open_group(self._zarr_path, mode="r")
+        root = self._zarr_root
         grp = root[str(sim_id)]
 
         # Check root then subgroups
@@ -780,7 +791,7 @@ class ResultStore:
             raise
 
         try:
-            root = zarr.open_group(self._zarr_path, mode="a")
+            root = self._zarr_root
             if sid in root:
                 del root[sid]
         except Exception:

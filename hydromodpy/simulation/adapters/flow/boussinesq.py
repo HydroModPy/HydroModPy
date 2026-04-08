@@ -181,7 +181,10 @@ class BoussinesqFlowAdapter:
                 f"See {getattr(model, 'full_path', '<unknown>')} for diagnostics."
             )
         model.post_processing()
-        return RunExecutionResult(primary_model=model)
+        return RunExecutionResult(
+            primary_model=model,
+            solver_output_dir=Path(model.full_path) if hasattr(model, "full_path") else None,
+        )
 
 
 __all__ = ["BoussinesqFlowAdapter"]

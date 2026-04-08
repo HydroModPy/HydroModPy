@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from hydromodpy.simulation.adapters.transport.common import required_flow_model
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.modflow_nwt import Modpath
@@ -50,4 +52,7 @@ class ModpathTransportAdapter:
             calc_rtd=False,
             random_id=None,
         )
-        return RunExecutionResult(primary_model=model_modpath)
+        return RunExecutionResult(
+            primary_model=model_modpath,
+            solver_output_dir=Path(model_modpath.full_path) if hasattr(model_modpath, "full_path") else None,
+        )

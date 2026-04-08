@@ -148,7 +148,12 @@ def write_field_chunk(
         Target subgroup (e.g. ``"derived"``, ``"budget"``). If ``None``,
         write at the simulation group root.
     """
-    target = group[subgroup] if subgroup else group
+    if subgroup:
+        if subgroup not in group:
+            group.create_group(subgroup)
+        target = group[subgroup]
+    else:
+        target = group
 
     if values.ndim == 1:
         full_shape = (n_timesteps, values.shape[0]) if n_timesteps else None

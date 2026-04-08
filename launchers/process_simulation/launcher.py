@@ -78,6 +78,7 @@ from hydromodpy.process.flow.structure_binders import (
 from hydromodpy.spatial.geographic.synthetic import build_synthetic_geographic
 from hydromodpy.simulation import SimulationPlanner, ensure_flow, ensure_transport
 from hydromodpy.simulation.execution.runner import ProcessCallbacks, SimulationRunner
+from hydromodpy.simulation.planning.plan import ProcessRun, RunExecutionResult
 from hydromodpy.core.state.run_state import LauncherRunState
 from hydromodpy.core.time import (
     apply_explicit_time_window_to_tgrids,
@@ -254,6 +255,8 @@ class HydroModPyLauncher:
         self.run_state.setup.time_grid = self.time_grid
         self.run_state.data_plan = data_plan
         self.postprocess_runner = PostprocessRunner(self.cfg.postprocess)
+        self._result_store = None
+        self._sim_id = None
 
     # ------------------------------------------------------------------
     # Thin delegation to setup_phase
@@ -366,18 +369,38 @@ class HydroModPyLauncher:
         self._run_mesh_phase()
         self._run_mesh_input_phase()
 
-        # Phase 4: Execution
-        # The runner owns the fine-grained solver dispatch. The launcher
-        # only provides process-family callbacks for managed postprocess.
-        SimulationRunner(
-            callbacks=ProcessCallbacks(
-                after_process=self._on_after_process,
-            ),
-        ).execute(plan, run_state)
-        wall_seconds = time.monotonic() - wall_start
+        # Phase 4: Open ResultStore for results ingestion
+        self._open_result_store()
 
-        # Save run artifacts into the run folder.
-        self._save_run_artifacts(run_state, wall_seconds)
+        # Phase 5: Execution
+        # The runner owns the fine-grained solver dispatch. The launcher
+        # provides process-family callbacks for managed postprocess and
+        # per-run callbacks for ResultStore ingestion.
+        try:
+            SimulationRunner(
+                callbacks=ProcessCallbacks(
+                    after_process=self._on_after_process,
+                    after_run=self._on_after_run,
+                ),
+            ).execute(plan, run_state)
+            wall_seconds = time.monotonic() - wall_start
+
+            # Save run artifacts into the run folder.
+            self._save_run_artifacts(run_state, wall_seconds)
+
+            # Finalize the simulation in ResultStore with metadata.
+            if self._result_store is not None:
+                process_types = list({r.process_type for r in plan.runs})
+                self._result_store.finalize(
+                    self._sim_id,
+                    status="completed",
+                    duration_s=wall_seconds,
+                    process_types=process_types,
+                )
+        finally:
+            if self._result_store is not None:
+                self._result_store.close()
+                self._result_store = None
 
         return run_state
 
@@ -683,3 +706,60 @@ class HydroModPyLauncher:
     def _on_after_process(self, process_type: str) -> None:
         """Run launcher-level actions after one process-family block."""
         self.postprocess_runner.after_process(process_type, self.run_state)
+
+    # ------------------------------------------------------------------
+    # ResultStore integration
+    # ------------------------------------------------------------------
+
+    def _open_result_store(self) -> None:
+        """Open the ResultStore for the current run if enabled."""
+        from uuid import uuid4
+
+        self._result_store = None
+        self._sim_id = str(uuid4())
+
+        results_cfg = self.cfg.simulation.results
+        if not results_cfg.store:
+            return
+
+        from hydromodpy.results.store import ResultStore
+
+        workspace = self.run_state.setup.workspace
+        self._result_store = ResultStore(
+            project_path=workspace.project_root,
+            workspace_path=workspace.workspace_root,
+        )
+        self._result_store.register_simulation(
+            self._sim_id,
+            name=self.cfg.simulation.name,
+            solver=",".join(r.solver for r in self.run_state.execution.simulation_plan.runs),
+        )
+
+        # Inject store into postprocess runner for store-aware output.
+        self.postprocess_runner.store = self._result_store
+        self.postprocess_runner.sim_id = self._sim_id
+
+    def _on_after_run(
+        self,
+        run: ProcessRun,
+        result: RunExecutionResult,
+        state: object,
+    ) -> None:
+        """Ingest solver outputs into ResultStore after each run completes."""
+        if self._result_store is None:
+            return
+
+        from hydromodpy.simulation.results.post_run import post_run_results
+
+        # Always keep solver files during execution — transport solvers
+        # need the flow solver's output directory.  Cleanup is deferred
+        # to finalize (when keep_solver_files=False in the config).
+        results_cfg = self.cfg.simulation.results
+        post_run_results(
+            sim_id=self._sim_id,
+            solver_name=run.solver,
+            solver_output_dir=result.solver_output_dir,
+            results_config=results_cfg,
+            store=self._result_store,
+            keep_solver_files=True,
+        )

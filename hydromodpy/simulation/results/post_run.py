@@ -41,6 +41,7 @@ def post_run_results(
     solver_output_dir: Path | None,
     results_config: ResultsConfig,
     store: Any,
+    keep_solver_files: bool | None = None,
 ) -> None:
     """Ingest solver outputs into the ResultStore after a run completes.
 
@@ -84,7 +85,8 @@ def post_run_results(
     _auto_export(sim_id, store, results_config)
 
     # Cleanup solver files
-    if not results_config.keep_solver_files and solver_output_dir is not None:
+    do_keep = keep_solver_files if keep_solver_files is not None else results_config.keep_solver_files
+    if not do_keep and solver_output_dir is not None:
         from hydromodpy.simulation.results.extractors.base import cleanup_solver_files
         try:
             cleanup_solver_files(solver_output_dir)

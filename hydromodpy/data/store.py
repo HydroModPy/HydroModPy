@@ -53,7 +53,7 @@ class DataStore:
     ----------
     workspace_root : Path or str, optional
         Root of the HydroModPy workspace (created by ``hmp init``).
-        If provided, ``catalog.db`` is opened at this location and API
+        If provided, ``catalog.duckdb`` is opened at this location and API
         results are saved as CSV in ``data/<variable>/``.
         If *None*, the catalog is in-memory and nothing is persisted.
     project_extent : tuple, optional

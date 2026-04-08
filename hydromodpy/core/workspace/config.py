@@ -13,7 +13,7 @@ class WorkspaceConfig(BaseModel):
     The workspace layout is convention-based::
 
         workspace_root/
-            catalog.db
+            catalog.duckdb
             data/
             projects/
                 <project>/          <- project_root
@@ -62,13 +62,13 @@ class WorkspaceConfig(BaseModel):
 
         Detection heuristics (in order):
         1. project_root sits directly under a ``projects/`` directory,
-        2. an ancestor contains ``catalog.db`` or a ``data/`` directory.
+        2. an ancestor contains ``catalog.duckdb`` (or legacy ``catalog.db``) or a ``data/`` directory.
         """
         resolved = Path(project_root).resolve()
         if resolved.parent.name == "projects":
             return resolved.parent.parent
         for parent in resolved.parents:
-            if (parent / "catalog.db").exists() or (parent / "data").is_dir():
+            if (parent / "catalog.duckdb").exists() or (parent / "catalog.db").exists() or (parent / "data").is_dir():
                 return parent
         return None
 
