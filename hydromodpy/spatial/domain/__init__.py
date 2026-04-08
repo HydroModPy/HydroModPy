@@ -2,7 +2,7 @@
 
 from hydromodpy.spatial.domain.domain import Domain
 from hydromodpy.spatial.domain.domain_config import DomainConfig
-from hydromodpy.spatial.domain.depth_model import (
+from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     DepthModelConfig,
     FlatSubstratumDepthModel,
