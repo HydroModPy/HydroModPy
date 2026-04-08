@@ -104,31 +104,17 @@ def _coerce_modflow6_config(
 
 
 @dataclass(frozen=True)
-class Modflow6RuntimeParams:
-    """Runtime container for MODFLOW 6 package settings."""
-
-    mf6_executable_name: str = "mf6"
-    mf6_ims_complexity: str = "COMPLEX"
-    mf_verbose: bool = False
-    mf6_outer_dvclose: float = 1e-4
-    mf6_inner_dvclose: float = 1e-4
-    mf6_outer_maximum: int = 500
-    mf6_inner_maximum: int = 500
-
-
-@dataclass(frozen=True)
-class Modflow6ProcessSpecificParams:
-    """Runtime container for process-specific MODFLOW 6 settings."""
-
-    vka: float = 1.0
-
-
-@dataclass(frozen=True)
 class Modflow6SpecifParams:
-    """Runtime container grouped by MODFLOW 6 configuration section."""
+    """Runtime container grouped by MODFLOW 6 configuration section.
 
-    runtime: Modflow6RuntimeParams = Modflow6RuntimeParams()
-    process_specific: Modflow6ProcessSpecificParams = Modflow6ProcessSpecificParams()
+    Uses the validated Pydantic models directly instead of duplicating fields
+    into separate frozen dataclasses.
+    """
+
+    runtime: Modflow6RuntimeConfig = field(default_factory=Modflow6RuntimeConfig)
+    process_specific: Modflow6ProcessSpecificConfig = field(
+        default_factory=Modflow6ProcessSpecificConfig,
+    )
     sgrid: SolverSGridConfig = field(default_factory=SolverSGridConfig)
     tgrid: TMeshConfigModel | None = None
 
@@ -139,10 +125,8 @@ class Modflow6SpecifParams:
     ) -> "Modflow6SpecifParams":
         validated = _coerce_modflow6_config(config)
         return cls(
-            runtime=Modflow6RuntimeParams(**validated.runtime.model_dump()),
-            process_specific=Modflow6ProcessSpecificParams(
-                **validated.process_specific.model_dump()
-            ),
+            runtime=validated.runtime,
+            process_specific=validated.process_specific,
             sgrid=validated.sgrid,
             tgrid=validated.tgrid,
         )
