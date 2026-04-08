@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     import pandas as pd
     from matplotlib.axes import Axes
 
-    from hydromodpy.analysis.display.options import DisplayOptions
+    from hydromodpy.analysis.display.display_config import DisplayOptions
 
 
 # ======================================================================
