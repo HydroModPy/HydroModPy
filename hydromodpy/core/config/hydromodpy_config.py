@@ -19,6 +19,8 @@ Usage::
     cfg.modflownwt.process_specific.vka
 """
 
+from __future__ import annotations
+
 import os
 import re
 from collections.abc import Mapping
@@ -30,7 +32,7 @@ from pydantic.fields import FieldInfo
 
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.data.data_managers_config import DataManagersConfig
-from hydromodpy.analysis.display.options import DisplayConfig
+from hydromodpy.analysis.display.display_config import DisplayConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.analysis.postprocess.postprocess_config import PostprocessConfig
 from hydromodpy.process.flow.flow_config import FlowConfig
@@ -238,7 +240,7 @@ class HydroModPyConfig(BaseModel):
 
 def _is_path_field(field_info: FieldInfo) -> bool:
     """
-    Return True if the field is typed as ``Path`` or ``Optional[Path]``.
+    Return True if the field is typed as ``Path`` or ``Path | None``.
     """
     annotation = field_info.annotation
     if annotation is Path:
