@@ -27,9 +27,11 @@ from __future__ import annotations
 
 from numbers import Real
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.units import normalize_length_unit, normalize_m2_per_s_unit
 
 ALLOWED_BC_APPLICATION_DOMAINS = {
@@ -76,7 +78,9 @@ SIDE_DIRICHLET_BC_IDS = {
 class FlowBoundaryForcingConstantConfig(BaseModel):
     """One constant head forcing applied to every stress period."""
 
-    value: float = Field(
+    model_config = ConfigDict(extra="forbid")
+
+    value: Annotated[float, ParamLevel("user")] = Field(
         ...,
         description="Constant boundary head in the same units as the parent boundary.",
     )
@@ -92,22 +96,24 @@ class FlowBoundaryForcingConstantConfig(BaseModel):
 class FlowBoundaryForcingCsvConfig(BaseModel):
     """CSV-backed boundary forcing resolved at runtime against simulation.time."""
 
-    path_file: Path = Field(..., description="Path to the CSV chronicle file.")
-    sep: str = Field(default=",", description="CSV delimiter.")
-    date_column: str = Field(default="date", description="CSV column containing timestamps.")
-    date_format: str | None = Field(
+    model_config = ConfigDict(extra="forbid")
+
+    path_file: Annotated[Path, ParamLevel("dev")] = Field(..., description="Path to the CSV chronicle file.")
+    sep: Annotated[str, ParamLevel("dev")] = Field(default=",", description="CSV delimiter.")
+    date_column: Annotated[str, ParamLevel("dev")] = Field(default="date", description="CSV column containing timestamps.")
+    date_format: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description="Optional datetime format passed to pandas.to_datetime.",
     )
-    value_column: str = Field(
+    value_column: Annotated[str, ParamLevel("dev")] = Field(
         default="value",
         description="CSV column containing boundary head values.",
     )
-    fill_method: Literal["ffill", "bfill"] = Field(
+    fill_method: Annotated[Literal["ffill", "bfill"], ParamLevel("dev")] = Field(
         default="ffill",
         description="Gap-filling policy used when a stress period has no direct sample.",
     )
-    aggregate: Literal["mean", "last"] = Field(
+    aggregate: Annotated[Literal["mean", "last"], ParamLevel("dev")] = Field(
         default="mean",
         description="Stress-period aggregation method.",
     )
@@ -124,22 +130,24 @@ class FlowBoundaryForcingCsvConfig(BaseModel):
 class FlowBoundaryForcingConfig(BaseModel):
     """Launcher-facing boundary forcing declaration."""
 
-    mode: Literal["constant", "csv"] = Field(
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Annotated[Literal["constant", "csv"], ParamLevel("user")] = Field(
         ...,
         description="Boundary forcing mode consumed by launcher runtime.",
     )
-    units: str | None = Field(
+    units: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description="Source units of forcing values before runtime conversion.",
     )
-    value: float | None = Field(default=None)
-    path_file: Path | None = Field(default=None)
-    sep: str = Field(default=",")
-    date_column: str = Field(default="date")
-    date_format: str | None = Field(default=None)
-    value_column: str = Field(default="value")
-    fill_method: Literal["ffill", "bfill"] = Field(default="ffill")
-    aggregate: Literal["mean", "last"] = Field(default="mean")
+    value: Annotated[float | None, ParamLevel("user")] = Field(default=None)
+    path_file: Annotated[Path | None, ParamLevel("dev")] = Field(default=None)
+    sep: Annotated[str, ParamLevel("dev")] = Field(default=",")
+    date_column: Annotated[str, ParamLevel("dev")] = Field(default="date")
+    date_format: Annotated[str | None, ParamLevel("dev")] = Field(default=None)
+    value_column: Annotated[str, ParamLevel("dev")] = Field(default="value")
+    fill_method: Annotated[Literal["ffill", "bfill"], ParamLevel("dev")] = Field(default="ffill")
+    aggregate: Annotated[Literal["mean", "last"], ParamLevel("dev")] = Field(default="mean")
 
     @model_validator(mode="after")
     def _validate_mode_payload(self):
@@ -179,22 +187,24 @@ class FlowBoundaryConditionConfig(BaseModel):
     - consumed by `Flow` runtime and solver adapter layers.
     """
 
-    id: str = Field(..., description="Boundary-condition identifier.")
-    value: float | list[float] | None = Field(
+    model_config = ConfigDict(extra="forbid")
+
+    id: Annotated[str, ParamLevel("user")] = Field(..., description="Boundary-condition identifier.")
+    value: Annotated[float | list[float] | None, ParamLevel("user")] = Field(
         default=None,
         description="Boundary-condition value, scalar or one value per stress period.",
     )
-    description: str = Field("", description="Boundary-condition description.")
-    units: str = Field("", description="Boundary-condition units.")
-    type: Literal["dirichlet", "cauchy", "robin"] = Field(
+    description: Annotated[str, ParamLevel("user")] = Field("", description="Boundary-condition description.")
+    units: Annotated[str, ParamLevel("dev")] = Field("", description="Boundary-condition units.")
+    type: Annotated[Literal["dirichlet", "cauchy", "robin"], ParamLevel("user")] = Field(
         "dirichlet",
         description="Boundary-condition type.",
     )
-    data_value: bool = Field(
+    data_value: Annotated[bool, ParamLevel("dev")] = Field(
         False,
         description="If True, boundary-condition values are sourced from data.",
     )
-    forcing: FlowBoundaryForcingConfig | None = Field(
+    forcing: Annotated[FlowBoundaryForcingConfig | None, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Optional runtime forcing declaration for lateral Dirichlet boundaries. "
@@ -202,7 +212,7 @@ class FlowBoundaryConditionConfig(BaseModel):
             "payload to boundary.value using [simulation.time]."
         ),
     )
-    application_domain: str | None = Field(
+    application_domain: Annotated[str | None, ParamLevel("user")] = Field(
         None,
         description=(
             "Boundary-application domain. Supported values are: top, north side, "

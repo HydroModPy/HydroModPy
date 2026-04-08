@@ -44,10 +44,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from numbers import Real
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
 
 if TYPE_CHECKING:
@@ -72,11 +73,13 @@ class FlowWellConfig(BaseModel):
       **list** with one value per stress period.
     """
 
-    cell: tuple[int, int, int] | None = Field(
+    model_config = ConfigDict(extra="forbid")
+
+    cell: Annotated[tuple[int, int, int] | None, ParamLevel("user")] = Field(
         default=None,
         description="Legacy cell indices as [lay, row, col] (0-based).",
     )
-    location_mode: Literal["cell", "absolute_xy", "relative_xy"] | None = Field(
+    location_mode: Annotated[Literal["cell", "absolute_xy", "relative_xy"] | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Well location mode. Use 'cell' for legacy [lay,row,col], "
@@ -84,34 +87,34 @@ class FlowWellConfig(BaseModel):
             "normalized horizontal coordinates in the domain extent."
         ),
     )
-    layer: int | None = Field(
+    layer: Annotated[int | None, ParamLevel("dev")] = Field(
         default=None,
         description="Layer index (0-based) used with absolute_xy or relative_xy modes.",
     )
-    x: float | None = Field(
+    x: Annotated[float | None, ParamLevel("user")] = Field(
         default=None,
         description="Projected X coordinate used when location_mode='absolute_xy'.",
     )
-    y: float | None = Field(
+    y: Annotated[float | None, ParamLevel("user")] = Field(
         default=None,
         description="Projected Y coordinate used when location_mode='absolute_xy'.",
     )
-    x_rel: float | None = Field(
+    x_rel: Annotated[float | None, ParamLevel("user")] = Field(
         default=None,
         description="Relative X position in [0,1] from west to east when location_mode='relative_xy'.",
     )
-    y_rel: float | None = Field(
+    y_rel: Annotated[float | None, ParamLevel("user")] = Field(
         default=None,
         description="Relative Y position in [0,1] from south to north when location_mode='relative_xy'.",
     )
-    flux: float | list[float] | None = Field(
+    flux: Annotated[float | list[float] | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Well rate [L³/T]. Scalar for constant rate, or one value per stress period. "
             "Negative = pumping, positive = injection."
         ),
     )
-    forcing: "FlowWellForcingConfig | None" = Field(
+    forcing: Annotated["FlowWellForcingConfig | None", ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Optional runtime forcing declaration. Supported modes: "
@@ -119,8 +122,8 @@ class FlowWellConfig(BaseModel):
             "well.flux using [simulation.time]."
         ),
     )
-    units: str = Field(default="m3/s", description="Units of flux values.")
-    description: str = Field(default="", description="Optional well description.")
+    units: Annotated[str, ParamLevel("dev")] = Field(default="m3/s", description="Units of flux values.")
+    description: Annotated[str, ParamLevel("user")] = Field(default="", description="Optional well description.")
 
     @field_validator("cell", mode="before")
     @classmethod
@@ -342,7 +345,9 @@ class FlowWellConfig(BaseModel):
 class FlowWellForcingConstantConfig(BaseModel):
     """One constant well-rate forcing applied to every stress period."""
 
-    value: float = Field(
+    model_config = ConfigDict(extra="forbid")
+
+    value: Annotated[float, ParamLevel("user")] = Field(
         ...,
         description="Constant well rate in the same units as the parent well.",
     )
@@ -358,19 +363,21 @@ class FlowWellForcingConstantConfig(BaseModel):
 class FlowWellForcingCsvConfig(BaseModel):
     """CSV-backed well forcing resolved at runtime against simulation.time."""
 
-    path_file: Path = Field(..., description="Path to the CSV chronicle file.")
-    sep: str = Field(default=",", description="CSV delimiter.")
-    date_column: str = Field(default="date", description="CSV column containing timestamps.")
-    date_format: str | None = Field(
+    model_config = ConfigDict(extra="forbid")
+
+    path_file: Annotated[Path, ParamLevel("dev")] = Field(..., description="Path to the CSV chronicle file.")
+    sep: Annotated[str, ParamLevel("dev")] = Field(default=",", description="CSV delimiter.")
+    date_column: Annotated[str, ParamLevel("dev")] = Field(default="date", description="CSV column containing timestamps.")
+    date_format: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description="Optional datetime format passed to pandas.to_datetime.",
     )
-    value_column: str = Field(default="value", description="CSV column containing well rates.")
-    fill_method: Literal["ffill", "bfill"] = Field(
+    value_column: Annotated[str, ParamLevel("dev")] = Field(default="value", description="CSV column containing well rates.")
+    fill_method: Annotated[Literal["ffill", "bfill"], ParamLevel("dev")] = Field(
         default="ffill",
         description="Gap-filling policy used when a stress period has no direct sample.",
     )
-    aggregate: Literal["mean", "last"] = Field(
+    aggregate: Annotated[Literal["mean", "last"], ParamLevel("dev")] = Field(
         default="mean",
         description="Stress-period aggregation method.",
     )
@@ -387,22 +394,24 @@ class FlowWellForcingCsvConfig(BaseModel):
 class FlowWellForcingConfig(BaseModel):
     """Launcher-facing well forcing declaration."""
 
-    mode: Literal["constant", "csv"] = Field(
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Annotated[Literal["constant", "csv"], ParamLevel("user")] = Field(
         ...,
         description="Well forcing mode consumed by launcher runtime.",
     )
-    units: str | None = Field(
+    units: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description="Source units of forcing values before runtime conversion.",
     )
-    value: float | None = Field(default=None)
-    path_file: Path | None = Field(default=None)
-    sep: str = Field(default=",")
-    date_column: str = Field(default="date")
-    date_format: str | None = Field(default=None)
-    value_column: str = Field(default="value")
-    fill_method: Literal["ffill", "bfill"] = Field(default="ffill")
-    aggregate: Literal["mean", "last"] = Field(default="mean")
+    value: Annotated[float | None, ParamLevel("user")] = Field(default=None)
+    path_file: Annotated[Path | None, ParamLevel("dev")] = Field(default=None)
+    sep: Annotated[str, ParamLevel("dev")] = Field(default=",")
+    date_column: Annotated[str, ParamLevel("dev")] = Field(default="date")
+    date_format: Annotated[str | None, ParamLevel("dev")] = Field(default=None)
+    value_column: Annotated[str, ParamLevel("dev")] = Field(default="value")
+    fill_method: Annotated[Literal["ffill", "bfill"], ParamLevel("dev")] = Field(default="ffill")
+    aggregate: Annotated[Literal["mean", "last"], ParamLevel("dev")] = Field(default="mean")
 
     @model_validator(mode="after")
     def _validate_mode_payload(self):
@@ -482,14 +491,16 @@ class FlowRechargeConfig(BaseModel):
         ``FlowToModflowAdapter._build_recharge_payload``).
     """
 
-    values: Any = Field(
+    model_config = ConfigDict(extra="forbid")
+
+    values: Annotated[Any, ParamLevel("user")] = Field(
         default=0.0,
         description=(
             "Recharge payload: scalar, list (one per stress period), "
             "mapping {kper: value}, or runtime series."
         ),
     )
-    heterogeneous_source: Any = Field(
+    heterogeneous_source: Annotated[Any, ParamLevel("dev")] = Field(
         default=None,
         description=(
             "Optional raw data source for heterogeneous (2D per-cell) recharge. "
@@ -498,25 +509,25 @@ class FlowRechargeConfig(BaseModel):
             "Expected: LoadResult with FieldRecords."
         ),
     )
-    first_clim: str | float = Field(
+    first_clim: Annotated[str | float, ParamLevel("dev")] = Field(
         default="mean",
         description=(
             "Period-0 policy when values is a sequence: "
             "'mean' (series average), 'first' (first element), or a numeric scalar."
         ),
     )
-    units: str = Field(
+    units: Annotated[str, ParamLevel("dev")] = Field(
         default="m/s",
         description="Units of recharge values before runtime normalization to m/s.",
     )
-    negative_to_evt: bool = Field(
+    negative_to_evt: Annotated[bool, ParamLevel("dev")] = Field(
         default=True,
         description=(
             "Route negative recharge to the EVT package and clip RCH to 0. "
             "Ignored for mapping payloads."
         ),
     )
-    spatial_mode: str = Field(
+    spatial_mode: Annotated[str, ParamLevel("dev")] = Field(
         default="auto",
         description=(
             "How to interpret spatial data: 'auto' (points→homogeneous, "
@@ -525,7 +536,7 @@ class FlowRechargeConfig(BaseModel):
             "point-to-grid interpolation when stations have coordinates)."
         ),
     )
-    interpolation_method: str = Field(
+    interpolation_method: Annotated[str, ParamLevel("dev")] = Field(
         default="nearest",
         description=(
             "Spatial interpolation method for gridded/point data onto the "
@@ -593,11 +604,13 @@ class FlowSinksSourcesConfig(BaseModel):
         configured; the adapter will default to zero recharge for all periods.
     """
 
-    wells: dict[str, FlowWellConfig] = Field(
+    model_config = ConfigDict(extra="forbid")
+
+    wells: Annotated[dict[str, FlowWellConfig], ParamLevel("user")] = Field(
         default_factory=dict,
         description="Mapping of well ids to typed well payloads.",
     )
-    recharge: FlowRechargeConfig | None = Field(
+    recharge: Annotated[FlowRechargeConfig | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Diffuse recharge (and optional EVT) configuration. "
