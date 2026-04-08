@@ -10,7 +10,11 @@ Concrete process schemas should typically inherit from this class and add
 process-specific validation.
 """
 
+from typing import Annotated
+
 from pydantic import BaseModel, ConfigDict, Field
+
+from hydromodpy.core.config.param_level import ParamLevel
 
 
 class ProcessSpatialConfig(BaseModel):
@@ -18,32 +22,32 @@ class ProcessSpatialConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    param_list: list[str] = Field(
+    param_list: Annotated[list[str], ParamLevel("user")] = Field(
         default_factory=list,
         description=(
             "Ordered list of process parameter identifiers used to build the "
             "runtime `parameters` container."
         ),
     )
-    param: dict[str, object] = Field(
+    param: Annotated[dict[str, object], ParamLevel("dev")] = Field(
         default_factory=dict,
         description=(
             "Mapping of process parameter identifiers to process-specific payloads."
         ),
     )
-    ic: object | None = Field(
+    ic: Annotated[object | None, ParamLevel("dev")] = Field(
         default=None,
         description="Process-specific initial-condition payload.",
     )
-    bc: dict[str, object] = Field(
+    bc: Annotated[dict[str, object], ParamLevel("dev")] = Field(
         default_factory=dict,
         description="Mapping of process boundary-condition payloads.",
     )
-    sinks_sources: dict[str, object] = Field(
+    sinks_sources: Annotated[dict[str, object], ParamLevel("dev")] = Field(
         default_factory=dict,
         description="Mapping of process sink/source payloads.",
     )
-    active_sinks_sources: list[str] = Field(
+    active_sinks_sources: Annotated[list[str], ParamLevel("user")] = Field(
         default_factory=list,
         description=(
             "Ordered list of sink/source identifiers that are explicitly activated "
@@ -51,7 +55,7 @@ class ProcessSpatialConfig(BaseModel):
             "Concrete process configs (e.g. FlowConfig) validate the allowed values."
         ),
     )
-    active_bc: list[str] = Field(
+    active_bc: Annotated[list[str], ParamLevel("user")] = Field(
         default_factory=list,
         description=(
             "Ordered list of boundary-condition identifiers that are explicitly "
