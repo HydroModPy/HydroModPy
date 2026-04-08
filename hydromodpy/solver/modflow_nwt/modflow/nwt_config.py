@@ -205,69 +205,17 @@ def _coerce_modflow_config(
 
 
 @dataclass(frozen=True)
-class ModflowRuntimeParams:
-    """Runtime container for MODFLOW-NWT package settings."""
-
-    # Core MODFLOW object
-    mf_version: str = "mfnwt"
-    mf_listunit: int = 2
-    mf_verbose: bool = False
-
-    # NWT solver
-    nwt_headtol: float = 1e-4
-    nwt_fluxtol: float = 500.0
-    nwt_maxiterout: int = 5000
-    nwt_thickfact: float = 1e-5
-    nwt_linmeth: int = 1
-    nwt_iprnwt: int = 1
-    nwt_ibotav: int = 1
-    nwt_options: str = "COMPLEX"
-    nwt_continue: bool = False
-    nwt_backflag: int = 0
-    nwt_stoptol: float = 1e-10
-
-    # DIS
-    dis_itmuni: int = 0
-
-    # BAS
-    bas_hnoflo: float = -9999.0
-
-    # UPW
-    upw_iphdry: int = 1
-    upw_hdry: float = -100.0
-    upw_layvka: int = 1
-
-    # EVT
-    evt_nevtop: int = 3
-    evt_ievt: int = 1
-    evt_ipakcb: int = 1
-
-    # OC
-    oc_compact: bool = True
-
-    # WEL
-    wel_ipakcb: int = 1
-
-    # LMT (MT3DMS coupling)
-    lmt_output_file_name: str = "mt3d_link.ftl"
-    lmt_extension: str = "lmt8"
-    lmt_output_format: str = "unformatted"
-
-
-@dataclass(frozen=True)
-class ModflowProcessSpecificParams:
-    """Runtime container for process-specific package settings."""
-
-    vka: float = 1.0
-    exdp: float = 1.0
-
-
-@dataclass(frozen=True)
 class ModflowSpecifParams:
-    """Runtime container grouped by configuration section."""
+    """Runtime container grouped by configuration section.
 
-    runtime: ModflowRuntimeParams = ModflowRuntimeParams()
-    process_specific: ModflowProcessSpecificParams = ModflowProcessSpecificParams()
+    Uses the validated Pydantic models directly instead of duplicating fields
+    into separate frozen dataclasses.
+    """
+
+    runtime: ModflowRuntimeConfig = field(default_factory=ModflowRuntimeConfig)
+    process_specific: ModflowProcessSpecificConfig = field(
+        default_factory=ModflowProcessSpecificConfig,
+    )
     sgrid: SolverSGridConfig = field(default_factory=SolverSGridConfig)
     tgrid: TMeshConfigModel | None = None
 
@@ -279,10 +227,8 @@ class ModflowSpecifParams:
         """Build runtime params from validated Pydantic config or raw mapping."""
         validated = _coerce_modflow_config(config)
         return cls(
-            runtime=ModflowRuntimeParams(**validated.runtime.model_dump()),
-            process_specific=ModflowProcessSpecificParams(
-                **validated.process_specific.model_dump()
-            ),
+            runtime=validated.runtime,
+            process_specific=validated.process_specific,
             sgrid=validated.sgrid,
             tgrid=validated.tgrid,
         )
