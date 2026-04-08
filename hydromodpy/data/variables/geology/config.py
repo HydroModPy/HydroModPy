@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import tomllib
-from typing import Annotated, Any, Literal, Mapping, Optional
+from typing import Annotated, Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
@@ -28,11 +28,11 @@ class GeologySourceConfig(BaseModel):
     )
 
     # --- Custom source fields ---
-    path: Annotated[Optional[Path], ParamLevel("user")] = Field(
+    path: Annotated[Path | None, ParamLevel("user")] = Field(
         default=None,
         description="Path to custom geology file or directory (SHP, GPKG, TIF, CSV).",
     )
-    code_field: Annotated[Optional[str], ParamLevel("user")] = Field(
+    code_field: Annotated[str | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Attribute column for geology codes in custom vector files "
@@ -40,7 +40,7 @@ class GeologySourceConfig(BaseModel):
             "Ignored for BRGM sources (always CODE_LEG)."
         ),
     )
-    values_table_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
+    values_table_path: Annotated[Path | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Optional CSV linking geology codes to descriptions. "
@@ -63,11 +63,11 @@ class GeologySourceConfig(BaseModel):
     )
 
     # --- Spatial mask ---
-    mask_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
+    mask_path: Annotated[Path | None, ParamLevel("user")] = Field(
         default=None,
         description="SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
     )
-    extent: Annotated[Optional[Literal["watershed", "study_area"]], ParamLevel("user")] = Field(
+    extent: Annotated[Literal["watershed", "study_area"] | None, ParamLevel("user")] = Field(
         default=None,
         description="Use project extent for bbox-based data retrieval.",
     )

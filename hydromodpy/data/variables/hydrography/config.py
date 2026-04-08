@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -20,7 +20,7 @@ class HydrographySourceConfig(BaseModel):
     ] = Field(..., description="Data provider.")
 
     # --- Custom source fields ---
-    path: Annotated[Optional[Path], ParamLevel("user")] = Field(
+    path: Annotated[Path | None, ParamLevel("user")] = Field(
         default=None,
         description="Path to a vector file (SHP/GPKG/GeoJSON), raster (TIF/TIFF), or directory containing one.",
     )

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -21,7 +21,7 @@ class IntermittencySourceConfig(BaseModel):
     )
 
     # --- Custom source fields ---
-    path: Annotated[Optional[Path], ParamLevel("user")] = Field(
+    path: Annotated[Path | None, ParamLevel("user")] = Field(
         default=None, description="Directory containing location file and chronicle CSVs."
     )
     col_id: Annotated[str, ParamLevel("dev")] = Field(default="id", description="Column name for station identifier in location file.")
@@ -33,27 +33,27 @@ class IntermittencySourceConfig(BaseModel):
     col_value: Annotated[str, ParamLevel("dev")] = Field(default="value", description="Column name for value in chronicle CSVs.")
 
     # --- Spatial mask ---
-    mask_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
+    mask_path: Annotated[Path | None, ParamLevel("user")] = Field(
         default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations."
     )
 
     # --- API source fields ---
-    code_departement: Annotated[Optional[list[str]], ParamLevel("user")] = Field(
+    code_departement: Annotated[list[str] | None, ParamLevel("user")] = Field(
         default=None,
         description="INSEE department codes to filter Hub'Eau station discovery.",
     )
     require_observations: Annotated[bool, ParamLevel("dev")] = Field(
         default=True, description="Only keep stations that have observations in the period."
     )
-    fallback_search_radius_km: Annotated[Optional[float], ParamLevel("dev")] = Field(
+    fallback_search_radius_km: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None, description="If no station found in bbox, expand search by this radius (km)."
     )
 
     # --- Common fields ---
-    station_ids: Annotated[Optional[list[str]], ParamLevel("user")] = Field(
+    station_ids: Annotated[list[str] | None, ParamLevel("user")] = Field(
         default=None, description="Explicit list of station codes (code_station) to load."
     )
-    extent: Annotated[Optional[Literal["watershed", "study_area"]], ParamLevel("user")] = Field(
+    extent: Annotated[Literal["watershed", "study_area"] | None, ParamLevel("user")] = Field(
         default=None,
         description="Enable bbox-based station discovery using the project extent.",
     )
@@ -61,7 +61,7 @@ class IntermittencySourceConfig(BaseModel):
         default=False,
         description="Ignore cache and re-download from API.",
     )
-    source_unit: Annotated[Optional[str], ParamLevel("dev")] = Field(
+    source_unit: Annotated[str | None, ParamLevel("user")] = Field(
         default=None, description="Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit."
     )
 

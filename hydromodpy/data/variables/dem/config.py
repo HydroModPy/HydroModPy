@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -33,17 +33,17 @@ class DemSourceConfig(BaseModel):
     )
 
     # --- Custom source fields ---
-    path: Annotated[Optional[Path], ParamLevel("user")] = Field(
+    path: Annotated[Path | None, ParamLevel("user")] = Field(
         default=None,
         description="Path to custom DEM file or directory (TIF, ASC, NC).",
     )
 
     # --- Spatial mask ---
-    mask_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
+    mask_path: Annotated[Path | None, ParamLevel("user")] = Field(
         default=None,
         description="SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
     )
-    extent: Annotated[Optional[Literal["watershed", "study_area"]], ParamLevel("user")] = Field(
+    extent: Annotated[Literal["watershed", "study_area"] | None, ParamLevel("user")] = Field(
         default=None,
         description="Use project extent for bbox-based data retrieval.",
     )

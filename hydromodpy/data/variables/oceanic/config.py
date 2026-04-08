@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -21,10 +21,10 @@ class OceanicSourceConfig(BaseModel):
     )
 
     # --- Custom source fields ---
-    path: Annotated[Optional[Path], ParamLevel("user")] = Field(
+    path: Annotated[Path | None, ParamLevel("user")] = Field(
         default=None, description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
     )
-    source_unit: Annotated[Optional[str], ParamLevel("user")] = Field(
+    source_unit: Annotated[str | None, ParamLevel("user")] = Field(
         default=None, description="Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
     )
     col_id: Annotated[str, ParamLevel("dev")] = Field(default="id", description="Column name for station identifier in location file.")
@@ -36,7 +36,7 @@ class OceanicSourceConfig(BaseModel):
     col_value: Annotated[str, ParamLevel("dev")] = Field(default="value", description="Column name for value in chronicle CSVs.")
 
     # --- Constant source fields ---
-    value: Annotated[Optional[float], ParamLevel("user")] = Field(
+    value: Annotated[float | None, ParamLevel("user")] = Field(
         default=None, description="Constant mean sea-level value in metres.",
     )
 
@@ -44,7 +44,7 @@ class OceanicSourceConfig(BaseModel):
     nearest: Annotated[bool, ParamLevel("dev")] = Field(
         default=True, description="Use nearest tide gauge to watershed centroid.",
     )
-    fallback_search_radius_km: Annotated[Optional[float], ParamLevel("dev")] = Field(
+    fallback_search_radius_km: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None, description="Maximum search radius (km) for nearest tide gauge.",
     )
     require_observations: Annotated[bool, ParamLevel("dev")] = Field(
@@ -52,15 +52,15 @@ class OceanicSourceConfig(BaseModel):
     )
 
     # --- Spatial mask ---
-    mask_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
+    mask_path: Annotated[Path | None, ParamLevel("user")] = Field(
         default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
     )
 
     # --- Common fields ---
-    station_ids: Annotated[Optional[list[str]], ParamLevel("user")] = Field(
+    station_ids: Annotated[list[str] | None, ParamLevel("user")] = Field(
         default=None, description="Explicit station ids to load (custom source).",
     )
-    extent: Annotated[Optional[Literal["watershed", "study_area"]], ParamLevel("user")] = Field(
+    extent: Annotated[Literal["watershed", "study_area"] | None, ParamLevel("user")] = Field(
         default=None, description="Enable bbox-based data retrieval using the project extent.",
     )
     force_refresh: Annotated[bool, ParamLevel("dev")] = Field(
