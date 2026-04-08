@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from hydromodpy.core.config.param_level import ParamLevel
 
 
 class DerivedConfig(BaseModel):
@@ -12,35 +15,35 @@ class DerivedConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    watertable_elevation: bool = Field(
+    watertable_elevation: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Compute water-table elevation from uppermost saturated layer.",
     )
-    watertable_depth: bool = Field(
+    watertable_depth: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Compute water-table depth (surface minus water-table elevation).",
     )
-    seepage_areas: bool = Field(
+    seepage_areas: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Identify seepage areas where water table >= surface elevation.",
     )
-    groundwater_flux: bool = Field(
+    groundwater_flux: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,
         description="Magnitude of inter-cell flow (right/front/lower face). Volumetric.",
     )
-    accumulation_flux: bool = Field(
+    accumulation_flux: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,
         description="Drain flux routed on the drainage network.",
     )
-    concentration_seepage: bool = Field(
+    concentration_seepage: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,
         description="Concentration at seepage cells only. Requires transport.",
     )
-    mass_seepage: bool = Field(
+    mass_seepage: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,
         description="Mass flux at seepage cells. Requires transport + budget.",
     )
-    mass_accumulated: bool = Field(
+    mass_accumulated: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,
         description="Cumulative mass_seepage over time.",
     )
@@ -51,11 +54,11 @@ class ExportVariablesConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    head: bool = Field(default=True, description="Export head field.")
-    concentration: bool = Field(default=False, description="Export concentration field.")
-    budget: bool = Field(default=False, description="Export spatial budget fields.")
-    pathlines: bool = Field(default=False, description="Export pathline data.")
-    derived: bool = Field(
+    head: Annotated[bool, ParamLevel("user")] = Field(default=True, description="Export head field.")
+    concentration: Annotated[bool, ParamLevel("user")] = Field(default=False, description="Export concentration field.")
+    budget: Annotated[bool, ParamLevel("dev")] = Field(default=False, description="Export spatial budget fields.")
+    pathlines: Annotated[bool, ParamLevel("dev")] = Field(default=False, description="Export pathline data.")
+    derived: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Export derived variables (watertable_depth, seepage_areas, etc.).",
     )
@@ -77,16 +80,16 @@ class ExportConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    netcdf: bool = Field(default=True, description="Export to NetCDF-4/UGRID.")
-    csv_timeseries: bool = Field(default=True, description="Export time series to CSV.")
-    vtu: bool = Field(default=False, description="Export to VTU (ParaView).")
-    geotiff: bool = Field(default=False, description="Export to GeoTIFF.")
-    shapefile: bool = Field(default=False, description="Export to Shapefile.")
-    output_dir: str | None = Field(
+    netcdf: Annotated[bool, ParamLevel("user")] = Field(default=True, description="Export to NetCDF-4/UGRID.")
+    csv_timeseries: Annotated[bool, ParamLevel("user")] = Field(default=True, description="Export time series to CSV.")
+    vtu: Annotated[bool, ParamLevel("dev")] = Field(default=False, description="Export to VTU (ParaView).")
+    geotiff: Annotated[bool, ParamLevel("dev")] = Field(default=False, description="Export to GeoTIFF.")
+    shapefile: Annotated[bool, ParamLevel("dev")] = Field(default=False, description="Export to Shapefile.")
+    output_dir: Annotated[str | None, ParamLevel("dev")] = Field(
         default=None,
         description="Output directory for exports. Defaults to project results folder.",
     )
-    variables: ExportVariablesConfig = Field(
+    variables: Annotated[ExportVariablesConfig, ParamLevel("user")] = Field(
         default_factory=ExportVariablesConfig,
         description="Which variables to include in exports.",
     )
@@ -101,7 +104,7 @@ class BudgetConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    spatial_fields: bool = Field(
+    spatial_fields: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,
         description="Extract per-cell budget fields (DRN, RCH, etc.) into Zarr.",
     )
@@ -117,23 +120,23 @@ class ResultsConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    store: bool = Field(
+    store: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Store simulation outputs in the ResultStore (DuckDB + Zarr).",
     )
-    keep_solver_files: bool = Field(
+    keep_solver_files: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,
         description="Keep raw solver output files (.hds, .cbc, .lst) after ingestion.",
     )
-    derived: DerivedConfig = Field(
+    derived: Annotated[DerivedConfig, ParamLevel("user")] = Field(
         default_factory=DerivedConfig,
         description="Derived variable computation toggles.",
     )
-    budget: BudgetConfig = Field(
+    budget: Annotated[BudgetConfig, ParamLevel("dev")] = Field(
         default_factory=BudgetConfig,
         description="Budget extraction configuration.",
     )
-    export: ExportConfig = Field(
+    export: Annotated[ExportConfig, ParamLevel("user")] = Field(
         default_factory=ExportConfig,
         description="Automated export configuration.",
     )
