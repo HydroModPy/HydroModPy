@@ -542,7 +542,7 @@ def _cmd_display(args: argparse.Namespace) -> None:
     """Generate display figures from existing simulation outputs."""
     import tomllib
 
-    from hydromodpy.analysis.display.options import display_options_from_raw_toml
+    from hydromodpy.analysis.display.display_config import display_options_from_raw_toml
     from hydromodpy.analysis.display.posthoc import PosthocContext
     from hydromodpy.analysis.display.posthoc_orchestration import plot_posthoc_all
 
