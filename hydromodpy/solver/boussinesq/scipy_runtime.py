@@ -14,7 +14,9 @@ from hydromodpy.solver.boussinesq.assembly import (
     assemble_steady_residual,
     assemble_transient_residual,
 )
-from hydromodpy.solver.boussinesq.jacobian_fd import build_dense_fd_jacobian
+from hydromodpy.solver.boussinesq.jacobian_semianalytic import (
+    build_dense_semianalytic_regularized_partition_jacobian,
+)
 from hydromodpy.solver.boussinesq.runtime_contract import (
     RuntimeSolveResult,
     SteadySolveInputs,
@@ -62,10 +64,15 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
     return _solve_nonlinear_system(
         assembly_for=_assembly_for,
         head_initial_guess_m=head,
+        mesh=inputs.mesh,
+        dt_seconds=float(inputs.dt_seconds),
+        surface_input_rate_m_s=inputs.recharge_rate_m_s,
+        regularization_radius=float(options.regularization_radius),
+        imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+        drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
         max_iterations=int(options.max_iterations),
         tol_residual_inf=float(options.tol_residual_inf),
         tol_state_update_inf=float(options.tol_state_update_inf),
-        fd_rel_step=float(options.fd_rel_step),
     )
 
 
@@ -88,10 +95,15 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
     return _solve_nonlinear_system(
         assembly_for=_assembly_for,
         head_initial_guess_m=head,
+        mesh=inputs.mesh,
+        dt_seconds=None,
+        surface_input_rate_m_s=inputs.recharge_rate_m_s,
+        regularization_radius=float(options.regularization_radius),
+        imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+        drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
         max_iterations=int(options.max_iterations),
         tol_residual_inf=float(options.tol_residual_inf),
         tol_state_update_inf=float(options.tol_state_update_inf),
-        fd_rel_step=float(options.fd_rel_step),
     )
 
 
@@ -99,10 +111,15 @@ def _solve_nonlinear_system(
     *,
     assembly_for,
     head_initial_guess_m: np.ndarray,
+    mesh,
+    dt_seconds: float | None,
+    surface_input_rate_m_s: np.ndarray | float | None,
+    regularization_radius: float,
+    imposed_head_m_by_edge: np.ndarray | None,
+    drainage_conductance_m2_s: np.ndarray | float | None,
     max_iterations: int,
     tol_residual_inf: float,
     tol_state_update_inf: float,
-    fd_rel_step: float,
 ) -> RuntimeSolveResult:
     """Run one SciPy root solve around the NumPy assembly callbacks.
 
@@ -117,12 +134,14 @@ def _solve_nonlinear_system(
         return np.asarray(assembly.residual_m3_s, dtype=float)
 
     def _jacobian(candidate_head: np.ndarray) -> np.ndarray:
-        residual = _residual(candidate_head)
-        return build_dense_fd_jacobian(
-            _residual,
+        return build_dense_semianalytic_regularized_partition_jacobian(
+            mesh,
             np.asarray(candidate_head, dtype=float),
-            residual,
-            rel_step=float(fd_rel_step),
+            dt_seconds=dt_seconds,
+            regularization_radius=regularization_radius,
+            surface_input_rate_m_s=surface_input_rate_m_s,
+            imposed_head_m_by_edge=imposed_head_m_by_edge,
+            drainage_conductance_m2_s=drainage_conductance_m2_s,
         )
 
     result = scipy_optimize.root(

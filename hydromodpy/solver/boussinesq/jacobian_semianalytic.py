@@ -1,23 +1,27 @@
 """Semi-analytic Jacobian helpers for the Boussinesq residual.
 
-The current implementation targets the pragmatic middle ground discussed during
-the sparse-runtime refactor:
+The goal of this module is to keep the Jacobian as analytic as possible while
+preserving the current piecewise physical closures:
 
 - storage, internal fluxes, imposed-head exchanges and drainage are
-  differentiated analytically, using the exact formulas already present in the
-  assembly code;
-- the saturation-excess term remains outside this module and can still be
-  handled by colored finite differences because it mixes a smooth exponential
-  factor with piecewise `max/clip` operators.
+  differentiated analytically;
+- the regularized-partition saturation-excess term is also differentiated
+  analytically almost everywhere, using the exact piecewise derivatives of the
+  current ``clip`` / ``max``-based closure.
 
-This keeps the difficult non-smooth part isolated while removing most of the
-finite-difference burden from the Jacobian build.
+The remaining non-smoothness is therefore limited to the physical activation
+thresholds already present in the residual itself.
 """
 
 from __future__ import annotations
 
 import numpy as np
 
+from hydromodpy.solver.boussinesq.assembly import (
+    accumulate_internal_flux_residual,
+    internal_edge_flux_from_head,
+    imposed_head_edge_flux_from_head,
+)
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
 _MIN_DISTANCE_M = 1.0e-12
@@ -43,7 +47,7 @@ def build_sparse_semianalytic_base_jacobian_triplets(
     imposed_head_m_by_edge: np.ndarray | None = None,
     drainage_conductance_m2_s: np.ndarray | float | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Build the sparse Jacobian triplets for the smooth residual blocks.
+    """Build the sparse Jacobian triplets for the base residual blocks.
 
     Included terms:
 
@@ -55,9 +59,98 @@ def build_sparse_semianalytic_base_jacobian_triplets(
     Excluded terms:
 
     - recharge and wells, which are head-independent in the current backend,
-    - saturation excess, which is intentionally left to a separate correction
-      path because of its mixed smooth / piecewise character.
+    - regularized-partition saturation excess, which is assembled separately so
+      the same base Jacobian can also serve the mixed complementarity runtime.
     """
+    return _build_sparse_semianalytic_triplets(
+        mesh,
+        head_m,
+        dt_seconds=dt_seconds,
+        imposed_head_m_by_edge=imposed_head_m_by_edge,
+        drainage_conductance_m2_s=drainage_conductance_m2_s,
+        include_storage=True,
+        include_internal_flux=True,
+        include_imposed_head_flux=True,
+        include_drainage=True,
+    )
+
+
+def build_sparse_semianalytic_regularized_partition_jacobian_triplets(
+    mesh: BoussinesqMesh,
+    head_m: np.ndarray,
+    *,
+    regularization_radius: float,
+    surface_input_rate_m_s: np.ndarray | float | None,
+    dt_seconds: float | None = None,
+    imposed_head_m_by_edge: np.ndarray | None = None,
+    drainage_conductance_m2_s: np.ndarray | float | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Build the full head-only Jacobian for the regularized-partition model.
+
+    This augments the base residual Jacobian with the derivative of the
+    saturation-excess contribution
+
+    ``A q_ex(h) = A G_r(theta(h)) max(balance(h), 0)``.
+    """
+    base_triplets = build_sparse_semianalytic_base_jacobian_triplets(
+        mesh,
+        head_m,
+        dt_seconds=dt_seconds,
+        imposed_head_m_by_edge=imposed_head_m_by_edge,
+        drainage_conductance_m2_s=drainage_conductance_m2_s,
+    )
+    saturation_triplets = _build_sparse_semianalytic_partition_saturation_triplets(
+        mesh,
+        head_m,
+        regularization_radius=regularization_radius,
+        surface_input_rate_m_s=surface_input_rate_m_s,
+        imposed_head_m_by_edge=imposed_head_m_by_edge,
+    )
+    return _concatenate_triplets(base_triplets, saturation_triplets)
+
+
+def build_dense_semianalytic_regularized_partition_jacobian(
+    mesh: BoussinesqMesh,
+    head_m: np.ndarray,
+    *,
+    regularization_radius: float,
+    surface_input_rate_m_s: np.ndarray | float | None,
+    dt_seconds: float | None = None,
+    imposed_head_m_by_edge: np.ndarray | None = None,
+    drainage_conductance_m2_s: np.ndarray | float | None = None,
+) -> np.ndarray:
+    """Build the dense regularized-partition Jacobian from sparse triplets."""
+    head = np.asarray(head_m, dtype=float).reshape(-1)
+    data, row_indices, col_indices = (
+        build_sparse_semianalytic_regularized_partition_jacobian_triplets(
+            mesh,
+            head,
+            dt_seconds=dt_seconds,
+            regularization_radius=regularization_radius,
+            surface_input_rate_m_s=surface_input_rate_m_s,
+            imposed_head_m_by_edge=imposed_head_m_by_edge,
+            drainage_conductance_m2_s=drainage_conductance_m2_s,
+        )
+    )
+    jacobian = np.zeros((head.size, head.size), dtype=float)
+    if data.size != 0:
+        np.add.at(jacobian, (row_indices, col_indices), data)
+    return jacobian
+
+
+def _build_sparse_semianalytic_triplets(
+    mesh: BoussinesqMesh,
+    head_m: np.ndarray,
+    *,
+    dt_seconds: float | None,
+    imposed_head_m_by_edge: np.ndarray | None,
+    drainage_conductance_m2_s: np.ndarray | float | None,
+    include_storage: bool,
+    include_internal_flux: bool,
+    include_imposed_head_flux: bool,
+    include_drainage: bool,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Build one sparse Jacobian subset from selected residual operators."""
     head = np.asarray(head_m, dtype=float).reshape(-1)
     n_cells = int(mesh.n_cells)
     if head.size != n_cells:
@@ -80,7 +173,7 @@ def build_sparse_semianalytic_base_jacobian_triplets(
         row_parts.append(active)
         col_parts.append(active.copy())
 
-    if dt_seconds is not None:
+    if include_storage and dt_seconds is not None:
         dt = float(dt_seconds)
         if dt <= 0.0:
             raise ValueError("dt_seconds must be strictly positive when provided.")
@@ -88,29 +181,32 @@ def build_sparse_semianalytic_base_jacobian_triplets(
         _append_diagonal(storage_diag)
 
     db_dh = saturated_thickness_derivative_from_head(mesh, head)
-    _append_internal_flux_triplets(
-        mesh,
-        head,
-        db_dh,
-        data_parts=data_parts,
-        row_parts=row_parts,
-        col_parts=col_parts,
-    )
-    _append_imposed_head_triplets(
-        mesh,
-        head,
-        db_dh,
-        imposed_head_m_by_edge=imposed_head_m_by_edge,
-        data_parts=data_parts,
-        row_parts=row_parts,
-        col_parts=col_parts,
-    )
-    drainage_diag = _drainage_diagonal_derivative(
-        mesh,
-        head,
-        drainage_conductance_m2_s=drainage_conductance_m2_s,
-    )
-    _append_diagonal(drainage_diag)
+    if include_internal_flux:
+        _append_internal_flux_triplets(
+            mesh,
+            head,
+            db_dh,
+            data_parts=data_parts,
+            row_parts=row_parts,
+            col_parts=col_parts,
+        )
+    if include_imposed_head_flux:
+        _append_imposed_head_triplets(
+            mesh,
+            head,
+            db_dh,
+            imposed_head_m_by_edge=imposed_head_m_by_edge,
+            data_parts=data_parts,
+            row_parts=row_parts,
+            col_parts=col_parts,
+        )
+    if include_drainage:
+        drainage_diag = _drainage_diagonal_derivative(
+            mesh,
+            head,
+            drainage_conductance_m2_s=drainage_conductance_m2_s,
+        )
+        _append_diagonal(drainage_diag)
 
     if not data_parts:
         return (
@@ -122,6 +218,119 @@ def build_sparse_semianalytic_base_jacobian_triplets(
         np.concatenate(data_parts).astype(float, copy=False),
         np.concatenate(row_parts).astype(int, copy=False),
         np.concatenate(col_parts).astype(int, copy=False),
+    )
+
+
+def _build_sparse_semianalytic_partition_saturation_triplets(
+    mesh: BoussinesqMesh,
+    head_m: np.ndarray,
+    *,
+    regularization_radius: float,
+    surface_input_rate_m_s: np.ndarray | float | None,
+    imposed_head_m_by_edge: np.ndarray | None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Differentiate the regularized-partition saturation contribution.
+
+    The residual contribution is ``A q_ex`` with
+
+    ``q_ex = G_r(theta(h)) max(balance(h), 0)``
+
+    where ``balance`` depends on the lateral residual only. The resulting
+    Jacobian splits into:
+
+    - one lateral block scaled row-wise by the active overflow multiplier,
+    - one diagonal term from the local derivative of ``G_r(theta(h))``.
+    """
+    if float(regularization_radius) <= 0.0:
+        raise ValueError("regularization_radius must be strictly positive.")
+
+    head = np.asarray(head_m, dtype=float).reshape(-1)
+    n_cells = int(mesh.n_cells)
+    if head.size != n_cells:
+        raise ValueError(
+            f"head_m length must match mesh.n_cells ({head.size} != {n_cells})."
+        )
+
+    internal_edge_flux = internal_edge_flux_from_head(mesh, head)
+    internal_flux_residual = accumulate_internal_flux_residual(mesh, internal_edge_flux)
+    _, imposed_head_flux_residual = imposed_head_edge_flux_from_head(
+        mesh,
+        head,
+        imposed_head_m_by_edge=imposed_head_m_by_edge,
+    )
+    lateral_flux_residual = (
+        np.asarray(internal_flux_residual, dtype=float)
+        + np.asarray(imposed_head_flux_residual, dtype=float)
+    )
+    lateral_triplets = _build_sparse_semianalytic_triplets(
+        mesh,
+        head,
+        dt_seconds=None,
+        imposed_head_m_by_edge=imposed_head_m_by_edge,
+        drainage_conductance_m2_s=None,
+        include_storage=False,
+        include_internal_flux=True,
+        include_imposed_head_flux=True,
+        include_drainage=False,
+    )
+
+    surface_input = np.maximum(
+        _as_cell_vector(surface_input_rate_m_s, n_cells=n_cells),
+        0.0,
+    )
+    balance_rate = np.divide(
+        -lateral_flux_residual,
+        mesh.cell_area_m2,
+        out=np.zeros(n_cells, dtype=float),
+        where=np.asarray(mesh.cell_area_m2, dtype=float) > 0.0,
+    ) + surface_input
+    active_ramp = balance_rate > 0.0
+    ramp_rate = np.where(active_ramp, balance_rate, 0.0)
+
+    max_thickness = np.maximum(mesh.z_top_m - mesh.z_bottom_m, 0.0)
+    db_dh = saturated_thickness_derivative_from_head(mesh, head)
+    thickness = np.clip(head - mesh.z_bottom_m, 0.0, max_thickness)
+    saturation_ratio = np.divide(
+        thickness,
+        max_thickness,
+        out=np.zeros(n_cells, dtype=float),
+        where=max_thickness > 0.0,
+    )
+    regularization = np.exp(
+        -(1.0 - np.clip(saturation_ratio, 0.0, 1.0)) / float(regularization_radius)
+    )
+    dtheta_dh = np.divide(
+        db_dh,
+        max_thickness,
+        out=np.zeros(n_cells, dtype=float),
+        where=max_thickness > 0.0,
+    )
+    dregularization_dh = regularization * dtheta_dh / float(regularization_radius)
+    local_diagonal = mesh.cell_area_m2 * ramp_rate * dregularization_dh
+
+    row_scaling = -regularization * active_ramp.astype(float, copy=False)
+    lateral_data, lateral_rows, lateral_cols = lateral_triplets
+    scaled_lateral_data = (
+        np.asarray(lateral_data, dtype=float)
+        * row_scaling[np.asarray(lateral_rows, dtype=int)]
+    )
+    active_lateral = scaled_lateral_data != 0.0
+
+    diagonal_rows = np.flatnonzero(local_diagonal != 0.0).astype(int, copy=False)
+    diagonal_data = local_diagonal[diagonal_rows].astype(float, copy=False)
+    diagonal_cols = diagonal_rows.copy()
+
+    return _concatenate_triplets(
+        (
+            scaled_lateral_data[active_lateral].astype(float, copy=False),
+            np.asarray(lateral_rows, dtype=int)[active_lateral],
+            np.asarray(lateral_cols, dtype=int)[active_lateral],
+        ),
+        (
+            diagonal_data,
+            diagonal_rows,
+            diagonal_cols,
+        ),
     )
 
 
@@ -315,11 +524,38 @@ def _as_edge_vector(
     if array.size != int(n_edges):
         raise ValueError(
             f"Expected vector of length {int(n_edges)}; got {int(array.size)}."
-        )
+    )
     return array.astype(float, copy=False)
+
+
+def _concatenate_triplets(
+    *triplet_sets: tuple[np.ndarray, np.ndarray, np.ndarray],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    data_parts: list[np.ndarray] = []
+    row_parts: list[np.ndarray] = []
+    col_parts: list[np.ndarray] = []
+    for data, row_indices, col_indices in triplet_sets:
+        if np.asarray(data).size == 0:
+            continue
+        data_parts.append(np.asarray(data, dtype=float).reshape(-1))
+        row_parts.append(np.asarray(row_indices, dtype=int).reshape(-1))
+        col_parts.append(np.asarray(col_indices, dtype=int).reshape(-1))
+    if not data_parts:
+        return (
+            np.asarray([], dtype=float),
+            np.asarray([], dtype=int),
+            np.asarray([], dtype=int),
+        )
+    return (
+        np.concatenate(data_parts).astype(float, copy=False),
+        np.concatenate(row_parts).astype(int, copy=False),
+        np.concatenate(col_parts).astype(int, copy=False),
+    )
 
 
 __all__ = [
     "build_sparse_semianalytic_base_jacobian_triplets",
+    "build_dense_semianalytic_regularized_partition_jacobian",
+    "build_sparse_semianalytic_regularized_partition_jacobian_triplets",
     "saturated_thickness_derivative_from_head",
 ]

@@ -8,7 +8,11 @@ These functions accept only primitive/generic types (arrays, DataFrames, dicts)
 so they can be called from any context (simulation, overview, standalone).
 """
 
-from hydromodpy.analysis.display.figures.animation import build_gif, build_plotly_slider
+from hydromodpy.analysis.display.figures.animation import (
+    build_gif,
+    build_mp4,
+    build_plotly_slider,
+)
 from hydromodpy.analysis.display.figures.boussinesq import (
     plot_boussinesq_diagnostics,
     plot_boussinesq_edge_flux_map,
@@ -114,5 +118,6 @@ __all__ = [
     "plot_station_inventory",
     # animation
     "build_gif",
+    "build_mp4",
     "build_plotly_slider",
 ]

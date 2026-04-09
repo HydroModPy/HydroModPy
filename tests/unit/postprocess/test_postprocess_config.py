@@ -16,6 +16,7 @@ def test_postprocess_config_defaults_keep_feature_disabled() -> None:
     assert cfg.transport.netcdf.enabled is False
     assert cfg.flow.intermittency.monthly is True
     assert cfg.transport.intermittency.monthly is True
+    assert cfg.flow.native_mesh_png is False
 
 
 def test_postprocess_config_accepts_nested_overrides() -> None:
@@ -28,6 +29,8 @@ def test_postprocess_config_accepts_nested_overrides() -> None:
                 "timeseries": {"enabled": False},
                 "netcdf": {"enabled": True, "datetime_format": False},
                 "intermittency": {"monthly": False, "yearly": True},
+                "native_mesh_vtu": True,
+                "native_mesh_png": True,
             },
             "transport": {
                 "display_particles": False,
@@ -46,6 +49,8 @@ def test_postprocess_config_accepts_nested_overrides() -> None:
     assert cfg.flow.netcdf.datetime_format is False
     assert cfg.flow.intermittency.monthly is False
     assert cfg.flow.intermittency.yearly is True
+    assert cfg.flow.native_mesh_vtu is True
+    assert cfg.flow.native_mesh_png is True
     assert cfg.transport.display_particles is False
     assert cfg.transport.timeseries.suffix_name == "custom_suffix"
     assert cfg.transport.netcdf.enabled is True

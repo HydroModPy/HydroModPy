@@ -34,8 +34,9 @@ def test_hmp_regression_fast_mf6_builds_fast_tier_selection(monkeypatch) -> None
         ["hmp", "test", "regression", "--fast", "--mf6"],
     )
 
+    assert args[:3] == [str(Path(importlib.import_module("hydromodpy.__main__").sys.executable)), "-m", "pytest"]
     assert any(str(arg).endswith(str(Path("tests") / "regression" / "fast")) for arg in args)
-    marker_index = args.index("-m")
+    marker_index = args.index("-m", 3)
     assert args[marker_index + 1] == "fast and mf6"
 
 
@@ -45,8 +46,9 @@ def test_hmp_regression_normal_alias_maps_to_fast_tier(monkeypatch) -> None:
         ["hmp", "test", "regression", "--normal"],
     )
 
+    assert args[:3] == [str(Path(importlib.import_module("hydromodpy.__main__").sys.executable)), "-m", "pytest"]
     assert any(str(arg).endswith(str(Path("tests") / "regression" / "fast")) for arg in args)
-    marker_index = args.index("-m")
+    marker_index = args.index("-m", 3)
     assert args[marker_index + 1] == "fast"
 
 
@@ -56,8 +58,9 @@ def test_hmp_validation_fast_steady_builds_validation_marker_selection(monkeypat
         ["hmp", "test", "validation", "--fast", "--steady"],
     )
 
+    assert args[:3] == [str(Path(importlib.import_module("hydromodpy.__main__").sys.executable)), "-m", "pytest"]
     assert any(str(arg).endswith(str(Path("tests") / "validation")) for arg in args)
-    marker_index = args.index("-m")
+    marker_index = args.index("-m", 3)
     assert args[marker_index + 1] == "validation and fast and steady"
 
 

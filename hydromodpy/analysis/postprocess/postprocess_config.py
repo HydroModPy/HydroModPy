@@ -61,6 +61,22 @@ class FlowPostprocessConfig(BaseModel):
         default=True,
         description="Run the flow display suite after flow postprocessing.",
     )
+    native_mesh_npz: bool = Field(
+        default=False,
+        description="Export native mesh cell-series as NPZ files.",
+    )
+    native_mesh_csv: bool = Field(
+        default=False,
+        description="Export native mesh cell-series as CSV tables.",
+    )
+    native_mesh_vtu: bool = Field(
+        default=False,
+        description="Export native mesh snapshots as VTU files.",
+    )
+    native_mesh_png: bool = Field(
+        default=False,
+        description="Export native mesh scalar snapshots as PNG figures.",
+    )
 
 class TransportPostprocessConfig(BaseModel):
     """Postprocessing options for the transport process family."""

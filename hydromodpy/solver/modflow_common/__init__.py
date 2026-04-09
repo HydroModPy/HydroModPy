@@ -1,5 +1,15 @@
 """Shared MODFLOW helper utilities used across solver backends."""
 
+from .discretization_spatial import (
+    build_spatial_discretization,
+    project_surfaces_to_planar_grid,
+    resolve_domain_surfaces,
+)
+from .discretization_temporal import (
+    TemporalDiscretizationResult,
+    build_temporal_discretization,
+    build_temporal_discretization_from_time_grid,
+)
 from .executables import ensure_platform_executable
 from .grid_context import GridReference, SolverGridContext
 from .masstransfer import Masstransfer
@@ -13,6 +23,12 @@ __all__ = [
     "SolverGridContext",
     "SolverMesh",
     "SolverRoutingContext",
+    "TemporalDiscretizationResult",
+    "build_spatial_discretization",
+    "resolve_domain_surfaces",
+    "project_surfaces_to_planar_grid",
+    "build_temporal_discretization",
+    "build_temporal_discretization_from_time_grid",
     "ensure_platform_executable",
     "Masstransfer",
     "write_grid_array_to_raster",

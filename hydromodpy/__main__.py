@@ -435,7 +435,7 @@ def _cmd_list(args: argparse.Namespace) -> None:
 def _cmd_test(args: argparse.Namespace) -> None:
     """Run tests via pytest."""
     root = _find_project_root()
-    pytest_args = ["pytest", "-v"]
+    pytest_args = [sys.executable, "-m", "pytest", "-v"]
     tiers = _selected_tiers(args.normal, args.extensive, args.fast)
 
     if args.suite == "unit":

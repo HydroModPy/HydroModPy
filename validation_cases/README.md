@@ -85,6 +85,11 @@ Current cases are mostly:
 - shared across `modflownwt`, `modflow6`, and the in-house `boussinesq`
   backend where the benchmark physics remains defensible.
 
+Numerical exploratory cases that are intentionally not part of the analytical
+batch inventory live under `validation_cases/numerical/`. They are used for
+controlled solver-to-solver comparisons when no clean analytical reference is
+available.
+
 One helper module, `analytical/transient/linearized_unconfined_1d.py`, is
 module-only and exists to share analytical formulas across transient cases.
 
@@ -143,6 +148,12 @@ The shared runtime used by all cases lives under `validation_cases/shared/`.
 | `analytical/transient/linearized_unconfined_recharge_periodic_1d` | launcher-backed | transient | linearized periodic recharge | 1D sinusoidal recharge benchmark. |
 | `analytical/transient/linearized_unconfined_boundary_piecewise_1d` | launcher-backed | transient | linearized piecewise boundary forcing | 1D multi-step west-boundary benchmark using CSV forcing. |
 | `analytical/transient/late_time_unconfined_pumping_2d` | launcher-backed | transient | late-time Theis proxy | 2D radial pumping benchmark in the late-time unconfined regime. |
+
+### Numerical Exploratory Cases
+
+| Path | Type | Regime | Purpose |
+| --- | --- | --- | --- |
+| `numerical/transient/boussinesq_hillslope_recharge_pulse_overflow_1d` | direct Boussinesq runtime | transient | Sloping-hillslope overflow stress case used to compare `petsc_partition`, `petsc`, and regularized-partition non-PETSc paths with a richer diagnostic figure. |
 
 ## Detailed Case Sheets
 

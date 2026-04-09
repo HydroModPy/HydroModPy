@@ -1,0 +1,98 @@
+case_id = "boussinesq_hillslope_recharge_pulse_overflow_1d"
+category = "numerical"
+regime = "transient"
+dimension = "1d"
+default_solver = "petsc_partition"
+
+[geometry]
+nx = 40
+ny = 3
+length_x_m = 400.0
+width_y_m = 30.0
+bottom_elevation_m = 0.0
+toe_elevation_m = 5.0
+topography_slope_m_per_m = 0.015
+east_head_m = 4.0
+initial_head_m = 4.2
+hydraulic_conductivity_m_per_s = 1e-4
+storage_coefficient = 0.10
+
+[time]
+dt_days = 2.0
+nper = 20
+
+[forcing]
+first_clim = "first"
+recharge_mm_day = [
+  0.0, 0.0, 0.0,
+  6.0, 6.0, 6.0,
+  0.0, 0.0,
+  12.0, 12.0, 12.0,
+  0.0, 0.0,
+  20.0, 20.0, 20.0,
+  0.0, 0.0,
+  28.0, 28.0,
+]
+
+[forcing_presets.strong]
+dt_days = 1.0
+east_head_m = 3.8
+initial_head_m = 4.0
+recharge_mm_day = [
+  0.0, 0.0,
+  10.0, 10.0, 10.0,
+  0.0, 0.0,
+  20.0, 20.0, 20.0,
+  0.0, 0.0,
+  32.0, 32.0, 32.0,
+  0.0, 0.0,
+  42.0, 42.0, 42.0,
+  0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0,
+]
+
+[forcing_presets.extreme]
+dt_days = 1.0
+east_head_m = 3.5
+initial_head_m = 3.9
+recharge_mm_day = [
+  0.0, 0.0,
+  14.0, 14.0, 14.0,
+  0.0,
+  26.0, 26.0, 26.0,
+  0.0,
+  38.0, 38.0, 38.0,
+  0.0,
+  50.0, 50.0, 50.0,
+  0.0,
+  60.0, 60.0,
+  0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0,
+]
+
+[solver_overrides.petsc]
+runtime_max_iterations = 60
+runtime_tol_residual_inf = 1e-8
+
+[solver_overrides.petsc_partition]
+runtime_max_iterations = 40
+runtime_tol_residual_inf = 1e-8
+
+[solver_overrides.scipy_sparse]
+runtime_max_iterations = 40
+
+[diagnostics]
+overflow_threshold_mm_day = 0.05
+
+[plot]
+default_snapshot_days = [0.0, 8.0, 18.0, 30.0, 40.0]
+max_snapshots = 6
+profile_limit_padding_m = 0.4
+
+[animation]
+gif_duration_ms = 220
+frame_step = 1

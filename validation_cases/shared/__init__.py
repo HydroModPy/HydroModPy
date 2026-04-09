@@ -15,6 +15,7 @@ from validation_cases.shared.loaders import (
     merge_case_flow_section,
 )
 from validation_cases.shared.cli import (
+    apply_output_root_override,
     build_run_case_parser,
     print_run_case_summary,
     resolve_output_png,
@@ -34,6 +35,7 @@ from validation_cases.shared.runtime import (
 
 __all__ = [
     "ValidationRunResult",
+    "apply_output_root_override",
     "build_run_case_parser",
     "load_case_config",
     "load_case_metadata",

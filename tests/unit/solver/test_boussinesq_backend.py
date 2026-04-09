@@ -15,6 +15,7 @@ from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
 from hydromodpy.solver.boussinesq import Boussinesq, BoussinesqMesh
 from hydromodpy.solver.boussinesq.assembly import (
     assemble_steady_residual,
+    assemble_steady_residual_with_saturation_excess,
     assemble_transient_residual,
 )
 from hydromodpy.solver.boussinesq.jacobian_fd import (
@@ -25,12 +26,23 @@ from hydromodpy.solver.boussinesq.jacobian_fd import (
 )
 from hydromodpy.solver.boussinesq.jacobian_semianalytic import (
     build_sparse_semianalytic_base_jacobian_triplets,
+    build_sparse_semianalytic_regularized_partition_jacobian_triplets,
 )
 from hydromodpy.solver.boussinesq.local_runtime import (
     solve_backward_euler_step,
     solve_steady_state,
 )
+from hydromodpy.solver.boussinesq.petsc_runtime import (
+    _coo_to_csr,
+    _fischer_burmeister_residual_and_derivatives,
+    solve_steady_problem as solve_steady_problem_petsc,
+)
+from hydromodpy.solver.boussinesq.partition_runtime_utils import (
+    interiorize_regularized_partition_initial_guess,
+    regularized_partition_jacobian_shift,
+)
 from hydromodpy.solver.boussinesq.runtime_contract import SteadySolveInputs
+from hydromodpy.solver.boussinesq.runtime_selection import resolve_runtime_backend
 from hydromodpy.solver.boussinesq.scipy_runtime import (
     solve_steady_problem as solve_steady_problem_scipy,
 )
@@ -199,13 +211,53 @@ def test_solver_config_accepts_boussinesq() -> None:
     assert cfg.solver_engine == SolverEngine.BOUSSINESQ
 
 
-@pytest.mark.parametrize("runtime_backend", ["scipy", "scipy_sparse"])
+@pytest.mark.parametrize("runtime_backend", ["scipy", "scipy_sparse", "petsc"])
 def test_flow_config_accepts_boussinesq_runtime_backend(runtime_backend: str) -> None:
     cfg = FlowConfig.model_validate({"runtime_backend": runtime_backend})
     flow = Flow(cfg)
 
     assert cfg.runtime_backend == runtime_backend
     assert flow.runtime_backend == runtime_backend
+
+
+@pytest.mark.parametrize(
+    "surface_interaction_model",
+    ["auto", "regularized_partition", "complementarity"],
+)
+def test_flow_config_accepts_surface_interaction_model(
+    surface_interaction_model: str,
+) -> None:
+    cfg = FlowConfig.model_validate(
+        {"surface_interaction_model": surface_interaction_model}
+    )
+    flow = Flow(cfg)
+
+    assert cfg.surface_interaction_model == surface_interaction_model
+    assert flow.surface_interaction_model == surface_interaction_model
+
+
+def test_runtime_selection_routes_petsc_by_surface_interaction_model() -> None:
+    partition_backend = resolve_runtime_backend(
+        "petsc",
+        surface_interaction_model="regularized_partition",
+    )
+    complementarity_backend = resolve_runtime_backend(
+        "petsc",
+        surface_interaction_model="complementarity",
+    )
+
+    assert partition_backend.name == "petsc"
+    assert complementarity_backend.name == "petsc"
+    assert "regularized_partition" in partition_backend.nonlinear_solver_kind
+    assert "fischer_burmeister" in complementarity_backend.nonlinear_solver_kind
+
+
+def test_runtime_selection_rejects_complementarity_without_petsc() -> None:
+    with pytest.raises(NotImplementedError):
+        resolve_runtime_backend(
+            "scipy_sparse",
+            surface_interaction_model="complementarity",
+        )
 
 
 def test_flow_config_accepts_boussinesq_runtime_overrides() -> None:
@@ -225,6 +277,69 @@ def test_flow_config_accepts_boussinesq_runtime_overrides() -> None:
     assert flow.runtime_max_iterations == 60
     assert flow.runtime_tol_residual_inf == pytest.approx(1.0e-7)
     assert flow.runtime_tol_state_update_inf == pytest.approx(1.0e-8)
+
+
+def test_fischer_burmeister_residual_vanishes_on_complementary_states() -> None:
+    residual, dphi_dh, dphi_dq = _fischer_burmeister_residual_and_derivatives(
+        np.asarray([0.0, 2.5e-6], dtype=float),
+        np.asarray([1.2, 0.0], dtype=float),
+        head_scale_m=2.0,
+        rate_scale_m_s=5.0e-6,
+    )
+
+    assert np.allclose(residual, 0.0)
+    assert np.isfinite(dphi_dh).all()
+    assert np.isfinite(dphi_dq).all()
+
+
+def test_prescribed_saturation_excess_overrides_regularized_balance(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    prescribed_q_ex = np.asarray([1.5e-7, 3.0e-7], dtype=float)
+
+    assembly = assemble_steady_residual_with_saturation_excess(
+        mesh,
+        head_m=np.asarray([10.0, 10.5], dtype=float),
+        saturation_excess_rate_m_s=prescribed_q_ex,
+        recharge_rate_m_s=2.0e-7,
+    )
+
+    assert np.allclose(assembly.saturation_excess_rate_m_s, prescribed_q_ex)
+
+
+def test_coo_to_csr_uses_requested_index_dtype() -> None:
+    indptr, indices, values = _coo_to_csr(
+        n_rows=2,
+        n_cols=2,
+        row_indices=np.asarray([0, 0, 1], dtype=np.int64),
+        col_indices=np.asarray([0, 1, 1], dtype=np.int64),
+        data=np.asarray([1.0, 2.0, 3.0], dtype=float),
+        index_dtype=np.int32,
+    )
+
+    assert indptr.dtype == np.int32
+    assert indices.dtype == np.int32
+    assert np.allclose(values, np.asarray([1.0, 2.0, 3.0], dtype=float))
+
+
+def test_petsc_runtime_rejects_non_linux_platform(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    monkeypatch.setattr(
+        "hydromodpy.solver.boussinesq.petsc_runtime.platform.system",
+        lambda: "Windows",
+    )
+
+    with pytest.raises(RuntimeError, match="only supported on Linux"):
+        solve_steady_problem_petsc(
+            SteadySolveInputs(
+                mesh=mesh,
+                head_initial_guess_m=np.full(mesh.n_cells, 7.0, dtype=float),
+            )
+        )
 
 
 def test_sparse_fd_coloring_groups_only_disjoint_columns() -> None:
@@ -404,7 +519,7 @@ def test_semianalytic_transient_base_jacobian_matches_dense_fd_without_saturatio
     assert np.allclose(semianalytic_jacobian, dense_jacobian, atol=1.0e-8)
 
 
-def test_semianalytic_base_plus_colored_saturation_correction_matches_dense_fd(
+def test_semianalytic_regularized_partition_jacobian_matches_dense_fd_steady(
     tmp_path: Path,
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
@@ -419,57 +534,91 @@ def test_semianalytic_base_plus_colored_saturation_correction_matches_dense_fd(
             recharge_rate_m_s=recharge_rate,
         ).residual_m3_s
 
-    def saturation_correction_fn(candidate_head: np.ndarray) -> np.ndarray:
-        assembly = assemble_steady_residual(
-            mesh,
-            head_m=candidate_head,
-            recharge_rate_m_s=recharge_rate,
-        )
-        return mesh.cell_area_m2 * assembly.saturation_excess_rate_m_s
-
     assembly0 = assemble_steady_residual(
         mesh,
         head_m=head,
         recharge_rate_m_s=recharge_rate,
     )
-    rows_by_col = build_cell_coupling_rows_by_column(
-        n_cells=mesh.n_cells,
-        edge_cell_a=mesh.edge_cell_a,
-        edge_cell_b=mesh.edge_cell_b,
-    )
-    groups = color_columns_by_row_overlap(rows_by_col)
     dense_jacobian = build_dense_fd_jacobian(
         full_residual_fn,
         head,
         assembly0.residual_m3_s,
         rel_step=1.0e-7,
     )
-    base_triplets = build_sparse_semianalytic_base_jacobian_triplets(
-        mesh,
-        head,
+    data, row_indices, col_indices = (
+        build_sparse_semianalytic_regularized_partition_jacobian_triplets(
+            mesh,
+            head,
+            regularization_radius=0.05,
+            surface_input_rate_m_s=recharge_rate,
+        )
     )
-    sat_triplets = build_colored_sparse_fd_jacobian_triplets(
-        saturation_correction_fn,
-        head,
-        mesh.cell_area_m2 * assembly0.saturation_excess_rate_m_s,
-        rows_by_col=rows_by_col,
-        column_groups=groups,
-        rel_step=1.0e-7,
-    )
-    hybrid_jacobian = _triplets_to_dense(
-        base_triplets[0],
-        base_triplets[1],
-        base_triplets[2],
-        shape=(mesh.n_cells, mesh.n_cells),
-    ) + _triplets_to_dense(
-        sat_triplets[0],
-        sat_triplets[1],
-        sat_triplets[2],
+    semianalytic_jacobian = _triplets_to_dense(
+        data,
+        row_indices,
+        col_indices,
         shape=(mesh.n_cells, mesh.n_cells),
     )
 
     assert np.any(assembly0.saturation_excess_rate_m_s > 0.0)
-    assert np.allclose(hybrid_jacobian, dense_jacobian, atol=1.0e-8)
+    assert np.allclose(semianalytic_jacobian, dense_jacobian, atol=1.0e-8)
+
+
+def test_semianalytic_regularized_partition_jacobian_matches_dense_fd_transient(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    head_prev = np.asarray([9.85, 10.80], dtype=float)
+    head = np.asarray([9.95, 10.95], dtype=float)
+    recharge_rate = 2.0e-7
+    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
+    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
+    imposed_heads[mesh.boundary_edge_indices_for_side("east_side")] = 10.8
+
+    def full_residual_fn(candidate_head: np.ndarray) -> np.ndarray:
+        return assemble_transient_residual(
+            mesh,
+            head_m=candidate_head,
+            head_prev_m=head_prev,
+            dt_seconds=1800.0,
+            recharge_rate_m_s=recharge_rate,
+            imposed_head_m_by_edge=imposed_heads,
+        ).residual_m3_s
+
+    assembly0 = assemble_transient_residual(
+        mesh,
+        head_m=head,
+        head_prev_m=head_prev,
+        dt_seconds=1800.0,
+        recharge_rate_m_s=recharge_rate,
+        imposed_head_m_by_edge=imposed_heads,
+    )
+    dense_jacobian = build_dense_fd_jacobian(
+        full_residual_fn,
+        head,
+        assembly0.residual_m3_s,
+        rel_step=1.0e-7,
+    )
+    data, row_indices, col_indices = (
+        build_sparse_semianalytic_regularized_partition_jacobian_triplets(
+            mesh,
+            head,
+            dt_seconds=1800.0,
+            regularization_radius=0.05,
+            surface_input_rate_m_s=recharge_rate,
+            imposed_head_m_by_edge=imposed_heads,
+        )
+    )
+    semianalytic_jacobian = _triplets_to_dense(
+        data,
+        row_indices,
+        col_indices,
+        shape=(mesh.n_cells, mesh.n_cells),
+    )
+
+    assert np.any(assembly0.saturation_excess_rate_m_s > 0.0)
+    assert np.allclose(semianalytic_jacobian, dense_jacobian, atol=1.0e-8)
 
 
 def test_boussinesq_mesh_builds_from_gmsh_bundle(tmp_path: Path) -> None:
@@ -522,6 +671,37 @@ def test_boussinesq_mesh_rejects_missing_storage_field(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="storage_coefficient"):
         BoussinesqMesh.from_bundle(bundle)
+
+
+def test_regularized_partition_initial_guess_moves_surface_values_to_midpoint(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle_partition_initial_guess")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    initial = np.asarray([mesh.z_top_m[0], mesh.z_bottom_m[1]], dtype=float)
+
+    adjusted = interiorize_regularized_partition_initial_guess(mesh, initial)
+
+    expected = 0.5 * (mesh.z_top_m + mesh.z_bottom_m)
+    assert np.allclose(adjusted, expected)
+
+
+def test_regularized_partition_jacobian_shift_decays_with_residual() -> None:
+    diagonal = np.asarray([0.0, 2.0e-4, 5.0e-4, 1.0e-3], dtype=float)
+
+    shift_start = regularized_partition_jacobian_shift(
+        diagonal,
+        residual_norm_inf=1.0,
+        initial_residual_norm_inf=1.0,
+    )
+    shift_late = regularized_partition_jacobian_shift(
+        diagonal,
+        residual_norm_inf=1.0e-4,
+        initial_residual_norm_inf=1.0,
+    )
+
+    assert shift_start > shift_late
+    assert shift_late >= 1.0e-8
 
 
 def test_boussinesq_initializes_head_from_flow_initial_conditions(tmp_path: Path) -> None:
@@ -1013,7 +1193,7 @@ def test_boussinesq_runs_steady_scipy_sparse_runtime_without_time_grid(
     assert model.runtime_summary["steady_mode"] == "nonlinear_scipy_sparse"
     assert (
         model.runtime_summary["runtime_solver_kind"]
-        == "scipy_sparse_newton_line_search_semianalytic_base_sat_fd_colored"
+        == "scipy_sparse_newton_line_search_semianalytic_regularized_partition"
     )
     assert model.runtime_summary["runtime_linear_system_layout"] == "sparse"
     assert (

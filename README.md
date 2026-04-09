@@ -98,8 +98,8 @@ conda activate hydromodpy-light-pkg
 ### Linux / WSL quick start
 
 For Ubuntu or WSL, the repository now includes a helper script that installs
-the minimal Linux system dependency, creates an editable Conda environment, and
-can optionally add PETSc:
+the minimal Linux system dependency, creates an editable Conda environment,
+adds the Linux runtime library needed by `gmsh`, and can optionally add PETSc:
 
 ```bash
 bash install/setup_wsl_dev.sh --env-name hydromodpy-wsl
@@ -110,10 +110,17 @@ bash install/setup_wsl_dev.sh --env-name hydromodpy-wsl --with-petsc
 If Conda is not available inside WSL yet, Miniforge is the simplest route:
 
 ```bash
-sudo apt update && sudo apt install -y curl git libglu1-mesa libxft2
+sudo apt update && sudo apt install -y curl git libglu1-mesa
 curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
 bash Miniforge3-Linux-x86_64.sh
 source ~/miniforge3/etc/profile.d/conda.sh
+```
+
+If you create the Conda environment manually instead of using
+`install/setup_wsl_dev.sh`, add the `gmsh` runtime shim explicitly on Linux:
+
+```bash
+conda install -n hydromodpy-light-pkg -c conda-forge xorg-libxft
 ```
 
 Typical Linux/WSL test commands after activation:

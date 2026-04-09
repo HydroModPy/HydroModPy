@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -273,7 +274,17 @@ def _finalize_summary_payload(
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as stream:
+    output_target: str | Path = path
+    if os.name == "nt":
+        normalized = str(path.resolve())
+        if not normalized.startswith("\\\\?\\"):
+            if normalized.startswith("\\\\"):
+                output_target = "\\\\?\\UNC\\" + normalized.lstrip("\\")
+            else:
+                output_target = "\\\\?\\" + normalized
+        else:
+            output_target = normalized
+    with open(output_target, "w", encoding="utf-8") as stream:
         json.dump(payload, stream, indent=2, ensure_ascii=True)
         stream.write("\n")
 

@@ -343,9 +343,25 @@ class Boussinesq(Solver):
         """Return the selected nonlinear runtime backend name."""
         return str(getattr(self.flow, "runtime_backend", "local") or "local").strip().lower() or "local"
 
+    def _surface_interaction_model(self) -> str:
+        """Return the selected groundwater/surface interaction closure."""
+        requested = (
+            str(getattr(self.flow, "surface_interaction_model", "auto") or "auto")
+            .strip()
+            .lower()
+            or "auto"
+        )
+        if requested != "auto":
+            return requested
+        runtime_backend_name = self._runtime_backend_name()
+        return "complementarity" if runtime_backend_name == "petsc" else "regularized_partition"
+
     def _runtime_backend(self) -> BoussinesqRuntimeBackend:
         """Resolve the selected nonlinear runtime backend implementation."""
-        return resolve_runtime_backend(self._runtime_backend_name())
+        return resolve_runtime_backend(
+            self._runtime_backend_name(),
+            surface_interaction_model=self._surface_interaction_model(),
+        )
 
     def _runtime_options(self) -> NonlinearRuntimeOptions:
         """Build backend-neutral nonlinear options for the selected runtime."""
@@ -386,6 +402,12 @@ class Boussinesq(Solver):
         """
         options = self._runtime_options()
         self.runtime_summary["runtime_backend"] = runtime_backend.name
+        self.runtime_summary["surface_interaction_model_requested"] = str(
+            getattr(self.flow, "surface_interaction_model", "auto") or "auto"
+        )
+        self.runtime_summary["surface_interaction_model_resolved"] = (
+            self._surface_interaction_model()
+        )
         self.runtime_summary["runtime_solver_kind"] = (
             runtime_backend.nonlinear_solver_kind
         )
@@ -791,18 +813,18 @@ class Boussinesq(Solver):
         """Fail fast when the selected runtime still relies on dense Jacobians.
 
         The current ``local`` and ``scipy`` backends still assemble dense
-        finite-difference Jacobians. That is acceptable for validation meshes,
+        semianalytic Jacobians. That is acceptable for validation meshes,
         but it should be rejected on larger production meshes.
         """
         if self.mesh is None:
             raise RuntimeError("Mesh must be built before checking runtime limits.")
         if runtime_backend.linear_system_layout != "dense":
             return
-        max_cells_dense = 256
+        max_cells_dense = 400
         if self.mesh.n_cells > max_cells_dense:
             raise NotImplementedError(
                 f"The current {runtime_backend.name} boussinesq runtime still "
-                "assembles a dense finite-difference Jacobian and is limited to "
+                "assembles a dense Jacobian and is limited to "
                 f"small meshes (<= {max_cells_dense} cells). "
                 "Use a reduced test mesh for now. A future sparse Jacobian path "
                 "should lift this limitation without changing the runtime contract."

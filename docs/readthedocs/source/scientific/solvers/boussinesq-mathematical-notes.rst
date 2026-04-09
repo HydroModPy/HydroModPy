@@ -321,6 +321,29 @@ Jacobian, but delegates the nonlinear solve to ``scipy.optimize.root``. The
 important point is that the physics does not change; only the nonlinear driver
 changes.
 
+PETSc Mixed Complementarity Runtime
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Linux-only PETSc backend introduces one algebraic saturation-excess
+unknown :math:`q^{\text{ex}}_i` per cell and solves a mixed semi-explicit DAE
+at each backward-Euler step:
+
+.. math::
+
+   R_i^{\text{flow}}(h, q^{\text{ex}}) = 0
+
+with the same finite-volume flow balance as above, except that the
+regularized overflow term is replaced by the explicit unknown
+:math:`q^{\text{ex}}_i`, and one nonlinear complementarity relation:
+
+.. math::
+
+   0 \le q^{\text{ex}}_i \perp z_i^{\text{top}} - h_i \ge 0
+
+The implementation encodes this complementarity through a
+Fischer-Burmeister residual on scaled variables and lets PETSc SNES solve the
+full mixed nonlinear system.
+
 Mapping Between Equations And Code
 ----------------------------------
 
@@ -347,7 +370,7 @@ Mapping Between Equations And Code
    * - :math:`R_i^{\text{transient}}`
      - ``assemble_transient_residual()``
    * - runtime solve
-     - ``local_runtime.py`` / ``scipy_runtime.py``
+     - ``local_runtime.py`` / ``scipy_runtime.py`` / ``scipy_sparse_runtime.py`` / ``petsc_runtime.py``
    * - problem orchestration
      - ``boussinesq.py``
 

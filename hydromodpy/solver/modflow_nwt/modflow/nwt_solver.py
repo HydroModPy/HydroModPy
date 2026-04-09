@@ -48,14 +48,16 @@ from hydromodpy.solver.modflow_common import (
     masstransfer,
     write_grid_array_to_raster,
 )
+from hydromodpy.solver.modflow_common.discretization_spatial import (
+    build_spatial_discretization,
+    resolve_domain_surfaces,
+)
+from hydromodpy.solver.modflow_common.discretization_temporal import (
+    build_temporal_discretization_from_time_grid,
+)
 from hydromodpy.solver import Solver
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 from .diagnostics import check_water_flow_connectivity
-from .discretization import (
-    build_spatial_discretization,
-    build_temporal_discretization_from_time_grid,
-    resolve_domain_surfaces,
-)
 from .flow_to_modflow_adapter import FlowToModflowAdapter
 from .intermittency import export_intermittency
 from .nwt_config import (
@@ -375,6 +377,8 @@ class Modflow(Solver):
         self.grid_ctx = build_spatial_discretization(
             domain=self.domain,
             sgrid_config=self.sgrid_config,
+            # MODFLOW-NWT remains on the structured backend for now even when a
+            # runtime Gmsh mesh is available elsewhere in the launcher state.
         )
         if not self.grid_ctx.solver_mesh.is_structured:
             raise ValueError("MODFLOW NWT requires a structured grid")
@@ -462,6 +466,9 @@ class Modflow(Solver):
         flow: object,
         domain: object,
         options: ModflowPreprocessOptions | None = None,
+        *,
+        mesh_planar: object | None = None,
+        mesh_support: object | None = None,
     ):
         """
         Pre-processing to build the hydrologic model.
@@ -482,6 +489,8 @@ class Modflow(Solver):
         """
         self.flow = flow
         self.domain = domain
+        self.runtime_mesh_planar = mesh_planar
+        self.runtime_mesh_support = mesh_support
         active_options = self.preprocess_options if options is None else options
         self._apply_preprocess_options(active_options)
 

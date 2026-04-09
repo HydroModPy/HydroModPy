@@ -6,8 +6,10 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6 import Modflow6
+from hydromodpy.solver.modflow6 import Modflow6, Modflow6Transport
 from hydromodpy.solver.modflow_nwt.modflow import ModflowPostprocessOptions
+from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
+from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 
 
 class _DummyGeographic:
@@ -31,6 +33,30 @@ class _DummyHeadFile:
     def get_data(self, *, totim: float) -> np.ndarray:
         del totim
         return np.array([[[9.0, 8.5], [8.0, 7.5]]], dtype=float)
+
+
+class _DummyHeadFileUnstructured:
+    def __init__(self, path: str):
+        self.path = path
+
+    def get_times(self) -> list[float]:
+        return [1.0]
+
+    def get_data(self, *, totim: float) -> np.ndarray:
+        del totim
+        return np.array([[9.0, 8.5]], dtype=float)
+
+
+class _DummyUcnFileUnstructured:
+    def __init__(self, path: str):
+        self.path = path
+
+    def get_times(self) -> list[float]:
+        return [1.0]
+
+    def get_alldata(self, *, mflay=None) -> np.ndarray:
+        del mflay
+        return np.array([[[0.2, 0.4]]], dtype=float)
 
 
 class _DummyBudgetFile:
@@ -126,6 +152,47 @@ def _patch_postprocess_runtime(monkeypatch, budget_file_cls: type[object]) -> No
         "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
         lambda *args, **kwargs: None,
     )
+
+
+def _build_unstructured_model(work_dir: Path) -> Modflow6:
+    dem = np.array([[10.0, 10.0]], dtype=float)
+    geo = _DummyGeographic(dem)
+    model = Modflow6(geographic=geo, model_folder=str(work_dir), model_name="DemoUnstructured")
+    model.full_path = str(work_dir / "DemoUnstructured")
+    vertices = np.asarray(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 1.0],
+            [0.0, 1.0],
+        ],
+        dtype=float,
+    )
+    planar_mesh = HydroMesh(
+        vertices=vertices,
+        cell_blocks=(CellBlock(CellType.TRIANGLE, np.asarray([[0, 1, 2], [0, 2, 3]], dtype=int)),),
+    )
+    model.solver_mesh = SolverMesh(
+        planar_mesh=planar_mesh,
+        top=np.asarray([10.0, 10.0], dtype=float),
+        botm=np.asarray([[1.0, 1.0]], dtype=float),
+        inactive_mask=np.zeros((1, 2), dtype=bool),
+    )
+    model.dem = np.asarray([10.0, 10.0], dtype=float)
+    model.dem_mask = np.zeros(2, dtype=bool)
+    model.dem_watershed_path = ""
+    model.ncpl = 2
+    model.nlay = 1
+    model.nper = 1
+    return model
+
+
+def _build_unstructured_transport_model(model_modflow: Modflow6) -> Modflow6Transport:
+    transport_model = object.__new__(Modflow6Transport)
+    transport_model.model_modflow = model_modflow
+    transport_model.full_path = model_modflow.full_path
+    transport_model.model_name_mt = f"{model_modflow.model_name}_gwt"
+    return transport_model
 
 
 def test_modflow6_post_processing_tolerates_missing_drn_budget(
@@ -312,3 +379,130 @@ def test_modflow6_post_processing_routes_accumulation_flux_via_masstransfer(
         }
     ]
     assert exported_paths == [save_dir / "_rasters" / "outflow_drain_t(0).tif"]
+
+
+def test_modflow6_post_processing_exports_native_unstructured_mesh_outputs(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    work_dir = _workspace_dir(tmp_path, "mf6_postprocess_native_mesh")
+    model = _build_unstructured_model(work_dir)
+    monkeypatch.setattr("hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFileUnstructured)
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.bf.CellBudgetFile",
+        _DummyBudgetFile,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.pp.get_water_table",
+        lambda head, nodata: np.asarray(head, dtype=float).reshape(-1),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        lambda *args, **kwargs: None,
+    )
+
+    written_vtu: list[tuple[Path, object]] = []
+
+    def _fake_write_vtu(path: str, hydro_mesh) -> Path:
+        path_obj = Path(path)
+        path_obj.write_text("dummy vtu", encoding="utf-8")
+        written_vtu.append((path_obj, hydro_mesh))
+        return path_obj
+
+    monkeypatch.setattr(
+        "hydromodpy.spatial.mesh.io.write_vtu",
+        _fake_write_vtu,
+    )
+
+    model.post_processing(
+        ModflowPostprocessOptions(
+            accumulation_flux=False,
+            native_mesh_npz=True,
+            native_mesh_csv=True,
+            native_mesh_vtu=True,
+            native_mesh_png=True,
+        )
+    )
+
+    mesh_dir = Path(model.full_path) / "_postprocess" / "_mesh"
+    figure_dir = Path(model.full_path) / "_postprocess" / "_figures" / "native_mesh"
+    watertable_npz = np.load(mesh_dir / "flow_watertable_elevation.npz")
+    assert watertable_npz["values"].shape == (1, 2)
+    np.testing.assert_allclose(watertable_npz["values"][0], np.array([9.0, 8.5], dtype=float))
+
+    csv_lines = (mesh_dir / "flow_watertable_elevation.csv").read_text(encoding="utf-8").splitlines()
+    assert csv_lines[0] == "time_index,time,cell_id,value"
+    assert csv_lines[1].startswith("0,1.0,0,9.0")
+
+    assert len(written_vtu) == 1
+    _, hydro_mesh = written_vtu[0]
+    assert sorted(hydro_mesh.cell_data.keys()) == ["cell_id", "outflow_drain", "seepage_areas", "watertable_depth", "watertable_elevation"]
+    assert (figure_dir / "flow_watertable_elevation_t(0)_time(1).png").exists()
+
+
+def test_modflow6_transport_post_processing_exports_native_unstructured_mesh_outputs(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    work_dir = _workspace_dir(tmp_path, "mf6_transport_postprocess_native_mesh")
+    flow_model = _build_unstructured_model(work_dir)
+    flow_model.last_postprocess_options = ModflowPostprocessOptions(
+        accumulation_flux=False,
+        native_mesh_npz=True,
+        native_mesh_csv=True,
+        native_mesh_vtu=True,
+        native_mesh_png=True,
+    )
+    transport_model = _build_unstructured_transport_model(flow_model)
+
+    save_dir = Path(flow_model.full_path) / "_postprocess"
+    save_dir.mkdir(parents=True, exist_ok=True)
+    np.save(
+        save_dir / "outflow_drain",
+        {0: np.array([1.0, 2.0], dtype=float)},
+    )
+
+    written_vtu: list[tuple[Path, object]] = []
+
+    def _fake_write_vtu(path: str, hydro_mesh) -> Path:
+        path_obj = Path(path)
+        path_obj.write_text("dummy vtu", encoding="utf-8")
+        written_vtu.append((path_obj, hydro_mesh))
+        return path_obj
+
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.bf.UcnFile",
+        _DummyUcnFileUnstructured,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.spatial.mesh.io.write_vtu",
+        _fake_write_vtu,
+    )
+
+    transport_model.post_processing(
+        transport_model,
+        concentration_seepage=True,
+        mass_seepage=True,
+        mass_accumulated=False,
+    )
+
+    mesh_dir = save_dir / "_mesh"
+    figure_dir = save_dir / "_figures" / "native_mesh"
+    concentration_npz = np.load(mesh_dir / "transport_concentration_seepage.npz")
+    np.testing.assert_allclose(
+        concentration_npz["values"][0],
+        np.array([0.2, 0.4], dtype=float),
+    )
+
+    csv_lines = (mesh_dir / "transport_mass_seepage.csv").read_text(encoding="utf-8").splitlines()
+    assert csv_lines[0] == "time_index,time,cell_id,value"
+    assert csv_lines[1].startswith("0,1.0,0,0.2")
+
+    assert len(written_vtu) == 1
+    _, hydro_mesh = written_vtu[0]
+    assert sorted(hydro_mesh.cell_data.keys()) == ["cell_id", "concentration_seepage", "mass_seepage"]
+    assert (figure_dir / "transport_concentration_seepage_t(0)_time(1).png").exists()
