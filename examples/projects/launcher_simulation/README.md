@@ -8,7 +8,25 @@
   variant.
 - `config_fast_mf6.toml` is the reduced MODFLOW 6 / GWT regression variant.
 - `run_fast_boussinesq_mesh_input.toml` is the reduced pure-flow Boussinesq
-  example that reuses one precomputed catchment mesh through `[mesh_input]`.
+  example kept for the fast tier; despite its historical name, it still
+  rebuilds the catchment mesh through the embedded `[mesh_catchment]` profile.
+- `run_fast_boussinesq_petsc_mesh_input.toml` is the same reduced Boussinesq
+  example but forces `runtime_backend = "petsc"` with
+  `surface_interaction_model = "complementarity"`; it is intended for Linux
+  environments where `petsc4py` is available.
+- `run_fast_boussinesq_petsc_partition_mesh_input.toml` is the PETSc variant
+  using `surface_interaction_model = "regularized_partition"`.
+- `run_fast_boussinesq_precomputed_mesh_input.toml` replays the fast Boussinesq
+  case on the committed triangular mesh stored under `results_stable/mesh/`,
+  without remeshing.
+- `run_fast_boussinesq_petsc_partition_precomputed_mesh_input.toml` is the
+  Linux/PETSc regularized-partition counterpart of that exact precomputed-mesh
+  replay.
+- `run_headwater_100km2_outlet_2_boussinesq_mesh_input.toml` revives the
+  historical real-case headwater 100 km2 outlet-2 trial on the committed mesh
+  gallery bundle.
+- `run_headwater_100km2_outlet_2_boussinesq_petsc_partition_mesh_input.toml`
+  is the PETSc regularized-partition replay of that headwater real case.
 - To generate a fresh commented mesh section from the schema instead of copying
   an example, use: `python -m launchers mesh-catchment template`
 - `config_extensive_nwt.toml` is the canonical default launcher config for

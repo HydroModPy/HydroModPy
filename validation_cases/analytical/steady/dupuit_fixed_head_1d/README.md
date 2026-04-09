@@ -16,18 +16,27 @@ Comparison:
 - compared quantity: domain-averaged head profile along `x`
 - reference: Dupuit steady fixed-head solution
 - configured solver variants: `modflownwt` (default) and `modflow6`
+  plus local `boussinesq` helpers for `scipy_sparse`, Linux-only `petsc`
+  complementarity, and Linux-only `petsc_partition` regularized partition.
 
 Solver-specific tolerances are stored in:
 
 - `tolerances.toml` for the historical `modflownwt` baseline,
-- `tolerances_modflow6.toml` for the `modflow6` variant.
+- `tolerances_modflow6.toml` for the `modflow6` variant,
+- `tolerances_petsc.toml` for the Linux PETSc Boussinesq complementarity variant,
+- `tolerances_petsc_partition.toml` for the Linux PETSc regularized partition variant.
 
 Direct execution:
 
 ```bash
 python -m validation_cases.analytical.steady.dupuit_fixed_head_1d.run_case --show
 python -m validation_cases.analytical.steady.dupuit_fixed_head_1d.run_case --solver modflow6 --no-show
+python -m validation_cases.analytical.steady.dupuit_fixed_head_1d.run_case --solver boussinesq --no-show
+python -m validation_cases.analytical.steady.dupuit_fixed_head_1d.run_case --solver petsc --no-show
+python -m validation_cases.analytical.steady.dupuit_fixed_head_1d.run_case --solver petsc_partition --no-show
 ```
+
+The `petsc` and `petsc_partition` variants require Linux with `petsc4py` installed.
 
 The runner saves a PNG figure with:
 

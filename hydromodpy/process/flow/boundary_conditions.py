@@ -209,6 +209,13 @@ class FlowBoundaryConditionConfig(BaseModel):
             "south side, east side, west side."
         ),
     )
+    support_label: str | None = Field(
+        default=None,
+        description=(
+            "Optional explicit runtime support label used by unstructured backends "
+            "to select one target support independently from the canonical boundary id."
+        ),
+    )
 
     @field_validator("application_domain")
     @classmethod
@@ -222,6 +229,17 @@ class FlowBoundaryConditionConfig(BaseModel):
         if domain not in ALLOWED_BC_APPLICATION_DOMAINS:
             raise ValueError(f"invalid application_domain: {domain}")
         return domain
+
+    @field_validator("support_label")
+    @classmethod
+    def _validate_support_label(cls, value: str | None) -> str | None:
+        """Normalize one optional explicit support label."""
+        if value is None:
+            return None
+        label = str(value).strip()
+        if label == "":
+            raise ValueError("support_label cannot be empty")
+        return label
 
     @field_validator("value", mode="before")
     @classmethod

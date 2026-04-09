@@ -15,6 +15,11 @@ from hydromodpy.process.flow.boundary_conditions import FlowBoundaryConditionCon
 from hydromodpy.process.flow.sinks_sources import FlowWellConfig
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow6 import Modflow6
+from hydromodpy.solver.utils.mesh.gmsh_grid import (
+    GmshSupportMetadata,
+    build_gmsh_support_metadata,
+)
+from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
 
 
@@ -49,6 +54,115 @@ def _build_model() -> Modflow6:
         )
     )
     return model
+
+
+def _build_unstructured_runtime(
+    *,
+    river_internal_edge: bool = False,
+    boundary_labels_by_edge_id: dict[int, str] | None = None,
+) -> tuple[SolverMesh, GmshSupportMetadata]:
+    vertices = np.asarray(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 1.0],
+            [0.0, 1.0],
+        ],
+        dtype=float,
+    )
+    connectivity = np.asarray([[0, 1, 2], [0, 2, 3]], dtype=int)
+    planar_mesh = HydroMesh(
+        vertices=vertices,
+        cell_blocks=(CellBlock(CellType.TRIANGLE, connectivity),),
+    )
+    solver_mesh = SolverMesh(
+        planar_mesh=planar_mesh,
+        top=np.asarray([10.0, 10.0], dtype=float),
+        botm=np.asarray([[1.0, 1.0]], dtype=float),
+        inactive_mask=np.zeros((1, 2), dtype=bool),
+    )
+    support = GmshSupportMetadata(
+        cell_ids=np.asarray([0, 1], dtype=int),
+        node_ids=np.asarray([0, 1, 2, 3], dtype=int),
+        node_x_m=vertices[:, 0],
+        node_y_m=vertices[:, 1],
+        cell_node_indices=((0, 1, 2), (0, 2, 3)),
+        cell_centroid_x_m=np.asarray([2.0 / 3.0, 1.0 / 3.0], dtype=float),
+        cell_centroid_y_m=np.asarray([1.0 / 3.0, 2.0 / 3.0], dtype=float),
+        edge_ids=np.asarray([0, 1, 2, 3, 4], dtype=int),
+        edge_node_a_index=np.asarray([0, 1, 2, 3, 0], dtype=int),
+        edge_node_b_index=np.asarray([1, 2, 3, 0, 2], dtype=int),
+        edge_cell_a=np.asarray([0, 0, 1, 1, 0], dtype=int),
+        edge_cell_b=np.asarray([-1, -1, -1, -1, 1], dtype=int),
+        edge_midpoint_x_m=np.asarray([0.5, 1.0, 0.5, 0.0, 0.5], dtype=float),
+        edge_midpoint_y_m=np.asarray([0.0, 0.5, 1.0, 0.5, 0.5], dtype=float),
+        edge_kind=("boundary", "boundary", "boundary", "boundary", "internal"),
+        edge_is_river=np.asarray([False, False, False, False, bool(river_internal_edge)], dtype=bool),
+        geology_a_key=("", "", "", "", ""),
+        geology_b_key=("", "", "", "", ""),
+        boundary_labels_by_edge_id={} if boundary_labels_by_edge_id is None else dict(boundary_labels_by_edge_id),
+    )
+    return solver_mesh, support
+
+
+def _build_unstructured_model(
+    *,
+    river_internal_edge: bool = False,
+    boundary_labels_by_edge_id: dict[int, str] | None = None,
+) -> Modflow6:
+    model = _build_model()
+    solver_mesh, support = _build_unstructured_runtime(
+        river_internal_edge=river_internal_edge,
+        boundary_labels_by_edge_id=boundary_labels_by_edge_id,
+    )
+    model.solver_mesh = solver_mesh
+    model.runtime_mesh_support = support
+    model.nlay = 1
+    model.ncpl = 2
+    model.dem_mask = np.zeros(2, dtype=bool)
+    return model
+
+
+def test_build_gmsh_support_metadata_from_bundle_like_payload() -> None:
+    bundle = SimpleNamespace(
+        bundle_dir=".",
+        mesh_path="mesh_2d.msh",
+        nodes=(
+            SimpleNamespace(node_id=0, x=0.0, y=0.0),
+            SimpleNamespace(node_id=1, x=1.0, y=0.0),
+            SimpleNamespace(node_id=2, x=1.0, y=1.0),
+            SimpleNamespace(node_id=3, x=0.0, y=1.0),
+        ),
+        cells=(
+            SimpleNamespace(cell_id=0, node_indices=(0, 1, 2), centroid_x=2.0 / 3.0, centroid_y=1.0 / 3.0),
+            SimpleNamespace(cell_id=1, node_indices=(0, 2, 3), centroid_x=1.0 / 3.0, centroid_y=2.0 / 3.0),
+        ),
+        edges=(
+            SimpleNamespace(edge_id=0, node_a=0, node_b=1, cell_a=0, cell_b=None, edge_kind="boundary", is_river=False, geology_a_key="", geology_b_key=""),
+            SimpleNamespace(edge_id=1, node_a=1, node_b=2, cell_a=0, cell_b=None, edge_kind="boundary", is_river=False, geology_a_key="", geology_b_key=""),
+            SimpleNamespace(edge_id=2, node_a=2, node_b=3, cell_a=1, cell_b=None, edge_kind="boundary", is_river=False, geology_a_key="", geology_b_key=""),
+            SimpleNamespace(edge_id=3, node_a=3, node_b=0, cell_a=1, cell_b=None, edge_kind="boundary", is_river=False, geology_a_key="", geology_b_key=""),
+            SimpleNamespace(edge_id=4, node_a=0, node_b=2, cell_a=0, cell_b=1, edge_kind="internal", is_river=False, geology_a_key="", geology_b_key=""),
+        ),
+    )
+
+    support = build_gmsh_support_metadata(bundle)
+
+    assert support is not None
+    assert support.locate_cell_index_for_point(0.75, 0.25) == 0
+    assert support.boundary_cell_indices_for_side("west_side").tolist() == [1]
+
+
+def test_gmsh_support_metadata_collects_cells_from_internal_river_edge() -> None:
+    _, support = _build_unstructured_runtime(river_internal_edge=True)
+
+    assert support.river_cell_indices().tolist() == [0, 1]
+
+
+def test_gmsh_support_metadata_resolves_cells_from_explicit_label() -> None:
+    _, support = _build_unstructured_runtime(boundary_labels_by_edge_id={1: "east_custom"})
+
+    assert support.cell_indices_for_label("east_custom").tolist() == [0]
 
 
 def test_modflow6_builds_chd_from_scalar_and_transient_side_boundaries() -> None:
@@ -132,6 +246,142 @@ def test_modflow6_resolves_well_forcing_without_runtime_binding() -> None:
     # DISV: [lay, cell_id, flux] — cell (0,0,0) → cell_id=0
     assert wel_spd[0] == [[0, 0, pytest.approx(-1.0)]]
     assert wel_spd[1] == [[0, 0, pytest.approx(-1.0)]]
+
+
+def test_modflow6_resolves_absolute_xy_well_on_unstructured_runtime_mesh() -> None:
+    model = _build_unstructured_model()
+    model.grid_ctx = SimpleNamespace(grid=None)
+    model.flow = SimpleNamespace(
+        sinks_sources={
+            "wells": {
+                "W1": FlowWellConfig(
+                    location_mode="absolute_xy",
+                    x=0.75,
+                    y=0.25,
+                    flux=-1.0,
+                )
+            }
+        },
+        active_sinks_sources=["wells"],
+    )
+
+    wel_spd = model._build_well_stress_period_data(2)
+
+    assert wel_spd[0] == [[0, 0, pytest.approx(-1.0)]]
+    assert wel_spd[1] == [[0, 0, pytest.approx(-1.0)]]
+
+
+def test_modflow6_builds_side_boundary_chd_on_unstructured_runtime_mesh() -> None:
+    model = _build_unstructured_model()
+    model.flow = SimpleNamespace(
+        boundary_conditions={
+            "west_side": SimpleNamespace(value=10.0),
+            "east_side": SimpleNamespace(value=[20.0, 21.0]),
+        },
+        active_bc=["west_side", "east_side"],
+    )
+
+    chd_spd = model._build_side_boundary_chd_spd()
+
+    period0 = sorted(chd_spd[0], key=lambda item: item[1])
+    period1 = sorted(chd_spd[1], key=lambda item: item[1])
+    assert period0 == [[0, 0, pytest.approx(20.0)], [0, 1, pytest.approx(10.0)]]
+    assert period1 == [[0, 0, pytest.approx(21.0)], [0, 1, pytest.approx(10.0)]]
+
+
+def test_modflow6_applies_side_boundary_start_heads_on_unstructured_runtime_mesh() -> None:
+    model = _build_unstructured_model()
+    model.flow = SimpleNamespace(
+        boundary_conditions={
+            "west_side": SimpleNamespace(value=[7.0, 8.0]),
+        },
+        active_bc=["west_side"],
+    )
+    strt = np.zeros((1, 2), dtype=float)
+
+    updated = model._apply_side_boundary_start_heads(strt)
+
+    assert updated[0, 0] == pytest.approx(0.0)
+    assert updated[0, 1] == pytest.approx(7.0)
+
+
+def test_modflow6_builds_stream_boundary_chd_on_unstructured_runtime_mesh() -> None:
+    model = _build_unstructured_model(river_internal_edge=True)
+    model.flow = SimpleNamespace(
+        boundary_conditions={
+            "stream": SimpleNamespace(value=7.0),
+        },
+        active_bc=["stream"],
+    )
+
+    chd_spd, stream_mask = model._build_stream_boundary_chd_spd()
+
+    assert stream_mask.tolist() == [True, True]
+    assert chd_spd[0] == [[0, 0, pytest.approx(7.0)], [0, 1, pytest.approx(7.0)]]
+    assert chd_spd[1] == [[0, 0, pytest.approx(7.0)], [0, 1, pytest.approx(7.0)]]
+
+
+def test_modflow6_applies_stream_start_heads_on_unstructured_runtime_mesh() -> None:
+    model = _build_unstructured_model(river_internal_edge=True)
+    model.flow = SimpleNamespace(
+        initial_conditions=FlowInitialConditions(
+            h=FlowInitialCondition(id="h", type="custom", value=2.0)
+        ),
+        boundary_conditions={
+            "stream": SimpleNamespace(value=7.0),
+        },
+        active_bc=["stream"],
+    )
+
+    strt = model._build_start_heads(model.solver_mesh)
+
+    assert np.allclose(strt[0], [7.0, 7.0])
+
+
+def test_modflow6_uses_support_label_for_side_boundary_on_unstructured_runtime_mesh() -> None:
+    model = _build_unstructured_model(boundary_labels_by_edge_id={1: "east_custom"})
+    model.flow = SimpleNamespace(
+        boundary_conditions={
+            "west_side": SimpleNamespace(value=10.0),
+            "east_side": FlowBoundaryConditionConfig(
+                id="east_side",
+                value=6.0,
+                units="m",
+                type="dirichlet",
+                application_domain="east side",
+                support_label="east_custom",
+            ),
+        },
+        active_bc=["east_side"],
+    )
+
+    chd_spd = model._build_side_boundary_chd_spd()
+
+    assert chd_spd[0] == [[0, 0, pytest.approx(6.0)]]
+    assert chd_spd[1] == [[0, 0, pytest.approx(6.0)]]
+
+
+def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime_mesh() -> None:
+    model = _build_unstructured_model(boundary_labels_by_edge_id={0: "ditch_custom"})
+    model.flow = SimpleNamespace(
+        boundary_conditions={
+            "stream": FlowBoundaryConditionConfig(
+                id="stream",
+                value=5.0,
+                units="m",
+                type="dirichlet",
+                application_domain="top",
+                support_label="ditch_custom",
+            ),
+        },
+        active_bc=["stream"],
+    )
+
+    chd_spd, stream_mask = model._build_stream_boundary_chd_spd()
+
+    assert stream_mask.tolist() == [True, False]
+    assert chd_spd[0] == [[0, 0, pytest.approx(5.0)]]
+    assert chd_spd[1] == [[0, 0, pytest.approx(5.0)]]
 
 
 def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:

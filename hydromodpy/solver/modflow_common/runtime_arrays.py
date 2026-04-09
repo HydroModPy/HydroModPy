@@ -9,7 +9,11 @@ import numpy as np
 
 
 def flow_grid_shape(flow_model: object) -> tuple[int, int, int]:
-    """Return ``(nlay, nrow, ncol)`` for MODFLOW-NWT or MODFLOW 6 flow models."""
+    """Return one shape tuple for structured or cell-based flow models.
+
+    Structured models return ``(nlay, nrow, ncol)``.
+    Cell-based unstructured models return ``(nlay, 1, ncpl)``.
+    """
 
     mf = getattr(flow_model, "mf", None)
     if mf is not None and all(hasattr(mf, name) for name in ("nlay", "nrow", "ncol")):
@@ -19,6 +23,9 @@ def flow_grid_shape(flow_model: object) -> tuple[int, int, int]:
         return int(getattr(flow_model, "nlay")), int(getattr(flow_model, "nrow")), int(
             getattr(flow_model, "ncol")
         )
+
+    if all(hasattr(flow_model, name) for name in ("nlay", "ncpl")):
+        return int(getattr(flow_model, "nlay")), 1, int(getattr(flow_model, "ncpl"))
 
     raise ValueError("Could not resolve flow grid shape from dependency model.")
 
@@ -37,9 +44,20 @@ def _is_scalar_number(value: object) -> bool:
 
 def _as_2d_array(value: object, *, nrow: int, ncol: int) -> np.ndarray:
     array = np.asarray(value, dtype=float)
-    if array.shape != (nrow, ncol):
+    if array.shape == (nrow, ncol):
+        return array
+    if array.size == nrow * ncol:
+        return array.reshape(nrow, ncol)
+    raise ValueError(
+        f"Expected 2D concentration array with shape ({nrow}, {ncol}), got {array.shape}."
+    )
+
+
+def _as_flat_array(value: object, *, ncpl: int) -> np.ndarray:
+    array = np.asarray(value, dtype=float).reshape(-1)
+    if array.size != ncpl:
         raise ValueError(
-            f"Expected 2D concentration array with shape ({nrow}, {ncol}), got {array.shape}."
+            f"Expected concentration payload with {ncpl} cell values, got {array.size}."
         )
     return array
 
@@ -48,12 +66,16 @@ def _normalize_sconc_input(
     raw_value: object,
     *,
     nper: int,
-    nrow: int,
-    ncol: int,
+    nrow: int | None,
+    ncol: int | None,
+    ncpl: int,
+    structured: bool,
 ) -> dict[int, np.ndarray] | None:
     if _is_scalar_number(raw_value):
         scalar = float(raw_value)
-        return {sp: np.full((nrow, ncol), scalar, dtype=float) for sp in range(1, nper)}
+        if structured:
+            return {sp: np.full((int(nrow), int(ncol)), scalar, dtype=float) for sp in range(1, nper)}
+        return {sp: np.full(ncpl, scalar, dtype=float) for sp in range(1, nper)}
 
     if not isinstance(raw_value, Mapping):
         return None
@@ -73,9 +95,15 @@ def _normalize_sconc_input(
             )
 
         if _is_scalar_number(raw_array):
-            normalized[stress_period] = np.full((nrow, ncol), float(raw_array), dtype=float)
+            if structured:
+                normalized[stress_period] = np.full((int(nrow), int(ncol)), float(raw_array), dtype=float)
+            else:
+                normalized[stress_period] = np.full(ncpl, float(raw_array), dtype=float)
             continue
-        normalized[stress_period] = _as_2d_array(raw_array, nrow=nrow, ncol=ncol)
+        if structured:
+            normalized[stress_period] = _as_2d_array(raw_array, nrow=int(nrow), ncol=int(ncol))
+        else:
+            normalized[stress_period] = _as_flat_array(raw_array, ncpl=ncpl)
     return normalized
 
 
@@ -86,24 +114,37 @@ def build_concentration_runtime_overrides(
     """Build runtime concentration payloads from scalar transport parameters."""
 
     params = dict(parameters or {})
-    nlay, nrow, ncol = flow_grid_shape(flow_model)
+    nlay, nrow_hint, ncol_hint = flow_grid_shape(flow_model)
     nper = flow_stress_period_count(flow_model)
+    structured = all(hasattr(flow_model, name) for name in ("nrow", "ncol")) or (
+        getattr(flow_model, "mf", None) is not None
+        and all(hasattr(flow_model.mf, name) for name in ("nrow", "ncol"))
+    )
+    ncpl = int(getattr(flow_model, "ncpl", nrow_hint * ncol_hint))
 
     overrides: dict[str, object] = {}
 
     sconc_init = params.get("sconc_init")
     if _is_scalar_number(sconc_init):
-        overrides["sconc_init"] = np.full((nlay, nrow, ncol), float(sconc_init), dtype=float)
+        if structured:
+            overrides["sconc_init"] = np.full((nlay, nrow_hint, ncol_hint), float(sconc_init), dtype=float)
+        else:
+            overrides["sconc_init"] = np.full((nlay, ncpl), float(sconc_init), dtype=float)
 
     rate_decay = params.get("rate_decay")
     if _is_scalar_number(rate_decay):
-        overrides["rate_decay"] = np.full((nlay, nrow, ncol), float(rate_decay), dtype=float)
+        if structured:
+            overrides["rate_decay"] = np.full((nlay, nrow_hint, ncol_hint), float(rate_decay), dtype=float)
+        else:
+            overrides["rate_decay"] = np.full((nlay, ncpl), float(rate_decay), dtype=float)
 
     normalized_sconc_input = _normalize_sconc_input(
         params.get("sconc_input"),
         nper=nper,
-        nrow=nrow,
-        ncol=ncol,
+        nrow=nrow_hint if structured else None,
+        ncol=ncol_hint if structured else None,
+        ncpl=ncpl,
+        structured=structured,
     )
     if normalized_sconc_input is not None:
         overrides["sconc_input"] = normalized_sconc_input

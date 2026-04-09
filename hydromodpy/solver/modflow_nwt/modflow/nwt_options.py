@@ -95,3 +95,7 @@ class ModflowPostprocessOptions:
     intermittency_weekly: bool = False
     intermittency_daily: bool = False
     export_all_tif: bool = False
+    native_mesh_npz: bool = False
+    native_mesh_csv: bool = False
+    native_mesh_vtu: bool = False
+    native_mesh_png: bool = False

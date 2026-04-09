@@ -21,8 +21,9 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
     TransientStepInputs,
 )
 
-RuntimeBackendName = Literal["local", "scipy", "scipy_sparse"]
+RuntimeBackendName = Literal["local", "scipy", "scipy_sparse", "petsc"]
 LinearSystemLayout = Literal["dense", "sparse", "matrix_free"]
+SurfaceInteractionModel = Literal["auto", "regularized_partition", "complementarity"]
 
 
 @dataclass(frozen=True)
@@ -43,7 +44,11 @@ class BoussinesqRuntimeBackend:
     iteration_counter_label: str
 
 
-def resolve_runtime_backend(name: str | None) -> BoussinesqRuntimeBackend:
+def resolve_runtime_backend(
+    name: str | None,
+    *,
+    surface_interaction_model: SurfaceInteractionModel | str = "auto",
+) -> BoussinesqRuntimeBackend:
     """Return the backend descriptor matching one user-facing backend name.
 
     Parameters
@@ -59,6 +64,23 @@ def resolve_runtime_backend(name: str | None) -> BoussinesqRuntimeBackend:
         the nonlinear strategy used by that backend.
     """
     normalized = str(name or "local").strip().lower() or "local"
+    normalized_surface = (
+        str(surface_interaction_model or "auto").strip().lower() or "auto"
+    )
+    if normalized_surface == "auto":
+        normalized_surface = (
+            "complementarity" if normalized == "petsc" else "regularized_partition"
+        )
+    if normalized_surface not in {"regularized_partition", "complementarity"}:
+        raise ValueError(
+            "Unsupported Boussinesq surface interaction model. Expected one of: "
+            "auto, regularized_partition, complementarity."
+        )
+    if normalized != "petsc" and normalized_surface == "complementarity":
+        raise NotImplementedError(
+            "The Boussinesq complementarity surface-interaction model is currently "
+            "implemented only for runtime_backend='petsc'."
+        )
     if normalized == "local":
         from hydromodpy.solver.boussinesq.local_runtime import (
             solve_steady_problem,
@@ -69,7 +91,7 @@ def resolve_runtime_backend(name: str | None) -> BoussinesqRuntimeBackend:
             name="local",
             solve_transient_step=solve_transient_step,
             solve_steady_problem=solve_steady_problem,
-            nonlinear_solver_kind="newton_line_search_dense_fd",
+            nonlinear_solver_kind="newton_line_search_dense_semianalytic_regularized_partition",
             linear_system_layout="dense",
             convergence_policy="residual_inf <= tol_residual_inf",
             iteration_counter_label="newton_iterations",
@@ -84,7 +106,7 @@ def resolve_runtime_backend(name: str | None) -> BoussinesqRuntimeBackend:
             name="scipy",
             solve_transient_step=solve_transient_step,
             solve_steady_problem=solve_steady_problem,
-            nonlinear_solver_kind="scipy_root_hybr_dense_fd",
+            nonlinear_solver_kind="scipy_root_hybr_dense_semianalytic_regularized_partition",
             linear_system_layout="dense",
             convergence_policy="state_update_inf <= tol_state_update_inf and residual_inf <= tol_residual_inf",
             iteration_counter_label="function_evaluations",
@@ -99,14 +121,44 @@ def resolve_runtime_backend(name: str | None) -> BoussinesqRuntimeBackend:
             name="scipy_sparse",
             solve_transient_step=solve_transient_step,
             solve_steady_problem=solve_steady_problem,
-            nonlinear_solver_kind="scipy_sparse_newton_line_search_semianalytic_base_sat_fd_colored",
+            nonlinear_solver_kind="scipy_sparse_newton_line_search_semianalytic_regularized_partition",
             linear_system_layout="sparse",
             convergence_policy="residual_inf <= tol_residual_inf",
             iteration_counter_label="newton_iterations",
         )
+    if normalized == "petsc":
+        if normalized_surface == "complementarity":
+            from hydromodpy.solver.boussinesq.petsc_runtime import (
+                solve_steady_problem,
+                solve_transient_step,
+            )
+
+            return BoussinesqRuntimeBackend(
+                name="petsc",
+                solve_transient_step=solve_transient_step,
+                solve_steady_problem=solve_steady_problem,
+                nonlinear_solver_kind="petsc_snes_newtonls_sparse_semiexplicit_dae_fischer_burmeister",
+                linear_system_layout="sparse",
+                convergence_policy="full_dae_residual_inf <= tol_residual_inf",
+                iteration_counter_label="nonlinear_iterations",
+            )
+        from hydromodpy.solver.boussinesq.petsc_partition_runtime import (
+            solve_steady_problem,
+            solve_transient_step,
+        )
+
+        return BoussinesqRuntimeBackend(
+            name="petsc",
+            solve_transient_step=solve_transient_step,
+            solve_steady_problem=solve_steady_problem,
+            nonlinear_solver_kind="petsc_snes_newtonls_sparse_semianalytic_regularized_partition",
+            linear_system_layout="sparse",
+            convergence_policy="residual_inf <= tol_residual_inf",
+            iteration_counter_label="nonlinear_iterations",
+        )
     raise ValueError(
         "Unsupported Boussinesq runtime backend. Expected one of: "
-        "local, scipy, scipy_sparse."
+        "local, scipy, scipy_sparse, petsc."
     )
 
 
@@ -114,5 +166,6 @@ __all__ = [
     "BoussinesqRuntimeBackend",
     "LinearSystemLayout",
     "RuntimeBackendName",
+    "SurfaceInteractionModel",
     "resolve_runtime_backend",
 ]

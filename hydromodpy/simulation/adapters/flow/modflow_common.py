@@ -147,6 +147,8 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
         flow=state.setup.flow,
         domain=state.setup.domain,
         options=preprocess_options,
+        mesh_planar=getattr(state.setup, "mesh_planar", None),
+        mesh_support=getattr(state.setup, "mesh_support", None),
     )
 
     # Keep emitting the legacy payload immediately after preparation so older
@@ -199,6 +201,18 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
                 ),
                 intermittency_daily=bool(
                     getattr(intermittency_cfg, "daily", False)
+                ),
+                native_mesh_npz=bool(
+                    getattr(postprocess_cfg, "native_mesh_npz", False)
+                ),
+                native_mesh_csv=bool(
+                    getattr(postprocess_cfg, "native_mesh_csv", False)
+                ),
+                native_mesh_vtu=bool(
+                    getattr(postprocess_cfg, "native_mesh_vtu", False)
+                ),
+                native_mesh_png=bool(
+                    getattr(postprocess_cfg, "native_mesh_png", False)
                 ),
             )
         )

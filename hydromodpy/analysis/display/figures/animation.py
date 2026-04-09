@@ -1,4 +1,4 @@
-"""GIF and Plotly HTML animation builders (non-ultraplot)."""
+"""GIF, MP4, and Plotly HTML animation builders (non-ultraplot)."""
 from __future__ import annotations
 
 import base64
@@ -37,6 +37,46 @@ def build_gif(
         for image in images:
             image.close()
     return gif_path
+
+
+def build_mp4(
+    *,
+    frame_paths: list[Path],
+    mp4_path: Path,
+    fps: int = 10,
+) -> Path | None:
+    """Assemble PNG frames into an MP4 video.
+
+    Returns the written path, or *None* when *frame_paths* is empty or when the
+    optional imageio/ffmpeg backend is unavailable.
+    """
+    if not frame_paths:
+        return None
+
+    try:
+        import imageio.v2 as imageio
+    except ModuleNotFoundError:
+        logger.warning(
+            "Skipping MP4 animation because optional dependency 'imageio' is not installed."
+        )
+        return None
+
+    try:
+        with imageio.get_writer(
+            mp4_path,
+            fps=max(1, int(fps)),
+            codec="libx264",
+            macro_block_size=1,
+        ) as writer:
+            for path in frame_paths:
+                writer.append_data(imageio.imread(path))
+    except Exception as exc:  # pragma: no cover - depends on optional ffmpeg backend
+        logger.warning(
+            "Skipping MP4 animation because the imageio/ffmpeg backend is unavailable: %s",
+            exc,
+        )
+        return None
+    return mp4_path
 
 
 def build_plotly_slider(

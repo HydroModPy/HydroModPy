@@ -399,6 +399,10 @@ def run_boussinesq_circular_island_piecewise_k_case(
                 _build_flow_config(
                     {
                         "flow_regime": "steady",
+                        # This medium-size island mesh still converges more
+                        # robustly on the dense local Newton path than on the
+                        # sparse validation backend.
+                        "runtime_backend": "local",
                         "ic": {"type": "custom", "value": 1.0},
                         "active_sinks_sources": ["recharge", "wells"],
                         "active_bc": ["ocean"],

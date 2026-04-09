@@ -77,7 +77,10 @@ from hydromodpy.core.time import (
     require_flow_simulation_time_grid,
     resolve_simulation_time_window,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid import load_planar_mesh
+from hydromodpy.solver.utils.mesh.gmsh_grid import (
+    build_gmsh_support_metadata,
+    load_planar_mesh,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
@@ -725,6 +728,7 @@ class HydroModPyLauncher:
         if not preserve_preloaded:
             setup_state.mesh_bundle = None
             setup_state.mesh_planar = None
+            setup_state.mesh_support = None
 
         mesh_summary = setup_state.mesh_summary
         if not isinstance(mesh_summary, Mapping):
@@ -735,6 +739,8 @@ class HydroModPyLauncher:
         bundle_dir = str(mesh_summary.get("output_exchange_bundle_dir", "")).strip()
         if bundle_dir != "" and setup_state.mesh_bundle is None:
             setup_state.mesh_bundle = load_catchment_mesh_bundle(bundle_dir)
+        if setup_state.mesh_bundle is not None and setup_state.mesh_support is None:
+            setup_state.mesh_support = build_gmsh_support_metadata(setup_state.mesh_bundle)
             if isinstance(mesh_summary, dict):
                 mesh_summary.setdefault(
                     "output_mesh",
