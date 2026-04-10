@@ -1,0 +1,48 @@
+@startuml
+title Launcher - MeshCatchment Output Layout Activity
+
+start
+
+:Resolve output paths from\nsection config + optional overrides;
+
+if (Dedicated launcher output_layout == flat?) then (yes)
+  :Create temporary runtime workspace\nunder _mesh_runtime/<catch_name>;
+  :Write final mesh artifacts directly under\nworkspace.project_root;
+else (standard)
+  :Write final mesh artifacts under\nresults_stable/mesh/;
+endif
+
+if (figures_enabled?) then (yes)
+  :Resolve overview and regional\nfigure paths;
+  :Write PNG figures when paths\nare configured;
+else (no)
+  :Skip figure outputs;
+endif
+
+if (Mesh file exists?) then (yes)
+  :Export exchange bundle next to\nfinal mesh outputs;
+endif
+
+if (Dedicated launcher geographic_outputs_mode == cleanup?) then (yes)
+  :Delete results_stable/geographic\nand results_stable/demcorrecflow;
+else (keep)
+  :Preserve geographic intermediates;
+endif
+
+if (Batch mode?) then (yes)
+  :Apply outlet-specific filename patterns;
+  :Append one manifest CSV row per outlet;
+endif
+
+if (Flat layout used?) then (yes)
+  :Delete temporary runtime workspace root;
+endif
+
+stop
+
+note right
+process_simulation keeps the standard
+workspace layout and does not apply the
+dedicated-launcher cleanup branch.
+end note
+@enduml

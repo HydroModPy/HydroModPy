@@ -50,6 +50,10 @@ Exemple de config batch par `outlet_id` :
 
 `launchers/mesh_catchment/scenarios/config_headwater_100km2.toml`
 
+Guide de prise en main dedie :
+
+`launchers/mesh_catchment/README.md`
+
 Le sous-commande `template` imprime un TOML commente produit directement depuis
 les schemas `mesh_catchment` et `mesh_catchment_batch`. Cela permet de repartir
 d'un contrat a jour sans aller relire le code source.
