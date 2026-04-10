@@ -14,6 +14,19 @@ The package has a deliberately narrow goal:
 
 ## Architecture At A Glance
 
+- `core/`
+  Solver-owned state objects that should remain stable across runtime and
+  formulation experiments.
+- `discretization/`
+  Explicit descriptors for the current space and time schemes.
+- `formulations/`
+  Explicit algebraic formulations, currently the historical head-only
+  regularized-partition system and the mixed PETSc complementarity system.
+- `methods/`
+  Method catalog combining formulation and discretization into named,
+  testable method families.
+- `engines/`
+  Execution-engine catalog describing how one method is solved numerically.
 - `boussinesq.py`
   The orchestrator. It translates launcher objects (`flow`, `time_grid`,
   `domain`) into numeric arrays, calls the nonlinear runtime and exports the
@@ -28,9 +41,8 @@ The package has a deliberately narrow goal:
   The shared data contract between the `Boussinesq` driver and the runtime
   backends.
 - `runtime_selection.py`
-  The lightweight layer that selects the `local`, `scipy`, `scipy_sparse`, or
-  Linux-only `petsc` backend together with the requested surface-interaction
-  formulation.
+  The lightweight layer that resolves a method plus one execution engine, then
+  exposes the corresponding solve callables.
 - `local_runtime.py`
   A dense, damped Newton solver implemented in-house.
 - `scipy_runtime.py`
@@ -134,5 +146,6 @@ This separates the problem nicely into:
 
 - geometry,
 - physics assembly,
+- explicit formulation / discretization / engine taxonomy,
 - nonlinear numerics,
 - application orchestration.

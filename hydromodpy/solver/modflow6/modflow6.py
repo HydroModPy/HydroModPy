@@ -30,12 +30,12 @@ from hydromodpy.solver.modflow_common.discretization_spatial import (
 from hydromodpy.solver.modflow_common.discretization_temporal import (
 	build_temporal_discretization_from_time_grid,
 )
-from hydromodpy.solver import Solver
-from hydromodpy.solver.modflow_nwt.modflow import (
+from hydromodpy.solver.modflow_common.options import (
 	ModflowPostprocessOptions,
 	ModflowPreprocessOptions,
 	ModflowRunOptions,
 )
+from hydromodpy.solver import Solver
 from hydromodpy.solver.modflow6.modflow6_config import (
 	Modflow6Config,
 	_coerce_modflow6_config,
@@ -1321,6 +1321,145 @@ class Modflow6(Solver):
 					raise
 				continue
 
+	def _build_unstructured_cell_adjacency(self) -> list[set[int]]:
+		"""Return cell-to-cell adjacency for one unstructured planar mesh."""
+		n_cells = int(getattr(self, "ncpl", 0) or getattr(self.solver_mesh, "n_cells", 0))
+		adjacency = [set() for _ in range(n_cells)]
+		support = getattr(self, "runtime_mesh_support", None)
+		if support is not None:
+			edge_cell_a = np.asarray(getattr(support, "edge_cell_a", ()), dtype=int).reshape(-1)
+			edge_cell_b = np.asarray(getattr(support, "edge_cell_b", ()), dtype=int).reshape(-1)
+			for cell_a, cell_b in zip(edge_cell_a.tolist(), edge_cell_b.tolist(), strict=False):
+				if int(cell_a) < 0 or int(cell_b) < 0:
+					continue
+				if int(cell_a) >= n_cells or int(cell_b) >= n_cells:
+					continue
+				adjacency[int(cell_a)].add(int(cell_b))
+				adjacency[int(cell_b)].add(int(cell_a))
+			if any(neighbors for neighbors in adjacency):
+				return adjacency
+
+		planar_mesh = getattr(self.solver_mesh, "planar_mesh", None)
+		if planar_mesh is None:
+			return adjacency
+
+		edge_owner: dict[tuple[int, int], int] = {}
+		cell_offset = 0
+		for block in tuple(getattr(planar_mesh, "cell_blocks", ()) or ()):
+			connectivity = np.asarray(getattr(block, "connectivity", ()), dtype=int)
+			if connectivity.ndim != 2:
+				continue
+			for local_index, node_ids in enumerate(connectivity.tolist()):
+				cell_id = int(cell_offset + local_index)
+				if cell_id >= n_cells:
+					break
+				nodes = np.asarray(node_ids, dtype=int).reshape(-1)
+				if nodes.size < 3:
+					continue
+				for node_index in range(int(nodes.size)):
+					node_a = int(nodes[node_index])
+					node_b = int(nodes[(node_index + 1) % int(nodes.size)])
+					edge = tuple(sorted((node_a, node_b)))
+					owner = edge_owner.get(edge)
+					if owner is None:
+						edge_owner[edge] = cell_id
+						continue
+					if int(owner) == cell_id:
+						continue
+					adjacency[cell_id].add(int(owner))
+					adjacency[int(owner)].add(cell_id)
+			cell_offset += int(connectivity.shape[0])
+		return adjacency
+
+	def _accumulate_unstructured_cell_values(
+		self,
+		*,
+		local_values: np.ndarray,
+		reference_values: np.ndarray,
+		inactive_mask: np.ndarray | None = None,
+	) -> np.ndarray:
+		"""Accumulate one per-cell source field along a downhill mesh graph.
+
+		This is a cell-based proxy for raster D8 accumulation used on irregular
+		meshes where no solver-aligned routing raster exists. Downstream routing is
+		chosen cell-to-cell from the steepest decrease in ``reference_values``.
+		"""
+		local = np.asarray(local_values, dtype=float).reshape(-1)
+		reference = np.asarray(reference_values, dtype=float).reshape(-1)
+		n_cells = int(getattr(self, "ncpl", 0) or getattr(self.solver_mesh, "n_cells", 0))
+		if local.size != n_cells or reference.size != n_cells:
+			raise ValueError(
+				"Unstructured accumulation requires local_values/reference_values "
+				f"with {n_cells} entries."
+			)
+
+		if inactive_mask is None:
+			mask = np.zeros(n_cells, dtype=bool)
+		else:
+			mask = np.asarray(inactive_mask, dtype=bool).reshape(-1)
+			if mask.size != n_cells:
+				raise ValueError(
+					f"inactive_mask must have {n_cells} entries, got {mask.size}."
+				)
+
+		active = (~mask) & np.isfinite(reference)
+		if not np.any(active):
+			return np.zeros(n_cells, dtype=float)
+
+		adjacency = self._build_unstructured_cell_adjacency()
+		centroids = None
+		try:
+			centroids = np.asarray(self.solver_mesh.cell_centroids(), dtype=float).reshape(n_cells, 2)
+		except Exception:
+			centroids = None
+
+		ref_active = reference[active]
+		ref_range = float(np.nanmax(ref_active) - np.nanmin(ref_active)) if ref_active.size > 0 else 0.0
+		tolerance = max(1.0e-9, 1.0e-9 * max(abs(ref_range), 1.0))
+		downstream = np.full(n_cells, -1, dtype=int)
+
+		for cell_id in np.flatnonzero(active).tolist():
+			best_neighbor = -1
+			best_score = 0.0
+			cell_ref = float(reference[cell_id])
+			for neighbor in adjacency[int(cell_id)]:
+				if neighbor < 0 or neighbor >= n_cells or not bool(active[neighbor]):
+					continue
+				neighbor_ref = float(reference[int(neighbor)])
+				drop = cell_ref - neighbor_ref
+				if not np.isfinite(drop) or drop <= tolerance:
+					continue
+				score = drop
+				if centroids is not None:
+					delta_x = float(centroids[cell_id, 0] - centroids[int(neighbor), 0])
+					delta_y = float(centroids[cell_id, 1] - centroids[int(neighbor), 1])
+					distance = max((delta_x * delta_x + delta_y * delta_y) ** 0.5, 1.0e-12)
+					score = drop / distance
+				if score > best_score:
+					best_score = float(score)
+					best_neighbor = int(neighbor)
+			downstream[int(cell_id)] = int(best_neighbor)
+
+		clean_local = np.where(
+			active & np.isfinite(local) & (local > -9999.0),
+			np.maximum(local, 0.0),
+			0.0,
+		)
+		accumulated = np.zeros(n_cells, dtype=float)
+		order = np.argsort(
+			np.where(active, reference, -np.inf).astype(float, copy=False)
+		)[::-1]
+		for cell_id in order.tolist():
+			if not bool(active[int(cell_id)]):
+				continue
+			accumulated[int(cell_id)] += float(clean_local[int(cell_id)])
+			target = int(downstream[int(cell_id)])
+			if target >= 0:
+				accumulated[target] += float(accumulated[int(cell_id)])
+
+		accumulated[~active] = np.nan
+		return accumulated
+
 	def _native_mesh_exports_enabled(self, options: ModflowPostprocessOptions) -> bool:
 		"""Return True when one native mesh export format is enabled."""
 		return bool(
@@ -1456,6 +1595,339 @@ class Modflow6(Solver):
 						bbox_inches="tight",
 					)
 					plt.close(fig)
+
+	def _support_edge_segments(self, support: object, edge_indices: np.ndarray) -> list[np.ndarray]:
+		"""Return XY segments for one sequence of runtime support edge indices."""
+		indices = np.asarray(edge_indices, dtype=int).reshape(-1)
+		if indices.size == 0:
+			return []
+		node_x_m = np.asarray(getattr(support, "node_x_m", ()), dtype=float).reshape(-1)
+		node_y_m = np.asarray(getattr(support, "node_y_m", ()), dtype=float).reshape(-1)
+		edge_node_a = np.asarray(getattr(support, "edge_node_a_index", ()), dtype=int).reshape(-1)
+		edge_node_b = np.asarray(getattr(support, "edge_node_b_index", ()), dtype=int).reshape(-1)
+		segments: list[np.ndarray] = []
+		for edge_index in indices.tolist():
+			if edge_index < 0 or edge_index >= edge_node_a.size or edge_index >= edge_node_b.size:
+				continue
+			node_a = int(edge_node_a[edge_index])
+			node_b = int(edge_node_b[edge_index])
+			segments.append(
+				np.asarray(
+					[
+						[float(node_x_m[node_a]), float(node_y_m[node_a])],
+						[float(node_x_m[node_b]), float(node_y_m[node_b])],
+					],
+					dtype=float,
+				)
+			)
+		return segments
+
+	def _support_cell_polygons(self, support: object, cell_ids: np.ndarray) -> list[np.ndarray]:
+		"""Return XY polygons for one sequence of runtime support cell ids."""
+		indices = np.asarray(cell_ids, dtype=int).reshape(-1)
+		if indices.size == 0:
+			return []
+		node_x_m = np.asarray(getattr(support, "node_x_m", ()), dtype=float).reshape(-1)
+		node_y_m = np.asarray(getattr(support, "node_y_m", ()), dtype=float).reshape(-1)
+		cell_node_indices = tuple(getattr(support, "cell_node_indices", ()) or ())
+		polygons: list[np.ndarray] = []
+		for cell_id in np.unique(indices).tolist():
+			if cell_id < 0 or cell_id >= len(cell_node_indices):
+				continue
+			node_indices = np.asarray(cell_node_indices[int(cell_id)], dtype=int).reshape(-1)
+			if node_indices.size < 3:
+				continue
+			polygons.append(
+				np.column_stack(
+					[
+						node_x_m[node_indices],
+						node_y_m[node_indices],
+					]
+				).astype(float, copy=False)
+			)
+		return polygons
+
+	def _support_overlay_specs(self) -> list[tuple[str, np.ndarray, str]]:
+		"""Return active runtime support selections to visualize on one overview figure."""
+		if self.flow is None:
+			return []
+
+		overlays: list[tuple[str, np.ndarray, str]] = []
+		color_by_bc = {
+			"west_side": "#d62728",
+			"east_side": "#1f77b4",
+			"north_side": "#ff7f0e",
+			"south_side": "#9467bd",
+			"stream": "#17becf",
+			"ocean": "#2ca02c",
+		}
+		boundary_conditions = self._boundary_conditions_mapping()
+		for bc_id in ("west_side", "east_side", "north_side", "south_side"):
+			if not self._is_bc_active(bc_id):
+				continue
+			boundary = boundary_conditions.get(bc_id)
+			if boundary is None:
+				continue
+			cell_ids = np.asarray(
+				self._boundary_support_cell_ids(boundary=boundary, bc_id=bc_id),
+				dtype=int,
+			).reshape(-1)
+			if cell_ids.size == 0:
+				continue
+			support_label = self._boundary_attr(boundary, "support_label", None)
+			label = str(bc_id)
+			if support_label is not None:
+				label = f"{bc_id} [{str(support_label)}]"
+			overlays.append((label, cell_ids, color_by_bc[bc_id]))
+
+		if self._is_bc_active("stream"):
+			stream_series = self._resolve_stream_boundary_series()
+			stream_mask = self._stream_chd_support_mask(stream_series)
+			stream_cell_ids = np.flatnonzero(np.asarray(stream_mask, dtype=bool)).astype(int, copy=False)
+			if stream_cell_ids.size > 0:
+				stream_boundary = boundary_conditions.get("stream")
+				support_label = None if stream_boundary is None else self._boundary_attr(
+					stream_boundary,
+					"support_label",
+					None,
+				)
+				label = "stream"
+				if support_label is not None:
+					label = f"stream [{str(support_label)}]"
+				overlays.append((label, stream_cell_ids, color_by_bc["stream"]))
+
+		if self._is_bc_active("ocean"):
+			ocean_series = self._resolve_ocean_boundary_series()
+			ocean_mask = self._ocean_chd_support_mask(ocean_series)
+			ocean_cell_ids = np.flatnonzero(np.asarray(ocean_mask, dtype=bool)).astype(int, copy=False)
+			if ocean_cell_ids.size > 0:
+				overlays.append(("ocean", ocean_cell_ids, color_by_bc["ocean"]))
+
+		return overlays
+
+	def _well_overlay_specs(self) -> list[dict[str, object]]:
+		"""Return resolved well locations suitable for diagnostic plotting."""
+		if self.flow is None:
+			return []
+		active = getattr(self.flow, "active_sinks_sources", [])
+		if "wells" not in active:
+			return []
+
+		sinks_sources = getattr(self.flow, "sinks_sources", {})
+		if not isinstance(sinks_sources, Mapping):
+			return []
+		wells = sinks_sources.get("wells", {})
+		if not isinstance(wells, Mapping):
+			return []
+
+		support = getattr(self, "runtime_mesh_support", None)
+		grid = None if self.grid_ctx is None else self.grid_ctx.grid
+		items: list[dict[str, object]] = []
+		for well_id, well_cfg in wells.items():
+			try:
+				_, cell_id = self._resolve_well_disv_cell(
+					well_id=str(well_id),
+					well_cfg=well_cfg,
+					grid=grid,
+				)
+			except Exception:
+				continue
+
+			if support is not None and 0 <= int(cell_id) < int(getattr(support, "n_cells", 0)):
+				x_m = float(np.asarray(support.cell_centroid_x_m, dtype=float).reshape(-1)[int(cell_id)])
+				y_m = float(np.asarray(support.cell_centroid_y_m, dtype=float).reshape(-1)[int(cell_id)])
+			else:
+				continue
+			items.append(
+				{
+					"id": str(well_id),
+					"cell_id": int(cell_id),
+					"x_m": x_m,
+					"y_m": y_m,
+				}
+			)
+		return items
+
+	def _export_runtime_support_overview(self, *, options: ModflowPostprocessOptions) -> None:
+		"""Write one diagnostic figure showing runtime gmsh supports used by the solver."""
+		if not getattr(options, "native_mesh_png", False):
+			return
+		support = getattr(self, "runtime_mesh_support", None)
+		if support is None:
+			return
+
+		import matplotlib
+
+		matplotlib.use("Agg", force=True)
+		import matplotlib.pyplot as plt
+		from matplotlib.collections import LineCollection, PolyCollection
+		from matplotlib.lines import Line2D
+		from matplotlib.patches import Patch
+
+		figure_dir = os.path.join(self.save_file, "_figures", "native_mesh")
+		toolbox.create_folder(figure_dir)
+
+		all_edge_indices = np.arange(np.asarray(getattr(support, "edge_ids", ()), dtype=int).size, dtype=int)
+		all_segments = self._support_edge_segments(support, all_edge_indices)
+		if not all_segments:
+			return
+
+		node_x_m = np.asarray(getattr(support, "node_x_m", ()), dtype=float).reshape(-1)
+		node_y_m = np.asarray(getattr(support, "node_y_m", ()), dtype=float).reshape(-1)
+		fig, axs = plt.subplots(1, 2, figsize=(14.0, 6.0), dpi=200)
+		ax_active, ax_labels = axs
+
+		for ax in (ax_active, ax_labels):
+			ax.add_collection(LineCollection(all_segments, colors="0.80", linewidths=0.8, zorder=1))
+			ax.set_aspect("equal")
+			ax.set_xlim(float(np.min(node_x_m)), float(np.max(node_x_m)))
+			ax.set_ylim(float(np.min(node_y_m)), float(np.max(node_y_m)))
+			ax.set_xlabel("x (m)")
+			ax.set_ylabel("y (m)")
+
+		active_handles: list[object] = []
+		for label, cell_ids, color in self._support_overlay_specs():
+			polygons = self._support_cell_polygons(support, cell_ids)
+			if not polygons:
+				continue
+			ax_active.add_collection(
+				PolyCollection(
+					polygons,
+					facecolors=color,
+					edgecolors=color,
+					linewidths=1.4,
+					alpha=0.22,
+					zorder=2,
+				)
+			)
+			active_handles.append(
+				Patch(facecolor=color, edgecolor=color, alpha=0.22, label=label)
+			)
+
+		river_indices = np.asarray(support.river_edge_indices(), dtype=int).reshape(-1)
+		river_segments = self._support_edge_segments(support, river_indices)
+		if river_segments:
+			river_collection = LineCollection(
+				river_segments,
+				colors="#17becf",
+				linewidths=2.0,
+				alpha=0.95,
+				zorder=3,
+			)
+			ax_active.add_collection(river_collection)
+			ax_labels.add_collection(
+				LineCollection(
+					river_segments,
+					colors="#17becf",
+					linewidths=2.0,
+					alpha=0.95,
+					zorder=3,
+				)
+			)
+			active_handles.append(
+				Line2D([0], [0], color="#17becf", lw=2.0, label="river edges")
+			)
+
+		well_items = self._well_overlay_specs()
+		if well_items:
+			ax_active.scatter(
+				[float(item["x_m"]) for item in well_items],
+				[float(item["y_m"]) for item in well_items],
+				marker="x",
+				s=55.0,
+				linewidths=1.5,
+				color="black",
+				zorder=4,
+			)
+			for item in well_items:
+				ax_active.text(
+					float(item["x_m"]),
+					float(item["y_m"]),
+					str(item["id"]),
+					fontsize=8,
+					color="black",
+					ha="left",
+					va="bottom",
+					zorder=5,
+				)
+			active_handles.append(
+				Line2D([0], [0], marker="x", color="black", linestyle="None", label="wells")
+			)
+
+		label_handles: list[object] = []
+		label_values = sorted(
+			{
+				str(value)
+				for value in getattr(support, "boundary_labels_by_edge_id", {}).values()
+				if str(value).strip() != ""
+			}
+		)
+		palette = (
+			"#d62728",
+			"#1f77b4",
+			"#ff7f0e",
+			"#9467bd",
+			"#8c564b",
+			"#e377c2",
+			"#7f7f7f",
+			"#bcbd22",
+		)
+		for index, label in enumerate(label_values):
+			edge_indices = np.asarray(support.edge_indices_for_label(label), dtype=int).reshape(-1)
+			segments = self._support_edge_segments(support, edge_indices)
+			if not segments:
+				continue
+			color = palette[index % len(palette)]
+			ax_labels.add_collection(
+				LineCollection(
+					segments,
+					colors=color,
+					linewidths=2.4,
+					alpha=0.95,
+					zorder=2,
+				)
+			)
+			x_mid = float(np.mean(np.asarray(support.edge_midpoint_x_m, dtype=float).reshape(-1)[edge_indices]))
+			y_mid = float(np.mean(np.asarray(support.edge_midpoint_y_m, dtype=float).reshape(-1)[edge_indices]))
+			ax_labels.text(
+				x_mid,
+				y_mid,
+				label,
+				fontsize=8,
+				color=color,
+				ha="center",
+				va="center",
+				bbox={"facecolor": "white", "edgecolor": color, "alpha": 0.75, "pad": 1.5},
+				zorder=4,
+			)
+			label_handles.append(
+				Line2D([0], [0], color=color, lw=2.4, label=label)
+			)
+
+		ax_active.set_title("Active runtime supports")
+		ax_labels.set_title("Available support labels")
+		if active_handles:
+			ax_active.legend(handles=active_handles, loc="best", fontsize=8, frameon=True)
+		if label_handles:
+			ax_labels.legend(handles=label_handles, loc="best", fontsize=8, frameon=True)
+		else:
+			ax_labels.text(
+				0.5,
+				0.5,
+				"No labeled runtime supports",
+				transform=ax_labels.transAxes,
+				ha="center",
+				va="center",
+				fontsize=10,
+				color="0.35",
+			)
+
+		fig.tight_layout()
+		fig.savefig(
+			os.path.join(figure_dir, "flow_support_overview.png"),
+			bbox_inches="tight",
+		)
+		plt.close(fig)
 
 	def _east_side_cell_ids(self) -> set[int]:
 		"""Return east-boundary cell ids for one DISV topological layer."""
@@ -1630,6 +2102,14 @@ class Modflow6(Solver):
 				accumulated_flow.trace_cumulated()
 				with rasterio.open(os.path.join(self.tifs_file, f"accumulation_flux_t({item}).tif")) as src:
 					dict_accumulation_flux[item] = src.read(1)
+			elif options.accumulation_flux and not getattr(self.solver_mesh, "is_structured", False):
+				accumulated_flow = self._accumulate_unstructured_cell_values(
+					local_values=np.where(outflow <= -9999.0, 0.0, outflow),
+					reference_values=np.where(dem_mask_flat, np.nan, dem_flat),
+					inactive_mask=dem_mask_flat,
+				)
+				accumulated_flow[dem_mask_flat] = -9999.0
+				dict_accumulation_flux[item] = self._to_export_array(accumulated_flow)
 
 		if options.watertable_elevation:
 			np.save(os.path.join(self.save_file, "watertable_elevation"), dict_watertable_elevation)
@@ -1658,6 +2138,7 @@ class Modflow6(Solver):
 			},
 			prefix="flow",
 		)
+		self._export_runtime_support_overview(options=options)
 
 
 class Modflow6Transport:
@@ -1886,6 +2367,7 @@ class Modflow6Transport:
 			seep = outflow_drain.get(i, np.zeros(int(self.model_modflow.ncpl), dtype=float))
 			seep = np.asarray(seep, dtype=float).reshape(-1)
 			conc_time_idx = min(i, conc_last_idx)
+			mass_surf = None
 
 			if concentration_seepage:
 				conc_surf = np.asarray(concobj_1c[conc_time_idx][0], dtype=float).reshape(-1).copy()
@@ -1895,12 +2377,13 @@ class Modflow6Transport:
 				if can_export_raster and (export_all_tif or i == 0):
 					toolbox.export_tif(self.model_modflow.dem_watershed_path, _reshape_for_export(conc_surf), os.path.join(self.tifs_file, f"concentration_seepage_t({the_time}).tif"), -9999)
 
-			if mass_seepage:
+			if mass_seepage or mass_accumulated:
 				mass_surf = np.asarray(concobj_1c[conc_time_idx][0], dtype=float).reshape(-1).copy()
 				mass_surf[seep <= 0] = np.nan
 				mass_surf = mass_surf * seep
 				mass_surf[dem_mask] = -9999
 				mass_surf = np.where(np.isnan(mass_surf), -9999, mass_surf)
+			if mass_seepage and mass_surf is not None:
 				dict_mass_seepage[i] = _reshape_for_export(mass_surf)
 				if can_export_raster and (export_all_tif or i == 0):
 					toolbox.export_tif(self.model_modflow.dem_watershed_path, _reshape_for_export(mass_surf), os.path.join(self.tifs_file, f"mass_seepage_t({the_time}).tif"), -9999)
@@ -1919,6 +2402,22 @@ class Modflow6Transport:
 				accumulated_mass.trace_cumulated()
 				with bf.HeadFile(os.path.join(self.tifs_file, f"mass_accumulated_t({the_time}).tif")) as src:
 					dict_mass_accumulated[i] = src.read(1)
+			elif (
+				mass_accumulated
+				and mass_surf is not None
+				and not getattr(self.model_modflow.solver_mesh, "is_structured", False)
+			):
+				accumulated_mass = self.model_modflow._accumulate_unstructured_cell_values(
+					local_values=np.where(mass_surf <= -9999.0, 0.0, mass_surf),
+					reference_values=np.where(
+						dem_mask,
+						np.nan,
+						np.asarray(self.model_modflow.dem, dtype=float).reshape(-1),
+					),
+					inactive_mask=dem_mask,
+				)
+				accumulated_mass[dem_mask] = -9999.0
+				dict_mass_accumulated[i] = _reshape_for_export(accumulated_mass)
 
 		if concentration_seepage:
 			np.save(os.path.join(self.save_file, "concentration_seepage"), dict_concentration_seepage)

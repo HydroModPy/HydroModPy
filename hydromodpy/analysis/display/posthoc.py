@@ -100,6 +100,7 @@ class RunArtifacts:
 
     # Simulated time series CSV
     simulated_timeseries_csv: Path | None = None
+    native_mesh_figure_dir: Path | None = None
 
     @classmethod
     def discover(cls, run_dir: Path) -> RunArtifacts:
@@ -123,6 +124,7 @@ class RunArtifacts:
 
         solver_tpl = run_dir / "_solver_grid_template.tif"
         ts_csv = pp / "_timeseries" / "_simulated_timeseries.csv"
+        native_mesh_figure_dir = pp / "_figures" / "native_mesh"
 
         return cls(
             run_id=run_id,
@@ -143,6 +145,9 @@ class RunArtifacts:
             pathlines_weighted_shp=_particle_shp("pathlines_weighted"),
             starting_weighted_shp=_particle_shp("starting_weighted"),
             simulated_timeseries_csv=ts_csv if ts_csv.exists() else None,
+            native_mesh_figure_dir=(
+                native_mesh_figure_dir if native_mesh_figure_dir.is_dir() else None
+            ),
         )
 
     def base_raster(self, geographic: GeographicArtifacts) -> Path | None:
