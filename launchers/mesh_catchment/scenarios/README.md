@@ -3,6 +3,9 @@
 `scenarios/` contient uniquement des TOML runnable versionnes pour
 `MeshCatchmentLauncher`.
 
+Pour la matrice de decision, les configs minimales, et la carte du package,
+voir aussi `../README.md`.
+
 - Les bases partagees restent au niveau parent (`config_common.toml`,
   `config_batch_common.toml`).
 - Les templates schema-first restent aussi au niveau parent
