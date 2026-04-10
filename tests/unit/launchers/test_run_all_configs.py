@@ -8,7 +8,7 @@ import sys
 
 
 def _load_run_all_configs_module():
-    module_path = Path("launchers/mesh_catchment/run_all_configs.py").resolve()
+    module_path = Path("launchers/mesh_catchment/tools/run_all_configs.py").resolve()
     spec = importlib.util.spec_from_file_location(
         "test_run_all_configs_module",
         module_path,

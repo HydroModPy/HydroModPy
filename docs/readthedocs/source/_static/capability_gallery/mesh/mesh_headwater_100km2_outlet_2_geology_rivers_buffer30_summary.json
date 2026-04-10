@@ -1,4 +1,4 @@
-{
+﻿{
   "summary_schema_version": "capability_gallery_case_v1",
   "slug": "mesh_headwater_100km2_outlet_2_geology_rivers_buffer30",
   "title": "100 km2, headwater Mesh, Outlet 2, Geology + rivers, 30% buffer",
@@ -20,10 +20,10 @@
   ],
   "reference_highlights": [],
   "equations_rst": [],
-  "reproduction_command": "python -m launchers mesh-catchment run launchers/mesh_catchment/config_headwater_100km2.toml",
+  "reproduction_command": "python -m launchers mesh-catchment run launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "launchers/mesh_catchment/config_headwater_100km2.toml",
+    "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/case.json",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/viewer_config.toml",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/README.md",
@@ -39,7 +39,7 @@
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/figures/mesh_regional.png"
   ],
   "source_hashes": {
-    "launchers/mesh_catchment/config_headwater_100km2.toml": "b7f2c4a9f023a2e9d6240e79a0967d870cc104a7339a9da77bb46bbee5730ad4",
+    "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml": "b7f2c4a9f023a2e9d6240e79a0967d870cc104a7339a9da77bb46bbee5730ad4",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/case.json": "caeb3f85dc460304e4bf703095a03c3cb2df5aab14d97124840d3f0b9266c55b",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/viewer_config.toml": "a5bb95ebf693e23d22d94416d692c2280ea494575e115a326055aaabaaf6e89c",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/README.md": "7d2208950f73c53eac71591db6e7cf628bfdb2491dd16b2d0f870f91c8e95b46",
@@ -156,3 +156,4 @@
     ]
   }
 }
+
