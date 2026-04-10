@@ -7,6 +7,7 @@ from orchestration avoids accidental import-path breakage in tests.
 from __future__ import annotations
 
 from pathlib import Path
+import shutil
 
 import numpy as np
 import pandas as pd
@@ -48,6 +49,45 @@ def _resolve_flow_model(result):
 def _resolve_boussinesq_model(result):
     """Return the configured Boussinesq flow model when present."""
     return result.get_model_for_solver("boussinesq")
+
+
+def _is_unstructured_flow_model(flow_model) -> bool:
+    """Return True when the active flow model uses an irregular planar mesh."""
+    solver_mesh = getattr(flow_model, "solver_mesh", None)
+    return bool(solver_mesh is not None and not getattr(solver_mesh, "is_structured", True))
+
+
+def _native_mesh_figure_dir(model) -> Path | None:
+    """Return the solver-native mesh figure directory when present."""
+    full_path = getattr(model, "full_path", None)
+    if full_path is None:
+        return None
+    figure_dir = Path(full_path) / "_postprocess" / "_figures" / "native_mesh"
+    if not figure_dir.is_dir():
+        return None
+    return figure_dir
+
+
+def _copy_latest_native_mesh_figures(
+    native_dir: Path | None,
+    output_dir: Path,
+    *,
+    mapping: list[tuple[str, str]],
+) -> list[Path]:
+    """Copy the latest native-mesh figures to the standard display directory."""
+    if native_dir is None:
+        return []
+    copied: list[Path] = []
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for pattern, target_name in mapping:
+        candidates = sorted(native_dir.glob(pattern))
+        if not candidates:
+            continue
+        source = candidates[-1]
+        target = output_dir / target_name
+        shutil.copyfile(source, target)
+        copied.append(target)
+    return copied
 
 
 def _resolve_boussinesq_triangles(mesh) -> np.ndarray:
@@ -379,11 +419,26 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
     flow_model = _resolve_flow_model(result)
     run_id = flow_model.model_name
     output_dir = resolve_model_figure_dir(result.setup.workspace, run_id)
-    base_raster = resolve_flow_base_raster(flow_model, result.setup.geographic)
     simulated_timeseries = _load_flow_timeseries(result)
     observed_streamflow = _load_observed_streamflow(result)
+    is_unstructured = _is_unstructured_flow_model(flow_model)
 
-    if options.flow.is_enabled("cross_section", default=True):
+    if is_unstructured:
+        _copy_latest_native_mesh_figures(
+            _native_mesh_figure_dir(flow_model),
+            output_dir,
+            mapping=[
+                ("flow_watertable_depth_t(*).png", "watertable_depth.png"),
+                ("flow_watertable_elevation_t(*).png", "watertable_elevation.png"),
+                ("flow_seepage_areas_t(*).png", "seepage_areas.png"),
+                ("flow_outflow_drain_t(*).png", "outflow_drain.png"),
+                ("flow_accumulation_flux_t(*).png", "accumulation_flux.png"),
+                ("flow_support_overview.png", "flow_support_overview.png"),
+            ],
+        )
+
+    if options.flow.is_enabled("cross_section", default=True) and not is_unstructured:
+        base_raster = resolve_flow_base_raster(flow_model, result.setup.geographic)
         wt_path = (
             result.setup.workspace.simulations_folder
             / run_id
@@ -587,6 +642,18 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
 
     run_id = flow_model.model_name
     output_dir = resolve_model_figure_dir(result.setup.workspace, run_id) / "transport"
+    if _is_unstructured_flow_model(flow_model):
+        _copy_latest_native_mesh_figures(
+            _native_mesh_figure_dir(flow_model),
+            output_dir,
+            mapping=[
+                ("transport_concentration_seepage_t(*).png", "concentration_seepage.png"),
+                ("transport_mass_seepage_t(*).png", "mass_seepage.png"),
+                ("transport_mass_accumulated_t(*).png", "mass_accumulated.png"),
+            ],
+        )
+        return
+
     save_frame_files = options.save or run_gif or run_web_animation
     show_last_frame = run_concentration and options.show
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import shutil
 
 import numpy as np
 
@@ -58,6 +59,29 @@ def _load_raster(path: Path):
             mask = data < -9000
         masked = np.ma.masked_where(mask, data)
     return masked, transform, nodata
+
+
+def _copy_latest_native_mesh_figures(
+    run: RunArtifacts,
+    output_dir: Path,
+    *,
+    mapping: list[tuple[str, str]],
+) -> list[Path]:
+    """Copy solver-native mesh PNGs into the standard posthoc figure folder."""
+    native_dir = run.native_mesh_figure_dir
+    if native_dir is None:
+        return []
+    copied: list[Path] = []
+    ensure_dir(output_dir)
+    for pattern, target_name in mapping:
+        candidates = sorted(native_dir.glob(pattern))
+        if not candidates:
+            continue
+        source = candidates[-1]
+        target = output_dir / target_name
+        shutil.copyfile(source, target)
+        copied.append(target)
+    return copied
 
 
 # ------------------------------------------------------------------
@@ -117,6 +141,8 @@ def _plot_watertable_maps(
                 continue
             last_key = max(data_dict.keys())
             arr = data_dict[last_key].astype(float)
+            if np.asarray(arr).ndim != 2:
+                continue
 
             dem_masked, transform, nodata = _load_raster(dem_path)
             if nodata is not None:
@@ -195,6 +221,8 @@ def _plot_cross_section(
 
     last_key = max(wt_dict.keys())
     wt_2d = wt_dict[last_key].astype(float)
+    if np.asarray(wt_2d).ndim != 2:
+        return
     wt_2d[wt_2d < -9000] = np.nan
 
     # Take middle column cross section
@@ -441,6 +469,18 @@ def plot_posthoc_flow_suite(
         return
 
     output_dir = run.postprocess_dir / "_figures"
+    _copy_latest_native_mesh_figures(
+        run,
+        output_dir,
+        mapping=[
+            ("flow_watertable_depth_t(*).png", "watertable_depth.png"),
+            ("flow_watertable_elevation_t(*).png", "watertable_elevation.png"),
+            ("flow_seepage_areas_t(*).png", "seepage_areas.png"),
+            ("flow_outflow_drain_t(*).png", "outflow_drain.png"),
+            ("flow_accumulation_flux_t(*).png", "accumulation_flux.png"),
+            ("flow_support_overview.png", "flow_support_overview.png"),
+        ],
+    )
 
     if options.flow.is_enabled("dem_map", default=True):
         logger.info("Generating DEM overview: %s", run.run_id)

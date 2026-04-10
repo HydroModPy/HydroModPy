@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Flow-oriented time-series post-processing utilities.
 
-This module converts gridded flow postprocess products (``.npy`` dictionaries
-keyed by stress period) into tabular watershed/subbasin time series.
+This module converts flow postprocess products (``.npy`` dictionaries keyed by
+stress period) into tabular watershed/subbasin time series.
 
 Typical output files
 --------------------
@@ -48,7 +48,9 @@ class FlowTimeseriesPostprocess:
     Design notes
     ------------
     - Inputs are optional. Missing ``.npy`` payloads are skipped silently.
-    - Aggregations are mask-based: each raster is reduced over ``dem_clip``.
+    - Aggregations are mask-based:
+      structured grids reduce rasters over ``dem_clip`` while unstructured
+      grids reduce flat per-cell arrays over a cell-domain mask.
     - The class is base-oriented: transport exporters subclass it and append
       extra columns (for example concentration or residence time).
     """
@@ -93,6 +95,7 @@ class FlowTimeseriesPostprocess:
         self.suffix_name = suffix_name
 
         self.geographic = geographic
+        self.model_modflow = model_modflow
         self.stable_folder = geographic.stable_folder
         self.simulations = geographic.simulations_folder
 
@@ -107,6 +110,30 @@ class FlowTimeseriesPostprocess:
             "dem_watershed_path",
             geographic.watershed_dem,
         )
+        self.solver_mesh = getattr(model_modflow, "solver_mesh", None)
+        self.is_unstructured = bool(
+            self.solver_mesh is not None
+            and not getattr(self.solver_mesh, "is_structured", True)
+        )
+        self.cell_centroids = None
+        self.cell_weights = None
+        if self.is_unstructured:
+            try:
+                self.cell_centroids = np.asarray(
+                    self.solver_mesh.cell_centroids(),
+                    dtype=float,
+                ).reshape(-1, 2)
+            except Exception:
+                self.cell_centroids = None
+            try:
+                self.cell_weights = np.asarray(
+                    self.solver_mesh.cell_areas(),
+                    dtype=float,
+                ).reshape(-1)
+                if self.cell_weights.size > 0:
+                    self.cell_area = float(np.nanmean(self.cell_weights))
+            except Exception:
+                self.cell_weights = None
         self.recharge = model_modflow.recharge
         self.runoff = runoff
 
@@ -139,13 +166,17 @@ class FlowTimeseriesPostprocess:
         self._load_flow_products()
         self._load_additional_products()
 
-        with rasterio.open(self.base_raster_path) as src:
-            dem_clip = src.read(1)
-            self.nodata = float(
-                src.nodata
-                if src.nodata is not None
-                else getattr(self.geographic, "nodata", -9999.0)
-            )
+        if self.is_unstructured:
+            self.nodata = float(getattr(self.geographic, "nodata", -9999.0))
+            dem_clip = self._build_default_cell_domain()
+        else:
+            with rasterio.open(self.base_raster_path) as src:
+                dem_clip = src.read(1)
+                self.nodata = float(
+                    src.nodata
+                    if src.nodata is not None
+                    else getattr(self.geographic, "nodata", -9999.0)
+                )
         # ``self.cell`` is used by intermittency postprocess helpers that need
         # normalized indicators (% flowing cells, etc.).
         self.cell = self._count_active_cells(dem_clip)
@@ -267,6 +298,51 @@ class FlowTimeseriesPostprocess:
 
         return int(np.count_nonzero(self._active_mask(dem_clip)))
 
+    def _build_default_cell_domain(self) -> np.ndarray:
+        """Return the default reporting mask for one cell-based mesh."""
+
+        if self.cell_weights is None or self.cell_weights.size == 0:
+            return np.asarray([], dtype=float)
+
+        n_cells = int(self.cell_weights.size)
+        mask = np.asarray(
+            getattr(self.model_modflow, "dem_mask", np.zeros(n_cells, dtype=bool)),
+            dtype=bool,
+        ).reshape(-1)
+        if mask.size != n_cells:
+            mask = np.zeros(n_cells, dtype=bool)
+
+        values = np.asarray(
+            getattr(self.model_modflow, "dem", np.ones(n_cells, dtype=float)),
+            dtype=float,
+        ).reshape(-1)
+        if values.size != n_cells:
+            values = np.ones(n_cells, dtype=float)
+
+        domain = values.copy()
+        domain[mask] = float(self.nodata)
+        return domain
+
+    def _sample_cell_mask_from_raster(self, raster_path: str) -> np.ndarray:
+        """Sample one raster support at cell centroids for unstructured meshes."""
+
+        if self.cell_centroids is None or self.cell_centroids.size == 0:
+            raise ValueError("Cell centroids are required to sample unstructured masks.")
+
+        with rasterio.open(raster_path) as src:
+            coords = [tuple(point) for point in self.cell_centroids.tolist()]
+            sampled = np.asarray(
+                [
+                    float(value[0]) if len(value) > 0 else np.nan
+                    for value in src.sample(coords)
+                ],
+                dtype=float,
+            )
+            src_nodata = float(src.nodata) if src.nodata is not None else float(self.nodata)
+            if np.isfinite(src_nodata):
+                sampled[np.isclose(sampled, src_nodata)] = float(self.nodata)
+        return sampled
+
     def _load_mask_raster(self, raster_path: str) -> np.ndarray:
         """Load one reporting mask and align it to the solver base raster.
 
@@ -274,6 +350,8 @@ class FlowTimeseriesPostprocess:
         native geographic DEM resolution. They must be reprojected onto the
         solver raster before aggregating solver-grid outputs.
         """
+        if self.is_unstructured:
+            return self._sample_cell_mask_from_raster(raster_path)
 
         with rasterio.open(self.base_raster_path) as base_src:
             dst_profile = base_src.profile.copy()
@@ -310,18 +388,66 @@ class FlowTimeseriesPostprocess:
             )
         return destination
 
+    @staticmethod
+    def _coerce_grid_to_domain(grid: np.ndarray, dem_clip: np.ndarray) -> np.ndarray:
+        """Coerce one input grid to the reporting-domain shape when possible."""
+
+        data = np.asarray(grid, dtype=float)
+        target = np.asarray(dem_clip)
+        if data.shape == target.shape:
+            return data
+        if data.size == target.size:
+            return data.reshape(target.shape)
+        raise ValueError(
+            f"Grid shape {data.shape} is incompatible with reporting domain {target.shape}."
+        )
+
     def _mask_grid(self, grid: np.ndarray, dem_clip: np.ndarray) -> np.ma.MaskedArray:
         """Apply DEM-based masking to one input grid."""
-        return np.ma.masked_array(grid, mask=~self._active_mask(dem_clip))
+        return np.ma.masked_array(
+            self._coerce_grid_to_domain(grid, dem_clip),
+            mask=~self._active_mask(dem_clip),
+        )
+
+    def _domain_cell_weights(self, dem_clip: np.ndarray) -> np.ndarray | None:
+        """Return area weights for the active reporting domain when applicable."""
+
+        if not self.is_unstructured or self.cell_weights is None:
+            return None
+        weights = np.asarray(self.cell_weights, dtype=float)
+        target = np.asarray(dem_clip)
+        if weights.shape != target.shape:
+            if weights.size != target.size:
+                return None
+            weights = weights.reshape(target.shape)
+        return np.where(self._active_mask(dem_clip), weights, np.nan)
+
+    @staticmethod
+    def _weighted_nanmean(values: np.ndarray, weights: np.ndarray) -> float:
+        """Return the area-weighted mean ignoring NaN values."""
+
+        valid = np.isfinite(values) & np.isfinite(weights)
+        if not np.any(valid):
+            return float("nan")
+        total_weight = float(np.nansum(weights[valid]))
+        if total_weight <= 0:
+            return float("nan")
+        return float(np.nansum(values[valid] * weights[valid]) / total_weight)
 
     def _reduce_max(self, grid: np.ndarray, dem_clip: np.ndarray) -> float:
         masked = self._mask_grid(grid, dem_clip)
         return float(np.nanmax(masked))
 
     def _reduce_mean(self, grid: np.ndarray, dem_clip: np.ndarray) -> float:
-        masked = self._mask_grid(grid, dem_clip)
+        masked = self._mask_grid(grid, dem_clip).copy()
         masked[masked < 0] = 0  # Keep legacy behavior
         masked[masked < -1] = np.nan  # Keep legacy behavior
+        weights = self._domain_cell_weights(dem_clip)
+        if weights is not None:
+            return self._weighted_nanmean(
+                np.asarray(masked.filled(np.nan), dtype=float),
+                weights,
+            )
         return float(np.nanmean(masked))
 
     def _reduce_sum(self, grid: np.ndarray, dem_clip: np.ndarray) -> float:
@@ -330,6 +456,13 @@ class FlowTimeseriesPostprocess:
 
     def _reduce_qspe(self, grid: np.ndarray, dem_clip: np.ndarray) -> float:
         masked = self._mask_grid(grid, dem_clip)
+        weights = self._domain_cell_weights(dem_clip)
+        if weights is not None:
+            valid = np.isfinite(weights)
+            total_area = float(np.nansum(weights[valid]))
+            if total_area <= 0:
+                return float("nan")
+            return float(np.nansum(np.asarray(masked.filled(np.nan), dtype=float)) / total_area)
         cell = masked.count()
         if cell <= 0:
             return float("nan")
@@ -337,6 +470,22 @@ class FlowTimeseriesPostprocess:
 
     def _reduce_percent(self, grid: np.ndarray, dem_clip: np.ndarray) -> float:
         masked = self._mask_grid(grid, dem_clip)
+        weights = self._domain_cell_weights(dem_clip)
+        if weights is not None:
+            values = np.asarray(masked.filled(np.nan), dtype=float)
+            total_area = float(np.nansum(weights[np.isfinite(weights)]))
+            if total_area <= 0:
+                return float("nan")
+            active_area = float(
+                np.nansum(
+                    np.where(
+                        (values > 0) & np.isfinite(weights),
+                        weights,
+                        0.0,
+                    )
+                )
+            )
+            return float((active_area / total_area) * 100.0)
         cell = masked.count()
         if cell <= 0:
             return float("nan")
@@ -449,6 +598,7 @@ class FlowTimeseriesPostprocess:
                 accumulation_flux=self.accumulation_flux,
                 dem_clip=dem_clip,
                 cell_count=self.cell,
+                cell_weights=self._domain_cell_weights(dem_clip),
                 yearly=self.intermittency_yearly,
                 monthly=self.intermittency_monthly,
                 weekly=self.intermittency_weekly,

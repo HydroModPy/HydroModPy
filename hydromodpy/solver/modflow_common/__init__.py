@@ -13,6 +13,11 @@ from .discretization_temporal import (
 from .executables import ensure_platform_executable
 from .grid_context import GridReference, SolverGridContext
 from .masstransfer import Masstransfer
+from .options import (
+    ModflowPostprocessOptions,
+    ModflowPreprocessOptions,
+    ModflowRunOptions,
+)
 from .raster_export import write_grid_array_to_raster
 from .routing_context import SolverRoutingContext, build_solver_routing_context
 from .runtime_arrays import build_concentration_runtime_overrides, flow_grid_shape
@@ -23,6 +28,9 @@ __all__ = [
     "SolverGridContext",
     "SolverMesh",
     "SolverRoutingContext",
+    "ModflowPreprocessOptions",
+    "ModflowRunOptions",
+    "ModflowPostprocessOptions",
     "TemporalDiscretizationResult",
     "build_spatial_discretization",
     "resolve_domain_surfaces",

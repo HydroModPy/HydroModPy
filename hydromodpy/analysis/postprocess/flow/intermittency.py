@@ -69,6 +69,7 @@ def _compute_mode_rows(
     accumulation_flux: Any,
     dem_clip: np.ndarray,
     cell_count: int,
+    cell_weights: np.ndarray | None,
     mode_name: str,
     window_size: int,
 ) -> list[tuple[float, float, float]]:
@@ -105,6 +106,21 @@ def _compute_mode_rows(
     if not items or window_size <= 0 or len(items) < window_size or cell_count <= 0:
         return []
 
+    weights = None
+    total_weight = None
+    if cell_weights is not None:
+        weights = np.asarray(cell_weights, dtype=float)
+        if weights.shape != dem_clip.shape:
+            if weights.size == np.asarray(dem_clip).size:
+                weights = weights.reshape(np.asarray(dem_clip).shape)
+            else:
+                weights = None
+        if weights is not None:
+            total_weight = float(np.nansum(np.where(np.asarray(dem_clip) < 0, 0.0, weights)))
+            if total_weight <= 0:
+                weights = None
+                total_weight = None
+
     rows: list[tuple[float, float, float]] = []
     inf = 0
     sup = window_size
@@ -140,9 +156,24 @@ def _compute_mode_rows(
             tempo[days_flux == window_size] = 1
             tempo = np.ma.masked_where(grid <= 0, tempo)
 
-            surflow = (((tempo >= 0).sum()) / cell_count) * 100
-            perenn = (((tempo == 1).sum()) / cell_count) * 100
-            intermit = (((tempo == 0).sum()) / cell_count) * 100
+            if weights is None or total_weight is None:
+                surflow = (((tempo >= 0).sum()) / cell_count) * 100
+                perenn = (((tempo == 1).sum()) / cell_count) * 100
+                intermit = (((tempo == 0).sum()) / cell_count) * 100
+            else:
+                tempo_mask = np.ma.getmaskarray(tempo)
+                surflow = (
+                    float(np.nansum(np.where((~tempo_mask) & (np.asarray(tempo) >= 0), weights, 0.0)))
+                    / total_weight
+                ) * 100.0
+                perenn = (
+                    float(np.nansum(np.where((~tempo_mask) & (np.asarray(tempo) == 1), weights, 0.0)))
+                    / total_weight
+                ) * 100.0
+                intermit = (
+                    float(np.nansum(np.where((~tempo_mask) & (np.asarray(tempo) == 0), weights, 0.0)))
+                    / total_weight
+                ) * 100.0
 
             rows.append((float(surflow), float(perenn), float(intermit)))
 
@@ -158,6 +189,7 @@ def apply_intermittency_columns(
     accumulation_flux: Any,
     dem_clip: np.ndarray,
     cell_count: int,
+    cell_weights: np.ndarray | None = None,
     yearly: bool = False,
     monthly: bool = False,
     weekly: bool = False,
@@ -197,6 +229,7 @@ def apply_intermittency_columns(
             accumulation_flux=accumulation_flux,
             dem_clip=dem_clip,
             cell_count=cell_count,
+            cell_weights=cell_weights,
             mode_name=mode_name,
             window_size=_WINDOWS_BY_MODE[mode_name],
         )

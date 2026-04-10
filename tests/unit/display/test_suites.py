@@ -165,6 +165,102 @@ def test_plot_transport_suite_passes_solver_base_raster(monkeypatch) -> None:
     assert captured == [Path("solver_grid_template.tif")]
 
 
+def test_plot_flow_suite_copies_native_mesh_figures_for_unstructured_solver(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    native_dir = tmp_path / "flow_main" / "_postprocess" / "_figures" / "native_mesh"
+    native_dir.mkdir(parents=True, exist_ok=True)
+    (native_dir / "flow_watertable_depth_t(0)_time(1).png").write_text("depth", encoding="utf-8")
+    (native_dir / "flow_support_overview.png").write_text("overview", encoding="utf-8")
+
+    flow_model = SimpleNamespace(
+        model_name="flow_main",
+        full_path=tmp_path / "flow_main",
+        solver_mesh=SimpleNamespace(is_structured=False),
+    )
+    result = _build_result(flow_model=flow_model)
+    result.setup.workspace.simulations_folder = tmp_path
+
+    monkeypatch.setattr(
+        "hydromodpy.analysis.display.suites._load_flow_timeseries",
+        lambda result: pd.DataFrame({"dummy": [0.0]}),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.analysis.display.suites._load_observed_streamflow",
+        lambda result: None,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.analysis.display.suites._extract_cross_section_data",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("cross section should be skipped")),
+    )
+
+    options = DisplayOptions(
+        enabled=True,
+        show=False,
+        save=True,
+        flow=DisplaySectionOptions(
+            enabled=True,
+            flags={
+                "cross_section": True,
+                "streamflow": False,
+                "piezometry": False,
+            },
+        ),
+    )
+
+    plot_flow_suite(result, options)
+
+    figure_dir = tmp_path / "flow_main" / "_postprocess" / "_figures"
+    assert (figure_dir / "watertable_depth.png").exists()
+    assert (figure_dir / "flow_support_overview.png").exists()
+
+
+def test_plot_transport_suite_copies_native_mesh_figures_for_unstructured_solver(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    native_dir = tmp_path / "flow_main" / "_postprocess" / "_figures" / "native_mesh"
+    native_dir.mkdir(parents=True, exist_ok=True)
+    (native_dir / "transport_concentration_seepage_t(0)_time(1).png").write_text(
+        "transport",
+        encoding="utf-8",
+    )
+
+    flow_model = SimpleNamespace(
+        model_name="flow_main",
+        full_path=tmp_path / "flow_main",
+        solver_mesh=SimpleNamespace(is_structured=False),
+    )
+    transport_model = SimpleNamespace(name="transport")
+    result = _build_result(flow_model=flow_model, transport_model=transport_model)
+    result.setup.workspace.simulations_folder = tmp_path
+
+    monkeypatch.setattr(
+        "hydromodpy.analysis.display.suites.plot_concentration_frames",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("native mesh path should bypass raster concentration frames")),
+    )
+
+    options = DisplayOptions(
+        enabled=True,
+        show=False,
+        save=True,
+        transport=DisplaySectionOptions(
+            enabled=True,
+            flags={
+                "concentration": True,
+                "gif": False,
+                "web_animation": False,
+            },
+        ),
+    )
+
+    plot_transport_suite(result, options)
+
+    figure_dir = tmp_path / "flow_main" / "_postprocess" / "_figures" / "transport"
+    assert (figure_dir / "concentration_seepage.png").exists()
+
+
 def test_plot_boussinesq_flow_suite_saves_figure(tmp_path) -> None:
     mesh = SimpleNamespace(
         node_x_m=np.array([0.0, 20.0, 0.0, 20.0], dtype=float),

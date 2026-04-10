@@ -18,7 +18,6 @@ The easiest way to read the package is:
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
 import json
 from numbers import Real
 from pathlib import Path
@@ -31,6 +30,10 @@ from hydromodpy.process.flow.initial_conditions import FlowInitialConditions
 from hydromodpy.solver.boussinesq.assembly import (
     internal_edge_flux_from_head,
     saturated_thickness_from_head,
+)
+from hydromodpy.solver.boussinesq.core.state import BoussinesqState
+from hydromodpy.solver.boussinesq.methods import (
+    resolve_surface_interaction_model_token,
 )
 from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,
@@ -59,35 +62,6 @@ from hydromodpy.core.units.volumetric_flow import (
 _SUPPORTED_BC_IDS = frozenset(set(SIDE_DIRICHLET_BC_IDS) | {"stream", "ocean", "drainage"})
 _SUPPORTED_SINK_SOURCE_IDS = frozenset({"recharge", "wells"})
 _DEFAULT_SATURATION_EXCESS_REGULARIZATION = 0.05
-
-
-@dataclass
-class BoussinesqState:
-    """Normalized flow state carried by the Boussinesq runtime.
-
-    The state stores both the current solution and, when available, the short
-    histories needed by validation and post-processing helpers.
-    """
-
-    head_m: np.ndarray
-    saturated_thickness_m: np.ndarray
-    recharge_rate_m_s: np.ndarray | None = None
-    well_flux_m3_s: np.ndarray | None = None
-    saturation_excess_rate_m_s: np.ndarray | None = None
-    recharge_rate_history_m_s: np.ndarray | None = None
-    well_flux_history_m3_s: np.ndarray | None = None
-    head_history_m: np.ndarray | None = None
-    saturated_thickness_history_m: np.ndarray | None = None
-    saturation_excess_history_m_s: np.ndarray | None = None
-    internal_edge_flux_m3_s: np.ndarray | None = None
-    internal_edge_flux_history_m3_s: np.ndarray | None = None
-    imposed_head_edge_flux_m3_s: np.ndarray | None = None
-    imposed_head_edge_flux_history_m3_s: np.ndarray | None = None
-    drainage_flux_m3_s: np.ndarray | None = None
-    drainage_flux_history_m3_s: np.ndarray | None = None
-    period_lengths_seconds: tuple[float, ...] = ()
-    nonlinear_iterations: tuple[int, ...] = ()
-    converged_by_period: tuple[bool, ...] = ()
 
 
 class Boussinesq(Solver):
@@ -345,16 +319,14 @@ class Boussinesq(Solver):
 
     def _surface_interaction_model(self) -> str:
         """Return the selected groundwater/surface interaction closure."""
-        requested = (
-            str(getattr(self.flow, "surface_interaction_model", "auto") or "auto")
-            .strip()
-            .lower()
-            or "auto"
+        return resolve_surface_interaction_model_token(
+            runtime_backend_name=self._runtime_backend_name(),
+            surface_interaction_model=getattr(
+                self.flow,
+                "surface_interaction_model",
+                "auto",
+            ),
         )
-        if requested != "auto":
-            return requested
-        runtime_backend_name = self._runtime_backend_name()
-        return "complementarity" if runtime_backend_name == "petsc" else "regularized_partition"
 
     def _runtime_backend(self) -> BoussinesqRuntimeBackend:
         """Resolve the selected nonlinear runtime backend implementation."""
@@ -401,7 +373,13 @@ class Boussinesq(Solver):
         finding, dense Jacobians, and which convergence policy applied.
         """
         options = self._runtime_options()
+        flow_regime = str(
+            getattr(self.flow, "flow_regime", "transient") or "transient"
+        ).strip().lower() or "transient"
+        time_scheme = runtime_backend.method.time_scheme_for_regime(flow_regime)
         self.runtime_summary["runtime_backend"] = runtime_backend.name
+        self.runtime_summary["runtime_engine"] = runtime_backend.name
+        self.runtime_summary["runtime_engine_id"] = runtime_backend.engine_id
         self.runtime_summary["surface_interaction_model_requested"] = str(
             getattr(self.flow, "surface_interaction_model", "auto") or "auto"
         )
@@ -414,6 +392,12 @@ class Boussinesq(Solver):
         self.runtime_summary["runtime_linear_system_layout"] = (
             runtime_backend.linear_system_layout
         )
+        self.runtime_summary["runtime_jacobian_strategy"] = (
+            runtime_backend.jacobian_strategy
+        )
+        self.runtime_summary["runtime_linear_solver"] = (
+            runtime_backend.linear_solver_kind
+        )
         self.runtime_summary["runtime_convergence_policy"] = (
             runtime_backend.convergence_policy
         )
@@ -425,6 +409,18 @@ class Boussinesq(Solver):
         )
         self.runtime_summary["runtime_tol_state_update_inf"] = float(
             options.tol_state_update_inf
+        )
+        self.runtime_summary["runtime_formulation"] = runtime_backend.method.id
+        self.runtime_summary["runtime_unknown_layout"] = (
+            runtime_backend.method.unknown_layout
+        )
+        self.runtime_summary["runtime_space_scheme"] = (
+            runtime_backend.method.space_scheme_id
+        )
+        self.runtime_summary["runtime_time_scheme"] = time_scheme.id
+        self.runtime_summary["runtime_problem_kind"] = time_scheme.problem_kind
+        self.runtime_summary["runtime_method_description"] = (
+            runtime_backend.method.description
         )
 
     def _run_transient_runtime(self) -> bool:
