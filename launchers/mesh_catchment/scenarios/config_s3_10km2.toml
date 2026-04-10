@@ -2,12 +2,12 @@
 #   hydromodpy_annex/preprocess/catchment_identification_scan/config_s3_10km2.toml
 #
 # Run with:
-#   python -m launchers mesh-catchment run launchers/mesh_catchment/config_s3_10km2.toml
+#   python -m launchers mesh-catchment run launchers/mesh_catchment/scenarios/config_s3_10km2.toml
 #
 # Inherits the shared batch DEM, geology source, conductivity demo mapping,
 # output naming, and the default profile where rivers and geology constrain the mesh.
 
-base_config = "config_batch_common.toml"
+base_config = "../config_batch_common.toml"
 
 [workspace]
 # One output folder is created per selected outlet_id under this prefix.

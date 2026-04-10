@@ -50,7 +50,7 @@ def test_import_mesh_bundle_case_creates_canonical_layout(tmp_path: Path) -> Non
     repo_root = tmp_path / "repo"
     _write_dummy_launcher_config(
         repo_root,
-        "launchers/mesh_catchment/config_headwater_100km2.toml",
+        "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
     )
 
     case_dir = import_mesh_bundle_case(
@@ -88,7 +88,7 @@ def test_import_mesh_bundle_case_creates_canonical_layout(tmp_path: Path) -> Non
         payload["config_path"]
         == "examples/mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/viewer_config.toml"
     )
-    assert "launchers/mesh_catchment/config_headwater_100km2.toml" in payload["source_paths"]
+    assert "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml" in payload["source_paths"]
 
     viewer_config = viewer_config_path.read_text(encoding="utf-8")
     assert 'bundle_dir = "./bundle"' in viewer_config
@@ -99,7 +99,7 @@ def test_build_repo_mesh_gallery_case_specs_discovers_imported_cases(tmp_path: P
     repo_root = tmp_path / "repo"
     _write_dummy_launcher_config(
         repo_root,
-        "launchers/mesh_catchment/config_headwater_100km2.toml",
+        "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
     )
 
     import_mesh_bundle_case(
@@ -130,7 +130,7 @@ def test_imported_mesh_case_prefers_copied_mesher_figures_when_available(tmp_pat
     repo_root = tmp_path / "repo"
     _write_dummy_launcher_config(
         repo_root,
-        "launchers/mesh_catchment/config_headwater_100km2.toml",
+        "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
     )
     source_bundle, overview_png, regional_png = _build_bundle_with_mesher_figures(tmp_path)
 
@@ -170,7 +170,7 @@ def test_generate_mesh_viewer_case_uses_preferred_doc_figure_when_available(
     repo_root = tmp_path / "repo"
     _write_dummy_launcher_config(
         repo_root,
-        "launchers/mesh_catchment/config_headwater_100km2.toml",
+        "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
     )
     source_bundle, overview_png, regional_png = _build_bundle_with_mesher_figures(tmp_path)
     import_mesh_bundle_case(

@@ -1,11 +1,11 @@
 # Example mesh-only launcher config.
 # Run with:
-#   python -m launchers mesh-catchment run launchers/mesh_catchment/config_example.toml
+#   python -m launchers mesh-catchment run launchers/mesh_catchment/scenarios/config_example.toml
 #
 # Inherits the shared Naizin DEM, geology source, conductivity demo mapping,
 # and the simplified geology/rivers-only meshing contract.
 
-base_config = "config_common.toml"
+base_config = "../config_common.toml"
 
 [mesh_catchment]
 # Optional:

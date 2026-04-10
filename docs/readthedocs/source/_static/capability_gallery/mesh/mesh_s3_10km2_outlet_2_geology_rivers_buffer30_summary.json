@@ -1,4 +1,4 @@
-{
+﻿{
   "summary_schema_version": "capability_gallery_case_v1",
   "slug": "mesh_s3_10km2_outlet_2_geology_rivers_buffer30",
   "title": "10 km2, Strahler 3 Mesh, Outlet 2, Geology + rivers, 30% buffer",
@@ -20,10 +20,10 @@
   ],
   "reference_highlights": [],
   "equations_rst": [],
-  "reproduction_command": "python -m launchers mesh-catchment run launchers/mesh_catchment/config_s3_10km2.toml",
+  "reproduction_command": "python -m launchers mesh-catchment run launchers/mesh_catchment/scenarios/config_s3_10km2.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "launchers/mesh_catchment/config_s3_10km2.toml",
+    "launchers/mesh_catchment/scenarios/config_s3_10km2.toml",
     "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_2_geology_rivers_buffer30/case.json",
     "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_2_geology_rivers_buffer30/viewer_config.toml",
     "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_2_geology_rivers_buffer30/README.md",
@@ -39,7 +39,7 @@
     "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_2_geology_rivers_buffer30/figures/mesh_regional.png"
   ],
   "source_hashes": {
-    "launchers/mesh_catchment/config_s3_10km2.toml": "6c14b8fd70af9f9ccacb64cae9548226b4465571c086f5238024a13321bad49c",
+    "launchers/mesh_catchment/scenarios/config_s3_10km2.toml": "6c14b8fd70af9f9ccacb64cae9548226b4465571c086f5238024a13321bad49c",
     "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_2_geology_rivers_buffer30/case.json": "d64e04721a19335316154a3b4b24fa96655a42a6d595fd7476897c519525bbd4",
     "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_2_geology_rivers_buffer30/viewer_config.toml": "99606dde5f05a323b6278985b4cf59d02d27100be3714eb5d12ac4b4c7883f06",
     "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_2_geology_rivers_buffer30/README.md": "ffe6297bde0ccacf8418910150484641f6b2bbd96c4a48e39da9a71f360bd1d9",
@@ -154,3 +154,4 @@
     ]
   }
 }
+

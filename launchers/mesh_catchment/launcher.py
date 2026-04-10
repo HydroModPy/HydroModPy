@@ -36,7 +36,7 @@ from launchers.mesh_catchment.batch import (
 )
 
 
-DEFAULT_CONFIG_NAME = "config_example.toml"
+DEFAULT_CONFIG_NAME = "scenarios/config_example.toml"
 
 
 class MeshCatchmentLauncher:

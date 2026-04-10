@@ -1,4 +1,4 @@
-{
+﻿{
   "summary_schema_version": "capability_gallery_case_v1",
   "slug": "mesh_headwater_100km2_outlet_27_geology_rivers_buffer30",
   "title": "100 km2, headwater Mesh, Outlet 27, Geology + rivers, 30% buffer",
@@ -20,10 +20,10 @@
   ],
   "reference_highlights": [],
   "equations_rst": [],
-  "reproduction_command": "python -m launchers mesh-catchment run launchers/mesh_catchment/config_headwater_100km2.toml",
+  "reproduction_command": "python -m launchers mesh-catchment run launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "launchers/mesh_catchment/config_headwater_100km2.toml",
+    "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30/case.json",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30/viewer_config.toml",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30/README.md",
@@ -39,7 +39,7 @@
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30/figures/mesh_regional.png"
   ],
   "source_hashes": {
-    "launchers/mesh_catchment/config_headwater_100km2.toml": "b7f2c4a9f023a2e9d6240e79a0967d870cc104a7339a9da77bb46bbee5730ad4",
+    "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml": "b7f2c4a9f023a2e9d6240e79a0967d870cc104a7339a9da77bb46bbee5730ad4",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30/case.json": "290fb914b156c9a3a083173161cb7dbc237980ebff6ebdca1e5ae6efb90e5901",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30/viewer_config.toml": "c355bcf34f2efc3be747f240a4aa6a476c4fadb4728190a412735aa33c0c854d",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30/README.md": "586af22a00b8063b39953c5919e78fad9178b5867b2b49544226cb946dad2b62",
@@ -161,3 +161,4 @@
     ]
   }
 }
+

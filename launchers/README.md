@@ -42,17 +42,13 @@ Generation d'un template canonique derive des schemas `pydantic` :
 
 `python -m launchers mesh-catchment template [--batch] [--profile user|dev|expert] [--output path/to/template.toml]`
 
-Commande directe (utile depuis un IDE) :
-
-`python launchers/mesh_catchment/launcher.py <path/to/config.toml>`
-
 Exemple de config prete a lancer :
 
-`launchers/mesh_catchment/config_example.toml`
+`launchers/mesh_catchment/scenarios/config_example.toml`
 
 Exemple de config batch par `outlet_id` :
 
-`launchers/mesh_catchment/config_headwater_100km2.toml`
+`launchers/mesh_catchment/scenarios/config_headwater_100km2.toml`
 
 Le sous-commande `template` imprime un TOML commente produit directement depuis
 les schemas `mesh_catchment` et `mesh_catchment_batch`. Cela permet de repartir
@@ -63,19 +59,32 @@ Templates canoniques versionnes :
 - `launchers/mesh_catchment/config_template.toml`
 - `launchers/mesh_catchment/config_batch_template.toml`
 
+Organisation du sous-package `mesh_catchment` :
+
+- `launchers/mesh_catchment/*.py`
+  : code runtime du launcher, orchestration mono-catchment, batch, templates et validation.
+- `launchers/mesh_catchment/config_*.toml`
+  : bases partagees et templates canoniques lies au contrat du launcher.
+- `launchers/mesh_catchment/scenarios/*.toml`
+  : scenarios runnable versionnes, separes du code et des templates.
+- `launchers/mesh_catchment/tools/*.py`
+  : utilitaires operatoires, par exemple le smoke runner batch de reference.
+
 Configuration en deux niveaux (meme logique que process_simulation) :
 
 - `launchers/mesh_catchment/config_common.toml`
   : tronc commun partage (`workspace`, `geographic`, `geographic.river_network`, `domain.depth_model`).
-- `launchers/mesh_catchment/config_example.toml`
+- `launchers/mesh_catchment/config_batch_common.toml`
+  : base batch partagee qui specialise le tronc commun pour les scenarios multi-exutoires.
+- `launchers/mesh_catchment/scenarios/config_example.toml`
   : exemple mono-catchment par defaut du launcher, sur le cas Nancon, avec sorties finales ecrites directement dans le dossier catchment.
-- `launchers/mesh_catchment/config_scoped_example.toml`
+- `launchers/mesh_catchment/scenarios/config_scoped_example.toml`
   : variante mono-catchment qui montre `interface_scope` et `refinement_scope`, avec sorties finales directes dans le dossier catchment.
-- `launchers/mesh_catchment/config_headwater_100km2.toml`
+- `launchers/mesh_catchment/scenarios/config_headwater_100km2.toml`
   : batch headwater autour de 100 km2 a partir d'une table d'exutoires preselectionnes.
-- `launchers/mesh_catchment/config_1000km2.toml`
+- `launchers/mesh_catchment/scenarios/config_1000km2.toml`
   : batch autour de 1000 km2.
-- `launchers/mesh_catchment/config_s3_100km2.toml`
+- `launchers/mesh_catchment/scenarios/config_s3_100km2.toml`
   : batch filtre par ordre de Strahler 3 autour de 100 km2.
 - `launchers/mesh_catchment/config_template.toml`
   : template mono-catchment versionne, regenere depuis les schemas Pydantic.
@@ -94,7 +103,7 @@ le contexte geographique utile.
 
 Script utilitaire pour lancer successivement tous les TOML runnable du dossier :
 
-`python launchers/mesh_catchment/run_all_configs.py`
+`python -m launchers.mesh_catchment.tools.run_all_configs`
 
 Ordre d'execution du script :
 
@@ -199,6 +208,14 @@ range dans l'etat runtime (`mesh_summary`) et remonte dans les artefacts de run.
 
 `[mesh_catchment]` et `[mesh_input]` sont mutuellement exclusifs dans un meme
 run `process_simulation`.
+
+Le launcher reste le meme dans tous les cas. Il n'existe pas de variante
+`process_simulation_gmsh` separee : le maillage runtime Gmsh est simplement une
+option d'entree du launcher standard. En pratique, ce contrat runtime mesh est
+aujourd'hui consomme par `boussinesq` et `modflow6`. `modflownwt` reste borne au
+backend structure `[modflownwt.sgrid.*]` et le launcher refuse donc
+explicitement les combinaisons `modflownwt + [mesh_input]` ou
+`modflownwt + [mesh_catchment]`.
 
 ## Architecture
 
