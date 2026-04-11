@@ -505,6 +505,116 @@ def test_model_calibration_run_candidate_records_objective_failure(
     assert payload["failure_reason"] == outcome.error_message
 
 
+def test_model_calibration_calibrate_runs_engine_loop_and_persists_result(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(
+        config_path,
+        include_observed_values=True,
+    )
+    launcher = ModelCalibrationLauncher(config_path)
+
+    class _FakeSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            self.candidate_config_path = Path(candidate_config_path)
+
+        def run(self):
+            merged = load_toml_with_base_config(self.candidate_config_path)
+            k_value = float(
+                str(
+                    merged["flow"]["param"]["K"]["field_homogeneous"]["value"]
+                ).split()[0]
+            )
+            sy_value = float(
+                str(
+                    merged["flow"]["param"]["Sy"]["field_homogeneous"]["value"]
+                ).split()[0]
+            )
+            if k_value == pytest.approx(1.0e-4) and sy_value == pytest.approx(0.15):
+                heads = [10.0, 14.0]
+                flux = [4.0, 8.0]
+            else:
+                heads = [11.0, 13.0]
+                flux = [5.0, 7.0]
+            return {
+                "calibration_outputs": {
+                    "pz_01": heads,
+                    "q_outlet_lowflow_mean": flux,
+                },
+            }
+
+    class _FakeCalibrationMethod:
+        def calibrate(self, objective_cost, bounds, method="simplex", **kwargs):
+            _ = bounds, kwargs
+            first = [1.0, 0.10]
+            second = [2.0, 0.15]
+            first_cost = float(objective_cost(first))
+            second_cost = float(objective_cost(second))
+            if second_cost <= first_cost:
+                return {
+                    "method": method,
+                    "x_best": second,
+                    "cost_best": second_cost,
+                    "n_evaluations": 2,
+                }
+            return {
+                "method": method,
+                "x_best": first,
+                "cost_best": first_cost,
+                "n_evaluations": 2,
+            }
+
+    summary = launcher.calibrate(
+        launcher_factory=_FakeSimulationLauncher,
+        calibration_method=_FakeCalibrationMethod(),
+    )
+
+    assert summary["status"] == "calibrated"
+    assert summary["iteration_count"] == 2
+    assert summary["candidate_run_count"] == 2
+    assert summary["objective_cache_hit_count"] == 1
+    assert summary["cost_best"] == pytest.approx(0.0)
+    assert summary["best_rerun"]["status"] == "solver_run_succeeded"
+    assert summary["params_best"] == {
+        "K_global_factor": pytest.approx(2.0),
+        "Sy_global": pytest.approx(0.15),
+    }
+
+    best_rerun_config = load_toml_with_base_config(
+        Path(summary["best_rerun"]["candidate_config_path"])
+    )
+    assert best_rerun_config["simulation"]["run_id"] == "calib_case_01__best"
+    assert best_rerun_config["display"]["enabled"] is True
+    assert best_rerun_config["postprocess"]["enabled"] is True
+
+    result_path = Path(summary["result_path"])
+    assert result_path.is_file()
+    result_payload = json.loads(result_path.read_text(encoding="utf-8"))
+    assert result_payload["method"] == "simplex"
+    assert result_payload["cost_best"] == pytest.approx(0.0)
+    assert result_payload["params_best"] == {
+        "K_global_factor": pytest.approx(2.0),
+        "Sy_global": pytest.approx(0.15),
+    }
+    assert result_payload["metadata"]["objective_evaluation"]["total_cost"] == (
+        pytest.approx(0.0)
+    )
+
+    history_lines = Path(summary["iteration_history_path"]).read_text(
+        encoding="utf-8"
+    ).splitlines()
+    assert len(history_lines) == 2
+    history_payloads = [json.loads(line) for line in history_lines]
+    assert [item["status"] for item in history_payloads] == [
+        "objective_evaluated",
+        "objective_evaluated",
+    ]
+    assert history_payloads[-1]["objective_total"] == pytest.approx(0.0)
+
+
 def test_launchers_cli_model_calibration_run_dispatches_to_launcher(
     monkeypatch,
 ) -> None:

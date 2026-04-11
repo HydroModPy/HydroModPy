@@ -7,7 +7,7 @@ import math
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 
@@ -217,6 +217,168 @@ class CandidateRunOutcome:
             status=self.status,
             failure_reason=failure_reason,
         )
+
+
+def _jsonable(value: Any) -> Any:
+    """Convert common runtime values to JSON-friendly Python values."""
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, np.ndarray):
+        return [_jsonable(item) for item in value.tolist()]
+    if isinstance(value, np.generic):
+        return _jsonable(value.item())
+    if isinstance(value, dict):
+        return {str(key): _jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(item) for item in value]
+    return value
+
+
+def serialize_calibration_result(result: Any) -> dict[str, Any]:
+    """Return one JSON-serializable summary of a core calibration result."""
+    payload = {
+        "method": str(result.method),
+        "x_best": _jsonable(result.x_best),
+        "params_best": _jsonable(result.params_best),
+        "cost_best": float(result.cost_best),
+        "score_best": (
+            None if result.score_best is None else float(result.score_best)
+        ),
+        "n_evaluations": int(result.n_evaluations),
+        "metadata": _jsonable(getattr(result, "metadata", {})),
+    }
+    samples = getattr(result, "samples", None)
+    if samples is not None:
+        payload["samples"] = _jsonable(samples)
+    return payload
+
+
+def _failed_objective_evaluation(
+    outcome: CandidateRunOutcome,
+) -> CompositeObjectiveEvaluation:
+    """Represent a failed candidate as an infinite objective evaluation."""
+    return CompositeObjectiveEvaluation(
+        total_cost=math.inf,
+        total_score=-math.inf,
+        blocks=(),
+        metadata={
+            "status": outcome.status,
+            "error_type": outcome.error_type,
+            "error_message": outcome.error_message,
+            "iteration_id": outcome.request.iteration_id,
+            "candidate_run_id": outcome.request.candidate_run_id,
+            "candidate_config_path": str(outcome.request.candidate_config_path),
+        },
+    )
+
+
+def _sanitize_candidate_label(label: str) -> str:
+    """Return one filesystem-safe candidate label."""
+    text = str(label).strip().lower()
+    if not text:
+        raise ValueError("candidate_label cannot be empty")
+    return re.sub(r"[^a-z0-9_.-]+", "_", text)
+
+
+def validate_objective_ready_for_calibration(
+    cfg: ModelCalibrationConfig,
+) -> None:
+    """Reject calibration runs whose composite objective cannot yet be evaluated."""
+    outputs_by_name = {
+        output_cfg.name: output_cfg for output_cfg in cfg.model_calibration.output
+    }
+    missing_observations: list[str] = []
+    direct_cost_blocks: list[str] = []
+    for block_cfg in cfg.model_calibration.objective_block:
+        if block_cfg.metric == "direct_cost":
+            direct_cost_blocks.append(block_cfg.name)
+        for output_name in block_cfg.uses_outputs:
+            output_cfg = outputs_by_name[output_name]
+            if output_cfg.observed_values is None:
+                missing_observations.append(f"{block_cfg.name}:{output_name}")
+
+    if direct_cost_blocks:
+        raise NotImplementedError(
+            "direct_cost objective blocks are reserved for future map comparisons: "
+            f"{direct_cost_blocks}"
+        )
+    if missing_observations:
+        raise ValueError(
+            "Full model calibration requires observed_values for every output used "
+            f"by objective blocks. Missing: {missing_observations}"
+        )
+
+
+@dataclass
+class ModelCalibrationObjectiveEvaluator:
+    """Objective evaluator that lets CalibrationEngine drive launcher candidates."""
+
+    session: PreparedCalibrationSession
+    cfg: ModelCalibrationConfig
+    launcher_factory: Any
+    iteration_start: int = 1
+    record_callback: Callable[[IterationRecord], None] | None = None
+    _next_iteration_index: int = field(init=False, repr=False)
+    _evaluations_by_key: dict[tuple[float, ...], CompositeObjectiveEvaluation] = (
+        field(default_factory=dict, init=False, repr=False)
+    )
+    _outcomes_by_key: dict[tuple[float, ...], CandidateRunOutcome] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+    )
+    cache_hit_count: int = field(default=0, init=False)
+    candidate_run_count: int = field(default=0, init=False)
+
+    def __post_init__(self) -> None:
+        validate_objective_ready_for_calibration(self.cfg)
+        self._next_iteration_index = int(self.iteration_start)
+
+    def _cache_key(
+        self,
+        params: dict[str, float] | tuple[float, ...],
+    ) -> tuple[float, ...]:
+        parameter_set = self.session.core_settings["parameter_set"]
+        return tuple(float(value) for value in parameter_set.vector_from(params))
+
+    def evaluate(self, params: dict[str, float]) -> CompositeObjectiveEvaluation:
+        """Run or reuse one candidate objective evaluation."""
+        key = self._cache_key(params)
+        cached = self._evaluations_by_key.get(key)
+        if cached is not None:
+            self.cache_hit_count += 1
+            return cached
+
+        iteration_index = self._next_iteration_index
+        self._next_iteration_index += 1
+        request = actualize_candidate(
+            session=self.session,
+            cfg=self.cfg,
+            params=key,
+            iteration_index=iteration_index,
+        )
+        outcome = execute_candidate_run(
+            request=request,
+            launcher_factory=self.launcher_factory,
+            cfg=self.cfg,
+        )
+        self.candidate_run_count += 1
+        if self.record_callback is not None:
+            self.record_callback(outcome.to_iteration_record())
+
+        evaluation = (
+            outcome.objective_evaluation
+            if outcome.objective_evaluation is not None
+            else _failed_objective_evaluation(outcome)
+        )
+        self._outcomes_by_key[key] = outcome
+        self._evaluations_by_key[key] = evaluation
+        return evaluation
+
+    @property
+    def outcomes(self) -> tuple[CandidateRunOutcome, ...]:
+        """Return unique executed candidate outcomes in evaluation order."""
+        return tuple(self._outcomes_by_key.values())
 
 
 def _split_target_path(target: str) -> tuple[str, ...]:
@@ -463,6 +625,52 @@ def persist_iteration_record(
     return update_session_manifest(manifest_path=session.session_manifest_path, record=record)
 
 
+def finalize_calibration_session(
+    *,
+    session: PreparedCalibrationSession,
+    result: Any,
+    evaluator: ModelCalibrationObjectiveEvaluator,
+    best_rerun_outcome: CandidateRunOutcome | None = None,
+) -> dict[str, Any]:
+    """Persist the final calibration result and update the session manifest."""
+    result_payload = serialize_calibration_result(result)
+    result_path = session.calibration_root / "calibration_result.json"
+    result_path.write_text(
+        json.dumps(result_payload, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+
+    manifest = json.loads(session.session_manifest_path.read_text(encoding="utf-8"))
+    manifest.update(
+        {
+            "status": "calibrated",
+            "result_path": str(result_path),
+            "method": result_payload["method"],
+            "cost_best": result_payload["cost_best"],
+            "score_best": result_payload["score_best"],
+            "params_best": result_payload["params_best"],
+            "n_evaluations": result_payload["n_evaluations"],
+            "candidate_run_count": int(evaluator.candidate_run_count),
+            "objective_cache_hit_count": int(evaluator.cache_hit_count),
+        }
+    )
+    if best_rerun_outcome is not None:
+        manifest["best_rerun"] = {
+            "status": best_rerun_outcome.status,
+            "candidate_run_id": best_rerun_outcome.request.candidate_run_id,
+            "candidate_config_path": str(
+                best_rerun_outcome.request.candidate_config_path
+            ),
+            "error_type": best_rerun_outcome.error_type,
+            "error_message": best_rerun_outcome.error_message,
+        }
+    session.session_manifest_path.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+    return manifest
+
+
 def _as_1d_float_tuple(values: Any, *, label: str) -> tuple[float, ...]:
     """Normalize one selected observable payload to a non-empty float tuple."""
     arr = np.asarray(values, dtype=float).ravel()
@@ -595,7 +803,10 @@ def actualize_candidate(
     session: PreparedCalibrationSession,
     cfg: ModelCalibrationConfig,
     params: dict[str, float] | tuple[float, ...] | list[float],
-    iteration_index: int,
+    iteration_index: int | None = None,
+    candidate_label: str | None = None,
+    disable_display: bool | None = None,
+    disable_postprocess: bool | None = None,
 ) -> CandidateRunRequest:
     """Materialize one candidate override TOML from calibrated parameters."""
     parameter_set = session.core_settings["parameter_set"]
@@ -604,22 +815,34 @@ def actualize_candidate(
         str(name): float(value)
         for name, value in parameter_set.mapping_from(params_vector).items()
     }
-    iteration_id = f"iter_{int(iteration_index):04d}"
+    if candidate_label is not None:
+        iteration_id = _sanitize_candidate_label(candidate_label)
+    elif iteration_index is not None:
+        iteration_id = f"iter_{int(iteration_index):04d}"
+    else:
+        raise ValueError("actualize_candidate requires iteration_index or candidate_label")
     candidate_run_id = f"{session.calibration_id}__{iteration_id}"
-    candidate_root = (session.candidates_root or session.calibration_root / "runtime_candidates") / iteration_id
+    candidate_root = (
+        session.candidates_root or session.calibration_root / "runtime_candidates"
+    ) / iteration_id
     candidate_config_path = candidate_root / "candidate_override.toml"
 
     override_payload: dict[str, Any] = {
         "base_config": str(session.simulation_config_path),
         "simulation": {"run_id": candidate_run_id},
     }
-    if cfg.model_calibration.disable_display:
+    if disable_display is None:
+        disable_display = cfg.model_calibration.disable_display
+    if disable_postprocess is None:
+        disable_postprocess = cfg.model_calibration.disable_postprocess
+
+    if disable_display:
         override_payload["display"] = {
             "enabled": False,
             "show": False,
             "save": False,
         }
-    if cfg.model_calibration.disable_postprocess:
+    if disable_postprocess:
         override_payload["postprocess"] = {
             "enabled": False,
         }
@@ -644,6 +867,32 @@ def actualize_candidate(
         params_vector=params_vector,
         params_named=params_named,
         override_payload=override_payload,
+    )
+
+
+def execute_best_candidate_rerun(
+    *,
+    session: PreparedCalibrationSession,
+    cfg: ModelCalibrationConfig,
+    result: Any,
+    launcher_factory: Any,
+) -> CandidateRunOutcome:
+    """Rerun the best candidate without calibration-time output suppression."""
+    params = getattr(result, "params_best", None)
+    if params is None:
+        params = getattr(result, "x_best")
+    request = actualize_candidate(
+        session=session,
+        cfg=cfg,
+        params=params,
+        candidate_label="best",
+        disable_display=False,
+        disable_postprocess=False,
+    )
+    return execute_candidate_run(
+        request=request,
+        launcher_factory=launcher_factory,
+        cfg=None,
     )
 
 
@@ -707,12 +956,17 @@ __all__ = (
     "PreparedCalibrationSession",
     "append_iteration_record",
     "detect_solver_families",
+    "execute_best_candidate_rerun",
     "execute_candidate_run",
     "evaluate_candidate_objective",
+    "finalize_calibration_session",
     "initialize_calibration_session",
+    "ModelCalibrationObjectiveEvaluator",
     "persist_iteration_record",
     "prepare_calibration_session",
     "resolve_workspace_config",
+    "serialize_calibration_result",
     "select_candidate_outputs",
     "update_session_manifest",
+    "validate_objective_ready_for_calibration",
 )
