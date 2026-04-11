@@ -113,7 +113,7 @@ def _run_model_calibration_launcher(config_path: Path) -> None:
     from launchers import ModelCalibrationLauncher
 
     summary = ModelCalibrationLauncher(config_path).run()
-    print("Model-calibration scaffold:")
+    print("Prepared model-calibration session:")
     print(f"  calibration_id: {summary['calibration_id']}")
     print(f"  simulation_config: {summary['simulation_config']}")
     print(f"  primary_solver: {summary['primary_solver']}")
