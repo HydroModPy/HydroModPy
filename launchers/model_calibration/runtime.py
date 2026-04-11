@@ -390,18 +390,174 @@ def build_model_distribution_payload(
     }
 
 
+def _sample_objective_total(sample: dict[str, Any]) -> float | None:
+    """Return one finite objective value when a sample carries one."""
+    value = sample.get("objective_total")
+    if value is None:
+        return None
+    try:
+        objective = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(objective):
+        return None
+    return objective
+
+
+def _unique_limited(indices: list[int], *, max_count: int) -> tuple[int, ...]:
+    """Keep first-seen unique indices up to `max_count`."""
+    selected: list[int] = []
+    seen: set[int] = set()
+    for index in indices:
+        if index in seen:
+            continue
+        selected.append(int(index))
+        seen.add(int(index))
+        if len(selected) >= max_count:
+            break
+    return tuple(selected)
+
+
+def _evenly_spaced_indices(total_count: int, *, max_count: int) -> tuple[int, ...]:
+    """Return stable row indices spread over `[0, total_count)`."""
+    if total_count <= 0 or max_count <= 0:
+        return ()
+    if total_count <= max_count:
+        return tuple(range(total_count))
+    raw_indices = [
+        int(round(float(value)))
+        for value in np.linspace(0, total_count - 1, num=max_count)
+    ]
+    if len(set(raw_indices)) < max_count:
+        raw_indices.extend(range(total_count))
+    return _unique_limited(raw_indices, max_count=max_count)
+
+
+def _finite_objective_rank_indices(
+    samples: list[dict[str, Any]],
+) -> tuple[int, ...]:
+    """Return sample row indices sorted from best to worst finite objective."""
+    ranked: list[tuple[float, int]] = []
+    for index, sample in enumerate(samples):
+        objective = _sample_objective_total(sample)
+        if objective is not None:
+            ranked.append((objective, index))
+    ranked.sort(key=lambda item: (item[0], item[1]))
+    return tuple(index for _, index in ranked)
+
+
+def _representative_parameter_indices(
+    samples: list[dict[str, Any]],
+    *,
+    max_count: int,
+) -> tuple[int, ...]:
+    """Select sample rows closest to marginal parameter quantile vectors."""
+    if max_count <= 0:
+        return ()
+
+    vectors: list[np.ndarray] = []
+    row_indices: list[int] = []
+    for index, sample in enumerate(samples):
+        try:
+            vector = np.asarray(sample["params_vector"], dtype=float).ravel()
+        except (KeyError, TypeError, ValueError):
+            continue
+        if vector.size == 0 or not np.all(np.isfinite(vector)):
+            continue
+        vectors.append(vector)
+        row_indices.append(index)
+
+    if not vectors:
+        return _evenly_spaced_indices(len(samples), max_count=max_count)
+    if len(vectors) <= max_count:
+        return tuple(row_indices)
+
+    matrix = np.vstack(vectors)
+    probabilities = (
+        np.asarray([0.5], dtype=float)
+        if max_count == 1
+        else np.linspace(0.05, 0.95, num=max_count)
+    )
+    targets = np.nanquantile(matrix, probabilities, axis=0)
+    scale = np.nanstd(matrix, axis=0)
+    scale = np.where(np.isfinite(scale) & (scale > 0.0), scale, 1.0)
+
+    selected: list[int] = []
+    for target in np.atleast_2d(targets):
+        distances = np.linalg.norm((matrix - target) / scale, axis=1)
+        selected.append(row_indices[int(np.nanargmin(distances))])
+    selected.extend(_evenly_spaced_indices(len(samples), max_count=max_count))
+    return _unique_limited(selected, max_count=max_count)
+
+
+def select_model_distribution_samples(
+    *,
+    payload: dict[str, Any],
+    max_count: int,
+    selection: str,
+) -> list[tuple[int, dict[str, Any]]]:
+    """Select model-distribution rows for optional full-output reruns."""
+    if max_count <= 0:
+        return []
+    raw_samples = payload.get("samples")
+    if not isinstance(raw_samples, list) or not raw_samples:
+        return []
+    indexed_samples = [
+        (index, sample)
+        for index, sample in enumerate(raw_samples)
+        if isinstance(sample, dict)
+    ]
+    samples = [sample for _, sample in indexed_samples]
+    max_count = min(int(max_count), len(samples))
+    if max_count <= 0:
+        return []
+
+    selection_mode = str(selection).strip().lower()
+    if selection_mode == "evenly_spaced":
+        selected_indices = _evenly_spaced_indices(len(samples), max_count=max_count)
+    elif selection_mode == "best":
+        ranked = list(_finite_objective_rank_indices(samples))
+        ranked.extend(range(len(samples)))
+        selected_indices = _unique_limited(ranked, max_count=max_count)
+    else:
+        ranked = _finite_objective_rank_indices(samples)
+        if ranked:
+            rank_positions = _evenly_spaced_indices(
+                len(ranked),
+                max_count=max_count,
+            )
+            selected_indices = tuple(ranked[position] for position in rank_positions)
+        else:
+            selected_indices = _representative_parameter_indices(
+                samples,
+                max_count=max_count,
+            )
+
+    return [
+        (indexed_samples[index][0], samples[index])
+        for index in selected_indices
+    ]
+
+
 def persist_model_distribution(
     *,
     session: PreparedCalibrationSession,
-    result: Any,
-    evaluator: ModelCalibrationObjectiveEvaluator,
+    result: Any | None = None,
+    evaluator: ModelCalibrationObjectiveEvaluator | None = None,
+    payload: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Write `model_distribution.json` when the method exposes an ensemble."""
-    payload = build_model_distribution_payload(
-        session=session,
-        result=result,
-        evaluator=evaluator,
-    )
+    if payload is None:
+        if result is None or evaluator is None:
+            raise ValueError(
+                "persist_model_distribution requires either payload or "
+                "result/evaluator"
+            )
+        payload = build_model_distribution_payload(
+            session=session,
+            result=result,
+            evaluator=evaluator,
+        )
     if payload is None:
         return None
 
@@ -416,6 +572,92 @@ def persist_model_distribution(
         "method": payload["method"],
         "source": payload["source"],
         "sample_count": payload["sample_count"],
+    }
+
+
+def execute_model_distribution_reruns(
+    *,
+    session: PreparedCalibrationSession,
+    cfg: ModelCalibrationConfig,
+    distribution_payload: dict[str, Any] | None,
+    launcher_factory: Any,
+    max_reruns: int,
+    selection: str,
+) -> dict[str, Any] | None:
+    """Run a selected subset of model-distribution samples with full outputs."""
+    if distribution_payload is None:
+        return {
+            "status": "skipped",
+            "reason": "no_model_distribution",
+            "selected_count": 0,
+        }
+
+    selected_samples = select_model_distribution_samples(
+        payload=distribution_payload,
+        max_count=max_reruns,
+        selection=selection,
+    )
+    manifest_path = session.calibration_root / "model_distribution_reruns.json"
+    rerun_rows: list[dict[str, Any]] = []
+    for ordinal, (sample_index, sample) in enumerate(selected_samples, start=1):
+        sample_id = str(sample.get("sample_id", f"sample_{sample_index + 1:06d}"))
+        request = actualize_candidate(
+            session=session,
+            cfg=cfg,
+            params=sample["params_vector"],
+            candidate_label=f"ensemble_{ordinal:04d}_{sample_id}",
+            disable_display=False,
+            disable_postprocess=False,
+        )
+        outcome = execute_candidate_run(
+            request=request,
+            launcher_factory=launcher_factory,
+            cfg=None,
+        )
+        rerun_rows.append(
+            {
+                "rerun_id": f"ensemble_{ordinal:04d}",
+                "sample_index": int(sample_index),
+                "sample_id": sample_id,
+                "source_objective_total": sample.get("objective_total"),
+                "source_block_costs": sample.get("block_costs"),
+                "status": outcome.status,
+                "candidate_run_id": outcome.request.candidate_run_id,
+                "candidate_config_path": str(outcome.request.candidate_config_path),
+                "params_vector": list(outcome.request.params_vector),
+                "params_named": dict(outcome.request.params_named),
+                "error_type": outcome.error_type,
+                "error_message": outcome.error_message,
+            }
+        )
+
+    status = (
+        "completed"
+        if all(row["status"] == "solver_run_succeeded" for row in rerun_rows)
+        else "completed_with_failures"
+    )
+    if not rerun_rows:
+        status = "skipped"
+    manifest_payload = {
+        "role": "model_distribution_output_reruns",
+        "source_model_distribution_role": distribution_payload.get("role"),
+        "source_model_distribution_method": distribution_payload.get("method"),
+        "selection": str(selection),
+        "requested_max_reruns": int(max_reruns),
+        "selected_count": len(rerun_rows),
+        "status": status,
+        "reruns": rerun_rows,
+    }
+    manifest_path.write_text(
+        json.dumps(manifest_payload, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+    return {
+        "path": str(manifest_path),
+        "status": status,
+        "selection": str(selection),
+        "requested_max_reruns": int(max_reruns),
+        "selected_count": len(rerun_rows),
     }
 
 
@@ -754,6 +996,18 @@ def initialize_calibration_session(
         "disable_display": cfg.model_calibration.disable_display,
         "disable_postprocess": cfg.model_calibration.disable_postprocess,
         "rerun_best_with_outputs": cfg.model_calibration.rerun_best_with_outputs,
+        "persist_model_distribution": (
+            cfg.model_calibration.persist_model_distribution
+        ),
+        "rerun_model_distribution_with_outputs": (
+            cfg.model_calibration.rerun_model_distribution_with_outputs
+        ),
+        "model_distribution_max_reruns": (
+            cfg.model_calibration.model_distribution_max_reruns
+        ),
+        "model_distribution_rerun_selection": (
+            cfg.model_calibration.model_distribution_rerun_selection
+        ),
         "persist_iteration_history": cfg.model_calibration.persist_iteration_history,
         "persist_iteration_detail_level": (
             cfg.model_calibration.persist_iteration_detail_level
@@ -816,6 +1070,9 @@ def finalize_calibration_session(
     result: Any,
     evaluator: ModelCalibrationObjectiveEvaluator,
     best_rerun_outcome: CandidateRunOutcome | None = None,
+    model_distribution_payload: dict[str, Any] | None = None,
+    model_distribution_rerun_summary: dict[str, Any] | None = None,
+    persist_distribution: bool = True,
 ) -> dict[str, Any]:
     """Persist the final calibration result and update the session manifest."""
     result_payload = serialize_calibration_result(result)
@@ -824,11 +1081,14 @@ def finalize_calibration_session(
         json.dumps(result_payload, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
-    distribution_summary = persist_model_distribution(
-        session=session,
-        result=result,
-        evaluator=evaluator,
-    )
+    distribution_summary = None
+    if persist_distribution:
+        distribution_summary = persist_model_distribution(
+            session=session,
+            result=result,
+            evaluator=evaluator,
+            payload=model_distribution_payload,
+        )
 
     manifest = json.loads(session.session_manifest_path.read_text(encoding="utf-8"))
     manifest.update(
@@ -843,6 +1103,7 @@ def finalize_calibration_session(
             "candidate_run_count": int(evaluator.candidate_run_count),
             "objective_cache_hit_count": int(evaluator.cache_hit_count),
             "model_distribution": distribution_summary,
+            "model_distribution_rerun": model_distribution_rerun_summary,
         }
     )
     if best_rerun_outcome is not None:
@@ -1150,6 +1411,7 @@ __all__ = (
     "detect_solver_families",
     "execute_best_candidate_rerun",
     "execute_candidate_run",
+    "execute_model_distribution_reruns",
     "evaluate_candidate_objective",
     "finalize_calibration_session",
     "initialize_calibration_session",
@@ -1160,6 +1422,7 @@ __all__ = (
     "resolve_workspace_config",
     "serialize_calibration_result",
     "select_candidate_outputs",
+    "select_model_distribution_samples",
     "update_session_manifest",
     "validate_objective_ready_for_calibration",
 )

@@ -92,6 +92,10 @@ Les briques suivantes sont maintenant presentes dans le depot :
 - `random_search` produit aussi un `model_distribution.json`, mais avec le
   role explicite `empirical_evaluated_model_ensemble` : il s'agit d'un ensemble
   empirique de candidats deja evalues, pas d'un posterior Bayesien.
+- le launcher peut optionnellement relancer un sous-ensemble representatif de
+  cette distribution avec sorties completes via
+  `rerun_model_distribution_with_outputs`, et produire
+  `model_distribution_reruns.json`.
 
 Les limites restantes sont explicites :
 
@@ -104,9 +108,9 @@ Les limites restantes sont explicites :
   l'injection V1 implemente surtout les chemins scalaires `replace`/`scale` ;
 - la factorisation fine du maillage et des tableaux de proprietes solveur
   reste la prochaine grande etape.
-- la distribution de modeles est aujourd'hui une distribution de jeux de
-  parametres ; elle ne relance pas automatiquement un grand ensemble de
-  simulations avec sorties completes.
+- la distribution de modeles reste volontairement legere par defaut : elle
+  persiste des jeux de parametres et ne relance des simulations completes que
+  si l'option dediee est activee.
 
 Le depot contient deja plusieurs briques allant dans cette direction, mais
 elles restent locales a certains appels et ne constituent pas encore un contrat
@@ -776,6 +780,10 @@ calibration_id = "flow_case_01"
 disable_display = true
 disable_postprocess = true
 rerun_best_with_outputs = true
+persist_model_distribution = true
+rerun_model_distribution_with_outputs = false
+model_distribution_max_reruns = 10
+model_distribution_rerun_selection = "representative"
 persist_iteration_history = true
 persist_iteration_detail_level = "minimal"
 
@@ -911,7 +919,10 @@ Par defaut, on ne conserve pas :
 - les maillages enrichis pour chaque candidat.
 
 La relance du meilleur candidat avec sorties completes doit rester une option
-explicite du launcher.
+explicite du launcher. La relance d'une distribution de modeles doit etre une
+deuxieme option explicite, limitee par `model_distribution_max_reruns`, pour
+eviter de transformer automatiquement une calibration stochastique en campagne
+massive de postprocess.
 
 ## Cycle d'execution cible
 
@@ -938,8 +949,11 @@ explicite du launcher.
 ### Phase 3 : finalisation
 
 1. Persister le meilleur jeu de parametres.
-2. Relancer si besoin le meilleur candidat avec sorties completes.
-3. Archiver les diagnostics de calibration.
+2. Persister la distribution de modeles quand la methode en fournit une.
+3. Relancer si besoin le meilleur candidat avec sorties completes.
+4. Relancer si besoin un sous-ensemble representatif de la distribution avec
+   sorties completes.
+5. Archiver les diagnostics de calibration.
 
 ## Impacts d'implementation recommandes
 
@@ -1012,6 +1026,10 @@ du coeur de calibration, par exemple dans :
   disque complet.
 - un candidat en echec doit donner `+inf` sans casser la boucle de calibration.
 - la persistance minimale doit etre ecrite pour toutes les iterations.
+- une methode Bayesienne/stochastique doit produire une distribution de
+  modeles.
+- la relance optionnelle d'un sous-ensemble de distribution doit ecrire un
+  manifeste dedie sans ajouter d'entrees a l'historique minimal d'iterations.
 
 ### Tests d'integration metier
 
@@ -1066,6 +1084,10 @@ La trajectoire conseillee est :
   une evaluation composite ;
 - V1 : prevoir les structures des blocs cartographiques de resurgence sans les
   activer encore en calibration ;
+- V1 : persister les distributions de modeles pour les methodes
+  Bayesiennes/stochastiques ;
+- V1 : permettre une relance optionnelle et bornee d'un sous-ensemble de ces
+  modeles avec sorties completes ;
 - V2 : optimiser plus finement l'injection runtime et les sorties si le cout
   solveur devient le verrou dominant.
 
@@ -1086,4 +1108,6 @@ En synthese :
 - l'extraction ponctuelle des charges utilise une interpolation ponderee par
   defaut ;
 - la normalisation automatique est activee par defaut ;
-- la persistance doit rester minimale par iteration.
+- la persistance doit rester minimale par iteration ;
+- les methodes Bayesiennes/stochastiques doivent pouvoir produire une
+  distribution de modeles, avec relance complete seulement sur option.

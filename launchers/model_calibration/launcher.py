@@ -11,8 +11,10 @@ from launchers.model_calibration.config import ModelCalibrationConfig
 from launchers.model_calibration.runtime import (
     ModelCalibrationObjectiveEvaluator,
     actualize_candidate,
+    build_model_distribution_payload,
     execute_best_candidate_rerun,
     execute_candidate_run,
+    execute_model_distribution_reruns,
     finalize_calibration_session,
     initialize_calibration_session,
     persist_iteration_record,
@@ -140,6 +142,17 @@ class ModelCalibrationLauncher:
             method=core_settings["method"],
             **core_settings["method_kwargs"],
         )
+        needs_distribution_payload = (
+            self.cfg.model_calibration.persist_model_distribution
+            or self.cfg.model_calibration.rerun_model_distribution_with_outputs
+        )
+        model_distribution_payload = None
+        if needs_distribution_payload:
+            model_distribution_payload = build_model_distribution_payload(
+                session=session,
+                result=result,
+                evaluator=evaluator,
+            )
         best_rerun_outcome = None
         if self.cfg.model_calibration.rerun_best_with_outputs:
             best_rerun_outcome = execute_best_candidate_rerun(
@@ -148,11 +161,26 @@ class ModelCalibrationLauncher:
                 result=result,
                 launcher_factory=launcher_factory,
             )
+        model_distribution_rerun_summary = None
+        if self.cfg.model_calibration.rerun_model_distribution_with_outputs:
+            model_distribution_rerun_summary = execute_model_distribution_reruns(
+                session=session,
+                cfg=self.cfg,
+                distribution_payload=model_distribution_payload,
+                launcher_factory=launcher_factory,
+                max_reruns=self.cfg.model_calibration.model_distribution_max_reruns,
+                selection=(
+                    self.cfg.model_calibration.model_distribution_rerun_selection
+                ),
+            )
         self.state.session_manifest = finalize_calibration_session(
             session=session,
             result=result,
             evaluator=evaluator,
             best_rerun_outcome=best_rerun_outcome,
+            model_distribution_payload=model_distribution_payload,
+            model_distribution_rerun_summary=model_distribution_rerun_summary,
+            persist_distribution=self.cfg.model_calibration.persist_model_distribution,
         )
         return dict(self.state.session_manifest)
 

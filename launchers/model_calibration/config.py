@@ -20,6 +20,11 @@ from hydromodpy.analysis.calibration.core.objective_function import ObjectiveFun
 
 _SUPPORTED_DETAIL_LEVELS = ("minimal", "diagnostic", "full")
 _SUPPORTED_HYDRAULIC_PROPERTIES = ("K", "Sy")
+_SUPPORTED_MODEL_DISTRIBUTION_SELECTIONS = (
+    "representative",
+    "best",
+    "evenly_spaced",
+)
 
 
 def _validate_bounds_mapping(value: object) -> dict[str, tuple[float, float]]:
@@ -218,6 +223,10 @@ class ModelCalibrationSectionSchema(BaseModel):
     disable_display: bool = True
     disable_postprocess: bool = True
     rerun_best_with_outputs: bool = True
+    persist_model_distribution: bool = True
+    rerun_model_distribution_with_outputs: bool = False
+    model_distribution_max_reruns: int = 10
+    model_distribution_rerun_selection: str = "representative"
     persist_iteration_history: bool = True
     persist_iteration_detail_level: str = "minimal"
     parameter: list[ModelCalibrationParameterSchema] = Field(default_factory=list)
@@ -244,6 +253,25 @@ class ModelCalibrationSectionSchema(BaseModel):
             raise ValueError(
                 "persist_iteration_detail_level must be one of "
                 f"{_SUPPORTED_DETAIL_LEVELS}"
+            )
+        return text
+
+    @field_validator("model_distribution_max_reruns")
+    @classmethod
+    def _validate_model_distribution_max_reruns(cls, value: object) -> int:
+        count = int(value)
+        if count < 0:
+            raise ValueError("model_distribution_max_reruns must be >= 0")
+        return count
+
+    @field_validator("model_distribution_rerun_selection")
+    @classmethod
+    def _validate_model_distribution_selection(cls, value: object) -> str:
+        text = str(value).strip().lower()
+        if text not in _SUPPORTED_MODEL_DISTRIBUTION_SELECTIONS:
+            raise ValueError(
+                "model_distribution_rerun_selection must be one of "
+                f"{_SUPPORTED_MODEL_DISTRIBUTION_SELECTIONS}"
             )
         return text
 
