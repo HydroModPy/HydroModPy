@@ -84,8 +84,8 @@ Les briques suivantes sont maintenant presentes dans le depot :
   simulateur.
 - `python -m launchers model-calibration run <config>` declenche la calibration
   complete et ecrit `calibration_result.json`.
-- les echecs de simulation ou d'evaluation objectif donnent un cout `+inf` et
-  sont conserves dans l'historique minimal.
+- les echecs d'injection de parametres, de simulation ou d'evaluation objectif
+  donnent un cout `+inf` et sont conserves dans l'historique minimal.
 - la selection des sorties garde la compatibilite par nom d'observable et sait
   aussi lire une variable physique depuis `outputs`/`calibration_outputs`, avec
   interpolation ponderee pour les points et reduction simple pour les
