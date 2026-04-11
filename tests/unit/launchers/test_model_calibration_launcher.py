@@ -75,6 +75,7 @@ def _write_minimal_model_calibration_config(
     path: Path,
     *,
     include_observed_values: bool = False,
+    global_method: str = "simplex",
 ) -> None:
     head_observations = (
         ['observed_values = [10.0, 14.0]'] if include_observed_values else []
@@ -82,6 +83,22 @@ def _write_minimal_model_calibration_config(
     flux_observations = (
         ['observed_values = [4.0, 8.0]'] if include_observed_values else []
     )
+    method_lines_by_name = {
+        "simplex": [
+            "[calibration_method.simplex]",
+            "max_iter = 50",
+        ],
+        "random_search": [
+            "[calibration_method.random_search]",
+            "n_samples = 2",
+            "seed = 42",
+        ],
+        "da_mh_gp": [
+            "[calibration_method.da_mh_gp]",
+            "sigma_noise = 0.1",
+        ],
+    }
+    method_lines = method_lines_by_name[str(global_method)]
     path.write_text(
         "\n".join(
             [
@@ -96,13 +113,12 @@ def _write_minimal_model_calibration_config(
                 "",
                 "[calibration]",
                 'objective_metric = "rmse"',
-                'global_method = "simplex"',
+                f'global_method = "{global_method}"',
                 "",
                 "[objective]",
                 'transform = "identity"',
                 "",
-                "[calibration_method.simplex]",
-                "max_iter = 50",
+                *method_lines,
                 "",
                 "[bounds]",
                 "K_global_factor = [0.1, 10.0]",
@@ -613,6 +629,154 @@ def test_model_calibration_calibrate_runs_engine_loop_and_persists_result(
         "objective_evaluated",
     ]
     assert history_payloads[-1]["objective_total"] == pytest.approx(0.0)
+
+
+def test_model_calibration_calibrate_persists_posterior_model_distribution(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(
+        config_path,
+        include_observed_values=True,
+        global_method="da_mh_gp",
+    )
+    launcher = ModelCalibrationLauncher(config_path)
+
+    class _FakeSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            self.candidate_config_path = Path(candidate_config_path)
+
+        def run(self):
+            merged = load_toml_with_base_config(self.candidate_config_path)
+            sy_value = float(
+                str(
+                    merged["flow"]["param"]["Sy"]["field_homogeneous"]["value"]
+                ).split()[0]
+            )
+            if sy_value == pytest.approx(0.15):
+                heads = [10.0, 14.0]
+                flux = [4.0, 8.0]
+            else:
+                heads = [11.0, 13.0]
+                flux = [5.0, 7.0]
+            return {
+                "calibration_outputs": {
+                    "pz_01": heads,
+                    "q_outlet_lowflow_mean": flux,
+                },
+            }
+
+    class _FakePosteriorCalibrationMethod:
+        def calibrate(self, objective_cost, bounds, method="da_mh_gp", **kwargs):
+            _ = bounds, kwargs
+            first = [1.0, 0.10]
+            second = [2.0, 0.15]
+            _ = float(objective_cost(first))
+            best_cost = float(objective_cost(second))
+            return {
+                "method": method,
+                "x_best": second,
+                "cost_best": best_cost,
+                "n_evaluations": 2,
+                "posterior_samples": [
+                    [1.0, 0.10],
+                    [2.0, 0.15],
+                    [3.0, 0.20],
+                ],
+            }
+
+    summary = launcher.calibrate(
+        launcher_factory=_FakeSimulationLauncher,
+        calibration_method=_FakePosteriorCalibrationMethod(),
+    )
+
+    distribution = summary["model_distribution"]
+    assert distribution["role"] == "posterior_parameter_distribution"
+    assert distribution["method"] == "da_mh_gp"
+    assert distribution["sample_count"] == 3
+
+    payload = json.loads(Path(distribution["path"]).read_text(encoding="utf-8"))
+    assert payload["role"] == "posterior_parameter_distribution"
+    assert payload["source"] == "CalibrationResults.samples"
+    assert payload["parameter_names"] == ["K_global_factor", "Sy_global"]
+    assert payload["statistics"]["K_global_factor"]["q50"] == pytest.approx(2.0)
+    assert payload["samples"][1]["params_named"] == {
+        "K_global_factor": pytest.approx(2.0),
+        "Sy_global": pytest.approx(0.15),
+    }
+
+
+def test_model_calibration_calibrate_persists_random_search_empirical_ensemble(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(
+        config_path,
+        include_observed_values=True,
+        global_method="random_search",
+    )
+    launcher = ModelCalibrationLauncher(config_path)
+
+    class _FakeSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            self.candidate_config_path = Path(candidate_config_path)
+
+        def run(self):
+            merged = load_toml_with_base_config(self.candidate_config_path)
+            sy_value = float(
+                str(
+                    merged["flow"]["param"]["Sy"]["field_homogeneous"]["value"]
+                ).split()[0]
+            )
+            if sy_value == pytest.approx(0.15):
+                heads = [10.0, 14.0]
+                flux = [4.0, 8.0]
+            else:
+                heads = [11.0, 13.0]
+                flux = [5.0, 7.0]
+            return {
+                "calibration_outputs": {
+                    "pz_01": heads,
+                    "q_outlet_lowflow_mean": flux,
+                },
+            }
+
+    class _FakeRandomSearchMethod:
+        def calibrate(self, objective_cost, bounds, method="random_search", **kwargs):
+            _ = bounds, kwargs
+            first = [1.0, 0.10]
+            second = [2.0, 0.15]
+            first_cost = float(objective_cost(first))
+            second_cost = float(objective_cost(second))
+            return {
+                "method": method,
+                "x_best": second,
+                "cost_best": min(first_cost, second_cost),
+                "n_evaluations": 2,
+            }
+
+    summary = launcher.calibrate(
+        launcher_factory=_FakeSimulationLauncher,
+        calibration_method=_FakeRandomSearchMethod(),
+    )
+
+    distribution = summary["model_distribution"]
+    assert distribution["role"] == "empirical_evaluated_model_ensemble"
+    assert distribution["method"] == "random_search"
+    assert distribution["sample_count"] == 2
+
+    payload = json.loads(Path(distribution["path"]).read_text(encoding="utf-8"))
+    assert payload["source"] == "evaluated_candidates"
+    assert payload["statistics"]["Sy_global"]["max"] == pytest.approx(0.15)
+    assert [sample["status"] for sample in payload["samples"]] == [
+        "objective_evaluated",
+        "objective_evaluated",
+    ]
+    assert payload["samples"][1]["objective_total"] == pytest.approx(0.0)
 
 
 def test_launchers_cli_model_calibration_run_dispatches_to_launcher(
