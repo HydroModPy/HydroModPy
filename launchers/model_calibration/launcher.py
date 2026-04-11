@@ -20,6 +20,7 @@ from launchers.model_calibration.runtime import (
     initialize_calibration_session,
     persist_iteration_record,
     prepare_calibration_session,
+    update_session_manifest,
 )
 from launchers.model_calibration.state import ModelCalibrationState
 
@@ -52,8 +53,21 @@ class ModelCalibrationLauncher:
             state.session_manifest = initialize_calibration_session(
                 state.prepared_session,
                 cfg=self.cfg,
-            )
+        )
         return state.prepared_session
+
+    def _record_iteration(self, *, session, record) -> None:
+        """Persist or only count one iteration according to launcher config."""
+        if self.cfg.model_calibration.persist_iteration_history:
+            self.state.session_manifest = persist_iteration_record(
+                session=session,
+                record=record,
+            )
+            return
+        self.state.session_manifest = update_session_manifest(
+            manifest_path=session.session_manifest_path,
+            record=record,
+        )
 
     def actualize_candidate(
         self,
@@ -92,7 +106,7 @@ class ModelCalibrationLauncher:
             cfg=self.cfg,
         )
         record = outcome.to_iteration_record()
-        self.state.session_manifest = persist_iteration_record(
+        self._record_iteration(
             session=request.session,
             record=record,
         )
@@ -112,7 +126,7 @@ class ModelCalibrationLauncher:
             launcher_factory = HydroModPyLauncher
 
         def _record_iteration(record) -> None:
-            self.state.session_manifest = persist_iteration_record(
+            self._record_iteration(
                 session=session,
                 record=record,
             )

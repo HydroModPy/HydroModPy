@@ -100,6 +100,9 @@ Les briques suivantes sont maintenant presentes dans le depot :
   cette distribution avec sorties completes via
   `rerun_model_distribution_with_outputs`, et produire
   `model_distribution_reruns.json`.
+- `persist_iteration_history = false` desactive l'ecriture JSONL des
+  iterations tout en gardant le comptage et le dernier statut dans le
+  manifeste.
 
 Les limites restantes sont explicites :
 
