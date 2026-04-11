@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 import json
 
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from launchers.model_calibration.config import ModelCalibrationConfig
 from launchers.model_calibration.launcher import ModelCalibrationLauncher
 from launchers.model_calibration.runtime import IterationRecord, append_iteration_record
@@ -37,6 +38,29 @@ def _write_minimal_simulation_config(path: Path) -> None:
                 'id = "flow_main"',
                 'type = "flow"',
                 'solvers = ["modflow6"]',
+                "",
+                "[flow]",
+                'param_list = ["K", "Sy"]',
+                "",
+                "[flow.param.K.field]",
+                'kind = "homogeneous"',
+                "",
+                "[flow.param.K.field_homogeneous]",
+                'value = "5e-5 m/s"',
+                "",
+                "[flow.param.Sy.field]",
+                'kind = "homogeneous"',
+                "",
+                "[flow.param.Sy.field_homogeneous]",
+                'value = "0.02 -"',
+                "",
+                "[display]",
+                "enabled = true",
+                "show = true",
+                "save = false",
+                "",
+                "[postprocess]",
+                "enabled = true",
             ]
         )
         + "\n",
@@ -74,14 +98,14 @@ def _write_minimal_model_calibration_config(path: Path) -> None:
                 "[[model_calibration.parameter]]",
                 'name = "K_global_factor"',
                 'property = "K"',
-                'target = "flow.param.K"',
+                'target = "flow.param.K.field_homogeneous.value"',
                 'mode = "scale"',
                 'parameterization = "global_factor"',
                 "",
                 "[[model_calibration.parameter]]",
                 'name = "Sy_global"',
                 'property = "Sy"',
-                'target = "flow.param.Sy"',
+                'target = "flow.param.Sy.field_homogeneous.value"',
                 'mode = "replace"',
                 'parameterization = "global_value"',
                 "",
@@ -140,20 +164,20 @@ def test_model_calibration_config_resolves_simulation_path_and_core_settings(
                 "persist_iteration_history": True,
                 "persist_iteration_detail_level": "minimal",
                 "parameter": [
-                    {
-                        "name": "K_global_factor",
-                        "property": "K",
-                        "target": "flow.param.K",
-                        "mode": "scale",
-                        "parameterization": "global_factor",
-                    },
-                    {
-                        "name": "Sy_global",
-                        "property": "Sy",
-                        "target": "flow.param.Sy",
-                        "mode": "replace",
-                        "parameterization": "global_value",
-                    },
+                        {
+                            "name": "K_global_factor",
+                            "property": "K",
+                            "target": "flow.param.K.field_homogeneous.value",
+                            "mode": "scale",
+                            "parameterization": "global_factor",
+                        },
+                        {
+                            "name": "Sy_global",
+                            "property": "Sy",
+                            "target": "flow.param.Sy.field_homogeneous.value",
+                            "mode": "replace",
+                            "parameterization": "global_value",
+                        },
                 ],
                 "output": [
                     {
@@ -283,6 +307,75 @@ def test_append_iteration_record_writes_minimal_jsonl(tmp_path: Path) -> None:
     assert payload["objective_total"] == 0.42
     assert payload["block_costs"] == {"heads": 0.3, "flux": 0.12}
     assert payload["status"] == "ok"
+    assert payload["failure_reason"] is None
+
+
+def test_model_calibration_actualize_candidate_writes_override_config(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(config_path)
+
+    launcher = ModelCalibrationLauncher(config_path)
+    request = launcher.actualize_candidate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15},
+        iteration_index=1,
+    )
+
+    assert request.iteration_id == "iter_0001"
+    assert request.candidate_run_id == "calib_case_01__iter_0001"
+    assert request.candidate_config_path.is_file()
+    assert request.params_named == {"K_global_factor": 2.0, "Sy_global": 0.15}
+
+    merged = load_toml_with_base_config(request.candidate_config_path)
+    assert merged["simulation"]["run_id"] == "calib_case_01__iter_0001"
+    assert merged["flow"]["param"]["K"]["field_homogeneous"]["value"] == "0.0001 m/s"
+    assert merged["flow"]["param"]["Sy"]["field_homogeneous"]["value"] == "0.15 -"
+    assert merged["display"]["enabled"] is False
+    assert merged["display"]["show"] is False
+    assert merged["postprocess"]["enabled"] is False
+
+
+def test_model_calibration_run_candidate_persists_iteration_history(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(config_path)
+    launcher = ModelCalibrationLauncher(config_path)
+
+    class _FakeSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            self.candidate_config_path = Path(candidate_config_path)
+
+        def run(self):
+            return {"mode": "simulation", "config": str(self.candidate_config_path)}
+
+    outcome = launcher.run_candidate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15},
+        iteration_index=1,
+        launcher_factory=_FakeSimulationLauncher,
+    )
+
+    assert outcome.status == "solver_run_succeeded"
+    assert outcome.run_state["mode"] == "simulation"
+
+    summary = launcher.run()
+    assert summary["iteration_count"] == 1
+    assert summary["last_iteration_id"] == "iter_0001"
+    assert summary["last_iteration_status"] == "solver_run_succeeded"
+
+    history_lines = Path(summary["iteration_history_path"]).read_text(
+        encoding="utf-8"
+    ).splitlines()
+    assert len(history_lines) == 1
+    payload = json.loads(history_lines[0])
+    assert payload["iteration_id"] == "iter_0001"
+    assert payload["objective_total"] is None
+    assert payload["status"] == "solver_run_succeeded"
     assert payload["failure_reason"] is None
 
 
