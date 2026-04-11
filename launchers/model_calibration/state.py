@@ -9,6 +9,7 @@ from typing import Any
 from hydromodpy.core.workspace.config import WorkspaceConfig
 
 from launchers.model_calibration.config import ModelCalibrationConfig
+from launchers.model_calibration.runtime import PreparedCalibrationSession
 
 
 @dataclass
@@ -20,3 +21,5 @@ class ModelCalibrationState:
     simulation_workspace: WorkspaceConfig | None = None
     calibration_root: Path | None = None
     core_settings: dict[str, Any] = field(default_factory=dict)
+    prepared_session: PreparedCalibrationSession | None = None
+    session_manifest: dict[str, Any] = field(default_factory=dict)

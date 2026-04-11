@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import json
 
 from launchers.model_calibration.config import ModelCalibrationConfig
 from launchers.model_calibration.launcher import ModelCalibrationLauncher
+from launchers.model_calibration.runtime import IterationRecord, append_iteration_record
 from launchers.model_calibration.templates import render_model_calibration_template
 
 
@@ -222,7 +224,7 @@ def test_model_calibration_launcher_returns_scaffold_summary(tmp_path: Path) -> 
     summary = ModelCalibrationLauncher(config_path).run()
 
     assert summary["mode"] == "model_calibration"
-    assert summary["status"] == "scaffold"
+    assert summary["status"] == "prepared"
     assert summary["primary_solver"] == "modflow6"
     assert summary["supported_v1_backend"] is True
     assert summary["n_parameters"] == 2
@@ -233,6 +235,17 @@ def test_model_calibration_launcher_returns_scaffold_summary(tmp_path: Path) -> 
     assert summary["calibration_root"].endswith(
         str(Path("project/demo_case/results_calibration/calib_case_01"))
     )
+    manifest_path = Path(summary["session_manifest_path"])
+    history_path = Path(summary["iteration_history_path"])
+    assert manifest_path.is_file()
+    assert history_path.is_file()
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["status"] == "prepared"
+    assert manifest["iteration_count"] == 0
+    assert manifest["persist_iteration_history"] is True
+    assert manifest["persist_iteration_detail_level"] == "minimal"
+    assert manifest["primary_solver"] == "modflow6"
 
 
 def test_model_calibration_template_contains_expected_sections() -> None:
@@ -243,6 +256,34 @@ def test_model_calibration_template_contains_expected_sections() -> None:
     assert "[[model_calibration.output]]" in content
     assert "[[model_calibration.objective_block]]" in content
     assert 'reducer = "weighted_interpolation"' in content
+
+
+def test_append_iteration_record_writes_minimal_jsonl(tmp_path: Path) -> None:
+    history_path = tmp_path / "iteration_history.jsonl"
+
+    append_iteration_record(
+        history_path=history_path,
+        record=IterationRecord(
+            iteration_id="iter_0001",
+            params_vector=(1.0, 0.2),
+            params_named={"K_global_factor": 1.0, "Sy_global": 0.2},
+            objective_total=0.42,
+            block_costs={"heads": 0.30, "flux": 0.12},
+            status="ok",
+            failure_reason=None,
+        ),
+    )
+
+    lines = history_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1
+    payload = json.loads(lines[0])
+    assert payload["iteration_id"] == "iter_0001"
+    assert payload["params_vector"] == [1.0, 0.2]
+    assert payload["params_named"] == {"K_global_factor": 1.0, "Sy_global": 0.2}
+    assert payload["objective_total"] == 0.42
+    assert payload["block_costs"] == {"heads": 0.3, "flux": 0.12}
+    assert payload["status"] == "ok"
+    assert payload["failure_reason"] is None
 
 
 def test_launchers_cli_model_calibration_run_dispatches_to_launcher(
