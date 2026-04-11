@@ -10,7 +10,11 @@ import pytest
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from launchers.model_calibration.config import ModelCalibrationConfig
 from launchers.model_calibration.launcher import ModelCalibrationLauncher
-from launchers.model_calibration.runtime import IterationRecord, append_iteration_record
+from launchers.model_calibration.runtime import (
+    IterationRecord,
+    append_iteration_record,
+    select_candidate_outputs,
+)
 from launchers.model_calibration.templates import render_model_calibration_template
 
 
@@ -359,6 +363,36 @@ def test_append_iteration_record_writes_minimal_jsonl(tmp_path: Path) -> None:
     assert payload["block_costs"] == {"heads": 0.3, "flux": 0.12}
     assert payload["status"] == "ok"
     assert payload["failure_reason"] is None
+
+
+def test_model_calibration_select_outputs_can_use_variable_supports(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_model_calibration_config(config_path)
+    cfg = ModelCalibrationConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        base_dir=tmp_path,
+    )
+
+    selected = select_candidate_outputs(
+        cfg=cfg,
+        run_state={
+            "outputs": {
+                "watertable_elevation": {
+                    "x": [0.0, 2.0],
+                    "y": [0.0, 0.0],
+                    "values": [10.0, 20.0],
+                },
+                "outlet_discharge": {
+                    "east_side": [1.5, 2.5],
+                },
+            },
+        },
+    )
+
+    assert selected["pz_01"] == (pytest.approx(15.0),)
+    assert selected["q_outlet_lowflow_mean"] == (pytest.approx(4.0),)
 
 
 def test_model_calibration_actualize_candidate_writes_override_config(

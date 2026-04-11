@@ -1155,17 +1155,250 @@ def _candidate_output_containers(run_state: Any) -> tuple[Any, ...]:
     return tuple(containers)
 
 
-def _lookup_output_value(run_state: Any, output_name: str) -> Any:
-    """Lookup one configured output in generic run-state output containers."""
+def _lookup_value_in_container(container: Any, key: str) -> tuple[bool, Any]:
+    """Lookup one value by key in a dict-like or attribute container."""
+    if isinstance(container, dict) and key in container:
+        return True, container[key]
+    if hasattr(container, key):
+        return True, getattr(container, key)
+    return False, None
+
+
+def _lookup_run_state_value(run_state: Any, key: str) -> Any:
+    """Lookup one key in generic run-state output containers."""
     for container in _candidate_output_containers(run_state):
-        if isinstance(container, dict) and output_name in container:
-            return container[output_name]
-        if hasattr(container, output_name):
-            return getattr(container, output_name)
+        found, value = _lookup_value_in_container(container, key)
+        if found:
+            return value
+    raise KeyError(f"Could not find calibration output key '{key}'")
+
+
+def _lookup_output_value(run_state: Any, output_name: str) -> Any:
+    """Lookup one configured output by explicit observable name."""
+    try:
+        return _lookup_run_state_value(run_state, output_name)
+    except KeyError as exc:
+        raise KeyError(
+            "Could not find calibration output "
+            f"'{output_name}' in run_state.calibration_outputs or run_state.outputs"
+        ) from exc
+
+
+def _output_variable_keys(output_cfg: Any) -> tuple[str, ...]:
+    """Return variable lookup keys from most semantic to compatibility aliases."""
+    keys: list[str] = []
+    variable = str(output_cfg.variable).strip()
+    if variable:
+        keys.append(variable)
+    boundary_id = getattr(output_cfg, "boundary_id", None)
+    if variable == "outlet_discharge" and boundary_id is not None:
+        keys.append(f"outlet_discharge_{boundary_id}_m3_s")
+    return tuple(dict.fromkeys(keys))
+
+
+def _is_spatial_sample_mapping(payload: Any) -> bool:
+    """Return True for `{x, y, values}` or `{coordinates, values}` payloads."""
+    if not isinstance(payload, dict) or "values" not in payload:
+        return False
+    return ("x" in payload and "y" in payload) or "coordinates" in payload
+
+
+def _reduce_numeric_values(
+    values: Any,
+    *,
+    reducer: str | None,
+    label: str,
+) -> tuple[float, ...]:
+    """Apply a scalar reducer or return all numeric values."""
+    arr = np.asarray(values, dtype=float).ravel()
+    if arr.size == 0:
+        raise ValueError(f"{label} cannot be empty")
+    reducer_key = "identity" if reducer is None else str(reducer).strip().lower()
+    if reducer_key in {"identity", "all", "none"}:
+        return tuple(float(value) for value in arr)
+    if reducer_key == "sum":
+        return (float(np.nansum(arr)),)
+    if reducer_key == "mean":
+        return (float(np.nanmean(arr)),)
+    if reducer_key == "min":
+        return (float(np.nanmin(arr)),)
+    if reducer_key == "max":
+        return (float(np.nanmax(arr)),)
+    raise ValueError(f"Unsupported reducer '{reducer}' for {label}")
+
+
+def _weighted_point_interpolation(
+    payload: dict[str, Any],
+    *,
+    x: float,
+    y: float,
+    reducer: str | None,
+    label: str,
+) -> tuple[float, ...]:
+    """Interpolate spatial samples at one point using inverse-distance weights."""
+    values = np.asarray(payload["values"], dtype=float).ravel()
+    if "coordinates" in payload:
+        coordinates = np.asarray(payload["coordinates"], dtype=float)
+        if coordinates.ndim != 2 or coordinates.shape[1] < 2:
+            raise ValueError(f"{label}.coordinates must be a Nx2 array")
+        xs = coordinates[:, 0].ravel()
+        ys = coordinates[:, 1].ravel()
+    else:
+        xs = np.asarray(payload["x"], dtype=float).ravel()
+        ys = np.asarray(payload["y"], dtype=float).ravel()
+
+    if xs.size != ys.size or xs.size != values.size:
+        raise ValueError(f"{label} x/y/value arrays must have the same length")
+    if values.size == 0:
+        raise ValueError(f"{label} cannot be empty")
+
+    distances = np.hypot(xs - float(x), ys - float(y))
+    finite_mask = np.isfinite(distances) & np.isfinite(values)
+    if not np.any(finite_mask):
+        raise ValueError(f"{label} contains no finite interpolation samples")
+    distances = distances[finite_mask]
+    values = values[finite_mask]
+
+    exact_mask = distances == 0.0
+    if np.any(exact_mask):
+        return _reduce_numeric_values(
+            values[exact_mask],
+            reducer="mean",
+            label=label,
+        )
+
+    reducer_key = "weighted_interpolation" if reducer is None else str(reducer)
+    if reducer_key.strip().lower() == "nearest":
+        return (float(values[int(np.argmin(distances))]),)
+    if reducer_key.strip().lower() != "weighted_interpolation":
+        return _reduce_numeric_values(values, reducer=reducer, label=label)
+
+    weights = 1.0 / distances
+    return (float(np.average(values, weights=weights)),)
+
+
+def _mapping_lookup(mapping: dict[Any, Any], key: Any) -> tuple[bool, Any]:
+    """Lookup a mapping key by raw value first, then by string representation."""
+    if key in mapping:
+        return True, mapping[key]
+    text_key = str(key)
+    for candidate_key, value in mapping.items():
+        if str(candidate_key) == text_key:
+            return True, value
+    return False, None
+
+
+def _time_selected_payloads(output_cfg: Any, payload: Any) -> list[Any]:
+    """Resolve optional time selection over a variable payload."""
+    if not isinstance(payload, dict) or _is_spatial_sample_mapping(payload):
+        return [payload]
+    if output_cfg.support == "boundary" and output_cfg.boundary_id in payload:
+        return [payload]
+
+    if output_cfg.time_window is not None:
+        start, end = output_cfg.time_window
+        selected = [
+            value
+            for key, value in payload.items()
+            if str(start) <= str(key) <= str(end)
+        ]
+        return selected or list(payload.values())
+
+    if output_cfg.time not in {None, "all"}:
+        found, value = _mapping_lookup(payload, output_cfg.time)
+        if found:
+            return [value]
+
+    return list(payload.values())
+
+
+def _select_support_value(output_cfg: Any, payload: Any) -> tuple[float, ...]:
+    """Apply the configured spatial support and reducer to a variable payload."""
+    label = f"simulated variable '{output_cfg.variable}'"
+    if output_cfg.support == "point":
+        if not _is_spatial_sample_mapping(payload):
+            reducer = (
+                "identity"
+                if str(output_cfg.reducer).strip().lower()
+                == "weighted_interpolation"
+                else output_cfg.reducer
+            )
+            return _reduce_numeric_values(
+                payload,
+                reducer=reducer,
+                label=label,
+            )
+        return _weighted_point_interpolation(
+            payload,
+            x=output_cfg.x,
+            y=output_cfg.y,
+            reducer=output_cfg.reducer,
+            label=label,
+        )
+    if output_cfg.support == "boundary":
+        values = payload
+        if isinstance(payload, dict) and output_cfg.boundary_id is not None:
+            found, boundary_values = _mapping_lookup(payload, output_cfg.boundary_id)
+            if found:
+                values = boundary_values
+            elif "values" in payload:
+                values = payload["values"]
+        return _reduce_numeric_values(
+            values,
+            reducer=output_cfg.reducer,
+            label=label,
+        )
+    if output_cfg.support == "cell_mask":
+        values = (
+            payload["values"]
+            if isinstance(payload, dict) and "values" in payload
+            else payload
+        )
+        return _reduce_numeric_values(
+            values,
+            reducer=output_cfg.reducer,
+            label=label,
+        )
+    if output_cfg.support == "map":
+        values = (
+            payload["values"]
+            if isinstance(payload, dict) and "values" in payload
+            else payload
+        )
+        return _reduce_numeric_values(values, reducer="identity", label=label)
     raise KeyError(
-        "Could not find calibration output "
-        f"'{output_name}' in run_state.calibration_outputs or run_state.outputs"
+        f"Unsupported output support '{output_cfg.support}' for '{output_cfg.name}'"
     )
+
+
+def _select_variable_output_value(
+    *,
+    run_state: Any,
+    output_cfg: Any,
+) -> tuple[float, ...]:
+    """Select one observable by variable/support when no explicit name exists."""
+    last_error: Exception | None = None
+    for variable_key in _output_variable_keys(output_cfg):
+        try:
+            payload = _lookup_run_state_value(run_state, variable_key)
+        except KeyError as exc:
+            last_error = exc
+            continue
+        selected_parts: list[float] = []
+        for time_payload in _time_selected_payloads(output_cfg, payload):
+            selected_parts.extend(_select_support_value(output_cfg, time_payload))
+        return _reduce_numeric_values(
+            selected_parts,
+            reducer=output_cfg.time_reducer,
+            label=f"simulated output '{output_cfg.name}'",
+        )
+
+    if last_error is not None:
+        raise KeyError(
+            "Could not find calibration output "
+            f"'{output_cfg.name}' or variable '{output_cfg.variable}'"
+        ) from last_error
+    raise KeyError(f"Could not resolve output '{output_cfg.name}'")
 
 
 def select_candidate_outputs(
@@ -1176,11 +1409,17 @@ def select_candidate_outputs(
     """Select configured simulated observables from one run-state payload."""
     selected: dict[str, tuple[float, ...]] = {}
     for output_cfg in cfg.model_calibration.output:
-        value = _lookup_output_value(run_state, output_cfg.name)
-        selected[output_cfg.name] = _as_1d_float_tuple(
-            value,
-            label=f"simulated output '{output_cfg.name}'",
-        )
+        try:
+            value = _lookup_output_value(run_state, output_cfg.name)
+            selected[output_cfg.name] = _as_1d_float_tuple(
+                value,
+                label=f"simulated output '{output_cfg.name}'",
+            )
+        except KeyError:
+            selected[output_cfg.name] = _select_variable_output_value(
+                run_state=run_state,
+                output_cfg=output_cfg,
+            )
     return selected
 
 
