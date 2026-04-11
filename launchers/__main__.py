@@ -108,6 +108,18 @@ def _run_data_overview_launcher(config_path: Path) -> None:
             print(f"  {p}")
 
 
+def _run_model_calibration_launcher(config_path: Path) -> None:
+    """Execute the model-calibration launcher for one TOML configuration path."""
+    from launchers import ModelCalibrationLauncher
+
+    summary = ModelCalibrationLauncher(config_path).run()
+    print("Model-calibration scaffold:")
+    print(f"  calibration_id: {summary['calibration_id']}")
+    print(f"  simulation_config: {summary['simulation_config']}")
+    print(f"  primary_solver: {summary['primary_solver']}")
+    print(f"  calibration_root: {summary['calibration_root']}")
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m launchers",
@@ -194,6 +206,37 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     overview_template.set_defaults(_handler="data_overview_template")
 
+    calibration_parser = subparsers.add_parser(
+        "model-calibration",
+        help="Model-calibration launcher family.",
+    )
+    calibration_commands = calibration_parser.add_subparsers(
+        dest="calibration_command",
+        required=True,
+    )
+    calibration_run = calibration_commands.add_parser(
+        "run",
+        help="Run a model-calibration launcher TOML.",
+    )
+    calibration_run.add_argument(
+        "config",
+        type=Path,
+        help="Path to launcher TOML file.",
+    )
+    calibration_run.set_defaults(_handler="model_calibration_run")
+
+    calibration_template = calibration_commands.add_parser(
+        "template",
+        help="Print a canonical TOML template for model-calibration.",
+    )
+    calibration_template.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Optional output path. When omitted, print the template to stdout.",
+    )
+    calibration_template.set_defaults(_handler="model_calibration_template")
+
     return parser
 
 
@@ -238,6 +281,22 @@ def main(argv: list[str] | None = None) -> int:
         else:
             output_path = parsed.output.expanduser().resolve()
             write_overview_template(output_path)
+            print(f"Wrote template: {output_path}")
+        return 0
+    if handler == "model_calibration_run":
+        _run_model_calibration_launcher(parsed.config.expanduser().resolve())
+        return 0
+    if handler == "model_calibration_template":
+        from launchers.model_calibration.templates import (
+            render_model_calibration_template,
+            write_model_calibration_template,
+        )
+
+        if parsed.output is None:
+            sys.stdout.write(render_model_calibration_template())
+        else:
+            output_path = parsed.output.expanduser().resolve()
+            write_model_calibration_template(output_path)
             print(f"Wrote template: {output_path}")
         return 0
 

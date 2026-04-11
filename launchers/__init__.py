@@ -12,12 +12,14 @@ if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import LauncherRunState
     from launchers.data_overview.launcher import DataOverviewLauncher
     from launchers.mesh_catchment.launcher import MeshCatchmentLauncher
+    from launchers.model_calibration.launcher import ModelCalibrationLauncher
     from launchers.process_simulation.launcher import HydroModPyLauncher
 
 __all__ = [
     "DataOverviewLauncher",
     "HydroModPyLauncher",
     "MeshCatchmentLauncher",
+    "ModelCalibrationLauncher",
     "LauncherRunState",
 ]
 
@@ -35,6 +37,10 @@ def __getattr__(name: str):
         from launchers.mesh_catchment.launcher import MeshCatchmentLauncher
 
         return MeshCatchmentLauncher
+    if name == "ModelCalibrationLauncher":
+        from launchers.model_calibration.launcher import ModelCalibrationLauncher
+
+        return ModelCalibrationLauncher
     if name == "LauncherRunState":
         from hydromodpy.core.state.run_state import LauncherRunState
 
