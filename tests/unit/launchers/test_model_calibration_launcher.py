@@ -76,6 +76,9 @@ def _write_minimal_model_calibration_config(
     *,
     include_observed_values: bool = False,
     global_method: str = "simplex",
+    rerun_model_distribution_with_outputs: bool = False,
+    model_distribution_max_reruns: int = 10,
+    model_distribution_rerun_selection: str = "representative",
 ) -> None:
     head_observations = (
         ['observed_values = [10.0, 14.0]'] if include_observed_values else []
@@ -108,6 +111,16 @@ def _write_minimal_model_calibration_config(
                 "disable_display = true",
                 "disable_postprocess = true",
                 "rerun_best_with_outputs = true",
+                "persist_model_distribution = true",
+                (
+                    "rerun_model_distribution_with_outputs = "
+                    f"{str(rerun_model_distribution_with_outputs).lower()}"
+                ),
+                f"model_distribution_max_reruns = {model_distribution_max_reruns}",
+                (
+                    "model_distribution_rerun_selection = "
+                    f'"{model_distribution_rerun_selection}"'
+                ),
                 "persist_iteration_history = true",
                 'persist_iteration_detail_level = "minimal"',
                 "",
@@ -264,6 +277,13 @@ def test_model_calibration_config_resolves_simulation_path_and_core_settings(
     assert cfg.output_names == ("pz_01", "q_outlet_lowflow_mean")
     assert cfg.model_calibration.output[0].reducer == "weighted_interpolation"
     assert cfg.model_calibration.output[1].reducer == "sum"
+    assert cfg.model_calibration.persist_model_distribution is True
+    assert cfg.model_calibration.rerun_model_distribution_with_outputs is False
+    assert cfg.model_calibration.model_distribution_max_reruns == 10
+    assert (
+        cfg.model_calibration.model_distribution_rerun_selection
+        == "representative"
+    )
 
     core_settings = cfg.resolve_core_settings()
     assert core_settings["method"] == "simplex"
@@ -706,6 +726,99 @@ def test_model_calibration_calibrate_persists_posterior_model_distribution(
         "K_global_factor": pytest.approx(2.0),
         "Sy_global": pytest.approx(0.15),
     }
+
+
+def test_model_calibration_can_rerun_posterior_model_distribution_subset(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(
+        config_path,
+        include_observed_values=True,
+        global_method="da_mh_gp",
+        rerun_model_distribution_with_outputs=True,
+        model_distribution_max_reruns=2,
+        model_distribution_rerun_selection="representative",
+    )
+    launcher = ModelCalibrationLauncher(config_path)
+    run_ids: list[str] = []
+
+    class _FakeSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            self.candidate_config_path = Path(candidate_config_path)
+
+        def run(self):
+            merged = load_toml_with_base_config(self.candidate_config_path)
+            run_ids.append(merged["simulation"]["run_id"])
+            return {
+                "calibration_outputs": {
+                    "pz_01": [10.0, 14.0],
+                    "q_outlet_lowflow_mean": [4.0, 8.0],
+                },
+            }
+
+    class _FakePosteriorCalibrationMethod:
+        def calibrate(self, objective_cost, bounds, method="da_mh_gp", **kwargs):
+            _ = bounds, kwargs
+            _ = float(objective_cost([1.0, 0.10]))
+            best_cost = float(objective_cost([2.0, 0.15]))
+            return {
+                "method": method,
+                "x_best": [2.0, 0.15],
+                "cost_best": best_cost,
+                "n_evaluations": 2,
+                "posterior_samples": [
+                    [1.0, 0.10],
+                    [1.5, 0.12],
+                    [2.0, 0.15],
+                    [2.5, 0.18],
+                    [3.0, 0.20],
+                ],
+            }
+
+    summary = launcher.calibrate(
+        launcher_factory=_FakeSimulationLauncher,
+        calibration_method=_FakePosteriorCalibrationMethod(),
+    )
+
+    rerun_summary = summary["model_distribution_rerun"]
+    assert rerun_summary["status"] == "completed"
+    assert rerun_summary["selection"] == "representative"
+    assert rerun_summary["selected_count"] == 2
+
+    rerun_payload = json.loads(
+        Path(rerun_summary["path"]).read_text(encoding="utf-8")
+    )
+    assert rerun_payload["role"] == "model_distribution_output_reruns"
+    assert rerun_payload["source_model_distribution_role"] == (
+        "posterior_parameter_distribution"
+    )
+    assert len(rerun_payload["reruns"]) == 2
+    assert all(
+        row["status"] == "solver_run_succeeded"
+        for row in rerun_payload["reruns"]
+    )
+    assert all(
+        row["candidate_run_id"].startswith("calib_case_01__ensemble_")
+        for row in rerun_payload["reruns"]
+    )
+
+    for row in rerun_payload["reruns"]:
+        merged = load_toml_with_base_config(Path(row["candidate_config_path"]))
+        assert merged["display"]["enabled"] is True
+        assert merged["postprocess"]["enabled"] is True
+
+    history_lines = Path(summary["iteration_history_path"]).read_text(
+        encoding="utf-8"
+    ).splitlines()
+    assert len(history_lines) == 2
+    assert "calib_case_01__best" in run_ids
+    assert (
+        sum(run_id.startswith("calib_case_01__ensemble_") for run_id in run_ids)
+        == 2
+    )
 
 
 def test_model_calibration_calibrate_persists_random_search_empirical_ensemble(

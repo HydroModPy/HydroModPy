@@ -13,6 +13,7 @@ from launchers.model_calibration.runtime import (
     append_iteration_record,
     execute_best_candidate_rerun,
     execute_candidate_run,
+    execute_model_distribution_reruns,
     evaluate_candidate_objective,
     finalize_calibration_session,
     initialize_calibration_session,
@@ -21,6 +22,7 @@ from launchers.model_calibration.runtime import (
     prepare_calibration_session,
     serialize_calibration_result,
     select_candidate_outputs,
+    select_model_distribution_samples,
     validate_objective_ready_for_calibration,
 )
 from launchers.model_calibration.state import ModelCalibrationState
@@ -33,6 +35,7 @@ __all__ = (
     "CandidateRunRequest",
     "execute_best_candidate_rerun",
     "execute_candidate_run",
+    "execute_model_distribution_reruns",
     "evaluate_candidate_objective",
     "finalize_calibration_session",
     "initialize_calibration_session",
@@ -47,5 +50,6 @@ __all__ = (
     "prepare_calibration_session",
     "serialize_calibration_result",
     "select_candidate_outputs",
+    "select_model_distribution_samples",
     "validate_objective_ready_for_calibration",
 )
