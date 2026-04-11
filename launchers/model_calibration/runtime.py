@@ -279,6 +279,22 @@ def _params_named_from_vector(
     }
 
 
+def _safe_params_named_from_vector(
+    *,
+    session: PreparedCalibrationSession,
+    vector: Any,
+) -> dict[str, float]:
+    """Map a vector to names, falling back to positional names on bad payloads."""
+    try:
+        return _params_named_from_vector(session=session, vector=vector)
+    except Exception:
+        values = tuple(float(value) for value in np.asarray(vector, dtype=float).ravel())
+        return {
+            str(name): float(value)
+            for name, value in zip(session.parameter_names, values, strict=False)
+        }
+
+
 def _sample_rows_from_matrix(
     *,
     session: PreparedCalibrationSession,
@@ -601,14 +617,37 @@ def execute_model_distribution_reruns(
     rerun_rows: list[dict[str, Any]] = []
     for ordinal, (sample_index, sample) in enumerate(selected_samples, start=1):
         sample_id = str(sample.get("sample_id", f"sample_{sample_index + 1:06d}"))
-        request = actualize_candidate(
-            session=session,
-            cfg=cfg,
-            params=sample["params_vector"],
-            candidate_label=f"ensemble_{ordinal:04d}_{sample_id}",
-            disable_display=False,
-            disable_postprocess=False,
-        )
+        params_vector = tuple(float(value) for value in sample["params_vector"])
+        try:
+            request = actualize_candidate(
+                session=session,
+                cfg=cfg,
+                params=params_vector,
+                candidate_label=f"ensemble_{ordinal:04d}_{sample_id}",
+                disable_display=False,
+                disable_postprocess=False,
+            )
+        except Exception as exc:
+            rerun_rows.append(
+                {
+                    "rerun_id": f"ensemble_{ordinal:04d}",
+                    "sample_index": int(sample_index),
+                    "sample_id": sample_id,
+                    "source_objective_total": sample.get("objective_total"),
+                    "source_block_costs": sample.get("block_costs"),
+                    "status": "parameter_injection_failed",
+                    "candidate_run_id": None,
+                    "candidate_config_path": None,
+                    "params_vector": list(params_vector),
+                    "params_named": _safe_params_named_from_vector(
+                        session=session,
+                        vector=params_vector,
+                    ),
+                    "error_type": type(exc).__name__,
+                    "error_message": f"{type(exc).__name__}: {exc}",
+                }
+            )
+            continue
         outcome = execute_candidate_run(
             request=request,
             launcher_factory=launcher_factory,
@@ -699,6 +738,27 @@ def _failed_objective_evaluation(
     )
 
 
+def _failed_parameter_injection_evaluation(
+    *,
+    iteration_id: str,
+    params_vector: tuple[float, ...],
+    error: Exception,
+) -> CompositeObjectiveEvaluation:
+    """Represent a failed parameter injection as an infinite objective value."""
+    return CompositeObjectiveEvaluation(
+        total_cost=math.inf,
+        total_score=-math.inf,
+        blocks=(),
+        metadata={
+            "status": "parameter_injection_failed",
+            "error_type": type(error).__name__,
+            "error_message": f"{type(error).__name__}: {error}",
+            "iteration_id": iteration_id,
+            "params_vector": list(params_vector),
+        },
+    )
+
+
 def _sanitize_candidate_label(label: str) -> str:
     """Return one filesystem-safe candidate label."""
     text = str(label).strip().lower()
@@ -778,12 +838,37 @@ class ModelCalibrationObjectiveEvaluator:
 
         iteration_index = self._next_iteration_index
         self._next_iteration_index += 1
-        request = actualize_candidate(
-            session=self.session,
-            cfg=self.cfg,
-            params=key,
-            iteration_index=iteration_index,
-        )
+        iteration_id = f"iter_{int(iteration_index):04d}"
+        try:
+            request = actualize_candidate(
+                session=self.session,
+                cfg=self.cfg,
+                params=key,
+                iteration_index=iteration_index,
+            )
+        except Exception as exc:
+            params_named = _safe_params_named_from_vector(
+                session=self.session,
+                vector=key,
+            )
+            record = IterationRecord(
+                iteration_id=iteration_id,
+                params_vector=key,
+                params_named=params_named,
+                objective_total=math.inf,
+                block_costs={},
+                status="parameter_injection_failed",
+                failure_reason=f"{type(exc).__name__}: {exc}",
+            )
+            if self.record_callback is not None:
+                self.record_callback(record)
+            evaluation = _failed_parameter_injection_evaluation(
+                iteration_id=iteration_id,
+                params_vector=key,
+                error=exc,
+            )
+            self._evaluations_by_key[key] = evaluation
+            return evaluation
         outcome = execute_candidate_run(
             request=request,
             launcher_factory=self.launcher_factory,

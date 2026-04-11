@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Any
 
@@ -154,7 +155,10 @@ class ModelCalibrationLauncher:
                 evaluator=evaluator,
             )
         best_rerun_outcome = None
-        if self.cfg.model_calibration.rerun_best_with_outputs:
+        if (
+            self.cfg.model_calibration.rerun_best_with_outputs
+            and math.isfinite(float(result.cost_best))
+        ):
             best_rerun_outcome = execute_best_candidate_rerun(
                 session=session,
                 cfg=self.cfg,

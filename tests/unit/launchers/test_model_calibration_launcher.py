@@ -12,6 +12,7 @@ from launchers.model_calibration.config import ModelCalibrationConfig
 from launchers.model_calibration.launcher import ModelCalibrationLauncher
 from launchers.model_calibration.runtime import (
     IterationRecord,
+    ModelCalibrationObjectiveEvaluator,
     append_iteration_record,
     select_candidate_outputs,
 )
@@ -573,6 +574,52 @@ def test_model_calibration_run_candidate_records_objective_failure(
     assert payload["block_costs"] == {}
     assert payload["status"] == "objective_evaluation_failed"
     assert payload["failure_reason"] == outcome.error_message
+
+
+def test_model_calibration_objective_records_parameter_injection_failure(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(
+        config_path,
+        include_observed_values=True,
+    )
+    config_text = config_path.read_text(encoding="utf-8").replace(
+        'target = "flow.param.K.field_homogeneous.value"',
+        'target = "flow.param.K.missing.value"',
+        1,
+    )
+    config_path.write_text(config_text, encoding="utf-8")
+    launcher = ModelCalibrationLauncher(config_path)
+    session = launcher.prepare()
+    records: list[IterationRecord] = []
+
+    class _UnexpectedSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            self.candidate_config_path = candidate_config_path
+
+        def run(self):
+            raise AssertionError("parameter injection failure should skip solver run")
+
+    evaluator = ModelCalibrationObjectiveEvaluator(
+        session=session,
+        cfg=launcher.cfg,
+        launcher_factory=_UnexpectedSimulationLauncher,
+        record_callback=records.append,
+    )
+
+    evaluation = evaluator.evaluate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15}
+    )
+
+    assert math.isinf(evaluation.total_cost)
+    assert evaluation.metadata["status"] == "parameter_injection_failed"
+    assert len(records) == 1
+    assert records[0].status == "parameter_injection_failed"
+    assert math.isinf(records[0].objective_total)
+    assert "flow.param.K.missing" in str(records[0].failure_reason)
 
 
 def test_model_calibration_calibrate_runs_engine_loop_and_persists_result(
