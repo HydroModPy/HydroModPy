@@ -86,6 +86,12 @@ Les briques suivantes sont maintenant presentes dans le depot :
   complete et ecrit `calibration_result.json`.
 - les echecs de simulation ou d'evaluation objectif donnent un cout `+inf` et
   sont conserves dans l'historique minimal.
+- les methodes qui exposent des echantillons de parametres (`gp_mapping`,
+  `da_mh_gp`) produisent maintenant un artefact `model_distribution.json`
+  interprete comme une distribution de modeles parametrises.
+- `random_search` produit aussi un `model_distribution.json`, mais avec le
+  role explicite `empirical_evaluated_model_ensemble` : il s'agit d'un ensemble
+  empirique de candidats deja evalues, pas d'un posterior Bayesien.
 
 Les limites restantes sont explicites :
 
@@ -98,6 +104,9 @@ Les limites restantes sont explicites :
   l'injection V1 implemente surtout les chemins scalaires `replace`/`scale` ;
 - la factorisation fine du maillage et des tableaux de proprietes solveur
   reste la prochaine grande etape.
+- la distribution de modeles est aujourd'hui une distribution de jeux de
+  parametres ; elle ne relance pas automatiquement un grand ensemble de
+  simulations avec sorties completes.
 
 Le depot contient deja plusieurs briques allant dans cette direction, mais
 elles restent locales a certains appels et ne constituent pas encore un contrat

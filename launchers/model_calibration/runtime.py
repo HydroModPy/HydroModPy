@@ -25,6 +25,8 @@ from launchers.model_calibration.config import ModelCalibrationConfig
 _NUMERIC_WITH_SUFFIX_RE = re.compile(
     r"^\s*(?P<number>[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*(?P<suffix>.*\S)?\s*$"
 )
+_POSTERIOR_DISTRIBUTION_METHODS = frozenset({"gp_mapping", "da_mh_gp"})
+_EMPIRICAL_ENSEMBLE_METHODS = frozenset({"random_search"})
 
 
 def resolve_workspace_config(
@@ -221,6 +223,8 @@ class CandidateRunOutcome:
 
 def _jsonable(value: Any) -> Any:
     """Convert common runtime values to JSON-friendly Python values."""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
     if isinstance(value, Path):
         return str(value)
     if isinstance(value, np.ndarray):
@@ -231,7 +235,188 @@ def _jsonable(value: Any) -> Any:
         return {str(key): _jsonable(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [_jsonable(item) for item in value]
+    try:
+        json.dumps(value)
+    except TypeError:
+        return repr(value)
     return value
+
+
+def _parameter_statistics(
+    *,
+    samples: np.ndarray,
+    parameter_names: tuple[str, ...],
+) -> dict[str, dict[str, float]]:
+    """Summarize one parameter sample matrix by named marginal statistics."""
+    if samples.size == 0:
+        return {}
+    stats: dict[str, dict[str, float]] = {}
+    quantiles = np.nanpercentile(samples, [5.0, 50.0, 95.0], axis=0)
+    for index, name in enumerate(parameter_names):
+        values = samples[:, index]
+        stats[str(name)] = {
+            "mean": float(np.nanmean(values)),
+            "std": float(np.nanstd(values, ddof=1)) if values.size > 1 else 0.0,
+            "min": float(np.nanmin(values)),
+            "q05": float(quantiles[0, index]),
+            "q50": float(quantiles[1, index]),
+            "q95": float(quantiles[2, index]),
+            "max": float(np.nanmax(values)),
+        }
+    return stats
+
+
+def _params_named_from_vector(
+    *,
+    session: PreparedCalibrationSession,
+    vector: Any,
+) -> dict[str, float]:
+    """Map one ordered vector to calibrated parameter names."""
+    parameter_set = session.core_settings["parameter_set"]
+    return {
+        str(name): float(value)
+        for name, value in parameter_set.mapping_from(vector).items()
+    }
+
+
+def _sample_rows_from_matrix(
+    *,
+    session: PreparedCalibrationSession,
+    samples: np.ndarray,
+) -> list[dict[str, Any]]:
+    """Serialize a parameter sample matrix as model-distribution rows."""
+    rows: list[dict[str, Any]] = []
+    for index, vector in enumerate(samples, start=1):
+        params_vector = tuple(float(value) for value in np.asarray(vector).ravel())
+        rows.append(
+            {
+                "sample_id": f"sample_{index:06d}",
+                "params_vector": list(params_vector),
+                "params_named": _params_named_from_vector(
+                    session=session,
+                    vector=params_vector,
+                ),
+            }
+        )
+    return rows
+
+
+def _sample_rows_from_evaluated_outcomes(
+    outcomes: tuple[CandidateRunOutcome, ...],
+) -> list[dict[str, Any]]:
+    """Serialize evaluated candidates as an empirical model ensemble."""
+    rows: list[dict[str, Any]] = []
+    for outcome in outcomes:
+        record = outcome.to_iteration_record()
+        rows.append(
+            {
+                "sample_id": outcome.request.iteration_id,
+                "candidate_run_id": outcome.request.candidate_run_id,
+                "candidate_config_path": str(outcome.request.candidate_config_path),
+                "params_vector": list(record.params_vector),
+                "params_named": dict(record.params_named),
+                "objective_total": record.objective_total,
+                "block_costs": dict(record.block_costs),
+                "status": record.status,
+                "failure_reason": record.failure_reason,
+            }
+        )
+    return rows
+
+
+def build_model_distribution_payload(
+    *,
+    session: PreparedCalibrationSession,
+    result: Any,
+    evaluator: ModelCalibrationObjectiveEvaluator,
+) -> dict[str, Any] | None:
+    """Build a persisted parameter/model distribution payload when available."""
+    method = str(result.method).strip().lower()
+    parameter_names = tuple(session.parameter_names)
+    result_samples = getattr(result, "samples", None)
+    if result_samples is not None:
+        samples = np.asarray(result_samples, dtype=float)
+        if samples.ndim == 2 and samples.shape[0] > 0:
+            return {
+                "role": (
+                    "posterior_parameter_distribution"
+                    if method in _POSTERIOR_DISTRIBUTION_METHODS
+                    else "parameter_sample_distribution"
+                ),
+                "method": method,
+                "source": "CalibrationResults.samples",
+                "parameter_names": list(parameter_names),
+                "sample_count": int(samples.shape[0]),
+                "model_semantics": (
+                    "Each row defines one parameterized model. Full model "
+                    "outputs are obtained by materializing and running that "
+                    "parameter set as a candidate."
+                ),
+                "statistics": _parameter_statistics(
+                    samples=samples,
+                    parameter_names=parameter_names,
+                ),
+                "samples": _sample_rows_from_matrix(
+                    session=session,
+                    samples=samples,
+                ),
+            }
+
+    if method not in _EMPIRICAL_ENSEMBLE_METHODS:
+        return None
+
+    outcomes = evaluator.outcomes
+    if not outcomes:
+        return None
+    samples = np.asarray(
+        [outcome.request.params_vector for outcome in outcomes],
+        dtype=float,
+    )
+    return {
+        "role": "empirical_evaluated_model_ensemble",
+        "method": method,
+        "source": "evaluated_candidates",
+        "parameter_names": list(parameter_names),
+        "sample_count": int(samples.shape[0]),
+        "model_semantics": (
+            "Each row is a model candidate already evaluated during the "
+            "stochastic search, with its objective value when available."
+        ),
+        "statistics": _parameter_statistics(
+            samples=samples,
+            parameter_names=parameter_names,
+        ),
+        "samples": _sample_rows_from_evaluated_outcomes(outcomes),
+    }
+
+
+def persist_model_distribution(
+    *,
+    session: PreparedCalibrationSession,
+    result: Any,
+    evaluator: ModelCalibrationObjectiveEvaluator,
+) -> dict[str, Any] | None:
+    """Write `model_distribution.json` when the method exposes an ensemble."""
+    payload = build_model_distribution_payload(
+        session=session,
+        result=result,
+        evaluator=evaluator,
+    )
+    if payload is None:
+        return None
+
+    distribution_path = session.calibration_root / "model_distribution.json"
+    distribution_path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+    return {
+        "path": str(distribution_path),
+        "role": payload["role"],
+        "method": payload["method"],
+        "source": payload["source"],
+        "sample_count": payload["sample_count"],
+    }
 
 
 def serialize_calibration_result(result: Any) -> dict[str, Any]:
@@ -639,6 +824,11 @@ def finalize_calibration_session(
         json.dumps(result_payload, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
+    distribution_summary = persist_model_distribution(
+        session=session,
+        result=result,
+        evaluator=evaluator,
+    )
 
     manifest = json.loads(session.session_manifest_path.read_text(encoding="utf-8"))
     manifest.update(
@@ -652,6 +842,7 @@ def finalize_calibration_session(
             "n_evaluations": result_payload["n_evaluations"],
             "candidate_run_count": int(evaluator.candidate_run_count),
             "objective_cache_hit_count": int(evaluator.cache_hit_count),
+            "model_distribution": distribution_summary,
         }
     )
     if best_rerun_outcome is not None:
@@ -950,6 +1141,7 @@ def execute_candidate_run(
 
 __all__ = (
     "actualize_candidate",
+    "build_model_distribution_payload",
     "CandidateRunOutcome",
     "CandidateRunRequest",
     "IterationRecord",
@@ -963,6 +1155,7 @@ __all__ = (
     "initialize_calibration_session",
     "ModelCalibrationObjectiveEvaluator",
     "persist_iteration_record",
+    "persist_model_distribution",
     "prepare_calibration_session",
     "resolve_workspace_config",
     "serialize_calibration_result",
