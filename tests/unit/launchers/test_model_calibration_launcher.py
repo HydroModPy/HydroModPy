@@ -84,6 +84,7 @@ def _write_minimal_model_calibration_config(
     rerun_model_distribution_with_outputs: bool = False,
     model_distribution_max_reruns: int = 10,
     model_distribution_rerun_selection: str = "representative",
+    persist_iteration_history: bool = True,
 ) -> None:
     head_observations = (
         ['observed_values = [10.0, 14.0]'] if include_observed_values else []
@@ -126,7 +127,7 @@ def _write_minimal_model_calibration_config(
                     "model_distribution_rerun_selection = "
                     f'"{model_distribution_rerun_selection}"'
                 ),
-                "persist_iteration_history = true",
+                f"persist_iteration_history = {str(persist_iteration_history).lower()}",
                 'persist_iteration_detail_level = "minimal"',
                 "",
                 "[calibration]",
@@ -463,6 +464,39 @@ def test_model_calibration_run_candidate_persists_iteration_history(
     assert payload["objective_total"] is None
     assert payload["status"] == "solver_run_succeeded"
     assert payload["failure_reason"] is None
+
+
+def test_model_calibration_can_disable_iteration_history_file(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(
+        config_path,
+        persist_iteration_history=False,
+    )
+    launcher = ModelCalibrationLauncher(config_path)
+
+    class _FakeSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            self.candidate_config_path = Path(candidate_config_path)
+
+        def run(self):
+            return {"mode": "simulation", "config": str(self.candidate_config_path)}
+
+    outcome = launcher.run_candidate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15},
+        iteration_index=1,
+        launcher_factory=_FakeSimulationLauncher,
+    )
+
+    assert outcome.status == "solver_run_succeeded"
+    summary = launcher.run()
+    assert summary["iteration_count"] == 1
+    assert summary["last_iteration_id"] == "iter_0001"
+    assert summary["persist_iteration_history"] is False
+    assert not Path(summary["iteration_history_path"]).exists()
 
 
 def test_model_calibration_run_candidate_evaluates_composite_objective(
