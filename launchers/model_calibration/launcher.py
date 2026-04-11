@@ -9,8 +9,11 @@ from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 from launchers.model_calibration.config import ModelCalibrationConfig
 from launchers.model_calibration.runtime import (
+    ModelCalibrationObjectiveEvaluator,
     actualize_candidate,
+    execute_best_candidate_rerun,
     execute_candidate_run,
+    finalize_calibration_session,
     initialize_calibration_session,
     persist_iteration_record,
     prepare_calibration_session,
@@ -91,6 +94,67 @@ class ModelCalibrationLauncher:
             record=record,
         )
         return outcome
+
+    def calibrate(
+        self,
+        *,
+        launcher_factory=None,
+        calibration_method=None,
+    ) -> dict[str, Any]:
+        """Run the configured optimization loop through CalibrationEngine."""
+        session = self.prepare()
+        if launcher_factory is None:
+            from launchers import HydroModPyLauncher
+
+            launcher_factory = HydroModPyLauncher
+
+        def _record_iteration(record) -> None:
+            self.state.session_manifest = persist_iteration_record(
+                session=session,
+                record=record,
+            )
+
+        evaluator = ModelCalibrationObjectiveEvaluator(
+            session=session,
+            cfg=self.cfg,
+            launcher_factory=launcher_factory,
+            iteration_start=(
+                int(self.state.session_manifest.get("iteration_count", 0)) + 1
+            ),
+            record_callback=_record_iteration,
+        )
+        from hydromodpy.analysis.calibration.core.engine import CalibrationEngine
+
+        core_settings = session.core_settings
+        engine = CalibrationEngine(
+            observed=None,
+            simulator=None,
+            bounds=None,
+            objective_metric=core_settings["objective_metric"],
+            objective_config=core_settings["objective"],
+            parameter_set=core_settings["parameter_set"],
+            objective_evaluator=evaluator,
+            calibration_method=calibration_method,
+        )
+        result = engine.calibrate(
+            method=core_settings["method"],
+            **core_settings["method_kwargs"],
+        )
+        best_rerun_outcome = None
+        if self.cfg.model_calibration.rerun_best_with_outputs:
+            best_rerun_outcome = execute_best_candidate_rerun(
+                session=session,
+                cfg=self.cfg,
+                result=result,
+                launcher_factory=launcher_factory,
+            )
+        self.state.session_manifest = finalize_calibration_session(
+            session=session,
+            result=result,
+            evaluator=evaluator,
+            best_rerun_outcome=best_rerun_outcome,
+        )
+        return dict(self.state.session_manifest)
 
     def run(self) -> dict[str, Any]:
         """Validate launcher and simulation-side contracts, then prepare one session."""

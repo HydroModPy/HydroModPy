@@ -112,12 +112,13 @@ def _run_model_calibration_launcher(config_path: Path) -> None:
     """Execute the model-calibration launcher for one TOML configuration path."""
     from launchers import ModelCalibrationLauncher
 
-    summary = ModelCalibrationLauncher(config_path).run()
-    print("Prepared model-calibration session:")
+    summary = ModelCalibrationLauncher(config_path).calibrate()
+    print("Completed model-calibration run:")
     print(f"  calibration_id: {summary['calibration_id']}")
     print(f"  simulation_config: {summary['simulation_config']}")
     print(f"  primary_solver: {summary['primary_solver']}")
     print(f"  calibration_root: {summary['calibration_root']}")
+    print(f"  cost_best: {summary['cost_best']}")
 
 
 def _build_parser() -> argparse.ArgumentParser:

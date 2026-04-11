@@ -1,6 +1,6 @@
 # Perspective de developpement: calibration pilotee par simulation avec maillage factorise
 
-Statut : proposition de conception.
+Statut : conception cible avec premieres briques V1 implementees.
 
 Ce document cadre une direction d'architecture pour brancher la calibration
 sur le simulateur de flux sans reconstruire a chaque iteration tout le mapping
@@ -64,6 +64,40 @@ Les decisions suivantes sont considerees comme acquises pour la suite :
   iterations.
 
 ## Diagnostic sur l'existant
+
+## Etat d'implementation courant
+
+Les briques suivantes sont maintenant presentes dans le depot :
+
+- `hydromodpy.analysis.calibration.core.composite_objective` porte une
+  fonction objectif composite ponderee par blocs, avec normalisation
+  automatique des couts par IQR, puis ecart-type, puis seuil minimal.
+- `CalibrationEngine` accepte un `objective_evaluator` composite en plus du
+  contrat historique `observed/simulator`.
+- `launchers/model_calibration` fournit un launcher dedie avec schema TOML,
+  preparation de session, materialisation de configurations candidates,
+  injection de parametres par chemins TOML, execution d'un candidat, lecture
+  de sorties `calibration_outputs`/`outputs`, evaluation objective et
+  persistance minimale JSONL.
+- `ModelCalibrationLauncher.calibrate()` pilote maintenant `CalibrationEngine`
+  en transformant chaque evaluation de parametres en run candidat du
+  simulateur.
+- `python -m launchers model-calibration run <config>` declenche la calibration
+  complete et ecrit `calibration_result.json`.
+- les echecs de simulation ou d'evaluation objectif donnent un cout `+inf` et
+  sont conserves dans l'historique minimal.
+
+Les limites restantes sont explicites :
+
+- la selection des sorties reste une extraction generique depuis le `run_state`
+  et non encore un vrai contrat `RawRunOutputs -> CanonicalOutputBundle ->
+  SelectedObservables` branche au solveur ;
+- les cartes de resurgence sont reservees dans le schema (`support = "map"`,
+  `metric = "direct_cost"`), mais ne sont pas encore evaluables ;
+- la parametrisation par lithologie est visible dans le schema, mais
+  l'injection V1 implemente surtout les chemins scalaires `replace`/`scale` ;
+- la factorisation fine du maillage et des tableaux de proprietes solveur
+  reste la prochaine grande etape.
 
 Le depot contient deja plusieurs briques allant dans cette direction, mais
 elles restent locales a certains appels et ne constituent pas encore un contrat
