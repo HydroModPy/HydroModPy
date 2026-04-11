@@ -10,9 +10,11 @@ from launchers.model_calibration.runtime import (
     PreparedCalibrationSession,
     append_iteration_record,
     execute_candidate_run,
+    evaluate_candidate_objective,
     initialize_calibration_session,
     persist_iteration_record,
     prepare_calibration_session,
+    select_candidate_outputs,
 )
 from launchers.model_calibration.state import ModelCalibrationState
 
@@ -22,6 +24,7 @@ __all__ = (
     "CandidateRunOutcome",
     "CandidateRunRequest",
     "execute_candidate_run",
+    "evaluate_candidate_objective",
     "initialize_calibration_session",
     "IterationRecord",
     "ModelCalibrationConfig",
@@ -30,4 +33,5 @@ __all__ = (
     "persist_iteration_record",
     "PreparedCalibrationSession",
     "prepare_calibration_session",
+    "select_candidate_outputs",
 )

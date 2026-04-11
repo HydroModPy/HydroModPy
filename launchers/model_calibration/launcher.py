@@ -83,6 +83,7 @@ class ModelCalibrationLauncher:
         outcome = execute_candidate_run(
             request=request,
             launcher_factory=launcher_factory,
+            cfg=self.cfg,
         )
         record = outcome.to_iteration_record()
         self.state.session_manifest = persist_iteration_record(
