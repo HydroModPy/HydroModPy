@@ -9,6 +9,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
+from hydromodpy.analysis.calibration.core.composite_objective import (
+    CompositeObjective,
+    CompositeObjectiveBlock,
+    CompositeObjectiveEvaluation,
+)
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
 
@@ -184,6 +191,7 @@ class CandidateRunOutcome:
     request: CandidateRunRequest
     status: str
     run_state: Any | None = None
+    objective_evaluation: CompositeObjectiveEvaluation | None = None
     error_type: str | None = None
     error_message: str | None = None
 
@@ -191,14 +199,21 @@ class CandidateRunOutcome:
         """Convert one run outcome into the persisted minimal iteration record."""
         failure_reason = self.error_message
         objective_total: float | None = None
-        if self.status == "solver_run_failed":
+        block_costs: dict[str, float] = {}
+        if self.objective_evaluation is not None:
+            objective_total = float(self.objective_evaluation.total_cost)
+            block_costs = {
+                block.name: float(block.normalized_cost)
+                for block in self.objective_evaluation.blocks
+            }
+        elif self.status in {"solver_run_failed", "objective_evaluation_failed"}:
             objective_total = math.inf
         return IterationRecord(
             iteration_id=self.request.iteration_id,
             params_vector=self.request.params_vector,
             params_named=self.request.params_named,
             objective_total=objective_total,
-            block_costs={},
+            block_costs=block_costs,
             status=self.status,
             failure_reason=failure_reason,
         )
@@ -448,6 +463,133 @@ def persist_iteration_record(
     return update_session_manifest(manifest_path=session.session_manifest_path, record=record)
 
 
+def _as_1d_float_tuple(values: Any, *, label: str) -> tuple[float, ...]:
+    """Normalize one selected observable payload to a non-empty float tuple."""
+    arr = np.asarray(values, dtype=float).ravel()
+    if arr.size == 0:
+        raise ValueError(f"{label} cannot be empty")
+    return tuple(float(value) for value in arr)
+
+
+def _candidate_output_containers(run_state: Any) -> tuple[Any, ...]:
+    """Return possible output containers in lookup priority order."""
+    containers: list[Any] = []
+    if isinstance(run_state, dict):
+        for key in ("calibration_outputs", "outputs"):
+            value = run_state.get(key)
+            if value is not None:
+                containers.append(value)
+        containers.append(run_state)
+        return tuple(containers)
+
+    for attr in ("calibration_outputs", "outputs"):
+        value = getattr(run_state, attr, None)
+        if value is not None:
+            containers.append(value)
+    execution = getattr(run_state, "execution", None)
+    if execution is not None:
+        for attr in ("calibration_outputs", "outputs"):
+            value = getattr(execution, attr, None)
+            if value is not None:
+                containers.append(value)
+    return tuple(containers)
+
+
+def _lookup_output_value(run_state: Any, output_name: str) -> Any:
+    """Lookup one configured output in generic run-state output containers."""
+    for container in _candidate_output_containers(run_state):
+        if isinstance(container, dict) and output_name in container:
+            return container[output_name]
+        if hasattr(container, output_name):
+            return getattr(container, output_name)
+    raise KeyError(
+        "Could not find calibration output "
+        f"'{output_name}' in run_state.calibration_outputs or run_state.outputs"
+    )
+
+
+def select_candidate_outputs(
+    *,
+    cfg: ModelCalibrationConfig,
+    run_state: Any,
+) -> dict[str, tuple[float, ...]]:
+    """Select configured simulated observables from one run-state payload."""
+    selected: dict[str, tuple[float, ...]] = {}
+    for output_cfg in cfg.model_calibration.output:
+        value = _lookup_output_value(run_state, output_cfg.name)
+        selected[output_cfg.name] = _as_1d_float_tuple(
+            value,
+            label=f"simulated output '{output_cfg.name}'",
+        )
+    return selected
+
+
+def _objective_has_observations(cfg: ModelCalibrationConfig) -> bool:
+    """Return True when at least one configured output carries observed values."""
+    return any(
+        output_cfg.observed_values is not None
+        for output_cfg in cfg.model_calibration.output
+    )
+
+
+def evaluate_candidate_objective(
+    *,
+    cfg: ModelCalibrationConfig,
+    run_state: Any,
+) -> CompositeObjectiveEvaluation:
+    """Evaluate configured composite objective from one candidate run-state."""
+    selected = select_candidate_outputs(cfg=cfg, run_state=run_state)
+    outputs_by_name = {
+        output_cfg.name: output_cfg for output_cfg in cfg.model_calibration.output
+    }
+
+    blocks: list[CompositeObjectiveBlock] = []
+    for block_cfg in cfg.model_calibration.objective_block:
+        if block_cfg.metric == "direct_cost":
+            raise NotImplementedError(
+                "direct_cost objective blocks are reserved for future map comparisons"
+            )
+
+        observed_parts: list[np.ndarray] = []
+        for output_name in block_cfg.uses_outputs:
+            output_cfg = outputs_by_name[output_name]
+            if output_cfg.observed_values is None:
+                raise ValueError(
+                    f"Output '{output_name}' used by block '{block_cfg.name}' "
+                    "does not define observed_values"
+                )
+            observed_parts.append(
+                np.asarray(output_cfg.observed_values, dtype=float).ravel()
+            )
+        observed = np.concatenate(observed_parts)
+
+        def _selector(
+            payload: dict[str, tuple[float, ...]],
+            names=tuple(block_cfg.uses_outputs),
+        ):
+            return np.concatenate(
+                [np.asarray(payload[name], dtype=float).ravel() for name in names]
+            )
+
+        blocks.append(
+            CompositeObjectiveBlock(
+                name=block_cfg.name,
+                observed=observed,
+                selector=_selector,
+                metric=block_cfg.metric,
+                weight=block_cfg.weight,
+                normalize_cost=block_cfg.normalize_cost,
+                metadata={"uses_outputs": tuple(block_cfg.uses_outputs)},
+            )
+        )
+
+    objective = CompositeObjective(
+        simulator=lambda _params: selected,
+        blocks=tuple(blocks),
+    )
+    return objective.evaluate({})
+
+
 def actualize_candidate(
     *,
     session: PreparedCalibrationSession,
@@ -509,6 +651,7 @@ def execute_candidate_run(
     *,
     request: CandidateRunRequest,
     launcher_factory: Any,
+    cfg: ModelCalibrationConfig | None = None,
 ) -> CandidateRunOutcome:
     """Execute one candidate simulation via a launcher factory."""
     try:
@@ -522,10 +665,35 @@ def execute_candidate_run(
             error_type=type(exc).__name__,
             error_message=f"{type(exc).__name__}: {exc}",
         )
+
+    if cfg is not None and _objective_has_observations(cfg):
+        try:
+            objective_evaluation = evaluate_candidate_objective(
+                cfg=cfg,
+                run_state=run_state,
+            )
+        except Exception as exc:
+            return CandidateRunOutcome(
+                request=request,
+                status="objective_evaluation_failed",
+                run_state=run_state,
+                objective_evaluation=None,
+                error_type=type(exc).__name__,
+                error_message=f"{type(exc).__name__}: {exc}",
+            )
+        return CandidateRunOutcome(
+            request=request,
+            status="objective_evaluated",
+            run_state=run_state,
+            objective_evaluation=objective_evaluation,
+            error_type=None,
+            error_message=None,
+        )
     return CandidateRunOutcome(
         request=request,
         status="solver_run_succeeded",
         run_state=run_state,
+        objective_evaluation=None,
         error_type=None,
         error_message=None,
     )
@@ -540,9 +708,11 @@ __all__ = (
     "append_iteration_record",
     "detect_solver_families",
     "execute_candidate_run",
+    "evaluate_candidate_objective",
     "initialize_calibration_session",
     "persist_iteration_record",
     "prepare_calibration_session",
     "resolve_workspace_config",
+    "select_candidate_outputs",
     "update_session_manifest",
 )

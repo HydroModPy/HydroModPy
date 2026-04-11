@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import json
+import math
+from pathlib import Path
+
+import pytest
 
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from launchers.model_calibration.config import ModelCalibrationConfig
@@ -68,7 +71,17 @@ def _write_minimal_simulation_config(path: Path) -> None:
     )
 
 
-def _write_minimal_model_calibration_config(path: Path) -> None:
+def _write_minimal_model_calibration_config(
+    path: Path,
+    *,
+    include_observed_values: bool = False,
+) -> None:
+    head_observations = (
+        ['observed_values = [10.0, 14.0]'] if include_observed_values else []
+    )
+    flux_observations = (
+        ['observed_values = [4.0, 8.0]'] if include_observed_values else []
+    )
     path.write_text(
         "\n".join(
             [
@@ -117,6 +130,7 @@ def _write_minimal_model_calibration_config(path: Path) -> None:
                 "x = 1.0",
                 "y = 2.0",
                 'time = "all"',
+                *head_observations,
                 "",
                 "[[model_calibration.output]]",
                 'name = "q_outlet_lowflow_mean"',
@@ -126,6 +140,7 @@ def _write_minimal_model_calibration_config(path: Path) -> None:
                 'boundary_id = "east_side"',
                 'time_window = ["2020-08-01", "2020-09-30"]',
                 'time_reducer = "mean"',
+                *flux_observations,
                 "",
                 "[[model_calibration.objective_block]]",
                 'name = "heads"',
@@ -377,6 +392,117 @@ def test_model_calibration_run_candidate_persists_iteration_history(
     assert payload["objective_total"] is None
     assert payload["status"] == "solver_run_succeeded"
     assert payload["failure_reason"] is None
+
+
+def test_model_calibration_run_candidate_evaluates_composite_objective(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(
+        config_path,
+        include_observed_values=True,
+    )
+    launcher = ModelCalibrationLauncher(config_path)
+
+    class _FakeSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            self.candidate_config_path = Path(candidate_config_path)
+
+        def run(self):
+            return {
+                "mode": "simulation",
+                "config": str(self.candidate_config_path),
+                "calibration_outputs": {
+                    "pz_01": [11.0, 13.0],
+                    "q_outlet_lowflow_mean": [5.0, 7.0],
+                },
+            }
+
+    outcome = launcher.run_candidate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15},
+        iteration_index=1,
+        launcher_factory=_FakeSimulationLauncher,
+    )
+
+    assert outcome.status == "objective_evaluated"
+    assert outcome.objective_evaluation is not None
+    assert outcome.objective_evaluation.total_cost == pytest.approx(0.5)
+    assert {
+        block.name: block.normalized_cost for block in outcome.objective_evaluation.blocks
+    } == {
+        "heads": pytest.approx(0.5),
+        "flux": pytest.approx(0.5),
+    }
+
+    summary = launcher.run()
+    assert summary["iteration_count"] == 1
+    assert summary["last_iteration_status"] == "objective_evaluated"
+
+    history_lines = Path(summary["iteration_history_path"]).read_text(
+        encoding="utf-8"
+    ).splitlines()
+    assert len(history_lines) == 1
+    payload = json.loads(history_lines[0])
+    assert payload["objective_total"] == pytest.approx(0.5)
+    assert payload["block_costs"] == {
+        "heads": pytest.approx(0.5),
+        "flux": pytest.approx(0.5),
+    }
+    assert payload["status"] == "objective_evaluated"
+    assert payload["failure_reason"] is None
+
+
+def test_model_calibration_run_candidate_records_objective_failure(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(
+        config_path,
+        include_observed_values=True,
+    )
+    launcher = ModelCalibrationLauncher(config_path)
+
+    class _FakeSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            self.candidate_config_path = Path(candidate_config_path)
+
+        def run(self):
+            return {
+                "mode": "simulation",
+                "config": str(self.candidate_config_path),
+                "calibration_outputs": {
+                    "pz_01": [11.0, 13.0],
+                },
+            }
+
+    outcome = launcher.run_candidate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15},
+        iteration_index=1,
+        launcher_factory=_FakeSimulationLauncher,
+    )
+
+    assert outcome.status == "objective_evaluation_failed"
+    assert outcome.error_type == "KeyError"
+    assert outcome.error_message is not None
+    assert "q_outlet_lowflow_mean" in outcome.error_message
+
+    summary = launcher.run()
+    assert summary["iteration_count"] == 1
+    assert summary["last_iteration_status"] == "objective_evaluation_failed"
+
+    history_lines = Path(summary["iteration_history_path"]).read_text(
+        encoding="utf-8"
+    ).splitlines()
+    assert len(history_lines) == 1
+    payload = json.loads(history_lines[0])
+    assert math.isinf(payload["objective_total"])
+    assert payload["block_costs"] == {}
+    assert payload["status"] == "objective_evaluation_failed"
+    assert payload["failure_reason"] == outcome.error_message
 
 
 def test_launchers_cli_model_calibration_run_dispatches_to_launcher(

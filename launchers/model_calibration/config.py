@@ -98,6 +98,7 @@ class ModelCalibrationOutputSchema(BaseModel):
     reducer: str | None = None
     comparison: str | None = None
     threshold: float | None = None
+    observed_values: list[float] | None = None
 
     @field_validator("name", "variable")
     @classmethod
@@ -116,6 +117,15 @@ class ModelCalibrationOutputSchema(BaseModel):
         if not text:
             raise ValueError("optional text value cannot be empty")
         return text
+
+    @field_validator("observed_values")
+    @classmethod
+    def _validate_observed_values(cls, value: object) -> list[float] | None:
+        if value is None:
+            return None
+        if not isinstance(value, list) or not value:
+            raise ValueError("observed_values must be a non-empty numeric list")
+        return [float(item) for item in value]
 
     @model_validator(mode="after")
     def _validate_support_specific_fields(self) -> "ModelCalibrationOutputSchema":
