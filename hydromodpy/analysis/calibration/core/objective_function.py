@@ -173,9 +173,10 @@ class ObjectiveFunction:
     - "nse_log"
     - "kge"
     - "rmse"
+    - "mae"
     """
 
-    _SUPPORTED_METRICS = {"nse", "nse_log", "kge", "rmse"}
+    _SUPPORTED_METRICS = {"nse", "nse_log", "kge", "rmse", "mae"}
     _MAXIMIZE_METRICS = {"nse", "nse_log", "kge"}
 
     def __init__(self, metric="nse"):
@@ -219,6 +220,10 @@ class ObjectiveFunction:
 
         if metric_name == "rmse":
             value = float(rmse(observed, simulated))
+            return {"metric": metric_name, "value": value}
+
+        if metric_name == "mae":
+            value = float(mae(observed, simulated))
             return {"metric": metric_name, "value": value}
 
         raise RuntimeError(f"Unhandled metric '{metric_name}'")
