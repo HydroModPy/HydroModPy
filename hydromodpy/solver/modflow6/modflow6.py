@@ -692,7 +692,7 @@ class Modflow6(Solver):
 		payload = self._copy_runtime_payload(getattr(recharge_cfg, "values", 0.0))
 		payload = convert_payload_to_m_per_s(
 			payload,
-			unit=str(getattr(recharge_cfg, "units", "m/s")),
+			unit=str(getattr(recharge_cfg, "units", "mm/day")),
 			label="flow.sinks_sources.recharge.values",
 		)
 		payload = self._sanitize_numeric_payload(payload)
@@ -723,6 +723,9 @@ class Modflow6(Solver):
 		self._heterogeneous_interpolation_method = getattr(
 			recharge_cfg, "interpolation_method", "nearest"
 		)
+		# Heterogeneous data comes from data-managers (always mm/day).
+		# recharge_cfg.units has been normalized to "m/s" by Flow init.
+		self._heterogeneous_source_unit = "mm/day"
 		self.recharge = 0.0  # placeholder; replaced after solver_mesh construction
 		self.first_clim = getattr(
 			recharge_cfg,
@@ -743,6 +746,7 @@ class Modflow6(Solver):
 
 		sim_window = self.time_grid.window if self.time_grid is not None else None
 		interp_method = getattr(self, "_heterogeneous_interpolation_method", "nearest")
+		source_unit = getattr(self, "_heterogeneous_source_unit", "mm/day")
 
 		# Prefer fields; fall back to located points.
 		if getattr(het_source, "has_fields", False):
@@ -760,6 +764,7 @@ class Modflow6(Solver):
 				nper=int(self.nper),
 				simulation_window=sim_window,
 				method=interp_method,
+				source_unit=source_unit,
 			)
 		else:
 			self._heterogeneous_recharge_source = None
@@ -1154,12 +1159,18 @@ class Modflow6(Solver):
 
 		times = head_fpu.get_times()
 		self.times = times
-		dict_watertable_elevation = {}
-		dict_watertable_depth = {}
-		dict_seepage_areas = {}
-		dict_outflow_drain = {}
-		dict_outlet_discharge_east_side_m3_s = {}
-		dict_accumulation_flux = {}
+		self.dict_watertable_elevation = {}
+		self.dict_watertable_depth = {}
+		self.dict_seepage_areas = {}
+		self.dict_outflow_drain = {}
+		self.dict_outlet_discharge_east_side_m3_s = {}
+		self.dict_accumulation_flux = {}
+		dict_watertable_elevation = self.dict_watertable_elevation
+		dict_watertable_depth = self.dict_watertable_depth
+		dict_seepage_areas = self.dict_seepage_areas
+		dict_outflow_drain = self.dict_outflow_drain
+		dict_outlet_discharge_east_side_m3_s = self.dict_outlet_discharge_east_side_m3_s
+		dict_accumulation_flux = self.dict_accumulation_flux
 
 		ncpl = int(self.ncpl)
 		dem_mask_flat = np.asarray(self.dem_mask, dtype=bool).reshape(-1)
@@ -1259,21 +1270,8 @@ class Modflow6(Solver):
 				with rasterio.open(os.path.join(self.tifs_file, f"accumulation_flux_t({item}).tif")) as src:
 					dict_accumulation_flux[item] = src.read(1)
 
-		if options.watertable_elevation:
-			np.save(os.path.join(self.save_file, "watertable_elevation"), dict_watertable_elevation)
-		if options.watertable_depth:
-			np.save(os.path.join(self.save_file, "watertable_depth"), dict_watertable_depth)
-		if options.seepage_areas:
-			np.save(os.path.join(self.save_file, "seepage_areas"), dict_seepage_areas)
-		if options.outflow_drain:
-			np.save(os.path.join(self.save_file, "outflow_drain"), dict_outflow_drain)
-		if options.outlet_discharge_east_side_m3_s:
-			np.save(
-				os.path.join(self.save_file, "outlet_discharge_east_side_m3_s"),
-				dict_outlet_discharge_east_side_m3_s,
-			)
-		if options.accumulation_flux:
-			np.save(os.path.join(self.save_file, "accumulation_flux"), dict_accumulation_flux)
+		if hasattr(head_fpu, 'close'):
+			head_fpu.close()
 
 
 class Modflow6Transport:
@@ -1441,7 +1439,7 @@ class Modflow6Transport:
 		concobj_1c[concobj_1c >= 1e30] = np.nan
 		conc_last_idx = max(int(concobj_1c.shape[0]) - 1, 0)
 
-		outflow_drain = np.load(os.path.join(self.save_file, "outflow_drain.npy"), allow_pickle=True).item()
+		outflow_drain = getattr(self.model_modflow, 'dict_outflow_drain', {})
 		dem_mask = np.asarray(
 			getattr(self.model_modflow, "dem_mask", self.model_modflow.dem < -9999),
 			dtype=bool,
@@ -1493,10 +1491,7 @@ class Modflow6Transport:
 				with bf.HeadFile(os.path.join(self.tifs_file, f"mass_accumulated_t({the_time}).tif")) as src:
 					dict_mass_accumulated[i] = src.read(1)
 
-		if concentration_seepage:
-			np.save(os.path.join(self.save_file, "concentration_seepage"), dict_concentration_seepage)
-		if mass_seepage:
-			np.save(os.path.join(self.save_file, "mass_seepage"), dict_mass_seepage)
-		if mass_accumulated:
-			np.save(os.path.join(self.save_file, "mass_accumulated"), dict_mass_accumulated)
+		self.dict_concentration_seepage = dict_concentration_seepage
+		self.dict_mass_seepage = dict_mass_seepage
+		self.dict_mass_accumulated = dict_mass_accumulated
 
