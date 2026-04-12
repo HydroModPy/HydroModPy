@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -106,6 +107,7 @@ class PreparedCalibrationSession:
     primary_solver: str | None
     supported_v1_backend: bool
     core_settings: dict[str, Any]
+    contract_signature: str
     parameter_names: tuple[str, ...]
     output_names: tuple[str, ...]
     objective_block_names: tuple[str, ...]
@@ -131,6 +133,7 @@ class PreparedCalibrationSession:
             "solver_families": list(self.solver_families),
             "supported_v1_backend": self.supported_v1_backend,
             "method": self.core_settings["method"],
+            "session_contract_signature": self.contract_signature,
             "parameter_names": list(self.parameter_names),
             "n_parameters": len(self.parameter_names),
             "output_names": list(self.output_names),
@@ -329,6 +332,84 @@ def _jsonable(value: Any) -> Any:
     except TypeError:
         return repr(value)
     return value
+
+
+def _session_contract_payload(
+    *,
+    session: PreparedCalibrationSession | None = None,
+    cfg: ModelCalibrationConfig,
+    raw_simulation_toml: dict[str, Any] | None = None,
+    simulation_config_path: Path | None = None,
+    primary_solver: str | None = None,
+    solver_families: tuple[str, ...] | None = None,
+    prepared_hydraulic_support: PreparedHydraulicPropertySupport | None = None,
+) -> dict[str, Any]:
+    """Build the stable calibration contract persisted for session reuse checks."""
+    if session is not None:
+        raw_simulation_toml = dict(session.raw_simulation_toml)
+        simulation_config_path = session.simulation_config_path
+        primary_solver = session.primary_solver
+        solver_families = session.solver_families
+        prepared_hydraulic_support = session.prepared_hydraulic_support
+    return {
+        "schema": "model_calibration_session_contract_v1",
+        "simulation_config_path": (
+            None if simulation_config_path is None else str(simulation_config_path)
+        ),
+        "raw_simulation_toml": _jsonable(raw_simulation_toml or {}),
+        "primary_solver": primary_solver,
+        "solver_families": list(solver_families or ()),
+        "bounds": {
+            str(name): [float(pair[0]), float(pair[1])]
+            for name, pair in cfg.bounds.items()
+        },
+        "calibration": {
+            "objective_metric": str(cfg.calibration.objective_metric),
+            "global_method": str(cfg.calibration.global_method),
+        },
+        "objective": _jsonable(cfg.objective.model_dump(mode="python")),
+        "parameters": [
+            _jsonable(item.model_dump(mode="python"))
+            for item in cfg.model_calibration.parameter
+        ],
+        "outputs": [
+            _jsonable(item.model_dump(mode="python"))
+            for item in cfg.model_calibration.output
+        ],
+        "objective_blocks": [
+            _jsonable(item.model_dump(mode="python"))
+            for item in cfg.model_calibration.objective_block
+        ],
+        "prepared_hydraulic_support": (
+            None
+            if prepared_hydraulic_support is None
+            else prepared_hydraulic_support.to_summary()
+        ),
+    }
+
+
+def _session_contract_signature(
+    *,
+    session: PreparedCalibrationSession | None = None,
+    cfg: ModelCalibrationConfig,
+    raw_simulation_toml: dict[str, Any] | None = None,
+    simulation_config_path: Path | None = None,
+    primary_solver: str | None = None,
+    solver_families: tuple[str, ...] | None = None,
+    prepared_hydraulic_support: PreparedHydraulicPropertySupport | None = None,
+) -> str:
+    """Hash the stable calibration contract used to validate session reuse."""
+    payload = _session_contract_payload(
+        session=session,
+        cfg=cfg,
+        raw_simulation_toml=raw_simulation_toml,
+        simulation_config_path=simulation_config_path,
+        primary_solver=primary_solver,
+        solver_families=solver_families,
+        prepared_hydraulic_support=prepared_hydraulic_support,
+    )
+    serialized = json.dumps(payload, sort_keys=True, ensure_ascii=True)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
 def _parameter_statistics(
@@ -901,6 +982,24 @@ def _load_persisted_iteration_rows(history_path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def _manifest_allows_persisted_iteration_reuse(
+    session: PreparedCalibrationSession,
+) -> bool:
+    """Return True when the on-disk manifest matches the current session contract."""
+    manifest_path = session.session_manifest_path
+    if not manifest_path.is_file():
+        return False
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    signature = manifest.get("session_contract_signature")
+    reuse_allowed = manifest.get("persisted_iteration_reuse_allowed", True)
+    if not bool(reuse_allowed) or signature is None:
+        return False
+    return str(signature) == str(session.contract_signature)
+
+
 def _iteration_record_from_history_row(row: dict[str, Any]) -> IterationRecord | None:
     """Rehydrate one persisted JSONL row into an iteration record."""
     if not isinstance(row, dict):
@@ -1117,7 +1216,10 @@ class ModelCalibrationObjectiveEvaluator:
 
     def __post_init__(self) -> None:
         validate_objective_ready_for_calibration(self.cfg)
-        if self.cfg.model_calibration.reuse_persisted_iterations:
+        if (
+            self.cfg.model_calibration.reuse_persisted_iterations
+            and _manifest_allows_persisted_iteration_reuse(self.session)
+        ):
             self._restore_persisted_evaluations()
         self._next_iteration_index = int(self.iteration_start)
 
@@ -1583,6 +1685,14 @@ def prepare_calibration_session(
         raw_simulation_toml=dict(raw_simulation_toml),
         cfg=cfg,
     )
+    contract_signature = _session_contract_signature(
+        cfg=cfg,
+        raw_simulation_toml=dict(raw_simulation_toml),
+        simulation_config_path=cfg.simulation_config_path,
+        primary_solver=primary_solver,
+        solver_families=solver_families,
+        prepared_hydraulic_support=prepared_hydraulic_support,
+    )
 
     return PreparedCalibrationSession(
         config_path=config_path,
@@ -1598,6 +1708,7 @@ def prepare_calibration_session(
         primary_solver=primary_solver,
         supported_v1_backend=primary_solver == "modflow6",
         core_settings=dict(core_settings),
+        contract_signature=contract_signature,
         parameter_names=cfg.parameter_names,
         output_names=cfg.output_names,
         objective_block_names=cfg.objective_block_names,
@@ -1646,6 +1757,8 @@ def initialize_calibration_session(
         ),
         "objective_metric": cfg.calibration.objective_metric,
         "objective_transform": cfg.objective.transform,
+        "session_contract_signature": session.contract_signature,
+        "persisted_iteration_reuse_allowed": True,
         "iteration_count": 0,
     }
     if (
@@ -1655,13 +1768,28 @@ def initialize_calibration_session(
         existing_manifest = json.loads(
             session.session_manifest_path.read_text(encoding="utf-8")
         )
+        existing_signature = existing_manifest.get("session_contract_signature")
+        if (
+            existing_signature is not None
+            and str(existing_signature) != str(session.contract_signature)
+        ):
+            raise ValueError(
+                "Cannot resume calibration session because the persisted "
+                "session contract does not match the current calibration "
+                "configuration. Use a new calibration_id or disable "
+                "resume_existing_session."
+        )
         resumed_iteration_count = int(existing_manifest.get("iteration_count", 0))
+        reuse_allowed = bool(existing_manifest.get("persisted_iteration_reuse_allowed", True))
+        if existing_signature is None and resumed_iteration_count > 0:
+            reuse_allowed = False
         manifest = {
             **existing_manifest,
             **manifest,
             "iteration_count": resumed_iteration_count,
             "status": "resumed_prepared" if resumed_iteration_count > 0 else "prepared",
             "resumed_iteration_count": resumed_iteration_count,
+            "persisted_iteration_reuse_allowed": reuse_allowed,
         }
     session.session_manifest_path.write_text(
         json.dumps(manifest, indent=2, ensure_ascii=True) + "\n",

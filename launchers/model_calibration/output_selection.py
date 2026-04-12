@@ -10,11 +10,36 @@ boundary locally to `launchers.model_calibration`:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
+from collections.abc import Mapping
 
 import numpy as np
 
 from launchers.model_calibration.config import ModelCalibrationConfig
+
+
+_RUNTIME_MODEL_VARIABLE_NAMES = (
+    "watertable_elevation",
+    "watertable_depth",
+    "seepage_areas",
+    "outflow_drain",
+    "outlet_discharge_east_side_m3_s",
+    "groundwater_flux",
+    "groundwater_storage",
+    "accumulation_flux",
+    "concentration_seepage",
+    "mass_seepage",
+    "mass_accumulated",
+)
+_VARIABLE_ALIASES = {
+    "outlet_discharge": ("outlet_discharge_east_side_m3_s",),
+    "head": ("watertable_elevation",),
+    "depth": ("watertable_depth",),
+}
+_BOUNDARY_VARIABLE_IDS = {
+    "outlet_discharge_east_side_m3_s": "east_side",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +133,306 @@ def _iter_container_items(container: Any) -> list[tuple[str, Any]]:
     return []
 
 
+def _sort_time_key(key: Any) -> tuple[int, float | str]:
+    """Return a stable sort key for mixed numeric/string time indices."""
+    if isinstance(key, (int, float, np.integer, np.floating)):
+        return (0, float(key))
+    text = str(key)
+    try:
+        return (0, float(text))
+    except ValueError:
+        return (1, text)
+
+
+def _execution_scope(run_state: Any) -> Any:
+    """Return the execution registry/scope exposed by one run-state payload."""
+    if isinstance(run_state, dict):
+        execution = run_state.get("execution")
+        if execution is not None:
+            return execution
+    return getattr(run_state, "execution", None)
+
+
+def _models_by_run_id(run_state: Any) -> Mapping[str, Any]:
+    """Return the produced solver models keyed by run id when available."""
+    execution = _execution_scope(run_state)
+    if execution is None:
+        return {}
+    if isinstance(execution, dict):
+        models = execution.get("models_by_run_id")
+        return models if isinstance(models, Mapping) else {}
+    models = getattr(execution, "models_by_run_id", None)
+    return models if isinstance(models, Mapping) else {}
+
+
+def _boundary_id_for_variable(variable_name: str) -> str | None:
+    """Return the canonical boundary id exposed by one boundary series."""
+    return _BOUNDARY_VARIABLE_IDS.get(str(variable_name).strip())
+
+
+def _model_postprocess_dir(model: Any) -> Path | None:
+    """Resolve the persisted `_postprocess` directory for one solver model."""
+    save_file = getattr(model, "save_file", None)
+    if save_file:
+        save_path = Path(str(save_file)).expanduser()
+        if save_path.name == "_postprocess":
+            return save_path
+    full_path = getattr(model, "full_path", None)
+    if full_path:
+        return Path(str(full_path)).expanduser() / "_postprocess"
+    return None
+
+
+def _load_npy_payload(path: Path) -> Any:
+    """Load one post-process `.npy` payload."""
+    payload = np.load(path, allow_pickle=True)
+    if getattr(payload, "shape", None) == () and hasattr(payload, "item"):
+        item = payload.item()
+        if isinstance(item, Mapping):
+            return dict(item)
+        return item
+    return np.asarray(payload, dtype=float)
+
+
+def _load_mesh_npz_payload(path: Path) -> tuple[dict[Any, Any], np.ndarray | None]:
+    """Load one native-mesh `.npz` export as a time-indexed mapping."""
+    payload = np.load(path, allow_pickle=True)
+    values = np.asarray(payload["values"], dtype=float)
+    if "time_index" in payload:
+        time_keys = list(payload["time_index"])
+    elif "times" in payload:
+        time_keys = list(payload["times"])
+    else:
+        time_keys = list(range(values.shape[0] if values.ndim > 1 else 1))
+    cell_ids = (
+        np.asarray(payload["cell_ids"], dtype=int).reshape(-1)
+        if "cell_ids" in payload
+        else None
+    )
+    if values.ndim <= 1:
+        return {time_keys[0]: values.reshape(-1)}, cell_ids
+    return {
+        time_keys[index]: np.asarray(values[index], dtype=float).reshape(-1)
+        for index in range(values.shape[0])
+    }, cell_ids
+
+
+def _raw_model_variable_payload(
+    model: Any,
+    *,
+    variable_name: str,
+) -> tuple[Any | None, str | None, np.ndarray | None]:
+    """Resolve one variable payload from model memory first, then disk fallback."""
+    attr_name = f"dict_{variable_name}"
+    attr_value = getattr(model, attr_name, None)
+    if attr_value is not None and (
+        not isinstance(attr_value, Mapping) or len(attr_value) > 0
+    ):
+        return attr_value, "runtime_attribute", None
+
+    postprocess_dir = _model_postprocess_dir(model)
+    if postprocess_dir is None:
+        return None, None, None
+
+    npy_path = postprocess_dir / f"{variable_name}.npy"
+    if npy_path.is_file():
+        return _load_npy_payload(npy_path), "postprocess_npy", None
+
+    mesh_npz_path = postprocess_dir / "_mesh" / f"flow_{variable_name}.npz"
+    if mesh_npz_path.is_file():
+        payload, cell_ids = _load_mesh_npz_payload(mesh_npz_path)
+        return payload, "postprocess_mesh_npz", cell_ids
+
+    return None, None, None
+
+
+def _coordinates_from_runtime_mesh_support(
+    support: Any,
+    *,
+    cell_ids: np.ndarray | None = None,
+) -> np.ndarray | None:
+    """Return cell-centroid coordinates from runtime mesh support metadata."""
+    xs = np.asarray(getattr(support, "cell_centroid_x_m", ()), dtype=float).reshape(-1)
+    ys = np.asarray(getattr(support, "cell_centroid_y_m", ()), dtype=float).reshape(-1)
+    if xs.size == 0 or ys.size != xs.size:
+        return None
+    if cell_ids is not None and cell_ids.size > 0:
+        if np.any(cell_ids < 0) or np.any(cell_ids >= xs.size):
+            return None
+        xs = xs[cell_ids]
+        ys = ys[cell_ids]
+    return np.column_stack([xs, ys]).astype(float, copy=False)
+
+
+def _coordinates_from_solver_mesh(
+    solver_mesh: Any,
+    *,
+    cell_ids: np.ndarray | None = None,
+) -> np.ndarray | None:
+    """Return cell-centroid coordinates from one solver mesh when exposed."""
+    if solver_mesh is None or not hasattr(solver_mesh, "cell_centroids"):
+        return None
+    try:
+        centroids = np.asarray(solver_mesh.cell_centroids(), dtype=float)
+    except Exception:
+        return None
+    if centroids.size == 0:
+        return None
+    if centroids.ndim == 2 and centroids.shape[1] >= 2:
+        coords = centroids[:, :2]
+    else:
+        try:
+            coords = centroids.reshape(-1, 2)
+        except ValueError:
+            return None
+    if cell_ids is not None and cell_ids.size > 0:
+        if np.any(cell_ids < 0) or np.any(cell_ids >= coords.shape[0]):
+            return None
+        coords = coords[cell_ids]
+    return np.asarray(coords, dtype=float)
+
+
+def _coordinates_from_structured_grid(
+    model: Any,
+    *,
+    cell_ids: np.ndarray | None = None,
+) -> np.ndarray | None:
+    """Return structured-grid cell centers from legacy solver attributes."""
+    nrow = getattr(model, "nrow", None)
+    ncol = getattr(model, "ncol", None)
+    resolution = getattr(model, "resolution", None)
+    xul = getattr(model, "xul", None)
+    yul = getattr(model, "yul", None)
+    if any(value is None for value in (nrow, ncol, resolution, xul, yul)):
+        return None
+    nrow = int(nrow)
+    ncol = int(ncol)
+    resolution = float(resolution)
+    xs = float(xul) + (np.arange(ncol, dtype=float) + 0.5) * resolution
+    ys = float(yul) - (np.arange(nrow, dtype=float) + 0.5) * resolution
+    grid_x, grid_y = np.meshgrid(xs, ys)
+    coords = np.column_stack([grid_x.reshape(-1), grid_y.reshape(-1)])
+    if cell_ids is not None and cell_ids.size > 0:
+        if np.any(cell_ids < 0) or np.any(cell_ids >= coords.shape[0]):
+            return None
+        coords = coords[cell_ids]
+    return np.asarray(coords, dtype=float)
+
+
+def _model_cell_coordinates(
+    model: Any,
+    *,
+    value_count: int,
+    cell_ids: np.ndarray | None = None,
+) -> np.ndarray | None:
+    """Resolve per-cell coordinates aligned with one flattened model array."""
+    if value_count <= 0:
+        return None
+    support = getattr(model, "runtime_mesh_support", None)
+    coords = _coordinates_from_runtime_mesh_support(support, cell_ids=cell_ids)
+    if coords is not None and coords.shape[0] == value_count:
+        return coords
+
+    solver_mesh = getattr(model, "solver_mesh", None)
+    coords = _coordinates_from_solver_mesh(solver_mesh, cell_ids=cell_ids)
+    if coords is not None and coords.shape[0] == value_count:
+        return coords
+
+    coords = _coordinates_from_structured_grid(model, cell_ids=cell_ids)
+    if coords is not None and coords.shape[0] == value_count:
+        return coords
+    return None
+
+
+def _canonicalize_model_slice(
+    *,
+    variable_name: str,
+    values: Any,
+    model: Any,
+    cell_ids: np.ndarray | None = None,
+) -> Any:
+    """Normalize one solver output slice to the canonical selection payload."""
+    boundary_id = _boundary_id_for_variable(variable_name)
+    flat_values = np.asarray(values, dtype=float).reshape(-1)
+    if boundary_id is not None:
+        return {boundary_id: tuple(float(value) for value in flat_values)}
+
+    coordinates = _model_cell_coordinates(
+        model,
+        value_count=int(flat_values.size),
+        cell_ids=cell_ids,
+    )
+    if coordinates is not None:
+        return {
+            "coordinates": np.asarray(coordinates, dtype=float),
+            "values": flat_values.astype(float, copy=False),
+        }
+    return flat_values.astype(float, copy=False)
+
+
+def _canonicalize_model_payload(
+    *,
+    variable_name: str,
+    payload: Any,
+    model: Any,
+    cell_ids: np.ndarray | None = None,
+) -> Any:
+    """Convert one raw solver payload to the canonical calibration structure."""
+    if isinstance(payload, Mapping):
+        return {
+            time_key: _canonicalize_model_slice(
+                variable_name=variable_name,
+                values=time_values,
+                model=model,
+                cell_ids=cell_ids,
+            )
+            for time_key, time_values in sorted(
+                payload.items(),
+                key=lambda item: _sort_time_key(item[0]),
+            )
+        }
+    return _canonicalize_model_slice(
+        variable_name=variable_name,
+        values=payload,
+        model=model,
+        cell_ids=cell_ids,
+    )
+
+
+def _iter_runtime_model_variables(
+    run_state: Any,
+) -> tuple[CanonicalOutputVariable, ...]:
+    """Extract canonical variables from produced solver models when available."""
+    variables: list[CanonicalOutputVariable] = []
+    for run_id, model in _models_by_run_id(run_state).items():
+        for variable_name in _RUNTIME_MODEL_VARIABLE_NAMES:
+            raw_payload, payload_source, cell_ids = _raw_model_variable_payload(
+                model,
+                variable_name=variable_name,
+            )
+            if raw_payload is None:
+                continue
+            variables.append(
+                CanonicalOutputVariable(
+                    name=variable_name,
+                    payload=_canonicalize_model_payload(
+                        variable_name=variable_name,
+                        payload=raw_payload,
+                        model=model,
+                        cell_ids=cell_ids,
+                    ),
+                    source_key=(
+                        f"execution.models_by_run_id[{run_id}].{payload_source}"
+                    ),
+                    metadata={
+                        "run_id": str(run_id),
+                        "source_kind": str(payload_source),
+                    },
+                )
+            )
+    return tuple(variables)
+
+
 def canonicalize_run_outputs(run_state: Any) -> CanonicalOutputBundle:
     """Build a canonical output bundle from a heterogeneous run state."""
     variables: dict[str, CanonicalOutputVariable] = {}
@@ -121,6 +446,20 @@ def canonicalize_run_outputs(run_state: Any) -> CanonicalOutputBundle:
                     source_key=source_name,
                 )
             aliases.setdefault(key, key)
+
+    for variable in _iter_runtime_model_variables(run_state):
+        if variable.name not in variables:
+            variables[variable.name] = variable
+        aliases.setdefault(variable.name, variable.name)
+
+    for alias_name, candidate_names in _VARIABLE_ALIASES.items():
+        if alias_name in variables:
+            aliases.setdefault(alias_name, alias_name)
+            continue
+        for candidate_name in candidate_names:
+            if candidate_name in variables:
+                aliases.setdefault(alias_name, candidate_name)
+                break
 
     return CanonicalOutputBundle(variables=variables, aliases=aliases)
 
