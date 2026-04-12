@@ -44,6 +44,24 @@ class CanonicalOutputBundle:
         raise KeyError(f"Unknown canonical output '{key}'")
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedOutputSelector:
+    """Prepared observable selector compiled once from launcher config."""
+
+    name: str
+    variable: str
+    variable_keys: tuple[str, ...]
+    source: str
+    support: str
+    x: float | None = None
+    y: float | None = None
+    boundary_id: str | None = None
+    time: str | None = None
+    time_window: tuple[str, str] | None = None
+    time_reducer: str | None = None
+    reducer: str | None = None
+
+
 def _candidate_output_containers(run_state: Any) -> tuple[tuple[str, Any], ...]:
     """Return possible output containers in lookup priority order."""
     containers: list[tuple[str, Any]] = []
@@ -135,6 +153,31 @@ def _output_variable_keys(output_cfg: Any) -> tuple[str, ...]:
     if variable == "outlet_discharge" and boundary_id is not None:
         keys.append(f"outlet_discharge_{boundary_id}_m3_s")
     return tuple(dict.fromkeys(keys))
+
+
+def prepare_output_selectors(
+    cfg: ModelCalibrationConfig,
+) -> tuple[PreparedOutputSelector, ...]:
+    """Compile stable observable selectors from launcher config."""
+    selectors: list[PreparedOutputSelector] = []
+    for output_cfg in cfg.model_calibration.output:
+        selectors.append(
+            PreparedOutputSelector(
+                name=str(output_cfg.name),
+                variable=str(output_cfg.variable),
+                variable_keys=_output_variable_keys(output_cfg),
+                source=str(output_cfg.source),
+                support=str(output_cfg.support),
+                x=output_cfg.x,
+                y=output_cfg.y,
+                boundary_id=output_cfg.boundary_id,
+                time=output_cfg.time,
+                time_window=output_cfg.time_window,
+                time_reducer=output_cfg.time_reducer,
+                reducer=output_cfg.reducer,
+            )
+        )
+    return tuple(selectors)
 
 
 def _is_spatial_sample_mapping(payload: Any) -> bool:
@@ -316,7 +359,10 @@ def _select_variable_output_value(
 ) -> tuple[float, ...]:
     """Select one observable by variable/support when no explicit name exists."""
     last_error: Exception | None = None
-    for variable_key in _output_variable_keys(output_cfg):
+    variable_keys = getattr(output_cfg, "variable_keys", None)
+    if variable_keys is None:
+        variable_keys = _output_variable_keys(output_cfg)
+    for variable_key in variable_keys:
         try:
             payload = _lookup_bundle_or_run_state(
                 bundle=bundle,
@@ -349,9 +395,22 @@ def select_candidate_outputs(
     run_state: Any,
 ) -> dict[str, tuple[float, ...]]:
     """Select configured simulated observables from one run-state payload."""
+    selectors = prepare_output_selectors(cfg)
+    return select_candidate_outputs_from_selectors(
+        selectors=selectors,
+        run_state=run_state,
+    )
+
+
+def select_candidate_outputs_from_selectors(
+    *,
+    selectors: tuple[PreparedOutputSelector, ...],
+    run_state: Any,
+) -> dict[str, tuple[float, ...]]:
+    """Select configured observables using prepared selectors."""
     bundle = canonicalize_run_outputs(run_state)
     selected: dict[str, tuple[float, ...]] = {}
-    for output_cfg in cfg.model_calibration.output:
+    for output_cfg in selectors:
         try:
             value = _lookup_bundle_or_run_state(
                 bundle=bundle,
@@ -374,6 +433,9 @@ def select_candidate_outputs(
 __all__ = (
     "CanonicalOutputBundle",
     "CanonicalOutputVariable",
+    "PreparedOutputSelector",
     "canonicalize_run_outputs",
+    "prepare_output_selectors",
     "select_candidate_outputs",
+    "select_candidate_outputs_from_selectors",
 )

@@ -16,7 +16,10 @@ from launchers.model_calibration.runtime import (
     append_iteration_record,
     select_candidate_outputs,
 )
-from launchers.model_calibration.output_selection import canonicalize_run_outputs
+from launchers.model_calibration.output_selection import (
+    canonicalize_run_outputs,
+    prepare_output_selectors,
+)
 from launchers.model_calibration.property_arrays import build_property_array_set
 from launchers.model_calibration.templates import render_model_calibration_template
 
@@ -342,6 +345,7 @@ def test_model_calibration_launcher_returns_scaffold_summary(tmp_path: Path) -> 
     assert summary["supported_v1_backend"] is True
     assert summary["n_parameters"] == 2
     assert summary["n_outputs"] == 2
+    assert summary["n_prepared_output_selectors"] == 2
     assert summary["n_objective_blocks"] == 2
     assert summary["parameter_names"] == ["K_global_factor", "Sy_global"]
     assert summary["objective_block_names"] == ["heads", "flux"]
@@ -477,6 +481,27 @@ def test_model_calibration_canonicalizes_run_outputs() -> None:
     assert bundle.get("pz_01") == [10.0]
     assert bundle.get("watertable_elevation") == [9.0]
     assert bundle.variables["pz_01"].source_key == "calibration_outputs"
+
+
+def test_model_calibration_prepares_output_selectors(tmp_path: Path) -> None:
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_model_calibration_config(config_path)
+    cfg = ModelCalibrationConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        base_dir=tmp_path,
+    )
+
+    selectors = prepare_output_selectors(cfg)
+
+    assert [selector.name for selector in selectors] == [
+        "pz_01",
+        "q_outlet_lowflow_mean",
+    ]
+    assert selectors[0].variable_keys == ("watertable_elevation",)
+    assert selectors[1].variable_keys == (
+        "outlet_discharge",
+        "outlet_discharge_east_side_m3_s",
+    )
 
 
 def test_model_calibration_actualize_candidate_writes_override_config(
