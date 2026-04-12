@@ -48,6 +48,9 @@ class TransportTimeseriesPostprocess(FlowTimeseriesPostprocess):
         residence_times: bool = False,
         concentration_seepage: bool = False,
         mass_accumulated: bool = False,
+        *,
+        store: Any = None,
+        sim_id: str | None = None,
     ) -> None:
         """Build and export transport-enriched time series.
 
@@ -92,6 +95,8 @@ class TransportTimeseriesPostprocess(FlowTimeseriesPostprocess):
             intermittency_monthly=intermittency_monthly,
             intermittency_weekly=intermittency_weekly,
             intermittency_daily=intermittency_daily,
+            store=store,
+            sim_id=sim_id,
         )
 
     def _load_additional_products(self) -> None:
@@ -118,8 +123,8 @@ class TransportTimeseriesPostprocess(FlowTimeseriesPostprocess):
                     self.shp_particles = None
 
         if self.model_mt3dms is not None:
-            self.concentration_seepage_data = self._try_load_npy("concentration_seepage")
-            self.mass_accumulated_data = self._try_load_npy("mass_accumulated")
+            self.concentration_seepage_data = self._load_field_from_store("concentration_seepage")
+            self.mass_accumulated_data = self._load_field_from_store("mass_accumulated")
 
     def _append_additional_columns(self, frame: pd.DataFrame, dem_clip: np.ndarray) -> None:
         """Append transport concentration/mass columns and optional residence time.
