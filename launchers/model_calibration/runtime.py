@@ -137,10 +137,16 @@ class IterationRecord:
     block_costs: dict[str, float] = field(default_factory=dict)
     status: str = "ok"
     failure_reason: str | None = None
+    objective_score: float | None = None
+    block_details: tuple[dict[str, Any], ...] = ()
+    objective_metadata: dict[str, Any] = field(default_factory=dict)
+    candidate_run_id: str | None = None
+    candidate_config_path: str | None = None
 
-    def to_mapping(self) -> dict[str, Any]:
+    def to_mapping(self, *, detail_level: str = "minimal") -> dict[str, Any]:
         """Return one JSON-serializable view of the iteration record."""
-        return {
+        detail_key = str(detail_level).strip().lower()
+        payload = {
             "iteration_id": str(self.iteration_id),
             "params_vector": [float(value) for value in self.params_vector],
             "params_named": {
@@ -157,6 +163,22 @@ class IterationRecord:
                 None if self.failure_reason is None else str(self.failure_reason)
             ),
         }
+        if detail_key in {"diagnostic", "full"}:
+            payload.update(
+                {
+                    "objective_score": (
+                        None
+                        if self.objective_score is None
+                        else float(self.objective_score)
+                    ),
+                    "block_details": _jsonable(list(self.block_details)),
+                    "candidate_run_id": self.candidate_run_id,
+                    "candidate_config_path": self.candidate_config_path,
+                }
+            )
+        if detail_key == "full":
+            payload["objective_metadata"] = _jsonable(self.objective_metadata)
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,13 +223,22 @@ class CandidateRunOutcome:
         """Convert one run outcome into the persisted minimal iteration record."""
         failure_reason = self.error_message
         objective_total: float | None = None
+        objective_score: float | None = None
         block_costs: dict[str, float] = {}
+        block_details: tuple[dict[str, Any], ...] = ()
+        objective_metadata: dict[str, Any] = {}
         if self.objective_evaluation is not None:
             objective_total = float(self.objective_evaluation.total_cost)
+            objective_score = float(self.objective_evaluation.total_score)
             block_costs = {
                 block.name: float(block.normalized_cost)
                 for block in self.objective_evaluation.blocks
             }
+            block_details = tuple(
+                block.to_mapping()
+                for block in self.objective_evaluation.blocks
+            )
+            objective_metadata = dict(self.objective_evaluation.metadata)
         elif self.status in {"solver_run_failed", "objective_evaluation_failed"}:
             objective_total = math.inf
         return IterationRecord(
@@ -218,6 +249,11 @@ class CandidateRunOutcome:
             block_costs=block_costs,
             status=self.status,
             failure_reason=failure_reason,
+            objective_score=objective_score,
+            block_details=block_details,
+            objective_metadata=objective_metadata,
+            candidate_run_id=self.request.candidate_run_id,
+            candidate_config_path=str(self.request.candidate_config_path),
         )
 
 
@@ -859,6 +895,12 @@ class ModelCalibrationObjectiveEvaluator:
                 block_costs={},
                 status="parameter_injection_failed",
                 failure_reason=f"{type(exc).__name__}: {exc}",
+                objective_score=-math.inf,
+                objective_metadata={
+                    "status": "parameter_injection_failed",
+                    "error_type": type(exc).__name__,
+                    "error_message": f"{type(exc).__name__}: {exc}",
+                },
             )
             if self.record_callback is not None:
                 self.record_callback(record)
@@ -1114,11 +1156,18 @@ def append_iteration_record(
     *,
     history_path: Path,
     record: IterationRecord,
+    detail_level: str = "minimal",
 ) -> None:
     """Append one minimal iteration record to the session JSONL history."""
     history_path.parent.mkdir(parents=True, exist_ok=True)
     with history_path.open("a", encoding="utf-8") as stream:
-        stream.write(json.dumps(record.to_mapping(), ensure_ascii=True) + "\n")
+        stream.write(
+            json.dumps(
+                record.to_mapping(detail_level=detail_level),
+                ensure_ascii=True,
+            )
+            + "\n"
+        )
 
 
 def update_session_manifest(
@@ -1143,9 +1192,14 @@ def persist_iteration_record(
     *,
     session: PreparedCalibrationSession,
     record: IterationRecord,
+    detail_level: str = "minimal",
 ) -> dict[str, Any]:
     """Append one iteration record and refresh the session manifest counter."""
-    append_iteration_record(history_path=session.iteration_history_path, record=record)
+    append_iteration_record(
+        history_path=session.iteration_history_path,
+        record=record,
+        detail_level=detail_level,
+    )
     return update_session_manifest(manifest_path=session.session_manifest_path, record=record)
 
 

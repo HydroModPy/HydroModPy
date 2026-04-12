@@ -103,6 +103,9 @@ Les briques suivantes sont maintenant presentes dans le depot :
 - `persist_iteration_history = false` desactive l'ecriture JSONL des
   iterations tout en gardant le comptage et le dernier statut dans le
   manifeste.
+- `persist_iteration_detail_level = "minimal"` reste le defaut strict ; les
+  niveaux `"diagnostic"` et `"full"` ajoutent les informations de score, de
+  blocs et de candidat dans l'historique JSONL quand elles sont demandees.
 
 Les limites restantes sont explicites :
 
@@ -930,6 +933,11 @@ explicite du launcher. La relance d'une distribution de modeles doit etre une
 deuxieme option explicite, limitee par `model_distribution_max_reruns`, pour
 eviter de transformer automatiquement une calibration stochastique en campagne
 massive de postprocess.
+
+Le niveau `minimal` doit rester suffisant pour reconstruire une cartographie
+simple de la fonction objectif : parametres, objectif total, contributions par
+bloc et statut. Les niveaux `diagnostic` et `full` sont reserves aux analyses
+plus fines et ne doivent pas devenir le mode par defaut.
 
 ## Cycle d'execution cible
 
