@@ -10,6 +10,23 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+def _write_bare_tif(path: str, data: np.ndarray, nodata: float = -99999.0) -> None:
+    """Write a 2D array as a GeoTIFF with dummy georef (whitebox needs geokeys)."""
+    import rasterio
+    from rasterio.crs import CRS
+    from rasterio.transform import from_bounds
+
+    nrow, ncol = data.shape
+    transform = from_bounds(0, 0, ncol, nrow, ncol, nrow)
+    with rasterio.open(
+        path, "w", driver="GTiff",
+        height=nrow, width=ncol, count=1,
+        dtype=data.dtype, nodata=nodata, transform=transform,
+        crs=CRS.from_epsg(32631),
+    ) as dst:
+        dst.write(data, 1)
+
+
 # Configurable derived variables and their default state.
 DERIVED_VARIABLES = {
     "watertable_elevation": True,
@@ -17,6 +34,7 @@ DERIVED_VARIABLES = {
     "seepage_areas": True,
     "groundwater_flux": False,
     "accumulation_flux": False,
+    "outflow_drain": False,
     "concentration_seepage": False,
     "mass_seepage": False,
     "mass_accumulated": False,
@@ -71,6 +89,9 @@ def compute_derived(
     if flags.get("accumulation_flux"):
         _compute_accumulation_flux(sim_id, store, n_timesteps, n_cells)
 
+    if flags.get("outflow_drain"):
+        _compute_outflow_drain(sim_id, store, n_timesteps, n_cells)
+
     if flags.get("concentration_seepage"):
         _compute_concentration_seepage(sim_id, store, n_timesteps, n_cells)
 
@@ -95,15 +116,38 @@ def _compute_watertable_elevation(
     except ImportError:
         get_water_table = None
 
+    # Sentinels (HDRY/HNOFLO) should already be NaN from the extraction
+    # phase.  Use NaN as the nodata marker for flopy's get_water_table.
+    # Legacy fallback: if heads still contain non-NaN negatives far below
+    # any realistic elevation, treat them as sentinels too.
+    _SENTINEL_THRESHOLD = -50.0
+    head_sample = head_arr[:].ravel()
+    finite_heads = head_sample[np.isfinite(head_sample)]
+    if finite_heads.size > 0:
+        p01 = float(np.nanpercentile(finite_heads[finite_heads > _SENTINEL_THRESHOLD], 1)) if np.any(finite_heads > _SENTINEL_THRESHOLD) else 0.0
+        legacy_floor = min(_SENTINEL_THRESHOLD, p01 - 200.0)
+    else:
+        legacy_floor = _SENTINEL_THRESHOLD
+
     for t in range(n_timesteps):
         head = head_arr[t]
         if n_layers == 1:
-            wt = head[0] if head.ndim == 2 else head
+            wt = head[0].copy() if head.ndim == 2 else head.copy()
         elif get_water_table is not None:
-            wt = get_water_table(head.reshape(n_layers, -1, 1).squeeze(), hdry=-100.0)
+            # Replace NaN with a dummy sentinel for flopy (NaN != NaN
+            # breaks its internal comparison).  Restore NaN afterwards.
+            _DUMMY_HDRY = -1.0e+30
+            head_clean = head.reshape(n_layers, -1, 1).squeeze().copy()
+            nan_mask_3d = ~np.isfinite(head_clean)
+            head_clean[nan_mask_3d] = _DUMMY_HDRY
+            wt = get_water_table(head_clean, hdry=_DUMMY_HDRY)
             wt = wt.ravel()[:n_cells]
+            wt[np.isclose(wt, _DUMMY_HDRY)] = np.nan
         else:
-            wt = head[0] if head.ndim == 2 else head
+            wt = head[0].copy() if head.ndim == 2 else head.copy()
+        # Mask any remaining sentinel-like values (legacy stores without
+        # NaN masking, or MF6 outputs with different sentinel values).
+        wt = np.where(np.isfinite(wt) & (wt < legacy_floor), np.nan, wt)
         store.write_field(
             sim_id, "watertable_elevation", t,
             wt.astype("float64"),
@@ -130,11 +174,15 @@ def _compute_watertable_depth(
     """
     grp = store.open_zarr_group(sim_id, mode="r")
 
-    # Try to read surface elevation from z_interfaces
+    # Try to read surface elevation (per-cell top array preferred).
     top_elev = None
-    if "mesh" in grp and "z_interfaces" in grp["mesh"]:
-        z_intf = grp["mesh"]["z_interfaces"][:]
-        top_elev = np.full(n_cells, z_intf[0])
+    if "mesh" in grp:
+        mesh = grp["mesh"]
+        if "surface_top" in mesh:
+            top_elev = np.asarray(mesh["surface_top"][:], dtype="float64").ravel()[:n_cells]
+        elif "z_interfaces" in mesh:
+            z_intf = mesh["z_interfaces"][:]
+            top_elev = np.full(n_cells, float(z_intf[0]))
 
     for t in range(n_timesteps):
         try:
@@ -144,9 +192,10 @@ def _compute_watertable_depth(
             wt = head[0] if head.ndim == 2 else head
 
         if top_elev is not None:
-            depth = top_elev - wt
+            depth = np.maximum(top_elev - wt, 0.0)
         else:
-            depth = -wt  # fallback: negative head ≈ depth below datum
+            logger.debug("No surface elevation for watertable_depth at sim %s", sim_id)
+            return
 
         store.write_field(
             sim_id, "watertable_depth", t,
@@ -170,12 +219,19 @@ def _compute_seepage_areas(
     """
     grp = store.open_zarr_group(sim_id, mode="r")
 
-    if "mesh" not in grp or "z_interfaces" not in grp["mesh"]:
-        logger.debug("No mesh z_interfaces, skipping seepage_areas for sim %s", sim_id)
+    if "mesh" not in grp:
+        logger.debug("No mesh data, skipping seepage_areas for sim %s", sim_id)
         return
 
-    z_intf = grp["mesh"]["z_interfaces"][:]
-    top_elev = z_intf[0]
+    mesh = grp["mesh"]
+    if "surface_top" in mesh:
+        top_elev = np.asarray(mesh["surface_top"][:], dtype="float64").ravel()[:n_cells]
+    elif "z_interfaces" in mesh:
+        z_intf = mesh["z_interfaces"][:]
+        top_elev = np.full(n_cells, float(z_intf[0]))
+    else:
+        logger.debug("No surface elevation data, skipping seepage_areas for sim %s", sim_id)
+        return
 
     for t in range(n_timesteps):
         try:
@@ -247,7 +303,9 @@ def _compute_accumulation_flux(
 ) -> None:
     """Drain flux routed on the drainage network.
 
-    Reads DRN budget component and accumulates outflow per cell.
+    Tries to route via whitebox d8_mass_flux using the geographic fill DEM
+    from the store (produces a connected stream network). Falls back to
+    simple ``abs(drn)`` per cell if geographic data or whitebox is unavailable.
     """
     grp = store.open_zarr_group(sim_id, mode="r")
     budget_grp = grp.get("budget")
@@ -256,7 +314,7 @@ def _compute_accumulation_flux(
         return
 
     drn_key = None
-    for candidate in ("drn", "drain", "DRN"):
+    for candidate in ("drn", "drain", "drains", "DRN", "DRAINS"):
         if candidate in budget_grp:
             drn_key = candidate
             break
@@ -265,9 +323,22 @@ def _compute_accumulation_flux(
         logger.debug("No DRN budget field for accumulation_flux, sim %s", sim_id)
         return
 
+    # Try whitebox D8 routing with fill DEM from geographic store
+    try:
+        _accumulation_flux_routed(
+            sim_id, store, budget_grp, drn_key, n_timesteps, n_cells,
+        )
+        logger.debug("Derived accumulation_flux (routed) for sim %s", sim_id)
+        return
+    except Exception:
+        logger.debug(
+            "Whitebox routing unavailable for sim %s, falling back to abs(drn)",
+            sim_id,
+        )
+
+    # Fallback: simple abs(drn) without routing
     for t in range(n_timesteps):
         drn = budget_grp[drn_key][t]
-        # Sum over layers if 3D
         if drn.ndim == 2:
             flux = np.abs(drn).sum(axis=0)
         else:
@@ -278,7 +349,131 @@ def _compute_accumulation_flux(
             subgroup="derived",
         )
 
-    logger.debug("Derived accumulation_flux for sim %s", sim_id)
+    logger.debug("Derived accumulation_flux (simple) for sim %s", sim_id)
+
+
+def _accumulation_flux_routed(
+    sim_id: str,
+    store: Any,
+    budget_grp: Any,
+    drn_key: str,
+    n_timesteps: int,
+    n_cells: int,
+) -> None:
+    """Route drain outflow downstream via whitebox d8_mass_flux.
+
+    Uses ``mesh/surface_top`` from the simulation store (at the solver
+    grid resolution) rather than the geographic fill DEM, so that routing
+    works even when the MODFLOW grid is resampled to a different shape.
+    """
+    import tempfile
+    import rasterio
+    from pathlib import Path
+    from hydromodpy.core.backends import get_whitebox_backend
+
+    # Read surface_top from mesh (solver resolution) and infer 2D shape.
+    grp = store.open_zarr_group(sim_id, mode="r")
+    mesh = grp.get("mesh")
+    if mesh is None or "surface_top" not in mesh:
+        raise KeyError("No mesh/surface_top for routing")
+    surface_top = np.asarray(mesh["surface_top"][:], dtype="float64")
+
+    # Infer 2D grid shape: try geographic metadata first, then assume square.
+    geo_meta = store.read_geographic_metadata()
+    nrow = int(geo_meta.get("nrow", 0))
+    ncol = int(geo_meta.get("ncol", 0))
+    if nrow * ncol == n_cells:
+        grid_shape = (nrow, ncol)
+    else:
+        # Resampled grid — infer from n_cells (square grids or from DuckDB).
+        side = int(np.sqrt(n_cells))
+        if side * side == n_cells:
+            grid_shape = (side, side)
+        else:
+            raise ValueError(
+                f"Cannot infer 2D grid shape from n_cells={n_cells}"
+            )
+
+    wb = get_whitebox_backend()
+
+    with tempfile.TemporaryDirectory(prefix="hmp_accflux_") as tmp:
+        # Fill surface_top with whitebox to get proper D8 routing.
+        dem_path = str(Path(tmp) / "dem.tif")
+        fill_path = str(Path(tmp) / "fill.tif")
+
+        dem_2d = surface_top.reshape(grid_shape)
+        _write_bare_tif(dem_path, dem_2d, -99999.0)
+        wb.fill_depressions(dem_path, fill_path)
+
+        with rasterio.open(fill_path) as src:
+            fill_data = src.read(1)
+
+        eff_path = str(Path(tmp) / "eff.tif")
+        abs_path = str(Path(tmp) / "abs.tif")
+        _write_bare_tif(eff_path, np.where(fill_data >= 0, 1.0, -99999), -99999.0)
+        _write_bare_tif(abs_path, np.where(fill_data >= 0, 0.0, -99999), -99999.0)
+
+        for t in range(n_timesteps):
+            drn = budget_grp[drn_key][t]
+            drain_abs = np.abs(drn).sum(axis=0) if drn.ndim == 2 else np.abs(drn)
+            drain_2d = drain_abs.reshape(grid_shape)
+            drain_2d[~np.isfinite(drain_2d)] = 0.0
+
+            load_path = str(Path(tmp) / "load.tif")
+            out_path = str(Path(tmp) / "acc.tif")
+            _write_bare_tif(load_path, drain_2d, -99999.0)
+            wb.d8_mass_flux(fill_path, load_path, eff_path, abs_path, out_path)
+
+            with rasterio.open(out_path) as src:
+                acc = src.read(1).astype("float64")
+            acc[acc < 0] = 0.0
+
+            store.write_field(
+                sim_id, "accumulation_flux", t, acc.ravel(),
+                n_timesteps=n_timesteps if t == 0 else None,
+                subgroup="derived",
+            )
+
+
+def _compute_outflow_drain(
+    sim_id: str,
+    store: Any,
+    n_timesteps: int,
+    n_cells: int,
+) -> None:
+    """Per-cell drain outflow preserving sign convention.
+
+    Like accumulation_flux but keeps the physical sign (negative = outflow).
+    """
+    grp = store.open_zarr_group(sim_id, mode="r")
+    budget_grp = grp.get("budget")
+    if budget_grp is None:
+        logger.debug("No budget fields, skipping outflow_drain for sim %s", sim_id)
+        return
+
+    drn_key = None
+    for candidate in ("drn", "drain", "drains", "DRN", "DRAINS"):
+        if candidate in budget_grp:
+            drn_key = candidate
+            break
+
+    if drn_key is None:
+        logger.debug("No DRN budget field for outflow_drain, sim %s", sim_id)
+        return
+
+    for t in range(n_timesteps):
+        drn = budget_grp[drn_key][t]
+        if drn.ndim == 2:
+            flux = drn.sum(axis=0)
+        else:
+            flux = drn
+        store.write_field(
+            sim_id, "outflow_drain", t, flux.astype("float64"),
+            n_timesteps=n_timesteps if t == 0 else None,
+            subgroup="derived",
+        )
+
+    logger.debug("Derived outflow_drain for sim %s", sim_id)
 
 
 def _compute_concentration_seepage(
@@ -306,7 +501,8 @@ def _compute_concentration_seepage(
         # Use top layer if 3D
         if conc.ndim == 2:
             conc = conc[0]
-        result = conc * seepage
+        # NaN for non-seepage cells so stats only count seepage cells.
+        result = np.where(seepage > 0, conc * seepage, np.nan)
         store.write_field(
             sim_id, "concentration_seepage", t, result.astype("float64"),
             n_timesteps=n_timesteps if t == 0 else None,
@@ -331,7 +527,7 @@ def _compute_mass_seepage(
         return
 
     drn_key = None
-    for candidate in ("drn", "drain", "DRN"):
+    for candidate in ("drn", "drain", "drains", "DRN", "DRAINS"):
         if candidate in budget_grp:
             drn_key = candidate
             break

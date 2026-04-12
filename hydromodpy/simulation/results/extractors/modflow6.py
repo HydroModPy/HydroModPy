@@ -65,6 +65,9 @@ class Modflow6OutputAdapter:
         for t, time in enumerate(times):
             head = head_file.get_data(totim=time)
             values = head.reshape(nlay, n_cells) if head.ndim == 3 else head.reshape(nlay, n_cells)
+            values = values.astype("float64")
+            # MF6 uses 1e30 for dry/no-flow cells.
+            values[np.abs(values) > 1e20] = np.nan
             store.write_field(
                 sim_id, "head", t, values,
                 n_timesteps=n_timesteps if t == 0 else None,
@@ -74,6 +77,8 @@ class Modflow6OutputAdapter:
             self._extract_budget(
                 sim_id, store, cbc_path, times, kstpkpers,
                 spatial_fields=budget_spatial_fields,
+                nlay=nlay,
+                n_cells=n_cells,
             )
 
         lst_path = solver_output_dir / f"{model_name}.lst"
@@ -81,6 +86,9 @@ class Modflow6OutputAdapter:
             self._extract_mass_balance(sim_id, store, lst_path)
 
         head_file.close()
+
+        # Write minimal mesh data (surface elevation) for derived variables.
+        self._write_surface_elevation(sim_id, store, solver_output_dir, model_name, nlay, n_cells)
 
     def _extract_budget(
         self,
@@ -91,6 +99,8 @@ class Modflow6OutputAdapter:
         kstpkpers: list,
         *,
         spatial_fields: bool = False,
+        nlay: int = 1,
+        n_cells: int = 0,
     ) -> None:
         """Extract cell budget data from MF6 .cbc file."""
         import flopy.utils.binaryfile as bf
@@ -105,6 +115,11 @@ class Modflow6OutputAdapter:
                     if not data:
                         continue
                     arr = data[0]
+                    # MF6 stress packages (DRN, CHD, WEL, etc.) return
+                    # structured recarrays instead of plain ndarrays.
+                    # Convert to a full (nlay, n_cells) grid array.
+                    if hasattr(arr, "dtype") and arr.dtype.names is not None:
+                        arr = self._recarray_to_grid(arr, nlay, n_cells)
                     if hasattr(arr, "shape") and arr.ndim >= 1:
                         flux_in = float(np.maximum(arr, 0).sum())
                         flux_out = float(np.minimum(arr, 0).sum())
@@ -126,6 +141,37 @@ class Modflow6OutputAdapter:
                     logger.debug("Could not read MF6 budget '%s' at t=%d", component, t)
 
         cbb.close()
+
+    @staticmethod
+    def _recarray_to_grid(
+        rec: np.ndarray,
+        nlay: int,
+        n_cells: int,
+    ) -> np.ndarray:
+        """Convert a MF6 stress-package recarray to a full grid array.
+
+        MF6 stress packages store sparse records with 1-based ``node``
+        IDs and ``q`` flux values.  This scatters them into a dense
+        ``(nlay, n_cells)`` array.
+        """
+        names = rec.dtype.names
+        q = np.asarray(rec["q"] if "q" in names else rec[names[-1]], dtype="float64")
+
+        if n_cells == 0:
+            return q
+
+        nodes = np.asarray(rec["node"], dtype="int64") if "node" in names else None
+        out = np.zeros((nlay, n_cells), dtype="float64")
+        if nodes is not None:
+            idx = nodes - 1  # 1-based → 0-based
+            lay = idx // n_cells
+            cell = idx % n_cells
+            valid = (lay >= 0) & (lay < nlay) & (cell >= 0) & (cell < n_cells)
+            np.add.at(out, (lay[valid], cell[valid]), q[valid])
+        else:
+            n = min(len(q), n_cells)
+            out[0, :n] = q[:n]
+        return out
 
     def _extract_mass_balance(
         self,
@@ -156,6 +202,55 @@ class Modflow6OutputAdapter:
                     store.write_mass_balance(sim_id, t, total_in, total_out, pct_err)
         except Exception:
             logger.debug("Could not parse MF6 listing file %s", lst_path)
+
+    def _write_surface_elevation(
+        self,
+        sim_id: str,
+        store: ResultStore,
+        solver_output_dir: Path,
+        model_name: str,
+        nlay: int,
+        n_cells: int,
+    ) -> None:
+        """Write z_interfaces from grid data so derived variables can use them."""
+        try:
+            grb_files = list(solver_output_dir.glob("*.dis.grb")) + list(
+                solver_output_dir.glob("*.disv.grb")
+            )
+            if grb_files:
+                try:
+                    from flopy.mf6.utils import MfGrdFile
+                except ImportError:
+                    from flopy.utils import MfGrdFile
+
+                grd = MfGrdFile(str(grb_files[0]))
+                top_raw = getattr(grd, "top1d", None) or getattr(grd, "top")
+                bot_raw = getattr(grd, "bot1d", None) or getattr(grd, "bot")
+                top = np.asarray(top_raw, dtype="float64").ravel()[:n_cells]
+                botm = np.asarray(bot_raw, dtype="float64")
+                botm_per_layer = botm.reshape(nlay, n_cells) if botm.size == nlay * n_cells else None
+                if botm_per_layer is not None:
+                    z_intf = np.vstack([top.reshape(1, -1), botm_per_layer])
+                    z_flat = np.array([z_intf[:, 0].mean()])  # placeholder
+                    z_flat = np.concatenate(
+                        [top[:1], botm_per_layer[:, 0]]
+                    )  # (nlay+1,)
+                else:
+                    z_flat = np.array([float(top.mean()), float(top.mean()) - 10.0])
+            else:
+                return  # no grid binary file
+
+            grp = store._zarr_root[str(sim_id)]
+            if "mesh" not in grp:
+                grp.create_group("mesh")
+            mesh = grp["mesh"]
+            mesh.create_array("z_interfaces", data=z_flat, overwrite=True)
+            # Store the full top array so derived variables can use per-cell top.
+            mesh.create_array("surface_top", data=top, overwrite=True)
+            mesh.attrs["n_cells"] = int(n_cells)
+            mesh.attrs["n_layers"] = int(nlay)
+        except Exception:
+            logger.debug("Could not write surface elevation for sim %s", sim_id, exc_info=True)
 
     def derive(
         self,
