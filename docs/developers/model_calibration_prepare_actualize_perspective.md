@@ -90,6 +90,8 @@ Les briques suivantes sont maintenant presentes dans le depot :
   aussi lire une variable physique depuis `outputs`/`calibration_outputs`, avec
   interpolation ponderee pour les points et reduction simple pour les
   frontieres.
+- `launchers/model_calibration/output_selection.py` isole maintenant le contrat
+  `run_state -> CanonicalOutputBundle -> selected observables`.
 - les methodes qui exposent des echantillons de parametres (`gp_mapping`,
   `da_mh_gp`) produisent maintenant un artefact `model_distribution.json`
   interprete comme une distribution de modeles parametrises.
@@ -113,9 +115,8 @@ Les briques suivantes sont maintenant presentes dans le depot :
 
 Les limites restantes sont explicites :
 
-- la selection des sorties reste branchee directement au `run_state` et non
-  encore a un vrai contrat `RawRunOutputs -> CanonicalOutputBundle ->
-  SelectedObservables` branche au solveur ;
+- la selection des sorties dispose d'un `CanonicalOutputBundle` cote launcher,
+  mais il reste a brancher ce contrat directement aux sorties solveur reelles ;
 - les cartes de resurgence sont reservees dans le schema (`support = "map"`,
   `metric = "direct_cost"`), mais ne sont pas encore evaluables ;
 - la parametrisation par lithologie est visible dans le schema, mais

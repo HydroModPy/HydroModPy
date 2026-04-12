@@ -11,6 +11,11 @@ from launchers.model_calibration.objective_mapping import (
     resolve_objective_mapping_axes,
     run_objective_mapping,
 )
+from launchers.model_calibration.output_selection import (
+    CanonicalOutputBundle,
+    CanonicalOutputVariable,
+    canonicalize_run_outputs,
+)
 from launchers.model_calibration.runtime import (
     actualize_candidate,
     build_model_distribution_payload,
@@ -42,6 +47,9 @@ __all__ = (
     "build_model_distribution_payload",
     "CandidateRunOutcome",
     "CandidateRunRequest",
+    "CanonicalOutputBundle",
+    "CanonicalOutputVariable",
+    "canonicalize_run_outputs",
     "execute_best_candidate_rerun",
     "execute_candidate_run",
     "execute_model_distribution_reruns",

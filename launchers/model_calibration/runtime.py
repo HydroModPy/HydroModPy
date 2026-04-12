@@ -20,6 +20,9 @@ from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
 
 from launchers.model_calibration.config import ModelCalibrationConfig
+from launchers.model_calibration.output_selection import (
+    select_candidate_outputs as _select_candidate_outputs_from_bundle,
+)
 
 
 _NUMERIC_WITH_SUFFIX_RE = re.compile(
@@ -1551,20 +1554,7 @@ def select_candidate_outputs(
     run_state: Any,
 ) -> dict[str, tuple[float, ...]]:
     """Select configured simulated observables from one run-state payload."""
-    selected: dict[str, tuple[float, ...]] = {}
-    for output_cfg in cfg.model_calibration.output:
-        try:
-            value = _lookup_output_value(run_state, output_cfg.name)
-            selected[output_cfg.name] = _as_1d_float_tuple(
-                value,
-                label=f"simulated output '{output_cfg.name}'",
-            )
-        except KeyError:
-            selected[output_cfg.name] = _select_variable_output_value(
-                run_state=run_state,
-                output_cfg=output_cfg,
-            )
-    return selected
+    return _select_candidate_outputs_from_bundle(cfg=cfg, run_state=run_state)
 
 
 def _objective_has_observations(cfg: ModelCalibrationConfig) -> bool:
