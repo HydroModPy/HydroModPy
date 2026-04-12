@@ -450,6 +450,123 @@ def test_modflow6_binds_recharge_from_flow_sinks_sources() -> None:
     assert np.allclose(spd[1], 0.3e-3 / 86400.0)
 
 
+def test_modflow6_routes_negative_recharge_to_evt_payload() -> None:
+    model = _build_model()
+    model.flow = SimpleNamespace(
+        sinks_sources={
+            "recharge": FlowRechargeConfig(
+                values=pd.Series([0.5, -0.3], dtype=float),
+                first_clim="first",
+                units="mm/day",
+                negative_to_evt=True,
+            )
+        },
+        active_sinks_sources=["recharge"],
+    )
+
+    model._bind_recharge_from_flow()
+    spd = model._recharge_to_spd()
+
+    assert np.allclose(spd[0], 0.5e-3 / 86400.0)
+    assert np.allclose(spd[1], 0.0)
+    assert model._evt_rate_payload is not None
+    assert model._evt_rate_payload[0] == pytest.approx(0.0)
+    assert model._evt_rate_payload[1] == pytest.approx(0.3e-3 / 86400.0)
+
+
+def test_modflow6_extracts_evt_payload_from_negative_2d_recharge() -> None:
+    model = _build_model()
+
+    clipped_rch, evt_data = model._extract_evt_payload_2d(
+        {
+            0: np.array([1.0e-6, -2.0e-6], dtype=float),
+            1: np.array([-3.0e-6, 4.0e-6], dtype=float),
+        },
+        True,
+    )
+
+    assert evt_data is not None
+    np.testing.assert_allclose(clipped_rch[0], np.array([1.0e-6, 0.0], dtype=float))
+    np.testing.assert_allclose(clipped_rch[1], np.array([0.0, 4.0e-6], dtype=float))
+    np.testing.assert_allclose(evt_data[0], np.zeros(2, dtype=float))
+    np.testing.assert_allclose(evt_data[1], np.array([3.0e-6, 0.0], dtype=float))
+
+
+def test_modflow6_builds_evt_stress_period_data_from_routed_payload() -> None:
+    model = _build_model()
+    model.flow_regime = "transient"
+    model._evt_rate_payload = {0: 0.0, 1: 1.0e-6}
+    top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
+    botm_2d = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=float)
+    solver_mesh = SolverMesh.from_structured_arrays(
+        nrow=2,
+        ncol=3,
+        top=top,
+        botm=np.stack([botm_2d]),
+    )
+
+    evt_spd = model._build_evt_stress_period_data(
+        solver_mesh,
+        ocean_support_mask=np.zeros(6, dtype=bool),
+        stream_support_mask=np.zeros(6, dtype=bool),
+    )
+
+    assert evt_spd is not None
+    assert evt_spd[0] == []
+    assert len(evt_spd[1]) == 6
+    assert evt_spd[1][0] == [0, 0, pytest.approx(10.0), pytest.approx(1.0e-6), pytest.approx(1.0)]
+
+
+def test_modflow6_keeps_rewet_disabled_by_default() -> None:
+    model = _build_model()
+    model.flow_regime = "transient"
+    top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
+    botm_2d = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=float)
+    solver_mesh = SolverMesh.from_structured_arrays(
+        nrow=2,
+        ncol=3,
+        top=top,
+        botm=np.stack([botm_2d]),
+    )
+
+    rewet_record, wetdry = model._resolve_rewet_npf_options(solver_mesh)
+
+    assert rewet_record is None
+    assert wetdry is None
+
+
+def test_modflow6_enables_rewet_when_requested() -> None:
+    model = _build_model()
+    model.flow_regime = "transient"
+    model.modflow_config = model.modflow_config.model_copy(
+        update={
+            "runtime": model.modflow_config.runtime.model_copy(
+                update={"mf6_enable_rewet": True}
+            )
+        }
+    )
+    top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
+    botm_2d = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=float)
+    solver_mesh = SolverMesh.from_structured_arrays(
+        nrow=2,
+        ncol=3,
+        top=top,
+        botm=np.stack([botm_2d]),
+    )
+
+    rewet_record, wetdry = model._resolve_rewet_npf_options(solver_mesh)
+
+    assert rewet_record == [
+        "WETFCT",
+        pytest.approx(0.1),
+        "IWETIT",
+        1,
+        "IHDWET",
+        0,
+    ]
+    np.testing.assert_allclose(wetdry, np.full((1, 6), 0.1, dtype=float))
+
+
 def test_modflow6_defaults_to_zero_recharge_when_inactive() -> None:
     model = _build_model()
     model.flow = SimpleNamespace(
