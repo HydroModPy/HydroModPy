@@ -147,6 +147,8 @@ class PostprocessRunner:
                 intermittency_monthly=cfg.intermittency.monthly,
                 intermittency_yearly=cfg.intermittency.yearly,
                 intermittency_daily=cfg.intermittency.daily,
+                store=self.store,
+                sim_id=self.sim_id,
             )
             if hasattr(ts_pp, "mfdata") and ts_pp.mfdata is not None:
                 self._write_timeseries_to_store(ts_pp.mfdata)
@@ -158,6 +160,8 @@ class PostprocessRunner:
                 state.setup.geographic,
                 model_modflow=flow_model,
                 datetime_format=cfg.netcdf.datetime_format,
+                store=self.store,
+                sim_id=self.sim_id,
             )
 
         if cfg.matching_streams and state.loaded_data.hydrography is not None:
@@ -167,7 +171,6 @@ class PostprocessRunner:
                 workspace=state.setup.workspace,
                 model_modflow=flow_model,
                 iteration_label=flow_model.model_name,
-                from_calib=False,
             )
 
         if cfg.display:
@@ -213,6 +216,8 @@ class PostprocessRunner:
                 residence_times=cfg.timeseries.residence_times,
                 concentration_seepage=cfg.timeseries.concentration_seepage,
                 mass_accumulated=cfg.timeseries.mass_accumulated,
+                store=self.store,
+                sim_id=self.sim_id,
             )
             if hasattr(ts_pp, "mfdata") and ts_pp.mfdata is not None:
                 self._write_timeseries_to_store(ts_pp.mfdata)
@@ -229,6 +234,8 @@ class PostprocessRunner:
                 residence_times=cfg.netcdf.residence_times,
                 concentration_seepage=cfg.netcdf.concentration_seepage,
                 mass_accumulated=cfg.netcdf.mass_accumulated,
+                store=self.store,
+                sim_id=self.sim_id,
             )
 
         display_options = state.cfg.display.to_runtime_options()
