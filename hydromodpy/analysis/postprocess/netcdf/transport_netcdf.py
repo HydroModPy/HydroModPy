@@ -32,6 +32,8 @@ class TransportNetcdfPostprocess(FlowNetcdfPostprocess):
         concentration_seepage: bool = True,
         mass_accumulated: bool = True,
         residence_times: bool = True,
+        store: Any = None,
+        sim_id: str | None = None,
     ) -> None:
         self.model_modpath = model_modpath
         self.model_mt3dms = model_mt3dms
@@ -42,6 +44,8 @@ class TransportNetcdfPostprocess(FlowNetcdfPostprocess):
             geographic=geographic,
             model_modflow=model_modflow,
             datetime_format=datetime_format,
+            store=store,
+            sim_id=sim_id,
         )
 
     def _candidate_particle_shapefiles(self) -> Iterable[str]:

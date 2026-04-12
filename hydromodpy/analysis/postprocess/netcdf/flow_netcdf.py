@@ -35,6 +35,9 @@ class FlowNetcdfPostprocess(NetcdfWriter):
         geographic: object,
         model_modflow: object,
         datetime_format: bool = True,
+        *,
+        store: Any = None,
+        sim_id: str | None = None,
     ) -> None:
         logger.info("Exporting flow NetCDF outputs for model %s", model_modflow.model_name)
 
@@ -43,6 +46,8 @@ class FlowNetcdfPostprocess(NetcdfWriter):
         self.model_folder = model_modflow.model_folder
         self.datetime_format = datetime_format
         self.recharge = model_modflow.recharge
+        self._store = store
+        self._sim_id = sim_id
         self.base_raster_path = getattr(
             model_modflow,
             "dem_watershed_path",
@@ -84,21 +89,28 @@ class FlowNetcdfPostprocess(NetcdfWriter):
 
         return np.array(range(len(recharge)))
 
-    def _try_load_npy(self, name: str) -> Any | None:
-        """Attempt to load one postprocess ``.npy`` dict by variable name."""
-        try:
-            return np.load(
-                os.path.join(self.save_file, f"{name}.npy"),
-                allow_pickle=True,
-            ).item()
-        except Exception:
+    def _load_field_from_store(self, name: str) -> dict | None:
+        """Load a spatial field from the ResultStore as a timestep dict."""
+        if self._store is None or self._sim_id is None:
             return None
+        from hydromodpy.analysis.display.common import load_field_dict_from_store
+
+        return load_field_dict_from_store(self._store, self._sim_id, name)
 
     def _export_named_output(self, *, name: str, times: Any) -> bool:
         """Export one named flow output when available."""
-        data = self._try_load_npy(name)
+        data = self._load_field_from_store(name)
         if data is None:
             return False
+
+        # Store fields are flat 1D — reshape to 2D grid for NetCDF export.
+        import rasterio
+        with rasterio.open(self.base_raster_path) as src:
+            grid_shape = (src.height, src.width)
+        data = {
+            k: v.reshape(grid_shape) if v.size == grid_shape[0] * grid_shape[1] else v
+            for k, v in data.items()
+        }
 
         try:
             self.export_netcdf(
