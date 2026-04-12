@@ -88,6 +88,7 @@ def _write_minimal_model_calibration_config(
     model_distribution_rerun_selection: str = "representative",
     persist_iteration_history: bool = True,
     persist_iteration_detail_level: str = "minimal",
+    persist_calibration_report: bool = True,
     objective_mapping_enabled: bool = False,
     objective_mapping_additional_runs: int = 0,
     objective_mapping_interpolation: str = "idw",
@@ -156,6 +157,7 @@ def _write_minimal_model_calibration_config(
                 ),
                 f"persist_iteration_history = {str(persist_iteration_history).lower()}",
                 f'persist_iteration_detail_level = "{persist_iteration_detail_level}"',
+                f"persist_calibration_report = {str(persist_calibration_report).lower()}",
                 *objective_mapping_lines,
                 "",
                 "[calibration]",
@@ -318,6 +320,7 @@ def test_model_calibration_config_resolves_simulation_path_and_core_settings(
         cfg.model_calibration.model_distribution_rerun_selection
         == "representative"
     )
+    assert cfg.model_calibration.persist_calibration_report is True
     assert cfg.model_calibration.objective_mapping.enabled is False
 
     core_settings = cfg.resolve_core_settings()
@@ -355,6 +358,7 @@ def test_model_calibration_launcher_returns_scaffold_summary(tmp_path: Path) -> 
     assert manifest["iteration_count"] == 0
     assert manifest["persist_iteration_history"] is True
     assert manifest["persist_iteration_detail_level"] == "minimal"
+    assert manifest["persist_calibration_report"] is True
     assert manifest["primary_solver"] == "modflow6"
 
 
@@ -366,6 +370,7 @@ def test_model_calibration_template_contains_expected_sections() -> None:
     assert "[[model_calibration.output]]" in content
     assert "[[model_calibration.objective_block]]" in content
     assert 'reducer = "weighted_interpolation"' in content
+    assert "persist_calibration_report = true" in content
 
 
 def test_append_iteration_record_writes_minimal_jsonl(tmp_path: Path) -> None:
@@ -492,6 +497,15 @@ def test_model_calibration_actualize_candidate_writes_override_config(
     assert request.candidate_run_id == "calib_case_01__iter_0001"
     assert request.candidate_config_path.is_file()
     assert request.params_named == {"K_global_factor": 2.0, "Sy_global": 0.15}
+    assert request.property_array_error is None
+    assert request.property_array_summary is not None
+    assert request.property_array_summary["properties"]["K"]["stats"]["count"] == 1
+    assert request.property_array_summary["properties"]["K"]["stats"]["mean"] == (
+        pytest.approx(1.0e-4)
+    )
+    assert request.property_array_summary["properties"]["Sy"]["stats"]["mean"] == (
+        pytest.approx(0.15)
+    )
 
     merged = load_toml_with_base_config(request.candidate_config_path)
     assert merged["simulation"]["run_id"] == "calib_case_01__iter_0001"
@@ -939,6 +953,8 @@ def test_model_calibration_calibrate_runs_engine_loop_and_persists_result(
     assert summary["objective_cache_hit_count"] == 1
     assert summary["cost_best"] == pytest.approx(0.0)
     assert summary["best_rerun"]["status"] == "solver_run_succeeded"
+    assert summary["calibration_report"]["iteration_count"] == 2
+    assert summary["calibration_report"]["failed_count"] == 0
     assert summary["params_best"] == {
         "K_global_factor": pytest.approx(2.0),
         "Sy_global": pytest.approx(0.15),
@@ -963,6 +979,21 @@ def test_model_calibration_calibrate_runs_engine_loop_and_persists_result(
     assert result_payload["metadata"]["objective_evaluation"]["total_cost"] == (
         pytest.approx(0.0)
     )
+
+    report_path = Path(summary["calibration_report"]["path"])
+    assert report_path.is_file()
+    report_payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report_payload["role"] == "model_calibration_report"
+    assert report_payload["best_model"]["cost_best"] == pytest.approx(0.0)
+    assert report_payload["iterations"]["count"] == 2
+    assert report_payload["iterations"]["status_counts"] == {
+        "objective_evaluated": 2
+    }
+    assert report_payload["blocks"]["heads"]["best_value"] == pytest.approx(0.0)
+    assert report_payload["parameters"]["K_global_factor"]["best_value"] == (
+        pytest.approx(2.0)
+    )
+    assert sorted(report_payload["hydraulic_parameterization"].keys()) == ["K", "Sy"]
 
     history_lines = Path(summary["iteration_history_path"]).read_text(
         encoding="utf-8"

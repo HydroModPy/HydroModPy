@@ -24,6 +24,7 @@ def render_model_calibration_template() -> str:
         'model_distribution_rerun_selection = "representative"',
         "persist_iteration_history = true",
         'persist_iteration_detail_level = "minimal"',
+        "persist_calibration_report = true",
         "",
         "[model_calibration.objective_mapping]",
         "enabled = false",

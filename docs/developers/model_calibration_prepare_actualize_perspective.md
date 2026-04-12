@@ -115,6 +115,13 @@ Les briques suivantes sont maintenant presentes dans le depot :
   separe de cartographie de la fonction objectif : points CSV, grille JSON,
   figure PNG optionnelle, interpolation `idw`/`nearest`/`linear` et relances
   additionnelles parametrees sur un plan de coupe.
+- `launchers/model_calibration/reporting.py` produit maintenant un
+  `calibration_report.json` de synthese avec meilleur modele, statistiques
+  d'iterations, contributions par bloc et resume des diagnostics ecrits.
+- `actualize_candidate(...)` expose maintenant aussi un apercu
+  `property_array_summary` des proprietes hydrauliques vectorisees du candidat,
+  base sur les valeurs de reference quand elles sont inferrables depuis la
+  configuration source.
 
 Les limites restantes sont explicites :
 
@@ -125,6 +132,9 @@ Les limites restantes sont explicites :
 - la parametrisation par lithologie dispose d'un premier contrat vectoriel
   (`PropertyArraySet`), mais son injection directe dans les solveurs reste a
   brancher ;
+- l'apercu `property_array_summary` rendu par `actualize_candidate(...)`
+  reste pour l'instant diagnostique : il n'est pas encore le contrat consomme
+  directement par les adaptateurs solveur ;
 - la factorisation fine du maillage et des tableaux de proprietes solveur
   reste la prochaine grande etape.
 - la distribution de modeles reste volontairement legere par defaut : elle

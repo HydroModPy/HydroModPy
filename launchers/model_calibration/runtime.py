@@ -23,6 +23,7 @@ from launchers.model_calibration.config import ModelCalibrationConfig
 from launchers.model_calibration.output_selection import (
     select_candidate_outputs as _select_candidate_outputs_from_bundle,
 )
+from launchers.model_calibration.property_arrays import build_property_array_set
 
 
 _NUMERIC_WITH_SUFFIX_RE = re.compile(
@@ -196,6 +197,8 @@ class CandidateRunRequest:
     params_vector: tuple[float, ...]
     params_named: dict[str, float]
     override_payload: dict[str, Any]
+    property_array_summary: dict[str, Any] | None = None
+    property_array_error: str | None = None
 
     def to_summary(self) -> dict[str, Any]:
         """Return one concise summary of the candidate runtime request."""
@@ -208,6 +211,8 @@ class CandidateRunRequest:
             "params_named": {
                 str(name): float(value) for name, value in self.params_named.items()
             },
+            "property_array_summary": self.property_array_summary,
+            "property_array_error": self.property_array_error,
         }
 
 
@@ -1077,6 +1082,53 @@ def _write_override_toml(path: Path, payload: dict[str, Any]) -> None:
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
+def _infer_base_property_arrays(
+    *,
+    session: PreparedCalibrationSession,
+    cfg: ModelCalibrationConfig,
+) -> dict[str, list[float]]:
+    """Infer one-cell base arrays from the reference simulation config."""
+    base_arrays: dict[str, list[float]] = {}
+    for parameter_cfg in cfg.model_calibration.parameter:
+        property_name = parameter_cfg.property
+        if property_name is None or property_name in base_arrays:
+            continue
+        try:
+            base_value = _lookup_nested_value(
+                session.raw_simulation_toml,
+                _split_target_path(parameter_cfg.target),
+            )
+        except Exception:
+            continue
+        parsed = _parse_numeric_with_optional_suffix(base_value)
+        if parsed is None:
+            continue
+        base_number, _suffix = parsed
+        base_arrays[property_name] = [float(base_number)]
+    return base_arrays
+
+
+def _build_candidate_property_array_summary(
+    *,
+    session: PreparedCalibrationSession,
+    cfg: ModelCalibrationConfig,
+    params_named: dict[str, float],
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Build a vectorized property preview for one candidate when feasible."""
+    try:
+        property_set = build_property_array_set(
+            cfg=cfg,
+            params=params_named,
+            base_property_arrays=_infer_base_property_arrays(
+                session=session,
+                cfg=cfg,
+            ),
+        )
+    except Exception as exc:
+        return None, f"{type(exc).__name__}: {exc}"
+    return property_set.to_summary(), None
+
+
 def prepare_calibration_session(
     *,
     config_path: Path,
@@ -1141,6 +1193,9 @@ def initialize_calibration_session(
         "persist_iteration_history": cfg.model_calibration.persist_iteration_history,
         "persist_iteration_detail_level": (
             cfg.model_calibration.persist_iteration_detail_level
+        ),
+        "persist_calibration_report": (
+            cfg.model_calibration.persist_calibration_report
         ),
         "objective_mapping_enabled": (
             cfg.model_calibration.objective_mapping.enabled
@@ -1683,6 +1738,11 @@ def actualize_candidate(
         _assign_nested_value(override_payload, target_path, resolved_value)
 
     _write_override_toml(candidate_config_path, override_payload)
+    property_array_summary, property_array_error = _build_candidate_property_array_summary(
+        session=session,
+        cfg=cfg,
+        params_named=params_named,
+    )
     return CandidateRunRequest(
         session=session,
         iteration_id=iteration_id,
@@ -1692,6 +1752,8 @@ def actualize_candidate(
         params_vector=params_vector,
         params_named=params_named,
         override_payload=override_payload,
+        property_array_summary=property_array_summary,
+        property_array_error=property_array_error,
     )
 
 
