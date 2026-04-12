@@ -12,6 +12,8 @@ def render_regional_lab_template() -> str:
         "# Usage:",
         "#   python -m launchers regional-lab run config_regional_lab.toml",
         "#   python -m launchers regional-lab bootstrap-catalog --help",
+        "# The bootstrap helper can scan one mesh_run_root when no fresh batch",
+        "# manifest is available.",
         "",
         "[regional_lab]",
         'lab_id = "headwater_regional_lab"',

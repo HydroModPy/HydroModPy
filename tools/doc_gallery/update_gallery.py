@@ -3035,6 +3035,14 @@ def _render_validation_solver_block(run: dict[str, Any], *, indent: str = "") ->
 
 def _build_case_page(case: dict[str, Any]) -> str:
     title = str(case["title"])
+    case_setup = list(case.get("case_setup", []))
+    what_it_shows = list(case.get("what_it_shows", []))
+    key_parameters = list(case.get("key_parameters", []))
+    how_to_read = list(case.get("how_to_read", []))
+    metrics = list(case.get("metrics", []))
+    reference_highlights = list(case.get("reference_highlights", []))
+    equations_rst = list(case.get("equations_rst", []))
+    next_steps = list(case.get("next_steps", []))
     lines = [
         AUTO_GENERATED_COMMENT,
         "",
@@ -3066,7 +3074,7 @@ def _build_case_page(case: dict[str, Any]) -> str:
             for image in case["images"]:
                 _append_figure(lines, image)
 
-    if case["case_setup"]:
+    if case_setup:
         lines.extend(
             [
                 "Case Setup",
@@ -3074,7 +3082,7 @@ def _build_case_page(case: dict[str, Any]) -> str:
                 "",
             ]
         )
-        for bullet in case["case_setup"]:
+        for bullet in case_setup:
             lines.append(f"- {bullet}")
         lines.append("")
 
@@ -3085,11 +3093,11 @@ def _build_case_page(case: dict[str, Any]) -> str:
             "",
         ]
     )
-    for bullet in case["what_it_shows"]:
+    for bullet in what_it_shows:
         lines.append(f"- {bullet}")
     lines.append("")
 
-    if case["key_parameters"]:
+    if key_parameters:
         lines.extend(
             [
                 "Key Parameters",
@@ -3097,11 +3105,11 @@ def _build_case_page(case: dict[str, Any]) -> str:
                 "",
             ]
         )
-        for bullet in case["key_parameters"]:
+        for bullet in key_parameters:
             lines.append(f"- {bullet}")
         lines.append("")
 
-    if case["how_to_read"]:
+    if how_to_read:
         lines.extend(
             [
                 "How To Read It",
@@ -3109,11 +3117,11 @@ def _build_case_page(case: dict[str, Any]) -> str:
                 "",
             ]
         )
-        for bullet in case["how_to_read"]:
+        for bullet in how_to_read:
             lines.append(f"- {bullet}")
         lines.append("")
 
-    if case["metrics"]:
+    if metrics:
         lines.extend(
             [
                 "Key Metrics",
@@ -3121,11 +3129,11 @@ def _build_case_page(case: dict[str, Any]) -> str:
                 "",
             ]
         )
-        for metric in case["metrics"]:
+        for metric in metrics:
             lines.append(f"- {metric['label']}: {metric['display']}")
         lines.append("")
 
-    if case["reference_highlights"] or case["equations_rst"]:
+    if reference_highlights or equations_rst:
         lines.extend(
             [
                 "Analytical Reference",
@@ -3133,11 +3141,11 @@ def _build_case_page(case: dict[str, Any]) -> str:
                 "",
             ]
         )
-        for bullet in case["reference_highlights"]:
+        for bullet in reference_highlights:
             lines.append(f"- {bullet}")
-        if case["reference_highlights"] and case["equations_rst"]:
+        if reference_highlights and equations_rst:
             lines.append("")
-        for equation in case["equations_rst"]:
+        for equation in equations_rst:
             lines.extend(
                 [
                     ".. math::",
@@ -3194,7 +3202,7 @@ def _build_case_page(case: dict[str, Any]) -> str:
         else:
             lines.extend(_render_validation_solver_block(solver_runs[0]))
 
-    if case["next_steps"]:
+    if next_steps:
         lines.extend(
             [
                 "Next Steps",
@@ -3202,7 +3210,7 @@ def _build_case_page(case: dict[str, Any]) -> str:
                 "",
             ]
         )
-        for bullet in case["next_steps"]:
+        for bullet in next_steps:
             lines.append(f"- {bullet}")
         lines.append("")
 

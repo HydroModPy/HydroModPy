@@ -25,10 +25,12 @@ def build_comparison_report(
     rows: list[dict[str, Any]],
     summary_metrics: list[dict[str, Any]],
     figure_artifacts: Iterable[Mapping[str, Any]] | None = None,
+    data_artifacts: Iterable[Mapping[str, Any]] | None = None,
 ) -> str:
     """Build a short Markdown report for one comparison run."""
     unmatched = build_unmatched_groups(rows, reference_variant=reference_variant)
     figures = list(figure_artifacts or [])
+    data_files = list(data_artifacts or [])
     completed_variants = [
         summary for summary in variant_summaries if summary.get("status") in {"completed", "reused"}
     ]
@@ -83,6 +85,20 @@ def build_comparison_report(
             lines.append(
                 f"- `{figure.get('kind', '')}` / `{figure.get('observable', '')}`:"
                 f" `{figure.get('path', '')}`"
+            )
+
+    lines.extend(
+        [
+            "",
+            "## Data Exports",
+        ]
+    )
+    if not data_files:
+        lines.append("- No supplemental CSV exports were written.")
+    else:
+        for artifact in data_files:
+            lines.append(
+                f"- `{artifact.get('kind', '')}`: `{artifact.get('path', '')}`"
             )
 
     lines.extend(

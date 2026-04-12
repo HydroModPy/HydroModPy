@@ -11,6 +11,11 @@ from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 from launchers.method_comparison.config import MethodComparisonConfig
+from launchers.method_comparison.exports import (
+    write_execution_summary_csv,
+    write_native_timeseries_exports,
+    write_observable_chronicle_exports,
+)
 from launchers.method_comparison.metrics import (
     DETAIL_METRIC_FIELDS,
     SUMMARY_METRIC_FIELDS,
@@ -129,12 +134,44 @@ class MethodComparisonLauncher:
                 "differences": detail_metrics,
             },
         )
+        data_artifacts: list[dict[str, Any]] = []
+        observable_artifacts, observable_long_rows, _observable_wide_rows, observable_delta_rows = (
+            write_observable_chronicle_exports(
+                comparison_root=comparison_root,
+                rows=all_rows,
+                detail_metrics=detail_metrics,
+                observables=[
+                    observable.model_dump(mode="json")
+                    for observable in section.observable
+                ],
+            )
+        )
+        data_artifacts.extend(observable_artifacts)
+        native_artifacts, native_long_rows, _native_wide_rows, native_delta_rows = (
+            write_native_timeseries_exports(
+                comparison_id=str(section.comparison_id),
+                comparison_root=comparison_root,
+                variant_summaries=variant_summaries,
+                reference_variant=reference_variant,
+            )
+        )
+        data_artifacts.extend(native_artifacts)
+        execution_artifacts, execution_rows = write_execution_summary_csv(
+            comparison_root=comparison_root,
+            variant_summaries=variant_summaries,
+            reference_variant=reference_variant,
+        )
+        data_artifacts.extend(execution_artifacts)
         figure_artifacts = generate_comparison_figures(
             cfg=self.cfg,
             variant_summaries=variant_summaries,
             rows=all_rows,
+            detail_metrics=detail_metrics,
             reference_variant=reference_variant,
             comparison_root=comparison_root,
+            native_timeseries_rows=native_long_rows,
+            native_timeseries_delta_rows=native_delta_rows,
+            execution_rows=execution_rows,
         )
         report_path = comparison_root / "comparison_report.md"
         report_path.write_text(
@@ -149,6 +186,7 @@ class MethodComparisonLauncher:
                 rows=all_rows,
                 summary_metrics=summary_metrics,
                 figure_artifacts=figure_artifacts,
+                data_artifacts=data_artifacts,
             ),
             encoding="utf-8",
         )
@@ -173,6 +211,7 @@ class MethodComparisonLauncher:
             "comparison_report_md": str(report_path),
             "comparison_figures_dir": str(comparison_root / "comparison_figures"),
             "comparison_figures": figure_artifacts,
+            "comparison_data_artifacts": data_artifacts,
             "n_observable_rows": len(all_rows),
             "n_metric_rows": len(summary_metrics),
             "n_difference_rows": len(detail_metrics),

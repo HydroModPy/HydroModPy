@@ -127,6 +127,12 @@ Today this package supports:
 - one committed real-basin transient cycling case where the mixed PETSc path
   resolves repeated on/off threshold windows while the regularized-partition
   paths keep one always-active seepage window under the same forcing.
+- explicit `K` / `Sy` overrides on committed mesh bundles when those flow
+  parameters are provided at launcher level, including heterogeneous mapping
+  through domain supports such as `generated_rings`.
+- one committed real-basin transient cycling case with strong lateral
+  heterogeneity where both PETSc paths converge, but only the mixed closure
+  cleanly turns the surface threshold fully off after the dry pulses.
 
 It does not yet provide:
 

@@ -162,27 +162,30 @@ def _resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
 def _resolve_optional_bundle_property_arrays(
     *,
     setup_state: object,
-    needed_properties: frozenset[str],
+    requested_properties: frozenset[str],
 ) -> dict[str, np.ndarray]:
-    """Map optional flow properties onto the bundle planar mesh when available."""
-    if not needed_properties:
+    """Map available flow properties onto the bundle planar mesh when requested."""
+    if not requested_properties:
         return {}
 
     planar_mesh = _resolve_planar_mesh(setup_state)
     flow = getattr(setup_state, "flow", None)
     if planar_mesh is None or flow is None:
         return {}
-    if not _has_required_flow_parameters(
-        flow=flow,
-        required_properties=needed_properties,
-    ):
+
+    available_properties = frozenset(
+        canonical_name
+        for canonical_name in requested_properties
+        if _has_any_flow_parameter(flow=flow, canonical_name=canonical_name)
+    )
+    if not available_properties:
         return {}
 
     return resolve_flow_property_arrays(
         flow=flow,
         domain=getattr(setup_state, "domain", None),
         solver_mesh=planar_mesh,
-        required_properties=needed_properties,
+        required_properties=available_properties,
     )
 
 
@@ -213,16 +216,27 @@ def _resolve_bundle_solver_mesh(
             if regime != "steady" or has_flow_sy:
                 needed_properties.add("Sy")
 
+    override_properties: set[str] = set()
+    if flow is not None:
+        if _has_any_flow_parameter(flow=flow, canonical_name="K"):
+            override_properties.add("K")
+        if _has_any_flow_parameter(flow=flow, canonical_name="Sy"):
+            override_properties.add("Sy")
+
     property_arrays = _resolve_optional_bundle_property_arrays(
         setup_state=setup_state,
-        needed_properties=frozenset(needed_properties),
+        requested_properties=frozenset(needed_properties | override_properties),
     )
     mapped_conductivity = property_arrays.get("hydraulic_conductivity_m_s")
     mapped_storage = property_arrays.get("storage_coefficient")
 
     completed_cells = []
     for cell_index, bundle_cell in enumerate(bundle.cells):
-        conductivity = bundle_cell.hydraulic_conductivity_m_s
+        conductivity = (
+            float(mapped_conductivity[cell_index])
+            if mapped_conductivity is not None
+            else bundle_cell.hydraulic_conductivity_m_s
+        )
         if conductivity is None:
             default_k = hydraulic_view.conductivity.default_value
             if default_k is not None:
@@ -235,7 +249,11 @@ def _resolve_bundle_solver_mesh(
                     f"cannot complete missing value on cell_id={int(bundle_cell.cell_id)}."
                 )
 
-        storage = bundle_cell.storage_coefficient
+        storage = (
+            float(mapped_storage[cell_index])
+            if mapped_storage is not None
+            else bundle_cell.storage_coefficient
+        )
         if storage is None:
             default_storage = hydraulic_view.storage_coefficient.default_value
             if default_storage is not None:
@@ -272,8 +290,19 @@ class BoussinesqFlowAdapter:
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one Boussinesq flow run."""
         state = ctx.state
-        solver_mesh = _resolve_runtime_solver_mesh(state.setup)
         mesh_bundle = None
+        try:
+            solver_mesh = _resolve_runtime_solver_mesh(state.setup)
+        except ValueError:
+            mesh_summary = getattr(state.setup, "mesh_summary", None)
+            bundle_dir = (
+                str(mesh_summary.get("output_exchange_bundle_dir", "")).strip()
+                if isinstance(mesh_summary, dict)
+                else ""
+            )
+            if getattr(state.setup, "mesh_bundle", None) is None and bundle_dir == "":
+                raise
+            solver_mesh = None
         if solver_mesh is None:
             mesh_bundle = _resolve_mesh_bundle(state.setup)
             solver_mesh = _resolve_bundle_solver_mesh(state.setup, bundle=mesh_bundle)

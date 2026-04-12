@@ -51,6 +51,10 @@ batch manifest:
 
 `python -m launchers regional-lab bootstrap-catalog --help`
 
+The bootstrap helper can also scan one `mesh_run_root` directly to discover
+`mesh_output_mesh`, `mesh_summary_json`, `mesh_bundle_dir`, and figures by
+`outlet_id` when the batch manifest is missing or stale.
+
 ## Template Keys
 
 `config_path_template` can reference:

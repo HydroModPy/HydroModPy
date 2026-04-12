@@ -9,7 +9,7 @@ Watershed Data Overview
 This pair of figures documents the pre-solver side of HydroModPy. It shows how one watershed is contextualized before any flow run: local framing, DEM, and overlay-ready geographic inputs.
 
 .. seealso::
-   Read :doc:`the data-overview walkthrough </getting_started/data-overview-walkthrough>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
+   Read :doc:`the Data Overview walkthrough </getting_started/data-overview-walkthrough>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
 .. figure:: /_static/capability_gallery/geographic/geographic_watershed_dem.png
    :alt: Watershed DEM overview

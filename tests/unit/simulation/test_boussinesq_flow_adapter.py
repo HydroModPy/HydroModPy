@@ -478,6 +478,85 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_heterogeneous_flow_param
     assert np.allclose(model.state.head_m, [5.0, 5.0])
 
 
+def test_boussinesq_flow_adapter_falls_back_to_bundle_and_overrides_properties(
+    tmp_path: Path,
+) -> None:
+    planar_mesh = GmshPlanarMesh2D(
+        points_xy=np.asarray(
+            [
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [1.0, 1.0],
+                [0.0, 1.0],
+            ],
+            dtype=float,
+        ),
+        connectivity=np.asarray(
+            [
+                [0, 1, 2],
+                [0, 2, 3],
+            ],
+            dtype=int,
+        ),
+        cell_type="triangle",
+    )
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle_heterogeneous_override")
+    flow = Flow(
+        FlowConfig.model_validate(
+            {
+                "param_list": ["K", "Sy"],
+                "param": {
+                    "K": {
+                        "kind": "heterogeneous",
+                        "values_by_key": {"west": 3.0e-4, "east": 8.0e-7},
+                        "field_spatial_id": "field_hydrofacies",
+                    },
+                    "Sy": {
+                        "kind": "heterogeneous",
+                        "values_by_key": {"west": 0.21, "east": 0.03},
+                        "field_spatial_id": "field_hydrofacies",
+                    },
+                },
+                "ic": {"type": "top"},
+            }
+        )
+    )
+    state = SimpleNamespace(
+        setup=SimpleNamespace(
+            mesh_planar=planar_mesh,
+            mesh_bundle=None,
+            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+            flow=flow,
+            domain=SimpleNamespace(
+                zones={"field_hydrofacies": _HalfDomainSupport("field_hydrofacies")}
+            ),
+            domain_geographic=None,
+            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
+            workspace=SimpleNamespace(simulations_folder=tmp_path),
+        ),
+    )
+    run = ProcessRun(
+        id="flow_main::boussinesq_bundle_heterogeneous_override",
+        process_id="flow_main",
+        process_type="flow",
+        solver="boussinesq",
+    )
+    ctx = RunContext(
+        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
+        run=run,
+        state=state,
+    )
+
+    result = BoussinesqFlowAdapter().execute(ctx)
+    model = result.primary_model
+
+    assert model.mesh_bundle is not None
+    assert model.mesh is not None
+    assert np.allclose(model.mesh.hydraulic_conductivity_m_s, [8.0e-7, 3.0e-4])
+    assert np.allclose(model.mesh.storage_coefficient, [0.03, 0.21])
+    assert model.has_numerical_solution is True
+
+
 def test_boussinesq_flow_adapter_uses_geographic_features_for_stream_runtime_mesh(
     tmp_path: Path,
 ) -> None:

@@ -244,6 +244,27 @@ def test_regional_lab_supports_jsonl_catalog(tmp_path: Path) -> None:
     assert sites[1].enabled is False
 
 
+def test_regional_lab_supports_utf8_bom_csv_catalog(tmp_path: Path) -> None:
+    config_path = _write_regional_lab_config(tmp_path, execute=False)
+    catalog_path = tmp_path / "site_catalog.csv"
+    catalog_path.write_text(
+        "\n".join(
+            [
+                '"outlet_id","cluster","region","source_selection_id","site_status","maturity","tags","enabled","simulation_config","compare_config"',
+                '"headwater_100km2_outlet_2","headwater_100km2","brittany","scan_headwater_100km2","ready","validated","mesh_ready","true","configs/run_headwater_100km2_outlet_2.toml","configs/compare_headwater_100km2_outlet_2.toml"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8-sig",
+    )
+    _write_planned_configs(tmp_path)
+
+    cfg = RegionalLabConfig.from_file(config_path)
+    sites = load_site_catalog(cfg.catalog)
+
+    assert [site.site_id for site in sites] == ["headwater_100km2_outlet_2"]
+
+
 def test_regional_lab_execution_stops_on_first_failure(monkeypatch, tmp_path: Path) -> None:
     config_path = _write_regional_lab_config(
         tmp_path,
@@ -419,6 +440,53 @@ def test_regional_lab_bootstrap_catalog_merges_manifest(tmp_path: Path) -> None:
     assert "C:/tmp" in rows[1]
 
 
+def test_regional_lab_bootstrap_catalog_scans_mesh_run_root(tmp_path: Path) -> None:
+    outlets_path = tmp_path / "outlets.csv"
+    outlets_path.write_text(
+        "\n".join(
+            [
+                "outlet_id,x_outlet,y_outlet,area_km2",
+                "3,100.0,200.0,10.2",
+                "4,110.0,210.0,10.1",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    mesh_run_root = tmp_path / "mesh_runs"
+    bundle_dir = mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3_bundle"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3.msh").write_text("", encoding="utf-8")
+    (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3_summary.json").write_text(
+        "{}\n",
+        encoding="utf-8",
+    )
+    (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3.png").write_text("", encoding="utf-8")
+    (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3_regional.png").write_text(
+        "",
+        encoding="utf-8",
+    )
+
+    output_path = tmp_path / "site_catalog_bootstrapped.csv"
+    summary = build_site_catalog_from_outlet_table(
+        outlets_table_path=outlets_path,
+        output_path=output_path,
+        cluster_id="s3_10km2",
+        cluster_label="S3 10 km2",
+        cluster_family="s3",
+        cluster_scale="10km2",
+        region_id="brittany",
+        source_selection_id="scan_s3_10km2",
+        mesh_run_root=mesh_run_root,
+    )
+
+    assert summary["mesh_run_root_scanned"] is True
+    rows = output_path.read_text(encoding="utf-8").splitlines()
+    assert "mesh_ready" in rows[1]
+    assert "discovered" in rows[1]
+    assert "mesh_catchment_outlet_3_bundle" in rows[1]
+
+
 def test_launchers_cli_regional_lab_run_dispatches_to_launcher(monkeypatch) -> None:
     module = _load_launchers_main_module()
     captured: dict[str, Path] = {}
@@ -460,6 +528,8 @@ def test_launchers_cli_regional_lab_bootstrap_dispatches(monkeypatch) -> None:
             "scan_headwater_100km2",
             "--tag",
             "mesh_ready",
+            "--mesh-run-root",
+            "mesh_runs",
         ]
     )
 
@@ -470,6 +540,7 @@ def test_launchers_cli_regional_lab_bootstrap_dispatches(monkeypatch) -> None:
     assert captured["region_id"] == "brittany"
     assert captured["source_selection_id"] == "scan_headwater_100km2"
     assert captured["tags"] == ["mesh_ready"]
+    assert captured["mesh_run_root"] == Path("mesh_runs").resolve()
 
 
 def test_launchers_cli_regional_lab_template_prints_template(capsys) -> None:

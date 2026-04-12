@@ -421,6 +421,13 @@ interaction models explicit in the documentation. Complementarity diagnostics
 in the runtime summary are evaluated on accepted solver snapshots, excluding
 the raw transient initial condition.
 
+The same pattern remains visible on the stronger heterogeneous cycling variant
+where :math:`K` and :math:`S_y` are mapped from generated concentric
+hydrofacies over the committed basin mesh. In that case the regularized
+partition path still keeps one persistent seepage window active, while the
+mixed complementarity path converges with repeated on/off threshold windows and
+returns to a dry terminal state.
+
 Mapping Between Equations And Code
 ----------------------------------
 
@@ -477,6 +484,9 @@ Today:
 
 - committed real unstructured meshes are now exercised in addition to the
   small analytical and numerical validation strips.
+- committed mesh bundles can receive explicit launcher-side overrides of
+  :math:`K` and :math:`S_y`, including heterogeneous mappings through domain
+  supports, without requiring a separate remeshing workflow.
 
 The main current limits are elsewhere:
 

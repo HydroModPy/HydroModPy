@@ -1,14 +1,22 @@
-﻿[method_comparison]
+[method_comparison]
 comparison_id = "example12_extensive_flow_realign"
 run_variants = false
 reference_variant = "mf6_extensive_flow"
 output_root = "C:/Users/dreuzy/AppData/Local/Temp/hydromodpy_method_runtime/example12_extensive_flow_only/comparison_realign"
+
+[method_comparison.fine_raster]
+enabled = true
+resolution = 10.0
+extent_mode = "intersection"
+interpolation = "linear"
+write_geotiff = true
 
 [[method_comparison.variant]]
 id = "mf6_extensive_flow"
 label = "MODFLOW 6 extensive flow-only runtime"
 solver = "modflow6"
 mesh_mode = "unstructured"
+simulation_config = "run_extensive_mf6.toml"
 run_folder = "C:/Users/dreuzy/AppData/Local/Temp/hydromodpy_method_runtime/example12_extensive_flow_only/results_simulations/example12_extensive_mf6_flow_runtime"
 
 [[method_comparison.variant]]
@@ -16,23 +24,8 @@ id = "nwt_extensive_flow"
 label = "MODFLOW-NWT extensive flow-only runtime"
 solver = "modflownwt"
 mesh_mode = "structured"
+simulation_config = "run_extensive_nwt.toml"
 run_folder = "C:/Users/dreuzy/AppData/Local/Temp/hydromodpy_method_runtime/example12_extensive_flow_only/results_simulations/example12_extensive_nwt_flow_runtime"
-
-[[method_comparison.observable]]
-name = "mean_head_domain"
-variable = "watertable_elevation"
-support = "map"
-time = "last"
-reducer = "mean"
-unit = "m"
-
-[[method_comparison.observable]]
-name = "max_depth_domain"
-variable = "watertable_depth"
-support = "map"
-time = "last"
-reducer = "max"
-unit = "m"
 
 [[method_comparison.observable]]
 name = "head_map_last"

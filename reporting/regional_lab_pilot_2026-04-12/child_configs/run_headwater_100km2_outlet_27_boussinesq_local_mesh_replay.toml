@@ -1,0 +1,16 @@
+base_config = "C:/codes/HydroModPy-GH/reporting/regional_lab_pilot_2026-04-12/child_configs/base_local_boussinesq_mesh_replay.toml"
+
+[workspace]
+project_root = "C:/codes/HydroModPy-GH/reporting/regional_lab_pilot_2026-04-12/outputs/child_runs/headwater_100km2_outlet_27"
+
+[geographic]
+x_outlet = 364275.0
+y_outlet = 6956025.0
+
+[mesh_input]
+mesh_path = "C:/Users/dreuzy/HydroModPy/mesh_gallery_headwater_100km2_outlet_27_rivers_only_outlet_27/mesh_catchment_outlet_27.msh"
+bundle_dir = "C:/Users/dreuzy/HydroModPy/mesh_gallery_headwater_100km2_outlet_27_rivers_only_outlet_27"
+
+[simulation]
+name = "headwater_100km2_outlet_27 local boussinesq mesh replay"
+run_id = "headwater_100km2_outlet_27_local_boussinesq_mesh_replay"

@@ -34,7 +34,7 @@
   "reference_highlights": [],
   "equations_rst": [],
   "walkthrough_doc": "getting_started/data-overview-walkthrough",
-  "walkthrough_title": "the data-overview walkthrough",
+  "walkthrough_title": "the Data Overview walkthrough",
   "reproduction_command": "python examples/projects/data_overview/run_data_overview.py",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [

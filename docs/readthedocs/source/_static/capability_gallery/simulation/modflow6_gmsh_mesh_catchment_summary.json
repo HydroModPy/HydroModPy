@@ -36,7 +36,7 @@
   "reference_highlights": [],
   "equations_rst": [],
   "walkthrough_doc": "getting_started/simulation-walkthrough",
-  "walkthrough_title": "the simulation walkthrough",
+  "walkthrough_title": "the Simulation walkthrough",
   "reproduction_command": "python -m hydromodpy run examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
