@@ -408,7 +408,7 @@ def test_method_comparison_config_resolves_paths(tmp_path: Path) -> None:
         ),
         (
             "run_method_comparison_example12_multi_method_moderate.toml",
-            ["structured", "structured", "mesh_input"],
+            ["structured", "structured", "mesh_input", "mesh_input"],
             ["point", "point", "point", "outlet", "map", "map", "map"],
         ),
         (
@@ -727,6 +727,62 @@ def test_extract_observable_rows_reads_boussinesq_outlet_flux(tmp_path: Path) ->
     assert outlet["selection"] == "declared_cell"
     assert outlet["unit"] == "m3/s"
     assert outlet["conversion_applied"] == ""
+
+
+def test_extract_observable_rows_converts_boussinesq_drainage_map_to_outflow_drain(
+    tmp_path: Path,
+) -> None:
+    run_folder = tmp_path / "run_bouss_map"
+    bundle_dir = tmp_path / "bundle_bouss_map"
+    run_folder.mkdir(parents=True, exist_ok=True)
+    _write_boussinesq_run_folder(run_folder, bundle_dir)
+
+    config_path = tmp_path / "config_method_comparison_bouss_map.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "[method_comparison]",
+                'comparison_id = "demo_bouss_map"',
+                "run_variants = false",
+                "",
+                "[[method_comparison.variant]]",
+                'id = "bouss_demo"',
+                'solver = "boussinesq"',
+                'mesh_mode = "mesh_input"',
+                f'run_folder = "{run_folder.as_posix()}"',
+                "",
+                "[[method_comparison.observable]]",
+                'name = "drain_map"',
+                'variable = "outflow_drain"',
+                'support = "map"',
+                'time = "last"',
+                'unit = "m/day"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    cfg = MethodComparisonConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        config_path=config_path,
+    )
+
+    rows = extract_observable_rows(
+        comparison_id="demo_bouss_map",
+        variant=cfg.method_comparison.variant[0],
+        run_folder=run_folder,
+        observables=tuple(cfg.method_comparison.observable),
+    )
+
+    assert len(rows) == 3
+    assert all(row["resolved_variable"] == "drainage_flux_history_m3_s" for row in rows)
+    assert all(row["unit"] == "m/day" for row in rows)
+    assert all(
+        row["conversion_applied"] == "drainage_flux_m3_s_to_m_per_day"
+        for row in rows
+    )
+    first_value = float(rows[0]["value"])
+    assert first_value == pytest.approx((0.08 / 5.0) * 86400.0)
 
 
 @pytest.mark.skipif(os.name != "nt", reason="WSL bundle-path normalization is Windows-specific")

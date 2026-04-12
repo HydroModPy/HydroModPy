@@ -43,6 +43,14 @@ mesh_mode = "mesh_input"
 mesh_label = "gmsh_precomputed"
 simulation_config = "run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml"
 
+[[method_comparison.variant]]
+id = "bouss_mod_tri"
+label = "Boussinesq annual moderate on committed triangular mesh"
+solver = "boussinesq"
+mesh_mode = "mesh_input"
+mesh_label = "gmsh_precomputed"
+simulation_config = "run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml"
+
 [[method_comparison.observable]]
 name = "head_outlet_lowland"
 variable = "watertable_elevation"

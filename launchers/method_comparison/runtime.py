@@ -630,6 +630,10 @@ def _variable_candidates(variable: str) -> tuple[str, ...]:
             "drainage_flux_history_m3_s",
             "drainage_flux_m3_s",
         ],
+        "outflow_drain": [
+            "drainage_flux_history_m3_s",
+            "drainage_flux_m3_s",
+        ],
         "head": ["watertable_elevation"],
         "depth": ["watertable_depth"],
         "drainage_flux": ["drainage_flux_history_m3_s", "drainage_flux_m3_s"],
@@ -670,6 +674,34 @@ def _convert_accumulation_rate_to_m3_s(
     return (float(value_m_per_day) * float(cell_area_m2)) / 86400.0
 
 
+def _convert_flux_m3_s_to_depth_m_per_day(
+    *,
+    value_m3_s: float,
+    cell_area_m2: float,
+) -> float:
+    """Convert one volumetric cell flux to a depth-rate over that cell."""
+    return (float(value_m3_s) / float(cell_area_m2)) * 86400.0
+
+
+def _area_for_series_value(
+    *,
+    series: VariableSeries,
+    cells: CellCentroidTable | None,
+    value_index: int,
+) -> float | None:
+    """Return the cell area associated with one extracted scalar value."""
+    if cells is None:
+        return None
+    if series.cell_ids is not None and value_index < int(series.cell_ids.size):
+        return cells.area_for_cell_id(int(series.cell_ids[int(value_index)]))
+    if cells.area_m2 is None or value_index >= int(cells.cell_ids.size):
+        return None
+    area = float(cells.area_m2[int(value_index)])
+    if not np.isfinite(area) or area <= 0.0:
+        return None
+    return area
+
+
 _NODATA_SENTINELS = (-9999.0, -99999.0, -999999.0)
 
 
@@ -692,6 +724,7 @@ def normalize_observable_value(
     observable: MethodComparisonObservableSchema,
     series: VariableSeries,
     value: float,
+    value_index: int,
     details: Mapping[str, Any],
     cells: CellCentroidTable | None,
 ) -> dict[str, Any]:
@@ -732,6 +765,27 @@ def normalize_observable_value(
             cell_area_m2 = area_m2
         elif native_unit == "":
             native_unit = "m3/s"
+    elif observable.variable.strip().lower() == "outflow_drain" and series.variable_name in {
+        "drainage_flux_history_m3_s",
+        "drainage_flux_m3_s",
+    }:
+        area_m2 = _area_for_series_value(
+            series=series,
+            cells=cells,
+            value_index=value_index,
+        )
+        if area_m2 is None:
+            raise ValueError(
+                f"Observable '{observable.name}' cannot derive outflow_drain "
+                "from drainage_flux without cell areas."
+            )
+        output_value = _convert_flux_m3_s_to_depth_m_per_day(
+            value_m3_s=output_value,
+            cell_area_m2=area_m2,
+        )
+        native_unit = "m3/s"
+        conversion_applied = "drainage_flux_m3_s_to_m_per_day"
+        cell_area_m2 = area_m2
 
     return {
         "value": output_value,
@@ -1330,6 +1384,7 @@ def extract_observable_rows(
                     observable=observable,
                     series=series,
                     value=float(value),
+                    value_index=value_index,
                     details=details,
                     cells=cells,
                 )
