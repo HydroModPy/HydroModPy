@@ -220,16 +220,12 @@ class SyntheticGeographic:
     def _hydrate_workspace_paths(self) -> None:
         """Expose legacy workspace-derived paths expected by post-processors."""
         catch_folder = Path(getattr(self.workspace, "project_root", self.output_dir.parent))
-        stable_folder = Path(getattr(self.workspace, "stable_folder", self.output_dir.parent))
-        simulations_folder = Path(
-            getattr(self.workspace, "simulations_folder", catch_folder / "results_simulations")
-        )
 
         self.out_dir_path = str(catch_folder)
-        self.stable_folder = str(stable_folder)
-        self.simulations_folder = str(simulations_folder)
-        self.add_data_folder = str(stable_folder / "add_data")
-        self.figure_folder = str(stable_folder / "_figures")
+        self.add_data_folder = str(catch_folder / "add_data")
+        self.figure_folder = str(
+            getattr(self.workspace, "figure_folder", catch_folder / "figures")
+        )
         self.geographic_path = str(self.output_dir)
 
     def _write_rasters(self, values: np.ndarray, *, transform) -> None:

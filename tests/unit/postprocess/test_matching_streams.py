@@ -83,14 +83,17 @@ class _FakeWhiteboxBackend:
 
 
 def test_matching_streams_skips_empty_simulated_support(tmp_path: Path, monkeypatch) -> None:
-    workspace = SimpleNamespace(simulations_folder=str(tmp_path / "simulations"))
+    workspace = SimpleNamespace(
+        solver_scratch_folder=tmp_path / "simulations",
+        project_root=tmp_path,
+    )
     iteration = "run_01"
 
     routing_fill = tmp_path / "routing_fill.tif"
     routing_direc = tmp_path / "routing_direc.tif"
     observed_streams = tmp_path / "observed_streams.tif"
     seepage = (
-        Path(workspace.simulations_folder)
+        Path(str(workspace.solver_scratch_folder))
         / iteration
         / "_postprocess"
         / "_rasters"
@@ -141,7 +144,6 @@ def test_matching_streams_skips_empty_simulated_support(tmp_path: Path, monkeypa
         initializing=workspace,
         model_modflow=None,
         iteration_label=iteration,
-        from_calib=False,
     )
 
     assert model.has_observed_support is True
@@ -153,4 +155,4 @@ def test_matching_streams_skips_empty_simulated_support(tmp_path: Path, monkeypa
     assert backend.distance_calls == []
     assert backend.coord_calls == []
     assert backend.extract_calls == []
-    assert not (Path(workspace.simulations_folder) / iteration / "_matchingstreams" / "sim_pt.shp").exists()
+    assert not (Path(str(workspace.solver_scratch_folder)) / iteration / "_matchingstreams" / "sim_pt.shp").exists()

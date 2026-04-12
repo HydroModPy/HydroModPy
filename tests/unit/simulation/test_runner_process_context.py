@@ -99,7 +99,7 @@ def test_runner_ensures_process_context_before_before_process_callback(monkeypat
     }
 
 
-def test_run_flow_model_raises_when_solver_fails(monkeypatch) -> None:
+def test_run_flow_model_raises_when_solver_fails() -> None:
     plan = SimulationPlan(
         name="demo",
         description="demo",
@@ -131,11 +131,6 @@ def test_run_flow_model_raises_when_solver_fails(monkeypatch) -> None:
             workspace=SimpleNamespace(simulations_folder="unused"),
         ),
         execution=SimpleNamespace(models_by_run_id={}),
-    )
-
-    monkeypatch.setattr(
-        "hydromodpy.simulation.adapters.flow.modflow_common._persist_pre_run_payload",
-        lambda workspace, model_name, model_modflow: None,
     )
 
     class _FailingFlowModel:

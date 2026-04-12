@@ -52,7 +52,7 @@ def test_launcher_data_overview_data_only_regression():
     )
 
     # With the project-root layout, out_path IS the project root.
-    stable_root = out_path / "results_stable"
+    stable_root = out_path / ".solver_scratch/_preprocessing"
 
     required_files = [
         out_path / "hydromodpy_debug.log",

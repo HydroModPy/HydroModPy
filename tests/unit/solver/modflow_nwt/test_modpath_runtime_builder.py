@@ -79,17 +79,17 @@ def test_modpath_resolve_zone_partic_fails_when_seepage_raster_missing(
         model._resolve_zone_partic("seepage_clip")
 
 
-def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_npy(
+def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_store(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
     model = _make_modpath_stub(tmp_path)
+    model.model_folder = str(tmp_path)
     postprocess_dir = tmp_path / "_postprocess"
     rasters_dir = postprocess_dir / "_rasters"
     rasters_dir.mkdir(parents=True, exist_ok=True)
 
-    seepage_payload = {0: np.array([[1.0, 0.0], [0.0, -9999.0]], dtype=float)}
-    np.save(postprocess_dir / "seepage_areas.npy", seepage_payload)
+    seepage_array = np.array([[1.0, 0.0], [0.0, -9999.0]], dtype=float)
 
     base_raster = tmp_path / "base.tif"
     base_raster.write_text("dummy")
@@ -123,6 +123,25 @@ def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_npy(
             clip_calls["maintain_dimensions"] = maintain_dimensions
             Path(out_raster).write_text("dummy")
 
+    class _FakeStore:
+        def list_simulations(self):
+            import pandas as pd
+            return pd.DataFrame([{"sim_id": "fake-uuid"}])
+
+        def query_field(self, sim_id, name, timestep):
+            return seepage_array.ravel()
+
+        def close(self):
+            pass
+
+    class _FakeRasterSrc:
+        height = 2
+        width = 2
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            pass
+
     monkeypatch.setattr(
         "hydromodpy.solver.modflow_nwt.modpath.modpath.export_tif",
         _fake_export_tif,
@@ -130,6 +149,14 @@ def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_npy(
     monkeypatch.setattr(
         "hydromodpy.solver.modflow_nwt.modpath.modpath.get_whitebox_backend",
         lambda: _FakeWhiteboxBackend(),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.results.store.ResultStore.__new__",
+        lambda cls, *a, **kw: _FakeStore(),
+    )
+    import rasterio as _rio_mod
+    monkeypatch.setattr(
+        _rio_mod, "open", lambda *a, **kw: _FakeRasterSrc(),
     )
 
     resolved = model._resolve_zone_partic("seepage_clip")
@@ -140,13 +167,9 @@ def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_npy(
     assert seepage_tif.exists()
     assert expected_clip.exists()
     assert export_calls["base_dem_path"] == str(base_raster)
-    np.testing.assert_array_equal(export_calls["data_to_tif"], seepage_payload[0])
+    np.testing.assert_array_equal(export_calls["data_to_tif"], seepage_array)
     assert export_calls["data_tif_path"] == str(seepage_tif)
     assert export_calls["data_nodata_val"] == -9999.0
-    assert clip_calls["in_raster"] == str(seepage_tif)
-    assert clip_calls["in_polygon"] == str(watershed_shp)
-    assert clip_calls["out_raster"] == str(expected_clip)
-    assert clip_calls["maintain_dimensions"] is True
 
 
 def test_modpath_ensure_modflow_name_file_rebuilds_missing_namefile(

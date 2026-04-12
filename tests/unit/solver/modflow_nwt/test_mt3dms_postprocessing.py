@@ -95,18 +95,17 @@ def test_mt3dms_post_processing_exports_mass_accumulated(monkeypatch, tmp_path: 
         nodata=-32768,
     )
 
+    outflow_drain = {0: np.array([[1.0, 0.0], [2.0, 3.0]], dtype=np.float32)}
     model.model_modflow = SimpleNamespace(
         inactive_mask=np.array([[False, False], [False, False]], dtype=bool),
         dem_watershed_path=str(dem_path),
         nper=1,
         _ensure_solver_routing_context=lambda: routing_ctx,
+        dict_outflow_drain=outflow_drain,
     )
     model.geographic = SimpleNamespace()
 
     save_file = Path(model.full_path) / "_postprocess"
-    save_file.mkdir(parents=True, exist_ok=True)
-    outflow_drain = {0: np.array([[1.0, 0.0], [2.0, 3.0]], dtype=np.float32)}
-    np.save(save_file / "outflow_drain.npy", outflow_drain)
 
     monkeypatch.setattr(
         "hydromodpy.solver.modflow_nwt.mt3dms.mt3dms.bf.UcnFile",
@@ -174,6 +173,5 @@ def test_mt3dms_post_processing_exports_mass_accumulated(monkeypatch, tmp_path: 
     with rasterio.open(mass_acc_path) as src:
         np.testing.assert_array_equal(src.read(1), np.array([[9.0, 8.0], [7.0, 6.0]], dtype=np.float32))
 
-    saved = np.load(save_file / "mass_accumulated.npy", allow_pickle=True).item()
-    assert 0 in saved
-    np.testing.assert_array_equal(saved[0], np.array([[9.0, 8.0], [7.0, 6.0]], dtype=np.float32))
+    assert 0 in model.dict_mass_accumulated
+    np.testing.assert_array_equal(model.dict_mass_accumulated[0], np.array([[9.0, 8.0], [7.0, 6.0]], dtype=np.float32))

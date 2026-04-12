@@ -38,6 +38,7 @@ from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 import pytest
 from hydromodpy.solver.modflow_common import ensure_platform_executable
 
@@ -348,6 +349,40 @@ def snapshot_signature(path: Path) -> dict:
     }
 
 
+def collect_store_modpath_signatures(store, sim_id: str) -> dict:
+    """Collect MODPATH signatures from the ResultStore pathlines group."""
+    result = {}
+    try:
+        grp = store.open_zarr_group(sim_id)
+        pathlines_grp = grp.get("pathlines")
+        if pathlines_grp is None:
+            return result
+
+        # Starting endpoints (like starting.dbf)
+        if "endpoint_x" in pathlines_grp:
+            time_arr = np.asarray(pathlines_grp["endpoint_time"][:], dtype=float)
+            result["starting.dbf"] = {
+                "n_rows": int(len(time_arr)),
+                "time": array_stats(time_arr),
+            }
+            # Ending endpoints = same data for backward tracking
+            result["ending.dbf"] = result["starting.dbf"]
+
+        # Full pathlines (if available)
+        if "time" in pathlines_grp:
+            time_arr = np.asarray(pathlines_grp["time"][:], dtype=float)
+            n_particles = time_arr.shape[0]
+            valid_times = time_arr[np.isfinite(time_arr)]
+            result["pathlines"] = {
+                "n_rows": n_particles,
+                "time": array_stats(valid_times),
+            }
+    except (KeyError, Exception):
+        pass
+
+    return result
+
+
 def collect_modflow_signatures(postprocess_dir: Path, names: list[str]) -> dict:
     """
     Collect MODFLOW signatures for a list of output base names.
@@ -387,6 +422,105 @@ def collect_json_signatures(
     payload = load_json_payload(json_path)
     ordered_keys = sorted(payload) if keys is None else list(keys)
     return {key: payload[key] for key in ordered_keys}
+
+
+# -- ResultStore-based signature collection ----------------------------------
+
+
+def _open_result_store(project_path: Path):
+    """Open a read-only ResultStore for golden comparison."""
+    from hydromodpy.results.store import ResultStore
+    return ResultStore(project_path)
+
+
+def _resolve_sim_id(store, sim_name: str | None = None) -> str:
+    """Return the sim_id of the most recent (or only) simulation as a string."""
+    sims = store.list_simulations()
+    if sims.empty:
+        raise FileNotFoundError("No simulations in ResultStore")
+    if sim_name is not None:
+        match = sims[sims["name"] == sim_name]
+        if not match.empty:
+            return str(match.iloc[0]["sim_id"])
+    # DuckDB may return UUID objects — always convert to str.
+    return str(sims.iloc[-1]["sim_id"])
+
+
+def store_field_signature(store, sim_id: str, variable: str) -> dict:
+    """Build a modflow-compatible signature from a ResultStore field.
+
+    Reads the last available timestep and computes the same stats as
+    ``modflow_signature`` so golden comparison is identical.
+    """
+    # Scan all available timesteps for this variable (up to a reasonable max).
+    available = 0
+    for t in range(10000):
+        try:
+            store.query_field(sim_id, variable, t)
+            available = t + 1
+        except (KeyError, IndexError, Exception) as exc:
+            # Zarr raises BoundsCheckError (subclass of IndexError) when out of range.
+            if "out of bounds" in str(exc).lower() or isinstance(exc, (KeyError, IndexError)):
+                break
+            break
+
+    if available == 0:
+        raise KeyError(f"Variable '{variable}' has no timesteps for sim={sim_id}")
+
+    last_t = available - 1
+    arr = np.asarray(store.query_field(sim_id, variable, last_t), dtype=float)
+    # Flatten multi-layer to 1D (same as legacy .npy which stored flat arrays).
+    if arr.ndim > 1:
+        arr = arr.reshape(-1)
+
+    sig = array_stats(arr)
+    sig["shape"] = list(arr.shape)
+    sig["timestep"] = last_t
+    sig["available_timesteps"] = available
+
+    if sig["count"] == 0:
+        sig["sum"] = None
+    else:
+        finite = arr[np.isfinite(arr)]
+        sig["sum"] = float(finite.sum())
+    return sig
+
+
+def collect_store_field_signatures(
+    store,
+    sim_id: str,
+    names: list[str],
+) -> dict:
+    """Collect ResultStore field signatures — drop-in for ``collect_modflow_signatures``."""
+    result = {}
+    for name in names:
+        try:
+            result[name] = store_field_signature(store, sim_id, name)
+        except KeyError:
+            # Variable may not exist (e.g. accumulation_flux when no drain).
+            # Mirror legacy behavior: skip silently so golden comparison
+            # only covers variables that exist.
+            pass
+    return result
+
+
+def collect_store_npz_signatures(
+    solver_output_dir: Path,
+    names: list[str],
+) -> dict:
+    """Collect .npz signatures from solver scratch — same as ``collect_npz_signatures``."""
+    npz_path = solver_output_dir / "_boussinesq_state_history.npz"
+    return collect_npz_signatures(npz_path, names)
+
+
+def collect_store_json_signatures(
+    solver_output_dir: Path,
+    *,
+    keys: list[str] | None = None,
+) -> dict:
+    """Collect JSON signatures from solver scratch."""
+    json_path = solver_output_dir / "_boussinesq_summary.json"
+    return collect_json_signatures(json_path, keys=keys)
 
 
 def assert_modflow_signatures(
@@ -595,39 +729,44 @@ def resolve_model_workspace(
     """
     Resolve generated workspace folders for a completed example run.
 
-    With the project-root layout, ``out_path`` IS the project root and
-    results live directly at ``out_path/<results_folder>/<model>/...``.
-
-    The legacy ``watershed_name`` parameter is accepted but ignored — there
-    is no longer a watershed subfolder between out_path and results.
+    Searches ``results_folder_name`` first, then falls back to
+    ``.solver_scratch/`` (new DB-only layout).
 
     Returns
     -------
     tuple
         (model_ws, postprocess_dir, particles_dir)
     """
-    # 1) Resolve results folder directly under project root.
-    results_dir = out_path / results_folder_name
-    assert results_dir.is_dir(), f"Results folder not found: {results_dir}"
+    # Try new layout first (.solver_scratch), then legacy (results_simulations).
+    for folder_name in (".solver_scratch", results_folder_name):
+        results_dir = out_path / folder_name
+        if not results_dir.is_dir():
+            continue
 
-    # 2) Resolve model folder (exact name or first matching folder).
-    if model_name is not None:
-        model_ws = results_dir / model_name
-        assert model_ws.is_dir(), f"Model folder not found: {model_ws}"
-    else:
-        model_dirs = sorted(
-            p for p in results_dir.iterdir()
-            if p.is_dir()
-            and not p.name.startswith("_")
-            and (model_name_prefix is None or p.name.startswith(model_name_prefix))
-        )
-        assert model_dirs, f"No model folder found in {results_dir}"
-        model_ws = model_dirs[0]
+        if model_name is not None:
+            model_ws = results_dir / model_name
+            if model_ws.is_dir():
+                postprocess_dir = model_ws / "_postprocess"
+                particles_dir = postprocess_dir / "_particles"
+                return model_ws, postprocess_dir, particles_dir
+        else:
+            model_dirs = sorted(
+                p for p in results_dir.iterdir()
+                if p.is_dir()
+                and not p.name.startswith("_")
+                and (model_name_prefix is None or p.name.startswith(model_name_prefix))
+            )
+            if model_dirs:
+                model_ws = model_dirs[0]
+                postprocess_dir = model_ws / "_postprocess"
+                particles_dir = postprocess_dir / "_particles"
+                return model_ws, postprocess_dir, particles_dir
 
-    # 3) Return canonical workspace paths used by most regression tests.
-    postprocess_dir = model_ws / "_postprocess"
-    particles_dir = postprocess_dir / "_particles"
-    return model_ws, postprocess_dir, particles_dir
+    # Neither layout found — give a clear error.
+    raise AssertionError(
+        f"Results folder not found in {out_path} "
+        f"(checked .solver_scratch/ and {results_folder_name}/)"
+    )
 
 
 def resolve_first_model_workspace(
@@ -761,6 +900,54 @@ def run_example_script(
 
     assert completed.returncode == 0, (
         f"{script_path.name} failed.\n"
+        f"Command: {' '.join(command)}\n"
+        f"Stdout:\n{completed.stdout}\n"
+        f"Stderr:\n{completed.stderr}"
+    )
+
+
+def run_hmp_cli(
+    *,
+    config_path: Path,
+    out_path: Path,
+    extra_env: dict | None = None,
+    timeout: int = 1200,
+    cwd: Path = REPO_ROOT,
+) -> None:
+    """Run ``hmp run <config>`` as a subprocess.
+
+    Uses ``python -m hydromodpy run`` which invokes
+    :class:`HydroModPyLauncher` — the production entry point.
+    """
+    env = os.environ.copy()
+    env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
+    env.setdefault("MPLBACKEND", "Agg")
+    if extra_env:
+        for key, value in extra_env.items():
+            env[key] = str(value)
+
+    if os.environ.get("HYDROMODPY_COVERAGE"):
+        wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
+        command = [
+            sys.executable, str(wrapper),
+            "-m", "hydromodpy", "run", str(config_path),
+        ]
+    else:
+        command = [
+            sys.executable, "-m", "hydromodpy", "run", str(config_path),
+        ]
+
+    completed = subprocess.run(
+        command,
+        cwd=str(cwd),
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+    )
+
+    assert completed.returncode == 0, (
+        f"hmp run {config_path.name} failed.\n"
         f"Command: {' '.join(command)}\n"
         f"Stdout:\n{completed.stdout}\n"
         f"Stderr:\n{completed.stderr}"

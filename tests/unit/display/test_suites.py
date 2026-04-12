@@ -25,7 +25,7 @@ def _build_result(
         watershed_dem=Path("native_dem.tif"),
         watershed_shp=Path("watershed.shp"),
     )
-    workspace = SimpleNamespace(simulations_folder=Path("simulations"))
+    workspace = SimpleNamespace(simulations_folder=Path("simulations"), project_root=Path("."))
     hydrography = SimpleNamespace(streams=Path("streams.shp"))
 
     class _Result:
@@ -69,7 +69,7 @@ def test_plot_flow_suite_uses_solver_base_raster(monkeypatch) -> None:
     # Mock _extract_cross_section_data to capture the DEM path
     monkeypatch.setattr(
         "hydromodpy.analysis.display.suites._extract_cross_section_data",
-        lambda dem_path, wt_path, x_index=None: (
+        lambda dem_path, *, store=None, sim_id=None, x_index=None: (
             captured_dem.append(dem_path),
             (np.array([0.0]), np.array([0.0]), np.array([0.0])),
         )[1],
@@ -184,7 +184,8 @@ def test_plot_boussinesq_flow_suite_saves_figure(tmp_path) -> None:
         flow_model=None,
         boussinesq_model=boussinesq_model,
     )
-    result.setup.workspace.simulations_folder = tmp_path
+    result.setup.workspace.solver_scratch_folder = tmp_path
+    result.setup.workspace.project_root = tmp_path
 
     options = DisplayOptions(
         enabled=True,
@@ -197,9 +198,9 @@ def test_plot_boussinesq_flow_suite_saves_figure(tmp_path) -> None:
 
     assert (
         tmp_path
+        / "exports"
         / "bouss_main"
-        / "_postprocess"
-        / "_figures"
+        / "figures"
         / "boussinesq_state.png"
     ).exists()
 
@@ -286,7 +287,8 @@ def test_plot_boussinesq_flow_suite_emits_diagnostics_when_histories_exist(tmp_p
         state=state,
     )
     result = _build_result(flow_model=None, boussinesq_model=boussinesq_model)
-    result.setup.workspace.simulations_folder = tmp_path
+    result.setup.workspace.solver_scratch_folder = tmp_path
+    result.setup.workspace.project_root = tmp_path
 
     options = DisplayOptions(
         enabled=True,
@@ -297,7 +299,7 @@ def test_plot_boussinesq_flow_suite_emits_diagnostics_when_histories_exist(tmp_p
 
     plot_boussinesq_flow_suite(result, options)
 
-    figure_dir = tmp_path / "bouss_diag" / "_postprocess" / "_figures"
+    figure_dir = tmp_path / "exports" / "bouss_diag" / "figures"
     assert (figure_dir / "boussinesq_state.png").exists()
     assert (figure_dir / "boussinesq_diagnostics.png").exists()
     assert (figure_dir / "boussinesq_edge_flux.png").exists()

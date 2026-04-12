@@ -20,6 +20,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 import sys
+
+from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -520,13 +522,10 @@ def _derive_child_workspace_path(
 
 def _workspace_stable_folder(workspace_like: object) -> Path:
     """Return the canonical ``results_stable`` folder for one workspace-like object."""
-    stable_folder = getattr(workspace_like, "stable_folder", None)
-    if stable_folder is not None:
-        return Path(stable_folder)
     output_root = getattr(workspace_like, "output_root", None)
     if output_root is not None:
-        return Path(output_root) / "results_stable"
-    return Path(workspace_like.project_root) / "results_stable"
+        return Path(output_root) / LEGACY_STABLE_DIR
+    return Path(workspace_like.project_root) / LEGACY_STABLE_DIR
 
 
 __all__ = [

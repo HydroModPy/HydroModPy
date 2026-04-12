@@ -71,11 +71,15 @@ class Subbasin:
 
         self.sub_snap_dist = sub_snap_dist
 
-        self.subbasin_path = os.path.join(out_path, 'results_stable/subbasin/')
+        stable = getattr(geographic, 'stable_folder', None)
+        if stable is None:
+            from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+            stable = os.path.join(out_path, LEGACY_STABLE_DIR)
+        self.subbasin_path = os.path.join(str(stable), 'subbasin')
         if not os.path.exists(self.subbasin_path):
             create_folder(self.subbasin_path)
 
-        self.adddata_path = os.path.join(out_path, 'results_stable/add_data/')
+        self.adddata_path = os.path.join(str(stable), 'add_data')
         if not os.path.exists(self.adddata_path):
             create_folder(self.adddata_path)
 

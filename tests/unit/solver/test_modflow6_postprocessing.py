@@ -138,14 +138,9 @@ def test_modflow6_post_processing_tolerates_missing_drn_budget(
 
     model.post_processing(ModflowPostprocessOptions(accumulation_flux=False))
 
-    save_dir = Path(model.full_path) / "_postprocess"
-    outflow = np.load(save_dir / "outflow_drain.npy", allow_pickle=True).item()
-    seepage = np.load(save_dir / "seepage_areas.npy", allow_pickle=True).item()
-    watertable = np.load(save_dir / "watertable_elevation.npy", allow_pickle=True).item()
-
-    assert np.allclose(outflow[0], 0.0)
-    assert np.allclose(seepage[0], 0.0)
-    assert np.allclose(watertable[0], np.array([[9.0, 8.5], [8.0, 7.5]], dtype=float))
+    assert np.allclose(model.dict_outflow_drain[0], 0.0)
+    assert np.allclose(model.dict_seepage_areas[0], 0.0)
+    assert np.allclose(model.dict_watertable_elevation[0], np.array([[9.0, 8.5], [8.0, 7.5]], dtype=float))
 
 
 def test_modflow6_post_processing_reads_drn_budget_when_present(
@@ -158,16 +153,12 @@ def test_modflow6_post_processing_reads_drn_budget_when_present(
 
     model.post_processing(ModflowPostprocessOptions(accumulation_flux=False))
 
-    save_dir = Path(model.full_path) / "_postprocess"
-    outflow = np.load(save_dir / "outflow_drain.npy", allow_pickle=True).item()
-    seepage = np.load(save_dir / "seepage_areas.npy", allow_pickle=True).item()
-
     np.testing.assert_allclose(
-        outflow[0],
+        model.dict_outflow_drain[0],
         np.array([[2.5, 0.0], [0.0, 0.0]], dtype=float),
     )
     np.testing.assert_allclose(
-        seepage[0],
+        model.dict_seepage_areas[0],
         np.array([[1.0, 0.0], [0.0, 0.0]], dtype=float),
     )
 
@@ -187,13 +178,10 @@ def test_modflow6_post_processing_exports_east_side_chd_discharge(
         )
     )
 
-    save_dir = Path(model.full_path) / "_postprocess"
-    discharge = np.load(
-        save_dir / "outlet_discharge_east_side_m3_s.npy",
-        allow_pickle=True,
-    ).item()
-
-    np.testing.assert_allclose(discharge[0], np.array([6.0], dtype=float))
+    np.testing.assert_allclose(
+        model.dict_outlet_discharge_east_side_m3_s[0],
+        np.array([6.0], dtype=float),
+    )
 
 
 def test_modflow6_post_processing_reraises_unexpected_budget_value_errors(
@@ -296,9 +284,7 @@ def test_modflow6_post_processing_routes_accumulation_flux_via_masstransfer(
     )
 
     save_dir = Path(model.full_path) / "_postprocess"
-    accumulation = np.load(save_dir / "accumulation_flux.npy", allow_pickle=True).item()
-
-    np.testing.assert_allclose(accumulation[0], accumulated)
+    np.testing.assert_allclose(model.dict_accumulation_flux[0], accumulated)
     assert masstransfer_calls == [
         {
             "geographic": model.geographic,

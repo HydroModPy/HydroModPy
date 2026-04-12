@@ -68,20 +68,15 @@ def test_load_concentration_cube_falls_back_to_headfile_reader() -> None:
     assert concentration[0, 0, 0, 1] == 2.0
 
 
-def test_load_outflow_drain_array_falls_back_to_npy_series() -> None:
+def test_load_outflow_drain_array_uses_cache() -> None:
+    """When a pre-loaded cache dict is provided, _load_outflow_drain_array uses it."""
     model_modflow = SimpleNamespace(full_path=Path("run_dir"), nrow=2, ncol=2)
-    series_path = Path("run_dir") / "_postprocess" / "outflow_drain.npy"
+    cache = {1: np.array([[1.0, 0.0], [2.0, 3.0]], dtype=float)}
 
-    class _FakeNpy:
-        def item(self):
-            return {1: np.array([[1.0, 0.0], [2.0, 3.0]], dtype=float)}
-
-    with patch("pathlib.Path.exists", lambda self: self == series_path):
-        with patch("numpy.load", lambda path, allow_pickle=True: _FakeNpy()):
-            seep = _load_outflow_drain_array(
-                model_modflow,
-                1,
-                fallback_shape=(2, 2),
-            )
+    seep = _load_outflow_drain_array(
+        model_modflow, 1,
+        fallback_shape=(2, 2),
+        outflow_drain_cache=cache,
+    )
 
     np.testing.assert_array_equal(seep, np.array([[1.0, 0.0], [2.0, 3.0]], dtype=float))

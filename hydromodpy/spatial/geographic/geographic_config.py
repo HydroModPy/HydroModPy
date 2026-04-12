@@ -272,6 +272,15 @@ class GeographicConfig(BaseModel):
         ),
     )
 
+    write_intermediates: Annotated[bool, ParamLevel("dev")] = Field(
+        default=False,
+        description=(
+            "Keep intermediate rasters and shapefiles on disk after geographic "
+            "preprocessing. When false (default), results_stable/ is removed "
+            "after ingestion into the project store (project_results.zarr.db)."
+        ),
+    )
+
     def uses_synthetic_geographic(self) -> bool:
         """Return True when the analytical synthetic geographic mode is selected."""
         return str(self.source_mode).strip().lower() == "synthetic"

@@ -54,7 +54,7 @@ def test_recharge_config_defaults():
 
     assert cfg.values == 0.0
     assert cfg.first_clim == "mean"
-    assert cfg.units == "m/s"
+    assert cfg.units == "mm/day"
     assert cfg.negative_to_evt is True
 
 

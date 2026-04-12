@@ -73,7 +73,7 @@ def _write_tmp_config(tmp_path: Path) -> Path:
 
 
 def _collect_case_signature(project_root: str | Path) -> dict:
-    summary_path = Path(project_root) / "results_stable" / "geographic" / "river_network_summary.json"
+    summary_path = Path(project_root) / ".solver_scratch/_preprocessing" / "geographic" / "river_network_summary.json"
     if not summary_path.exists():
         raise AssertionError(f"Missing river network summary: {summary_path}")
 

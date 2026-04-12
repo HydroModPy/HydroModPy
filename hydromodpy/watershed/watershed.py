@@ -126,14 +126,11 @@ class Watershed:
         # Setup simulation log in watershed folder
         setup_simulation_log(self.watershed_folder)
 
-        self.stable_folder = initializing_object.stable_folder
-        self.simulations_folder = initializing_object.simulations_folder
-        self.calibration_folder = initializing_object.calibration_folder
-
-        self.add_data_folder = os.path.join(self.stable_folder, 'add_data')
+        self.add_data_folder = os.path.join(str(initializing_object.project_root), 'add_data')
         create_folder(self.add_data_folder)
 
-        self.figure_folder = os.path.join(self.stable_folder, '_figures')
+        self.figure_folder = str(getattr(initializing_object, 'figure_folder',
+                                         os.path.join(str(initializing_object.project_root), 'figures')))
         create_folder(self.figure_folder)
 
         self.elt_def = []
