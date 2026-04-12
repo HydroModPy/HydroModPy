@@ -116,6 +116,11 @@ Les briques suivantes sont maintenant presentes dans le depot :
   directement depuis les objets runtime (`setup`, `domain`, `flow`,
   `solver_mesh`), ce support est prefere aux artefacts disque ; les chemins
   materialises ne servent plus que de fallback defensif.
+- les parametrisations heterogenes a base de `values_by_key` peuvent maintenant
+  aussi etre preparees au runtime sur maillages structures, quand la simulation
+  de reference expose un support de domaine resolvable (`domain.supports.*`) ;
+  la calibration reconstruit alors des fractions par zone, conserve les valeurs
+  de base par cle, et actualise `K` ou `Sy` sans repasser par un bundle disque.
 - `actualize_candidate(...)` produit maintenant un vrai `PropertyArraySet`
   en plus de son resume, et l'injection de ce contrat est branchee jusqu'a
   `state.setup.flow_runtime_overrides`.
@@ -170,11 +175,11 @@ Les limites restantes sont explicites :
 
 - les cartes de resurgence sont reservees dans le schema (`support = "map"`,
   `metric = "direct_cost"`), mais ne sont pas encore evaluables ;
-- la parametrisation par lithologie peut maintenant etre preparee et injectee
-  quand la simulation de reference expose un bundle maillage deja materialise
-  avec geologie cellulaire ; les contextes purement runtime non materialises
-  sont maintenant couverts pour des proprietes globales homogenes, mais
-  restent a enrichir pour des parameterisations lithologiques plus riches ;
+- la parametrisation par lithologie ou par zones supportees au runtime est
+  maintenant couverte pour des valeurs inline `values_by_key` sur supports
+  resolvables ; restent a enrichir les cas plus riches, par exemple plusieurs
+  supports simultanes, des sources de valeurs externes, ou des zones runtime
+  non directement discretisables sur le maillage solveur ;
 - la factorisation fine du maillage et des tableaux de proprietes solveur
   reste la prochaine grande etape.
 - la distribution de modeles reste volontairement legere par defaut : elle
