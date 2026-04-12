@@ -58,9 +58,19 @@
   is the PETSc regularized-partition replay of that cycling real case.
 - `run_headwater_100km2_outlet_2_boussinesq_petsc_transient_cycling_recharge.toml`
   is the PETSc mixed-complementarity replay of that cycling real case.
+- `run_headwater_100km2_outlet_2_boussinesq_transient_cycling_recharge_heterogeneous.toml`
+  keeps the same cycling chronology but adds strong generated-rings
+  heterogeneity on `K` and `Sy` over the committed 100 km2 basin.
+- `run_headwater_100km2_outlet_2_boussinesq_petsc_partition_transient_cycling_recharge_heterogeneous.toml`
+  is the PETSc regularized-partition replay of that heterogeneous cycling case.
+- `run_headwater_100km2_outlet_2_boussinesq_petsc_transient_cycling_recharge_heterogeneous.toml`
+  is the PETSc mixed-complementarity replay of that heterogeneous cycling case.
 - `run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml`
   compares the SciPy sparse and both PETSc Boussinesq backends on that
   transient real-case forcing.
+- `run_method_comparison_headwater_100km2_outlet_2_transient_cycling_recharge_heterogeneous_backends.toml`
+  compares the same three Boussinesq backends on the stronger heterogeneous
+  cycling real case.
 - `config_headwater_100km2_mf6_transient_common.toml` is the shared 3-year
   MF6 flow-only base used for the new committed-mesh 100 km2 scenario family.
 - `run_headwater_100km2_outlet_2_mf6_transient_reference.toml` is the

@@ -9,7 +9,7 @@ Method Comparison
 These cases compare multiple modelling methods on the same saved support. The figures stay lightweight enough for the docs while still exposing map-wide errors.
 
 .. seealso::
-   Read :doc:`How to read result and comparison pages </getting_started/reading-results-pages>` if you want a guided entry point before opening the case pages below.
+   Read :doc:`How to read gallery, comparison, and validation pages </getting_started/reading-results-pages>` if you want a guided entry point before opening the case pages below.
 
 Current Coverage
 ----------------

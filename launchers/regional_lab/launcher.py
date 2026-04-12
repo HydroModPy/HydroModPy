@@ -338,7 +338,7 @@ def _site_from_mapping(
     """Build one typed site record from raw CSV or JSONL payload."""
     raw: dict[str, Any] = {}
     for key, value in mapping.items():
-        normalized_key = str(key).strip()
+        normalized_key = str(key).replace("\ufeff", "").strip().strip('"')
         if normalized_key == "":
             continue
         raw[normalized_key] = value

@@ -6,6 +6,21 @@ compact case, but still exercises geographic setup, embedded Gmsh meshing,
 MODFLOW 6 flow, MODFLOW 6 transport, postprocessing, and curated gallery
 publication.
 
+.. important::
+
+   Use this as the second step after :doc:`data-overview-walkthrough`, unless
+   you already understand the geographic setup and only need a solver-oriented
+   walkthrough.
+
+What this workflow teaches
+--------------------------
+
+- Read one end-to-end case without starting from the full example inventory.
+- See how a run overlay and a shared common config work together.
+- Map the main forcing, support, and groundwater parameters to the published
+  figures.
+- Understand which outputs are useful for a first sanity check after the run.
+
 Run it
 ------
 

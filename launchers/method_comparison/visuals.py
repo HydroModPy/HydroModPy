@@ -6,13 +6,14 @@ import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 import matplotlib
 import numpy as np
 
 from launchers.method_comparison.config import (
     MethodComparisonConfig,
+    MethodComparisonFineRasterSchema,
     MethodComparisonObservableSchema,
     MethodComparisonVariantSchema,
 )
@@ -29,6 +30,17 @@ from launchers.method_comparison.runtime import (
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+try:
+    from scipy.interpolate import griddata
+except Exception:  # pragma: no cover - optional at runtime
+    griddata = None
+
+try:
+    import rasterio
+    from rasterio.transform import from_origin
+except Exception:  # pragma: no cover - optional at runtime
+    rasterio = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +61,7 @@ class MapPayload:
     cell_ids: np.ndarray | None = None
     x: np.ndarray | None = None
     y: np.ndarray | None = None
+    extent: tuple[float, float, float, float] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,13 +78,14 @@ class DifferencePayload:
     cell_ids: np.ndarray | None = None
     x: np.ndarray | None = None
     y: np.ndarray | None = None
+    extent: tuple[float, float, float, float] | None = None
 
 
-_TITLE_FONT_SIZE = 10
-_PANEL_TITLE_FONT_SIZE = 8
-_LABEL_FONT_SIZE = 8
-_TICK_FONT_SIZE = 7
-_LEGEND_FONT_SIZE = 7
+_TITLE_FONT_SIZE = 11
+_PANEL_TITLE_FONT_SIZE = 9
+_LABEL_FONT_SIZE = 9
+_TICK_FONT_SIZE = 8
+_LEGEND_FONT_SIZE = 9
 
 
 def _slug(value: str) -> str:
@@ -116,6 +130,81 @@ def _legend_ncols(n_items: int) -> int:
     if n_items <= 4:
         return 2
     return 3
+
+
+def _estimate_extent_from_centroids(
+    *,
+    x_values: np.ndarray | None,
+    y_values: np.ndarray | None,
+) -> tuple[float, float, float, float] | None:
+    if x_values is None or y_values is None:
+        return None
+    x = np.asarray(x_values, dtype=float).ravel()
+    y = np.asarray(y_values, dtype=float).ravel()
+    finite = np.isfinite(x) & np.isfinite(y)
+    if not np.any(finite):
+        return None
+    x = x[finite]
+    y = y[finite]
+
+    def _spacing(values: np.ndarray) -> float:
+        unique = np.unique(np.round(values, decimals=9))
+        if unique.size < 2:
+            return 1.0
+        diffs = np.diff(np.sort(unique))
+        finite_diffs = diffs[np.isfinite(diffs) & (diffs > 0.0)]
+        if finite_diffs.size == 0:
+            return 1.0
+        return float(np.median(finite_diffs))
+
+    dx = _spacing(x)
+    dy = _spacing(y)
+    return (
+        float(np.min(x) - dx / 2.0),
+        float(np.max(x) + dx / 2.0),
+        float(np.min(y) - dy / 2.0),
+        float(np.max(y) + dy / 2.0),
+    )
+
+
+def _payload_extent(payload: MapPayload) -> tuple[float, float, float, float] | None:
+    if payload.extent is not None:
+        return payload.extent
+    return _estimate_extent_from_centroids(x_values=payload.x, y_values=payload.y)
+
+
+def _payload_samples(payload: MapPayload) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
+    if payload.x is None or payload.y is None:
+        return None
+    x = np.asarray(payload.x, dtype=float).ravel()
+    y = np.asarray(payload.y, dtype=float).ravel()
+    values = _mask_nodata(np.asarray(payload.values, dtype=float).ravel())
+    if not (x.size == y.size == values.size):
+        return None
+    finite = np.isfinite(x) & np.isfinite(y) & np.isfinite(values)
+    if not np.any(finite):
+        return None
+    return x[finite], y[finite], values[finite]
+
+
+def _solver_color(solver: str) -> str:
+    key = str(solver).strip().lower()
+    palette = {
+        "modflow6": "#1f77b4",
+        "modflownwt": "#ff7f0e",
+        "boussinesq": "#2ca02c",
+        "modpath": "#9467bd",
+        "mt3dms": "#8c564b",
+    }
+    for token, color in palette.items():
+        if token in key:
+            return color
+    return palette.get(key, "#6b7280")
+
+
+def _is_flux_like_name(name: str) -> bool:
+    key = str(name).strip().lower()
+    return any(token in key for token in ("flux", "drain", "accumulation", "runoff"))
 
 
 def _safe_float(value: Any) -> float | None:
@@ -212,8 +301,29 @@ def _build_map_payload(
         observable.unit or "",
     )
 
-    cells = resolve_bundle_cells(run_folder_path)
-    if cells is not None and cells.cell_ids.size == values.size:
+    config_path_raw = summary.get("config_path")
+    config_path = None if config_path_raw in ("", None) else Path(str(config_path_raw))
+    if config_path is None:
+        config_path = cfg.resolve_variant_config_path(variant)
+    cells = resolve_bundle_cells(
+        run_folder_path,
+        config_path=config_path,
+        expected_size=values.size,
+        solver_name=variant.solver,
+    )
+    structured_shape = (
+        None
+        if config_path is None or not config_path.exists()
+        else resolve_structured_shape_from_config(
+            config_path,
+            solver_name=variant.solver,
+        )
+    )
+    if structured_shape is None:
+        structured_shape = resolve_structured_shape_from_run_folder(run_folder_path)
+    if structured_shape is None:
+        if cells is None or cells.cell_ids.size != values.size:
+            return None
         return MapPayload(
             variant_id=variant.id,
             variant_label=variant.label or variant.id,
@@ -228,26 +338,14 @@ def _build_map_payload(
             cell_ids=np.asarray(cells.cell_ids, dtype=int),
             x=np.asarray(cells.x, dtype=float),
             y=np.asarray(cells.y, dtype=float),
+            extent=_estimate_extent_from_centroids(x_values=cells.x, y_values=cells.y),
         )
-
-    config_path_raw = summary.get("config_path")
-    config_path = None if config_path_raw in ("", None) else Path(str(config_path_raw))
-    if config_path is None:
-        config_path = cfg.resolve_variant_config_path(variant)
-    structured_shape = (
-        None
-        if config_path is None or not config_path.exists()
-        else resolve_structured_shape_from_config(
-            config_path,
-            solver_name=variant.solver,
-        )
-    )
-    if structured_shape is None:
-        structured_shape = resolve_structured_shape_from_run_folder(run_folder_path)
-    if structured_shape is None:
-        return None
     if values.size != structured_shape[0] * structured_shape[1]:
         return None
+    structured_extent = _estimate_extent_from_centroids(
+        x_values=None if cells is None else cells.x,
+        y_values=None if cells is None else cells.y,
+    )
     return MapPayload(
         variant_id=variant.id,
         variant_label=variant.label or variant.id,
@@ -260,6 +358,9 @@ def _build_map_payload(
         values=values,
         geometry_kind="structured",
         structured_shape=structured_shape,
+        x=None if cells is None else np.asarray(cells.x, dtype=float),
+        y=None if cells is None else np.asarray(cells.y, dtype=float),
+        extent=structured_extent,
     )
 
 
@@ -292,13 +393,19 @@ def _render_map_subplot(
     image = _mask_nodata(np.asarray(payload.values, dtype=float)).reshape(
         payload.structured_shape
     )
+    imshow_kwargs: dict[str, Any] = {
+        "origin": "lower",
+        "cmap": cmap,
+        "vmin": vmin,
+        "vmax": vmax,
+        "aspect": "auto",
+    }
+    if payload.extent is not None:
+        imshow_kwargs["extent"] = payload.extent
+        imshow_kwargs["aspect"] = "equal"
     artist = ax.imshow(
         image,
-        origin="lower",
-        cmap=cmap,
-        vmin=vmin,
-        vmax=vmax,
-        aspect="auto",
+        **imshow_kwargs,
     )
     _style_map_axes(ax)
     return artist
@@ -332,13 +439,19 @@ def _render_difference_subplot(
     image = _mask_nodata(np.asarray(payload.values, dtype=float)).reshape(
         payload.structured_shape
     )
+    imshow_kwargs: dict[str, Any] = {
+        "origin": "lower",
+        "cmap": cmap,
+        "vmin": -vmax,
+        "vmax": vmax,
+        "aspect": "auto",
+    }
+    if payload.extent is not None:
+        imshow_kwargs["extent"] = payload.extent
+        imshow_kwargs["aspect"] = "equal"
     artist = ax.imshow(
         image,
-        origin="lower",
-        cmap=cmap,
-        vmin=-vmax,
-        vmax=vmax,
-        aspect="auto",
+        **imshow_kwargs,
     )
     _style_map_axes(ax)
     return artist
@@ -381,6 +494,7 @@ def _build_difference_payload(
             cell_ids=np.asarray(reference.cell_ids, dtype=int),
             x=np.asarray(reference.x, dtype=float),
             y=np.asarray(reference.y, dtype=float),
+            extent=reference.extent,
         )
 
     if (
@@ -398,6 +512,7 @@ def _build_difference_payload(
             values=np.asarray(candidate_values - reference_values, dtype=float),
             geometry_kind="structured",
             structured_shape=reference.structured_shape,
+            extent=reference.extent,
         )
     return None
 
@@ -610,13 +725,430 @@ def _write_timeseries_figure(
     return True
 
 
+def _write_runtime_bar_figure(
+    *,
+    path: Path,
+    execution_rows: list[Mapping[str, Any]],
+    reference_variant: str | None,
+) -> bool:
+    rows = [
+        row
+        for row in execution_rows
+        if _safe_float(row.get("runtime_seconds")) is not None
+    ]
+    if len(rows) < 2:
+        return False
+    ordered = sorted(rows, key=lambda item: float(item["runtime_seconds"]), reverse=True)
+    labels = [
+        _display_variant_label(
+            variant_id=str(row.get("variant_id", "")),
+            variant_label=str(row.get("variant_label", row.get("variant_id", ""))),
+        )
+        for row in ordered
+    ]
+    runtimes = [float(row["runtime_seconds"]) for row in ordered]
+    colors = [_solver_color(str(row.get("solver", ""))) for row in ordered]
+
+    figure_height = max(2.8, 0.72 * len(ordered) + 1.1)
+    figure, ax = plt.subplots(1, 1, figsize=(7.4, figure_height))
+    positions = np.arange(len(ordered))
+    bars = ax.barh(positions, runtimes, color=colors, edgecolor="none", height=0.58)
+    ax.set_yticks(positions, labels=labels, fontsize=_LABEL_FONT_SIZE)
+    ax.set_xlabel("Runtime [s]", fontsize=_LABEL_FONT_SIZE)
+    ax.tick_params(axis="x", labelsize=_TICK_FONT_SIZE)
+    ax.grid(axis="x", alpha=0.22, linewidth=0.6)
+    ax.set_title("Execution time comparison", fontsize=_TITLE_FONT_SIZE, pad=8)
+
+    reference_runtime = None
+    if reference_variant is not None:
+        for row in ordered:
+            if str(row.get("variant_id", "")) == reference_variant:
+                reference_runtime = float(row["runtime_seconds"])
+                break
+    max_runtime = max(runtimes)
+    for bar, row in zip(bars, ordered):
+        runtime = float(row["runtime_seconds"])
+        speedup = (
+            reference_runtime / runtime
+            if reference_runtime is not None and runtime > 0.0
+            else math.nan
+        )
+        annotation = f"{runtime:.2f} s"
+        if math.isfinite(speedup):
+            annotation += f"  ({speedup:.2f}x ref)"
+        ax.text(
+            runtime + max_runtime * 0.02,
+            bar.get_y() + bar.get_height() / 2.0,
+            annotation,
+            va="center",
+            ha="left",
+            fontsize=_LEGEND_FONT_SIZE,
+        )
+    ax.set_xlim(0.0, max_runtime * 1.34)
+    figure.subplots_adjust(left=0.28, right=0.97, top=0.87, bottom=0.16)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return True
+
+
+def _write_native_flux_panel(
+    *,
+    path: Path,
+    variable: str,
+    long_rows: list[Mapping[str, Any]],
+    delta_rows: list[Mapping[str, Any]],
+) -> bool:
+    flux_rows = [row for row in long_rows if str(row.get("variable", "")) == variable]
+    variant_keys = {
+        str(row.get("variant_id", ""))
+        for row in flux_rows
+        if str(row.get("variant_id", "")) != ""
+    }
+    if len(variant_keys) < 2:
+        return False
+
+    series_payloads: dict[tuple[str, str], list[tuple[int, float]]] = {}
+    for row in flux_rows:
+        value = _safe_float(row.get("value"))
+        x_value = _safe_float(row.get("time_index"))
+        if value is None or x_value is None:
+            continue
+        key = (
+            str(row.get("variant_id", "")),
+            str(row.get("variant_label", row.get("variant_id", ""))),
+        )
+        series_payloads.setdefault(key, []).append((int(x_value), value))
+    if not any(len(points) >= 2 for points in series_payloads.values()):
+        return False
+
+    relevant_delta = [
+        row
+        for row in delta_rows
+        if str(row.get("variable", "")) == variable
+        and _safe_float(row.get("signed_error")) is not None
+        and _safe_float(row.get("time_index")) is not None
+    ]
+
+    figure, axes = plt.subplots(2, 1, figsize=(7.4, 6.1), sharex=True)
+    main_ax, delta_ax = axes
+    for (variant_id, variant_label), points in sorted(series_payloads.items()):
+        ordered = sorted(points, key=lambda item: item[0])
+        label = _display_variant_label(
+            variant_id=variant_id,
+            variant_label=variant_label,
+        )
+        color = _solver_color(variant_id)
+        main_ax.step(
+            [item[0] for item in ordered],
+            [item[1] for item in ordered],
+            where="post",
+            linewidth=1.8,
+            label=label,
+            color=color,
+        )
+    main_ax.set_ylabel(_pretty_label(variable), fontsize=_LABEL_FONT_SIZE)
+    main_ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    main_ax.grid(True, alpha=0.22, linewidth=0.6)
+    legend = main_ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.14),
+        ncol=_legend_ncols(len(series_payloads)),
+        frameon=False,
+        fontsize=_LEGEND_FONT_SIZE,
+    )
+    for line in legend.get_lines():
+        line.set_linewidth(1.8)
+
+    if relevant_delta:
+        delta_groups: dict[str, list[tuple[int, float]]] = {}
+        for row in relevant_delta:
+            key = str(row.get("variant_id", ""))
+            delta_groups.setdefault(key, []).append(
+                (int(float(row["time_index"])), float(row["signed_error"]))
+            )
+        for variant_id, points in sorted(delta_groups.items()):
+            ordered = sorted(points, key=lambda item: item[0])
+            delta_ax.step(
+                [item[0] for item in ordered],
+                [item[1] for item in ordered],
+                where="post",
+                linewidth=1.6,
+                color=_solver_color(variant_id),
+                label=_display_variant_label(variant_id=variant_id, variant_label=variant_id),
+            )
+        delta_ax.axhline(0.0, color="#111827", linewidth=0.8, alpha=0.65)
+    delta_ax.set_xlabel("Time step", fontsize=_LABEL_FONT_SIZE)
+    delta_ax.set_ylabel("Delta vs ref", fontsize=_LABEL_FONT_SIZE)
+    delta_ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    delta_ax.grid(True, alpha=0.22, linewidth=0.6)
+
+    figure.suptitle(f"{_pretty_label(variable)} hydrograph", fontsize=_TITLE_FONT_SIZE, y=0.97)
+    figure.subplots_adjust(left=0.12, right=0.98, top=0.9, bottom=0.18, hspace=0.25)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return True
+
+
+def _resolve_fine_grid_bounds(
+    *,
+    payloads: list[MapPayload],
+    fine_raster: MethodComparisonFineRasterSchema,
+    reference_variant: str | None,
+) -> tuple[float, float, float, float] | None:
+    extents = [
+        extent
+        for payload in payloads
+        for extent in [_payload_extent(payload)]
+        if extent is not None
+    ]
+    if len(extents) < 2:
+        return None
+    if fine_raster.extent_mode == "reference" and reference_variant is not None:
+        reference_payload = next(
+            (payload for payload in payloads if payload.variant_id == reference_variant),
+            None,
+        )
+        if reference_payload is not None:
+            return _payload_extent(reference_payload)
+    if fine_raster.extent_mode == "union":
+        xmin = min(item[0] for item in extents)
+        xmax = max(item[1] for item in extents)
+        ymin = min(item[2] for item in extents)
+        ymax = max(item[3] for item in extents)
+        return (xmin, xmax, ymin, ymax)
+    xmin = max(item[0] for item in extents)
+    xmax = min(item[1] for item in extents)
+    ymin = max(item[2] for item in extents)
+    ymax = min(item[3] for item in extents)
+    if xmin >= xmax or ymin >= ymax:
+        return None
+    return (xmin, xmax, ymin, ymax)
+
+
+def _build_fine_grid(
+    *,
+    bounds: tuple[float, float, float, float],
+    resolution: float,
+) -> tuple[np.ndarray, np.ndarray, tuple[float, float, float, float]] | None:
+    xmin, xmax, ymin, ymax = bounds
+    x_values = np.arange(xmin + resolution / 2.0, xmax, resolution, dtype=float)
+    y_values = np.arange(ymin + resolution / 2.0, ymax, resolution, dtype=float)
+    if x_values.size < 2 or y_values.size < 2:
+        return None
+    grid_x, grid_y = np.meshgrid(x_values, y_values)
+    return grid_x, grid_y, (xmin, xmax, ymin, ymax)
+
+
+def _regrid_payload(
+    *,
+    payload: MapPayload,
+    grid_x: np.ndarray,
+    grid_y: np.ndarray,
+    interpolation: str,
+) -> np.ndarray | None:
+    if griddata is None:
+        return None
+    samples = _payload_samples(payload)
+    if samples is None:
+        return None
+    sample_x, sample_y, sample_values = samples
+    try:
+        array = griddata(
+            np.column_stack((sample_x, sample_y)),
+            sample_values,
+            (grid_x, grid_y),
+            method=interpolation,
+        )
+    except Exception:
+        return None
+    if array is None:
+        return None
+    result = np.asarray(array, dtype=float)
+    if interpolation == "linear" and not np.any(np.isfinite(result)):
+        try:
+            result = np.asarray(
+                griddata(
+                    np.column_stack((sample_x, sample_y)),
+                    sample_values,
+                    (grid_x, grid_y),
+                    method="nearest",
+                ),
+                dtype=float,
+            )
+        except Exception:
+            return None
+    return result
+
+
+def _write_regridded_map_figure(
+    *,
+    path: Path,
+    observable_name: str,
+    arrays: list[tuple[MapPayload, np.ndarray]],
+    extent: tuple[float, float, float, float],
+) -> bool:
+    limits = _finite_limits(array for _, array in arrays)
+    if limits is None:
+        return False
+    vmin, vmax = limits
+    if math.isclose(vmin, vmax):
+        delta = abs(vmin) * 0.05 or 1.0
+        vmin -= delta
+        vmax += delta
+    ncols = min(2, len(arrays))
+    nrows = int(math.ceil(len(arrays) / float(ncols)))
+    figure, axes = plt.subplots(nrows, ncols, figsize=(4.8 * ncols, 4.1 * nrows + 0.7), squeeze=False)
+    axes_array = np.asarray(axes, dtype=object).ravel()
+    artist = None
+    for ax, (payload, array) in zip(axes_array, arrays):
+        artist = ax.imshow(
+            array,
+            origin="lower",
+            extent=extent,
+            cmap="viridis",
+            vmin=vmin,
+            vmax=vmax,
+            aspect="equal",
+        )
+        _style_map_axes(ax)
+        ax.set_title(
+            _variant_panel_title(
+                variant_id=payload.variant_id,
+                variant_label=payload.variant_label,
+                solver=payload.solver or payload.mesh_mode,
+            ),
+            fontsize=_PANEL_TITLE_FONT_SIZE,
+            pad=6,
+        )
+    for ax in axes_array[len(arrays) :]:
+        ax.set_visible(False)
+    if artist is not None:
+        colorbar = figure.colorbar(
+            artist,
+            ax=axes_array[: len(arrays)].tolist(),
+            orientation="horizontal",
+            pad=0.06,
+            fraction=0.05,
+            aspect=40,
+        )
+        colorbar.set_label(arrays[0][0].unit or "value", fontsize=_LABEL_FONT_SIZE, labelpad=4)
+        colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    figure.suptitle(
+        f"{_pretty_label(observable_name)} on fine raster",
+        fontsize=_TITLE_FONT_SIZE,
+        y=0.97,
+    )
+    figure.subplots_adjust(left=0.03, right=0.98, top=0.84, bottom=0.14, wspace=0.05, hspace=0.12)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return True
+
+
+def _write_regridded_difference_figure(
+    *,
+    path: Path,
+    observable_name: str,
+    candidate_variant: str,
+    reference_variant: str,
+    array: np.ndarray,
+    unit: str,
+    extent: tuple[float, float, float, float],
+) -> bool:
+    limits = _finite_limits([array])
+    if limits is None:
+        return False
+    vmax = max(abs(limits[0]), abs(limits[1]))
+    if not math.isfinite(vmax) or math.isclose(vmax, 0.0):
+        vmax = 1.0
+    figure, ax = plt.subplots(1, 1, figsize=(5.4, 4.8))
+    artist = ax.imshow(
+        array,
+        origin="lower",
+        extent=extent,
+        cmap="coolwarm",
+        vmin=-vmax,
+        vmax=vmax,
+        aspect="equal",
+    )
+    _style_map_axes(ax)
+    ax.set_title(
+        f"{candidate_variant} minus {reference_variant}",
+        fontsize=_PANEL_TITLE_FONT_SIZE,
+        pad=6,
+    )
+    colorbar = figure.colorbar(
+        artist,
+        ax=ax,
+        orientation="horizontal",
+        pad=0.08,
+        fraction=0.06,
+        aspect=40,
+    )
+    colorbar.set_label(unit or "difference", fontsize=_LABEL_FONT_SIZE, labelpad=4)
+    colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    figure.suptitle(
+        f"{_pretty_label(observable_name)} fine-raster difference",
+        fontsize=_TITLE_FONT_SIZE,
+        y=0.96,
+    )
+    figure.subplots_adjust(left=0.04, right=0.98, top=0.84, bottom=0.16)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return True
+
+
+def _write_geotiff(
+    *,
+    path: Path,
+    array: np.ndarray,
+    extent: tuple[float, float, float, float],
+) -> bool:
+    if rasterio is None:
+        return False
+    xmin, xmax, ymin, ymax = extent
+    height, width = array.shape
+    if height <= 0 or width <= 0:
+        return False
+    resolution_x = (xmax - xmin) / float(width)
+    resolution_y = (ymax - ymin) / float(height)
+    if resolution_x <= 0.0 or resolution_y <= 0.0:
+        return False
+    data = np.asarray(array, dtype="float32")
+    nodata_value = np.float32(-9999.0)
+    data_to_write = np.where(np.isfinite(data), data, nodata_value)
+    transform = from_origin(xmin, ymax, resolution_x, resolution_y)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=height,
+        width=width,
+        count=1,
+        dtype="float32",
+        transform=transform,
+        crs="EPSG:2154",
+        nodata=float(nodata_value),
+    ) as dataset:
+        dataset.write(data_to_write, 1)
+    return True
+
+
 def generate_comparison_figures(
     *,
     cfg: MethodComparisonConfig,
     variant_summaries: list[dict[str, Any]],
     rows: list[dict[str, Any]],
+    detail_metrics: list[dict[str, Any]],
     reference_variant: str | None,
     comparison_root: Path,
+    native_timeseries_rows: list[dict[str, Any]] | None = None,
+    native_timeseries_delta_rows: list[dict[str, Any]] | None = None,
+    execution_rows: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Generate best-effort PNG comparisons from extracted observables."""
     figure_root = comparison_root / "comparison_figures"
@@ -638,6 +1170,7 @@ def generate_comparison_figures(
     }
 
     artifacts: list[dict[str, Any]] = []
+    fine_raster = cfg.method_comparison.fine_raster
 
     for observable in cfg.method_comparison.observable:
         if observable.support != "map":
@@ -709,7 +1242,136 @@ def generate_comparison_figures(
                     }
                 )
 
+        if (
+            fine_raster is not None
+            and fine_raster.enabled
+            and griddata is not None
+        ):
+            bounds = _resolve_fine_grid_bounds(
+                payloads=payloads,
+                fine_raster=fine_raster,
+                reference_variant=reference_variant,
+            )
+            if bounds is not None:
+                fine_grid = _build_fine_grid(
+                    bounds=bounds,
+                    resolution=float(fine_raster.resolution or 0.0),
+                )
+                if fine_grid is not None:
+                    grid_x, grid_y, grid_extent = fine_grid
+                    regridded: list[tuple[MapPayload, np.ndarray]] = []
+                    for payload in payloads:
+                        array = _regrid_payload(
+                            payload=payload,
+                            grid_x=grid_x,
+                            grid_y=grid_y,
+                            interpolation=fine_raster.interpolation,
+                        )
+                        if array is None:
+                            continue
+                        regridded.append((payload, array))
+                        if fine_raster.write_geotiff:
+                            raster_path = figure_root / (
+                                f"{_slug(observable.name)}__fine_raster__"
+                                f"{_slug(payload.variant_id)}.tif"
+                            )
+                            if _write_geotiff(path=raster_path, array=array, extent=grid_extent):
+                                artifacts.append(
+                                    {
+                                        "kind": "fine_raster_geotiff",
+                                        "observable": observable.name,
+                                        "variant_id": payload.variant_id,
+                                        "path": str(raster_path),
+                                    }
+                                )
+                    if len(regridded) >= 2:
+                        fine_map_path = figure_root / (
+                            f"{_slug(observable.name)}__fine_raster_map_comparison.png"
+                        )
+                        if _write_regridded_map_figure(
+                            path=fine_map_path,
+                            observable_name=observable.name,
+                            arrays=regridded,
+                            extent=grid_extent,
+                        ):
+                            artifacts.append(
+                                {
+                                    "kind": "fine_raster_map_comparison",
+                                    "observable": observable.name,
+                                    "path": str(fine_map_path),
+                                }
+                            )
+                    if reference_variant is not None:
+                        reference_array = next(
+                            (
+                                array
+                                for payload, array in regridded
+                                if payload.variant_id == reference_variant
+                            ),
+                            None,
+                        )
+                        reference_payload = next(
+                            (
+                                payload
+                                for payload, _array in regridded
+                                if payload.variant_id == reference_variant
+                            ),
+                            None,
+                        )
+                        if reference_array is not None and reference_payload is not None:
+                            for payload, array in regridded:
+                                if payload.variant_id == reference_variant:
+                                    continue
+                                difference_array = np.asarray(array - reference_array, dtype=float)
+                                diff_path = figure_root / (
+                                    f"{_slug(observable.name)}__fine_raster_difference__"
+                                    f"{_slug(reference_variant)}__vs__{_slug(payload.variant_id)}.png"
+                                )
+                                if _write_regridded_difference_figure(
+                                    path=diff_path,
+                                    observable_name=observable.name,
+                                    candidate_variant=payload.variant_id,
+                                    reference_variant=reference_variant,
+                                    array=difference_array,
+                                    unit=payload.unit,
+                                    extent=grid_extent,
+                                ):
+                                    artifacts.append(
+                                        {
+                                            "kind": "fine_raster_difference_map",
+                                            "observable": observable.name,
+                                            "reference_variant": reference_variant,
+                                            "candidate_variant": payload.variant_id,
+                                            "path": str(diff_path),
+                                        }
+                                    )
+                                if fine_raster.write_geotiff:
+                                    raster_path = figure_root / (
+                                        f"{_slug(observable.name)}__fine_raster_difference__"
+                                        f"{_slug(reference_variant)}__vs__{_slug(payload.variant_id)}.tif"
+                                    )
+                                    if _write_geotiff(
+                                        path=raster_path,
+                                        array=difference_array,
+                                        extent=grid_extent,
+                                    ):
+                                        artifacts.append(
+                                            {
+                                                "kind": "fine_raster_difference_geotiff",
+                                                "observable": observable.name,
+                                                "reference_variant": reference_variant,
+                                                "candidate_variant": payload.variant_id,
+                                                "path": str(raster_path),
+                                            }
+                                        )
+
     grouped_rows: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    observable_support = {
+        observable.name: observable.support for observable in cfg.method_comparison.observable
+    }
+    observable_variable = {
+        observable.name: observable.variable for observable in cfg.method_comparison.observable
+    }
     for row in rows:
         if str(row.get("support", "")) == "map":
             continue
@@ -732,6 +1394,46 @@ def generate_comparison_figures(
                     "observable": observable_name,
                     "unit": unit,
                     "path": str(series_path),
+                }
+            )
+
+    native_long = list(native_timeseries_rows or [])
+    native_delta = list(native_timeseries_delta_rows or [])
+    native_variables = sorted(
+        {
+            str(row.get("variable", ""))
+            for row in native_long
+            if _is_flux_like_name(str(row.get("variable", "")))
+        }
+    )
+    for variable in native_variables:
+        flux_path = figure_root / f"native_{_slug(variable)}__hydrograph.png"
+        if _write_native_flux_panel(
+            path=flux_path,
+            variable=variable,
+            long_rows=native_long,
+            delta_rows=native_delta,
+        ):
+            artifacts.append(
+                {
+                    "kind": "native_flux_panel",
+                    "observable": variable,
+                    "path": str(flux_path),
+                }
+            )
+
+    if execution_rows:
+        runtime_path = figure_root / "execution_time_comparison.png"
+        if _write_runtime_bar_figure(
+            path=runtime_path,
+            execution_rows=execution_rows,
+            reference_variant=reference_variant,
+        ):
+            artifacts.append(
+                {
+                    "kind": "execution_time_bars",
+                    "observable": "execution_time",
+                    "path": str(runtime_path),
                 }
             )
 

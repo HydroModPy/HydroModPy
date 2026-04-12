@@ -1,0 +1,5 @@
+recipe_id,recipe_label,launcher,candidate_site_count,planned_case_count,skipped_case_count,executed_case_count,reused_case_count,successful_case_count,failed_case_count,pending_case_count,coverage_ratio
+headwater_mf6_reference,Headwater reference replay,simulation,10,2,8,0,0,0,0,2,0.2
+headwater_backend_compare,Headwater backend comparison,method-comparison,10,1,9,0,0,0,0,1,0.1
+headwater_transient_backend_compare,Headwater transient backend comparison,method-comparison,10,1,9,0,0,0,0,1,0.1
+s3_future_reference,S3 local mesh replay,simulation,10,10,0,0,0,0,0,10,1.0

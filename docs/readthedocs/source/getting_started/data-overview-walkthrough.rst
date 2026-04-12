@@ -1,11 +1,16 @@
-Data-Overview Walkthrough
+Data Overview Walkthrough
 =========================
 
-This is the recommended first HydroModPy workflow if you want to understand how
-one basin is assembled before touching meshing or solving.
+This is the default first HydroModPy workflow if you want to understand how one
+basin is assembled before touching meshing or solving.
 
-What this workflow is for
--------------------------
+.. important::
+
+   Start here unless you already know that you need a full solver run on day
+   one.
+
+What this workflow teaches
+--------------------------
 
 - Extract one watershed from outlet coordinates.
 - Build the domain support and depth model.

@@ -136,6 +136,27 @@ def resolve_structured_shape_from_run_folder(run_folder: Path) -> tuple[int, int
     return (nrow, ncol)
 
 
+def _structured_bounds_from_run_folder(
+    run_folder: Path,
+) -> tuple[float, float, float, float] | None:
+    if rasterio is None:
+        return None
+    raster_path = run_folder / "_solver_grid_template.tif"
+    if not raster_path.exists():
+        return None
+    try:
+        with rasterio.open(raster_path) as dataset:
+            bounds = dataset.bounds
+    except Exception:
+        return None
+    return (
+        float(bounds.left),
+        float(bounds.bottom),
+        float(bounds.right),
+        float(bounds.top),
+    )
+
+
 def _resolve_project_root_from_config(config_path: Path) -> Path | None:
     try:
         payload = load_toml_with_base_config(config_path)
@@ -201,6 +222,38 @@ def _structured_cells_from_config(
     if expected_size is not None and n_cells != int(expected_size):
         return None
     bounds = _structured_bounds_from_config(config_path)
+    if bounds is None:
+        return None
+    xmin, ymin, xmax, ymax = bounds
+    dx = (xmax - xmin) / float(ncol)
+    dy = (ymax - ymin) / float(nrow)
+    if dx <= 0.0 or dy <= 0.0:
+        return None
+    x_values = xmin + (np.arange(ncol, dtype=float) + 0.5) * dx
+    y_values = ymax - (np.arange(nrow, dtype=float) + 0.5) * dy
+    grid_x, grid_y = np.meshgrid(x_values, y_values)
+    area_m2 = np.full(n_cells, float(dx) * float(dy), dtype=float)
+    return CellCentroidTable(
+        cell_ids=np.arange(n_cells, dtype=int),
+        x=grid_x.reshape(-1),
+        y=grid_y.reshape(-1),
+        area_m2=area_m2,
+    )
+
+
+def _structured_cells_from_run_folder(
+    *,
+    run_folder: Path,
+    expected_size: int | None = None,
+) -> CellCentroidTable | None:
+    shape = resolve_structured_shape_from_run_folder(run_folder)
+    if shape is None:
+        return None
+    nrow, ncol = shape
+    n_cells = int(nrow) * int(ncol)
+    if expected_size is not None and n_cells != int(expected_size):
+        return None
+    bounds = _structured_bounds_from_run_folder(run_folder)
     if bounds is None:
         return None
     xmin, ymin, xmax, ymax = bounds
@@ -526,10 +579,19 @@ def resolve_bundle_cells(
                 )
 
     if config_path is None:
-        return None
-    return _structured_cells_from_config(
+        return _structured_cells_from_run_folder(
+            run_folder=run_folder,
+            expected_size=expected_size,
+        )
+    structured_cells = _structured_cells_from_config(
         config_path=config_path,
         solver_name=solver_name,
+        expected_size=expected_size,
+    )
+    if structured_cells is not None:
+        return structured_cells
+    return _structured_cells_from_run_folder(
+        run_folder=run_folder,
         expected_size=expected_size,
     )
 

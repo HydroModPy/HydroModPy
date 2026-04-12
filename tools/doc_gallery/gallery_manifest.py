@@ -111,7 +111,7 @@ CATEGORY_SPECS: dict[str, GalleryCategorySpec] = {
             "lightweight analytical references, with metrics that stay readable in a doc page."
         ),
         guide_doc="getting_started/reading-results-pages",
-        guide_title="How to read result, comparison, and validation pages",
+        guide_title="How to read gallery, comparison, and validation pages",
     ),
     "geographic": GalleryCategorySpec(
         slug="geographic",
@@ -122,7 +122,7 @@ CATEGORY_SPECS: dict[str, GalleryCategorySpec] = {
             "DEM-based views, and the local data overlays that feed later modelling steps."
         ),
         guide_doc="getting_started/data-overview-walkthrough",
-        guide_title="Data-overview walkthrough",
+        guide_title="Data Overview walkthrough",
     ),
     "geometry": GalleryCategorySpec(
         slug="geometry",
@@ -151,7 +151,7 @@ CATEGORY_SPECS: dict[str, GalleryCategorySpec] = {
             "The figures stay lightweight enough for the docs while still exposing map-wide errors."
         ),
         guide_doc="getting_started/reading-results-pages",
-        guide_title="How to read result and comparison pages",
+        guide_title="How to read gallery, comparison, and validation pages",
     ),
     "simulation": GalleryCategorySpec(
         slug="simulation",
@@ -702,7 +702,7 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
                 "When the watershed framing looks correct, move to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` to add meshing and solving.",
             ),
             walkthrough_doc="getting_started/data-overview-walkthrough",
-            walkthrough_title="the data-overview walkthrough",
+            walkthrough_title="the Data Overview walkthrough",
         ),
         GalleryCaseSpec(
             slug="geometry_constraints_canut",
@@ -918,7 +918,7 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
                 "Then open :doc:`the shared-mesh method comparison case </capability_gallery/cases/example12_map_method_comparison>` to compare two solver families on the same support.",
             ),
             walkthrough_doc="getting_started/simulation-walkthrough",
-            walkthrough_title="the simulation walkthrough",
+            walkthrough_title="the Simulation walkthrough",
         ),
         GalleryCaseSpec(
             slug="hydraulic_conductivity_square_parameterizations",
@@ -1255,11 +1255,11 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
                 "Do not read this page as a validation benchmark: it is a solver-to-solver comparison, not a comparison against an analytical truth.",
             ),
             next_steps=(
-                "Use :doc:`the result-reading guide </getting_started/reading-results-pages>` to distinguish example pages, method-comparison pages, and validation pages.",
+                "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, method-comparison pages, and validation pages.",
                 "If you need to understand the reference MODFLOW 6 run itself, go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>`.",
             ),
             walkthrough_doc="getting_started/reading-results-pages",
-            walkthrough_title="the result-reading guide",
+            walkthrough_title="the gallery and validation reading guide",
             metadata={
                 "comparison_config_path": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
                 "study_area": "Naizin catchment",

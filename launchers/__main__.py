@@ -173,6 +173,7 @@ def _bootstrap_regional_lab_catalog(
     cluster_family: str | None,
     cluster_scale: str | None,
     manifest_csv: Path | None,
+    mesh_run_root: Path | None,
     site_id_template: str,
     outlet_id_column: str,
     x_column: str,
@@ -193,6 +194,7 @@ def _bootstrap_regional_lab_catalog(
         cluster_family=cluster_family,
         cluster_scale=cluster_scale,
         manifest_csv=manifest_csv,
+        mesh_run_root=mesh_run_root,
         site_id_template=site_id_template,
         outlet_id_column=outlet_id_column,
         x_column=x_column,
@@ -207,6 +209,7 @@ def _bootstrap_regional_lab_catalog(
     print(f"  region_id: {summary['region_id']}")
     print(f"  source_selection_id: {summary['source_selection_id']}")
     print(f"  manifest_merged: {summary['manifest_merged']}")
+    print(f"  mesh_run_root_scanned: {summary['mesh_run_root_scanned']}")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -440,6 +443,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional mesh batch manifest CSV merged into the generated catalog.",
     )
     regional_lab_bootstrap.add_argument(
+        "--mesh-run-root",
+        type=Path,
+        default=None,
+        help="Optional mesh run root scanned to discover mesh assets by outlet_id.",
+    )
+    regional_lab_bootstrap.add_argument(
         "--site-id-template",
         default="{cluster_id}_outlet_{outlet_id}",
         help="Template used to derive site_id from cluster_id and outlet_id.",
@@ -570,6 +579,9 @@ def main(argv: list[str] | None = None) -> int:
         manifest_csv = None
         if parsed.manifest_csv is not None:
             manifest_csv = parsed.manifest_csv.expanduser().resolve()
+        mesh_run_root = None
+        if parsed.mesh_run_root is not None:
+            mesh_run_root = parsed.mesh_run_root.expanduser().resolve()
         _bootstrap_regional_lab_catalog(
             outlets_table=parsed.outlets_table.expanduser().resolve(),
             output=parsed.output.expanduser().resolve(),
@@ -580,6 +592,7 @@ def main(argv: list[str] | None = None) -> int:
             cluster_family=None if parsed.cluster_family is None else str(parsed.cluster_family),
             cluster_scale=None if parsed.cluster_scale is None else str(parsed.cluster_scale),
             manifest_csv=manifest_csv,
+            mesh_run_root=mesh_run_root,
             site_id_template=str(parsed.site_id_template),
             outlet_id_column=str(parsed.outlet_id_column),
             x_column=str(parsed.x_column),

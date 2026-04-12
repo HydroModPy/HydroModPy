@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
+import re
 from typing import Any, Mapping
 
 
@@ -55,6 +56,52 @@ def _write_csv_rows(
             writer.writerow(payload)
 
 
+def _extract_outlet_id_from_name(name: str) -> str | None:
+    """Extract one outlet identifier from mesh-catchment filenames or folders."""
+    match = re.search(r"outlet_(\d+)", name)
+    if match is None:
+        return None
+    return match.group(1)
+
+
+def _discover_mesh_assets(mesh_run_root: Path) -> dict[str, dict[str, str]]:
+    """Discover mesh assets by outlet identifier from one run root."""
+    discovered: dict[str, dict[str, str]] = {}
+    patterns = {
+        "*.msh": "mesh_output_mesh",
+        "*_summary.json": "mesh_summary_json",
+        "*.png": "mesh_figure",
+    }
+    for pattern, field_name in patterns.items():
+        for path in mesh_run_root.rglob(pattern):
+            outlet_id = _extract_outlet_id_from_name(path.name)
+            if outlet_id is None:
+                outlet_id = _extract_outlet_id_from_name(str(path.parent.name))
+            if outlet_id is None:
+                continue
+            bucket = discovered.setdefault(outlet_id, {})
+            resolved = str(path.resolve())
+            if field_name == "mesh_figure" and resolved.endswith("_regional.png"):
+                bucket["mesh_figure_regional"] = resolved
+                continue
+            if field_name == "mesh_figure" and bucket.get("mesh_figure", "").endswith("_regional.png"):
+                bucket["mesh_figure"] = resolved
+                continue
+            bucket.setdefault(field_name, resolved)
+            if field_name == "mesh_output_mesh" and "mesh_bundle_dir" not in bucket:
+                bundle_name = f"mesh_catchment_outlet_{outlet_id}_bundle"
+                bundle_dir = path.parent / bundle_name
+                if bundle_dir.is_dir():
+                    bucket["mesh_bundle_dir"] = str(bundle_dir.resolve())
+    for bundle_dir in mesh_run_root.rglob("*_bundle"):
+        outlet_id = _extract_outlet_id_from_name(bundle_dir.name)
+        if outlet_id is None:
+            continue
+        bucket = discovered.setdefault(outlet_id, {})
+        bucket.setdefault("mesh_bundle_dir", str(bundle_dir.resolve()))
+    return discovered
+
+
 def build_site_catalog_from_outlet_table(
     *,
     outlets_table_path: str | Path,
@@ -66,6 +113,7 @@ def build_site_catalog_from_outlet_table(
     cluster_family: str | None = None,
     cluster_scale: str | None = None,
     manifest_csv: str | Path | None = None,
+    mesh_run_root: str | Path | None = None,
     outlet_id_column: str = "outlet_id",
     x_column: str = "x_outlet",
     y_column: str = "y_outlet",
@@ -80,11 +128,16 @@ def build_site_catalog_from_outlet_table(
     outlets_path = Path(outlets_table_path).expanduser().resolve()
     destination = Path(output_path).expanduser().resolve()
     manifest_path = None if manifest_csv is None else Path(manifest_csv).expanduser().resolve()
+    mesh_run_root_path = (
+        None if mesh_run_root is None else Path(mesh_run_root).expanduser().resolve()
+    )
 
     if not outlets_path.is_file():
         raise FileNotFoundError(f"Outlets table not found: {outlets_path}")
     if manifest_path is not None and not manifest_path.is_file():
         raise FileNotFoundError(f"Mesh manifest CSV not found: {manifest_path}")
+    if mesh_run_root_path is not None and not mesh_run_root_path.is_dir():
+        raise FileNotFoundError(f"Mesh run root not found: {mesh_run_root_path}")
 
     outlet_rows = _read_csv_rows(outlets_path)
     if not outlet_rows:
@@ -97,6 +150,9 @@ def build_site_catalog_from_outlet_table(
             if manifest_outlet_id is None:
                 continue
             manifest_by_outlet_id[manifest_outlet_id] = row
+    discovered_mesh_assets = (
+        {} if mesh_run_root_path is None else _discover_mesh_assets(mesh_run_root_path)
+    )
 
     catalog_rows: list[dict[str, Any]] = []
     for outlet_row in outlet_rows:
@@ -108,14 +164,29 @@ def build_site_catalog_from_outlet_table(
             )
         manifest_row = manifest_by_outlet_id.get(outlet_id, {})
         manifest_status = _normalize_text(manifest_row.get("status"))
+        discovered_assets = discovered_mesh_assets.get(outlet_id, {})
         tags = list(default_tags)
+        mesh_output = _normalize_text(manifest_row.get("output_mesh")) or _normalize_text(
+            discovered_assets.get("mesh_output_mesh")
+        )
+        mesh_summary_json = _normalize_text(
+            manifest_row.get("output_summary_json")
+        ) or _normalize_text(discovered_assets.get("mesh_summary_json"))
+        mesh_bundle_dir = _normalize_text(discovered_assets.get("mesh_bundle_dir"))
+        mesh_figure = _normalize_text(manifest_row.get("output_figure")) or _normalize_text(
+            discovered_assets.get("mesh_figure")
+        )
+        mesh_figure_regional = _normalize_text(
+            manifest_row.get("output_figure_regional")
+        ) or _normalize_text(discovered_assets.get("mesh_figure_regional"))
         if manifest_status is not None and manifest_status.lower() == "ok":
             tags.append("mesh_ready")
+        elif mesh_output is not None or mesh_bundle_dir is not None:
+            tags.append("mesh_ready")
         site_id = site_id_template.format(cluster_id=cluster_id, outlet_id=outlet_id)
-        mesh_output = _normalize_text(manifest_row.get("output_mesh"))
-        mesh_bundle_dir = None
-        if mesh_output is not None:
+        if mesh_bundle_dir is None and mesh_output is not None:
             mesh_bundle_dir = str(Path(mesh_output).expanduser().resolve().parent)
+        mesh_status = manifest_status or ("discovered" if mesh_output is not None else "")
 
         catalog_rows.append(
             {
@@ -135,12 +206,12 @@ def build_site_catalog_from_outlet_table(
                 "x": "" if _normalize_float(outlet_row.get(x_column)) is None else _normalize_float(outlet_row.get(x_column)),
                 "y": "" if _normalize_float(outlet_row.get(y_column)) is None else _normalize_float(outlet_row.get(y_column)),
                 "area_km2": "" if _normalize_float(outlet_row.get(area_column)) is None else _normalize_float(outlet_row.get(area_column)),
-                "mesh_manifest_status": manifest_status or "",
+                "mesh_manifest_status": mesh_status,
                 "mesh_output_mesh": mesh_output or "",
-                "mesh_summary_json": _normalize_text(manifest_row.get("output_summary_json")) or "",
+                "mesh_summary_json": mesh_summary_json or "",
                 "mesh_bundle_dir": mesh_bundle_dir or "",
-                "mesh_figure": _normalize_text(manifest_row.get("output_figure")) or "",
-                "mesh_figure_regional": _normalize_text(manifest_row.get("output_figure_regional")) or "",
+                "mesh_figure": mesh_figure or "",
+                "mesh_figure_regional": mesh_figure_regional or "",
                 "notes": "",
             }
         )
@@ -178,6 +249,7 @@ def build_site_catalog_from_outlet_table(
         "region_id": region_id,
         "source_selection_id": source_selection_id,
         "manifest_merged": manifest_path is not None,
+        "mesh_run_root_scanned": mesh_run_root_path is not None,
     }
 
 

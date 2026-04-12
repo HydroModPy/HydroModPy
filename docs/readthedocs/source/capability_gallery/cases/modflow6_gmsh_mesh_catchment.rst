@@ -9,7 +9,7 @@ MODFLOW 6 on a Gmsh Catchment Mesh
 This case keeps the standard process_simulation launcher while using mesh_catchment to build a triangular Gmsh mesh before MODFLOW 6. Only selected synthesis figures are committed to the gallery; the full solver workspace remains a reproducible run artifact.
 
 .. seealso::
-   Read :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
+   Read :doc:`the Simulation walkthrough </getting_started/simulation-walkthrough>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
 .. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_flow_state_triptych.png
    :alt: Triptych showing topography, hydraulic head, and water-table depth on a Gmsh mesh

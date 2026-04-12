@@ -199,3 +199,62 @@ def test_headwater_transient_cycling_real_case_distinguishes_surface_closures(
     assert float(mixed_summary["surface_complementarity_min_gap_m"]) >= -1.0e-6
     assert float(mixed_summary["surface_complementarity_min_rate_m_s"]) >= -1.0e-6
     assert float(mixed_summary["surface_complementarity_peak_overlap_m2_s"]) <= 1.0e-8
+
+
+@pytest.mark.validation
+@pytest.mark.transient
+@pytest.mark.slow
+def test_headwater_transient_cycling_heterogeneous_real_case_distinguishes_surface_closures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    partition_summary = _run_transient_real_case_summary(
+        tmp_path=tmp_path / "partition_heterogeneous",
+        monkeypatch=monkeypatch,
+        config_name="run_headwater_100km2_outlet_2_boussinesq_petsc_partition_transient_cycling_recharge_heterogeneous.toml",
+    )
+    mixed_summary = _run_transient_real_case_summary(
+        tmp_path=tmp_path / "mixed_heterogeneous",
+        monkeypatch=monkeypatch,
+        config_name="run_headwater_100km2_outlet_2_boussinesq_petsc_transient_cycling_recharge_heterogeneous.toml",
+    )
+
+    assert partition_summary["runtime_backend"] == "petsc"
+    assert mixed_summary["runtime_backend"] == "petsc"
+    assert partition_summary["surface_interaction_model_resolved"] == "regularized_partition"
+    assert mixed_summary["surface_interaction_model_resolved"] == "complementarity"
+    assert int(partition_summary["n_periods"]) == 12
+    assert int(mixed_summary["n_periods"]) == 12
+    assert all(bool(flag) for flag in partition_summary["converged_by_period"])
+    assert all(bool(flag) for flag in mixed_summary["converged_by_period"])
+    assert float(partition_summary["last_residual_norm_inf"]) <= float(
+        partition_summary["runtime_tol_residual_inf"]
+    )
+    assert float(mixed_summary["last_residual_norm_inf"]) <= float(
+        mixed_summary["runtime_tol_residual_inf"]
+    )
+
+    # Strong lateral contrasts keep the head-only seepage closure partially
+    # active even after the last dry pulse, while the mixed complementarity path
+    # still switches the threshold off between wetting episodes.
+    assert int(partition_summary["surface_threshold_activation_windows"]) == 1
+    assert int(partition_summary["surface_threshold_active_steps"]) == int(
+        partition_summary["n_periods"]
+    )
+    assert int(partition_summary["surface_threshold_peak_active_cells"]) >= 500
+    assert int(partition_summary["surface_threshold_final_active_cells"]) >= 100
+    assert float(partition_summary["surface_threshold_peak_total_m3_day"]) >= 5.0e4
+
+    assert int(mixed_summary["surface_threshold_activation_windows"]) >= 5
+    assert int(mixed_summary["surface_threshold_deactivation_windows"]) >= 5
+    assert int(mixed_summary["surface_threshold_active_steps"]) <= 6
+    assert int(mixed_summary["surface_threshold_state_transitions"]) >= 9
+    assert int(mixed_summary["surface_threshold_peak_active_cells"]) >= 150
+    assert int(mixed_summary["surface_threshold_peak_active_cells"]) < int(
+        partition_summary["surface_threshold_peak_active_cells"]
+    )
+    assert float(mixed_summary["surface_threshold_peak_total_m3_day"]) >= 5.0e4
+    assert int(mixed_summary["surface_threshold_final_active_cells"]) == 0
+    assert float(mixed_summary["surface_complementarity_min_gap_m"]) >= -1.0e-6
+    assert float(mixed_summary["surface_complementarity_min_rate_m_s"]) >= -1.0e-6
+    assert float(mixed_summary["surface_complementarity_peak_overlap_m2_s"]) <= 1.0e-8

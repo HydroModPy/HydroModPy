@@ -1,14 +1,22 @@
-﻿[method_comparison]
+[method_comparison]
 comparison_id = "headwater_100km2_outlet_2_scipy_vs_petsc_partition"
 run_variants = false
 reference_variant = "boussinesq_scipy_sparse"
 output_root = "C:/Users/dreuzy/AppData/Local/Temp/hydromodpy_method_runtime/headwater_100km2_outlet_2_backend_compare/comparison"
+
+[method_comparison.fine_raster]
+enabled = true
+resolution = 50.0
+extent_mode = "intersection"
+interpolation = "linear"
+write_geotiff = true
 
 [[method_comparison.variant]]
 id = "boussinesq_scipy_sparse"
 label = "Boussinesq SciPy sparse runtime"
 solver = "boussinesq"
 mesh_mode = "mesh_input"
+simulation_config = "run_headwater_100km2_outlet_2_boussinesq_mesh_input.toml"
 run_folder = "C:/Users/dreuzy/AppData/Local/Temp/hydromodpy_method_runtime/headwater_100km2_outlet_2_backend_compare/scipy_sparse_run"
 
 [[method_comparison.variant]]
@@ -16,6 +24,7 @@ id = "boussinesq_petsc_partition"
 label = "Boussinesq PETSc partition runtime"
 solver = "boussinesq"
 mesh_mode = "mesh_input"
+simulation_config = "run_headwater_100km2_outlet_2_boussinesq_petsc_partition_mesh_input.toml"
 run_folder = "C:/Users/dreuzy/AppData/Local/Temp/hydromodpy_method_runtime/headwater_100km2_outlet_2_backend_compare/petsc_partition_run"
 
 [[method_comparison.observable]]

@@ -300,6 +300,25 @@ def _write_direct_outlet_run_folder(run_folder: Path, *, outlet_value: float) ->
     )
 
 
+def _write_native_timeseries_csv(
+    run_folder: Path,
+    *,
+    accumulation_values: list[float],
+    drain_values: list[float],
+) -> None:
+    timeseries_dir = run_folder / "_postprocess" / "_timeseries"
+    timeseries_dir.mkdir(parents=True, exist_ok=True)
+    rows = [
+        "date;accumulation_flux;outflow_drain",
+    ]
+    for index, (accumulation, drain) in enumerate(zip(accumulation_values, drain_values)):
+        rows.append(f"{index};{accumulation};{drain}")
+    (timeseries_dir / "_simulated_timeseries.csv").write_text(
+        "\n".join(rows) + "\n",
+        encoding="utf-8",
+    )
+
+
 def _write_boussinesq_run_folder(run_folder: Path, bundle_dir: Path) -> None:
     bundle_dir.mkdir(parents=True, exist_ok=True)
     (bundle_dir / "cells.csv").write_text(
@@ -383,6 +402,11 @@ def test_method_comparison_config_resolves_paths(tmp_path: Path) -> None:
         ),
         (
             "run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml",
+            ["mesh_input", "mesh_input", "mesh_input"],
+            ["point", "outlet", "map", "map"],
+        ),
+        (
+            "run_method_comparison_headwater_100km2_outlet_2_transient_cycling_recharge_heterogeneous_backends.toml",
             ["mesh_input", "mesh_input", "mesh_input"],
             ["point", "outlet", "map", "map"],
         ),
@@ -903,6 +927,79 @@ def test_method_comparison_launcher_generates_visual_figures(tmp_path: Path) -> 
     assert "## Figures" in report_text
     assert "head_map" in report_text
     assert "outlet_flux_series" in report_text
+
+
+def test_method_comparison_launcher_writes_chronicles_native_flux_and_runtime_outputs(
+    tmp_path: Path,
+) -> None:
+    reference_run = tmp_path / "reference_run"
+    candidate_run = tmp_path / "candidate_run"
+    reference_bundle = tmp_path / "reference_bundle"
+    candidate_bundle = tmp_path / "candidate_bundle"
+    _write_fake_run_folder(reference_run, reference_bundle)
+    _write_fake_run_folder(
+        candidate_run,
+        candidate_bundle,
+        head_offset=1.5,
+        accumulation_offset=0.2,
+    )
+    _write_native_timeseries_csv(
+        reference_run,
+        accumulation_values=[0.1, 0.2, 0.3],
+        drain_values=[0.05, 0.08, 0.09],
+    )
+    _write_native_timeseries_csv(
+        candidate_run,
+        accumulation_values=[0.12, 0.18, 0.31],
+        drain_values=[0.04, 0.09, 0.11],
+    )
+    (reference_run / "_metrics.json").write_text(
+        json.dumps(
+            {
+                "mesh_output_exchange_bundle_dir": str(reference_bundle),
+                "wall_time_seconds": 12.5,
+                "solvers": ["modflow6"],
+                "success": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (candidate_run / "_metrics.json").write_text(
+        json.dumps(
+            {
+                "mesh_output_exchange_bundle_dir": str(candidate_bundle),
+                "wall_time_seconds": 25.0,
+                "solvers": ["modflownwt"],
+                "success": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    reference_solver_config = tmp_path / "run_reference_solver.toml"
+    candidate_solver_config = tmp_path / "run_candidate_solver.toml"
+    _write_structured_solver_config(reference_solver_config, solver="modflow6", nx=3, ny=1)
+    _write_structured_solver_config(candidate_solver_config, solver="modflownwt", nx=3, ny=1)
+
+    config_path = tmp_path / "config_method_comparison_outputs.toml"
+    _write_visual_method_comparison_config(
+        config_path,
+        reference_run_folder=reference_run,
+        candidate_run_folder=candidate_run,
+        reference_config_path=reference_solver_config,
+        candidate_config_path=candidate_solver_config,
+    )
+
+    summary = MethodComparisonLauncher(config_path).run()
+
+    artifact_kinds = {item["kind"] for item in summary["comparison_data_artifacts"]}
+    assert "timeseries_long_csv" in artifact_kinds
+    assert "native_timeseries_long_csv" in artifact_kinds
+    assert "execution_times_csv" in artifact_kinds
+
+    figure_kinds = {item["kind"] for item in summary["comparison_figures"]}
+    assert "native_flux_panel" in figure_kinds
+    assert "execution_time_bars" in figure_kinds
 
 
 def test_method_comparison_launcher_generates_structured_figures_from_run_folder_template(

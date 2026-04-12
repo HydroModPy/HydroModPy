@@ -189,6 +189,7 @@ class MethodComparisonSectionSchema(BaseModel):
     run_variants: bool = True
     continue_on_error: bool = False
     reference_variant: str | None = None
+    fine_raster: "MethodComparisonFineRasterSchema | None" = None
     variant: list[MethodComparisonVariantSchema] = Field(default_factory=list)
     observable: list[MethodComparisonObservableSchema] = Field(default_factory=list)
 
@@ -218,6 +219,36 @@ class MethodComparisonSectionSchema(BaseModel):
         if self.reference_variant is not None and self.reference_variant not in set(ids):
             raise ValueError(
                 "method_comparison.reference_variant must match a declared variant id"
+            )
+        return self
+
+
+class MethodComparisonFineRasterSchema(BaseModel):
+    """Optional common regular-grid rasterization for map comparisons."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    resolution: float | None = None
+    extent_mode: Literal["intersection", "union", "reference"] = "intersection"
+    interpolation: Literal["linear", "nearest"] = "linear"
+    write_geotiff: bool = True
+
+    @field_validator("resolution")
+    @classmethod
+    def _validate_resolution(cls, value: object) -> float | None:
+        if value is None:
+            return None
+        resolution = float(value)
+        if resolution <= 0.0:
+            raise ValueError("method_comparison.fine_raster.resolution must be > 0")
+        return resolution
+
+    @model_validator(mode="after")
+    def _validate_when_enabled(self) -> "MethodComparisonFineRasterSchema":
+        if self.enabled and self.resolution is None:
+            raise ValueError(
+                "method_comparison.fine_raster.resolution is required when fine_raster.enabled=true"
             )
         return self
 

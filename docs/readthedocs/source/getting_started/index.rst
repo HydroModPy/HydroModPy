@@ -5,11 +5,20 @@ This section is the guided entry point for HydroModPy. Use it when you want a
 recommended first workflow instead of opening the full example inventory
 directly.
 
+For most users, the default path is simple: choose the right first workflow,
+run the data-overview case, then move to the end-to-end simulation case.
+
 .. note::
 
    If you installed HydroModPy from PyPI, the package does not ship the
    repository ``examples/`` directory. Follow :doc:`../install` first, then use
    the guides below with a cloned repository or the downloaded source archive.
+
+.. important::
+
+   If you are unsure where to start, read
+   :doc:`choose-your-first-workflow` and then run
+   :doc:`data-overview-walkthrough`.
 
 Recommended entry points
 ------------------------
@@ -22,7 +31,7 @@ Recommended entry points
       :link: choose-your-first-workflow
       :link-type: doc
 
-      **Choose a workflow**
+      **Start here**
       ^^^
       Match your goal to the right first example: data-only setup, full
       simulation, comparison, or validation.
@@ -52,13 +61,13 @@ Recommended entry points
       :link: reading-results-pages
       :link-type: doc
 
-      **Read result pages**
+      **Read gallery and validation pages**
       ^^^
       Learn how to interpret capability-gallery pages, solver comparisons, and
       analytical validation pages.
 
-Suggested order
----------------
+Default path
+------------
 
 1. Read :doc:`choose-your-first-workflow`.
 2. Run :doc:`data-overview-walkthrough` if you want to understand basin setup

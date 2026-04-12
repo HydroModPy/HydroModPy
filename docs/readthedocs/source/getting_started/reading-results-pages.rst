@@ -1,11 +1,16 @@
-How To Read Result Pages
-========================
+How To Read Gallery, Comparison, and Validation Pages
+=====================================================
 
 HydroModPy exposes several kinds of result pages. They do not answer the same
 question, so it helps to separate them early.
 
-One quick distinction
----------------------
+.. important::
+
+   Use this page after one walkthrough. It is meant to help you interpret
+   published result pages, not to replace the editable case guides.
+
+Know which question the page answers
+------------------------------------
 
 .. list-table::
    :header-rows: 1
