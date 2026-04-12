@@ -47,7 +47,6 @@ def build_surface_topo_from_dem(dem_path: str | Path) -> Surface:
         xmax = xmin + x_pixel * resolution_x
         ymin = ymax + y_pixel * resolution_y
 
-        # Map raster metadata to RasterSupport georeferencing contract.
         georeferencing = {
             "crs": src.crs.to_string() if src.crs is not None else None,
             "dx": abs(resolution_x),
