@@ -52,6 +52,7 @@ class CellCentroidTable:
     cell_ids: np.ndarray
     x: np.ndarray
     y: np.ndarray
+    area_m2: np.ndarray | None = None
 
     def nearest_cell_id(self, *, x: float, y: float) -> int:
         """Return the cell id whose centroid is closest to ``(x, y)``."""
@@ -59,6 +60,18 @@ class CellCentroidTable:
         if distances.size == 0 or not np.any(np.isfinite(distances)):
             raise ValueError("Mesh bundle cells.csv contains no finite centroids")
         return int(self.cell_ids[int(np.nanargmin(distances))])
+
+    def area_for_cell_id(self, cell_id: int) -> float | None:
+        """Return the area for one cell id when the bundle exposes it."""
+        if self.area_m2 is None or self.area_m2.size != self.cell_ids.size:
+            return None
+        matches = np.flatnonzero(self.cell_ids == int(cell_id))
+        if matches.size == 0:
+            return None
+        area = float(self.area_m2[int(matches[0])])
+        if not np.isfinite(area) or area <= 0.0:
+            return None
+        return area
 
 
 def _toml_scalar(value: Any) -> str:
@@ -314,6 +327,7 @@ def resolve_bundle_cells(run_folder: Path) -> CellCentroidTable | None:
     cell_ids: list[int] = []
     xs: list[float] = []
     ys: list[float] = []
+    areas: list[float] = []
     with cells_path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
@@ -321,15 +335,21 @@ def resolve_bundle_cells(run_folder: Path) -> CellCentroidTable | None:
                 cell_ids.append(int(row["cell_id"]))
                 xs.append(float(row["centroid_x"]))
                 ys.append(float(row["centroid_y"]))
+                area_value = row.get("area_m2")
+                areas.append(float(area_value) if area_value not in (None, "") else math.nan)
             except Exception:
                 continue
 
     if not cell_ids:
         return None
+    area_array = np.asarray(areas, dtype=float)
+    if area_array.size != len(cell_ids) or not np.any(np.isfinite(area_array)):
+        area_array = None
     return CellCentroidTable(
         cell_ids=np.asarray(cell_ids, dtype=int),
         x=np.asarray(xs, dtype=float),
         y=np.asarray(ys, dtype=float),
+        area_m2=area_array,
     )
 
 
@@ -339,6 +359,18 @@ def _variable_candidates(variable: str) -> tuple[str, ...]:
     lowered = key.lower()
     candidates = [key]
     alias_map = {
+        "outlet_flux": [
+            "outlet_discharge_east_side_m3_s",
+            "drainage_flux_history_m3_s",
+            "drainage_flux_m3_s",
+            "accumulation_flux",
+        ],
+        "outlet_flux_m3_s": [
+            "outlet_discharge_east_side_m3_s",
+            "drainage_flux_history_m3_s",
+            "drainage_flux_m3_s",
+            "accumulation_flux",
+        ],
         "accumulation_flux": [
             "accumulation_flux",
             "drainage_flux_history_m3_s",
@@ -366,6 +398,8 @@ def _variable_candidates(variable: str) -> tuple[str, ...]:
 def _native_unit_for_variable(variable_name: str) -> str:
     """Return a best-effort native unit label for known disk variables."""
     key = variable_name.strip().lower()
+    if key in {"outlet_flux", "outlet_flux_m3_s"}:
+        return "m3/s"
     if key in {"watertable_elevation", "head"}:
         return "m"
     if key == "watertable_depth":
@@ -377,6 +411,20 @@ def _native_unit_for_variable(variable_name: str) -> str:
     if key.endswith("_m_s") or "_m_s" in key:
         return "m/s"
     return ""
+
+
+def _is_canonical_outlet_flux(variable_name: str) -> bool:
+    key = variable_name.strip().lower()
+    return key in {"outlet_flux", "outlet_flux_m3_s"}
+
+
+def _convert_accumulation_rate_to_m3_s(
+    *,
+    value_m_per_day: float,
+    cell_area_m2: float,
+) -> float:
+    """Convert one accumulation depth-rate to a volumetric cell outflow."""
+    return (float(value_m_per_day) * float(cell_area_m2)) / 86400.0
 
 
 def _sort_time_key(key: Any) -> tuple[int, float | str]:
@@ -737,6 +785,11 @@ def _select_spatial_values(
                 if values.size > 1
                 else "scalar_outlet_series"
             )
+        if values.size == 1 and series.cell_ids is None:
+            if selected_cell_ids:
+                details["selected_cell_index"] = selected_cell_ids[0]
+            details["selection"] = "native_outlet_series"
+            return (float(values[0]),), details
         if selected_cell_ids:
             selected = _select_cell_values(
                 series=series,
@@ -810,23 +863,67 @@ def extract_observable_rows(
                 for _, values, _ in per_time_values
                 for value in values
             ]
+            reducer_key = str(observable.time_reducer).strip().lower()
             reduced_values = _reduce(
                 flat,
                 reducer=observable.time_reducer,
                 label=f"{observable.name} time series",
             )
+            if reducer_key == "last":
+                reduced_details = dict(per_time_values[-1][2])
+            elif reducer_key == "first":
+                reduced_details = dict(per_time_values[0][2])
+            else:
+                reduced_details = dict(per_time_values[-1][2])
+            reduced_details["time_reducer"] = observable.time_reducer
             reduced_slice = TimeSlice(
                 time_key="reduced",
                 time_index=-1,
                 values=np.asarray(reduced_values, dtype=float),
             )
             per_time_values = [
-                (reduced_slice, reduced_values, {"selection": "time_reduced"})
+                (reduced_slice, reduced_values, reduced_details)
             ]
 
         for time_slice, values, details in per_time_values:
             for value_index, value in enumerate(values):
                 native_unit = _native_unit_for_variable(series.variable_name)
+                output_value = float(value)
+                derived_from_variable = series.variable_name
+                conversion_applied = ""
+                cell_area_m2 = ""
+
+                if _is_canonical_outlet_flux(observable.variable):
+                    native_unit = "m3/s"
+                    if series.variable_name == "accumulation_flux":
+                        selected_cell_raw = details.get("selected_cell_index")
+                        if selected_cell_raw in ("", None):
+                            raise ValueError(
+                                f"Observable '{observable.name}' cannot derive "
+                                "canonical outlet_flux from accumulation_flux "
+                                "without an explicit outlet cell selection."
+                            )
+                        if cells is None:
+                            raise ValueError(
+                                f"Observable '{observable.name}' cannot derive "
+                                "canonical outlet_flux without mesh bundle areas."
+                            )
+                        area_m2 = cells.area_for_cell_id(int(selected_cell_raw))
+                        if area_m2 is None:
+                            raise ValueError(
+                                f"Observable '{observable.name}' cannot derive "
+                                f"canonical outlet_flux because area_m2 is missing "
+                                f"for cell {selected_cell_raw}."
+                            )
+                        output_value = _convert_accumulation_rate_to_m3_s(
+                            value_m_per_day=output_value,
+                            cell_area_m2=area_m2,
+                        )
+                        conversion_applied = "accumulation_flux_m_per_day_to_m3_s"
+                        cell_area_m2 = area_m2
+                    elif native_unit == "":
+                        native_unit = "m3/s"
+
                 output_unit = observable.unit or native_unit
                 rows.append(
                     {
@@ -850,10 +947,13 @@ def extract_observable_rows(
                         "is_initial_state": bool(time_slice.is_initial_state),
                         "comparison_time_key": _time_match_key(time_slice),
                         "value_index": value_index,
-                        "value": float(value),
+                        "value": output_value,
                         "unit": output_unit,
                         "configured_unit": observable.unit or "",
                         "native_unit": native_unit,
+                        "derived_from_variable": derived_from_variable,
+                        "conversion_applied": conversion_applied,
+                        "cell_area_m2": cell_area_m2,
                         "source_path": str(series.source_path),
                         "run_folder": str(run_folder),
                         "selection": str(details.get("selection", "")),
@@ -892,6 +992,9 @@ def write_observables_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "unit",
         "configured_unit",
         "native_unit",
+        "derived_from_variable",
+        "conversion_applied",
+        "cell_area_m2",
         "source_path",
         "run_folder",
         "selection",

@@ -17,6 +17,8 @@ from launchers.method_comparison.runtime import (
     materialize_variant_config,
 )
 
+OUTLET_CELL_AREA_M2 = 10.0
+
 
 def _load_launchers_main_module():
     module_path = Path(__file__).resolve().parents[3] / "launchers" / "__main__.py"
@@ -77,13 +79,11 @@ def _write_method_comparison_config(path: Path, run_folder: Path) -> None:
                 'unit = "m"',
                 "",
                 "[[method_comparison.observable]]",
-                'name = "outlet_accumulation"',
-                'variable = "accumulation_flux"',
+                'name = "outlet_flux"',
+                'variable = "outlet_flux"',
                 'support = "outlet"',
                 "cell_index = 1",
                 'time = "last"',
-                'reducer = "max"',
-                'unit = "m/day"',
             ]
         )
         + "\n",
@@ -118,10 +118,10 @@ def _write_fake_run_folder(
     (bundle_dir / "cells.csv").write_text(
         "\n".join(
             [
-                "cell_id,centroid_x,centroid_y",
-                "0,0.0,0.0",
-                "1,10.0,0.0",
-                "2,20.0,0.0",
+                "cell_id,centroid_x,centroid_y,area_m2",
+                "0,0.0,0.0,5.0",
+                f"1,10.0,0.0,{OUTLET_CELL_AREA_M2}",
+                "2,20.0,0.0,7.0",
             ]
         )
         + "\n",
@@ -131,6 +131,50 @@ def _write_fake_run_folder(
         json.dumps({"mesh_output_exchange_bundle_dir": str(bundle_dir)}),
         encoding="utf-8",
     )
+
+
+def _write_direct_outlet_run_folder(run_folder: Path, *, outlet_value: float) -> None:
+    postprocess_dir = run_folder / "_postprocess"
+    postprocess_dir.mkdir(parents=True, exist_ok=True)
+    np.save(
+        postprocess_dir / "outlet_discharge_east_side_m3_s.npy",
+        {0: np.asarray([outlet_value]), 1: np.asarray([outlet_value + 0.25])},
+    )
+
+
+def _write_boussinesq_run_folder(run_folder: Path, bundle_dir: Path) -> None:
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    (bundle_dir / "cells.csv").write_text(
+        "\n".join(
+            [
+                "cell_id,centroid_x,centroid_y,area_m2",
+                "0,0.0,0.0,5.0",
+                f"1,10.0,0.0,{OUTLET_CELL_AREA_M2}",
+                "2,20.0,0.0,7.0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    np.savez(
+        run_folder / "_boussinesq_state_history.npz",
+        drainage_flux_history_m3_s=np.asarray(
+            [
+                [0.05, 0.15, 0.07],
+                [0.08, 0.3, 0.1],
+            ],
+            dtype=float,
+        ),
+        period_lengths_seconds=np.asarray([3600.0], dtype=float),
+    )
+    (run_folder / "_boussinesq_summary.json").write_text(
+        json.dumps({"bundle_dir": str(bundle_dir)}),
+        encoding="utf-8",
+    )
+
+
+def _expected_outlet_flux(value_m_per_day: float) -> float:
+    return value_m_per_day * OUTLET_CELL_AREA_M2 / 86400.0
 
 
 def test_method_comparison_config_resolves_paths(tmp_path: Path) -> None:
@@ -148,7 +192,7 @@ def test_method_comparison_config_resolves_paths(tmp_path: Path) -> None:
     assert cfg.resolve_variant_run_folder(
         cfg.method_comparison.variant[0]
     ) == run_folder.resolve()
-    assert cfg.method_comparison.observable[1].reducer == "max"
+    assert cfg.method_comparison.observable[1].reducer == "sum"
 
 
 def test_materialize_variant_config_writes_base_overlay(tmp_path: Path) -> None:
@@ -218,14 +262,73 @@ def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -
 
     assert len(rows) == 2
     head = next(row for row in rows if row["observable"] == "head_at_point")
-    outlet = next(row for row in rows if row["observable"] == "outlet_accumulation")
+    outlet = next(row for row in rows if row["observable"] == "outlet_flux")
     assert head["value"] == 21.0
     assert head["selected_cell_index"] == "1"
-    assert outlet["value"] == 0.8
+    assert outlet["value"] == pytest.approx(_expected_outlet_flux(0.8))
     assert outlet["selection"] == "declared_cell"
     assert outlet["selected_cell_index"] == "1"
     assert outlet["time_index"] == 1
     assert outlet["comparison_time_key"] == "time_index:1"
+    assert outlet["unit"] == "m3/s"
+    assert outlet["native_unit"] == "m3/s"
+    assert outlet["derived_from_variable"] == "accumulation_flux"
+    assert outlet["conversion_applied"] == "accumulation_flux_m_per_day_to_m3_s"
+    assert float(outlet["cell_area_m2"]) == OUTLET_CELL_AREA_M2
+
+
+def test_extract_observable_rows_reads_direct_scalar_outlet_flux(tmp_path: Path) -> None:
+    run_folder = tmp_path / "run_direct"
+    config_path = tmp_path / "config_method_comparison.toml"
+    _write_method_comparison_config(config_path, run_folder)
+    _write_direct_outlet_run_folder(run_folder, outlet_value=1.25)
+    cfg = MethodComparisonConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        config_path=config_path,
+    )
+
+    rows = extract_observable_rows(
+        comparison_id="demo_compare",
+        variant=cfg.method_comparison.variant[0],
+        run_folder=run_folder,
+        observables=(cfg.method_comparison.observable[1],),
+    )
+
+    assert len(rows) == 1
+    outlet = rows[0]
+    assert outlet["value"] == pytest.approx(1.5)
+    assert outlet["resolved_variable"] == "outlet_discharge_east_side_m3_s"
+    assert outlet["selection"] == "native_outlet_series"
+    assert outlet["unit"] == "m3/s"
+    assert outlet["conversion_applied"] == ""
+
+
+def test_extract_observable_rows_reads_boussinesq_outlet_flux(tmp_path: Path) -> None:
+    run_folder = tmp_path / "run_bouss"
+    bundle_dir = tmp_path / "bundle_bouss"
+    run_folder.mkdir(parents=True, exist_ok=True)
+    _write_boussinesq_run_folder(run_folder, bundle_dir)
+    config_path = tmp_path / "config_method_comparison.toml"
+    _write_method_comparison_config(config_path, run_folder)
+    cfg = MethodComparisonConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        config_path=config_path,
+    )
+
+    rows = extract_observable_rows(
+        comparison_id="demo_compare",
+        variant=cfg.method_comparison.variant[0],
+        run_folder=run_folder,
+        observables=(cfg.method_comparison.observable[1],),
+    )
+
+    assert len(rows) == 1
+    outlet = rows[0]
+    assert outlet["value"] == pytest.approx(0.3)
+    assert outlet["resolved_variable"] == "drainage_flux_history_m3_s"
+    assert outlet["selection"] == "declared_cell"
+    assert outlet["unit"] == "m3/s"
+    assert outlet["conversion_applied"] == ""
 
 
 def test_outlet_without_location_requires_explicit_proxy_opt_in(tmp_path: Path) -> None:
@@ -242,8 +345,8 @@ def test_outlet_without_location_requires_explicit_proxy_opt_in(tmp_path: Path) 
                 'run_folder = "run"',
                 "",
                 "[[method_comparison.observable]]",
-                'name = "outlet_accumulation"',
-                'variable = "accumulation_flux"',
+                'name = "outlet_flux"',
+                'variable = "outlet_flux"',
                 'support = "outlet"',
             ]
         )
@@ -276,10 +379,11 @@ def test_method_comparison_launcher_reuses_existing_run_folder(tmp_path: Path) -
         rows = list(csv.DictReader(handle))
     assert {row["observable"] for row in rows} == {
         "head_at_point",
-        "outlet_accumulation",
+        "outlet_flux",
     }
     assert Path(summary["comparison_metrics_csv"]).exists()
     assert Path(summary["comparison_differences_csv"]).exists()
+    assert Path(summary["comparison_report_md"]).exists()
 
 
 def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
@@ -327,7 +431,9 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
     assert len(detail) == 2
     summary_by_observable = {row["observable"]: row for row in summary}
     assert summary_by_observable["head_at_point"]["mae"] == 2.0
-    assert summary_by_observable["outlet_accumulation"]["mae"] == pytest.approx(0.1)
+    assert summary_by_observable["outlet_flux"]["mae"] == pytest.approx(
+        _expected_outlet_flux(0.1)
+    )
 
 
 def test_launchers_cli_method_comparison_run_dispatches_to_launcher(monkeypatch) -> None:
