@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -241,6 +242,109 @@ def _finite_limits(values: Iterable[np.ndarray]) -> tuple[float, float] | None:
     if finite.size == 0:
         return None
     return float(np.nanmin(finite)), float(np.nanmax(finite))
+
+
+def _robust_limits(
+    values: Iterable[np.ndarray],
+    *,
+    lower_percentile: float = 2.0,
+    upper_percentile: float = 98.0,
+) -> tuple[float, float] | None:
+    arrays = [
+        _mask_nodata(np.asarray(item, dtype=float)).ravel()
+        for item in values
+        if np.asarray(item, dtype=float).size > 0
+    ]
+    if not arrays:
+        return None
+    stacked = np.concatenate(arrays)
+    finite = stacked[np.isfinite(stacked)]
+    if finite.size == 0:
+        return None
+    if finite.size < 24:
+        return float(np.nanmin(finite)), float(np.nanmax(finite))
+    lower = float(np.nanpercentile(finite, lower_percentile))
+    upper = float(np.nanpercentile(finite, upper_percentile))
+    if not math.isfinite(lower) or not math.isfinite(upper) or lower >= upper:
+        return float(np.nanmin(finite)), float(np.nanmax(finite))
+    return lower, upper
+
+
+def _robust_symmetric_limit(
+    values: Iterable[np.ndarray],
+    *,
+    percentile: float = 98.0,
+) -> float | None:
+    arrays = [
+        _mask_nodata(np.asarray(item, dtype=float)).ravel()
+        for item in values
+        if np.asarray(item, dtype=float).size > 0
+    ]
+    if not arrays:
+        return None
+    stacked = np.concatenate(arrays)
+    finite = stacked[np.isfinite(stacked)]
+    if finite.size == 0:
+        return None
+    if finite.size < 24:
+        vmax = float(np.nanmax(np.abs(finite)))
+    else:
+        vmax = float(np.nanpercentile(np.abs(finite), percentile))
+    if not math.isfinite(vmax) or math.isclose(vmax, 0.0):
+        vmax = float(np.nanmax(np.abs(finite)))
+    if not math.isfinite(vmax) or math.isclose(vmax, 0.0):
+        return None
+    return vmax
+
+
+def _format_time_tick_label(label: str) -> str:
+    text = str(label).strip()
+    if not text:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except Exception:
+        if re.fullmatch(r"\d+", text):
+            return text
+        return text[:7] if len(text) >= 7 and text[4:5] == "-" else text
+    return parsed.strftime("%b")
+
+
+def _apply_time_ticks(
+    ax: Any,
+    *,
+    tick_positions: list[float],
+    tick_labels: list[str] | None = None,
+) -> None:
+    if not tick_positions:
+        return
+    unique_positions = sorted({float(value) for value in tick_positions})
+    if len(unique_positions) <= 8:
+        step = 1
+    elif len(unique_positions) <= 16:
+        step = 2
+    else:
+        step = max(1, int(math.ceil(len(unique_positions) / 6.0)))
+    shown_positions = unique_positions[::step]
+    if unique_positions[-1] not in shown_positions:
+        shown_positions.append(unique_positions[-1])
+    shown_labels: list[str] = []
+    if tick_labels is None:
+        shown_labels = [str(int(value)) if float(value).is_integer() else f"{value:g}" for value in shown_positions]
+    else:
+        label_lookup = {
+            float(position): _format_time_tick_label(label)
+            for position, label in zip(tick_positions, tick_labels, strict=False)
+        }
+        shown_labels = [label_lookup.get(float(value), str(int(value))) for value in shown_positions]
+    ax.set_xticks(shown_positions)
+    ax.set_xticklabels(shown_labels, fontsize=_TICK_FONT_SIZE)
+
+
+def _series_style(observable_name: str) -> dict[str, Any]:
+    if _is_flux_like_name(observable_name):
+        return {"drawstyle": "steps-post", "linewidth": 1.8, "markersize": 0.0}
+    return {"linewidth": 1.8, "markersize": 3.0, "marker": "o"}
 
 
 def _choose_map_slice(
@@ -523,7 +627,9 @@ def _write_map_comparison_figure(
     observable_name: str,
     payloads: list[MapPayload],
 ) -> None:
-    limits = _finite_limits(payload.values for payload in payloads)
+    limits = _robust_limits(payload.values for payload in payloads)
+    if limits is None:
+        limits = _finite_limits(payload.values for payload in payloads)
     if limits is None:
         return
     vmin, vmax = limits
@@ -594,10 +700,12 @@ def _write_difference_figure(
     path: Path,
     payload: DifferencePayload,
 ) -> None:
-    limits = _finite_limits([payload.values])
-    if limits is None:
-        return
-    vmax = max(abs(limits[0]), abs(limits[1]))
+    vmax = _robust_symmetric_limit([payload.values])
+    if vmax is None:
+        limits = _finite_limits([payload.values])
+        if limits is None:
+            return
+        vmax = max(abs(limits[0]), abs(limits[1]))
     if not math.isfinite(vmax) or math.isclose(vmax, 0.0):
         vmax = 1.0
 
@@ -671,13 +779,15 @@ def _write_timeseries_figure(
     if not any(len(points) >= 2 for points in series_payloads.values()):
         return False
 
-    figure, ax = plt.subplots(1, 1, figsize=(6.8, 3.9))
+    figure, ax = plt.subplots(1, 1, figsize=(7.0, 4.1))
+    tick_positions: list[float] = []
     for (variant_id, variant_label, value_index), points in sorted(series_payloads.items()):
         ordered = sorted(points, key=lambda item: item[0])
         if len(ordered) < 2:
             continue
         x_values = [item[0] for item in ordered]
         y_values = [item[1] for item in ordered]
+        tick_positions.extend(x_values)
         label = _display_variant_label(
             variant_id=variant_id,
             variant_label=variant_label or variant_id,
@@ -688,14 +798,8 @@ def _write_timeseries_figure(
             for (other_variant_id, _, other_value_index) in series_payloads
         ):
             label = f"{label} [{value_index}]"
-        ax.plot(
-            x_values,
-            y_values,
-            marker="o",
-            linewidth=1.5,
-            markersize=3.2,
-            label=label,
-        )
+        style = _series_style(observable_name)
+        ax.plot(x_values, y_values, label=label, **style)
 
     if not ax.lines:
         plt.close(figure)
@@ -704,8 +808,10 @@ def _write_timeseries_figure(
     ax.set_ylabel(unit or "value", fontsize=_LABEL_FONT_SIZE)
     ax.set_title(_pretty_label(observable_name), fontsize=_TITLE_FONT_SIZE, pad=8)
     ax.tick_params(labelsize=_TICK_FONT_SIZE)
-    ax.grid(True, alpha=0.22, linewidth=0.6)
+    ax.grid(True, alpha=0.18, linewidth=0.6)
     ax.margins(x=0.03, y=0.08)
+    if not use_elapsed_seconds:
+        _apply_time_ticks(ax, tick_positions=tick_positions)
     legend = ax.legend(
         loc="upper center",
         bbox_to_anchor=(0.5, -0.21),
@@ -717,7 +823,7 @@ def _write_timeseries_figure(
         borderaxespad=0.0,
     )
     for line in legend.get_lines():
-        line.set_linewidth(1.5)
+        line.set_linewidth(1.8)
     figure.subplots_adjust(left=0.11, right=0.98, top=0.86, bottom=0.29)
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180, bbox_inches="tight")
@@ -792,6 +898,91 @@ def _write_runtime_bar_figure(
     return True
 
 
+def _write_point_dashboard(
+    *,
+    path: Path,
+    rows: list[dict[str, Any]],
+) -> bool:
+    point_rows = [row for row in rows if str(row.get("support", "")) == "point"]
+    observables = sorted({str(row.get("observable", "")) for row in point_rows if row.get("observable")})
+    if len(observables) < 2:
+        return False
+
+    grouped: dict[str, dict[tuple[str, str], list[tuple[float, float]]]] = {}
+    for row in point_rows:
+        observable_name = str(row.get("observable", ""))
+        value = _safe_float(row.get("value"))
+        x_value = _safe_float(row.get("time_index"))
+        if not observable_name or value is None or x_value is None:
+            continue
+        key = (
+            str(row.get("variant_id", "")),
+            str(row.get("variant_label", row.get("variant_id", ""))),
+        )
+        grouped.setdefault(observable_name, {}).setdefault(key, []).append((x_value, value))
+
+    plotted_observables = [name for name in observables if any(len(points) >= 2 for points in grouped.get(name, {}).values())]
+    if len(plotted_observables) < 2:
+        return False
+
+    figure, axes = plt.subplots(
+        len(plotted_observables),
+        1,
+        figsize=(7.6, max(5.0, 2.25 * len(plotted_observables) + 0.7)),
+        sharex=True,
+        squeeze=False,
+    )
+    axes_flat = np.asarray(axes, dtype=object).ravel()
+    tick_positions: list[float] = []
+    for index, observable_name in enumerate(plotted_observables):
+        ax = axes_flat[index]
+        for (variant_id, variant_label), points in sorted(grouped.get(observable_name, {}).items()):
+            ordered = sorted(points, key=lambda item: item[0])
+            if len(ordered) < 2:
+                continue
+            x_values = [item[0] for item in ordered]
+            y_values = [item[1] for item in ordered]
+            tick_positions.extend(x_values)
+            style = _series_style(observable_name)
+            ax.plot(
+                x_values,
+                y_values,
+                color=_solver_color(variant_id),
+                label=_display_variant_label(variant_id=variant_id, variant_label=variant_label),
+                **style,
+            )
+        ax.set_title(_pretty_label(observable_name), fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left")
+        unit = next(
+            (str(row.get("unit", "")) for row in point_rows if str(row.get("observable", "")) == observable_name and str(row.get("unit", "")) != ""),
+            "m",
+        )
+        ax.set_ylabel(unit, fontsize=_LABEL_FONT_SIZE)
+        ax.tick_params(labelsize=_TICK_FONT_SIZE)
+        ax.grid(True, alpha=0.18, linewidth=0.6)
+        ax.margins(x=0.02, y=0.08)
+        if index == 0 and ax.lines:
+            legend = ax.legend(
+                loc="upper center",
+                bbox_to_anchor=(0.5, 1.34),
+                ncol=_legend_ncols(len(ax.lines)),
+                frameon=False,
+                fontsize=_LEGEND_FONT_SIZE,
+                handlelength=2.0,
+                columnspacing=1.2,
+            )
+            for line in legend.get_lines():
+                line.set_linewidth(1.8)
+
+    axes_flat[-1].set_xlabel("Time step", fontsize=_LABEL_FONT_SIZE)
+    _apply_time_ticks(axes_flat[-1], tick_positions=tick_positions)
+    figure.suptitle("Head chronicle comparison", fontsize=_TITLE_FONT_SIZE, y=0.985)
+    figure.subplots_adjust(left=0.11, right=0.98, top=0.86, bottom=0.13, hspace=0.34)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return True
+
+
 def _write_native_flux_panel(
     *,
     path: Path,
@@ -830,8 +1021,10 @@ def _write_native_flux_panel(
         and _safe_float(row.get("time_index")) is not None
     ]
 
-    figure, axes = plt.subplots(2, 1, figsize=(7.4, 6.1), sharex=True)
+    figure, axes = plt.subplots(2, 1, figsize=(7.5, 6.2), sharex=True)
     main_ax, delta_ax = axes
+    tick_positions: list[float] = []
+    tick_labels: list[str] = []
     for (variant_id, variant_label), points in sorted(series_payloads.items()):
         ordered = sorted(points, key=lambda item: item[0])
         label = _display_variant_label(
@@ -839,6 +1032,7 @@ def _write_native_flux_panel(
             variant_label=variant_label,
         )
         color = _solver_color(variant_id)
+        tick_positions.extend(float(item[0]) for item in ordered)
         main_ax.step(
             [item[0] for item in ordered],
             [item[1] for item in ordered],
@@ -862,11 +1056,16 @@ def _write_native_flux_panel(
 
     if relevant_delta:
         delta_groups: dict[str, list[tuple[int, float]]] = {}
+        time_label_lookup: dict[int, str] = {}
         for row in relevant_delta:
             key = str(row.get("variant_id", ""))
+            time_index = int(float(row["time_index"]))
             delta_groups.setdefault(key, []).append(
-                (int(float(row["time_index"])), float(row["signed_error"]))
+                (time_index, float(row["signed_error"]))
             )
+            label = str(row.get("time_label", "")).strip()
+            if label:
+                time_label_lookup[time_index] = label
         for variant_id, points in sorted(delta_groups.items()):
             ordered = sorted(points, key=lambda item: item[0])
             delta_ax.step(
@@ -877,14 +1076,119 @@ def _write_native_flux_panel(
                 color=_solver_color(variant_id),
                 label=_display_variant_label(variant_id=variant_id, variant_label=variant_id),
             )
+        tick_labels = [time_label_lookup.get(int(value), str(int(value))) for value in sorted(time_label_lookup)]
         delta_ax.axhline(0.0, color="#111827", linewidth=0.8, alpha=0.65)
     delta_ax.set_xlabel("Time step", fontsize=_LABEL_FONT_SIZE)
     delta_ax.set_ylabel("Delta vs ref", fontsize=_LABEL_FONT_SIZE)
     delta_ax.tick_params(labelsize=_TICK_FONT_SIZE)
     delta_ax.grid(True, alpha=0.22, linewidth=0.6)
+    _apply_time_ticks(
+        delta_ax,
+        tick_positions=tick_positions,
+        tick_labels=(tick_labels if tick_labels else None),
+    )
 
     figure.suptitle(f"{_pretty_label(variable)} hydrograph", fontsize=_TITLE_FONT_SIZE, y=0.97)
     figure.subplots_adjust(left=0.12, right=0.98, top=0.9, bottom=0.18, hspace=0.25)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return True
+
+
+def _write_flux_dashboard(
+    *,
+    path: Path,
+    rows: list[dict[str, Any]],
+    native_long_rows: list[Mapping[str, Any]],
+) -> bool:
+    panels: list[tuple[str, dict[tuple[str, str], list[tuple[float, float]]], list[str] | None]] = []
+
+    outlet_rows = [row for row in rows if str(row.get("observable", "")) == "outlet_flux_series"]
+    if outlet_rows:
+        grouped: dict[tuple[str, str], list[tuple[float, float]]] = {}
+        for row in outlet_rows:
+            value = _safe_float(row.get("value"))
+            x_value = _safe_float(row.get("time_index"))
+            if value is None or x_value is None:
+                continue
+            key = (
+                str(row.get("variant_id", "")),
+                str(row.get("variant_label", row.get("variant_id", ""))),
+            )
+            grouped.setdefault(key, []).append((x_value, value))
+        if any(len(points) >= 2 for points in grouped.values()):
+            panels.append(("Outlet flux [m3/s]", grouped, None))
+
+    for variable in ("accumulation_flux", "outflow_drain"):
+        grouped_native: dict[tuple[str, str], list[tuple[float, float]]] = {}
+        time_labels: dict[int, str] = {}
+        for row in native_long_rows:
+            if str(row.get("variable", "")) != variable:
+                continue
+            value = _safe_float(row.get("value"))
+            x_value = _safe_float(row.get("time_index"))
+            if value is None or x_value is None:
+                continue
+            key = (
+                str(row.get("variant_id", "")),
+                str(row.get("variant_label", row.get("variant_id", ""))),
+            )
+            grouped_native.setdefault(key, []).append((x_value, value))
+            label = str(row.get("time_label", "")).strip()
+            if label:
+                time_labels[int(x_value)] = label
+        if any(len(points) >= 2 for points in grouped_native.values()):
+            labels = [time_labels[index] for index in sorted(time_labels)] if time_labels else None
+            panels.append((_pretty_label(variable), grouped_native, labels))
+
+    if len(panels) < 2:
+        return False
+
+    figure, axes = plt.subplots(len(panels), 1, figsize=(7.6, max(5.6, 2.15 * len(panels) + 0.7)), sharex=True, squeeze=False)
+    axes_flat = np.asarray(axes, dtype=object).ravel()
+    tick_positions: list[float] = []
+    tick_labels: list[str] | None = None
+    for index, (panel_title, grouped, labels) in enumerate(panels):
+        ax = axes_flat[index]
+        for (variant_id, variant_label), points in sorted(grouped.items()):
+            ordered = sorted(points, key=lambda item: item[0])
+            if len(ordered) < 2:
+                continue
+            x_values = [item[0] for item in ordered]
+            y_values = [item[1] for item in ordered]
+            tick_positions.extend(x_values)
+            if labels:
+                tick_labels = labels
+            ax.step(
+                x_values,
+                y_values,
+                where="post",
+                linewidth=1.8,
+                color=_solver_color(variant_id),
+                label=_display_variant_label(variant_id=variant_id, variant_label=variant_label),
+            )
+        ax.set_title(panel_title, fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left")
+        ax.tick_params(labelsize=_TICK_FONT_SIZE)
+        ax.grid(True, alpha=0.18, linewidth=0.6)
+        ax.margins(x=0.02, y=0.08)
+        if index == 0 and ax.lines:
+            legend = ax.legend(
+                loc="upper center",
+                bbox_to_anchor=(0.5, 1.34),
+                ncol=_legend_ncols(len(ax.lines)),
+                frameon=False,
+                fontsize=_LEGEND_FONT_SIZE,
+                handlelength=2.0,
+                columnspacing=1.2,
+            )
+            for line in legend.get_lines():
+                line.set_linewidth(1.8)
+
+    axes_flat[-1].set_xlabel("Time step", fontsize=_LABEL_FONT_SIZE)
+    _apply_time_ticks(axes_flat[-1], tick_positions=tick_positions, tick_labels=tick_labels)
+    figure.suptitle("Flux overview", fontsize=_TITLE_FONT_SIZE, y=0.985)
+    figure.subplots_adjust(left=0.11, right=0.98, top=0.86, bottom=0.13, hspace=0.34)
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(figure)
@@ -989,7 +1293,9 @@ def _write_regridded_map_figure(
     arrays: list[tuple[MapPayload, np.ndarray]],
     extent: tuple[float, float, float, float],
 ) -> bool:
-    limits = _finite_limits(array for _, array in arrays)
+    limits = _robust_limits(array for _, array in arrays)
+    if limits is None:
+        limits = _finite_limits(array for _, array in arrays)
     if limits is None:
         return False
     vmin, vmax = limits
@@ -1057,10 +1363,12 @@ def _write_regridded_difference_figure(
     unit: str,
     extent: tuple[float, float, float, float],
 ) -> bool:
-    limits = _finite_limits([array])
-    if limits is None:
-        return False
-    vmax = max(abs(limits[0]), abs(limits[1]))
+    vmax = _robust_symmetric_limit([array])
+    if vmax is None:
+        limits = _finite_limits([array])
+        if limits is None:
+            return False
+        vmax = max(abs(limits[0]), abs(limits[1]))
     if not math.isfinite(vmax) or math.isclose(vmax, 0.0):
         vmax = 1.0
     figure, ax = plt.subplots(1, 1, figsize=(5.4, 4.8))
@@ -1399,6 +1707,17 @@ def generate_comparison_figures(
 
     native_long = list(native_timeseries_rows or [])
     native_delta = list(native_timeseries_delta_rows or [])
+
+    point_dashboard_path = figure_root / "head_points_dashboard.png"
+    if _write_point_dashboard(path=point_dashboard_path, rows=rows):
+        artifacts.append(
+            {
+                "kind": "point_dashboard",
+                "observable": "head_points",
+                "path": str(point_dashboard_path),
+            }
+        )
+
     native_variables = sorted(
         {
             str(row.get("variable", ""))
@@ -1421,6 +1740,20 @@ def generate_comparison_figures(
                     "path": str(flux_path),
                 }
             )
+
+    flux_dashboard_path = figure_root / "flux_overview.png"
+    if _write_flux_dashboard(
+        path=flux_dashboard_path,
+        rows=rows,
+        native_long_rows=native_long,
+    ):
+        artifacts.append(
+            {
+                "kind": "flux_dashboard",
+                "observable": "flux_overview",
+                "path": str(flux_dashboard_path),
+            }
+        )
 
     if execution_rows:
         runtime_path = figure_root / "execution_time_comparison.png"

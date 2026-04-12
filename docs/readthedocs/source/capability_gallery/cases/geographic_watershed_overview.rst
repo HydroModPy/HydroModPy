@@ -37,15 +37,6 @@ What It Shows
 - How HydroModPy distinguishes a local watershed view from a broader DEM-oriented overview.
 - How versioned example outputs can feed static documentation without executing notebooks during the build.
 
-Key Parameters
---------------
-
-- `[geographic] catch_def`, `x_outlet`, and `y_outlet` decide where the watershed is extracted from.
-- `[geographic] buff_area` controls how much regional context stays visible around the basin in the overview figures.
-- `[domain] zone_ids` and `[domain.depth_model]` define the spatial support that later workflows would reuse.
-- `[data] types` selects which thematic layers are loaded and therefore which overlays can appear on the basin.
-- Date windows in `[data.hydrometry]`, `[data.intermittency]`, and `[data.oceanic]` change the queried observation horizon without changing the basin geometry.
-
 How To Read It
 --------------
 
@@ -73,6 +64,97 @@ Refresh the committed gallery artifacts with:
 .. code-block:: bash
 
    python -m tools.doc_gallery
+
+Case Parameters
+---------------
+
+Selected Parameters
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``[geographic] catch_def``
+     - Watershed extraction mode used to derive the basin from the outlet definition.
+     - from_outlet_coord
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[geographic] x_outlet``
+     - Projected x coordinate of the outlet used by watershed extraction.
+     - 127348
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[geographic] y_outlet``
+     - Projected y coordinate of the outlet used by watershed extraction.
+     - 6.8358e+06
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[geographic] snap_dist``
+     - Maximum snapping distance used to align the requested outlet with the drainage network.
+     - 150 m
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[geographic] buff_area``
+     - Extra area kept around the watershed to preserve regional context in overview figures.
+     - 20%
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[domain] zone_ids``
+     - Domain layers kept on the spatial support before any meshing or solving stage.
+     - geology
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[domain.depth_model] type``
+     - Depth-model strategy used to define the vertical support of the basin.
+     - constant_thickness
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[domain.depth_model] thickness``
+     - Constant basin thickness assigned by the depth model when that mode is selected.
+     - 50.0 m
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[data] types``
+     - Families of data loaded during the data-overview workflow.
+     - geology, hydrography, hydrometry, intermittency, oceanic
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[data] inference_mode``
+     - Policy controlling how strictly the data-loading stage resolves requested layers.
+     - strict
+     - ``examples/projects/data_overview/project.toml``
+
+Observation Windows
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``[data.hydrometry] date_start``
+     - Start date used when querying hydrometry observations for this case.
+     - 2019-01-01
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[data.hydrometry] date_end``
+     - End date used when querying hydrometry observations for this case.
+     - 2025-12-31
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[data.intermittency] date_start``
+     - Start date used when querying intermittency observations for this case.
+     - 2019-01-01
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[data.intermittency] date_end``
+     - End date used when querying intermittency observations for this case.
+     - 2025-12-31
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[data.oceanic] date_start``
+     - Start date used when querying oceanic observations for this case.
+     - 2003-01-01
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[data.oceanic] date_end``
+     - End date used when querying oceanic observations for this case.
+     - 2003-01-30
+     - ``examples/projects/data_overview/project.toml``
 
 Source Pointers
 ---------------

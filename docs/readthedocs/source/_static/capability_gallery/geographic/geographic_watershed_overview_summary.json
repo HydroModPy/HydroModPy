@@ -86,5 +86,115 @@
       "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_watershed_dem.png",
       "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_watershed_local.png"
     ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Selected Parameters",
+        "rows": [
+          {
+            "field": "[geographic] catch_def",
+            "meaning": "Watershed extraction mode used to derive the basin from the outlet definition.",
+            "value": "from_outlet_coord",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[geographic] x_outlet",
+            "meaning": "Projected x coordinate of the outlet used by watershed extraction.",
+            "value": "127348",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[geographic] y_outlet",
+            "meaning": "Projected y coordinate of the outlet used by watershed extraction.",
+            "value": "6.8358e+06",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[geographic] snap_dist",
+            "meaning": "Maximum snapping distance used to align the requested outlet with the drainage network.",
+            "value": "150 m",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[geographic] buff_area",
+            "meaning": "Extra area kept around the watershed to preserve regional context in overview figures.",
+            "value": "20%",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[domain] zone_ids",
+            "meaning": "Domain layers kept on the spatial support before any meshing or solving stage.",
+            "value": "geology",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[domain.depth_model] type",
+            "meaning": "Depth-model strategy used to define the vertical support of the basin.",
+            "value": "constant_thickness",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[domain.depth_model] thickness",
+            "meaning": "Constant basin thickness assigned by the depth model when that mode is selected.",
+            "value": "50.0 m",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data] types",
+            "meaning": "Families of data loaded during the data-overview workflow.",
+            "value": "geology, hydrography, hydrometry, intermittency, oceanic",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data] inference_mode",
+            "meaning": "Policy controlling how strictly the data-loading stage resolves requested layers.",
+            "value": "strict",
+            "source": "examples/projects/data_overview/project.toml"
+          }
+        ]
+      },
+      {
+        "title": "Observation Windows",
+        "rows": [
+          {
+            "field": "[data.hydrometry] date_start",
+            "meaning": "Start date used when querying hydrometry observations for this case.",
+            "value": "2019-01-01",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data.hydrometry] date_end",
+            "meaning": "End date used when querying hydrometry observations for this case.",
+            "value": "2025-12-31",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data.intermittency] date_start",
+            "meaning": "Start date used when querying intermittency observations for this case.",
+            "value": "2019-01-01",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data.intermittency] date_end",
+            "meaning": "End date used when querying intermittency observations for this case.",
+            "value": "2025-12-31",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data.oceanic] date_start",
+            "meaning": "Start date used when querying oceanic observations for this case.",
+            "value": "2003-01-01",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data.oceanic] date_end",
+            "meaning": "End date used when querying oceanic observations for this case.",
+            "value": "2003-01-30",
+            "source": "examples/projects/data_overview/project.toml"
+          }
+        ]
+      }
+    ]
   }
 }

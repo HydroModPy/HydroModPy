@@ -86,6 +86,154 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Reference Parameters
+^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``xmin``
+     - Minimum x coordinate of the analytical reference domain.
+     - 0
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+   * - ``xmax``
+     - Maximum x coordinate of the analytical reference domain.
+     - 400
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+   * - ``base_head_m``
+     - Baseline hydraulic head around which the linearized reference is expressed.
+     - 5 m
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+   * - ``toe_elevation_m``
+     - Toe elevation used by the hillslope reference geometry.
+     - 5 m
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+   * - ``topography_slope_m_per_m``
+     - Topographic slope used by the hillslope reference.
+     - 0.0125 m
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+   * - ``recharge_mm_day``
+     - Recharge rate used by the reference solution.
+     - 2 mm/day
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+   * - ``hydraulic_conductivity_m_per_s``
+     - Hydraulic conductivity used by the analytical or benchmark reference.
+     - 0.0001 m/s
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+   * - ``reference_saturated_thickness_m``
+     - Reference saturated thickness used by the linearized formulation.
+     - 5 m
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+   * - ``specific_yield``
+     - Specific yield used by the transient reference formulation.
+     - 0.1 -
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+   * - ``profile_axis``
+     - Axis along which the validation profile is extracted.
+     - 0
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+   * - ``numerical_contact_tolerance_m``
+     - Tolerance used when comparing the numerical contact or interception position.
+     - 0.05 m
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+   * - ``inland_contact_threshold_x_m``
+     - x threshold used to detect inland contact in the reference solution.
+     - 385 m
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+   * - ``n_terms``
+     - Number of terms retained in the analytical series expansion.
+     - 400
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+   * - ``dt_seconds``
+     - Reference time step used by the analytical evaluator.
+     - 864000 s
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+
+Solver-Specific Overrides
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: Boussinesq
+
+      - No additional override beyond the common validation setup.
+
+Acceptance Criteria
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``output.observable_name``
+     - Simulated observable compared against the reference solution.
+     - watertable_elevation
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+   * - ``output.expected_periods``
+     - Expected number of stored time periods checked by the validation helper.
+     - 13
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+   * - ``output.expected_spatial_shape``
+     - Expected spatial shape for each stored time step.
+     - [3, 40]
+     - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+
+Acceptance Criteria by Solver
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: Boussinesq
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected output: 13 periods, spatial shape 3 x 40
+           - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml``
+         * - ``onset.time_error_days``
+           - Acceptance threshold for `onset.time_error_days`.
+           - 10 days
+           - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/tolerances.toml``
+         * - ``trajectory.rmse_m``
+           - Acceptance threshold for `trajectory.rmse_m`.
+           - 5 m
+           - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/tolerances.toml``
+         * - ``trajectory.max_abs_error_m``
+           - Acceptance threshold for `trajectory.max_abs_error_m`.
+           - 12 m
+           - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/tolerances.toml``
+         * - ``trajectory.reversal_m``
+           - Acceptance threshold for `trajectory.reversal_m`.
+           - 1e-06 m
+           - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/tolerances.toml``
+         * - ``uniformity.row_spread``
+           - Maximum accepted cross-row spread for uniformity.
+           - 0.0001
+           - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/tolerances.toml``
+         * - ``contact.max_positive_clearance_m``
+           - Acceptance threshold for `contact.max_positive_clearance_m`.
+           - 1e-06 m
+           - ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/tolerances.toml``
+
 Source Pointers
 ---------------
 

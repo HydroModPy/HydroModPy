@@ -50,6 +50,49 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Bundle Inputs
+^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``bundle_path``
+     - Versioned bundle used to compute or display the mesh-focused figure.
+     - bundle
+     - ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle``
+
+Mesh Summary
+^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``river_edge_count``
+     - Metric displayed on this page.
+     - 65
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_zoom_panels_naizin_10km2_summary.json``
+   * - ``interface_edge_count``
+     - Metric displayed on this page.
+     - 80
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_zoom_panels_naizin_10km2_summary.json``
+   * - ``zoom_span_m``
+     - Metric displayed on this page.
+     - 1700 m
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_zoom_panels_naizin_10km2_summary.json``
+
 Source Pointers
 ---------------
 

@@ -85,6 +85,157 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Reference Parameters
+^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``xmin``
+     - Minimum x coordinate of the analytical reference domain.
+     - 0
+     - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml``
+   * - ``xmax``
+     - Maximum x coordinate of the analytical reference domain.
+     - 400
+     - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml``
+   * - ``length_y_m``
+     - Reference-domain length along the y axis.
+     - 30 m
+     - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml``
+   * - ``east_head_m``
+     - Fixed east-boundary hydraulic head used by the reference solution.
+     - 5 m
+     - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml``
+   * - ``toe_elevation_m``
+     - Toe elevation used by the hillslope reference geometry.
+     - 5 m
+     - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml``
+   * - ``topography_slope_m_per_m``
+     - Topographic slope used by the hillslope reference.
+     - 0.0125 m
+     - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml``
+   * - ``recharge_mm_day``
+     - Recharge rate used by the reference solution.
+     - 2 mm/day
+     - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml``
+   * - ``hydraulic_conductivity_m_per_s``
+     - Hydraulic conductivity used by the analytical or benchmark reference.
+     - 0.0001 m/s
+     - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml``
+   * - ``bottom_elevation_m``
+     - Bottom elevation used by the reference domain.
+     - 0 m
+     - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml``
+   * - ``profile_axis``
+     - Axis along which the validation profile is extracted.
+     - 0
+     - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml``
+   * - ``numerical_contact_tolerance_m``
+     - Tolerance used when comparing the numerical contact or interception position.
+     - 0.05 m
+     - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml``
+   * - ``interception_search_samples``
+     - Number of samples used when locating the interception front in the reference helper.
+     - 20001
+     - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml``
+
+Common Numerical Setup
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``flow.runtime_backend``
+     - Runtime backend selected for the in-house solver.
+     - local
+     - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/config_boussinesq.toml``
+
+Solver-Specific Overrides
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: Boussinesq
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``flow.runtime_backend``
+           - Runtime backend selected for the in-house solver.
+           - local
+           - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/config_boussinesq.toml``
+
+Acceptance Criteria
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``output.observable_name``
+     - Simulated observable compared against the reference solution.
+     - watertable_elevation
+     - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml``
+   * - ``output.expected_shape``
+     - Expected spatial output shape checked by the validation helper.
+     - [3, 40]
+     - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml``
+
+Acceptance Criteria by Solver
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: Boussinesq
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected shape: 3 x 40
+           - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/metadata.toml``
+         * - ``interception.x_error_m``
+           - Acceptance threshold for `interception.x_error_m`.
+           - 15 m
+           - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/tolerances.toml``
+         * - ``uniformity.row_spread``
+           - Maximum accepted cross-row spread for uniformity.
+           - 0.001
+           - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/tolerances.toml``
+         * - ``contact.max_positive_clearance_m``
+           - Acceptance threshold for `contact.max_positive_clearance_m`.
+           - 1e-06 m
+           - ``validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/tolerances.toml``
+
 Source Pointers
 ---------------
 

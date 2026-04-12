@@ -71,6 +71,81 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Selected Parameters
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``property_case_kind``
+     - Hydraulic-property rendering mode used to build this gallery figure.
+     - geology_transfer_variants
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_variants_summary.json``
+   * - ``parameter_ids``
+     - Hydraulic parameters illustrated by the case.
+     - K
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_variants_summary.json``
+   * - ``parameterization_modes``
+     - Parameterization modes intentionally demonstrated by the case.
+     - csv, heterogeneous, bundle
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_variants_summary.json``
+   * - ``supports``
+     - Spatial supports used to render the field or compare variants.
+     - structured, triangular
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_variants_summary.json``
+
+Configuration Values
+^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``variant_titles``
+     - Tabbed variants included in the same property-comparison page.
+     - Structured Brittany, Triangular 10 km2, Triangular 100 km2
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_variants_summary.json``
+
+Displayed Values
+^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``n_polygons``
+     - Metric displayed on this page.
+     - 23
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_variants_summary.json``
+   * - ``n_unique_zones``
+     - Metric displayed on this page.
+     - 13
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_variants_summary.json``
+   * - ``n_mesh_cells``
+     - Metric displayed on this page.
+     - 400
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_variants_summary.json``
+   * - ``property_max``
+     - Metric displayed on this page.
+     - 7.21e-05 m/s
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_variants_summary.json``
+
 Source Pointers
 ---------------
 

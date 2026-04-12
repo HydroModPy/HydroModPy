@@ -1,0 +1,3 @@
+variant_id,variant_label,solver,mesh_mode,runtime_seconds,runtime_minutes,reference_variant,speedup_vs_reference
+mf6_mod_s60,MF6 annual moderate on 60x60 structured grid,modflow6,structured,51.44,0.8573333333333333,mf6_mod_s60,1.0
+nwt_mod_s60,NWT annual moderate on 60x60 structured grid,modflownwt,structured,37.08,0.618,mf6_mod_s60,1.3872707659115426

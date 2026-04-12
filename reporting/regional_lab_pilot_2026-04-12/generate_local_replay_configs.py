@@ -2,6 +2,13 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
+import sys
+
+
+PILOT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = PILOT_DIR.parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from launchers.regional_lab.bootstrap import inspect_mesh_bundle_boussinesq_readiness
 
@@ -58,8 +65,8 @@ def _describe_not_ready(row: dict[str, str]) -> str:
 
 
 def main() -> None:
-    pilot_dir = Path(__file__).resolve().parent
-    repo_root = pilot_dir.parents[1]
+    pilot_dir = PILOT_DIR
+    repo_root = REPO_ROOT
     catalog_path = pilot_dir / "site_catalog_pilot_20.csv"
     child_dir = pilot_dir / "child_configs"
     common_base_path = child_dir / "base_local_boussinesq_mesh_replay.toml"
@@ -81,6 +88,9 @@ def main() -> None:
                 "",
                 "[geographic]",
                 f'dem_init_path = "{dem_path.as_posix()}"',
+                "",
+                "[flow]",
+                "runtime_max_iterations = 200",
                 "",
                 "[postprocess]",
                 "enabled = false",

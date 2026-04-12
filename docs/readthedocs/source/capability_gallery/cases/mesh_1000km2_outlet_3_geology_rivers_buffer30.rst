@@ -60,6 +60,101 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Selected Parameters
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``scale_label``
+     - Scale bucket used to group repeated mesh gallery cases.
+     - 1000 km2
+     - ``examples/mesh_gallery/1000km2/mesh_1000km2_outlet_3_geology_rivers_buffer30/viewer_config.toml``
+   * - ``outlet_id``
+     - Outlet identifier used by the source batch meshing run.
+     - 3
+     - ``examples/mesh_gallery/1000km2/mesh_1000km2_outlet_3_geology_rivers_buffer30/viewer_config.toml``
+   * - ``variant_label``
+     - Gallery variant describing the active constraints and buffering policy.
+     - Geology + rivers, 30% buffer
+     - ``examples/mesh_gallery/1000km2/mesh_1000km2_outlet_3_geology_rivers_buffer30/viewer_config.toml``
+   * - ``constraints_mode``
+     - Constraint family carried by the imported bundle or viewer config.
+     - geology_rivers
+     - ``examples/mesh_gallery/1000km2/mesh_1000km2_outlet_3_geology_rivers_buffer30/viewer_config.toml``
+   * - ``[mesh_distribution.plot] color_field``
+     - Cell attribute used to color the mesh in the overview figure.
+     - geology_key
+     - ``examples/mesh_gallery/1000km2/mesh_1000km2_outlet_3_geology_rivers_buffer30/viewer_config.toml``
+   * - ``[mesh_distribution.plot] show_topography_panel``
+     - Whether a dedicated topography panel is shown alongside the mesh map.
+     - true
+     - ``examples/mesh_gallery/1000km2/mesh_1000km2_outlet_3_geology_rivers_buffer30/viewer_config.toml``
+   * - ``[mesh_distribution.plot] topography_field``
+     - Node or cell field used to render the topography panel when it is enabled.
+     - z_top_mean
+     - ``examples/mesh_gallery/1000km2/mesh_1000km2_outlet_3_geology_rivers_buffer30/viewer_config.toml``
+   * - ``[mesh_distribution.plot] show_geology_interfaces``
+     - Whether geology interfaces are explicitly highlighted in the viewer output.
+     - true
+     - ``examples/mesh_gallery/1000km2/mesh_1000km2_outlet_3_geology_rivers_buffer30/viewer_config.toml``
+   * - ``[mesh_distribution.plot] show_river_edges``
+     - Whether river-constrained edges are highlighted in the viewer output.
+     - true
+     - ``examples/mesh_gallery/1000km2/mesh_1000km2_outlet_3_geology_rivers_buffer30/viewer_config.toml``
+
+Mesh Summary
+^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``crs``
+     - Coordinate reference system declared by the imported mesh bundle.
+     - EPSG:2154
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_3_geology_rivers_buffer30_summary.json``
+   * - ``node_count``
+     - Number of nodes available in the displayed mesh bundle.
+     - 19769
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_3_geology_rivers_buffer30_summary.json``
+   * - ``cell_count``
+     - Number of cells available in the displayed mesh bundle.
+     - 39404
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_3_geology_rivers_buffer30_summary.json``
+   * - ``edge_count``
+     - Number of edges available in the displayed mesh bundle.
+     - 59172
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_3_geology_rivers_buffer30_summary.json``
+   * - ``river_edge_count``
+     - Count of edges tagged as river constraints in the bundle.
+     - 6862
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_3_geology_rivers_buffer30_summary.json``
+   * - ``boundary_edge_count``
+     - Count of watershed-boundary edges in the bundle.
+     - 132
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_3_geology_rivers_buffer30_summary.json``
+   * - ``geology_interface_edge_count``
+     - Count of geology-interface edges present in the bundle.
+     - 2627
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_3_geology_rivers_buffer30_summary.json``
+   * - ``geology_keys``
+     - Distinct geology codes present in the imported bundle.
+     - 1, 1181, 1241, 1321, 1341, 1421, 1441, 1481, 1501, 1521, 161, 1621, 1681, 1701, 1741, 1801, 1841, 1961, 2041, 21, 2141, 241, 401, 481, 621, 801, 901
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_3_geology_rivers_buffer30_summary.json``
+
 Source Pointers
 ---------------
 

@@ -92,5 +92,67 @@
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh.png"
     ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Selected Parameters",
+        "rows": [
+          {
+            "field": "property_case_kind",
+            "meaning": "Hydraulic-property rendering mode used to build this gallery figure.",
+            "value": "irregular_mesh",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json"
+          },
+          {
+            "field": "parameter_ids",
+            "meaning": "Hydraulic parameters illustrated by the case.",
+            "value": "K",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json"
+          },
+          {
+            "field": "parameterization_modes",
+            "meaning": "Parameterization modes intentionally demonstrated by the case.",
+            "value": "heterogeneous",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json"
+          },
+          {
+            "field": "supports",
+            "meaning": "Spatial supports used to render the field or compare variants.",
+            "value": "structured, triangular_unstructured",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json"
+          }
+        ]
+      },
+      {
+        "title": "Displayed Values",
+        "rows": [
+          {
+            "field": "structured_cell_count",
+            "meaning": "Metric displayed on this page.",
+            "value": "64",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json"
+          },
+          {
+            "field": "irregular_cell_count",
+            "meaning": "Metric displayed on this page.",
+            "value": "160",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json"
+          },
+          {
+            "field": "k_min_m_per_day",
+            "meaning": "Metric displayed on this page.",
+            "value": "2.5 m/day",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json"
+          },
+          {
+            "field": "k_max_m_per_day",
+            "meaning": "Metric displayed on this page.",
+            "value": "12.0 m/day",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json"
+          }
+        ]
+      }
+    ]
   }
 }

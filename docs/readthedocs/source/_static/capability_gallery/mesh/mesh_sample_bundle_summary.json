@@ -108,5 +108,97 @@
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_overview.png"
     ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Selected Parameters",
+        "rows": [
+          {
+            "field": "[mesh_distribution.plot] color_field",
+            "meaning": "Cell attribute used to color the mesh in the overview figure.",
+            "value": "geology_key",
+            "source": "examples/mesh_viewer/config_example.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] show_topography_panel",
+            "meaning": "Whether a dedicated topography panel is shown alongside the mesh map.",
+            "value": "true",
+            "source": "examples/mesh_viewer/config_example.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] topography_field",
+            "meaning": "Node or cell field used to render the topography panel when it is enabled.",
+            "value": "z_top_mean",
+            "source": "examples/mesh_viewer/config_example.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] show_geology_interfaces",
+            "meaning": "Whether geology interfaces are explicitly highlighted in the viewer output.",
+            "value": "true",
+            "source": "examples/mesh_viewer/config_example.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] show_river_edges",
+            "meaning": "Whether river-constrained edges are highlighted in the viewer output.",
+            "value": "true",
+            "source": "examples/mesh_viewer/config_example.toml"
+          }
+        ]
+      },
+      {
+        "title": "Mesh Summary",
+        "rows": [
+          {
+            "field": "crs",
+            "meaning": "Coordinate reference system declared by the imported mesh bundle.",
+            "value": "EPSG:2154",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          },
+          {
+            "field": "node_count",
+            "meaning": "Number of nodes available in the displayed mesh bundle.",
+            "value": "4",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          },
+          {
+            "field": "cell_count",
+            "meaning": "Number of cells available in the displayed mesh bundle.",
+            "value": "2",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          },
+          {
+            "field": "edge_count",
+            "meaning": "Number of edges available in the displayed mesh bundle.",
+            "value": "5",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          },
+          {
+            "field": "river_edge_count",
+            "meaning": "Count of edges tagged as river constraints in the bundle.",
+            "value": "1",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          },
+          {
+            "field": "boundary_edge_count",
+            "meaning": "Count of watershed-boundary edges in the bundle.",
+            "value": "4",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          },
+          {
+            "field": "geology_interface_edge_count",
+            "meaning": "Count of geology-interface edges present in the bundle.",
+            "value": "1",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          },
+          {
+            "field": "geology_keys",
+            "meaning": "Distinct geology codes present in the imported bundle.",
+            "value": "granite, schist",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+          }
+        ]
+      }
+    ]
   }
 }

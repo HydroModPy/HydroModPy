@@ -393,5 +393,511 @@
         "final_elapsed_days": 15.0
       }
     }
-  ]
+  ],
+  "parameter_docs": {
+    "reference_parameters": [
+      {
+        "field": "xmin",
+        "meaning": "Minimum x coordinate of the analytical reference domain.",
+        "value": "0",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+      },
+      {
+        "field": "xmax",
+        "meaning": "Maximum x coordinate of the analytical reference domain.",
+        "value": "2000",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+      },
+      {
+        "field": "ymin",
+        "meaning": "Minimum y coordinate of the analytical reference domain.",
+        "value": "0",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+      },
+      {
+        "field": "ymax",
+        "meaning": "Maximum y coordinate of the analytical reference domain.",
+        "value": "2000",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+      },
+      {
+        "field": "center_x_m",
+        "meaning": "Reference x coordinate of the domain centre or pumping location.",
+        "value": "1000 m",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+      },
+      {
+        "field": "center_y_m",
+        "meaning": "Reference y coordinate of the domain centre or pumping location.",
+        "value": "1000 m",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+      },
+      {
+        "field": "base_head_m",
+        "meaning": "Baseline hydraulic head around which the linearized reference is expressed.",
+        "value": "30 m",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+      },
+      {
+        "field": "hydraulic_conductivity_m_per_s",
+        "meaning": "Hydraulic conductivity used by the analytical or benchmark reference.",
+        "value": "0.0001 m/s",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+      },
+      {
+        "field": "reference_saturated_thickness_m",
+        "meaning": "Reference saturated thickness used by the linearized formulation.",
+        "value": "30 m",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+      },
+      {
+        "field": "specific_yield",
+        "meaning": "Specific yield used by the transient reference formulation.",
+        "value": "0.15 -",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+      },
+      {
+        "field": "pumping_rate_m3_day",
+        "meaning": "Pumping rate used by the radial pumping reference.",
+        "value": "1000 m3/day",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+      },
+      {
+        "field": "compare_start_day",
+        "meaning": "Start day retained when comparing the numerical and reference time series.",
+        "value": "4",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+      },
+      {
+        "field": "dt_seconds",
+        "meaning": "Reference time step used by the analytical evaluator.",
+        "value": "43200 s",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+      }
+    ],
+    "common_setup": [
+      {
+        "field": "simulation.time.start_datetime",
+        "meaning": "Simulation start time used by the benchmark.",
+        "value": "2003-01-01 00:00:00",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "simulation.time.end_datetime",
+        "meaning": "Simulation end time used by the benchmark.",
+        "value": "2003-01-15 23:00:00",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "simulation.time.step_value",
+        "meaning": "Nominal time step used by the benchmark.",
+        "value": "12 hour",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_x",
+        "meaning": "Synthetic-domain length along the x axis.",
+        "value": "2000.0 m",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_y",
+        "meaning": "Synthetic-domain length along the y axis.",
+        "value": "2000.0 m",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.nx",
+        "meaning": "Grid cell count along the x axis.",
+        "value": "101",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.ny",
+        "meaning": "Grid cell count along the y axis.",
+        "value": "101",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.kind",
+        "meaning": "Synthetic topography shape used by the benchmark.",
+        "value": "flat",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.base_elevation",
+        "meaning": "Base land-surface elevation of the synthetic topography.",
+        "value": "40 m",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.depth_model.type",
+        "meaning": "Depth model used to build the aquifer support.",
+        "value": "constant_thickness",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.depth_model.thickness",
+        "meaning": "Aquifer or support thickness used by the benchmark.",
+        "value": "40.0 m",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.flow_regime",
+        "meaning": "Steady or transient flow regime used by the benchmark.",
+        "value": "transient",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.active_sinks_sources",
+        "meaning": "Sink and source families activated in the benchmark.",
+        "value": "[wells]",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.active_bc",
+        "meaning": "Boundary-condition families activated in the benchmark.",
+        "value": "[west_side, east_side, north_side, south_side]",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param_list",
+        "meaning": "Hydraulic parameter families explicitly configured by the benchmark.",
+        "value": "[K, Ss, Sy]",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field.kind",
+        "meaning": "Parameterization mode used for `K`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field_homogeneous.value",
+        "meaning": "Homogeneous `K` value used by the benchmark.",
+        "value": "1e-4 m/s",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.Ss.field.kind",
+        "meaning": "Parameterization mode used for `Ss`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.Ss.field_homogeneous.value",
+        "meaning": "Homogeneous `Ss` value used by the benchmark.",
+        "value": "1e-5 m-1",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.Sy.field.kind",
+        "meaning": "Parameterization mode used for `Sy`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.Sy.field_homogeneous.value",
+        "meaning": "Homogeneous `Sy` value used by the benchmark.",
+        "value": "0.15 -",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.ic.value",
+        "meaning": "Initial hydraulic head used to start the benchmark.",
+        "value": "30.0 m",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.west_side.value",
+        "meaning": "Fixed head applied on the west side boundary.",
+        "value": "30.0 m",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.east_side.value",
+        "meaning": "Fixed head applied on the east side boundary.",
+        "value": "30.0 m",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.north_side.value",
+        "meaning": "Fixed head applied on the north side boundary.",
+        "value": "30.0 m",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.south_side.value",
+        "meaning": "Fixed head applied on the south side boundary.",
+        "value": "30.0 m",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.sinks_sources.wells.P1.cell",
+        "meaning": "Cell index used by pumping well `P1`.",
+        "value": "[0, 50, 50]",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.sinks_sources.wells.P1.units",
+        "meaning": "Units used by pumping well `P1` forcing.",
+        "value": "m3/day",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.sinks_sources.wells.P1.description",
+        "meaning": "Short description of pumping well `P1`.",
+        "value": "Central pumping well",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.sinks_sources.wells.P1.forcing.mode",
+        "meaning": "Forcing mode used by pumping well `P1`.",
+        "value": "constant",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.sinks_sources.wells.P1.forcing.value",
+        "meaning": "Forcing value applied to pumping well `P1`.",
+        "value": "-1000",
+        "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+      }
+    ],
+    "solver_overrides": {
+      "modflownwt": [
+        {
+          "field": "modflownwt.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW-NWT.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW-NWT.",
+          "value": "101",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW-NWT.",
+          "value": "101",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW-NWT.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW-NWT.",
+          "value": "1",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.tgrid.firstpersteady",
+          "meaning": "Whether the first time period is treated as steady by MODFLOW-NWT.",
+          "value": "false",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml"
+        }
+      ],
+      "modflow6": [
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW 6.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW 6.",
+          "value": "101",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW 6.",
+          "value": "101",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW 6.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.tgrid.firstpersteady",
+          "meaning": "Whether the first time period is treated as steady by MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml"
+        }
+      ],
+      "boussinesq": [
+        {
+          "field": "flow.runtime_backend",
+          "meaning": "Runtime backend selected for the in-house solver.",
+          "value": "scipy_sparse",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml"
+        }
+      ]
+    },
+    "acceptance_criteria": {
+      "common": [
+        {
+          "field": "output.observable_name",
+          "meaning": "Simulated observable compared against the reference solution.",
+          "value": "watertable_elevation",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+        },
+        {
+          "field": "output.expected_periods",
+          "meaning": "Expected number of stored time periods checked by the validation helper.",
+          "value": "30",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+        },
+        {
+          "field": "output.expected_spatial_shape",
+          "meaning": "Expected spatial shape for each stored time step.",
+          "value": "[101, 101]",
+          "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+        }
+      ],
+      "solver_specific": {
+        "modflownwt": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected output: 30 periods, spatial shape 101 x 101",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+          },
+          {
+            "field": "space_time.rmse",
+            "meaning": "Maximum accepted root-mean-square error for space time.",
+            "value": "0.03",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml"
+          },
+          {
+            "field": "space_time.max_abs_error",
+            "meaning": "Maximum accepted absolute error for space time.",
+            "value": "0.08",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml"
+          },
+          {
+            "field": "space_time.azimuthal_spread",
+            "meaning": "Acceptance threshold for `space_time.azimuthal_spread`.",
+            "value": "0.0005",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml"
+          },
+          {
+            "field": "final_time.rmse",
+            "meaning": "Maximum accepted root-mean-square error for final time.",
+            "value": "0.02",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml"
+          },
+          {
+            "field": "final_time.max_abs_error",
+            "meaning": "Maximum accepted absolute error for final time.",
+            "value": "0.03",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml"
+          }
+        ],
+        "modflow6": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected output: 30 periods, spatial shape 101 x 101",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+          },
+          {
+            "field": "space_time.rmse",
+            "meaning": "Maximum accepted root-mean-square error for space time.",
+            "value": "0.015",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "space_time.max_abs_error",
+            "meaning": "Maximum accepted absolute error for space time.",
+            "value": "0.07",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "space_time.azimuthal_spread",
+            "meaning": "Acceptance threshold for `space_time.azimuthal_spread`.",
+            "value": "1e-05",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "final_time.rmse",
+            "meaning": "Maximum accepted root-mean-square error for final time.",
+            "value": "0.008",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "final_time.max_abs_error",
+            "meaning": "Maximum accepted absolute error for final time.",
+            "value": "0.015",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml"
+          }
+        ],
+        "boussinesq": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected output: 30 periods, spatial shape 101 x 101",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml"
+          },
+          {
+            "field": "space_time.rmse",
+            "meaning": "Maximum accepted root-mean-square error for space time.",
+            "value": "0.1",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "space_time.max_abs_error",
+            "meaning": "Maximum accepted absolute error for space time.",
+            "value": "0.12",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "space_time.azimuthal_spread",
+            "meaning": "Acceptance threshold for `space_time.azimuthal_spread`.",
+            "value": "0.15",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "final_time.rmse",
+            "meaning": "Maximum accepted root-mean-square error for final time.",
+            "value": "0.1",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "final_time.max_abs_error",
+            "meaning": "Maximum accepted absolute error for final time.",
+            "value": "0.12",
+            "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml"
+          }
+        ]
+      }
+    }
+  }
 }

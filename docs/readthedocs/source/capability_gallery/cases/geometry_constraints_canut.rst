@@ -50,6 +50,65 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Geometry Inputs
+^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``geometry_case_kind``
+     - Geometry-focused rendering mode used to build this gallery page.
+     - constraints_overview
+     - ``docs/readthedocs/source/_static/capability_gallery/geometry/geometry_constraints_canut_summary.json``
+   * - ``boundary_path``
+     - Boundary polygon used to clip and frame the catchment domain.
+     - canut.shp
+     - ``examples/data/masks/canut.shp``
+   * - ``rivers_path``
+     - Hydrographic layer overlaid inside the catchment boundary.
+     - regional_stream_network.shp
+     - ``examples/data/hydrography/regional_stream_network.shp``
+   * - ``geology_path``
+     - Geology layer clipped to the same boundary when available.
+     - GEO1M_brittany.shp
+     - ``examples/data/geology/GEO1M_brittany.shp``
+   * - ``dem_path``
+     - DEM raster used for regional relief and slope context.
+     - regional_dem_naizin.tif
+     - ``examples/data/dem/regional_dem_naizin.tif``
+
+Derived Geometry Values
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``boundary_area_km2``
+     - Catchment area represented on the geometry page.
+     - 24.9187 km2
+     - ``docs/readthedocs/source/_static/capability_gallery/geometry/geometry_constraints_canut_summary.json``
+   * - ``river_length_km``
+     - Total clipped river length visible inside the boundary.
+     - 0 km
+     - ``docs/readthedocs/source/_static/capability_gallery/geometry/geometry_constraints_canut_summary.json``
+   * - ``geology_unit_count``
+     - Number of distinct geology units intersecting the catchment.
+     - 0
+     - ``docs/readthedocs/source/_static/capability_gallery/geometry/geometry_constraints_canut_summary.json``
+
 Source Pointers
 ---------------
 

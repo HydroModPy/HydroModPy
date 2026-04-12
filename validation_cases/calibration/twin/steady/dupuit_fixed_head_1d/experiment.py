@@ -101,6 +101,50 @@ def build_calibration_payload(
     }
 
 
+def _gp_mapping_profile(*, seed: int = 7) -> CalibrationMethodProfile:
+    """Return one compact GP-mapping profile suited to scalar steady twins."""
+    return CalibrationMethodProfile(
+        name="gp_mapping",
+        method_kwargs={
+            "seed": int(seed),
+            "n_init": 6,
+            "n_refine": 2,
+            "batch_size": 2,
+            "n_candidates": 100,
+            "kappa": 2.0,
+            "alpha": 1.0e-6,
+            "jitter": 1.0e-8,
+            "n_posterior_pool": 200,
+            "n_posterior_samples": 48,
+            "log_transform": True,
+        },
+        persist_model_distribution=True,
+        success_metric="distribution",
+    )
+
+
+def _da_mh_gp_profile(*, seed: int = 7) -> CalibrationMethodProfile:
+    """Return one compact delayed-acceptance MH profile for scalar steady twins."""
+    return CalibrationMethodProfile(
+        name="da_mh_gp",
+        method_kwargs={
+            "sigma_noise": 0.1,
+            "n_init": 8,
+            "n_samples": 80,
+            "burn_in": 20,
+            "thin": 2,
+            "proposal_scale": 0.03,
+            "retrain_interval": 5,
+            "gp_noise": 1.0e-6,
+            "full_mh_prob": 0.05,
+            "seed": int(seed),
+            "cache_decimals": 10,
+        },
+        persist_model_distribution=True,
+        success_metric="distribution",
+    )
+
+
 STEADY_DUPUIT_TWIN_CASE = TwinCalibrationCaseDefinition(
     case_id="calibration_twin_dupuit_fixed_head_modflow6",
     solver_name="modflow6",
@@ -131,6 +175,34 @@ STEADY_DUPUIT_TWIN_CASE = TwinCalibrationCaseDefinition(
         ),
     ),
     fast=True,
+    build_simulation_config=build_simulation_config,
+    build_calibration_payload=build_calibration_payload,
+)
+
+
+STEADY_DUPUIT_POSTERIOR_TWIN_CASE = TwinCalibrationCaseDefinition(
+    case_id="calibration_twin_dupuit_fixed_head_posterior_modflow6",
+    solver_name="modflow6",
+    regime="steady",
+    description=(
+        "Same-solver posterior-oriented twin benchmark on dupuit_fixed_head_1d "
+        "with one scalar K multiplier and distribution-valued methods."
+    ),
+    truth_params={"K_global_factor": 1.0},
+    bounds={"K_global_factor": (0.8, 1.2)},
+    parameter_abs_tolerances={"K_global_factor": 0.06},
+    output_names=("q_east",),
+    method_profiles=(
+        CalibrationMethodProfile(
+            name="random_search",
+            method_kwargs={"n_samples": 16, "seed": 7},
+            persist_model_distribution=True,
+            success_metric="distribution",
+        ),
+        _gp_mapping_profile(seed=7),
+        _da_mh_gp_profile(seed=7),
+    ),
+    fast=False,
     build_simulation_config=build_simulation_config,
     build_calibration_payload=build_calibration_payload,
 )
