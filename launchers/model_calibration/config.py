@@ -347,6 +347,7 @@ class ModelCalibrationSectionSchema(BaseModel):
     model_distribution_rerun_selection: str = "representative"
     persist_iteration_history: bool = True
     persist_iteration_detail_level: str = "minimal"
+    persist_calibration_report: bool = True
     parameter: list[ModelCalibrationParameterSchema] = Field(default_factory=list)
     output: list[ModelCalibrationOutputSchema] = Field(default_factory=list)
     objective_block: list[ModelCalibrationObjectiveBlockSchema] = Field(

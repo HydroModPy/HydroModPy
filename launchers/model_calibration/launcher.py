@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,7 @@ from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 from launchers.model_calibration.config import ModelCalibrationConfig
 from launchers.model_calibration.objective_mapping import run_objective_mapping
+from launchers.model_calibration.reporting import persist_calibration_report
 from launchers.model_calibration.runtime import (
     ModelCalibrationObjectiveEvaluator,
     actualize_candidate,
@@ -54,7 +56,7 @@ class ModelCalibrationLauncher:
             state.session_manifest = initialize_calibration_session(
                 state.prepared_session,
                 cfg=self.cfg,
-        )
+            )
         return state.prepared_session
 
     def _record_iteration(self, *, session, record) -> None:
@@ -211,6 +213,19 @@ class ModelCalibrationLauncher:
             objective_mapping_summary=objective_mapping_summary,
             persist_distribution=self.cfg.model_calibration.persist_model_distribution,
         )
+        if self.cfg.model_calibration.persist_calibration_report:
+            report_summary = persist_calibration_report(
+                session=session,
+                cfg=self.cfg,
+                manifest=self.state.session_manifest,
+            )
+            refreshed_manifest = dict(self.state.session_manifest)
+            refreshed_manifest["calibration_report"] = report_summary
+            session.session_manifest_path.write_text(
+                json.dumps(refreshed_manifest, indent=2, ensure_ascii=True) + "\n",
+                encoding="utf-8",
+            )
+            self.state.session_manifest = refreshed_manifest
         return dict(self.state.session_manifest)
 
     def run(self) -> dict[str, Any]:
