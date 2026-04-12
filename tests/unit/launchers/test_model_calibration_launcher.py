@@ -16,6 +16,7 @@ from launchers.model_calibration.runtime import (
     append_iteration_record,
     select_candidate_outputs,
 )
+from launchers.model_calibration.output_selection import canonicalize_run_outputs
 from launchers.model_calibration.templates import render_model_calibration_template
 
 
@@ -457,6 +458,19 @@ def test_model_calibration_select_outputs_can_use_variable_supports(
 
     assert selected["pz_01"] == (pytest.approx(15.0),)
     assert selected["q_outlet_lowflow_mean"] == (pytest.approx(4.0),)
+
+
+def test_model_calibration_canonicalizes_run_outputs() -> None:
+    bundle = canonicalize_run_outputs(
+        {
+            "calibration_outputs": {"pz_01": [10.0]},
+            "outputs": {"watertable_elevation": [9.0]},
+        }
+    )
+
+    assert bundle.get("pz_01") == [10.0]
+    assert bundle.get("watertable_elevation") == [9.0]
+    assert bundle.variables["pz_01"].source_key == "calibration_outputs"
 
 
 def test_model_calibration_actualize_candidate_writes_override_config(
