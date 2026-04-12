@@ -81,11 +81,11 @@
       "observable": "outlet_flux_series",
       "unit": "m3/s",
       "n_pairs": 12,
-      "bias": -0.0023588521215300766,
-      "mae": 0.0023588521215300766,
-      "rmse": 0.0029586277073811312,
+      "bias": -0.0023588521225387554,
+      "mae": 0.0023588521225387554,
+      "rmse": 0.00295862770824285,
       "max_abs_error": 0.005427371588768524,
-      "mean_relative_error": 0.9474055530222255
+      "mean_relative_error": 0.9474055533947814
     }
   ],
   "differences": [
@@ -941,11 +941,11 @@
       "time_index": 4,
       "elapsed_seconds": "",
       "value_index": 0,
-      "value": 0.0001798844083325857,
+      "value": 0.00017988439622844635,
       "reference_value": 0.0027074543712690847,
-      "signed_error": -0.002527569962936499,
-      "absolute_error": 0.002527569962936499,
-      "relative_error": 0.933559578975188,
+      "signed_error": -0.0025275699750406384,
+      "absolute_error": 0.0025275699750406384,
+      "relative_error": 0.9335595834458597,
       "unit": "m3/s",
       "selection": "nearest_declared_outlet_point",
       "reference_selection": "nearest_declared_outlet_point"

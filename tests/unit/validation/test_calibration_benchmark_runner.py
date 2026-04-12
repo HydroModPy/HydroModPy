@@ -201,7 +201,7 @@ def test_benchmark_suite_writers_emit_extended_outputs(tmp_path: Path) -> None:
     payload = json.loads(stats_json.read_text(encoding="utf-8"))
     assert payload["rows"][0]["target_success_rate"] == 1.0
     assert payload["rows"][0]["mean_time_per_evaluation_seconds"] == 0.625
-    assert payload["rows"][0]["mean_param_abs_error_over_tol__K"] == pytest.approx(0.2)
+    assert payload["rows"][0]["mean_param_abs_error_over_tol__K"] == 0.2
 
     csv_text = stats_csv.read_text(encoding="utf-8")
     assert "mean_block_normalized_cost_best__heads" in csv_text

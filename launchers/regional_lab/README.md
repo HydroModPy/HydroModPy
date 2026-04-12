@@ -55,6 +55,20 @@ The bootstrap helper can also scan one `mesh_run_root` directly to discover
 `mesh_output_mesh`, `mesh_summary_json`, `mesh_bundle_dir`, and figures by
 `outlet_id` when the batch manifest is missing or stale.
 
+When one `mesh_bundle_dir` is available, the bootstrap also inspects the bundle
+against the current Boussinesq contract and adds:
+
+- per-bundle counters such as `bundle_missing_top_centroid_count`,
+  `bundle_missing_storage_coefficient_count`, and
+  `bundle_invalid_vertical_geometry_count`;
+- readiness flags `bundle_boussinesq_steady_ready` and
+  `bundle_boussinesq_transient_ready`;
+- readiness tags `boussinesq_steady_ready` and
+  `boussinesq_transient_ready` when the bundle satisfies those profiles.
+
+This keeps `mesh_ready` separate from `solver-ready`: one site may have a
+usable mesh asset while still being unsuitable for one replay recipe.
+
 ## Template Keys
 
 `config_path_template` can reference:

@@ -192,6 +192,22 @@ def _write_visual_method_comparison_config(
                 'unit = "m"',
                 "",
                 "[[method_comparison.observable]]",
+                'name = "head_left_point"',
+                'variable = "watertable_elevation"',
+                'support = "point"',
+                "cell_index = 0",
+                'time = "all"',
+                'unit = "m"',
+                "",
+                "[[method_comparison.observable]]",
+                'name = "head_right_point"',
+                'variable = "watertable_elevation"',
+                'support = "point"',
+                "cell_index = 2",
+                'time = "all"',
+                'unit = "m"',
+                "",
+                "[[method_comparison.observable]]",
                 'name = "outlet_flux_series"',
                 'variable = "outlet_flux"',
                 'support = "outlet"',
@@ -384,6 +400,16 @@ def test_method_comparison_config_resolves_paths(tmp_path: Path) -> None:
             "run_method_comparison_mf6_vs_nwt_different_meshes.toml",
             ["mesh_input", "structured"],
             ["map", "map"],
+        ),
+        (
+            "run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml",
+            ["mesh_input", "structured"],
+            ["point", "point", "point", "outlet", "map", "map", "map"],
+        ),
+        (
+            "run_method_comparison_example12_multi_method_moderate.toml",
+            ["structured", "structured", "mesh_input"],
+            ["point", "point", "point", "outlet", "map", "map", "map"],
         ),
         (
             "run_method_comparison_example12_fast_shared_mesh.toml",
@@ -917,6 +943,7 @@ def test_method_comparison_launcher_generates_visual_figures(tmp_path: Path) -> 
         "map_comparison",
         "difference_map",
         "timeseries",
+        "point_dashboard",
     }
     for item in figures:
         figure_path = Path(item["path"])
@@ -1000,6 +1027,7 @@ def test_method_comparison_launcher_writes_chronicles_native_flux_and_runtime_ou
     figure_kinds = {item["kind"] for item in summary["comparison_figures"]}
     assert "native_flux_panel" in figure_kinds
     assert "execution_time_bars" in figure_kinds
+    assert "point_dashboard" in figure_kinds
 
 
 def test_method_comparison_launcher_generates_structured_figures_from_run_folder_template(

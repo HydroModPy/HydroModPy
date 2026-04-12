@@ -127,5 +127,72 @@
       "docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary_metrics.csv",
       "docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_difference_metrics.csv"
     ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Comparison Setup",
+        "rows": [
+          {
+            "field": "[method_comparison] comparison_id",
+            "meaning": "Stable identifier used to collect outputs and summary artifacts for the comparison.",
+            "value": "example12_map_method_comparison",
+            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+          },
+          {
+            "field": "[method_comparison] reference_variant",
+            "meaning": "Variant used as the baseline when computing map-wise differences and error metrics.",
+            "value": "mf6_gmsh_existing",
+            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+          },
+          {
+            "field": "[method_comparison] run_variants",
+            "meaning": "Whether the launcher reruns the variants or only reuses committed run folders.",
+            "value": "false",
+            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+          },
+          {
+            "field": "study_area",
+            "meaning": "Study area summarized by the gallery page for this comparison case.",
+            "value": "Naizin catchment",
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json"
+          }
+        ]
+      },
+      {
+        "title": "Compared Variants",
+        "rows": [
+          {
+            "field": "variant.mf6_gmsh_existing",
+            "meaning": "Compared run folder and solver definition used by the method-comparison launcher.",
+            "value": "MODFLOW 6 on generated Gmsh mesh; solver=modflow6; mesh_mode=mesh_catchment; run_folder=results_simulations/example12_fast_mf6_mesh_catchment",
+            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+          },
+          {
+            "field": "variant.boussinesq_reused_gmsh",
+            "meaning": "Compared run folder and solver definition used by the method-comparison launcher.",
+            "value": "Boussinesq on reused Gmsh mesh; solver=boussinesq; mesh_mode=mesh_input; run_folder=results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq",
+            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+          }
+        ]
+      },
+      {
+        "title": "Compared Observables",
+        "rows": [
+          {
+            "field": "observable.watertable_elevation_map",
+            "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
+            "value": "variable=watertable_elevation; support=map; time=last; unit=m",
+            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+          },
+          {
+            "field": "observable.watertable_depth_map",
+            "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
+            "value": "variable=watertable_depth; support=map; time=last; unit=m",
+            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+          }
+        ]
+      }
+    ]
   }
 }

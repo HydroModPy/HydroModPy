@@ -51,6 +51,73 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Selected Parameters
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``property_case_kind``
+     - Hydraulic-property rendering mode used to build this gallery figure.
+     - depth_dependence
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json``
+   * - ``parameter_ids``
+     - Hydraulic parameters illustrated by the case.
+     - K
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json``
+   * - ``parameterization_modes``
+     - Parameterization modes intentionally demonstrated by the case.
+     - exponential, tabulated, depth_profile
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json``
+   * - ``supports``
+     - Spatial supports used to render the field or compare variants.
+     - structured
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json``
+   * - ``depth_m``
+     - Depth at which the deep conductivity snapshot is sampled when the case is depth-dependent.
+     - 40
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json``
+   * - ``depth_profiles``
+     - Vertical attenuation profiles compared on the same field definition.
+     - exponential, tabulated
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json``
+
+Displayed Values
+^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``mesh_cell_count``
+     - Metric displayed on this page.
+     - 100
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json``
+   * - ``k_surface_m_per_day``
+     - Metric displayed on this page.
+     - 9.0 m/day
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json``
+   * - ``k_deep_m_per_day``
+     - Metric displayed on this page.
+     - 1.5 m/day
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json``
+   * - ``depth_m``
+     - Metric displayed on this page.
+     - 40 m
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json``
+
 Source Pointers
 ---------------
 

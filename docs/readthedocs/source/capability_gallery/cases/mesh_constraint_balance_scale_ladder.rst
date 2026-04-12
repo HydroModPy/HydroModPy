@@ -51,6 +51,57 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Bundle Inputs
+^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``bundle.10 km2 outlet 1``
+     - Committed bundle included in the cross-case mesh comparison.
+     - bundle
+     - ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle``
+   * - ``bundle.100 km2 outlet 1``
+     - Committed bundle included in the cross-case mesh comparison.
+     - bundle
+     - ``examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle``
+   * - ``bundle.1000 km2 outlet 2``
+     - Committed bundle included in the cross-case mesh comparison.
+     - bundle
+     - ``examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle``
+
+Compared Bundle Values
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``metrics.10 km2 outlet 1``
+     - Constraint and cell counts carried by one compared mesh bundle.
+     - river_edges=65, geology_interfaces=80, boundary_edges=17, cells=547
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder_summary.json``
+   * - ``metrics.100 km2 outlet 1``
+     - Constraint and cell counts carried by one compared mesh bundle.
+     - river_edges=697, geology_interfaces=207, boundary_edges=46, cells=4218
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder_summary.json``
+   * - ``metrics.1000 km2 outlet 2``
+     - Constraint and cell counts carried by one compared mesh bundle.
+     - river_edges=6739, geology_interfaces=1744, boundary_edges=124, cells=38030
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder_summary.json``
+
 Source Pointers
 ---------------
 

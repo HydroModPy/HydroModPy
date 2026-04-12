@@ -15,6 +15,7 @@ from validation_cases.calibration.twin.steady.boussinesq_fixed_head_piecewise_k_
 )
 from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment import (
     STEADY_DUPUIT_NOISY_TWIN_CASE,
+    STEADY_DUPUIT_POSTERIOR_TWIN_CASE,
     STEADY_DUPUIT_TWIN_CASE,
 )
 from validation_cases.calibration.twin.transient.linearized_unconfined_recharge_step_1d.experiment import (
@@ -25,6 +26,7 @@ from validation_cases.calibration.twin.transient.linearized_unconfined_recharge_
 
 _CASE_REGISTRY = {
     STEADY_DUPUIT_TWIN_CASE.case_id: STEADY_DUPUIT_TWIN_CASE,
+    STEADY_DUPUIT_POSTERIOR_TWIN_CASE.case_id: STEADY_DUPUIT_POSTERIOR_TWIN_CASE,
     STEADY_DUPUIT_NOISY_TWIN_CASE.case_id: STEADY_DUPUIT_NOISY_TWIN_CASE,
     TRANSIENT_RECHARGE_STEP_TWIN_CASE.case_id: TRANSIENT_RECHARGE_STEP_TWIN_CASE,
     TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE.case_id: TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE,
@@ -84,10 +86,26 @@ def _safe_median(values: list[float]) -> float | None:
     return float(median(values))
 
 
+def _normalize_json_float(value: float) -> float:
+    """Round one finite float for stable human-facing JSON/CSV output."""
+    if not math.isfinite(value):
+        return value
+    return float(f"{value:.15g}")
+
+
 def _json_value(value):
     """Normalize one value for CSV/JSON aggregate serialization."""
+    if isinstance(value, float):
+        return _normalize_json_float(value)
     if isinstance(value, dict):
-        return json.dumps(value, sort_keys=True, ensure_ascii=True, default=str)
+        return json.dumps(
+            {str(key): _json_value(item) for key, item in value.items()},
+            sort_keys=True,
+            ensure_ascii=True,
+            default=str,
+        )
+    if isinstance(value, (list, tuple)):
+        return [_json_value(item) for item in value]
     return value
 
 

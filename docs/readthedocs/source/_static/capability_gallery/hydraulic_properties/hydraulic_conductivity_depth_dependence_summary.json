@@ -97,5 +97,79 @@
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence.png"
     ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Selected Parameters",
+        "rows": [
+          {
+            "field": "property_case_kind",
+            "meaning": "Hydraulic-property rendering mode used to build this gallery figure.",
+            "value": "depth_dependence",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json"
+          },
+          {
+            "field": "parameter_ids",
+            "meaning": "Hydraulic parameters illustrated by the case.",
+            "value": "K",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json"
+          },
+          {
+            "field": "parameterization_modes",
+            "meaning": "Parameterization modes intentionally demonstrated by the case.",
+            "value": "exponential, tabulated, depth_profile",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json"
+          },
+          {
+            "field": "supports",
+            "meaning": "Spatial supports used to render the field or compare variants.",
+            "value": "structured",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json"
+          },
+          {
+            "field": "depth_m",
+            "meaning": "Depth at which the deep conductivity snapshot is sampled when the case is depth-dependent.",
+            "value": "40",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json"
+          },
+          {
+            "field": "depth_profiles",
+            "meaning": "Vertical attenuation profiles compared on the same field definition.",
+            "value": "exponential, tabulated",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json"
+          }
+        ]
+      },
+      {
+        "title": "Displayed Values",
+        "rows": [
+          {
+            "field": "mesh_cell_count",
+            "meaning": "Metric displayed on this page.",
+            "value": "100",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json"
+          },
+          {
+            "field": "k_surface_m_per_day",
+            "meaning": "Metric displayed on this page.",
+            "value": "9.0 m/day",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json"
+          },
+          {
+            "field": "k_deep_m_per_day",
+            "meaning": "Metric displayed on this page.",
+            "value": "1.5 m/day",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json"
+          },
+          {
+            "field": "depth_m",
+            "meaning": "Metric displayed on this page.",
+            "value": "40 m",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence_summary.json"
+          }
+        ]
+      }
+    ]
   }
 }

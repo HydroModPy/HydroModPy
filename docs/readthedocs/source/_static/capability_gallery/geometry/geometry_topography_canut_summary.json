@@ -34,7 +34,7 @@
     "examples/data/masks/canut.shp": "31931653587ad6b644b86e43138ce9a648ed98c4787cddf8262bf2cec42f2efd",
     "examples/data/hydrography/regional_stream_network.shp": "7ea4ba0714d8674a55070527ca9236052c1832036c8303b4afc40e5f7ce184e9",
     "examples/data/dem/regional_dem_naizin.tif": "826a5fcfeafced373c228cb26cd177f0b2879bfc4e773aa04da57aba01f081ae",
-    "tools/doc_gallery/update_gallery.py": "e2bcf2eb5537efdf93258bdee06d3d72a6405e9ad5cc8f4013523de559f9bd88"
+    "tools/doc_gallery/update_gallery.py": "9ef702be969f8111afce1b11ff3e1d744e5815bade329800c191208a35b8fe51"
   },
   "docname": "cases/geometry_topography_canut",
   "images": [
@@ -88,6 +88,74 @@
     "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_topography_canut_summary.json",
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_topography_canut.png"
+    ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Geometry Inputs",
+        "rows": [
+          {
+            "field": "geometry_case_kind",
+            "meaning": "Geometry-focused rendering mode used to build this gallery page.",
+            "value": "topography_context",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_topography_canut_summary.json"
+          },
+          {
+            "field": "boundary_path",
+            "meaning": "Boundary polygon used to clip and frame the catchment domain.",
+            "value": "canut.shp",
+            "source": "examples/data/masks/canut.shp"
+          },
+          {
+            "field": "rivers_path",
+            "meaning": "Hydrographic layer overlaid inside the catchment boundary.",
+            "value": "regional_stream_network.shp",
+            "source": "examples/data/hydrography/regional_stream_network.shp"
+          },
+          {
+            "field": "dem_path",
+            "meaning": "DEM raster used for regional relief and slope context.",
+            "value": "regional_dem_naizin.tif",
+            "source": "examples/data/dem/regional_dem_naizin.tif"
+          }
+        ]
+      },
+      {
+        "title": "Derived Geometry Values",
+        "rows": [
+          {
+            "field": "boundary_area_km2",
+            "meaning": "Catchment area represented on the geometry page.",
+            "value": "24.9187 km2",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_topography_canut_summary.json"
+          },
+          {
+            "field": "river_length_km",
+            "meaning": "Total clipped river length visible inside the boundary.",
+            "value": "0 km",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_topography_canut_summary.json"
+          },
+          {
+            "field": "geology_unit_count",
+            "meaning": "Number of distinct geology units intersecting the catchment.",
+            "value": "0",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_topography_canut_summary.json"
+          },
+          {
+            "field": "dem_min_m",
+            "meaning": "Minimum DEM elevation represented by the rendered extent.",
+            "value": "86.7 m",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_topography_canut_summary.json"
+          },
+          {
+            "field": "dem_max_m",
+            "meaning": "Maximum DEM elevation represented by the rendered extent.",
+            "value": "138.7 m",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_topography_canut_summary.json"
+          }
+        ]
+      }
     ]
   }
 }

@@ -88,6 +88,7 @@ class TestFlopyAdapter:
         assert result["ncpl"] == 1
         assert len(result["cell2d"]) == 1
         assert len(result["vertices"]) == 3
+        assert result["cell2d"][0][4:] == [0, 2, 1]
 
     def test_to_flopy_disv_rejects_3d(self) -> None:
         from hydromodpy.spatial.mesh.adapters.flopy_adapter import to_flopy_disv_args

@@ -32,6 +32,16 @@
   `modflow6` on the committed triangular mesh against `modflownwt` on the
   regular `60x60` structured grid, using map observables that still feed the
   side-by-side visual comparison even when scalar metrics stay domain-reduced.
+- `config_demonstrative_annual_common.toml` is a stronger one-year flow-only
+  example12 base with lower `K`, lower `Sy`, stronger recharge seasonality,
+  and more permissive drainage to produce clearer head and overflow contrasts.
+- `run_demonstrative_annual_mf6_precomputed_mesh_input.toml` and
+  `run_demonstrative_annual_nwt.toml` are the matching MF6 and NWT variants of
+  that demonstrative annual case.
+- `run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml`
+  compares that demonstrative annual case across the committed triangular MF6
+  mesh and the regular `60x60` NWT grid, with three head chronicle points,
+  outlet flux, drainage maps, and fine-raster outputs enabled.
 - `method_comparison_points.toml` stores reusable XY anchors for the real-case
   method-comparison configs.
 - `run_method_comparison_example12_fast_shared_mesh.toml` compares the real
@@ -65,6 +75,18 @@
   is the PETSc regularized-partition replay of that heterogeneous cycling case.
 - `run_headwater_100km2_outlet_2_boussinesq_petsc_transient_cycling_recharge_heterogeneous.toml`
   is the PETSc mixed-complementarity replay of that heterogeneous cycling case.
+- `run_headwater_100km2_outlet_2_boussinesq_transient_cycling_recharge_heterogeneous_10day.toml`
+  keeps the same heterogeneous cycling case but reduces the time step to
+  `10 day` for easier temporal-dynamics reading.
+- `run_headwater_100km2_outlet_2_boussinesq_petsc_partition_transient_cycling_recharge_heterogeneous_10day.toml`
+  and `run_headwater_100km2_outlet_2_boussinesq_petsc_transient_cycling_recharge_heterogeneous_10day.toml`
+  are the PETSc regularized-partition and mixed-complementarity counterparts.
+- `run_headwater_100km2_outlet_2_mf6_transient_cycling_recharge_heterogeneous_10day.toml`
+  is the MODFLOW 6 counterpart of that same 10-day heterogeneous cycling case.
+- The committed-mesh MF6 headwater family samples DEM surfaces from the
+  versioned polygon
+  `examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/domain_bbox.geojson`
+  so the geographic support stays aligned with the reused triangular mesh.
 - `run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml`
   compares the SciPy sparse and both PETSc Boussinesq backends on that
   transient real-case forcing.

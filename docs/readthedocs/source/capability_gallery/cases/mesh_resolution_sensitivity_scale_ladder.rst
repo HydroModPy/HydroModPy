@@ -51,6 +51,61 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Bundle Inputs
+^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``bundle.10 km2 outlet 1``
+     - Committed bundle included in the cross-case mesh comparison.
+     - bundle
+     - ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle``
+   * - ``bundle.100 km2 outlet 1``
+     - Committed bundle included in the cross-case mesh comparison.
+     - bundle
+     - ``examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle``
+   * - ``bundle.1000 km2 outlet 2``
+     - Committed bundle included in the cross-case mesh comparison.
+     - bundle
+     - ``examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle``
+
+Mesh Summary
+^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``cell_count``
+     - Metric displayed on this page.
+     - 547
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_resolution_sensitivity_scale_ladder_summary.json``
+   * - ``area_p10_m2``
+     - Metric displayed on this page.
+     - 4.47e+03 m2
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_resolution_sensitivity_scale_ladder_summary.json``
+   * - ``area_median_m2``
+     - Metric displayed on this page.
+     - 3.26e+04 m2
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_resolution_sensitivity_scale_ladder_summary.json``
+   * - ``area_p90_m2``
+     - Metric displayed on this page.
+     - 2.04e+05 m2
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_resolution_sensitivity_scale_ladder_summary.json``
+
 Source Pointers
 ---------------
 

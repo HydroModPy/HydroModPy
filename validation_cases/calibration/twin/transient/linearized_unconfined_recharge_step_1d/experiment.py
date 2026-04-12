@@ -126,6 +126,28 @@ def build_calibration_payload(
     }
 
 
+def _gp_mapping_profile(*, seed: int = 13) -> CalibrationMethodProfile:
+    """Return one compact GP-mapping profile suited to transient K+Sy recovery."""
+    return CalibrationMethodProfile(
+        name="gp_mapping",
+        method_kwargs={
+            "seed": int(seed),
+            "n_init": 8,
+            "n_refine": 2,
+            "batch_size": 2,
+            "n_candidates": 120,
+            "kappa": 2.0,
+            "alpha": 1.0e-6,
+            "jitter": 1.0e-8,
+            "n_posterior_pool": 240,
+            "n_posterior_samples": 48,
+            "log_transform": False,
+        },
+        persist_model_distribution=True,
+        success_metric="distribution",
+    )
+
+
 TRANSIENT_RECHARGE_STEP_TWIN_CASE = TwinCalibrationCaseDefinition(
     case_id="calibration_twin_linearized_recharge_step_modflow6",
     solver_name="modflow6",
@@ -155,6 +177,7 @@ TRANSIENT_RECHARGE_STEP_TWIN_CASE = TwinCalibrationCaseDefinition(
             method_kwargs={"max_iter": 10, "xtol": 1.0e-6, "ftol": 1.0e-6},
             persist_model_distribution=False,
         ),
+        _gp_mapping_profile(seed=13),
     ),
     fast=False,
     build_simulation_config=build_simulation_config,

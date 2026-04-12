@@ -51,6 +51,53 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Bundle Inputs
+^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``bundle_path``
+     - Versioned bundle used to compute or display the mesh-focused figure.
+     - bundle
+     - ``examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle``
+
+Mesh Summary
+^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``triangle_cell_count``
+     - Metric displayed on this page.
+     - 547
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2_summary.json``
+   * - ``min_angle_p05_deg``
+     - Metric displayed on this page.
+     - 23.8 deg
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2_summary.json``
+   * - ``aspect_ratio_p95``
+     - Metric displayed on this page.
+     - 2.37
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2_summary.json``
+   * - ``area_p05_m2``
+     - Metric displayed on this page.
+     - 3.63e+03 m2
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2_summary.json``
+
 Source Pointers
 ---------------
 

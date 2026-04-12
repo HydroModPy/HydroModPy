@@ -51,6 +51,101 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Selected Parameters
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``property_case_kind``
+     - Hydraulic-property rendering mode used to build this gallery figure.
+     - square_parameterizations
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json``
+   * - ``parameter_ids``
+     - Hydraulic parameters illustrated by the case.
+     - K, Sy, Ss
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json``
+   * - ``parameterization_modes``
+     - Parameterization modes intentionally demonstrated by the case.
+     - inline, heterogeneous, exponential, tabulated
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json``
+   * - ``supports``
+     - Spatial supports used to render the field or compare variants.
+     - structured, triangular_structured
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json``
+
+Configuration Values
+^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``[field] id``
+     - Identifier used by FieldParam for the illustrated hydraulic property.
+     - K
+     - ``hydromodpy/spatial/field/cases/square/field_param_config.toml``
+   * - ``[field] kind``
+     - Homogeneous or heterogeneous assignment mode used by the field parameter.
+     - heterogeneous
+     - ``hydromodpy/spatial/field/cases/square/field_param_config.toml``
+   * - ``[field] unit``
+     - Unit declared for the property values before internal normalization.
+     - m/s
+     - ``hydromodpy/spatial/field/cases/square/field_param_config.toml``
+   * - ``[field_heterogeneous] values_source``
+     - How heterogeneous values are supplied to the field parameter.
+     - inline
+     - ``hydromodpy/spatial/field/cases/square/field_param_config.toml``
+   * - ``[field_heterogeneous] values``
+     - Inline heterogeneous values used to map zones or materials to property values.
+     - granite=10, micaschists=2
+     - ``hydromodpy/spatial/field/cases/square/field_param_config.toml``
+   * - ``[field_vertical_profile] mode``
+     - Vertical-profile mode applied to the field when depth dependence is active.
+     - none
+     - ``hydromodpy/spatial/field/cases/square/field_param_config.toml``
+
+Displayed Values
+^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``structured_cell_count``
+     - Metric displayed on this page.
+     - 64
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json``
+   * - ``triangular_cell_count``
+     - Metric displayed on this page.
+     - 128
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json``
+   * - ``k_min_m_per_day``
+     - Metric displayed on this page.
+     - 2.0 m/day
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json``
+   * - ``k_max_m_per_day``
+     - Metric displayed on this page.
+     - 10.0 m/day
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json``
+
 Source Pointers
 ---------------
 

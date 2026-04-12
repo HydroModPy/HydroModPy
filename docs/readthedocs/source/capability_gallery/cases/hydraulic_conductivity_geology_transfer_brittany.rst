@@ -51,6 +51,113 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Selected Parameters
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``property_case_kind``
+     - Hydraulic-property rendering mode used to build this gallery figure.
+     - geology_transfer_demo
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json``
+   * - ``parameter_ids``
+     - Hydraulic parameters illustrated by the case.
+     - K
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json``
+   * - ``parameterization_modes``
+     - Parameterization modes intentionally demonstrated by the case.
+     - csv, heterogeneous
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json``
+   * - ``supports``
+     - Spatial supports used to render the field or compare variants.
+     - vector_local, structured
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json``
+
+Configuration Values
+^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``[field] id``
+     - Identifier used by FieldParam for the illustrated hydraulic property.
+     - K
+     - ``hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml``
+   * - ``[field] kind``
+     - Homogeneous or heterogeneous assignment mode used by the field parameter.
+     - heterogeneous
+     - ``hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml``
+   * - ``[field_heterogeneous] values_source``
+     - How heterogeneous values are supplied to the field parameter.
+     - csv
+     - ``hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml``
+   * - ``[field_heterogeneous] values_csv_file``
+     - CSV file used to map zone keys to property values when the case is CSV-driven.
+     - geology_K_dummy_demo.csv
+     - ``../../../../../examples/data/geology/geology_K_dummy_demo.csv``
+   * - ``[field_vertical_profile] mode``
+     - Vertical-profile mode applied to the field when depth dependence is active.
+     - none
+     - ``hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml``
+   * - ``[geology] id``
+     - Identifier of the geology field used to spatialize the property mapping.
+     - field_geology
+     - ``hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml``
+   * - ``[geology] cell_samples_per_axis``
+     - Sampling density used when rasterizing geology polygons onto the support.
+     - 6
+     - ``hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml``
+   * - ``[geology.source] kind``
+     - Source type used to load the geology layer shown by the property demo.
+     - vector
+     - ``hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml``
+   * - ``[geology.source] code_field``
+     - Attribute used as the geology code when transferring values onto the support.
+     - CODE_LEG
+     - ``hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml``
+
+Displayed Values
+^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``n_polygons``
+     - Metric displayed on this page.
+     - 23
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json``
+   * - ``n_unique_zones``
+     - Metric displayed on this page.
+     - 13
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json``
+   * - ``n_mesh_cells``
+     - Metric displayed on this page.
+     - 400
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json``
+   * - ``property_max``
+     - Metric displayed on this page.
+     - 7.21e-05 m/s
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json``
+
 Source Pointers
 ---------------
 

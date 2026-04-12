@@ -414,5 +414,468 @@
         "final_elapsed_days": 16.0
       }
     }
-  ]
+  ],
+  "parameter_docs": {
+    "reference_parameters": [
+      {
+        "field": "solution",
+        "meaning": "Named analytical solution variant used by the comparison helper.",
+        "value": "boussinesq",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+      },
+      {
+        "field": "hydraulic_conductivity_m_per_s",
+        "meaning": "Hydraulic conductivity used by the analytical or benchmark reference.",
+        "value": "0.0001 m/s",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+      },
+      {
+        "field": "specific_yield",
+        "meaning": "Specific yield used by the transient reference formulation.",
+        "value": "0.1 -",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+      },
+      {
+        "field": "watershed_area_m2",
+        "meaning": "Watershed area used by the recession reference.",
+        "value": "5000 m2",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+      },
+      {
+        "field": "channel_length_m",
+        "meaning": "Characteristic channel length used by the recession reference.",
+        "value": "100 m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+      },
+      {
+        "field": "active_drainage_fraction",
+        "meaning": "Fraction of the domain where the analytical drainage condition is active.",
+        "value": "1",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+      },
+      {
+        "field": "linearization_constant",
+        "meaning": "Constant used by the linearized analytical formulation.",
+        "value": "0.25",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+      },
+      {
+        "field": "compare_start_day",
+        "meaning": "Start day retained when comparing the numerical and reference time series.",
+        "value": "0",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+      },
+      {
+        "field": "nper",
+        "meaning": "Number of time periods used by the analytical or benchmark helper.",
+        "value": "16",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+      },
+      {
+        "field": "dt_seconds",
+        "meaning": "Reference time step used by the analytical evaluator.",
+        "value": "86400 s",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+      }
+    ],
+    "common_setup": [
+      {
+        "field": "simulation.time.start_datetime",
+        "meaning": "Simulation start time used by the benchmark.",
+        "value": "2003-01-01 00:00:00",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "simulation.time.end_datetime",
+        "meaning": "Simulation end time used by the benchmark.",
+        "value": "2003-01-17 00:00:00",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "simulation.time.step_value",
+        "meaning": "Nominal time step used by the benchmark.",
+        "value": "1 day",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_x",
+        "meaning": "Synthetic-domain length along the x axis.",
+        "value": "50.0 m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_y",
+        "meaning": "Synthetic-domain length along the y axis.",
+        "value": "30.0 m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.nx",
+        "meaning": "Grid cell count along the x axis.",
+        "value": "40",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.ny",
+        "meaning": "Grid cell count along the y axis.",
+        "value": "24",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.kind",
+        "meaning": "Synthetic topography shape used by the benchmark.",
+        "value": "flat",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.base_elevation",
+        "meaning": "Base land-surface elevation of the synthetic topography.",
+        "value": "5 m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "domain.depth_model.type",
+        "meaning": "Depth model used to build the aquifer support.",
+        "value": "constant_thickness",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "domain.depth_model.thickness",
+        "meaning": "Aquifer or support thickness used by the benchmark.",
+        "value": "5.0 m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "flow.flow_regime",
+        "meaning": "Steady or transient flow regime used by the benchmark.",
+        "value": "transient",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "flow.active_sinks_sources",
+        "meaning": "Sink and source families activated in the benchmark.",
+        "value": "[recharge]",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "flow.active_bc",
+        "meaning": "Boundary-condition families activated in the benchmark.",
+        "value": "[east_side]",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param_list",
+        "meaning": "Hydraulic parameter families explicitly configured by the benchmark.",
+        "value": "[K, Ss, Sy]",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.K.field.kind",
+        "meaning": "Parameterization mode used for `K`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.K.field_homogeneous.value",
+        "meaning": "Homogeneous `K` value used by the benchmark.",
+        "value": "1e-4 m/s",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.Ss.field.kind",
+        "meaning": "Parameterization mode used for `Ss`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.Ss.field_homogeneous.value",
+        "meaning": "Homogeneous `Ss` value used by the benchmark.",
+        "value": "1e-10 m-1",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.Sy.field.kind",
+        "meaning": "Parameterization mode used for `Sy`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.Sy.field_homogeneous.value",
+        "meaning": "Homogeneous `Sy` value used by the benchmark.",
+        "value": "0.10 -",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "flow.ic.value",
+        "meaning": "Initial hydraulic head used to start the benchmark.",
+        "value": "1.0 m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.east_side.forcing.mode",
+        "meaning": "Case-specific configuration field `flow.bc.dirichlet.east_side.forcing.mode` used by the validation benchmark.",
+        "value": "constant",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.east_side.forcing.value",
+        "meaning": "Fixed head applied on the east side boundary.",
+        "value": "1 m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.east_side.forcing.units",
+        "meaning": "Case-specific configuration field `flow.bc.dirichlet.east_side.forcing.units` used by the validation benchmark.",
+        "value": "m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "data.types",
+        "meaning": "External data families loaded by the benchmark.",
+        "value": "[recharge]",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].source",
+        "meaning": "Recharge data source mode used by the benchmark.",
+        "value": "synthetic",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].values",
+        "meaning": "Recharge values used by the benchmark forcing.",
+        "value": "[2 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day]",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].freq",
+        "meaning": "Sampling frequency used for the recharge forcing.",
+        "value": "D",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].runoff_ratio",
+        "meaning": "Runoff ratio applied when converting recharge forcing to effective infiltration.",
+        "value": "0",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      }
+    ],
+    "solver_overrides": {
+      "modflownwt": [
+        {
+          "field": "modflownwt.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW-NWT.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW-NWT.",
+          "value": "40",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW-NWT.",
+          "value": "24",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW-NWT.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW-NWT.",
+          "value": "1",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.tgrid.firstpersteady",
+          "meaning": "Whether the first time period is treated as steady by MODFLOW-NWT.",
+          "value": "true",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflownwt.toml"
+        }
+      ],
+      "modflow6": [
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.process_specific.vka",
+          "meaning": "Vertical anisotropy ratio passed to MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW 6.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW 6.",
+          "value": "40",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW 6.",
+          "value": "24",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW 6.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.tgrid.firstpersteady",
+          "meaning": "Whether the first time period is treated as steady by MODFLOW 6.",
+          "value": "true",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6.toml"
+        }
+      ],
+      "boussinesq": []
+    },
+    "acceptance_criteria": {
+      "common": [
+        {
+          "field": "output.observable_name",
+          "meaning": "Simulated observable compared against the reference solution.",
+          "value": "outlet_discharge_east_side_m3_s",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+        },
+        {
+          "field": "output.expected_periods",
+          "meaning": "Expected number of stored time periods checked by the validation helper.",
+          "value": "16",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+        },
+        {
+          "field": "output.head_observable_name",
+          "meaning": "Head-like observable used when the case exposes more than one comparison target.",
+          "value": "watertable_elevation",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+        }
+      ],
+      "solver_specific": {
+        "modflownwt": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "None",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+          },
+          {
+            "field": "discharge.relative_rmse",
+            "meaning": "Acceptance threshold for `discharge.relative_rmse`.",
+            "value": "0.23",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflownwt.toml"
+          },
+          {
+            "field": "discharge.relative_max_error",
+            "meaning": "Acceptance threshold for `discharge.relative_max_error`.",
+            "value": "0.25",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflownwt.toml"
+          },
+          {
+            "field": "uniformity.row_spread",
+            "meaning": "Maximum accepted cross-row spread for uniformity.",
+            "value": "0.0002",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflownwt.toml"
+          },
+          {
+            "field": "monotonicity.max_positive_increment_m3_s",
+            "meaning": "Acceptance threshold for `monotonicity.max_positive_increment_m3_s`.",
+            "value": "1e-12",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflownwt.toml"
+          }
+        ],
+        "modflow6": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "None",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+          },
+          {
+            "field": "discharge.relative_rmse",
+            "meaning": "Acceptance threshold for `discharge.relative_rmse`.",
+            "value": "0.23",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "discharge.relative_max_error",
+            "meaning": "Acceptance threshold for `discharge.relative_max_error`.",
+            "value": "0.25",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "uniformity.row_spread",
+            "meaning": "Maximum accepted cross-row spread for uniformity.",
+            "value": "0.0002",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "monotonicity.max_positive_increment_m3_s",
+            "meaning": "Acceptance threshold for `monotonicity.max_positive_increment_m3_s`.",
+            "value": "1e-12",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflow6.toml"
+          }
+        ],
+        "boussinesq": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "None",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml"
+          },
+          {
+            "field": "discharge.relative_rmse",
+            "meaning": "Acceptance threshold for `discharge.relative_rmse`.",
+            "value": "0.22",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "discharge.relative_max_error",
+            "meaning": "Acceptance threshold for `discharge.relative_max_error`.",
+            "value": "0.24",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "uniformity.row_spread",
+            "meaning": "Maximum accepted cross-row spread for uniformity.",
+            "value": "1e-06",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "monotonicity.max_positive_increment_m3_s",
+            "meaning": "Acceptance threshold for `monotonicity.max_positive_increment_m3_s`.",
+            "value": "1e-12",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_boussinesq.toml"
+          }
+        ]
+      }
+    }
+  }
 }

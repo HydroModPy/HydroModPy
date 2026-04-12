@@ -118,5 +118,126 @@
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany.png"
     ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Selected Parameters",
+        "rows": [
+          {
+            "field": "property_case_kind",
+            "meaning": "Hydraulic-property rendering mode used to build this gallery figure.",
+            "value": "geology_transfer_demo",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+          },
+          {
+            "field": "parameter_ids",
+            "meaning": "Hydraulic parameters illustrated by the case.",
+            "value": "K",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+          },
+          {
+            "field": "parameterization_modes",
+            "meaning": "Parameterization modes intentionally demonstrated by the case.",
+            "value": "csv, heterogeneous",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+          },
+          {
+            "field": "supports",
+            "meaning": "Spatial supports used to render the field or compare variants.",
+            "value": "vector_local, structured",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+          }
+        ]
+      },
+      {
+        "title": "Configuration Values",
+        "rows": [
+          {
+            "field": "[field] id",
+            "meaning": "Identifier used by FieldParam for the illustrated hydraulic property.",
+            "value": "K",
+            "source": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml"
+          },
+          {
+            "field": "[field] kind",
+            "meaning": "Homogeneous or heterogeneous assignment mode used by the field parameter.",
+            "value": "heterogeneous",
+            "source": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml"
+          },
+          {
+            "field": "[field_heterogeneous] values_source",
+            "meaning": "How heterogeneous values are supplied to the field parameter.",
+            "value": "csv",
+            "source": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml"
+          },
+          {
+            "field": "[field_heterogeneous] values_csv_file",
+            "meaning": "CSV file used to map zone keys to property values when the case is CSV-driven.",
+            "value": "geology_K_dummy_demo.csv",
+            "source": "../../../../../examples/data/geology/geology_K_dummy_demo.csv"
+          },
+          {
+            "field": "[field_vertical_profile] mode",
+            "meaning": "Vertical-profile mode applied to the field when depth dependence is active.",
+            "value": "none",
+            "source": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml"
+          },
+          {
+            "field": "[geology] id",
+            "meaning": "Identifier of the geology field used to spatialize the property mapping.",
+            "value": "field_geology",
+            "source": "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml"
+          },
+          {
+            "field": "[geology] cell_samples_per_axis",
+            "meaning": "Sampling density used when rasterizing geology polygons onto the support.",
+            "value": "6",
+            "source": "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml"
+          },
+          {
+            "field": "[geology.source] kind",
+            "meaning": "Source type used to load the geology layer shown by the property demo.",
+            "value": "vector",
+            "source": "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml"
+          },
+          {
+            "field": "[geology.source] code_field",
+            "meaning": "Attribute used as the geology code when transferring values onto the support.",
+            "value": "CODE_LEG",
+            "source": "hydromodpy/data/variables/geology/cases/gallery_geology_config_brittany.toml"
+          }
+        ]
+      },
+      {
+        "title": "Displayed Values",
+        "rows": [
+          {
+            "field": "n_polygons",
+            "meaning": "Metric displayed on this page.",
+            "value": "23",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+          },
+          {
+            "field": "n_unique_zones",
+            "meaning": "Metric displayed on this page.",
+            "value": "13",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+          },
+          {
+            "field": "n_mesh_cells",
+            "meaning": "Metric displayed on this page.",
+            "value": "400",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+          },
+          {
+            "field": "property_max",
+            "meaning": "Metric displayed on this page.",
+            "value": "7.21e-05 m/s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany_summary.json"
+          }
+        ]
+      }
+    ]
   }
 }

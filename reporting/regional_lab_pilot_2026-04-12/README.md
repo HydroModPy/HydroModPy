@@ -15,15 +15,26 @@ current machine.
 - `headwater_100km2_catalog_full.csv`
 - `s3_10km2_catalog_full.csv`
 - `site_catalog_pilot_20.csv`
+- `child_configs/`
 
 The combined pilot catalog keeps:
 
 - 10 `headwater_100km2` sites
 - 10 `s3_10km2` sites
 
-Only `headwater_100km2_outlet_2` is currently wired to existing child configs
-stored in the repository. The other sites are intentionally kept as inventory
-or mesh-ready candidates so the regional-lab report can expose coverage gaps.
+The full catalogs are now bootstrap-enriched with bundle validation fields such
+as `bundle_missing_top_centroid_count`,
+`bundle_boussinesq_steady_ready`, and
+`bundle_boussinesq_transient_ready`.
+
+The current pilot is intentionally curated:
+
+- `headwater_100km2_outlet_2` stays wired to repository child configs;
+- `headwater_100km2_outlet_27` keeps local mesh assets but is withheld from
+  replay generation because its bundle misses 6 topography centroids;
+- the 10 retained `s3_10km2` sites are all `boussinesq_steady_ready`;
+- `s3_10km2_outlet_5` was removed from the curated pilot after one runtime
+  smoke failure, and replaced by `s3_10km2_outlet_14`.
 
 ## Pilot run
 
@@ -49,18 +60,32 @@ The dry regional-lab expansion has been run once on `2026-04-12` and currently
 produces:
 
 - 20 selected sites
-- 3 planned child runs
-- 37 skipped site x recipe pairs reported as coverage gaps
+- 13 planned child runs
+- 27 skipped site x recipe pairs reported as coverage gaps
 - 0 executed child runs because the config stays in `execute = false`
 
 Current coverage snapshot:
 
 - `headwater_100km2`: 10 sites, 3 planned runs, 27 gaps
-- `s3_10km2`: 10 sites, 0 planned runs, 10 gaps
+- `s3_10km2`: 10 sites, 10 planned runs, 0 gaps
 
 Recipe snapshot:
 
 - `headwater_mf6_reference`: 1/10 sites wired
 - `headwater_backend_compare`: 1/10 sites wired
 - `headwater_transient_backend_compare`: 1/10 sites wired
-- `s3_future_reference`: 0/10 sites wired
+- `s3_future_reference`: 10/10 sites wired
+
+## Runtime qualification
+
+The local `s3_10km2` replays have also been smoke-tested outside the
+`regional_lab` dry plan:
+
+- passed: outlets `2, 6, 7, 8, 9, 10, 11, 12, 13, 14`
+- excluded from the curated pilot after failure: outlet `5`
+- excluded before generation because the bundle is not steady-ready:
+  `headwater_100km2_outlet_27`
+
+The local replay base in `child_configs/base_local_boussinesq_mesh_replay.toml`
+uses `runtime_max_iterations = 200` to make the regional smoke runs less
+fragile than the historical headwater example.

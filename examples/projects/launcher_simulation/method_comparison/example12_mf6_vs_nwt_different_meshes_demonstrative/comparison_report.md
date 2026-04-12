@@ -7,8 +7,8 @@
 - Unmatched row groups: 3
 
 ## Variants
-- `mf6_demo_triangular`: completed, solver=`modflow6`, mesh=`mesh_input`, rows=2055, wall_time=44.77, run_folder=`C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\results_reused_real_meshes\example12_demonstrative_mf6\results_simulations\example12_demonstrative_annual_mf6_precomputed_mesh`
-- `nwt_demo_structured`: completed, solver=`modflownwt`, mesh=`structured`, rows=10848, wall_time=30.09, run_folder=`C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\results_reused_real_meshes\example12_demonstrative_nwt\results_simulations\example12_demonstrative_annual_nwt`
+- `mf6_demo_triangular`: completed, solver=`modflow6`, mesh=`mesh_input`, rows=2055, wall_time=40.12, run_folder=`C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\results_reused_real_meshes\example12_demonstrative_mf6\results_simulations\example12_demonstrative_annual_mf6_precomputed_mesh`
+- `nwt_demo_structured`: completed, solver=`modflownwt`, mesh=`structured`, rows=10848, wall_time=29.19, run_folder=`C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\results_reused_real_meshes\example12_demonstrative_nwt\results_simulations\example12_demonstrative_annual_nwt`
 
 ## Observables
 - `head_outlet_lowland`: variable=`watertable_elevation`, support=`point`, unit=`m`
@@ -42,8 +42,10 @@
 - `timeseries` / `head_outlet_lowland`: `C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\method_comparison\example12_mf6_vs_nwt_different_meshes_demonstrative\comparison_figures\head_outlet_lowland__timeseries.png`
 - `timeseries` / `head_upstream_ridge`: `C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\method_comparison\example12_mf6_vs_nwt_different_meshes_demonstrative\comparison_figures\head_upstream_ridge__timeseries.png`
 - `timeseries` / `outlet_flux_series`: `C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\method_comparison\example12_mf6_vs_nwt_different_meshes_demonstrative\comparison_figures\outlet_flux_series__timeseries.png`
+- `point_dashboard` / `head_points`: `C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\method_comparison\example12_mf6_vs_nwt_different_meshes_demonstrative\comparison_figures\head_points_dashboard.png`
 - `native_flux_panel` / `accumulation_flux`: `C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\method_comparison\example12_mf6_vs_nwt_different_meshes_demonstrative\comparison_figures\native_accumulation_flux__hydrograph.png`
 - `native_flux_panel` / `outflow_drain`: `C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\method_comparison\example12_mf6_vs_nwt_different_meshes_demonstrative\comparison_figures\native_outflow_drain__hydrograph.png`
+- `flux_dashboard` / `flux_overview`: `C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\method_comparison\example12_mf6_vs_nwt_different_meshes_demonstrative\comparison_figures\flux_overview.png`
 - `execution_time_bars` / `execution_time`: `C:\codes\HydroModPy-GH\examples\projects\launcher_simulation\method_comparison\example12_mf6_vs_nwt_different_meshes_demonstrative\comparison_figures\execution_time_comparison.png`
 
 ## Data Exports

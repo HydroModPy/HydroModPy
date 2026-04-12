@@ -31,14 +31,6 @@ What It Shows
 - How map-wide parity plots complement scalar metrics such as MAE and RMSE.
 - How comparison figures can be regenerated from committed run folders without rerunning the solvers.
 
-Key Parameters
---------------
-
-- The most important modelling choice is not a scalar parameter but support equality: both runs must use the same saved mesh if you want a fair map-wide comparison.
-- `run_method_comparison_example12_map_existing.toml` defines which run folders are compared and which observables are sampled from them.
-- The compared observables (`watertable_elevation`, `watertable_depth`) determine whether the figure emphasizes absolute state mismatch or near-surface response mismatch.
-- Interpret RMSE and MAE together: RMSE highlights stronger local mismatches while MAE gives the typical cell-wise discrepancy.
-
 How To Read It
 --------------
 
@@ -75,6 +67,77 @@ Refresh the committed gallery artifacts with:
 .. code-block:: bash
 
    python -m tools.doc_gallery
+
+Case Parameters
+---------------
+
+Comparison Setup
+^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``[method_comparison] comparison_id``
+     - Stable identifier used to collect outputs and summary artifacts for the comparison.
+     - example12_map_method_comparison
+     - ``examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+   * - ``[method_comparison] reference_variant``
+     - Variant used as the baseline when computing map-wise differences and error metrics.
+     - mf6_gmsh_existing
+     - ``examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+   * - ``[method_comparison] run_variants``
+     - Whether the launcher reruns the variants or only reuses committed run folders.
+     - false
+     - ``examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+   * - ``study_area``
+     - Study area summarized by the gallery page for this comparison case.
+     - Naizin catchment
+     - ``docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json``
+
+Compared Variants
+^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``variant.mf6_gmsh_existing``
+     - Compared run folder and solver definition used by the method-comparison launcher.
+     - MODFLOW 6 on generated Gmsh mesh; solver=modflow6; mesh_mode=mesh_catchment; run_folder=results_simulations/example12_fast_mf6_mesh_catchment
+     - ``examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+   * - ``variant.boussinesq_reused_gmsh``
+     - Compared run folder and solver definition used by the method-comparison launcher.
+     - Boussinesq on reused Gmsh mesh; solver=boussinesq; mesh_mode=mesh_input; run_folder=results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq
+     - ``examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+
+Compared Observables
+^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``observable.watertable_elevation_map``
+     - Observable extracted from each run before parity plots and difference metrics are computed.
+     - variable=watertable_elevation; support=map; time=last; unit=m
+     - ``examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
+   * - ``observable.watertable_depth_map``
+     - Observable extracted from each run before parity plots and difference metrics are computed.
+     - variable=watertable_depth; support=map; time=last; unit=m
+     - ``examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
 
 Source Pointers
 ---------------

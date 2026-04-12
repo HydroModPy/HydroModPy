@@ -89,6 +89,10 @@ committed PNG and JSON artifacts produced by ``python -m tools.doc_gallery``.
 Notebook gallery
 ----------------
 
+Each notebook now opens with an ``Example Parameters`` block that summarizes the
+main case-specific choices before the code cells: extraction mode, main flow
+settings, and any parameter sweeps explored later in the notebook.
+
 .. nbgallery::
     notebooks/example_00
     notebooks/example_01

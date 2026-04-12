@@ -80,6 +80,7 @@ Exemples MF6 vs NWT :
 ```powershell
 python -m launchers method-comparison run examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh.toml
 python -m launchers method-comparison run examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes.toml
+python -m launchers method-comparison run examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml
 python -m launchers method-comparison run examples/projects/launcher_simulation/run_method_comparison_example12_extensive_mf6_vs_nwt.toml
 ```
 

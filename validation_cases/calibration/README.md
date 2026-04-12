@@ -31,9 +31,10 @@ harder perturbed or field-like workflows.
 The first V1 inventory focuses on `modflow6` inverse benchmarks:
 
 - one steady scalar `K` case on `dupuit_fixed_head_1d`,
+- one steady posterior-oriented scalar `K` case on `dupuit_fixed_head_1d`,
 - one noisy steady scalar `K` variant on `dupuit_fixed_head_1d`,
 - one transient multiobservable `K + Sy` case on
-  `linearized_unconfined_recharge_step_1d`,
+  `linearized_unconfined_recharge_step_1d`, including one GP-mapping profile,
 - one noisy transient `K + Sy` variant with repeated stochastic seeds,
 - one steady zoned `piecewise K` case on
   `boussinesq_fixed_head_piecewise_k_1d`.

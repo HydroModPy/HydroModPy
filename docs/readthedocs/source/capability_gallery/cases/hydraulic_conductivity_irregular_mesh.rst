@@ -51,6 +51,65 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Selected Parameters
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``property_case_kind``
+     - Hydraulic-property rendering mode used to build this gallery figure.
+     - irregular_mesh
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json``
+   * - ``parameter_ids``
+     - Hydraulic parameters illustrated by the case.
+     - K
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json``
+   * - ``parameterization_modes``
+     - Parameterization modes intentionally demonstrated by the case.
+     - heterogeneous
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json``
+   * - ``supports``
+     - Spatial supports used to render the field or compare variants.
+     - structured, triangular_unstructured
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json``
+
+Displayed Values
+^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``structured_cell_count``
+     - Metric displayed on this page.
+     - 64
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json``
+   * - ``irregular_cell_count``
+     - Metric displayed on this page.
+     - 160
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json``
+   * - ``k_min_m_per_day``
+     - Metric displayed on this page.
+     - 2.5 m/day
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json``
+   * - ``k_max_m_per_day``
+     - Metric displayed on this page.
+     - 12.0 m/day
+     - ``docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh_summary.json``
+
 Source Pointers
 ---------------
 
