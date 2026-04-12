@@ -136,6 +136,11 @@ class Modflow6(Solver):
 
 		self.preprocess_options = preprocess_options or ModflowPreprocessOptions()
 		self._apply_preprocess_options(self.preprocess_options)
+		self._evt_rate_payload: dict[int, object] | None = None
+		self._pending_negative_to_evt = False
+		self._heterogeneous_recharge_source = None
+		self._heterogeneous_negative_to_evt = False
+		self._heterogeneous_interpolation_method = "nearest"
 
 	def _select_active_dem(self, box: bool) -> None:
 		if box:
@@ -562,6 +567,12 @@ class Modflow6(Solver):
 			return initial_condition.get(field_name, default)
 		return getattr(initial_condition, field_name, default)
 
+	def _rewet_is_enabled(self) -> bool:
+		"""Return whether MF6 rewetting is enabled for the current run."""
+		runtime = getattr(self.modflow_config, "runtime", None)
+		enable_rewet = getattr(runtime, "mf6_enable_rewet", None)
+		return bool(enable_rewet) if enable_rewet is not None else False
+
 	def _build_start_heads(self, solver_mesh) -> np.ndarray:
 		"""Build MF6 starting heads as flat (nlay, ncpl) for DISV."""
 		h_ic = self._resolve_head_initial_condition()
@@ -838,8 +849,118 @@ class Modflow6(Solver):
 			return max(float(arr), 0.0)
 		return np.maximum(arr, 0.0)
 
+	def _extract_evt_payload_2d(
+		self,
+		rch_data: Mapping[int, object],
+		negative_to_evt: bool,
+	) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray] | None]:
+		"""Route negative recharge arrays to EVT and clip RCH to non-negative values."""
+		normalized_rch = {
+			int(kper): np.asarray(value, dtype=float)
+			for kper, value in rch_data.items()
+		}
+		if not negative_to_evt:
+			return normalized_rch, None
+
+		has_negative = any(np.any(arr < 0.0) for arr in normalized_rch.values())
+		if not has_negative:
+			return normalized_rch, None
+
+		evt_data: dict[int, np.ndarray] = {}
+		clipped_rch: dict[int, np.ndarray] = {}
+		for kper, arr in normalized_rch.items():
+			if int(kper) == 0:
+				evt_data[int(kper)] = np.zeros_like(arr, dtype=float)
+			else:
+				evt_data[int(kper)] = np.abs(np.minimum(arr, 0.0)).astype(float, copy=False)
+			clipped_rch[int(kper)] = np.maximum(arr, 0.0).astype(float, copy=False)
+		return clipped_rch, evt_data
+
+	def _series_payload_value(self, payload: object, kper: int, *, first_clim: object) -> float:
+		"""Resolve one scalar climate value from a scalar/sequence payload."""
+		if kper == 0:
+			if first_clim == "mean":
+				arr = np.asarray(payload, dtype=float)
+				return float(np.nanmean(arr))
+			if first_clim == "first":
+				if hasattr(payload, "iloc"):
+					first = payload.iloc[0]
+					if isinstance(first, Real) and not isinstance(first, bool):
+						return float(first)
+					first_arr = np.asarray(first, dtype=float).ravel()
+					return float(first_arr[0]) if first_arr.size else 0.0
+				arr = np.asarray(payload, dtype=float).ravel()
+				return float(arr[0]) if arr.size else 0.0
+			if isinstance(first_clim, Real) and not isinstance(first_clim, bool):
+				return float(first_clim)
+
+		if hasattr(payload, "iloc"):
+			idx = min(max(int(kper), 0), len(payload) - 1)
+			value = payload.iloc[idx]
+			if isinstance(value, Real) and not isinstance(value, bool):
+				return float(value)
+			value_arr = np.asarray(value, dtype=float).ravel()
+			if value_arr.size:
+				return float(value_arr[0])
+			return 0.0
+
+		arr = np.asarray(payload, dtype=float).ravel()
+		if arr.size == 0:
+			return 0.0
+		idx = min(max(int(kper), 0), int(arr.size) - 1)
+		return float(arr[idx])
+
+	def _extract_evt_payload(
+		self,
+		payload: object,
+		negative_to_evt: bool,
+	) -> tuple[object, dict[int, object] | None]:
+		"""Route negative recharge values to EVT and keep RCH non-negative."""
+		if not negative_to_evt or not self._payload_has_negative_values(payload):
+			return payload, None
+
+		if isinstance(payload, Mapping):
+			return self._extract_evt_payload_2d(payload, True)
+
+		payload_for_rch = self._copy_runtime_payload(payload)
+		evt_payload = self._copy_runtime_payload(payload)
+
+		if isinstance(payload_for_rch, list):
+			payload_for_rch = np.asarray(payload_for_rch, dtype=float)
+		if isinstance(evt_payload, list):
+			evt_payload = np.asarray(evt_payload, dtype=float)
+
+		if hasattr(evt_payload, "clip"):
+			try:
+				payload_for_rch = evt_payload.clip(lower=0.0)
+			except TypeError:
+				payload_for_rch = self._clip_negative_payload(payload_for_rch)
+		else:
+			payload_for_rch = self._clip_negative_payload(payload_for_rch)
+
+		evt_negative = np.asarray(evt_payload, dtype=float)
+		evt_negative[evt_negative >= 0.0] = 0.0
+		evt_negative = np.abs(evt_negative)
+
+		first_clim = self.first_clim if self.first_clim is not None else "mean"
+		evt_spd: dict[int, object] = {
+			kper: (
+				0.0
+				if kper == 0
+				else self._series_payload_value(
+					evt_negative,
+					kper,
+					first_clim=first_clim,
+				)
+			)
+			for kper in range(int(self.nper))
+		}
+		return payload_for_rch, evt_spd
+
 	def _bind_recharge_from_flow(self) -> None:
 		"""Resolve recharge inputs from the canonical flow recharge configuration."""
+		self._evt_rate_payload = None
+		self._pending_negative_to_evt = False
 		if self.recharge is not None:
 			self.recharge = self._sanitize_numeric_payload(self.recharge)
 			if self.first_clim is None:
@@ -874,11 +995,15 @@ class Modflow6(Solver):
 			label="flow.sinks_sources.recharge.values",
 		)
 		payload = self._sanitize_numeric_payload(payload)
-		if bool(getattr(recharge_cfg, "negative_to_evt", False)) and self._payload_has_negative_values(payload):
-			logger.info(
-				"MF6 flow recharge clips negative values to 0.0; EVT routing is not yet implemented in this adapter"
+		negative_to_evt = bool(getattr(recharge_cfg, "negative_to_evt", False))
+		if hasattr(self, "nper"):
+			payload, evt_payload = self._extract_evt_payload(
+				payload,
+				negative_to_evt,
 			)
-			payload = self._clip_negative_payload(payload)
+			self._evt_rate_payload = evt_payload
+		else:
+			self._pending_negative_to_evt = negative_to_evt
 
 		self.recharge = payload
 		self.first_clim = getattr(
@@ -973,17 +1098,14 @@ class Modflow6(Solver):
 			self._heterogeneous_recharge_source = None
 			return
 
-		# Clip negative values (MF6 RCH doesn't support negative recharge).
-		if getattr(self, "_heterogeneous_negative_to_evt", False):
-			logger.info(
-				"MF6 heterogeneous recharge: clipping negative values to 0.0; "
-				"EVT routing not yet implemented for 2D arrays."
-			)
-			for kper in raw_arrays:
-				raw_arrays[kper] = np.maximum(raw_arrays[kper], 0.0)
+		raw_arrays, evt_payload = self._extract_evt_payload_2d(
+			raw_arrays,
+			getattr(self, "_heterogeneous_negative_to_evt", False),
+		)
 
 		# _recharge_to_spd handles Mapping {kper: ndarray(ncpl,)}.
 		self.recharge = raw_arrays
+		self._evt_rate_payload = evt_payload
 		self._heterogeneous_recharge_source = None
 
 	def _scalar_to_flat(self, value: float) -> np.ndarray:
@@ -1028,37 +1150,11 @@ class Modflow6(Solver):
 		return np.zeros(int(self.ncpl), dtype=float)
 
 	def _series_like_to_scalar(self, kper: int) -> float:
-		if kper == 0:
-			if self.first_clim == "mean":
-				arr = np.asarray(self.recharge, dtype=float)
-				return float(np.nanmean(arr))
-			if self.first_clim == "first":
-				if hasattr(self.recharge, "iloc"):
-					first = self.recharge.iloc[0]
-					if isinstance(first, Real) and not isinstance(first, bool):
-						return float(first)
-					first_arr = np.asarray(first, dtype=float).ravel()
-					return float(first_arr[0]) if first_arr.size else 0.0
-				arr = np.asarray(self.recharge, dtype=float).ravel()
-				return float(arr[0]) if arr.size else 0.0
-			if isinstance(self.first_clim, Real) and not isinstance(self.first_clim, bool):
-				return float(self.first_clim)
-
-		if hasattr(self.recharge, "iloc"):
-			idx = min(max(kper, 0), len(self.recharge) - 1)
-			value = self.recharge.iloc[idx]
-			if isinstance(value, Real) and not isinstance(value, bool):
-				return float(value)
-			value_arr = np.asarray(value, dtype=float).ravel()
-			if value_arr.size:
-				return float(value_arr[0])
-			return 0.0
-
-		arr = np.asarray(self.recharge, dtype=float).ravel()
-		if arr.size == 0:
-			return 0.0
-		idx = min(max(kper, 0), int(arr.size) - 1)
-		return float(arr[idx])
+		return self._series_payload_value(
+			self.recharge,
+			kper,
+			first_clim=self.first_clim,
+		)
 
 	def _recharge_to_spd(self) -> dict[int, np.ndarray]:
 		spd: dict[int, np.ndarray] = {}
@@ -1086,6 +1182,90 @@ class Modflow6(Solver):
 			k: [np.zeros(int(self.ncpl), dtype=float)]
 			for k in range(int(self.nper))
 		}
+
+	def _finalize_pending_recharge_evt(self) -> None:
+		"""Apply deferred negative-recharge routing once ``nper`` is known."""
+		if not getattr(self, "_pending_negative_to_evt", False):
+			return
+		self.recharge, self._evt_rate_payload = self._extract_evt_payload(
+			self.recharge,
+			True,
+		)
+		self._pending_negative_to_evt = False
+
+	def _resolve_rewet_npf_options(
+		self,
+		solver_mesh,
+	) -> tuple[list[object] | None, np.ndarray | None]:
+		"""Return MF6 NPF rewet options and the matching WETDRY array."""
+		runtime = getattr(self.modflow_config, "runtime", None)
+		if not self._rewet_is_enabled():
+			return None, None
+
+		wetdry_value = abs(float(getattr(runtime, "mf6_rewet_wetdry", 0.1)))
+		if wetdry_value <= 0.0:
+			raise ValueError("modflow6.runtime.mf6_rewet_wetdry must be > 0 when rewetting is enabled.")
+
+		# FloPy injects the REWET keyword itself and expects only the labeled payload.
+		rewet_record = [
+			"WETFCT",
+			float(getattr(runtime, "mf6_rewet_wetfct", 0.1)),
+			"IWETIT",
+			int(getattr(runtime, "mf6_rewet_iwetit", 1)),
+			"IHDWET",
+			int(getattr(runtime, "mf6_rewet_ihdwet", 0)),
+		]
+		wetdry = np.where(
+			np.asarray(solver_mesh.inactive_mask, dtype=bool),
+			0.0,
+			wetdry_value,
+		).astype(float)
+		return rewet_record, wetdry
+
+	def _build_evt_stress_period_data(
+		self,
+		solver_mesh,
+		*,
+		ocean_support_mask: np.ndarray,
+		stream_support_mask: np.ndarray,
+	) -> dict[int, list[list[float]]] | None:
+		"""Build MF6 EVT stress-period data from recharge negatives routed to EVT."""
+		evt_payload = getattr(self, "_evt_rate_payload", None)
+		if evt_payload is None:
+			return None
+
+		top_flat = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
+		dem_mask_flat = np.asarray(self.dem_mask, dtype=bool).reshape(-1)
+		ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
+		stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
+		evt_depth = max(
+			float(
+				getattr(
+					getattr(self.modflow_config, "process_specific", object()),
+					"evt_extinction_depth",
+					1.0,
+				)
+			),
+			1e-6,
+		)
+
+		evt_spd: dict[int, list[list[float]]] = {}
+		for kper in range(int(self.nper)):
+			raw_value = evt_payload.get(kper, 0.0) if isinstance(evt_payload, Mapping) else evt_payload
+			rate_flat = self._as_recharge_flat(raw_value, kper=kper)
+			period_cells: list[list[float]] = []
+			for cid in range(int(self.ncpl)):
+				if dem_mask_flat[cid] or ocean_mask_flat[cid] or stream_mask_flat[cid]:
+					continue
+				rate_value = float(rate_flat[cid])
+				if rate_value <= 0.0:
+					continue
+				period_cells.append([0, cid, float(top_flat[cid]), rate_value, evt_depth])
+			evt_spd[kper] = period_cells
+
+		if any(len(v) > 0 for v in evt_spd.values()):
+			return evt_spd
+		return None
 
 	def pre_processing(
 		self,
@@ -1118,6 +1298,7 @@ class Modflow6(Solver):
 		self.nstp = temporal.nstp
 		self.steady = temporal.steady
 		time_units = "seconds"
+		self._finalize_pending_recharge_evt()
 
 		self.grid_ctx = build_spatial_discretization(
 			domain=self.domain,
@@ -1208,12 +1389,15 @@ class Modflow6(Solver):
 		self.ic = flopy.mf6.ModflowGwfic(self.gwf, strt=strt)
 		ocean_chd_spd, ocean_support_mask = self._build_ocean_boundary_chd_spd()
 		stream_chd_spd, stream_support_mask = self._build_stream_boundary_chd_spd()
+		rewet_record, wetdry = self._resolve_rewet_npf_options(solver_mesh)
 
 		self.npf = flopy.mf6.ModflowGwfnpf(
 			self.gwf,
 			icelltype=np.ones((self.nlay,), dtype=int),
 			k=self.hk,
 			k33=self.hk / max(float(getattr(getattr(self.modflow_config, "process_specific", object()), "vka", 1.0)), 1e-12),
+			rewet_record=rewet_record,
+			wetdry=wetdry,
 			save_specific_discharge=True,
 			save_saturation=True,
 		)
@@ -1234,6 +1418,19 @@ class Modflow6(Solver):
 			aux=self._empty_recharge_aux(),
 			pname="RCHA",
 		)
+		evt_spd = self._build_evt_stress_period_data(
+			solver_mesh,
+			ocean_support_mask=ocean_support_mask,
+			stream_support_mask=stream_support_mask,
+		)
+		if evt_spd is not None:
+			maxbound = max((len(period_cells) for period_cells in evt_spd.values()), default=0)
+			self.evt = flopy.mf6.ModflowGwfevt(
+				self.gwf,
+				stress_period_data=evt_spd,
+				maxbound=maxbound,
+				save_flows=True,
+			)
 
 		drainage_cond_series = self._resolve_drainage_conductance_series()
 		if drainage_cond_series is not None:

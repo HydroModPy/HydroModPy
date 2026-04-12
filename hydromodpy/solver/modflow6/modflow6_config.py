@@ -54,7 +54,7 @@ class Modflow6RuntimeConfig(BaseModel):
         default=None,
         description=(
             "Enable NPF cell rewetting. When left to None, HydroModPy "
-            "auto-enables rewetting for transient MF6 flow runs."
+            "keeps rewetting disabled unless explicitly enabled."
         ),
     )
     mf6_rewet_wetfct: Annotated[float, ParamLevel("expert")] = Field(
