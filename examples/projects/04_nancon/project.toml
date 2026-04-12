@@ -254,6 +254,7 @@ date_end = "2002-12-31"
 [[data.recharge.sources]]
 source = "custom"
 path = "../../data/recharge"
+station_ids = ["EX04"]
 
 
 # ----------------------------------------------------------------------
@@ -274,9 +275,10 @@ unit = "m/s"
 [flow.param.K.field_homogeneous]
 value = 5e-05
 
-[flow.param.K.field_vertical_profile]
-mode = "exponential"
-characteristic_depth = "15.0 m"
+# No vertical K profile in legacy example (single layer, uniform K).
+# [flow.param.K.field_vertical_profile]
+# mode = "exponential"
+# characteristic_depth = "15.0 m"
 
 [flow.param.Sy.field]
 id = "Sy"
@@ -286,9 +288,10 @@ unit = "-"
 [flow.param.Sy.field_homogeneous]
 value = 0.05
 
-[flow.param.Sy.field_vertical_profile]
-mode = "exponential"
-characteristic_depth = "20.0 m"
+# No vertical Sy profile in legacy example (single layer, uniform Sy).
+# [flow.param.Sy.field_vertical_profile]
+# mode = "exponential"
+# characteristic_depth = "20.0 m"
 
 [flow.param.Ss.field]
 id = "Ss"
@@ -311,8 +314,8 @@ unit = "m2/s"
 data_value = false
 
 [flow.sinks_sources.recharge]
-first_clim = "mean"
-negative_to_evt = true
+first_clim = "first"
+negative_to_evt = false
 
 
 # ----------------------------------------------------------------------
@@ -320,7 +323,7 @@ negative_to_evt = true
 # ----------------------------------------------------------------------
 
 [transport.modpath.parameters]
-zone_partic = "seepage_clip"
+zone_partic = "domain"
 track_dir = "backward"
 cell_div = 1
 zloc_div = false
@@ -350,8 +353,10 @@ mf_verbose = false
 nwt_headtol = 0.0001
 
 # Flux closure criterion for the NWT nonlinear solver.
+# When ITMUNI=0 with PERLEN in seconds, this value is in m3/s.
+# Legacy (m/day system) used 500 m3/day = 500/86400 m3/s.
 # Type: float | Default: 500.0
-nwt_fluxtol = 500.0
+nwt_fluxtol = 0.006
 
 # Maximum outer nonlinear iterations in the NWT solver.
 # Type: int | Default: 5000
@@ -451,7 +456,7 @@ vka = 1.0
 
 # Extinction depth [L] used by the EVT package (EXDP).
 # Type: float | Default: 1.0
-exdp = 1.0
+# exdp = 1.0
 
 
 # Spatial-grid payload split into `[...sgrid.planar]` and `[...sgrid.vertical]`.
@@ -481,15 +486,15 @@ resampling = "bilinear"
 [modflownwt.sgrid.vertical]
 # Vertical-layering strategy.
 # Type: Literal['constant', 'decay', 'list'] | one of: "constant", "decay", "list" | Default: "constant"
-genmtd_lay = "decay"
+genmtd_lay = "constant"
 
 # Number of layers (required for constant/decay, ignored for list).
 # Type: int (optional) | Default: 1
-nlay = 5
+nlay = 1
 
 # Decay exponent (>1) for decay layering.
 # Type: float (optional) | Optional
-lay_decay = 1.5
+# lay_decay = 1.5
 
 # Explicit layer fractions when genmtd_lay='list' (must sum to 1).
 # Type: list (optional) | Optional
@@ -503,7 +508,7 @@ nodata = -9999.0
 # Optional temporal discretization payload as one validated `TMeshConfigModel` model.
 # In launcher mode, stress periods are driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps `firstpersteady`.
 
-# [modflownwt.tgrid]
+[modflownwt.tgrid]
 # Time unit used to interpret lenper values.
 # In launcher mode stress periods come from [simulation.time], so this field is mirrored only for compatibility.
 # Type: string | Default: "d"
@@ -559,7 +564,7 @@ nodata = -9999.0
 
 # Whether the first stress period is treated as steady-state.
 # Type: bool | Default: true
-# firstpersteady = true
+firstpersteady = true
 
 # Time-step multiplier per stress period (scalar or list).
 # In launcher mode this field is currently forced to 1.0 and generally not intended for manual editing.
@@ -688,9 +693,8 @@ web_animation = false
 
 [postprocess]
 # Enable launcher-managed postprocessing after process runs.
-# Defaults to false for backward compatibility.
 # Type: bool | Default: false
-enabled = false
+enabled = true
 
 
 # Flow postprocessing configuration.
