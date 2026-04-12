@@ -93,14 +93,14 @@ Solver Coverage
 
       **Metrics**
       - Solution: boussinesq
-      - Initial discharge: 3.472224e-05 m3/s
+      - Initial discharge: 3.472225e-05 m3/s
       - Characteristic time: 28.91 d
-      - Relative RMSE: 0.0335
-      - Relative max abs error: 0.0506
-      - Cross-row head spread: 1.04e-12 m
+      - Relative RMSE: 0.2144
+      - Relative max abs error: 0.2298
+      - Cross-row head spread: 1.40e-10 m
 
       - Config file: ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_boussinesq.toml``
-      - Tolerances: ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances.toml``
+      - Tolerances: ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_boussinesq.toml``
 
       .. code-block:: bash
 
@@ -134,6 +134,7 @@ Source Pointers
 - ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml``
 - ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/runtime_boussinesq.py``
 - ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances.toml``
+- ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_boussinesq.toml``
 - ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflow6.toml``
 - ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflownwt.toml``
 - ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflownwt.toml``

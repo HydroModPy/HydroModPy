@@ -9,6 +9,9 @@
     "Strip with piecewise-constant `K`, fixed west/east heads, uniform recharge",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "validate recharge together with heterogeneous `K` mapping,",
     "keep one analytical 1D benchmark where all conductivity jumps align with the mesh,",
@@ -25,6 +28,8 @@
     "U=h^2,\\qquad \\frac{\\mathrm{d}}{\\mathrm{d}x}\\left(K(x)\\,\\frac{\\mathrm{d}U}{\\mathrm{d}x}\\right)+2R=0",
     "U(x)=h_w^2+C\\int_{x_{\\min}}^{x}\\frac{\\mathrm{d}s}{K(s)}-2R\\int_{x_{\\min}}^{x}\\frac{s\\,\\mathrm{d}s}{K(s)}"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.steady.boussinesq_uniform_recharge_piecewise_k_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -45,7 +50,7 @@
     "validation_cases/analytical/steady/boussinesq_piecewise.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/README.md": "629fed23316ccf2a60052fc9f95a2e2cbc6666f9c7ca5ab6bde514746d1e43d8",
     "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/reference.py": "1c5352e1c9738fbdcf9a8b4e8d83e58d123e6692cfe76ec8264c9dbf431132fa",
     "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/comparison.py": "cec1a05afa7385de4f6e0d83cab30bde64285dc34d50a9439ebad3af7c0c3f99",

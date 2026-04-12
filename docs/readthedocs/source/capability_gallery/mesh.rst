@@ -620,11 +620,51 @@ These tab sets group one repeated mesh family across several outlets imported fr
       ^^^
       Standalone overview of one bundled catchment mesh, with geology and topography panels.
 
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/mesh_quality_diagnostics_naizin_10km2
+      :link-type: doc
+
+      **Mesh Quality Diagnostics (10 km2)**
+      ^^^
+      Aspect ratio and minimum-angle diagnostics computed directly from one mesh bundle.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/mesh_constraint_balance_scale_ladder
+      :link-type: doc
+
+      **Constraint Balance Across Scales**
+      ^^^
+      Relative contributions of river, geology, and boundary constraints across three scales.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/mesh_resolution_sensitivity_scale_ladder
+      :link-type: doc
+
+      **Resolution Sensitivity Across Scales**
+      ^^^
+      Cell-area distributions compared across 10, 100, and 1000 km2 bundles.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/mesh_zoom_panels_naizin_10km2
+      :link-type: doc
+
+      **Mesh Zoom Panels (10 km2)**
+      ^^^
+      Full mesh view plus three zoom panels around river-rich areas.
+
 .. toctree::
    :hidden:
    :maxdepth: 1
 
    cases/mesh_sample_bundle
+   cases/mesh_quality_diagnostics_naizin_10km2
+   cases/mesh_constraint_balance_scale_ladder
+   cases/mesh_resolution_sensitivity_scale_ladder
+   cases/mesh_zoom_panels_naizin_10km2
    cases/mesh_s3_10km2_outlet_1_geology_rivers_buffer30
    cases/mesh_s3_10km2_outlet_2_geology_rivers_buffer30
    cases/mesh_s3_10km2_outlet_3_geology_rivers_buffer30

@@ -8,6 +8,9 @@ Capability Gallery
 
 This section groups a small set of static, versioned illustrations that explain what HydroModPy can do without requiring notebook execution during the documentation build.
 
+.. seealso::
+   New to HydroModPy? Start with :doc:`the getting started guide </getting_started/index>` if you need help choosing a first workflow, reading the key parameters, or navigating the different example families.
+
 .. grid:: 1 1 2 3
    :gutter: 2 2 3 3
 
@@ -40,6 +43,33 @@ This section groups a small set of static, versioned illustrations that explain 
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: geometry
+      :link-type: doc
+
+      **Geometry Diagnostics**
+      ^^^
+      Vector-only views of catchment geometry, hydrography, and geology layers.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: hydraulic_properties
+      :link-type: doc
+
+      **Hydraulic Properties**
+      ^^^
+      Hydraulic conductivity and storage parameterizations rendered on synthetic and geology-driven supports.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: method_comparison
+      :link-type: doc
+
+      **Method Comparison**
+      ^^^
+      Reusable solver comparisons built from committed run folders on shared supports.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: simulation
       :link-type: doc
 
@@ -54,4 +84,7 @@ This section groups a small set of static, versioned illustrations that explain 
    mesh
    validation
    geographic
+   geometry
+   hydraulic_properties
+   method_comparison
    simulation

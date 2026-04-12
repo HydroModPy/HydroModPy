@@ -1,0 +1,110 @@
+[campaign]
+campaign_id = "realistic_complex_examples"
+label = "Realistic complex examples"
+description = "Mixed simulation and method-comparison campaign covering existing regressions, real transient basins, and one flagship 100 km2 MF6 scenario family."
+output_root = "./outputs"
+continue_on_error = true
+
+[[campaign.case]]
+id = "example12_fast_shared_mesh_compare"
+label = "Example12 fast shared-mesh comparison"
+launcher = "method-comparison"
+config = "../run_method_comparison_example12_fast_shared_mesh.toml"
+tier = "smoke"
+scale = "example12"
+family = "shared_mesh_solver_comparison"
+solver_family = ["modflow6", "boussinesq"]
+region = "naizin"
+tags = ["comparison", "shared_mesh", "fast", "visual"]
+description = "Fast shared-mesh comparison used as a lightweight visual sanity check."
+
+[[campaign.case]]
+id = "nancon_transient_nwt_baseline"
+label = "Nancon transient NWT baseline"
+launcher = "simulation"
+config = "../../04_nancon/run_transient_nwt.toml"
+tier = "extensive"
+scale = "nancon"
+family = "realistic_transient"
+solver_family = ["modflownwt", "modpath"]
+region = "nancon"
+tags = ["transient", "realistic", "3y", "watershed"]
+description = "Historical 2000-2002 transient Nancon case kept in the wider campaign inventory."
+
+[[campaign.case]]
+id = "example12_extensive_mf6"
+label = "Example12 extensive MF6 baseline"
+launcher = "simulation"
+config = "../run_extensive_mf6.toml"
+tier = "extensive"
+scale = "example12"
+family = "realistic_transient"
+solver_family = ["modflow6", "modflow6gwt"]
+region = "naizin"
+tags = ["transient", "mf6", "baseline", "recharge"]
+description = "Longer MF6 baseline with realistic recharge chronology and standard postprocess figures."
+
+[[campaign.case]]
+id = "headwater_100km2_backend_compare"
+label = "Headwater 100 km2 Boussinesq backend comparison"
+launcher = "method-comparison"
+config = "../run_method_comparison_headwater_100km2_outlet_2_backends.toml"
+tier = "extensive"
+scale = "100km2"
+family = "backend_comparison"
+solver_family = ["boussinesq"]
+region = "headwater_100km2"
+tags = ["comparison", "100km2", "reused_mesh", "backend"]
+description = "Existing SciPy vs PETSc-partition replay on the committed 100 km2 basin mesh."
+
+[[campaign.case]]
+id = "headwater_100km2_mf6_transient_reference"
+label = "Headwater 100 km2 MF6 transient reference"
+launcher = "simulation"
+config = "../run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+tier = "flagship"
+scale = "100km2"
+family = "reference_transient"
+solver_family = ["modflow6"]
+region = "headwater_100km2"
+tags = ["flagship", "mf6", "100km2", "transient", "capability_gallery"]
+description = "Reference 3-year MF6 replay on the committed 100 km2 mesh with curated gallery figures."
+
+[[campaign.case]]
+id = "headwater_100km2_mf6_transient_forcing_extremes"
+label = "Headwater 100 km2 MF6 forcing-extremes scenario"
+launcher = "simulation"
+config = "../run_headwater_100km2_outlet_2_mf6_transient_forcing_extremes.toml"
+tier = "flagship"
+scale = "100km2"
+family = "forcing_extremes"
+solver_family = ["modflow6"]
+region = "headwater_100km2"
+tags = ["flagship", "mf6", "100km2", "forcing", "recharge"]
+description = "Same 100 km2 geometry with a stronger drought/rewetting recharge sequence."
+
+[[campaign.case]]
+id = "headwater_100km2_mf6_transient_heterogeneous_decay"
+label = "Headwater 100 km2 MF6 heterogeneous-decay scenario"
+launcher = "simulation"
+config = "../run_headwater_100km2_outlet_2_mf6_transient_heterogeneous_decay.toml"
+tier = "flagship"
+scale = "100km2"
+family = "heterogeneous_depth_decay"
+solver_family = ["modflow6"]
+region = "headwater_100km2"
+tags = ["flagship", "mf6", "100km2", "heterogeneous", "vertical_decay"]
+description = "Flagship 3-year MF6 case with lateral heterogeneity and exponential depth decay."
+
+[[campaign.case]]
+id = "headwater_100km2_mf6_transient_scenario_compare"
+label = "Headwater 100 km2 MF6 scenario comparison"
+launcher = "method-comparison"
+config = "../run_method_comparison_headwater_100km2_outlet_2_mf6_transient_scenarios.toml"
+tier = "flagship"
+scale = "100km2"
+family = "scenario_comparison"
+solver_family = ["modflow6"]
+region = "headwater_100km2"
+tags = ["flagship", "comparison", "mf6", "100km2", "visual"]
+description = "Visual comparison between the MF6 reference and heterogeneous-decay scenarios."

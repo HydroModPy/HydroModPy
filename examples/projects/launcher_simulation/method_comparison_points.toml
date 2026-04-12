@@ -1,0 +1,11 @@
+[method_comparison_anchors.example12.reference_point]
+x = 265709.0603571266
+y = 6783838.949805205
+
+[method_comparison_anchors.example12.outlet]
+x = 266887.0154945171
+y = 6785678.67277686
+
+[method_comparison_anchors.headwater_100km2_outlet_2.outlet]
+x = 407925.0
+y = 6808275.0

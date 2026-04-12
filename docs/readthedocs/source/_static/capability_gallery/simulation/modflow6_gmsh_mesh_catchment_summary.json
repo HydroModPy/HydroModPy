@@ -4,8 +4,41 @@
   "title": "MODFLOW 6 on a Gmsh Catchment Mesh",
   "category": "simulation",
   "deck": "End-to-end launcher run with embedded Gmsh meshing, MODFLOW 6 flow, and GWT transport.",
-  "summary": "This case keeps the standard process_simulation launcher while using mesh_catchment to build a triangular Gmsh mesh before MODFLOW 6.",
+  "summary": "This case keeps the standard process_simulation launcher while using mesh_catchment to build a triangular Gmsh mesh before MODFLOW 6. Only selected synthesis figures are committed to the gallery; the full solver workspace remains a reproducible run artifact.",
+  "case_setup": [
+    "Entry config: `run_fast_mf6_mesh_catchment.toml` overlays one shared base profile and adds the fast-run forcing, timeline, and solver choices.",
+    "Execution chain: geographic setup -> `mesh_catchment` -> runtime triangular mesh -> MODFLOW 6 flow -> MODFLOW 6 transport -> postprocess/display.",
+    "Only selected synthesis figures are republished into `examples/capability_gallery/`; the full run workspace stays outside the doc tree."
+  ],
+  "key_parameters": [
+    "`[simulation.time] step_value`, `start_datetime`, and `end_datetime` define the time support of the run and the interpretation of the recharge chronology.",
+    "`[data.recharge.sources] values`, `freq`, and `runoff_ratio` control the synthetic forcing that drives the cumulative recharge/discharge figure.",
+    "`[flow.param.K.field_homogeneous]` and `[flow.param.Sy.field_homogeneous]` are the first groundwater parameters to modify when learning how heads and depths react.",
+    "`[mesh_catchment.zone_meshing] global_size`, `min_size`, and `max_size` in the shared base config change the mesh density and therefore the support overview.",
+    "`[mesh_catchment] constraints_mode` and the river/geology source sections decide which spatial structures are enforced in the runtime mesh.",
+    "`[capability_gallery] assets` only selects which figures are copied into the docs; it does not change the physics of the run."
+  ],
+  "how_to_read": [
+    "Start with the support overview to confirm which mesh, streams, and labels the solver actually consumed.",
+    "Read the flow-state triptych next: topography gives the structural context, hydraulic head shows the state variable, and water-table depth highlights near-surface response.",
+    "Use the cumulative recharge/discharge figure last to understand whether the forcing and drainage behaviour stay coherent over the chosen time window.",
+    "If one output looks surprising, first map it back to the config layer that controls it: forcing, mesh, or flow parameters."
+  ],
+  "next_steps": [
+    "Read :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` for a guided mapping between config sections and displayed figures.",
+    "Then open :doc:`the shared-mesh method comparison case </capability_gallery/cases/example12_map_method_comparison>` to compare two solver families on the same support."
+  ],
+  "what_it_shows": [
+    "How MODFLOW 6 consumes the same runtime Gmsh mesh contract used by other solvers.",
+    "How the flow-state triptych relates topography, hydraulic head, and water-table depth.",
+    "How cumulative recharge and discharge can be inspected without committing a full run folder."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": "getting_started/simulation-walkthrough",
+  "walkthrough_title": "the simulation walkthrough",
   "reproduction_command": "python -m hydromodpy run examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
+  "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
     "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
     "examples/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml",
@@ -13,6 +46,14 @@
     "hydromodpy/analysis/display/figures/flow_synthesis.py",
     "hydromodpy/analysis/capability_gallery.py"
   ],
+  "source_hashes": {
+    "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml": "17d15c8629d6fbc75c4b944eb612d539fa1633b682d0a10c1c9079b2d7fec87f",
+    "examples/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml": "c94f850d4389bd98a68846dabdccdbd268163df92d763936ac59c67a9f6ad885",
+    "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json": "3f45c9dca46471a91c4f219eccecac64c66698498fe49233a82f8ebbb6a814e1",
+    "hydromodpy/analysis/display/figures/flow_synthesis.py": "96aae5243fdb0051ab385a8ec129515e70931e27a2556b092c33ff6b27c48891",
+    "hydromodpy/analysis/capability_gallery.py": "eaf28e15cadf039b5e7e78bc62e9257b254507c43855607f5247a5473885a704"
+  },
+  "docname": "cases/modflow6_gmsh_mesh_catchment",
   "images": [
     {
       "filename": "modflow6_gmsh_flow_state_triptych.png",
@@ -38,8 +79,28 @@
   ],
   "metrics": [],
   "metadata": {
-    "source_publication_manifest": "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json",
-    "run_id": "example12_fast_mf6_mesh_catchment",
-    "solvers": ["modflow6", "modflow6gwt"]
+    "copied_assets": [
+      {
+        "source_path": "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/flow_state_triptych.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_flow_state_triptych.png"
+      },
+      {
+        "source_path": "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/recharge_discharge_cumulative.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_recharge_discharge_cumulative.png"
+      },
+      {
+        "source_path": "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/flow_support_overview.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_support_overview.png"
+      }
+    ]
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_mesh_catchment_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_flow_state_triptych.png",
+      "docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_recharge_discharge_cumulative.png",
+      "docs/readthedocs/source/_static/capability_gallery/simulation/modflow6_gmsh_support_overview.png"
+    ]
   }
 }

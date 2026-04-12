@@ -14,6 +14,9 @@
     "simulated observable: `watertable_elevation`.",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "Periodic recharge forcing and phase/amplitude propagation in transient flow",
     "Primary metrics: space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread.",
@@ -26,6 +29,8 @@
     "S_y\\frac{\\partial \\eta}{\\partial t}=T_0\\frac{\\partial^2 \\eta}{\\partial x^2}+R(t),\\qquad h=h_0+\\eta",
     "R(t)=\\overline{R}+A\\sin\\left(2\\pi t/P+\\phi\\right)"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_periodic_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -46,7 +51,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/README.md": "6bab3c7b7c3c818637045e93918404018f95954ecc69f511b6946e60d1fe0a1d",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/reference.py": "b93972d2b0b9223efaa86f81bfe5c7f3e353057f8eef8ea429575a2300c1c8c6",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/comparison.py": "28e52e1f78bc815ed5a596e2b2d4989f78bbb3c1cdc4d1a841445ee002cdeaba",

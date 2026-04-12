@@ -9,6 +9,9 @@
     "Strip with piecewise-constant `K`, fixed west/east heads, no recharge",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "validate heterogeneous `K` mapping on a simple 1D support,",
     "check flux continuity across conductivity jumps,",
@@ -25,6 +28,8 @@
     "U=h^2,\\qquad \\frac{\\mathrm{d}}{\\mathrm{d}x}\\left(K(x)\\,\\frac{\\mathrm{d}U}{\\mathrm{d}x}\\right)=0",
     "U(x)=h_w^2+\\left(h_e^2-h_w^2\\right)\\frac{\\int_{x_{\\min}}^{x}\\frac{\\mathrm{d}s}{K(s)}}{\\int_{x_{\\min}}^{x_{\\max}}\\frac{\\mathrm{d}s}{K(s)}}"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -45,7 +50,7 @@
     "validation_cases/analytical/steady/boussinesq_piecewise.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/README.md": "cace3af12085712515da789f4b7c45d2afda3922a11c837449403516495f6e4c",
     "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/reference.py": "54342248076994317a87aeccfc582933132368bcfcb64f8de461b54a42a2f159",
     "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/comparison.py": "957ac72447ad3970bec19e7b4c1f23493e5dad90c93d15531860184007770529",

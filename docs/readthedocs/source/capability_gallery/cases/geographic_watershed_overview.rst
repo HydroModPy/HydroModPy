@@ -8,6 +8,9 @@ Watershed Data Overview
 
 This pair of figures documents the pre-solver side of HydroModPy. It shows how one watershed is contextualized before any flow run: local framing, DEM, and overlay-ready geographic inputs.
 
+.. seealso::
+   Read :doc:`the data-overview walkthrough </getting_started/data-overview-walkthrough>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
+
 .. figure:: /_static/capability_gallery/geographic/geographic_watershed_dem.png
    :alt: Watershed DEM overview
    :width: 100%
@@ -20,12 +23,41 @@ This pair of figures documents the pre-solver side of HydroModPy. It shows how o
 
    Local watershed framing copied from versioned example outputs.
 
+Case Setup
+----------
+
+- Launcher family: `data-overview`, so the workflow stops after setup, domain assembly, and data loading.
+- Primary editable file: `examples/projects/data_overview/project.toml`.
+- Committed figures are reused as stable teaching assets instead of rerunning the full example during doc builds.
+
 What It Shows
 -------------
 
 - How a watershed can be documented before any groundwater solve, using only setup and data loading.
 - How HydroModPy distinguishes a local watershed view from a broader DEM-oriented overview.
 - How versioned example outputs can feed static documentation without executing notebooks during the build.
+
+Key Parameters
+--------------
+
+- `[geographic] catch_def`, `x_outlet`, and `y_outlet` decide where the watershed is extracted from.
+- `[geographic] buff_area` controls how much regional context stays visible around the basin in the overview figures.
+- `[domain] zone_ids` and `[domain.depth_model]` define the spatial support that later workflows would reuse.
+- `[data] types` selects which thematic layers are loaded and therefore which overlays can appear on the basin.
+- Date windows in `[data.hydrometry]`, `[data.intermittency]`, and `[data.oceanic]` change the queried observation horizon without changing the basin geometry.
+
+How To Read It
+--------------
+
+- Read the DEM-oriented figure first to understand the broader terrain setting and outlet placement.
+- Read the local overview second to inspect which basin-scale overlays are available before any meshing or solving happens.
+- If the basin outline looks wrong, check outlet coordinates and snap distance before changing downstream modelling options.
+
+Next Steps
+----------
+
+- Continue with :doc:`the data-overview walkthrough </getting_started/data-overview-walkthrough>` for a parameter-by-parameter reading strategy.
+- When the watershed framing looks correct, move to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` to add meshing and solving.
 
 Reproduce
 ---------
@@ -46,6 +78,7 @@ Source Pointers
 ---------------
 
 - ``examples/projects/data_overview/run_data_overview.py``
+- ``examples/projects/data_overview/project.toml``
 - ``examples/results/example13data/results_stable/_figures/watershed_dem.png``
 - ``examples/results/example13data/results_stable/_figures/watershed_local.png``
 

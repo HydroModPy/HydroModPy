@@ -14,6 +14,9 @@
     "simulated observable: `watertable_elevation`. For `solver=boussinesq`, the validation uses one small balanced triangular strip projected back to a regular `40 x 3` comparison grid. The runtime itself is selected through the case `config_boussinesq.toml`, so the geometry stays fixed while the nonlinear backend can evolve independently (`local`, `scipy`, `scipy_sparse`).",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "Launcher-managed transient side-Dirichlet forcing using one simple head step",
     "Primary metrics: space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread.",
@@ -26,6 +29,8 @@
     "S_y\\frac{\\partial \\eta}{\\partial t}=T_0\\frac{\\partial^2 \\eta}{\\partial x^2},\\qquad \\eta(0,t)=\\Delta h\\,H(t),\\qquad \\eta(L,t)=0",
     "\\eta(x,t)=\\Delta h\\left[1-\\frac{x}{L}-\\frac{2}{\\pi}\\sum_{n=1}^{\\infty}\\frac{\\sin\\left(n\\pi x/L\\right)}{n}\\exp\\left(-D\\left(n\\pi/L\\right)^2 t\\right)\\right]"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -46,7 +51,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/README.md": "15c657cdc584771c104f829ef63ae45a57f3850293ae66a03f2bf3381ab93fff",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/reference.py": "3de7bb250be3cbf5cc9617079933641b9bfc8cb6f54534fd4ea647c9b966402d",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/comparison.py": "ca1455fa5db47be69f47ecc7266d35c422c9d6b3e3079cfe86c462e093317003",

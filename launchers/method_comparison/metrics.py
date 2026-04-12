@@ -31,6 +31,8 @@ DETAIL_METRIC_FIELDS = [
     "reference_variant",
     "observable",
     "comparison_time_key",
+    "reference_match_strategy",
+    "reference_match_key",
     "time",
     "time_index",
     "elapsed_seconds",
@@ -59,14 +61,136 @@ def _as_float(value: Any) -> float | None:
     return parsed
 
 
-def _row_key(row: dict[str, Any]) -> tuple[str, str, str, str]:
-    """Return the observable/time/value key used for reference matching."""
+def _as_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "1", "yes", "y"}
+    return bool(value)
+
+
+def _row_is_nodata(row: dict[str, Any]) -> bool:
+    return _as_bool(row.get("is_nodata", False))
+
+
+def _exact_row_key(row: dict[str, Any]) -> tuple[str, str, str, str]:
+    """Return the observable/time/value key used for exact reference matching."""
     return (
         str(row.get("observable", "")),
         str(row.get("comparison_time_key", row.get("time", ""))),
         str(row.get("value_index", "")),
         str(row.get("unit", "")),
     )
+
+
+def _fallback_row_keys(row: dict[str, Any]) -> list[tuple[str, str, str, str]]:
+    """Return semantic fallback keys used when time encodings differ."""
+    fallback_key = str(row.get("match_fallback_key", "")).strip()
+    if fallback_key == "":
+        return []
+    return [
+        (
+            str(row.get("observable", "")),
+            fallback_key,
+            str(row.get("value_index", "")),
+            str(row.get("unit", "")),
+        )
+    ]
+
+
+def _is_comparable_metric_row(row: dict[str, Any]) -> bool:
+    if _row_is_nodata(row):
+        return False
+    return _as_float(row.get("value")) is not None
+
+
+def _build_reference_indexes(
+    rows: list[dict[str, Any]],
+    *,
+    reference_variant: str,
+) -> tuple[
+    dict[tuple[str, str, str, str], dict[str, Any]],
+    dict[tuple[str, str, str, str], dict[str, Any]],
+]:
+    exact_index: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    fallback_index: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    for row in rows:
+        if str(row.get("variant_id", "")) != reference_variant:
+            continue
+        if not _is_comparable_metric_row(row):
+            continue
+        exact_index[_exact_row_key(row)] = row
+        for fallback_key in _fallback_row_keys(row):
+            fallback_index.setdefault(fallback_key, row)
+    return exact_index, fallback_index
+
+
+def _match_reference_row(
+    row: dict[str, Any],
+    *,
+    exact_index: dict[tuple[str, str, str, str], dict[str, Any]],
+    fallback_index: dict[tuple[str, str, str, str], dict[str, Any]],
+) -> tuple[dict[str, Any] | None, str, str]:
+    exact_key = _exact_row_key(row)
+    reference = exact_index.get(exact_key)
+    if reference is not None:
+        return reference, "exact_time_key", exact_key[1]
+
+    for fallback_key in _fallback_row_keys(row):
+        reference = fallback_index.get(fallback_key)
+        if reference is not None:
+            return reference, "fallback_time_key", fallback_key[1]
+
+    return None, "", ""
+
+
+def build_unmatched_groups(
+    rows: list[dict[str, Any]],
+    *,
+    reference_variant: str | None,
+) -> list[dict[str, Any]]:
+    """Group candidate rows that still have no aligned reference row."""
+    if not rows or reference_variant is None:
+        return []
+
+    exact_index, fallback_index = _build_reference_indexes(
+        rows,
+        reference_variant=reference_variant,
+    )
+    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        variant_id = str(row.get("variant_id", ""))
+        if variant_id == reference_variant:
+            continue
+        if not _is_comparable_metric_row(row):
+            continue
+        reference, _, _ = _match_reference_row(
+            row,
+            exact_index=exact_index,
+            fallback_index=fallback_index,
+        )
+        if reference is not None:
+            continue
+        grouped[
+            (
+                variant_id,
+                str(row.get("observable", "")),
+                str(row.get("unit", "")),
+            )
+        ].append(row)
+
+    items: list[dict[str, Any]] = []
+    for (variant_id, observable, unit), group in sorted(grouped.items()):
+        items.append(
+            {
+                "variant_id": variant_id,
+                "observable": observable,
+                "unit": unit,
+                "n_rows": len(group),
+                "reason": "missing aligned reference row or unit mismatch",
+            }
+        )
+    return items
 
 
 def build_comparison_metrics(
@@ -78,17 +202,23 @@ def build_comparison_metrics(
     if not rows or reference_variant is None:
         return [], []
 
-    reference_by_key: dict[tuple[str, str, str, str], dict[str, Any]] = {}
-    for row in rows:
-        if str(row.get("variant_id", "")) == reference_variant:
-            reference_by_key[_row_key(row)] = row
+    exact_index, fallback_index = _build_reference_indexes(
+        rows,
+        reference_variant=reference_variant,
+    )
 
     detail_rows: list[dict[str, Any]] = []
     for row in rows:
         variant_id = str(row.get("variant_id", ""))
         if variant_id == reference_variant:
             continue
-        reference = reference_by_key.get(_row_key(row))
+        if not _is_comparable_metric_row(row):
+            continue
+        reference, match_strategy, match_key = _match_reference_row(
+            row,
+            exact_index=exact_index,
+            fallback_index=fallback_index,
+        )
         if reference is None:
             continue
         value = _as_float(row.get("value"))
@@ -109,6 +239,8 @@ def build_comparison_metrics(
                 "reference_variant": reference_variant,
                 "observable": row.get("observable", ""),
                 "comparison_time_key": row.get("comparison_time_key", ""),
+                "reference_match_strategy": match_strategy,
+                "reference_match_key": match_key,
                 "time": row.get("time", ""),
                 "time_index": row.get("time_index", ""),
                 "elapsed_seconds": row.get("elapsed_seconds", ""),
@@ -166,7 +298,9 @@ def write_metrics_csv(
     fieldnames: list[str] | None = None,
 ) -> None:
     """Write metrics rows to CSV."""
-    resolved_fieldnames = fieldnames or (list(rows[0].keys()) if rows else SUMMARY_METRIC_FIELDS)
+    resolved_fieldnames = fieldnames or (
+        list(rows[0].keys()) if rows else SUMMARY_METRIC_FIELDS
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=resolved_fieldnames)
@@ -188,6 +322,7 @@ __all__ = (
     "DETAIL_METRIC_FIELDS",
     "SUMMARY_METRIC_FIELDS",
     "build_comparison_metrics",
+    "build_unmatched_groups",
     "write_metrics_csv",
     "write_metrics_json",
 )

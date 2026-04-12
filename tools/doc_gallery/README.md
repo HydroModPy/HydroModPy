@@ -59,6 +59,8 @@ Case inventory lives in `tools/doc_gallery/gallery_manifest.py`.
 Each `GalleryCaseSpec` declares:
 
 - the category and page metadata
+- optional guided-doc links for onboarding
+- optional key-parameter and reading-order notes
 - the reproduction command shown in the docs
 - the source files tracked for staleness detection
 - the generator kind (`mesh_viewer`, `copy_assets`, or `validation_case`)

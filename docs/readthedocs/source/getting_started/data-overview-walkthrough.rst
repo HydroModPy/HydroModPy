@@ -1,0 +1,101 @@
+Data-Overview Walkthrough
+=========================
+
+This is the recommended first HydroModPy workflow if you want to understand how
+one basin is assembled before touching meshing or solving.
+
+What this workflow is for
+-------------------------
+
+- Extract one watershed from outlet coordinates.
+- Build the domain support and depth model.
+- Load the main geographic data layers that later workflows reuse.
+- Produce readable basin-context figures without running a groundwater solver.
+
+Run it
+------
+
+Canonical launcher command:
+
+.. code-block:: bash
+
+   python -m launchers data-overview run examples/projects/data_overview/project.toml
+
+Repository wrapper script:
+
+.. code-block:: bash
+
+   python examples/projects/data_overview/run_data_overview.py
+
+How the files relate
+--------------------
+
+- ``examples/projects/data_overview/run_data_overview.py`` is only a thin
+  wrapper around the launcher CLI.
+- ``examples/projects/data_overview/project.toml`` is the actual case
+  definition.
+- The gallery page
+  :doc:`../capability_gallery/cases/geographic_watershed_overview` republishes
+  stable figures generated from this workflow.
+
+Read the config in this order
+-----------------------------
+
+1. ``[geographic]``:
+   This section answers one question first: which basin are we extracting and
+   with how much context?
+2. ``[domain]``:
+   Read this next to see which support zones and depth model later workflows
+   would inherit.
+3. ``[data]``:
+   The ``types`` list tells you which thematic layers should exist in the
+   result.
+4. Source blocks such as ``[[data.geology.sources]]`` or
+   ``[[data.hydrometry.sources]]``:
+   These blocks tell you where each layer comes from and which query window is
+   used.
+
+Parameters to look at first
+---------------------------
+
+- ``catch_def``, ``x_outlet``, and ``y_outlet``:
+  these define the watershed anchor.
+- ``snap_dist``:
+  this controls how aggressively the outlet is snapped to the drainage network.
+- ``buff_area``:
+  this changes how much surrounding terrain remains visible.
+- ``zone_ids`` and ``depth_model``:
+  these define the support that a future mesh or solver would inherit.
+- ``data.types``:
+  this is the fastest switch for simplifying or expanding the workflow.
+- Date windows under hydrometry, intermittency, and oceanic data:
+  these change the observation horizon without changing the basin geometry.
+
+How to read the outputs
+-----------------------
+
+- Read the DEM-oriented figure first:
+  it tells you whether the basin sits in the expected regional terrain context.
+- Read the local overview second:
+  it tells you which basin-scale overlays are actually available.
+- If the basin extent looks wrong, fix the outlet and snapping settings before
+  editing any downstream modelling section.
+- If an expected overlay is missing, check ``data.types`` before assuming a
+  source-specific problem.
+
+First modifications to try
+--------------------------
+
+- Move ``x_outlet`` and ``y_outlet`` to a nearby catchment.
+- Change ``buff_area`` from ``20%`` to a larger or smaller context window.
+- Remove one entry from ``data.types`` to see the workflow slim down.
+- Tighten or widen the date ranges to understand which data layers are purely
+  spatial and which depend on a time window.
+
+Where to go next
+----------------
+
+- Open :doc:`../capability_gallery/cases/geographic_watershed_overview` to read
+  the stable documentation version of this case.
+- Continue with :doc:`simulation-walkthrough` once the basin framing and data
+  loading logic are clear.

@@ -95,7 +95,7 @@ def _plot_zone_map(ax, gdf):
         vmin=-0.5,
         vmax=float(len(unique_keys)) - 0.5,
     )
-    ax.set_title(f"Zones geologiques ({len(unique_keys)} classes)")
+    ax.set_title(f"Geology zones ({len(unique_keys)} classes)")
     ax.set_aspect("equal")
     format_axes_ticks_km(ax)
 

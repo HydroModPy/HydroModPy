@@ -15,7 +15,6 @@ step now solves the coupled nonlinear DAE residual with PETSc SNES.
 from __future__ import annotations
 
 from collections.abc import Callable
-import platform
 
 import numpy as np
 
@@ -159,6 +158,61 @@ def _split_state(state: np.ndarray, *, n_cells: int) -> tuple[np.ndarray, np.nda
     )
 
 
+def _initial_transient_q_ex_guess(
+    mesh: BoussinesqMesh,
+    *,
+    head_initial_guess_m: np.ndarray,
+    head_prev_m: np.ndarray,
+    dt_seconds: float,
+    recharge_rate_m_s: np.ndarray | float | None,
+    well_flux_m3_s: np.ndarray | float | None,
+    imposed_head_m_by_edge: np.ndarray | None,
+    drainage_conductance_m2_s: np.ndarray | float | None,
+    regularization_radius: float,
+) -> np.ndarray:
+    """Return a robust transient warm start for the algebraic overflow rate.
+
+    The mixed transient solve is especially sensitive during dry-down periods:
+    one regularized-partition warm start can keep many cells spuriously active
+    in ``q_ex`` even though the complementarity solution of the new period
+    drives ``q_ex`` back to zero everywhere. When no explicit positive source
+    acts on the system for the new period, we therefore start from the dry
+    state. Under active recharge or injection, we keep the historical
+    regularized-partition predictor so the solver still enters wetting/overflow
+    phases with a physically informed seed.
+    """
+    recharge = np.asarray(
+        recharge_rate_m_s if recharge_rate_m_s is not None else 0.0,
+        dtype=float,
+    ).reshape(-1)
+    well_flux = np.asarray(
+        well_flux_m3_s if well_flux_m3_s is not None else 0.0,
+        dtype=float,
+    ).reshape(-1)
+    has_positive_surface_loading = bool(np.any(recharge > 0.0)) or bool(
+        np.any(well_flux < 0.0)
+    )
+    if not has_positive_surface_loading:
+        return np.zeros(mesh.n_cells, dtype=float)
+    return np.maximum(
+        np.asarray(
+            assemble_transient_residual(
+                mesh,
+                head_m=head_initial_guess_m,
+                head_prev_m=head_prev_m,
+                dt_seconds=float(dt_seconds),
+                recharge_rate_m_s=recharge_rate_m_s,
+                well_flux_m3_s=well_flux_m3_s,
+                imposed_head_m_by_edge=imposed_head_m_by_edge,
+                drainage_conductance_m2_s=drainage_conductance_m2_s,
+                regularization_radius=float(regularization_radius),
+            ).saturation_excess_rate_m_s,
+            dtype=float,
+        ),
+        0.0,
+    )
+
+
 def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
     """Solve one implicit transient DAE step with PETSc SNES."""
     if float(inputs.dt_seconds) <= 0.0:
@@ -170,22 +224,16 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
         if inputs.head_initial_guess_m is None
         else np.asarray(inputs.head_initial_guess_m, dtype=float).copy()
     )
-    q_ex_initial = np.maximum(
-        np.asarray(
-            assemble_transient_residual(
-                inputs.mesh,
-                head_m=head_initial,
-                head_prev_m=head_prev,
-                dt_seconds=float(inputs.dt_seconds),
-                recharge_rate_m_s=inputs.recharge_rate_m_s,
-                well_flux_m3_s=inputs.well_flux_m3_s,
-                imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
-                drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-                regularization_radius=float(inputs.options.regularization_radius),
-            ).saturation_excess_rate_m_s,
-            dtype=float,
-        ),
-        0.0,
+    q_ex_initial = _initial_transient_q_ex_guess(
+        inputs.mesh,
+        head_initial_guess_m=head_initial,
+        head_prev_m=head_prev,
+        dt_seconds=float(inputs.dt_seconds),
+        recharge_rate_m_s=inputs.recharge_rate_m_s,
+        well_flux_m3_s=inputs.well_flux_m3_s,
+        imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+        drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
+        regularization_radius=float(inputs.options.regularization_radius),
     )
 
     def _assembly_for(head_m: np.ndarray, q_ex_rate_m_s: np.ndarray) -> BoussinesqAssembly:

@@ -9,6 +9,9 @@
     "Homogeneous strip, fixed west/east heads, uniform recharge",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "validate uniform recharge in a case still compatible with the current free-surface / convertible aquifer implementation,",
     "keep the geometry one-dimensional so that the comparison stays robust.",
@@ -24,6 +27,8 @@
     "\\frac{\\mathrm{d}}{\\mathrm{d}x}\\left(K\\,h\\,\\frac{\\mathrm{d}h}{\\mathrm{d}x}\\right)+R=0",
     "h(x)^2=h_w^2+\\left(h_e^2-h_w^2\\right)\\frac{\\xi}{L}+\\frac{R}{K}\\,\\xi\\left(L-\\xi\\right),\\quad \\xi=x-x_{\\min}"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.steady.dupuit_uniform_recharge_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -43,7 +48,7 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/README.md": "6ac185d60659f416b0ad2c685f7166ab04b9a22880f591a1b1d93d49b95349b4",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/reference.py": "43319f308d4fe6f48d436a4c50eff12d0e44e40b0b7af5e14b1852c2811905a3",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/comparison.py": "cf3da68a25b70ca0e3784f39ba009dfbb33202f8bf7742b9ff2521d6d483bcfa",

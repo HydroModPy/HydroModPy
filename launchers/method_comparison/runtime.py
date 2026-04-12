@@ -23,6 +23,11 @@ from launchers.method_comparison.config import (
     MethodComparisonVariantSchema,
 )
 
+try:
+    import rasterio
+except Exception:  # pragma: no cover - optional dependency in lightweight envs
+    rasterio = None
+
 
 @dataclass(frozen=True, slots=True)
 class TimeSlice:
@@ -72,6 +77,147 @@ class CellCentroidTable:
         if not np.isfinite(area) or area <= 0.0:
             return None
         return area
+
+
+def _candidate_solver_sections(solver_name: str | None = None) -> tuple[str, ...]:
+    sections: list[str] = []
+    if solver_name:
+        sections.append(str(solver_name).strip().lower())
+    sections.extend(("modflow6", "modflownwt"))
+    return tuple(dict.fromkeys(section for section in sections if section))
+
+
+def resolve_structured_shape_from_config(
+    config_path: Path,
+    *,
+    solver_name: str | None = None,
+) -> tuple[int, int] | None:
+    """Return `(nrow, ncol)` for one structured solver config when declared."""
+    try:
+        payload = load_toml_with_base_config(config_path)
+    except Exception:
+        return None
+
+    for section_name in _candidate_solver_sections(solver_name):
+        section = payload.get(section_name)
+        if not isinstance(section, Mapping):
+            continue
+        sgrid = section.get("sgrid")
+        if not isinstance(sgrid, Mapping):
+            continue
+        planar = sgrid.get("planar")
+        if not isinstance(planar, Mapping):
+            continue
+        try:
+            nx = int(planar["nx"])
+            ny = int(planar["ny"])
+        except Exception:
+            continue
+        if nx > 0 and ny > 0:
+            return (ny, nx)
+    return None
+
+
+def resolve_structured_shape_from_run_folder(run_folder: Path) -> tuple[int, int] | None:
+    """Return `(nrow, ncol)` from one solver grid template written in the run folder."""
+    if rasterio is None:
+        return None
+    raster_path = run_folder / "_solver_grid_template.tif"
+    if not raster_path.exists():
+        return None
+    try:
+        with rasterio.open(raster_path) as dataset:
+            nrow = int(dataset.height)
+            ncol = int(dataset.width)
+    except Exception:
+        return None
+    if nrow <= 0 or ncol <= 0:
+        return None
+    return (nrow, ncol)
+
+
+def _resolve_project_root_from_config(config_path: Path) -> Path | None:
+    try:
+        payload = load_toml_with_base_config(config_path)
+    except Exception:
+        return None
+    workspace = payload.get("workspace")
+    if not isinstance(workspace, Mapping):
+        return None
+    project_root = workspace.get("project_root")
+    if project_root in (None, ""):
+        return None
+    resolved = Path(str(project_root)).expanduser()
+    if not resolved.is_absolute():
+        resolved = config_path.parent / resolved
+    return resolved.resolve()
+
+
+def _candidate_structured_support_rasters(project_root: Path) -> tuple[Path, ...]:
+    geographic_dir = project_root / "results_stable" / "geographic"
+    return (
+        geographic_dir / "watershed_box_buff_dem.tif",
+        geographic_dir / "watershed_dem.tif",
+        geographic_dir / "watershed_box_buff_fill.tif",
+        geographic_dir / "watershed_fill.tif",
+        geographic_dir / "watershed.tif",
+    )
+
+
+def _structured_bounds_from_config(config_path: Path) -> tuple[float, float, float, float] | None:
+    if rasterio is None:
+        return None
+    project_root = _resolve_project_root_from_config(config_path)
+    if project_root is None:
+        return None
+    for raster_path in _candidate_structured_support_rasters(project_root):
+        if not raster_path.exists():
+            continue
+        try:
+            with rasterio.open(raster_path) as dataset:
+                bounds = dataset.bounds
+        except Exception:
+            continue
+        return (
+            float(bounds.left),
+            float(bounds.bottom),
+            float(bounds.right),
+            float(bounds.top),
+        )
+    return None
+
+
+def _structured_cells_from_config(
+    *,
+    config_path: Path,
+    solver_name: str | None = None,
+    expected_size: int | None = None,
+) -> CellCentroidTable | None:
+    shape = resolve_structured_shape_from_config(config_path, solver_name=solver_name)
+    if shape is None:
+        return None
+    nrow, ncol = shape
+    n_cells = int(nrow) * int(ncol)
+    if expected_size is not None and n_cells != int(expected_size):
+        return None
+    bounds = _structured_bounds_from_config(config_path)
+    if bounds is None:
+        return None
+    xmin, ymin, xmax, ymax = bounds
+    dx = (xmax - xmin) / float(ncol)
+    dy = (ymax - ymin) / float(nrow)
+    if dx <= 0.0 or dy <= 0.0:
+        return None
+    x_values = xmin + (np.arange(ncol, dtype=float) + 0.5) * dx
+    y_values = ymax - (np.arange(nrow, dtype=float) + 0.5) * dy
+    grid_x, grid_y = np.meshgrid(x_values, y_values)
+    area_m2 = np.full(n_cells, float(dx) * float(dy), dtype=float)
+    return CellCentroidTable(
+        cell_ids=np.arange(n_cells, dtype=int),
+        x=grid_x.reshape(-1),
+        y=grid_y.reshape(-1),
+        area_m2=area_m2,
+    )
 
 
 def _toml_scalar(value: Any) -> str:
@@ -231,6 +377,32 @@ def read_json_file(path: Path) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
+def _resolve_recorded_output_path(
+    raw_path: Any,
+    *,
+    base_dir: Path,
+) -> Path | None:
+    """Resolve one recorded output path, including WSL `/mnt/<drive>/...` forms."""
+    if raw_path in (None, ""):
+        return None
+    text = str(raw_path).strip()
+    if not text:
+        return None
+
+    normalized = text
+    if len(text) > 7 and text.startswith("/mnt/") and text[5].isalpha() and text[6] == "/":
+        drive = text[5].upper()
+        tail = text[7:].replace("/", "\\")
+        normalized = f"{drive}:\\{tail}"
+
+    path = Path(normalized).expanduser()
+    if not path.is_absolute():
+        path = (base_dir / path).resolve()
+    else:
+        path = path.resolve()
+    return path
+
+
 def compact_run_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
     """Keep only comparison-relevant scalar/list metrics in manifests."""
     keys = (
@@ -281,9 +453,9 @@ def read_variant_run_metadata(run_folder: Path) -> dict[str, Any]:
         or boussinesq_summary.get("bundle_dir")
     )
     if bundle_dir_raw:
-        bundle_dir = Path(str(bundle_dir_raw)).expanduser()
-        if not bundle_dir.is_absolute():
-            bundle_dir = (run_folder / bundle_dir).resolve()
+        bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=run_folder)
+        if bundle_dir is None:
+            return payload
         bundle_metadata = read_json_file(bundle_dir / "metadata.json")
         if bundle_metadata:
             payload["mesh_bundle_metadata"] = {
@@ -307,49 +479,58 @@ def read_variant_run_metadata(run_folder: Path) -> dict[str, Any]:
     return payload
 
 
-def resolve_bundle_cells(run_folder: Path) -> CellCentroidTable | None:
-    """Load mesh cell centroids from the run metrics exchange bundle, if available."""
+def resolve_bundle_cells(
+    run_folder: Path,
+    *,
+    config_path: Path | None = None,
+    expected_size: int | None = None,
+    solver_name: str | None = None,
+) -> CellCentroidTable | None:
+    """Load cell centroids from an exchange bundle or structured-grid support."""
     metrics = read_json_file(run_folder / "_metrics.json")
     bundle_dir_raw = metrics.get("mesh_output_exchange_bundle_dir")
     if not bundle_dir_raw:
         boussinesq_summary = read_json_file(run_folder / "_boussinesq_summary.json")
         bundle_dir_raw = boussinesq_summary.get("bundle_dir")
-    if not bundle_dir_raw:
-        return None
+    if bundle_dir_raw:
+        bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=run_folder)
+        cells_path = None if bundle_dir is None else (bundle_dir / "cells.csv")
+        if cells_path is not None and cells_path.exists():
+            cell_ids: list[int] = []
+            xs: list[float] = []
+            ys: list[float] = []
+            areas: list[float] = []
+            with cells_path.open("r", encoding="utf-8", newline="") as handle:
+                reader = csv.DictReader(handle)
+                for row in reader:
+                    try:
+                        cell_ids.append(int(row["cell_id"]))
+                        xs.append(float(row["centroid_x"]))
+                        ys.append(float(row["centroid_y"]))
+                        area_value = row.get("area_m2")
+                        areas.append(
+                            float(area_value) if area_value not in (None, "") else math.nan
+                        )
+                    except Exception:
+                        continue
 
-    bundle_dir = Path(str(bundle_dir_raw)).expanduser()
-    if not bundle_dir.is_absolute():
-        bundle_dir = (run_folder / bundle_dir).resolve()
-    cells_path = bundle_dir / "cells.csv"
-    if not cells_path.exists():
-        return None
+            if cell_ids:
+                area_array = np.asarray(areas, dtype=float)
+                if area_array.size != len(cell_ids) or not np.any(np.isfinite(area_array)):
+                    area_array = None
+                return CellCentroidTable(
+                    cell_ids=np.asarray(cell_ids, dtype=int),
+                    x=np.asarray(xs, dtype=float),
+                    y=np.asarray(ys, dtype=float),
+                    area_m2=area_array,
+                )
 
-    cell_ids: list[int] = []
-    xs: list[float] = []
-    ys: list[float] = []
-    areas: list[float] = []
-    with cells_path.open("r", encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle)
-        for row in reader:
-            try:
-                cell_ids.append(int(row["cell_id"]))
-                xs.append(float(row["centroid_x"]))
-                ys.append(float(row["centroid_y"]))
-                area_value = row.get("area_m2")
-                areas.append(float(area_value) if area_value not in (None, "") else math.nan)
-            except Exception:
-                continue
-
-    if not cell_ids:
+    if config_path is None:
         return None
-    area_array = np.asarray(areas, dtype=float)
-    if area_array.size != len(cell_ids) or not np.any(np.isfinite(area_array)):
-        area_array = None
-    return CellCentroidTable(
-        cell_ids=np.asarray(cell_ids, dtype=int),
-        x=np.asarray(xs, dtype=float),
-        y=np.asarray(ys, dtype=float),
-        area_m2=area_array,
+    return _structured_cells_from_config(
+        config_path=config_path,
+        solver_name=solver_name,
+        expected_size=expected_size,
     )
 
 
@@ -425,6 +606,79 @@ def _convert_accumulation_rate_to_m3_s(
 ) -> float:
     """Convert one accumulation depth-rate to a volumetric cell outflow."""
     return (float(value_m_per_day) * float(cell_area_m2)) / 86400.0
+
+
+_NODATA_SENTINELS = (-9999.0, -99999.0, -999999.0)
+
+
+def is_nodata_value(value: Any) -> bool:
+    """Return True for common HydroModPy numeric sentinel values."""
+    try:
+        parsed = float(value)
+    except Exception:
+        return False
+    if not math.isfinite(parsed):
+        return True
+    return any(
+        math.isclose(parsed, sentinel, rel_tol=0.0, abs_tol=1.0e-6)
+        for sentinel in _NODATA_SENTINELS
+    )
+
+
+def normalize_observable_value(
+    *,
+    observable: MethodComparisonObservableSchema,
+    series: VariableSeries,
+    value: float,
+    details: Mapping[str, Any],
+    cells: CellCentroidTable | None,
+) -> dict[str, Any]:
+    """Normalize one selected observable value and its output metadata."""
+    native_unit = _native_unit_for_variable(series.variable_name)
+    output_value = float(value)
+    derived_from_variable = series.variable_name
+    conversion_applied = ""
+    cell_area_m2: float | str = ""
+
+    if _is_canonical_outlet_flux(observable.variable):
+        native_unit = "m3/s"
+        if series.variable_name == "accumulation_flux":
+            selected_cell_raw = details.get("selected_cell_index")
+            if selected_cell_raw in ("", None):
+                raise ValueError(
+                    f"Observable '{observable.name}' cannot derive "
+                    "canonical outlet_flux from accumulation_flux "
+                    "without an explicit outlet cell selection."
+                )
+            if cells is None:
+                raise ValueError(
+                    f"Observable '{observable.name}' cannot derive "
+                    "canonical outlet_flux without mesh bundle areas."
+                )
+            area_m2 = cells.area_for_cell_id(int(selected_cell_raw))
+            if area_m2 is None:
+                raise ValueError(
+                    f"Observable '{observable.name}' cannot derive "
+                    f"canonical outlet_flux because area_m2 is missing "
+                    f"for cell {selected_cell_raw}."
+                )
+            output_value = _convert_accumulation_rate_to_m3_s(
+                value_m_per_day=output_value,
+                cell_area_m2=area_m2,
+            )
+            conversion_applied = "accumulation_flux_m_per_day_to_m3_s"
+            cell_area_m2 = area_m2
+        elif native_unit == "":
+            native_unit = "m3/s"
+
+    return {
+        "value": output_value,
+        "unit": observable.unit or native_unit,
+        "native_unit": native_unit,
+        "derived_from_variable": derived_from_variable,
+        "conversion_applied": conversion_applied,
+        "cell_area_m2": cell_area_m2,
+    }
 
 
 def _sort_time_key(key: Any) -> tuple[int, float | str]:
@@ -630,6 +884,56 @@ def load_variable_series(
     )
 
 
+def mask_depth_series_from_head_nodata(
+    *,
+    run_folder: Path,
+    series: VariableSeries,
+) -> VariableSeries:
+    """Mask `watertable_depth` where the companion head series carries nodata."""
+    if series.variable_name.strip().lower() != "watertable_depth":
+        return series
+
+    try:
+        head_series = load_variable_series(
+            run_folder=run_folder,
+            variable="watertable_elevation",
+        )
+    except Exception:
+        return series
+
+    if len(head_series.slices) != len(series.slices):
+        return series
+
+    masked_slices: list[TimeSlice] = []
+    for depth_slice, head_slice in zip(series.slices, head_series.slices, strict=False):
+        depth_values = np.asarray(depth_slice.values, dtype=float).ravel().copy()
+        head_values = np.asarray(head_slice.values, dtype=float).ravel()
+        if depth_values.size != head_values.size:
+            return series
+        nodata_mask = np.asarray(
+            [is_nodata_value(value) for value in head_values],
+            dtype=bool,
+        )
+        if nodata_mask.size == depth_values.size and np.any(nodata_mask):
+            depth_values[nodata_mask] = np.nan
+        masked_slices.append(
+            TimeSlice(
+                time_key=depth_slice.time_key,
+                time_index=depth_slice.time_index,
+                values=depth_values,
+                elapsed_seconds=depth_slice.elapsed_seconds,
+                is_initial_state=depth_slice.is_initial_state,
+            )
+        )
+
+    return VariableSeries(
+        variable_name=series.variable_name,
+        source_path=series.source_path,
+        slices=tuple(masked_slices),
+        cell_ids=series.cell_ids,
+    )
+
+
 def _select_time_slices(
     series: VariableSeries,
     observable: MethodComparisonObservableSchema,
@@ -674,9 +978,20 @@ def _select_time_slices(
     )
 
 
+def select_time_slices(
+    series: VariableSeries,
+    observable: MethodComparisonObservableSchema,
+) -> tuple[TimeSlice, ...]:
+    """Public wrapper exposing observable time selection for reuse."""
+    return _select_time_slices(series, observable)
+
+
 def _reduce(values: Any, *, reducer: str | None, label: str) -> tuple[float, ...]:
     """Reduce one numeric sequence."""
     arr = np.asarray(values, dtype=float).ravel()
+    if arr.size > 0:
+        for sentinel in _NODATA_SENTINELS:
+            arr[np.isclose(arr, sentinel, rtol=0.0, atol=1.0e-6)] = np.nan
     if arr.size == 0:
         raise ValueError(f"{label} cannot be empty")
     reducer_key = "identity" if reducer is None else str(reducer).strip().lower()
@@ -833,18 +1148,67 @@ def _time_match_key(time_slice: TimeSlice) -> str:
     return f"time_index:{time_slice.time_index}"
 
 
+def _fallback_time_key(
+    *,
+    observable: MethodComparisonObservableSchema,
+    time_slice: TimeSlice,
+    selection_time_order: int,
+    non_initial_time_order: int | None,
+) -> str:
+    """Return a semantic fallback key used when raw time keys differ across variants."""
+    reducer_key = str(observable.time_reducer or "").strip().lower()
+    if reducer_key:
+        return f"time_reducer:{reducer_key}"
+
+    selector_key = str(observable.time or "all").strip().lower()
+    if selector_key in {"last", "first"}:
+        return f"time_selector:{selector_key}"
+
+    if observable.time_window is not None:
+        if time_slice.is_initial_state:
+            return "initial_state"
+        if non_initial_time_order is not None:
+            return f"time_window_non_initial_order:{non_initial_time_order}"
+        return f"time_window_selection_order:{selection_time_order}"
+
+    if selector_key in {"", "all"}:
+        if time_slice.is_initial_state:
+            return "initial_state"
+        if non_initial_time_order is not None:
+            return f"non_initial_order:{non_initial_time_order}"
+        return f"selection_order:{selection_time_order}"
+
+    return f"requested_time:{selector_key}"
+
+
 def extract_observable_rows(
     *,
     comparison_id: str,
     variant: MethodComparisonVariantSchema,
     run_folder: Path,
     observables: tuple[MethodComparisonObservableSchema, ...],
+    config_path: Path | None = None,
 ) -> list[dict[str, Any]]:
     """Extract all observable rows for one completed/reused variant."""
     rows: list[dict[str, Any]] = []
-    cells = resolve_bundle_cells(run_folder)
+    cells: CellCentroidTable | None = None
     for observable in observables:
         series = load_variable_series(run_folder=run_folder, variable=observable.variable)
+        series = mask_depth_series_from_head_nodata(run_folder=run_folder, series=series)
+        if cells is None:
+            first_slice_size = (
+                int(series.slices[0].values.size) if series.slices else None
+            )
+            cells = resolve_bundle_cells(
+                run_folder,
+                config_path=config_path,
+                expected_size=(
+                    None
+                    if first_slice_size is None or first_slice_size <= 1
+                    else first_slice_size
+                ),
+                solver_name=variant.solver,
+            )
         selected_slices = _select_time_slices(series, observable)
 
         per_time_values: list[tuple[TimeSlice, tuple[float, ...], dict[str, Any]]] = []
@@ -885,46 +1249,29 @@ def extract_observable_rows(
                 (reduced_slice, reduced_values, reduced_details)
             ]
 
-        for time_slice, values, details in per_time_values:
+        non_initial_counter = 0
+        for selection_time_order, (time_slice, values, details) in enumerate(per_time_values):
+            non_initial_time_order: int | None
+            if time_slice.is_initial_state:
+                non_initial_time_order = None
+            else:
+                non_initial_time_order = non_initial_counter
+                non_initial_counter += 1
+            fallback_time_key = _fallback_time_key(
+                observable=observable,
+                time_slice=time_slice,
+                selection_time_order=selection_time_order,
+                non_initial_time_order=non_initial_time_order,
+            )
             for value_index, value in enumerate(values):
-                native_unit = _native_unit_for_variable(series.variable_name)
-                output_value = float(value)
-                derived_from_variable = series.variable_name
-                conversion_applied = ""
-                cell_area_m2 = ""
-
-                if _is_canonical_outlet_flux(observable.variable):
-                    native_unit = "m3/s"
-                    if series.variable_name == "accumulation_flux":
-                        selected_cell_raw = details.get("selected_cell_index")
-                        if selected_cell_raw in ("", None):
-                            raise ValueError(
-                                f"Observable '{observable.name}' cannot derive "
-                                "canonical outlet_flux from accumulation_flux "
-                                "without an explicit outlet cell selection."
-                            )
-                        if cells is None:
-                            raise ValueError(
-                                f"Observable '{observable.name}' cannot derive "
-                                "canonical outlet_flux without mesh bundle areas."
-                            )
-                        area_m2 = cells.area_for_cell_id(int(selected_cell_raw))
-                        if area_m2 is None:
-                            raise ValueError(
-                                f"Observable '{observable.name}' cannot derive "
-                                f"canonical outlet_flux because area_m2 is missing "
-                                f"for cell {selected_cell_raw}."
-                            )
-                        output_value = _convert_accumulation_rate_to_m3_s(
-                            value_m_per_day=output_value,
-                            cell_area_m2=area_m2,
-                        )
-                        conversion_applied = "accumulation_flux_m_per_day_to_m3_s"
-                        cell_area_m2 = area_m2
-                    elif native_unit == "":
-                        native_unit = "m3/s"
-
-                output_unit = observable.unit or native_unit
+                normalized = normalize_observable_value(
+                    observable=observable,
+                    series=series,
+                    value=float(value),
+                    details=details,
+                    cells=cells,
+                )
+                is_nodata = is_nodata_value(normalized["value"])
                 rows.append(
                     {
                         "comparison_id": comparison_id,
@@ -944,16 +1291,34 @@ def extract_observable_rows(
                             if time_slice.elapsed_seconds is None
                             else float(time_slice.elapsed_seconds)
                         ),
+                        "requested_time": (
+                            "all"
+                            if observable.time is None
+                            else str(observable.time)
+                        ),
+                        "requested_time_reducer": (
+                            ""
+                            if observable.time_reducer is None
+                            else str(observable.time_reducer)
+                        ),
+                        "selection_time_order": selection_time_order,
+                        "non_initial_time_order": (
+                            ""
+                            if non_initial_time_order is None
+                            else non_initial_time_order
+                        ),
                         "is_initial_state": bool(time_slice.is_initial_state),
                         "comparison_time_key": _time_match_key(time_slice),
+                        "match_fallback_key": fallback_time_key,
                         "value_index": value_index,
-                        "value": output_value,
-                        "unit": output_unit,
+                        "value": normalized["value"],
+                        "is_nodata": is_nodata,
+                        "unit": normalized["unit"],
                         "configured_unit": observable.unit or "",
-                        "native_unit": native_unit,
-                        "derived_from_variable": derived_from_variable,
-                        "conversion_applied": conversion_applied,
-                        "cell_area_m2": cell_area_m2,
+                        "native_unit": normalized["native_unit"],
+                        "derived_from_variable": normalized["derived_from_variable"],
+                        "conversion_applied": normalized["conversion_applied"],
+                        "cell_area_m2": normalized["cell_area_m2"],
                         "source_path": str(series.source_path),
                         "run_folder": str(run_folder),
                         "selection": str(details.get("selection", "")),
@@ -985,10 +1350,16 @@ def write_observables_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "time",
         "time_index",
         "elapsed_seconds",
+        "requested_time",
+        "requested_time_reducer",
+        "selection_time_order",
+        "non_initial_time_order",
         "is_initial_state",
         "comparison_time_key",
+        "match_fallback_key",
         "value_index",
         "value",
+        "is_nodata",
         "unit",
         "configured_unit",
         "native_unit",
@@ -1017,10 +1388,16 @@ __all__ = (
     "extract_observable_rows",
     "load_variable_series",
     "materialize_variant_config",
+    "mask_depth_series_from_head_nodata",
     "compact_run_metrics",
     "read_json_file",
     "read_variant_run_metadata",
+    "is_nodata_value",
+    "normalize_observable_value",
     "resolve_bundle_cells",
+    "resolve_structured_shape_from_config",
+    "resolve_structured_shape_from_run_folder",
+    "select_time_slices",
     "write_observables_csv",
     "write_toml_payload",
 )

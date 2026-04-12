@@ -7,8 +7,8 @@ derivation. Its role is more practical:
 
 - define the unknowns and the sign conventions used by the code,
 - show how the finite-volume residual is assembled,
-- explain the additional regularized source terms currently present in the
-  implementation,
+- explain the groundwater/surface interaction closures currently present in
+  the implementation,
 - connect the equations to the main Python modules.
 
 The intended audience is a developer or modeller who wants to understand what
@@ -146,8 +146,8 @@ current mesh usage, imposed-head support is mainly used on boundary edges, but
 the implementation is slightly more general and can also account for an edge
 with two owner cells.
 
-Recharge, Wells, Drainage And Saturation Excess
------------------------------------------------
+Recharge, Wells, Drainage And Surface Interaction
+-------------------------------------------------
 
 Recharge
 ^^^^^^^^
@@ -185,8 +185,8 @@ the cell top elevation:
 This term is always treated as an outflow from the aquifer and therefore
 enters the residual with a positive sign.
 
-Regularized Saturation Excess
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Regularized Saturation Excess Closure
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The current backend includes a regularized saturation-excess source term. Its
 goal is pragmatic: avoid a sharp on/off overflow law exactly at full saturation
@@ -225,11 +225,34 @@ and then applies the regularization
 where :math:`\varepsilon > 0` is the regularization radius.
 
 This term is not meant to be a final physically complete overland-flow model.
-It is a smooth release mechanism used by the current backend close to full
-saturation.
+It is a smooth release mechanism used by the head-only formulation close to
+full saturation.
 
-Steady Residual
----------------
+Mixed Complementarity Surface Closure
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The PETSc mixed formulation uses a different surface interaction model. It
+introduces one explicit cellwise surface-excess unknown
+:math:`q_i^{\text{ex}} \ge 0` and replaces the regularized law by the
+complementarity condition
+
+.. math::
+
+   0 \le q_i^{\text{ex}} \perp z_i^{\text{top}} - h_i \ge 0
+
+which reads:
+
+- if :math:`h_i < z_i^{\text{top}}`, then :math:`q_i^{\text{ex}} = 0`,
+- if :math:`q_i^{\text{ex}} > 0`, then :math:`h_i = z_i^{\text{top}}`.
+
+The implementation enforces this relation with a Fischer-Burmeister residual
+on scaled variables in ``petsc_runtime.py``. In that formulation the surface
+flux is not prescribed by a local partition law; it is solved together with
+the head field so that the finite-volume balance and the unilateral surface
+constraint are satisfied simultaneously.
+
+Head-Only Steady Residual
+-------------------------
 
 The steady residual assembled by the code is
 
@@ -256,8 +279,8 @@ The steady solve therefore searches for
    R_i^{\text{steady}}(h) = 0
    \qquad \text{for all cells } i
 
-Transient Residual
-------------------
+Head-Only Transient Residual
+----------------------------
 
 For one fully implicit backward-Euler time step from :math:`t^n` to
 :math:`t^{n+1}`, the additional storage term is
@@ -295,6 +318,9 @@ The backend solves
    R_i^{\text{transient}}(h^{n+1}) = 0
    \qquad \text{for all cells } i
 
+This is the transient residual solved by the ``local``, ``scipy``,
+``scipy_sparse`` and PETSc regularized-partition runtimes.
+
 Nonlinear Solution Strategy
 ---------------------------
 
@@ -311,7 +337,7 @@ The local runtime uses a dense damped Newton loop:
 #. stop when the infinity norm of the residual is below tolerance.
 
 This strategy is transparent and easy to debug, which is why it is useful in
-an early implementation slice.
+small validation slices, but it is not the preferred path for larger meshes.
 
 SciPy Runtime
 ^^^^^^^^^^^^^
@@ -320,6 +346,36 @@ The SciPy runtime keeps the same residual and the same finite-difference
 Jacobian, but delegates the nonlinear solve to ``scipy.optimize.root``. The
 important point is that the physics does not change; only the nonlinear driver
 changes.
+
+SciPy Sparse Runtime
+^^^^^^^^^^^^^^^^^^^^
+
+The SciPy sparse runtime still solves the head-only regularized-partition
+residual, but it changes the linear algebra and Jacobian assembly strategy:
+
+#. smooth residual terms are differentiated analytically,
+#. the remaining nonlinear saturation terms are completed by sparse
+   finite-difference corrections,
+#. the Newton step is solved with SciPy sparse matrices and ``spsolve``.
+
+This is the current non-PETSc reference path for larger Boussinesq meshes on
+all platforms.
+
+PETSc Regularized-Partition Runtime
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Linux-only PETSc regularized-partition backend keeps the same head-only
+residual as above,
+
+.. math::
+
+   R_i^{\text{steady}}(h) = 0
+   \qquad \text{or} \qquad
+   R_i^{\text{transient}}(h^{n+1}) = 0,
+
+but solves it with PETSc SNES on a sparse Jacobian assembled from the same
+semi-analytic ingredients as the SciPy sparse runtime. This path is the PETSc
+counterpart of the historical head-only overflow regularization.
 
 PETSc Mixed Complementarity Runtime
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -343,6 +399,27 @@ regularized overflow term is replaced by the explicit unknown
 The implementation encodes this complementarity through a
 Fischer-Burmeister residual on scaled variables and lets PETSc SNES solve the
 full mixed nonlinear system.
+
+In transient mode the current implementation uses a hybrid warm start for
+:math:`q^{\text{ex}}`:
+
+- under explicit positive loading (for example recharge or injection), the
+  initial guess is taken from the historical regularized-partition predictor,
+- during dry-down periods without positive loading, the initial guess is the
+  dry state :math:`q^{\text{ex}} = 0`.
+
+That choice is numerical rather than physical. It improves robustness when
+overflow turns off after a wet period without changing the converged zero set
+of the mixed complementarity system.
+
+On the committed ``headwater_100km2_outlet_2`` real-basin cycling case, this
+mixed closure also captures repeated activation/deactivation windows of the
+surface threshold, whereas the regularized-partition closures keep one
+low-amplitude seepage set active through the whole sequence under the same
+forcing. That difference is one practical reason to keep both surface
+interaction models explicit in the documentation. Complementarity diagnostics
+in the runtime summary are evaluated on accepted solver snapshots, excluding
+the raw transient initial condition.
 
 Mapping Between Equations And Code
 ----------------------------------
@@ -369,26 +446,47 @@ Mapping Between Equations And Code
      - ``assemble_steady_residual()``
    * - :math:`R_i^{\text{transient}}`
      - ``assemble_transient_residual()``
+   * - :math:`R_i^{\text{flow}}(h, q^{\text{ex}})`
+     - ``assemble_steady_residual_with_saturation_excess()`` /
+       ``assemble_transient_residual_with_saturation_excess()``
+   * - Fischer-Burmeister complementarity residual
+     - ``_fischer_burmeister_residual_and_derivatives()`` in ``petsc_runtime.py``
    * - runtime solve
-     - ``local_runtime.py`` / ``scipy_runtime.py`` / ``scipy_sparse_runtime.py`` / ``petsc_runtime.py``
+     - ``local_runtime.py`` / ``scipy_runtime.py`` /
+       ``scipy_sparse_runtime.py`` / ``petsc_partition_runtime.py`` /
+       ``petsc_runtime.py``
    * - problem orchestration
      - ``boussinesq.py``
 
 Interpretation And Current Limits
 ---------------------------------
 
-The current backend is best viewed as a clear and auditable first
-finite-volume Boussinesq implementation, not yet as the final production
-solver. In particular:
+The current backend is still best viewed as a finite-volume Boussinesq solver
+under active validation rather than as a finished production groundwater
+platform. The important point, however, is that the implementation is no
+longer limited to one dense prototype path.
 
-- the Jacobian is still dense,
-- the overflow-related term is regularized rather than derived from a full
-  coupled surface-flow model,
-- the current slice focuses on small validation meshes and controlled test
-  cases.
+Today:
 
-That is acceptable at this stage because the code is optimized for
-interpretability, validation, and iterative refinement of the physics.
+- dense prototype runtimes still exist (``local`` and ``scipy``),
+- a cross-platform sparse Newton path exists in ``scipy_sparse``,
+- two Linux/PETSc sparse paths exist:
+
+  - head-only regularized partition,
+  - mixed complementarity with explicit :math:`q^{\text{ex}}`,
+
+- committed real unstructured meshes are now exercised in addition to the
+  small analytical and numerical validation strips.
+
+The main current limits are elsewhere:
+
+- the regularized-partition closure is still a pragmatic groundwater/surface
+  release law, not a full coupled overland-flow model,
+- the PETSc runtimes currently run on ``PETSc.COMM_SELF`` rather than a
+  distributed MPI decomposition,
+- the mixed complementarity path is validated on targeted overflow and real
+  cases, but its benchmark envelope is still smaller than that of the
+  head-only regularized-partition path.
 
 Original LaTeX Source
 ---------------------

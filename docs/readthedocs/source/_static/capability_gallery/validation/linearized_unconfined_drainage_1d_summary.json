@@ -9,6 +9,9 @@
     "Homogeneous strip, fixed west/east heads, distributed top drainage everywhere, flat drainage level",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "validate the `drainage` boundary-condition path with an analytical benchmark,",
     "keep drainage active everywhere so the reference stays closed-form,",
@@ -25,6 +28,8 @@
     "T_0\\,\\frac{\\mathrm{d}^2u}{\\mathrm{d}x^2}-\\lambda_d\\,u=0,\\qquad u=h-z_d,\\qquad \\lambda_d=\\frac{C_d}{A}",
     "u(x)=u_w\\frac{\\sinh\\left(\\beta(L-x)\\right)}{\\sinh\\left(\\beta L\\right)}+u_e\\frac{\\sinh\\left(\\beta x\\right)}{\\sinh\\left(\\beta L\\right)},\\qquad \\beta=\\sqrt{\\frac{\\lambda_d}{T_0}}"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.steady.linearized_unconfined_drainage_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -42,7 +47,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/README.md": "e68111bc871dc4ea01c720b68182ce7a562b290164572db6f235d855cf450d09",
     "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/reference.py": "e8e33ca2c545632f5768410853fd582d3588cdacf5ae1e473dc517128d9e417c",
     "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/comparison.py": "69cec8a628f8e9123f7a772884a51561b1aa4934577991d790de3edd1764579c",

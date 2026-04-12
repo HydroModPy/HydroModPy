@@ -32,6 +32,7 @@ Useful forcing controls:
 
 - `--forcing-preset strong` triggers overflow earlier and more strongly over a `40 day` run,
 - `--forcing-preset extreme` pushes the case further with lower downstream head over a `40 day` run,
+- `--forcing-preset alternating` builds repeated on/off overflow windows on a `20 day` run,
 - `--forcing-scale <factor>` multiplies the recharge chronicle,
 - `--east-head <m>` and `--initial-head <m>` let you tune the hydraulic support.
 
@@ -42,6 +43,7 @@ python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pul
 python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_case --solver petsc_partition --compare-solver petsc --show
 python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_case --solver petsc_partition --compare-solver scipy_sparse --snapshot-days 0 12 24 36 40 --no-show
 python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_case --solver petsc_partition --forcing-preset strong --gif --show
+python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_case --solver petsc --forcing-preset alternating --show
 python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_case --solver petsc_partition --forcing-preset strong --mp4 --frame-step 1 --video-fps 12 --show
 python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_case --solver petsc_partition --forcing-preset strong --output-root /mnt/c/Users/dreuzy/Documents/HydroModPyOutputs --show
 ```
@@ -53,6 +55,7 @@ Useful options:
 - `--snapshot-days ...` forces the profile snapshots,
 - `--max-snapshots N` limits the top-panel clutter,
 - `--overflow-threshold-mm-day X` changes the footprint activation threshold,
+- the runtime summary now records activation-window counts and state transitions for repeated overflow on/off sequences,
 - `--output-root /mnt/c/...` writes the validation workspace directly to a Windows-visible folder from WSL,
 - `--gif` exports an animated GIF,
 - `--mp4` exports an MP4 video in the same output directory,

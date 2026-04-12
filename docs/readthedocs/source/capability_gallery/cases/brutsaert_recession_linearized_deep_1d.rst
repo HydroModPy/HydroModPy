@@ -47,11 +47,12 @@ Solver Coverage
 
       **Metrics**
       - Solution: exponential
-      - Initial discharge: 5.827691e-06 m3/s
+      - Initial discharge: 2.707439e-04 m3/s
       - Characteristic time: 15.01 d
-      - Relative RMSE: 0.1428
-      - Relative max abs error: 0.3899
-      - Cross-row head spread: 1.80e-06 m
+      - Relative RMSE: 0.7527
+      - Relative max abs error: 0.8255
+      - Cross-row head spread: 4.97e-05 m
+      - MODFLOW-NWT rate budget max abs discrepancy: 200.00% (first bad stress period: 2)
 
       - Config file: ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml``
       - Tolerances: ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflownwt.toml``

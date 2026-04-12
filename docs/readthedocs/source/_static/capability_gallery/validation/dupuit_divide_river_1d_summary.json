@@ -9,6 +9,9 @@
     "Homogeneous strip, west divide, east fixed head, uniform recharge",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "validate one explicit no-flow side boundary through a simple 1D benchmark,",
     "keep a clear analytical reference while extending beyond the two-head case.",
@@ -24,6 +27,8 @@
     "\\frac{\\mathrm{d}}{\\mathrm{d}x}\\left(K\\,h\\,\\frac{\\mathrm{d}h}{\\mathrm{d}x}\\right)+R=0,\\qquad \\frac{\\mathrm{d}h}{\\mathrm{d}x}(0)=0,\\qquad h(L)=h_r",
     "h(x)^2=h_r^2+\\frac{R}{K}\\left(L^2-x^2\\right)"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.steady.dupuit_divide_river_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -43,7 +48,7 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/README.md": "8066495c06a2262c0a2ee4335527aaffe471d92a568369d534cc9afeb1f1c45b",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/reference.py": "cc3de5e75e4e9acc0e2b44334060f0479005d405baf309cc6456de80e8e28bce",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/comparison.py": "4d82ce79b6db3b18437a76f489520da50576ceed0a74b9002c482c2db87a2419",

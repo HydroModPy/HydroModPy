@@ -74,6 +74,17 @@ recharge_mm_day = [
   0.0, 0.0, 0.0, 0.0, 0.0,
 ]
 
+[forcing_presets.alternating]
+dt_days = 1.0
+east_head_m = 3.5
+initial_head_m = 3.7
+recharge_mm_day = [
+  0.0, 60.0, 0.0, 60.0, 0.0,
+  60.0, 0.0, 60.0, 0.0, 60.0,
+  0.0, 60.0, 0.0, 60.0, 0.0,
+  60.0, 0.0, 0.0, 0.0, 0.0,
+]
+
 [solver_overrides.petsc]
 runtime_max_iterations = 60
 runtime_tol_residual_inf = 1e-8

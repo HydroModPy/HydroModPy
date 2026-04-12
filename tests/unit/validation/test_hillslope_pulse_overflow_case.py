@@ -221,3 +221,22 @@ def test_real_strong_and_extreme_presets_cover_40_days() -> None:
         )
         total_days = float(time_cfg["dt_days"]) * len(forcing_cfg["recharge_mm_day"])
         assert total_days == pytest.approx(40.0)
+
+
+def test_real_alternating_preset_covers_20_days() -> None:
+    metadata = load_case_metadata(CASE_DIR)
+
+    _, time_cfg, forcing_cfg, _, _ = _resolve_case_settings(
+        metadata,
+        variant=resolve_solver_variant("petsc"),
+        forcing_preset="alternating",
+        forcing_scale=1.0,
+        east_head_m=None,
+        initial_head_m=None,
+        dt_days=None,
+        runtime_max_iterations=None,
+        runtime_tol_residual_inf=None,
+    )
+
+    total_days = float(time_cfg["dt_days"]) * len(forcing_cfg["recharge_mm_day"])
+    assert total_days == pytest.approx(20.0)
