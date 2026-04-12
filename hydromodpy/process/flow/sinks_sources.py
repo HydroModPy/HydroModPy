@@ -517,8 +517,13 @@ class FlowRechargeConfig(BaseModel):
         ),
     )
     units: Annotated[str, ParamLevel("dev")] = Field(
-        default="m/s",
-        description="Units of recharge values before runtime normalization to m/s.",
+        default="mm/day",
+        description=(
+            "Units of the recharge data source. Data-manager outputs use "
+            "mm/day by convention; override when providing values in another "
+            "unit (e.g. 'm/day'). Converted to m/s at runtime via "
+            "factor_to_m_per_s()."
+        ),
     )
     negative_to_evt: Annotated[bool, ParamLevel("dev")] = Field(
         default=True,

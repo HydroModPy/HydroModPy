@@ -68,7 +68,7 @@ def apply_recharge_load_result_to_flow(
         return False
 
     from hydromodpy.process.forcing.forcing_bridge import resolve_forcing
-    from hydromodpy.process.forcing.forcing_bridge import _MM_PER_DAY_TO_M_PER_S
+    from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
 
     sinks_sources = getattr(flow, "sinks_sources", {})
     recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, dict) else None
@@ -83,9 +83,14 @@ def apply_recharge_load_result_to_flow(
         spatial_mode = getattr(recharge_cfg, "spatial_mode", "auto")
         interpolation_method = getattr(recharge_cfg, "interpolation_method", "nearest")
 
+    # Data-manager output is always in mm/day (internal convention).
+    # Flow._normalize_recharge_config has already converted recharge_cfg.units
+    # to "m/s", so we cannot rely on it for the source unit here.
+    unit_conversion_factor = factor_to_m_per_s("mm/day")
+
     resolved = resolve_forcing(
         recharge_result,
-        unit_conversion_factor=_MM_PER_DAY_TO_M_PER_S,
+        unit_conversion_factor=unit_conversion_factor,
         simulation_window=simulation_window,
         spatial_mode=spatial_mode,
         interpolation_method=interpolation_method,
