@@ -28,6 +28,7 @@ def test_calibration_twin_linearized_recharge_step_modflow6_benchmark_recovers_t
     benchmark = run_twin_benchmark_case(
         TRANSIENT_RECHARGE_STEP_TWIN_CASE,
         caller_file=__file__,
+        evaluation_budget=8,
     )
 
     assert benchmark.summary_path.is_file()

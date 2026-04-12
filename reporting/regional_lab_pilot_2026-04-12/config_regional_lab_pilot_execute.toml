@@ -1,9 +1,9 @@
-# Local pilot regional-lab config bootstrapped from real outlet tables and mesh assets.
+# Executed regional-lab pilot using the same curated catalog as the dry run.
 
 [regional_lab]
-lab_id = "regional_pilot_2026_04_12"
-output_root = "outputs/regional_pilot_2026_04_12"
-execute = false
+lab_id = "regional_pilot_2026_04_12_execute"
+output_root = "outputs/regional_pilot_2026_04_12_execute"
+execute = true
 continue_on_error = true
 validate_config_paths = true
 resume_from_report = true

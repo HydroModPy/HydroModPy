@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
+import shutil
 import sys
 
 
@@ -45,6 +46,70 @@ def _ensure_field(fieldnames: list[str], name: str) -> None:
         fieldnames.append(name)
 
 
+def _prepare_sanitized_bundle_from_means(
+    *,
+    site_id: str,
+    bundle_dir: str,
+    sanitized_root: Path,
+) -> tuple[Path, dict[str, int]] | None:
+    source_dir = Path(bundle_dir).resolve()
+    cells_path = source_dir / "cells.csv"
+    if not cells_path.is_file():
+        return None
+
+    with cells_path.open("r", encoding="utf-8", newline="") as stream:
+        reader = csv.DictReader(stream)
+        fieldnames = list(reader.fieldnames or [])
+        rows = list(reader)
+
+    top_fixes = 0
+    bottom_fixes = 0
+    for row in rows:
+        if (
+            str(row.get("z_top_centroid", "")).strip() == ""
+            and str(row.get("z_top_mean", "")).strip() != ""
+        ):
+            row["z_top_centroid"] = str(row.get("z_top_mean", "")).strip()
+            top_fixes += 1
+        if (
+            str(row.get("z_bottom_centroid", "")).strip() == ""
+            and str(row.get("z_bottom_mean", "")).strip() != ""
+        ):
+            row["z_bottom_centroid"] = str(row.get("z_bottom_mean", "")).strip()
+            bottom_fixes += 1
+
+    if top_fixes == 0 and bottom_fixes == 0:
+        return None
+
+    target_dir = sanitized_root / f"{site_id}_bundle"
+    if target_dir.exists():
+        shutil.rmtree(target_dir)
+    shutil.copytree(source_dir, target_dir)
+
+    with (target_dir / "cells.csv").open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+
+    (target_dir / "regional_lab_sanitization.txt").write_text(
+        "\n".join(
+            [
+                f"site_id = {site_id}",
+                f"source_bundle_dir = {source_dir}",
+                f"filled_z_top_centroid_from_mean = {top_fixes}",
+                f"filled_z_bottom_centroid_from_mean = {bottom_fixes}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return target_dir, {
+        "filled_z_top_centroid_from_mean": top_fixes,
+        "filled_z_bottom_centroid_from_mean": bottom_fixes,
+    }
+
+
 def _describe_not_ready(row: dict[str, str]) -> str:
     details: list[str] = []
     missing_top = str(row.get("bundle_missing_top_centroid_count", "")).strip()
@@ -69,6 +134,7 @@ def main() -> None:
     repo_root = REPO_ROOT
     catalog_path = pilot_dir / "site_catalog_pilot_20.csv"
     child_dir = pilot_dir / "child_configs"
+    sanitized_root = pilot_dir / "sanitized_bundles"
     common_base_path = child_dir / "base_local_boussinesq_mesh_replay.toml"
     dem_path = (repo_root / "examples" / "data" / "dem" / "DEM_armorican_massif.tif").resolve()
     example_base_config = (
@@ -119,10 +185,12 @@ def main() -> None:
         "bundle_storage_default_value",
         "bundle_boussinesq_steady_ready",
         "bundle_boussinesq_transient_ready",
+        "local_simulation_reference_config",
     ):
         _ensure_field(fieldnames, field_name)
 
     child_dir.mkdir(parents=True, exist_ok=True)
+    sanitized_root.mkdir(parents=True, exist_ok=True)
     for stale_path in child_dir.glob("run_*_boussinesq_local_mesh_replay.toml"):
         stale_path.unlink()
 
@@ -140,23 +208,54 @@ def main() -> None:
         if not should_generate:
             continue
 
+        effective_bundle_dir = bundle_dir
         readiness = inspect_mesh_bundle_boussinesq_readiness(bundle_dir or None)
+        repair_note = ""
+        if str(readiness.get("bundle_boussinesq_steady_ready", "")).strip().lower() != "true":
+            repaired = _prepare_sanitized_bundle_from_means(
+                site_id=site_id,
+                bundle_dir=bundle_dir,
+                sanitized_root=sanitized_root,
+            )
+            if repaired is not None:
+                repaired_bundle_dir, repair_counts = repaired
+                repaired_readiness = inspect_mesh_bundle_boussinesq_readiness(
+                    repaired_bundle_dir
+                )
+                if (
+                    str(repaired_readiness.get("bundle_boussinesq_steady_ready", ""))
+                    .strip()
+                    .lower()
+                    == "true"
+                ):
+                    effective_bundle_dir = str(repaired_bundle_dir.resolve())
+                    readiness = repaired_readiness
+                    repair_note = (
+                        "sanitized bundle with centroid fallback from mean values "
+                        f"(top={repair_counts['filled_z_top_centroid_from_mean']}, "
+                        f"bottom={repair_counts['filled_z_bottom_centroid_from_mean']})"
+                    )
         for key, value in readiness.items():
             row[key] = "" if value is None else str(value)
         steady_ready = str(row.get("bundle_boussinesq_steady_ready", "")).strip().lower() == "true"
         generated_config_path = child_dir / f"run_{site_id}_boussinesq_local_mesh_replay.toml"
         generated_config_relpath = str(generated_config_path.relative_to(pilot_dir).as_posix())
-        current_simulation_config = str(row.get("simulation_reference_config", "")).strip()
+        config_field_name = (
+            "local_simulation_reference_config"
+            if site_id == "headwater_100km2_outlet_27"
+            else "simulation_reference_config"
+        )
+        current_simulation_config = str(row.get(config_field_name, "")).strip()
 
         if (
             not steady_ready
             or mesh_path == ""
-            or bundle_dir == ""
+            or effective_bundle_dir == ""
             or x_value == ""
             or y_value == ""
         ):
             if current_simulation_config == generated_config_relpath:
-                row["simulation_reference_config"] = ""
+                row[config_field_name] = ""
             row["tags"] = _remove_tag(row.get("tags", ""), "simulation_ready")
             existing_note = str(row.get("notes", "")).strip()
             withheld_note = _describe_not_ready(row)
@@ -184,7 +283,7 @@ def main() -> None:
                     "",
                     "[mesh_input]",
                     f'mesh_path = "{Path(mesh_path).resolve().as_posix()}"',
-                    f'bundle_dir = "{Path(bundle_dir).resolve().as_posix()}"',
+                    f'bundle_dir = "{Path(effective_bundle_dir).resolve().as_posix()}"',
                     "",
                     "[simulation]",
                     f'name = "{site_id} local boussinesq mesh replay"',
@@ -194,10 +293,13 @@ def main() -> None:
             + "\n",
         )
 
-        row["simulation_reference_config"] = generated_config_relpath
+        row[config_field_name] = generated_config_relpath
         row["tags"] = _merge_tags(row.get("tags", ""), "simulation_ready")
         existing_note = str(row.get("notes", "")).strip()
         note = "generated local boussinesq mesh replay config (steady-ready bundle)"
+        if repair_note != "":
+            row["tags"] = _merge_tags(row.get("tags", ""), "bundle_sanitized_from_mean")
+            note = f"{note}; {repair_note}"
         if existing_note == "":
             row["notes"] = note
         elif note not in existing_note:
