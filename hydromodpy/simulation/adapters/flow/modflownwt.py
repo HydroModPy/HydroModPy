@@ -39,7 +39,7 @@ class ModflowNwtFlowAdapter:
         # the correct config section into the concrete solver class.
         model_modflow = Modflow(
             state.setup.geographic,
-            model_folder=state.setup.workspace.simulations_folder,
+            model_folder=state.setup.workspace.solver_scratch_folder,
             model_name=model_name,
             bin_path=state.setup.workspace.bin_path,
             modflow_config=state.cfg.modflownwt,
