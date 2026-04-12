@@ -127,13 +127,13 @@ def _discretize_heterogeneous_source(
     nper: int,
     simulation_window: object,
     method: str = "nearest",
+    source_unit: str = "m/s",
 ) -> dict[int, np.ndarray]:
     """Dispatch heterogeneous discretization for fields or located points."""
     from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_field_discretization import (
         discretize_fields_on_sgrid,
         discretize_points_on_sgrid,
     )
-
     # SolverMesh exposes sgrid-compatible properties (nrow, ncol, delr, delc,
     # xoffset, yoffset, xvertices, yvertices) so it can be passed directly.
 
@@ -155,6 +155,7 @@ def _discretize_heterogeneous_source(
             nper=nper,
             simulation_window=simulation_window,
             method=method,
+            source_unit=source_unit,
         )
 
     nrow = solver_mesh.nrow
@@ -812,7 +813,7 @@ class FlowToModflowAdapter:
 
                 if not self.sink_fill:
                     # Either use user conductance or derive conductance from
-                    # local permeability footprint.
+                    # local permeability footprint: C = K * A.
                     if drainage_value > 0:
                         drn_data[count, 4] = drainage_value
                     else:
@@ -1049,16 +1050,19 @@ class FlowToModflowAdapter:
         if recharge_cfg is None:
             return None, None
 
-        # Heterogeneous path: gridded FieldRecords from data managers.
+        # Heterogeneous path: gridded FieldRecords or located points from data managers.
         het_source = getattr(recharge_cfg, "heterogeneous_source", None)
-        if het_source is not None and getattr(het_source, "has_fields", False):
+        if het_source is not None and (
+            getattr(het_source, "has_fields", False)
+            or getattr(het_source, "has_points", False)
+        ):
             return self._build_heterogeneous_recharge_payload(recharge_cfg)
 
         # Homogeneous path (existing behavior).
         recharge_payload = self._copy_payload(recharge_cfg.values)
         recharge_payload = convert_payload_to_m_per_s(
             recharge_payload,
-            unit=str(getattr(recharge_cfg, "units", "m/s")),
+            unit=str(getattr(recharge_cfg, "units", "mm/day")),
             label="flow.sinks_sources.recharge.values",
         )
         recharge_payload, evt_spd = self._extract_evt_payload(recharge_payload, recharge_cfg.negative_to_evt)
@@ -1075,12 +1079,16 @@ class FlowToModflowAdapter:
         """
         het_source = recharge_cfg.heterogeneous_source
         interp_method = getattr(recharge_cfg, "interpolation_method", "nearest")
+        # Heterogeneous data comes from data-managers (always mm/day).
+        # recharge_cfg.units has been normalized to "m/s" by Flow init.
+        source_unit = "mm/day"
         raw_arrays = _discretize_heterogeneous_source(
             het_source,
             solver_mesh=self.solver_mesh,
             nper=self.nper,
             simulation_window=self.simulation_window,
             method=interp_method,
+            source_unit=source_unit,
         )
 
         # Apply first_clim policy.

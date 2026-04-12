@@ -38,8 +38,6 @@ def export_intermittency(
     result_dict: dict,
     tifs_file: str,
     watershed_dem: str,
-    save_file: str,
-    save_filename: str,
 ) -> None:
     """
     Compute and export the intermittency index for a given time window.
@@ -80,7 +78,6 @@ def export_intermittency(
             len(acc_npy_raw),
             window_size,
         )
-        np.save(os.path.join(save_file, save_filename), result_dict)
         return
 
     logger.info("Exporting %s intermittency maps", label)
@@ -134,5 +131,3 @@ def export_intermittency(
 
         inf += window_size
         sup += window_size
-
-    np.save(os.path.join(save_file, save_filename), result_dict)
