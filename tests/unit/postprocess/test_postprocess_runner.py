@@ -61,7 +61,7 @@ def test_postprocess_runner_calls_flow_netcdf_when_enabled(monkeypatch) -> None:
     captured: list[dict] = []
 
     class _FakeFlowNetcdf:
-        def __init__(self, geographic, *, model_modflow, datetime_format):
+        def __init__(self, geographic, *, model_modflow, datetime_format, store=None, sim_id=None):
             captured.append(
                 {
                     "geographic": geographic,
@@ -128,6 +128,8 @@ def test_postprocess_runner_calls_transport_netcdf_when_enabled(monkeypatch) -> 
             residence_times,
             concentration_seepage,
             mass_accumulated,
+            store=None,
+            sim_id=None,
         ):
             captured.append(
                 {
@@ -199,7 +201,6 @@ def test_postprocess_runner_passes_flow_model_to_matching_streams(monkeypatch) -
         workspace,
         model_modflow,
         iteration_label,
-        from_calib,
     ):
         captured.append(
             {
@@ -208,7 +209,6 @@ def test_postprocess_runner_passes_flow_model_to_matching_streams(monkeypatch) -
                 "workspace": workspace,
                 "model_modflow": model_modflow,
                 "iteration_label": iteration_label,
-                "from_calib": from_calib,
             }
         )
 
@@ -235,7 +235,7 @@ def test_postprocess_runner_passes_flow_model_to_matching_streams(monkeypatch) -
     assert len(captured) == 1
     assert captured[0]["model_modflow"] is flow_model
     assert captured[0]["iteration_label"] == "flow_main"
-    assert captured[0]["from_calib"] is False
+    assert captured[0]["iteration_label"] == "flow_main"
 
 
 def test_postprocess_runner_calls_boussinesq_display_when_enabled(monkeypatch) -> None:

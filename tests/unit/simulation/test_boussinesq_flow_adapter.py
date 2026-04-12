@@ -23,7 +23,6 @@ from hydromodpy.simulation.planning.plan import (
     SimulationPlan,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid import GmshPlanarMesh2D
-from validation_cases.shared.loaders import load_last_npy_array
 
 
 def _write_csv(path: Path, header: str, rows: list[str]) -> None:
@@ -244,7 +243,7 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_flow_parameters(
             domain=domain,
             domain_geographic=None,
             time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=tmp_path),
+            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
         ),
     )
     run = ProcessRun(
@@ -339,7 +338,7 @@ def test_boussinesq_flow_adapter_supports_runtime_mesh_with_heterogeneous_rechar
             domain=domain,
             domain_geographic=None,
             time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path),
+            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
         ),
     )
     run = ProcessRun(
@@ -429,7 +428,7 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_heterogeneous_flow_param
             domain=domain,
             domain_geographic=None,
             time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=tmp_path),
+            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
         ),
     )
     run = ProcessRun(
@@ -522,7 +521,7 @@ def test_boussinesq_flow_adapter_uses_geographic_features_for_stream_runtime_mes
             ),
             domain_geographic=None,
             time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path),
+            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
         ),
     )
     run = ProcessRun(
@@ -557,7 +556,7 @@ def test_boussinesq_flow_adapter_loads_bundle_from_mesh_summary(tmp_path: Path) 
             flow=Flow(FlowConfig.model_validate({"ic": {"type": "bottom"}})),
             domain=None,
             time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=tmp_path),
+            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
         ),
     )
     run = ProcessRun(
@@ -588,7 +587,7 @@ def test_boussinesq_flow_adapter_runs_transient_and_writes_outputs(tmp_path: Pat
             flow=Flow(FlowConfig.model_validate({"ic": {"type": "top"}})),
             domain=None,
             time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path),
+            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
         ),
     )
     run = ProcessRun(
@@ -610,16 +609,9 @@ def test_boussinesq_flow_adapter_runs_transient_and_writes_outputs(tmp_path: Pat
     assert model.state is not None
     assert model.state.head_history_m is not None
     assert model.state.head_history_m.shape == (2, 2)
-    assert (model.full_path / "_boussinesq_summary.json").exists()
-    assert (model.full_path / "_boussinesq_state_history.npz").exists()
-    assert (model.full_path / "_postprocess" / "watertable_elevation.npy").exists()
-    timestep, watertable = load_last_npy_array(
-        model.full_path / "_postprocess",
-        "watertable_elevation",
-    )
-    assert timestep == 1
-    assert watertable.shape == (2,)
-    assert np.allclose(watertable, model.state.head_m)
+    # Post-processing is no longer called by the adapter — ResultStore
+    # extractors handle it.  Verify the solver output directory exists.
+    assert result.solver_output_dir is not None
 
 
 def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(
@@ -636,7 +628,7 @@ def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(
                         "ic": {"type": "custom", "value": 7.0},
                         "active_sinks_sources": ["recharge"],
                         "active_bc": ["west_side"],
-                        "sinks_sources": {"recharge": {"values": 1.0e-7}},
+                        "sinks_sources": {"recharge": {"values": 1.0e-7, "units": "m/s"}},
                         "bc": {
                             "dirichlet": {
                                 "west_side": {"value": 10.0},
@@ -647,7 +639,7 @@ def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(
             ),
             domain=None,
             time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path),
+            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
         ),
     )
     run = ProcessRun(
@@ -701,7 +693,7 @@ def test_boussinesq_flow_adapter_supports_absolute_xy_well(
             ),
             domain=None,
             time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path),
+            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
         ),
     )
     run = ProcessRun(
@@ -749,7 +741,7 @@ def test_boussinesq_flow_adapter_supports_stream_on_river_edges(
             ),
             domain=None,
             time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path),
+            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
         ),
     )
     run = ProcessRun(
@@ -796,7 +788,7 @@ def test_boussinesq_flow_adapter_supports_ocean_on_coastal_edges(
             ),
             domain=None,
             time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path),
+            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
         ),
     )
     run = ProcessRun(

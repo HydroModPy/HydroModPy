@@ -559,10 +559,14 @@ def write_piecewise_strip_launcher_config(
                 "[flow.sinks_sources.recharge]",
                 'first_clim = "mean"',
                 f"values = {float(recharge_rate_m_s):.17g}",
+                'units = "m/s"',
             ]
         )
     lines.extend(
         [
+            "",
+            "[simulation.results]",
+            "keep_solver_files = true",
             "",
             "[data]",
             "types = []",

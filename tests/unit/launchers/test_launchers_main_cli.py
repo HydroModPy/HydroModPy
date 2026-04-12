@@ -54,7 +54,7 @@ class _DummyCliWorkspace:
         self.catch_name = str(
             getattr(config, "catch_name", self.project_root.name)
         )
-        self.stable_folder = self.project_root / "results_stable"
+        self.stable_folder = self.project_root / ".solver_scratch/_preprocessing"
 
 
 class _DummyCliDomainGeographic:
@@ -411,7 +411,7 @@ def test_launchers_cli_mesh_catchment_batch_creates_manifest_and_figures(
         tmp_path
         / "project"
         / "mesh_cli_case_outlet_A"
-        / "results_stable"
+        / ".solver_scratch/_preprocessing"
         / "mesh"
         / "figure_A.png"
     ).resolve()
@@ -419,7 +419,7 @@ def test_launchers_cli_mesh_catchment_batch_creates_manifest_and_figures(
         tmp_path
         / "project"
         / "mesh_cli_case_outlet_B"
-        / "results_stable"
+        / ".solver_scratch/_preprocessing"
         / "mesh"
         / "figure_B.png"
     ).resolve()

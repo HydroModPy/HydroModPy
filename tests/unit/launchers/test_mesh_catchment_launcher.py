@@ -22,7 +22,7 @@ class _DummyWorkspace:
     def __init__(self, config) -> None:
         self.config = config
         self.project_root = Path(config.project_root)
-        self.stable_folder = self.project_root / "results_stable"
+        self.stable_folder = self.project_root / ".solver_scratch/_preprocessing"
 
 
 class _DummyBatchWorkspace:
@@ -30,7 +30,7 @@ class _DummyBatchWorkspace:
         self.config = config
         self.project_root = Path(config.project_root)
         self.catch_name = str(config.catch_name)
-        self.stable_folder = self.project_root / "results_stable"
+        self.stable_folder = self.project_root / ".solver_scratch/_preprocessing"
 
 
 class _DummyDomainGeographic:
@@ -188,10 +188,10 @@ def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path:
     assert kwargs["river_trace"] is not None
     expected_root = minimal_cfg.workspace.project_root
     assert kwargs["output_mesh"] == (
-        expected_root / "results_stable" / "mesh" / "mesh_catchment.msh"
+        expected_root / "mesh" / "mesh_catchment.msh"
     )
     assert kwargs["output_summary_json"] == (
-        expected_root / "results_stable" / "mesh" / "mesh_catchment_summary.json"
+        expected_root / "mesh" / "mesh_catchment_summary.json"
     )
     assert kwargs["output_figure"] is None
     assert kwargs["output_figure_regional"] is None
@@ -329,7 +329,7 @@ def test_mesh_catchment_launcher_flat_output_layout_writes_directly_to_project_r
     def _fake_build_geographic_derived_features(**kwargs):
         runtime_root = Path(kwargs["workspace"].project_root)
         captured["runtime_workspace_project_root"] = runtime_root
-        (runtime_root / "results_stable" / "geographic").mkdir(parents=True, exist_ok=True)
+        (runtime_root / ".solver_scratch/_preprocessing" / "geographic").mkdir(parents=True, exist_ok=True)
         (runtime_root / "results_simulations").mkdir(parents=True, exist_ok=True)
         (runtime_root / "results_calibration").mkdir(parents=True, exist_ok=True)
         return _DummyGeographicFeatures()
@@ -364,7 +364,7 @@ def test_mesh_catchment_launcher_flat_output_layout_writes_directly_to_project_r
         expected_root.parent / "_mesh_runtime" / expected_root.name
     )
     assert not runtime_workspace_project_root.exists()
-    assert not (expected_root / "results_stable").exists()
+    assert not (expected_root / ".solver_scratch/_preprocessing").exists()
     assert not (expected_root / "results_simulations").exists()
     assert not (expected_root / "results_calibration").exists()
 
@@ -602,10 +602,11 @@ def test_mesh_catchment_launcher_cleanup_mode_removes_geographic_outputs(
     )
     _patch_dummy_geographic_builders(monkeypatch)
 
+    _stable = minimal_cfg.workspace.project_root / ".solver_scratch/_preprocessing"
+
     def _fake_run_case(config_toml, **kwargs):
-        stable_folder = kwargs["output_mesh"].parent.parent
-        (stable_folder / "geographic" / "tmp").mkdir(parents=True, exist_ok=True)
-        (stable_folder / "demcorrecflow" / "tmp").mkdir(parents=True, exist_ok=True)
+        (_stable / "geographic" / "tmp").mkdir(parents=True, exist_ok=True)
+        (_stable / "demcorrecflow" / "tmp").mkdir(parents=True, exist_ok=True)
         kwargs["output_mesh"].parent.mkdir(parents=True, exist_ok=True)
         kwargs["output_mesh"].write_text("mesh", encoding="utf-8")
         return {"summary_schema_version": "zone_conformal_sidecar_v1"}
@@ -621,11 +622,10 @@ def test_mesh_catchment_launcher_cleanup_mode_removes_geographic_outputs(
 
     summary = MeshCatchmentLauncher(config_path).run()
 
-    stable_folder = minimal_cfg.workspace.project_root / "results_stable"
     assert summary["geographic_outputs_mode"] == "cleanup"
     assert summary["geographic_outputs_cleanup_applied"] is True
-    assert not (stable_folder / "geographic").exists()
-    assert not (stable_folder / "demcorrecflow").exists()
+    assert not (_stable / "geographic").exists()
+    assert not (_stable / "demcorrecflow").exists()
 
 
 def test_mesh_catchment_launcher_keep_mode_preserves_geographic_outputs(
@@ -657,10 +657,11 @@ def test_mesh_catchment_launcher_keep_mode_preserves_geographic_outputs(
     )
     _patch_dummy_geographic_builders(monkeypatch)
 
+    _stable = minimal_cfg.workspace.project_root / ".solver_scratch/_preprocessing"
+
     def _fake_run_case(config_toml, **kwargs):
-        stable_folder = kwargs["output_mesh"].parent.parent
-        (stable_folder / "geographic" / "tmp").mkdir(parents=True, exist_ok=True)
-        (stable_folder / "demcorrecflow" / "tmp").mkdir(parents=True, exist_ok=True)
+        (_stable / "geographic" / "tmp").mkdir(parents=True, exist_ok=True)
+        (_stable / "demcorrecflow" / "tmp").mkdir(parents=True, exist_ok=True)
         kwargs["output_mesh"].parent.mkdir(parents=True, exist_ok=True)
         kwargs["output_mesh"].write_text("mesh", encoding="utf-8")
         return {"summary_schema_version": "zone_conformal_sidecar_v1"}
@@ -676,11 +677,10 @@ def test_mesh_catchment_launcher_keep_mode_preserves_geographic_outputs(
 
     summary = MeshCatchmentLauncher(config_path).run()
 
-    stable_folder = minimal_cfg.workspace.project_root / "results_stable"
     assert summary["geographic_outputs_mode"] == "keep"
     assert summary["geographic_outputs_cleanup_applied"] is False
-    assert (stable_folder / "geographic").exists()
-    assert (stable_folder / "demcorrecflow").exists()
+    assert (_stable / "geographic").exists()
+    assert (_stable / "demcorrecflow").exists()
 
 
 def test_mesh_runtime_cleanup_mode_skips_external_domain_geographic(
@@ -694,10 +694,11 @@ def test_mesh_runtime_cleanup_mode_skips_external_domain_geographic(
     )
     local_workspace = _DummyWorkspace(workspace_cfg)
 
+    _stable = workspace_cfg.project_root / ".solver_scratch/_preprocessing"
+
     def _fake_run_case(config_toml, **kwargs):
-        stable_folder = kwargs["output_mesh"].parent.parent
-        (stable_folder / "geographic" / "tmp").mkdir(parents=True, exist_ok=True)
-        (stable_folder / "demcorrecflow" / "tmp").mkdir(parents=True, exist_ok=True)
+        (_stable / "geographic" / "tmp").mkdir(parents=True, exist_ok=True)
+        (_stable / "demcorrecflow" / "tmp").mkdir(parents=True, exist_ok=True)
         kwargs["output_mesh"].parent.mkdir(parents=True, exist_ok=True)
         kwargs["output_mesh"].write_text("mesh", encoding="utf-8")
         return {"summary_schema_version": "zone_conformal_sidecar_v1"}
@@ -727,11 +728,10 @@ def test_mesh_runtime_cleanup_mode_skips_external_domain_geographic(
         domain_geographic=_DummyDomainGeographic(),
     )
 
-    stable_folder = local_workspace.stable_folder
     assert summary["geographic_outputs_mode"] == "cleanup"
     assert summary["geographic_outputs_cleanup_applied"] is False
-    assert (stable_folder / "geographic").exists()
-    assert (stable_folder / "demcorrecflow").exists()
+    assert (_stable / "geographic").exists()
+    assert (_stable / "demcorrecflow").exists()
 
 
 def test_mesh_runtime_accepts_external_geographic_features(
@@ -965,18 +965,18 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
     assert kwargs["section"] == "mesh_catchment"
     assert kwargs["river_trace"] is None
     assert str(kwargs["output_mesh"]).endswith(
-        str(Path("mesh_batch_outlet_2") / "results_stable" / "mesh" / "mesh_2.msh")
+        str(Path("mesh_batch_outlet_2") / ".solver_scratch/_preprocessing" / "mesh" / "mesh_2.msh")
     )
     assert str(kwargs["output_summary_json"]).endswith(
-        str(Path("mesh_batch_outlet_2") / "results_stable" / "mesh" / "summary_2.json")
+        str(Path("mesh_batch_outlet_2") / ".solver_scratch/_preprocessing" / "mesh" / "summary_2.json")
     )
     assert str(kwargs["output_figure"]).endswith(
-        str(Path("mesh_batch_outlet_2") / "results_stable" / "mesh" / "figure_2.png")
+        str(Path("mesh_batch_outlet_2") / ".solver_scratch/_preprocessing" / "mesh" / "figure_2.png")
     )
     assert str(kwargs["output_figure_regional"]).endswith(
         str(
             Path("mesh_batch_outlet_2")
-            / "results_stable"
+            / ".solver_scratch/_preprocessing"
             / "mesh"
             / "figure_2_regional.png"
         )

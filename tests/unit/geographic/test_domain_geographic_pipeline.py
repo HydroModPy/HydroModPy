@@ -165,7 +165,7 @@ def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_wa
 ) -> None:
     workspace = SimpleNamespace(
         project_root=tmp_path / "results",
-        stable_folder=tmp_path / "results" / "results_stable",
+        stable_folder=tmp_path / "results" / ".solver_scratch/_preprocessing",
     )
     config = GeographicConfig(
         catch_def="from_outlet_coord",
@@ -183,18 +183,18 @@ def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_wa
         crs_project="EPSG:2154",
         dem_res=50.0,
         paths=SimpleNamespace(
-            correcflow_path=str(tmp_path / "results" / "results_stable" / "demcorrecflow"),
-            watershed_shp=str(tmp_path / "results" / "results_stable" / "geographic" / "watershed.shp"),
-            watershed_box_shp=str(tmp_path / "results" / "results_stable" / "geographic" / "watershed_box.shp"),
-            box_buff=str(tmp_path / "results" / "results_stable" / "geographic" / "watershed_box_buff.shp"),
-            watershed_box_buff_dem=str(tmp_path / "results" / "results_stable" / "geographic" / "watershed_box_buff_dem.tif"),
-            geographic_path=str(tmp_path / "results" / "results_stable" / "geographic"),
-            river_streams_tif=str(tmp_path / "results" / "results_stable" / "geographic" / "river_streams.tif"),
-            river_streams_pruned_tif=str(tmp_path / "results" / "results_stable" / "geographic" / "river_streams_pruned.tif"),
-            river_stream_order_strahler_tif=str(tmp_path / "results" / "results_stable" / "geographic" / "river_stream_order_strahler.tif"),
-            river_stream_link_id_tif=str(tmp_path / "results" / "results_stable" / "geographic" / "river_stream_link_id.tif"),
-            river_network_shp=str(tmp_path / "results" / "results_stable" / "geographic" / "river_network.shp"),
-            river_network_summary_json=str(tmp_path / "results" / "results_stable" / "geographic" / "river_network_summary.json"),
+            correcflow_path=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "demcorrecflow"),
+            watershed_shp=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "watershed.shp"),
+            watershed_box_shp=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "watershed_box.shp"),
+            box_buff=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "watershed_box_buff.shp"),
+            watershed_box_buff_dem=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "watershed_box_buff_dem.tif"),
+            geographic_path=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic"),
+            river_streams_tif=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "river_streams.tif"),
+            river_streams_pruned_tif=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "river_streams_pruned.tif"),
+            river_stream_order_strahler_tif=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "river_stream_order_strahler.tif"),
+            river_stream_link_id_tif=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "river_stream_link_id.tif"),
+            river_network_shp=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "river_network.shp"),
+            river_network_summary_json=str(tmp_path / "results" / ".solver_scratch/_preprocessing" / "geographic" / "river_network_summary.json"),
         ),
     )
     flow_calls: list[str] = []

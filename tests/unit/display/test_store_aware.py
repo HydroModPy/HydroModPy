@@ -16,8 +16,8 @@ from hydromodpy.analysis.display.suites import (
     _FLOW_TIMESERIES_VARIABLES,
     _load_flow_timeseries_from_store,
 )
-from hydromodpy.analysis.display.posthoc_orchestration import (
-    _load_field_dict_from_store,
+from hydromodpy.analysis.display.common import (
+    load_field_dict_from_store as _load_field_dict_from_store,
 )
 from hydromodpy.results.store import ResultStore
 
@@ -104,7 +104,7 @@ class TestLoadFieldDictFromStore:
 
 class TestPlotFlowSuiteWithStore:
     def test_falls_back_to_csv(self, monkeypatch):
-        """When store returns no data, falls back to CSV loader."""
+        """When store returns no data, suite completes without error."""
         flow_model = SimpleNamespace(
             model_name="flow_main",
             dem_watershed_path=Path("solver_grid_template.tif"),
@@ -113,7 +113,7 @@ class TestPlotFlowSuiteWithStore:
             watershed_dem=Path("native_dem.tif"),
             watershed_shp=Path("watershed.shp"),
         )
-        workspace = SimpleNamespace(simulations_folder=Path("simulations"))
+        workspace = SimpleNamespace(simulations_folder=Path("simulations"), project_root=Path("."))
         hydrography = SimpleNamespace(streams=Path("streams.shp"))
 
         class _Result:
@@ -141,7 +141,7 @@ class TestPlotFlowSuiteWithStore:
         )
         monkeypatch.setattr(
             "hydromodpy.analysis.display.suites._extract_cross_section_data",
-            lambda dem_path, wt_path, x_index=None: (
+            lambda dem_path, *, store=None, sim_id=None, x_index=None: (
                 np.array([0.0]), np.array([0.0]), np.array([0.0]),
             ),
         )
@@ -162,7 +162,7 @@ class TestPlotFlowSuiteWithStore:
             ),
         )
         plot_flow_suite(result, options, store=mock_store, sim_id="test")
-        assert csv_called, "should have fallen back to CSV loader"
+        # No CSV fallback — suite completes with cross_section only.
 
     def test_uses_store_when_available(self, monkeypatch, store):
         """When store has data, CSV loader is not called."""
@@ -181,7 +181,7 @@ class TestPlotFlowSuiteWithStore:
             watershed_dem=Path("native_dem.tif"),
             watershed_shp=Path("watershed.shp"),
         )
-        workspace = SimpleNamespace(simulations_folder=Path("simulations"))
+        workspace = SimpleNamespace(simulations_folder=Path("simulations"), project_root=Path("."))
 
         class _Result:
             setup = SimpleNamespace(geographic=geographic, workspace=workspace)
@@ -208,7 +208,7 @@ class TestPlotFlowSuiteWithStore:
         )
         monkeypatch.setattr(
             "hydromodpy.analysis.display.suites._extract_cross_section_data",
-            lambda dem_path, wt_path, x_index=None: (
+            lambda dem_path, *, store=None, sim_id=None, x_index=None: (
                 np.array([0.0]), np.array([0.0]), np.array([0.0]),
             ),
         )
@@ -235,7 +235,7 @@ class TestPosthocContextFromResultStore:
         project.mkdir(parents=True, exist_ok=True)
 
         # Create geographic directory
-        geo_dir = project / "results_stable" / "geographic"
+        geo_dir = project / ".solver_scratch/_preprocessing" / "geographic"
         geo_dir.mkdir(parents=True)
 
         # Create simulation directories
@@ -263,7 +263,7 @@ class TestPosthocContextFromResultStore:
         project = tmp_path / "project_empty"
         project.mkdir(parents=True)
 
-        geo_dir = project / "results_stable" / "geographic"
+        geo_dir = project / ".solver_scratch/_preprocessing" / "geographic"
         geo_dir.mkdir(parents=True)
 
         sims_dir = project / "results_simulations"

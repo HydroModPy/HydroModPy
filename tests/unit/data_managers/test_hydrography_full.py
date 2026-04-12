@@ -811,7 +811,7 @@ class TestHydrographyManager:
 
     def test_data_folder_created(self, tmp_path):
         mgr = self._make_manager(tmp_path, [{"source": "osm"}])
-        assert (tmp_path / "results_stable" / "hydrography").is_dir()
+        assert (tmp_path / ".solver_scratch/_preprocessing" / "hydrography").is_dir()
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager._fetch_from_source")
     @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
@@ -837,7 +837,7 @@ class TestHydrographyManager:
         mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
 
         # Write a fake TIF for _read_tif_array
-        tif_path = tmp_path / "results_stable" / "hydrography" / "streams.tif"
+        tif_path = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.tif"
         _write_dummy_tif(tif_path)
 
         result = mgr.load()
@@ -872,7 +872,7 @@ class TestHydrographyManager:
         cfg = HydrographyConfig(sources=[{"source": "osm"}])
         mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
 
-        tif_path = tmp_path / "results_stable" / "hydrography" / "streams.tif"
+        tif_path = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.tif"
         _write_dummy_tif(tif_path)
 
         mgr.load()
@@ -897,7 +897,7 @@ class TestHydrographyManager:
         cfg = HydrographyConfig(sources=[{"source": "osm"}])
         mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
 
-        tif_path = tmp_path / "results_stable" / "hydrography" / "streams.tif"
+        tif_path = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.tif"
         _write_dummy_tif(tif_path)
 
         mgr.load()
@@ -926,13 +926,13 @@ class TestHydrographyManager:
         cfg = HydrographyConfig(sources=[{"source": "bdtopage"}])
         mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
 
-        tif_path = tmp_path / "results_stable" / "hydrography" / "streams.tif"
+        tif_path = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.tif"
         _write_dummy_tif(tif_path)
 
         mgr.load()
 
         # Verify the saved shapefile now has FID column
-        saved_shp = tmp_path / "results_stable" / "hydrography" / "streams.shp"
+        saved_shp = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.shp"
         saved_gdf = gpd.read_file(saved_shp)
         assert "FID" in saved_gdf.columns
         assert list(saved_gdf["FID"]) == [1, 2]
@@ -985,7 +985,7 @@ class TestHydrographyManager:
         cfg = HydrographyConfig(sources=[{"source": "osm"}])
         mgr = HydrographyManager(config=cfg, geographic=geo, out_path=tmp_path)
 
-        tif_path = tmp_path / "results_stable" / "hydrography" / "streams.tif"
+        tif_path = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.tif"
         _write_dummy_tif(tif_path)
 
         result = mgr.load()
@@ -1433,7 +1433,7 @@ class TestCatalogCacheManager:
         mock_osm_fetch.return_value = lines
 
         # Write fake TIF for read_tif_array
-        tif_path = tmp_path / "results_stable" / "hydrography" / "streams.tif"
+        tif_path = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.tif"
         tif_path.parent.mkdir(parents=True, exist_ok=True)
         _write_dummy_tif(tif_path)
 
@@ -1474,7 +1474,7 @@ class TestCatalogCacheManager:
         )
         mock_osm_fetch.return_value = lines
 
-        tif_path = tmp_path / "results_stable" / "hydrography" / "streams.tif"
+        tif_path = tmp_path / ".solver_scratch/_preprocessing" / "hydrography" / "streams.tif"
         tif_path.parent.mkdir(parents=True, exist_ok=True)
         _write_dummy_tif(tif_path)
 

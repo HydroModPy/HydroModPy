@@ -49,7 +49,7 @@ def _make_adapter(recharge_cfg, flow_regime, nper, active_sinks_sources=None):
 
 def test_recharge_builds_evt_and_clips_negative_values():
     recharge = pd.Series([0.1, -0.2, 0.3], dtype=float)
-    cfg = FlowRechargeConfig(values=recharge, first_clim="mean", negative_to_evt=True)
+    cfg = FlowRechargeConfig(values=recharge, first_clim="mean", negative_to_evt=True, units="m/s")
     adapter = _make_adapter(cfg, "transient", nper=3)
 
     rch_data, evt_spd = adapter._build_recharge_payload()
@@ -76,7 +76,7 @@ def test_recharge_no_evt_when_negative_to_evt_false():
 
 
 def test_recharge_list_builds_evt_and_clips_negative_values():
-    cfg = FlowRechargeConfig(values=[0.1, -0.2, 0.3], first_clim="mean", negative_to_evt=True)
+    cfg = FlowRechargeConfig(values=[0.1, -0.2, 0.3], first_clim="mean", negative_to_evt=True, units="m/s")
     adapter = _make_adapter(cfg, "transient", nper=3)
 
     rch_data, evt_spd = adapter._build_recharge_payload()
@@ -93,7 +93,7 @@ def test_recharge_list_builds_evt_and_clips_negative_values():
 
 
 def test_recharge_steady_mapping_returns_mean_scalar():
-    cfg = FlowRechargeConfig(values={0: 0.2, 1: 0.4})
+    cfg = FlowRechargeConfig(values={0: 0.2, 1: 0.4}, units="m/s")
     adapter = _make_adapter(cfg, "steady", nper=2)
 
     rch_data, evt_spd = adapter._build_recharge_payload()
@@ -103,7 +103,7 @@ def test_recharge_steady_mapping_returns_mean_scalar():
 
 
 def test_recharge_transient_mapping_returned_as_dict():
-    cfg = FlowRechargeConfig(values={0: 0.1, 1: 0.2})
+    cfg = FlowRechargeConfig(values={0: 0.1, 1: 0.2}, units="m/s")
     adapter = _make_adapter(cfg, "transient", nper=2)
 
     rch_data, evt_spd = adapter._build_recharge_payload()
@@ -133,7 +133,7 @@ def test_recharge_none_gives_none_payload():
 
 def test_recharge_first_clim_first_uses_index_zero():
     recharge = pd.Series([0.5, 0.3, 0.1], dtype=float)
-    cfg = FlowRechargeConfig(values=recharge, first_clim="first")
+    cfg = FlowRechargeConfig(values=recharge, first_clim="first", units="m/s")
     adapter = _make_adapter(cfg, "transient", nper=3)
 
     rch_data, _ = adapter._build_recharge_payload()
@@ -143,7 +143,7 @@ def test_recharge_first_clim_first_uses_index_zero():
 
 def test_recharge_first_clim_numeric_scalar():
     recharge = pd.Series([0.5, 0.3, 0.1], dtype=float)
-    cfg = FlowRechargeConfig(values=recharge, first_clim=0.0)
+    cfg = FlowRechargeConfig(values=recharge, first_clim=0.0, units="m/s")
     adapter = _make_adapter(cfg, "transient", nper=3)
 
     rch_data, _ = adapter._build_recharge_payload()

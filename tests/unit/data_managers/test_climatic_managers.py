@@ -706,38 +706,37 @@ class TestRechargeBridge:
         assert extract_homogeneous_series(result) is None
 
     def test_build_forcing_series_converts_units(self):
-        from hydromodpy.process.forcing.forcing_bridge import (
-            build_forcing_series,
-            _MM_PER_DAY_TO_M_PER_S,
-        )
+        from hydromodpy.process.forcing.forcing_bridge import build_forcing_series
+        from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
 
+        mm_day_to_m_s = factor_to_m_per_s("mm/day")
         rec = _make_point_record("A", n=3)
         result = LoadResult(points=[rec])
         series = build_forcing_series(
-            result, unit_conversion_factor=_MM_PER_DAY_TO_M_PER_S, label="recharge",
+            result, unit_conversion_factor=mm_day_to_m_s, label="recharge",
         )
         assert series is not None
-        # Value 1 (mm/day) → 1 * _MM_PER_DAY_TO_M_PER_S (m/s)
-        assert series.iloc[1] == pytest.approx(1.0 * _MM_PER_DAY_TO_M_PER_S)
+        # Value 1 (mm/day) → 1 * factor_to_m_per_s("mm/day") (m/s)
+        assert series.iloc[1] == pytest.approx(1.0 * mm_day_to_m_s)
 
     def test_build_forcing_series_no_points_returns_none(self):
-        from hydromodpy.process.forcing.forcing_bridge import build_forcing_series, _MM_PER_DAY_TO_M_PER_S
+        from hydromodpy.process.forcing.forcing_bridge import build_forcing_series
+        from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
 
         result = LoadResult(fields=[_make_field_record()])
         assert build_forcing_series(
-            result, unit_conversion_factor=_MM_PER_DAY_TO_M_PER_S, label="recharge",
+            result, unit_conversion_factor=factor_to_m_per_s("mm/day"), label="recharge",
         ) is None
 
     def test_build_forcing_series_runoff_converts_units(self):
-        from hydromodpy.process.forcing.forcing_bridge import (
-            build_forcing_series,
-            _MM_PER_DAY_TO_M_PER_S,
-        )
+        from hydromodpy.process.forcing.forcing_bridge import build_forcing_series
+        from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
 
+        mm_day_to_m_s = factor_to_m_per_s("mm/day")
         rec = _make_point_record("A", n=3)
         result = LoadResult(points=[rec])
         series = build_forcing_series(
-            result, unit_conversion_factor=_MM_PER_DAY_TO_M_PER_S, label="runoff",
+            result, unit_conversion_factor=mm_day_to_m_s, label="runoff",
         )
         assert series is not None
-        assert series.iloc[2] == pytest.approx(2.0 * _MM_PER_DAY_TO_M_PER_S)
+        assert series.iloc[2] == pytest.approx(2.0 * mm_day_to_m_s)

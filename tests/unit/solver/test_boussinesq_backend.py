@@ -1077,7 +1077,7 @@ def test_boussinesq_runs_recharge_runtime_and_tracks_saturation_excess(
             {
                 "ic": {"type": "custom", "value": 11.0},
                 "active_sinks_sources": ["recharge"],
-                "sinks_sources": {"recharge": {"values": 2.0e-7}},
+                "sinks_sources": {"recharge": {"values": 2.0e-7, "units": "m/s"}},
             }
         )
     )
@@ -1241,7 +1241,7 @@ def test_boussinesq_supports_heterogeneous_recharge(
             {
                 "ic": {"type": "custom", "value": 7.0},
                 "active_sinks_sources": ["recharge"],
-                "sinks_sources": {"recharge": {"values": 1.0e-7}},
+                "sinks_sources": {"recharge": {"values": 1.0e-7, "units": "m/s"}},
             }
         )
     )

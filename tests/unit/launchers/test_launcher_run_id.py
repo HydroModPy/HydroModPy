@@ -18,7 +18,7 @@ class _DummyWorkspace:
     def __init__(self, config) -> None:
         self.config = config
         self.project_root = Path("workspace")
-        self.stable_folder = self.project_root / "results_stable"
+        self.stable_folder = self.project_root / ".solver_scratch/_preprocessing"
         self.simulations_folder = self.project_root / "results_simulations"
 
 
@@ -127,7 +127,7 @@ def test_run_setup_defaults_run_id_when_empty(monkeypatch) -> None:
 
     launcher._run_setup()
 
-    assert run_state.setup.run_id == "default"
+    assert run_state.setup.run_id == "config"  # derived from config.toml stem
 
 
 def test_run_setup_stores_explicit_domain_geographic_context(monkeypatch) -> None:
@@ -239,7 +239,7 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
     assert run_state.setup.geographic is synthetic_runtime
     assert captured["config"] is geographic_cfg.synthetic
     assert captured["workspace"] is run_state.setup.workspace
-    assert captured["output_dir"] == Path("workspace") / "results_stable" / "geographic"
+    assert captured["output_dir"] == Path("workspace") / ".solver_scratch/_preprocessing" / "geographic"
 
 
 def test_process_launcher_rejects_embedded_mesh_catchment_batch_section() -> None:
@@ -466,6 +466,7 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(monkeypatch) -> No
 
     class _DummySimulationConfig:
         run_id = "mesh_run"
+        results = SimpleNamespace(store=False, keep_solver_files=False)
 
         @staticmethod
         def has_processes() -> bool:
@@ -488,8 +489,9 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(monkeypatch) -> No
         def __init__(self, config) -> None:
             self.config = config
             self.project_root = Path(config.project_root).resolve()
-            self.stable_folder = self.project_root / "results_stable"
+            self.stable_folder = self.project_root / ".solver_scratch/_preprocessing"
             self.simulations_folder = self.project_root / "results_simulations"
+            self.solver_scratch_folder = self.project_root / ".solver_scratch"
 
     class _DummyRunGeographic:
         def __init__(self, config, workspace) -> None:
@@ -696,6 +698,7 @@ def test_run_uses_external_mesh_input_phase_and_skips_embedded_workflow(
 
     class _DummySimulationConfig:
         run_id = "mesh_input_run"
+        results = SimpleNamespace(store=False, keep_solver_files=False)
 
         @staticmethod
         def has_processes() -> bool:
@@ -718,8 +721,9 @@ def test_run_uses_external_mesh_input_phase_and_skips_embedded_workflow(
         def __init__(self, config) -> None:
             self.config = config
             self.project_root = Path(config.project_root).resolve()
-            self.stable_folder = self.project_root / "results_stable"
+            self.stable_folder = self.project_root / ".solver_scratch/_preprocessing"
             self.simulations_folder = self.project_root / "results_simulations"
+            self.solver_scratch_folder = self.project_root / ".solver_scratch"
 
     class _DummyRunGeographic:
         def __init__(self, config, workspace) -> None:

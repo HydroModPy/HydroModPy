@@ -66,8 +66,7 @@ def test_flow_timeseries_aligns_subbasin_masks_to_solver_grid(tmp_path: Path) ->
     )
 
     geographic = SimpleNamespace(
-        stable_folder=str(tmp_path / "stable"),
-        simulations_folder=str(tmp_path / "simulations"),
+        out_dir_path=str(tmp_path / "stable"),
         watershed_dem=str(base_raster),
         nodata=nodata,
     )

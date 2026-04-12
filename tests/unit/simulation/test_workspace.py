@@ -21,10 +21,6 @@ def test_workspace_exposes_canonical_path_registry(tmp_path) -> None:
 
     assert isinstance(workspace.paths, WorkspacePathRegistry)
     assert workspace.paths.project_root == workspace.project_root
-    assert workspace.paths.stable_folder == workspace.stable_folder
-    assert workspace.paths.simulations_folder == workspace.simulations_folder
-    assert workspace.paths.calibration_folder == workspace.calibration_folder
-    assert workspace.paths.add_data_folder == workspace.add_data_folder
     assert workspace.paths.figures_folder == workspace.figure_folder
 
 
@@ -34,12 +30,9 @@ def test_workspace_creates_folder_structure(tmp_path) -> None:
     )
     workspace = Workspace(config=cfg)
 
+    # Only project_root is eagerly created.
     assert workspace.project_root.is_dir()
-    assert workspace.stable_folder.is_dir()
-    assert workspace.simulations_folder.is_dir()
-    assert workspace.calibration_folder.is_dir()
-    assert workspace.add_data_folder.is_dir()
-    assert workspace.figure_folder.is_dir()
+    assert workspace.solver_scratch_folder == workspace.project_root / ".solver_scratch"
 
 
 def test_workspace_discovers_workspace_root(tmp_path) -> None:
@@ -79,14 +72,7 @@ def test_workspace_data_path_none_without_workspace_root(tmp_path) -> None:
 def test_workspace_folder_derivation(tmp_path) -> None:
     project = tmp_path / "projects" / "demo"
     cfg = WorkspaceConfig(project_root=project)
-    assert cfg.stable_folder == project / "results_stable"
-    assert cfg.simulations_folder == project / "results_simulations"
-    assert cfg.calibration_folder == project / "results_calibration"
-
-
-def test_path_registry_run_folder(tmp_path) -> None:
-    registry = WorkspacePathRegistry(project_root=tmp_path / "demo")
-    assert registry.run_folder("steady_nwt") == tmp_path / "demo" / "results_simulations" / "steady_nwt"
+    assert cfg.solver_scratch_folder == project / ".solver_scratch"
 
 
 def test_workspace_project_root(tmp_path) -> None:
