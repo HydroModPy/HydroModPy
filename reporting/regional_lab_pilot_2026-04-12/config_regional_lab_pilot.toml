@@ -32,6 +32,7 @@ path_fields = [
   "mesh_figure",
   "mesh_figure_regional",
   "simulation_reference_config",
+  "local_simulation_reference_config",
   "backend_comparison_config",
   "transient_backend_comparison_config",
 ]
@@ -66,6 +67,14 @@ families = ["headwater"]
 scales = ["100km2"]
 required_fields = ["transient_backend_comparison_config"]
 config_path_template = "{transient_backend_comparison_config}"
+
+[[regional_lab.recipe]]
+id = "headwater_local_boussinesq_replay"
+label = "Headwater local mesh replay"
+launcher = "simulation"
+site_ids = ["headwater_100km2_outlet_27"]
+required_fields = ["local_simulation_reference_config"]
+config_path_template = "{local_simulation_reference_config}"
 
 [[regional_lab.recipe]]
 id = "s3_future_reference"

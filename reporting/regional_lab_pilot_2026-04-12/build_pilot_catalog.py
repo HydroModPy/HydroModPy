@@ -84,6 +84,7 @@ def main() -> None:
                 fieldnames.append(key)
     for extra_field in (
         "simulation_reference_config",
+        "local_simulation_reference_config",
         "backend_comparison_config",
         "transient_backend_comparison_config",
     ):
@@ -92,6 +93,7 @@ def main() -> None:
 
     for row in selected_rows:
         row.setdefault("simulation_reference_config", "")
+        row.setdefault("local_simulation_reference_config", "")
         row.setdefault("backend_comparison_config", "")
         row.setdefault("transient_backend_comparison_config", "")
 
