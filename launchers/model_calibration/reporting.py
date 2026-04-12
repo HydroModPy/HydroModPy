@@ -280,6 +280,11 @@ def build_calibration_report(
             "reuse_persisted_iterations": bool(
                 cfg.model_calibration.reuse_persisted_iterations
             ),
+            "prepared_hydraulic_support": (
+                None
+                if session.prepared_hydraulic_support is None
+                else session.prepared_hydraulic_support.to_summary()
+            ),
         },
         "parameters": _summarize_parameter_history(
             cfg=cfg,

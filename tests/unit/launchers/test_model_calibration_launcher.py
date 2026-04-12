@@ -4,6 +4,7 @@ import importlib.util
 import json
 import math
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -79,6 +80,69 @@ def _write_minimal_simulation_config(path: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
+
+
+def _write_bundle_csv(path: Path, header: str, rows: list[str]) -> None:
+    path.write_text(header + "\n" + "\n".join(rows) + "\n", encoding="utf-8")
+
+
+def _write_minimal_calibration_bundle(bundle_dir: Path) -> Path:
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    (bundle_dir / "mesh_2d.msh").write_text(
+        "$MeshFormat\n2.2 0 8\n$EndMeshFormat\n",
+        encoding="utf-8",
+    )
+    (bundle_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "bundle_schema_version": "mesh_catchment_bundle_v1",
+                "crs": "EPSG:2154",
+                "files": {"mesh": "mesh_2d.msh"},
+            },
+            indent=2,
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    _write_bundle_csv(
+        bundle_dir / "nodes.csv",
+        "node_id,x,y,z_top,z_bottom",
+        [
+            "0,0.0,0.0,10.0,5.0",
+            "1,1.0,0.0,10.0,5.0",
+            "2,1.0,1.0,10.0,5.0",
+            "3,0.0,1.0,10.0,5.0",
+        ],
+    )
+    _write_bundle_csv(
+        bundle_dir / "cells.csv",
+        "cell_id,geom_type,n0,n1,n2,n3,centroid_x,centroid_y,area_m2,z_top_centroid,z_top_mean,z_bottom_centroid,z_bottom_mean,geology_code,geology_key,hydraulic_conductivity_m_s,storage_coefficient",
+        [
+            "0,triangle,0,1,2,,0.666667,0.333333,0.5,10.0,10.0,5.0,5.0,1,granite,1.0e-5,0.10",
+            "1,triangle,0,2,3,,0.333333,0.666667,0.5,11.0,11.0,4.0,4.0,2,schist,2.0e-5,0.15",
+        ],
+    )
+    _write_bundle_csv(
+        bundle_dir / "edges.csv",
+        "edge_id,node_a,node_b,cell_a,cell_b,length_m,edge_kind,is_river,geology_a_key,geology_b_key",
+        [
+            "0,0,1,0,,1.0,boundary,false,granite,",
+            "1,1,2,0,,1.0,boundary,false,granite,",
+            "2,0,2,0,1,1.414214,internal,false,granite,schist",
+            "3,2,3,1,,1.0,boundary,false,schist,",
+            "4,0,3,1,,1.0,boundary,false,schist,",
+        ],
+    )
+    _write_bundle_csv(
+        bundle_dir / "cell_geology_fractions.csv",
+        "cell_id,geology_key,fraction",
+        [
+            "0,granite,1.0",
+            "1,schist,1.0",
+        ],
+    )
+    return bundle_dir
 
 
 def _write_minimal_model_calibration_config(
@@ -640,6 +704,79 @@ def test_model_calibration_builds_lithology_property_arrays(tmp_path: Path) -> N
         "basement",
         "basement",
     )
+
+
+def test_model_calibration_prepares_bundle_backed_property_support(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_calibration_bundle(tmp_path / "bundle")
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    simulation_path.write_text(
+        simulation_path.read_text(encoding="utf-8")
+        + "\n[mesh_input]\n"
+        + f'bundle_dir = "{bundle_dir.as_posix()}"\n',
+        encoding="utf-8",
+    )
+    _write_minimal_model_calibration_config(config_path)
+
+    launcher = ModelCalibrationLauncher(config_path)
+    session = launcher.prepare()
+    request = launcher.actualize_candidate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15},
+        iteration_index=1,
+    )
+
+    assert session.prepared_hydraulic_support is not None
+    assert session.prepared_hydraulic_support.n_cells == 2
+    assert session.prepared_hydraulic_support.lithology_labels == (
+        "granite",
+        "schist",
+    )
+    assert request.property_array_summary is not None
+    assert request.property_array_summary["properties"]["K"]["stats"]["count"] == 2
+    assert request.property_array_set is not None
+    assert request.property_array_set.get("K").values.tolist() == pytest.approx(
+        [2.0e-5, 4.0e-5]
+    )
+
+
+def test_model_calibration_run_candidate_injects_flow_runtime_overrides(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(config_path)
+    launcher = ModelCalibrationLauncher(config_path)
+
+    captured: dict[str, object] = {}
+
+    class _FakeSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            self.candidate_config_path = Path(candidate_config_path)
+            self.run_state = SimpleNamespace(setup=SimpleNamespace())
+
+        def run(self):
+            captured["flow_runtime_overrides"] = (
+                self.run_state.setup.flow_runtime_overrides
+            )
+            return {"mode": "simulation", "config": str(self.candidate_config_path)}
+
+    outcome = launcher.run_candidate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15},
+        iteration_index=1,
+        launcher_factory=_FakeSimulationLauncher,
+    )
+
+    assert outcome.status == "solver_run_succeeded"
+    overrides = captured["flow_runtime_overrides"]
+    assert isinstance(overrides, dict)
+    assert overrides["source"] == "model_calibration"
+    assert overrides["candidate_run_id"] == "calib_case_01__iter_0001"
+    assert overrides["properties"]["K"].tolist() == pytest.approx([1.0e-4])
+    assert overrides["properties"]["Sy"].tolist() == pytest.approx([0.15])
 
 
 def test_model_calibration_run_candidate_persists_iteration_history(

@@ -165,3 +165,76 @@ def test_run_flow_model_raises_when_solver_fails(monkeypatch) -> None:
         )
 
     assert model.calls == ["pre", "processing"]
+
+
+def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
+    plan = SimulationPlan(
+        name="demo",
+        description="demo",
+        runs=(
+            ProcessRun(
+                id="flow_main::modflow6",
+                process_id="flow_main",
+                process_type="flow",
+                solver="modflow6",
+            ),
+        ),
+    )
+    state = SimpleNamespace(
+        cfg=SimpleNamespace(
+            postprocess=SimpleNamespace(
+                flow=SimpleNamespace(
+                    intermittency=SimpleNamespace(
+                        yearly=False,
+                        monthly=False,
+                        weekly=False,
+                        daily=False,
+                    ),
+                    native_mesh_npz=False,
+                    native_mesh_csv=False,
+                    native_mesh_vtu=False,
+                    native_mesh_png=False,
+                )
+            )
+        ),
+        setup=SimpleNamespace(
+            flow=SimpleNamespace(active_bc=[]),
+            domain=SimpleNamespace(),
+            workspace=SimpleNamespace(simulations_folder="unused"),
+            flow_runtime_overrides={"properties": {"K": [1.0, 2.0]}},
+        ),
+        execution=SimpleNamespace(models_by_run_id={}),
+    )
+
+    monkeypatch.setattr(
+        "hydromodpy.simulation.adapters.flow.modflow_common._persist_pre_run_payload",
+        lambda workspace, model_name, model_modflow: None,
+    )
+
+    class _SuccessfulFlowModel:
+        model_name = "demo_model"
+
+        def __init__(self) -> None:
+            self.pre_kwargs = None
+
+        def pre_processing(self, **kwargs) -> None:
+            self.pre_kwargs = dict(kwargs)
+
+        def processing(self, options) -> bool:
+            return True
+
+        def post_processing(self, options) -> None:
+            return None
+
+    model = _SuccessfulFlowModel()
+
+    run_flow_model(
+        RunContext(plan=plan, run=plan.runs[0], state=state),
+        model,
+        ModflowPreprocessOptions(),
+    )
+
+    assert model.pre_kwargs is not None
+    assert model.pre_kwargs["flow_runtime_overrides"] == {
+        "properties": {"K": [1.0, 2.0]}
+    }
