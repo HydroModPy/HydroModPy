@@ -229,7 +229,7 @@ def _iter_selected_method_runs(
 def synthesize_truth_observations(
     *,
     definition: TwinCalibrationCaseDefinition,
-    simulation_config_path: Path,
+    truth_simulation_config_path: Path,
     benchmark_root: Path,
     launcher_factory: Any = HydroModPyLauncher,
 ) -> dict[str, dict[str, tuple[float, ...]]]:
@@ -243,7 +243,7 @@ def synthesize_truth_observations(
     )
     truth_calibration_path = benchmark_root / "truth_calibration.toml"
     truth_payload = definition.build_calibration_payload(
-        simulation_config_path.name,
+        truth_simulation_config_path.name,
         _compact_calibration_id(definition, "truth"),
         _placeholder_observations(definition),
         truth_method,
@@ -285,6 +285,7 @@ def synthesize_truth_observations(
                 "role": "synthetic_truth_observations",
                 "case_id": definition.case_id,
                 "solver_name": definition.solver_name,
+                "truth_simulation_config_path": str(truth_simulation_config_path),
                 "truth_params": {
                     str(name): float(value)
                     for name, value in definition.truth_params.items()
@@ -564,9 +565,18 @@ def run_twin_benchmark_case(
         simulation_config_path,
         benchmark_root / "project",
     )
+    truth_builder = definition.build_truth_simulation_config
+    if truth_builder is None:
+        truth_simulation_config_path = simulation_config_path
+    else:
+        truth_simulation_config_path = benchmark_root / "truth_simulation.toml"
+        truth_builder(
+            truth_simulation_config_path,
+            benchmark_root / "project_truth",
+        )
     synthesized_observations = synthesize_truth_observations(
         definition=definition,
-        simulation_config_path=simulation_config_path,
+        truth_simulation_config_path=truth_simulation_config_path,
         benchmark_root=benchmark_root,
         launcher_factory=launcher_factory,
     )
@@ -629,6 +639,7 @@ def run_twin_benchmark_case(
         definition=definition,
         benchmark_root=benchmark_root,
         simulation_config_path=simulation_config_path,
+        truth_simulation_config_path=truth_simulation_config_path,
         observations_truth=observations_truth,
         observations_used=observations_used,
         method_results=tuple(method_results),

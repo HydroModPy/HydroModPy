@@ -57,7 +57,9 @@ class TwinCalibrationCaseDefinition:
     method_profiles: tuple[CalibrationMethodProfile, ...]
     fast: bool = False
     observation_noise: ObservationNoiseSpec | None = None
+    perturbation_description: str | None = None
     build_simulation_config: Callable[[Path, Path], None] | None = None
+    build_truth_simulation_config: Callable[[Path, Path], None] | None = None
     build_calibration_payload: (
         Callable[
             [str, str, Mapping[str, tuple[float, ...]], CalibrationMethodProfile],
@@ -166,6 +168,7 @@ class TwinCalibrationBenchmarkResult:
     definition: TwinCalibrationCaseDefinition
     benchmark_root: Path
     simulation_config_path: Path
+    truth_simulation_config_path: Path
     observations_truth: dict[str, tuple[float, ...]]
     observations_used: dict[str, tuple[float, ...]]
     method_results: tuple[TwinMethodBenchmarkResult, ...]
@@ -179,8 +182,10 @@ class TwinCalibrationBenchmarkResult:
             "solver_name": self.definition.solver_name,
             "regime": self.definition.regime,
             "description": self.definition.description,
+            "perturbation_description": self.definition.perturbation_description,
             "benchmark_root": str(self.benchmark_root),
             "simulation_config_path": str(self.simulation_config_path),
+            "truth_simulation_config_path": str(self.truth_simulation_config_path),
             "truth_params": {
                 str(name): float(value)
                 for name, value in self.definition.truth_params.items()
