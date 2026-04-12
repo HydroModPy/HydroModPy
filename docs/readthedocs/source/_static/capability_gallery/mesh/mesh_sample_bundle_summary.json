@@ -6,6 +6,9 @@
   "deck": "Standalone overview of one bundled catchment mesh, with geology and topography panels.",
   "summary": "This sample bundle is a versioned catchment mesh illustration shipped with the repository. It is stable enough for documentation and exposes the main viewer concepts: cells, edges, rivers, geology interfaces, and topography rendering.",
   "case_setup": [],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "How the standalone bundle viewer turns one versioned mesh export into a didactic figure.",
     "How geology keys, river edges, and topographic information are surfaced in one compact layout.",
@@ -13,6 +16,8 @@
   ],
   "reference_highlights": [],
   "equations_rst": [],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m tools.mesh_bundle_viewer --config examples/mesh_viewer/config_example.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [

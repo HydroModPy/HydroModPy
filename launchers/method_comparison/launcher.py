@@ -27,6 +27,7 @@ from launchers.method_comparison.runtime import (
     read_variant_run_metadata,
     write_observables_csv,
 )
+from launchers.method_comparison.visuals import generate_comparison_figures
 
 
 class MethodComparisonLauncher:
@@ -75,11 +76,15 @@ class MethodComparisonLauncher:
 
             run_folder = Path(str(summary["run_folder"]))
             try:
+                config_path = summary.get("config_path")
                 rows = extract_observable_rows(
                     comparison_id=str(section.comparison_id),
                     variant=variant,
                     run_folder=run_folder,
                     observables=tuple(section.observable),
+                    config_path=(
+                        None if config_path in (None, "") else Path(str(config_path))
+                    ),
                 )
             except Exception as exc:
                 summary["status"] = "observable_extraction_failed"
@@ -124,6 +129,13 @@ class MethodComparisonLauncher:
                 "differences": detail_metrics,
             },
         )
+        figure_artifacts = generate_comparison_figures(
+            cfg=self.cfg,
+            variant_summaries=variant_summaries,
+            rows=all_rows,
+            reference_variant=reference_variant,
+            comparison_root=comparison_root,
+        )
         report_path = comparison_root / "comparison_report.md"
         report_path.write_text(
             build_comparison_report(
@@ -136,6 +148,7 @@ class MethodComparisonLauncher:
                 ],
                 rows=all_rows,
                 summary_metrics=summary_metrics,
+                figure_artifacts=figure_artifacts,
             ),
             encoding="utf-8",
         )
@@ -158,6 +171,8 @@ class MethodComparisonLauncher:
             "comparison_differences_csv": str(differences_csv),
             "comparison_metrics_json": str(metrics_json),
             "comparison_report_md": str(report_path),
+            "comparison_figures_dir": str(comparison_root / "comparison_figures"),
+            "comparison_figures": figure_artifacts,
             "n_observable_rows": len(all_rows),
             "n_metric_rows": len(summary_metrics),
             "n_difference_rows": len(detail_metrics),
@@ -194,9 +209,10 @@ class MethodComparisonLauncher:
                 start = time.monotonic()
                 run_state = HydroModPyLauncher(config_path).run()
                 wall_seconds = round(time.monotonic() - start, 2)
-                workspace = run_state.setup.workspace
-                run_id = run_state.setup.run_id
-                run_folder = Path(workspace.simulations_folder) / str(run_id)
+                run_folder = self._resolve_completed_run_folder(
+                    run_state=run_state,
+                    solver_name=str(variant.solver),
+                )
                 status = "completed"
             elif run_folder is None and config_path is not None:
                 run_folder = self._infer_run_folder_from_config(config_path)
@@ -247,6 +263,25 @@ class MethodComparisonLauncher:
         """Infer one existing run folder from a simulation config path."""
         cfg = HydroModPyConfig.from_toml(config_path)
         return Path(cfg.workspace.simulations_folder) / str(cfg.simulation.run_id)
+
+    @staticmethod
+    def _resolve_completed_run_folder(*, run_state: Any, solver_name: str) -> Path:
+        """Return the concrete output folder produced for one completed solver run."""
+        model = None
+        get_model_for_solver = getattr(run_state, "get_model_for_solver", None)
+        if callable(get_model_for_solver):
+            try:
+                model = get_model_for_solver(solver_name)
+            except Exception:
+                model = None
+
+        full_path = Path(str(getattr(model, "full_path", "") or "")).expanduser()
+        if str(full_path).strip() != "":
+            return full_path
+
+        workspace = run_state.setup.workspace
+        run_id = run_state.setup.run_id
+        return Path(workspace.simulations_folder) / str(run_id)
 
     @staticmethod
     def _first_completed_variant_id(

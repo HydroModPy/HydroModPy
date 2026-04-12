@@ -17,7 +17,9 @@ from hydromodpy.solver.boussinesq.assembly import (
     assemble_steady_residual,
     assemble_steady_residual_with_saturation_excess,
     assemble_transient_residual,
+    saturated_thickness_from_head,
 )
+from hydromodpy.solver.boussinesq.core.state import BoussinesqState
 from hydromodpy.solver.boussinesq.jacobian_fd import (
     build_cell_coupling_rows_by_column,
     build_colored_sparse_fd_jacobian_triplets,
@@ -35,6 +37,7 @@ from hydromodpy.solver.boussinesq.local_runtime import (
 from hydromodpy.solver.boussinesq.petsc_runtime import (
     _coo_to_csr,
     _fischer_burmeister_residual_and_derivatives,
+    _initial_transient_q_ex_guess,
     solve_steady_problem as solve_steady_problem_petsc,
 )
 from hydromodpy.solver.boussinesq.partition_runtime_utils import (
@@ -292,6 +295,67 @@ def test_fischer_burmeister_residual_vanishes_on_complementary_states() -> None:
     assert np.isfinite(dphi_dq).all()
 
 
+def test_transient_mixed_petsc_q_ex_initial_guess_starts_dry_without_positive_source(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+
+    q_ex_initial = _initial_transient_q_ex_guess(
+        mesh,
+        head_initial_guess_m=np.asarray([10.0, 11.0], dtype=float),
+        head_prev_m=np.asarray([10.0, 11.0], dtype=float),
+        dt_seconds=3600.0,
+        recharge_rate_m_s=0.0,
+        well_flux_m3_s=0.0,
+        imposed_head_m_by_edge=None,
+        drainage_conductance_m2_s=0.0,
+        regularization_radius=0.05,
+    )
+
+    assert q_ex_initial.shape == (mesh.n_cells,)
+    assert np.allclose(q_ex_initial, 0.0)
+
+
+def test_transient_mixed_petsc_q_ex_initial_guess_uses_partition_predictor_with_recharge(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    head_initial = np.asarray([10.0, 11.0], dtype=float)
+
+    q_ex_initial = _initial_transient_q_ex_guess(
+        mesh,
+        head_initial_guess_m=head_initial,
+        head_prev_m=head_initial,
+        dt_seconds=3600.0,
+        recharge_rate_m_s=2.0e-7,
+        well_flux_m3_s=0.0,
+        imposed_head_m_by_edge=None,
+        drainage_conductance_m2_s=0.0,
+        regularization_radius=0.05,
+    )
+    reference = np.maximum(
+        np.asarray(
+            assemble_transient_residual(
+                mesh,
+                head_m=head_initial,
+                head_prev_m=head_initial,
+                dt_seconds=3600.0,
+                recharge_rate_m_s=2.0e-7,
+                well_flux_m3_s=0.0,
+                imposed_head_m_by_edge=None,
+                drainage_conductance_m2_s=0.0,
+                regularization_radius=0.05,
+            ).saturation_excess_rate_m_s,
+            dtype=float,
+        ),
+        0.0,
+    )
+
+    assert np.allclose(q_ex_initial, reference)
+
+
 def test_prescribed_saturation_excess_overrides_regularized_balance(tmp_path: Path) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
     mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
@@ -329,7 +393,7 @@ def test_petsc_runtime_rejects_non_linux_platform(
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
     mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
     monkeypatch.setattr(
-        "hydromodpy.solver.boussinesq.petsc_runtime.platform.system",
+        "hydromodpy.solver.boussinesq.petsc_common.platform.system",
         lambda: "Windows",
     )
 
@@ -1281,6 +1345,100 @@ def test_boussinesq_runs_recharge_runtime_and_tracks_saturation_excess(
     assert model.state.saturation_excess_history_m_s.shape == (2, 2)
     assert np.any(model.state.saturation_excess_rate_m_s > 0.0)
     assert np.allclose(model.state.recharge_rate_m_s, 2.0e-7)
+
+
+def test_post_processing_records_surface_threshold_and_complementarity_summary(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "ic": {"type": "custom", "value": 8.0},
+                "runtime_backend": "petsc",
+                "surface_interaction_model": "complementarity",
+            }
+        )
+    )
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=type(
+            "TimeGrid",
+            (),
+            {"period_lengths_seconds": (3600.0, 3600.0)},
+        )(),
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_surface_summary",
+    )
+    model.pre_processing()
+    assert model.mesh is not None
+
+    head_history_m = np.asarray(
+        [
+            [9.8, 10.8],
+            [10.0, 11.0],
+            [9.9, 10.9],
+            [10.000000001, 11.0],
+        ],
+        dtype=float,
+    )
+    saturation_excess_history_m_s = np.asarray(
+        [
+            [0.0, 0.0],
+            [1.0e-7, 0.0],
+            [0.0, 0.0],
+            [1.5e-7, -1.0e-13],
+        ],
+        dtype=float,
+    )
+    final_head_m = np.asarray(head_history_m[-1], dtype=float)
+    final_q_ex_m_s = np.asarray(saturation_excess_history_m_s[-1], dtype=float)
+    model.state = BoussinesqState(
+        head_m=final_head_m,
+        saturated_thickness_m=saturated_thickness_from_head(model.mesh, final_head_m),
+        saturation_excess_rate_m_s=final_q_ex_m_s,
+        head_history_m=head_history_m,
+        saturation_excess_history_m_s=saturation_excess_history_m_s,
+        period_lengths_seconds=(3600.0, 3600.0, 3600.0),
+        nonlinear_iterations=(2, 3, 4),
+        converged_by_period=(True, True, True),
+    )
+    model.runtime_summary.update(
+        {
+            "runtime_backend": "petsc",
+            "surface_interaction_model_resolved": "complementarity",
+        }
+    )
+    model.has_numerical_solution = True
+    model.solve_stage = "solved"
+
+    model.post_processing()
+
+    summary = json.loads(
+        (tmp_path / "demo_boussinesq_surface_summary" / "_boussinesq_summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert summary["surface_threshold_active_any"] is True
+    assert summary["surface_threshold_first_active_step"] == 1
+    assert summary["surface_threshold_first_active_day"] == pytest.approx(3600.0 / 86_400.0)
+    assert summary["surface_threshold_active_steps"] == 2
+    assert summary["surface_threshold_activation_windows"] == 2
+    assert summary["surface_threshold_deactivation_windows"] == 1
+    assert summary["surface_threshold_state_transitions"] == 3
+    assert summary["surface_threshold_peak_active_cells"] == 1
+    assert summary["surface_threshold_peak_active_fraction"] == pytest.approx(0.5)
+    assert summary["surface_threshold_peak_total_m3_day"] > 0.0
+    assert summary["surface_threshold_peak_cell_rate_mm_day"] > 0.0
+    assert summary["surface_threshold_peak_head_above_top_m"] == pytest.approx(1.0e-9)
+    assert summary["surface_complementarity_min_gap_m"] == pytest.approx(-1.0e-9)
+    assert summary["surface_complementarity_min_rate_m_s"] == pytest.approx(-1.0e-13)
+    assert summary["surface_complementarity_peak_overlap_m2_s"] == pytest.approx(0.0)
+    assert summary["surface_complementarity_final_overlap_m2_s"] == pytest.approx(0.0)
 
 
 def test_boussinesq_runs_absolute_xy_well_runtime(tmp_path: Path) -> None:

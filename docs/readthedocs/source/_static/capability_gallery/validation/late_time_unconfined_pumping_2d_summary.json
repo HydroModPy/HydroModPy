@@ -14,6 +14,9 @@
     "simulated observable: `watertable_elevation`.",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "Transient well forcing, late-time radial drawdown scaling, and numerical radial symmetry around the well",
     "Primary metrics: space-time RMSE, space-time max abs error, final-time RMSE, final-time max abs error, azimuthal spread.",
@@ -29,6 +32,8 @@
     "s(r,t)=\\frac{Q}{4\\pi T}E_1(u)",
     "u=\\frac{r^2S}{4Tt},\\qquad T=K\\,h_{\\mathrm{ref}},\\qquad S=S_y"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -49,7 +54,7 @@
     "validation_cases/analytical/transient/common.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/README.md": "cdba73415cb6cdf40efb64533e69557f1dbb22925a19eb1a958b0cdb0bc2f6be",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/reference.py": "5c3d1bea642b740f45d14f1ceea796b1fd623b0e7f5ac9378ebd76b72e6ac250",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/comparison.py": "e2404ce54213f66e6a183bfc2fe0f1e3e5b331908adce54d6cf3dcdb6fe8ef7f",

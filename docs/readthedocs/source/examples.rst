@@ -12,16 +12,24 @@ scenario you need.
 - **Conda / source installations** – the cloned repository already provides
   `examples/`, keep it in place so the relative paths used in the scripts remain valid.
 
-Illustrated capability gallery
-------------------------------
+Start Here
+----------
 
-The capability gallery complements the notebooks with a curated set of static,
-versioned figures generated from reproducible examples and validation cases.
-The documentation build does not execute these cases; it only reads the
-committed PNG and JSON artifacts produced by ``python -m tools.doc_gallery``.
+If you want a recommended first path instead of browsing the full notebook
+inventory, start with the guided entry points below.
 
-.. grid:: 1 1 1 1
-   :gutter: 2
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: getting_started/index
+      :link-type: doc
+
+      **Getting started**
+      ^^^
+      Choose a first workflow, understand the main parameter groups, and follow
+      guided walkthroughs for data overview and end-to-end simulation.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -32,6 +40,14 @@ committed PNG and JSON artifacts produced by ``python -m tools.doc_gallery``.
       ^^^
       Mesh illustrations, geographic diagnostics, and analytical validation
       figures curated for teaching and code demonstration.
+
+Illustrated capability gallery
+------------------------------
+
+The capability gallery complements the notebooks with a curated set of static,
+versioned figures generated from reproducible examples and validation cases.
+The documentation build does not execute these cases; it only reads the
+committed PNG and JSON artifacts produced by ``python -m tools.doc_gallery``.
 
 Notebook gallery
 ----------------
@@ -58,4 +74,5 @@ Notebook gallery
    :hidden:
    :maxdepth: 1
 
+   getting_started/index
    capability_gallery/index

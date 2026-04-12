@@ -6,6 +6,8 @@ Usage::
     python -m launchers simulation path/to/config.toml   # equivalent
     python -m launchers mesh-catchment run path/to/config.toml
     python -m launchers method-comparison run path/to/config.toml
+    python -m launchers regional-lab run path/to/config.toml
+    python -m launchers regional-lab bootstrap-catalog --help
 
 Notes
 -----
@@ -134,6 +136,77 @@ def _run_method_comparison_launcher(config_path: Path) -> None:
     print(f"  comparison_metrics_csv: {summary['comparison_metrics_csv']}")
     print(f"  comparison_report_md: {summary['comparison_report_md']}")
     print(f"  manifest_path: {summary['manifest_path']}")
+
+
+def _run_regional_lab_launcher(config_path: Path) -> None:
+    """Execute the regional-lab launcher for one TOML configuration path."""
+    from launchers import RegionalLabLauncher
+
+    summary = RegionalLabLauncher(config_path).run()
+    print("Completed regional-lab run:")
+    print(f"  lab_id: {summary['lab_id']}")
+    print(f"  output_root: {summary['output_root']}")
+    print(f"  selected_site_count: {summary['selected_site_count']}")
+    print(f"  planned_case_count: {summary['planned_case_count']}")
+    print(f"  skipped_case_count: {summary['skipped_case_count']}")
+    print(f"  executed_case_count: {summary['executed_case_count']}")
+    print(f"  reused_case_count: {summary['reused_case_count']}")
+    print(f"  failed_case_count: {summary['failed_case_count']}")
+    print(f"  plan_path: {summary['plan_path']}")
+    print(f"  report_path: {summary['report_path']}")
+    print(f"  site_inventory_csv: {summary['site_inventory_csv']}")
+    print(f"  recipe_summary_csv: {summary['recipe_summary_csv']}")
+    print(f"  cluster_summary_csv: {summary['cluster_summary_csv']}")
+    print(f"  summary_markdown: {summary['summary_markdown']}")
+    if int(summary["failed_case_count"]) > 0:
+        raise RuntimeError("regional-lab run completed with failed child cases")
+
+
+def _bootstrap_regional_lab_catalog(
+    *,
+    outlets_table: Path,
+    output: Path,
+    cluster_id: str,
+    region_id: str,
+    source_selection_id: str,
+    cluster_label: str | None,
+    cluster_family: str | None,
+    cluster_scale: str | None,
+    manifest_csv: Path | None,
+    site_id_template: str,
+    outlet_id_column: str,
+    x_column: str,
+    y_column: str,
+    area_column: str,
+    tags: list[str],
+) -> None:
+    """Build one canonical regional-lab site catalog from one outlets table."""
+    from launchers.regional_lab.bootstrap import build_site_catalog_from_outlet_table
+
+    summary = build_site_catalog_from_outlet_table(
+        outlets_table_path=outlets_table,
+        output_path=output,
+        cluster_id=cluster_id,
+        region_id=region_id,
+        source_selection_id=source_selection_id,
+        cluster_label=cluster_label,
+        cluster_family=cluster_family,
+        cluster_scale=cluster_scale,
+        manifest_csv=manifest_csv,
+        site_id_template=site_id_template,
+        outlet_id_column=outlet_id_column,
+        x_column=x_column,
+        y_column=y_column,
+        area_column=area_column,
+        default_tags=tuple(tags),
+    )
+    print("Bootstrapped regional-lab site catalog:")
+    print(f"  output_path: {summary['output_path']}")
+    print(f"  site_count: {summary['site_count']}")
+    print(f"  cluster_id: {summary['cluster_id']}")
+    print(f"  region_id: {summary['region_id']}")
+    print(f"  source_selection_id: {summary['source_selection_id']}")
+    print(f"  manifest_merged: {summary['manifest_merged']}")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -284,6 +357,121 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     comparison_template.set_defaults(_handler="method_comparison_template")
 
+    regional_lab_parser = subparsers.add_parser(
+        "regional-lab",
+        help="Regional-lab launcher family.",
+    )
+    regional_lab_commands = regional_lab_parser.add_subparsers(
+        dest="regional_lab_command",
+        required=True,
+    )
+    regional_lab_run = regional_lab_commands.add_parser(
+        "run",
+        help="Run a regional-lab launcher TOML.",
+    )
+    regional_lab_run.add_argument(
+        "config",
+        type=Path,
+        help="Path to launcher TOML file.",
+    )
+    regional_lab_run.set_defaults(_handler="regional_lab_run")
+
+    regional_lab_template = regional_lab_commands.add_parser(
+        "template",
+        help="Print a canonical TOML template for regional-lab.",
+    )
+    regional_lab_template.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Optional output path. When omitted, print the template to stdout.",
+    )
+    regional_lab_template.set_defaults(_handler="regional_lab_template")
+    regional_lab_bootstrap = regional_lab_commands.add_parser(
+        "bootstrap-catalog",
+        help="Build a canonical regional-lab site catalog from an outlets table.",
+    )
+    regional_lab_bootstrap.add_argument(
+        "--outlets-table",
+        type=Path,
+        required=True,
+        help="Path to the source outlets CSV table.",
+    )
+    regional_lab_bootstrap.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="Destination CSV path for the generated site catalog.",
+    )
+    regional_lab_bootstrap.add_argument(
+        "--cluster-id",
+        required=True,
+        help="Cluster identifier assigned to generated sites.",
+    )
+    regional_lab_bootstrap.add_argument(
+        "--region-id",
+        required=True,
+        help="Region identifier assigned to generated sites.",
+    )
+    regional_lab_bootstrap.add_argument(
+        "--source-selection-id",
+        required=True,
+        help="Source selection identifier kept in the generated catalog.",
+    )
+    regional_lab_bootstrap.add_argument(
+        "--cluster-label",
+        default=None,
+        help="Optional human-readable cluster label.",
+    )
+    regional_lab_bootstrap.add_argument(
+        "--cluster-family",
+        default=None,
+        help="Optional cluster family.",
+    )
+    regional_lab_bootstrap.add_argument(
+        "--cluster-scale",
+        default=None,
+        help="Optional cluster scale.",
+    )
+    regional_lab_bootstrap.add_argument(
+        "--manifest-csv",
+        type=Path,
+        default=None,
+        help="Optional mesh batch manifest CSV merged into the generated catalog.",
+    )
+    regional_lab_bootstrap.add_argument(
+        "--site-id-template",
+        default="{cluster_id}_outlet_{outlet_id}",
+        help="Template used to derive site_id from cluster_id and outlet_id.",
+    )
+    regional_lab_bootstrap.add_argument(
+        "--outlet-id-column",
+        default="outlet_id",
+        help="Outlet identifier column in the source outlets table.",
+    )
+    regional_lab_bootstrap.add_argument(
+        "--x-column",
+        default="x_outlet",
+        help="X coordinate column in the source outlets table.",
+    )
+    regional_lab_bootstrap.add_argument(
+        "--y-column",
+        default="y_outlet",
+        help="Y coordinate column in the source outlets table.",
+    )
+    regional_lab_bootstrap.add_argument(
+        "--area-column",
+        default="area_km2",
+        help="Optional area column in the source outlets table.",
+    )
+    regional_lab_bootstrap.add_argument(
+        "--tag",
+        action="append",
+        default=[],
+        help="Extra tag appended to every generated site row. Repeatable.",
+    )
+    regional_lab_bootstrap.set_defaults(_handler="regional_lab_bootstrap_catalog")
+
     return parser
 
 
@@ -361,6 +549,44 @@ def main(argv: list[str] | None = None) -> int:
             output_path = parsed.output.expanduser().resolve()
             write_method_comparison_template(output_path)
             print(f"Wrote template: {output_path}")
+        return 0
+    if handler == "regional_lab_run":
+        _run_regional_lab_launcher(parsed.config.expanduser().resolve())
+        return 0
+    if handler == "regional_lab_template":
+        from launchers.regional_lab.templates import (
+            render_regional_lab_template,
+            write_regional_lab_template,
+        )
+
+        if parsed.output is None:
+            sys.stdout.write(render_regional_lab_template())
+        else:
+            output_path = parsed.output.expanduser().resolve()
+            write_regional_lab_template(output_path)
+            print(f"Wrote template: {output_path}")
+        return 0
+    if handler == "regional_lab_bootstrap_catalog":
+        manifest_csv = None
+        if parsed.manifest_csv is not None:
+            manifest_csv = parsed.manifest_csv.expanduser().resolve()
+        _bootstrap_regional_lab_catalog(
+            outlets_table=parsed.outlets_table.expanduser().resolve(),
+            output=parsed.output.expanduser().resolve(),
+            cluster_id=str(parsed.cluster_id),
+            region_id=str(parsed.region_id),
+            source_selection_id=str(parsed.source_selection_id),
+            cluster_label=None if parsed.cluster_label is None else str(parsed.cluster_label),
+            cluster_family=None if parsed.cluster_family is None else str(parsed.cluster_family),
+            cluster_scale=None if parsed.cluster_scale is None else str(parsed.cluster_scale),
+            manifest_csv=manifest_csv,
+            site_id_template=str(parsed.site_id_template),
+            outlet_id_column=str(parsed.outlet_id_column),
+            x_column=str(parsed.x_column),
+            y_column=str(parsed.y_column),
+            area_column=str(parsed.area_column),
+            tags=[str(item) for item in parsed.tag],
+        )
         return 0
 
     parser.print_help()

@@ -14,6 +14,9 @@
     "simulated observable: `watertable_elevation`.",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "Sloping-topography drainage behavior without introducing a free seepage-face problem",
     "Primary metrics: head-profile RMSE, max abs error, cross-row spread, minimum clearance above topography.",
@@ -27,6 +30,8 @@
     "T_0\\,\\frac{\\mathrm{d}^2u}{\\mathrm{d}x^2}-\\lambda_d\\,u=0,\\qquad u=h-z_{\\mathrm{top}}(x)",
     "z_{\\mathrm{top}}(x)=z_0+A\\left(1-\\frac{x-x_{\\min}}{L}\\right),\\qquad u(x)=u_w\\frac{\\sinh\\left(\\beta(L-x)\\right)}{\\sinh\\left(\\beta L\\right)}+u_e\\frac{\\sinh\\left(\\beta x\\right)}{\\sinh\\left(\\beta L\\right)}"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -44,7 +49,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/README.md": "35473049b1976c3829f69dd4e81ad29b07a637f95892bce024d781f60e726f72",
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/reference.py": "84854fe667710e4353f0fc821315df0b21723dbef1fabffd4705bd1944676c20",
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/comparison.py": "102920a24e662c991835de4de09618bef93fc5a11a6a17b86d99621f9afc04fc",

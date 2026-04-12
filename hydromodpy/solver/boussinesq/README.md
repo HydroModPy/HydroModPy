@@ -118,17 +118,22 @@ Today this package supports:
 - side, stream and ocean Dirichlet supports,
 - simplified top drainage,
 - dense nonlinear solves on small meshes,
-- one sparse SciPy Newton path intended as the bridge toward larger meshes.
+- one sparse SciPy Newton path used as the cross-platform reference on larger meshes,
 - one PETSc path on Linux using a mixed complementarity formulation for
   saturation excess.
 - one PETSc path on Linux using the regularized partition surface law on the
   head-only system.
+- committed real unstructured meshes in addition to the small validation cases.
+- one committed real-basin transient cycling case where the mixed PETSc path
+  resolves repeated on/off threshold windows while the regularized-partition
+  paths keep one always-active seepage window under the same forcing.
 
 It does not yet provide:
 
-- large production meshes,
 - heterogeneous recharge in this first slice,
 - the full historical MODFLOW boundary-condition catalog,
+- distributed MPI PETSc execution,
+- a full coupled overland-flow model,
 - matrix-free Jacobians or graph-colored sparse finite differences yet.
 
 ## Recommended Reading Order

@@ -9,6 +9,9 @@
     "Strip with piecewise-constant `K`, west divide, east fixed head, uniform recharge",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "validate one no-flow side boundary together with heterogeneous `K`,",
     "keep a clear analytical reference while extending beyond the two-head case,",
@@ -25,6 +28,8 @@
     "U=h^2,\\qquad \\frac{\\mathrm{d}}{\\mathrm{d}x}\\left(K(x)\\,\\frac{\\mathrm{d}U}{\\mathrm{d}x}\\right)+2R=0",
     "\\frac{\\mathrm{d}U}{\\mathrm{d}x}(0)=0,\\qquad U(L)=h_e^2,\\qquad U(x)=h_e^2+2R\\int_x^L \\frac{s\\,\\mathrm{d}s}{K(s)}"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.steady.boussinesq_divide_fixed_head_piecewise_k_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -45,7 +50,7 @@
     "validation_cases/analytical/steady/boussinesq_piecewise.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/README.md": "2886a6b3056d7c3ba9e6dfdb42a506a3ebe56793f0ca6d42c14ebd81672550a8",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/reference.py": "25546751e0cbfa160feafa3b48639bfc18fe0584d1799c8e675cc65b9f1bab81",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/comparison.py": "2065fb6bc87f424f49419100e8257bf0325c15a97327ae7b4f531255b7fcefe9",

@@ -13,6 +13,7 @@ partir de la convention de nommage retenue :
 - `model_calibration/` : pour `ModelCalibrationLauncher`
 - `hydro_cal_val/` : pour `HydroCalValLauncher`
 - `mesh_catchment/` : pour `MeshCatchmentLauncher`
+- `regional_lab/` : pour `RegionalLabLauncher`
 
 ## Intention
 
@@ -28,6 +29,9 @@ partir de la convention de nommage retenue :
 - `MeshCatchmentLauncher` : generation de maillage catchment conforme
   au reseau de rivieres et/ou a la geologie, en mode mono-catchment ou batch
   par table d'exutoires.
+- `RegionalLabLauncher` : expansion d'un catalogue de sites regional en
+  campagnes `recette x site`, avec selection par clusters/tags et orchestration
+  vers `simulation` ou `method-comparison`.
 
 Cette arborescence prepare une separation claire des responsabilites sans
 modifier le launcher principal existant.
@@ -50,6 +54,15 @@ Commande recommandee pour comparer des methodes de resolution :
 
 `python -m launchers method-comparison run <path/to/config.toml>`
 
+Commande recommandee pour orchestrer un laboratoire regional :
+
+`python -m launchers regional-lab run <path/to/config.toml>`
+
+Commande utilitaire pour bootstrapper un `site_catalog.csv` a partir d'une
+table d'exutoires :
+
+`python -m launchers regional-lab bootstrap-catalog --help`
+
 Alias CLI principal :
 
 `hmp compare <path/to/config.toml>`
@@ -61,6 +74,10 @@ Generation d'un template canonique derive des schemas `pydantic` :
 Template method-comparison :
 
 `python -m launchers method-comparison template [--output path/to/template.toml]`
+
+Template regional-lab :
+
+`python -m launchers regional-lab template [--output path/to/template.toml]`
 
 Exemple de config prete a lancer :
 
@@ -77,6 +94,14 @@ Guide de prise en main dedie :
 Guide method-comparison :
 
 `launchers/method_comparison/README.md`
+
+Guide regional-lab :
+
+`launchers/regional_lab/README.md`
+
+Exemple regional-lab versionne :
+
+`examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml`
 
 Exemple data-overview versionne :
 

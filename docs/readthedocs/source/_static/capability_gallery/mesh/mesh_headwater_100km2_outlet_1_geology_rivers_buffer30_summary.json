@@ -1,4 +1,4 @@
-﻿{
+{
   "summary_schema_version": "capability_gallery_case_v1",
   "slug": "mesh_headwater_100km2_outlet_1_geology_rivers_buffer30",
   "title": "100 km2, headwater Mesh, Outlet 1, Geology + rivers, 30% buffer",
@@ -13,6 +13,9 @@
     "Gallery variant: Geology + rivers, 30% buffer.",
     "Bundle-reported constraints mode: geology_rivers."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "How several headwater outlets around 100 km2 compare under the same meshing policy.",
     "How the same gallery case can be repeated across multiple outlets without changing the documentation structure.",
@@ -20,6 +23,8 @@
   ],
   "reference_highlights": [],
   "equations_rst": [],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m launchers mesh-catchment run launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -39,10 +44,10 @@
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/figures/mesh_regional.png"
   ],
   "source_hashes": {
-    "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml": "b7f2c4a9f023a2e9d6240e79a0967d870cc104a7339a9da77bb46bbee5730ad4",
-    "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/case.json": "e23dc49163bb8fca42892d4f44d107576d2bdf470237d760980b4e287a6776a8",
+    "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml": "8bbcce480c87860ec7bb2af519ed5d88e03562f8f7d439a6ab5a3d8e273ef01e",
+    "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/case.json": "89e5b24ff5503b205bf78bb1c233e113dde940ff2b6c32d21ef4a303a1dda52e",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/viewer_config.toml": "f928f402f6e0122004c9c7c7e1e732a2b9b39c3f65427865c1d8c44b7d5e931f",
-    "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/README.md": "b2cb5c8cb9d77086b42a162bc3d03e04cab7e96776da29f75176be83590f500c",
+    "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/README.md": "98852928d179a1521f72708bd5e961ded939c559a00217319e34f7540f94b5d2",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle/mesh_2d.msh": "04d787a92df40d58c3d43cbd9cba4d0bfd26ab45f36f08d6eb6ff5c180a6f78f",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle/nodes.csv": "51d09134d14d1727e5ef6f0e49bf9fb6bddde11f38bf69c1acca908b14326a70",
     "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv": "26ac0b978141a81b66ad10958acee0ae06e26b3d071dd4f411a55dab45cea61f",
@@ -160,4 +165,3 @@
     ]
   }
 }
-

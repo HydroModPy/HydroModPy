@@ -9,6 +9,9 @@
     "Circular island with concentric piecewise-constant `K`, uniform recharge, `ocean` top BC",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "validate heterogeneous `K` mapping on a genuinely 2D synthetic geometry,",
     "verify that the numerical solution preserves radial symmetry on a Cartesian grid,",
@@ -25,6 +28,8 @@
     "\\frac{1}{r}\\frac{\\mathrm{d}}{\\mathrm{d}r}\\left(r\\,K(r)\\,H\\,\\frac{\\mathrm{d}H}{\\mathrm{d}r}\\right)+R=0",
     "U=H^2,\\qquad U(r)=U(a)+R\\int_r^a \\frac{s}{K(s)}\\,\\mathrm{d}s"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -45,7 +50,7 @@
     "validation_cases/analytical/steady/boussinesq_piecewise.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/README.md": "31a2cc87e55be5223785d73d34e4f49a9e486bb0fbfb6ce345c1609d39082d47",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/reference.py": "9831b112ef1728d2c24948765d4ac9d9fc85e6dbedc829bb5fc5f63ce9916833",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/comparison.py": "66109d3de316ee8cf2094d805e520f3b927dbe5e62cab81016ef142387a0c0ec",
@@ -53,7 +58,7 @@
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/run_case.py": "2fa16c6234c914e5d97509b36a000975b7d093100f4f52d10a54f5a5a51c90a5",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml": "4bdfd3c439c17eff54e42b30e6a7ec8acf15997fe9d4ffec9478d417f7ca45cc",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml": "a1d08a7812645e1332d69e1917e2d61b3ae36f8fa860bb1b77d9729f16d5db69",
-    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/runtime_boussinesq.py": "a03a2eef78906654aed45ac621175958e1467872e68996f2ceb5c68cf0bba03d",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/runtime_boussinesq.py": "2871cbaeef5599d06a035b74ad5694577b65a198068f9ea111e6dde6c87a6079",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml": "fb1703b0bef904ef51a2bab371cb343f38c1063f28d4e94e03565a7709ca4642",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_boussinesq.toml": "aa523c345d006fdc22d31d421cc7c1caaeebfb0f7bedffd61b43b36d5b2a2a8b",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_modflow6.toml": "0eba8a46c17338a761b2485618510b8d7d20243af6443a15d79e45e77785c176",

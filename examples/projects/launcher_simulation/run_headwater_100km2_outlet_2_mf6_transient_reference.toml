@@ -1,0 +1,53 @@
+# Reference 3-year MF6 replay on the committed headwater 100 km2 mesh.
+
+base_config = "config_headwater_100km2_mf6_transient_common.toml"
+
+[simulation]
+name = "Headwater 100 km2 MF6 transient reference reused mesh"
+run_id = "headwater_100km2_outlet_2_mf6_transient_reference"
+
+[capability_gallery]
+enabled = true
+case_slug = "headwater_100km2_outlet_2_mf6_transient_reference"
+output_dir = "../../capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference"
+assets = [
+  "flow_state_triptych.png",
+  "recharge_discharge_cumulative.png",
+  "watertable_elevation.png",
+  "watertable_depth.png",
+  "flow_support_overview.png",
+]
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [
+  2.4, 2.2, 1.8, 1.2, 0.7, 0.2, -0.3, -0.5, 0.1, 0.9, 1.8, 2.3,
+  2.1, 1.9, 1.5, 1.0, 0.4, 0.0, -0.6, -0.8, -0.1, 0.7, 1.6, 2.0,
+  2.7, 2.4, 1.9, 1.3, 0.8, 0.3, -0.2, -0.4, 0.2, 1.1, 2.0, 2.6,
+]
+freq = "MS"
+runoff_ratio = 0.12
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+
+[flow.param.K.field_homogeneous]
+value = 2.5e-5
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+
+[flow.param.Sy.field_homogeneous]
+value = 0.10
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+
+[flow.param.Ss.field_homogeneous]
+value = 5e-6

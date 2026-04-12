@@ -15,6 +15,9 @@
     "west side left as the natural divide/no-flow boundary.",
     "Available solver variants: Boussinesq."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "validate the emergence/interception position on a topographic slope,",
     "keep a closed-form inland Boussinesq profile on the dry part of the hillslope,",
@@ -29,6 +32,8 @@
     "h(x)^2=h_e^2+\\frac{R}{K}\\left(L^2-x^2\\right)",
     "z_{\\mathrm{top}}(x)=z_{\\mathrm{toe}}+S\\left(L-x\\right),\\qquad h(x_{\\mathrm{int}})=z_{\\mathrm{top}}(x_{\\mathrm{int}})"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -44,7 +49,7 @@
     "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/config_boussinesq.toml"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/README.md": "43ee14e9d296e8257f30adcdab2c087f3c04999c50947958e73a29929da61407",
     "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/reference.py": "efb54edf826b20f9e99209a991e8a04943db888040893a92c5b343742e018aac",
     "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/comparison.py": "277099514246dcc66530c23b0e2d55d9814e972869fc5fb464e244145ab8d0d4",

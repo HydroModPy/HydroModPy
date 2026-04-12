@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 
 def _clean_optional_text(value: object) -> str | None:
@@ -78,6 +79,7 @@ class MethodComparisonObservableSchema(BaseModel):
     variable: str
     source: Literal["disk"] = "disk"
     support: Literal["point", "outlet", "boundary", "cell_mask", "map"] = "point"
+    anchor_id: str | None = None
     x: float | None = None
     y: float | None = None
     cell_index: int | None = None
@@ -98,7 +100,7 @@ class MethodComparisonObservableSchema(BaseModel):
             raise ValueError("method_comparison.observable value cannot be empty")
         return text
 
-    @field_validator("boundary_id", "reducer", "time_reducer", "unit")
+    @field_validator("anchor_id", "boundary_id", "reducer", "time_reducer", "unit")
     @classmethod
     def _validate_optional_text(cls, value: object) -> str | None:
         return _clean_optional_text(value)
@@ -135,17 +137,24 @@ class MethodComparisonObservableSchema(BaseModel):
             )
         if self.support == "point":
             has_coordinates = self.x is not None and self.y is not None
-            if not has_coordinates and self.cell_index is None:
+            has_anchor = self.anchor_id is not None
+            if not has_coordinates and not has_anchor and self.cell_index is None:
                 raise ValueError(
-                    "point observables require either x/y coordinates or cell_index"
+                    "point observables require x/y coordinates, anchor_id, or cell_index"
                 )
             if self.reducer is None:
                 self.reducer = "nearest_cell"
         elif self.support == "outlet":
             has_coordinates = self.x is not None and self.y is not None
-            if self.cell_index is None and not has_coordinates and not self.allow_domain_proxy:
+            has_anchor = self.anchor_id is not None
+            if (
+                self.cell_index is None
+                and not has_coordinates
+                and not has_anchor
+                and not self.allow_domain_proxy
+            ):
                 raise ValueError(
-                    "outlet observables require cell_index or x/y coordinates. "
+                    "outlet observables require cell_index, x/y coordinates, or anchor_id. "
                     "Set allow_domain_proxy=true only for exploratory whole-domain "
                     "reducer comparisons."
                 )
@@ -175,6 +184,7 @@ class MethodComparisonSectionSchema(BaseModel):
 
     comparison_id: str | None = None
     base_simulation_config: str | None = None
+    anchors_file: str | None = None
     output_root: str | None = None
     run_variants: bool = True
     continue_on_error: bool = False
@@ -185,6 +195,7 @@ class MethodComparisonSectionSchema(BaseModel):
     @field_validator(
         "comparison_id",
         "base_simulation_config",
+        "anchors_file",
         "output_root",
         "reference_variant",
     )
@@ -220,6 +231,8 @@ class MethodComparisonConfig(BaseModel):
     base_dir: Path
     comparison_root: Path
     base_simulation_config_path: Path | None = None
+    anchors_path: Path | None = None
+    anchors: dict[str, tuple[float, float]] = Field(default_factory=dict)
     method_comparison: MethodComparisonSectionSchema
 
     @classmethod
@@ -261,11 +274,28 @@ class MethodComparisonConfig(BaseModel):
                 base_simulation_config_path = base_dir / base_simulation_config_path
             base_simulation_config_path = base_simulation_config_path.resolve()
 
+        anchors_path: Path | None = None
+        anchors: dict[str, tuple[float, float]] = {}
+        if section.anchors_file is not None:
+            anchors_path = Path(section.anchors_file).expanduser()
+            if not anchors_path.is_absolute():
+                anchors_path = base_dir / anchors_path
+            anchors_path = anchors_path.resolve()
+            anchors = _load_method_comparison_anchors(anchors_path)
+            _apply_observable_anchors(section.observable, anchors)
+        elif any(observable.anchor_id is not None for observable in section.observable):
+            raise ValueError(
+                "method_comparison.observable.anchor_id requires "
+                "method_comparison.anchors_file"
+            )
+
         cfg = cls(
             config_path=resolved_config_path,
             base_dir=base_dir,
             comparison_root=comparison_root,
             base_simulation_config_path=base_simulation_config_path,
+            anchors_path=anchors_path,
+            anchors=anchors,
             method_comparison=section,
         )
         cfg._validate_variant_inputs()
@@ -320,3 +350,48 @@ __all__ = (
     "MethodComparisonSectionSchema",
     "MethodComparisonVariantSchema",
 )
+
+
+def _load_method_comparison_anchors(path: Path) -> dict[str, tuple[float, float]]:
+    """Load flattened XY anchors from one TOML file."""
+    raw_toml = load_toml_with_base_config(path)
+    raw_anchors = raw_toml.get("method_comparison_anchors")
+    if not isinstance(raw_anchors, Mapping):
+        raise KeyError(
+            f"Anchors file '{path}' must expose a [method_comparison_anchors] tree"
+        )
+    anchors: dict[str, tuple[float, float]] = {}
+    _collect_anchor_nodes(raw_anchors, anchors=anchors, prefix=())
+    if not anchors:
+        raise ValueError(f"Anchors file '{path}' does not define any x/y anchor")
+    return anchors
+
+
+def _collect_anchor_nodes(
+    mapping: Mapping[str, Any],
+    *,
+    anchors: dict[str, tuple[float, float]],
+    prefix: tuple[str, ...],
+) -> None:
+    if "x" in mapping and "y" in mapping:
+        if not prefix:
+            raise ValueError("Anchor nodes must be nested under a non-empty id path")
+        anchors[".".join(prefix)] = (float(mapping["x"]), float(mapping["y"]))
+    for key, value in mapping.items():
+        if key in {"x", "y"}:
+            continue
+        if isinstance(value, Mapping):
+            _collect_anchor_nodes(value, anchors=anchors, prefix=(*prefix, str(key)))
+
+
+def _apply_observable_anchors(
+    observables: list[MethodComparisonObservableSchema],
+    anchors: Mapping[str, tuple[float, float]],
+) -> None:
+    for observable in observables:
+        anchor_id = observable.anchor_id
+        if anchor_id is None or (observable.x is not None and observable.y is not None):
+            continue
+        if anchor_id not in anchors:
+            raise KeyError(f"Unknown method_comparison anchor_id '{anchor_id}'")
+        observable.x, observable.y = anchors[anchor_id]

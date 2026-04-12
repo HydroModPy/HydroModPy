@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from typing import Any, Iterable, Mapping
+
+from launchers.method_comparison.metrics import build_unmatched_groups
 
 
 def _format_number(value: Any) -> str:
@@ -15,57 +16,6 @@ def _format_number(value: Any) -> str:
         return str(value)
 
 
-def _row_key(row: Mapping[str, Any]) -> tuple[str, str, str, str]:
-    return (
-        str(row.get("observable", "")),
-        str(row.get("comparison_time_key", row.get("time", ""))),
-        str(row.get("value_index", "")),
-        str(row.get("unit", "")),
-    )
-
-
-def _build_unmatched_groups(
-    rows: list[dict[str, Any]],
-    *,
-    reference_variant: str | None,
-) -> list[dict[str, Any]]:
-    if not rows or reference_variant is None:
-        return []
-
-    reference_keys = {
-        _row_key(row)
-        for row in rows
-        if str(row.get("variant_id", "")) == reference_variant
-    }
-    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
-    for row in rows:
-        variant_id = str(row.get("variant_id", ""))
-        if variant_id == reference_variant:
-            continue
-        if _row_key(row) in reference_keys:
-            continue
-        grouped[
-            (
-                variant_id,
-                str(row.get("observable", "")),
-                str(row.get("unit", "")),
-            )
-        ].append(row)
-
-    items: list[dict[str, Any]] = []
-    for (variant_id, observable, unit), group in sorted(grouped.items()):
-        items.append(
-            {
-                "variant_id": variant_id,
-                "observable": observable,
-                "unit": unit,
-                "n_rows": len(group),
-                "reason": "missing reference row or unit mismatch",
-            }
-        )
-    return items
-
-
 def build_comparison_report(
     *,
     comparison_id: str,
@@ -74,9 +24,11 @@ def build_comparison_report(
     observables: Iterable[Mapping[str, Any]],
     rows: list[dict[str, Any]],
     summary_metrics: list[dict[str, Any]],
+    figure_artifacts: Iterable[Mapping[str, Any]] | None = None,
 ) -> str:
     """Build a short Markdown report for one comparison run."""
-    unmatched = _build_unmatched_groups(rows, reference_variant=reference_variant)
+    unmatched = build_unmatched_groups(rows, reference_variant=reference_variant)
+    figures = list(figure_artifacts or [])
     completed_variants = [
         summary for summary in variant_summaries if summary.get("status") in {"completed", "reused"}
     ]
@@ -115,8 +67,23 @@ def build_comparison_report(
             f"- `{observable.get('name', '')}`:"
             f" variable=`{observable.get('variable', '')}`"
             f", support=`{observable.get('support', '')}`"
-            f", unit=`{observable.get('unit', '') or 'native'}`"
+                f", unit=`{observable.get('unit', '') or 'native'}`"
         )
+
+    lines.extend(
+        [
+            "",
+            "## Figures",
+        ]
+    )
+    if not figures:
+        lines.append("- No comparison figures were generated.")
+    else:
+        for figure in figures:
+            lines.append(
+                f"- `{figure.get('kind', '')}` / `{figure.get('observable', '')}`:"
+                f" `{figure.get('path', '')}`"
+            )
 
     lines.extend(
         [

@@ -14,6 +14,9 @@
     "simulated observable: `watertable_elevation`. For `solver=boussinesq`, the validation uses one small balanced triangular strip projected back to a regular `40 x 3` comparison grid. The runtime itself is selected through the case `config_boussinesq.toml`, while this geometry avoids the directional bias that appeared on the earlier `50 x 2` thin-strip harness.",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "Transient recharge handling and propagation of a simple forcing through time",
     "Primary metrics: space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread.",
@@ -26,6 +29,8 @@
     "S_y\\frac{\\partial \\eta}{\\partial t}=T_0\\frac{\\partial^2 \\eta}{\\partial x^2}+R_0\\,H(t),\\qquad h=h_0+\\eta",
     "\\eta(x,t)=\\frac{R_0}{2T_0}x(L-x)-\\frac{4R_0L^2}{T_0\\pi^3}\\sum_{n=0}^{\\infty}\\frac{\\sin\\left((2n+1)\\pi x/L\\right)}{(2n+1)^3}\\exp\\left(-D\\left((2n+1)\\pi/L\\right)^2 t\\right)"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -46,7 +51,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/README.md": "be72db4012be14a64172131f7b7332e24821c19cd1a9ab51e095843c0f8e3c2f",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/reference.py": "c873aadd0e0168e7bd527a6a2b3d03505c18fc60b1fd37415b14833316f5fcc4",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/comparison.py": "ca00726eeafb5b4962314ec3c7449b8e7e9b7479ec9a0db48149e01c89db0207",

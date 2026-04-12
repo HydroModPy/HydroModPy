@@ -9,6 +9,9 @@
     "Homogeneous strip, fixed east head, piecewise west-head series from CSV, no recharge",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "validate multi-step lateral boundary forcing through the launcher-managed CSV forcing path,",
     "exercise analytical superposition beyond the single-step benchmark,",
@@ -25,6 +28,8 @@
     "S_y\\frac{\\partial \\eta}{\\partial t}=T_0\\frac{\\partial^2 \\eta}{\\partial x^2},\\qquad \\eta(L,t)=0",
     "\\eta(x,t)=\\sum_k \\Delta h_k\\,\\eta_{\\mathrm{step}}(x,t-t_k)\\,H(t-t_k)"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.transient.linearized_unconfined_boundary_piecewise_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -45,7 +50,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/README.md": "831999737d3e20e252187fb4305420248f719f0a8b64c9ba54197142ae541dad",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/reference.py": "97f0786c76684977d2e605e313669bf7b2c8acdbe22de756dfdd11675e7b9bad",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/comparison.py": "a69a77b566f54209b7848dd8c98c5013d56ff4e85f98b8dcd0aa933b3b04d11c",

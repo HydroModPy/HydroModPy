@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from launchers.method_comparison.launcher import MethodComparisonLauncher
     from launchers.model_calibration.launcher import ModelCalibrationLauncher
     from launchers.process_simulation.launcher import HydroModPyLauncher
+    from launchers.regional_lab.launcher import RegionalLabLauncher
 
 __all__ = [
     "DataOverviewLauncher",
@@ -22,6 +23,7 @@ __all__ = [
     "MeshCatchmentLauncher",
     "MethodComparisonLauncher",
     "ModelCalibrationLauncher",
+    "RegionalLabLauncher",
     "LauncherRunState",
 ]
 
@@ -47,6 +49,10 @@ def __getattr__(name: str):
         from launchers.model_calibration.launcher import ModelCalibrationLauncher
 
         return ModelCalibrationLauncher
+    if name == "RegionalLabLauncher":
+        from launchers.regional_lab.launcher import RegionalLabLauncher
+
+        return RegionalLabLauncher
     if name == "LauncherRunState":
         from hydromodpy.core.state.run_state import LauncherRunState
 

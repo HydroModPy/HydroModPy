@@ -8,6 +8,9 @@ Validation Benchmarks
 
 These cases show how HydroModPy validates numerical behaviour against lightweight analytical references, with metrics that stay readable in a doc page.
 
+.. seealso::
+   Read :doc:`How to read result, comparison, and validation pages </getting_started/reading-results-pages>` if you want a guided entry point before opening the case pages below.
+
 Current Coverage
 ----------------
 

@@ -1,0 +1,67 @@
+# Compare three Boussinesq runtime backends on one transient real committed 100 km2 basin.
+#
+# The geometry and pulsed recharge chronology stay fixed while the nonlinear
+# runtime and surface-interaction closure change.
+
+[method_comparison]
+comparison_id = "headwater_100km2_outlet_2_transient_pulsed_recharge_backends"
+output_root = "method_comparison/headwater_100km2_outlet_2_transient_pulsed_recharge_backends"
+anchors_file = "method_comparison_points.toml"
+run_variants = true
+continue_on_error = false
+reference_variant = "boussinesq_scipy_sparse"
+
+[[method_comparison.variant]]
+id = "boussinesq_scipy_sparse"
+label = "Boussinesq SciPy sparse transient pulsed recharge"
+solver = "boussinesq"
+mesh_mode = "mesh_input"
+mesh_label = "headwater_100km2_outlet_2"
+simulation_config = "run_headwater_100km2_outlet_2_boussinesq_transient_pulsed_recharge.toml"
+
+[[method_comparison.variant]]
+id = "boussinesq_petsc_partition"
+label = "Boussinesq PETSc regularized-partition transient pulsed recharge"
+solver = "boussinesq"
+mesh_mode = "mesh_input"
+mesh_label = "headwater_100km2_outlet_2"
+simulation_config = "run_headwater_100km2_outlet_2_boussinesq_petsc_partition_transient_pulsed_recharge.toml"
+
+[[method_comparison.variant]]
+id = "boussinesq_petsc_mixed"
+label = "Boussinesq PETSc mixed transient pulsed recharge"
+solver = "boussinesq"
+mesh_mode = "mesh_input"
+mesh_label = "headwater_100km2_outlet_2"
+simulation_config = "run_headwater_100km2_outlet_2_boussinesq_petsc_transient_pulsed_recharge.toml"
+
+[[method_comparison.observable]]
+name = "head_outlet_point"
+variable = "watertable_elevation"
+support = "point"
+anchor_id = "headwater_100km2_outlet_2.outlet"
+time = "all"
+time_reducer = "last"
+unit = "m"
+
+[[method_comparison.observable]]
+name = "outlet_flux_series"
+variable = "outlet_flux"
+support = "outlet"
+anchor_id = "headwater_100km2_outlet_2.outlet"
+time = "all"
+unit = "m3/s"
+
+[[method_comparison.observable]]
+name = "watertable_elevation_map"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+
+[[method_comparison.observable]]
+name = "watertable_depth_map"
+variable = "watertable_depth"
+support = "map"
+time = "last"
+unit = "m"

@@ -281,8 +281,9 @@ Check the installation
    font_sizes = toolbox.plot_params(8, 15, 18, 20)  # small, medium, intermediate, large
    print(hydromodpy.__version__)
 
-Refer to :doc:`examples` for complete notebooks and scripts once the import
-works.
+Refer to :doc:`getting_started/index` for a guided first workflow once the
+import works. Use :doc:`examples` when you want the full notebook and script
+inventory.
 
 Spyder note
 -----------

@@ -15,6 +15,9 @@
     "simulated observable: `watertable_elevation`. For `solver=boussinesq`, the validation uses one small balanced triangular strip projected back to a regular `40 x 3` comparison grid. The runtime itself is selected through the case `config_boussinesq.toml`.",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "Separation between true transient-code issues and expected nonlinear deviation from the linearized theory",
     "Primary metrics: space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread.",
@@ -27,6 +30,8 @@
     "S_y\\frac{\\partial \\eta}{\\partial t}=T_0\\frac{\\partial^2 \\eta}{\\partial x^2}+R_0\\,H(t),\\qquad h=h_0+\\eta",
     "T_0=K\\,h_{\\mathrm{ref}},\\qquad D=\\frac{T_0}{S_y}"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_deep_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -46,7 +51,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/README.md": "adeaa173463eb58e1749263b276cfa3389a04cfae00179e090606513716cd00b",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/reference.py": "2bfc7dfaac0936e654631604d659ec794f719827d9efc3e23c11866d5cd652d2",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/comparison.py": "5a80144de4787d532f0af84f4b9779ed69b856479ef22fe0ef154ce15fcdcfac",

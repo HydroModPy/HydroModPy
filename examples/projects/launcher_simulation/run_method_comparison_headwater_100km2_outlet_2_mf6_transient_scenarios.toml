@@ -1,0 +1,65 @@
+# Compare the 3-year MF6 reference and heterogeneous-decay scenarios on the
+# same committed 100 km2 basin mesh.
+
+[method_comparison]
+comparison_id = "headwater_100km2_outlet_2_mf6_transient_scenarios"
+output_root = "method_comparison/headwater_100km2_outlet_2_mf6_transient_scenarios"
+anchors_file = "method_comparison_points.toml"
+run_variants = true
+continue_on_error = false
+reference_variant = "mf6_reference"
+
+[[method_comparison.variant]]
+id = "mf6_reference"
+label = "MF6 reference"
+solver = "modflow6"
+mesh_mode = "mesh_input"
+mesh_label = "headwater_100km2_outlet_2"
+simulation_config = "run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+
+[[method_comparison.variant]]
+id = "mf6_heterogeneous_decay"
+label = "MF6 heterogeneous + exponential decay"
+solver = "modflow6"
+mesh_mode = "mesh_input"
+mesh_label = "headwater_100km2_outlet_2"
+simulation_config = "run_headwater_100km2_outlet_2_mf6_transient_heterogeneous_decay.toml"
+
+[[method_comparison.observable]]
+name = "head_outlet_point"
+variable = "watertable_elevation"
+support = "point"
+anchor_id = "headwater_100km2_outlet_2.outlet"
+time = "all"
+time_reducer = "last"
+unit = "m"
+
+[[method_comparison.observable]]
+name = "outlet_flux_series"
+variable = "outlet_flux"
+support = "outlet"
+anchor_id = "headwater_100km2_outlet_2.outlet"
+time = "all"
+unit = "m3/s"
+
+[[method_comparison.observable]]
+name = "watertable_depth_mean_last"
+variable = "watertable_depth"
+support = "map"
+time = "last"
+reducer = "mean"
+unit = "m"
+
+[[method_comparison.observable]]
+name = "watertable_elevation_map"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+
+[[method_comparison.observable]]
+name = "watertable_depth_map"
+variable = "watertable_depth"
+support = "map"
+time = "last"
+unit = "m"

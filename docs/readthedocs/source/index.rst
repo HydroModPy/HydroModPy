@@ -56,6 +56,16 @@ Guides
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: getting_started/index
+      :link-type: doc
+
+      **Getting started**
+      ^^^
+      First-run guidance, workflow selection, and parameter-reading help for
+      the main example families.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: examples
       :link-type: doc
 
@@ -162,6 +172,7 @@ For any question or collaboration request, contact:
    Home <self>
    news
    install
+   getting_started/index
    examples
    capability_gallery/index
    scientific/index
