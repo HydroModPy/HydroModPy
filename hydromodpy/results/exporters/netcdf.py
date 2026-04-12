@@ -50,7 +50,12 @@ def export_netcdf(
     root = zarr.open_group(str(zarr_path), mode="r")
     grp = root[sim_id]
 
-    mesh = grp["mesh"]
+    mesh = grp.get("mesh")
+    if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
+        raise KeyError(
+            f"UGRID mesh (vertices, face_node_connectivity) not found for sim={sim_id}. "
+            "NetCDF-UGRID export requires a full mesh. Use GeoTIFF or CSV export instead."
+        )
     vertices = mesh["vertices"][:]
     connectivity = mesh["face_node_connectivity"][:]
     z_interfaces = mesh["z_interfaces"][:]
