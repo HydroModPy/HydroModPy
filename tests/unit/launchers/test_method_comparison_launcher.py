@@ -6,10 +6,12 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from launchers.method_comparison.config import MethodComparisonConfig
 from launchers.method_comparison.launcher import MethodComparisonLauncher
+from launchers.method_comparison.metrics import build_comparison_metrics
 from launchers.method_comparison.runtime import (
     extract_observable_rows,
     materialize_variant_config,
@@ -78,6 +80,7 @@ def _write_method_comparison_config(path: Path, run_folder: Path) -> None:
                 'name = "outlet_accumulation"',
                 'variable = "accumulation_flux"',
                 'support = "outlet"',
+                "cell_index = 1",
                 'time = "last"',
                 'reducer = "max"',
                 'unit = "m/day"',
@@ -88,21 +91,27 @@ def _write_method_comparison_config(path: Path, run_folder: Path) -> None:
     )
 
 
-def _write_fake_run_folder(run_folder: Path, bundle_dir: Path) -> None:
+def _write_fake_run_folder(
+    run_folder: Path,
+    bundle_dir: Path,
+    *,
+    head_offset: float = 0.0,
+    accumulation_offset: float = 0.0,
+) -> None:
     postprocess_dir = run_folder / "_postprocess"
     postprocess_dir.mkdir(parents=True, exist_ok=True)
     np.save(
         postprocess_dir / "watertable_elevation.npy",
         {
-            0: np.asarray([10.0, 20.0, 30.0]),
-            1: np.asarray([11.0, 21.0, 31.0]),
+            0: np.asarray([10.0, 20.0, 30.0]) + head_offset,
+            1: np.asarray([11.0, 21.0, 31.0]) + head_offset,
         },
     )
     np.save(
         postprocess_dir / "accumulation_flux.npy",
         {
-            0: np.asarray([0.1, 0.4, 0.2]),
-            1: np.asarray([0.3, 0.8, 0.5]),
+            0: np.asarray([0.1, 0.4, 0.2]) + accumulation_offset,
+            1: np.asarray([0.3, 0.8, 0.5]) + accumulation_offset,
         },
     )
     bundle_dir.mkdir(parents=True, exist_ok=True)
@@ -188,7 +197,7 @@ def test_materialize_variant_config_writes_base_overlay(tmp_path: Path) -> None:
     assert raw["mesh_input"]["bundle_dir"] == "results_stable/mesh/bundle"
 
 
-def test_extract_observable_rows_reads_point_and_outlet_proxy(tmp_path: Path) -> None:
+def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -> None:
     run_folder = tmp_path / "run"
     bundle_dir = tmp_path / "bundle"
     _write_fake_run_folder(run_folder, bundle_dir)
@@ -213,7 +222,40 @@ def test_extract_observable_rows_reads_point_and_outlet_proxy(tmp_path: Path) ->
     assert head["value"] == 21.0
     assert head["selected_cell_index"] == "1"
     assert outlet["value"] == 0.8
-    assert outlet["selection"] == "domain_reducer_proxy"
+    assert outlet["selection"] == "declared_cell"
+    assert outlet["selected_cell_index"] == "1"
+    assert outlet["time_index"] == 1
+    assert outlet["comparison_time_key"] == "time_index:1"
+
+
+def test_outlet_without_location_requires_explicit_proxy_opt_in(tmp_path: Path) -> None:
+    config_path = tmp_path / "config_method_comparison.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "[method_comparison]",
+                'comparison_id = "demo_compare"',
+                "run_variants = false",
+                "",
+                "[[method_comparison.variant]]",
+                'id = "mf6_demo"',
+                'run_folder = "run"',
+                "",
+                "[[method_comparison.observable]]",
+                'name = "outlet_accumulation"',
+                'variable = "accumulation_flux"',
+                'support = "outlet"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="outlet observables require"):
+        MethodComparisonConfig.from_toml(
+            load_toml_with_base_config(config_path),
+            config_path=config_path,
+        )
 
 
 def test_method_comparison_launcher_reuses_existing_run_folder(tmp_path: Path) -> None:
@@ -236,6 +278,56 @@ def test_method_comparison_launcher_reuses_existing_run_folder(tmp_path: Path) -
         "head_at_point",
         "outlet_accumulation",
     }
+    assert Path(summary["comparison_metrics_csv"]).exists()
+    assert Path(summary["comparison_differences_csv"]).exists()
+
+
+def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
+    reference_run = tmp_path / "reference"
+    candidate_run = tmp_path / "candidate"
+    bundle_dir = tmp_path / "bundle"
+    _write_fake_run_folder(reference_run, bundle_dir)
+    _write_fake_run_folder(
+        candidate_run,
+        bundle_dir,
+        head_offset=2.0,
+        accumulation_offset=0.1,
+    )
+    config_path = tmp_path / "config_method_comparison.toml"
+    _write_method_comparison_config(config_path, reference_run)
+    cfg = MethodComparisonConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        config_path=config_path,
+    )
+    reference_variant = cfg.method_comparison.variant[0]
+    candidate_variant = reference_variant.model_copy(
+        update={"id": "candidate", "label": "candidate"}
+    )
+
+    rows = []
+    rows.extend(
+        extract_observable_rows(
+            comparison_id="demo_compare",
+            variant=reference_variant,
+            run_folder=reference_run,
+            observables=tuple(cfg.method_comparison.observable),
+        )
+    )
+    rows.extend(
+        extract_observable_rows(
+            comparison_id="demo_compare",
+            variant=candidate_variant,
+            run_folder=candidate_run,
+            observables=tuple(cfg.method_comparison.observable),
+        )
+    )
+
+    detail, summary = build_comparison_metrics(rows, reference_variant="mf6_demo")
+
+    assert len(detail) == 2
+    summary_by_observable = {row["observable"]: row for row in summary}
+    assert summary_by_observable["head_at_point"]["mae"] == 2.0
+    assert summary_by_observable["outlet_accumulation"]["mae"] == pytest.approx(0.1)
 
 
 def test_launchers_cli_method_comparison_run_dispatches_to_launcher(monkeypatch) -> None:

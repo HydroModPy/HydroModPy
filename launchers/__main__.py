@@ -131,6 +131,7 @@ def _run_method_comparison_launcher(config_path: Path) -> None:
     print(f"  comparison_id: {summary['comparison_id']}")
     print(f"  comparison_root: {summary['comparison_root']}")
     print(f"  observables_csv: {summary['observables_csv']}")
+    print(f"  comparison_metrics_csv: {summary['comparison_metrics_csv']}")
     print(f"  manifest_path: {summary['manifest_path']}")
 
 

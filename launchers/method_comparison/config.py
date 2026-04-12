@@ -83,6 +83,7 @@ class MethodComparisonObservableSchema(BaseModel):
     cell_index: int | None = None
     cell_indices: list[int] | None = None
     boundary_id: str | None = None
+    allow_domain_proxy: bool = False
     time: str | int | None = "all"
     time_window: tuple[str, str] | tuple[float, float] | None = None
     reducer: str | None = None
@@ -141,6 +142,13 @@ class MethodComparisonObservableSchema(BaseModel):
             if self.reducer is None:
                 self.reducer = "nearest_cell"
         elif self.support == "outlet":
+            has_coordinates = self.x is not None and self.y is not None
+            if self.cell_index is None and not has_coordinates and not self.allow_domain_proxy:
+                raise ValueError(
+                    "outlet observables require cell_index or x/y coordinates. "
+                    "Set allow_domain_proxy=true only for exploratory whole-domain "
+                    "reducer comparisons."
+                )
             variable_key = self.variable.strip().lower()
             if self.reducer is None:
                 self.reducer = "max" if "accumulation" in variable_key else "sum"
