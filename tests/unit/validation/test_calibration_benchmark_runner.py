@@ -149,6 +149,7 @@ def test_benchmark_suite_writers_emit_extended_outputs(tmp_path: Path) -> None:
         definition=definition,
         benchmark_root=benchmark_root,
         simulation_config_path=benchmark_root / "simulation.toml",
+        truth_simulation_config_path=benchmark_root / "truth_simulation.toml",
         observations_truth={"q": (1.0,)},
         observations_used={"q": (1.05,)},
         method_results=(
@@ -202,6 +203,12 @@ def test_benchmark_suite_writers_emit_extended_outputs(tmp_path: Path) -> None:
     assert payload["rows"][0]["target_success_rate"] == 1.0
     assert payload["rows"][0]["mean_time_per_evaluation_seconds"] == 0.625
     assert payload["rows"][0]["mean_param_abs_error_over_tol__K"] == 0.2
+
+    suite_payload = json.loads(suite_json.read_text(encoding="utf-8"))
+    assert (
+        suite_payload["cases"][0]["truth_simulation_config_path"]
+        == str(benchmark_root / "truth_simulation.toml")
+    )
 
     csv_text = stats_csv.read_text(encoding="utf-8")
     assert "mean_block_normalized_cost_best__heads" in csv_text

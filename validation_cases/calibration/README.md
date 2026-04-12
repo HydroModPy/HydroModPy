@@ -20,6 +20,12 @@ This is a favorable but controlled setting. It is intended to validate the
 inverse chain and to provide standardized method benchmarks before moving to
 harder perturbed or field-like workflows.
 
+The infrastructure also supports a first tier of `perturbed twin` experiments:
+
+- the truth run may use a dedicated simulation config distinct from calibration,
+- synthetic observations still come from the same solver family,
+- the perturbation is recorded explicitly in benchmark summaries.
+
 ## Layout
 
 - `shared/`: reusable inverse-validation contracts and runtime helpers.
@@ -32,6 +38,7 @@ The first V1 inventory focuses on `modflow6` inverse benchmarks:
 
 - one steady scalar `K` case on `dupuit_fixed_head_1d`,
 - one steady posterior-oriented scalar `K` case on `dupuit_fixed_head_1d`,
+- one steady mesh-perturbed scalar `K` case on `dupuit_fixed_head_1d`,
 - one noisy steady scalar `K` variant on `dupuit_fixed_head_1d`,
 - one transient multiobservable `K + Sy` case on
   `linearized_unconfined_recharge_step_1d`, including one GP-mapping profile,
@@ -42,6 +49,7 @@ The first V1 inventory focuses on `modflow6` inverse benchmarks:
 Each case produces:
 
 - synthetic truth observations,
+- optionally one distinct truth simulation config for perturbed twins,
 - one or more calibration runs for standardized methods,
 - a JSON benchmark summary with recovery metrics per method.
 

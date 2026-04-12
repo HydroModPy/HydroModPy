@@ -7,6 +7,7 @@ from pathlib import Path
 
 from validation_cases.calibration.shared.runtime import run_twin_benchmark_case
 from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment import (
+    STEADY_DUPUIT_MESH_PERTURBED_TWIN_CASE,
     STEADY_DUPUIT_NOISY_TWIN_CASE,
     STEADY_DUPUIT_POSTERIOR_TWIN_CASE,
     STEADY_DUPUIT_TWIN_CASE,
@@ -25,7 +26,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument(
         "--case",
-        choices=("standard", "noisy", "posterior"),
+        choices=("standard", "noisy", "posterior", "mesh_perturbed"),
         default="standard",
         help="Twin-benchmark variant to run.",
     )
@@ -34,6 +35,7 @@ def main(argv: list[str] | None = None) -> None:
         "standard": STEADY_DUPUIT_TWIN_CASE,
         "noisy": STEADY_DUPUIT_NOISY_TWIN_CASE,
         "posterior": STEADY_DUPUIT_POSTERIOR_TWIN_CASE,
+        "mesh_perturbed": STEADY_DUPUIT_MESH_PERTURBED_TWIN_CASE,
     }[str(args.case)]
     benchmark = run_twin_benchmark_case(
         definition,

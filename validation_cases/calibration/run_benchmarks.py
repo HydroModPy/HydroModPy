@@ -14,6 +14,7 @@ from validation_cases.calibration.twin.steady.boussinesq_fixed_head_piecewise_k_
     PIECEWISE_K_TWIN_CASE,
 )
 from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment import (
+    STEADY_DUPUIT_MESH_PERTURBED_TWIN_CASE,
     STEADY_DUPUIT_NOISY_TWIN_CASE,
     STEADY_DUPUIT_POSTERIOR_TWIN_CASE,
     STEADY_DUPUIT_TWIN_CASE,
@@ -27,6 +28,7 @@ from validation_cases.calibration.twin.transient.linearized_unconfined_recharge_
 _CASE_REGISTRY = {
     STEADY_DUPUIT_TWIN_CASE.case_id: STEADY_DUPUIT_TWIN_CASE,
     STEADY_DUPUIT_POSTERIOR_TWIN_CASE.case_id: STEADY_DUPUIT_POSTERIOR_TWIN_CASE,
+    STEADY_DUPUIT_MESH_PERTURBED_TWIN_CASE.case_id: STEADY_DUPUIT_MESH_PERTURBED_TWIN_CASE,
     STEADY_DUPUIT_NOISY_TWIN_CASE.case_id: STEADY_DUPUIT_NOISY_TWIN_CASE,
     TRANSIENT_RECHARGE_STEP_TWIN_CASE.case_id: TRANSIENT_RECHARGE_STEP_TWIN_CASE,
     TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE.case_id: TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE,
