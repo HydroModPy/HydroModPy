@@ -85,6 +85,7 @@ def _write_minimal_model_calibration_config(
     model_distribution_max_reruns: int = 10,
     model_distribution_rerun_selection: str = "representative",
     persist_iteration_history: bool = True,
+    persist_iteration_detail_level: str = "minimal",
 ) -> None:
     head_observations = (
         ['observed_values = [10.0, 14.0]'] if include_observed_values else []
@@ -128,7 +129,7 @@ def _write_minimal_model_calibration_config(
                     f'"{model_distribution_rerun_selection}"'
                 ),
                 f"persist_iteration_history = {str(persist_iteration_history).lower()}",
-                'persist_iteration_detail_level = "minimal"',
+                f'persist_iteration_detail_level = "{persist_iteration_detail_level}"',
                 "",
                 "[calibration]",
                 'objective_metric = "rmse"',
@@ -365,6 +366,41 @@ def test_append_iteration_record_writes_minimal_jsonl(tmp_path: Path) -> None:
     assert payload["block_costs"] == {"heads": 0.3, "flux": 0.12}
     assert payload["status"] == "ok"
     assert payload["failure_reason"] is None
+    assert "block_details" not in payload
+
+
+def test_append_iteration_record_writes_diagnostic_jsonl(tmp_path: Path) -> None:
+    history_path = tmp_path / "iteration_history.jsonl"
+
+    append_iteration_record(
+        history_path=history_path,
+        detail_level="diagnostic",
+        record=IterationRecord(
+            iteration_id="iter_0001",
+            params_vector=(1.0, 0.2),
+            params_named={"K_global_factor": 1.0, "Sy_global": 0.2},
+            objective_total=0.42,
+            objective_score=-0.42,
+            block_costs={"heads": 0.30},
+            block_details=(
+                {
+                    "name": "heads",
+                    "metric": "rmse",
+                    "raw_cost": 0.30,
+                    "normalized_cost": 0.30,
+                },
+            ),
+            status="objective_evaluated",
+            candidate_run_id="calib_case_01__iter_0001",
+            candidate_config_path="runtime_candidates/iter_0001/candidate.toml",
+        ),
+    )
+
+    payload = json.loads(history_path.read_text(encoding="utf-8"))
+    assert payload["objective_score"] == -0.42
+    assert payload["block_details"][0]["name"] == "heads"
+    assert payload["candidate_run_id"] == "calib_case_01__iter_0001"
+    assert "objective_metadata" not in payload
 
 
 def test_model_calibration_select_outputs_can_use_variable_supports(
@@ -557,6 +593,51 @@ def test_model_calibration_run_candidate_evaluates_composite_objective(
     }
     assert payload["status"] == "objective_evaluated"
     assert payload["failure_reason"] is None
+
+
+def test_model_calibration_run_candidate_can_persist_diagnostic_iteration(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(
+        config_path,
+        include_observed_values=True,
+        persist_iteration_detail_level="diagnostic",
+    )
+    launcher = ModelCalibrationLauncher(config_path)
+
+    class _FakeSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            self.candidate_config_path = Path(candidate_config_path)
+
+        def run(self):
+            return {
+                "calibration_outputs": {
+                    "pz_01": [11.0, 13.0],
+                    "q_outlet_lowflow_mean": [5.0, 7.0],
+                },
+            }
+
+    _ = launcher.run_candidate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15},
+        iteration_index=1,
+        launcher_factory=_FakeSimulationLauncher,
+    )
+    summary = launcher.run()
+
+    payload = json.loads(
+        Path(summary["iteration_history_path"]).read_text(encoding="utf-8")
+    )
+    assert payload["objective_score"] == pytest.approx(-0.5)
+    assert payload["candidate_run_id"] == "calib_case_01__iter_0001"
+    assert payload["candidate_config_path"].endswith("candidate_override.toml")
+    assert [block["name"] for block in payload["block_details"]] == [
+        "heads",
+        "flux",
+    ]
+    assert payload["block_details"][0]["raw_cost"] == pytest.approx(1.0)
 
 
 def test_model_calibration_run_candidate_records_objective_failure(

@@ -62,6 +62,9 @@ class ModelCalibrationLauncher:
             self.state.session_manifest = persist_iteration_record(
                 session=session,
                 record=record,
+                detail_level=(
+                    self.cfg.model_calibration.persist_iteration_detail_level
+                ),
             )
             return
         self.state.session_manifest = update_session_manifest(
