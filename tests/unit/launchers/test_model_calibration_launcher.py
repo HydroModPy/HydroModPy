@@ -86,6 +86,9 @@ def _write_minimal_model_calibration_config(
     model_distribution_rerun_selection: str = "representative",
     persist_iteration_history: bool = True,
     persist_iteration_detail_level: str = "minimal",
+    objective_mapping_enabled: bool = False,
+    objective_mapping_additional_runs: int = 0,
+    objective_mapping_interpolation: str = "idw",
 ) -> None:
     head_observations = (
         ['observed_values = [10.0, 14.0]'] if include_observed_values else []
@@ -109,6 +112,27 @@ def _write_minimal_model_calibration_config(
         ],
     }
     method_lines = method_lines_by_name[str(global_method)]
+    objective_mapping_lines = (
+        [
+            "",
+            "[model_calibration.objective_mapping]",
+            f"enabled = {str(objective_mapping_enabled).lower()}",
+            'axes = ["K_global_factor", "Sy_global"]',
+            f"additional_runs = {objective_mapping_additional_runs}",
+            'sampling = "adaptive"',
+            f'interpolation = "{objective_mapping_interpolation}"',
+            "grid_size = 12",
+            "candidate_pool_size = 32",
+            "idw_power = 2.0",
+            "random_seed = 7",
+            "include_block_contributions = true",
+            'output_points_csv = "objective_mapping_points.csv"',
+            'output_grid_json = "objective_mapping_grid.json"',
+            'output_figure = "objective_mapping.png"',
+        ]
+        if objective_mapping_enabled
+        else []
+    )
     path.write_text(
         "\n".join(
             [
@@ -130,6 +154,7 @@ def _write_minimal_model_calibration_config(
                 ),
                 f"persist_iteration_history = {str(persist_iteration_history).lower()}",
                 f'persist_iteration_detail_level = "{persist_iteration_detail_level}"',
+                *objective_mapping_lines,
                 "",
                 "[calibration]",
                 'objective_metric = "rmse"',
@@ -291,6 +316,7 @@ def test_model_calibration_config_resolves_simulation_path_and_core_settings(
         cfg.model_calibration.model_distribution_rerun_selection
         == "representative"
     )
+    assert cfg.model_calibration.objective_mapping.enabled is False
 
     core_settings = cfg.resolve_core_settings()
     assert core_settings["method"] == "simplex"
@@ -845,6 +871,97 @@ def test_model_calibration_calibrate_runs_engine_loop_and_persists_result(
         "objective_evaluated",
     ]
     assert history_payloads[-1]["objective_total"] == pytest.approx(0.0)
+
+
+def test_model_calibration_calibrate_writes_objective_mapping_artifacts(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(
+        config_path,
+        include_observed_values=True,
+        objective_mapping_enabled=True,
+        objective_mapping_additional_runs=2,
+        objective_mapping_interpolation="linear",
+    )
+    launcher = ModelCalibrationLauncher(config_path)
+
+    class _FakeSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            self.candidate_config_path = Path(candidate_config_path)
+
+        def run(self):
+            merged = load_toml_with_base_config(self.candidate_config_path)
+            k_value = float(
+                str(
+                    merged["flow"]["param"]["K"]["field_homogeneous"]["value"]
+                ).split()[0]
+            )
+            sy_value = float(
+                str(
+                    merged["flow"]["param"]["Sy"]["field_homogeneous"]["value"]
+                ).split()[0]
+            )
+            k_factor = k_value / 5.0e-5
+            misfit = abs(k_factor - 2.0) + abs(sy_value - 0.15)
+            return {
+                "calibration_outputs": {
+                    "pz_01": [10.0 + misfit, 14.0 + misfit],
+                    "q_outlet_lowflow_mean": [4.0 + misfit, 8.0 + misfit],
+                },
+            }
+
+    class _FakeCalibrationMethod:
+        def calibrate(self, objective_cost, bounds, method="simplex", **kwargs):
+            _ = bounds, kwargs
+            first = [1.0, 0.10]
+            second = [2.0, 0.15]
+            _ = float(objective_cost(first))
+            best_cost = float(objective_cost(second))
+            return {
+                "method": method,
+                "x_best": second,
+                "cost_best": best_cost,
+                "n_evaluations": 2,
+            }
+
+    summary = launcher.calibrate(
+        launcher_factory=_FakeSimulationLauncher,
+        calibration_method=_FakeCalibrationMethod(),
+    )
+
+    mapping = summary["objective_mapping"]
+    assert mapping["status"] == "completed"
+    assert mapping["axes"] == ["K_global_factor", "Sy_global"]
+    assert mapping["additional_runs_executed"] == 2
+    assert mapping["point_count"] == 4
+    assert mapping["finite_point_count"] == 4
+    assert mapping["interpolation_requested"] == "linear"
+    assert mapping["interpolation_used"] in {"linear", "idw_fallback"}
+
+    points_path = Path(mapping["points_csv"])
+    grid_path = Path(mapping["grid_json"])
+    assert points_path.is_file()
+    assert grid_path.is_file()
+    if mapping["figure_written"]:
+        assert Path(mapping["figure"]).is_file()
+
+    csv_lines = points_path.read_text(encoding="utf-8").splitlines()
+    assert len(csv_lines) == 5
+    assert "block_heads" in csv_lines[0]
+    grid_payload = json.loads(grid_path.read_text(encoding="utf-8"))
+    assert grid_payload["role"] == "objective_function_mapping"
+    assert grid_payload["additional_runs_executed"] == 2
+    assert grid_payload["grid"]["axes"] == ["K_global_factor", "Sy_global"]
+    assert "heads" in grid_payload["grid"]["block_costs"]
+
+    history_lines = Path(summary["iteration_history_path"]).read_text(
+        encoding="utf-8"
+    ).splitlines()
+    assert len(history_lines) == 4
+    assert summary["candidate_run_count"] == 4
 
 
 def test_model_calibration_calibrate_persists_posterior_model_distribution(

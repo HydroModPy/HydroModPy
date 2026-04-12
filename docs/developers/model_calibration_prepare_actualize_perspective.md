@@ -106,6 +106,10 @@ Les briques suivantes sont maintenant presentes dans le depot :
 - `persist_iteration_detail_level = "minimal"` reste le defaut strict ; les
   niveaux `"diagnostic"` et `"full"` ajoutent les informations de score, de
   blocs et de candidat dans l'historique JSONL quand elles sont demandees.
+- `model_calibration.objective_mapping` fournit maintenant un diagnostic
+  separe de cartographie de la fonction objectif : points CSV, grille JSON,
+  figure PNG optionnelle, interpolation `idw`/`nearest`/`linear` et relances
+  additionnelles parametrees sur un plan de coupe.
 
 Les limites restantes sont explicites :
 
@@ -797,6 +801,14 @@ model_distribution_rerun_selection = "representative"
 persist_iteration_history = true
 persist_iteration_detail_level = "minimal"
 
+[model_calibration.objective_mapping]
+enabled = false
+axes = ["K_global_factor", "Sy_global"]
+additional_runs = 0
+sampling = "adaptive"
+interpolation = "idw"
+grid_size = 60
+
 [[model_calibration.parameter]]
 name = "K_global_factor"
 target = "flow.param.K"
@@ -938,6 +950,37 @@ Le niveau `minimal` doit rester suffisant pour reconstruire une cartographie
 simple de la fonction objectif : parametres, objectif total, contributions par
 bloc et statut. Les niveaux `diagnostic` et `full` sont reserves aux analyses
 plus fines et ne doivent pas devenir le mode par defaut.
+
+## Cartographie de la fonction objectif
+
+La cartographie est volontairement separee dans
+`launchers/model_calibration/objective_mapping.py`. Elle n'appartient pas au
+coeur HydroModPy et ne doit pas modifier la logique d'optimisation : elle
+exploite les simulations deja realisees, puis ajoute optionnellement quelques
+simulations de diagnostic.
+
+Contrat actuel :
+
+- `enabled = false` par defaut ;
+- `axes = ["param_a", "param_b"]` choisit le plan 2D cartographie ;
+- si `axes` est absent, les deux premiers parametres sont utilises ;
+- avec plus de deux parametres, les autres parametres sont fixes au meilleur
+  jeu de parametres connu ;
+- `additional_runs` demande des simulations supplementaires sur cette coupe ;
+- `sampling = "adaptive"` privilegie les zones localement variables et peu
+  couvertes ;
+- `sampling = "latin_hypercube"` donne une couverture plus neutre ;
+- `interpolation = "idw"` est le defaut robuste sans dependance forte ;
+- `interpolation = "nearest"` sert de diagnostic sans lissage ;
+- `interpolation = "linear"` utilise `scipy.interpolate.griddata` si disponible
+  et bascule sur `idw` en secours ;
+- les artefacts ecrits sont `objective_mapping_points.csv`,
+  `objective_mapping_grid.json` et, si possible, `objective_mapping.png`.
+
+Cette cartographie doit etre interpretee comme une surface empirique de la
+zone exploree, pas comme une evaluation exhaustive de l'espace des parametres.
+Les points `+inf` ou en echec sont conserves dans le CSV et visualises comme
+echecs quand la figure est produite.
 
 ## Cycle d'execution cible
 

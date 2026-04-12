@@ -1139,6 +1139,9 @@ def initialize_calibration_session(
         "persist_iteration_detail_level": (
             cfg.model_calibration.persist_iteration_detail_level
         ),
+        "objective_mapping_enabled": (
+            cfg.model_calibration.objective_mapping.enabled
+        ),
         "objective_metric": cfg.calibration.objective_metric,
         "objective_transform": cfg.objective.transform,
         "iteration_count": 0,
@@ -1211,6 +1214,7 @@ def finalize_calibration_session(
     best_rerun_outcome: CandidateRunOutcome | None = None,
     model_distribution_payload: dict[str, Any] | None = None,
     model_distribution_rerun_summary: dict[str, Any] | None = None,
+    objective_mapping_summary: dict[str, Any] | None = None,
     persist_distribution: bool = True,
 ) -> dict[str, Any]:
     """Persist the final calibration result and update the session manifest."""
@@ -1243,6 +1247,7 @@ def finalize_calibration_session(
             "objective_cache_hit_count": int(evaluator.cache_hit_count),
             "model_distribution": distribution_summary,
             "model_distribution_rerun": model_distribution_rerun_summary,
+            "objective_mapping": objective_mapping_summary,
         }
     )
     if best_rerun_outcome is not None:
