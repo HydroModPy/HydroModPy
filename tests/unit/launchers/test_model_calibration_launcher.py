@@ -691,6 +691,57 @@ def test_model_calibration_selects_outputs_from_solver_postprocess_npy(
     assert selected["q_outlet_lowflow_mean"] == (pytest.approx(6.0),)
 
 
+def test_model_calibration_selects_outputs_from_solver_native_mesh_npz(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_model_calibration_config(config_path)
+    cfg = ModelCalibrationConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        base_dir=tmp_path,
+    )
+
+    model_root = tmp_path / "flow_main_npz"
+    mesh_dir = model_root / "_postprocess" / "_mesh"
+    mesh_dir.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        mesh_dir / "flow_watertable_elevation.npz",
+        time_index=np.asarray(["2020-08-15", "2020-09-15"]),
+        cell_ids=np.asarray([0, 1], dtype=int),
+        values=np.asarray([[10.0, 20.0], [14.0, 18.0]], dtype=float),
+    )
+    np.save(
+        model_root / "_postprocess" / "outlet_discharge_east_side_m3_s.npy",
+        {
+            "2020-08-15": np.asarray([4.0], dtype=float),
+            "2020-09-15": np.asarray([8.0], dtype=float),
+        },
+        allow_pickle=True,
+    )
+
+    run_state = SimpleNamespace(
+        execution=SimpleNamespace(
+            models_by_run_id={
+                "flow_main": SimpleNamespace(
+                    full_path=str(model_root),
+                    runtime_mesh_support=SimpleNamespace(
+                        cell_centroid_x_m=np.asarray([0.0, 2.0], dtype=float),
+                        cell_centroid_y_m=np.asarray([2.0, 2.0], dtype=float),
+                    ),
+                )
+            }
+        )
+    )
+
+    selected = select_candidate_outputs(
+        cfg=cfg,
+        run_state=run_state,
+    )
+
+    assert selected["pz_01"] == (pytest.approx(15.0), pytest.approx(16.0))
+    assert selected["q_outlet_lowflow_mean"] == (pytest.approx(6.0),)
+
+
 def test_model_calibration_prepares_output_selectors(tmp_path: Path) -> None:
     config_path = tmp_path / "config_model_calibration.toml"
     _write_minimal_model_calibration_config(config_path)
