@@ -20,6 +20,10 @@ from hydromodpy.analysis.calibration.core.composite_objective import (
 )
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
+from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
+from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle import (
+    resolve_default_catchment_mesh_bundle_dir,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
@@ -91,6 +95,39 @@ def detect_solver_families(raw_simulation_toml: dict[str, Any]) -> tuple[str, ..
     return tuple(solvers)
 
 
+def _prepared_numeric_array_summary(values: tuple[float, ...]) -> dict[str, Any]:
+    """Return one compact summary plus a stable signature for numeric support arrays."""
+    arr = np.asarray(values, dtype=np.float64).reshape(-1)
+    if arr.size == 0:
+        return {
+            "count": 0,
+            "min": None,
+            "mean": None,
+            "max": None,
+            "signature": hashlib.sha256(b"").hexdigest(),
+        }
+    return {
+        "count": int(arr.size),
+        "min": float(np.min(arr)),
+        "mean": float(np.mean(arr)),
+        "max": float(np.max(arr)),
+        "signature": hashlib.sha256(arr.astype("<f8", copy=False).tobytes()).hexdigest(),
+    }
+
+
+def _prepared_labels_summary(labels: tuple[str, ...] | None) -> dict[str, Any] | None:
+    """Return one compact summary plus a stable signature for lithology labels."""
+    if labels is None:
+        return None
+    normalized = tuple(str(label) for label in labels)
+    serialized = json.dumps(normalized, ensure_ascii=True).encode("utf-8")
+    return {
+        "count": int(len(normalized)),
+        "unique_labels": sorted({label for label in normalized if label != ""}),
+        "signature": hashlib.sha256(serialized).hexdigest(),
+    }
+
+
 @dataclass(frozen=True, slots=True)
 class PreparedCalibrationSession:
     """Prepared runtime context resolved once for one calibration launcher session."""
@@ -158,6 +195,8 @@ class PreparedHydraulicPropertySupport:
     base_property_arrays: dict[str, tuple[float, ...]] = field(default_factory=dict)
     source: str = "config_scalar"
     mesh_bundle_dir: Path | None = None
+    mesh_path: Path | None = None
+    mesh_summary_path: Path | None = None
 
     def to_summary(self) -> dict[str, Any]:
         """Return one concise JSON-friendly summary."""
@@ -165,11 +204,32 @@ class PreparedHydraulicPropertySupport:
             "n_cells": int(self.n_cells),
             "has_lithology_labels": self.lithology_labels is not None,
             "base_properties": sorted(self.base_property_arrays.keys()),
+            "base_property_details": {
+                name: _prepared_numeric_array_summary(values)
+                for name, values in sorted(self.base_property_arrays.items())
+            },
+            "lithology_labels": _prepared_labels_summary(self.lithology_labels),
             "source": str(self.source),
             "mesh_bundle_dir": (
                 None if self.mesh_bundle_dir is None else str(self.mesh_bundle_dir)
             ),
+            "mesh_path": None if self.mesh_path is None else str(self.mesh_path),
+            "mesh_summary_path": (
+                None
+                if self.mesh_summary_path is None
+                else str(self.mesh_summary_path)
+            ),
         }
+
+
+@dataclass(frozen=True, slots=True)
+class _ResolvedHydraulicSupportPaths:
+    """Resolved file-system anchors used to prepare hydraulic support."""
+
+    source: str = "config_scalar"
+    bundle_dir: Path | None = None
+    mesh_path: Path | None = None
+    mesh_summary_path: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1462,6 +1522,23 @@ def _write_override_toml(path: Path, payload: dict[str, Any]) -> None:
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
+def _resolve_optional_config_path(
+    raw_value: object,
+    *,
+    simulation_config_path: Path,
+) -> Path | None:
+    """Resolve one optional path relative to the simulation config when needed."""
+    if raw_value is None:
+        return None
+    text = str(raw_value).strip()
+    if text == "":
+        return None
+    path = Path(text).expanduser()
+    if not path.is_absolute():
+        path = (simulation_config_path.parent / path).resolve()
+    return path
+
+
 def _resolve_mesh_input_bundle_dir(
     *,
     raw_simulation_toml: dict[str, Any],
@@ -1471,13 +1548,228 @@ def _resolve_mesh_input_bundle_dir(
     section = raw_simulation_toml.get("mesh_input")
     if not isinstance(section, dict):
         return None
-    text = str(section.get("bundle_dir", "")).strip()
+    return _resolve_optional_config_path(
+        section.get("bundle_dir"),
+        simulation_config_path=simulation_config_path,
+    )
+
+
+def _resolve_mesh_input_mesh_path(
+    *,
+    raw_simulation_toml: dict[str, Any],
+    simulation_config_path: Path,
+) -> Path | None:
+    """Resolve an optional external mesh path declared in the simulation config."""
+    section = raw_simulation_toml.get("mesh_input")
+    if not isinstance(section, dict):
+        return None
+    return _resolve_optional_config_path(
+        section.get("mesh_path"),
+        simulation_config_path=simulation_config_path,
+    )
+
+
+def _resolve_summary_relative_path(
+    raw_value: object,
+    *,
+    summary_path: Path,
+) -> Path | None:
+    """Resolve one optional path stored inside one mesh summary payload."""
+    if raw_value is None:
+        return None
+    text = str(raw_value).strip()
     if text == "":
         return None
-    bundle_dir = Path(text).expanduser()
-    if not bundle_dir.is_absolute():
-        bundle_dir = (simulation_config_path.parent / bundle_dir).resolve()
-    return bundle_dir
+    path = Path(text).expanduser()
+    if not path.is_absolute():
+        path = (summary_path.parent / path).resolve()
+    return path
+
+
+def _load_mesh_summary_payload(summary_path: Path) -> dict[str, Any] | None:
+    """Load one mesh summary JSON payload when it exists and is valid."""
+    if not summary_path.is_file():
+        return None
+    try:
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _resolve_bundle_paths_from_mesh_summary(
+    summary_path: Path,
+) -> tuple[Path | None, Path | None]:
+    """Resolve bundle and mesh paths declared inside one mesh summary JSON."""
+    payload = _load_mesh_summary_payload(summary_path)
+    if payload is None:
+        return None, None
+    return (
+        _resolve_summary_relative_path(
+            payload.get("output_exchange_bundle_dir"),
+            summary_path=summary_path,
+        ),
+        _resolve_summary_relative_path(
+            payload.get("output_mesh"),
+            summary_path=summary_path,
+        ),
+    )
+
+
+def _mesh_catchment_output_dir(
+    *,
+    raw_simulation_toml: dict[str, Any],
+    simulation_workspace: WorkspaceConfig,
+) -> Path | None:
+    """Return the expected mesh-catchment final output directory."""
+    section = raw_simulation_toml.get("mesh_catchment")
+    if not isinstance(section, dict):
+        return None
+    output_layout = str(section.get("output_layout", "standard")).strip().lower()
+    workspace_paths = WorkspacePathRegistry.from_config(simulation_workspace)
+    if output_layout == "flat":
+        return workspace_paths.project_root
+    return workspace_paths.stable_folder / "mesh"
+
+
+def _candidate_mesh_catchment_summary_paths(
+    *,
+    raw_simulation_toml: dict[str, Any],
+    simulation_config_path: Path,
+    simulation_workspace: WorkspaceConfig,
+) -> tuple[tuple[str, Path], ...]:
+    """Return configured and default mesh-catchment summary candidates."""
+    section = raw_simulation_toml.get("mesh_catchment")
+    if not isinstance(section, dict):
+        return ()
+    candidates: list[tuple[str, Path]] = []
+    explicit_path = _resolve_optional_config_path(
+        section.get("output_summary_json"),
+        simulation_config_path=simulation_config_path,
+    )
+    if explicit_path is not None:
+        candidates.append(("mesh_catchment_output_summary_json_bundle", explicit_path))
+    output_dir = _mesh_catchment_output_dir(
+        raw_simulation_toml=raw_simulation_toml,
+        simulation_workspace=simulation_workspace,
+    )
+    if output_dir is not None:
+        candidates.append(
+            (
+                "mesh_catchment_default_summary_bundle",
+                output_dir / "mesh_catchment_summary.json",
+            )
+        )
+    deduped: list[tuple[str, Path]] = []
+    seen: set[Path] = set()
+    for source, path in candidates:
+        resolved = Path(path).resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        deduped.append((source, resolved))
+    return tuple(deduped)
+
+
+def _candidate_mesh_catchment_mesh_paths(
+    *,
+    raw_simulation_toml: dict[str, Any],
+    simulation_config_path: Path,
+    simulation_workspace: WorkspaceConfig,
+) -> tuple[tuple[str, Path], ...]:
+    """Return configured and default mesh-catchment mesh candidates."""
+    section = raw_simulation_toml.get("mesh_catchment")
+    if not isinstance(section, dict):
+        return ()
+    candidates: list[tuple[str, Path]] = []
+    explicit_path = _resolve_optional_config_path(
+        section.get("output_mesh"),
+        simulation_config_path=simulation_config_path,
+    )
+    if explicit_path is not None:
+        candidates.append(("mesh_catchment_output_mesh_default_bundle", explicit_path))
+    output_dir = _mesh_catchment_output_dir(
+        raw_simulation_toml=raw_simulation_toml,
+        simulation_workspace=simulation_workspace,
+    )
+    if output_dir is not None:
+        candidates.append(
+            (
+                "mesh_catchment_default_mesh_default_bundle",
+                output_dir / "mesh_catchment.msh",
+            )
+        )
+    deduped: list[tuple[str, Path]] = []
+    seen: set[Path] = set()
+    for source, path in candidates:
+        resolved = Path(path).resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        deduped.append((source, resolved))
+    return tuple(deduped)
+
+
+def _discover_hydraulic_support_paths(
+    *,
+    raw_simulation_toml: dict[str, Any],
+    simulation_config_path: Path,
+    simulation_workspace: WorkspaceConfig,
+) -> _ResolvedHydraulicSupportPaths:
+    """Discover the best reusable mesh/bundle support already materialized on disk."""
+    bundle_dir = _resolve_mesh_input_bundle_dir(
+        raw_simulation_toml=raw_simulation_toml,
+        simulation_config_path=simulation_config_path,
+    )
+    if bundle_dir is not None:
+        return _ResolvedHydraulicSupportPaths(
+            source="mesh_input_bundle_dir",
+            bundle_dir=bundle_dir,
+        )
+
+    mesh_path = _resolve_mesh_input_mesh_path(
+        raw_simulation_toml=raw_simulation_toml,
+        simulation_config_path=simulation_config_path,
+    )
+    if mesh_path is not None:
+        return _ResolvedHydraulicSupportPaths(
+            source="mesh_input_mesh_path_default_bundle",
+            bundle_dir=resolve_default_catchment_mesh_bundle_dir(mesh_path),
+            mesh_path=mesh_path,
+        )
+
+    for source, summary_path in _candidate_mesh_catchment_summary_paths(
+        raw_simulation_toml=raw_simulation_toml,
+        simulation_config_path=simulation_config_path,
+        simulation_workspace=simulation_workspace,
+    ):
+        bundle_dir, mesh_path_from_summary = _resolve_bundle_paths_from_mesh_summary(
+            summary_path
+        )
+        if bundle_dir is None:
+            continue
+        return _ResolvedHydraulicSupportPaths(
+            source=source,
+            bundle_dir=bundle_dir,
+            mesh_path=mesh_path_from_summary,
+            mesh_summary_path=summary_path,
+        )
+
+    for source, candidate_mesh_path in _candidate_mesh_catchment_mesh_paths(
+        raw_simulation_toml=raw_simulation_toml,
+        simulation_config_path=simulation_config_path,
+        simulation_workspace=simulation_workspace,
+    ):
+        bundle_dir = resolve_default_catchment_mesh_bundle_dir(candidate_mesh_path)
+        if candidate_mesh_path.exists() or bundle_dir.exists():
+            return _ResolvedHydraulicSupportPaths(
+                source=source,
+                bundle_dir=bundle_dir,
+                mesh_path=candidate_mesh_path,
+            )
+
+    return _ResolvedHydraulicSupportPaths()
+
 
 
 def _resolve_flow_property_config(
@@ -1571,13 +1863,16 @@ def prepare_hydraulic_property_support(
     *,
     simulation_config_path: Path,
     raw_simulation_toml: dict[str, Any],
+    simulation_workspace: WorkspaceConfig,
     cfg: ModelCalibrationConfig,
 ) -> PreparedHydraulicPropertySupport:
     """Prepare reusable hydraulic support for calibration actualization."""
-    bundle_dir = _resolve_mesh_input_bundle_dir(
+    resolved_paths = _discover_hydraulic_support_paths(
         raw_simulation_toml=raw_simulation_toml,
         simulation_config_path=simulation_config_path,
+        simulation_workspace=simulation_workspace,
     )
+    bundle_dir = resolved_paths.bundle_dir
     n_cells = 1
     lithology_labels: tuple[str, ...] | None = None
     base_property_arrays: dict[str, tuple[float, ...]] = {}
@@ -1593,9 +1888,9 @@ def prepare_hydraulic_property_support(
             bundle_labels = tuple(str(cell.geology_key or "").strip() for cell in bundle.cells)
             if any(bundle_labels):
                 lithology_labels = bundle_labels
-                source = "mesh_bundle_geology"
+                source = f"{resolved_paths.source}_geology"
             else:
-                source = "mesh_bundle"
+                source = str(resolved_paths.source)
 
             conductivity_values = tuple(
                 float(cell.hydraulic_conductivity_m_s)
@@ -1635,6 +1930,8 @@ def prepare_hydraulic_property_support(
         base_property_arrays=base_property_arrays,
         source=source,
         mesh_bundle_dir=bundle_dir,
+        mesh_path=resolved_paths.mesh_path,
+        mesh_summary_path=resolved_paths.mesh_summary_path,
     )
 
 
@@ -1683,6 +1980,7 @@ def prepare_calibration_session(
     prepared_hydraulic_support = prepare_hydraulic_property_support(
         simulation_config_path=cfg.simulation_config_path,
         raw_simulation_toml=dict(raw_simulation_toml),
+        simulation_workspace=simulation_workspace,
         cfg=cfg,
     )
     contract_signature = _session_contract_signature(
