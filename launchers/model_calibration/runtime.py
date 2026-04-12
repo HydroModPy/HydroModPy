@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import math
@@ -164,6 +165,11 @@ class PreparedCalibrationSession:
     prepared_hydraulic_support: "PreparedHydraulicPropertySupport | None" = None
     prepared_output_selectors: tuple[PreparedOutputSelector, ...] = ()
     candidates_root: Path | None = None
+    runtime_launcher_cache: dict[str, Any] = field(
+        default_factory=dict,
+        repr=False,
+        compare=False,
+    )
 
     def to_summary(self) -> dict[str, Any]:
         """Return one launcher summary derived from the prepared session."""
@@ -2959,6 +2965,27 @@ def _launcher_supports_runtime_direct(launcher_factory: Any) -> bool:
         return False
 
 
+def _launcher_supports_runtime_reuse(launcher_factory: Any) -> bool:
+    """Return True when one launcher factory supports prepared-runtime reuse."""
+    if bool(getattr(launcher_factory, "model_calibration_runtime_reusable", False)):
+        return True
+    try:
+        from launchers import HydroModPyLauncher
+
+        return launcher_factory is HydroModPyLauncher
+    except Exception:
+        return False
+
+
+def _launcher_cache_key(launcher_factory: Any) -> str:
+    """Return one stable session-local cache key for a launcher factory."""
+    module_name = str(getattr(launcher_factory, "__module__", ""))
+    qualname = str(getattr(launcher_factory, "__qualname__", ""))
+    if module_name or qualname:
+        return f"{module_name}:{qualname}"
+    return repr(launcher_factory)
+
+
 def _assign_runtime_override(raw_toml: dict[str, Any], path: tuple[str, ...], value: Any) -> None:
     """Best-effort assignment into a raw TOML payload used for snapshots only."""
     try:
@@ -2967,12 +2994,108 @@ def _assign_runtime_override(raw_toml: dict[str, Any], path: tuple[str, ...], va
         return
 
 
+def _capture_runtime_direct_launcher_baseline(launcher: Any) -> dict[str, Any]:
+    """Capture mutable launcher fields that must be restored before each candidate."""
+    cfg = getattr(launcher, "cfg", None)
+    display_cfg = None if cfg is None else getattr(cfg, "display", None)
+    postprocess_cfg = None if cfg is None else getattr(cfg, "postprocess", None)
+    simulation_cfg = None if cfg is None else getattr(cfg, "simulation", None)
+    raw_toml = getattr(getattr(launcher, "run_state", None), "raw_toml", None)
+    return {
+        "simulation_run_id": None if simulation_cfg is None else getattr(simulation_cfg, "run_id", None),
+        "display": {
+            "enabled": None if display_cfg is None else getattr(display_cfg, "enabled", None),
+            "show": None if display_cfg is None else getattr(display_cfg, "show", None),
+            "save": None if display_cfg is None else getattr(display_cfg, "save", None),
+        },
+        "postprocess_enabled": (
+            None if postprocess_cfg is None else getattr(postprocess_cfg, "enabled", None)
+        ),
+        "raw_toml": copy.deepcopy(raw_toml) if isinstance(raw_toml, dict) else None,
+    }
+
+
+def _restore_runtime_direct_launcher_baseline(launcher: Any) -> None:
+    """Restore one cached launcher to its pre-candidate baseline."""
+    baseline = getattr(launcher, "_model_calibration_runtime_baseline", None)
+    if not isinstance(baseline, dict):
+        baseline = _capture_runtime_direct_launcher_baseline(launcher)
+        setattr(launcher, "_model_calibration_runtime_baseline", baseline)
+
+    cfg = getattr(launcher, "cfg", None)
+    run_state = getattr(launcher, "run_state", None)
+    raw_toml = getattr(run_state, "raw_toml", None)
+    setup_state = getattr(run_state, "setup", None)
+    if cfg is not None:
+        simulation_cfg = getattr(cfg, "simulation", None)
+        if simulation_cfg is not None:
+            try:
+                simulation_cfg.run_id = baseline.get("simulation_run_id")
+            except Exception:
+                pass
+        display_cfg = getattr(cfg, "display", None)
+        display_baseline = baseline.get("display", {})
+        if display_cfg is not None and isinstance(display_baseline, dict):
+            for attr_name in ("enabled", "show", "save"):
+                if attr_name not in display_baseline:
+                    continue
+                try:
+                    setattr(display_cfg, attr_name, display_baseline.get(attr_name))
+                except Exception:
+                    pass
+        postprocess_cfg = getattr(cfg, "postprocess", None)
+        if postprocess_cfg is not None:
+            try:
+                postprocess_cfg.enabled = baseline.get("postprocess_enabled")
+            except Exception:
+                pass
+        postprocess_runner = getattr(launcher, "postprocess_runner", None)
+        if postprocess_runner is not None and postprocess_cfg is not None:
+            try:
+                postprocess_runner.config = postprocess_cfg
+            except Exception:
+                pass
+    if isinstance(raw_toml, dict) and isinstance(baseline.get("raw_toml"), dict):
+        raw_toml.clear()
+        raw_toml.update(copy.deepcopy(baseline["raw_toml"]))
+    if setup_state is not None:
+        try:
+            setup_state.flow_runtime_overrides = None
+        except Exception:
+            pass
+
+
+def _get_or_create_runtime_reusable_launcher(
+    *,
+    request: CandidateRunRequest,
+    launcher_factory: Any,
+) -> Any:
+    """Return one reusable launcher instance cached on the calibration session."""
+    cache_key = _launcher_cache_key(launcher_factory)
+    launcher = request.session.runtime_launcher_cache.get(cache_key)
+    if launcher is None:
+        launcher = launcher_factory(request.session.simulation_config_path)
+        prepare_runtime = getattr(launcher, "prepare_runtime", None)
+        if callable(prepare_runtime):
+            prepare_runtime()
+        setattr(
+            launcher,
+            "_model_calibration_runtime_baseline",
+            _capture_runtime_direct_launcher_baseline(launcher),
+        )
+        request.session.runtime_launcher_cache[cache_key] = launcher
+        return launcher
+    _restore_runtime_direct_launcher_baseline(launcher)
+    return launcher
+
+
 def _prepare_runtime_direct_launcher(
     *,
     launcher: Any,
     request: CandidateRunRequest,
 ) -> None:
     """Patch one launcher instance so it can execute a candidate without overlay TOML."""
+    _restore_runtime_direct_launcher_baseline(launcher)
     cfg = getattr(launcher, "cfg", None)
     run_state = getattr(launcher, "run_state", None)
     setup_state = getattr(run_state, "setup", None)
@@ -3036,27 +3159,48 @@ def execute_candidate_run(
 ) -> CandidateRunOutcome:
     """Execute one candidate simulation via a launcher factory."""
     try:
+        launcher = None
         launcher_path = request.candidate_config_path
-        if _launcher_supports_runtime_direct(launcher_factory):
+        runtime_direct = _launcher_supports_runtime_direct(launcher_factory)
+        runtime_reusable = runtime_direct and _launcher_supports_runtime_reuse(
+            launcher_factory
+        )
+        if runtime_direct:
             launcher_path = request.session.simulation_config_path
-        launcher = launcher_factory(launcher_path)
-        if launcher_path == request.session.simulation_config_path:
+            if runtime_reusable:
+                launcher = _get_or_create_runtime_reusable_launcher(
+                    request=request,
+                    launcher_factory=launcher_factory,
+                )
+            else:
+                launcher = launcher_factory(launcher_path)
+        if launcher is None:
+            launcher = launcher_factory(launcher_path)
+        if runtime_direct:
             _prepare_runtime_direct_launcher(
                 launcher=launcher,
                 request=request,
             )
         setup_state = getattr(getattr(launcher, "run_state", None), "setup", None)
-        if setup_state is not None and request.property_array_set is not None:
-            setup_state.flow_runtime_overrides = {
-                "source": "model_calibration",
-                "candidate_run_id": request.candidate_run_id,
-                "iteration_id": request.iteration_id,
-                "properties": {
-                    property_name: np.asarray(array.values, dtype=float).copy()
-                    for property_name, array in request.property_array_set.arrays.items()
-                },
-            }
-        run_state = launcher.run()
+        if setup_state is not None:
+            if request.property_array_set is not None:
+                setup_state.flow_runtime_overrides = {
+                    "source": "model_calibration",
+                    "candidate_run_id": request.candidate_run_id,
+                    "iteration_id": request.iteration_id,
+                    "properties": {
+                        property_name: np.asarray(array.values, dtype=float).copy()
+                        for property_name, array in request.property_array_set.arrays.items()
+                    },
+                }
+            else:
+                setup_state.flow_runtime_overrides = None
+        run_callable = None
+        if runtime_reusable:
+            run_callable = getattr(launcher, "run_prepared", None)
+        if not callable(run_callable):
+            run_callable = launcher.run
+        run_state = run_callable()
     except Exception as exc:
         return CandidateRunOutcome(
             request=request,

@@ -132,6 +132,9 @@ class HydroModPyLauncher:
     produced by executed runs.
     """
 
+    model_calibration_runtime_direct = True
+    model_calibration_runtime_reusable = True
+
     def __init__(self, config_path: str | Path) -> None:
         """Load configuration and raw TOML for one launcher run.
 
@@ -224,6 +227,8 @@ class HydroModPyLauncher:
         self.run_state.setup.time_grid = self.time_grid
         self.run_state.data_plan = data_plan
         self.postprocess_runner = PostprocessRunner(self.cfg.postprocess)
+        self._prepared_runtime_plan = None
+        self._prepared_runtime_ready = False
 
     @staticmethod
     def _log_data_plan(data_plan: DataLoadPlan) -> None:
@@ -289,6 +294,53 @@ class HydroModPyLauncher:
             "bundle_dir": bundle_dir,
         }
 
+    def prepare_runtime(self):
+        """Prepare the shared runtime once and cache the resolved execution plan."""
+        if self._prepared_runtime_ready and self._prepared_runtime_plan is not None:
+            return self._prepared_runtime_plan
+        if not self.cfg.simulation.has_processes():
+            raise ValueError(
+                "Launchers require an explicit [simulation] block with at least "
+                "one [[simulation.process]] entry."
+            )
+
+        run_state = self.run_state
+        execution_state = run_state.execution
+        plan = self._create_simulation_plan()
+        self._validate_runtime_mesh_solver_compatibility(plan)
+        execution_state.simulation_plan = plan
+        execution_state.process_runs_by_id = {run.id: run for run in plan.runs}
+
+        self._run_setup()
+        self._build_domain_spatial_supports(phase="setup")
+        self._run_data()
+        self._build_domain_spatial_supports(phase="data")
+        self._run_mesh_phase()
+        self._run_mesh_input_phase()
+
+        self._prepared_runtime_plan = plan
+        self._prepared_runtime_ready = True
+        return plan
+
+    def run_prepared(self) -> LauncherRunState:
+        """Execute the cached runtime state after resetting only execution outputs."""
+        plan = self.prepare_runtime()
+        run_state = self.run_state
+        execution_state = run_state.execution
+        execution_state.simulation_plan = plan
+        execution_state.process_runs_by_id = {run.id: run for run in plan.runs}
+        execution_state.models_by_run_id = {}
+
+        wall_start = time.monotonic()
+        SimulationRunner(
+            callbacks=ProcessCallbacks(
+                after_process=self._on_after_process,
+            ),
+        ).execute(plan, run_state)
+        wall_seconds = time.monotonic() - wall_start
+        self._save_run_artifacts(run_state, wall_seconds)
+        return run_state
+
     def run(self) -> LauncherRunState:
         """Execute one full launcher session and return the populated runtime state.
 
@@ -314,41 +366,7 @@ class HydroModPyLauncher:
         then ``run()`` will still perform setup/loaded_data only once, but it will
         later execute four concrete solver runs in the resolved order.
         """
-        if not self.cfg.simulation.has_processes():
-            raise ValueError(
-                "Launchers require an explicit [simulation] block with at least "
-                "one [[simulation.process]] entry."
-            )
-
-        run_state = self.run_state
-        execution_state = run_state.execution
-        plan = self._create_simulation_plan()
-        self._validate_runtime_mesh_solver_compatibility(plan)
-        execution_state.simulation_plan = plan
-        # Keep a direct lookup table by run id because downstream code often
-        # needs concrete run-level lookup, not just the flat list.
-        execution_state.process_runs_by_id = {run.id: run for run in plan.runs}
-
-        wall_start = time.monotonic()
-        self._run_setup()
-        self._build_domain_spatial_supports(phase="setup")
-        self._run_data()
-        self._build_domain_spatial_supports(phase="data")
-        self._run_mesh_phase()
-        self._run_mesh_input_phase()
-        # The runner owns the fine-grained solver dispatch. The launcher
-        # only provides process-family callbacks for managed postprocess.
-        SimulationRunner(
-            callbacks=ProcessCallbacks(
-                after_process=self._on_after_process,
-            ),
-        ).execute(plan, run_state)
-        wall_seconds = time.monotonic() - wall_start
-
-        # Save run artifacts into the run folder.
-        self._save_run_artifacts(run_state, wall_seconds)
-
-        return run_state
+        return self.run_prepared()
 
     def _validate_runtime_mesh_solver_compatibility(self, plan) -> None:
         """Reject unsupported flow solvers when the launcher injects a Gmsh mesh.
