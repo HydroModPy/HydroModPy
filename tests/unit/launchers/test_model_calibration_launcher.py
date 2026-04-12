@@ -6,6 +6,7 @@ import math
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
@@ -438,7 +439,10 @@ def test_model_calibration_launcher_returns_scaffold_summary(tmp_path: Path) -> 
     assert manifest["persist_calibration_report"] is True
     assert manifest["resume_existing_session"] is True
     assert manifest["reuse_persisted_iterations"] is True
+    assert manifest["persisted_iteration_reuse_allowed"] is True
     assert manifest["primary_solver"] == "modflow6"
+    assert isinstance(manifest["session_contract_signature"], str)
+    assert len(manifest["session_contract_signature"]) == 64
 
 
 def test_model_calibration_template_contains_expected_sections() -> None:
@@ -558,6 +562,133 @@ def test_model_calibration_canonicalizes_run_outputs() -> None:
     assert bundle.get("pz_01") == [10.0]
     assert bundle.get("watertable_elevation") == [9.0]
     assert bundle.variables["pz_01"].source_key == "calibration_outputs"
+
+
+def test_model_calibration_canonicalizes_runtime_solver_model_outputs() -> None:
+    model = SimpleNamespace(
+        runtime_mesh_support=SimpleNamespace(
+            cell_centroid_x_m=np.asarray([0.0, 2.0], dtype=float),
+            cell_centroid_y_m=np.asarray([2.0, 2.0], dtype=float),
+        ),
+        dict_watertable_elevation={
+            "2020-08-15": np.asarray([10.0, 20.0], dtype=float),
+            "2020-09-15": np.asarray([14.0, 18.0], dtype=float),
+        },
+        dict_outlet_discharge_east_side_m3_s={
+            "2020-08-15": np.asarray([4.0], dtype=float),
+            "2020-09-15": np.asarray([8.0], dtype=float),
+        },
+    )
+    run_state = SimpleNamespace(
+        execution=SimpleNamespace(models_by_run_id={"flow_main": model})
+    )
+
+    bundle = canonicalize_run_outputs(run_state)
+
+    watertable = bundle.get("watertable_elevation")
+    assert list(watertable.keys()) == ["2020-08-15", "2020-09-15"]
+    assert np.asarray(watertable["2020-08-15"]["coordinates"]).shape == (2, 2)
+    assert watertable["2020-08-15"]["values"].tolist() == pytest.approx(
+        [10.0, 20.0]
+    )
+    assert bundle.get("outlet_discharge")["2020-08-15"]["east_side"] == (
+        pytest.approx(4.0),
+    )
+    assert bundle.variables["watertable_elevation"].source_key == (
+        "execution.models_by_run_id[flow_main].runtime_attribute"
+    )
+
+
+def test_model_calibration_selects_outputs_from_runtime_solver_models(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_model_calibration_config(config_path)
+    cfg = ModelCalibrationConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        base_dir=tmp_path,
+    )
+    run_state = SimpleNamespace(
+        execution=SimpleNamespace(
+            models_by_run_id={
+                "flow_main": SimpleNamespace(
+                    runtime_mesh_support=SimpleNamespace(
+                        cell_centroid_x_m=np.asarray([0.0, 2.0], dtype=float),
+                        cell_centroid_y_m=np.asarray([2.0, 2.0], dtype=float),
+                    ),
+                    dict_watertable_elevation={
+                        "2020-08-15": np.asarray([10.0, 20.0], dtype=float),
+                        "2020-09-15": np.asarray([14.0, 18.0], dtype=float),
+                    },
+                    dict_outlet_discharge_east_side_m3_s={
+                        "2020-08-15": np.asarray([4.0], dtype=float),
+                        "2020-09-15": np.asarray([8.0], dtype=float),
+                    },
+                )
+            }
+        )
+    )
+
+    selected = select_candidate_outputs(
+        cfg=cfg,
+        run_state=run_state,
+    )
+
+    assert selected["pz_01"] == (pytest.approx(15.0), pytest.approx(16.0))
+    assert selected["q_outlet_lowflow_mean"] == (pytest.approx(6.0),)
+
+
+def test_model_calibration_selects_outputs_from_solver_postprocess_npy(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_model_calibration_config(config_path)
+    cfg = ModelCalibrationConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        base_dir=tmp_path,
+    )
+
+    model_root = tmp_path / "flow_main"
+    postprocess_dir = model_root / "_postprocess"
+    postprocess_dir.mkdir(parents=True, exist_ok=True)
+    np.save(
+        postprocess_dir / "watertable_elevation.npy",
+        {
+            "2020-08-15": np.asarray([10.0, 20.0], dtype=float),
+            "2020-09-15": np.asarray([14.0, 18.0], dtype=float),
+        },
+        allow_pickle=True,
+    )
+    np.save(
+        postprocess_dir / "outlet_discharge_east_side_m3_s.npy",
+        {
+            "2020-08-15": np.asarray([4.0], dtype=float),
+            "2020-09-15": np.asarray([8.0], dtype=float),
+        },
+        allow_pickle=True,
+    )
+
+    run_state = SimpleNamespace(
+        execution=SimpleNamespace(
+            models_by_run_id={
+                "flow_main": SimpleNamespace(
+                    full_path=str(model_root),
+                    runtime_mesh_support=SimpleNamespace(
+                        cell_centroid_x_m=np.asarray([0.0, 2.0], dtype=float),
+                        cell_centroid_y_m=np.asarray([2.0, 2.0], dtype=float),
+                    ),
+                )
+            }
+        )
+    )
+
+    selected = select_candidate_outputs(
+        cfg=cfg,
+        run_state=run_state,
+    )
+
+    assert selected["pz_01"] == (pytest.approx(15.0), pytest.approx(16.0))
+    assert selected["q_outlet_lowflow_mean"] == (pytest.approx(6.0),)
 
 
 def test_model_calibration_prepares_output_selectors(tmp_path: Path) -> None:
@@ -894,6 +1025,73 @@ def test_model_calibration_prepare_can_resume_existing_session(
         encoding="utf-8"
     ).splitlines()
     assert len(history_lines) == 1
+
+
+def test_model_calibration_prepare_rejects_resume_when_contract_changed(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(config_path)
+
+    _ = ModelCalibrationLauncher(config_path).run()
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace("x = 1.0", "x = 1.5", 1),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Cannot resume calibration session",
+    ):
+        ModelCalibrationLauncher(config_path).run()
+
+
+def test_model_calibration_prepare_marks_legacy_manifest_as_not_reusable(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(
+        config_path,
+        include_observed_values=True,
+    )
+
+    launcher = ModelCalibrationLauncher(config_path)
+
+    class _FakeSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            self.candidate_config_path = Path(candidate_config_path)
+
+        def run(self):
+            return {
+                "calibration_outputs": {
+                    "pz_01": [11.0, 13.0],
+                    "q_outlet_lowflow_mean": [5.0, 7.0],
+                },
+            }
+
+    _ = launcher.run_candidate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15},
+        iteration_index=1,
+        launcher_factory=_FakeSimulationLauncher,
+    )
+
+    manifest_path = Path(launcher.run()["session_manifest_path"])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest.pop("session_contract_signature", None)
+    manifest.pop("persisted_iteration_reuse_allowed", None)
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+
+    resumed_summary = ModelCalibrationLauncher(config_path).run()
+
+    assert resumed_summary["status"] == "resumed_prepared"
+    assert resumed_summary["persisted_iteration_reuse_allowed"] is False
 
 
 def test_model_calibration_evaluator_reuses_persisted_iterations(

@@ -95,6 +95,13 @@ Les briques suivantes sont maintenant presentes dans le depot :
 - les demandes d'observables sont maintenant compilees une fois au `prepare`
   sous forme de `PreparedOutputSelector`, puis reutilisees pendant les
   evaluations de candidats.
+- `CanonicalOutputBundle` sait maintenant extraire directement des sorties
+  solveur reelles depuis `execution.models_by_run_id`, d'abord via les
+  attributs runtime du modele, puis via les artefacts `_postprocess/*.npy` et
+  `_postprocess/_mesh/flow_*.npz` quand ils existent.
+- les sorties solveur de type charges, cartes et flux sont maintenant
+  normalisees vers des payloads canoniques compatibles avec interpolation
+  ponderee sur centroides, reduction sur frontiere et selection temporelle.
 - `launchers/model_calibration/property_arrays.py` introduit un contrat local
   `PropertyArraySet` pour representer `K` et `Sy` comme tableaux externes,
   avec modes globaux et lithologiques.
