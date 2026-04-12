@@ -114,6 +114,11 @@ Les briques suivantes sont maintenant presentes dans le depot :
 - `persist_iteration_detail_level = "minimal"` reste le defaut strict ; les
   niveaux `"diagnostic"` et `"full"` ajoutent les informations de score, de
   blocs et de candidat dans l'historique JSONL quand elles sont demandees.
+- `resume_existing_session = true` permet maintenant de rouvrir un
+  `calibration_id` existant sans ecraser son historique minimal.
+- `reuse_persisted_iterations = true` permet maintenant de rehydrater le cache
+  de l'evaluateur a partir des iterations deja persistées, pour eviter des
+  reruns identiques d'une session a l'autre.
 - `model_calibration.objective_mapping` fournit maintenant un diagnostic
   separe de cartographie de la fonction objectif : points CSV, grille JSON,
   figure PNG optionnelle, interpolation `idw`/`nearest`/`linear` et relances

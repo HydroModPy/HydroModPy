@@ -92,6 +92,8 @@ def _write_minimal_model_calibration_config(
     persist_iteration_history: bool = True,
     persist_iteration_detail_level: str = "minimal",
     persist_calibration_report: bool = True,
+    resume_existing_session: bool = True,
+    reuse_persisted_iterations: bool = True,
     objective_mapping_enabled: bool = False,
     objective_mapping_additional_runs: int = 0,
     objective_mapping_interpolation: str = "idw",
@@ -161,6 +163,11 @@ def _write_minimal_model_calibration_config(
                 f"persist_iteration_history = {str(persist_iteration_history).lower()}",
                 f'persist_iteration_detail_level = "{persist_iteration_detail_level}"',
                 f"persist_calibration_report = {str(persist_calibration_report).lower()}",
+                f"resume_existing_session = {str(resume_existing_session).lower()}",
+                (
+                    "reuse_persisted_iterations = "
+                    f"{str(reuse_persisted_iterations).lower()}"
+                ),
                 *objective_mapping_lines,
                 "",
                 "[calibration]",
@@ -324,6 +331,8 @@ def test_model_calibration_config_resolves_simulation_path_and_core_settings(
         == "representative"
     )
     assert cfg.model_calibration.persist_calibration_report is True
+    assert cfg.model_calibration.resume_existing_session is True
+    assert cfg.model_calibration.reuse_persisted_iterations is True
     assert cfg.model_calibration.objective_mapping.enabled is False
 
     core_settings = cfg.resolve_core_settings()
@@ -363,6 +372,8 @@ def test_model_calibration_launcher_returns_scaffold_summary(tmp_path: Path) -> 
     assert manifest["persist_iteration_history"] is True
     assert manifest["persist_iteration_detail_level"] == "minimal"
     assert manifest["persist_calibration_report"] is True
+    assert manifest["resume_existing_session"] is True
+    assert manifest["reuse_persisted_iterations"] is True
     assert manifest["primary_solver"] == "modflow6"
 
 
@@ -375,6 +386,8 @@ def test_model_calibration_template_contains_expected_sections() -> None:
     assert "[[model_calibration.objective_block]]" in content
     assert 'reducer = "weighted_interpolation"' in content
     assert "persist_calibration_report = true" in content
+    assert "resume_existing_session = true" in content
+    assert "reuse_persisted_iterations = true" in content
 
 
 def test_append_iteration_record_writes_minimal_jsonl(tmp_path: Path) -> None:
@@ -701,6 +714,105 @@ def test_model_calibration_can_disable_iteration_history_file(
     assert summary["last_iteration_id"] == "iter_0001"
     assert summary["persist_iteration_history"] is False
     assert not Path(summary["iteration_history_path"]).exists()
+
+
+def test_model_calibration_prepare_can_resume_existing_session(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(
+        config_path,
+        include_observed_values=True,
+    )
+
+    launcher = ModelCalibrationLauncher(config_path)
+
+    class _FakeSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            self.candidate_config_path = Path(candidate_config_path)
+
+        def run(self):
+            return {
+                "calibration_outputs": {
+                    "pz_01": [11.0, 13.0],
+                    "q_outlet_lowflow_mean": [5.0, 7.0],
+                },
+            }
+
+    _ = launcher.run_candidate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15},
+        iteration_index=1,
+        launcher_factory=_FakeSimulationLauncher,
+    )
+
+    resumed_launcher = ModelCalibrationLauncher(config_path)
+    summary = resumed_launcher.run()
+
+    assert summary["status"] == "resumed_prepared"
+    assert summary["iteration_count"] == 1
+    assert summary["resumed_iteration_count"] == 1
+    history_lines = Path(summary["iteration_history_path"]).read_text(
+        encoding="utf-8"
+    ).splitlines()
+    assert len(history_lines) == 1
+
+
+def test_model_calibration_evaluator_reuses_persisted_iterations(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(
+        config_path,
+        include_observed_values=True,
+    )
+
+    launcher = ModelCalibrationLauncher(config_path)
+
+    class _FakeSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            self.candidate_config_path = Path(candidate_config_path)
+
+        def run(self):
+            return {
+                "calibration_outputs": {
+                    "pz_01": [11.0, 13.0],
+                    "q_outlet_lowflow_mean": [5.0, 7.0],
+                },
+            }
+
+    first_outcome = launcher.run_candidate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15},
+        iteration_index=1,
+        launcher_factory=_FakeSimulationLauncher,
+    )
+    assert first_outcome.objective_evaluation is not None
+
+    resumed_launcher = ModelCalibrationLauncher(config_path)
+    session = resumed_launcher.prepare()
+
+    class _UnexpectedSimulationLauncher:
+        def __init__(self, candidate_config_path: Path) -> None:
+            raise AssertionError("persisted iteration should avoid solver rerun")
+
+    evaluator = ModelCalibrationObjectiveEvaluator(
+        session=session,
+        cfg=resumed_launcher.cfg,
+        launcher_factory=_UnexpectedSimulationLauncher,
+    )
+
+    evaluation = evaluator.evaluate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15}
+    )
+
+    assert evaluation.total_cost == pytest.approx(0.5)
+    assert evaluator.restored_evaluation_count == 1
+    assert evaluator.cache_hit_count == 1
+    assert evaluator.candidate_run_count == 0
+    assert len(evaluator.empirical_iteration_records) == 1
 
 
 def test_model_calibration_run_candidate_evaluates_composite_objective(

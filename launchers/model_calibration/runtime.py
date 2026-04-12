@@ -12,6 +12,7 @@ from typing import Any, Callable
 import numpy as np
 
 from hydromodpy.analysis.calibration.core.composite_objective import (
+    CompositeBlockEvaluation,
     CompositeObjective,
     CompositeObjectiveBlock,
     CompositeObjectiveEvaluation,
@@ -366,18 +367,17 @@ def _sample_rows_from_matrix(
     return rows
 
 
-def _sample_rows_from_evaluated_outcomes(
-    outcomes: tuple[CandidateRunOutcome, ...],
+def _sample_rows_from_iteration_records(
+    records: tuple[IterationRecord, ...],
 ) -> list[dict[str, Any]]:
-    """Serialize evaluated candidates as an empirical model ensemble."""
+    """Serialize persisted or current records as an empirical ensemble."""
     rows: list[dict[str, Any]] = []
-    for outcome in outcomes:
-        record = outcome.to_iteration_record()
+    for record in records:
         rows.append(
             {
-                "sample_id": outcome.request.iteration_id,
-                "candidate_run_id": outcome.request.candidate_run_id,
-                "candidate_config_path": str(outcome.request.candidate_config_path),
+                "sample_id": record.iteration_id,
+                "candidate_run_id": record.candidate_run_id,
+                "candidate_config_path": record.candidate_config_path,
                 "params_vector": list(record.params_vector),
                 "params_named": dict(record.params_named),
                 "objective_total": record.objective_total,
@@ -430,17 +430,21 @@ def build_model_distribution_payload(
     if method not in _EMPIRICAL_ENSEMBLE_METHODS:
         return None
 
-    outcomes = evaluator.outcomes
-    if not outcomes:
+    records = evaluator.empirical_iteration_records
+    if not records:
         return None
     samples = np.asarray(
-        [outcome.request.params_vector for outcome in outcomes],
+        [record.params_vector for record in records],
         dtype=float,
     )
     return {
         "role": "empirical_evaluated_model_ensemble",
         "method": method,
-        "source": "evaluated_candidates",
+        "source": (
+            "persisted_and_evaluated_candidates"
+            if evaluator.restored_evaluation_count > 0
+            else "evaluated_candidates"
+        ),
         "parameter_names": list(parameter_names),
         "sample_count": int(samples.shape[0]),
         "model_semantics": (
@@ -451,7 +455,7 @@ def build_model_distribution_payload(
             samples=samples,
             parameter_names=parameter_names,
         ),
-        "samples": _sample_rows_from_evaluated_outcomes(outcomes),
+        "samples": _sample_rows_from_iteration_records(records),
     }
 
 
@@ -845,6 +849,206 @@ def validate_objective_ready_for_calibration(
         )
 
 
+def _load_persisted_iteration_rows(history_path: Path) -> list[dict[str, Any]]:
+    """Load persisted iteration JSONL rows when available."""
+    if not history_path.is_file():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in history_path.read_text(encoding="utf-8").splitlines():
+        text = line.strip()
+        if not text:
+            continue
+        rows.append(json.loads(text))
+    return rows
+
+
+def _iteration_record_from_history_row(row: dict[str, Any]) -> IterationRecord | None:
+    """Rehydrate one persisted JSONL row into an iteration record."""
+    if not isinstance(row, dict):
+        return None
+    params_vector_raw = row.get("params_vector")
+    params_named_raw = row.get("params_named")
+    objective_total = row.get("objective_total")
+    if not isinstance(params_vector_raw, list) or not isinstance(params_named_raw, dict):
+        return None
+    try:
+        params_vector = tuple(float(value) for value in params_vector_raw)
+        params_named = {
+            str(name): float(value) for name, value in params_named_raw.items()
+        }
+    except (TypeError, ValueError):
+        return None
+    objective_value = None if objective_total is None else float(objective_total)
+    block_costs_raw = row.get("block_costs", {})
+    block_costs = (
+        {
+            str(name): float(value)
+            for name, value in block_costs_raw.items()
+        }
+        if isinstance(block_costs_raw, dict)
+        else {}
+    )
+    block_details_raw = row.get("block_details", ())
+    block_details = (
+        tuple(item for item in block_details_raw if isinstance(item, dict))
+        if isinstance(block_details_raw, list)
+        else ()
+    )
+    objective_metadata = row.get("objective_metadata", {})
+    if not isinstance(objective_metadata, dict):
+        objective_metadata = {}
+    return IterationRecord(
+        iteration_id=str(row.get("iteration_id", "")),
+        params_vector=params_vector,
+        params_named=params_named,
+        objective_total=objective_value,
+        block_costs=block_costs,
+        status=str(row.get("status", "unknown")),
+        failure_reason=(
+            None
+            if row.get("failure_reason") is None
+            else str(row.get("failure_reason"))
+        ),
+        objective_score=(
+            None
+            if row.get("objective_score") is None
+            else float(row.get("objective_score"))
+        ),
+        block_details=block_details,
+        objective_metadata=objective_metadata,
+        candidate_run_id=(
+            None
+            if row.get("candidate_run_id") is None
+            else str(row.get("candidate_run_id"))
+        ),
+        candidate_config_path=(
+            None
+            if row.get("candidate_config_path") is None
+            else str(row.get("candidate_config_path"))
+        ),
+    )
+
+
+def _block_weight_map(cfg: ModelCalibrationConfig) -> dict[str, float]:
+    """Return normalized objective-block weights."""
+    raw_weights = {
+        str(block_cfg.name): float(block_cfg.weight)
+        for block_cfg in cfg.model_calibration.objective_block
+    }
+    total_weight = sum(raw_weights.values())
+    if total_weight <= 0.0:
+        return {name: 0.0 for name in raw_weights}
+    return {
+        name: float(weight / total_weight) for name, weight in raw_weights.items()
+    }
+
+
+def _block_n_values_map(cfg: ModelCalibrationConfig) -> dict[str, int]:
+    """Infer observed-value counts by objective block when available."""
+    outputs_by_name = {
+        output_cfg.name: output_cfg for output_cfg in cfg.model_calibration.output
+    }
+    counts: dict[str, int] = {}
+    for block_cfg in cfg.model_calibration.objective_block:
+        total = 0
+        for output_name in block_cfg.uses_outputs:
+            observed_values = outputs_by_name[output_name].observed_values
+            total += 0 if observed_values is None else len(observed_values)
+        counts[str(block_cfg.name)] = int(total)
+    return counts
+
+
+def _rehydrate_block_evaluations(
+    *,
+    cfg: ModelCalibrationConfig,
+    record: IterationRecord,
+) -> tuple[CompositeBlockEvaluation, ...]:
+    """Rebuild block evaluations from persisted iteration history."""
+    if record.block_details:
+        blocks: list[CompositeBlockEvaluation] = []
+        for payload in record.block_details:
+            blocks.append(
+                CompositeBlockEvaluation(
+                    name=str(payload.get("name", "")),
+                    metric=str(payload.get("metric", "rmse")),
+                    weight_raw=float(payload.get("weight_raw", 1.0)),
+                    weight_normalized=float(payload.get("weight_normalized", 1.0)),
+                    score=float(
+                        payload.get(
+                            "score",
+                            -float(payload.get("normalized_cost", 0.0)),
+                        )
+                    ),
+                    raw_cost=float(
+                        payload.get(
+                            "raw_cost",
+                            payload.get("normalized_cost", 0.0),
+                        )
+                    ),
+                    normalized_cost=float(payload.get("normalized_cost", 0.0)),
+                    reference_scale=float(payload.get("reference_scale", 1.0)),
+                    n_values=int(payload.get("n_values", 0)),
+                    metadata=dict(payload.get("metadata", {})),
+                )
+            )
+        return tuple(blocks)
+
+    if not record.block_costs:
+        return ()
+
+    block_cfg_by_name = {
+        str(block_cfg.name): block_cfg
+        for block_cfg in cfg.model_calibration.objective_block
+    }
+    normalized_weights = _block_weight_map(cfg)
+    n_values_by_block = _block_n_values_map(cfg)
+    blocks = []
+    for block_name, normalized_cost in record.block_costs.items():
+        block_cfg = block_cfg_by_name.get(block_name)
+        if block_cfg is None:
+            continue
+        blocks.append(
+            CompositeBlockEvaluation(
+                name=block_name,
+                metric=str(block_cfg.metric),
+                weight_raw=float(block_cfg.weight),
+                weight_normalized=float(normalized_weights.get(block_name, 0.0)),
+                score=-float(normalized_cost),
+                raw_cost=float(normalized_cost),
+                normalized_cost=float(normalized_cost),
+                reference_scale=1.0,
+                n_values=int(n_values_by_block.get(block_name, 0)),
+                metadata={
+                    "rehydrated_from_history": True,
+                    "uses_outputs": tuple(block_cfg.uses_outputs),
+                },
+            )
+        )
+    return tuple(blocks)
+
+
+def _rehydrate_objective_evaluation(
+    *,
+    cfg: ModelCalibrationConfig,
+    record: IterationRecord,
+) -> CompositeObjectiveEvaluation | None:
+    """Rebuild one objective evaluation from persisted iteration history."""
+    if record.objective_total is None:
+        return None
+    total_cost = float(record.objective_total)
+    metadata = dict(record.objective_metadata)
+    metadata.setdefault("rehydrated_from_history", True)
+    metadata.setdefault("status", record.status)
+    metadata.setdefault("iteration_id", record.iteration_id)
+    metadata.setdefault("candidate_run_id", record.candidate_run_id)
+    return CompositeObjectiveEvaluation(
+        total_cost=total_cost,
+        total_score=record.objective_score,
+        blocks=_rehydrate_block_evaluations(cfg=cfg, record=record),
+        metadata=metadata,
+    )
+
+
 @dataclass
 class ModelCalibrationObjectiveEvaluator:
     """Objective evaluator that lets CalibrationEngine drive launcher candidates."""
@@ -863,12 +1067,34 @@ class ModelCalibrationObjectiveEvaluator:
         init=False,
         repr=False,
     )
+    _persisted_records_by_key: dict[tuple[float, ...], IterationRecord] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+    )
     cache_hit_count: int = field(default=0, init=False)
     candidate_run_count: int = field(default=0, init=False)
+    restored_evaluation_count: int = field(default=0, init=False)
 
     def __post_init__(self) -> None:
         validate_objective_ready_for_calibration(self.cfg)
+        if self.cfg.model_calibration.reuse_persisted_iterations:
+            self._restore_persisted_evaluations()
         self._next_iteration_index = int(self.iteration_start)
+
+    def _restore_persisted_evaluations(self) -> None:
+        """Warm the evaluator cache from persisted iteration history."""
+        for row in _load_persisted_iteration_rows(self.session.iteration_history_path):
+            record = _iteration_record_from_history_row(row)
+            if record is None:
+                continue
+            evaluation = _rehydrate_objective_evaluation(cfg=self.cfg, record=record)
+            if evaluation is None:
+                continue
+            key = tuple(float(value) for value in record.params_vector)
+            self._evaluations_by_key[key] = evaluation
+            self._persisted_records_by_key[key] = record
+        self.restored_evaluation_count = int(len(self._persisted_records_by_key))
 
     def _cache_key(
         self,
@@ -946,6 +1172,14 @@ class ModelCalibrationObjectiveEvaluator:
     def outcomes(self) -> tuple[CandidateRunOutcome, ...]:
         """Return unique executed candidate outcomes in evaluation order."""
         return tuple(self._outcomes_by_key.values())
+
+    @property
+    def empirical_iteration_records(self) -> tuple[IterationRecord, ...]:
+        """Return persisted plus newly evaluated records keyed by parameter vector."""
+        combined = dict(self._persisted_records_by_key)
+        for key, outcome in self._outcomes_by_key.items():
+            combined[key] = outcome.to_iteration_record()
+        return tuple(combined.values())
 
 
 def _split_target_path(target: str) -> tuple[str, ...]:
@@ -1204,6 +1438,10 @@ def initialize_calibration_session(
         "persist_calibration_report": (
             cfg.model_calibration.persist_calibration_report
         ),
+        "resume_existing_session": cfg.model_calibration.resume_existing_session,
+        "reuse_persisted_iterations": (
+            cfg.model_calibration.reuse_persisted_iterations
+        ),
         "objective_mapping_enabled": (
             cfg.model_calibration.objective_mapping.enabled
         ),
@@ -1211,12 +1449,31 @@ def initialize_calibration_session(
         "objective_transform": cfg.objective.transform,
         "iteration_count": 0,
     }
+    if (
+        cfg.model_calibration.resume_existing_session
+        and session.session_manifest_path.is_file()
+    ):
+        existing_manifest = json.loads(
+            session.session_manifest_path.read_text(encoding="utf-8")
+        )
+        resumed_iteration_count = int(existing_manifest.get("iteration_count", 0))
+        manifest = {
+            **existing_manifest,
+            **manifest,
+            "iteration_count": resumed_iteration_count,
+            "status": "resumed_prepared" if resumed_iteration_count > 0 else "prepared",
+            "resumed_iteration_count": resumed_iteration_count,
+        }
     session.session_manifest_path.write_text(
         json.dumps(manifest, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
     if cfg.model_calibration.persist_iteration_history:
-        session.iteration_history_path.write_text("", encoding="utf-8")
+        if (
+            not cfg.model_calibration.resume_existing_session
+            or not session.iteration_history_path.exists()
+        ):
+            session.iteration_history_path.write_text("", encoding="utf-8")
     return manifest
 
 
@@ -1310,6 +1567,7 @@ def finalize_calibration_session(
             "n_evaluations": result_payload["n_evaluations"],
             "candidate_run_count": int(evaluator.candidate_run_count),
             "objective_cache_hit_count": int(evaluator.cache_hit_count),
+            "restored_evaluation_count": int(evaluator.restored_evaluation_count),
             "model_distribution": distribution_summary,
             "model_distribution_rerun": model_distribution_rerun_summary,
             "objective_mapping": objective_mapping_summary,
