@@ -113,7 +113,8 @@ def _derive_regional_figure_path(output_figure: Path | None) -> Path | None:
 
 def _default_mesh_output_dir(workspace: object) -> Path:
     """Return the canonical mesh output directory inside one workspace."""
-    return Path(getattr(workspace, "stable_folder")) / "mesh"
+    root = Path(getattr(workspace, "project_root", "."))
+    return root / "mesh"
 
 
 def _derive_flat_runtime_project_root(*, final_project_root: Path) -> Path:
@@ -123,13 +124,17 @@ def _derive_flat_runtime_project_root(*, final_project_root: Path) -> Path:
 
 def _cleanup_geographic_artifacts(*, workspace: object) -> list[str]:
     """Delete intermediate geographic folders from one workspace."""
-    stable_folder = Path(getattr(workspace, "stable_folder"))
+    root = Path(getattr(workspace, "project_root", "."))
+    from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+    stable = root / LEGACY_STABLE_DIR
     deleted: list[str] = []
-    for folder in (stable_folder / "geographic", stable_folder / "demcorrecflow"):
+    for folder in (stable / "geographic", stable / "demcorrecflow"):
         if not folder.exists():
             continue
         shutil.rmtree(folder)
         deleted.append(str(folder))
+    if stable.is_dir() and not any(stable.iterdir()):
+        stable.rmdir()
     return deleted
 
 
