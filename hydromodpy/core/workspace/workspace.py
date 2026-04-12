@@ -52,19 +52,7 @@ class Workspace:
         create_folder(self.project_root)
         setup_simulation_log(self.project_root)
 
-        self.stable_folder = self.paths.stable_folder
-        create_folder(self.stable_folder)
-
-        self.simulations_folder = self.paths.simulations_folder
-        create_folder(self.simulations_folder)
-
-        self.calibration_folder = self.paths.calibration_folder
-        create_folder(self.calibration_folder)
-
-        self.add_data_folder = self.paths.add_data_folder
-        create_folder(self.add_data_folder)
-
         self.figure_folder = self.paths.figures_folder
-        create_folder(self.figure_folder)
+        self.solver_scratch_folder = self.paths.solver_scratch_folder
 
         self.bin_path = _resolve_bin_path()

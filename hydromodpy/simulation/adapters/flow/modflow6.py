@@ -39,7 +39,7 @@ class Modflow6FlowAdapter:
         # MF6 config block into the concrete solver implementation.
         model_modflow = Modflow6(
             state.setup.geographic,
-            model_folder=state.setup.workspace.simulations_folder,
+            model_folder=state.setup.workspace.solver_scratch_folder,
             model_name=model_name,
             bin_path=state.setup.workspace.bin_path,
             modflow_config=state.cfg.modflow6,

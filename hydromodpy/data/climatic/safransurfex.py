@@ -41,10 +41,11 @@ class SafranSurfex:
             Path of the shapefile polygon of the model domain (watershed).
         """
         
-        data_folder = os.path.join(out_path, 'results_stable/climatic/')
+        stable = os.path.join(str(out_path), 'results_stable')
+        data_folder = os.path.join(stable, 'climatic')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
-        self.figure_folder = os.path.join(out_path, 'results_stable/_figures/climatic/')
+        self.figure_folder = os.path.join(stable, '_figures', 'climatic')
 
         if not os.path.exists(self.figure_folder):
                 os.makedirs(self.figure_folder)
@@ -127,7 +128,7 @@ class Merge:
         #                     'CNR1','CSI1','IPS1','MIR1','MIR2','MIR3','NOR1','OLD','REAUP']
         self.simulations = ['REA','OLD','REAUP']
 
-        self.data_folder = os.path.join(out_path, 'results_stable/climatic/')
+        self.data_folder = os.path.join(str(out_path), 'results_stable', 'climatic')
                 
         columns = []
         for sim in self.simulations:

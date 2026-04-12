@@ -4,8 +4,10 @@ This module intentionally contains only solver-agnostic flow logic:
 
 - derive stable model names from the resolved simulation plan,
 - build flow pre-processing options for solver backends,
-- persist the legacy pickle payload expected by older utilities,
-- run the common pre/process/post sequence once a concrete flow model exists.
+- run the common pre/process sequence once a concrete flow model exists.
+
+Post-processing (derived variables, result extraction) is handled by
+the ``ResultStore`` pipeline via ``post_run_results()``.
 
 Keeping that code here avoids duplicating the same lifecycle in both
 ``modflownwt`` and ``modflow6`` adapters.
@@ -13,13 +15,11 @@ Keeping that code here avoids duplicating the same lifecycle in both
 
 from __future__ import annotations
 
-import pickle
 from pathlib import Path
 
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.modflow_nwt import (
-    ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
@@ -107,27 +107,6 @@ def build_preprocess_options(state) -> ModflowPreprocessOptions:
     return ModflowPreprocessOptions(time_grid=time_grid)
 
 
-def _persist_pre_run_payload(workspace, model_name: str, model_modflow) -> None:
-    """Write the legacy pre-run pickle expected by downstream utilities.
-
-    Several existing post-processing paths still reopen this file using the
-    historical ``results_<model>.pkl`` convention. The adapter therefore keeps
-    emitting the same shape even though execution is now orchestrated through
-    ``SimulationRunner``.
-    """
-
-    pickle_path = Path(workspace.simulations_folder) / model_name / f"results_{model_name}.pkl"
-    pickle_path.parent.mkdir(parents=True, exist_ok=True)
-    with pickle_path.open("wb") as fh:
-        pickle.dump(
-            {
-                "list_model_name": [model_name],
-                "list_model_modflow": [model_modflow],
-            },
-            fh,
-        )
-
-
 def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExecutionResult:
     """Execute the shared lifecycle for one already-instantiated flow model.
 
@@ -135,9 +114,8 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
     backend. Once the model object exists, the execution steps are identical:
 
     1. run preprocessing against the shared ``flow`` and ``domain`` objects,
-    2. persist the compatibility pickle for downstream readers,
-    3. launch the numerical solve,
-    4. run standard post-processing only if the solve succeeds.
+    2. launch the numerical solve,
+    3. return the result — post-processing is handled by ``post_run_results()``.
     """
 
     state = ctx.state
@@ -148,11 +126,6 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
         domain=state.setup.domain,
         options=preprocess_options,
     )
-
-    # Keep emitting the legacy payload immediately after preparation so older
-    # post-processing utilities can reopen the prepared model using the
-    # historical file convention.
-    _persist_pre_run_payload(state.setup.workspace, model_modflow.model_name, model_modflow)
 
     # The numerical run is shared across flow backends: write files, execute
     # the solver, and link MT3DMS-compatible outputs when available.
@@ -167,42 +140,6 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
             f"Flow solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
             f"See {diagnostics_path} for diagnostics."
         )
-    if success:
-        active_bc = {
-            str(name).strip().lower()
-            for name in getattr(state.setup.flow, "active_bc", [])
-            if str(name).strip()
-        }
-        has_drainage = "drainage" in active_bc
-        has_east_side_dirichlet = "east_side" in active_bc
-        postprocess_cfg = getattr(getattr(ctx.state.cfg, "postprocess", None), "flow", None)
-        intermittency_cfg = getattr(postprocess_cfg, "intermittency", None)
-
-        # Post-processing reads solver outputs from disk, so it only makes
-        # sense after a successful solve.
-        model_modflow.post_processing(
-            options=ModflowPostprocessOptions(
-                watertable_elevation=True,
-                watertable_depth=True,
-                seepage_areas=True,
-                outflow_drain=has_drainage,
-                outlet_discharge_east_side_m3_s=has_east_side_dirichlet,
-                accumulation_flux=has_drainage,
-                intermittency_yearly=bool(
-                    getattr(intermittency_cfg, "yearly", False)
-                ),
-                intermittency_monthly=bool(
-                    getattr(intermittency_cfg, "monthly", False)
-                ),
-                intermittency_weekly=bool(
-                    getattr(intermittency_cfg, "weekly", False)
-                ),
-                intermittency_daily=bool(
-                    getattr(intermittency_cfg, "daily", False)
-                ),
-            )
-        )
-
     return RunExecutionResult(
         primary_model=model_modflow,
         solver_output_dir=Path(model_modflow.full_path),

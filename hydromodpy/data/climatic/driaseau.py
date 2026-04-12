@@ -57,7 +57,7 @@ class Driaseau:
 
         """
 
-        data_folder = os.path.join(out_path, 'results_stable/driaseau')
+        data_folder = os.path.join(str(out_path), 'results_stable', 'driaseau')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
 

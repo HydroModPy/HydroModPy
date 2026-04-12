@@ -35,6 +35,10 @@ class DerivedConfig(BaseModel):
         default=False,
         description="Drain flux routed on the drainage network.",
     )
+    outflow_drain: Annotated[bool, ParamLevel("dev")] = Field(
+        default=False,
+        description="Per-cell drain outflow preserving sign convention.",
+    )
     concentration_seepage: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,
         description="Concentration at seepage cells only. Requires transport.",
@@ -127,6 +131,13 @@ class ResultsConfig(BaseModel):
     keep_solver_files: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,
         description="Keep raw solver output files (.hds, .cbc, .lst) after ingestion.",
+    )
+    solver_scratch: Annotated[str, ParamLevel("dev")] = Field(
+        default=".solver_scratch",
+        description=(
+            "Directory for temporary solver files, relative to the project. "
+            "Use an absolute path (e.g. /scratch/$USER/hmp) for HPC."
+        ),
     )
     derived: Annotated[DerivedConfig, ParamLevel("user")] = Field(
         default_factory=DerivedConfig,

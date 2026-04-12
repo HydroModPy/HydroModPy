@@ -1,7 +1,6 @@
 """Re-export from hydromodpy.process.forcing."""
 
 from hydromodpy.process.forcing import (  # noqa: F401
-    _MM_PER_DAY_TO_M_PER_S,
     align_forcing_series_to_simulation_window,
     build_forcing_series,
     extract_homogeneous_series,
@@ -18,7 +17,6 @@ from hydromodpy.process.hydrology.synthetic.forcing import (
 )
 
 __all__ = [
-    "_MM_PER_DAY_TO_M_PER_S",
     "align_forcing_series_to_simulation_window",
     "build_forcing_series",
     "extract_homogeneous_series",

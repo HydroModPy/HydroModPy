@@ -158,7 +158,7 @@ class BoussinesqFlowAdapter:
         mesh_bundle = None if solver_mesh is not None else _resolve_mesh_bundle(state.setup)
         workspace = getattr(state.setup, "workspace", None)
         model_folder = (
-            Path(getattr(workspace, "simulations_folder"))
+            Path(getattr(workspace, "solver_scratch_folder"))
             if workspace is not None
             else Path.cwd()
         )
@@ -180,7 +180,12 @@ class BoussinesqFlowAdapter:
                 f"Flow solver 'boussinesq' failed for run '{ctx.run.id}'. "
                 f"See {getattr(model, 'full_path', '<unknown>')} for diagnostics."
             )
+
+        # Serialize state and summary so the BoussinesqOutputAdapter can
+        # extract them into the ResultStore (same lifecycle as MODFLOW
+        # writing .hds/.cbc that its adapter then reads).
         model.post_processing()
+
         return RunExecutionResult(
             primary_model=model,
             solver_output_dir=Path(model.full_path) if hasattr(model, "full_path") else None,

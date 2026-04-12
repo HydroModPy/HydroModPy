@@ -26,10 +26,6 @@ if TYPE_CHECKING:
 SpatialMode = Literal["auto", "homogeneous", "heterogeneous"]
 InterpolationMethod = Literal["nearest", "linear", "idw"]
 
-# mm/day → m/s  (common climatic flux conversion)
-_MM_PER_DAY_TO_M_PER_S = 1.0 / (1000.0 * 86400.0)
-
-
 # ── Result container ──────────────────────────────────────────
 
 

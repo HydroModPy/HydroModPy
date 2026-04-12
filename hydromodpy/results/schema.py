@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 # -- Schema version ----------------------------------------------------------
 
-_CURRENT_SCHEMA_VERSION = 1
+_CURRENT_SCHEMA_VERSION = 3
 
 _SCHEMA_VERSION_DDL = """\
 CREATE TABLE IF NOT EXISTS _schema_version (
@@ -106,6 +106,24 @@ CREATE TABLE IF NOT EXISTS input_provenance (
 );
 """
 
+# -- Geographic tables (version 2) ------------------------------------------
+
+_GEOGRAPHIC_TABLES_SQL = """\
+CREATE TABLE IF NOT EXISTS geographic_metadata (
+    key    VARCHAR PRIMARY KEY,
+    value  VARCHAR NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS geographic_features (
+    feature_name   VARCHAR PRIMARY KEY,
+    geometry_wkb   BLOB NOT NULL,
+    geometry_type  VARCHAR,
+    crs            VARCHAR,
+    properties     JSON,
+    geojson        TEXT
+);
+"""
+
 # -- Registry table (workspace-level) ---------------------------------------
 
 _REGISTRY_TABLE_SQL = """\
@@ -147,13 +165,21 @@ CREATE INDEX IF NOT EXISTS ix_registry_created ON simulation_registry(created_at
 # -- Public constants --------------------------------------------------------
 
 PROJECT_TABLE_NAMES = (
-    "simulations",
     "timeseries",
     "budgets",
     "metrics",
     "observation_points",
     "mass_balance_summary",
     "input_provenance",
+    "simulations",
+)
+
+# Tables without sim_id (project-level, not per-simulation).
+# Not included in PROJECT_TABLE_NAMES because delete_simulation
+# iterates over that tuple to cascade deletions by sim_id.
+PROJECT_GEOGRAPHIC_TABLE_NAMES = (
+    "geographic_metadata",
+    "geographic_features",
 )
 
 SIMULATIONS_COLUMNS = frozenset({
@@ -185,12 +211,32 @@ def _get_schema_version(conn: duckdb.DuckDBPyConnection) -> int:
 
 
 def _ensure_schema(conn: duckdb.DuckDBPyConnection) -> None:
-    """Stamp the schema version if not already set."""
+    """Stamp the schema version if not already set, apply migrations."""
     conn.execute(_SCHEMA_VERSION_DDL)
     current = _get_schema_version(conn)
 
     if current >= _CURRENT_SCHEMA_VERSION:
         return
+
+    # Migration: v1 → v2 (geographic tables)
+    if current < 2:
+        conn.execute(_GEOGRAPHIC_TABLES_SQL)
+        logger.debug("Applied migration v1 → v2: geographic tables")
+
+    # Migration: v2 → v3 (geojson column for multi-feature storage)
+    if current < 3:
+        _cols = {
+            r[0]
+            for r in conn.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'geographic_features'"
+            ).fetchall()
+        }
+        if "geojson" not in _cols:
+            conn.execute(
+                "ALTER TABLE geographic_features ADD COLUMN geojson TEXT"
+            )
+        logger.debug("Applied migration v2 → v3: geojson column")
 
     conn.execute(
         "INSERT INTO _schema_version (version) VALUES (?)",
@@ -209,6 +255,7 @@ def create_project_tables(conn: duckdb.DuckDBPyConnection) -> None:
     version of the code.
     """
     conn.execute(_PROJECT_TABLES_SQL)
+    conn.execute(_GEOGRAPHIC_TABLES_SQL)
     _ensure_schema(conn)
 
 

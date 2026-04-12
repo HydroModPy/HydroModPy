@@ -65,12 +65,20 @@ class ResultStore:
         self._db = duckdb.connect(str(db_path))
         create_project_tables(self._db)
 
-        self._zarr_path = str(self._project_path / "project_results.zarr.zip")
-        zarr_exists = Path(self._zarr_path).exists()
-        self._zarr_store = zarr.storage.ZipStore(
-            self._zarr_path, mode="a" if zarr_exists else "w",
-        )
-        self._zarr_root = zarr.open_group(self._zarr_store, mode="a" if zarr_exists else "w")
+        zarr_dir = self._project_path / "project_results.zarr.db"
+        legacy_zip = self._project_path / "project_results.zarr.zip"
+        if not zarr_dir.exists() and legacy_zip.exists():
+            logger.warning(
+                "Found legacy %s — opening as ZipStore for backward "
+                "compatibility. Re-run to migrate to DirectoryStore.",
+                legacy_zip,
+            )
+            self._zarr_path = str(legacy_zip)
+            self._zarr_store = zarr.storage.ZipStore(self._zarr_path, mode="a")
+        else:
+            self._zarr_path = str(zarr_dir)
+            self._zarr_store = zarr.storage.LocalStore(self._zarr_path)
+        self._zarr_root = zarr.open_group(self._zarr_store, mode="a")
 
         self._workspace_path = Path(workspace_path) if workspace_path else None
         self._catalog_path = (
@@ -116,7 +124,8 @@ class ResultStore:
 
     def close(self) -> None:
         if self._zarr_store is not None:
-            self._zarr_store.close()
+            if hasattr(self._zarr_store, "close"):
+                self._zarr_store.close()
             self._zarr_store = None
         self._db.close()
 
@@ -141,8 +150,22 @@ class ResultStore:
         cell_types: list[str] | None = None,
         bbox: list[float] | None = None,
         tags: list[str] | None = None,
+        run_id: str | None = None,
     ) -> None:
-        """Register a new simulation run."""
+        """Register a new simulation run.
+
+        When *run_id* is provided, any existing simulation with the same
+        run_id is replaced so that re-running the same TOML overwrites
+        stale results instead of accumulating duplicates.
+        """
+        if run_id:
+            existing = self._db.execute(
+                "SELECT sim_id FROM simulations WHERE name = ?", [run_id],
+            ).fetchall()
+            for (old_sid,) in existing:
+                self.delete_simulation(old_sid)
+                logger.info("Replaced previous simulation %s (run_id=%s)", old_sid, run_id)
+
         sid = str(sim_id)
         config_json = json.dumps(config) if config else None
         zarr_group = sid
@@ -604,6 +627,16 @@ class ResultStore:
                 if layer is not None and data.ndim == 2:
                     return data[layer]
                 return data
+
+        # Fallback: on-the-fly derived field from stored primaries
+        from hydromodpy.results.virtual_fields import compute_virtual_field
+
+        result = compute_virtual_field(self, str(sim_id), variable, timestep)
+        if result is not None:
+            if layer is not None and result.ndim == 2:
+                return result[layer]
+            return result
+
         raise KeyError(f"Variable '{variable}' not found for sim={sim_id}")
 
     def query_budget(
@@ -658,6 +691,206 @@ class ResultStore:
             raise KeyError(f"No provenance for sim={sim_id}, var={variable}")
         stored = {"checksum": row[0]}
         return verify_fingerprint(stored, current_data)
+
+    # -- Geographic methods ---------------------------------------------------
+
+    def write_geographic_raster(
+        self,
+        name: str,
+        data: np.ndarray,
+        *,
+        transform: tuple[float, ...],
+        crs: str,
+        nodata: float = -99999.0,
+    ) -> None:
+        """Write a geographic raster (2D array) into the Zarr geographic group."""
+        from hydromodpy.results.zarr_layout import write_geographic_raster
+
+        write_geographic_raster(
+            self._zarr_root, name, data,
+            transform=transform, crs=crs, nodata=nodata,
+        )
+
+    def write_geographic_feature(
+        self,
+        feature_name: str,
+        geometry_wkb: bytes,
+        geometry_type: str,
+        crs: str,
+        properties: dict | None = None,
+    ) -> None:
+        """Write a vector feature as WKB into DuckDB geographic_features."""
+        props_json = json.dumps(properties) if properties else None
+        self._db.execute(
+            "INSERT OR REPLACE INTO geographic_features "
+            "(feature_name, geometry_wkb, geometry_type, crs, properties) "
+            "VALUES (?, ?, ?, ?, ?)",
+            [feature_name, geometry_wkb, geometry_type, crs, props_json],
+        )
+
+    def write_geographic_metadata(self, metadata: dict[str, str]) -> None:
+        """Write scalar geographic metadata (upsert key/value pairs)."""
+        for key, value in metadata.items():
+            self._db.execute(
+                "INSERT OR REPLACE INTO geographic_metadata (key, value) "
+                "VALUES (?, ?)",
+                [str(key), str(value)],
+            )
+
+    def read_geographic_raster(self, name: str) -> np.ndarray:
+        """Read a geographic raster array from Zarr."""
+        geo = self._zarr_root.get("geographic")
+        if geo is None or name not in geo:
+            raise KeyError(f"Geographic raster '{name}' not found in store")
+        return np.asarray(geo[name][:])
+
+    def read_geographic_raster_metadata(self, name: str) -> dict:
+        """Read spatial metadata (transform, crs, nodata, shape) for a raster."""
+        geo = self._zarr_root.get("geographic")
+        if geo is None or name not in geo:
+            raise KeyError(f"Geographic raster '{name}' not found in store")
+        attrs = geo[name].attrs
+        return {
+            "transform": tuple(attrs.get("transform", ())),
+            "crs": attrs.get("crs", ""),
+            "nodata": attrs.get("nodata", -99999.0),
+            "shape": tuple(attrs.get("shape", ())),
+        }
+
+    def read_geographic_feature(self, feature_name: str) -> tuple[bytes, str, str]:
+        """Read a vector feature from DuckDB as (wkb, geometry_type, crs)."""
+        row = self._db.execute(
+            "SELECT geometry_wkb, geometry_type, crs FROM geographic_features "
+            "WHERE feature_name = ?",
+            [feature_name],
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"Geographic feature '{feature_name}' not found")
+        return row[0], row[1] or "", row[2] or ""
+
+    def read_geographic_metadata(self) -> dict[str, str]:
+        """Read all scalar geographic metadata."""
+        rows = self._db.execute(
+            "SELECT key, value FROM geographic_metadata"
+        ).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def materialize_geographic_raster(
+        self,
+        name: str,
+        output_dir: Path | str,
+    ) -> Path:
+        """Write a geographic raster to a temporary GeoTIFF file."""
+        import rasterio
+        from rasterio.transform import Affine
+
+        data = self.read_geographic_raster(name)
+        meta = self.read_geographic_raster_metadata(name)
+        out_path = Path(output_dir) / f"{name}.tif"
+
+        transform = Affine(*meta["transform"][:6])
+        with rasterio.open(
+            str(out_path), "w", driver="GTiff",
+            height=data.shape[0], width=data.shape[1],
+            count=1, dtype=data.dtype,
+            crs=meta["crs"], transform=transform,
+            nodata=meta["nodata"],
+        ) as dst:
+            dst.write(data, 1)
+        return out_path
+
+    # -- Feature convenience API (GeoDataFrame in / out) ---------------------
+
+    def write_features(
+        self,
+        name: str,
+        gdf: "gpd.GeoDataFrame",
+    ) -> None:
+        """Store a GeoDataFrame as a named geographic feature collection.
+
+        The full GeoDataFrame (geometry + attributes) is serialised as
+        GeoJSON so that :meth:`read_features` can reconstruct it exactly.
+        A union WKB is kept for backward-compatible spatial look-ups.
+
+        Parameters
+        ----------
+        name : str
+            Feature collection name (e.g. ``"river_network"``).
+        gdf : geopandas.GeoDataFrame
+            Any GeoDataFrame — single or multi-feature, any geometry type.
+        """
+        import geopandas as gpd
+        from shapely import to_wkb
+        from shapely.ops import unary_union
+
+        if gdf.empty:
+            return
+
+        geojson_str = gdf.to_json()
+        union_geom = unary_union(
+            [g for g in gdf.geometry if g is not None and not g.is_empty]
+        )
+        wkb = to_wkb(union_geom)
+        crs = str(gdf.crs) if gdf.crs else ""
+        geom_type = union_geom.geom_type
+
+        self._db.execute(
+            "INSERT OR REPLACE INTO geographic_features "
+            "(feature_name, geometry_wkb, geometry_type, crs, properties, geojson) "
+            "VALUES (?, ?, ?, ?, NULL, ?)",
+            [name, wkb, geom_type, crs, geojson_str],
+        )
+
+    def read_features(self, name: str) -> "gpd.GeoDataFrame":
+        """Read a named feature collection as a GeoDataFrame.
+
+        If the feature was written with :meth:`write_features`, the full
+        GeoDataFrame (all rows, all attribute columns) is returned.  For
+        legacy entries stored as WKB only, a single-row GeoDataFrame is
+        returned.
+
+        Parameters
+        ----------
+        name : str
+            Feature name (e.g. ``"watershed"``, ``"river_network"``).
+
+        Returns
+        -------
+        geopandas.GeoDataFrame
+        """
+        import geopandas as gpd
+        from shapely import from_wkb
+
+        row = self._db.execute(
+            "SELECT geometry_wkb, geometry_type, crs, geojson "
+            "FROM geographic_features WHERE feature_name = ?",
+            [name],
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"Feature '{name}' not found in store")
+
+        wkb, geom_type, crs, geojson_str = row
+        crs = crs or None
+
+        # Full GeoDataFrame stored as GeoJSON — reconstruct with all attributes.
+        if geojson_str:
+            gdf = gpd.read_file(geojson_str)
+            if crs and gdf.crs is None:
+                gdf = gdf.set_crs(crs)
+            return gdf
+
+        # Legacy fallback: single WKB geometry → one-row GeoDataFrame.
+        geom = from_wkb(wkb)
+        return gpd.GeoDataFrame(geometry=[geom], crs=crs)
+
+    def list_features(self) -> list[str]:
+        """Return the names of all stored geographic feature collections."""
+        rows = self._db.execute(
+            "SELECT feature_name FROM geographic_features ORDER BY feature_name"
+        ).fetchall()
+        return [r[0] for r in rows]
+
+    # -- Comparison methods ---------------------------------------------------
 
     def compare(
         self,
@@ -781,14 +1014,10 @@ class ResultStore:
         """
         sid = str(sim_id)
 
-        self._db.begin()
-        try:
-            for table in PROJECT_TABLE_NAMES:
-                self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
-            self._db.commit()
-        except Exception:
-            self._db.rollback()
-            raise
+        # Delete children before parent — DuckDB enforces FK constraints
+        # per-statement so we cannot use a single transaction.
+        for table in PROJECT_TABLE_NAMES:
+            self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
 
         try:
             root = self._zarr_root

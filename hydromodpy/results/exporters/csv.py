@@ -63,7 +63,7 @@ def export_csv(
     result = conn.execute(query, params).fetchdf()
 
     if result.empty:
-        logger.warning("No timeseries found for sim=%s", sim_id)
+        logger.debug("No timeseries found for sim=%s", sim_id)
         pd.DataFrame(
             columns=["datetime", "station_id", "variable", "value", "unit"]
         ).to_csv(output_path, index=False)
