@@ -115,6 +115,7 @@ def discretize_points_on_sgrid(
     nper: int,
     simulation_window: "ResolvedSimulationTimeWindow | None" = None,
     method: InterpolationMethod = "nearest",
+    source_unit: str = "mm/day",
 ) -> dict[int, np.ndarray]:
     """Interpolate located PointRecords onto a structured MODFLOW grid.
 
@@ -169,9 +170,10 @@ def discretize_points_on_sgrid(
             # No temporal alignment: use full-series mean.
             values = np.array([float(s.mean()) for s in station_series])
 
-        # Convert mm/day -> m/s (data-manager internal unit).
+        # Convert from source unit to m/s.  Per-record unit takes precedence
+        # over the caller-supplied default so that mixed-unit datasets work.
         unit_factors = np.array([
-            _unit_to_m_per_s_factor(getattr(p, "unit", "mm/day"))
+            _unit_to_m_per_s_factor(getattr(p, "unit", source_unit))
             for p in located_points
         ])
         values_m_s = values * unit_factors
