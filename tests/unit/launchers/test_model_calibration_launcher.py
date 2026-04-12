@@ -27,6 +27,11 @@ from launchers.model_calibration.output_selection import (
 )
 from launchers.model_calibration.property_arrays import build_property_array_set
 from launchers.model_calibration.templates import render_model_calibration_template
+from validation_cases.shared.runtime import (
+    _dump_toml,
+    _merge_toml_payloads,
+    _read_toml,
+)
 
 
 def _load_launchers_main_module():
@@ -320,6 +325,80 @@ def _write_minimal_model_calibration_config(
                 "weight = 1.0",
                 'uses_outputs = ["q_outlet_lowflow_mean"]',
                 "normalize_cost = true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_validation_dupuit_modflow6_simulation_config(path: Path, *, project_root: Path) -> None:
+    case_dir = (
+        Path(__file__).resolve().parents[3]
+        / "validation_cases"
+        / "analytical"
+        / "steady"
+        / "dupuit_fixed_head_1d"
+    )
+    payload = _merge_toml_payloads(
+        _read_toml(case_dir / "config_common.toml"),
+        _read_toml(case_dir / "config_modflow6.toml"),
+    )
+    payload.setdefault("workspace", {})["project_root"] = str(project_root)
+    payload.setdefault("simulation", {})["run_id"] = "dupuit_fixed_head_1d_runtime_prepare"
+    path.write_text(_dump_toml(payload), encoding="utf-8", newline="\n")
+
+
+def _write_dupuit_runtime_prepare_calibration_config(path: Path, *, simulation_config_name: str) -> None:
+    path.write_text(
+        "\n".join(
+            [
+                "[model_calibration]",
+                f'simulation_config = "{simulation_config_name}"',
+                'calibration_id = "dupuit_runtime_prepare"',
+                "disable_display = true",
+                "disable_postprocess = true",
+                "rerun_best_with_outputs = false",
+                "persist_model_distribution = false",
+                "persist_iteration_history = false",
+                "persist_calibration_report = false",
+                "",
+                "[[model_calibration.parameter]]",
+                'name = "K_global_factor"',
+                'property = "K"',
+                'target = "flow.param.K.field_homogeneous.value"',
+                'mode = "scale"',
+                'parameterization = "global_factor"',
+                "",
+                "[[model_calibration.output]]",
+                'name = "q_east"',
+                'variable = "outlet_discharge"',
+                'source = "runtime"',
+                'support = "boundary"',
+                'boundary_id = "east_side"',
+                'time = "all"',
+                "observed_values = [4.6875e-4]",
+                "",
+                "[[model_calibration.objective_block]]",
+                'name = "flux"',
+                'metric = "rmse"',
+                "weight = 1.0",
+                'uses_outputs = ["q_east"]',
+                "normalize_cost = true",
+                "",
+                "[calibration]",
+                'objective_metric = "rmse"',
+                'global_method = "random_search"',
+                "",
+                "[objective]",
+                'transform = "identity"',
+                "",
+                "[calibration_method.random_search]",
+                "n_samples = 1",
+                "seed = 7",
+                "",
+                "[bounds]",
+                "K_global_factor = [0.5, 1.5]",
             ]
         )
         + "\n",
@@ -1089,6 +1168,38 @@ def test_model_calibration_prepares_bundle_support_from_mesh_catchment_mesh_path
     assert request.property_array_set.get("K").values.tolist() == pytest.approx(
         [2.0e-5, 4.0e-5]
     )
+
+
+def test_model_calibration_prefers_runtime_prepared_hydraulic_support(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_validation_dupuit_modflow6_simulation_config(
+        simulation_path,
+        project_root=tmp_path / "validation_project",
+    )
+    _write_dupuit_runtime_prepare_calibration_config(
+        config_path,
+        simulation_config_name=simulation_path.name,
+    )
+
+    launcher = ModelCalibrationLauncher(config_path)
+    session = launcher.prepare()
+    request = launcher.actualize_candidate(
+        {"K_global_factor": 1.2},
+        iteration_index=1,
+    )
+
+    assert session.prepared_hydraulic_support is not None
+    assert session.prepared_hydraulic_support.source == "runtime_prepared_modflow6"
+    assert session.prepared_hydraulic_support.n_cells == 200
+    assert session.prepared_hydraulic_support.mesh_bundle_dir is None
+    assert session.prepared_hydraulic_support.mesh_summary_path is None
+    assert "K" in session.prepared_hydraulic_support.base_property_arrays
+    assert request.property_array_set is not None
+    assert request.property_array_set.get("K").values.size == 200
+    assert request.property_array_set.get("K").values[0] == pytest.approx(1.2e-4)
 
 
 def test_model_calibration_bundle_change_updates_session_contract_signature(
