@@ -6,6 +6,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+#: Preprocessing intermediates go under .solver_scratch/_preprocessing/.
+#: These files are needed on disk by whitebox/rasterio during the pipeline,
+#: then ingested into the project store and cleaned up.
+LEGACY_STABLE_DIR = ".solver_scratch/_preprocessing"
+
 if TYPE_CHECKING:
     from hydromodpy.core.workspace.config import WorkspaceConfig
 
@@ -41,24 +46,16 @@ class WorkspacePathRegistry:
         return self.project_root.name
 
     @property
-    def stable_folder(self) -> Path:
-        return self._effective_output_root / "results_stable"
+    def solver_scratch_folder(self) -> Path:
+        return self._effective_output_root / ".solver_scratch"
 
-    @property
-    def simulations_folder(self) -> Path:
-        return self._effective_output_root / "results_simulations"
-
-    @property
-    def calibration_folder(self) -> Path:
-        return self._effective_output_root / "results_calibration"
-
-    @property
-    def add_data_folder(self) -> Path:
-        return self.stable_folder / "add_data"
+    def solver_scratch_run_folder(self, sim_id: str) -> Path:
+        """Return the scratch folder for a specific solver run."""
+        return self.solver_scratch_folder / sim_id
 
     @property
     def figures_folder(self) -> Path:
-        return self.stable_folder / "_figures"
+        return self._effective_output_root / "figures"
 
     @property
     def data_path(self) -> Path | None:
@@ -72,22 +69,8 @@ class WorkspacePathRegistry:
             return self.workspace_root / "catalog.duckdb"
         return None
 
-    def run_folder(self, run_id: str) -> Path:
-        """Return the output folder for a specific run."""
-        return self.simulations_folder / run_id
-
-    def stable_subdir(self, *parts: str) -> Path:
-        return self.stable_folder.joinpath(*parts)
-
     def figures_subdir(self, *parts: str) -> Path:
         return self.figures_folder.joinpath(*parts)
-
-    def manager_stable_folder(self, manager_type: str) -> Path:
-        """Return canonical stable output folder for one data-manager type."""
-        token = str(manager_type).strip().lower()
-        if not token:
-            raise ValueError("manager_type cannot be empty")
-        return self.stable_subdir(token)
 
     def manager_figure_folder(self, manager_type: str) -> Path:
         """Return canonical figure folder for one data-manager type."""

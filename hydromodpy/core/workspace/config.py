@@ -17,9 +17,13 @@ class WorkspaceConfig(BaseModel):
             data/
             projects/
                 <project>/          <- project_root
-                    results_stable/
-                    results_simulations/
-                    results_calibration/
+                    config.toml
+                    project.duckdb
+                    project_results.zarr.db/
+
+    Legacy directories (``results_stable/``, ``results_simulations/``,
+    ``results_calibration/``) are no longer created eagerly.  Properties
+    for those paths remain for backward compatibility.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -34,8 +38,8 @@ class WorkspaceConfig(BaseModel):
     output_root: Annotated[Path | None, ParamLevel("user")] = Field(
         default=None,
         description=(
-            "Root directory for all outputs (results_stable/, results_simulations/, "
-            "results_calibration/). Defaults to project_root when not set. "
+            "Root directory for all outputs (project.duckdb, project_results.zarr.db, "
+            ".solver_scratch/). Defaults to project_root when not set. "
             "Use this to redirect heavy outputs to a separate disk."
         ),
     )
@@ -87,19 +91,9 @@ class WorkspaceConfig(BaseModel):
         return self.project_root.name
 
     @property
-    def stable_folder(self) -> Path:
-        """Path to the stable/preprocessing results directory."""
-        return self._effective_output_root / "results_stable"
-
-    @property
-    def simulations_folder(self) -> Path:
-        """Path to the simulations results directory."""
-        return self._effective_output_root / "results_simulations"
-
-    @property
-    def calibration_folder(self) -> Path:
-        """Path to the calibration results directory."""
-        return self._effective_output_root / "results_calibration"
+    def solver_scratch_folder(self) -> Path:
+        """Path to the temporary solver scratch directory."""
+        return self._effective_output_root / ".solver_scratch"
 
     @property
     def data_path(self) -> Path | None:
