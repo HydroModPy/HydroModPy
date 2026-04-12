@@ -111,6 +111,11 @@ Les briques suivantes sont maintenant presentes dans le depot :
   deja materialise est retrouvable depuis `mesh_input.bundle_dir`,
   `mesh_input.mesh_path`, ou des artefacts `mesh_catchment`
   (`mesh_catchment_summary.json`, `mesh_catchment.msh` et bundle associe).
+- cette preparation hydraulique suit maintenant une strategie `runtime-first` :
+  si le `ProcessSimulationLauncher` peut preparer un support solveur exploitable
+  directement depuis les objets runtime (`setup`, `domain`, `flow`,
+  `solver_mesh`), ce support est prefere aux artefacts disque ; les chemins
+  materialises ne servent plus que de fallback defensif.
 - `actualize_candidate(...)` produit maintenant un vrai `PropertyArraySet`
   en plus de son resume, et l'injection de ce contrat est branchee jusqu'a
   `state.setup.flow_runtime_overrides`.
@@ -148,6 +153,10 @@ Les briques suivantes sont maintenant presentes dans le depot :
 - `launchers/model_calibration/reporting.py` produit maintenant un
   `calibration_report.json` de synthese avec meilleur modele, statistiques
   d'iterations, contributions par bloc et resume des diagnostics ecrits.
+- un test bout en bout `modflow6` existe maintenant sur
+  `dupuit_fixed_head_1d`, pour verifier qu'une calibration reelle peut
+  preparer ses proprietes au runtime, executer le solveur, extraire un flux
+  canonique et produire son reporting.
 - `actualize_candidate(...)` expose maintenant aussi un apercu
   `property_array_summary` des proprietes hydrauliques vectorisees du candidat,
   base sur les valeurs de reference quand elles sont inferrables depuis la
@@ -164,7 +173,8 @@ Les limites restantes sont explicites :
 - la parametrisation par lithologie peut maintenant etre preparee et injectee
   quand la simulation de reference expose un bundle maillage deja materialise
   avec geologie cellulaire ; les contextes purement runtime non materialises
-  restent a factoriser ;
+  sont maintenant couverts pour des proprietes globales homogenes, mais
+  restent a enrichir pour des parameterisations lithologiques plus riches ;
 - la factorisation fine du maillage et des tableaux de proprietes solveur
   reste la prochaine grande etape.
 - la distribution de modeles reste volontairement legere par defaut : elle

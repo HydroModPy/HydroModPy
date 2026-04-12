@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -93,6 +94,18 @@ def detect_solver_families(raw_simulation_toml: dict[str, Any]) -> tuple[str, ..
             if token and token not in solvers:
                 solvers.append(token)
     return tuple(solvers)
+
+
+def _select_runtime_preparation_flow_solver(
+    *,
+    solver_families: tuple[str, ...],
+) -> str | None:
+    """Choose the preferred flow solver used to prepare runtime hydraulic support."""
+    normalized = [str(name).strip().lower() for name in solver_families if str(name).strip()]
+    for candidate in ("modflow6", "modflownwt"):
+        if candidate in normalized:
+            return candidate
+    return None
 
 
 def _prepared_numeric_array_summary(values: tuple[float, ...]) -> dict[str, Any]:
@@ -230,6 +243,171 @@ class _ResolvedHydraulicSupportPaths:
     bundle_dir: Path | None = None
     mesh_path: Path | None = None
     mesh_summary_path: Path | None = None
+
+
+def _surface_property_vector(values: object, *, solver_mesh: object) -> tuple[float, ...]:
+    """Normalize one surface diagnostic payload to the 1D cell support used by calibration."""
+    arr = np.asarray(values, dtype=float)
+    flattened = np.asarray(
+        solver_mesh.flatten_from_grid(arr),
+        dtype=float,
+    ).reshape(-1)
+    return tuple(float(value) for value in flattened)
+
+
+def _setup_mesh_paths_from_runtime(setup_state: object) -> tuple[Path | None, Path | None, Path | None]:
+    """Resolve bundle, mesh and summary paths from one prepared process-simulation setup."""
+    bundle_dir: Path | None = None
+    mesh_path: Path | None = None
+    mesh_summary_path: Path | None = None
+
+    mesh_summary = getattr(setup_state, "mesh_summary", None)
+    if isinstance(mesh_summary, Mapping):
+        raw_bundle_dir = str(mesh_summary.get("output_exchange_bundle_dir", "")).strip()
+        if raw_bundle_dir != "":
+            bundle_dir = Path(raw_bundle_dir).expanduser().resolve()
+        raw_mesh_path = str(mesh_summary.get("output_mesh", "")).strip()
+        if raw_mesh_path != "":
+            mesh_path = Path(raw_mesh_path).expanduser().resolve()
+        raw_summary_path = str(mesh_summary.get("output_summary_json", "")).strip()
+        if raw_summary_path != "":
+            mesh_summary_path = Path(raw_summary_path).expanduser().resolve()
+
+    mesh_bundle = getattr(setup_state, "mesh_bundle", None)
+    if mesh_bundle is not None:
+        runtime_bundle_dir = getattr(mesh_bundle, "bundle_dir", None)
+        if bundle_dir is None and runtime_bundle_dir is not None:
+            bundle_dir = Path(runtime_bundle_dir).resolve()
+        runtime_mesh_path = getattr(mesh_bundle, "mesh_path", None)
+        if mesh_path is None and runtime_mesh_path is not None:
+            mesh_path = Path(runtime_mesh_path).resolve()
+        if mesh_summary_path is None and bundle_dir is not None:
+            candidate_summary = bundle_dir / "mesh_summary.json"
+            if candidate_summary.is_file():
+                mesh_summary_path = candidate_summary.resolve()
+
+    if mesh_path is None:
+        mesh_planar = getattr(setup_state, "mesh_planar", None)
+        mesh_planar_path = getattr(mesh_planar, "path", None)
+        if mesh_planar_path is not None:
+            mesh_path = Path(mesh_planar_path).expanduser().resolve()
+
+    return bundle_dir, mesh_path, mesh_summary_path
+
+
+def _prepare_runtime_hydraulic_property_support(
+    *,
+    simulation_config_path: Path,
+    solver_families: tuple[str, ...],
+    property_names: tuple[str, ...],
+) -> PreparedHydraulicPropertySupport | None:
+    """Prepare hydraulic support directly from the process-simulation runtime when possible."""
+    selected_solver = _select_runtime_preparation_flow_solver(
+        solver_families=solver_families,
+    )
+    if selected_solver is None:
+        return None
+
+    from hydromodpy.solver.modflow_common.discretization_spatial import (
+        build_spatial_discretization,
+    )
+    from launchers.process_simulation.launcher import HydroModPyLauncher
+
+    launcher = HydroModPyLauncher(simulation_config_path)
+    plan = launcher._create_simulation_plan()
+    launcher._validate_runtime_mesh_solver_compatibility(plan)
+    launcher.run_state.execution.simulation_plan = plan
+    launcher.run_state.execution.process_runs_by_id = {
+        run.id: run for run in plan.runs
+    }
+
+    launcher._run_setup()
+    launcher._build_domain_spatial_supports(phase="setup")
+    launcher._run_data()
+    launcher._build_domain_spatial_supports(phase="data")
+    launcher._run_mesh_phase()
+    launcher._run_mesh_input_phase()
+
+    setup_state = launcher.run_state.setup
+    if setup_state.flow is None or setup_state.domain is None:
+        return None
+
+    if selected_solver == "modflow6":
+        from hydromodpy.solver.modflow6.property_mapping import (
+            resolve_flow_property_arrays as resolve_runtime_property_arrays,
+        )
+
+        sgrid_config = launcher.cfg.modflow6.sgrid
+    elif selected_solver == "modflownwt":
+        from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
+            resolve_flow_property_arrays as resolve_runtime_property_arrays,
+        )
+
+        sgrid_config = launcher.cfg.modflownwt.sgrid
+    else:
+        return None
+
+    grid_ctx = build_spatial_discretization(
+        domain=setup_state.domain,
+        sgrid_config=sgrid_config,
+        runtime_planar_mesh=getattr(setup_state, "mesh_planar", None),
+        runtime_mesh_support=getattr(setup_state, "mesh_support", None),
+    )
+    solver_mesh = grid_ctx.solver_mesh
+    required_properties = {
+        name
+        for name in property_names
+        if str(name).strip() in {"K", "Sy"}
+    }
+    if not required_properties:
+        required_properties = {"K"}
+
+    runtime_arrays = resolve_runtime_property_arrays(
+        flow=setup_state.flow,
+        domain=setup_state.domain,
+        solver_mesh=solver_mesh,
+        planar_mesh=getattr(setup_state, "mesh_planar", None),
+        required_properties=required_properties,
+        optional_fill_values={"Sy": 0.0},
+    )
+
+    base_property_arrays: dict[str, tuple[float, ...]] = {}
+    if "hk_value" in runtime_arrays:
+        base_property_arrays["K"] = _surface_property_vector(
+            runtime_arrays["hk_value"],
+            solver_mesh=solver_mesh,
+        )
+    if "sy_value" in runtime_arrays:
+        base_property_arrays["Sy"] = _surface_property_vector(
+            runtime_arrays["sy_value"],
+            solver_mesh=solver_mesh,
+        )
+
+    lithology_labels: tuple[str, ...] | None = None
+    mesh_bundle = getattr(setup_state, "mesh_bundle", None)
+    if mesh_bundle is not None:
+        bundle_labels = tuple(
+            str(getattr(cell, "geology_key", "") or "").strip()
+            for cell in getattr(mesh_bundle, "cells", ())
+        )
+        if any(bundle_labels):
+            lithology_labels = bundle_labels
+
+    source = f"runtime_prepared_{selected_solver}"
+    if lithology_labels is not None:
+        source += "_geology"
+    mesh_bundle_dir, mesh_path, mesh_summary_path = _setup_mesh_paths_from_runtime(
+        setup_state
+    )
+    return PreparedHydraulicPropertySupport(
+        n_cells=max(1, int(getattr(solver_mesh, "n_cells", 1))),
+        lithology_labels=lithology_labels,
+        base_property_arrays=base_property_arrays,
+        source=source,
+        mesh_bundle_dir=mesh_bundle_dir,
+        mesh_path=mesh_path,
+        mesh_summary_path=mesh_summary_path,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1867,38 +2045,65 @@ def prepare_hydraulic_property_support(
     cfg: ModelCalibrationConfig,
 ) -> PreparedHydraulicPropertySupport:
     """Prepare reusable hydraulic support for calibration actualization."""
-    resolved_paths = _discover_hydraulic_support_paths(
-        raw_simulation_toml=raw_simulation_toml,
-        simulation_config_path=simulation_config_path,
-        simulation_workspace=simulation_workspace,
-    )
-    bundle_dir = resolved_paths.bundle_dir
-    n_cells = 1
-    lithology_labels: tuple[str, ...] | None = None
-    base_property_arrays: dict[str, tuple[float, ...]] = {}
-    source = "config_scalar"
+    runtime_prepared: PreparedHydraulicPropertySupport | None = None
+    try:
+        runtime_prepared = _prepare_runtime_hydraulic_property_support(
+            simulation_config_path=simulation_config_path,
+            solver_families=detect_solver_families(raw_simulation_toml),
+            property_names=tuple(
+                str(parameter_cfg.property).strip()
+                for parameter_cfg in cfg.model_calibration.parameter
+                if parameter_cfg.property is not None
+            ),
+        )
+    except Exception:
+        runtime_prepared = None
 
-    if bundle_dir is not None and bundle_dir.exists():
-        try:
-            bundle = load_catchment_mesh_bundle(bundle_dir)
-        except Exception:
-            bundle = None
-        if bundle is not None:
-            n_cells = int(bundle.n_cells)
-            bundle_labels = tuple(str(cell.geology_key or "").strip() for cell in bundle.cells)
-            if any(bundle_labels):
-                lithology_labels = bundle_labels
-                source = f"{resolved_paths.source}_geology"
-            else:
-                source = str(resolved_paths.source)
+    if runtime_prepared is not None:
+        n_cells = int(runtime_prepared.n_cells)
+        lithology_labels = runtime_prepared.lithology_labels
+        base_property_arrays = dict(runtime_prepared.base_property_arrays)
+        source = str(runtime_prepared.source)
+        bundle_dir = runtime_prepared.mesh_bundle_dir
+        mesh_path = runtime_prepared.mesh_path
+        mesh_summary_path = runtime_prepared.mesh_summary_path
+    else:
+        resolved_paths = _discover_hydraulic_support_paths(
+            raw_simulation_toml=raw_simulation_toml,
+            simulation_config_path=simulation_config_path,
+            simulation_workspace=simulation_workspace,
+        )
+        bundle_dir = resolved_paths.bundle_dir
+        mesh_path = resolved_paths.mesh_path
+        mesh_summary_path = resolved_paths.mesh_summary_path
+        n_cells = 1
+        lithology_labels: tuple[str, ...] | None = None
+        base_property_arrays: dict[str, tuple[float, ...]] = {}
+        source = "config_scalar"
 
-            conductivity_values = tuple(
-                float(cell.hydraulic_conductivity_m_s)
-                for cell in bundle.cells
-                if cell.hydraulic_conductivity_m_s is not None
-            )
-            if len(conductivity_values) == n_cells:
-                base_property_arrays["K"] = conductivity_values
+        if bundle_dir is not None and bundle_dir.exists():
+            try:
+                bundle = load_catchment_mesh_bundle(bundle_dir)
+            except Exception:
+                bundle = None
+            if bundle is not None:
+                n_cells = int(bundle.n_cells)
+                bundle_labels = tuple(
+                    str(cell.geology_key or "").strip() for cell in bundle.cells
+                )
+                if any(bundle_labels):
+                    lithology_labels = bundle_labels
+                    source = f"{resolved_paths.source}_geology"
+                else:
+                    source = str(resolved_paths.source)
+
+                conductivity_values = tuple(
+                    float(cell.hydraulic_conductivity_m_s)
+                    for cell in bundle.cells
+                    if cell.hydraulic_conductivity_m_s is not None
+                )
+                if len(conductivity_values) == n_cells:
+                    base_property_arrays["K"] = conductivity_values
 
     calibrated_properties = {
         str(parameter_cfg.property).strip()
@@ -1930,8 +2135,8 @@ def prepare_hydraulic_property_support(
         base_property_arrays=base_property_arrays,
         source=source,
         mesh_bundle_dir=bundle_dir,
-        mesh_path=resolved_paths.mesh_path,
-        mesh_summary_path=resolved_paths.mesh_summary_path,
+        mesh_path=mesh_path,
+        mesh_summary_path=mesh_summary_path,
     )
 
 
