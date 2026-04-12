@@ -13,40 +13,50 @@ if TYPE_CHECKING:
 
 
 def render_cross_section(
-    ax: Axes,
+    ax: "Axes",
     *,
     dem_section: np.ndarray,
     wt_section: np.ndarray,
     x_coords: np.ndarray,
     base_level: float | None = None,
+    aquifer_thickness: float = 30.0,
+    title: str = "",
 ) -> None:
     """Draw a terrain / water-table cross section on *ax*.
 
-    All inputs are 1-D arrays of equal length.  The caller is responsible for
-    extracting them from raster files.
+    Reproduces the legacy HydroModPy cross-section style:
+    - blue fill from bottom to watertable (saturated)
+    - brown fill from watertable to DEM (unsaturated)
+    - blue line for water table, saddlebrown line for topography
     """
-    valid = np.concatenate([dem_section, wt_section])
+    # Clip watertable to DEM (can't be above surface).
+    wt = np.where(np.isfinite(wt_section), np.minimum(wt_section, dem_section), np.nan)
+
+    valid = np.concatenate([dem_section, wt])
     valid = valid[np.isfinite(valid)]
     if valid.size == 0:
-        auto_base, auto_top = 0.0, 1.0
-    else:
-        auto_base = float(np.nanmin(valid) - 5.0)
-        auto_top = float(np.nanmax(valid) + 5.0)
+        return
 
-    if base_level is None:
-        base_level = auto_base
-    top_level = auto_top
+    y_min = float(np.nanmin(wt)) - 5.0 if base_level is None else base_level
+    y_max = float(np.nanmax(dem_section)) + 3.0
 
-    ax.fill_between(x_coords, base_level, wt_section, color="dodgerblue", alpha=0.5, lw=0)
-    ax.plot(x_coords, wt_section, color="navy", lw=1.5)
-    ax.plot(x_coords, dem_section, color="saddlebrown", lw=1.5)
-    ax.fill_between(x_coords, wt_section, dem_section, color="saddlebrown", alpha=0.5, lw=0)
-    ax.fill_between(x_coords, base_level, dem_section, color="lightgrey", alpha=0.5, lw=0)
-    ax.plot(x_coords, np.full_like(x_coords, base_level), color="dimgray", lw=1.0)
-    ax.set_xlim(float(x_coords[0]), float(x_coords[-1]) if len(x_coords) else 0.0)
-    ax.set_ylim(base_level, top_level)
+    # Saturated zone — blue fill from bottom to watertable
+    ax.fill_between(x_coords, y_min, wt,
+                    color="dodgerblue", alpha=0.3, lw=0)
+    ax.plot(x_coords, wt, color="blue", lw=3, label="Water table")
+
+    # Unsaturated zone — brown fill from watertable to DEM
+    ax.fill_between(x_coords, wt, dem_section,
+                    color="saddlebrown", alpha=0.3, lw=0)
+    ax.plot(x_coords, dem_section, color="saddlebrown", lw=3, label="Topography")
+
+    ax.set_xlim(float(np.nanmin(x_coords)), float(np.nanmax(x_coords)))
+    ax.set_ylim(y_min, y_max)
     ax.set_xlabel("Distance [m]")
-    ax.set_ylabel("Elevation [m]")
+    ax.set_ylabel("Elevation [m.a.s.l]")
+    ax.legend(fontsize=12, loc="upper right", framealpha=0.8)
+    if title:
+        ax.set_title(title, fontsize=10)
 
 
 def plot_cross_section(
@@ -55,9 +65,9 @@ def plot_cross_section(
     wt_section: np.ndarray,
     x_coords: np.ndarray,
     base_level: float | None = None,
-    options: DisplayOptions | None = None,
+    options: "DisplayOptions | None" = None,
     save_path: Path | None = None,
-    figsize: tuple[float, float] = (6, 4),
+    figsize: tuple[float, float] = (7, 5),
     dpi: int = 300,
 ):
     """Create a cross-section figure, render, and optionally save."""

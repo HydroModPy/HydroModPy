@@ -66,6 +66,9 @@ class FlowTimeseriesPostprocess:
         intermittency_monthly: bool = False,
         intermittency_weekly: bool = False,
         intermittency_daily: bool = False,
+        *,
+        store: Any = None,
+        sim_id: str | None = None,
     ) -> None:
         """Build and immediately export flow time series.
 
@@ -85,6 +88,10 @@ class FlowTimeseriesPostprocess:
             If ``True``, convert ``time`` to ``DatetimeIndex`` when possible.
         subbasin_results:
             If ``True``, repeat extraction for each available subbasin mask.
+        store:
+            ResultStore instance for reading spatial fields.
+        sim_id:
+            Simulation UUID in the store.
 
         Example
         -------
@@ -94,8 +101,6 @@ class FlowTimeseriesPostprocess:
         self.suffix_name = suffix_name
 
         self.geographic = geographic
-        self.stable_folder = geographic.stable_folder
-        self.simulations = geographic.simulations_folder
 
         self.model_name = model_modflow.model_name
         self.model_folder = model_modflow.model_folder
@@ -110,6 +115,8 @@ class FlowTimeseriesPostprocess:
         )
         self.recharge = model_modflow.recharge
         self.runoff = runoff
+        self._store = store
+        self._sim_id = sim_id
 
         self.intermittency_yearly = intermittency_yearly
         self.intermittency_monthly = intermittency_monthly
@@ -210,24 +217,23 @@ class FlowTimeseriesPostprocess:
 
         return time, recharge, runoff
 
-    def _try_load_npy(self, name: str) -> dict[Any, np.ndarray] | None:
-        """Try loading one ``.npy`` dictionary from the ``_postprocess`` folder."""
-        try:
-            return np.load(
-                os.path.join(self.save_file, f"{name}.npy"), allow_pickle=True
-            ).item()
-        except Exception:
+    def _load_field_from_store(self, name: str) -> dict[Any, np.ndarray] | None:
+        """Load a spatial field from the ResultStore as a timestep dict."""
+        if self._store is None or self._sim_id is None:
             return None
+        from hydromodpy.analysis.display.common import load_field_dict_from_store
+
+        return load_field_dict_from_store(self._store, self._sim_id, name)
 
     def _load_flow_products(self) -> None:
-        """Load flow-derived postprocess arrays when available."""
-        self.watertable_elevation = self._try_load_npy("watertable_elevation")
-        self.watertable_depth = self._try_load_npy("watertable_depth")
-        self.seepage_areas = self._try_load_npy("seepage_areas")
-        self.outflow_drain = self._try_load_npy("outflow_drain")
-        self.groundwater_flux = self._try_load_npy("groundwater_flux")
-        self.groundwater_storage = self._try_load_npy("groundwater_storage")
-        self.accumulation_flux = self._try_load_npy("accumulation_flux")
+        """Load flow-derived fields from the ResultStore."""
+        self.watertable_elevation = self._load_field_from_store("watertable_elevation")
+        self.watertable_depth = self._load_field_from_store("watertable_depth")
+        self.seepage_areas = self._load_field_from_store("seepage_areas")
+        self.outflow_drain = self._load_field_from_store("outflow_drain")
+        self.groundwater_flux = self._load_field_from_store("groundwater_flux")
+        self.groundwater_storage = self._load_field_from_store("groundwater_storage")
+        self.accumulation_flux = self._load_field_from_store("accumulation_flux")
 
     def _load_additional_products(self) -> None:
         """Hook for subclasses to load non-flow products."""
@@ -235,7 +241,9 @@ class FlowTimeseriesPostprocess:
     def _export_subbasins(self, time: Any, recharge: Any, runoff: Any) -> None:
         """Export one CSV per available subbasin mask."""
         try:
-            zones_folder = os.path.join(self.stable_folder, "subbasin")
+            zones_folder = os.path.join(
+                getattr(self.geographic, "out_dir_path", ""), "subbasin",
+            )
             for zi, zone_name in enumerate(os.listdir(zones_folder)):
                 sub_file = os.path.join(self.full_path, "_subbasins", zone_name)
                 if not os.path.exists(sub_file):
@@ -313,6 +321,8 @@ class FlowTimeseriesPostprocess:
 
     def _mask_grid(self, grid: np.ndarray, dem_clip: np.ndarray) -> np.ma.MaskedArray:
         """Apply DEM-based masking to one input grid."""
+        if grid.shape != dem_clip.shape and grid.size == dem_clip.size:
+            grid = grid.reshape(dem_clip.shape)
         return np.ma.masked_array(grid, mask=~self._active_mask(dem_clip))
 
     def _reduce_max(self, grid: np.ndarray, dem_clip: np.ndarray) -> float:

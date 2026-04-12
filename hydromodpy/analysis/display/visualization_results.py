@@ -93,6 +93,12 @@ class Visualization():
         self.geographic = geographic
         self.hydrography = hydrography
         self.modelname = modelname
+        # Resolve model output folder: prefer .solver_scratch/, fall back to results_simulations/
+        scratch = Path(initializing.solver_scratch_folder) / modelname
+        self._model_folder = str(scratch) if scratch.exists() else os.path.join(
+            str(getattr(initializing, "simulations_folder", initializing.solver_scratch_folder)),
+            modelname,
+        )
 
     #%% 2D
             
@@ -139,54 +145,33 @@ class Visualization():
                 ax.remove()
             return axs[:N]
         
-        modelfolder = os.path.join(self.initializing.simulations_folder, self.modelname)
+        modelfolder = self._model_folder
         fontprop = plot_params(8,15,18,20)
-        
-        path_res = os.path.join(modelfolder,'_postprocess')
-        
+
         try:
             contour = gpd.read_file(self.geographic.watershed_contour_shp)
             crs = contour.crs
         except Exception:
             logger.debug("Failed to read watershed contour shapefile", exc_info=True)
-        
+
         try:
             dem = rasterio.open(self.geographic.watershed_box_buff_dem)
         except Exception:
             logger.debug("Failed to open DEM raster", exc_info=True)
-        
+
         try:
             streams = gpd.read_file(self.hydrography.streams)
         except Exception:
             logger.debug("Failed to read streams shapefile", exc_info=True)
-        
-        # open the watertable elevation files
-        try:
-            watertable_file = os.path.join(path_res,'watertable_elevation.npy')
-            watertable_elevation = np.load(watertable_file, allow_pickle=True).item()
-        except Exception:
-            logger.debug("Failed to load watertable elevation file", exc_info=True)
-        
-        # open the watertable depth files
-        try:
-            watertable_depth_file = os.path.join(path_res,'watertable_depth.npy')
-            watertable_depth= np.load(watertable_depth_file, allow_pickle=True).item()
-        except Exception:
-            logger.debug("Failed to load watertable depth file", exc_info=True)
-        
-        # open the drain flux files
-        try:
-            drain_file = os.path.join(path_res,'outflow_drain.npy')
-            drain_area = np.load(drain_file, allow_pickle=True).item()
-        except Exception:
-            logger.debug("Failed to load drain flux file", exc_info=True)
-        
-        # open the surface flux files
-        try:
-            surface_file = os.path.join(path_res,'accumulation_flux.npy')
-            surface_area = np.load(surface_file, allow_pickle=True).item()
-        except Exception:
-            logger.debug("Failed to load surface flux file", exc_info=True)
+
+        # Load spatial fields from ResultStore.
+        from hydromodpy.analysis.display.common import load_field_dict_from_store
+        _store = getattr(self, "_store", None)
+        _sim_id = getattr(self, "_sim_id", None)
+        watertable_elevation = load_field_dict_from_store(_store, _sim_id, "watertable_elevation") if _store else None
+        watertable_depth = load_field_dict_from_store(_store, _sim_id, "watertable_depth") if _store else None
+        drain_area = load_field_dict_from_store(_store, _sim_id, "outflow_drain") if _store else None
+        surface_area = load_field_dict_from_store(_store, _sim_id, "accumulation_flux") if _store else None
         
         N = len(object_list)
         if structure == 'v':
@@ -512,7 +497,7 @@ class Visualization():
 
         # Load files
         try:
-            contour = vedo.Mesh(os.path.join(self.initializing.simulations_folder, self.modelname,
+            contour = vedo.Mesh(os.path.join(self._model_folder,
                                              '_postprocess', '_vtuvtk','watershed_contour.vtk'))
             contour.scale([1,1,z_scale])
             contour.color('k').lw(2)
@@ -521,7 +506,7 @@ class Visualization():
             logger.debug("Failed to load 3D watershed contour VTK mesh", exc_info=True)
             
         try:
-            stream = vedo.Mesh(os.path.join(self.initializing.simulations_folder, self.modelname,
+            stream = vedo.Mesh(os.path.join(self._model_folder,
                                             '_postprocess', '_vtuvtk','streams.vtk'))
             stream.scale([1,1,z_scale])
             stream.color('b').lw(5)
@@ -531,7 +516,7 @@ class Visualization():
             logger.debug("Failed to load 3D streams VTK mesh", exc_info=True)
         
         try:
-            grid = os.path.join(self.initializing.simulations_folder, self.modelname,
+            grid = os.path.join(self._model_folder,
                                 '_postprocess', '_vtuvtk', 'grid.vtu')
             grid_mesh = vedo.load(grid) #grid_mesh
             grid_wireframe = vedo.load(grid).wireframe() #grid_wireframe
@@ -561,7 +546,7 @@ class Visualization():
             logger.warning("VTU grid mesh missing for 3D visualization: %s", grid, exc_info=True)
             
         #try: 
-        watertable = os.path.join(self.initializing.simulations_folder, self.modelname,
+        watertable = os.path.join(self._model_folder,
                                   '_postprocess', '_vtuvtk', 'watertable_0.vtu')
         watertable_elev = vedo.load(watertable) # 1 Elevation
         watertable_depth = vedo.load(watertable) # 3 Depth
@@ -621,7 +606,7 @@ class Visualization():
                 logger.warning("VTK drain_flow mesh missing or failed to process for 3D visualization", exc_info=True)
             
         #try:
-        pathlines = os.path.join(self.initializing.simulations_folder, self.modelname,
+        pathlines = os.path.join(self._model_folder,
                                  '_postprocess', '_vtuvtk', 'pathlines.vtk')
         pathlines_mesh = vedo.Mesh(pathlines) #5
         #Pathlines
@@ -713,7 +698,7 @@ class Visualization():
             plt.close()
         else:
             plt += __doc__
-            plt.screenshot(os.path.join(self.initializing.simulations_folder, self.modelname,
+            plt.screenshot(os.path.join(self._model_folder,
                                         '_postprocess', '_figures', '3D_'+self.modelname+'.png')).close()
     
     #%% CROSS
@@ -913,7 +898,7 @@ class Visualization():
         
         # Save and display
         fig.savefig(os.path.join(
-            self.initializing.simulations_folder, self.modelname,
+            self._model_folder,
             '_postprocess','_figures',
             f'CROSS_{self.modelname}.png'
         ))

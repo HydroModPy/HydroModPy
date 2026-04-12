@@ -34,6 +34,12 @@ class WhiteboxWorkflowsBackend:
         except Exception:
             pass
         self._compress_rasters = False
+        # In-memory raster cache: when enabled, _write_raster stores to this
+        # dict (keyed by path) instead of writing to disk, and _read_raster
+        # checks it before falling back to disk.  The pipeline code passes
+        # "paths" as usual — they just become dict keys.
+        self._raster_cache: dict[str, object] = {}
+        self._cache_rasters = False
 
     @staticmethod
     def _ensure_parent(path: str) -> None:
@@ -89,6 +95,9 @@ class WhiteboxWorkflowsBackend:
             return operation(*args, **kwargs)
 
     def _read_raster(self, path: str):
+        cached = self._raster_cache.get(path)
+        if cached is not None:
+            return cached
         return self._run_env_operation(self._env.read_raster, path)
 
     def _write_raster(self, raster, path: str) -> None:
@@ -99,6 +108,8 @@ class WhiteboxWorkflowsBackend:
             path,
             compress=self._compress_rasters,
         )
+        if self._cache_rasters:
+            self._raster_cache[path] = raster
 
     def _read_vector(self, path: str):
         return self._run_env_operation(self._env.read_vector, path)
@@ -815,6 +826,57 @@ class WhiteboxWorkflowsBackend:
 
     def set_compress_rasters(self, enabled: bool) -> None:
         self._compress_rasters = bool(enabled)
+
+    # ------------------------------------------------------------------
+    # In-memory raster cache
+    # ------------------------------------------------------------------
+    def set_cache_rasters(self, enabled: bool) -> None:
+        """Enable/disable in-memory raster caching.
+
+        When enabled, ``_write_raster`` stores wbw.Raster objects in a dict
+        (keyed by path string) instead of writing to disk.  ``_read_raster``
+        checks the cache first, falling back to disk for paths not yet cached
+        (e.g. the initial DEM input).
+
+        The pipeline code is unchanged — it still passes file path strings.
+        They just become dict keys instead of real files.
+        """
+        self._cache_rasters = bool(enabled)
+
+    def get_cached_raster_numpy(self, path: str):
+        """Return a cached raster as a numpy float64 array, or None."""
+        import numpy as np
+        raster = self._raster_cache.get(path)
+        if raster is None:
+            return None
+        configs = raster.configs
+        rows = configs.rows
+        cols = configs.columns
+        data = np.full((rows, cols), np.nan, dtype="float64")
+        for row in range(rows):
+            row_data = raster.get_row_data(row)
+            data[row, :len(row_data)] = row_data
+        nodata = configs.nodata
+        if nodata is not None and nodata != np.nan:
+            data[data == nodata] = np.nan
+        return data
+
+    def get_cached_raster_metadata(self, path: str) -> dict | None:
+        """Return rasterio-compatible metadata for a cached raster."""
+        raster = self._raster_cache.get(path)
+        if raster is None:
+            return None
+        c = raster.configs
+        return {
+            "transform": (c.resolution_x, 0.0, c.west, 0.0, -c.resolution_y, c.north),
+            "crs": getattr(c, "coordinate_ref_system_wkt", "") or getattr(c, "epsg", ""),
+            "nodata": c.nodata,
+            "shape": (c.rows, c.columns),
+        }
+
+    def clear_raster_cache(self) -> None:
+        """Release all cached rasters."""
+        self._raster_cache.clear()
 
 
 def _normalize_whitebox_backend_kind(kind: str | None = None) -> str:

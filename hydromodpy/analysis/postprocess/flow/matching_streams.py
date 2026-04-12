@@ -61,9 +61,6 @@ class MatchingStreams:
         raster support come from the solver grid instead of the geographic DEM.
     iteration_label : str | None
         Simulation/calibration run folder name.
-    from_calib : bool, default=True
-        If True, read/write under calibration outputs; otherwise under
-        simulation outputs.
 
     Notes
     -----
@@ -78,7 +75,6 @@ class MatchingStreams:
         hydrography=hydro,
         initializing=workspace,
         iteration_label="flow_main_modflownwt",
-        from_calib=False,
     )
     ```
     """
@@ -90,16 +86,15 @@ class MatchingStreams:
         initializing: Workspace,
         model_modflow: object | None = None,
         iteration_label=None,
-        from_calib: bool = True,
     ):
         """Run stream-matching diagnostics for one simulation iteration."""
         self.geographic = geographic
         self.hydrography = hydrography
         self.model_modflow = model_modflow
-        if from_calib is True:
-            self.calibration_folder = initializing.calibration_folder
-        else:
-            self.calibration_folder = initializing.simulations_folder
+        self.calibration_folder = str(
+            getattr(initializing, "solver_scratch_folder", None)
+            or getattr(initializing, "simulations_folder", initializing.project_root)
+        )
         self.iteration_label = iteration_label
 
         self.watershed_shp = geographic.watershed_shp
@@ -179,16 +174,24 @@ class MatchingStreams:
         # Simulated stream support comes from seepage raster at t(0).
         tif_sim = os.path.join(self.results_folder, "_rasters", "seepage_areas_t(0).tif")
         self.tif_sim = os.path.join(self.dichotomy_folder, "sim.tif")
-        clip_tif(
-            tif_sim,
-            self.watershed_shp,
-            self.tif_sim,
-            bool(self.model_modflow is not None),
-        )
         self.pt_sim = os.path.join(self.dichotomy_folder, "sim_pt.shp")
         self.pt_simf = os.path.join(self.dichotomy_folder, "sim_ptf.shp")
         self.sim_flow = os.path.join(self.dichotomy_folder, "simflow.tif")
-        self.has_simulated_support = _raster_has_active_support(self.tif_sim)
+        if not os.path.isfile(tif_sim):
+            logger.warning(
+                "Seepage raster %s not found — simulated support unavailable. "
+                "Matching-stream diagnostics will be partial.",
+                tif_sim,
+            )
+            self.has_simulated_support = False
+        else:
+            clip_tif(
+                tif_sim,
+                self.watershed_shp,
+                self.tif_sim,
+                bool(self.model_modflow is not None),
+            )
+            self.has_simulated_support = _raster_has_active_support(self.tif_sim)
         if self.has_simulated_support:
             self._backend.raster_to_vector_points(self.tif_sim, self.pt_sim)
             self._backend.raster_to_vector_points(self.tif_sim, self.pt_simf)
@@ -307,22 +310,8 @@ def run_matching_streams(
     workspace,
     model_modflow: object | None = None,
     iteration_label: str,
-    from_calib: bool = False,
 ) -> None:
-    """Run matching-stream diagnostics on one flow model output.
-
-    Example
-    -------
-    ```python
-    run_matching_streams(
-        geographic=state.setup.geographic,
-        hydrography=state.loaded_data.hydrography,
-        workspace=state.setup.workspace,
-        iteration_label="flow_main_modflownwt",
-        from_calib=False,
-    )
-    ```
-    """
+    """Run matching-stream diagnostics on one flow model output."""
 
     MatchingStreams(
         geographic,
@@ -330,7 +319,6 @@ def run_matching_streams(
         workspace,
         model_modflow=model_modflow,
         iteration_label=iteration_label,
-        from_calib=from_calib,
     )
 
 

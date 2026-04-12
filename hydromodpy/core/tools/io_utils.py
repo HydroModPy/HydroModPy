@@ -64,7 +64,7 @@ def setup_paths(root_dir, example_name, results_dir="results", env_var_name=None
         'data': data_path,
         'output': out_path,
         'stable': os.path.join(out_path, example_name, 'results_stable'),
-        'simulations': os.path.join(out_path, example_name, 'results_simulations')
+        'simulations': os.path.join(out_path, example_name, '.solver_scratch')
     }
     return paths
 

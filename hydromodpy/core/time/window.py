@@ -68,6 +68,7 @@ class ResolvedSimulationTimeGrid:
     window: ResolvedSimulationTimeWindow
     boundaries: tuple[pd.Timestamp, ...]
     period_lengths_seconds: tuple[float, ...]
+    nstp_per_period: int = 1
 
     @property
     def nper(self) -> int:
@@ -318,6 +319,7 @@ def resolve_simulation_time_grid(cfg: Any) -> ResolvedSimulationTimeGrid | None:
         window=window,
         boundaries=tuple(boundaries),
         period_lengths_seconds=tuple(perlen_seconds),
+        nstp_per_period=int(getattr(time_cfg, "substeps_per_period", 1)),
     )
 
 
@@ -488,8 +490,7 @@ def apply_explicit_time_window_to_tgrids(cfg: Any) -> ResolvedSimulationTimeWind
         tgrid_cfg.nper = nper
         tgrid_cfg.lenper = perlen_seconds
         # Keep launcher temporal control centralized in [simulation.time].
-        # nstp/tsmult tuning is intentionally postponed to a later phase.
-        tgrid_cfg.ntsp = 1
+        tgrid_cfg.ntsp = int(getattr(time_cfg, "substeps_per_period", 1))
         tgrid_cfg.tsmult = 1.0
     return window
 

@@ -27,6 +27,7 @@ def render_discharge(
     observed_df: "pd.DataFrame | pd.Series | None" = None,
     simulated_series: "pd.Series | None" = None,
     recharge_series: "pd.Series | None" = None,
+    well_fluxes: "pd.Series | None" = None,
     model_label: str = "",
     ylabel: str = "Discharge (m\u00b3/s)",
 ) -> None:
@@ -64,26 +65,48 @@ def render_discharge(
                 ax.plot(observed_df.index, observed_df[col], lw=0.8,
                         label=col, alpha=0.8)
 
-    # Simulated
-    if simulated_series is not None:
-        label = f"Simulated: {model_label}" if model_label else "Simulated"
-        ax.plot(simulated_series.index, simulated_series.values, color="red",
-                lw=2, label=label)
+    # Well pumping bars on secondary axis — draw FIRST so step plots overlay
+    if well_fluxes is not None and len(well_fluxes) > 0:
+        import pandas as pd_
+        ax2 = ax.twinx()
+        if isinstance(well_fluxes.index, pd_.DatetimeIndex) and len(well_fluxes) > 1:
+            bar_width = (well_fluxes.index[1] - well_fluxes.index[0]) * 0.3
+        else:
+            bar_width = 5
+        # Use absolute values for bar height (pumping is negative in MODFLOW)
+        abs_fluxes = np.abs(well_fluxes.values)
+        ax2.bar(
+            well_fluxes.index, abs_fluxes,
+            color="darkorange", lw=0, width=bar_width, label="Water from wells",
+            clip_on=False,
+        )
+        ax2.invert_yaxis()
+        ax2.set_ylabel("Sum of pumping in wells [L$^3$/T]",
+                        rotation=270, labelpad=25)
+        ax2.legend(fontsize=12, loc="lower left", facecolor="white")
+        # Put ax1 on top for lines, but transparent background so bars show through
+        ax.set_zorder(ax2.get_zorder() + 1)
+        ax.patch.set_visible(False)
 
-    # Recharge overlay
+    # Recharge — step plot, matching legacy style
     if recharge_series is not None:
-        ax.plot(recharge_series.index, recharge_series.values, color="dodgerblue",
-                lw=2, label="Recharge")
+        ax.step(recharge_series.index, recharge_series.values, color="dodgerblue",
+                lw=8, label="Recharge total", where="pre", clip_on=False)
+
+    # Simulated outflow — step plot
+    if simulated_series is not None:
+        label = "Outflow at outlet"
+        ax.step(simulated_series.index, simulated_series.values, color="red",
+                lw=5, alpha=1, label=label, where="pre", clip_on=False)
 
     ax.set_ylabel(ylabel)
     ax.set_xlabel("")
-    ax.legend(fontsize=7, loc="upper left", framealpha=0.8)
-    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=12, loc="upper left", framealpha=0.8)
 
     if has_sim:
         ax.xaxis.set_major_locator(mdates.YearLocator(1))
         ax.xaxis.set_minor_locator(mdates.MonthLocator())
-        ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+        ax.xaxis.set_minor_formatter(mdates.DateFormatter("%m"))
 
     if model_label:
         ax.set_title(model_label, fontsize=10)
@@ -96,6 +119,7 @@ def plot_discharge(
     observed_df: "pd.DataFrame | pd.Series | None" = None,
     simulated_series: "pd.Series | None" = None,
     recharge_series: "pd.Series | None" = None,
+    well_fluxes: "pd.Series | None" = None,
     model_label: str = "",
     ylabel: str = "Discharge (m\u00b3/s)",
     options: "DisplayOptions | None" = None,
@@ -113,6 +137,7 @@ def plot_discharge(
         observed_df=observed_df,
         simulated_series=simulated_series,
         recharge_series=recharge_series,
+        well_fluxes=well_fluxes,
         model_label=model_label,
         ylabel=ylabel,
     )
@@ -717,3 +742,83 @@ def _monthly_mean_from_fields(load_result) -> dict[int, float] | None:
     monthly_sum = combined.resample("ME").sum()
     grouped = monthly_sum.groupby(monthly_sum.index.month).mean()
     return grouped.to_dict()
+
+
+# ======================================================================
+# Drainage density (intermittency)
+# ======================================================================
+
+def render_drainage_density(
+    ax: "Axes",
+    *,
+    total_drainage_pct: "pd.Series",
+    perennial_drainage_pct: "pd.Series | None" = None,
+    title: str = "",
+    ylabel: str = "Drainage density [%]",
+) -> None:
+    """Stacked area chart of total vs perennial drainage density over time.
+
+    Parameters
+    ----------
+    total_drainage_pct : pd.Series
+        Total drainage density percentage per timestep (perennial + intermittent).
+    perennial_drainage_pct : pd.Series, optional
+        Perennial fraction. When provided, the area between perennial and
+        total is filled as "intermittent".
+    """
+    import matplotlib.dates as mdates
+
+    ax.fill_between(
+        total_drainage_pct.index, 0, total_drainage_pct.values,
+        step="pre", color="dodgerblue", alpha=0.5, label="Intermittent",
+    )
+    ax.step(
+        total_drainage_pct.index, total_drainage_pct.values,
+        color="dodgerblue", lw=1, where="pre",
+    )
+
+    if perennial_drainage_pct is not None:
+        ax.fill_between(
+            perennial_drainage_pct.index, 0, perennial_drainage_pct.values,
+            step="pre", color="navy", alpha=0.5, label="Perennial",
+        )
+        ax.step(
+            perennial_drainage_pct.index, perennial_drainage_pct.values,
+            color="navy", lw=1, where="pre",
+        )
+
+    ax.set_ylabel(ylabel)
+    ax.set_ylim(bottom=0)
+    ax.legend(fontsize=8, loc="upper right")
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_minor_locator(mdates.MonthLocator())
+    if title:
+        ax.set_title(title, fontsize=10)
+    ax.grid(True, alpha=0.3, axis="y")
+
+
+def plot_drainage_density(
+    *,
+    total_drainage_pct: "pd.Series",
+    perennial_drainage_pct: "pd.Series | None" = None,
+    title: str = "",
+    options: "DisplayOptions | None" = None,
+    save_path: Path | None = None,
+    figsize: tuple[float, float] = (7, 3.5),
+    dpi: int = 300,
+):
+    """Create a drainage-density figure, render, and optionally save."""
+    from hydromodpy.analysis.display.common import finalize_figure, make_figure, _single_axes
+
+    fig, axs = make_figure(figsize=figsize, dpi=dpi)
+    ax = _single_axes(axs)
+    render_drainage_density(
+        ax,
+        total_drainage_pct=total_drainage_pct,
+        perennial_drainage_pct=perennial_drainage_pct,
+        title=title,
+    )
+    fig.tight_layout()
+    if options is not None:
+        finalize_figure(fig, options=options, save_path=save_path)
+    return fig, ax

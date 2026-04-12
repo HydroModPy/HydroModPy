@@ -14,6 +14,7 @@
 
 # Python
 import os
+from pathlib import Path
 import numpy as np
 import math
 import geopandas as gpd
@@ -106,7 +107,10 @@ class VTK():
                  geographic:Geographic, hydrography:HydrographyResult, modelname = None, piezometry: list[PointRecord] | None = None):
         
         if modelname != None:
-            modelfolder= os.path.join(initializing.simulations_folder, modelname)
+            scratch = Path(initializing.solver_scratch_folder) / modelname
+            modelfolder = str(scratch) if scratch.exists() else os.path.join(
+                str(getattr(initializing, "project_root", ".")), ".solver_scratch", modelname,
+            )
             save_file = os.path.join(modelfolder, '_postprocess','_vtuvtk')
             create_folder(save_file)
             logger.info("Exporting VTU/VTK grid mesh for model %s", modelname)
@@ -740,16 +744,12 @@ class VTK():
         #basLines = open(modelfolder+modelname+'.bas').readlines()  # active / inactive data
         hds = bf.HeadFile(os.path.join(modelfolder,modelname+'.hds'))
         
-        # open the drain flux files
-        drain_file = os.path.join(modelfolder,'_postprocess', 'outflow_drain.npy')
-        drain_area = np.load(drain_file, allow_pickle=True).item()
-        
-        # open the surface flux files
-        try:
-            surface_file = os.path.join(modelfolder,'_postprocess', 'accumulation_flux.npy')
-            surface_area = np.load(surface_file, allow_pickle=True).item()
-        except:
-            pass
+        # Load drain and surface flux from ResultStore.
+        from hydromodpy.analysis.display.common import load_field_dict_from_store
+        _store = getattr(self, "_store", None)
+        _sim_id = getattr(self, "_sim_id", None)
+        drain_area = load_field_dict_from_store(_store, _sim_id, "outflow_drain") if _store else None
+        surface_area = load_field_dict_from_store(_store, _sim_id, "accumulation_flux") if _store else None
         
         kstpkper = hds.get_kstpkper()
         tsn = []

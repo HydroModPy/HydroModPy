@@ -13,6 +13,17 @@ import numpy as np
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
+
+def _resolve_gdf(source):
+    """Convert a file path or GeoDataFrame into a GeoDataFrame."""
+    import geopandas as gpd
+
+    if source is None:
+        return None
+    if isinstance(source, gpd.GeoDataFrame):
+        return source
+    return gpd.read_file(str(source))
+
     from hydromodpy.analysis.display.display_config import DisplayOptions
 
 
@@ -67,6 +78,7 @@ def render_dem_map(
     streams_gdf=None,
     station_points: list[dict] | None = None,
     title: str = "",
+    basemap: bool = False,
 ) -> None:
     """DEM terrain with watershed contour and station overlays.
 
@@ -102,13 +114,24 @@ def render_dem_map(
             mlines.Line2D([], [], color="navy", lw=1.5, label="Streams"))
 
     # Watershed contour
+    contour = None
     try:
-        contour = gpd.read_file(str(watershed_shp))
+        contour = _resolve_gdf(watershed_shp)
         contour.plot(ax=ax, lw=1.5, zorder=4, edgecolor="k", facecolor="None")
         legend_handles.append(
             mlines.Line2D([], [], color="k", lw=1.5, label="Watershed"))
     except Exception:
         pass
+
+    # OSM basemap
+    if basemap:
+        try:
+            import contextily as cx
+            crs = contour.crs if contour is not None else None
+            if crs is not None:
+                cx.add_basemap(ax, crs=crs, zorder=0, alpha=0.4)
+        except Exception:
+            pass
 
     # Station overlays from generic dicts
     if station_points:
@@ -163,6 +186,7 @@ def plot_dem_map(
     streams_gdf=None,
     station_points: list[dict] | None = None,
     title: str = "",
+    basemap: bool = False,
     options: "DisplayOptions | None" = None,
     save_path: Path | None = None,
     figsize: tuple[float, float] = (6, 6),
@@ -180,6 +204,7 @@ def plot_dem_map(
         streams_gdf=streams_gdf,
         station_points=station_points,
         title=title,
+        basemap=basemap,
     )
     fig.tight_layout()
     if options is not None:
@@ -264,7 +289,7 @@ def render_geology_map(
 
     # Watershed contour
     try:
-        contour = gpd.read_file(str(watershed_shp))
+        contour = _resolve_gdf(watershed_shp)
         contour.plot(ax=ax, lw=1.5, zorder=4, edgecolor="k", facecolor="None")
     except Exception:
         pass
@@ -342,7 +367,7 @@ def render_hydrography_map(
 
     # Watershed contour
     try:
-        contour = gpd.read_file(str(watershed_shp))
+        contour = _resolve_gdf(watershed_shp)
         contour.plot(ax=ax, lw=1.5, zorder=4, edgecolor="k",
                      facecolor="None", label="Watershed")
     except Exception:
@@ -359,10 +384,16 @@ def render_hydrography_map(
                 lw = 0.5 + order * 0.5
                 subset.plot(ax=ax, lw=lw, color=cmap[i], zorder=3,
                             label=f"Order {order}")
-            ax.legend(loc="lower right", fontsize=6, framealpha=0.8, title=title)
+            import warnings as _w
+            with _w.catch_warnings():
+                _w.simplefilter("ignore", UserWarning)
+                ax.legend(loc="lower right", fontsize=6, framealpha=0.8, title=title)
         else:
             streams_gdf.plot(ax=ax, lw=1.5, color="navy", zorder=3, label="Streams")
-            ax.legend(loc="lower right", fontsize=7, framealpha=0.8, title=title)
+            import warnings as _w
+            with _w.catch_warnings():
+                _w.simplefilter("ignore", UserWarning)
+                ax.legend(loc="lower right", fontsize=7, framealpha=0.8, title=title)
 
     # Outlet marker
     if outlet_xy is not None:
@@ -461,7 +492,7 @@ def render_pathlines_map(
     )
 
     try:
-        watershed = gpd.read_file(str(watershed_shp))
+        watershed = _resolve_gdf(watershed_shp)
         watershed.plot(ax=ax, facecolor="None", edgecolor="k", lw=2, zorder=-1)
     except Exception:
         pass
