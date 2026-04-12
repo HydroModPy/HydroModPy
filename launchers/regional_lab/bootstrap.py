@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 import re
 from typing import Any, Mapping
@@ -102,6 +103,124 @@ def _discover_mesh_assets(mesh_run_root: Path) -> dict[str, dict[str, str]]:
     return discovered
 
 
+def _dedupe_tags(tags: list[str]) -> list[str]:
+    """Return tags without duplicates while preserving the first spelling."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for tag in tags:
+        text = str(tag).strip()
+        if text == "":
+            continue
+        lowered = text.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        out.append(text)
+    return out
+
+
+def _resolve_bundle_dir_from_mesh_output(
+    *,
+    mesh_output: str | None,
+    outlet_id: str,
+) -> str | None:
+    """Infer one sibling bundle directory from one exported mesh path."""
+    mesh_output_text = _normalize_text(mesh_output)
+    if mesh_output_text is None:
+        return None
+    mesh_output_path = Path(mesh_output_text).expanduser().resolve()
+    if not mesh_output_path.exists():
+        return None
+    candidate_paths = [
+        mesh_output_path.parent / f"{mesh_output_path.stem}_bundle",
+        mesh_output_path.parent / f"mesh_catchment_outlet_{outlet_id}_bundle",
+    ]
+    for candidate in candidate_paths:
+        if candidate.is_dir():
+            return str(candidate.resolve())
+    return None
+
+
+def inspect_mesh_bundle_boussinesq_readiness(
+    bundle_dir: str | Path | None,
+) -> dict[str, Any]:
+    """Inspect one bundle directory against the current Boussinesq mesh contract."""
+    bundle_path = None if bundle_dir is None else Path(bundle_dir).expanduser().resolve()
+    empty_payload = {
+        "bundle_cell_count": "",
+        "bundle_missing_top_centroid_count": "",
+        "bundle_missing_bottom_centroid_count": "",
+        "bundle_missing_hydraulic_conductivity_count": "",
+        "bundle_missing_storage_coefficient_count": "",
+        "bundle_invalid_vertical_geometry_count": "",
+        "bundle_storage_default_value": "",
+        "bundle_boussinesq_steady_ready": "",
+        "bundle_boussinesq_transient_ready": "",
+    }
+    if bundle_path is None or not bundle_path.is_dir():
+        return empty_payload
+
+    cells_path = bundle_path / "cells.csv"
+    if not cells_path.is_file():
+        return empty_payload
+
+    counts = {
+        "bundle_cell_count": 0,
+        "bundle_missing_top_centroid_count": 0,
+        "bundle_missing_bottom_centroid_count": 0,
+        "bundle_missing_hydraulic_conductivity_count": 0,
+        "bundle_missing_storage_coefficient_count": 0,
+        "bundle_invalid_vertical_geometry_count": 0,
+    }
+    with cells_path.open("r", encoding="utf-8", newline="") as stream:
+        reader = csv.DictReader(stream)
+        for row in reader:
+            counts["bundle_cell_count"] += 1
+            top = _normalize_text(row.get("z_top_centroid"))
+            bottom = _normalize_text(row.get("z_bottom_centroid"))
+            conductivity = _normalize_text(row.get("hydraulic_conductivity_m_s"))
+            storage = _normalize_text(row.get("storage_coefficient"))
+            if top is None:
+                counts["bundle_missing_top_centroid_count"] += 1
+            if bottom is None:
+                counts["bundle_missing_bottom_centroid_count"] += 1
+            if conductivity is None:
+                counts["bundle_missing_hydraulic_conductivity_count"] += 1
+            if storage is None:
+                counts["bundle_missing_storage_coefficient_count"] += 1
+            if top is not None and bottom is not None and float(top) < float(bottom):
+                counts["bundle_invalid_vertical_geometry_count"] += 1
+
+    storage_default_value: float | None = None
+    metadata_path = bundle_path / "metadata.json"
+    if metadata_path.is_file():
+        payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+        hydraulic_properties = payload.get("hydraulic_properties") or {}
+        storage_view = hydraulic_properties.get("storage_coefficient") or {}
+        storage_default_value = _normalize_float(storage_view.get("default_value"))
+
+    steady_ready = (
+        counts["bundle_cell_count"] > 0
+        and counts["bundle_missing_top_centroid_count"] == 0
+        and counts["bundle_missing_bottom_centroid_count"] == 0
+        and counts["bundle_missing_hydraulic_conductivity_count"] == 0
+        and counts["bundle_invalid_vertical_geometry_count"] == 0
+    )
+    transient_ready = steady_ready and (
+        counts["bundle_missing_storage_coefficient_count"] == 0
+        or storage_default_value is not None
+    )
+
+    return {
+        **counts,
+        "bundle_storage_default_value": (
+            "" if storage_default_value is None else float(storage_default_value)
+        ),
+        "bundle_boussinesq_steady_ready": "true" if steady_ready else "false",
+        "bundle_boussinesq_transient_ready": "true" if transient_ready else "false",
+    }
+
+
 def build_site_catalog_from_outlet_table(
     *,
     outlets_table_path: str | Path,
@@ -172,7 +291,9 @@ def build_site_catalog_from_outlet_table(
         mesh_summary_json = _normalize_text(
             manifest_row.get("output_summary_json")
         ) or _normalize_text(discovered_assets.get("mesh_summary_json"))
-        mesh_bundle_dir = _normalize_text(discovered_assets.get("mesh_bundle_dir"))
+        mesh_bundle_dir = _normalize_text(
+            manifest_row.get("output_exchange_bundle_dir")
+        ) or _normalize_text(discovered_assets.get("mesh_bundle_dir"))
         mesh_figure = _normalize_text(manifest_row.get("output_figure")) or _normalize_text(
             discovered_assets.get("mesh_figure")
         )
@@ -184,9 +305,17 @@ def build_site_catalog_from_outlet_table(
         elif mesh_output is not None or mesh_bundle_dir is not None:
             tags.append("mesh_ready")
         site_id = site_id_template.format(cluster_id=cluster_id, outlet_id=outlet_id)
-        if mesh_bundle_dir is None and mesh_output is not None:
-            mesh_bundle_dir = str(Path(mesh_output).expanduser().resolve().parent)
+        if mesh_bundle_dir is None:
+            mesh_bundle_dir = _resolve_bundle_dir_from_mesh_output(
+                mesh_output=mesh_output,
+                outlet_id=outlet_id,
+            )
         mesh_status = manifest_status or ("discovered" if mesh_output is not None else "")
+        bundle_readiness = inspect_mesh_bundle_boussinesq_readiness(mesh_bundle_dir)
+        if bundle_readiness["bundle_boussinesq_steady_ready"] == "true":
+            tags.append("boussinesq_steady_ready")
+        if bundle_readiness["bundle_boussinesq_transient_ready"] == "true":
+            tags.append("boussinesq_transient_ready")
 
         catalog_rows.append(
             {
@@ -201,7 +330,7 @@ def build_site_catalog_from_outlet_table(
                 "site_status": manifest_status or default_site_status,
                 "maturity": default_maturity,
                 "enabled": "true" if enabled else "false",
-                "tags": ";".join(tags),
+                "tags": ";".join(_dedupe_tags(tags)),
                 "outlet_id": outlet_id,
                 "x": "" if _normalize_float(outlet_row.get(x_column)) is None else _normalize_float(outlet_row.get(x_column)),
                 "y": "" if _normalize_float(outlet_row.get(y_column)) is None else _normalize_float(outlet_row.get(y_column)),
@@ -212,6 +341,31 @@ def build_site_catalog_from_outlet_table(
                 "mesh_bundle_dir": mesh_bundle_dir or "",
                 "mesh_figure": mesh_figure or "",
                 "mesh_figure_regional": mesh_figure_regional or "",
+                "bundle_cell_count": bundle_readiness["bundle_cell_count"],
+                "bundle_missing_top_centroid_count": bundle_readiness[
+                    "bundle_missing_top_centroid_count"
+                ],
+                "bundle_missing_bottom_centroid_count": bundle_readiness[
+                    "bundle_missing_bottom_centroid_count"
+                ],
+                "bundle_missing_hydraulic_conductivity_count": bundle_readiness[
+                    "bundle_missing_hydraulic_conductivity_count"
+                ],
+                "bundle_missing_storage_coefficient_count": bundle_readiness[
+                    "bundle_missing_storage_coefficient_count"
+                ],
+                "bundle_invalid_vertical_geometry_count": bundle_readiness[
+                    "bundle_invalid_vertical_geometry_count"
+                ],
+                "bundle_storage_default_value": bundle_readiness[
+                    "bundle_storage_default_value"
+                ],
+                "bundle_boussinesq_steady_ready": bundle_readiness[
+                    "bundle_boussinesq_steady_ready"
+                ],
+                "bundle_boussinesq_transient_ready": bundle_readiness[
+                    "bundle_boussinesq_transient_ready"
+                ],
                 "notes": "",
             }
         )
@@ -239,6 +393,15 @@ def build_site_catalog_from_outlet_table(
         "mesh_bundle_dir",
         "mesh_figure",
         "mesh_figure_regional",
+        "bundle_cell_count",
+        "bundle_missing_top_centroid_count",
+        "bundle_missing_bottom_centroid_count",
+        "bundle_missing_hydraulic_conductivity_count",
+        "bundle_missing_storage_coefficient_count",
+        "bundle_invalid_vertical_geometry_count",
+        "bundle_storage_default_value",
+        "bundle_boussinesq_steady_ready",
+        "bundle_boussinesq_transient_ready",
         "notes",
     ]
     _write_csv_rows(destination, fieldnames=fieldnames, rows=catalog_rows)
@@ -252,5 +415,7 @@ def build_site_catalog_from_outlet_table(
         "mesh_run_root_scanned": mesh_run_root_path is not None,
     }
 
-
-__all__ = ("build_site_catalog_from_outlet_table",)
+__all__ = (
+    "build_site_catalog_from_outlet_table",
+    "inspect_mesh_bundle_boussinesq_readiness",
+)
