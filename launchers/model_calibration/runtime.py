@@ -206,6 +206,8 @@ class PreparedHydraulicPropertySupport:
     n_cells: int
     lithology_labels: tuple[str, ...] | None = None
     base_property_arrays: dict[str, tuple[float, ...]] = field(default_factory=dict)
+    zone_fractions_by_key: dict[str, tuple[float, ...]] = field(default_factory=dict)
+    base_property_values_by_key: dict[str, dict[str, float]] = field(default_factory=dict)
     source: str = "config_scalar"
     mesh_bundle_dir: Path | None = None
     mesh_path: Path | None = None
@@ -220,6 +222,14 @@ class PreparedHydraulicPropertySupport:
             "base_property_details": {
                 name: _prepared_numeric_array_summary(values)
                 for name, values in sorted(self.base_property_arrays.items())
+            },
+            "zone_keys": sorted(self.zone_fractions_by_key.keys()),
+            "base_property_values_by_key": {
+                name: {
+                    str(key): float(value)
+                    for key, value in sorted(values.items())
+                }
+                for name, values in sorted(self.base_property_values_by_key.items())
             },
             "lithology_labels": _prepared_labels_summary(self.lithology_labels),
             "source": str(self.source),
@@ -295,9 +305,164 @@ def _setup_mesh_paths_from_runtime(setup_state: object) -> tuple[Path | None, Pa
     return bundle_dir, mesh_path, mesh_summary_path
 
 
+def _path_exists(mapping: dict[str, Any], path: tuple[str, ...]) -> bool:
+    """Return True when one nested path exists in a mapping payload."""
+    current: Any = mapping
+    for key in path:
+        if not isinstance(current, dict) or key not in current:
+            return False
+        current = current[key]
+    return True
+
+
+def _resolve_target_path_alias(
+    mapping: dict[str, Any],
+    path: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Resolve one user-facing calibration target path to the raw TOML payload path."""
+    if len(path) < 4 or path[0] != "flow" or path[1] != "param":
+        return path
+
+    property_name = path[2]
+    property_cfg = _resolve_flow_property_config(
+        raw_simulation_toml=mapping,
+        property_name=property_name,
+    )
+    if property_cfg is None:
+        return path
+
+    leaf = path[3]
+    if leaf == "value":
+        candidate = ("flow", "param", property_name, "field_homogeneous", "value", *path[4:])
+        if _path_exists(mapping, candidate):
+            return candidate
+    if leaf == "values_by_key":
+        candidate = (
+            "flow",
+            "param",
+            property_name,
+            "field_heterogeneous",
+            "values",
+            *path[4:],
+        )
+        if _path_exists(mapping, candidate):
+            return candidate
+    if leaf == "field_spatial_id":
+        candidate = (
+            "flow",
+            "param",
+            property_name,
+            "field_heterogeneous",
+            "field_spatial_id",
+            *path[4:],
+        )
+        if _path_exists(mapping, candidate):
+            return candidate
+    return path
+
+
+def _parse_property_values_by_key(
+    property_cfg: dict[str, Any] | None,
+) -> dict[str, float]:
+    """Parse one heterogeneous values-by-key mapping from a raw flow property block."""
+    if property_cfg is None:
+        return {}
+    candidate_mappings: list[object] = []
+    field_heterogeneous = property_cfg.get("field_heterogeneous")
+    if isinstance(field_heterogeneous, dict):
+        candidate_mappings.append(field_heterogeneous.get("values"))
+    candidate_mappings.append(property_cfg.get("values_by_key"))
+
+    for raw_mapping in candidate_mappings:
+        if not isinstance(raw_mapping, dict):
+            continue
+        parsed: dict[str, float] = {}
+        for key, raw_value in raw_mapping.items():
+            numeric = _parse_optional_numeric_value(raw_value)
+            if numeric is None:
+                continue
+            parsed[str(key).strip()] = float(numeric)
+        if parsed:
+            return parsed
+    return {}
+
+
+def _parse_property_support_id(
+    property_cfg: dict[str, Any] | None,
+) -> str | None:
+    """Return the spatial-support id declared for one heterogeneous property."""
+    if property_cfg is None:
+        return None
+    field_heterogeneous = property_cfg.get("field_heterogeneous")
+    if not isinstance(field_heterogeneous, dict):
+        return None
+    support_id = str(field_heterogeneous.get("field_spatial_id", "")).strip()
+    return None if support_id == "" else support_id
+
+
+def _bundle_zone_fractions(
+    bundle: object,
+    *,
+    n_cells: int,
+) -> dict[str, tuple[float, ...]]:
+    """Return per-zone fractions from one bundle, falling back to one-hot cell labels."""
+    fractions: dict[str, np.ndarray] = {}
+    for record in getattr(bundle, "geology_fractions", ()):
+        key = str(getattr(record, "geology_key", "")).strip()
+        cell_id = int(getattr(record, "cell_id"))
+        fraction = float(getattr(record, "fraction"))
+        if key == "" or not 0 <= cell_id < int(n_cells):
+            continue
+        fractions.setdefault(key, np.zeros(int(n_cells), dtype=float))[cell_id] = fraction
+
+    if fractions:
+        return {
+            key: tuple(float(value) for value in values.reshape(-1))
+            for key, values in sorted(fractions.items())
+        }
+
+    labels = tuple(str(getattr(cell, "geology_key", "") or "").strip() for cell in getattr(bundle, "cells", ()))
+    if not any(labels):
+        return {}
+    fallback: dict[str, np.ndarray] = {}
+    for index, key in enumerate(labels):
+        if key == "":
+            continue
+        fallback.setdefault(key, np.zeros(int(n_cells), dtype=float))[index] = 1.0
+    return {
+        key: tuple(float(value) for value in values.reshape(-1))
+        for key, values in sorted(fallback.items())
+    }
+
+
+def _labels_from_zone_fractions(
+    zone_fractions_by_key: dict[str, tuple[float, ...]],
+) -> tuple[str, ...] | None:
+    """Return dominant per-cell labels from one per-zone fraction mapping."""
+    if not zone_fractions_by_key:
+        return None
+    zone_keys = tuple(zone_fractions_by_key.keys())
+    stacked = np.vstack(
+        [
+            np.asarray(zone_fractions_by_key[key], dtype=float).reshape(-1)
+            for key in zone_keys
+        ]
+    )
+    if stacked.size == 0:
+        return None
+    dominant_idx = np.argmax(stacked, axis=0)
+    dominant_values = np.max(stacked, axis=0)
+    labels = tuple(
+        zone_keys[int(index)] if float(value) > 0.0 else ""
+        for index, value in zip(dominant_idx, dominant_values, strict=True)
+    )
+    return labels if any(label != "" for label in labels) else None
+
+
 def _prepare_runtime_hydraulic_property_support(
     *,
     simulation_config_path: Path,
+    raw_simulation_toml: dict[str, Any],
     solver_families: tuple[str, ...],
     property_names: tuple[str, ...],
 ) -> PreparedHydraulicPropertySupport | None:
@@ -384,6 +549,9 @@ def _prepare_runtime_hydraulic_property_support(
         )
 
     lithology_labels: tuple[str, ...] | None = None
+    bundle_has_labels = False
+    zone_fractions_by_key: dict[str, tuple[float, ...]] = {}
+    base_property_values_by_key: dict[str, dict[str, float]] = {}
     mesh_bundle = getattr(setup_state, "mesh_bundle", None)
     if mesh_bundle is not None:
         bundle_labels = tuple(
@@ -392,10 +560,96 @@ def _prepare_runtime_hydraulic_property_support(
         )
         if any(bundle_labels):
             lithology_labels = bundle_labels
+            bundle_has_labels = True
+        zone_fractions_by_key = _bundle_zone_fractions(
+            mesh_bundle,
+            n_cells=max(1, int(getattr(solver_mesh, "n_cells", 1))),
+        )
+
+    domain = setup_state.domain
+    mesh_for_support = getattr(setup_state, "mesh_planar", None)
+    if mesh_for_support is None and bool(getattr(solver_mesh, "is_structured", False)):
+        try:
+            from hydromodpy.solver.utils import build_field_mesh_from_sgrid
+
+            mesh_for_support = build_field_mesh_from_sgrid(solver_mesh)
+        except Exception:
+            mesh_for_support = None
+    if mesh_for_support is None:
+        solver_planar_mesh = getattr(solver_mesh, "planar_mesh", None)
+        if hasattr(solver_planar_mesh, "cells"):
+            mesh_for_support = solver_planar_mesh
+    if mesh_for_support is None and hasattr(solver_mesh, "cells"):
+        mesh_for_support = solver_mesh
+    support_id_used: str | None = None
+    mixed_support_ids = False
+    if domain is not None and mesh_for_support is not None:
+        for property_name in sorted(required_properties):
+            property_cfg = _resolve_flow_property_config(
+                raw_simulation_toml=raw_simulation_toml,
+                property_name=property_name,
+            )
+            zone_values = _parse_property_values_by_key(property_cfg)
+            if zone_values:
+                base_property_values_by_key[str(property_name)] = zone_values
+
+            support_id = _parse_property_support_id(property_cfg)
+            if support_id is None:
+                continue
+            resolver = getattr(domain, "resolve_spatial_support", None)
+            if not callable(resolver):
+                continue
+            try:
+                support_field = resolver(support_id)
+            except Exception:
+                continue
+            if support_field is None or not hasattr(support_field, "on_mesh"):
+                continue
+            try:
+                discretization = support_field.on_mesh(mesh_for_support)
+                zone_keys, fractions_by_zone = discretization.weighted_components()
+            except Exception:
+                continue
+            normalized_fractions = {
+                str(zone_key).strip(): tuple(
+                    float(value)
+                    for value in np.asarray(
+                        fractions_by_zone[zone_key],
+                        dtype=float,
+                    ).reshape(-1)
+                )
+                for zone_key in zone_keys
+                if str(zone_key).strip() != ""
+            }
+            if not normalized_fractions:
+                continue
+
+            if support_id_used is None:
+                support_id_used = str(support_id)
+                if not zone_fractions_by_key:
+                    zone_fractions_by_key = normalized_fractions
+            elif str(support_id) != support_id_used:
+                mixed_support_ids = True
+
+            if property_name in base_property_arrays:
+                continue
+            if not zone_values:
+                continue
+            if not all(zone_key in zone_values for zone_key in normalized_fractions):
+                continue
+            weighted = np.zeros(max(1, int(getattr(solver_mesh, "n_cells", 1))), dtype=float)
+            for zone_key, fractions in normalized_fractions.items():
+                weighted += np.asarray(fractions, dtype=float) * float(zone_values[zone_key])
+            base_property_arrays[str(property_name)] = tuple(float(value) for value in weighted)
+
+    if zone_fractions_by_key and not mixed_support_ids and lithology_labels is None:
+        lithology_labels = _labels_from_zone_fractions(zone_fractions_by_key)
 
     source = f"runtime_prepared_{selected_solver}"
-    if lithology_labels is not None:
+    if bundle_has_labels:
         source += "_geology"
+    elif zone_fractions_by_key or lithology_labels is not None:
+        source += "_zones"
     mesh_bundle_dir, mesh_path, mesh_summary_path = _setup_mesh_paths_from_runtime(
         setup_state
     )
@@ -403,6 +657,8 @@ def _prepare_runtime_hydraulic_property_support(
         n_cells=max(1, int(getattr(solver_mesh, "n_cells", 1))),
         lithology_labels=lithology_labels,
         base_property_arrays=base_property_arrays,
+        zone_fractions_by_key=zone_fractions_by_key,
+        base_property_values_by_key=base_property_values_by_key,
         source=source,
         mesh_bundle_dir=mesh_bundle_dir,
         mesh_path=mesh_path,
@@ -1998,14 +2254,8 @@ def _build_property_array_from_config(
         if scalar is not None:
             return tuple(float(scalar) for _ in range(int(n_cells)))
 
-    values_by_key = property_cfg.get("values_by_key")
-    if isinstance(values_by_key, dict) and lithology_labels is not None:
-        parsed_by_key = {
-            str(key): parsed
-            for key, raw_value in values_by_key.items()
-            for parsed in [_parse_optional_numeric_value(raw_value)]
-            if parsed is not None
-        }
+    parsed_by_key = _parse_property_values_by_key(property_cfg)
+    if parsed_by_key and lithology_labels is not None:
         if parsed_by_key and all(label in parsed_by_key for label in lithology_labels):
             return tuple(float(parsed_by_key[label]) for label in lithology_labels)
 
@@ -2024,9 +2274,13 @@ def _infer_target_scalar_base_arrays(
         if property_name is None or property_name in base_arrays:
             continue
         try:
-            base_value = _lookup_nested_value(
+            target_path = _resolve_target_path_alias(
                 raw_simulation_toml,
                 _split_target_path(parameter_cfg.target),
+            )
+            base_value = _lookup_nested_value(
+                raw_simulation_toml,
+                target_path,
             )
         except Exception:
             continue
@@ -2045,10 +2299,16 @@ def prepare_hydraulic_property_support(
     cfg: ModelCalibrationConfig,
 ) -> PreparedHydraulicPropertySupport:
     """Prepare reusable hydraulic support for calibration actualization."""
+    calibrated_properties = {
+        str(parameter_cfg.property).strip()
+        for parameter_cfg in cfg.model_calibration.parameter
+        if parameter_cfg.property is not None
+    }
     runtime_prepared: PreparedHydraulicPropertySupport | None = None
     try:
         runtime_prepared = _prepare_runtime_hydraulic_property_support(
             simulation_config_path=simulation_config_path,
+            raw_simulation_toml=raw_simulation_toml,
             solver_families=detect_solver_families(raw_simulation_toml),
             property_names=tuple(
                 str(parameter_cfg.property).strip()
@@ -2063,6 +2323,11 @@ def prepare_hydraulic_property_support(
         n_cells = int(runtime_prepared.n_cells)
         lithology_labels = runtime_prepared.lithology_labels
         base_property_arrays = dict(runtime_prepared.base_property_arrays)
+        zone_fractions_by_key = dict(runtime_prepared.zone_fractions_by_key)
+        base_property_values_by_key = {
+            str(name): {str(key): float(value) for key, value in values.items()}
+            for name, values in runtime_prepared.base_property_values_by_key.items()
+        }
         source = str(runtime_prepared.source)
         bundle_dir = runtime_prepared.mesh_bundle_dir
         mesh_path = runtime_prepared.mesh_path
@@ -2079,6 +2344,8 @@ def prepare_hydraulic_property_support(
         n_cells = 1
         lithology_labels: tuple[str, ...] | None = None
         base_property_arrays: dict[str, tuple[float, ...]] = {}
+        zone_fractions_by_key: dict[str, tuple[float, ...]] = {}
+        base_property_values_by_key: dict[str, dict[str, float]] = {}
         source = "config_scalar"
 
         if bundle_dir is not None and bundle_dir.exists():
@@ -2104,12 +2371,20 @@ def prepare_hydraulic_property_support(
                 )
                 if len(conductivity_values) == n_cells:
                     base_property_arrays["K"] = conductivity_values
+                zone_fractions_by_key = _bundle_zone_fractions(
+                    bundle,
+                    n_cells=n_cells,
+                )
 
-    calibrated_properties = {
-        str(parameter_cfg.property).strip()
-        for parameter_cfg in cfg.model_calibration.parameter
-        if parameter_cfg.property is not None
-    }
+        for property_name in sorted(calibrated_properties):
+            parsed_zone_values = _parse_property_values_by_key(
+                _resolve_flow_property_config(
+                    raw_simulation_toml=raw_simulation_toml,
+                    property_name=property_name,
+                )
+            )
+            if parsed_zone_values:
+                base_property_values_by_key[str(property_name)] = parsed_zone_values
     for property_name in sorted(calibrated_properties):
         if property_name in base_property_arrays:
             continue
@@ -2133,6 +2408,8 @@ def prepare_hydraulic_property_support(
         n_cells=max(1, int(n_cells)),
         lithology_labels=lithology_labels,
         base_property_arrays=base_property_arrays,
+        zone_fractions_by_key=zone_fractions_by_key,
+        base_property_values_by_key=base_property_values_by_key,
         source=source,
         mesh_bundle_dir=bundle_dir,
         mesh_path=mesh_path,
@@ -2157,6 +2434,12 @@ def _build_candidate_property_array_preview(
             ),
             lithology_labels=(
                 None if support is None else support.lithology_labels
+            ),
+            zone_fractions_by_key=(
+                None if support is None else support.zone_fractions_by_key
+            ),
+            base_property_values_by_key=(
+                None if support is None else support.base_property_values_by_key
             ),
             default_cell_count=1 if support is None else int(support.n_cells),
         )
@@ -2552,7 +2835,10 @@ def actualize_candidate(
         }
 
     for parameter_cfg in cfg.model_calibration.parameter:
-        target_path = _split_target_path(parameter_cfg.target)
+        target_path = _resolve_target_path_alias(
+            session.raw_simulation_toml,
+            _split_target_path(parameter_cfg.target),
+        )
         base_value = _lookup_nested_value(session.raw_simulation_toml, target_path)
         resolved_value = _apply_parameter_override(
             base_value=base_value,

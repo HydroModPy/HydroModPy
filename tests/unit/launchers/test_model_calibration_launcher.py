@@ -406,6 +406,162 @@ def _write_dupuit_runtime_prepare_calibration_config(path: Path, *, simulation_c
     )
 
 
+def _write_runtime_zone_supported_simulation_config(path: Path) -> None:
+    path.write_text(
+        "\n".join(
+            [
+                "[workspace]",
+                'project_root = "project/demo_case"',
+                "",
+                "[simulation]",
+                'run_id = "demo_flow_zones"',
+                "",
+                "[[simulation.process]]",
+                'id = "flow_main"',
+                'type = "flow"',
+                'solvers = ["modflow6"]',
+                "",
+                "[geographic]",
+                'source_mode = "synthetic"',
+                "",
+                "[geographic.synthetic]",
+                'case_id = "demo_zones"',
+                "",
+                "[geographic.synthetic.grid]",
+                'length_x = "400.0 m"',
+                'length_y = "50.0 m"',
+                "nx = 40",
+                "ny = 5",
+                "",
+                "[geographic.synthetic.topography]",
+                'kind = "flat"',
+                "base_elevation = 20.0",
+                "",
+                "[domain]",
+                'zone_ids = ["k_bands"]',
+                "",
+                "[domain.depth_model]",
+                'type = "constant_thickness"',
+                'thickness = "20.0 m"',
+                "",
+                "[domain.supports.k_bands]",
+                'provider = "generated_bands"',
+                'axis = "x"',
+                'coordinate_mode = "relative"',
+                "breaks = [0.5]",
+                'labels = ["west_zone", "east_zone"]',
+                "",
+                "[flow]",
+                'flow_regime = "steady"',
+                'active_sinks_sources = []',
+                'active_bc = ["west_side", "east_side"]',
+                'param_list = ["K"]',
+                "",
+                "[flow.param.K.field]",
+                'id = "K"',
+                'kind = "heterogeneous"',
+                "",
+                "[flow.param.K.field_heterogeneous]",
+                'values_source = "inline"',
+                'field_spatial_id = "k_bands"',
+                'values = { west_zone = "2e-4 m/s", east_zone = "5e-5 m/s" }',
+                "",
+                "[flow.ic]",
+                'type = "custom"',
+                'value = "7.5 m"',
+                "",
+                "[flow.bc.dirichlet.west_side]",
+                'type = "dirichlet"',
+                'value = "10.0 m"',
+                "",
+                "[flow.bc.dirichlet.east_side]",
+                'type = "dirichlet"',
+                'value = "5.0 m"',
+                "",
+                "[modflow6.runtime]",
+                'mf6_ims_complexity = "SIMPLE"',
+                'mf_verbose = false',
+                "",
+                "[modflow6.process_specific]",
+                "vka = 1.0",
+                "",
+                "[modflow6.sgrid.planar]",
+                'mode = "resample_to_shape"',
+                "nx = 40",
+                "ny = 5",
+                'resampling = "nearest"',
+                "",
+                "[modflow6.sgrid.vertical]",
+                "nlay = 1",
+                "",
+                "[display]",
+                "enabled = false",
+                "",
+                "[postprocess]",
+                "enabled = true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_runtime_zone_calibration_config(path: Path, *, simulation_config_name: str) -> None:
+    path.write_text(
+        "\n".join(
+            [
+                "[model_calibration]",
+                f'simulation_config = "{simulation_config_name}"',
+                'calibration_id = "runtime_zone_calib"',
+                "disable_display = true",
+                "disable_postprocess = true",
+                "persist_iteration_history = false",
+                "persist_calibration_report = false",
+                "persist_model_distribution = false",
+                "",
+                "[[model_calibration.parameter]]",
+                'name = "K_west"',
+                'property = "K"',
+                'target = "flow.param.K.values_by_key.west_zone"',
+                'mode = "replace"',
+                'parameterization = "lithology_value"',
+                "",
+                "[[model_calibration.output]]",
+                'name = "q_east"',
+                'variable = "outlet_discharge"',
+                'source = "runtime"',
+                'support = "boundary"',
+                'boundary_id = "east_side"',
+                'time = "all"',
+                "observed_values = [1.0]",
+                "",
+                "[[model_calibration.objective_block]]",
+                'name = "flux"',
+                'metric = "rmse"',
+                "weight = 1.0",
+                'uses_outputs = ["q_east"]',
+                "normalize_cost = true",
+                "",
+                "[calibration]",
+                'objective_metric = "rmse"',
+                'global_method = "random_search"',
+                "",
+                "[objective]",
+                'transform = "identity"',
+                "",
+                "[calibration_method.random_search]",
+                "n_samples = 1",
+                "seed = 7",
+                "",
+                "[bounds]",
+                "K_west = [1.0e-4, 5.0e-4]",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def test_model_calibration_config_resolves_simulation_path_and_core_settings(
     tmp_path: Path,
 ) -> None:
@@ -992,6 +1148,60 @@ def test_model_calibration_builds_lithology_property_arrays(tmp_path: Path) -> N
     )
 
 
+def test_model_calibration_builds_weighted_zone_property_arrays(tmp_path: Path) -> None:
+    raw_toml = {
+        "model_calibration": {
+            "simulation_config": "run_flow_reference.toml",
+            "calibration_id": "calib_case_01",
+            "parameter": [
+                {
+                    "name": "K_west",
+                    "property": "K",
+                    "target": "flow.param.K.values_by_key.west_zone",
+                    "mode": "replace",
+                    "parameterization": "lithology_value",
+                },
+            ],
+            "output": [
+                {
+                    "name": "pz_01",
+                    "variable": "watertable_elevation",
+                    "support": "point",
+                    "x": 1.0,
+                    "y": 2.0,
+                },
+            ],
+            "objective_block": [
+                {
+                    "name": "heads",
+                    "uses_outputs": ["pz_01"],
+                },
+            ],
+        },
+        "bounds": {
+            "K_west": [1.0e-6, 1.0e-3],
+        },
+    }
+    cfg = ModelCalibrationConfig.from_toml(raw_toml, base_dir=tmp_path)
+
+    property_set = build_property_array_set(
+        cfg=cfg,
+        params={"K_west": 4.0},
+        base_property_arrays={"K": [1.75, 1.25, 1.0]},
+        zone_fractions_by_key={
+            "west_zone": [0.75, 0.25, 0.0],
+            "east_zone": [0.25, 0.75, 1.0],
+        },
+        base_property_values_by_key={
+            "K": {"west_zone": 2.0, "east_zone": 1.0},
+        },
+    )
+
+    assert property_set.get("K").values.tolist() == pytest.approx(
+        [3.25, 1.75, 1.0]
+    )
+
+
 def test_model_calibration_prepares_bundle_backed_property_support(
     tmp_path: Path,
 ) -> None:
@@ -1200,6 +1410,47 @@ def test_model_calibration_prefers_runtime_prepared_hydraulic_support(
     assert request.property_array_set is not None
     assert request.property_array_set.get("K").values.size == 200
     assert request.property_array_set.get("K").values[0] == pytest.approx(1.2e-4)
+
+
+def test_model_calibration_prepares_runtime_zone_supported_property_updates(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_runtime_zone_supported_simulation_config(simulation_path)
+    _write_runtime_zone_calibration_config(
+        config_path,
+        simulation_config_name=simulation_path.name,
+    )
+
+    launcher = ModelCalibrationLauncher(config_path)
+    session = launcher.prepare()
+    request = launcher.actualize_candidate(
+        {"K_west": 3.0e-4},
+        iteration_index=1,
+    )
+
+    assert session.prepared_hydraulic_support is not None
+    assert session.prepared_hydraulic_support.source == "runtime_prepared_modflow6_zones"
+    assert session.prepared_hydraulic_support.n_cells == 200
+    assert session.prepared_hydraulic_support.mesh_bundle_dir is None
+    assert session.prepared_hydraulic_support.base_property_values_by_key["K"][
+        "west_zone"
+    ] == pytest.approx(2.0e-4)
+    assert session.prepared_hydraulic_support.base_property_values_by_key["K"][
+        "east_zone"
+    ] == pytest.approx(5.0e-5)
+    assert sorted(session.prepared_hydraulic_support.zone_fractions_by_key) == [
+        "east_zone",
+        "west_zone",
+    ]
+    assert request.override_payload["flow"]["param"]["K"]["field_heterogeneous"][
+        "values"
+    ]["west_zone"] == "0.0003 m/s"
+    assert request.property_array_set is not None
+    values_grid = request.property_array_set.get("K").values.reshape(5, 40)
+    assert np.mean(values_grid[:, :20]) == pytest.approx(3.0e-4)
+    assert np.mean(values_grid[:, 20:]) == pytest.approx(5.0e-5)
 
 
 def test_model_calibration_bundle_change_updates_session_contract_signature(

@@ -147,9 +147,12 @@ def _infer_lithology_key(parameter_cfg: Any) -> str | None:
 def _candidate_array_for_parameter(
     *,
     parameter_cfg: Any,
+    property_name: str,
     candidate_value: float,
     base_values: np.ndarray,
     lithology_labels: tuple[str, ...] | None,
+    zone_fractions_by_key: dict[str, Any] | None,
+    base_property_values_by_key: dict[str, dict[str, float]] | None,
 ) -> np.ndarray:
     """Return one candidate contribution for a calibrated parameter."""
     parameterization = str(parameter_cfg.parameterization)
@@ -162,25 +165,49 @@ def _candidate_array_for_parameter(
             return base_values * float(candidate_value)
 
     if parameterization == "lithology_value":
-        if lithology_labels is None:
-            raise ValueError(
-                f"Parameter '{parameter_cfg.name}' requires lithology labels"
-            )
         lithology_key = _infer_lithology_key(parameter_cfg)
         if lithology_key is None:
             raise ValueError(
                 f"Parameter '{parameter_cfg.name}' requires lithology_key or "
                 "a target containing '.values_by_key.<key>'"
             )
+        normalized_key = str(lithology_key)
+        if (
+            zone_fractions_by_key is not None
+            and base_property_values_by_key is not None
+            and property_name in base_property_values_by_key
+            and normalized_key in zone_fractions_by_key
+            and normalized_key in base_property_values_by_key[property_name]
+        ):
+            weights = np.asarray(zone_fractions_by_key[normalized_key], dtype=float).ravel()
+            if weights.size != base_values.size:
+                raise ValueError(
+                    "zone_fractions_by_key length must match base arrays"
+                )
+            base_zone_value = float(base_property_values_by_key[property_name][normalized_key])
+            updated = base_values.copy()
+            if mode == "replace":
+                updated = updated + weights * (float(candidate_value) - base_zone_value)
+                return updated
+            if mode == "scale":
+                updated = updated + weights * (
+                    (base_zone_value * float(candidate_value)) - base_zone_value
+                )
+                return updated
+
+        if lithology_labels is None:
+            raise ValueError(
+                f"Parameter '{parameter_cfg.name}' requires lithology labels"
+            )
         labels = np.asarray(lithology_labels, dtype=str)
         if labels.size != base_values.size:
             raise ValueError("lithology_labels length must match base arrays")
         updated = base_values.copy()
-        mask = labels == str(lithology_key)
+        mask = labels == normalized_key
         if not np.any(mask):
             raise ValueError(
                 f"Parameter '{parameter_cfg.name}' references unknown lithology "
-                f"'{lithology_key}'"
+                f"'{normalized_key}'"
             )
         if mode == "replace":
             updated[mask] = float(candidate_value)
@@ -201,6 +228,8 @@ def build_property_array_set(
     params: dict[str, float] | tuple[float, ...] | list[float],
     base_property_arrays: dict[str, Any] | None = None,
     lithology_labels: tuple[str, ...] | list[str] | np.ndarray | None = None,
+    zone_fractions_by_key: dict[str, Any] | None = None,
+    base_property_values_by_key: dict[str, dict[str, float]] | None = None,
     default_cell_count: int = 1,
 ) -> PropertyArraySet:
     """Build vectorized hydraulic property arrays for one candidate.
@@ -261,9 +290,12 @@ def build_property_array_set(
             base_values = arrays_by_property[property_name]
         arrays_by_property[property_name] = _candidate_array_for_parameter(
             parameter_cfg=parameter_cfg,
+            property_name=str(property_name),
             candidate_value=params_named[parameter_cfg.name],
             base_values=base_values,
             lithology_labels=labels_tuple,
+            zone_fractions_by_key=zone_fractions_by_key,
+            base_property_values_by_key=base_property_values_by_key,
         )
         parameter_names_by_property.setdefault(property_name, []).append(
             parameter_cfg.name
