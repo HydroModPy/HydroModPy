@@ -61,6 +61,7 @@ def discretize_points_on_planar_mesh(
     nper: int,
     simulation_window: object | None = None,
     method: str = "nearest",
+    source_unit: str = "mm/day",
 ) -> dict[int, np.ndarray]:
     """Interpolate located point forcings to one value per Gmsh cell."""
     pseudo_sgrid = _pseudo_sgrid_from_planar_mesh(planar_mesh)
@@ -70,6 +71,7 @@ def discretize_points_on_planar_mesh(
         nper=int(nper),
         simulation_window=simulation_window,
         method=method,
+        source_unit=source_unit,
     )
     return {
         int(kper): np.asarray(values, dtype=float).reshape(-1)

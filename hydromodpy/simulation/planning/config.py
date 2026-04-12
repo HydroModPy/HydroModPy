@@ -118,6 +118,15 @@ class SimulationTimeConfig(BaseModel):
             "when step_value is provided without an inline unit."
         ),
     )
+    substeps_per_period: Annotated[int, ParamLevel("dev")] = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Number of solver time steps within each stress period. "
+            "Higher values improve transient accuracy (e.g., 30 for daily "
+            "substeps inside monthly stress periods)."
+        ),
+    )
     coverage_policy: Annotated[Literal["error", "warn", "ignore"], ParamLevel("dev")] = Field(
         default="error",
         description=(

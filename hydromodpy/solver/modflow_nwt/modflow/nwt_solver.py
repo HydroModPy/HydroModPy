@@ -603,9 +603,13 @@ class Modflow(Solver):
 
         stress_period_data = {}
         for kper in range(self.nper):
-            kstp = self.nstp[kper]
-            # Saves head (hds) and budget (cbc) for each of the stress periods
-            stress_period_data[(kper, kstp - 1)] = ["save head", "save budget"]
+            kstp = int(self.nstp[kper])
+            if kstp > 1:
+                # Multiple substeps: save every substep for transient accuracy
+                for ts in range(kstp):
+                    stress_period_data[(kper, ts)] = ["save head", "save budget"]
+            else:
+                stress_period_data[(kper, 0)] = ["save head", "save budget"]
         # ---- flopy.modflow.ModflowOc
         self.oc = flopy.modflow.ModflowOc(
             self.mf,
@@ -910,39 +914,11 @@ class Modflow(Solver):
                 with rasterio.open(output_path) as src:
                     self.dict_accumulation_flux[item] = src.read(1)
 
-        # %% Save time-series dictionaries to .npy
-
-        _timeseries_exports = [
-            (options.watertable_elevation, self.dict_watertable_elevation, "watertable_elevation"),
-            (options.watertable_depth, self.dict_watertable_depth, "watertable_depth"),
-            (options.seepage_areas, self.dict_seepage_areas, "seepage_areas"),
-            (options.outflow_drain, self.dict_outflow_drain, "outflow_drain"),
-            (
-                options.outlet_discharge_east_side_m3_s,
-                self.dict_outlet_discharge_east_side_m3_s,
-                "outlet_discharge_east_side_m3_s",
-            ),
-            (options.groundwater_flux, self.dict_groundwater_flux, "groundwater_flux"),
-            (options.groundwater_storage, self.dict_groundwater_storage, "groundwater_storage"),
-            (options.accumulation_flux, self.dict_accumulation_flux, "accumulation_flux"),
-        ]
-        _exported = []
-        for flag, data, name in _timeseries_exports:
-            if flag:
-                np.save(self.save_file + "/" + name, data)
-                _exported.append(name.replace("_", " "))
-        if _exported:
-            logger.info("Exported time series: %s", ", ".join(_exported))
-
         # %% Persistency index
 
-        accumulation_flux_path = os.path.join(self.save_file, "accumulation_flux.npy")
-
-        if options.persistency_index and os.path.exists(accumulation_flux_path):
+        if options.persistency_index and self.dict_accumulation_flux:
             logger.info("Exporting persistency index maps")
-            acc_npy_raw = np.load(
-                accumulation_flux_path, allow_pickle=True
-            ).item()
+            acc_npy_raw = self.dict_accumulation_flux
             acc_npy = list(acc_npy_raw.items())[:]
             mask = inactive_mask
             for key in range(len(acc_npy)):
@@ -960,7 +936,6 @@ class Modflow(Solver):
             pi_export[mask] = NODATA
             output_path = self.tifs_file + "/persistency_index_t(-).tif"
             export_tif(self.dem_watershed_path, pi_export, output_path, NODATA)
-            np.save(self.save_file + "/persistency_index", self.dict_persistency_index)
 
         # %% Intermittency (daily / weekly / monthly / yearly)
 
@@ -970,11 +945,7 @@ class Modflow(Solver):
             or options.intermittency_monthly
             or options.intermittency_yearly
         )
-        acc_npy_raw = None
-        if _any_intermittency and os.path.exists(accumulation_flux_path):
-            acc_npy_raw = np.load(
-                accumulation_flux_path, allow_pickle=True
-            ).item()
+        acc_npy_raw = self.dict_accumulation_flux if (_any_intermittency and self.dict_accumulation_flux) else None
 
         if options.intermittency_daily and acc_npy_raw is not None:
             export_intermittency(
@@ -984,8 +955,6 @@ class Modflow(Solver):
                 result_dict=self.dict_intermittency_daily,
                 tifs_file=self.tifs_file,
                 watershed_dem=self.dem_watershed_path,
-                save_file=self.save_file,
-                save_filename="intermittency_daily",
             )
 
         if options.intermittency_weekly and acc_npy_raw is not None:
@@ -996,8 +965,6 @@ class Modflow(Solver):
                 result_dict=self.dict_intermittency_weekly,
                 tifs_file=self.tifs_file,
                 watershed_dem=self.dem_watershed_path,
-                save_file=self.save_file,
-                save_filename="intermittency_weekly",
             )
 
         if options.intermittency_monthly and acc_npy_raw is not None:
@@ -1008,8 +975,6 @@ class Modflow(Solver):
                 result_dict=self.dict_intermittency_monthly,
                 tifs_file=self.tifs_file,
                 watershed_dem=self.dem_watershed_path,
-                save_file=self.save_file,
-                save_filename="intermittency_monthly",
             )
 
         if options.intermittency_yearly and acc_npy_raw is not None:
@@ -1020,8 +985,6 @@ class Modflow(Solver):
                 result_dict=self.dict_intermittency_yearly,
                 tifs_file=self.tifs_file,
                 watershed_dem=self.dem_watershed_path,
-                save_file=self.save_file,
-                save_filename="intermittency_yearly",
             )
 
 

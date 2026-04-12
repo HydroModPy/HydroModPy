@@ -15,6 +15,7 @@
 # Python
 import io
 import os
+from pathlib import Path
 import sys
 from contextlib import redirect_stdout
 
@@ -248,29 +249,36 @@ class Modpath(Solver):
                 return candidate
         return None
 
-    def _restore_seepage_raster_from_npy(self, seepage_tif: str) -> bool:
-        """Try rebuilding the seepage GeoTIFF from ``seepage_areas.npy``."""
-        seepage_npy = os.path.join(self.full_path, '_postprocess', 'seepage_areas.npy')
+    def _restore_seepage_raster_from_store(self, seepage_tif: str) -> bool:
+        """Rebuild the seepage GeoTIFF from the ResultStore."""
         base_raster = self._get_base_raster_path()
-        if not os.path.isfile(seepage_npy) or base_raster is None or not os.path.isfile(base_raster):
+        if base_raster is None or not os.path.isfile(base_raster):
             return False
 
         try:
-            payload = np.load(seepage_npy, allow_pickle=True).item()
-            if not payload:
-                return False
-            first_key = sorted(payload)[0]
-            seepage_array = np.asarray(payload[first_key], dtype=float)
-            export_tif(base_raster, seepage_array, seepage_tif, -9999.0)
+            from hydromodpy.results.store import ResultStore
+
+            # model_folder is .solver_scratch/ — project root is its parent.
+            mf = Path(self.model_folder)
+            project_root = mf.parent if mf.name == ".solver_scratch" else mf
+            store = ResultStore(project_root)
+            sims = store.list_simulations()
+            if not sims.empty:
+                sim_id = str(sims.iloc[-1]["sim_id"])
+                arr = store.query_field(sim_id, "seepage_areas", 0)
+                seepage_flat = np.asarray(arr, dtype=float).ravel()
+                import rasterio as _rio
+                with _rio.open(base_raster) as _src:
+                    seepage_array = seepage_flat.reshape(_src.height, _src.width)
+                os.makedirs(os.path.dirname(seepage_tif), exist_ok=True)
+                export_tif(base_raster, seepage_array, seepage_tif, -9999.0)
+            store.close()
+            if os.path.isfile(seepage_tif):
+                return True
         except Exception as exc:
-            logger.warning(
-                "Failed to rebuild seepage raster from %s for zone_partic='seepage_clip'. "
-                "Error: %s",
-                seepage_npy,
-                exc,
-            )
-            return False
-        return os.path.isfile(seepage_tif)
+            logger.debug("Failed to rebuild seepage from ResultStore: %s", exc)
+
+        return False
 
     def _resolve_seepage_clip_raster(self):
         """Build and return clipped seepage raster path for particle injection."""
@@ -281,7 +289,7 @@ class Modpath(Solver):
             'seepage_areas_t(0).tif',
         )
         if not os.path.isfile(seepage_tif):
-            rebuilt = self._restore_seepage_raster_from_npy(seepage_tif)
+            rebuilt = self._restore_seepage_raster_from_store(seepage_tif)
             if not rebuilt:
                 raise FileNotFoundError(
                     "zone_partic='seepage_clip' requested but missing seepage raster at "

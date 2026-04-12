@@ -28,17 +28,26 @@ class Mt3dmsOutputAdapter:
         model_name: str | None = None,
     ) -> None:
         """Read .ucn file and write concentration fields into the store."""
-        from flopy.utils import UcnFile
+        import flopy.utils.binaryfile as bf
 
         solver_output_dir = Path(solver_output_dir)
         if model_name is None:
-            ucn_files = list(solver_output_dir.glob("*.ucn"))
+            ucn_files = list(solver_output_dir.glob("*.ucn")) + list(
+                solver_output_dir.glob("*.UCN")
+            )
             if not ucn_files:
                 raise FileNotFoundError(f"No .ucn file in {solver_output_dir}")
             model_name = ucn_files[0].stem
 
         ucn_path = solver_output_dir / f"{model_name}.ucn"
-        ucn = UcnFile(str(ucn_path))
+        if not ucn_path.exists():
+            ucn_path = solver_output_dir / f"{model_name}.UCN"
+
+        # MT3DMS uses UcnFile; MF6-GWT uses the same binary format as HeadFile.
+        try:
+            ucn = bf.UcnFile(str(ucn_path))
+        except (EOFError, Exception):
+            ucn = bf.HeadFile(str(ucn_path), text="concentration")
         times = ucn.get_times()
         n_timesteps = len(times)
 
