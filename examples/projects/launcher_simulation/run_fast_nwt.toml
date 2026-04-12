@@ -23,6 +23,18 @@ diffu_coeff = 8.64e-06
 react_order = 1
 rate_decay = 0.00136986301369863
 
+[simulation.results]
+keep_solver_files = true
+
+[simulation.results.derived]
+accumulation_flux = true
+outflow_drain = true
+concentration_seepage = true
+mass_seepage = true
+
+[simulation.results.budget]
+spatial_fields = true
+
 [modflownwt.runtime]
 dis_itmuni = 1
 

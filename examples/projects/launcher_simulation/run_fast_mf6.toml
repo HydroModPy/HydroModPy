@@ -18,6 +18,17 @@ diffu_coeff = 8.64e-06
 react_order = 1
 rate_decay = 0.00136986301369863
 
+[simulation.results]
+
+[simulation.results.derived]
+accumulation_flux = true
+outflow_drain = true
+concentration_seepage = true
+mass_seepage = true
+
+[simulation.results.budget]
+spatial_fields = true
+
 [modflow6.sgrid.planar]
 mode = "resample_to_shape"
 nx = 60
