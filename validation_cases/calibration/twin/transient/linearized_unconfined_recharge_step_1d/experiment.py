@@ -7,6 +7,7 @@ from typing import Any
 
 from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
+    ObservationNoiseSpec,
     TwinCalibrationCaseDefinition,
 )
 from validation_cases.shared.runtime import _merge_toml_payloads, _read_toml
@@ -160,3 +161,45 @@ TRANSIENT_RECHARGE_STEP_TWIN_CASE = TwinCalibrationCaseDefinition(
     build_calibration_payload=build_calibration_payload,
 )
 
+
+TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
+    case_id="calibration_twin_linearized_recharge_step_noisy_modflow6",
+    solver_name="modflow6",
+    regime="transient",
+    description=(
+        "Same-solver noisy twin benchmark on linearized_unconfined_recharge_step_1d "
+        "with K+Sy, multiobservable head/flux blocks, and repeated "
+        "random-search seeds."
+    ),
+    truth_params={"K_global_factor": 1.0, "Sy_global": 0.10},
+    bounds={
+        "K_global_factor": (0.95, 1.05),
+        "Sy_global": (0.06, 0.14),
+    },
+    parameter_abs_tolerances={
+        "K_global_factor": 0.03,
+        "Sy_global": 0.03,
+    },
+    output_names=("head_mid", "q_east"),
+    method_profiles=(
+        CalibrationMethodProfile(
+            name="random_search",
+            method_kwargs={"n_samples": 10},
+            persist_model_distribution=True,
+            repeat_seeds=(11, 23, 37),
+        ),
+        CalibrationMethodProfile(
+            name="simplex",
+            method_kwargs={"max_iter": 12, "xtol": 1.0e-6, "ftol": 1.0e-6},
+            persist_model_distribution=False,
+        ),
+    ),
+    fast=False,
+    observation_noise=ObservationNoiseSpec(
+        absolute_sigma_by_output={"head_mid": 0.005},
+        relative_sigma_by_output={"q_east": 0.02},
+        seed=17,
+    ),
+    build_simulation_config=build_simulation_config,
+    build_calibration_payload=build_calibration_payload,
+)

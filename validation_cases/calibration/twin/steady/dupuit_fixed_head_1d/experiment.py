@@ -7,6 +7,7 @@ from typing import Any
 
 from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
+    ObservationNoiseSpec,
     TwinCalibrationCaseDefinition,
 )
 from validation_cases.shared.runtime import _merge_toml_payloads, _read_toml
@@ -134,3 +135,43 @@ STEADY_DUPUIT_TWIN_CASE = TwinCalibrationCaseDefinition(
     build_calibration_payload=build_calibration_payload,
 )
 
+
+STEADY_DUPUIT_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
+    case_id="calibration_twin_dupuit_fixed_head_noisy_modflow6",
+    solver_name="modflow6",
+    regime="steady",
+    description=(
+        "Same-solver noisy twin benchmark on dupuit_fixed_head_1d with one "
+        "scalar K multiplier, one outlet-discharge observable, and repeated "
+        "random-search seeds."
+    ),
+    truth_params={"K_global_factor": 1.0},
+    bounds={"K_global_factor": (0.8, 1.2)},
+    parameter_abs_tolerances={"K_global_factor": 0.06},
+    output_names=("q_east",),
+    method_profiles=(
+        CalibrationMethodProfile(
+            name="grid_search",
+            method_kwargs={"n_per_dim": 9},
+            persist_model_distribution=False,
+        ),
+        CalibrationMethodProfile(
+            name="random_search",
+            method_kwargs={"n_samples": 16},
+            persist_model_distribution=True,
+            repeat_seeds=(7, 11, 19),
+        ),
+        CalibrationMethodProfile(
+            name="simplex",
+            method_kwargs={"max_iter": 24, "xtol": 1.0e-8, "ftol": 1.0e-8},
+            persist_model_distribution=False,
+        ),
+    ),
+    fast=False,
+    observation_noise=ObservationNoiseSpec(
+        relative_sigma_by_output={"q_east": 0.01},
+        seed=21,
+    ),
+    build_simulation_config=build_simulation_config,
+    build_calibration_payload=build_calibration_payload,
+)

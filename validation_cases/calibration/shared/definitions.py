@@ -15,6 +15,18 @@ class CalibrationMethodProfile:
     name: str
     method_kwargs: Mapping[str, Any] = field(default_factory=dict)
     persist_model_distribution: bool = False
+    repeat_seeds: tuple[int, ...] = ()
+    seed_kwarg_name: str = "seed"
+    success_metric: str = "best_fit"
+
+
+@dataclass(frozen=True, slots=True)
+class ObservationNoiseSpec:
+    """Optional synthetic-observation perturbation applied after the truth run."""
+
+    absolute_sigma_by_output: Mapping[str, float] = field(default_factory=dict)
+    relative_sigma_by_output: Mapping[str, float] = field(default_factory=dict)
+    seed: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +43,7 @@ class TwinCalibrationCaseDefinition:
     output_names: tuple[str, ...]
     method_profiles: tuple[CalibrationMethodProfile, ...]
     fast: bool = False
+    observation_noise: ObservationNoiseSpec | None = None
     build_simulation_config: Callable[[Path, Path], None] | None = None
     build_calibration_payload: (
         Callable[
@@ -46,6 +59,8 @@ class TwinMethodBenchmarkResult:
     """Assessed result of one calibration method on one twin benchmark."""
 
     method_name: str
+    method_instance_name: str
+    success_metric: str
     calibration_id: str
     calibration_root: Path
     result_path: Path | None
@@ -55,6 +70,11 @@ class TwinMethodBenchmarkResult:
     params_best: dict[str, float]
     param_abs_error: dict[str, float]
     recovered_truth: bool
+    repeat_index: int = 1
+    seed: int | None = None
+    calibration_time_seconds: float | None = None
+    failed_iteration_count: int = 0
+    meets_success_target: bool = False
     model_distribution_path: Path | None = None
     model_distribution_sample_count: int = 0
     truth_in_distribution: bool | None = None
@@ -64,12 +84,19 @@ class TwinMethodBenchmarkResult:
         """Return one JSON-friendly representation."""
         return {
             "method_name": self.method_name,
+            "method_instance_name": self.method_instance_name,
+            "success_metric": self.success_metric,
             "calibration_id": self.calibration_id,
             "calibration_root": str(self.calibration_root),
             "result_path": None if self.result_path is None else str(self.result_path),
             "cost_best": self.cost_best,
             "iteration_count": int(self.iteration_count),
             "n_evaluations": int(self.n_evaluations),
+            "repeat_index": int(self.repeat_index),
+            "seed": self.seed,
+            "calibration_time_seconds": self.calibration_time_seconds,
+            "failed_iteration_count": int(self.failed_iteration_count),
+            "meets_success_target": bool(self.meets_success_target),
             "params_best": {
                 str(name): float(value) for name, value in self.params_best.items()
             },
@@ -97,6 +124,7 @@ class TwinCalibrationBenchmarkResult:
     benchmark_root: Path
     simulation_config_path: Path
     observations_truth: dict[str, tuple[float, ...]]
+    observations_used: dict[str, tuple[float, ...]]
     method_results: tuple[TwinMethodBenchmarkResult, ...]
     summary_path: Path
 
@@ -122,5 +150,24 @@ class TwinCalibrationBenchmarkResult:
                 str(name): [float(value) for value in values]
                 for name, values in self.observations_truth.items()
             },
+            "observations_used": {
+                str(name): [float(value) for value in values]
+                for name, values in self.observations_used.items()
+            },
+            "observation_noise": (
+                None
+                if self.definition.observation_noise is None
+                else {
+                    "absolute_sigma_by_output": {
+                        str(name): float(value)
+                        for name, value in self.definition.observation_noise.absolute_sigma_by_output.items()
+                    },
+                    "relative_sigma_by_output": {
+                        str(name): float(value)
+                        for name, value in self.definition.observation_noise.relative_sigma_by_output.items()
+                    },
+                    "seed": int(self.definition.observation_noise.seed),
+                }
+            ),
             "method_results": [item.to_mapping() for item in self.method_results],
         }

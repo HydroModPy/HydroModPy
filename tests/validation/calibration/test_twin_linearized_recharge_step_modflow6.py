@@ -35,6 +35,7 @@ def test_calibration_twin_linearized_recharge_step_modflow6_benchmark_recovers_t
     assert benchmark.observations_truth["q_east"]
     assert len(benchmark.method_results) == 2
     for result in benchmark.method_results:
+        assert result.meets_success_target, result.to_mapping()
         assert result.recovered_truth, result.to_mapping()
         assert result.cost_best is not None
         assert math.isfinite(float(result.cost_best)), result.to_mapping()
