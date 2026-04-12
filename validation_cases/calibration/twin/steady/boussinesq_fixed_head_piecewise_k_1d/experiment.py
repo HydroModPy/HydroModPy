@@ -1,4 +1,4 @@
-"""Same-solver twin benchmark for transient K+Sy recovery."""
+"""Same-solver twin benchmark for steady piecewise-K recovery."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ from typing import Any
 
 from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
-    ObservationNoiseSpec,
     TwinCalibrationCaseDefinition,
 )
 from validation_cases.shared.runtime import _merge_toml_payloads, _read_toml
@@ -16,13 +15,13 @@ from validation_cases.shared.runtime import _merge_toml_payloads, _read_toml
 CASE_DIR = (
     Path(__file__).resolve().parents[4]
     / "analytical"
-    / "transient"
-    / "linearized_unconfined_recharge_step_1d"
+    / "steady"
+    / "boussinesq_fixed_head_piecewise_k_1d"
 )
 
 
 def build_simulation_config(path: Path, project_root: Path) -> None:
-    """Write one MODFLOW 6 simulation config for the transient twin benchmark."""
+    """Write one MODFLOW 6 simulation config for the steady piecewise-K benchmark."""
     from validation_cases.shared.runtime import _dump_toml
 
     payload = _merge_toml_payloads(
@@ -30,7 +29,7 @@ def build_simulation_config(path: Path, project_root: Path) -> None:
         _read_toml(CASE_DIR / "config_modflow6.toml"),
     )
     payload.setdefault("workspace", {})["project_root"] = str(project_root)
-    payload.setdefault("simulation", {})["run_id"] = "transient_lu_truth"
+    payload.setdefault("simulation", {})["run_id"] = "steady_piecewise_k_truth"
     path.write_text(_dump_toml(payload), encoding="utf-8", newline="\n")
 
 
@@ -40,7 +39,7 @@ def build_calibration_payload(
     observed_values: dict[str, tuple[float, ...]],
     method_profile: CalibrationMethodProfile,
 ) -> dict[str, Any]:
-    """Build one calibration payload for the transient multiobservable twin benchmark."""
+    """Build one calibration payload for the piecewise-K twin benchmark."""
     return {
         "model_calibration": {
             "simulation_config": simulation_config_name,
@@ -57,30 +56,57 @@ def build_calibration_payload(
             "reuse_persisted_iterations": False,
             "parameter": [
                 {
-                    "name": "K_global_factor",
+                    "name": "K_west",
                     "property": "K",
-                    "target": "flow.param.K.field_homogeneous.value",
-                    "mode": "scale",
-                    "parameterization": "global_factor",
+                    "target": "flow.param.K.values_by_key.west_zone",
+                    "mode": "replace",
+                    "parameterization": "lithology_value",
                 },
                 {
-                    "name": "Sy_global",
-                    "property": "Sy",
-                    "target": "flow.param.Sy.field_homogeneous.value",
+                    "name": "K_middle",
+                    "property": "K",
+                    "target": "flow.param.K.values_by_key.middle_zone",
                     "mode": "replace",
-                    "parameterization": "global_value",
+                    "parameterization": "lithology_value",
+                },
+                {
+                    "name": "K_east",
+                    "property": "K",
+                    "target": "flow.param.K.values_by_key.east_zone",
+                    "mode": "replace",
+                    "parameterization": "lithology_value",
                 },
             ],
             "output": [
                 {
-                    "name": "head_mid",
+                    "name": "head_west",
                     "variable": "watertable_elevation",
                     "source": "runtime",
                     "support": "point",
-                    "x": 50.0,
-                    "y": 5.0,
+                    "x": 60.0,
+                    "y": 25.0,
                     "time": "all",
-                    "observed_values": list(observed_values["head_mid"]),
+                    "observed_values": list(observed_values["head_west"]),
+                },
+                {
+                    "name": "head_middle",
+                    "variable": "watertable_elevation",
+                    "source": "runtime",
+                    "support": "point",
+                    "x": 200.0,
+                    "y": 25.0,
+                    "time": "all",
+                    "observed_values": list(observed_values["head_middle"]),
+                },
+                {
+                    "name": "head_east",
+                    "variable": "watertable_elevation",
+                    "source": "runtime",
+                    "support": "point",
+                    "x": 340.0,
+                    "y": 25.0,
+                    "time": "all",
+                    "observed_values": list(observed_values["head_east"]),
                 },
                 {
                     "name": "q_east",
@@ -97,7 +123,7 @@ def build_calibration_payload(
                     "name": "heads",
                     "metric": "rmse",
                     "weight": 1.0,
-                    "uses_outputs": ["head_mid"],
+                    "uses_outputs": ["head_west", "head_middle", "head_east"],
                     "normalize_cost": True,
                 },
                 {
@@ -120,86 +146,53 @@ def build_calibration_payload(
             method_profile.name: dict(method_profile.method_kwargs),
         },
         "bounds": {
-            "K_global_factor": [0.95, 1.05],
-            "Sy_global": [0.06, 0.14],
+            "K_west": [1.0e-4, 3.0e-4],
+            "K_middle": [2.5e-5, 1.0e-4],
+            "K_east": [5.0e-5, 1.5e-4],
         },
     }
 
 
-TRANSIENT_RECHARGE_STEP_TWIN_CASE = TwinCalibrationCaseDefinition(
-    case_id="calibration_twin_linearized_recharge_step_modflow6",
+PIECEWISE_K_TWIN_CASE = TwinCalibrationCaseDefinition(
+    case_id="calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6",
     solver_name="modflow6",
-    regime="transient",
+    regime="steady",
     description=(
-        "Same-solver twin benchmark on linearized_unconfined_recharge_step_1d "
-        "with K+Sy and multiobservable head/flux blocks."
+        "Same-solver twin benchmark on boussinesq_fixed_head_piecewise_k_1d "
+        "with three zoned hydraulic-conductivity parameters and head/flux "
+        "observables."
     ),
-    truth_params={"K_global_factor": 1.0, "Sy_global": 0.10},
+    truth_params={
+        "K_west": 2.0e-4,
+        "K_middle": 5.0e-5,
+        "K_east": 1.0e-4,
+    },
     bounds={
-        "K_global_factor": (0.95, 1.05),
-        "Sy_global": (0.06, 0.14),
+        "K_west": (1.0e-4, 3.0e-4),
+        "K_middle": (2.5e-5, 1.0e-4),
+        "K_east": (5.0e-5, 1.5e-4),
     },
     parameter_abs_tolerances={
-        "K_global_factor": 0.03,
-        "Sy_global": 0.03,
+        "K_west": 2.5e-5,
+        "K_middle": 1.5e-5,
+        "K_east": 1.5e-5,
     },
-    output_names=("head_mid", "q_east"),
+    output_names=("head_west", "head_middle", "head_east", "q_east"),
     method_profiles=(
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"n_samples": 10, "seed": 11},
+            method_kwargs={"n_samples": 64},
             persist_model_distribution=True,
+            repeat_seeds=(17, 29),
+            success_metric="distribution",
         ),
         CalibrationMethodProfile(
             name="simplex",
-            method_kwargs={"max_iter": 10, "xtol": 1.0e-6, "ftol": 1.0e-6},
+            method_kwargs={"max_iter": 36, "xtol": 1.0e-8, "ftol": 1.0e-8},
             persist_model_distribution=False,
         ),
     ),
     fast=False,
-    build_simulation_config=build_simulation_config,
-    build_calibration_payload=build_calibration_payload,
-)
-
-
-TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
-    case_id="calibration_twin_linearized_recharge_step_noisy_modflow6",
-    solver_name="modflow6",
-    regime="transient",
-    description=(
-        "Same-solver noisy twin benchmark on linearized_unconfined_recharge_step_1d "
-        "with K+Sy, multiobservable head/flux blocks, and repeated "
-        "random-search seeds."
-    ),
-    truth_params={"K_global_factor": 1.0, "Sy_global": 0.10},
-    bounds={
-        "K_global_factor": (0.95, 1.05),
-        "Sy_global": (0.06, 0.14),
-    },
-    parameter_abs_tolerances={
-        "K_global_factor": 0.03,
-        "Sy_global": 0.03,
-    },
-    output_names=("head_mid", "q_east"),
-    method_profiles=(
-        CalibrationMethodProfile(
-            name="random_search",
-            method_kwargs={"n_samples": 10},
-            persist_model_distribution=True,
-            repeat_seeds=(11, 23, 37),
-        ),
-        CalibrationMethodProfile(
-            name="simplex",
-            method_kwargs={"max_iter": 12, "xtol": 1.0e-6, "ftol": 1.0e-6},
-            persist_model_distribution=False,
-        ),
-    ),
-    fast=False,
-    observation_noise=ObservationNoiseSpec(
-        absolute_sigma_by_output={"head_mid": 0.005},
-        relative_sigma_by_output={"q_east": 0.02},
-        seed=17,
-    ),
     build_simulation_config=build_simulation_config,
     build_calibration_payload=build_calibration_payload,
 )

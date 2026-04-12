@@ -31,7 +31,8 @@ def main(argv: list[str] | None = None) -> None:
     print(f"Summary: {benchmark.summary_path}")
     for result in benchmark.method_results:
         print(
-            f"{result.method_name}: recovered_truth={result.recovered_truth} "
+            f"{result.method_name}: meets_success_target={result.meets_success_target} "
+            f"recovered_truth={result.recovered_truth} "
             f"cost_best={result.cost_best}"
         )
 

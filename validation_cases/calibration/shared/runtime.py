@@ -19,6 +19,7 @@ from launchers.model_calibration.runtime import (
 )
 from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
+    ObservationNoiseSpec,
     TwinCalibrationBenchmarkResult,
     TwinCalibrationCaseDefinition,
     TwinMethodBenchmarkResult,
@@ -62,9 +63,11 @@ def _compact_calibration_id(
     method_name: str,
 ) -> str:
     """Return one short calibration id to avoid path-length failures on Windows."""
+    method_token = _compact_method_code(method_name)
+    method_suffix = _short_digest(method_name, size=6)
     return (
         f"{_compact_case_code(definition)}_"
-        f"{_compact_method_code(method_name)}"
+        f"{method_token}_{method_suffix}"
     )
 
 
@@ -94,13 +97,86 @@ def _placeholder_observations(
     return {str(name): (0.0,) for name in definition.output_names}
 
 
+def _apply_observation_noise(
+    observations: dict[str, tuple[float, ...]],
+    *,
+    noise: ObservationNoiseSpec | None,
+) -> dict[str, tuple[float, ...]]:
+    """Apply one deterministic Gaussian perturbation to synthetic observations."""
+    if noise is None:
+        return {
+            str(name): tuple(float(value) for value in values)
+            for name, values in observations.items()
+        }
+    rng = np.random.default_rng(int(noise.seed))
+    perturbed: dict[str, tuple[float, ...]] = {}
+    for name, values in observations.items():
+        arr = np.asarray(values, dtype=float).reshape(-1)
+        abs_sigma = float(noise.absolute_sigma_by_output.get(str(name), 0.0))
+        rel_sigma = float(noise.relative_sigma_by_output.get(str(name), 0.0))
+        sigma = np.sqrt(abs_sigma**2 + (rel_sigma * np.abs(arr)) ** 2)
+        if np.any(sigma > 0.0):
+            arr = arr + rng.normal(loc=0.0, scale=sigma, size=arr.shape)
+        perturbed[str(name)] = tuple(float(value) for value in arr)
+    return perturbed
+
+
+def _seeded_method_profile(
+    profile: CalibrationMethodProfile,
+    *,
+    seed: int | None,
+) -> CalibrationMethodProfile:
+    """Clone one method profile with an overridden stochastic seed."""
+    if seed is None:
+        return profile
+    kwargs = dict(profile.method_kwargs)
+    kwargs[str(profile.seed_kwarg_name)] = int(seed)
+    return CalibrationMethodProfile(
+        name=profile.name,
+        method_kwargs=kwargs,
+        persist_model_distribution=profile.persist_model_distribution,
+        repeat_seeds=(),
+        seed_kwarg_name=profile.seed_kwarg_name,
+        success_metric=profile.success_metric,
+    )
+
+
+def _iter_selected_method_runs(
+    selected_profiles: tuple[CalibrationMethodProfile, ...],
+):
+    """Yield one concrete method execution per selected profile and seed repeat."""
+    for profile in selected_profiles:
+        seeds = tuple(int(value) for value in profile.repeat_seeds)
+        if not seeds:
+            yield {
+                "profile": profile,
+                "effective_profile": profile,
+                "instance_name": profile.name,
+                "repeat_index": 1,
+                "seed": (
+                    None
+                    if profile.seed_kwarg_name not in profile.method_kwargs
+                    else int(profile.method_kwargs[profile.seed_kwarg_name])
+                ),
+            }
+            continue
+        for repeat_index, seed in enumerate(seeds, start=1):
+            yield {
+                "profile": profile,
+                "effective_profile": _seeded_method_profile(profile, seed=seed),
+                "instance_name": f"{profile.name}_seed{int(seed):03d}",
+                "repeat_index": int(repeat_index),
+                "seed": int(seed),
+            }
+
+
 def synthesize_truth_observations(
     *,
     definition: TwinCalibrationCaseDefinition,
     simulation_config_path: Path,
     benchmark_root: Path,
     launcher_factory: Any = HydroModPyLauncher,
-) -> dict[str, tuple[float, ...]]:
+) -> dict[str, dict[str, tuple[float, ...]]]:
     """Run the truth candidate once and extract the synthetic observations."""
     if definition.build_calibration_payload is None:
         raise ValueError("Twin calibration case is missing build_calibration_payload")
@@ -141,7 +217,11 @@ def synthesize_truth_observations(
         run_state=outcome.run_state,
         session=request.session,
     )
-    observations = _normalize_selected_outputs(selected)
+    clean_observations = _normalize_selected_outputs(selected)
+    used_observations = _apply_observation_noise(
+        clean_observations,
+        noise=definition.observation_noise,
+    )
     truth_output_path = benchmark_root / "truth_observations.json"
     truth_output_path.write_text(
         json.dumps(
@@ -153,10 +233,29 @@ def synthesize_truth_observations(
                     str(name): float(value)
                     for name, value in definition.truth_params.items()
                 },
-                "observations": {
+                "observations_truth": {
                     str(name): [float(value) for value in values]
-                    for name, values in observations.items()
+                    for name, values in clean_observations.items()
                 },
+                "observations_used": {
+                    str(name): [float(value) for value in values]
+                    for name, values in used_observations.items()
+                },
+                "observation_noise": (
+                    None
+                    if definition.observation_noise is None
+                    else {
+                        "absolute_sigma_by_output": {
+                            str(name): float(value)
+                            for name, value in definition.observation_noise.absolute_sigma_by_output.items()
+                        },
+                        "relative_sigma_by_output": {
+                            str(name): float(value)
+                            for name, value in definition.observation_noise.relative_sigma_by_output.items()
+                        },
+                        "seed": int(definition.observation_noise.seed),
+                    }
+                ),
             },
             indent=2,
             ensure_ascii=True,
@@ -164,7 +263,10 @@ def synthesize_truth_observations(
         + "\n",
         encoding="utf-8",
     )
-    return observations
+    return {
+        "truth": clean_observations,
+        "used": used_observations,
+    }
 
 
 def _param_abs_error(
@@ -228,6 +330,9 @@ def _assess_method_result(
     *,
     definition: TwinCalibrationCaseDefinition,
     method_profile: CalibrationMethodProfile,
+    method_instance_name: str,
+    repeat_index: int,
+    seed: int | None,
     summary: dict[str, Any],
 ) -> TwinMethodBenchmarkResult:
     """Convert one launcher summary to benchmark metrics."""
@@ -261,6 +366,22 @@ def _assess_method_result(
     distribution_path = None
     if isinstance(distribution_summary, dict) and distribution_summary.get("path"):
         distribution_path = Path(str(distribution_summary["path"]))
+    result_payload = {}
+    result_path = (
+        None
+        if summary.get("result_path") is None
+        else Path(str(summary["result_path"]))
+    )
+    if result_path is not None and result_path.is_file():
+        result_payload = json.loads(result_path.read_text(encoding="utf-8"))
+    calibration_time_seconds = None
+    metadata = result_payload.get("metadata", {})
+    if isinstance(metadata, dict) and metadata.get("calibration_time_seconds") is not None:
+        calibration_time_seconds = float(metadata["calibration_time_seconds"])
+    failed_iteration_count = 0
+    calibration_report = summary.get("calibration_report")
+    if isinstance(calibration_report, dict) and calibration_report.get("failed_count") is not None:
+        failed_iteration_count = int(calibration_report["failed_count"])
     distribution_sample_count, truth_in_distribution, min_distribution_error = (
         _distribution_truth_metrics(
             model_distribution_path=distribution_path,
@@ -268,15 +389,24 @@ def _assess_method_result(
             abs_tolerances=abs_tolerances,
         )
     )
+    success_metric = str(method_profile.success_metric).strip().lower()
+    if success_metric == "best_fit":
+        meets_success_target = recovered_truth
+    elif success_metric == "distribution":
+        meets_success_target = truth_in_distribution is True
+    elif success_metric == "best_fit_or_distribution":
+        meets_success_target = recovered_truth or truth_in_distribution is True
+    else:
+        raise ValueError(
+            f"Unsupported calibration benchmark success_metric '{method_profile.success_metric}'."
+        )
     return TwinMethodBenchmarkResult(
         method_name=method_profile.name,
+        method_instance_name=method_instance_name,
+        success_metric=success_metric,
         calibration_id=str(summary["calibration_id"]),
         calibration_root=Path(str(summary["calibration_root"])),
-        result_path=(
-            None
-            if summary.get("result_path") is None
-            else Path(str(summary["result_path"]))
-        ),
+        result_path=result_path,
         cost_best=(
             None if summary.get("cost_best") is None else float(summary["cost_best"])
         ),
@@ -285,6 +415,11 @@ def _assess_method_result(
         params_best=params_best,
         param_abs_error=param_abs_error,
         recovered_truth=recovered_truth,
+        repeat_index=int(repeat_index),
+        seed=seed,
+        calibration_time_seconds=calibration_time_seconds,
+        failed_iteration_count=failed_iteration_count,
+        meets_success_target=bool(meets_success_target),
         model_distribution_path=distribution_path,
         model_distribution_sample_count=int(distribution_sample_count),
         truth_in_distribution=truth_in_distribution,
@@ -317,12 +452,14 @@ def run_twin_benchmark_case(
         simulation_config_path,
         benchmark_root / "project",
     )
-    observations_truth = synthesize_truth_observations(
+    synthesized_observations = synthesize_truth_observations(
         definition=definition,
         simulation_config_path=simulation_config_path,
         benchmark_root=benchmark_root,
         launcher_factory=launcher_factory,
     )
+    observations_truth = synthesized_observations["truth"]
+    observations_used = synthesized_observations["used"]
 
     selected_profiles = tuple(definition.method_profiles)
     if method_names is not None:
@@ -338,17 +475,22 @@ def run_twin_benchmark_case(
         )
 
     method_results: list[TwinMethodBenchmarkResult] = []
-    for method_profile in selected_profiles:
+    for method_run in _iter_selected_method_runs(selected_profiles):
+        method_profile = method_run["profile"]
+        effective_profile = method_run["effective_profile"]
+        method_instance_name = str(method_run["instance_name"])
+        repeat_index = int(method_run["repeat_index"])
+        seed = method_run["seed"]
         calibration_id = _compact_calibration_id(
             definition,
-            method_profile.name,
+            method_instance_name,
         )
-        calibration_path = benchmark_root / f"calibration_{method_profile.name}.toml"
+        calibration_path = benchmark_root / f"calibration_{method_instance_name}.toml"
         payload = definition.build_calibration_payload(
             simulation_config_path.name,
             calibration_id,
-            observations_truth,
-            method_profile,
+            observations_used,
+            effective_profile,
         )
         _write_toml(calibration_path, payload)
         summary = ModelCalibrationLauncher(calibration_path).calibrate(
@@ -358,6 +500,9 @@ def run_twin_benchmark_case(
             _assess_method_result(
                 definition=definition,
                 method_profile=method_profile,
+                method_instance_name=method_instance_name,
+                repeat_index=repeat_index,
+                seed=seed,
                 summary=summary,
             )
         )
@@ -367,6 +512,7 @@ def run_twin_benchmark_case(
         benchmark_root=benchmark_root,
         simulation_config_path=simulation_config_path,
         observations_truth=observations_truth,
+        observations_used=observations_used,
         method_results=tuple(method_results),
         summary_path=benchmark_root / "benchmark_summary.json",
     )

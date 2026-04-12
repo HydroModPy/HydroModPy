@@ -9,16 +9,24 @@ from pathlib import Path
 
 from validation_cases.calibration.shared.runtime import run_twin_benchmark_case
 from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment import (
+    STEADY_DUPUIT_NOISY_TWIN_CASE,
     STEADY_DUPUIT_TWIN_CASE,
 )
+from validation_cases.calibration.twin.steady.boussinesq_fixed_head_piecewise_k_1d.experiment import (
+    PIECEWISE_K_TWIN_CASE,
+)
 from validation_cases.calibration.twin.transient.linearized_unconfined_recharge_step_1d.experiment import (
+    TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE,
     TRANSIENT_RECHARGE_STEP_TWIN_CASE,
 )
 
 
 _CASE_REGISTRY = {
     STEADY_DUPUIT_TWIN_CASE.case_id: STEADY_DUPUIT_TWIN_CASE,
+    STEADY_DUPUIT_NOISY_TWIN_CASE.case_id: STEADY_DUPUIT_NOISY_TWIN_CASE,
     TRANSIENT_RECHARGE_STEP_TWIN_CASE.case_id: TRANSIENT_RECHARGE_STEP_TWIN_CASE,
+    TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE.case_id: TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE,
+    PIECEWISE_K_TWIN_CASE.case_id: PIECEWISE_K_TWIN_CASE,
 }
 
 
@@ -60,11 +68,18 @@ def _write_suite_summary(benchmarks) -> tuple[Path, Path] | None:
                 "solver_name": benchmark.definition.solver_name,
                 "regime": benchmark.definition.regime,
                 "method_name": result.method_name,
+                "method_instance_name": result.method_instance_name,
+                "success_metric": result.success_metric,
                 "recovered_truth": result.recovered_truth,
+                "meets_success_target": result.meets_success_target,
                 "truth_in_distribution": result.truth_in_distribution,
                 "n_evaluations": result.n_evaluations,
                 "iteration_count": result.iteration_count,
+                "repeat_index": result.repeat_index,
+                "seed": result.seed,
                 "cost_best": result.cost_best,
+                "calibration_time_seconds": result.calibration_time_seconds,
+                "failed_iteration_count": result.failed_iteration_count,
                 "model_distribution_sample_count": (
                     result.model_distribution_sample_count
                 ),
@@ -77,6 +92,123 @@ def _write_suite_summary(benchmarks) -> tuple[Path, Path] | None:
                 row[f"params_best__{name}"] = value
             rows.append(row)
 
+    fieldnames: list[str] = []
+    for row in rows:
+        for key in row:
+            if key not in fieldnames:
+                fieldnames.append(key)
+    with csv_path.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    return json_path, csv_path
+
+
+def _safe_mean(values: list[float]) -> float | None:
+    """Return the arithmetic mean of a non-empty numeric list."""
+    if not values:
+        return None
+    return float(sum(values) / len(values))
+
+
+def _write_method_stats_summary(benchmarks) -> tuple[Path, Path] | None:
+    """Persist aggregate benchmark statistics grouped by case and method."""
+    output_root = _suite_output_root(benchmarks)
+    if output_root is None:
+        return None
+
+    grouped: dict[tuple[str, str], list[dict[str, object]]] = {}
+    for benchmark in benchmarks:
+        for result in benchmark.method_results:
+            key = (benchmark.definition.case_id, result.method_name)
+            grouped.setdefault(key, []).append(
+                {
+                    "benchmark": benchmark,
+                    "result": result,
+                }
+            )
+
+    rows: list[dict[str, object]] = []
+    for (case_id, method_name), items in sorted(grouped.items()):
+        benchmark = items[0]["benchmark"]
+        results = [item["result"] for item in items]
+        success_count = sum(1 for item in results if item.recovered_truth)
+        target_success_count = sum(
+            1 for item in results if item.meets_success_target
+        )
+        truth_distribution_count = sum(
+            1 for item in results if item.truth_in_distribution is True
+        )
+        finite_costs = [
+            float(item.cost_best)
+            for item in results
+            if item.cost_best is not None
+        ]
+        evaluation_counts = [int(item.n_evaluations) for item in results]
+        iteration_counts = [int(item.iteration_count) for item in results]
+        calibration_times = [
+            float(item.calibration_time_seconds)
+            for item in results
+            if item.calibration_time_seconds is not None
+        ]
+        failed_iterations = [int(item.failed_iteration_count) for item in results]
+
+        row: dict[str, object] = {
+            "case_id": case_id,
+            "solver_name": benchmark.definition.solver_name,
+            "regime": benchmark.definition.regime,
+            "method_name": method_name,
+            "success_metric": results[0].success_metric,
+            "repeat_count": len(results),
+            "success_rate": float(success_count / len(results)),
+            "best_fit_rate": float(success_count / len(results)),
+            "target_success_rate": float(target_success_count / len(results)),
+            "truth_in_distribution_rate": float(truth_distribution_count / len(results)),
+            "mean_cost_best": _safe_mean(finite_costs),
+            "min_cost_best": (None if not finite_costs else min(finite_costs)),
+            "max_cost_best": (None if not finite_costs else max(finite_costs)),
+            "mean_n_evaluations": _safe_mean(evaluation_counts),
+            "mean_iteration_count": _safe_mean(iteration_counts),
+            "mean_calibration_time_seconds": _safe_mean(calibration_times),
+            "mean_failed_iteration_count": _safe_mean(failed_iterations),
+            "mean_model_distribution_sample_count": _safe_mean(
+                [int(item.model_distribution_sample_count) for item in results]
+            ),
+        }
+
+        parameter_names = sorted(
+            {
+                str(parameter_name)
+                for result in results
+                for parameter_name in result.param_abs_error
+            }
+        )
+        for parameter_name in parameter_names:
+            errors = [
+                float(result.param_abs_error[parameter_name])
+                for result in results
+                if parameter_name in result.param_abs_error
+            ]
+            row[f"mean_param_abs_error__{parameter_name}"] = _safe_mean(errors)
+            row[f"max_param_abs_error__{parameter_name}"] = (
+                None if not errors else max(errors)
+            )
+        rows.append(row)
+
+    json_path = output_root / "benchmark_method_stats.json"
+    csv_path = output_root / "benchmark_method_stats.csv"
+    json_path.write_text(
+        json.dumps(
+            {
+                "role": "calibration_twin_benchmark_method_stats",
+                "rows": rows,
+            },
+            indent=2,
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     fieldnames: list[str] = []
     for row in rows:
         for key in row:
@@ -125,7 +257,8 @@ def main(argv: list[str] | None = None) -> None:
         print(f"[{case_id}] summary={benchmark.summary_path}")
         for result in benchmark.method_results:
             print(
-                f"  {result.method_name}: recovered_truth={result.recovered_truth} "
+                f"  {result.method_instance_name}: meets_success_target={result.meets_success_target} "
+                f"recovered_truth={result.recovered_truth} "
                 f"n_eval={result.n_evaluations} cost_best={result.cost_best}"
             )
     suite_paths = _write_suite_summary(benchmarks)
@@ -133,6 +266,11 @@ def main(argv: list[str] | None = None) -> None:
         json_path, csv_path = suite_paths
         print(f"[suite] json={json_path}")
         print(f"[suite] csv={csv_path}")
+    stats_paths = _write_method_stats_summary(benchmarks)
+    if stats_paths is not None:
+        json_path, csv_path = stats_paths
+        print(f"[suite-stats] json={json_path}")
+        print(f"[suite-stats] csv={csv_path}")
 
 
 if __name__ == "__main__":
