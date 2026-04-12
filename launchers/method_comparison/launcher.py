@@ -11,10 +11,19 @@ from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 from launchers.method_comparison.config import MethodComparisonConfig
+from launchers.method_comparison.metrics import (
+    DETAIL_METRIC_FIELDS,
+    SUMMARY_METRIC_FIELDS,
+    build_comparison_metrics,
+    write_metrics_csv,
+    write_metrics_json,
+)
 from launchers.method_comparison.runtime import (
+    compact_run_metrics,
     extract_observable_rows,
     materialize_variant_config,
     read_json_file,
+    read_variant_run_metadata,
     write_observables_csv,
 )
 
@@ -84,6 +93,37 @@ class MethodComparisonLauncher:
         observables_csv = comparison_root / "observables.csv"
         write_observables_csv(observables_csv, all_rows)
 
+        reference_variant = section.reference_variant or self._first_completed_variant_id(
+            variant_summaries
+        )
+        detail_metrics, summary_metrics = build_comparison_metrics(
+            all_rows,
+            reference_variant=reference_variant,
+        )
+        metrics_csv = comparison_root / "comparison_metrics.csv"
+        differences_csv = comparison_root / "comparison_differences.csv"
+        metrics_json = comparison_root / "comparison_metrics.json"
+        write_metrics_csv(
+            metrics_csv,
+            summary_metrics,
+            fieldnames=SUMMARY_METRIC_FIELDS,
+        )
+        write_metrics_csv(
+            differences_csv,
+            detail_metrics,
+            fieldnames=DETAIL_METRIC_FIELDS,
+        )
+        write_metrics_json(
+            metrics_json,
+            {
+                "schema_version": "method_comparison_metrics_v1",
+                "comparison_id": section.comparison_id,
+                "reference_variant": reference_variant,
+                "summary": summary_metrics,
+                "differences": detail_metrics,
+            },
+        )
+
         manifest = {
             "schema_version": "method_comparison_manifest_v1",
             "comparison_id": section.comparison_id,
@@ -96,9 +136,14 @@ class MethodComparisonLauncher:
             ),
             "run_variants": section.run_variants,
             "continue_on_error": section.continue_on_error,
-            "reference_variant": section.reference_variant,
+            "reference_variant": reference_variant,
             "observables_csv": str(observables_csv),
+            "comparison_metrics_csv": str(metrics_csv),
+            "comparison_differences_csv": str(differences_csv),
+            "comparison_metrics_json": str(metrics_json),
             "n_observable_rows": len(all_rows),
+            "n_metric_rows": len(summary_metrics),
+            "n_difference_rows": len(detail_metrics),
             "wall_time_seconds": round(time.monotonic() - started_at, 2),
             "variants": variant_summaries,
             "observables": [
@@ -144,7 +189,8 @@ class MethodComparisonLauncher:
                     f"Variant '{variant.id}' has no config_path or run_folder"
                 )
 
-            metrics = read_json_file(run_folder / "_metrics.json")
+            metrics = compact_run_metrics(read_json_file(run_folder / "_metrics.json"))
+            metadata = read_variant_run_metadata(run_folder)
             return {
                 "id": variant.id,
                 "label": variant.label or variant.id,
@@ -157,6 +203,7 @@ class MethodComparisonLauncher:
                 "run_folder": str(run_folder),
                 "wall_time_seconds": wall_seconds,
                 "metrics": metrics,
+                "run_metadata": metadata,
             }
         except Exception as exc:
             error_type = type(exc).__name__
@@ -183,6 +230,16 @@ class MethodComparisonLauncher:
         """Infer one existing run folder from a simulation config path."""
         cfg = HydroModPyConfig.from_toml(config_path)
         return Path(cfg.workspace.simulations_folder) / str(cfg.simulation.run_id)
+
+    @staticmethod
+    def _first_completed_variant_id(
+        variant_summaries: list[dict[str, Any]],
+    ) -> str | None:
+        """Return the first variant that produced or reused results."""
+        for summary in variant_summaries:
+            if summary.get("status") in {"completed", "reused"}:
+                return str(summary.get("id"))
+        return None
 
 
 __all__ = ("MethodComparisonLauncher",)

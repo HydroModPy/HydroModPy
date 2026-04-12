@@ -29,7 +29,10 @@ class TimeSlice:
     """One variable payload at one simulation time index."""
 
     time_key: Any
+    time_index: int
     values: np.ndarray
+    elapsed_seconds: float | None = None
+    is_initial_state: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,10 +218,89 @@ def read_json_file(path: Path) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
+def compact_run_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
+    """Keep only comparison-relevant scalar/list metrics in manifests."""
+    keys = (
+        "wall_time_seconds",
+        "solvers",
+        "success",
+        "mesh_constraints_mode",
+        "mesh_output_mesh",
+        "mesh_output_summary_json",
+        "mesh_output_exchange_bundle_dir",
+    )
+    return {key: metrics.get(key) for key in keys if key in metrics}
+
+
+def read_variant_run_metadata(run_folder: Path) -> dict[str, Any]:
+    """Collect lightweight run metadata useful in comparison manifests."""
+    metrics = read_json_file(run_folder / "_metrics.json")
+    boussinesq_summary = read_json_file(run_folder / "_boussinesq_summary.json")
+    payload: dict[str, Any] = {}
+
+    if metrics:
+        payload["metrics"] = compact_run_metrics(metrics)
+        if "wall_time_seconds" in metrics:
+            payload["wall_time_seconds"] = metrics.get("wall_time_seconds")
+        if "solvers" in metrics:
+            payload["solvers"] = metrics.get("solvers")
+
+    if boussinesq_summary:
+        payload["boussinesq_summary"] = {
+            key: boussinesq_summary.get(key)
+            for key in (
+                "n_cells",
+                "n_edges",
+                "n_nodes",
+                "runtime_backend",
+                "runtime_solver_kind",
+                "solve_stage",
+                "last_termination_reason",
+            )
+            if key in boussinesq_summary
+        }
+        for key in ("n_cells", "n_edges", "n_nodes"):
+            if key in boussinesq_summary:
+                payload[key] = boussinesq_summary.get(key)
+
+    bundle_dir_raw = (
+        metrics.get("mesh_output_exchange_bundle_dir")
+        or boussinesq_summary.get("bundle_dir")
+    )
+    if bundle_dir_raw:
+        bundle_dir = Path(str(bundle_dir_raw)).expanduser()
+        if not bundle_dir.is_absolute():
+            bundle_dir = (run_folder / bundle_dir).resolve()
+        bundle_metadata = read_json_file(bundle_dir / "metadata.json")
+        if bundle_metadata:
+            payload["mesh_bundle_metadata"] = {
+                key: bundle_metadata.get(key)
+                for key in (
+                    "bundle_schema_version",
+                    "mesh_kind",
+                    "cell_type",
+                    "crs",
+                    "n_nodes",
+                    "n_cells",
+                    "n_edges",
+                    "constraints_mode",
+                )
+                if key in bundle_metadata
+            }
+            for key in ("n_cells", "n_edges", "n_nodes"):
+                if key in bundle_metadata:
+                    payload[key] = bundle_metadata.get(key)
+
+    return payload
+
+
 def resolve_bundle_cells(run_folder: Path) -> CellCentroidTable | None:
     """Load mesh cell centroids from the run metrics exchange bundle, if available."""
     metrics = read_json_file(run_folder / "_metrics.json")
     bundle_dir_raw = metrics.get("mesh_output_exchange_bundle_dir")
+    if not bundle_dir_raw:
+        boussinesq_summary = read_json_file(run_folder / "_boussinesq_summary.json")
+        bundle_dir_raw = boussinesq_summary.get("bundle_dir")
     if not bundle_dir_raw:
         return None
 
@@ -257,15 +339,44 @@ def _variable_candidates(variable: str) -> tuple[str, ...]:
     lowered = key.lower()
     candidates = [key]
     alias_map = {
+        "accumulation_flux": [
+            "accumulation_flux",
+            "drainage_flux_history_m3_s",
+            "drainage_flux_m3_s",
+        ],
         "outlet_discharge": ["outlet_discharge_east_side_m3_s"],
-        "outlet_accumulation": ["accumulation_flux"],
-        "accumulation_outlet": ["accumulation_flux"],
+        "outlet_accumulation": [
+            "accumulation_flux",
+            "drainage_flux_history_m3_s",
+            "drainage_flux_m3_s",
+        ],
+        "accumulation_outlet": [
+            "accumulation_flux",
+            "drainage_flux_history_m3_s",
+            "drainage_flux_m3_s",
+        ],
         "head": ["watertable_elevation"],
         "depth": ["watertable_depth"],
         "drainage_flux": ["drainage_flux_history_m3_s", "drainage_flux_m3_s"],
     }
     candidates.extend(alias_map.get(lowered, []))
     return tuple(dict.fromkeys(candidates))
+
+
+def _native_unit_for_variable(variable_name: str) -> str:
+    """Return a best-effort native unit label for known disk variables."""
+    key = variable_name.strip().lower()
+    if key in {"watertable_elevation", "head"}:
+        return "m"
+    if key == "watertable_depth":
+        return "m"
+    if key in {"accumulation_flux", "outflow_drain", "seepage_areas"}:
+        return "m/day"
+    if key.endswith("_m3_s") or "_m3_s" in key:
+        return "m3/s"
+    if key.endswith("_m_s") or "_m_s" in key:
+        return "m/s"
+    return ""
 
 
 def _sort_time_key(key: Any) -> tuple[int, float | str]:
@@ -286,8 +397,14 @@ def _coerce_series_from_mapping(
     cell_ids: np.ndarray | None = None,
 ) -> VariableSeries:
     slices = tuple(
-        TimeSlice(time_key=key, values=np.asarray(value, dtype=float).ravel())
-        for key, value in sorted(mapping.items(), key=lambda item: _sort_time_key(item[0]))
+        TimeSlice(
+            time_key=key,
+            time_index=index,
+            values=np.asarray(value, dtype=float).ravel(),
+        )
+        for index, (key, value) in enumerate(
+            sorted(mapping.items(), key=lambda item: _sort_time_key(item[0]))
+        )
     )
     return VariableSeries(
         variable_name=variable_name,
@@ -309,10 +426,14 @@ def _load_npy_series(path: Path, *, variable_name: str) -> VariableSeries:
             )
     arr = np.asarray(payload, dtype=float)
     if arr.ndim <= 1:
-        slices = (TimeSlice(time_key=0, values=arr.ravel()),)
+        slices = (TimeSlice(time_key=0, time_index=0, values=arr.ravel()),)
     else:
         slices = tuple(
-            TimeSlice(time_key=index, values=np.asarray(row, dtype=float).ravel())
+            TimeSlice(
+                time_key=index,
+                time_index=index,
+                values=np.asarray(row, dtype=float).ravel(),
+            )
             for index, row in enumerate(arr)
         )
     return VariableSeries(variable_name=variable_name, source_path=path, slices=slices)
@@ -327,16 +448,42 @@ def _load_mesh_npz_series(path: Path, *, variable_name: str) -> VariableSeries:
         time_keys = list(payload["times"])
     else:
         time_keys = list(range(values.shape[0] if values.ndim > 1 else 1))
+    elapsed_seconds = (
+        np.asarray(payload["times"], dtype=float).ravel()
+        if "times" in payload
+        else None
+    )
     cell_ids = (
         np.asarray(payload["cell_ids"], dtype=int)
         if "cell_ids" in payload
         else None
     )
     if values.ndim <= 1:
-        slices = (TimeSlice(time_key=time_keys[0], values=values.ravel()),)
+        elapsed = (
+            float(elapsed_seconds[0])
+            if elapsed_seconds is not None and elapsed_seconds.size > 0
+            else None
+        )
+        slices = (
+            TimeSlice(
+                time_key=time_keys[0],
+                time_index=0,
+                values=values.ravel(),
+                elapsed_seconds=elapsed,
+            ),
+        )
     else:
         slices = tuple(
-            TimeSlice(time_key=time_keys[index], values=values[index].ravel())
+            TimeSlice(
+                time_key=time_keys[index],
+                time_index=index,
+                values=values[index].ravel(),
+                elapsed_seconds=(
+                    float(elapsed_seconds[index])
+                    if elapsed_seconds is not None and index < elapsed_seconds.size
+                    else None
+                ),
+            )
             for index in range(values.shape[0])
         )
     return VariableSeries(
@@ -356,11 +503,43 @@ def _load_boussinesq_npz_series(
     if variable_name not in payload:
         raise KeyError(variable_name)
     values = np.asarray(payload[variable_name], dtype=float)
+    period_lengths = (
+        np.asarray(payload["period_lengths_seconds"], dtype=float).ravel()
+        if "period_lengths_seconds" in payload
+        else np.asarray([], dtype=float)
+    )
     if values.ndim <= 1:
-        slices = (TimeSlice(time_key="final", values=values.ravel()),)
+        elapsed = (
+            float(np.nansum(period_lengths))
+            if period_lengths.size > 0
+            else None
+        )
+        slices = (
+            TimeSlice(
+                time_key="final",
+                time_index=max(0, int(period_lengths.size)),
+                values=values.ravel(),
+                elapsed_seconds=elapsed,
+            ),
+        )
     else:
+        elapsed_by_index: list[float | None]
+        if period_lengths.size == values.shape[0] - 1:
+            elapsed_by_index = [0.0]
+            elapsed_by_index.extend(float(value) for value in np.cumsum(period_lengths))
+        elif period_lengths.size == values.shape[0]:
+            elapsed_by_index = [float(value) for value in np.cumsum(period_lengths)]
+        else:
+            elapsed_by_index = [None for _ in range(values.shape[0])]
         slices = tuple(
-            TimeSlice(time_key=index, values=values[index].ravel())
+            TimeSlice(
+                time_key=index,
+                time_index=index,
+                values=values[index].ravel(),
+                elapsed_seconds=elapsed_by_index[index],
+                is_initial_state=period_lengths.size == values.shape[0] - 1
+                and index == 0,
+            )
             for index in range(values.shape[0])
         )
     return VariableSeries(variable_name=variable_name, source_path=path, slices=slices)
@@ -410,11 +589,19 @@ def _select_time_slices(
     """Select time slices requested by one observable."""
     if observable.time_window is not None:
         start, end = observable.time_window
-        selected = [
-            item
-            for item in series.slices
-            if str(start) <= str(item.time_key) <= str(end)
-        ]
+        if isinstance(start, numbers.Real) and isinstance(end, numbers.Real):
+            selected = [
+                item
+                for item in series.slices
+                if item.elapsed_seconds is not None
+                and float(start) <= float(item.elapsed_seconds) <= float(end)
+            ]
+        else:
+            selected = [
+                item
+                for item in series.slices
+                if str(start) <= str(item.time_key) <= str(end)
+            ]
         return tuple(selected or series.slices)
 
     time_selector = observable.time
@@ -539,6 +726,11 @@ def _select_spatial_values(
             selected_cell_ids = [cells.nearest_cell_id(x=observable.x, y=observable.y)]
             details["selection"] = "nearest_declared_outlet_point"
         else:
+            if not observable.allow_domain_proxy and values.size > 1:
+                raise ValueError(
+                    f"Outlet observable '{observable.name}' needs cell_index or x/y "
+                    "coordinates for a strict outlet extraction."
+                )
             selected_cell_ids = []
             details["selection"] = (
                 "domain_reducer_proxy"
@@ -579,6 +771,15 @@ def _select_spatial_values(
     raise KeyError(f"Unsupported observable support: {observable.support}")
 
 
+def _time_match_key(time_slice: TimeSlice) -> str:
+    """Return a stable key used to align rows across variants."""
+    if str(time_slice.time_key) == "reduced":
+        return "reduced"
+    if time_slice.elapsed_seconds is not None and np.isfinite(time_slice.elapsed_seconds):
+        return f"elapsed_seconds:{time_slice.elapsed_seconds:.9g}"
+    return f"time_index:{time_slice.time_index}"
+
+
 def extract_observable_rows(
     *,
     comparison_id: str,
@@ -593,7 +794,7 @@ def extract_observable_rows(
         series = load_variable_series(run_folder=run_folder, variable=observable.variable)
         selected_slices = _select_time_slices(series, observable)
 
-        per_time_values: list[tuple[Any, tuple[float, ...], dict[str, Any]]] = []
+        per_time_values: list[tuple[TimeSlice, tuple[float, ...], dict[str, Any]]] = []
         for time_slice in selected_slices:
             values, details = _select_spatial_values(
                 series=series,
@@ -601,7 +802,7 @@ def extract_observable_rows(
                 observable=observable,
                 cells=cells,
             )
-            per_time_values.append((time_slice.time_key, values, details))
+            per_time_values.append((time_slice, values, details))
 
         if observable.time_reducer is not None:
             flat = [
@@ -614,10 +815,19 @@ def extract_observable_rows(
                 reducer=observable.time_reducer,
                 label=f"{observable.name} time series",
             )
-            per_time_values = [("reduced", reduced_values, {"selection": "time_reduced"})]
+            reduced_slice = TimeSlice(
+                time_key="reduced",
+                time_index=-1,
+                values=np.asarray(reduced_values, dtype=float),
+            )
+            per_time_values = [
+                (reduced_slice, reduced_values, {"selection": "time_reduced"})
+            ]
 
-        for time_key, values, details in per_time_values:
+        for time_slice, values, details in per_time_values:
             for value_index, value in enumerate(values):
+                native_unit = _native_unit_for_variable(series.variable_name)
+                output_unit = observable.unit or native_unit
                 rows.append(
                     {
                         "comparison_id": comparison_id,
@@ -630,13 +840,24 @@ def extract_observable_rows(
                         "variable": observable.variable,
                         "resolved_variable": series.variable_name,
                         "support": observable.support,
-                        "time": str(time_key),
+                        "time": str(time_slice.time_key),
+                        "time_index": time_slice.time_index,
+                        "elapsed_seconds": (
+                            ""
+                            if time_slice.elapsed_seconds is None
+                            else float(time_slice.elapsed_seconds)
+                        ),
+                        "is_initial_state": bool(time_slice.is_initial_state),
+                        "comparison_time_key": _time_match_key(time_slice),
                         "value_index": value_index,
                         "value": float(value),
-                        "unit": observable.unit or "",
+                        "unit": output_unit,
+                        "configured_unit": observable.unit or "",
+                        "native_unit": native_unit,
                         "source_path": str(series.source_path),
                         "run_folder": str(run_folder),
                         "selection": str(details.get("selection", "")),
+                        "allow_domain_proxy": bool(observable.allow_domain_proxy),
                         "selected_cell_index": str(
                             details.get("selected_cell_index", "")
                         ),
@@ -662,12 +883,19 @@ def write_observables_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "resolved_variable",
         "support",
         "time",
+        "time_index",
+        "elapsed_seconds",
+        "is_initial_state",
+        "comparison_time_key",
         "value_index",
         "value",
         "unit",
+        "configured_unit",
+        "native_unit",
         "source_path",
         "run_folder",
         "selection",
+        "allow_domain_proxy",
         "selected_cell_index",
         "selected_cell_indices",
     ]
@@ -686,7 +914,9 @@ __all__ = (
     "extract_observable_rows",
     "load_variable_series",
     "materialize_variant_config",
+    "compact_run_metrics",
     "read_json_file",
+    "read_variant_run_metadata",
     "resolve_bundle_cells",
     "write_observables_csv",
     "write_toml_payload",

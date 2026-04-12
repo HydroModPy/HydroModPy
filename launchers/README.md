@@ -74,6 +74,10 @@ Guide de prise en main dedie :
 
 `launchers/mesh_catchment/README.md`
 
+Guide method-comparison :
+
+`launchers/method_comparison/README.md`
+
 Exemple data-overview versionne :
 
 `examples/projects/data_overview/project.toml`

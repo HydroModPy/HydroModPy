@@ -1,0 +1,40 @@
+[method_comparison]
+comparison_id = "example12_existing_method_comparison"
+output_root = "method_comparison/example12_existing"
+run_variants = false
+continue_on_error = true
+reference_variant = "mf6_gmsh_existing"
+
+[[method_comparison.variant]]
+id = "mf6_gmsh_existing"
+label = "MODFLOW 6 on generated Gmsh mesh"
+solver = "modflow6"
+mesh_mode = "mesh_catchment"
+mesh_label = "gmsh_existing"
+run_folder = "results_simulations/example12_fast_mf6_mesh_catchment"
+
+[[method_comparison.variant]]
+id = "boussinesq_reused_gmsh"
+label = "Boussinesq on reused Gmsh mesh"
+solver = "boussinesq"
+mesh_mode = "mesh_input"
+mesh_label = "gmsh_existing"
+run_folder = "results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq"
+
+[[method_comparison.observable]]
+name = "head_reference_point"
+variable = "watertable_elevation"
+support = "point"
+x = 265709.0603571266
+y = 6783838.949805205
+time = "all"
+time_reducer = "last"
+
+[[method_comparison.observable]]
+name = "outlet_accumulation"
+variable = "accumulation_flux"
+support = "outlet"
+x = 266887.0154945171
+y = 6785678.67277686
+time = "all"
+time_reducer = "last"

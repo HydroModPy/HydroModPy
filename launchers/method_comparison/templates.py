@@ -59,12 +59,16 @@ def render_method_comparison_template() -> str:
         'name = "outlet_accumulation"',
         'variable = "accumulation_flux"',
         'support = "outlet"',
+        "# Provide an explicit outlet location for a strict extraction.",
+        "x = 266887.015",
+        "y = 6785678.673",
         'time = "all"',
         'reducer = "max"',
-        'unit = "m/day"',
-        "# For a known outlet cell, prefer:",
+        "# Unit is inferred from the resolved native variable when omitted.",
+        "# For a known outlet cell, use:",
         "# cell_index = 42",
-        "# or x/y coordinates at the outlet point.",
+        "# Exploratory fallback only:",
+        "# allow_domain_proxy = true",
     ]
     return "\n".join(lines) + "\n"
 
