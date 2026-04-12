@@ -87,29 +87,27 @@ def _load_outflow_drain_array(
     *,
     fallback_shape: tuple[int, int] | None = None,
     outflow_drain_cache: dict | None = None,
+    store=None,
+    sim_id: str | None = None,
 ):
-    """Load one flow outflow mask, preferring rasters and falling back to .npy."""
-    import imageio.v2 as imageio
+    """Load one flow outflow mask from ResultStore or cache."""
     import numpy as np
 
-    postprocess_dir = Path(model_modflow.full_path) / "_postprocess"
-    raster_path = postprocess_dir / "_rasters" / f"outflow_drain_t({stress_period}).tif"
-    if raster_path.exists():
-        return imageio.imread(raster_path)
+    # Try ResultStore first.
+    if store is not None and sim_id is not None:
+        try:
+            arr = store.query_field(sim_id, "outflow_drain", stress_period)
+            return np.asarray(arr, dtype=float)
+        except Exception:
+            pass
 
-    outflow_drain_path = postprocess_dir / "outflow_drain.npy"
-    if outflow_drain_cache is None:
-        if not outflow_drain_path.exists():
-            raise FileNotFoundError(
-                f"Missing flow outflow drainage outputs for stress period {stress_period}: "
-                f"neither {raster_path} nor {outflow_drain_path} exists."
-            )
-        outflow_drain_cache = np.load(outflow_drain_path, allow_pickle=True).item()
+    # Try pre-loaded cache.
+    if outflow_drain_cache is not None:
+        seep = outflow_drain_cache.get(stress_period)
+        if seep is not None:
+            return np.asarray(seep)
 
-    seep = outflow_drain_cache.get(stress_period)
-    if seep is not None:
-        return np.asarray(seep)
-
+    # Fallback: zero array.
     if fallback_shape is None:
         nrow = getattr(model_modflow, "nrow", None)
         ncol = getattr(model_modflow, "ncol", None)
@@ -193,9 +191,8 @@ def plot_concentration_frames(
     last_figure = None
 
     outflow_drain_cache: dict | None = None
-    outflow_drain_path = Path(model_modflow.full_path) / "_postprocess" / "outflow_drain.npy"
-    if outflow_drain_path.exists():
-        outflow_drain_cache = np.load(outflow_drain_path, allow_pickle=True).item()
+    _store = getattr(model_modflow, "_store", None)
+    _sim_id = getattr(model_modflow, "_sim_id", None)
 
     with rasterio.open(dem_path) as dem:
         dem_data = dem.read(1)
@@ -207,6 +204,8 @@ def plot_concentration_frames(
             seep = _load_outflow_drain_array(
                 model_modflow, i,
                 fallback_shape=dem_data.shape,
+                store=_store,
+                sim_id=_sim_id,
                 outflow_drain_cache=outflow_drain_cache,
             )
 

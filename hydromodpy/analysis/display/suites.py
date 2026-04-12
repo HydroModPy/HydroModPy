@@ -105,6 +105,26 @@ def _load_boussinesq_state_payload(model) -> dict[str, np.ndarray]:
                 continue
             payload[key] = array.copy()
 
+    # Try reading from the ResultStore (boussinesq_state Zarr group).
+    _store = getattr(model, "_result_store", None)
+    _sim_id = getattr(model, "_sim_id", None)
+    if _store is not None and _sim_id is not None:
+        try:
+            grp = _store.open_zarr_group(_sim_id, mode="r")
+            state_grp = grp.get("boussinesq_state")
+            if state_grp is not None:
+                for key in state_grp:
+                    if key in payload:
+                        continue
+                    array = np.asarray(state_grp[key][:], dtype=float)
+                    if array.size == 0:
+                        continue
+                    payload[key] = array
+                return payload
+        except Exception:
+            pass
+
+    # Fallback: read from .npz file on disk.
     full_path = getattr(model, "full_path", None)
     if full_path is None:
         return payload
@@ -325,16 +345,17 @@ def _load_observed_streamflow(result) -> pd.DataFrame | None:
 
 
 def _load_flow_timeseries(result) -> pd.DataFrame:
-    """Load the simulated flow time series exported by post-processing."""
+    """Load the simulated flow time series from ResultStore or legacy CSV."""
+    # Try ResultStore path first (handled by caller); this is the legacy
+    # CSV fallback kept only for pre-migration projects.
     run_id = _resolve_flow_model(result).model_name
-    smod_path = (
-        result.setup.workspace.simulations_folder
-        / run_id
-        / "_postprocess"
-        / "_timeseries"
-        / "_simulated_timeseries.csv"
-    )
-    return pd.read_csv(smod_path, sep=";", index_col=0, parse_dates=True)
+    for base in (
+        Path(result.setup.workspace.project_root) / ".solver_scratch",
+    ):
+        smod_path = base / run_id / "_postprocess" / "_timeseries" / "_simulated_timeseries.csv"
+        if smod_path.exists():
+            return pd.read_csv(smod_path, sep=";", index_col=0, parse_dates=True)
+    raise FileNotFoundError("No simulated flow timeseries found")
 
 
 def _load_flow_timeseries_from_store(
@@ -361,28 +382,41 @@ def _load_flow_timeseries_from_store(
 
 def _extract_cross_section_data(
     dem_path: Path,
-    wt_path: Path,
+    *,
+    store=None,
+    sim_id: str | None = None,
     x_index: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Extract 1-D cross-section arrays from DEM and water-table files."""
+    """Extract 1-D cross-section arrays from DEM and ResultStore water-table."""
     import rasterio
+    from hydromodpy.analysis.display.common import load_field_dict_from_store
 
-    watertable = np.load(wt_path, allow_pickle=True).item()
     with rasterio.open(dem_path) as dem_src:
         dem_data = dem_src.read(1)
         nodata = dem_src.nodata
         row_spacing = abs(float(dem_src.transform.e)) if dem_src.transform.e else 1.0
 
-    wt = watertable[2].astype(float)
     dem = dem_data.astype(float)
     if nodata is not None:
         dem[np.isclose(dem, float(nodata))] = np.nan
     else:
         dem[dem < 0] = np.nan
-    wt[wt < 0] = np.nan
+
+    wt_dict = None
+    if store is not None and sim_id is not None:
+        wt_dict = load_field_dict_from_store(store, sim_id, "watertable_elevation")
+    if wt_dict is None:
+        raise FileNotFoundError("No watertable_elevation in ResultStore")
+
+    last_key = max(wt_dict.keys())
+    wt = wt_dict[last_key].astype(float)
+    wt[wt < -1e10] = np.nan
+    # Reshape flat array to match DEM grid if needed.
+    if wt.ndim == 1 and dem.ndim == 2:
+        wt = wt.reshape(dem.shape)
 
     if x_index is None:
-        x_index = dem.shape[1] // 2
+        x_index = dem.shape[1] // 2  # column index for N-S cross-section
     x_index = int(np.clip(x_index, 0, max(dem.shape[1] - 1, 0)))
 
     x_coords = np.arange(dem.shape[0], dtype=float) * row_spacing
@@ -437,20 +471,12 @@ def plot_flow_suite(
     simulated_timeseries = None
     if store is not None and sim_id is not None:
         simulated_timeseries = _load_flow_timeseries_from_store(store, sim_id)
-    if simulated_timeseries is None:
-        simulated_timeseries = _load_flow_timeseries(result)
 
     observed_streamflow = _load_observed_streamflow(result)
 
     if options.flow.is_enabled("cross_section", default=True):
-        wt_path = (
-            result.setup.workspace.simulations_folder
-            / run_id
-            / "_postprocess"
-            / "watertable_elevation.npy"
-        )
         dem_section, wt_section, x_coords = _extract_cross_section_data(
-            base_raster, wt_path,
+            base_raster, store=store, sim_id=sim_id,
         )
         plot_cross_section(
             dem_section=dem_section,
@@ -490,6 +516,57 @@ def plot_flow_suite(
             options=options,
             save_path=output_dir / "piezometry.png",
         )
+
+    if options.flow.is_enabled("drainage_density", default=True) and simulated_timeseries is not None:
+        from hydromodpy.analysis.display.figures.timeseries import plot_drainage_density
+
+        total_col = simulated_timeseries.get("total_areas")
+        perenn_col = simulated_timeseries.get("perenn_areas")
+        if total_col is not None:
+            plot_drainage_density(
+                total_drainage_pct=total_col,
+                perennial_drainage_pct=perenn_col,
+                title=run_id.upper(),
+                options=options,
+                save_path=output_dir / "drainage_density.png",
+            )
+
+    if options.flow.is_enabled("persistency_map", default=True):
+        from hydromodpy.analysis.display.common import load_field_dict_from_store
+        from hydromodpy.analysis.display.figures.spatial import plot_raster_field
+
+        pi_dict = None
+        if store is not None and sim_id is not None:
+            pi_dict = load_field_dict_from_store(store, sim_id, "persistency_index")
+        if pi_dict is not None and base_raster is not None:
+            import rasterio
+            with rasterio.open(base_raster) as src:
+                dem_data = src.read(1).astype(float)
+                nodata = src.nodata
+                transform = src.transform
+            last_key = max(pi_dict.keys())
+            pi = pi_dict[last_key].astype(float)
+            if pi.ndim == 1 and dem_data.ndim == 2:
+                pi = pi.reshape(dem_data.shape)
+            mask = np.isclose(dem_data, float(nodata)) if nodata else dem_data < -9000
+            pi_masked = np.ma.masked_where(mask, pi)
+
+            import geopandas as gpd
+            ws_gdf = None
+            geo = getattr(result.setup, "geographic", None)
+            ws_shp = getattr(geo, "watershed_shp", None) or getattr(geo, "watershed_contour_shp", None)
+            if ws_shp is not None:
+                ws_gdf = gpd.read_file(str(ws_shp))
+
+            plot_raster_field(
+                raster_masked=pi_masked,
+                transform=transform,
+                watershed_gdf=ws_gdf,
+                cmap="jet",
+                colorbar_label="Persistency index [-]",
+                options=options,
+                save_path=output_dir / "persistency_map.png",
+            )
 
 
 def plot_boussinesq_flow_suite(result, options: DisplayOptions) -> None:
@@ -602,7 +679,8 @@ def plot_particles_suite(result, options: DisplayOptions) -> None:
     run_id = flow_model.model_name
     output_dir = resolve_model_figure_dir(result.setup.workspace, run_id)
     particles_dir = (
-        result.setup.workspace.simulations_folder
+        Path(result.setup.workspace.project_root)
+        / ".solver_scratch"
         / run_id
         / "_postprocess"
         / "_particles"

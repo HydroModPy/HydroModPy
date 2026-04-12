@@ -25,6 +25,7 @@ import numpy as np
 from hydromodpy.analysis.display.common import (
     ensure_dir,
     finalize_figure,
+    load_field_dict_from_store,
     make_figure,
     _single_axes,
 )
@@ -34,64 +35,102 @@ from hydromodpy.analysis.display.posthoc import GeographicArtifacts, PosthocCont
 logger = logging.getLogger(__name__)
 
 
-# ------------------------------------------------------------------
-# Helpers — data loading from disk
-# ------------------------------------------------------------------
-
-def _load_npy_dict(path: Path | None) -> dict[int, np.ndarray] | None:
-    """Load a dict-of-arrays .npy file, or return None."""
-    if path is None or not path.exists():
-        return None
-    return np.load(path, allow_pickle=True).item()
-
-
-def _load_field_dict_from_store(
-    store: Any,
-    sim_id: str,
-    variable: str,
-) -> dict[int, np.ndarray] | None:
-    """Load a multi-timestep spatial field from a ResultStore.
-
-    Returns a dict mapping timestep index → ndarray, matching the
-    legacy ``.npy`` dict layout used by the posthoc helpers.
-    Returns ``None`` if the variable is not found.
-    """
+def _get_watershed_gdf(geo):
+    """Get watershed GeoDataFrame from store or file, None on failure."""
     try:
-        sims = store.list_simulations(sim_id=sim_id)
-        if sims.empty:
-            return None
-        n_timesteps = int(sims.iloc[0].get("n_timesteps") or 1)
-    except Exception:
-        n_timesteps = 1
+        return geo.read_feature("watershed")
+    except (KeyError, Exception):
+        pass
+    if getattr(geo, "watershed_shp", None) is not None:
+        import geopandas as gpd
+        return gpd.read_file(str(geo.watershed_shp))
+    return None
 
-    result: dict[int, np.ndarray] = {}
-    for t in range(n_timesteps):
+
+def _load_raster(path=None, *, geo=None, name="watershed_dem"):
+    """Load a raster and return (masked_array, transform, nodata).
+
+    Uses the store via *geo.read_raster(name)* as the primary source.
+    Only uses *path* for solver-specific rasters (grid template) that
+    are not geographic data.
+    Returns ``(None, None, None)`` when unavailable.
+    """
+    from rasterio.transform import Affine
+
+    data = None
+    nodata_val = None
+    transform = None
+
+    # Primary: store via GeographicArtifacts
+    if geo is not None:
         try:
-            result[t] = store.query_field(sim_id, variable, t)
-        except KeyError:
-            break
-    return result if result else None
+            arr, meta = geo.read_raster(name)
+            data = arr.astype(float)
+            nodata_val = meta.get("nodata", -99999.0)
+            t = meta.get("transform", (1, 0, 0, 0, -1, 0))
+            transform = Affine(*t[:6]) if not isinstance(t, Affine) else t
+        except (KeyError, Exception):
+            pass
 
+    # Solver-specific rasters (grid template) still on disk
+    if data is None and path is not None:
+        p = Path(path)
+        if p.exists():
+            import rasterio
+            with rasterio.open(p) as src:
+                data = src.read(1).astype(float)
+                nodata_val = src.nodata
+                transform = src.transform
 
-def _load_raster(path: Path):
-    """Load a raster and return (masked_array, transform, nodata)."""
-    import rasterio
+    if data is None:
+        return None, None, None
 
-    with rasterio.open(path) as src:
-        data = src.read(1).astype(float)
-        nodata = src.nodata
-        transform = src.transform
-        if nodata is not None:
-            mask = np.isclose(data, float(nodata))
-        else:
-            mask = data < -9000
-        masked = np.ma.masked_where(mask, data)
-    return masked, transform, nodata
+    if nodata_val is not None:
+        mask = np.isclose(data, float(nodata_val))
+    else:
+        mask = data < -9000
+    masked = np.ma.masked_where(mask, data)
+    return masked, transform, nodata_val
 
 
 # ------------------------------------------------------------------
 # Individual figure generators
 # ------------------------------------------------------------------
+
+def _render_dem_on_ax(ax, dem_masked, transform, ws_gdf=None, basemap=False):
+    """Render DEM raster + watershed contour on an Axes from in-memory data."""
+    from rasterio.plot import show as rio_show
+    import matplotlib.cm as cm
+    import matplotlib.colors as mcolors
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+    rio_show(dem_masked, ax=ax, transform=transform, cmap="terrain",
+             alpha=0.75, zorder=2, aspect="auto")
+
+    if ws_gdf is not None:
+        ws_gdf.plot(ax=ax, lw=1.5, zorder=4, edgecolor="k", facecolor="None")
+        if basemap:
+            try:
+                import contextily as cx
+                cx.add_basemap(ax, crs=ws_gdf.crs, zorder=0, alpha=0.4)
+            except Exception:
+                pass
+
+    ax.set_aspect("equal")
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+
+    valid = dem_masked.compressed()
+    if valid.size > 0:
+        vmin_f, vmax_f = float(valid.min()), float(valid.max())
+        sm = cm.ScalarMappable(
+            cmap="terrain", norm=mcolors.Normalize(vmin=vmin_f, vmax=vmax_f),
+        )
+        sm.set_array([])
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="4%", pad=0.05)
+        ax.figure.colorbar(sm, cax=cax, orientation="vertical")
+
 
 def _plot_dem_overview(
     run: RunArtifacts,
@@ -100,19 +139,18 @@ def _plot_dem_overview(
     output_dir: Path,
 ) -> None:
     """DEM overview map with watershed contour."""
-    dem_path = run.base_raster(geo)
-    if dem_path is None or geo.watershed_shp is None:
+    dem_masked, transform, nodata = _load_raster(geo=geo)
+    ws_gdf = _get_watershed_gdf(geo)
+    if dem_masked is None or ws_gdf is None:
         return
 
-    from hydromodpy.analysis.display.figures.maps import plot_dem_map
-
-    plot_dem_map(
-        dem_path=dem_path,
-        watershed_shp=geo.watershed_shp,
-        title=run.run_id,
-        options=options,
-        save_path=output_dir / "dem_overview.png",
-    )
+    fig, axs = make_figure(figsize=(7, 6), dpi=options.dpi)
+    ax = _single_axes(axs)
+    _render_dem_on_ax(ax, dem_masked, transform, ws_gdf,
+                      basemap=options.flow.is_enabled("basemap", default=False))
+    ax.set_title(run.run_id, fontsize=10)
+    fig.tight_layout()
+    finalize_figure(fig, options=options, save_path=output_dir / "dem_overview.png")
 
 
 def _plot_watertable_maps(
@@ -125,32 +163,40 @@ def _plot_watertable_maps(
     sim_id: str | None = None,
 ) -> None:
     """Water-table depth and elevation raster maps."""
-    dem_path = run.base_raster(geo)
-    if dem_path is None:
+    dem_masked, transform, nodata = _load_raster(geo=geo)
+    if dem_masked is None:
         return
 
     from hydromodpy.analysis.display.figures.spatial import render_raster_field
 
-    for label, npy_path, raster_list, cmap, cb_label in [
-        ("watertable_depth", run.watertable_depth_npy,
-         run.watertable_depth_rasters, "Blues", "WT depth [m]"),
-        ("watertable_elevation", run.watertable_elevation_npy,
-         run.watertable_elevation_rasters, "terrain", "WT elevation [m]"),
-        ("seepage_areas", run.seepage_areas_npy,
-         run.seepage_areas_rasters, "Reds", "Seepage [m/d]"),
+    for label, cmap, cb_label in [
+        ("watertable_depth", "Blues", "WT depth [m]"),
+        ("watertable_elevation", "terrain", "WT elevation [m]"),
+        ("seepage_areas", "Reds", "Seepage [0/1]"),
     ]:
-        # Prefer raster files; fall back to .npy or ResultStore
-        if raster_list:
-            raster_path = raster_list[-1]  # last stress period
-        elif npy_path is not None:
-            # Load from npy dict and overlay on DEM grid
-            data_dict = _load_npy_dict(npy_path)
-            if data_dict is None:
-                continue
+        # Load array from ResultStore.
+        data_dict = None
+        if store is not None and sim_id is not None:
+            data_dict = load_field_dict_from_store(store, sim_id, label)
+        if data_dict is not None:
             last_key = max(data_dict.keys())
             arr = data_dict[last_key].astype(float)
 
-            dem_masked, transform, nodata = _load_raster(dem_path)
+            dem_masked, transform, nodata = _load_raster(geo=geo)
+            # Reshape flat store array to match 2D DEM grid.
+            if arr.ndim == 1 and dem_masked.ndim == 2:
+                try:
+                    arr = arr.reshape(dem_masked.shape)
+                except ValueError:
+                    # Multi-layer: take top layer then reshape.
+                    n_cells_2d = dem_masked.shape[0] * dem_masked.shape[1]
+                    arr = arr[:n_cells_2d].reshape(dem_masked.shape)
+            elif arr.ndim == 2:
+                # (n_layers, n_cells) — take top layer.
+                arr = arr[0]
+                if arr.size == dem_masked.size:
+                    arr = arr.reshape(dem_masked.shape)
+
             if nodata is not None:
                 arr_masked = np.ma.masked_where(
                     np.isclose(dem_masked.data, float(nodata)), arr,
@@ -161,8 +207,8 @@ def _plot_watertable_maps(
             import geopandas as gpd
 
             ws_gdf = None
-            if geo.watershed_shp is not None:
-                ws_gdf = gpd.read_file(str(geo.watershed_shp))
+            if _get_watershed_gdf(geo) is not None:
+                ws_gdf = geo.read_feature("watershed")
 
             fig, axs = make_figure(figsize=(7, 6), dpi=options.dpi)
             ax = _single_axes(axs)
@@ -177,67 +223,94 @@ def _plot_watertable_maps(
             ax.set_title(f"{label.replace('_', ' ').title()} — {run.run_id}", fontsize=10)
             fig.tight_layout()
             finalize_figure(fig, options=options, save_path=output_dir / f"{label}.png")
-            continue
-        elif store is not None and sim_id is not None:
-            data_dict = _load_field_dict_from_store(store, sim_id, label)
-            if data_dict is None:
-                continue
-            last_key = max(data_dict.keys())
-            arr = data_dict[last_key].astype(float)
 
-            dem_masked, transform, nodata = _load_raster(dem_path)
-            if nodata is not None:
-                arr_masked = np.ma.masked_where(
-                    np.isclose(dem_masked.data, float(nodata)), arr,
-                )
-            else:
-                arr_masked = np.ma.masked_where(arr < -9000, arr)
 
-            import geopandas as gpd
+def _plot_composite_wtd_seepage(
+    run: RunArtifacts,
+    geo: GeographicArtifacts,
+    options: DisplayOptions,
+    output_dir: Path,
+    *,
+    store: Any = None,
+    sim_id: str | None = None,
+) -> None:
+    """Composite map: water-table depth + seepage + pathlines."""
+    dem_masked, transform, nodata = _load_raster(geo=geo)
+    if dem_masked is None:
+        return
 
-            ws_gdf = None
-            if geo.watershed_shp is not None:
-                ws_gdf = gpd.read_file(str(geo.watershed_shp))
+    wtd_dict = None
+    seepage_dict = None
+    if store is not None and sim_id is not None:
+        wtd_dict = load_field_dict_from_store(store, sim_id, "watertable_depth")
+        seepage_dict = load_field_dict_from_store(store, sim_id, "seepage_areas")
+    if wtd_dict is None:
+        return
 
-            fig, axs = make_figure(figsize=(7, 6), dpi=options.dpi)
-            ax = _single_axes(axs)
-            render_raster_field(
-                ax,
-                raster_masked=arr_masked,
-                transform=transform,
-                watershed_gdf=ws_gdf,
-                cmap=cmap,
-                colorbar_label=cb_label,
-            )
-            ax.set_title(f"{label.replace('_', ' ').title()} — {run.run_id}", fontsize=10)
-            fig.tight_layout()
-            finalize_figure(fig, options=options, save_path=output_dir / f"{label}.png")
-            continue
+    dem_masked, transform, nodata = _load_raster(dem_path, geo=geo)
+    last_key = max(wtd_dict.keys())
+    wtd_arr = wtd_dict[last_key].astype(float)
+
+    # Reshape flat store array to 2D DEM grid
+    if wtd_arr.ndim == 1 and dem_masked.ndim == 2:
+        try:
+            wtd_arr = wtd_arr.reshape(dem_masked.shape)
+        except ValueError:
+            wtd_arr = wtd_arr[: dem_masked.size].reshape(dem_masked.shape)
+    elif wtd_arr.ndim == 2:
+        wtd_arr = wtd_arr[0]
+        if wtd_arr.size == dem_masked.size:
+            wtd_arr = wtd_arr.reshape(dem_masked.shape)
+
+    if nodata is not None:
+        wtd_masked = np.ma.masked_where(np.isclose(dem_masked.data, float(nodata)), wtd_arr)
+    else:
+        wtd_masked = np.ma.masked_where(wtd_arr < -9000, wtd_arr)
+
+    seepage_masked = None
+    if seepage_dict is not None:
+        seep_arr = seepage_dict[max(seepage_dict.keys())].astype(float)
+        if seep_arr.ndim == 1 and dem_masked.ndim == 2:
+            try:
+                seep_arr = seep_arr.reshape(dem_masked.shape)
+            except ValueError:
+                seep_arr = seep_arr[: dem_masked.size].reshape(dem_masked.shape)
+        elif seep_arr.ndim == 2:
+            seep_arr = seep_arr[0]
+            if seep_arr.size == dem_masked.size:
+                seep_arr = seep_arr.reshape(dem_masked.shape)
+        if nodata is not None:
+            seepage_masked = np.ma.masked_where(np.isclose(dem_masked.data, float(nodata)), seep_arr)
         else:
-            continue
+            seepage_masked = np.ma.masked_where(seep_arr < -9000, seep_arr)
 
-        # Raster file path available
-        raster_masked, transform, nodata = _load_raster(raster_path)
+    import geopandas as gpd
 
-        import geopandas as gpd
+    ws_gdf = None
+    if _get_watershed_gdf(geo) is not None:
+        ws_gdf = geo.read_feature("watershed")
 
-        ws_gdf = None
-        if geo.watershed_shp is not None:
-            ws_gdf = gpd.read_file(str(geo.watershed_shp))
+    pathlines_gdf = None
+    if run.pathlines_weighted_shp is not None and run.pathlines_weighted_shp.exists():
+        pathlines_gdf = gpd.read_file(str(run.pathlines_weighted_shp))
 
-        fig, axs = make_figure(figsize=(7, 6), dpi=options.dpi)
-        ax = _single_axes(axs)
-        render_raster_field(
-            ax,
-            raster_masked=raster_masked,
-            transform=transform,
-            watershed_gdf=ws_gdf,
-            cmap=cmap,
-            colorbar_label=cb_label,
-        )
-        ax.set_title(f"{label.replace('_', ' ').title()} — {run.run_id}", fontsize=10)
-        fig.tight_layout()
-        finalize_figure(fig, options=options, save_path=output_dir / f"{label}.png")
+    cfg_col = options.flow.flags.get("cross_section_column")
+    cross_col = cfg_col if cfg_col is not None else dem_masked.shape[1] // 2
+
+    from hydromodpy.analysis.display.figures.spatial import plot_seepage_pathlines_wtd
+
+    plot_seepage_pathlines_wtd(
+        wtd_masked=wtd_masked,
+        transform=transform,
+        seepage_masked=seepage_masked,
+        watershed_gdf=ws_gdf,
+        pathlines_gdf=pathlines_gdf,
+        cross_section_col=cross_col,
+        title="Seepage fed by pathlines and map of water table depth [m]",
+        options=options,
+        save_path=output_dir / "composite_seepage_wtd.png",
+        figsize=(8, 5),
+    )
 
 
 def _plot_cross_section(
@@ -249,28 +322,39 @@ def _plot_cross_section(
     store: Any = None,
     sim_id: str | None = None,
 ) -> None:
-    """Cross-section from watertable elevation .npy and DEM."""
-    dem_path = run.base_raster(geo)
-    if dem_path is None:
+    """Cross-section from watertable elevation and DEM."""
+    dem_masked, transform, nodata = _load_raster(geo=geo)
+    if dem_masked is None:
         return
 
-    wt_dict = _load_npy_dict(run.watertable_elevation_npy)
-    if wt_dict is None and store is not None and sim_id is not None:
-        wt_dict = _load_field_dict_from_store(store, sim_id, "watertable_elevation")
+    wt_dict = None
+    if store is not None and sim_id is not None:
+        wt_dict = load_field_dict_from_store(store, sim_id, "watertable_elevation")
     if wt_dict is None:
         return
 
-    dem_masked, transform, nodata = _load_raster(dem_path)
+    dem_masked, transform, nodata = _load_raster(dem_path, geo=geo)
     dem_2d = dem_masked.data.astype(float)
     if nodata is not None:
         dem_2d[np.isclose(dem_2d, float(nodata))] = np.nan
 
     last_key = max(wt_dict.keys())
     wt_2d = wt_dict[last_key].astype(float)
-    wt_2d[wt_2d < -9000] = np.nan
+    # Reshape flat store array to match DEM grid.
+    if wt_2d.ndim == 1 and dem_2d.ndim == 2:
+        try:
+            wt_2d = wt_2d.reshape(dem_2d.shape)
+        except ValueError:
+            wt_2d = wt_2d[:dem_2d.size].reshape(dem_2d.shape)
+    elif wt_2d.ndim == 2 and wt_2d.shape != dem_2d.shape:
+        wt_2d = wt_2d[0]
+        if wt_2d.size == dem_2d.size:
+            wt_2d = wt_2d.reshape(dem_2d.shape)
+    wt_2d[~np.isfinite(wt_2d)] = np.nan
 
-    # Take middle column cross section
-    col_idx = dem_2d.shape[1] // 2
+    # Column cross section (N-S direction, matching legacy)
+    cfg_col = options.flow.flags.get("cross_section_column")
+    col_idx = cfg_col if cfg_col is not None else dem_2d.shape[1] // 2
     dem_section = dem_2d[:, col_idx]
     wt_section = wt_2d[:, col_idx]
 
@@ -294,57 +378,61 @@ def _plot_hydrography(
     options: DisplayOptions,
     output_dir: Path,
 ) -> None:
-    """Hydrography map — river network shapefile or flow-accumulation drainage."""
-    dem_path = run.base_raster(geo)
-    if dem_path is None or geo.watershed_shp is None:
+    """Hydrography map — river network from store or flow-accumulation."""
+    dem_masked, transform, nodata = _load_raster(geo=geo)
+    ws_gdf = _get_watershed_gdf(geo)
+    if dem_masked is None or ws_gdf is None:
         return
-
-    import geopandas as gpd
 
     streams_gdf = None
 
-    # Prefer vector river network if available
-    if geo.river_network_shp is not None:
-        streams_gdf = gpd.read_file(geo.river_network_shp)
-    elif geo.dem_acc_tif is not None:
-        # Derive synthetic stream lines from flow accumulation raster
-        streams_gdf = _streams_from_accumulation(geo.dem_acc_tif, geo.watershed_shp)
+    # Prefer vector river network from store
+    try:
+        streams_gdf = geo.read_feature("river_network")
+    except (KeyError, Exception):
+        pass
+
+    # Fallback: derive from flow-accumulation raster in store
+    if streams_gdf is None:
+        try:
+            acc_arr, acc_meta = geo.read_raster("dem_acc")
+            streams_gdf = _streams_from_accumulation_array(
+                acc_arr, acc_meta, ws_gdf,
+            )
+        except (KeyError, Exception):
+            pass
 
     if streams_gdf is None or streams_gdf.empty:
         return
 
-    from hydromodpy.analysis.display.figures.maps import plot_hydrography_map
-
-    plot_hydrography_map(
-        dem_path=dem_path,
-        watershed_shp=geo.watershed_shp,
-        streams_gdf=streams_gdf,
-        title=run.run_id,
-        options=options,
-        save_path=output_dir / "hydrography.png",
-    )
+    fig, axs = make_figure(figsize=(7, 6), dpi=options.dpi)
+    ax = _single_axes(axs)
+    _render_dem_on_ax(ax, dem_masked, transform, ws_gdf)
+    streams_gdf.plot(ax=ax, lw=1.5, color="navy", zorder=5)
+    ax.set_title(f"Hydrography — {run.run_id}", fontsize=10)
+    fig.tight_layout()
+    finalize_figure(fig, options=options, save_path=output_dir / "hydrography.png")
 
 
-def _streams_from_accumulation(
-    acc_path: Path,
-    watershed_shp: Path,
+def _streams_from_accumulation_array(
+    acc: np.ndarray,
+    meta: dict,
+    ws_gdf: "gpd.GeoDataFrame | None" = None,
 ) -> "gpd.GeoDataFrame | None":
-    """Derive stream lines from a flow-accumulation raster by thresholding.
+    """Derive stream lines from a flow-accumulation array by thresholding.
 
-    Cells with accumulation above the 90th percentile of positive values
-    are vectorised into line segments following the raster grid.
+    Works with in-memory arrays from the store (no file paths needed).
     """
     import geopandas as gpd
-    import rasterio
-    from rasterio.features import shapes
-    from shapely.geometry import LineString, shape
+    from rasterio.transform import Affine
+    from shapely.geometry import LineString, MultiLineString
     from shapely.ops import linemerge, unary_union
 
-    with rasterio.open(acc_path) as src:
-        acc = src.read(1).astype(float)
-        transform = src.transform
-        crs = src.crs
-        nodata = src.nodata
+    acc = acc.astype(float).copy()
+    nodata = meta.get("nodata")
+    t = meta.get("transform", (1, 0, 0, 0, -1, 0))
+    transform = Affine(*t[:6]) if not isinstance(t, Affine) else t
+    crs = meta.get("crs")
 
     if nodata is not None:
         acc[np.isclose(acc, float(nodata))] = 0.0
@@ -354,30 +442,21 @@ def _streams_from_accumulation(
     if positive.size == 0:
         return None
 
-    # Threshold: top 10% of accumulation values
     threshold = float(np.percentile(positive, 90))
     stream_mask = (acc >= threshold).astype(np.uint8)
-
     if stream_mask.sum() == 0:
         return None
 
-    # Vectorise the stream mask into polygons, then extract centerlines
-    # by converting thin raster cells into line segments
     rows, cols = np.where(stream_mask == 1)
     if len(rows) == 0:
         return None
 
-    cell_dx = abs(float(transform.a))
-    cell_dy = abs(float(transform.e))
-
-    # Build line segments connecting adjacent stream cells
     segments: list[LineString] = []
     stream_set = set(zip(rows.tolist(), cols.tolist()))
 
     for r, c in stream_set:
         x0 = transform.c + (c + 0.5) * transform.a + (r + 0.5) * transform.b
         y0 = transform.f + (c + 0.5) * transform.d + (r + 0.5) * transform.e
-        # Check 4-connected neighbours (right, down)
         for dr, dc in [(0, 1), (1, 0), (1, 1), (1, -1)]:
             nr, nc = r + dr, c + dc
             if (nr, nc) in stream_set:
@@ -388,30 +467,25 @@ def _streams_from_accumulation(
     if not segments:
         return None
 
-    # Merge connected segments into longer lines
     merged = linemerge(unary_union(segments))
     if merged.is_empty:
         return None
 
-    # Clip to watershed extent
-    try:
-        ws = gpd.read_file(str(watershed_shp))
-        ws_union = ws.geometry.union_all()
-        merged = merged.intersection(ws_union)
-    except Exception:
-        pass
+    if ws_gdf is not None:
+        try:
+            ws_union = ws_gdf.geometry.union_all()
+            merged = merged.intersection(ws_union)
+        except Exception:
+            pass
 
     if merged.is_empty:
         return None
-
-    from shapely.geometry import MultiLineString
 
     if isinstance(merged, LineString):
         lines = [merged]
     elif isinstance(merged, MultiLineString):
         lines = list(merged.geoms)
     else:
-        # GeometryCollection — filter lines only
         lines = [g for g in merged.geoms if isinstance(g, LineString)]
 
     if not lines:
@@ -429,8 +503,9 @@ def _plot_pathlines(
     """Pathlines map from particle shapefiles."""
     if run.pathlines_weighted_shp is None or run.starting_weighted_shp is None:
         return
-    dem_path = run.base_raster(geo)
-    if dem_path is None or geo.watershed_shp is None:
+    dem_masked, transform, nodata = _load_raster(geo=geo)
+    ws_gdf = _get_watershed_gdf(geo)
+    if dem_masked is None or ws_gdf is None:
         return
 
     import geopandas as gpd
@@ -438,16 +513,14 @@ def _plot_pathlines(
     pathlines_gdf = gpd.read_file(run.pathlines_weighted_shp)
     endpoints_gdf = gpd.read_file(run.starting_weighted_shp)
 
-    from hydromodpy.analysis.display.figures.maps import plot_pathlines_map
-
-    plot_pathlines_map(
-        dem_path=dem_path,
-        watershed_shp=geo.watershed_shp,
-        pathlines_gdf=pathlines_gdf,
-        endpoints_gdf=endpoints_gdf,
-        options=options,
-        save_path=output_dir / "pathlines.png",
-    )
+    fig, axs = make_figure(figsize=(7, 6), dpi=options.dpi)
+    ax = _single_axes(axs)
+    _render_dem_on_ax(ax, dem_masked, transform, ws_gdf)
+    pathlines_gdf.plot(ax=ax, lw=0.5, color="blue", alpha=0.5, zorder=5)
+    endpoints_gdf.plot(ax=ax, markersize=5, color="red", zorder=6)
+    ax.set_title(f"Pathlines — {run.run_id}", fontsize=10)
+    fig.tight_layout()
+    finalize_figure(fig, options=options, save_path=output_dir / "pathlines.png")
 
 
 def _plot_budget(
@@ -459,7 +532,7 @@ def _plot_budget(
     store: Any = None,
     sim_id: str | None = None,
 ) -> None:
-    """Groundwater budget bar chart from .npy budget files."""
+    """Groundwater budget bar chart from ResultStore fields."""
     import matplotlib.pyplot as plt
 
     _BUDGET_VARIABLE_MAP = {
@@ -470,15 +543,10 @@ def _plot_budget(
     }
 
     budget_items: list[tuple[str, float]] = []
-    for label, npy_path in [
-        ("Recharge", run.accumulation_flux_npy),
-        ("GW Flux", run.groundwater_flux_npy),
-        ("GW Storage", run.groundwater_storage_npy),
-        ("Drain Outflow", run.outflow_drain_npy),
-    ]:
-        data = _load_npy_dict(npy_path)
-        if data is None and store is not None and sim_id is not None:
-            data = _load_field_dict_from_store(
+    for label in ["Recharge", "GW Flux", "GW Storage", "Drain Outflow"]:
+        data = None
+        if store is not None and sim_id is not None:
+            data = load_field_dict_from_store(
                 store, sim_id, _BUDGET_VARIABLE_MAP[label],
             )
         if data is None:
@@ -513,6 +581,101 @@ def _plot_budget(
     finalize_figure(fig, options=options, save_path=output_dir / "budget.png")
 
 
+def _plot_timeseries_summary(
+    run: RunArtifacts,
+    geo: GeographicArtifacts,
+    options: DisplayOptions,
+    output_dir: Path,
+    *,
+    store: Any = None,
+    sim_id: str | None = None,
+) -> None:
+    """Recharge + outflow drain step plots with optional well pumping bars.
+
+    Reproduces the legacy time series figure from example_00.
+    """
+    if store is None or sim_id is None:
+        return
+
+    import pandas as pd
+    from hydromodpy.analysis.display.figures.timeseries import plot_discharge
+
+    recharge_ts = None
+    outflow_ts = None
+    well_ts = None
+    # Use forcing recharge (input, 1 value per stress period),
+    # not budget recharge (≈ drain at equilibrium).
+    try:
+        recharge_ts = store.query_timeseries(sim_id, "_catchment", "recharge_forcing")
+    except KeyError:
+        try:
+            recharge_ts = store.query_timeseries(sim_id, "_catchment", "recharge_budget")
+        except KeyError:
+            pass
+    try:
+        outflow_ts = store.query_timeseries(sim_id, "_catchment", "outflow_drain")
+    except KeyError:
+        pass
+    try:
+        well_ts = store.query_timeseries(sim_id, "_catchment", "well_pumping")
+        # Deduplicate (aggregation may run multiple times per sim)
+        if well_ts is not None and well_ts.index.has_duplicates:
+            well_ts = well_ts.groupby(level=0).first()
+    except KeyError:
+        pass
+
+    if recharge_ts is None and outflow_ts is None:
+        return
+
+    # Convert volumetric budget (m³/d per cell) to mm/month like legacy:
+    # rate = budget_value / cell_area; mm/month = rate * 30 * 1000
+    cell_area = None
+    _, transform, _ = _load_raster(None, geo=geo)
+    if transform is not None:
+        cell_area = abs(transform.a * transform.e)
+    if cell_area is None or cell_area == 0:
+        cell_area = 1.0
+    factor = 30.0 * 1000.0 / cell_area  # m³/d per cell → mm/month
+
+    rch_scaled = recharge_ts * factor if recharge_ts is not None else None
+    out_scaled = outflow_ts * factor if outflow_ts is not None else None
+
+    # Resample substeps to 1 value per stress period.
+    # For outflow: take the LAST substep of each period (snapshot, like legacy).
+    # For wells: take the min (most negative pumping).
+    def _to_monthly(ts, agg="last"):
+        """Resample substep timeseries to monthly values."""
+        if ts is None:
+            return None
+        if ts.index.has_duplicates:
+            ts = ts.groupby(level=0).first()
+        if isinstance(ts.index, pd.DatetimeIndex) and len(ts) > 12:
+            resampled = ts.resample("MS")
+            if agg == "last":
+                return resampled.last()
+            elif agg == "min":
+                return resampled.min()
+            else:
+                return resampled.mean()
+        return ts
+
+    rch_plot = _to_monthly(rch_scaled, agg="last")  # forcing is constant → last=first=mean
+    out_plot = _to_monthly(out_scaled, agg="mean")   # drain mean over all substeps
+
+    well_plot = _to_monthly(well_ts, agg="min") if well_ts is not None else None
+
+    plot_discharge(
+        simulated_series=out_plot,
+        recharge_series=rch_plot,
+        well_fluxes=well_plot,
+        model_label=run.run_id,
+        ylabel="Output flow results [mm/month]",
+        options=options,
+        save_path=output_dir / "timeseries_summary.png",
+        figsize=(8, 5),
+    )
+
+
 # ------------------------------------------------------------------
 # Suite functions
 # ------------------------------------------------------------------
@@ -524,6 +687,7 @@ def plot_posthoc_flow_suite(
     *,
     store: Any = None,
     sim_id: str | None = None,
+    output_dir: Path | None = None,
 ) -> None:
     """Run all enabled flow figures from post-hoc disk data.
 
@@ -531,14 +695,15 @@ def plot_posthoc_flow_suite(
     ----------
     store : ResultStore, optional
         When provided, spatial fields are loaded from the store as
-        fallback when ``.npy`` files are absent.
+        reads data exclusively from the ResultStore.
     sim_id : str, optional
         Simulation UUID in the store.
     """
     if not options.should_render():
         return
 
-    output_dir = run.postprocess_dir / "_figures"
+    if output_dir is None:
+        output_dir = run.run_dir / "figures" / run.run_id
 
     if options.flow.is_enabled("dem_map", default=True):
         logger.info("Generating DEM overview: %s", run.run_id)
@@ -547,6 +712,10 @@ def plot_posthoc_flow_suite(
     if options.flow.is_enabled("watertable_map", default=True):
         logger.info("Generating watertable maps: %s", run.run_id)
         _plot_watertable_maps(run, geo, options, output_dir, store=store, sim_id=sim_id)
+
+    if options.flow.is_enabled("composite_seepage_wtd", default=True):
+        logger.info("Generating composite seepage+WTD: %s", run.run_id)
+        _plot_composite_wtd_seepage(run, geo, options, output_dir, store=store, sim_id=sim_id)
 
     if options.flow.is_enabled("cross_section", default=True):
         logger.info("Generating cross section: %s", run.run_id)
@@ -559,6 +728,57 @@ def plot_posthoc_flow_suite(
     if options.flow.is_enabled("hydrography", default=True):
         logger.info("Generating hydrography map: %s", run.run_id)
         _plot_hydrography(run, geo, options, output_dir)
+
+    if store is not None and sim_id is not None:
+        logger.info("Generating timeseries summary: %s", run.run_id)
+        _plot_timeseries_summary(run, geo, options, output_dir, store=store, sim_id=sim_id)
+
+    if options.flow.is_enabled("drainage_density", default=True) and store is not None and sim_id is not None:
+        from hydromodpy.analysis.display.figures.timeseries import plot_drainage_density
+        try:
+            total = store.query_timeseries(sim_id, "_catchment", "total_areas")
+            perenn = None
+            try:
+                perenn = store.query_timeseries(sim_id, "_catchment", "perenn_areas")
+            except KeyError:
+                pass
+            logger.info("Generating drainage density: %s", run.run_id)
+            plot_drainage_density(
+                total_drainage_pct=total,
+                perennial_drainage_pct=perenn,
+                title=run.run_id,
+                options=options,
+                save_path=output_dir / "drainage_density.png",
+            )
+        except KeyError:
+            pass
+
+    if options.flow.is_enabled("persistency_map", default=True) and store is not None and sim_id is not None:
+        pi_dict = load_field_dict_from_store(store, sim_id, "persistency_index")
+        if pi_dict is not None:
+            dem_path = None if hasattr(run, "base_raster") else None
+            dem_masked, transform, nodata = _load_raster(geo=geo)
+            if dem_masked is not None:
+                from hydromodpy.analysis.display.figures.spatial import plot_raster_field
+                dem_data = np.asarray(dem_masked, dtype=float)
+                last_key = max(pi_dict.keys())
+                pi = pi_dict[last_key].astype(float)
+                if pi.ndim == 1 and dem_data.ndim == 2:
+                    pi = pi.reshape(dem_data.shape)
+                mask = np.isclose(dem_data, float(nodata)) if nodata else dem_data < -9000
+                pi_masked = np.ma.masked_where(mask, pi)
+                import geopandas as gpd
+                ws_gdf = _get_watershed_gdf(geo)
+                logger.info("Generating persistency map: %s", run.run_id)
+                plot_raster_field(
+                    raster_masked=pi_masked,
+                    transform=transform,
+                    watershed_gdf=ws_gdf,
+                    cmap="jet",
+                    colorbar_label="Persistency index [-]",
+                    options=options,
+                    save_path=output_dir / "persistency_map.png",
+                )
 
 
 def plot_posthoc_particles_suite(
@@ -573,7 +793,7 @@ def plot_posthoc_particles_suite(
     if not options.particles.is_enabled("pathlines", default=False):
         return
 
-    output_dir = run.postprocess_dir / "_figures"
+    output_dir = run.run_dir / "_figures"
     logger.info("Generating pathlines map: %s", run.run_id)
     _plot_pathlines(run, geo, options, output_dir)
 
@@ -597,12 +817,26 @@ def plot_posthoc_all(
     if not options.should_render():
         return []
 
+    # Resolve the sim_id from the store (UUID, not run name).
+    sim_id = None
+    if store is not None:
+        try:
+            sims = store.list_simulations()
+            if not sims.empty:
+                sim_id = str(sims.iloc[-1]["sim_id"])
+        except Exception:
+            pass
+
+    # Use sim_id short (first 8 chars) for the figure folder name.
+    sim_label = sim_id[:8] if sim_id else "unknown"
+
     figure_dirs: list[Path] = []
     for run in ctx.runs:
-        output_dir = run.postprocess_dir / "_figures"
+        output_dir = ctx.project_dir / "figures" / sim_label
         plot_posthoc_flow_suite(
             run, ctx.geographic, options,
-            store=store, sim_id=run.run_id,
+            store=store, sim_id=sim_id,
+            output_dir=output_dir,
         )
         plot_posthoc_particles_suite(run, ctx.geographic, options)
         if output_dir.is_dir():

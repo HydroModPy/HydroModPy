@@ -1,10 +1,8 @@
 """Post-hoc data reader for the display package.
 
-This module discovers and loads simulation outputs from disk without
-requiring runtime objects.  It scans a project's output directories for
-geographic artifacts, simulation run outputs, rasters, particles, and
-time-series data — everything needed to regenerate figures after a
-simulation has completed.
+This module discovers and loads simulation outputs without requiring
+runtime objects.  ``GeographicArtifacts`` reads geographic rasters from
+the ``ResultStore`` (preferred) or falls back to files on disk.
 
 Typical usage::
 
@@ -14,15 +12,25 @@ Typical usage::
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class GeographicArtifacts:
-    """Paths to geographic artifacts in ``results_stable/geographic/``."""
+    """Geographic data for display — reads from store or files.
 
-    geographic_dir: Path
+    Use :meth:`from_store` when a ``ResultStore`` is available (preferred).
+    Use :meth:`discover` as fallback when only the filesystem is available.
+    """
+
+    geographic_dir: Path | None = None
     correcflow_dir: Path | None = None
     watershed_shp: Path | None = None
     watershed_dem: Path | None = None
@@ -30,6 +38,65 @@ class GeographicArtifacts:
     watershed_contour_shp: Path | None = None
     river_network_shp: Path | None = None
     dem_acc_tif: Path | None = None
+
+    # Store reference (None when using file-based discovery)
+    _store: Any = field(default=None, repr=False, compare=False)
+
+    def read_raster(self, name: str) -> tuple[np.ndarray, dict]:
+        """Read a geographic raster as (data, metadata) from the store.
+
+        Parameters
+        ----------
+        name : str
+            Raster name, e.g. ``"watershed_dem"``, ``"watershed_box_buff_dem"``.
+
+        Returns
+        -------
+        (np.ndarray, dict)
+            Data array and metadata dict with ``transform``, ``crs``, ``nodata``.
+
+        Raises
+        ------
+        KeyError
+            If the raster is not found in the store.
+        """
+        if self._store is None:
+            raise KeyError(
+                f"Geographic raster '{name}' unavailable: no store attached. "
+                "Use GeographicArtifacts.from_store(store) or persist_geographic_to_store() first."
+            )
+        data = self._store.read_geographic_raster(name)
+        meta = self._store.read_geographic_raster_metadata(name)
+        return data, meta
+
+    def read_feature(self, name: str):
+        """Read a vector feature from the store as a GeoDataFrame.
+
+        Parameters
+        ----------
+        name : str
+            Feature name, e.g. ``"watershed"``, ``"river_network"``.
+        """
+        if self._store is None:
+            raise KeyError(f"Feature '{name}' unavailable: no store attached.")
+        return self._store.read_features(name)
+
+    def feature_path(self, name: str, output_dir: Path | str) -> Path:
+        """Materialize a vector feature to a temp shapefile.
+
+        Needed by downstream plotting functions that expect file paths.
+        The file is written to *output_dir* and should be cleaned up by
+        the caller (e.g. via ``tempfile.TemporaryDirectory``).
+        """
+        gdf = self.read_feature(name)
+        out = Path(output_dir) / f"{name}.shp"
+        gdf.to_file(str(out))
+        return out
+
+    @classmethod
+    def from_store(cls, store: Any) -> GeographicArtifacts:
+        """Build artifacts backed by a ResultStore (no filesystem needed)."""
+        return cls(_store=store)
 
     @classmethod
     def discover(cls, geographic_dir: Path) -> GeographicArtifacts:
@@ -44,10 +111,8 @@ class GeographicArtifacts:
             p = geographic_dir / f"{name}.{ext}"
             return p if p.exists() else None
 
-        # River network shapefile (produced when river_network.enabled = true)
         river_shp = _find("river_network", "shp")
 
-        # Flow accumulation raster (always produced by geographic preprocessing)
         dem_acc: Path | None = None
         if correcflow_dir is not None:
             p = correcflow_dir / "dem_acc.tif"
@@ -68,88 +133,18 @@ class GeographicArtifacts:
 
 @dataclass(frozen=True)
 class RunArtifacts:
-    """Paths to simulation output artifacts for one run."""
+    """Lightweight descriptor for one simulation run.
+
+    All data is read from the ``ResultStore`` (DuckDB + Zarr).
+    """
 
     run_id: str
-    run_dir: Path
-    postprocess_dir: Path
-
-    # Solver grid
-    solver_grid_template: Path | None = None
-
-    # Watertable arrays (.npy, dict[int, ndarray])
-    watertable_elevation_npy: Path | None = None
-    watertable_depth_npy: Path | None = None
-
-    # Budget arrays
-    outflow_drain_npy: Path | None = None
-    seepage_areas_npy: Path | None = None
-    groundwater_flux_npy: Path | None = None
-    groundwater_storage_npy: Path | None = None
-    accumulation_flux_npy: Path | None = None
-
-    # Raster snapshots (list of .tif per stress period)
-    watertable_elevation_rasters: list[Path] = field(default_factory=list)
-    watertable_depth_rasters: list[Path] = field(default_factory=list)
-    seepage_areas_rasters: list[Path] = field(default_factory=list)
-    outflow_drain_rasters: list[Path] = field(default_factory=list)
-
-    # Particles
-    pathlines_weighted_shp: Path | None = None
-    starting_weighted_shp: Path | None = None
-
-    # Simulated time series CSV
-    simulated_timeseries_csv: Path | None = None
+    run_dir: Path | None = None
 
     @classmethod
     def discover(cls, run_dir: Path) -> RunArtifacts:
-        """Scan a run directory and return found artifacts."""
-        run_id = run_dir.name
-        pp = run_dir / "_postprocess"
-
-        def _npy(name: str) -> Path | None:
-            p = pp / f"{name}.npy"
-            return p if p.exists() else None
-
-        def _rasters(prefix: str) -> list[Path]:
-            rasters_dir = pp / "_rasters"
-            if not rasters_dir.is_dir():
-                return []
-            return sorted(rasters_dir.glob(f"{prefix}_t(*).tif"))
-
-        def _particle_shp(name: str) -> Path | None:
-            p = pp / "_particles" / f"{name}.shp"
-            return p if p.exists() else None
-
-        solver_tpl = run_dir / "_solver_grid_template.tif"
-        ts_csv = pp / "_timeseries" / "_simulated_timeseries.csv"
-
-        return cls(
-            run_id=run_id,
-            run_dir=run_dir,
-            postprocess_dir=pp,
-            solver_grid_template=solver_tpl if solver_tpl.exists() else None,
-            watertable_elevation_npy=_npy("watertable_elevation"),
-            watertable_depth_npy=_npy("watertable_depth"),
-            outflow_drain_npy=_npy("outflow_drain"),
-            seepage_areas_npy=_npy("seepage_areas"),
-            groundwater_flux_npy=_npy("groundwater_flux"),
-            groundwater_storage_npy=_npy("groundwater_storage"),
-            accumulation_flux_npy=_npy("accumulation_flux"),
-            watertable_elevation_rasters=_rasters("watertable_elevation"),
-            watertable_depth_rasters=_rasters("watertable_depth"),
-            seepage_areas_rasters=_rasters("seepage_areas"),
-            outflow_drain_rasters=_rasters("outflow_drain"),
-            pathlines_weighted_shp=_particle_shp("pathlines_weighted"),
-            starting_weighted_shp=_particle_shp("starting_weighted"),
-            simulated_timeseries_csv=ts_csv if ts_csv.exists() else None,
-        )
-
-    def base_raster(self, geographic: GeographicArtifacts) -> Path | None:
-        """Return the best available base raster for map overlays."""
-        if self.solver_grid_template is not None:
-            return self.solver_grid_template
-        return geographic.watershed_dem
+        """Create a run artifact from a directory name."""
+        return cls(run_id=run_dir.name, run_dir=run_dir)
 
 
 @dataclass(frozen=True)
@@ -162,15 +157,22 @@ class PosthocContext:
 
     @classmethod
     def from_project_dir(cls, project_dir: Path) -> PosthocContext:
-        """Build a context by scanning ``results_stable/`` and ``results_simulations/``."""
+        """Build a context by scanning output directories.
+
+        Checks ``.solver_scratch/`` first, then falls back to
+        ``results_simulations/`` for legacy layouts.
+        """
         project_dir = Path(project_dir).resolve()
 
-        geo_dir = project_dir / "results_stable" / "geographic"
+        from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+        geo_dir = project_dir / LEGACY_STABLE_DIR / "geographic"
         geographic = GeographicArtifacts.discover(geo_dir)
 
-        sims_dir = project_dir / "results_simulations"
         runs: list[RunArtifacts] = []
-        if sims_dir.is_dir():
+        for folder_name in (".solver_scratch", "results_simulations"):
+            sims_dir = project_dir / folder_name
+            if not sims_dir.is_dir():
+                continue
             for run_dir in sorted(sims_dir.iterdir()):
                 if run_dir.is_dir() and not run_dir.name.startswith("_"):
                     pp = run_dir / "_postprocess"
@@ -198,42 +200,31 @@ class PosthocContext:
         project_dir: Path,
         store,
     ) -> PosthocContext:
-        """Build a context using ``ResultStore.list_simulations()`` for run discovery.
+        """Build a context from the ResultStore (preferred, no filesystem needed).
 
-        Falls back to filesystem scanning for geographic artifacts (those
-        are not stored in the ResultStore).
+        Geographic data is read from the store. Run artifacts (particles,
+        solver grid template) are still discovered on disk when available.
 
         Parameters
         ----------
         project_dir : Path
-            Project root directory (for geographic artifacts).
+            Project root directory.
         store : ResultStore
             An open ResultStore instance.
         """
         project_dir = Path(project_dir).resolve()
 
-        geo_dir = project_dir / "results_stable" / "geographic"
-        geographic = GeographicArtifacts.discover(geo_dir)
+        geographic = GeographicArtifacts.from_store(store)
 
-        sims_df = store.list_simulations()
+        # Discover run artifacts from solver scratch / results_simulations.
         runs: list[RunArtifacts] = []
-        sims_dir = project_dir / "results_simulations"
-
-        for _, row in sims_df.iterrows():
-            sim_id = row.get("sim_id", "")
-            run_name = row.get("name") or sim_id
-            run_dir = sims_dir / run_name
-            if run_dir.is_dir():
-                pp = run_dir / "_postprocess"
-                if pp.is_dir():
-                    runs.append(RunArtifacts.discover(run_dir))
-
-        if not runs and sims_dir.is_dir():
+        for folder_name in (".solver_scratch", "results_simulations"):
+            sims_dir = project_dir / folder_name
+            if not sims_dir.is_dir():
+                continue
             for run_dir in sorted(sims_dir.iterdir()):
                 if run_dir.is_dir() and not run_dir.name.startswith("_"):
-                    pp = run_dir / "_postprocess"
-                    if pp.is_dir():
-                        runs.append(RunArtifacts.discover(run_dir))
+                    runs.append(RunArtifacts.discover(run_dir))
 
         return cls(
             project_dir=project_dir,

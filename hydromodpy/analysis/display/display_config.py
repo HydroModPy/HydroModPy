@@ -34,6 +34,10 @@ class FlowDisplayConfig(BaseModel):
         default=True,
         description="Render the flow cross-section plot.",
     )
+    cross_section_column: Annotated[int | None, ParamLevel("dev")] = Field(
+        default=None,
+        description="Column index for cross-section slice (0-based). Defaults to middle column.",
+    )
     streamflow: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Render the streamflow comparison plot.",
@@ -78,6 +82,14 @@ class FlowDisplayConfig(BaseModel):
         default=True,
         description="Render the final Boussinesq edge-flux map when flux arrays are available.",
     )
+    drainage_density: Annotated[bool, ParamLevel("user")] = Field(
+        default=True,
+        description="Render drainage density time series (perennial vs intermittent).",
+    )
+    persistency_map: Annotated[bool, ParamLevel("user")] = Field(
+        default=True,
+        description="Render persistency index spatial map.",
+    )
 
     def to_section_options(self) -> "DisplaySectionOptions":
         """Convert validated flow flags into the lightweight runtime container."""
@@ -86,6 +98,7 @@ class FlowDisplayConfig(BaseModel):
             enabled=self.enabled,
             flags={
                 "cross_section": self.cross_section,
+                "cross_section_column": self.cross_section_column,
                 "streamflow": self.streamflow,
                 "piezometry": self.piezometry,
                 "watertable_map": self.watertable_map,
@@ -97,6 +110,8 @@ class FlowDisplayConfig(BaseModel):
                 "boussinesq_mass_balance": self.boussinesq_mass_balance,
                 "boussinesq_probes": self.boussinesq_probes,
                 "boussinesq_edge_flux": self.boussinesq_edge_flux,
+                "drainage_density": self.drainage_density,
+                "persistency_map": self.persistency_map,
             },
         )
 
