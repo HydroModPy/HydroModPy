@@ -206,6 +206,23 @@ def test_launchers_cli_simulation_dispatches_to_launcher(monkeypatch) -> None:
     assert captured["config"] == config_path.resolve()
 
 
+def test_launchers_cli_data_overview_run_dispatches_to_launcher(monkeypatch) -> None:
+    module = _load_module()
+    captured: dict[str, Path] = {}
+
+    config_path = Path("sample_data_overview.toml")
+
+    def _fake_runner(path: Path) -> None:
+        captured["config"] = path
+
+    monkeypatch.setattr(module, "_run_data_overview_launcher", _fake_runner)
+
+    code = module.main(["data-overview", "run", str(config_path)])
+
+    assert code == 0
+    assert captured["config"] == config_path.resolve()
+
+
 def test_launchers_cli_mesh_catchment_run_dispatches_to_launcher(monkeypatch) -> None:
     module = _load_module()
     captured: dict[str, Path] = {}

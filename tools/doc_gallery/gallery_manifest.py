@@ -113,6 +113,15 @@ CATEGORY_SPECS: dict[str, GalleryCategorySpec] = {
             "DEM-based views, and the local data overlays that feed later modelling steps."
         ),
     ),
+    "simulation": GalleryCategorySpec(
+        slug="simulation",
+        title="Simulation Workflows",
+        deck="End-to-end solver runs rendered as stable documentation artifacts.",
+        intro=(
+            "These cases show complete launcher workflows: preprocessing, solver execution, "
+            "transport when relevant, and the compact figures used to inspect the result."
+        ),
+    ),
 }
 
 
@@ -328,6 +337,70 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
                     caption="Local watershed framing copied from versioned example outputs.",
                     alt_text="Watershed local overview",
                     source_path="examples/results/example13data/results_stable/_figures/watershed_local.png",
+                ),
+            ),
+        ),
+        GalleryCaseSpec(
+            slug="modflow6_gmsh_mesh_catchment",
+            title="MODFLOW 6 on a Gmsh Catchment Mesh",
+            category="simulation",
+            deck="End-to-end launcher run with embedded Gmsh meshing, MODFLOW 6 flow, and GWT transport.",
+            summary=(
+                "This case keeps the standard process_simulation launcher while using "
+                "mesh_catchment to build a triangular Gmsh mesh before MODFLOW 6. "
+                "Only selected synthesis figures are committed to the gallery; the full "
+                "solver workspace remains a reproducible run artifact."
+            ),
+            what_it_shows=(
+                "How MODFLOW 6 consumes the same runtime Gmsh mesh contract used by other solvers.",
+                "How the flow-state triptych relates topography, hydraulic head, and water-table depth.",
+                "How cumulative recharge and discharge can be inspected without committing a full run folder.",
+            ),
+            reproduction_command=(
+                "python -m hydromodpy run examples/projects/launcher_simulation/"
+                "run_fast_mf6_mesh_catchment.toml"
+            ),
+            source_paths=(
+                "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
+                "examples/projects/launcher_simulation/config_mf6_mesh_catchment_common.toml",
+                "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/manifest.json",
+                "hydromodpy/analysis/display/figures/flow_synthesis.py",
+                "hydromodpy/analysis/capability_gallery.py",
+            ),
+            generator="copy_assets",
+            image_assets=(
+                GalleryImageAsset(
+                    filename="modflow6_gmsh_flow_state_triptych.png",
+                    caption=(
+                        "Solver-agnostic flow-state synthesis: topography, hydraulic head, "
+                        "and water-table depth on the same triangular mesh."
+                    ),
+                    alt_text="Triptych showing topography, hydraulic head, and water-table depth on a Gmsh mesh",
+                    source_path=(
+                        "examples/capability_gallery/launcher_simulation/"
+                        "modflow6_gmsh_mesh_catchment/flow_state_triptych.png"
+                    ),
+                ),
+                GalleryImageAsset(
+                    filename="modflow6_gmsh_recharge_discharge_cumulative.png",
+                    caption="Cumulative recharge and discharge curves from the same launcher run.",
+                    alt_text="Cumulative recharge and discharge curves",
+                    source_path=(
+                        "examples/capability_gallery/launcher_simulation/"
+                        "modflow6_gmsh_mesh_catchment/recharge_discharge_cumulative.png"
+                    ),
+                ),
+                GalleryImageAsset(
+                    filename="modflow6_gmsh_support_overview.png",
+                    caption=(
+                        "Runtime support diagnostic showing mesh supports, stream support, "
+                        "boundary labels, and resolved wells."
+                    ),
+                    alt_text="Runtime Gmsh support overview used by MODFLOW 6",
+                    source_path=(
+                        "examples/capability_gallery/launcher_simulation/"
+                        "modflow6_gmsh_mesh_catchment/flow_support_overview.png"
+                    ),
                 ),
             ),
         ),

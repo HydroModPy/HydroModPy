@@ -269,6 +269,15 @@ class GeographicConfig(BaseModel):
             "When disabled, no stream network is generated in geographic preprocessing."
         ),
     )
+    reuse_existing_outputs: Annotated[bool, ParamLevel("user")] = Field(
+        default=False,
+        description=(
+            "If true, reuse previously generated geographic artifacts when the "
+            "cached fingerprint matches the current DEM, outlet/polygon and "
+            "geographic settings. This is useful for profiling repeated "
+            "simulation runs in the same workspace."
+        ),
+    )
 
     def uses_synthetic_geographic(self) -> bool:
         """Return True when the analytical synthetic geographic mode is selected."""

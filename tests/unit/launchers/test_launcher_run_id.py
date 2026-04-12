@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.core.state.run_state import LauncherRunState
+from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
 
 from launchers.process_simulation.launcher import HydroModPyLauncher
 
@@ -288,6 +289,31 @@ def test_resolve_optional_mesh_input_resolves_relative_paths(tmp_path: Path) -> 
             (launcher.config_path.parent / "mesh/external_mesh_bundle").resolve()
         ),
     }
+
+
+def test_launcher_rejects_modflownwt_with_runtime_gmsh_mesh() -> None:
+    launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
+    launcher.mesh_section_data = None
+    launcher.external_mesh_input = {
+        "mesh_path": "mesh/external_mesh.msh",
+        "bundle_dir": "mesh/external_mesh_bundle",
+    }
+
+    plan = SimulationPlan(
+        name="demo",
+        description="demo",
+        runs=(
+            ProcessRun(
+                id="flow_main::modflownwt",
+                process_id="flow_main",
+                process_type="flow",
+                solver="modflownwt",
+            ),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="modflownwt.*structured sgrid backend"):
+        launcher._validate_runtime_mesh_solver_compatibility(plan)
 
 
 def test_run_setup_does_not_declare_unused_geology_zone(monkeypatch) -> None:

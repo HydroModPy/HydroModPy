@@ -38,6 +38,15 @@ This section groups a small set of static, versioned illustrations that explain 
       ^^^
       Pre-solver watershed and data-overview figures that explain how one domain is assembled.
 
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: simulation
+      :link-type: doc
+
+      **Simulation Workflows**
+      ^^^
+      End-to-end solver runs rendered as stable documentation artifacts.
+
 .. toctree::
    :hidden:
    :maxdepth: 1
@@ -45,3 +54,4 @@ This section groups a small set of static, versioned illustrations that explain 
    mesh
    validation
    geographic
+   simulation

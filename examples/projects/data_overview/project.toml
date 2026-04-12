@@ -1,6 +1,8 @@
 # ======================================================================
 # HydroModPy Configuration (data-only example)
-# launcher_data_overtiew: setup + domain + data loading, without process execution.
+# data-overview launcher: setup + domain + data loading, without process execution.
+# Canonical CLI:
+#   python -m launchers data-overview run examples/projects/data_overview/project.toml
 # ======================================================================
 
 [workspace]

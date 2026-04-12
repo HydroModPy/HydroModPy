@@ -54,6 +54,7 @@ from typing import TYPE_CHECKING, Any
 import hydromodpy as hmp
 from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.analysis.capability_gallery import publish_run_to_capability_gallery
 from hydromodpy.spatial.domain import Domain
 from hydromodpy.spatial.domain.spatial_support import (
     SupportBuildContext,
@@ -322,6 +323,7 @@ class HydroModPyLauncher:
         run_state = self.run_state
         execution_state = run_state.execution
         plan = self._create_simulation_plan()
+        self._validate_runtime_mesh_solver_compatibility(plan)
         execution_state.simulation_plan = plan
         # Keep a direct lookup table by run id because downstream code often
         # needs concrete run-level lookup, not just the flat list.
@@ -347,6 +349,37 @@ class HydroModPyLauncher:
         self._save_run_artifacts(run_state, wall_seconds)
 
         return run_state
+
+    def _validate_runtime_mesh_solver_compatibility(self, plan) -> None:
+        """Reject unsupported flow solvers when the launcher injects a Gmsh mesh.
+
+        `process_simulation` keeps a single launcher entry point for all flow
+        backends. Runtime Gmsh meshes therefore remain a launcher-level option
+        (`[mesh_catchment]` or `[mesh_input]`), not a separate launcher family.
+
+        Today, only Boussinesq and MODFLOW 6 consume that runtime mesh contract.
+        MODFLOW-NWT still relies on its structured `sgrid` backend and should
+        fail early with a clear message instead of silently ignoring the mesh.
+        """
+        if self.mesh_section_data is None and self.external_mesh_input is None:
+            return
+
+        uses_modflow_nwt = any(
+            getattr(run, "process_type", None) == "flow"
+            and str(getattr(run, "solver", "")).strip().lower() == "modflownwt"
+            for run in getattr(plan, "runs", ())
+        )
+        if not uses_modflow_nwt:
+            return
+
+        mesh_source = "[mesh_input]" if self.external_mesh_input is not None else "[mesh_catchment]"
+        raise ValueError(
+            f"{mesh_source} provides a runtime Gmsh mesh in process_simulation, "
+            "but flow solver 'modflownwt' still supports only the structured "
+            "sgrid backend. Use 'modflow6' (or 'boussinesq') with the same "
+            f"{mesh_source} block, or remove {mesh_source} and configure "
+            "[modflownwt.sgrid.planar] instead."
+        )
 
     def _save_run_artifacts(self, run_state: LauncherRunState, wall_seconds: float) -> None:
         """Save config snapshot and metrics into the run output folder."""
@@ -387,6 +420,21 @@ class HydroModPyLauncher:
             metrics_path.write_text(json.dumps(metrics, indent=2))
         except Exception:
             pass
+
+        gallery_cfg = getattr(run_state.cfg, "capability_gallery", None)
+        if gallery_cfg is not None and getattr(gallery_cfg, "enabled", False):
+            manifest = publish_run_to_capability_gallery(
+                run_id=str(run_id),
+                run_folder=run_folder,
+                config=gallery_cfg,
+                solvers=tuple(str(solver) for solver in solvers_used),
+            )
+            if manifest is not None:
+                metrics["capability_gallery_manifest"] = manifest
+                try:
+                    metrics_path.write_text(json.dumps(metrics, indent=2))
+                except Exception:
+                    pass
 
     def _build_geographic_runtime(self, workspace):
         """Build the geographic runtime selected by the validated TOML config."""

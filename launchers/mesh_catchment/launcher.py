@@ -71,8 +71,7 @@ class MeshCatchmentLauncher:
                 domain_cfg=self.domain_cfg,
                 run_single_workflow=self._run_single_workflow,
             )
-            self.batch_runner.validate_output_configuration(self.batch_cfg)
-            self.batch_runner.validate_raster_coverage(self.batch_cfg)
+            self.batch_runner.run_preflight(self.batch_cfg)
 
     def _normalize_workspace_section(
         self,

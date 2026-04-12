@@ -1532,31 +1532,56 @@ class Modflow6(Solver):
 					writer.writerow(["time_index", "time", "cell_id", "value"])
 					for tidx, time_value in enumerate(times_array.tolist()):
 						for cell_id, cell_value in enumerate(values[tidx].tolist()):
-							writer.writerow([int(tidx), float(time_value), int(cell_id), float(cell_value)])
+							writer.writerow(
+								[
+									int(tidx),
+									float(time_value),
+									int(cell_id),
+									float(cell_value),
+								]
+							)
 
 		if getattr(options, "native_mesh_vtu", False):
-			from hydromodpy.spatial.mesh.io import write_vtu
+			try:
+				from hydromodpy.spatial.mesh.io import write_vtu
 
-			for tidx, time_value in enumerate(times_array.tolist()):
-				cell_fields = {"cell_id": cell_ids.astype(float, copy=False)}
-				for name, values in cell_series.items():
-					cell_fields[str(name)] = np.asarray(values[tidx], dtype=float).reshape(-1)
-				mesh_with_data = self.solver_mesh.planar_mesh.with_cell_data(**cell_fields)
-				write_vtu(
-					os.path.join(mesh_dir, f"{prefix}_t({int(tidx)})_time({float(time_value):.12g}).vtu"),
-					mesh_with_data,
-				)
+				for tidx, _time_value in enumerate(times_array.tolist()):
+					cell_fields = {
+						"cell_id": cell_ids.astype(float, copy=False),
+						"top_elevation": np.asarray(self.solver_mesh.top, dtype=float).reshape(-1),
+					}
+					for name, values in cell_series.items():
+						cell_fields[str(name)] = np.asarray(values[tidx], dtype=float).reshape(-1)
+					mesh_with_data = self.solver_mesh.planar_mesh.with_cell_data(**cell_fields)
+					write_vtu(
+						os.path.join(mesh_dir, f"{prefix}_t({int(tidx)}).vtu"),
+						mesh_with_data,
+					)
+			except ImportError as exc:
+				logger.warning("Skipping native mesh VTU export: %s", exc)
 
 		if getattr(options, "native_mesh_png", False):
 			import matplotlib
 
 			matplotlib.use("Agg", force=True)
 			import matplotlib.pyplot as plt
+			from matplotlib.ticker import ScalarFormatter
+			from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 			from hydromodpy.spatial.mesh.plotting import plot_cell_values
 
 			figure_dir = os.path.join(self.save_file, "_figures", "native_mesh")
 			toolbox.create_folder(figure_dir)
+			field_styles = {
+				"watertable_elevation": ("Hydraulic head", "Head [m]", "viridis"),
+				"watertable_depth": ("Water-table depth", "Top - h [m]", "Blues"),
+				"seepage_areas": ("Seepage areas", "Seepage [m/day]", "Reds"),
+				"outflow_drain": ("Drain discharge", "Discharge [m/day]", "magma"),
+				"accumulation_flux": ("Accumulation flux", "Accumulated flow [m/day]", "plasma"),
+				"concentration_seepage": ("Seepage concentration", "Concentration [-]", "viridis"),
+				"mass_seepage": ("Seepage mass", "Mass [-]", "cividis"),
+				"mass_accumulated": ("Accumulated mass", "Accumulated mass [-]", "inferno"),
+			}
 
 			for name, values in cell_series.items():
 				for tidx, time_value in enumerate(times_array.tolist()):
@@ -1572,25 +1597,46 @@ class Modflow6(Solver):
 					if np.isclose(vmin, vmax):
 						vmax = vmin + 1.0
 
-					fig, ax = plt.subplots(figsize=(7.0, 6.0), dpi=200)
+					field_title, colorbar_label, cmap = field_styles.get(
+						str(name),
+						(str(name).replace("_", " ").title(), str(name).replace("_", " "), "viridis"),
+					)
+					fig, ax = plt.subplots(figsize=(7.2, 6.0), dpi=220)
 					mappable = plot_cell_values(
 						ax,
 						self.solver_mesh.planar_mesh,
 						flat,
-						cmap="viridis",
+						cmap=cmap,
 						show_mesh=True,
 						vmin=vmin,
 						vmax=vmax,
 					)
-					ax.set_title(f"{prefix} {name} | t={float(time_value):.12g}")
-					ax.set_xlabel("x (m)")
-					ax.set_ylabel("y (m)")
-					fig.colorbar(mappable, ax=ax, shrink=0.9, label=name.replace("_", " "))
-					fig.tight_layout()
+					ax.set_title(
+						f"{field_title} | t={float(time_value):.12g} s",
+						fontsize=10.5,
+						loc="left",
+						pad=5.0,
+					)
+					ax.set_xlabel("x (m)", fontsize=9)
+					ax.set_ylabel("y (m)", fontsize=9)
+					ax.ticklabel_format(style="plain", axis="both", useOffset=False)
+					ax.tick_params(axis="both", labelsize=8, length=3.0, pad=2.0)
+
+					divider = make_axes_locatable(ax)
+					cax = divider.append_axes("right", size="3.8%", pad=0.06)
+					cbar = fig.colorbar(mappable, cax=cax)
+					cbar.set_label(colorbar_label, fontsize=8.5, labelpad=6.0)
+					cbar.ax.tick_params(labelsize=7.5, length=2.5, pad=1.5)
+					formatter = ScalarFormatter(useMathText=True)
+					formatter.set_powerlimits((-2, 3))
+					cbar.formatter = formatter
+					cbar.update_ticks()
+
+					fig.subplots_adjust(left=0.08, right=0.94, bottom=0.11, top=0.9)
 					fig.savefig(
 						os.path.join(
 							figure_dir,
-							f"{prefix}_{name}_t({int(tidx)})_time({float(time_value):.12g}).png",
+							f"{prefix}_{name}_t({int(tidx)}).png",
 						),
 						bbox_inches="tight",
 					)
@@ -1774,7 +1820,7 @@ class Modflow6(Solver):
 
 		node_x_m = np.asarray(getattr(support, "node_x_m", ()), dtype=float).reshape(-1)
 		node_y_m = np.asarray(getattr(support, "node_y_m", ()), dtype=float).reshape(-1)
-		fig, axs = plt.subplots(1, 2, figsize=(14.0, 6.0), dpi=200)
+		fig, axs = plt.subplots(1, 2, figsize=(14.8, 6.4), dpi=220)
 		ax_active, ax_labels = axs
 
 		for ax in (ax_active, ax_labels):
@@ -1782,8 +1828,10 @@ class Modflow6(Solver):
 			ax.set_aspect("equal")
 			ax.set_xlim(float(np.min(node_x_m)), float(np.max(node_x_m)))
 			ax.set_ylim(float(np.min(node_y_m)), float(np.max(node_y_m)))
-			ax.set_xlabel("x (m)")
-			ax.set_ylabel("y (m)")
+			ax.set_xlabel("x (m)", fontsize=9)
+			ax.set_ylabel("y (m)", fontsize=9)
+			ax.ticklabel_format(style="plain", axis="both", useOffset=False)
+			ax.tick_params(axis="both", labelsize=8, length=3.0, pad=2.0)
 
 		active_handles: list[object] = []
 		for label, cell_ids, color in self._support_overlay_specs():
@@ -1844,7 +1892,7 @@ class Modflow6(Solver):
 					float(item["x_m"]),
 					float(item["y_m"]),
 					str(item["id"]),
-					fontsize=8,
+					fontsize=7.5,
 					color="black",
 					ha="left",
 					va="bottom",
@@ -1893,7 +1941,7 @@ class Modflow6(Solver):
 				x_mid,
 				y_mid,
 				label,
-				fontsize=8,
+				fontsize=7.5,
 				color=color,
 				ha="center",
 				va="center",
@@ -1904,12 +1952,28 @@ class Modflow6(Solver):
 				Line2D([0], [0], color=color, lw=2.4, label=label)
 			)
 
-		ax_active.set_title("Active runtime supports")
-		ax_labels.set_title("Available support labels")
+		ax_active.set_title("Active supports", fontsize=10.5, loc="left", pad=5.0)
+		ax_labels.set_title("Support labels", fontsize=10.5, loc="left", pad=5.0)
 		if active_handles:
-			ax_active.legend(handles=active_handles, loc="best", fontsize=8, frameon=True)
+			ax_active.legend(
+				handles=active_handles,
+				loc="upper center",
+				bbox_to_anchor=(0.5, -0.12),
+				ncol=min(3, len(active_handles)),
+				fontsize=7.5,
+				frameon=True,
+				framealpha=0.92,
+			)
 		if label_handles:
-			ax_labels.legend(handles=label_handles, loc="best", fontsize=8, frameon=True)
+			ax_labels.legend(
+				handles=label_handles,
+				loc="upper center",
+				bbox_to_anchor=(0.5, -0.12),
+				ncol=min(3, len(label_handles)),
+				fontsize=7.5,
+				frameon=True,
+				framealpha=0.92,
+			)
 		else:
 			ax_labels.text(
 				0.5,
@@ -1918,11 +1982,12 @@ class Modflow6(Solver):
 				transform=ax_labels.transAxes,
 				ha="center",
 				va="center",
-				fontsize=10,
+				fontsize=9,
 				color="0.35",
 			)
 
-		fig.tight_layout()
+		fig.suptitle("Runtime support overview", fontsize=11.5, y=0.96)
+		fig.subplots_adjust(left=0.055, right=0.985, bottom=0.2, top=0.88, wspace=0.12)
 		fig.savefig(
 			os.path.join(figure_dir, "flow_support_overview.png"),
 			bbox_inches="tight",

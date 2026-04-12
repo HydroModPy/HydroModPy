@@ -1,9 +1,0 @@
-﻿base_config = "config_headwater_100km2.toml"
-
-[workspace]
-project_root = "C:/results/HydromodPy/mesh_catchment_debug/headwater_27/mesh"
-
-[mesh_catchment_batch]
-selection_mode = "selected"
-selected_outlet_ids = ["27"]
-outlets_table_path = "C:/Users/dreuzy/HydroModPy/catchment_identification_scan/headwater_100km2/exutoires_headwater_100km2.csv"

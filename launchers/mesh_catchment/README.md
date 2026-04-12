@@ -59,6 +59,10 @@ Run the curated smoke sequence:
 
 `python -m launchers.mesh_catchment.tools.run_all_configs`
 
+This smoke runner is a local regression convenience tool, not the primary
+public entry point. The public contract stays the launcher CLI plus the
+versioned TOML scenarios.
+
 ## Minimal Configs
 
 Minimal mono-catchment config when your TOML sits next to
@@ -98,6 +102,39 @@ The shared batch base already provides:
 - default output filename patterns,
 - the wider DEM and geology raster reference used by bundled batch scenarios.
 
+## Profiling And Fast Iteration
+
+For end-to-end `process_simulation` profiling, disable outputs that are
+expensive but not required to measure the solver and mesh path:
+
+```toml
+[mesh_catchment]
+figures_enabled = false
+export_exchange_bundle = false
+
+[geographic]
+reuse_existing_outputs = true
+
+[postprocess]
+profile = "solver_only"
+
+[display]
+enabled = false
+show = false
+save = false
+```
+
+`reuse_existing_outputs = true` is opt-in and fingerprinted. The first run still
+builds the geographic artifacts; following runs in the same workspace reuse
+them only when the DEM, outlet/polygon inputs and geographic settings match.
+
+`export_exchange_bundle = false` skips the mesh exchange bundle export. Use it
+only for mesh/profiling runs that do not need downstream solver bundle metadata.
+
+`postprocess.profile = "solver_only"` applies to `process_simulation`. It
+disables launcher-managed reports, displays, native mesh exports, NetCDF and
+timeseries exports while leaving the numerical solvers enabled.
+
 ## Package Map
 
 - `launcher.py`: dedicated launcher entry point and bootstrap logic.
@@ -112,6 +149,22 @@ The shared batch base already provides:
 - `config_batch_common.toml`: shared batch overlay.
 - `scenarios/`: versioned runnable examples.
 - `tools/run_all_configs.py`: curated smoke runner for bundled scenarios.
+
+## Versioned Contract
+
+Versioned package content should stay in one of these buckets:
+
+- runtime code: `*.py`
+- launcher contract and templates: `config_*.toml`
+- runnable examples: `scenarios/*.toml`
+- local regression helper: `tools/run_all_configs.py`
+
+Treat these as local-only artifacts, not versioned launcher contract:
+
+- `outputs/`
+- `scratch_tests/`
+- temporary `._run*.toml`
+- temporary or ad hoc `._debug*.toml`
 
 ## Current Docs Vs Design Notes
 
