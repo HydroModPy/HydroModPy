@@ -114,6 +114,10 @@ docs/readthedocs/source/_generated/
 **/results_stable/
 **/results_simulations/
 **/results_calibration/
+**/exports/
+**/projects/**/figures/
+**/project_results.zarr.db
+**/.solver_scratch/
 examples/results/
 catalog.db
 hydromodpy_debug.log
