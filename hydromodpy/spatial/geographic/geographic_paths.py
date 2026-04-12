@@ -37,17 +37,24 @@ class GeographicPaths:
     river_network_summary_json: str
 
 
-def build_geographic_paths(out_dir_path: str | Path) -> GeographicPaths:
+def build_geographic_paths(
+    out_dir_path: str | Path,
+    *,
+    stable_folder: str | Path | None = None,
+) -> GeographicPaths:
     """Build all standard path outputs for one geographic run."""
     out_dir = Path(out_dir_path)
-    stable_folder = out_dir / "results_stable"
-    simulations_folder = out_dir / "results_simulations"
-    geographic_path = stable_folder / "geographic"
-    correcflow_path = stable_folder / "demcorrecflow"
+    if stable_folder is not None:
+        stable = Path(stable_folder)
+    else:
+        from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+        stable = out_dir / LEGACY_STABLE_DIR
+    geographic_path = stable / "geographic"
+    correcflow_path = stable / "demcorrecflow"
 
     return GeographicPaths(
-        stable_folder=str(stable_folder),
-        simulations_folder=str(simulations_folder),
+        stable_folder=str(stable),
+        simulations_folder=str(out_dir / ".solver_scratch"),
         geographic_path=str(geographic_path),
         correcflow_path=str(correcflow_path),
         watershed=str(geographic_path / "watershed.tif"),
