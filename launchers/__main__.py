@@ -5,6 +5,7 @@ Usage::
     hmp simulation path/to/config.toml          # recommended
     python -m launchers simulation path/to/config.toml   # equivalent
     python -m launchers mesh-catchment run path/to/config.toml
+    python -m launchers method-comparison run path/to/config.toml
 
 Notes
 -----
@@ -119,6 +120,18 @@ def _run_model_calibration_launcher(config_path: Path) -> None:
     print(f"  primary_solver: {summary['primary_solver']}")
     print(f"  calibration_root: {summary['calibration_root']}")
     print(f"  cost_best: {summary['cost_best']}")
+
+
+def _run_method_comparison_launcher(config_path: Path) -> None:
+    """Execute the method-comparison launcher for one TOML configuration path."""
+    from launchers import MethodComparisonLauncher
+
+    summary = MethodComparisonLauncher(config_path).run()
+    print("Completed method-comparison run:")
+    print(f"  comparison_id: {summary['comparison_id']}")
+    print(f"  comparison_root: {summary['comparison_root']}")
+    print(f"  observables_csv: {summary['observables_csv']}")
+    print(f"  manifest_path: {summary['manifest_path']}")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -238,6 +251,37 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     calibration_template.set_defaults(_handler="model_calibration_template")
 
+    comparison_parser = subparsers.add_parser(
+        "method-comparison",
+        help="Method-comparison launcher family.",
+    )
+    comparison_commands = comparison_parser.add_subparsers(
+        dest="comparison_command",
+        required=True,
+    )
+    comparison_run = comparison_commands.add_parser(
+        "run",
+        help="Run a method-comparison launcher TOML.",
+    )
+    comparison_run.add_argument(
+        "config",
+        type=Path,
+        help="Path to launcher TOML file.",
+    )
+    comparison_run.set_defaults(_handler="method_comparison_run")
+
+    comparison_template = comparison_commands.add_parser(
+        "template",
+        help="Print a canonical TOML template for method-comparison.",
+    )
+    comparison_template.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Optional output path. When omitted, print the template to stdout.",
+    )
+    comparison_template.set_defaults(_handler="method_comparison_template")
+
     return parser
 
 
@@ -298,6 +342,22 @@ def main(argv: list[str] | None = None) -> int:
         else:
             output_path = parsed.output.expanduser().resolve()
             write_model_calibration_template(output_path)
+            print(f"Wrote template: {output_path}")
+        return 0
+    if handler == "method_comparison_run":
+        _run_method_comparison_launcher(parsed.config.expanduser().resolve())
+        return 0
+    if handler == "method_comparison_template":
+        from launchers.method_comparison.templates import (
+            render_method_comparison_template,
+            write_method_comparison_template,
+        )
+
+        if parsed.output is None:
+            sys.stdout.write(render_method_comparison_template())
+        else:
+            output_path = parsed.output.expanduser().resolve()
+            write_method_comparison_template(output_path)
             print(f"Wrote template: {output_path}")
         return 0
 

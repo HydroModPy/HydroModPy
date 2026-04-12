@@ -9,6 +9,7 @@ partir de la convention de nommage retenue :
 
 - `data_overview/` : pour `DataOverviewLauncher`
 - `process_simulation/` : pour `ProcessSimulationLauncher`
+- `method_comparison/` : pour `MethodComparisonLauncher`
 - `model_calibration/` : pour `ModelCalibrationLauncher`
 - `hydro_cal_val/` : pour `HydroCalValLauncher`
 - `mesh_catchment/` : pour `MeshCatchmentLauncher`
@@ -18,6 +19,9 @@ partir de la convention de nommage retenue :
 - `DataOverviewLauncher` : illustration, visualisation et inventaire des
   donnees et de la configuration disponibles pour un site, sans simulation.
 - `ProcessSimulationLauncher` : execution des simulations de processus.
+- `MethodComparisonLauncher` : orchestration de variantes maillage/solveur
+  pour un meme probleme et extraction d'observables comparables depuis les
+  postprocess disque.
 - `ModelCalibrationLauncher` : orchestration des workflows de calibration.
 - `HydroCalValLauncher` : mise en place d'une strategie hydrologique de
   calibration-validation.
@@ -42,9 +46,21 @@ Commande recommandee pour la famille mesh-catchment :
 
 `python -m launchers mesh-catchment run <path/to/config.toml>`
 
+Commande recommandee pour comparer des methodes de resolution :
+
+`python -m launchers method-comparison run <path/to/config.toml>`
+
+Alias CLI principal :
+
+`hmp compare <path/to/config.toml>`
+
 Generation d'un template canonique derive des schemas `pydantic` :
 
 `python -m launchers mesh-catchment template [--batch] [--profile user|dev|expert] [--output path/to/template.toml]`
+
+Template method-comparison :
+
+`python -m launchers method-comparison template [--output path/to/template.toml]`
 
 Exemple de config prete a lancer :
 

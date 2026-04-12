@@ -27,6 +27,24 @@ def _make_dummy_launcher(captured: dict):
     return DummyLauncher
 
 
+def _make_dummy_method_comparison_launcher(captured: dict):
+    """Return a fake MethodComparisonLauncher class that records calls."""
+
+    class DummyLauncher:
+        def __init__(self, config_path):
+            captured["config_path"] = Path(config_path)
+
+        def run(self):
+            captured["run_called"] = True
+            return {
+                "comparison_id": "demo_compare",
+                "manifest_path": "comparison_manifest.json",
+                "observables_csv": "observables.csv",
+            }
+
+    return DummyLauncher
+
+
 def test_hmp_simulation_dispatches_to_launcher(monkeypatch, tmp_path) -> None:
     config = tmp_path / "config.toml"
     config.write_text("# test config\n", encoding="utf-8")
@@ -64,6 +82,26 @@ def test_hmp_run_dispatches_to_launcher(monkeypatch, tmp_path) -> None:
         _make_dummy_launcher(captured),
     )
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
+
+    main()
+
+    assert captured["config_path"] == config.resolve()
+    assert captured["run_called"] is True
+
+
+def test_hmp_compare_dispatches_to_method_comparison_launcher(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    config = tmp_path / "config_method_comparison.toml"
+    config.write_text("# test config\n", encoding="utf-8")
+
+    captured: dict = {}
+    monkeypatch.setattr(
+        "launchers.MethodComparisonLauncher",
+        _make_dummy_method_comparison_launcher(captured),
+    )
+    monkeypatch.setattr("sys.argv", ["hmp", "compare", str(config)])
 
     main()
 
