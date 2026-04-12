@@ -46,8 +46,9 @@ class Climatic:
         )
         logger.info('Initializing climatic module parameters')
 
-        self.data_folder = os.path.join(out_path, 'results_stable/climatic/')
-        self.drias_folder = os.path.join(out_path, 'results_stable/drias/')
+        stable = getattr(out_path, 'stable_folder', None) or os.path.join(str(out_path), 'results_stable')
+        self.data_folder = os.path.join(str(stable), 'climatic')
+        self.drias_folder = os.path.join(str(stable), 'drias')
         self.recharge = None
         self.runoff = None
 

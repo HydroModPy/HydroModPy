@@ -84,7 +84,7 @@ class Driasclimat:
 
         """
 
-        data_folder = os.path.join(out_path, 'results_stable/driasclimat')
+        data_folder = os.path.join(str(out_path), 'results_stable', 'driasclimat')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
 
