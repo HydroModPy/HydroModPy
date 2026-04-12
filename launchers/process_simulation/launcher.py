@@ -54,12 +54,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 import json
 import logging
+import shutil
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import hydromodpy as hmp
 from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.spatial.domain import Domain
 from hydromodpy.spatial.domain.spatial_support import (
@@ -385,8 +387,16 @@ class HydroModPyLauncher:
             ).execute(plan, run_state)
             wall_seconds = time.monotonic() - wall_start
 
-            # Save run artifacts into the run folder.
+            # Save run artifacts into the project root.
             self._save_run_artifacts(run_state, wall_seconds)
+
+            # Clean up solver scratch directory (deferred from per-run callback
+            # because transport solvers need the flow solver's output).
+            results_cfg = self.cfg.simulation.results
+            if not results_cfg.keep_solver_files:
+                scratch = run_state.setup.workspace.solver_scratch_folder
+                if scratch.exists():
+                    shutil.rmtree(scratch, ignore_errors=True)
 
             # Finalize the simulation in ResultStore with metadata.
             if self._result_store is not None:
@@ -397,6 +407,18 @@ class HydroModPyLauncher:
                     duration_s=wall_seconds,
                     process_types=process_types,
                 )
+
+            # Finalize geographic intermediates.
+            geo = run_state.setup.geographic
+            if geo is not None:
+                from hydromodpy.spatial.geographic.store_ingestion import (
+                    cleanup_stable_folder,
+                    dump_cached_rasters_to_disk,
+                )
+                geo_cfg = getattr(self.cfg, "geographic", None)
+                if geo_cfg is not None and getattr(geo_cfg, "write_intermediates", False):
+                    dump_cached_rasters_to_disk(geo)
+                cleanup_stable_folder(geo)
         finally:
             if self._result_store is not None:
                 self._result_store.close()
@@ -415,7 +437,7 @@ class HydroModPyLauncher:
         if callable(uses_synthetic) and uses_synthetic():
             return build_synthetic_geographic(
                 config=geographic_cfg.synthetic,
-                output_dir=Path(workspace.stable_folder) / "geographic",
+                output_dir=Path(workspace.project_root) / LEGACY_STABLE_DIR / "geographic",
                 workspace=workspace,
             )
         return hmp.Geographic(geographic_cfg, workspace)
@@ -464,8 +486,13 @@ class HydroModPyLauncher:
             geographic=setup_state.domain_geographic,
         )
 
-        # Set run_id from the simulation config.
-        setup_state.run_id = cfg.simulation.run_id or "default"
+        # Set run_id: explicit config > derive from TOML filename > "default".
+        if cfg.simulation.run_id:
+            setup_state.run_id = cfg.simulation.run_id
+        else:
+            import re
+            toml_path = getattr(self, "config_path", None) or run_state.config_path
+            setup_state.run_id = re.sub(r"^run_", "", Path(toml_path).stem) if toml_path else "default"
 
         # Eagerly create Flow/Transport so data binders can reference them.
         ensure_flow(run_state)
@@ -648,42 +675,19 @@ class HydroModPyLauncher:
     # ------------------------------------------------------------------
 
     def _save_run_artifacts(self, run_state: LauncherRunState, wall_seconds: float) -> None:
-        """Save config snapshot and metrics into the run output folder."""
-        run_id = run_state.setup.run_id
-        run_folder = run_state.setup.workspace.simulations_folder / run_id
-        run_folder.mkdir(parents=True, exist_ok=True)
+        """Save config snapshot into the project root.
 
-        # Config snapshot
-        snapshot_path = run_folder / "_config_snapshot.toml"
+        Metrics and solver information are already stored in project.duckdb
+        via ``ResultStore.register_simulation`` and ``ResultStore.finalize``.
+        Only the raw TOML snapshot is written as a convenience file.
+        """
+        project_root = run_state.setup.workspace.project_root
+
+        # Config snapshot in project root
+        snapshot_path = project_root / "_config_snapshot.toml"
         try:
             import tomli_w
             snapshot_path.write_bytes(tomli_w.dumps(run_state.raw_toml).encode())
-        except Exception:
-            pass
-
-        # Metrics
-        metrics_path = run_folder / "_metrics.json"
-        solvers_used = [
-            r.solver for r in (run_state.execution.simulation_plan.runs if run_state.execution.simulation_plan else ())
-        ]
-        metrics = {
-            "wall_time_seconds": round(wall_seconds, 2),
-            "solvers": solvers_used,
-            "success": True,
-        }
-        mesh_summary = run_state.setup.mesh_summary
-        if isinstance(mesh_summary, dict):
-            metrics["mesh_constraints_mode"] = mesh_summary.get("constraints_mode")
-            metrics["mesh_output_mesh"] = mesh_summary.get("output_mesh")
-            metrics["mesh_output_summary_json"] = mesh_summary.get(
-                "output_summary_json"
-            )
-            metrics["mesh_output_figure"] = mesh_summary.get("output_figure")
-            metrics["mesh_output_exchange_bundle_dir"] = mesh_summary.get(
-                "output_exchange_bundle_dir"
-            )
-        try:
-            metrics_path.write_text(json.dumps(metrics, indent=2))
         except Exception:
             pass
 
@@ -729,11 +733,21 @@ class HydroModPyLauncher:
             project_path=workspace.project_root,
             workspace_path=workspace.workspace_root,
         )
+        run_id = self.run_state.setup.run_id
         self._result_store.register_simulation(
             self._sim_id,
-            name=self.cfg.simulation.name,
+            name=run_id,
             solver=",".join(r.solver for r in self.run_state.execution.simulation_plan.runs),
+            run_id=run_id,
         )
+
+        # Persist geographic data so derived variables (accumulation_flux
+        # routing, etc.) can access the fill DEM from the store.
+        from hydromodpy.spatial.geographic.store_ingestion import persist_geographic_to_store
+
+        geographic = self.run_state.setup.geographic
+        if geographic is not None:
+            persist_geographic_to_store(geographic, self._result_store)
 
         # Inject store into postprocess runner for store-aware output.
         self.postprocess_runner.store = self._result_store
@@ -762,4 +776,5 @@ class HydroModPyLauncher:
             results_config=results_cfg,
             store=self._result_store,
             keep_solver_files=True,
+            run_id=self.run_state.setup.run_id,
         )
