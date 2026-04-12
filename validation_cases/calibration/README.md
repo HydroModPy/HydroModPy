@@ -58,3 +58,18 @@ Running multiple cases through `run_benchmarks.py` also produces one aggregate:
 - `benchmark_suite_summary.csv`
 - `benchmark_method_stats.json`
 - `benchmark_method_stats.csv`
+- `benchmark_suite_report.md`
+- suite figures such as:
+  - `benchmark_target_success_rates.png`
+  - `benchmark_cost_vs_budget.png`
+  - `benchmark_time_vs_cost.png`
+  - `benchmark_parameter_error_ratio.png`
+
+## Runner Notes
+
+`run_benchmarks.py` supports a few suite-level controls:
+
+- `--fast-only` or `--slow-only` to split quick CI coverage from the heavier suite;
+- `--evaluation-budget N` to apply one approximate common evaluation budget
+  across methods;
+- `--no-figures` to skip suite-level plots when only raw outputs are needed.

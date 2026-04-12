@@ -8,6 +8,19 @@ from pathlib import Path
 from typing import Any
 
 
+def _json_ready_mapping(mapping: Mapping[str, Any]) -> dict[str, Any]:
+    """Return one JSON-safe shallow mapping."""
+    normalized: dict[str, Any] = {}
+    for key, value in mapping.items():
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            normalized[str(key)] = value
+        elif isinstance(value, (list, tuple, dict)):
+            normalized[str(key)] = value
+        else:
+            normalized[str(key)] = str(value)
+    return normalized
+
+
 @dataclass(frozen=True, slots=True)
 class CalibrationMethodProfile:
     """Method configuration used in one standardized inverse benchmark."""
@@ -61,6 +74,8 @@ class TwinMethodBenchmarkResult:
     method_name: str
     method_instance_name: str
     success_metric: str
+    effective_method_kwargs: dict[str, Any]
+    requested_evaluation_budget: int | None
     calibration_id: str
     calibration_root: Path
     result_path: Path | None
@@ -73,8 +88,16 @@ class TwinMethodBenchmarkResult:
     repeat_index: int = 1
     seed: int | None = None
     calibration_time_seconds: float | None = None
+    time_per_evaluation_seconds: float | None = None
     failed_iteration_count: int = 0
     meets_success_target: bool = False
+    candidate_run_count: int = 0
+    objective_cache_hit_count: int = 0
+    objective_cache_hit_rate: float | None = None
+    block_raw_cost_best: dict[str, float] = field(default_factory=dict)
+    block_normalized_cost_best: dict[str, float] = field(default_factory=dict)
+    block_reference_scale: dict[str, float] = field(default_factory=dict)
+    block_n_values: dict[str, int] = field(default_factory=dict)
     model_distribution_path: Path | None = None
     model_distribution_sample_count: int = 0
     truth_in_distribution: bool | None = None
@@ -86,6 +109,8 @@ class TwinMethodBenchmarkResult:
             "method_name": self.method_name,
             "method_instance_name": self.method_instance_name,
             "success_metric": self.success_metric,
+            "effective_method_kwargs": _json_ready_mapping(self.effective_method_kwargs),
+            "requested_evaluation_budget": self.requested_evaluation_budget,
             "calibration_id": self.calibration_id,
             "calibration_root": str(self.calibration_root),
             "result_path": None if self.result_path is None else str(self.result_path),
@@ -95,8 +120,26 @@ class TwinMethodBenchmarkResult:
             "repeat_index": int(self.repeat_index),
             "seed": self.seed,
             "calibration_time_seconds": self.calibration_time_seconds,
+            "time_per_evaluation_seconds": self.time_per_evaluation_seconds,
             "failed_iteration_count": int(self.failed_iteration_count),
             "meets_success_target": bool(self.meets_success_target),
+            "candidate_run_count": int(self.candidate_run_count),
+            "objective_cache_hit_count": int(self.objective_cache_hit_count),
+            "objective_cache_hit_rate": self.objective_cache_hit_rate,
+            "block_raw_cost_best": {
+                str(name): float(value) for name, value in self.block_raw_cost_best.items()
+            },
+            "block_normalized_cost_best": {
+                str(name): float(value)
+                for name, value in self.block_normalized_cost_best.items()
+            },
+            "block_reference_scale": {
+                str(name): float(value)
+                for name, value in self.block_reference_scale.items()
+            },
+            "block_n_values": {
+                str(name): int(value) for name, value in self.block_n_values.items()
+            },
             "params_best": {
                 str(name): float(value) for name, value in self.params_best.items()
             },
