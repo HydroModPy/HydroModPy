@@ -24,7 +24,7 @@ class ModpathTransportAdapter:
             state.setup.domain,
             state.setup.transport,
             flow_model,
-            model_folder=state.setup.workspace.simulations_folder,
+            model_folder=state.setup.workspace.solver_scratch_folder,
             model_name=flow_model.model_name,
             bin_path=state.setup.workspace.bin_path,
         )
@@ -35,23 +35,9 @@ class ModpathTransportAdapter:
                 f"Transport solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
                 f"See {getattr(model_modpath, 'full_path', '<unknown>')} for diagnostics."
             )
-        model_modpath.post_processing(
-            model_modpath,
-            ending_point=True,
-            starting_point=True,
-            pathlines_shp=True,
-            particles_shp=True,
-            random_id=None,
-        )
-        model_modpath.filt_processing(
-            model_modpath,
-            norm_flux=True,
-            filt_time=True,
-            filt_seep=True,
-            filt_inout=True,
-            calc_rtd=False,
-            random_id=None,
-        )
+        # Legacy post_processing / filt_processing skipped:
+        # ModpathOutputAdapter.extract() reads pathlines/endpoints into
+        # the ResultStore (Zarr).  Shapefile generation is no longer needed.
         return RunExecutionResult(
             primary_model=model_modpath,
             solver_output_dir=Path(model_modpath.full_path) if hasattr(model_modpath, "full_path") else None,

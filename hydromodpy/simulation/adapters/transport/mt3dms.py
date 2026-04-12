@@ -27,7 +27,7 @@ class Mt3dmsTransportAdapter:
             state.setup.domain,
             state.setup.transport,
             flow_model,
-            model_folder=state.setup.workspace.simulations_folder,
+            model_folder=state.setup.workspace.solver_scratch_folder,
             model_name=flow_model.model_name,
             suffix_name=transport_output_suffix(ctx.plan, ctx.run),
             bin_path=state.setup.workspace.bin_path,
@@ -39,7 +39,6 @@ class Mt3dmsTransportAdapter:
                 f"Transport solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
                 f"See {getattr(model_transport, 'full_path', '<unknown>')} for diagnostics."
             )
-        model_transport.post_processing(model_transport)
         return RunExecutionResult(
             primary_model=model_transport,
             solver_output_dir=Path(model_transport.full_path) if hasattr(model_transport, "full_path") else None,
