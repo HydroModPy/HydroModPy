@@ -60,6 +60,7 @@ class ModelCalibrationParameterSchema(BaseModel):
         default=None,
         description="Optional hydraulic property label ('K' or 'Sy').",
     )
+    lithology_key: str | None = None
     mode: Literal["replace", "scale"] = "replace"
     parameterization: Literal["global_value", "global_factor", "lithology_value"] = (
         "global_value"
@@ -85,6 +86,25 @@ class ModelCalibrationParameterSchema(BaseModel):
                 f"{_SUPPORTED_HYDRAULIC_PROPERTIES}"
             )
         return text
+
+    @field_validator("lithology_key")
+    @classmethod
+    def _validate_lithology_key(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            raise ValueError("lithology_key cannot be empty")
+        return text
+
+    @model_validator(mode="after")
+    def _validate_lithology_parameterization(self) -> "ModelCalibrationParameterSchema":
+        if self.lithology_key is not None and self.parameterization != "lithology_value":
+            raise ValueError(
+                "lithology_key is only valid with parameterization = "
+                "'lithology_value'"
+            )
+        return self
 
 
 class ModelCalibrationOutputSchema(BaseModel):

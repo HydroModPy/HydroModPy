@@ -17,6 +17,7 @@ from launchers.model_calibration.runtime import (
     select_candidate_outputs,
 )
 from launchers.model_calibration.output_selection import canonicalize_run_outputs
+from launchers.model_calibration.property_arrays import build_property_array_set
 from launchers.model_calibration.templates import render_model_calibration_template
 
 
@@ -499,6 +500,94 @@ def test_model_calibration_actualize_candidate_writes_override_config(
     assert merged["display"]["enabled"] is False
     assert merged["display"]["show"] is False
     assert merged["postprocess"]["enabled"] is False
+
+
+def test_model_calibration_builds_global_property_arrays(tmp_path: Path) -> None:
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_model_calibration_config(config_path)
+    cfg = ModelCalibrationConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        base_dir=tmp_path,
+    )
+
+    property_set = build_property_array_set(
+        cfg=cfg,
+        params={"K_global_factor": 2.0, "Sy_global": 0.15},
+        base_property_arrays={
+            "K": [5.0e-5, 1.0e-4, 2.0e-4],
+            "Sy": [0.02, 0.03, 0.04],
+        },
+    )
+
+    assert property_set.get("K").values.tolist() == pytest.approx(
+        [1.0e-4, 2.0e-4, 4.0e-4]
+    )
+    assert property_set.get("Sy").values.tolist() == pytest.approx(
+        [0.15, 0.15, 0.15]
+    )
+    assert property_set.get("K").metadata["K_global_factor"]["mode"] == "scale"
+
+
+def test_model_calibration_builds_lithology_property_arrays(tmp_path: Path) -> None:
+    raw_toml = {
+        "model_calibration": {
+            "simulation_config": "run_flow_reference.toml",
+            "calibration_id": "calib_case_01",
+            "parameter": [
+                {
+                    "name": "K_alluvium",
+                    "property": "K",
+                    "target": "flow.param.K.values_by_key.alluvium",
+                    "mode": "replace",
+                    "parameterization": "lithology_value",
+                },
+                {
+                    "name": "K_basement",
+                    "property": "K",
+                    "target": "flow.param.K.values_by_key.basement",
+                    "mode": "scale",
+                    "parameterization": "lithology_value",
+                    "lithology_key": "basement",
+                },
+            ],
+            "output": [
+                {
+                    "name": "pz_01",
+                    "variable": "watertable_elevation",
+                    "support": "point",
+                    "x": 1.0,
+                    "y": 2.0,
+                },
+            ],
+            "objective_block": [
+                {
+                    "name": "heads",
+                    "uses_outputs": ["pz_01"],
+                },
+            ],
+        },
+        "bounds": {
+            "K_alluvium": [1.0e-6, 1.0e-3],
+            "K_basement": [0.1, 10.0],
+        },
+    }
+    cfg = ModelCalibrationConfig.from_toml(raw_toml, base_dir=tmp_path)
+
+    property_set = build_property_array_set(
+        cfg=cfg,
+        params={"K_alluvium": 3.0e-5, "K_basement": 2.0},
+        base_property_arrays={"K": [1.0e-5, 2.0e-5, 4.0e-5]},
+        lithology_labels=["alluvium", "basement", "basement"],
+    )
+
+    assert property_set.get("K").values.tolist() == pytest.approx(
+        [3.0e-5, 4.0e-5, 8.0e-5]
+    )
+    assert property_set.get("K").labels == (
+        "alluvium",
+        "basement",
+        "basement",
+    )
 
 
 def test_model_calibration_run_candidate_persists_iteration_history(

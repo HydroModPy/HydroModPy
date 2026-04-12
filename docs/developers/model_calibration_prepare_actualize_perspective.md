@@ -92,6 +92,9 @@ Les briques suivantes sont maintenant presentes dans le depot :
   frontieres.
 - `launchers/model_calibration/output_selection.py` isole maintenant le contrat
   `run_state -> CanonicalOutputBundle -> selected observables`.
+- `launchers/model_calibration/property_arrays.py` introduit un contrat local
+  `PropertyArraySet` pour representer `K` et `Sy` comme tableaux externes,
+  avec modes globaux et lithologiques.
 - les methodes qui exposent des echantillons de parametres (`gp_mapping`,
   `da_mh_gp`) produisent maintenant un artefact `model_distribution.json`
   interprete comme une distribution de modeles parametrises.
@@ -119,8 +122,9 @@ Les limites restantes sont explicites :
   mais il reste a brancher ce contrat directement aux sorties solveur reelles ;
 - les cartes de resurgence sont reservees dans le schema (`support = "map"`,
   `metric = "direct_cost"`), mais ne sont pas encore evaluables ;
-- la parametrisation par lithologie est visible dans le schema, mais
-  l'injection V1 implemente surtout les chemins scalaires `replace`/`scale` ;
+- la parametrisation par lithologie dispose d'un premier contrat vectoriel
+  (`PropertyArraySet`), mais son injection directe dans les solveurs reste a
+  brancher ;
 - la factorisation fine du maillage et des tableaux de proprietes solveur
   reste la prochaine grande etape.
 - la distribution de modeles reste volontairement legere par defaut : elle
