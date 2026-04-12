@@ -10,6 +10,9 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle import (
+    resolve_default_catchment_mesh_bundle_dir,
+)
 from launchers.model_calibration.config import ModelCalibrationConfig
 from launchers.model_calibration.launcher import ModelCalibrationLauncher
 from launchers.model_calibration.runtime import (
@@ -144,6 +147,28 @@ def _write_minimal_calibration_bundle(bundle_dir: Path) -> Path:
         ],
     )
     return bundle_dir
+
+
+def _write_mesh_summary(
+    path: Path,
+    *,
+    bundle_dir: Path,
+    mesh_path: Path | None = None,
+    relative_bundle_dir: bool = False,
+) -> Path:
+    payload: dict[str, object] = {
+        "output_exchange_bundle_dir": (
+            bundle_dir.name if relative_bundle_dir else str(bundle_dir)
+        )
+    }
+    if mesh_path is not None:
+        payload["output_mesh"] = str(mesh_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+    return path
 
 
 def _write_minimal_model_calibration_config(
@@ -916,12 +941,200 @@ def test_model_calibration_prepares_bundle_backed_property_support(
         "granite",
         "schist",
     )
+    assert session.prepared_hydraulic_support.source == "mesh_input_bundle_dir_geology"
+    assert session.prepared_hydraulic_support.mesh_bundle_dir == bundle_dir.resolve()
+    assert session.prepared_hydraulic_support.mesh_path is None
+    assert session.prepared_hydraulic_support.mesh_summary_path is None
     assert request.property_array_summary is not None
     assert request.property_array_summary["properties"]["K"]["stats"]["count"] == 2
     assert request.property_array_set is not None
     assert request.property_array_set.get("K").values.tolist() == pytest.approx(
         [2.0e-5, 4.0e-5]
     )
+
+
+def test_model_calibration_prepares_bundle_support_from_mesh_input_mesh_path(
+    tmp_path: Path,
+) -> None:
+    mesh_path = tmp_path / "mesh_catchment.msh"
+    mesh_path.write_text(
+        "$MeshFormat\n2.2 0 8\n$EndMeshFormat\n",
+        encoding="utf-8",
+    )
+    bundle_dir = _write_minimal_calibration_bundle(
+        resolve_default_catchment_mesh_bundle_dir(mesh_path)
+    )
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    simulation_path.write_text(
+        simulation_path.read_text(encoding="utf-8")
+        + "\n[mesh_input]\n"
+        + f'mesh_path = "{mesh_path.as_posix()}"\n',
+        encoding="utf-8",
+    )
+    _write_minimal_model_calibration_config(config_path)
+
+    launcher = ModelCalibrationLauncher(config_path)
+    session = launcher.prepare()
+    request = launcher.actualize_candidate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15},
+        iteration_index=1,
+    )
+
+    assert session.prepared_hydraulic_support is not None
+    assert (
+        session.prepared_hydraulic_support.source
+        == "mesh_input_mesh_path_default_bundle_geology"
+    )
+    assert session.prepared_hydraulic_support.mesh_bundle_dir == bundle_dir.resolve()
+    assert session.prepared_hydraulic_support.mesh_path == mesh_path.resolve()
+    assert request.property_array_set is not None
+    assert request.property_array_set.get("K").values.tolist() == pytest.approx(
+        [2.0e-5, 4.0e-5]
+    )
+
+
+def test_model_calibration_prepares_bundle_support_from_mesh_catchment_summary(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    simulation_path.write_text(
+        simulation_path.read_text(encoding="utf-8")
+        + "\n[mesh_catchment]\n"
+        + 'constraints_mode = "rivers_only"\n',
+        encoding="utf-8",
+    )
+    workspace_project_root = (tmp_path / "project" / "demo_case").resolve()
+    mesh_dir = workspace_project_root / "results_stable" / "mesh"
+    bundle_dir = _write_minimal_calibration_bundle(mesh_dir / "mesh_catchment_bundle")
+    summary_path = _write_mesh_summary(
+        mesh_dir / "mesh_catchment_summary.json",
+        bundle_dir=bundle_dir,
+        mesh_path=mesh_dir / "mesh_catchment.msh",
+        relative_bundle_dir=True,
+    )
+    _write_minimal_model_calibration_config(config_path)
+
+    launcher = ModelCalibrationLauncher(config_path)
+    session = launcher.prepare()
+    request = launcher.actualize_candidate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15},
+        iteration_index=1,
+    )
+
+    assert session.prepared_hydraulic_support is not None
+    assert (
+        session.prepared_hydraulic_support.source
+        == "mesh_catchment_default_summary_bundle_geology"
+    )
+    assert session.prepared_hydraulic_support.mesh_bundle_dir == bundle_dir.resolve()
+    assert (
+        session.prepared_hydraulic_support.mesh_summary_path
+        == summary_path.resolve()
+    )
+    assert (
+        session.prepared_hydraulic_support.mesh_path
+        == (mesh_dir / "mesh_catchment.msh").resolve()
+    )
+    assert request.property_array_set is not None
+    assert request.property_array_set.get("K").values.tolist() == pytest.approx(
+        [2.0e-5, 4.0e-5]
+    )
+
+
+def test_model_calibration_prepares_bundle_support_from_mesh_catchment_mesh_path(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    simulation_path.write_text(
+        simulation_path.read_text(encoding="utf-8")
+        + "\n[mesh_catchment]\n"
+        + 'constraints_mode = "rivers_only"\n',
+        encoding="utf-8",
+    )
+    workspace_project_root = (tmp_path / "project" / "demo_case").resolve()
+    mesh_dir = workspace_project_root / "results_stable" / "mesh"
+    mesh_path = mesh_dir / "mesh_catchment.msh"
+    mesh_path.parent.mkdir(parents=True, exist_ok=True)
+    mesh_path.write_text(
+        "$MeshFormat\n2.2 0 8\n$EndMeshFormat\n",
+        encoding="utf-8",
+    )
+    bundle_dir = _write_minimal_calibration_bundle(
+        resolve_default_catchment_mesh_bundle_dir(mesh_path)
+    )
+    _write_minimal_model_calibration_config(config_path)
+
+    launcher = ModelCalibrationLauncher(config_path)
+    session = launcher.prepare()
+    request = launcher.actualize_candidate(
+        {"K_global_factor": 2.0, "Sy_global": 0.15},
+        iteration_index=1,
+    )
+
+    assert session.prepared_hydraulic_support is not None
+    assert (
+        session.prepared_hydraulic_support.source
+        == "mesh_catchment_default_mesh_default_bundle_geology"
+    )
+    assert session.prepared_hydraulic_support.mesh_bundle_dir == bundle_dir.resolve()
+    assert session.prepared_hydraulic_support.mesh_path == mesh_path.resolve()
+    assert session.prepared_hydraulic_support.mesh_summary_path is None
+    assert request.property_array_set is not None
+    assert request.property_array_set.get("K").values.tolist() == pytest.approx(
+        [2.0e-5, 4.0e-5]
+    )
+
+
+def test_model_calibration_bundle_change_updates_session_contract_signature(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_calibration_bundle(tmp_path / "bundle")
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    simulation_path.write_text(
+        simulation_path.read_text(encoding="utf-8")
+        + "\n[mesh_input]\n"
+        + f'bundle_dir = "{bundle_dir.as_posix()}"\n',
+        encoding="utf-8",
+    )
+    _write_minimal_model_calibration_config(config_path)
+
+    first_session = ModelCalibrationLauncher(config_path).prepare()
+    first_signature = first_session.contract_signature
+    first_support_signature = first_session.prepared_hydraulic_support.to_summary()[
+        "base_property_details"
+    ]["K"]["signature"]
+
+    cells_path = bundle_dir / "cells.csv"
+    cells_path.write_text(
+        cells_path.read_text(encoding="utf-8")
+        .replace("1.0e-5,0.10", "3.0e-5,0.10")
+        .replace("2.0e-5,0.15", "4.0e-5,0.15"),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="persisted session contract"):
+        _ = ModelCalibrationLauncher(config_path).prepare()
+
+    _write_minimal_model_calibration_config(
+        config_path,
+        resume_existing_session=False,
+    )
+    second_session = ModelCalibrationLauncher(config_path).prepare()
+    second_signature = second_session.contract_signature
+    second_support_signature = second_session.prepared_hydraulic_support.to_summary()[
+        "base_property_details"
+    ]["K"]["signature"]
+
+    assert second_support_signature != first_support_signature
+    assert second_signature != first_signature
 
 
 def test_model_calibration_run_candidate_injects_flow_runtime_overrides(
