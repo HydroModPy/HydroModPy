@@ -25,6 +25,8 @@ def render_model_calibration_template() -> str:
         "persist_iteration_history = true",
         'persist_iteration_detail_level = "minimal"',
         "persist_calibration_report = true",
+        "resume_existing_session = true",
+        "reuse_persisted_iterations = true",
         "",
         "[model_calibration.objective_mapping]",
         "enabled = false",

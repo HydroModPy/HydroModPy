@@ -259,6 +259,9 @@ def build_calibration_report(
             "objective_cache_hit_count": int(
                 manifest.get("objective_cache_hit_count", 0)
             ),
+            "restored_evaluation_count": int(
+                manifest.get("restored_evaluation_count", 0)
+            ),
             "rerun_best_with_outputs": bool(
                 cfg.model_calibration.rerun_best_with_outputs
             ),
@@ -270,6 +273,12 @@ def build_calibration_report(
             ),
             "objective_mapping_enabled": bool(
                 cfg.model_calibration.objective_mapping.enabled
+            ),
+            "resume_existing_session": bool(
+                cfg.model_calibration.resume_existing_session
+            ),
+            "reuse_persisted_iterations": bool(
+                cfg.model_calibration.reuse_persisted_iterations
             ),
         },
         "parameters": _summarize_parameter_history(

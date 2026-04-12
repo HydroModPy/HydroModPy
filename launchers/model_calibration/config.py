@@ -348,6 +348,8 @@ class ModelCalibrationSectionSchema(BaseModel):
     persist_iteration_history: bool = True
     persist_iteration_detail_level: str = "minimal"
     persist_calibration_report: bool = True
+    resume_existing_session: bool = True
+    reuse_persisted_iterations: bool = True
     parameter: list[ModelCalibrationParameterSchema] = Field(default_factory=list)
     output: list[ModelCalibrationOutputSchema] = Field(default_factory=list)
     objective_block: list[ModelCalibrationObjectiveBlockSchema] = Field(
