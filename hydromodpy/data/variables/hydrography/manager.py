@@ -35,10 +35,13 @@ class HydrographyManager:
         out_path: str | Path,
         catalog: "DataCatalog | None" = None,
         data_dir: Path | None = None,
+        stable_folder: str | Path | None = None,
     ) -> None:
         self.config = config
         self.geographic = geographic
-        self._data_folder = Path(out_path) / "results_stable" / "hydrography"
+        from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+        base = Path(stable_folder) if stable_folder else Path(out_path) / LEGACY_STABLE_DIR
+        self._data_folder = base / "hydrography"
         self._data_folder.mkdir(parents=True, exist_ok=True)
         self._backend = get_whitebox_backend()
         self._catalog = catalog
