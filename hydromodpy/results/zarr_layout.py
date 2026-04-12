@@ -185,3 +185,43 @@ def write_field_chunk(
         arr[timestep, :] = values
     else:
         arr[timestep, :, :] = values
+
+
+def write_geographic_raster(
+    root: Group,
+    name: str,
+    data: np.ndarray,
+    *,
+    transform: tuple[float, ...],
+    crs: str,
+    nodata: float = -99999.0,
+) -> None:
+    """Write a geographic raster (2D array) into ``root['geographic/']``.
+
+    Parameters
+    ----------
+    root : zarr.Group
+        Zarr root group.
+    name : str
+        Raster name (e.g. ``"watershed_dem"``).
+    data : np.ndarray
+        2D array, shape ``(nrow, ncol)``.
+    transform : tuple
+        Affine transform 6-tuple ``(a, b, c, d, e, f)``.
+    crs : str
+        CRS string (e.g. ``"EPSG:2154"``).
+    nodata : float
+        Nodata value.
+    """
+    geo = root.require_group("geographic")
+    geo.create_array(
+        name,
+        data=data,
+        compressors=BLOSC_ZSTD,
+        overwrite=True,
+    )
+    arr = geo[name]
+    arr.attrs["transform"] = list(transform)
+    arr.attrs["crs"] = crs
+    arr.attrs["nodata"] = nodata
+    arr.attrs["shape"] = list(data.shape)
