@@ -1,22 +1,22 @@
 {
   "schema_version": "regional_lab_report_v2",
-  "generated_at_utc": "2026-04-12T20:04:20.021162+00:00",
-  "lab_id": "regional_pilot_2026_04_12",
-  "config_path": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\config_regional_lab_pilot.toml",
+  "generated_at_utc": "2026-04-12T20:09:39.915937+00:00",
+  "lab_id": "regional_pilot_2026_04_12_execute",
+  "config_path": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\config_regional_lab_pilot_execute.toml",
   "site_catalog_path": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\site_catalog_pilot_20.csv",
-  "output_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12",
-  "execute": false,
+  "output_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12_execute",
+  "execute": true,
   "continue_on_error": true,
   "resume_from_report": true,
   "skip_completed_cases": true,
   "selected_site_count": 20,
   "planned_case_count": 14,
   "skipped_case_count": 27,
-  "executed_case_count": 0,
+  "executed_case_count": 3,
   "reused_case_count": 0,
-  "successful_case_count": 0,
-  "failed_case_count": 0,
-  "pending_case_count": 14,
+  "successful_case_count": 1,
+  "failed_case_count": 2,
+  "pending_case_count": 11,
   "all_passed": false,
   "selected_sites": [
     {
@@ -1449,11 +1449,23 @@
         "simulation",
         "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
       ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
+      "status": "ok",
+      "returncode": 0,
+      "duration_seconds": 230.703651,
       "reused_from_report": false,
-      "child_artifacts": {}
+      "child_artifacts": {
+        "child_artifact_kind": "simulation",
+        "child_artifact_status": "resolved",
+        "child_project_root": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_reused_real_meshes\\headwater_100km2_outlet_2_mf6",
+        "child_output_root": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_reused_real_meshes\\headwater_100km2_outlet_2_mf6",
+        "child_run_id": "headwater_100km2_outlet_2_mf6_transient_reference",
+        "child_run_folder": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_reused_real_meshes\\headwater_100km2_outlet_2_mf6\\results_simulations\\headwater_100km2_outlet_2_mf6_transient_reference",
+        "child_metrics_json": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_reused_real_meshes\\headwater_100km2_outlet_2_mf6\\results_simulations\\headwater_100km2_outlet_2_mf6_transient_reference\\_metrics.json",
+        "child_wall_time_seconds": 212.52,
+        "child_success": true,
+        "child_mesh_output_mesh": "C:\\codes\\HydroModPy-GH\\examples\\mesh_gallery\\100km2\\mesh_headwater_100km2_outlet_2_geology_rivers_buffer30\\bundle\\mesh_2d.msh",
+        "child_mesh_output_exchange_bundle_dir": "C:\\codes\\HydroModPy-GH\\examples\\mesh_gallery\\100km2\\mesh_headwater_100km2_outlet_2_geology_rivers_buffer30\\bundle"
+      }
     },
     {
       "case_id": "headwater_backend_compare::headwater_100km2_outlet_2",
@@ -1491,11 +1503,16 @@
         "run",
         "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_backends.toml"
       ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
+      "status": "failed",
+      "returncode": 1,
+      "duration_seconds": 47.373707,
       "reused_from_report": false,
-      "child_artifacts": {}
+      "child_artifacts": {
+        "child_artifact_kind": "method_comparison",
+        "child_artifact_status": "config_parse_failed",
+        "child_artifact_error_type": "AttributeError",
+        "child_artifact_error_message": "from_file"
+      }
     },
     {
       "case_id": "headwater_transient_backend_compare::headwater_100km2_outlet_2",
@@ -1533,11 +1550,16 @@
         "run",
         "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
       ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
+      "status": "failed",
+      "returncode": 1,
+      "duration_seconds": 41.275618,
       "reused_from_report": false,
-      "child_artifacts": {}
+      "child_artifacts": {
+        "child_artifact_kind": "method_comparison",
+        "child_artifact_status": "config_parse_failed",
+        "child_artifact_error_type": "AttributeError",
+        "child_artifact_error_message": "from_file"
+      }
     },
     {
       "case_id": "headwater_local_boussinesq_replay::headwater_100km2_outlet_27",
@@ -2651,14 +2673,14 @@
     }
   ],
   "synthesis_paths": {
-    "site_inventory_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12\\regional_lab_site_inventory.csv",
-    "case_matrix_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12\\regional_lab_case_matrix.csv",
-    "execution_metrics_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12\\regional_lab_execution_metrics.csv",
-    "recipe_summary_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12\\regional_lab_recipe_summary.csv",
-    "cluster_summary_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12\\regional_lab_cluster_summary.csv",
-    "region_summary_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12\\regional_lab_region_summary.csv",
-    "family_summary_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12\\regional_lab_family_summary.csv",
-    "scale_summary_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12\\regional_lab_scale_summary.csv",
-    "summary_markdown": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12\\regional_lab_summary.md"
+    "site_inventory_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12_execute\\regional_lab_site_inventory.csv",
+    "case_matrix_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12_execute\\regional_lab_case_matrix.csv",
+    "execution_metrics_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12_execute\\regional_lab_execution_metrics.csv",
+    "recipe_summary_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12_execute\\regional_lab_recipe_summary.csv",
+    "cluster_summary_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12_execute\\regional_lab_cluster_summary.csv",
+    "region_summary_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12_execute\\regional_lab_region_summary.csv",
+    "family_summary_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12_execute\\regional_lab_family_summary.csv",
+    "scale_summary_csv": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12_execute\\regional_lab_scale_summary.csv",
+    "summary_markdown": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12_execute\\regional_lab_summary.md"
   }
 }

@@ -45,6 +45,12 @@
       "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\head_map_last__fine_raster__mf6_mod_tri.tif"
     },
     {
+      "kind": "fine_raster_geotiff",
+      "observable": "head_map_last",
+      "variant_id": "bouss_mod_tri",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\head_map_last__fine_raster__bouss_mod_tri.tif"
+    },
+    {
       "kind": "fine_raster_map_comparison",
       "observable": "head_map_last",
       "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\head_map_last__fine_raster_map_comparison.png"
@@ -78,6 +84,20 @@
       "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\head_map_last__fine_raster_difference__mf6_mod_s60__vs__mf6_mod_tri.tif"
     },
     {
+      "kind": "fine_raster_difference_map",
+      "observable": "head_map_last",
+      "reference_variant": "mf6_mod_s60",
+      "candidate_variant": "bouss_mod_tri",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\head_map_last__fine_raster_difference__mf6_mod_s60__vs__bouss_mod_tri.png"
+    },
+    {
+      "kind": "fine_raster_difference_geotiff",
+      "observable": "head_map_last",
+      "reference_variant": "mf6_mod_s60",
+      "candidate_variant": "bouss_mod_tri",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\head_map_last__fine_raster_difference__mf6_mod_s60__vs__bouss_mod_tri.tif"
+    },
+    {
       "kind": "map_comparison",
       "observable": "depth_map_last",
       "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\depth_map_last__map_comparison.png"
@@ -106,6 +126,12 @@
       "observable": "depth_map_last",
       "variant_id": "mf6_mod_tri",
       "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\depth_map_last__fine_raster__mf6_mod_tri.tif"
+    },
+    {
+      "kind": "fine_raster_geotiff",
+      "observable": "depth_map_last",
+      "variant_id": "bouss_mod_tri",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\depth_map_last__fine_raster__bouss_mod_tri.tif"
     },
     {
       "kind": "fine_raster_map_comparison",
@@ -141,6 +167,20 @@
       "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\depth_map_last__fine_raster_difference__mf6_mod_s60__vs__mf6_mod_tri.tif"
     },
     {
+      "kind": "fine_raster_difference_map",
+      "observable": "depth_map_last",
+      "reference_variant": "mf6_mod_s60",
+      "candidate_variant": "bouss_mod_tri",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\depth_map_last__fine_raster_difference__mf6_mod_s60__vs__bouss_mod_tri.png"
+    },
+    {
+      "kind": "fine_raster_difference_geotiff",
+      "observable": "depth_map_last",
+      "reference_variant": "mf6_mod_s60",
+      "candidate_variant": "bouss_mod_tri",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\depth_map_last__fine_raster_difference__mf6_mod_s60__vs__bouss_mod_tri.tif"
+    },
+    {
       "kind": "map_comparison",
       "observable": "outflow_drain_map_last",
       "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\outflow_drain_map_last__map_comparison.png"
@@ -169,6 +209,12 @@
       "observable": "outflow_drain_map_last",
       "variant_id": "mf6_mod_tri",
       "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\outflow_drain_map_last__fine_raster__mf6_mod_tri.tif"
+    },
+    {
+      "kind": "fine_raster_geotiff",
+      "observable": "outflow_drain_map_last",
+      "variant_id": "bouss_mod_tri",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\outflow_drain_map_last__fine_raster__bouss_mod_tri.tif"
     },
     {
       "kind": "fine_raster_map_comparison",
@@ -202,6 +248,20 @@
       "reference_variant": "mf6_mod_s60",
       "candidate_variant": "mf6_mod_tri",
       "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\outflow_drain_map_last__fine_raster_difference__mf6_mod_s60__vs__mf6_mod_tri.tif"
+    },
+    {
+      "kind": "fine_raster_difference_map",
+      "observable": "outflow_drain_map_last",
+      "reference_variant": "mf6_mod_s60",
+      "candidate_variant": "bouss_mod_tri",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\outflow_drain_map_last__fine_raster_difference__mf6_mod_s60__vs__bouss_mod_tri.png"
+    },
+    {
+      "kind": "fine_raster_difference_geotiff",
+      "observable": "outflow_drain_map_last",
+      "reference_variant": "mf6_mod_s60",
+      "candidate_variant": "bouss_mod_tri",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\comparison_figures\\outflow_drain_map_last__fine_raster_difference__mf6_mod_s60__vs__bouss_mod_tri.tif"
     },
     {
       "kind": "timeseries",
@@ -283,10 +343,10 @@
       "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_multi_method_moderate\\execution_times.csv"
     }
   ],
-  "n_observable_rows": 23751,
-  "n_metric_rows": 14,
-  "n_difference_rows": 8666,
-  "wall_time_seconds": 205.02,
+  "n_observable_rows": 25810,
+  "n_metric_rows": 21,
+  "n_difference_rows": 9931,
+  "wall_time_seconds": 467.3,
   "variants": [
     {
       "id": "mf6_mod_s60",
@@ -298,9 +358,9 @@
       "mesh_mode": "structured",
       "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_demonstrative_annual_moderate_mf6_structured.toml",
       "run_folder": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_reused_real_meshes\\ex12_demo_mod_mf6_s60\\results_simulations\\ex12_demo_mod_mf6_s60",
-      "wall_time_seconds": 58.98,
+      "wall_time_seconds": 190.44,
       "metrics": {
-        "wall_time_seconds": 56.34,
+        "wall_time_seconds": 178.92,
         "solvers": [
           "modflow6"
         ],
@@ -308,13 +368,13 @@
       },
       "run_metadata": {
         "metrics": {
-          "wall_time_seconds": 56.34,
+          "wall_time_seconds": 178.92,
           "solvers": [
             "modflow6"
           ],
           "success": true
         },
-        "wall_time_seconds": 56.34,
+        "wall_time_seconds": 178.92,
         "solvers": [
           "modflow6"
         ]
@@ -331,9 +391,9 @@
       "mesh_mode": "structured",
       "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_demonstrative_annual_moderate_nwt.toml",
       "run_folder": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_reused_real_meshes\\ex12_demo_mod_nwt\\results_simulations\\ex12_demo_mod_nwt_s60",
-      "wall_time_seconds": 44.8,
+      "wall_time_seconds": 62.22,
       "metrics": {
-        "wall_time_seconds": 43.33,
+        "wall_time_seconds": 60.33,
         "solvers": [
           "modflownwt"
         ],
@@ -341,13 +401,13 @@
       },
       "run_metadata": {
         "metrics": {
-          "wall_time_seconds": 43.33,
+          "wall_time_seconds": 60.33,
           "solvers": [
             "modflownwt"
           ],
           "success": true
         },
-        "wall_time_seconds": 43.33,
+        "wall_time_seconds": 60.33,
         "solvers": [
           "modflownwt"
         ]
@@ -364,9 +424,9 @@
       "mesh_mode": "mesh_input",
       "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml",
       "run_folder": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_reused_real_meshes\\ex12_demo_mod_mf6\\results_simulations\\ex12_demo_mod_mf6_tri",
-      "wall_time_seconds": 43.98,
+      "wall_time_seconds": 54.14,
       "metrics": {
-        "wall_time_seconds": 42.5,
+        "wall_time_seconds": 52.45,
         "solvers": [
           "modflow6"
         ],
@@ -378,7 +438,7 @@
       },
       "run_metadata": {
         "metrics": {
-          "wall_time_seconds": 42.5,
+          "wall_time_seconds": 52.45,
           "solvers": [
             "modflow6"
           ],
@@ -388,7 +448,7 @@
           "mesh_output_summary_json": null,
           "mesh_output_exchange_bundle_dir": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_stable\\mesh\\mesh_catchment_bundle"
         },
-        "wall_time_seconds": 42.5,
+        "wall_time_seconds": 52.45,
         "solvers": [
           "modflow6"
         ],
@@ -405,6 +465,43 @@
         "n_nodes": 361
       },
       "n_observable_rows": 2055
+    },
+    {
+      "id": "bouss_mod_tri",
+      "label": "Boussinesq annual moderate on committed triangular mesh",
+      "status": "completed",
+      "enabled": true,
+      "solver": "boussinesq",
+      "mesh_label": "gmsh_precomputed",
+      "mesh_mode": "mesh_input",
+      "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml",
+      "run_folder": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_reused_real_meshes\\ex12_demo_mod_bouss\\results_simulations\\flow_main__boussinesq",
+      "wall_time_seconds": 23.62,
+      "metrics": {},
+      "run_metadata": {
+        "boussinesq_summary": {
+          "n_cells": 669,
+          "n_edges": 1029,
+          "n_nodes": 361,
+          "runtime_backend": "scipy_sparse",
+          "runtime_solver_kind": "scipy_sparse_newton_line_search_semianalytic_regularized_partition",
+          "solve_stage": "solved",
+          "last_termination_reason": "sparse Newton residual tolerance reached"
+        },
+        "n_cells": 669,
+        "n_edges": 1029,
+        "n_nodes": 361,
+        "mesh_bundle_metadata": {
+          "bundle_schema_version": "mesh_catchment_bundle_v1",
+          "mesh_kind": "gmsh_2d",
+          "cell_type": "triangle",
+          "crs": "EPSG:2154",
+          "n_nodes": 361,
+          "n_cells": 669,
+          "constraints_mode": "geology_rivers"
+        }
+      },
+      "n_observable_rows": 2059
     }
   ],
   "observables": [

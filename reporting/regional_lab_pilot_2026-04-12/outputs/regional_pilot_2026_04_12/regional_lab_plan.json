@@ -1,12 +1,12 @@
 {
   "schema_version": "regional_lab_plan_v2",
-  "generated_at_utc": "2026-04-12T17:58:42.783124+00:00",
+  "generated_at_utc": "2026-04-12T20:04:19.939990+00:00",
   "lab_id": "regional_pilot_2026_04_12",
   "config_path": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\config_regional_lab_pilot.toml",
   "site_catalog_path": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\site_catalog_pilot_20.csv",
   "output_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\regional_pilot_2026_04_12",
   "selected_site_count": 20,
-  "planned_case_count": 13,
+  "planned_case_count": 14,
   "skipped_case_count": 27,
   "selected_sites": [
     {
@@ -66,6 +66,7 @@
         "bundle_boussinesq_transient_ready": "",
         "notes": "",
         "simulation_reference_config": "",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -137,6 +138,7 @@
         "bundle_boussinesq_transient_ready": "",
         "notes": "repo-backed child configs available",
         "simulation_reference_config": "../../examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "../../examples/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml",
         "transient_backend_comparison_config": "../../examples/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
       }
@@ -157,12 +159,16 @@
       "area_km2": 100.288125,
       "site_tags": [
         "regional_headwater",
-        "mesh_ready"
+        "mesh_ready",
+        "simulation_ready",
+        "bundle_sanitized_from_mean"
       ],
       "cluster_tags": [],
       "tags": [
         "regional_headwater",
-        "mesh_ready"
+        "mesh_ready",
+        "simulation_ready",
+        "bundle_sanitized_from_mean"
       ],
       "enabled": true,
       "resolved_paths": {
@@ -170,7 +176,8 @@
         "mesh_summary_json": "C:\\Users\\dreuzy\\HydroModPy\\mesh_gallery_headwater_100km2_outlet_27_rivers_only_outlet_27\\mesh_catchment_outlet_27_summary.json",
         "mesh_bundle_dir": "C:\\Users\\dreuzy\\HydroModPy\\mesh_gallery_headwater_100km2_outlet_27_rivers_only_outlet_27\\mesh_catchment_outlet_27_bundle",
         "mesh_figure": "C:\\Users\\dreuzy\\HydroModPy\\mesh_gallery_headwater_100km2_outlet_27_rivers_only_outlet_27\\mesh_catchment_outlet_27.png",
-        "mesh_figure_regional": "C:\\Users\\dreuzy\\HydroModPy\\mesh_gallery_headwater_100km2_outlet_27_rivers_only_outlet_27\\mesh_catchment_outlet_27_regional.png"
+        "mesh_figure_regional": "C:\\Users\\dreuzy\\HydroModPy\\mesh_gallery_headwater_100km2_outlet_27_rivers_only_outlet_27\\mesh_catchment_outlet_27_regional.png",
+        "local_simulation_reference_config": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\child_configs\\run_headwater_100km2_outlet_27_boussinesq_local_mesh_replay.toml"
       },
       "raw": {
         "site_id": "headwater_100km2_outlet_27",
@@ -184,7 +191,7 @@
         "site_status": "ok",
         "maturity": "screening",
         "enabled": "true",
-        "tags": "regional_headwater;mesh_ready",
+        "tags": "regional_headwater;mesh_ready;simulation_ready;bundle_sanitized_from_mean",
         "outlet_id": "27",
         "x": "364275.0",
         "y": "6956025.0",
@@ -196,16 +203,17 @@
         "mesh_figure": "C:\\Users\\dreuzy\\HydroModPy\\mesh_gallery_headwater_100km2_outlet_27_rivers_only_outlet_27\\mesh_catchment_outlet_27.png",
         "mesh_figure_regional": "C:\\Users\\dreuzy\\HydroModPy\\mesh_gallery_headwater_100km2_outlet_27_rivers_only_outlet_27\\mesh_catchment_outlet_27_regional.png",
         "bundle_cell_count": "4312",
-        "bundle_missing_top_centroid_count": "6",
+        "bundle_missing_top_centroid_count": "0",
         "bundle_missing_bottom_centroid_count": "0",
         "bundle_missing_hydraulic_conductivity_count": "0",
         "bundle_missing_storage_coefficient_count": "4312",
         "bundle_invalid_vertical_geometry_count": "0",
         "bundle_storage_default_value": "",
-        "bundle_boussinesq_steady_ready": "false",
+        "bundle_boussinesq_steady_ready": "true",
         "bundle_boussinesq_transient_ready": "false",
-        "notes": "local replay withheld: missing_top_centroid=6",
+        "notes": "generated local boussinesq mesh replay config (steady-ready bundle); sanitized bundle with centroid fallback from mean values (top=6, bottom=0)",
         "simulation_reference_config": "",
+        "local_simulation_reference_config": "child_configs/run_headwater_100km2_outlet_27_boussinesq_local_mesh_replay.toml",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -267,6 +275,7 @@
         "bundle_boussinesq_transient_ready": "",
         "notes": "",
         "simulation_reference_config": "",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -328,6 +337,7 @@
         "bundle_boussinesq_transient_ready": "",
         "notes": "",
         "simulation_reference_config": "",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -389,6 +399,7 @@
         "bundle_boussinesq_transient_ready": "",
         "notes": "",
         "simulation_reference_config": "",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -450,6 +461,7 @@
         "bundle_boussinesq_transient_ready": "",
         "notes": "",
         "simulation_reference_config": "",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -511,6 +523,7 @@
         "bundle_boussinesq_transient_ready": "",
         "notes": "",
         "simulation_reference_config": "",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -572,6 +585,7 @@
         "bundle_boussinesq_transient_ready": "",
         "notes": "",
         "simulation_reference_config": "",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -633,6 +647,7 @@
         "bundle_boussinesq_transient_ready": "",
         "notes": "",
         "simulation_reference_config": "",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -707,6 +722,7 @@
         "bundle_boussinesq_transient_ready": "false",
         "notes": "generated local boussinesq mesh replay config (steady-ready bundle)",
         "simulation_reference_config": "child_configs/run_s3_10km2_outlet_10_boussinesq_local_mesh_replay.toml",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -781,6 +797,7 @@
         "bundle_boussinesq_transient_ready": "false",
         "notes": "generated local boussinesq mesh replay config (steady-ready bundle)",
         "simulation_reference_config": "child_configs/run_s3_10km2_outlet_11_boussinesq_local_mesh_replay.toml",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -855,6 +872,7 @@
         "bundle_boussinesq_transient_ready": "false",
         "notes": "generated local boussinesq mesh replay config (steady-ready bundle)",
         "simulation_reference_config": "child_configs/run_s3_10km2_outlet_12_boussinesq_local_mesh_replay.toml",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -929,6 +947,7 @@
         "bundle_boussinesq_transient_ready": "false",
         "notes": "generated local boussinesq mesh replay config (steady-ready bundle)",
         "simulation_reference_config": "child_configs/run_s3_10km2_outlet_13_boussinesq_local_mesh_replay.toml",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -1003,6 +1022,7 @@
         "bundle_boussinesq_transient_ready": "false",
         "notes": "generated local boussinesq mesh replay config (steady-ready bundle)",
         "simulation_reference_config": "child_configs/run_s3_10km2_outlet_14_boussinesq_local_mesh_replay.toml",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -1077,6 +1097,7 @@
         "bundle_boussinesq_transient_ready": "false",
         "notes": "generated local boussinesq mesh replay config (steady-ready bundle)",
         "simulation_reference_config": "child_configs/run_s3_10km2_outlet_2_boussinesq_local_mesh_replay.toml",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -1151,6 +1172,7 @@
         "bundle_boussinesq_transient_ready": "false",
         "notes": "generated local boussinesq mesh replay config (steady-ready bundle)",
         "simulation_reference_config": "child_configs/run_s3_10km2_outlet_6_boussinesq_local_mesh_replay.toml",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -1225,6 +1247,7 @@
         "bundle_boussinesq_transient_ready": "false",
         "notes": "generated local boussinesq mesh replay config (steady-ready bundle)",
         "simulation_reference_config": "child_configs/run_s3_10km2_outlet_7_boussinesq_local_mesh_replay.toml",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -1299,6 +1322,7 @@
         "bundle_boussinesq_transient_ready": "false",
         "notes": "generated local boussinesq mesh replay config (steady-ready bundle)",
         "simulation_reference_config": "child_configs/run_s3_10km2_outlet_8_boussinesq_local_mesh_replay.toml",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -1373,6 +1397,7 @@
         "bundle_boussinesq_transient_ready": "false",
         "notes": "generated local boussinesq mesh replay config (steady-ready bundle)",
         "simulation_reference_config": "child_configs/run_s3_10km2_outlet_9_boussinesq_local_mesh_replay.toml",
+        "local_simulation_reference_config": "",
         "backend_comparison_config": "",
         "transient_backend_comparison_config": ""
       }
@@ -1408,6 +1433,16 @@
       "config_path_template": "{transient_backend_comparison_config}",
       "required_fields": [
         "transient_backend_comparison_config"
+      ]
+    },
+    {
+      "id": "headwater_local_boussinesq_replay",
+      "label": "Headwater local mesh replay",
+      "launcher": "simulation",
+      "enabled": true,
+      "config_path_template": "{local_simulation_reference_config}",
+      "required_fields": [
+        "local_simulation_reference_config"
       ]
     },
     {
@@ -1508,6 +1543,35 @@
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
       "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
+    },
+    {
+      "case_id": "headwater_local_boussinesq_replay::headwater_100km2_outlet_27",
+      "site_id": "headwater_100km2_outlet_27",
+      "site_label": "Headwater 100 km2 outlet 27",
+      "cluster_id": "headwater_100km2",
+      "cluster_label": "Headwater 100 km2",
+      "cluster_family": "headwater",
+      "cluster_scale": "100km2",
+      "region_id": "brittany",
+      "site_status": "ok",
+      "maturity": "screening",
+      "site_tags": [
+        "regional_headwater",
+        "mesh_ready",
+        "simulation_ready",
+        "bundle_sanitized_from_mean"
+      ],
+      "cluster_tags": [],
+      "tags": [
+        "regional_headwater",
+        "mesh_ready",
+        "simulation_ready",
+        "bundle_sanitized_from_mean"
+      ],
+      "recipe_id": "headwater_local_boussinesq_replay",
+      "recipe_label": "Headwater local mesh replay",
+      "launcher": "simulation",
+      "config_path": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\child_configs\\run_headwater_100km2_outlet_27_boussinesq_local_mesh_replay.toml"
     },
     {
       "case_id": "s3_future_reference::s3_10km2_outlet_10",
@@ -1838,7 +1902,9 @@
       "maturity": "screening",
       "tags": [
         "regional_headwater",
-        "mesh_ready"
+        "mesh_ready",
+        "simulation_ready",
+        "bundle_sanitized_from_mean"
       ],
       "recipe_id": "headwater_mf6_reference",
       "recipe_label": "Headwater reference replay",
@@ -2055,7 +2121,9 @@
       "maturity": "screening",
       "tags": [
         "regional_headwater",
-        "mesh_ready"
+        "mesh_ready",
+        "simulation_ready",
+        "bundle_sanitized_from_mean"
       ],
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
@@ -2272,7 +2340,9 @@
       "maturity": "screening",
       "tags": [
         "regional_headwater",
-        "mesh_ready"
+        "mesh_ready",
+        "simulation_ready",
+        "bundle_sanitized_from_mean"
       ],
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
