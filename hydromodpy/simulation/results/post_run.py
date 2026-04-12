@@ -31,6 +31,22 @@ _ADAPTER_REGISTRY: dict[str, tuple[str, str]] = {
         "hydromodpy.simulation.results.extractors.gr4j",
         "GR4JOutputAdapter",
     ),
+    "mt3dms": (
+        "hydromodpy.simulation.results.extractors.mt3dms",
+        "Mt3dmsOutputAdapter",
+    ),
+    "modflow6gwt": (
+        "hydromodpy.simulation.results.extractors.mt3dms",
+        "Mt3dmsOutputAdapter",
+    ),
+    "modpath": (
+        "hydromodpy.simulation.results.extractors.modpath",
+        "ModpathOutputAdapter",
+    ),
+    "boussinesq": (
+        "hydromodpy.simulation.results.extractors.boussinesq",
+        "BoussinesqOutputAdapter",
+    ),
 }
 
 
@@ -42,6 +58,7 @@ def post_run_results(
     results_config: ResultsConfig,
     store: Any,
     keep_solver_files: bool | None = None,
+    run_id: str | None = None,
 ) -> None:
     """Ingest solver outputs into the ResultStore after a run completes.
 
@@ -58,6 +75,9 @@ def post_run_results(
         The ``[simulation.results]`` config block.
     store : ResultStore
         The open result store.
+    run_id : str, optional
+        Human-readable run identifier used to name export subdirectories.
+        Falls back to the first 8 characters of *sim_id* when absent.
     """
     if not results_config.store:
         return
@@ -70,7 +90,17 @@ def post_run_results(
     # Phase 1: extract raw outputs
     if solver_output_dir is not None and solver_output_dir.exists():
         try:
-            adapter.extract(sim_id, solver_output_dir, store)
+            # Pass budget_spatial_fields if the adapter supports it.
+            extract_kwargs = {}
+            if results_config.budget.spatial_fields:
+                extract_kwargs["budget_spatial_fields"] = True
+            adapter.extract(sim_id, solver_output_dir, store, **extract_kwargs)
+        except TypeError:
+            # Adapter doesn't accept extra kwargs (Boussinesq, GR4J, etc.)
+            try:
+                adapter.extract(sim_id, solver_output_dir, store)
+            except Exception:
+                logger.exception("Failed to extract outputs for sim %s", sim_id)
         except Exception:
             logger.exception("Failed to extract outputs for sim %s", sim_id)
 
@@ -81,8 +111,18 @@ def post_run_results(
     except Exception:
         logger.exception("Failed to compute derived variables for sim %s", sim_id)
 
+    # Phase 3: aggregate catchment timeseries from spatial fields
+    try:
+        from hydromodpy.simulation.results.extractors.catchment_aggregation import (
+            aggregate_catchment_timeseries,
+        )
+        aggregate_catchment_timeseries(sim_id, store)
+    except Exception:
+        logger.exception("Failed to aggregate catchment timeseries for sim %s", sim_id)
+
     # Auto-export if configured
-    _auto_export(sim_id, store, results_config)
+    export_label = run_id or sim_id[:8]
+    _auto_export(sim_id, store, results_config, export_label=export_label)
 
     # Cleanup solver files
     do_keep = keep_solver_files if keep_solver_files is not None else results_config.keep_solver_files
@@ -94,8 +134,18 @@ def post_run_results(
             logger.warning("Failed to cleanup solver files at %s", solver_output_dir)
 
 
-def _auto_export(sim_id: str, store: Any, config: ResultsConfig) -> None:
-    """Run automated exports based on config."""
+def _auto_export(
+    sim_id: str,
+    store: Any,
+    config: ResultsConfig,
+    *,
+    export_label: str = "",
+) -> None:
+    """Run automated exports based on config.
+
+    Exports are written to ``exports/{export_label}/`` so that the
+    directory tree is organized by human-readable run name, not UUID.
+    """
     export = config.export
     if not export.any_enabled():
         return
@@ -104,32 +154,36 @@ def _auto_export(sim_id: str, store: Any, config: ResultsConfig) -> None:
     if not var_names:
         return
 
-    output_dir = Path(export.output_dir) if export.output_dir else None
-    if output_dir is None:
-        output_dir = store.project_path / "exports"
+    label = export_label or sim_id[:8]
+    base_dir = Path(export.output_dir) if export.output_dir else None
+    if base_dir is None:
+        base_dir = store.project_path / "exports"
+    output_dir = base_dir / label
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    if export.csv_timeseries:
+        try:
+            store.export(sim_id, "*", "csv", output_dir / "timeseries.csv")
+        except Exception:
+            logger.exception("Auto-export CSV failed for sim %s", sim_id)
 
     if export.netcdf and var_names:
         try:
             store.export(
                 sim_id, ",".join(var_names), "netcdf",
-                output_dir / f"{sim_id}.nc",
+                output_dir / "fields.nc",
             )
+        except KeyError:
+            logger.debug("NetCDF export skipped (no UGRID mesh) for sim %s", sim_id)
         except Exception:
             logger.exception("Auto-export NetCDF failed for sim %s", sim_id)
-
-    if export.csv_timeseries:
-        try:
-            store.export(sim_id, "*", "csv", output_dir / f"{sim_id}_timeseries.csv")
-        except Exception:
-            logger.exception("Auto-export CSV failed for sim %s", sim_id)
 
     if export.vtu and var_names:
         for var in var_names:
             try:
                 store.export(
                     sim_id, var, "vtu",
-                    output_dir / f"{sim_id}_{var}_t0.vtu",
+                    output_dir / f"{var}_t0.vtu",
                     timestep=0,
                 )
             except Exception:
@@ -140,7 +194,7 @@ def _auto_export(sim_id: str, store: Any, config: ResultsConfig) -> None:
             try:
                 store.export(
                     sim_id, var, "geotiff",
-                    output_dir / f"{sim_id}_{var}_t0.tif",
+                    output_dir / f"{var}_t0.tif",
                     timestep=0,
                 )
             except Exception:
@@ -151,7 +205,7 @@ def _auto_export(sim_id: str, store: Any, config: ResultsConfig) -> None:
             try:
                 store.export(
                     sim_id, var, "shapefile",
-                    output_dir / f"{sim_id}_{var}_t0.shp",
+                    output_dir / f"{var}_t0.shp",
                     timestep=0,
                 )
             except Exception:
