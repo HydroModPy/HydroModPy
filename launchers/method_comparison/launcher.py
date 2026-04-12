@@ -18,6 +18,7 @@ from launchers.method_comparison.metrics import (
     write_metrics_csv,
     write_metrics_json,
 )
+from launchers.method_comparison.reporting import build_comparison_report
 from launchers.method_comparison.runtime import (
     compact_run_metrics,
     extract_observable_rows,
@@ -123,9 +124,24 @@ class MethodComparisonLauncher:
                 "differences": detail_metrics,
             },
         )
+        report_path = comparison_root / "comparison_report.md"
+        report_path.write_text(
+            build_comparison_report(
+                comparison_id=str(section.comparison_id),
+                reference_variant=reference_variant,
+                variant_summaries=variant_summaries,
+                observables=[
+                    observable.model_dump(mode="json")
+                    for observable in section.observable
+                ],
+                rows=all_rows,
+                summary_metrics=summary_metrics,
+            ),
+            encoding="utf-8",
+        )
 
         manifest = {
-            "schema_version": "method_comparison_manifest_v1",
+            "schema_version": "method_comparison_manifest_v2",
             "comparison_id": section.comparison_id,
             "config_path": str(self.config_path),
             "comparison_root": str(comparison_root),
@@ -141,6 +157,7 @@ class MethodComparisonLauncher:
             "comparison_metrics_csv": str(metrics_csv),
             "comparison_differences_csv": str(differences_csv),
             "comparison_metrics_json": str(metrics_json),
+            "comparison_report_md": str(report_path),
             "n_observable_rows": len(all_rows),
             "n_metric_rows": len(summary_metrics),
             "n_difference_rows": len(detail_metrics),

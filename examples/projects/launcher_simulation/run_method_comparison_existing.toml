@@ -31,8 +31,8 @@ time = "all"
 time_reducer = "last"
 
 [[method_comparison.observable]]
-name = "outlet_accumulation"
-variable = "accumulation_flux"
+name = "outlet_flux"
+variable = "outlet_flux"
 support = "outlet"
 x = 266887.0154945171
 y = 6785678.67277686

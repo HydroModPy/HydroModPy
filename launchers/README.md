@@ -21,7 +21,7 @@ partir de la convention de nommage retenue :
 - `ProcessSimulationLauncher` : execution des simulations de processus.
 - `MethodComparisonLauncher` : orchestration de variantes maillage/solveur
   pour un meme probleme et extraction d'observables comparables depuis les
-  postprocess disque.
+  postprocess disque, avec CSV/JSON de metriques et rapport Markdown.
 - `ModelCalibrationLauncher` : orchestration des workflows de calibration.
 - `HydroCalValLauncher` : mise en place d'une strategie hydrologique de
   calibration-validation.

@@ -26,6 +26,7 @@ Le launcher ecrit dans `method_comparison/<comparison_id>/` par defaut :
 - `comparison_metrics.csv` : resume des ecarts a la variante de reference.
 - `comparison_differences.csv` : ecarts detailles par observable et temps.
 - `comparison_metrics.json` : representation JSON du resume et des ecarts.
+- `comparison_report.md` : synthese lisible des variantes, metriques et lignes non apparies.
 
 ## Outlet
 
@@ -37,11 +38,16 @@ reducteur a tout le domaine et marque la ligne avec
 
 ## Flux
 
-`accumulation_flux` est lu depuis les sorties MODFLOW quand elles existent.
-Pour Boussinesq, le launcher tente un fallback vers
-`drainage_flux_history_m3_s` ou `drainage_flux_m3_s`. Les unites natives sont
-conservees dans `native_unit`; les metriques ne comparent que les lignes dont
-l'unite de sortie est identique.
+Pour comparer un flux d'exutoire, utiliser de preference `variable = "outlet_flux"`.
+Le launcher applique alors le contrat suivant, dans cet ordre :
+
+- `outlet_discharge_east_side_m3_s` quand la sortie solveur existe deja ;
+- `drainage_flux_history_m3_s` ou `drainage_flux_m3_s` cote Boussinesq ;
+- `accumulation_flux` cote MODFLOW, converti en `m3/s` a partir de la cellule
+  d'exutoire et de `area_m2` dans le bundle maillage.
+
+Les traces de conversion sont conservees dans `observables.csv` via
+`derived_from_variable`, `conversion_applied` et `cell_area_m2`.
 
 ## Exemple
 
