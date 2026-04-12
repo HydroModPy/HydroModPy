@@ -24,19 +24,27 @@ if TYPE_CHECKING:
 
 
 def make_figure(*, nrows=1, ncols=1, figsize=None, dpi=300, **kw):
-    """Create a figure, preferring ultraplot when available.
+    """Create a Matplotlib figure and axes.
 
-    Falls back to plain Matplotlib so display code works even when the
-    optional ``ultraplot`` dependency is not installed.
+    Accepts extra kwargs (``sharex``, ``sharey``, ``hspace``, etc.)
+    and forwards what ``plt.subplots`` accepts.  Unknown keys are
+    silently dropped so callers written for ultraplot still work.
     """
-    try:
-        import ultraplot as uplt
-
-        fig, axs = uplt.subplots(
-            nrows=nrows, ncols=ncols, figsize=figsize, dpi=dpi, **kw
-        )
-    except ImportError:
-        fig, axs = plt.subplots(nrows, ncols, figsize=figsize, dpi=dpi, **kw)
+    # Filter kwargs to only what plt.subplots supports.
+    gridspec_keys = {"hspace", "wspace", "height_ratios", "width_ratios"}
+    subplot_kw = {}
+    gridspec_kw = {}
+    for k, v in kw.items():
+        if k in gridspec_keys:
+            gridspec_kw[k] = v
+        elif k in ("sharex", "sharey"):
+            # plt.subplots accepts bool or 'row'/'col'/'all', not int.
+            subplot_kw[k] = bool(v) if isinstance(v, (int, float)) else v
+    fig, axs = plt.subplots(
+        nrows, ncols, figsize=figsize, dpi=dpi,
+        gridspec_kw=gridspec_kw or None,
+        **subplot_kw,
+    )
     return fig, axs
 
 
@@ -88,22 +96,59 @@ def ensure_dir(path: Path) -> Path:
 def resolve_model_figure_dir(workspace, run_id: str) -> Path:
     """Build the standard figure output directory for one run.
 
-    The returned path points to the run-specific post-processing tree under
-    ``workspace.simulations_folder``. Plotting functions use this location as
-    their default destination for PNG exports tied to one run execution.
+    Uses ``<project_root>/exports/<run_id>/figures/`` so that all
+    user-facing outputs live under ``exports/``.
     """
-
-    return workspace.simulations_folder / run_id / "_postprocess" / "_figures"
+    return Path(workspace.project_root) / "exports" / run_id / "figures"
 
 
 def resolve_shared_figure_dir(workspace) -> Path:
-    """Build the shared figure directory used for workspace-level outputs.
+    """Build the shared figure directory used for workspace-level outputs."""
+    return Path(workspace.project_root) / "figures"
 
-    This is useful for figures that summarize several models or that belong to
-    the workspace as a whole rather than to a single simulation subfolder.
+
+def load_field_dict_from_store(
+    store,
+    sim_id: str,
+    variable: str,
+) -> dict | None:
+    """Load a multi-timestep spatial field from a ResultStore.
+
+    Returns a dict mapping timestep index to ndarray, or ``None``
+    if the variable is not found.  This is the canonical way to load
+    spatial field data for display — all display modules should use it
+    instead of reading ``.npy`` files.
     """
+    import numpy as np
 
-    return workspace.simulations_folder / "_figures"
+    try:
+        sims = store.list_simulations(sim_id=sim_id)
+        if sims.empty:
+            return None
+        raw_nt = sims.iloc[0].get("n_timesteps")
+        try:
+            n_timesteps = int(raw_nt) if raw_nt is not None and not pd.isna(raw_nt) else 1
+        except (TypeError, ValueError):
+            n_timesteps = 1
+    except Exception:
+        n_timesteps = 1
+
+    result: dict[int, np.ndarray] = {}
+    for t in range(max(n_timesteps, 1)):
+        try:
+            result[t] = store.query_field(sim_id, variable, t)
+        except Exception:
+            break
+    # Scan beyond n_timesteps in case metadata was incomplete.
+    if result:
+        t = max(result) + 1
+        while True:
+            try:
+                result[t] = store.query_field(sim_id, variable, t)
+                t += 1
+            except Exception:
+                break
+    return result if result else None
 
 
 def resolve_flow_base_raster(flow_model, geographic) -> Path:
