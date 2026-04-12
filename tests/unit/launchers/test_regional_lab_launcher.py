@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import importlib.util
 import json
 from pathlib import Path
@@ -485,6 +486,132 @@ def test_regional_lab_bootstrap_catalog_scans_mesh_run_root(tmp_path: Path) -> N
     assert "mesh_ready" in rows[1]
     assert "discovered" in rows[1]
     assert "mesh_catchment_outlet_3_bundle" in rows[1]
+
+
+def test_regional_lab_bootstrap_catalog_inspects_bundle_readiness(tmp_path: Path) -> None:
+    outlets_path = tmp_path / "outlets.csv"
+    outlets_path.write_text(
+        "\n".join(
+            [
+                "outlet_id,x_outlet,y_outlet,area_km2",
+                "3,100.0,200.0,10.2",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    mesh_run_root = tmp_path / "mesh_runs"
+    mesh_dir = mesh_run_root / "mesh_outlet_3"
+    bundle_dir = mesh_dir / "mesh_catchment_outlet_3_bundle"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    (mesh_dir / "mesh_catchment_outlet_3.msh").write_text("", encoding="utf-8")
+    (bundle_dir / "cells.csv").write_text(
+        "\n".join(
+            [
+                "cell_id,geom_type,n0,n1,n2,n3,centroid_x,centroid_y,area_m2,z_top_centroid,z_top_mean,z_bottom_centroid,z_bottom_mean,geology_code,geology_key,hydraulic_conductivity_m_s,storage_coefficient",
+                "0,triangle,0,1,2,,1.0,2.0,3.0,100.0,100.0,50.0,50.0,1,1,1.0e-6,",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (bundle_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "hydraulic_properties": {
+                    "storage_coefficient": {
+                        "default_value": None,
+                    }
+                }
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    output_path = tmp_path / "site_catalog_bootstrapped.csv"
+    build_site_catalog_from_outlet_table(
+        outlets_table_path=outlets_path,
+        output_path=output_path,
+        cluster_id="s3_10km2",
+        cluster_label="S3 10 km2",
+        cluster_family="s3",
+        cluster_scale="10km2",
+        region_id="brittany",
+        source_selection_id="scan_s3_10km2",
+        mesh_run_root=mesh_run_root,
+    )
+
+    rows = list(csv.DictReader(output_path.open("r", encoding="utf-8", newline="")))
+    assert rows[0]["mesh_bundle_dir"].endswith("mesh_catchment_outlet_3_bundle")
+    assert rows[0]["bundle_cell_count"] == "1"
+    assert rows[0]["bundle_missing_top_centroid_count"] == "0"
+    assert rows[0]["bundle_missing_storage_coefficient_count"] == "1"
+    assert rows[0]["bundle_boussinesq_steady_ready"] == "true"
+    assert rows[0]["bundle_boussinesq_transient_ready"] == "false"
+    assert "boussinesq_steady_ready" in rows[0]["tags"]
+
+
+def test_regional_lab_bootstrap_catalog_infers_bundle_dir_from_manifest_mesh_path(
+    tmp_path: Path,
+) -> None:
+    outlets_path = tmp_path / "outlets.csv"
+    outlets_path.write_text(
+        "\n".join(
+            [
+                "outlet_id,x_outlet,y_outlet,area_km2",
+                "27,100.0,200.0,98.5",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    mesh_dir = tmp_path / "mesh_gallery_outlet_27"
+    bundle_dir = mesh_dir / "mesh_catchment_outlet_27_bundle"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    mesh_path = mesh_dir / "mesh_catchment_outlet_27.msh"
+    mesh_path.write_text("", encoding="utf-8")
+    (bundle_dir / "cells.csv").write_text(
+        "\n".join(
+            [
+                "cell_id,geom_type,n0,n1,n2,n3,centroid_x,centroid_y,area_m2,z_top_centroid,z_top_mean,z_bottom_centroid,z_bottom_mean,geology_code,geology_key,hydraulic_conductivity_m_s,storage_coefficient",
+                "0,triangle,0,1,2,,1.0,2.0,3.0,100.0,100.0,50.0,50.0,1,1,1.0e-6,0.15",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (bundle_dir / "metadata.json").write_text("{}\n", encoding="utf-8")
+    manifest_path = tmp_path / "mesh_manifest.csv"
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "outlet_id,catch_name,status,x_outlet,y_outlet,output_mesh,output_summary_json,output_figure,output_figure_regional,error",
+                f"27,headwater_27,ok,100.0,200.0,{mesh_path.as_posix()},,,,",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "site_catalog_bootstrapped.csv"
+
+    build_site_catalog_from_outlet_table(
+        outlets_table_path=outlets_path,
+        output_path=output_path,
+        cluster_id="headwater_100km2",
+        cluster_label="Headwater 100 km2",
+        cluster_family="headwater",
+        cluster_scale="100km2",
+        region_id="brittany",
+        source_selection_id="scan_headwater_100km2",
+        manifest_csv=manifest_path,
+    )
+
+    rows = list(csv.DictReader(output_path.open("r", encoding="utf-8", newline="")))
+    assert rows[0]["mesh_bundle_dir"] == str(bundle_dir.resolve())
+    assert rows[0]["bundle_boussinesq_steady_ready"] == "true"
+    assert rows[0]["bundle_boussinesq_transient_ready"] == "true"
+    assert "boussinesq_transient_ready" in rows[0]["tags"]
 
 
 def test_launchers_cli_regional_lab_run_dispatches_to_launcher(monkeypatch) -> None:
