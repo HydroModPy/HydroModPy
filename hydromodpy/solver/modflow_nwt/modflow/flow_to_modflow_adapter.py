@@ -250,6 +250,7 @@ class FlowToModflowAdapter:
         simulation_window: "ResolvedSimulationTimeWindow | None" = None,
         sink_fill: bool,
         sink=None,
+        flow_runtime_overrides: Mapping[str, object] | None = None,
     ):
         """
         Store adaptation context and normalize primitive arrays/scalars.
@@ -304,6 +305,11 @@ class FlowToModflowAdapter:
         self.sink_fill = bool(sink_fill)
         self.sink = None if sink is None else np.asarray(sink, dtype=float)
         self.inactive_mask = solver_mesh.reshape_to_grid(solver_mesh.inactive_mask[0])
+        self.flow_runtime_overrides = (
+            None
+            if flow_runtime_overrides is None
+            else dict(flow_runtime_overrides)
+        )
 
     @property
     def _boundary_conditions(self) -> Mapping[str, object]:
@@ -1343,6 +1349,7 @@ class FlowToModflowAdapter:
             solver_mesh=self.solver_mesh,
             required_properties=required_properties,
             optional_fill_values={"Sy": 0.0, "Ss": 0.0},
+            runtime_property_overrides=self.flow_runtime_overrides,
         )
         hk = properties["hk"]
 

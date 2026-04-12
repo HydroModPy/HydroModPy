@@ -20,7 +20,11 @@ from .options import (
 )
 from .raster_export import write_grid_array_to_raster
 from .routing_context import SolverRoutingContext, build_solver_routing_context
-from .runtime_arrays import build_concentration_runtime_overrides, flow_grid_shape
+from .runtime_arrays import (
+    build_concentration_runtime_overrides,
+    flow_grid_shape,
+    resolve_flow_property_runtime_overrides,
+)
 from .solver_mesh import SolverMesh
 
 __all__ = [
@@ -43,4 +47,5 @@ __all__ = [
     "build_solver_routing_context",
     "build_concentration_runtime_overrides",
     "flow_grid_shape",
+    "resolve_flow_property_runtime_overrides",
 ]

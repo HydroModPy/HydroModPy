@@ -37,5 +37,6 @@ class SetupContext:
     mesh_bundle: CatchmentMeshBundle | None = None
     mesh_planar: GmshPlanarMesh2D | None = None
     mesh_support: GmshSupportMetadata | None = None
+    flow_runtime_overrides: dict[str, Any] | None = None
     run_id: str = "default"
     time_grid: Any = None

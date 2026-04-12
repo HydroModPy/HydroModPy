@@ -458,6 +458,7 @@ class Modflow(Solver):
             simulation_window=None if self.time_grid is None else self.time_grid.window,
             sink_fill=bool(self.sink_fill),
             sink=getattr(self, "sink", None),
+            flow_runtime_overrides=getattr(self, "flow_runtime_overrides", None),
         )
         return adapter.build()
 
@@ -469,6 +470,7 @@ class Modflow(Solver):
         *,
         mesh_planar: object | None = None,
         mesh_support: object | None = None,
+        flow_runtime_overrides: Mapping[str, object] | None = None,
     ):
         """
         Pre-processing to build the hydrologic model.
@@ -491,6 +493,11 @@ class Modflow(Solver):
         self.domain = domain
         self.runtime_mesh_planar = mesh_planar
         self.runtime_mesh_support = mesh_support
+        self.flow_runtime_overrides = (
+            None
+            if flow_runtime_overrides is None
+            else dict(flow_runtime_overrides)
+        )
         active_options = self.preprocess_options if options is None else options
         self._apply_preprocess_options(active_options)
 

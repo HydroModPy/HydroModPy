@@ -1095,6 +1095,7 @@ class Modflow6(Solver):
 		*,
 		mesh_planar: object | None = None,
 		mesh_support: object | None = None,
+		flow_runtime_overrides: Mapping[str, object] | None = None,
 	):
 		self.flow = flow
 		self.domain = domain
@@ -1149,6 +1150,7 @@ class Modflow6(Solver):
 			planar_mesh=self.runtime_mesh_planar,
 			required_properties=resolve_required_flow_properties(flow_regime=self.flow_regime),
 			optional_fill_values={"Sy": 0.0, "Ss": 0.0},
+			runtime_property_overrides=flow_runtime_overrides,
 		)
 		# Flatten property arrays to (nlay, ncpl).
 		self.hk = solver_mesh.flatten_from_grid(flow_params["hk"])

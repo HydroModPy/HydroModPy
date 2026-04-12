@@ -98,6 +98,20 @@ Les briques suivantes sont maintenant presentes dans le depot :
 - `launchers/model_calibration/property_arrays.py` introduit un contrat local
   `PropertyArraySet` pour representer `K` et `Sy` comme tableaux externes,
   avec modes globaux et lithologiques.
+- la preparation de session calcule maintenant un
+  `PreparedHydraulicPropertySupport` reutilisable, qui factorise le nombre de
+  cellules, les labels lithologiques quand un `mesh_input.bundle_dir` est
+  disponible, et les tableaux de base inferrables depuis le bundle ou la
+  configuration de reference.
+- `actualize_candidate(...)` produit maintenant un vrai `PropertyArraySet`
+  en plus de son resume, et l'injection de ce contrat est branchee jusqu'a
+  `state.setup.flow_runtime_overrides`.
+- `hydromodpy/solver/modflow_common/runtime_arrays.py` normalise maintenant
+  des overrides hydrauliques runtime (`K`, `Sy`, `Ss`) sous forme scalaire,
+  2D support ou 3D solveur.
+- `modflow6` et `modflownwt` consomment maintenant ces overrides runtime
+  pendant leur pre-processing, avec fallback sur le mapping historique
+  `Flow`/`Domain` quand aucun override n'est fourni.
 - les methodes qui exposent des echantillons de parametres (`gp_mapping`,
   `da_mh_gp`) produisent maintenant un artefact `model_distribution.json`
   interprete comme une distribution de modeles parametrises.
@@ -137,12 +151,9 @@ Les limites restantes sont explicites :
   mais il reste a brancher ce contrat directement aux sorties solveur reelles ;
 - les cartes de resurgence sont reservees dans le schema (`support = "map"`,
   `metric = "direct_cost"`), mais ne sont pas encore evaluables ;
-- la parametrisation par lithologie dispose d'un premier contrat vectoriel
-  (`PropertyArraySet`), mais son injection directe dans les solveurs reste a
-  brancher ;
-- l'apercu `property_array_summary` rendu par `actualize_candidate(...)`
-  reste pour l'instant diagnostique : il n'est pas encore le contrat consomme
-  directement par les adaptateurs solveur ;
+- la parametrisation par lithologie peut maintenant etre preparee et injectee
+  quand la simulation de reference fournit un bundle externe avec geologie
+  cellulaire ; les autres sources de support lithologique restent a factoriser ;
 - la factorisation fine du maillage et des tableaux de proprietes solveur
   reste la prochaine grande etape.
 - la distribution de modeles reste volontairement legere par defaut : elle

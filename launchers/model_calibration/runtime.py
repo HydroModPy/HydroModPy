@@ -19,6 +19,9 @@ from hydromodpy.analysis.calibration.core.composite_objective import (
 )
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
+from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+    load_catchment_mesh_bundle,
+)
 
 from launchers.model_calibration.config import ModelCalibrationConfig
 from launchers.model_calibration.output_selection import (
@@ -28,6 +31,7 @@ from launchers.model_calibration.output_selection import (
     select_candidate_outputs_from_selectors,
 )
 from launchers.model_calibration.property_arrays import build_property_array_set
+from launchers.model_calibration.property_arrays import PropertyArraySet
 
 
 _NUMERIC_WITH_SUFFIX_RE = re.compile(
@@ -105,6 +109,7 @@ class PreparedCalibrationSession:
     parameter_names: tuple[str, ...]
     output_names: tuple[str, ...]
     objective_block_names: tuple[str, ...]
+    prepared_hydraulic_support: "PreparedHydraulicPropertySupport | None" = None
     prepared_output_selectors: tuple[PreparedOutputSelector, ...] = ()
     candidates_root: Path | None = None
 
@@ -133,6 +138,34 @@ class PreparedCalibrationSession:
             "n_prepared_output_selectors": len(self.prepared_output_selectors),
             "objective_block_names": list(self.objective_block_names),
             "n_objective_blocks": len(self.objective_block_names),
+            "prepared_hydraulic_support": (
+                None
+                if self.prepared_hydraulic_support is None
+                else self.prepared_hydraulic_support.to_summary()
+            ),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedHydraulicPropertySupport:
+    """Prepared support reused to actualize hydraulic parameter arrays quickly."""
+
+    n_cells: int
+    lithology_labels: tuple[str, ...] | None = None
+    base_property_arrays: dict[str, tuple[float, ...]] = field(default_factory=dict)
+    source: str = "config_scalar"
+    mesh_bundle_dir: Path | None = None
+
+    def to_summary(self) -> dict[str, Any]:
+        """Return one concise JSON-friendly summary."""
+        return {
+            "n_cells": int(self.n_cells),
+            "has_lithology_labels": self.lithology_labels is not None,
+            "base_properties": sorted(self.base_property_arrays.keys()),
+            "source": str(self.source),
+            "mesh_bundle_dir": (
+                None if self.mesh_bundle_dir is None else str(self.mesh_bundle_dir)
+            ),
         }
 
 
@@ -203,6 +236,7 @@ class CandidateRunRequest:
     params_vector: tuple[float, ...]
     params_named: dict[str, float]
     override_payload: dict[str, Any]
+    property_array_set: PropertyArraySet | None = None
     property_array_summary: dict[str, Any] | None = None
     property_array_error: str | None = None
 
@@ -217,6 +251,11 @@ class CandidateRunRequest:
             "params_named": {
                 str(name): float(value) for name, value in self.params_named.items()
             },
+            "property_array_set": (
+                None
+                if self.property_array_set is None
+                else self.property_array_set.to_summary()
+            ),
             "property_array_summary": self.property_array_summary,
             "property_array_error": self.property_array_error,
         }
@@ -1321,51 +1360,205 @@ def _write_override_toml(path: Path, payload: dict[str, Any]) -> None:
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
-def _infer_base_property_arrays(
+def _resolve_mesh_input_bundle_dir(
     *,
-    session: PreparedCalibrationSession,
+    raw_simulation_toml: dict[str, Any],
+    simulation_config_path: Path,
+) -> Path | None:
+    """Resolve an optional external mesh bundle declared in the simulation config."""
+    section = raw_simulation_toml.get("mesh_input")
+    if not isinstance(section, dict):
+        return None
+    text = str(section.get("bundle_dir", "")).strip()
+    if text == "":
+        return None
+    bundle_dir = Path(text).expanduser()
+    if not bundle_dir.is_absolute():
+        bundle_dir = (simulation_config_path.parent / bundle_dir).resolve()
+    return bundle_dir
+
+
+def _resolve_flow_property_config(
+    *,
+    raw_simulation_toml: dict[str, Any],
+    property_name: str,
+) -> dict[str, Any] | None:
+    """Return the raw flow-parameter config block for one hydraulic property."""
+    flow_section = raw_simulation_toml.get("flow")
+    if not isinstance(flow_section, dict):
+        return None
+    param_section = flow_section.get("param")
+    if not isinstance(param_section, dict):
+        return None
+    for alias in (property_name, property_name.lower(), property_name.upper()):
+        payload = param_section.get(alias)
+        if isinstance(payload, dict):
+            return dict(payload)
+    return None
+
+
+def _parse_optional_numeric_value(raw_value: object) -> float | None:
+    parsed = _parse_numeric_with_optional_suffix(raw_value)
+    if parsed is None:
+        return None
+    value, _suffix = parsed
+    return float(value)
+
+
+def _build_property_array_from_config(
+    *,
+    raw_simulation_toml: dict[str, Any],
+    property_name: str,
+    n_cells: int,
+    lithology_labels: tuple[str, ...] | None,
+) -> tuple[float, ...] | None:
+    """Infer one base property array from the reference flow configuration."""
+    property_cfg = _resolve_flow_property_config(
+        raw_simulation_toml=raw_simulation_toml,
+        property_name=property_name,
+    )
+    if property_cfg is None:
+        return None
+
+    field_homogeneous = property_cfg.get("field_homogeneous")
+    if isinstance(field_homogeneous, dict):
+        scalar = _parse_optional_numeric_value(field_homogeneous.get("value"))
+        if scalar is not None:
+            return tuple(float(scalar) for _ in range(int(n_cells)))
+
+    values_by_key = property_cfg.get("values_by_key")
+    if isinstance(values_by_key, dict) and lithology_labels is not None:
+        parsed_by_key = {
+            str(key): parsed
+            for key, raw_value in values_by_key.items()
+            for parsed in [_parse_optional_numeric_value(raw_value)]
+            if parsed is not None
+        }
+        if parsed_by_key and all(label in parsed_by_key for label in lithology_labels):
+            return tuple(float(parsed_by_key[label]) for label in lithology_labels)
+
+    return None
+
+
+def _infer_target_scalar_base_arrays(
+    *,
+    raw_simulation_toml: dict[str, Any],
     cfg: ModelCalibrationConfig,
-) -> dict[str, list[float]]:
-    """Infer one-cell base arrays from the reference simulation config."""
-    base_arrays: dict[str, list[float]] = {}
+) -> dict[str, tuple[float, ...]]:
+    """Infer scalar fallback arrays from the configured target paths."""
+    base_arrays: dict[str, tuple[float, ...]] = {}
     for parameter_cfg in cfg.model_calibration.parameter:
         property_name = parameter_cfg.property
         if property_name is None or property_name in base_arrays:
             continue
         try:
             base_value = _lookup_nested_value(
-                session.raw_simulation_toml,
+                raw_simulation_toml,
                 _split_target_path(parameter_cfg.target),
             )
         except Exception:
             continue
-        parsed = _parse_numeric_with_optional_suffix(base_value)
-        if parsed is None:
+        scalar = _parse_optional_numeric_value(base_value)
+        if scalar is None:
             continue
-        base_number, _suffix = parsed
-        base_arrays[property_name] = [float(base_number)]
+        base_arrays[property_name] = (float(scalar),)
     return base_arrays
 
 
-def _build_candidate_property_array_summary(
+def prepare_hydraulic_property_support(
+    *,
+    simulation_config_path: Path,
+    raw_simulation_toml: dict[str, Any],
+    cfg: ModelCalibrationConfig,
+) -> PreparedHydraulicPropertySupport:
+    """Prepare reusable hydraulic support for calibration actualization."""
+    bundle_dir = _resolve_mesh_input_bundle_dir(
+        raw_simulation_toml=raw_simulation_toml,
+        simulation_config_path=simulation_config_path,
+    )
+    n_cells = 1
+    lithology_labels: tuple[str, ...] | None = None
+    base_property_arrays: dict[str, tuple[float, ...]] = {}
+    source = "config_scalar"
+
+    if bundle_dir is not None and bundle_dir.exists():
+        try:
+            bundle = load_catchment_mesh_bundle(bundle_dir)
+        except Exception:
+            bundle = None
+        if bundle is not None:
+            n_cells = int(bundle.n_cells)
+            bundle_labels = tuple(str(cell.geology_key or "").strip() for cell in bundle.cells)
+            if any(bundle_labels):
+                lithology_labels = bundle_labels
+                source = "mesh_bundle_geology"
+            else:
+                source = "mesh_bundle"
+
+            conductivity_values = tuple(
+                float(cell.hydraulic_conductivity_m_s)
+                for cell in bundle.cells
+                if cell.hydraulic_conductivity_m_s is not None
+            )
+            if len(conductivity_values) == n_cells:
+                base_property_arrays["K"] = conductivity_values
+
+    calibrated_properties = {
+        str(parameter_cfg.property).strip()
+        for parameter_cfg in cfg.model_calibration.parameter
+        if parameter_cfg.property is not None
+    }
+    for property_name in sorted(calibrated_properties):
+        if property_name in base_property_arrays:
+            continue
+        config_array = _build_property_array_from_config(
+            raw_simulation_toml=raw_simulation_toml,
+            property_name=property_name,
+            n_cells=n_cells,
+            lithology_labels=lithology_labels,
+        )
+        if config_array is not None:
+            base_property_arrays[property_name] = config_array
+
+    fallback_base_arrays = _infer_target_scalar_base_arrays(
+        raw_simulation_toml=raw_simulation_toml,
+        cfg=cfg,
+    )
+    for property_name, values in fallback_base_arrays.items():
+        base_property_arrays.setdefault(property_name, values)
+
+    return PreparedHydraulicPropertySupport(
+        n_cells=max(1, int(n_cells)),
+        lithology_labels=lithology_labels,
+        base_property_arrays=base_property_arrays,
+        source=source,
+        mesh_bundle_dir=bundle_dir,
+    )
+
+
+def _build_candidate_property_array_preview(
     *,
     session: PreparedCalibrationSession,
     cfg: ModelCalibrationConfig,
     params_named: dict[str, float],
-) -> tuple[dict[str, Any] | None, str | None]:
-    """Build a vectorized property preview for one candidate when feasible."""
+) -> tuple[PropertyArraySet | None, dict[str, Any] | None, str | None]:
+    """Build one vectorized property payload plus its diagnostic summary."""
+    support = session.prepared_hydraulic_support
     try:
         property_set = build_property_array_set(
             cfg=cfg,
             params=params_named,
-            base_property_arrays=_infer_base_property_arrays(
-                session=session,
-                cfg=cfg,
+            base_property_arrays=(
+                None if support is None else support.base_property_arrays
             ),
+            lithology_labels=(
+                None if support is None else support.lithology_labels
+            ),
+            default_cell_count=1 if support is None else int(support.n_cells),
         )
     except Exception as exc:
-        return None, f"{type(exc).__name__}: {exc}"
-    return property_set.to_summary(), None
+        return None, None, f"{type(exc).__name__}: {exc}"
+    return property_set, property_set.to_summary(), None
 
 
 def prepare_calibration_session(
@@ -1385,6 +1578,11 @@ def prepare_calibration_session(
     solver_families = detect_solver_families(raw_simulation_toml)
     primary_solver = solver_families[0] if solver_families else None
     prepared_output_selectors = prepare_output_selectors(cfg)
+    prepared_hydraulic_support = prepare_hydraulic_property_support(
+        simulation_config_path=cfg.simulation_config_path,
+        raw_simulation_toml=dict(raw_simulation_toml),
+        cfg=cfg,
+    )
 
     return PreparedCalibrationSession(
         config_path=config_path,
@@ -1403,6 +1601,7 @@ def prepare_calibration_session(
         parameter_names=cfg.parameter_names,
         output_names=cfg.output_names,
         objective_block_names=cfg.objective_block_names,
+        prepared_hydraulic_support=prepared_hydraulic_support,
         prepared_output_selectors=prepared_output_selectors,
     )
 
@@ -1732,7 +1931,7 @@ def actualize_candidate(
         _assign_nested_value(override_payload, target_path, resolved_value)
 
     _write_override_toml(candidate_config_path, override_payload)
-    property_array_summary, property_array_error = _build_candidate_property_array_summary(
+    property_array_set, property_array_summary, property_array_error = _build_candidate_property_array_preview(
         session=session,
         cfg=cfg,
         params_named=params_named,
@@ -1746,6 +1945,7 @@ def actualize_candidate(
         params_vector=params_vector,
         params_named=params_named,
         override_payload=override_payload,
+        property_array_set=property_array_set,
         property_array_summary=property_array_summary,
         property_array_error=property_array_error,
     )
@@ -1786,6 +1986,17 @@ def execute_candidate_run(
     """Execute one candidate simulation via a launcher factory."""
     try:
         launcher = launcher_factory(request.candidate_config_path)
+        setup_state = getattr(getattr(launcher, "run_state", None), "setup", None)
+        if setup_state is not None and request.property_array_set is not None:
+            setup_state.flow_runtime_overrides = {
+                "source": "model_calibration",
+                "candidate_run_id": request.candidate_run_id,
+                "iteration_id": request.iteration_id,
+                "properties": {
+                    property_name: np.asarray(array.values, dtype=float).copy()
+                    for property_name, array in request.property_array_set.arrays.items()
+                },
+            }
         run_state = launcher.run()
     except Exception as exc:
         return CandidateRunOutcome(

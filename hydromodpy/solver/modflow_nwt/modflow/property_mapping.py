@@ -23,6 +23,9 @@ from dataclasses import dataclass
 import numpy as np
 
 from hydromodpy.core.tools import get_logger
+from hydromodpy.solver.modflow_common.runtime_arrays import (
+    resolve_flow_property_runtime_overrides,
+)
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
     discretize_fieldparam_on_sgrid,
 )
@@ -234,6 +237,7 @@ def resolve_flow_property_arrays(
     solver_mesh,
     required_properties: frozenset[str] | set[str] | None = None,
     optional_fill_values: Mapping[str, float] | None = None,
+    runtime_property_overrides: Mapping[str, object] | None = None,
 ) -> dict[str, np.ndarray]:
     """
     Resolve canonical K/Sy/Ss arrays for solver consumption.
@@ -275,8 +279,24 @@ def resolve_flow_property_arrays(
     parameters = getattr(flow, "parameters", {})
     if not isinstance(parameters, dict):
         raise TypeError("flow.parameters must be a dictionary")
+    runtime_overrides = resolve_flow_property_runtime_overrides(
+        runtime_property_overrides,
+        solver_mesh,
+        required_properties=required,
+        optional_fill_values=optional_fill_values,
+    )
 
     for canonical_name, aliases, target_3d_attr, target_surface_attr, label in mapping_specs:
+        if target_3d_attr in runtime_overrides:
+            out[target_3d_attr] = np.asarray(
+                runtime_overrides[target_3d_attr],
+                dtype=float,
+            ).copy()
+            out[target_surface_attr] = np.asarray(
+                runtime_overrides[target_surface_attr],
+                dtype=float,
+            ).copy()
+            continue
         has_parameter = any(candidate in parameters for candidate in aliases)
         if not has_parameter and canonical_name not in required:
             fill_value = optional_defaults.get(canonical_name, None)

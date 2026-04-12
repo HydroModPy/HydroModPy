@@ -234,6 +234,23 @@ def build_property_array_set(
         property_name = parameter_cfg.property
         if property_name is None:
             continue
+        needs_explicit_base = (
+            str(parameter_cfg.parameterization) == "global_factor"
+            or str(parameter_cfg.mode) == "scale"
+        )
+        has_declared_base = bool(
+            base_property_arrays is not None and property_name in base_property_arrays
+        )
+        if (
+            property_name not in arrays_by_property
+            and needs_explicit_base
+            and not has_declared_base
+        ):
+            raise ValueError(
+                f"Parameter '{parameter_cfg.name}' requires one base array for "
+                f"property '{property_name}' because it uses multiplicative "
+                "parameterization."
+            )
         base_values = _base_array(
             property_name=property_name,
             base_property_arrays=base_property_arrays,

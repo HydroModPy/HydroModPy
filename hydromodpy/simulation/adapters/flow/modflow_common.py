@@ -149,6 +149,7 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
         options=preprocess_options,
         mesh_planar=getattr(state.setup, "mesh_planar", None),
         mesh_support=getattr(state.setup, "mesh_support", None),
+        flow_runtime_overrides=getattr(state.setup, "flow_runtime_overrides", None),
     )
 
     # Keep emitting the legacy payload immediately after preparation so older
