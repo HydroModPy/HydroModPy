@@ -17,6 +17,7 @@ name = "reg_0"
 start_datetime = "2017-01-01"
 end_datetime = "2017-12-31"
 step_value = "1 month"
+substeps_per_period = 10
 coverage_policy = "warn"
 
 [[simulation.process]]
@@ -70,7 +71,7 @@ catch_def = "from_outlet_coord"
 # For 'dem' and 'txt' modes: defines the model domain directly.
 # For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis.
 # Type: path (optional) | Optional
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+dem_init_path = "../../data/dem/regional_dem_aber.tif"
 
 # Grid cell size in metres used to rasterise the XYZ point cloud.
 # Required for 'txt' mode.
@@ -241,7 +242,7 @@ type = "constant_thickness"
 
 # Constant aquifer thickness (m) applied below topography.
 # Type: float | > 0.0 | Default: 50.0
-thickness = 50.0
+thickness = 20.0
 
 
 # ----------------------------------------------------------------------
@@ -290,7 +291,7 @@ kind = "homogeneous"
 unit = "m/s"
 
 [flow.param.K.field_homogeneous]
-value = 1e-05
+value = 5e-06
 
 [flow.param.Sy.field]
 id = "Sy"
@@ -298,7 +299,7 @@ kind = "homogeneous"
 unit = "-"
 
 [flow.param.Sy.field_homogeneous]
-value = 0.01
+value = 0.15
 
 [flow.param.Ss.field]
 id = "Ss"
@@ -797,7 +798,7 @@ show = true
 
 # Save figures/animations to disk when rendering is enabled.
 # Type: bool | Default: false
-save = false
+save = true
 
 
 # Display flags for flow plots.
@@ -865,7 +866,7 @@ enabled = true
 
 # Render particle pathlines.
 # Type: bool | Default: false
-pathlines = false
+pathlines = true
 
 
 # Display flags for transport plots.
@@ -952,6 +953,17 @@ daily = false
 
 
 # Transport postprocessing configuration.
+
+[simulation.results]
+keep_solver_files = true
+
+[simulation.results.budget]
+spatial_fields = true
+
+[simulation.results.derived]
+accumulation_flux = true
+outflow_drain = true
+
 
 [postprocess.transport]
 # Enable transport postprocessing after transport runs.
