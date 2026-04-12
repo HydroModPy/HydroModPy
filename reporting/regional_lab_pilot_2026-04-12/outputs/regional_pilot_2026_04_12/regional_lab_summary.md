@@ -3,7 +3,7 @@
 - Config: `C:\codes\HydroModPy-GH\reporting\regional_lab_pilot_2026-04-12\config_regional_lab_pilot.toml`
 - Site catalog: `C:\codes\HydroModPy-GH\reporting\regional_lab_pilot_2026-04-12\site_catalog_pilot_20.csv`
 - Selected sites: 20
-- Planned cases: 13
+- Planned cases: 14
 - Skipped cases: 27
 - Executed cases: 0
 - Reused cases: 0
@@ -16,20 +16,21 @@
 | headwater_mf6_reference | 10 | 1 | 9 | 0 | 0 | 0 | 1 |
 | headwater_backend_compare | 10 | 1 | 9 | 0 | 0 | 0 | 1 |
 | headwater_transient_backend_compare | 10 | 1 | 9 | 0 | 0 | 0 | 1 |
+| headwater_local_boussinesq_replay | 1 | 1 | 0 | 0 | 0 | 0 | 1 |
 | s3_future_reference | 10 | 10 | 0 | 0 | 0 | 0 | 10 |
 
 ## Clusters
 
 | Cluster | Sites | Planned | Skipped | Executed | Reused | Failed | Pending |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| headwater_100km2 | 10 | 3 | 27 | 0 | 0 | 0 | 3 |
+| headwater_100km2 | 10 | 4 | 27 | 0 | 0 | 0 | 4 |
 | s3_10km2 | 10 | 10 | 0 | 0 | 0 | 0 | 10 |
 
 ## Regions
 
 | Region | Sites | Planned | Skipped | Executed | Reused | Failed | Pending |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| brittany | 20 | 13 | 27 | 0 | 0 | 0 | 13 |
+| brittany | 20 | 14 | 27 | 0 | 0 | 0 | 14 |
 
 ## Coverage Gaps
 
