@@ -151,6 +151,7 @@ def _candidate_array_for_parameter(
     candidate_value: float,
     base_values: np.ndarray,
     lithology_labels: tuple[str, ...] | None,
+    zone_fractions_by_property: dict[str, dict[str, Any]] | None,
     zone_fractions_by_key: dict[str, Any] | None,
     base_property_values_by_key: dict[str, dict[str, float]] | None,
 ) -> np.ndarray:
@@ -172,14 +173,25 @@ def _candidate_array_for_parameter(
                 "a target containing '.values_by_key.<key>'"
             )
         normalized_key = str(lithology_key)
+        property_zone_fractions = None
         if (
-            zone_fractions_by_key is not None
+            zone_fractions_by_property is not None
+            and property_name in zone_fractions_by_property
+        ):
+            property_zone_fractions = zone_fractions_by_property[property_name]
+        elif zone_fractions_by_key is not None:
+            property_zone_fractions = zone_fractions_by_key
+        if (
+            property_zone_fractions is not None
             and base_property_values_by_key is not None
             and property_name in base_property_values_by_key
-            and normalized_key in zone_fractions_by_key
+            and normalized_key in property_zone_fractions
             and normalized_key in base_property_values_by_key[property_name]
         ):
-            weights = np.asarray(zone_fractions_by_key[normalized_key], dtype=float).ravel()
+            weights = np.asarray(
+                property_zone_fractions[normalized_key],
+                dtype=float,
+            ).ravel()
             if weights.size != base_values.size:
                 raise ValueError(
                     "zone_fractions_by_key length must match base arrays"
@@ -228,6 +240,7 @@ def build_property_array_set(
     params: dict[str, float] | tuple[float, ...] | list[float],
     base_property_arrays: dict[str, Any] | None = None,
     lithology_labels: tuple[str, ...] | list[str] | np.ndarray | None = None,
+    zone_fractions_by_property: dict[str, dict[str, Any]] | None = None,
     zone_fractions_by_key: dict[str, Any] | None = None,
     base_property_values_by_key: dict[str, dict[str, float]] | None = None,
     default_cell_count: int = 1,
@@ -294,6 +307,7 @@ def build_property_array_set(
             candidate_value=params_named[parameter_cfg.name],
             base_values=base_values,
             lithology_labels=labels_tuple,
+            zone_fractions_by_property=zone_fractions_by_property,
             zone_fractions_by_key=zone_fractions_by_key,
             base_property_values_by_key=base_property_values_by_key,
         )

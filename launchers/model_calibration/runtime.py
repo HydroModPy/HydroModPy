@@ -206,8 +206,12 @@ class PreparedHydraulicPropertySupport:
     n_cells: int
     lithology_labels: tuple[str, ...] | None = None
     base_property_arrays: dict[str, tuple[float, ...]] = field(default_factory=dict)
+    zone_fractions_by_property: dict[str, dict[str, tuple[float, ...]]] = field(
+        default_factory=dict
+    )
     zone_fractions_by_key: dict[str, tuple[float, ...]] = field(default_factory=dict)
     base_property_values_by_key: dict[str, dict[str, float]] = field(default_factory=dict)
+    support_id_by_property: dict[str, str] = field(default_factory=dict)
     source: str = "config_scalar"
     mesh_bundle_dir: Path | None = None
     mesh_path: Path | None = None
@@ -224,6 +228,13 @@ class PreparedHydraulicPropertySupport:
                 for name, values in sorted(self.base_property_arrays.items())
             },
             "zone_keys": sorted(self.zone_fractions_by_key.keys()),
+            "zone_supports_by_property": {
+                name: {
+                    "support_id": self.support_id_by_property.get(name),
+                    "zone_keys": sorted(values.keys()),
+                }
+                for name, values in sorted(self.zone_fractions_by_property.items())
+            },
             "base_property_values_by_key": {
                 name: {
                     str(key): float(value)
@@ -550,8 +561,10 @@ def _prepare_runtime_hydraulic_property_support(
 
     lithology_labels: tuple[str, ...] | None = None
     bundle_has_labels = False
+    zone_fractions_by_property: dict[str, dict[str, tuple[float, ...]]] = {}
     zone_fractions_by_key: dict[str, tuple[float, ...]] = {}
     base_property_values_by_key: dict[str, dict[str, float]] = {}
+    support_id_by_property: dict[str, str] = {}
     mesh_bundle = getattr(setup_state, "mesh_bundle", None)
     if mesh_bundle is not None:
         bundle_labels = tuple(
@@ -565,6 +578,11 @@ def _prepare_runtime_hydraulic_property_support(
             mesh_bundle,
             n_cells=max(1, int(getattr(solver_mesh, "n_cells", 1))),
         )
+        if zone_fractions_by_key:
+            for property_name in sorted(required_properties):
+                zone_fractions_by_property[str(property_name)] = dict(
+                    zone_fractions_by_key
+                )
 
     domain = setup_state.domain
     mesh_for_support = getattr(setup_state, "mesh_planar", None)
@@ -585,13 +603,14 @@ def _prepare_runtime_hydraulic_property_support(
     mixed_support_ids = False
     if domain is not None and mesh_for_support is not None:
         for property_name in sorted(required_properties):
+            property_name = str(property_name)
             property_cfg = _resolve_flow_property_config(
                 raw_simulation_toml=raw_simulation_toml,
                 property_name=property_name,
             )
             zone_values = _parse_property_values_by_key(property_cfg)
             if zone_values:
-                base_property_values_by_key[str(property_name)] = zone_values
+                base_property_values_by_key[property_name] = zone_values
 
             support_id = _parse_property_support_id(property_cfg)
             if support_id is None:
@@ -624,12 +643,17 @@ def _prepare_runtime_hydraulic_property_support(
             if not normalized_fractions:
                 continue
 
+            support_id_by_property[property_name] = str(support_id)
+            zone_fractions_by_property[property_name] = normalized_fractions
+
             if support_id_used is None:
                 support_id_used = str(support_id)
                 if not zone_fractions_by_key:
                     zone_fractions_by_key = normalized_fractions
             elif str(support_id) != support_id_used:
                 mixed_support_ids = True
+                if not bundle_has_labels:
+                    zone_fractions_by_key = {}
 
             if property_name in base_property_arrays:
                 continue
@@ -648,7 +672,11 @@ def _prepare_runtime_hydraulic_property_support(
     source = f"runtime_prepared_{selected_solver}"
     if bundle_has_labels:
         source += "_geology"
-    elif zone_fractions_by_key or lithology_labels is not None:
+    elif (
+        zone_fractions_by_property
+        or zone_fractions_by_key
+        or lithology_labels is not None
+    ):
         source += "_zones"
     mesh_bundle_dir, mesh_path, mesh_summary_path = _setup_mesh_paths_from_runtime(
         setup_state
@@ -657,8 +685,10 @@ def _prepare_runtime_hydraulic_property_support(
         n_cells=max(1, int(getattr(solver_mesh, "n_cells", 1))),
         lithology_labels=lithology_labels,
         base_property_arrays=base_property_arrays,
+        zone_fractions_by_property=zone_fractions_by_property,
         zone_fractions_by_key=zone_fractions_by_key,
         base_property_values_by_key=base_property_values_by_key,
+        support_id_by_property=support_id_by_property,
         source=source,
         mesh_bundle_dir=mesh_bundle_dir,
         mesh_path=mesh_path,
@@ -2323,10 +2353,21 @@ def prepare_hydraulic_property_support(
         n_cells = int(runtime_prepared.n_cells)
         lithology_labels = runtime_prepared.lithology_labels
         base_property_arrays = dict(runtime_prepared.base_property_arrays)
+        zone_fractions_by_property = {
+            str(name): {
+                str(zone_key): tuple(float(value) for value in values)
+                for zone_key, values in fractions.items()
+            }
+            for name, fractions in runtime_prepared.zone_fractions_by_property.items()
+        }
         zone_fractions_by_key = dict(runtime_prepared.zone_fractions_by_key)
         base_property_values_by_key = {
             str(name): {str(key): float(value) for key, value in values.items()}
             for name, values in runtime_prepared.base_property_values_by_key.items()
+        }
+        support_id_by_property = {
+            str(name): str(support_id)
+            for name, support_id in runtime_prepared.support_id_by_property.items()
         }
         source = str(runtime_prepared.source)
         bundle_dir = runtime_prepared.mesh_bundle_dir
@@ -2344,8 +2385,10 @@ def prepare_hydraulic_property_support(
         n_cells = 1
         lithology_labels: tuple[str, ...] | None = None
         base_property_arrays: dict[str, tuple[float, ...]] = {}
+        zone_fractions_by_property: dict[str, dict[str, tuple[float, ...]]] = {}
         zone_fractions_by_key: dict[str, tuple[float, ...]] = {}
         base_property_values_by_key: dict[str, dict[str, float]] = {}
+        support_id_by_property: dict[str, str] = {}
         source = "config_scalar"
 
         if bundle_dir is not None and bundle_dir.exists():
@@ -2375,6 +2418,11 @@ def prepare_hydraulic_property_support(
                     bundle,
                     n_cells=n_cells,
                 )
+                if zone_fractions_by_key:
+                    for property_name in sorted(calibrated_properties):
+                        zone_fractions_by_property[property_name] = dict(
+                            zone_fractions_by_key
+                        )
 
         for property_name in sorted(calibrated_properties):
             parsed_zone_values = _parse_property_values_by_key(
@@ -2408,8 +2456,10 @@ def prepare_hydraulic_property_support(
         n_cells=max(1, int(n_cells)),
         lithology_labels=lithology_labels,
         base_property_arrays=base_property_arrays,
+        zone_fractions_by_property=zone_fractions_by_property,
         zone_fractions_by_key=zone_fractions_by_key,
         base_property_values_by_key=base_property_values_by_key,
+        support_id_by_property=support_id_by_property,
         source=source,
         mesh_bundle_dir=bundle_dir,
         mesh_path=mesh_path,
@@ -2434,6 +2484,9 @@ def _build_candidate_property_array_preview(
             ),
             lithology_labels=(
                 None if support is None else support.lithology_labels
+            ),
+            zone_fractions_by_property=(
+                None if support is None else support.zone_fractions_by_property
             ),
             zone_fractions_by_key=(
                 None if support is None else support.zone_fractions_by_key
@@ -2894,6 +2947,87 @@ def execute_best_candidate_rerun(
     )
 
 
+def _launcher_supports_runtime_direct(launcher_factory: Any) -> bool:
+    """Return True when one launcher factory can run from the base config path."""
+    if bool(getattr(launcher_factory, "model_calibration_runtime_direct", False)):
+        return True
+    try:
+        from launchers import HydroModPyLauncher
+
+        return launcher_factory is HydroModPyLauncher
+    except Exception:
+        return False
+
+
+def _assign_runtime_override(raw_toml: dict[str, Any], path: tuple[str, ...], value: Any) -> None:
+    """Best-effort assignment into a raw TOML payload used for snapshots only."""
+    try:
+        _assign_nested_value(raw_toml, path, value)
+    except Exception:
+        return
+
+
+def _prepare_runtime_direct_launcher(
+    *,
+    launcher: Any,
+    request: CandidateRunRequest,
+) -> None:
+    """Patch one launcher instance so it can execute a candidate without overlay TOML."""
+    cfg = getattr(launcher, "cfg", None)
+    run_state = getattr(launcher, "run_state", None)
+    setup_state = getattr(run_state, "setup", None)
+    raw_toml = getattr(run_state, "raw_toml", None)
+    if cfg is not None:
+        simulation_cfg = getattr(cfg, "simulation", None)
+        if simulation_cfg is not None:
+            try:
+                simulation_cfg.run_id = request.candidate_run_id
+            except Exception:
+                pass
+        if "display" in request.override_payload:
+            display_cfg = getattr(cfg, "display", None)
+            if display_cfg is not None:
+                for attr_name, default_value in (
+                    ("enabled", False),
+                    ("show", False),
+                    ("save", False),
+                ):
+                    try:
+                        setattr(display_cfg, attr_name, default_value)
+                    except Exception:
+                        pass
+        if "postprocess" in request.override_payload:
+            postprocess_cfg = getattr(cfg, "postprocess", None)
+            if postprocess_cfg is not None:
+                try:
+                    postprocess_cfg.enabled = False
+                except Exception:
+                    pass
+            postprocess_runner = getattr(launcher, "postprocess_runner", None)
+            if postprocess_runner is not None and postprocess_cfg is not None:
+                try:
+                    postprocess_runner.config = postprocess_cfg
+                except Exception:
+                    pass
+    if setup_state is not None:
+        try:
+            setup_state.run_id = request.candidate_run_id
+        except Exception:
+            pass
+    if isinstance(raw_toml, dict):
+        _assign_runtime_override(
+            raw_toml,
+            ("simulation", "run_id"),
+            request.candidate_run_id,
+        )
+        if "display" in request.override_payload:
+            _assign_runtime_override(raw_toml, ("display", "enabled"), False)
+            _assign_runtime_override(raw_toml, ("display", "show"), False)
+            _assign_runtime_override(raw_toml, ("display", "save"), False)
+        if "postprocess" in request.override_payload:
+            _assign_runtime_override(raw_toml, ("postprocess", "enabled"), False)
+
+
 def execute_candidate_run(
     *,
     request: CandidateRunRequest,
@@ -2902,7 +3036,15 @@ def execute_candidate_run(
 ) -> CandidateRunOutcome:
     """Execute one candidate simulation via a launcher factory."""
     try:
-        launcher = launcher_factory(request.candidate_config_path)
+        launcher_path = request.candidate_config_path
+        if _launcher_supports_runtime_direct(launcher_factory):
+            launcher_path = request.session.simulation_config_path
+        launcher = launcher_factory(launcher_path)
+        if launcher_path == request.session.simulation_config_path:
+            _prepare_runtime_direct_launcher(
+                launcher=launcher,
+                request=request,
+            )
         setup_state = getattr(getattr(launcher, "run_state", None), "setup", None)
         if setup_state is not None and request.property_array_set is not None:
             setup_state.flow_runtime_overrides = {

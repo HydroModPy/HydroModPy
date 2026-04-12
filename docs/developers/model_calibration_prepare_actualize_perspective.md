@@ -116,11 +116,21 @@ Les briques suivantes sont maintenant presentes dans le depot :
   directement depuis les objets runtime (`setup`, `domain`, `flow`,
   `solver_mesh`), ce support est prefere aux artefacts disque ; les chemins
   materialises ne servent plus que de fallback defensif.
+- quand le launcher l'autorise, l'execution d'un candidat peut maintenant
+  aussi suivre un mode `runtime-direct` : la calibration repart de la
+  configuration de simulation de reference, reinitialise un launcher propre,
+  injecte le `PropertyArraySet` dans `flow_runtime_overrides`, et n'utilise
+  plus le TOML candidat que comme artefact de diagnostic et de tracabilite.
 - les parametrisations heterogenes a base de `values_by_key` peuvent maintenant
   aussi etre preparees au runtime sur maillages structures, quand la simulation
   de reference expose un support de domaine resolvable (`domain.supports.*`) ;
   la calibration reconstruit alors des fractions par zone, conserve les valeurs
   de base par cle, et actualise `K` ou `Sy` sans repasser par un bundle disque.
+- ces supports zones peuvent maintenant etre portes par propriete et non plus
+  seulement par un dictionnaire global de fractions : un meme cas peut donc
+  calibrer `K` et `Sy` sur des supports runtime differents, par exemple
+  `K` sur des bandes en `x` et `Sy` sur des bandes en `y`, sans melanger
+  les poids de projection.
 - `actualize_candidate(...)` produit maintenant un vrai `PropertyArraySet`
   en plus de son resume, et l'injection de ce contrat est branchee jusqu'a
   `state.setup.flow_runtime_overrides`.
@@ -162,6 +172,10 @@ Les briques suivantes sont maintenant presentes dans le depot :
   `dupuit_fixed_head_1d`, pour verifier qu'une calibration reelle peut
   preparer ses proprietes au runtime, executer le solveur, extraire un flux
   canonique et produire son reporting.
+- un deuxieme test bout en bout `modflow6` existe maintenant sur
+  `linearized_unconfined_recharge_step_1d`, avec `K + Sy`, deux blocs
+  d'observables (`head` ponctuel temporel et flux de frontiere) et extraction
+  canonique runtime des sorties transitoires.
 - `actualize_candidate(...)` expose maintenant aussi un apercu
   `property_array_summary` des proprietes hydrauliques vectorisees du candidat,
   base sur les valeurs de reference quand elles sont inferrables depuis la
@@ -178,8 +192,12 @@ Les limites restantes sont explicites :
 - la parametrisation par lithologie ou par zones supportees au runtime est
   maintenant couverte pour des valeurs inline `values_by_key` sur supports
   resolvables ; restent a enrichir les cas plus riches, par exemple plusieurs
-  supports simultanes, des sources de valeurs externes, ou des zones runtime
-  non directement discretisables sur le maillage solveur ;
+  sources de valeurs externes, ou des zones runtime non directement
+  discretisables sur le maillage solveur ;
+- le mode `runtime-direct` evite deja de piloter l'execution depuis le TOML
+  candidat quand le launcher le supporte, mais il reinstancie encore un
+  launcher propre a chaque candidat ; la reutilisation d'un runtime solveur
+  prepare sur plusieurs evaluations reste une etape ulterieure ;
 - la factorisation fine du maillage et des tableaux de proprietes solveur
   reste la prochaine grande etape.
 - la distribution de modeles reste volontairement legere par defaut : elle
