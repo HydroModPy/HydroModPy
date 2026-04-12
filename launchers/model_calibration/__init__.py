@@ -14,7 +14,10 @@ from launchers.model_calibration.objective_mapping import (
 from launchers.model_calibration.output_selection import (
     CanonicalOutputBundle,
     CanonicalOutputVariable,
+    PreparedOutputSelector,
     canonicalize_run_outputs,
+    prepare_output_selectors,
+    select_candidate_outputs_from_selectors,
 )
 from launchers.model_calibration.property_arrays import (
     HydraulicPropertyArray,
@@ -58,6 +61,7 @@ __all__ = (
     "CandidateRunRequest",
     "CanonicalOutputBundle",
     "CanonicalOutputVariable",
+    "PreparedOutputSelector",
     "canonicalize_run_outputs",
     "HydraulicPropertyArray",
     "execute_best_candidate_rerun",
@@ -84,10 +88,12 @@ __all__ = (
     "PreparedCalibrationSession",
     "build_property_array_set",
     "prepare_calibration_session",
+    "prepare_output_selectors",
     "resolve_objective_mapping_axes",
     "run_objective_mapping",
     "serialize_calibration_result",
     "select_candidate_outputs",
+    "select_candidate_outputs_from_selectors",
     "select_model_distribution_samples",
     "validate_objective_ready_for_calibration",
 )

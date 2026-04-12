@@ -92,6 +92,9 @@ Les briques suivantes sont maintenant presentes dans le depot :
   frontieres.
 - `launchers/model_calibration/output_selection.py` isole maintenant le contrat
   `run_state -> CanonicalOutputBundle -> selected observables`.
+- les demandes d'observables sont maintenant compilees une fois au `prepare`
+  sous forme de `PreparedOutputSelector`, puis reutilisees pendant les
+  evaluations de candidats.
 - `launchers/model_calibration/property_arrays.py` introduit un contrat local
   `PropertyArraySet` pour representer `K` et `Sy` comme tableaux externes,
   avec modes globaux et lithologiques.

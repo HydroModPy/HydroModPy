@@ -21,7 +21,10 @@ from hydromodpy.core.workspace.config import WorkspaceConfig
 
 from launchers.model_calibration.config import ModelCalibrationConfig
 from launchers.model_calibration.output_selection import (
+    PreparedOutputSelector,
+    prepare_output_selectors,
     select_candidate_outputs as _select_candidate_outputs_from_bundle,
+    select_candidate_outputs_from_selectors,
 )
 from launchers.model_calibration.property_arrays import build_property_array_set
 
@@ -101,6 +104,7 @@ class PreparedCalibrationSession:
     parameter_names: tuple[str, ...]
     output_names: tuple[str, ...]
     objective_block_names: tuple[str, ...]
+    prepared_output_selectors: tuple[PreparedOutputSelector, ...] = ()
     candidates_root: Path | None = None
 
     def to_summary(self) -> dict[str, Any]:
@@ -125,6 +129,7 @@ class PreparedCalibrationSession:
             "n_parameters": len(self.parameter_names),
             "output_names": list(self.output_names),
             "n_outputs": len(self.output_names),
+            "n_prepared_output_selectors": len(self.prepared_output_selectors),
             "objective_block_names": list(self.objective_block_names),
             "n_objective_blocks": len(self.objective_block_names),
         }
@@ -1145,6 +1150,7 @@ def prepare_calibration_session(
     calibration_root = simulation_workspace.calibration_folder / calibration_id
     solver_families = detect_solver_families(raw_simulation_toml)
     primary_solver = solver_families[0] if solver_families else None
+    prepared_output_selectors = prepare_output_selectors(cfg)
 
     return PreparedCalibrationSession(
         config_path=config_path,
@@ -1163,6 +1169,7 @@ def prepare_calibration_session(
         parameter_names=cfg.parameter_names,
         output_names=cfg.output_names,
         objective_block_names=cfg.objective_block_names,
+        prepared_output_selectors=prepared_output_selectors,
     )
 
 
@@ -1607,8 +1614,14 @@ def select_candidate_outputs(
     *,
     cfg: ModelCalibrationConfig,
     run_state: Any,
+    session: PreparedCalibrationSession | None = None,
 ) -> dict[str, tuple[float, ...]]:
     """Select configured simulated observables from one run-state payload."""
+    if session is not None and session.prepared_output_selectors:
+        return select_candidate_outputs_from_selectors(
+            selectors=session.prepared_output_selectors,
+            run_state=run_state,
+        )
     return _select_candidate_outputs_from_bundle(cfg=cfg, run_state=run_state)
 
 
@@ -1624,9 +1637,10 @@ def evaluate_candidate_objective(
     *,
     cfg: ModelCalibrationConfig,
     run_state: Any,
+    session: PreparedCalibrationSession | None = None,
 ) -> CompositeObjectiveEvaluation:
     """Evaluate configured composite objective from one candidate run-state."""
-    selected = select_candidate_outputs(cfg=cfg, run_state=run_state)
+    selected = select_candidate_outputs(cfg=cfg, run_state=run_state, session=session)
     outputs_by_name = {
         output_cfg.name: output_cfg for output_cfg in cfg.model_calibration.output
     }
@@ -1807,6 +1821,7 @@ def execute_candidate_run(
             objective_evaluation = evaluate_candidate_objective(
                 cfg=cfg,
                 run_state=run_state,
+                session=request.session,
             )
         except Exception as exc:
             return CandidateRunOutcome(
