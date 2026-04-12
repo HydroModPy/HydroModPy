@@ -3,6 +3,8 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
+from launchers.regional_lab.bootstrap import inspect_mesh_bundle_boussinesq_readiness
+
 
 def _merge_tags(raw_tags: str, *extra_tags: str) -> str:
     items = [item.strip() for item in str(raw_tags).split(";") if item.strip()]
@@ -16,9 +18,43 @@ def _merge_tags(raw_tags: str, *extra_tags: str) -> str:
     return ";".join(items)
 
 
+def _remove_tag(raw_tags: str, tag_to_remove: str) -> str:
+    lowered = str(tag_to_remove).strip().lower()
+    items = [
+        item.strip()
+        for item in str(raw_tags).split(";")
+        if item.strip() and item.strip().lower() != lowered
+    ]
+    return ";".join(items)
+
+
 def _write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
+
+
+def _ensure_field(fieldnames: list[str], name: str) -> None:
+    if name not in fieldnames:
+        fieldnames.append(name)
+
+
+def _describe_not_ready(row: dict[str, str]) -> str:
+    details: list[str] = []
+    missing_top = str(row.get("bundle_missing_top_centroid_count", "")).strip()
+    missing_bottom = str(row.get("bundle_missing_bottom_centroid_count", "")).strip()
+    missing_k = str(row.get("bundle_missing_hydraulic_conductivity_count", "")).strip()
+    invalid_vertical = str(row.get("bundle_invalid_vertical_geometry_count", "")).strip()
+    if missing_top not in ("", "0"):
+        details.append(f"missing_top_centroid={missing_top}")
+    if missing_bottom not in ("", "0"):
+        details.append(f"missing_bottom_centroid={missing_bottom}")
+    if missing_k not in ("", "0"):
+        details.append(f"missing_hydraulic_conductivity={missing_k}")
+    if invalid_vertical not in ("", "0"):
+        details.append(f"invalid_vertical_geometry={invalid_vertical}")
+    if not details:
+        details.append("bundle validation unavailable")
+    return "local replay withheld: " + ", ".join(details)
 
 
 def main() -> None:
@@ -63,7 +99,25 @@ def main() -> None:
         fieldnames = list(reader.fieldnames or [])
         rows = list(reader)
 
+    for field_name in (
+        "bundle_cell_count",
+        "bundle_missing_top_centroid_count",
+        "bundle_missing_bottom_centroid_count",
+        "bundle_missing_hydraulic_conductivity_count",
+        "bundle_missing_storage_coefficient_count",
+        "bundle_invalid_vertical_geometry_count",
+        "bundle_storage_default_value",
+        "bundle_boussinesq_steady_ready",
+        "bundle_boussinesq_transient_ready",
+    ):
+        _ensure_field(fieldnames, field_name)
+
+    child_dir.mkdir(parents=True, exist_ok=True)
+    for stale_path in child_dir.glob("run_*_boussinesq_local_mesh_replay.toml"):
+        stale_path.unlink()
+
     generated_count = 0
+    withheld_count = 0
     for row in rows:
         site_id = str(row.get("site_id", "")).strip()
         cluster_id = str(row.get("cluster_id", "")).strip()
@@ -73,12 +127,40 @@ def main() -> None:
         y_value = str(row.get("y", "")).strip()
 
         should_generate = site_id == "headwater_100km2_outlet_27" or cluster_id == "s3_10km2"
-        if not should_generate or mesh_path == "" or bundle_dir == "" or x_value == "" or y_value == "":
+        if not should_generate:
             continue
 
-        config_path = child_dir / f"run_{site_id}_boussinesq_local_mesh_replay.toml"
+        readiness = inspect_mesh_bundle_boussinesq_readiness(bundle_dir or None)
+        for key, value in readiness.items():
+            row[key] = "" if value is None else str(value)
+        steady_ready = str(row.get("bundle_boussinesq_steady_ready", "")).strip().lower() == "true"
+        generated_config_path = child_dir / f"run_{site_id}_boussinesq_local_mesh_replay.toml"
+        generated_config_relpath = str(generated_config_path.relative_to(pilot_dir).as_posix())
+        current_simulation_config = str(row.get("simulation_reference_config", "")).strip()
+
+        if (
+            not steady_ready
+            or mesh_path == ""
+            or bundle_dir == ""
+            or x_value == ""
+            or y_value == ""
+        ):
+            if current_simulation_config == generated_config_relpath:
+                row["simulation_reference_config"] = ""
+            row["tags"] = _remove_tag(row.get("tags", ""), "simulation_ready")
+            existing_note = str(row.get("notes", "")).strip()
+            withheld_note = _describe_not_ready(row)
+            if withheld_note not in existing_note:
+                row["notes"] = (
+                    withheld_note
+                    if existing_note == ""
+                    else f"{existing_note}; {withheld_note}"
+                )
+            withheld_count += 1
+            continue
+
         _write_text(
-            config_path,
+            generated_config_path,
             "\n".join(
                 [
                     f'base_config = "{common_base_path.resolve().as_posix()}"',
@@ -102,10 +184,10 @@ def main() -> None:
             + "\n",
         )
 
-        row["simulation_reference_config"] = str(config_path.relative_to(pilot_dir).as_posix())
+        row["simulation_reference_config"] = generated_config_relpath
         row["tags"] = _merge_tags(row.get("tags", ""), "simulation_ready")
         existing_note = str(row.get("notes", "")).strip()
-        note = "generated local boussinesq mesh replay config"
+        note = "generated local boussinesq mesh replay config (steady-ready bundle)"
         if existing_note == "":
             row["notes"] = note
         elif note not in existing_note:
@@ -119,6 +201,7 @@ def main() -> None:
             writer.writerow(row)
 
     print(f"Generated local replay configs: {generated_count}")
+    print(f"Withheld local replay configs: {withheld_count}")
     print(f"Updated catalog: {catalog_path}")
 
 
