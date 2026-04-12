@@ -118,9 +118,14 @@ Les briques suivantes sont maintenant presentes dans le depot :
   materialises ne servent plus que de fallback defensif.
 - quand le launcher l'autorise, l'execution d'un candidat peut maintenant
   aussi suivre un mode `runtime-direct` : la calibration repart de la
-  configuration de simulation de reference, reinitialise un launcher propre,
-  injecte le `PropertyArraySet` dans `flow_runtime_overrides`, et n'utilise
-  plus le TOML candidat que comme artefact de diagnostic et de tracabilite.
+  configuration de simulation de reference, injecte le `PropertyArraySet`
+  dans `flow_runtime_overrides`, et n'utilise plus le TOML candidat que comme
+  artefact de diagnostic et de tracabilite.
+- pour `HydroModPyLauncher`, ce mode `runtime-direct` reutilise maintenant un
+  launcher prepare par session via `prepare_runtime()` puis `run_prepared()` :
+  la geometrie, les donnees et le plan de simulation sont prepares une fois,
+  puis seules les sorties d'execution et les overrides candidat sont
+  reinitialises entre evaluations.
 - les parametrisations heterogenes a base de `values_by_key` peuvent maintenant
   aussi etre preparees au runtime sur maillages structures, quand la simulation
   de reference expose un support de domaine resolvable (`domain.supports.*`) ;
@@ -194,10 +199,10 @@ Les limites restantes sont explicites :
   resolvables ; restent a enrichir les cas plus riches, par exemple plusieurs
   sources de valeurs externes, ou des zones runtime non directement
   discretisables sur le maillage solveur ;
-- le mode `runtime-direct` evite deja de piloter l'execution depuis le TOML
-  candidat quand le launcher le supporte, mais il reinstancie encore un
-  launcher propre a chaque candidat ; la reutilisation d'un runtime solveur
-  prepare sur plusieurs evaluations reste une etape ulterieure ;
+- le mode `runtime-direct` avec `HydroModPyLauncher` reutilise maintenant un
+  launcher prepare sur plusieurs evaluations, mais il relance encore
+  l'execution complete du plan solveur a chaque candidat ; la reutilisation
+  d'objets solveur encore plus profonds reste une etape ulterieure ;
 - la factorisation fine du maillage et des tableaux de proprietes solveur
   reste la prochaine grande etape.
 - la distribution de modeles reste volontairement legere par defaut : elle

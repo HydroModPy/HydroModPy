@@ -18,7 +18,9 @@ from launchers.model_calibration.launcher import ModelCalibrationLauncher
 from launchers.model_calibration.runtime import (
     IterationRecord,
     ModelCalibrationObjectiveEvaluator,
+    actualize_candidate,
     append_iteration_record,
+    execute_candidate_run,
     select_candidate_outputs,
 )
 from launchers.model_calibration.output_selection import (
@@ -1913,6 +1915,122 @@ def test_model_calibration_run_candidate_can_use_runtime_direct_launcher(
     assert overrides["properties"]["K"].tolist() == pytest.approx([1.0e-4])
     assert overrides["properties"]["Sy"].tolist() == pytest.approx([0.15])
     assert outcome.run_state["mode"] == "runtime_direct"
+
+
+def test_model_calibration_reuses_runtime_direct_launcher_and_restores_baseline(
+    tmp_path: Path,
+) -> None:
+    simulation_path = tmp_path / "run_flow_reference.toml"
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_simulation_config(simulation_path)
+    _write_minimal_model_calibration_config(config_path)
+    launcher = ModelCalibrationLauncher(config_path)
+    session = launcher.prepare()
+
+    captured: dict[str, object] = {
+        "init_count": 0,
+        "prepare_count": 0,
+        "runs": [],
+    }
+
+    class _FakeReusableRuntimeLauncher:
+        model_calibration_runtime_direct = True
+        model_calibration_runtime_reusable = True
+
+        def __init__(self, config_path: Path) -> None:
+            captured["init_count"] = int(captured["init_count"]) + 1
+            self.config_path = Path(config_path)
+            display_cfg = SimpleNamespace(enabled=True, show=True, save=False)
+            postprocess_cfg = SimpleNamespace(enabled=True)
+            self.cfg = SimpleNamespace(
+                simulation=SimpleNamespace(run_id="demo_flow_run"),
+                display=display_cfg,
+                postprocess=postprocess_cfg,
+            )
+            self.postprocess_runner = SimpleNamespace(config=postprocess_cfg)
+            self.run_state = SimpleNamespace(
+                raw_toml={
+                    "simulation": {"run_id": "demo_flow_run"},
+                    "display": {"enabled": True, "show": True, "save": False},
+                    "postprocess": {"enabled": True},
+                },
+                setup=SimpleNamespace(run_id="demo_flow_run"),
+            )
+
+        def prepare_runtime(self):
+            captured["prepare_count"] = int(captured["prepare_count"]) + 1
+            return SimpleNamespace(runs=())
+
+        def run(self):
+            raise AssertionError("run() should not be used when run_prepared() exists")
+
+        def run_prepared(self):
+            runs = list(captured["runs"])
+            runs.append(
+                {
+                    "config_path": self.config_path,
+                    "cfg_run_id": self.cfg.simulation.run_id,
+                    "setup_run_id": self.run_state.setup.run_id,
+                    "display_enabled": self.cfg.display.enabled,
+                    "postprocess_enabled": self.cfg.postprocess.enabled,
+                    "raw_postprocess_enabled": self.run_state.raw_toml["postprocess"]["enabled"],
+                    "flow_runtime_overrides": self.run_state.setup.flow_runtime_overrides,
+                }
+            )
+            captured["runs"] = runs
+            return {
+                "mode": "runtime_reused",
+                "config": str(self.config_path),
+                "run_id": self.cfg.simulation.run_id,
+            }
+
+    request_1 = actualize_candidate(
+        session=session,
+        cfg=launcher.cfg,
+        params={"K_global_factor": 2.0, "Sy_global": 0.15},
+        iteration_index=1,
+    )
+    outcome_1 = execute_candidate_run(
+        request=request_1,
+        launcher_factory=_FakeReusableRuntimeLauncher,
+        cfg=None,
+    )
+    request_2 = actualize_candidate(
+        session=session,
+        cfg=launcher.cfg,
+        params={"K_global_factor": 1.5, "Sy_global": 0.11},
+        candidate_label="best",
+        disable_display=False,
+        disable_postprocess=False,
+    )
+    outcome_2 = execute_candidate_run(
+        request=request_2,
+        launcher_factory=_FakeReusableRuntimeLauncher,
+        cfg=None,
+    )
+
+    assert outcome_1.status == "solver_run_succeeded"
+    assert outcome_2.status == "solver_run_succeeded"
+    assert captured["init_count"] == 1
+    assert captured["prepare_count"] == 1
+    runs = captured["runs"]
+    assert isinstance(runs, list)
+    assert len(runs) == 2
+    assert runs[0]["config_path"] == simulation_path.resolve()
+    assert runs[1]["config_path"] == simulation_path.resolve()
+    assert runs[0]["cfg_run_id"] == "calib_case_01__iter_0001"
+    assert runs[1]["cfg_run_id"] == "calib_case_01__best"
+    assert runs[0]["setup_run_id"] == "calib_case_01__iter_0001"
+    assert runs[1]["setup_run_id"] == "calib_case_01__best"
+    assert runs[0]["display_enabled"] is False
+    assert runs[0]["postprocess_enabled"] is False
+    assert runs[0]["raw_postprocess_enabled"] is False
+    assert runs[1]["display_enabled"] is True
+    assert runs[1]["postprocess_enabled"] is True
+    assert runs[1]["raw_postprocess_enabled"] is True
+    assert runs[0]["flow_runtime_overrides"]["candidate_run_id"] == "calib_case_01__iter_0001"
+    assert runs[1]["flow_runtime_overrides"]["candidate_run_id"] == "calib_case_01__best"
+    assert outcome_2.run_state["mode"] == "runtime_reused"
 
 
 def test_model_calibration_run_candidate_persists_iteration_history(
