@@ -356,8 +356,8 @@ class Mt3dms:
             )
         self.inactive_mask = np.asarray(inactive_mask, dtype=bool)
 
-        # Fluxes
-        self.outflow_drain = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
+        # Drain outflow from flow model (in-memory, computed during flow postprocessing)
+        self.outflow_drain = getattr(self.model_modflow, 'dict_outflow_drain', {})
 
         self.ucnobj  = bf.UcnFile(self.path_file)
         self.concobj_1c = self.ucnobj.get_alldata(mflay=None) # 4D:[time, lay, row, col]
@@ -435,17 +435,14 @@ class Mt3dms:
 
         # concobj_1c_fil_surf = dict(list(concobj_1c_fil_surf.items())[:])
 
-        if concentration_seepage == True:
-            logger.info("Exporting concentration seepage timeseries")
-            np.save(self.save_file+'/concentration_seepage', self.dict_concentration_seepage)
+        if concentration_seepage:
+            logger.info("Exported concentration seepage: %d timesteps", len(self.dict_concentration_seepage))
 
-        if mass_seepage == True:
-            logger.info("Exporting mass seepage timeseries")
-            np.save(self.save_file+'/mass_seepage', self.dict_mass_seepage)
+        if mass_seepage:
+            logger.info("Exported mass seepage: %d timesteps", len(self.dict_mass_seepage))
 
-        if mass_accumulated == True:
-            logger.info("Exporting accumulated mass timeseries")
-            np.save(self.save_file+'/mass_accumulated', self.dict_mass_accumulated)
+        if mass_accumulated:
+            logger.info("Exported accumulated mass: %d timesteps", len(self.dict_mass_accumulated))
 
 
 #%% ---- NOTES
