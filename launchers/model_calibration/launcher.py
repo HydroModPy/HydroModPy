@@ -9,6 +9,7 @@ from typing import Any
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 from launchers.model_calibration.config import ModelCalibrationConfig
+from launchers.model_calibration.objective_mapping import run_objective_mapping
 from launchers.model_calibration.runtime import (
     ModelCalibrationObjectiveEvaluator,
     actualize_candidate,
@@ -194,6 +195,12 @@ class ModelCalibrationLauncher:
                     self.cfg.model_calibration.model_distribution_rerun_selection
                 ),
             )
+        objective_mapping_summary = run_objective_mapping(
+            cfg=self.cfg,
+            session=session,
+            evaluator=evaluator,
+            result=result,
+        )
         self.state.session_manifest = finalize_calibration_session(
             session=session,
             result=result,
@@ -201,6 +208,7 @@ class ModelCalibrationLauncher:
             best_rerun_outcome=best_rerun_outcome,
             model_distribution_payload=model_distribution_payload,
             model_distribution_rerun_summary=model_distribution_rerun_summary,
+            objective_mapping_summary=objective_mapping_summary,
             persist_distribution=self.cfg.model_calibration.persist_model_distribution,
         )
         return dict(self.state.session_manifest)

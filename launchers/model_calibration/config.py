@@ -25,6 +25,8 @@ _SUPPORTED_MODEL_DISTRIBUTION_SELECTIONS = (
     "best",
     "evenly_spaced",
 )
+_SUPPORTED_OBJECTIVE_MAPPING_INTERPOLATORS = ("idw", "nearest", "linear")
+_SUPPORTED_OBJECTIVE_MAPPING_SAMPLING = ("adaptive", "latin_hypercube")
 
 
 def _validate_bounds_mapping(value: object) -> dict[str, tuple[float, float]]:
@@ -213,6 +215,102 @@ class ModelCalibrationObjectiveBlockSchema(BaseModel):
         return outputs
 
 
+class ModelCalibrationObjectiveMappingSchema(BaseModel):
+    """Optional objective-surface diagnostics built from evaluated simulations."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    axes: tuple[str, str] | None = None
+    additional_runs: int = 0
+    sampling: str = "adaptive"
+    interpolation: str = "idw"
+    grid_size: int = 60
+    candidate_pool_size: int = 512
+    idw_power: float = 2.0
+    random_seed: int = 42
+    include_block_contributions: bool = True
+    output_points_csv: str = "objective_mapping_points.csv"
+    output_grid_json: str = "objective_mapping_grid.json"
+    output_figure: str | None = "objective_mapping.png"
+
+    @field_validator("axes", mode="before")
+    @classmethod
+    def _validate_axes(cls, value: object) -> tuple[str, str] | None:
+        if value is None:
+            return None
+        if not isinstance(value, (list, tuple)) or len(value) != 2:
+            raise ValueError("objective_mapping.axes must contain exactly 2 names")
+        axes = tuple(str(item).strip() for item in value)
+        if any(not item for item in axes):
+            raise ValueError("objective_mapping.axes cannot contain empty names")
+        if axes[0] == axes[1]:
+            raise ValueError("objective_mapping.axes must contain two distinct names")
+        return axes
+
+    @field_validator(
+        "output_points_csv",
+        "output_grid_json",
+        "output_figure",
+    )
+    @classmethod
+    def _validate_optional_filename(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        return text
+
+    @field_validator("additional_runs", "grid_size", "candidate_pool_size")
+    @classmethod
+    def _validate_non_negative_counts(cls, value: object) -> int:
+        count = int(value)
+        if count < 0:
+            raise ValueError("objective_mapping counts must be >= 0")
+        return count
+
+    @field_validator("sampling")
+    @classmethod
+    def _validate_sampling(cls, value: object) -> str:
+        text = str(value).strip().lower()
+        if text not in _SUPPORTED_OBJECTIVE_MAPPING_SAMPLING:
+            raise ValueError(
+                "objective_mapping.sampling must be one of "
+                f"{_SUPPORTED_OBJECTIVE_MAPPING_SAMPLING}"
+            )
+        return text
+
+    @field_validator("interpolation")
+    @classmethod
+    def _validate_interpolation(cls, value: object) -> str:
+        text = str(value).strip().lower()
+        if text not in _SUPPORTED_OBJECTIVE_MAPPING_INTERPOLATORS:
+            raise ValueError(
+                "objective_mapping.interpolation must be one of "
+                f"{_SUPPORTED_OBJECTIVE_MAPPING_INTERPOLATORS}"
+            )
+        return text
+
+    @field_validator("idw_power")
+    @classmethod
+    def _validate_idw_power(cls, value: object) -> float:
+        power = float(value)
+        if power <= 0.0:
+            raise ValueError("objective_mapping.idw_power must be > 0")
+        return power
+
+    @model_validator(mode="after")
+    def _validate_enabled_contract(self) -> "ModelCalibrationObjectiveMappingSchema":
+        if self.enabled and self.grid_size < 2:
+            raise ValueError("objective_mapping.grid_size must be >= 2 when enabled")
+        if self.enabled and self.candidate_pool_size < max(1, self.additional_runs):
+            raise ValueError(
+                "objective_mapping.candidate_pool_size must be >= additional_runs"
+            )
+        return self
+
+
 class ModelCalibrationSectionSchema(BaseModel):
     """Launcher-owned section controlling calibration orchestration."""
 
@@ -233,6 +331,9 @@ class ModelCalibrationSectionSchema(BaseModel):
     output: list[ModelCalibrationOutputSchema] = Field(default_factory=list)
     objective_block: list[ModelCalibrationObjectiveBlockSchema] = Field(
         default_factory=list
+    )
+    objective_mapping: ModelCalibrationObjectiveMappingSchema = Field(
+        default_factory=ModelCalibrationObjectiveMappingSchema
     )
 
     @field_validator("simulation_config", "calibration_id")
@@ -284,6 +385,11 @@ class ModelCalibrationSectionSchema(BaseModel):
         if not self.objective_block:
             raise ValueError(
                 "model_calibration.objective_block must contain at least one item"
+            )
+        if self.objective_mapping.enabled and not self.persist_iteration_history:
+            raise ValueError(
+                "model_calibration.objective_mapping requires "
+                "persist_iteration_history = true"
             )
         return self
 
@@ -385,6 +491,15 @@ class ModelCalibrationConfig(BaseModel):
                     f"objective block '{block.name}' references unknown outputs: {unknown}"
                 )
 
+        mapping_axes = self.model_calibration.objective_mapping.axes
+        if mapping_axes is not None:
+            unknown_axes = [name for name in mapping_axes if name not in parameter_names]
+            if unknown_axes:
+                raise ValueError(
+                    "model_calibration.objective_mapping.axes references unknown "
+                    f"parameters: {unknown_axes}"
+                )
+
         return self
 
     @property
@@ -418,6 +533,7 @@ class ModelCalibrationConfig(BaseModel):
 __all__ = (
     "ModelCalibrationConfig",
     "ModelCalibrationObjectiveBlockSchema",
+    "ModelCalibrationObjectiveMappingSchema",
     "ModelCalibrationOutputSchema",
     "ModelCalibrationParameterSchema",
     "ModelCalibrationSectionSchema",

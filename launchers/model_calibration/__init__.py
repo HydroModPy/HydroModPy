@@ -2,6 +2,15 @@
 
 from launchers.model_calibration.config import ModelCalibrationConfig
 from launchers.model_calibration.launcher import ModelCalibrationLauncher
+from launchers.model_calibration.objective_mapping import (
+    ObjectiveMappingPoint,
+    build_objective_mapping_artifacts,
+    interpolate_objective_grid,
+    load_objective_mapping_points,
+    propose_additional_objective_mapping_params,
+    resolve_objective_mapping_axes,
+    run_objective_mapping,
+)
 from launchers.model_calibration.runtime import (
     actualize_candidate,
     build_model_distribution_payload,
@@ -44,10 +53,17 @@ __all__ = (
     "ModelCalibrationLauncher",
     "ModelCalibrationObjectiveEvaluator",
     "ModelCalibrationState",
+    "ObjectiveMappingPoint",
+    "build_objective_mapping_artifacts",
+    "interpolate_objective_grid",
+    "load_objective_mapping_points",
     "persist_iteration_record",
     "persist_model_distribution",
+    "propose_additional_objective_mapping_params",
     "PreparedCalibrationSession",
     "prepare_calibration_session",
+    "resolve_objective_mapping_axes",
+    "run_objective_mapping",
     "serialize_calibration_result",
     "select_candidate_outputs",
     "select_model_distribution_samples",
