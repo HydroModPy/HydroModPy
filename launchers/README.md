@@ -34,6 +34,10 @@ Commande recommandee pour la famille simulation :
 
 `python -m launchers simulation run <path/to/config.toml>`
 
+Commande recommandee pour la famille data-overview :
+
+`python -m launchers data-overview run <path/to/config.toml>`
+
 Commande recommandee pour la famille mesh-catchment :
 
 `python -m launchers mesh-catchment run <path/to/config.toml>`
@@ -53,6 +57,10 @@ Exemple de config batch par `outlet_id` :
 Guide de prise en main dedie :
 
 `launchers/mesh_catchment/README.md`
+
+Exemple data-overview versionne :
+
+`examples/projects/data_overview/project.toml`
 
 Le sous-commande `template` imprime un TOML commente produit directement depuis
 les schemas `mesh_catchment` et `mesh_catchment_batch`. Cela permet de repartir

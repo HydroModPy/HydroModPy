@@ -16,6 +16,10 @@ single folder contains:
 In practice this file is used as a local regression smoke runner for the
 bundled examples, especially when a mesh scenario depends on derived outlet
 tables that are not meant to be maintained by hand.
+
+Run it as a module:
+
+``python -m launchers.mesh_catchment.tools.run_all_configs``
 """
 
 from __future__ import annotations
@@ -236,7 +240,8 @@ def _build_step_plan(
             cleanup_paths.append(identification_override_path)
             identification_command = [
                 sys.executable,
-                str(identification_dir / "run_catchment_identification_case.py"),
+                "-m",
+                "hydromodpy_annex.preprocess.catchment_identification_scan.run_catchment_identification_case",
                 "--config",
                 str(identification_override_path),
                 "--output-json",

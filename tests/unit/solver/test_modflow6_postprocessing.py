@@ -466,6 +466,7 @@ def test_modflow6_post_processing_exports_native_unstructured_mesh_outputs(
     watertable_npz = np.load(mesh_dir / "flow_watertable_elevation.npz")
     assert watertable_npz["values"].shape == (1, 2)
     np.testing.assert_allclose(watertable_npz["values"][0], np.array([9.0, 8.5], dtype=float))
+    np.testing.assert_allclose(watertable_npz["times"], np.array([1.0], dtype=float))
 
     csv_lines = (mesh_dir / "flow_watertable_elevation.csv").read_text(encoding="utf-8").splitlines()
     assert csv_lines[0] == "time_index,time,cell_id,value"
@@ -473,8 +474,15 @@ def test_modflow6_post_processing_exports_native_unstructured_mesh_outputs(
 
     assert len(written_vtu) == 1
     _, hydro_mesh = written_vtu[0]
-    assert sorted(hydro_mesh.cell_data.keys()) == ["cell_id", "outflow_drain", "seepage_areas", "watertable_depth", "watertable_elevation"]
-    assert (figure_dir / "flow_watertable_elevation_t(0)_time(1).png").exists()
+    assert sorted(hydro_mesh.cell_data.keys()) == [
+        "cell_id",
+        "outflow_drain",
+        "seepage_areas",
+        "top_elevation",
+        "watertable_depth",
+        "watertable_elevation",
+    ]
+    assert (figure_dir / "flow_watertable_elevation_t(0).png").exists()
 
 
 def test_modflow6_post_processing_accumulates_unstructured_flow_on_mesh(
@@ -572,6 +580,7 @@ def test_modflow6_transport_post_processing_exports_native_unstructured_mesh_out
         concentration_npz["values"][0],
         np.array([0.2, 0.4], dtype=float),
     )
+    np.testing.assert_allclose(concentration_npz["times"], np.array([1.0], dtype=float))
 
     csv_lines = (mesh_dir / "transport_mass_seepage.csv").read_text(encoding="utf-8").splitlines()
     assert csv_lines[0] == "time_index,time,cell_id,value"
@@ -579,8 +588,13 @@ def test_modflow6_transport_post_processing_exports_native_unstructured_mesh_out
 
     assert len(written_vtu) == 1
     _, hydro_mesh = written_vtu[0]
-    assert sorted(hydro_mesh.cell_data.keys()) == ["cell_id", "concentration_seepage", "mass_seepage"]
-    assert (figure_dir / "transport_concentration_seepage_t(0)_time(1).png").exists()
+    assert sorted(hydro_mesh.cell_data.keys()) == [
+        "cell_id",
+        "concentration_seepage",
+        "mass_seepage",
+        "top_elevation",
+    ]
+    assert (figure_dir / "transport_concentration_seepage_t(0).png").exists()
 
 
 def test_modflow6_transport_post_processing_accumulates_unstructured_mass(
@@ -626,6 +640,49 @@ def test_modflow6_transport_post_processing_accumulates_unstructured_mass(
         mass_accumulated[0],
         np.asarray([0.2, 0.2], dtype=float),
     )
+
+
+def test_modflow6_post_processing_tolerates_missing_meshio_for_vtu_export(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    work_dir = _workspace_dir(tmp_path, "mf6_postprocess_missing_meshio")
+    model = _build_unstructured_model(work_dir)
+    monkeypatch.setattr("hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFileUnstructured)
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.bf.CellBudgetFile",
+        _DummyBudgetFile,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.pp.get_water_table",
+        lambda head, nodata: np.asarray(head, dtype=float).reshape(-1),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        lambda *args, **kwargs: None,
+    )
+
+    def _raise_import_error(path: str, hydro_mesh) -> Path:
+        del path, hydro_mesh
+        raise ImportError("meshio is required for VTU I/O")
+
+    monkeypatch.setattr(
+        "hydromodpy.spatial.mesh.io.write_vtu",
+        _raise_import_error,
+    )
+
+    model.post_processing(
+        ModflowPostprocessOptions(
+            accumulation_flux=False,
+            native_mesh_npz=False,
+            native_mesh_csv=False,
+            native_mesh_vtu=True,
+            native_mesh_png=True,
+        )
+    )
+
+    figure_dir = Path(model.full_path) / "_postprocess" / "_figures" / "native_mesh"
+    assert (figure_dir / "flow_watertable_elevation_t(0).png").exists()
 
 
 def test_modflow6_post_processing_exports_runtime_support_overview(

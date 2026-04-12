@@ -685,6 +685,52 @@ def test_mesh_catchment_launcher_keep_mode_preserves_geographic_outputs(
     assert (stable_folder / "demcorrecflow").exists()
 
 
+def test_mesh_runtime_can_skip_exchange_bundle_export(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace_cfg = SimpleNamespace(project_root=tmp_path / "projects" / "mesh_catchment_case")
+    geographic_cfg = SimpleNamespace(
+        uses_synthetic_geographic=lambda: False,
+        river_network=SimpleNamespace(enabled=True),
+    )
+    local_workspace = _DummyWorkspace(workspace_cfg)
+
+    def _fake_run_case(config_toml, **kwargs):
+        _ = config_toml
+        kwargs["output_mesh"].parent.mkdir(parents=True, exist_ok=True)
+        kwargs["output_mesh"].write_text("mesh", encoding="utf-8")
+        return {"summary_schema_version": "zone_conformal_sidecar_v1"}
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        _fake_run_case,
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.export_catchment_mesh_bundle",
+        lambda **_: pytest.fail("exchange bundle export should be skipped"),
+    )
+
+    summary = mesh_runtime.run_single_mesh_catchment_workflow(
+        config_path=tmp_path / "config.toml",
+        section_data=MeshCatchmentConfigSchema.model_validate(
+            {
+                "constraints_mode": "rivers_only",
+                "export_exchange_bundle": False,
+            }
+        ),
+        workspace_cfg=workspace_cfg,
+        geographic_cfg=geographic_cfg,
+        domain_cfg=SimpleNamespace(depth_model=SimpleNamespace(type="constant_thickness")),
+        constraints_mode="rivers_only",
+        workspace=local_workspace,
+        domain_geographic=_DummyDomainGeographic(),
+    )
+
+    assert summary["exchange_bundle_export_enabled"] is False
+    assert "output_exchange_bundle_dir" not in summary
+
+
 def test_mesh_runtime_cleanup_mode_skips_external_domain_geographic(
     monkeypatch,
     tmp_path: Path,

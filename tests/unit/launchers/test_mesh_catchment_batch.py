@@ -226,3 +226,45 @@ def test_batch_runner_marks_missing_mesh_output_as_error_and_continues(
     assert "did not write the expected mesh file" in summary["results"][0]["error"]
     assert summary["results"][1]["status"] == "ok"
     assert "[ERROR] mesh_catchment batch outlet=1" in capsys.readouterr().err
+
+
+def test_batch_runner_raises_runtime_error_when_missing_mesh_output_and_stop_requested(
+    tmp_path: Path,
+) -> None:
+    outlets_csv = tmp_path / "outlets.csv"
+    outlets_csv.write_text(
+        "outlet_id,x_outlet_m,y_outlet_m\n1,10.0,20.0\n",
+        encoding="utf-8",
+    )
+    batch_cfg = MeshCatchmentBatchConfig.from_mapping(
+        {
+            "enabled": True,
+            "outlets_table_path": str(outlets_csv),
+            "continue_on_error": False,
+            "outputs": {
+                "mesh_filename": "mesh_{outlet_id}.msh",
+                "manifest_csv": "batch/manifest.csv",
+            },
+        },
+        base_dir=tmp_path,
+    )
+    assert batch_cfg is not None
+
+    runner = MeshCatchmentBatchRunner(
+        config_path=tmp_path / "config.toml",
+        mesh_section_data=MeshCatchmentConfigSchema.model_validate(
+            {"constraints_mode": "rivers_only"}
+        ),
+        workspace_cfg=SimpleNamespace(project_root=tmp_path / "mesh_batch"),
+        geographic_cfg=SimpleNamespace(dem_init_path=tmp_path / "dem.tif"),
+        domain_cfg=None,
+        run_single_workflow=lambda **kwargs: {
+            "output_mesh": str(kwargs["output_overrides"]["output_mesh"]),
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="did not write the expected mesh file"):
+        runner.run(batch_cfg)
+
+    manifest_path = tmp_path / "mesh_batch" / "batch" / "manifest.csv"
+    assert manifest_path.exists()

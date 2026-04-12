@@ -17,6 +17,7 @@ def test_postprocess_config_defaults_keep_feature_disabled() -> None:
     assert cfg.flow.intermittency.monthly is True
     assert cfg.transport.intermittency.monthly is True
     assert cfg.flow.native_mesh_png is False
+    assert cfg.profile == "standard"
 
 
 def test_postprocess_config_accepts_nested_overrides() -> None:
@@ -76,3 +77,42 @@ def test_postprocess_config_rejects_legacy_timeseries_intermittency_keys() -> No
                 },
             }
         )
+
+
+def test_postprocess_solver_only_profile_disables_expensive_exports() -> None:
+    cfg = PostprocessConfig.model_validate(
+        {
+            "enabled": True,
+            "profile": "solver_only",
+            "flow": {
+                "display": True,
+                "matching_streams": True,
+                "native_mesh_npz": True,
+                "native_mesh_csv": True,
+                "native_mesh_vtu": True,
+                "native_mesh_png": True,
+                "timeseries": {"enabled": True},
+                "netcdf": {"enabled": True},
+            },
+            "transport": {
+                "display_particles": True,
+                "display_transport": True,
+                "timeseries": {"enabled": True},
+                "netcdf": {"enabled": True},
+            },
+        }
+    )
+
+    assert cfg.profile == "solver_only"
+    assert cfg.flow.display is False
+    assert cfg.flow.matching_streams is False
+    assert cfg.flow.native_mesh_npz is False
+    assert cfg.flow.native_mesh_csv is False
+    assert cfg.flow.native_mesh_vtu is False
+    assert cfg.flow.native_mesh_png is False
+    assert cfg.flow.timeseries.enabled is False
+    assert cfg.flow.netcdf.enabled is False
+    assert cfg.transport.display_particles is False
+    assert cfg.transport.display_transport is False
+    assert cfg.transport.timeseries.enabled is False
+    assert cfg.transport.netcdf.enabled is False

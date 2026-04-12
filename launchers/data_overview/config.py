@@ -6,6 +6,7 @@ the TOML — no ``[simulation]``, ``[flow]``, ``[transport]``, ``[solver]``.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -70,8 +71,14 @@ class DataOverviewConfig(BaseModel):
             Directory used to resolve relative paths in workspace/geographic.
         """
         workspace_section = raw_toml.get("workspace", {})
+        env_project_root = os.environ.get("HYDROMODPY_PROJECT_ROOT")
+        if env_project_root:
+            workspace_section = {
+                **workspace_section,
+                "project_root": Path(env_project_root).expanduser().resolve(),
+            }
         # Default project_root to TOML directory when absent (stripped by _strip_empty_strings).
-        if "project_root" not in workspace_section:
+        elif "project_root" not in workspace_section:
             workspace_section = {**workspace_section, "project_root": base_dir.resolve()}
         else:
             pr = Path(workspace_section["project_root"]).expanduser()

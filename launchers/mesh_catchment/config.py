@@ -519,6 +519,14 @@ class MeshCatchmentConfigSchema(BaseModel):
             "Set it to false to skip figure creation entirely, even in batch mode where default filename patterns are present."
         ),
     )
+    export_exchange_bundle: bool = Field(
+        default=True,
+        description=(
+            "If true, export the solver-exchange mesh bundle next to the generated mesh. "
+            "Set it to false for profiling or mesh-only runs that do not need bundle metadata. "
+            "Downstream solvers that require runtime mesh support may fail without this bundle."
+        ),
+    )
     figure_dpi: int = Field(
         default=300,
         gt=0,

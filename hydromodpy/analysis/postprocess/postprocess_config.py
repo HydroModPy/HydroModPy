@@ -13,7 +13,10 @@ compatibility with projects that do not yet use launcher-managed postprocess.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic import model_validator
 
 from hydromodpy.analysis.postprocess.flow.intermittency_config import (
     IntermittencyPostprocessConfig,
@@ -113,6 +116,15 @@ class PostprocessConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    profile: Literal["standard", "solver_only"] = Field(
+        default="standard",
+        description=(
+            "Postprocess preset. Use 'standard' to honor nested options. "
+            "Use 'solver_only' for profiling or benchmark runs: launcher-managed "
+            "reports, displays, native mesh exports, NetCDF and timeseries exports "
+            "are disabled while the numerical solvers still run."
+        ),
+    )
     enabled: bool = Field(
         default=False,
         description=(
@@ -128,3 +140,37 @@ class PostprocessConfig(BaseModel):
         default_factory=TransportPostprocessConfig,
         description="Transport postprocessing configuration.",
     )
+
+    @model_validator(mode="after")
+    def _apply_profile_preset(self) -> "PostprocessConfig":
+        """Apply high-level presets after nested config validation."""
+        if self.profile != "solver_only":
+            return self
+
+        self.flow = self.flow.model_copy(
+            update={
+                "timeseries": self.flow.timeseries.model_copy(
+                    update={"enabled": False}
+                ),
+                "netcdf": self.flow.netcdf.model_copy(update={"enabled": False}),
+                "matching_streams": False,
+                "display": False,
+                "native_mesh_npz": False,
+                "native_mesh_csv": False,
+                "native_mesh_vtu": False,
+                "native_mesh_png": False,
+            }
+        )
+        self.transport = self.transport.model_copy(
+            update={
+                "timeseries": self.transport.timeseries.model_copy(
+                    update={"enabled": False}
+                ),
+                "netcdf": self.transport.netcdf.model_copy(
+                    update={"enabled": False}
+                ),
+                "display_particles": False,
+                "display_transport": False,
+            }
+        )
+        return self
