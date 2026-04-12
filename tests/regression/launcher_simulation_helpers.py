@@ -6,32 +6,33 @@ from pathlib import Path
 
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
 from validation_cases.shared.boussinesq_piecewise_strip import (
-    aggregate_piecewise_strip_postprocess,
     write_piecewise_strip_bundle,
     write_piecewise_strip_launcher_config,
 )
 from tests.regression.golden_utils import (
     REPO_ROOT,
+    _open_result_store,
+    _resolve_sim_id,
     assert_required_executables,
     collect_json_signatures,
     collect_modflow_signatures,
     collect_modpath_signatures,
     collect_npz_signatures,
+    collect_store_field_signatures,
+    collect_store_json_signatures,
+    collect_store_modpath_signatures,
+    collect_store_npz_signatures,
     require_url_available,
     resolve_model_workspace,
     resolve_tiered_golden_file,
     resolve_tiered_results_dir,
-    run_example_script,
+    run_hmp_cli,
     update_or_assert_goldens,
 )
 
 
-LAUNCHER_SIMULATION_SCRIPT = (
-    REPO_ROOT
-    / "examples"
-    / "projects"
-    / "launcher_simulation"
-    / "launcher_simulation.py"
+LAUNCHER_SIMULATION_CONFIG_DIR = (
+    REPO_ROOT / "examples" / "projects" / "launcher_simulation"
 )
 
 MODFLOW_OUTPUT_NAMES = [
@@ -211,48 +212,37 @@ def run_launcher_simulation_regression(
     if extra_env:
         env.update(extra_env)
 
-    run_example_script(
-        script_path=LAUNCHER_SIMULATION_SCRIPT,
+    run_hmp_cli(
+        config_path=LAUNCHER_SIMULATION_CONFIG_DIR / config_name,
         out_path=out_path,
-        out_env_var="HYDROMODPY_OUT_PATH",
         extra_env=env,
-        script_args=[
-            str(
-                REPO_ROOT
-                / "examples"
-                / "projects"
-                / "launcher_simulation"
-                / config_name
-            )
-        ],
         timeout=timeout,
     )
 
-    _, postprocess_dir, particles_dir = resolve_model_workspace(
-        out_path,
-        watershed_name="example12",
-        results_folder_name="results_simulations",
-    )
-
-    actual = {
-        "modflow_expected": collect_modflow_signatures(postprocess_dir, MODFLOW_OUTPUT_NAMES),
-    }
-    if transport_solver == "mf6":
-        actual["transport_expected"] = collect_modflow_signatures(
-            postprocess_dir,
-            TRANSPORT_OUTPUT_NAMES,
-        )
-    elif transport_solver == "mt3dms":
-        actual["modpath_expected"] = collect_modpath_signatures(
-            particles_dir,
-            MODPATH_SNAPSHOT_FILES,
-        )
-        actual["mt3dms_expected"] = collect_modflow_signatures(
-            postprocess_dir,
-            TRANSPORT_OUTPUT_NAMES,
-        )
-    else:
-        raise ValueError(f"Unsupported transport_solver: {transport_solver}")
+    # Read signatures from the ResultStore (DB-only pipeline).
+    store = _open_result_store(out_path)
+    try:
+        sim_id = _resolve_sim_id(store)
+        actual = {
+            "modflow_expected": collect_store_field_signatures(
+                store, sim_id, MODFLOW_OUTPUT_NAMES,
+            ),
+        }
+        if transport_solver == "mf6":
+            actual["transport_expected"] = collect_store_field_signatures(
+                store, sim_id, TRANSPORT_OUTPUT_NAMES,
+            )
+        elif transport_solver == "mt3dms":
+            actual["modpath_expected"] = collect_store_modpath_signatures(
+                store, sim_id,
+            )
+            actual["mt3dms_expected"] = collect_store_field_signatures(
+                store, sim_id, TRANSPORT_OUTPUT_NAMES,
+            )
+        else:
+            raise ValueError(f"Unsupported transport_solver: {transport_solver}")
+    finally:
+        store.close()
 
     update_or_assert_goldens(
         actual=actual,
@@ -303,39 +293,37 @@ def run_launcher_simulation_boussinesq_regression(
         runtime_backend="scipy_sparse",
     )
 
-    run_example_script(
-        script_path=LAUNCHER_SIMULATION_SCRIPT,
+    run_hmp_cli(
+        config_path=config_path,
         out_path=out_path,
-        out_env_var="HYDROMODPY_OUT_PATH",
         extra_env={"HYDROMODPY_NO_DISPLAY": "1"},
-        script_args=[str(config_path)],
         timeout=timeout,
     )
 
-    model_ws, postprocess_dir, _ = resolve_model_workspace(
+    # Resolve solver scratch for Boussinesq diagnostic files (.npz, .json).
+    model_ws, _, _ = resolve_model_workspace(
         out_path,
         results_folder_name="results_simulations",
         model_name=f"{process_id}__boussinesq",
     )
-    aggregate_piecewise_strip_postprocess(
-        postprocess_dir,
-        bundle_dir=bundle_dir,
-    )
 
-    actual = {
-        "modflow_expected": collect_modflow_signatures(
-            postprocess_dir,
-            BOUSSINESQ_OUTPUT_NAMES,
-        ),
-        "boussinesq_summary_expected": collect_json_signatures(
-            model_ws / "_boussinesq_summary.json",
-            keys=BOUSSINESQ_SUMMARY_KEYS,
-        ),
-        "boussinesq_state_history_expected": collect_npz_signatures(
-            model_ws / "_boussinesq_state_history.npz",
-            names=BOUSSINESQ_STATE_HISTORY_NAMES,
-        ),
-    }
+    # Read field signatures from ResultStore, metadata from solver scratch files.
+    store = _open_result_store(out_path)
+    try:
+        sim_id = _resolve_sim_id(store)
+        actual = {
+            "modflow_expected": collect_store_field_signatures(
+                store, sim_id, BOUSSINESQ_OUTPUT_NAMES,
+            ),
+            "boussinesq_summary_expected": collect_store_json_signatures(
+                model_ws, keys=BOUSSINESQ_SUMMARY_KEYS,
+            ),
+            "boussinesq_state_history_expected": collect_store_npz_signatures(
+                model_ws, BOUSSINESQ_STATE_HISTORY_NAMES,
+            ),
+        }
+    finally:
+        store.close()
     update_or_assert_goldens(
         actual=actual,
         golden_reference_file=resolve_tiered_golden_file(
