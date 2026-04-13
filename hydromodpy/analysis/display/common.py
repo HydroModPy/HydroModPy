@@ -21,6 +21,7 @@ from hydromodpy.analysis.display.display_config import DisplayOptions
 
 if TYPE_CHECKING:
     from hydromodpy.data.contracts.load_result import LoadResult
+    from hydromodpy.analysis.display.flow_payloads import FlowSpatialFigurePayload
 
 
 def make_figure(*, nrows=1, ncols=1, figsize=None, dpi=300, **kw):
@@ -213,3 +214,54 @@ def finalize_figure(
     else:
         # Always close in non-interactive mode to avoid leaking Matplotlib state.
         plt.close(fig)
+
+
+def plot_common_flow_spatial_outputs(
+    payload: "FlowSpatialFigurePayload | None",
+    *,
+    options: DisplayOptions,
+    output_dir: Path,
+) -> bool:
+    """Render generic flow spatial figures from the common payload."""
+    if payload is None:
+        return False
+
+    from hydromodpy.analysis.display.figures.flow_synthesis import (
+        FLOW_SPATIAL_FIELD_SPECS,
+        plot_flow_spatial_field,
+        plot_flow_state_triptych,
+    )
+
+    has_dynamic_fields = any(
+        getattr(payload, attr_name) is not None
+        for attr_name in (
+            "watertable_elevation_m",
+            "watertable_depth_m",
+            "seepage_areas_m_per_day",
+            "outflow_drain_m_per_day",
+            "accumulation_flux_m_per_day",
+        )
+    )
+
+    if options.flow.is_enabled("state_triptych", default=True):
+        plot_flow_state_triptych(
+            payload=payload,
+            options=options,
+            save_path=output_dir / "flow_state_triptych.png",
+        )
+
+    if options.flow.is_enabled("watertable_map", default=True):
+        for field_name, spec in FLOW_SPATIAL_FIELD_SPECS.items():
+            if field_name == "top_elevation":
+                continue
+            values = getattr(payload, spec.attr_name)
+            if values is None:
+                continue
+            plot_flow_spatial_field(
+                payload=payload,
+                field_name=field_name,
+                options=options,
+                save_path=output_dir / f"{field_name}.png",
+            )
+
+    return has_dynamic_fields

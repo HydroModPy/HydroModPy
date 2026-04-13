@@ -283,7 +283,7 @@ class DisplaySectionOptions:
     """
 
     enabled: bool = True
-    flags: dict[str, bool] = field(default_factory=dict)
+    flags: dict[str, bool | int | None] = field(default_factory=dict)
 
     def is_enabled(self, name: str, default: bool = False) -> bool:
         """Return the effective state of one named feature flag.

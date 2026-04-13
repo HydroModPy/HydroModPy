@@ -29,20 +29,17 @@ from hydromodpy.analysis.display.common import (
     finalize_figure,
     load_field_dict_from_store,
     make_figure,
+    plot_common_flow_spatial_outputs,
     _single_axes,
 )
 from hydromodpy.analysis.display.display_config import DisplayOptions
 from hydromodpy.analysis.display.flow_payloads import (
-    FlowSpatialFigurePayload,
     build_flow_cumulative_payload,
     build_flow_spatial_payload_from_run,
 )
 from hydromodpy.analysis.display.posthoc import GeographicArtifacts, PosthocContext, RunArtifacts
 from hydromodpy.analysis.display.figures.flow_synthesis import (
-    FLOW_SPATIAL_FIELD_SPECS,
     plot_flow_recharge_discharge_cumulative,
-    plot_flow_spatial_field,
-    plot_flow_state_triptych,
 )
 
 logger = logging.getLogger(__name__)
@@ -137,51 +134,6 @@ def _load_simulated_timeseries(run: RunArtifacts) -> pd.DataFrame | None:
     return pd.read_csv(path, sep=";", index_col=0, parse_dates=True)
 
 
-def _plot_common_flow_spatial_outputs(
-    payload: FlowSpatialFigurePayload | None,
-    *,
-    options: DisplayOptions,
-    output_dir: Path,
-) -> bool:
-    """Render generic flow spatial figures from the common payload."""
-    if payload is None:
-        return False
-
-    has_dynamic_fields = any(
-        getattr(payload, attr_name) is not None
-        for attr_name in (
-            "watertable_elevation_m",
-            "watertable_depth_m",
-            "seepage_areas_m_per_day",
-            "outflow_drain_m_per_day",
-            "accumulation_flux_m_per_day",
-        )
-    )
-
-    if options.flow.is_enabled("state_triptych", default=True):
-        plot_flow_state_triptych(
-            payload=payload,
-            options=options,
-            save_path=output_dir / "flow_state_triptych.png",
-        )
-
-    if options.flow.is_enabled("watertable_map", default=True):
-        for field_name, spec in FLOW_SPATIAL_FIELD_SPECS.items():
-            if field_name == "top_elevation":
-                continue
-            values = getattr(payload, spec.attr_name)
-            if values is None:
-                continue
-            plot_flow_spatial_field(
-                payload=payload,
-                field_name=field_name,
-                options=options,
-                save_path=output_dir / f"{field_name}.png",
-            )
-
-    return has_dynamic_fields
-
-
 # ------------------------------------------------------------------
 # Individual figure generators
 # ------------------------------------------------------------------
@@ -270,8 +222,6 @@ def _plot_watertable_maps(
         if data_dict is not None:
             last_key = max(data_dict.keys())
             arr = data_dict[last_key].astype(float)
-            if np.asarray(arr).ndim != 2:
-                continue
 
             dem_masked, transform, nodata = _load_raster(geo=geo)
             # Reshape flat store array to match 2D DEM grid.
@@ -338,7 +288,6 @@ def _plot_composite_wtd_seepage(
     if wtd_dict is None:
         return
 
-    dem_masked, transform, nodata = _load_raster(dem_path, geo=geo)
     last_key = max(wtd_dict.keys())
     wtd_arr = wtd_dict[last_key].astype(float)
 
@@ -424,7 +373,6 @@ def _plot_cross_section(
     if wt_dict is None:
         return
 
-    dem_masked, transform, nodata = _load_raster(dem_path, geo=geo)
     dem_2d = dem_masked.data.astype(float)
     if nodata is not None:
         dem_2d[np.isclose(dem_2d, float(nodata))] = np.nan
@@ -801,7 +749,7 @@ def plot_posthoc_flow_suite(
         _load_simulated_timeseries(run),
         run_id=run.run_id,
     )
-    rendered_common_spatial = _plot_common_flow_spatial_outputs(
+    rendered_common_spatial = plot_common_flow_spatial_outputs(
         spatial_payload,
         options=options,
         output_dir=output_dir,
@@ -887,7 +835,6 @@ def plot_posthoc_flow_suite(
     if options.flow.is_enabled("persistency_map", default=True) and store is not None and sim_id is not None:
         pi_dict = load_field_dict_from_store(store, sim_id, "persistency_index")
         if pi_dict is not None:
-            dem_path = None if hasattr(run, "base_raster") else None
             dem_masked, transform, nodata = _load_raster(geo=geo)
             if dem_masked is not None:
                 from hydromodpy.analysis.display.figures.spatial import plot_raster_field
