@@ -16,7 +16,7 @@ from hydromodpy.analysis.display.flow_payloads import (
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.analysis.display.options import DisplayOptions
+    from hydromodpy.analysis.display.display_config import DisplayOptions
 
 
 @dataclass(frozen=True)

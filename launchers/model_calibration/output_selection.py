@@ -9,6 +9,7 @@ boundary locally to `launchers.model_calibration`:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,8 @@ from collections.abc import Mapping
 import numpy as np
 
 from launchers.model_calibration.config import ModelCalibrationConfig
+
+logger = logging.getLogger(__name__)
 
 
 _RUNTIME_MODEL_VARIABLE_NAMES = (
@@ -217,12 +220,74 @@ def _load_mesh_npz_payload(path: Path) -> tuple[dict[Any, Any], np.ndarray | Non
     }, cell_ids
 
 
+def _try_store_variable(
+    result_store: Any,
+    sim_id: str,
+    variable_name: str,
+) -> tuple[Any | None, str | None]:
+    """Try to load a variable from a ResultStore (DuckDB + Zarr).
+
+    Returns ``(payload, source_tag)`` on success, ``(None, None)`` when the
+    variable is not available in the store. This is the preferred read path
+    on the ``dev-database`` branch; callers should fall back to legacy
+    ``.npy`` / runtime-attribute reads when this returns ``None``.
+    """
+    try:
+        root = result_store._zarr_root  # noqa: SLF001
+        grp = root.get(str(sim_id))
+        if grp is None:
+            return None, None
+
+        # Check root group, then common subgroups (derived, budget).
+        for loc in (grp, grp.get("derived"), grp.get("budget")):
+            if loc is not None and variable_name in loc:
+                arr = loc[variable_name]
+                shape = arr.shape
+                if len(shape) == 0:
+                    return None, None
+                if len(shape) == 1:
+                    # Single timestep — return flat array.
+                    return np.asarray(arr[:], dtype=float), "result_store"
+                # Multiple timesteps — return dict keyed by timestep index.
+                payload = {
+                    t: np.asarray(arr[t], dtype=float).reshape(-1)
+                    for t in range(shape[0])
+                }
+                return payload, "result_store"
+    except Exception:
+        logger.debug(
+            "ResultStore lookup failed for variable '%s' (sim=%s), "
+            "falling back to legacy path",
+            variable_name,
+            sim_id,
+            exc_info=True,
+        )
+    return None, None
+
+
 def _raw_model_variable_payload(
     model: Any,
     *,
     variable_name: str,
+    result_store: Any = None,
+    store_sim_id: str | None = None,
 ) -> tuple[Any | None, str | None, np.ndarray | None]:
-    """Resolve one variable payload from model memory first, then disk fallback."""
+    """Resolve one variable payload from ResultStore, model memory, or disk.
+
+    Resolution order (first hit wins):
+    1. ResultStore (DuckDB + Zarr) — preferred on dev-database branch
+    2. Runtime attribute (``model.dict_<variable_name>``)
+    3. Legacy ``_postprocess/*.npy`` or ``_postprocess/_mesh/*.npz``
+    """
+    # --- 1. ResultStore path (progressive migration) -------------------------
+    if result_store is not None and store_sim_id is not None:
+        payload, source = _try_store_variable(
+            result_store, store_sim_id, variable_name,
+        )
+        if payload is not None:
+            return payload, source, None
+
+    # --- 2. Runtime attribute ------------------------------------------------
     attr_name = f"dict_{variable_name}"
     attr_value = getattr(model, attr_name, None)
     if attr_value is not None and (
@@ -230,6 +295,7 @@ def _raw_model_variable_payload(
     ):
         return attr_value, "runtime_attribute", None
 
+    # --- 3. Legacy disk fallback ---------------------------------------------
     postprocess_dir = _model_postprocess_dir(model)
     if postprocess_dir is None:
         return None, None, None
@@ -401,6 +467,9 @@ def _canonicalize_model_payload(
 
 def _iter_runtime_model_variables(
     run_state: Any,
+    *,
+    result_store: Any = None,
+    store_sim_id: str | None = None,
 ) -> tuple[CanonicalOutputVariable, ...]:
     """Extract canonical variables from produced solver models when available."""
     variables: list[CanonicalOutputVariable] = []
@@ -409,6 +478,8 @@ def _iter_runtime_model_variables(
             raw_payload, payload_source, cell_ids = _raw_model_variable_payload(
                 model,
                 variable_name=variable_name,
+                result_store=result_store,
+                store_sim_id=store_sim_id,
             )
             if raw_payload is None:
                 continue
@@ -433,8 +504,22 @@ def _iter_runtime_model_variables(
     return tuple(variables)
 
 
-def canonicalize_run_outputs(run_state: Any) -> CanonicalOutputBundle:
-    """Build a canonical output bundle from a heterogeneous run state."""
+def canonicalize_run_outputs(
+    run_state: Any,
+    *,
+    result_store: Any = None,
+    store_sim_id: str | None = None,
+) -> CanonicalOutputBundle:
+    """Build a canonical output bundle from a heterogeneous run state.
+
+    Parameters
+    ----------
+    result_store : ResultStore, optional
+        When provided, spatial fields are read from the store first before
+        falling back to legacy ``.npy`` files. Progressive migration path.
+    store_sim_id : str, optional
+        Simulation UUID inside the store. Required when *result_store* is set.
+    """
     variables: dict[str, CanonicalOutputVariable] = {}
     aliases: dict[str, str] = {}
     for source_name, container in _candidate_output_containers(run_state):
@@ -447,7 +532,11 @@ def canonicalize_run_outputs(run_state: Any) -> CanonicalOutputBundle:
                 )
             aliases.setdefault(key, key)
 
-    for variable in _iter_runtime_model_variables(run_state):
+    for variable in _iter_runtime_model_variables(
+        run_state,
+        result_store=result_store,
+        store_sim_id=store_sim_id,
+    ):
         if variable.name not in variables:
             variables[variable.name] = variable
         aliases.setdefault(variable.name, variable.name)
@@ -732,12 +821,16 @@ def select_candidate_outputs(
     *,
     cfg: ModelCalibrationConfig,
     run_state: Any,
+    result_store: Any = None,
+    store_sim_id: str | None = None,
 ) -> dict[str, tuple[float, ...]]:
     """Select configured simulated observables from one run-state payload."""
     selectors = prepare_output_selectors(cfg)
     return select_candidate_outputs_from_selectors(
         selectors=selectors,
         run_state=run_state,
+        result_store=result_store,
+        store_sim_id=store_sim_id,
     )
 
 
@@ -745,9 +838,15 @@ def select_candidate_outputs_from_selectors(
     *,
     selectors: tuple[PreparedOutputSelector, ...],
     run_state: Any,
+    result_store: Any = None,
+    store_sim_id: str | None = None,
 ) -> dict[str, tuple[float, ...]]:
     """Select configured observables using prepared selectors."""
-    bundle = canonicalize_run_outputs(run_state)
+    bundle = canonicalize_run_outputs(
+        run_state,
+        result_store=result_store,
+        store_sim_id=store_sim_id,
+    )
     selected: dict[str, tuple[float, ...]] = {}
     for output_cfg in selectors:
         try:

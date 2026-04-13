@@ -136,10 +136,47 @@ class RunArtifacts:
     """Lightweight descriptor for one simulation run.
 
     All data is read from the ``ResultStore`` (DuckDB + Zarr).
+    Filesystem paths are derived lazily from ``run_dir`` for legacy
+    compatibility (posthoc orchestration, native mesh figures, particles).
     """
 
     run_id: str
     run_dir: Path | None = None
+
+    @property
+    def postprocess_dir(self) -> Path | None:
+        if self.run_dir is None:
+            return None
+        p = self.run_dir / "_postprocess"
+        return p if p.is_dir() else None
+
+    @property
+    def native_mesh_figure_dir(self) -> Path | None:
+        if self.run_dir is None:
+            return None
+        p = self.run_dir / "_postprocess" / "_figures" / "native_mesh"
+        return p if p.is_dir() else None
+
+    @property
+    def simulated_timeseries_csv(self) -> Path | None:
+        if self.run_dir is None:
+            return None
+        p = self.run_dir / "_postprocess" / "_timeseries" / "_simulated_timeseries.csv"
+        return p if p.exists() else None
+
+    @property
+    def pathlines_weighted_shp(self) -> Path | None:
+        if self.run_dir is None:
+            return None
+        p = self.run_dir / "_postprocess" / "_particles" / "pathlines_weighted.shp"
+        return p if p.exists() else None
+
+    @property
+    def starting_weighted_shp(self) -> Path | None:
+        if self.run_dir is None:
+            return None
+        p = self.run_dir / "_postprocess" / "_particles" / "starting_weighted.shp"
+        return p if p.exists() else None
 
     @classmethod
     def discover(cls, run_dir: Path) -> RunArtifacts:
