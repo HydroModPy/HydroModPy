@@ -488,6 +488,11 @@ def _assess_method_result(
         result_payload = json.loads(result_path.read_text(encoding="utf-8"))
     calibration_time_seconds = None
     time_per_evaluation_seconds = None
+    session_prepare_time_seconds = None
+    mean_candidate_total_time_seconds = None
+    mean_candidate_preparation_time_seconds = None
+    mean_candidate_simulation_time_seconds = None
+    mean_candidate_objective_time_seconds = None
     block_raw_cost_best: dict[str, float] = {}
     block_normalized_cost_best: dict[str, float] = {}
     block_reference_scale: dict[str, float] = {}
@@ -495,6 +500,29 @@ def _assess_method_result(
     metadata = result_payload.get("metadata", {})
     if isinstance(metadata, dict) and metadata.get("calibration_time_seconds") is not None:
         calibration_time_seconds = float(metadata["calibration_time_seconds"])
+    if isinstance(metadata, dict) and metadata.get("session_prepare_time_seconds") is not None:
+        session_prepare_time_seconds = float(metadata["session_prepare_time_seconds"])
+    candidate_timing_summary = {}
+    if isinstance(metadata, dict):
+        raw_candidate_timing_summary = metadata.get("candidate_timing_summary", {})
+        if isinstance(raw_candidate_timing_summary, dict):
+            candidate_timing_summary = raw_candidate_timing_summary
+    if isinstance(candidate_timing_summary.get("total_time_seconds"), dict):
+        raw_value = candidate_timing_summary["total_time_seconds"].get("mean")
+        if raw_value is not None:
+            mean_candidate_total_time_seconds = float(raw_value)
+    if isinstance(candidate_timing_summary.get("prepare_time_seconds"), dict):
+        raw_value = candidate_timing_summary["prepare_time_seconds"].get("mean")
+        if raw_value is not None:
+            mean_candidate_preparation_time_seconds = float(raw_value)
+    if isinstance(candidate_timing_summary.get("simulation_time_seconds"), dict):
+        raw_value = candidate_timing_summary["simulation_time_seconds"].get("mean")
+        if raw_value is not None:
+            mean_candidate_simulation_time_seconds = float(raw_value)
+    if isinstance(candidate_timing_summary.get("objective_time_seconds"), dict):
+        raw_value = candidate_timing_summary["objective_time_seconds"].get("mean")
+        if raw_value is not None:
+            mean_candidate_objective_time_seconds = float(raw_value)
     if calibration_time_seconds is not None and int(summary.get("n_evaluations", 0)) > 0:
         time_per_evaluation_seconds = (
             float(calibration_time_seconds) / float(int(summary["n_evaluations"]))
@@ -576,6 +604,17 @@ def _assess_method_result(
         seed=seed,
         calibration_time_seconds=calibration_time_seconds,
         time_per_evaluation_seconds=time_per_evaluation_seconds,
+        session_prepare_time_seconds=session_prepare_time_seconds,
+        mean_candidate_total_time_seconds=mean_candidate_total_time_seconds,
+        mean_candidate_preparation_time_seconds=(
+            mean_candidate_preparation_time_seconds
+        ),
+        mean_candidate_simulation_time_seconds=(
+            mean_candidate_simulation_time_seconds
+        ),
+        mean_candidate_objective_time_seconds=(
+            mean_candidate_objective_time_seconds
+        ),
         failed_iteration_count=failed_iteration_count,
         meets_success_target=bool(meets_success_target),
         candidate_run_count=candidate_run_count,

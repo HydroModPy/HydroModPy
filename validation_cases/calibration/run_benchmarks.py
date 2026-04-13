@@ -135,6 +135,19 @@ def _materialize_suite_rows(benchmarks) -> list[dict[str, object]]:
                 "cost_best": result.cost_best,
                 "calibration_time_seconds": result.calibration_time_seconds,
                 "time_per_evaluation_seconds": result.time_per_evaluation_seconds,
+                "session_prepare_time_seconds": result.session_prepare_time_seconds,
+                "mean_candidate_total_time_seconds": (
+                    result.mean_candidate_total_time_seconds
+                ),
+                "mean_candidate_preparation_time_seconds": (
+                    result.mean_candidate_preparation_time_seconds
+                ),
+                "mean_candidate_simulation_time_seconds": (
+                    result.mean_candidate_simulation_time_seconds
+                ),
+                "mean_candidate_objective_time_seconds": (
+                    result.mean_candidate_objective_time_seconds
+                ),
                 "failed_iteration_count": result.failed_iteration_count,
                 "candidate_run_count": result.candidate_run_count,
                 "objective_cache_hit_count": result.objective_cache_hit_count,
@@ -213,10 +226,35 @@ def _materialize_method_stat_rows(benchmarks) -> list[dict[str, object]]:
             for item in results
             if item.calibration_time_seconds is not None
         ]
+        session_prepare_times = [
+            float(item.session_prepare_time_seconds)
+            for item in results
+            if item.session_prepare_time_seconds is not None
+        ]
         time_per_eval_values = [
             float(item.time_per_evaluation_seconds)
             for item in results
             if item.time_per_evaluation_seconds is not None
+        ]
+        mean_candidate_total_times = [
+            float(item.mean_candidate_total_time_seconds)
+            for item in results
+            if item.mean_candidate_total_time_seconds is not None
+        ]
+        mean_candidate_prepare_times = [
+            float(item.mean_candidate_preparation_time_seconds)
+            for item in results
+            if item.mean_candidate_preparation_time_seconds is not None
+        ]
+        mean_candidate_simulation_times = [
+            float(item.mean_candidate_simulation_time_seconds)
+            for item in results
+            if item.mean_candidate_simulation_time_seconds is not None
+        ]
+        mean_candidate_objective_times = [
+            float(item.mean_candidate_objective_time_seconds)
+            for item in results
+            if item.mean_candidate_objective_time_seconds is not None
         ]
         failed_iterations = [float(item.failed_iteration_count) for item in results]
         cache_hit_rates = [
@@ -246,8 +284,21 @@ def _materialize_method_stat_rows(benchmarks) -> list[dict[str, object]]:
             "mean_iteration_count": _safe_mean(iteration_counts),
             "mean_calibration_time_seconds": _safe_mean(calibration_times),
             "std_calibration_time_seconds": _safe_std(calibration_times),
+            "mean_session_prepare_time_seconds": _safe_mean(session_prepare_times),
             "mean_time_per_evaluation_seconds": _safe_mean(time_per_eval_values),
             "std_time_per_evaluation_seconds": _safe_std(time_per_eval_values),
+            "mean_candidate_total_time_seconds": _safe_mean(
+                mean_candidate_total_times
+            ),
+            "mean_candidate_preparation_time_seconds": _safe_mean(
+                mean_candidate_prepare_times
+            ),
+            "mean_candidate_simulation_time_seconds": _safe_mean(
+                mean_candidate_simulation_times
+            ),
+            "mean_candidate_objective_time_seconds": _safe_mean(
+                mean_candidate_objective_times
+            ),
             "mean_failed_iteration_count": _safe_mean(failed_iterations),
             "mean_objective_cache_hit_rate": _safe_mean(cache_hit_rates),
             "mean_model_distribution_sample_count": _safe_mean(
