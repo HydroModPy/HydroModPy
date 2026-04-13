@@ -22,7 +22,7 @@ class _DummyWorkspace:
     def __init__(self, config) -> None:
         self.config = config
         self.project_root = Path(config.project_root)
-        self.stable_folder = self.project_root / ".solver_scratch/_preprocessing"
+        self.solver_scratch_folder = self.project_root / ".solver_scratch"
 
 
 class _DummyBatchWorkspace:
@@ -30,7 +30,7 @@ class _DummyBatchWorkspace:
         self.config = config
         self.project_root = Path(config.project_root)
         self.catch_name = str(config.catch_name)
-        self.stable_folder = self.project_root / ".solver_scratch/_preprocessing"
+        self.solver_scratch_folder = self.project_root / ".solver_scratch"
 
 
 class _DummyDomainGeographic:

@@ -328,7 +328,7 @@ class MethodComparisonLauncher:
     ) -> Path:
         """Infer one existing run folder from a simulation config path."""
         cfg = HydroModPyConfig.from_toml(config_path)
-        base_folder = Path(cfg.workspace.simulations_folder) / str(cfg.simulation.run_id)
+        base_folder = Path(cfg.workspace.solver_scratch_folder) / str(cfg.simulation.run_id)
         if (base_folder / "_postprocess").exists() or (
             base_folder / "_boussinesq_state_history.npz"
         ).exists():
@@ -365,7 +365,7 @@ class MethodComparisonLauncher:
 
         workspace = run_state.setup.workspace
         run_id = run_state.setup.run_id
-        return Path(workspace.simulations_folder) / str(run_id)
+        return Path(workspace.solver_scratch_folder) / str(run_id)
 
     @staticmethod
     def _first_completed_variant_id(

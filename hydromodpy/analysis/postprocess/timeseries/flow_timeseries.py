@@ -105,7 +105,7 @@ class FlowTimeseriesPostprocess:
         self.geographic = geographic
         self.model_modflow = model_modflow
         self.stable_folder = geographic.stable_folder
-        self.simulations = geographic.simulations_folder
+        self.simulations = geographic.simulations_folder  # GeographicPaths.simulations_folder (solver scratch)
 
         self.model_name = model_modflow.model_name
         self.model_folder = model_modflow.model_folder

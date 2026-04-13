@@ -95,25 +95,6 @@ class WorkspaceConfig(BaseModel):
         """Path to the temporary solver scratch directory."""
         return self._effective_output_root / ".solver_scratch"
 
-    # -- Backward-compatibility aliases for legacy directory layout ----------
-
-    @property
-    def stable_folder(self) -> Path:
-        """Legacy alias: preprocessing outputs."""
-        return self.solver_scratch_folder / "_preprocessing"
-
-    @property
-    def simulations_folder(self) -> Path:
-        """Legacy alias: simulation outputs."""
-        return self._effective_output_root / "results_simulations"
-
-    @property
-    def calibration_folder(self) -> Path:
-        """Legacy alias: calibration outputs."""
-        return self._effective_output_root / "results_calibration"
-
-    # -- Data paths -----------------------------------------------------------
-
     @property
     def data_path(self) -> Path | None:
         """Path to the shared data folder, or None if no workspace root."""

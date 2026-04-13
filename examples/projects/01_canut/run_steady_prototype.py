@@ -131,7 +131,7 @@ model_name = cfg.workspace.catch_name
 model_modflow = Modflow(
     geographic,
     modflow_config=cfg.modflownwt,
-    model_folder=str(ws.simulations_folder),
+    model_folder=str(ws.solver_scratch_folder),
     model_name=model_name,
     bin_path=str(ws.bin_path),
 )
@@ -139,7 +139,7 @@ model_modflow = Modflow(
 print("\n" + "=" * 60)
 print(f"  Simulation : {model_name}")
 print(f"  Flow regime: {cfg.flow.flow_regime}")
-print(f"  Output dir : {ws.simulations_folder / model_name}")
+print(f"  Output dir : {ws.solver_scratch_folder / model_name}")
 print("=" * 60 + "\n")
 
 model_modflow.pre_processing(
@@ -180,7 +180,7 @@ model_modpath = Modpath(
     domain,
     transport,
     model_modflow=model_modflow,
-    model_folder=str(ws.simulations_folder),
+    model_folder=str(ws.solver_scratch_folder),
     model_name=model_name,
     bin_path=str(ws.bin_path),
 )
@@ -209,8 +209,8 @@ model_modpath.filt_processing(
 # =====================================================================
 
 data_path = cfg.workspace.data_path
-stable_folder = ws.stable_folder
-sim_folder = ws.simulations_folder / model_name
+stable_folder = ws.solver_scratch_folder / "_preprocessing"
+sim_folder = ws.solver_scratch_folder / model_name
 fig_dir = sim_folder / "_postprocess" / "_figures"
 fig_dir.mkdir(parents=True, exist_ok=True)
 

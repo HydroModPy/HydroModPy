@@ -31,8 +31,7 @@ class _DummyWorkspace:
     def __init__(self, config) -> None:
         self.config = config
         self.project_root = Path("workspace")
-        self.stable_folder = self.project_root / ".solver_scratch/_preprocessing"
-        self.simulations_folder = self.project_root / "results_simulations"
+        self.solver_scratch_folder = self.project_root / ".solver_scratch"
 
 
 class _DummyGeographic:
@@ -518,8 +517,6 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(
         def __init__(self, config) -> None:
             self.config = config
             self.project_root = Path(config.project_root).resolve()
-            self.stable_folder = self.project_root / ".solver_scratch/_preprocessing"
-            self.simulations_folder = self.project_root / "results_simulations"
             self.solver_scratch_folder = self.project_root / ".solver_scratch"
 
     class _DummyRunGeographic:
@@ -752,8 +749,6 @@ def test_run_uses_external_mesh_input_phase_and_skips_embedded_workflow(
         def __init__(self, config) -> None:
             self.config = config
             self.project_root = Path(config.project_root).resolve()
-            self.stable_folder = self.project_root / ".solver_scratch/_preprocessing"
-            self.simulations_folder = self.project_root / "results_simulations"
             self.solver_scratch_folder = self.project_root / ".solver_scratch"
 
     class _DummyRunGeographic:

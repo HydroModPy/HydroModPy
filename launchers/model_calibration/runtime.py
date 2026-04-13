@@ -2159,7 +2159,7 @@ def _mesh_catchment_output_dir(
     workspace_paths = WorkspacePathRegistry.from_config(simulation_workspace)
     if output_layout == "flat":
         return workspace_paths.project_root
-    return workspace_paths.stable_folder / "mesh"
+    return workspace_paths.solver_scratch_folder / "_preprocessing" / "mesh"
 
 
 def _candidate_mesh_catchment_summary_paths(
@@ -2581,7 +2581,7 @@ def prepare_calibration_session(
     )
     core_settings = cfg.resolve_core_settings()
     calibration_id = cfg.model_calibration.calibration_id or config_path.stem
-    calibration_root = simulation_workspace.calibration_folder / calibration_id
+    calibration_root = simulation_workspace.solver_scratch_folder / calibration_id
     solver_families = detect_solver_families(raw_simulation_toml)
     primary_solver = solver_families[0] if solver_families else None
     prepared_output_selectors = prepare_output_selectors(cfg)

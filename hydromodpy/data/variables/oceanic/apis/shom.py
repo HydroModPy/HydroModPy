@@ -46,7 +46,7 @@ def fetch(
     fallback_search_radius_km
         Maximum distance (km) for nearest gauge search.  None = unlimited.
     write
-        If True, cache downloaded data to CSV in geographic.stable_folder.
+        If True, cache downloaded data to CSV in the solver scratch folder.
 
     Returns
     -------
