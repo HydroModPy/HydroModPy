@@ -497,31 +497,12 @@ def _prepare_runtime_hydraulic_property_support(
     from hydromodpy.solver.modflow_common.discretization_spatial import (
         build_spatial_discretization,
     )
-    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.core.config.toml_loader import (
-        load_toml_with_base_config as _load_toml,
-    )
-    from hydromodpy.core.time import (
-        apply_explicit_time_window_to_tgrids,
-        require_flow_simulation_time_grid,
-    )
-    from hydromodpy.workflow.context import WorkflowContext
-    from hydromodpy.workflow.pipelines.simulation import (
-        prepare_simulation_runtime,
-    )
+    from launchers.process_simulation.launcher import HydroModPyLauncher
 
-    cfg = HydroModPyConfig.from_toml(simulation_config_path)
-    apply_explicit_time_window_to_tgrids(cfg)
-    raw_toml = _load_toml(simulation_config_path)
-    ctx = WorkflowContext(
-        cfg=cfg,
-        config_path=Path(simulation_config_path).resolve(),
-        raw_toml=raw_toml,
-    )
-    ctx.setup.time_grid = require_flow_simulation_time_grid(cfg)
-    prepare_simulation_runtime(ctx)
+    launcher = HydroModPyLauncher(simulation_config_path)
+    launcher.prepare_runtime()
 
-    setup_state = ctx.setup
+    setup_state = launcher.run_state.setup
     if setup_state.flow is None or setup_state.domain is None:
         return None
 
@@ -530,13 +511,13 @@ def _prepare_runtime_hydraulic_property_support(
             resolve_flow_property_arrays as resolve_runtime_property_arrays,
         )
 
-        sgrid_config = cfg.modflow6.sgrid
+        sgrid_config = launcher.cfg.modflow6.sgrid
     elif selected_solver == "modflownwt":
         from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
             resolve_flow_property_arrays as resolve_runtime_property_arrays,
         )
 
-        sgrid_config = cfg.modflownwt.sgrid
+        sgrid_config = launcher.cfg.modflownwt.sgrid
     else:
         return None
 
