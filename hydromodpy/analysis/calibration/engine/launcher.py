@@ -103,7 +103,7 @@ class ModelCalibrationLauncher:
             iteration_index=iteration_index,
         )
         if launcher_factory is None:
-            from launchers import HydroModPyLauncher
+            from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
 
             launcher_factory = HydroModPyLauncher
         outcome = execute_candidate_run(
@@ -127,7 +127,7 @@ class ModelCalibrationLauncher:
         """Run the configured optimization loop through CalibrationEngine."""
         session = self.prepare()
         if launcher_factory is None:
-            from launchers import HydroModPyLauncher
+            from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
 
             launcher_factory = HydroModPyLauncher
 

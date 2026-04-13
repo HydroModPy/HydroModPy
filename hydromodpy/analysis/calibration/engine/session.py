@@ -501,7 +501,7 @@ def _prepare_runtime_hydraulic_property_support(
     from hydromodpy.solver.modflow_common.discretization_spatial import (
         build_spatial_discretization,
     )
-    from launchers.process_simulation.launcher import HydroModPyLauncher
+    from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
 
     launcher = HydroModPyLauncher(simulation_config_path)
     launcher.prepare_runtime()
@@ -3327,7 +3327,7 @@ def _launcher_supports_runtime_direct(launcher_factory: Any) -> bool:
     if bool(getattr(launcher_factory, "model_calibration_runtime_direct", False)):
         return True
     try:
-        from launchers import HydroModPyLauncher
+        from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
 
         return launcher_factory is HydroModPyLauncher
     except Exception:
@@ -3339,7 +3339,7 @@ def _launcher_supports_runtime_reuse(launcher_factory: Any) -> bool:
     if bool(getattr(launcher_factory, "model_calibration_runtime_reusable", False)):
         return True
     try:
-        from launchers import HydroModPyLauncher
+        from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
 
         return launcher_factory is HydroModPyLauncher
     except Exception:
