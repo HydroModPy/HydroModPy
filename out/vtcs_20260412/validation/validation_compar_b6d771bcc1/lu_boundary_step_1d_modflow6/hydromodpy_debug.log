@@ -1,0 +1,3 @@
+2026-04-12 23:21:08,900 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:219] Hydraulic conductivity mapped from flow.K using direct homogeneous mapping
+2026-04-12 23:21:08,901 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:219] Specific yield mapped from flow.Sy using direct homogeneous mapping
+2026-04-12 23:21:08,901 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:219] Specific storage mapped from flow.Ss using direct homogeneous mapping
