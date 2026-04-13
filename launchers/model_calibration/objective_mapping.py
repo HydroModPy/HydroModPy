@@ -21,6 +21,7 @@ from launchers.model_calibration.runtime import (
     ModelCalibrationObjectiveEvaluator,
     PreparedCalibrationSession,
 )
+from launchers.model_calibration._utils import jsonable as _jsonable
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,25 +43,6 @@ class ObjectiveMappingPoint:
             self.objective_total is not None
             and math.isfinite(float(self.objective_total))
         )
-
-
-def _jsonable(value: Any) -> Any:
-    """Convert common values to JSON-friendly Python values."""
-    if value is None or isinstance(value, (str, int, bool)):
-        return value
-    if isinstance(value, float):
-        return value if math.isfinite(value) else None
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, np.ndarray):
-        return value.tolist()
-    if isinstance(value, np.generic):
-        return _jsonable(value.item())
-    if isinstance(value, dict):
-        return {str(key): _jsonable(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_jsonable(item) for item in value]
-    return repr(value)
 
 
 def resolve_objective_mapping_axes(
