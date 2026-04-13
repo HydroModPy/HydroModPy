@@ -11,7 +11,7 @@ from hydromodpy.analysis.display.flow_payloads import (
     FlowCumulativeSeriesPayload,
     FlowSpatialFigurePayload,
 )
-from hydromodpy.analysis.display.options import DisplayOptions, DisplaySectionOptions
+from hydromodpy.analysis.display.display_config import DisplayOptions, DisplaySectionOptions
 from hydromodpy.analysis.display.posthoc import GeographicArtifacts, RunArtifacts
 from hydromodpy.analysis.display.posthoc_orchestration import plot_posthoc_flow_suite
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
