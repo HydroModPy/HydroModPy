@@ -136,6 +136,12 @@ def _materialize_suite_rows(benchmarks) -> list[dict[str, object]]:
                 "calibration_time_seconds": result.calibration_time_seconds,
                 "time_per_evaluation_seconds": result.time_per_evaluation_seconds,
                 "session_prepare_time_seconds": result.session_prepare_time_seconds,
+                "estimated_candidate_runtime_seconds": (
+                    result.estimated_candidate_runtime_seconds
+                ),
+                "algorithm_overhead_time_seconds": (
+                    result.algorithm_overhead_time_seconds
+                ),
                 "mean_candidate_total_time_seconds": (
                     result.mean_candidate_total_time_seconds
                 ),
@@ -144,6 +150,24 @@ def _materialize_suite_rows(benchmarks) -> list[dict[str, object]]:
                 ),
                 "mean_candidate_simulation_time_seconds": (
                     result.mean_candidate_simulation_time_seconds
+                ),
+                "mean_candidate_actualize_time_seconds": (
+                    result.mean_candidate_actualize_time_seconds
+                ),
+                "mean_candidate_launcher_prepare_time_seconds": (
+                    result.mean_candidate_launcher_prepare_time_seconds
+                ),
+                "mean_candidate_runtime_patch_time_seconds": (
+                    result.mean_candidate_runtime_patch_time_seconds
+                ),
+                "mean_candidate_output_selection_time_seconds": (
+                    result.mean_candidate_output_selection_time_seconds
+                ),
+                "mean_candidate_objective_build_time_seconds": (
+                    result.mean_candidate_objective_build_time_seconds
+                ),
+                "mean_candidate_objective_compute_time_seconds": (
+                    result.mean_candidate_objective_compute_time_seconds
                 ),
                 "mean_candidate_objective_time_seconds": (
                     result.mean_candidate_objective_time_seconds
@@ -231,6 +255,16 @@ def _materialize_method_stat_rows(benchmarks) -> list[dict[str, object]]:
             for item in results
             if item.session_prepare_time_seconds is not None
         ]
+        estimated_candidate_runtime_times = [
+            float(item.estimated_candidate_runtime_seconds)
+            for item in results
+            if item.estimated_candidate_runtime_seconds is not None
+        ]
+        algorithm_overhead_times = [
+            float(item.algorithm_overhead_time_seconds)
+            for item in results
+            if item.algorithm_overhead_time_seconds is not None
+        ]
         time_per_eval_values = [
             float(item.time_per_evaluation_seconds)
             for item in results
@@ -246,10 +280,40 @@ def _materialize_method_stat_rows(benchmarks) -> list[dict[str, object]]:
             for item in results
             if item.mean_candidate_preparation_time_seconds is not None
         ]
+        mean_candidate_actualize_times = [
+            float(item.mean_candidate_actualize_time_seconds)
+            for item in results
+            if item.mean_candidate_actualize_time_seconds is not None
+        ]
+        mean_candidate_launcher_prepare_times = [
+            float(item.mean_candidate_launcher_prepare_time_seconds)
+            for item in results
+            if item.mean_candidate_launcher_prepare_time_seconds is not None
+        ]
+        mean_candidate_runtime_patch_times = [
+            float(item.mean_candidate_runtime_patch_time_seconds)
+            for item in results
+            if item.mean_candidate_runtime_patch_time_seconds is not None
+        ]
         mean_candidate_simulation_times = [
             float(item.mean_candidate_simulation_time_seconds)
             for item in results
             if item.mean_candidate_simulation_time_seconds is not None
+        ]
+        mean_candidate_output_selection_times = [
+            float(item.mean_candidate_output_selection_time_seconds)
+            for item in results
+            if item.mean_candidate_output_selection_time_seconds is not None
+        ]
+        mean_candidate_objective_build_times = [
+            float(item.mean_candidate_objective_build_time_seconds)
+            for item in results
+            if item.mean_candidate_objective_build_time_seconds is not None
+        ]
+        mean_candidate_objective_compute_times = [
+            float(item.mean_candidate_objective_compute_time_seconds)
+            for item in results
+            if item.mean_candidate_objective_compute_time_seconds is not None
         ]
         mean_candidate_objective_times = [
             float(item.mean_candidate_objective_time_seconds)
@@ -285,6 +349,12 @@ def _materialize_method_stat_rows(benchmarks) -> list[dict[str, object]]:
             "mean_calibration_time_seconds": _safe_mean(calibration_times),
             "std_calibration_time_seconds": _safe_std(calibration_times),
             "mean_session_prepare_time_seconds": _safe_mean(session_prepare_times),
+            "mean_estimated_candidate_runtime_seconds": _safe_mean(
+                estimated_candidate_runtime_times
+            ),
+            "mean_algorithm_overhead_time_seconds": _safe_mean(
+                algorithm_overhead_times
+            ),
             "mean_time_per_evaluation_seconds": _safe_mean(time_per_eval_values),
             "std_time_per_evaluation_seconds": _safe_std(time_per_eval_values),
             "mean_candidate_total_time_seconds": _safe_mean(
@@ -293,8 +363,26 @@ def _materialize_method_stat_rows(benchmarks) -> list[dict[str, object]]:
             "mean_candidate_preparation_time_seconds": _safe_mean(
                 mean_candidate_prepare_times
             ),
+            "mean_candidate_actualize_time_seconds": _safe_mean(
+                mean_candidate_actualize_times
+            ),
+            "mean_candidate_launcher_prepare_time_seconds": _safe_mean(
+                mean_candidate_launcher_prepare_times
+            ),
+            "mean_candidate_runtime_patch_time_seconds": _safe_mean(
+                mean_candidate_runtime_patch_times
+            ),
             "mean_candidate_simulation_time_seconds": _safe_mean(
                 mean_candidate_simulation_times
+            ),
+            "mean_candidate_output_selection_time_seconds": _safe_mean(
+                mean_candidate_output_selection_times
+            ),
+            "mean_candidate_objective_build_time_seconds": _safe_mean(
+                mean_candidate_objective_build_times
+            ),
+            "mean_candidate_objective_compute_time_seconds": _safe_mean(
+                mean_candidate_objective_compute_times
             ),
             "mean_candidate_objective_time_seconds": _safe_mean(
                 mean_candidate_objective_times
@@ -492,8 +580,8 @@ def _write_suite_report(
             "",
             "## Method Summary",
             "",
-            "| Case | Method | Success Metric | Target Success | Best Fit | Mean Cost | Mean Eval | Session Prep (s) | Model Prep (s) | Model Sim (s) | Mean Time/Eval (s) |",
-            "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+            "| Case | Method | Success Metric | Target Success | Best Fit | Mean Cost | Mean Eval | Session Prep (s) | Candidate Runtime (s) | Algorithm Overhead (s) | Actualize (s) | Launcher Prep (s) | Runtime Patch (s) | Model Sim (s) | Output Select (s) | Objective Score (s) | Mean Time/Eval (s) |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for row in method_rows:
@@ -523,13 +611,43 @@ def _write_suite_report(
                     ),
                     (
                         ""
-                        if row["mean_candidate_preparation_time_seconds"] is None
-                        else f"{float(row['mean_candidate_preparation_time_seconds']):.3f}"
+                        if row["mean_estimated_candidate_runtime_seconds"] is None
+                        else f"{float(row['mean_estimated_candidate_runtime_seconds']):.3f}"
+                    ),
+                    (
+                        ""
+                        if row["mean_algorithm_overhead_time_seconds"] is None
+                        else f"{float(row['mean_algorithm_overhead_time_seconds']):.3f}"
+                    ),
+                    (
+                        ""
+                        if row["mean_candidate_actualize_time_seconds"] is None
+                        else f"{float(row['mean_candidate_actualize_time_seconds']):.3f}"
+                    ),
+                    (
+                        ""
+                        if row["mean_candidate_launcher_prepare_time_seconds"] is None
+                        else f"{float(row['mean_candidate_launcher_prepare_time_seconds']):.3f}"
+                    ),
+                    (
+                        ""
+                        if row["mean_candidate_runtime_patch_time_seconds"] is None
+                        else f"{float(row['mean_candidate_runtime_patch_time_seconds']):.3f}"
                     ),
                     (
                         ""
                         if row["mean_candidate_simulation_time_seconds"] is None
                         else f"{float(row['mean_candidate_simulation_time_seconds']):.3f}"
+                    ),
+                    (
+                        ""
+                        if row["mean_candidate_output_selection_time_seconds"] is None
+                        else f"{float(row['mean_candidate_output_selection_time_seconds']):.3f}"
+                    ),
+                    (
+                        ""
+                        if row["mean_candidate_objective_compute_time_seconds"] is None
+                        else f"{float(row['mean_candidate_objective_compute_time_seconds']):.3f}"
                     ),
                     (
                         ""

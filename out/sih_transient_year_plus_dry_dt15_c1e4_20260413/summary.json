@@ -1,0 +1,8 @@
+{
+  "summary_md": "C:\\codes\\HydroModPy-GH\\out\\sih_transient_year_plus_dry_dt15_c1e4_20260413\\summary.md",
+  "timeseries_csv": "C:\\codes\\HydroModPy-GH\\out\\sih_transient_year_plus_dry_dt15_c1e4_20260413\\timeseries.csv",
+  "head_point_timeseries_csv": "C:\\codes\\HydroModPy-GH\\out\\sih_transient_year_plus_dry_dt15_c1e4_20260413\\head_point_timeseries.csv",
+  "summary_metrics_csv": "C:\\codes\\HydroModPy-GH\\out\\sih_transient_year_plus_dry_dt15_c1e4_20260413\\summary_metrics.csv",
+  "execution_times_csv": "C:\\codes\\HydroModPy-GH\\out\\sih_transient_year_plus_dry_dt15_c1e4_20260413\\execution_times.csv",
+  "figures_dir": "C:\\codes\\HydroModPy-GH\\out\\sih_transient_year_plus_dry_dt15_c1e4_20260413\\figures"
+}

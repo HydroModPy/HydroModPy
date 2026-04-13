@@ -75,11 +75,51 @@ def write_suite_figures(
     mean_cost = [row.get("mean_cost_best") for row in rows]
     mean_eval = [row.get("mean_n_evaluations") for row in rows]
     mean_time_per_eval = [row.get("mean_time_per_evaluation_seconds") for row in rows]
+    mean_calibration_time = [
+        row.get("mean_calibration_time_seconds", row.get("calibration_time_seconds"))
+        for row in rows
+    ]
+    mean_session_prepare = [
+        row.get("mean_session_prepare_time_seconds", row.get("session_prepare_time_seconds"))
+        for row in rows
+    ]
+    mean_estimated_candidate_runtime = [
+        row.get(
+            "mean_estimated_candidate_runtime_seconds",
+            row.get("estimated_candidate_runtime_seconds"),
+        )
+        for row in rows
+    ]
+    mean_algorithm_overhead = [
+        row.get(
+            "mean_algorithm_overhead_time_seconds",
+            row.get("algorithm_overhead_time_seconds"),
+        )
+        for row in rows
+    ]
     mean_candidate_prepare = [
         row.get("mean_candidate_preparation_time_seconds") for row in rows
     ]
+    mean_candidate_actualize = [
+        row.get("mean_candidate_actualize_time_seconds") for row in rows
+    ]
+    mean_candidate_launcher_prepare = [
+        row.get("mean_candidate_launcher_prepare_time_seconds") for row in rows
+    ]
+    mean_candidate_runtime_patch = [
+        row.get("mean_candidate_runtime_patch_time_seconds") for row in rows
+    ]
     mean_candidate_simulation = [
         row.get("mean_candidate_simulation_time_seconds") for row in rows
+    ]
+    mean_candidate_output_selection = [
+        row.get("mean_candidate_output_selection_time_seconds") for row in rows
+    ]
+    mean_candidate_objective_build = [
+        row.get("mean_candidate_objective_build_time_seconds") for row in rows
+    ]
+    mean_candidate_objective_compute = [
+        row.get("mean_candidate_objective_compute_time_seconds") for row in rows
     ]
     mean_candidate_objective = [
         row.get("mean_candidate_objective_time_seconds") for row in rows
@@ -185,6 +225,132 @@ def write_suite_figures(
         plt.close(fig)
         figure_paths.append(path)
 
+    calibration_time_rows = [
+        {
+            "label": label,
+            "session_prepare": float(session_prepare_value or 0.0),
+            "candidate_runtime": float(candidate_runtime_value or 0.0),
+            "algorithm_overhead": float(overhead_value or 0.0),
+            "calibration_total": float(calibration_value or 0.0),
+        }
+        for (
+            label,
+            session_prepare_value,
+            candidate_runtime_value,
+            overhead_value,
+            calibration_value,
+        ) in zip(
+            row_labels,
+            mean_session_prepare,
+            mean_estimated_candidate_runtime,
+            mean_algorithm_overhead,
+            mean_calibration_time,
+            strict=False,
+        )
+        if any(
+            value is not None and float(value) > 0.0
+            for value in (
+                session_prepare_value,
+                candidate_runtime_value,
+                overhead_value,
+                calibration_value,
+            )
+        )
+    ]
+    if calibration_time_rows:
+        fig, ax = plt.subplots(
+            figsize=(12, max(4, 0.45 * len(calibration_time_rows) + 1))
+        )
+        y_positions = list(range(len(calibration_time_rows)))
+        timing_labels = [item["label"] for item in calibration_time_rows]
+        segment_specs = (
+            ("session_prepare", "#d9bf77"),
+            ("candidate_runtime", "#3c6e71"),
+            ("algorithm_overhead", "#7a5c61"),
+        )
+        cumulative = [0.0 for _ in calibration_time_rows]
+        for key, color in segment_specs:
+            values = [item[key] for item in calibration_time_rows]
+            ax.barh(
+                y_positions,
+                values,
+                left=list(cumulative),
+                color=color,
+                label=key,
+            )
+            cumulative = [
+                float(left + value)
+                for left, value in zip(cumulative, values, strict=False)
+            ]
+        calibration_totals = [
+            item["session_prepare"] + item["calibration_total"]
+            for item in calibration_time_rows
+        ]
+        ax.scatter(
+            calibration_totals,
+            y_positions,
+            marker="|",
+            s=220,
+            c="black",
+            linewidths=1.2,
+            label="end_to_end_total",
+            zorder=5,
+        )
+        ax.set_yticks(y_positions)
+        ax.set_yticklabels(timing_labels)
+        ax.set_xlabel("Calibration Time (s)")
+        ax.set_title("Calibration Time Closure")
+        ax.legend()
+        fig.tight_layout()
+        path = output_root / f"benchmark_calibration_time_closure.{extension}"
+        fig.savefig(path, dpi=180)
+        plt.close(fig)
+        figure_paths.append(path)
+
+    detailed_timing_breakdown_rows = [
+        {
+            "label": label,
+            "actualize": float(actualize_value or 0.0),
+            "launcher_prepare": float(launcher_prepare_value or 0.0),
+            "runtime_patch": float(runtime_patch_value or 0.0),
+            "simulate": float(simulation_value or 0.0),
+            "output_select": float(output_select_value or 0.0),
+            "objective_build": float(objective_build_value or 0.0),
+            "objective_score": float(objective_compute_value or 0.0),
+        }
+        for (
+            label,
+            actualize_value,
+            launcher_prepare_value,
+            runtime_patch_value,
+            simulation_value,
+            output_select_value,
+            objective_build_value,
+            objective_compute_value,
+        ) in zip(
+            row_labels,
+            mean_candidate_actualize,
+            mean_candidate_launcher_prepare,
+            mean_candidate_runtime_patch,
+            mean_candidate_simulation,
+            mean_candidate_output_selection,
+            mean_candidate_objective_build,
+            mean_candidate_objective_compute,
+            strict=False,
+        )
+        if any(
+            value is not None and float(value) > 0.0
+            for value in (
+                actualize_value,
+                launcher_prepare_value,
+                runtime_patch_value,
+                simulation_value,
+                output_select_value,
+                objective_build_value,
+                objective_compute_value,
+            )
+        )
+    ]
     timing_breakdown_rows = [
         (
             label,
@@ -204,7 +370,46 @@ def write_suite_figures(
             for value in (prepare_value, simulation_value, objective_value)
         )
     ]
-    if timing_breakdown_rows:
+    if detailed_timing_breakdown_rows:
+        fig, ax = plt.subplots(
+            figsize=(12, max(4, 0.45 * len(detailed_timing_breakdown_rows) + 1))
+        )
+        y_positions = list(range(len(detailed_timing_breakdown_rows)))
+        timing_labels = [item["label"] for item in detailed_timing_breakdown_rows]
+        segment_specs = (
+            ("actualize", "#d9bf77"),
+            ("launcher_prepare", "#c17c74"),
+            ("runtime_patch", "#9d4edd"),
+            ("simulate", "#3c6e71"),
+            ("output_select", "#2a9d8f"),
+            ("objective_build", "#6d597a"),
+            ("objective_score", "#284b63"),
+        )
+        cumulative = [0.0 for _ in detailed_timing_breakdown_rows]
+        for key, color in segment_specs:
+            values = [item[key] for item in detailed_timing_breakdown_rows]
+            ax.barh(
+                y_positions,
+                values,
+                left=list(cumulative),
+                color=color,
+                label=key,
+            )
+            cumulative = [
+                float(left + value)
+                for left, value in zip(cumulative, values, strict=False)
+            ]
+        ax.set_yticks(y_positions)
+        ax.set_yticklabels(timing_labels)
+        ax.set_xlabel("Mean Candidate Time (s)")
+        ax.set_title("Candidate Timing Breakdown")
+        ax.legend()
+        fig.tight_layout()
+        path = output_root / f"benchmark_candidate_timing_breakdown.{extension}"
+        fig.savefig(path, dpi=180)
+        plt.close(fig)
+        figure_paths.append(path)
+    elif timing_breakdown_rows:
         fig, ax = plt.subplots(
             figsize=(12, max(4, 0.45 * len(timing_breakdown_rows) + 1))
         )
@@ -1239,6 +1444,265 @@ def _write_objective_landscape_pairgrid(
     return True
 
 
+def _write_posterior_distribution_1d(
+    *,
+    plt,
+    path: Path,
+    definition: TwinCalibrationCaseDefinition,
+    result: TwinMethodBenchmarkResult,
+    parameter_name: str,
+    distribution_samples: list[dict[str, float]],
+) -> bool:
+    """Write a dedicated 1D posterior/ensemble figure."""
+    sample_values = [
+        float(sample[parameter_name])
+        for sample in distribution_samples
+        if parameter_name in sample
+    ]
+    if not sample_values:
+        return False
+
+    figure, axis = plt.subplots(figsize=(8.0, 4.8))
+    lower, upper = definition.bounds[parameter_name]
+    if len(sample_values) >= 2:
+        axis.hist(
+            sample_values,
+            bins=min(24, max(6, len(sample_values) // 2)),
+            range=(float(lower), float(upper)),
+            color="#8d99ae",
+            edgecolor="black",
+            alpha=0.85,
+            label="distribution",
+        )
+    else:
+        axis.scatter(
+            sample_values,
+            [1.0],
+            marker="o",
+            s=80,
+            c="#8d99ae",
+            edgecolors="black",
+            linewidths=0.8,
+            label="distribution",
+            zorder=4,
+        )
+        axis.set_ylim(0.0, 1.5)
+
+    axis.axvline(
+        float(definition.truth_params[parameter_name]),
+        color="#2a9d8f",
+        linestyle="--",
+        linewidth=1.4,
+        label="truth",
+    )
+    if parameter_name in result.params_best:
+        axis.axvline(
+            float(result.params_best[parameter_name]),
+            color="#f4a259",
+            linestyle="-",
+            linewidth=1.4,
+            label="best",
+        )
+    axis.set_xlim(float(lower), float(upper))
+    axis.set_xlabel(parameter_name)
+    axis.set_ylabel("Sample count")
+    axis.set_title(
+        f"{definition.case_id} | {result.method_instance_name} | distribution (n={len(sample_values)})"
+    )
+    axis.legend(loc="best")
+    figure.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180)
+    plt.close(figure)
+    return True
+
+
+def _write_posterior_distribution_2d(
+    *,
+    plt,
+    path: Path,
+    definition: TwinCalibrationCaseDefinition,
+    result: TwinMethodBenchmarkResult,
+    parameter_names: tuple[str, str],
+    distribution_samples: list[dict[str, float]],
+) -> bool:
+    """Write a dedicated 2D posterior/ensemble scatter figure."""
+    sample_xy = [
+        (
+            float(sample[parameter_names[0]]),
+            float(sample[parameter_names[1]]),
+        )
+        for sample in distribution_samples
+        if parameter_names[0] in sample and parameter_names[1] in sample
+    ]
+    if not sample_xy:
+        return False
+
+    figure, axis = plt.subplots(figsize=(7.4, 6.0))
+    if len(sample_xy) > 1:
+        axis.scatter(
+            [item[0] for item in sample_xy],
+            [item[1] for item in sample_xy],
+            c=np.linspace(0.0, 1.0, len(sample_xy)),
+            cmap="Blues",
+            s=42,
+            alpha=0.85,
+            edgecolors="black",
+            linewidths=0.3,
+            label="distribution",
+        )
+    else:
+        axis.scatter(
+            [sample_xy[0][0]],
+            [sample_xy[0][1]],
+            c="#8d99ae",
+            s=64,
+            edgecolors="black",
+            linewidths=0.5,
+            label="distribution",
+        )
+    axis.scatter(
+        [float(definition.truth_params[parameter_names[0]])],
+        [float(definition.truth_params[parameter_names[1]])],
+        marker="o",
+        facecolors="white",
+        edgecolors="black",
+        linewidths=1.0,
+        s=90,
+        label="truth",
+        zorder=5,
+    )
+    if all(name in result.params_best for name in parameter_names):
+        axis.scatter(
+            [float(result.params_best[parameter_names[0]])],
+            [float(result.params_best[parameter_names[1]])],
+            marker="*",
+            c="#f4a259",
+            edgecolors="black",
+            linewidths=0.8,
+            s=180,
+            label="best",
+            zorder=6,
+        )
+    axis.set_xlim(*[float(value) for value in definition.bounds[parameter_names[0]]])
+    axis.set_ylim(*[float(value) for value in definition.bounds[parameter_names[1]]])
+    axis.set_xlabel(parameter_names[0])
+    axis.set_ylabel(parameter_names[1])
+    axis.set_title(
+        f"{definition.case_id} | {result.method_instance_name} | distribution (n={len(sample_xy)})"
+    )
+    axis.legend(loc="best")
+    figure.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180)
+    plt.close(figure)
+    return True
+
+
+def _write_posterior_distribution_pairgrid(
+    *,
+    plt,
+    path: Path,
+    definition: TwinCalibrationCaseDefinition,
+    result: TwinMethodBenchmarkResult,
+    parameter_names: tuple[str, ...],
+    distribution_samples: list[dict[str, float]],
+) -> bool:
+    """Write a pair-grid style distribution view for >2 parameters."""
+    valid_samples = [
+        sample
+        for sample in distribution_samples
+        if all(name in sample for name in parameter_names)
+    ]
+    if not valid_samples:
+        return False
+
+    n_params = len(parameter_names)
+    figure, axes = plt.subplots(
+        n_params,
+        n_params,
+        figsize=(3.2 * n_params, 3.0 * n_params),
+        squeeze=False,
+    )
+    for row_index, row_name in enumerate(parameter_names):
+        for col_index, col_name in enumerate(parameter_names):
+            axis = axes[row_index][col_index]
+            if row_index == col_index:
+                values = [float(sample[row_name]) for sample in valid_samples]
+                if len(values) >= 2:
+                    axis.hist(
+                        values,
+                        bins=min(20, max(5, len(values) // 2)),
+                        color="#8d99ae",
+                        edgecolor="black",
+                        alpha=0.85,
+                    )
+                else:
+                    axis.scatter(values, [1.0], c="#8d99ae", s=48)
+                axis.axvline(
+                    float(definition.truth_params[row_name]),
+                    color="#2a9d8f",
+                    linestyle="--",
+                    linewidth=1.2,
+                )
+                if row_name in result.params_best:
+                    axis.axvline(
+                        float(result.params_best[row_name]),
+                        color="#f4a259",
+                        linewidth=1.2,
+                    )
+                axis.set_xlim(*[float(value) for value in definition.bounds[row_name]])
+                axis.set_ylabel("Count")
+            else:
+                axis.scatter(
+                    [float(sample[col_name]) for sample in valid_samples],
+                    [float(sample[row_name]) for sample in valid_samples],
+                    c="#8d99ae",
+                    s=28,
+                    alpha=0.75,
+                    edgecolors="black",
+                    linewidths=0.2,
+                )
+                axis.scatter(
+                    [float(definition.truth_params[col_name])],
+                    [float(definition.truth_params[row_name])],
+                    marker="o",
+                    facecolors="white",
+                    edgecolors="black",
+                    linewidths=0.9,
+                    s=60,
+                    zorder=5,
+                )
+                if col_name in result.params_best and row_name in result.params_best:
+                    axis.scatter(
+                        [float(result.params_best[col_name])],
+                        [float(result.params_best[row_name])],
+                        marker="*",
+                        c="#f4a259",
+                        edgecolors="black",
+                        linewidths=0.7,
+                        s=100,
+                        zorder=6,
+                    )
+                axis.set_xlim(*[float(value) for value in definition.bounds[col_name]])
+                axis.set_ylim(*[float(value) for value in definition.bounds[row_name]])
+            if row_index == n_params - 1:
+                axis.set_xlabel(col_name)
+            if col_index == 0 and row_index != col_index:
+                axis.set_ylabel(row_name)
+            axis.grid(alpha=0.15)
+
+    figure.suptitle(
+        f"{definition.case_id} | {result.method_instance_name} | distribution (n={len(valid_samples)})",
+        y=0.995,
+    )
+    figure.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180)
+    plt.close(figure)
+    return True
+
+
 def write_case_method_figures(
     *,
     benchmark_root: Path,
@@ -1268,6 +1732,7 @@ def write_case_method_figures(
 
     trace_path = figure_root / f"objective_trace__{slug}.{extension}"
     landscape_path = figure_root / f"objective_landscape__{slug}.{extension}"
+    posterior_path = figure_root / f"posterior_distribution__{slug}.{extension}"
     written: dict[str, Path] = {}
 
     if _write_objective_trace_figure(
@@ -1311,5 +1776,37 @@ def write_case_method_figures(
         )
     if landscape_written:
         written["objective_landscape"] = landscape_path
+
+    posterior_written = False
+    if distribution_samples:
+        if len(parameter_names) == 1:
+            posterior_written = _write_posterior_distribution_1d(
+                plt=plt,
+                path=posterior_path,
+                definition=definition,
+                result=result,
+                parameter_name=parameter_names[0],
+                distribution_samples=distribution_samples,
+            )
+        elif len(parameter_names) == 2:
+            posterior_written = _write_posterior_distribution_2d(
+                plt=plt,
+                path=posterior_path,
+                definition=definition,
+                result=result,
+                parameter_names=(parameter_names[0], parameter_names[1]),
+                distribution_samples=distribution_samples,
+            )
+        else:
+            posterior_written = _write_posterior_distribution_pairgrid(
+                plt=plt,
+                path=posterior_path,
+                definition=definition,
+                result=result,
+                parameter_names=parameter_names,
+                distribution_samples=distribution_samples,
+            )
+    if posterior_written:
+        written["posterior_distribution"] = posterior_path
 
     return written

@@ -1,4 +1,12 @@
-"""Cross-solver investigation workflow for simple hillslope surface interaction."""
+"""Cross-solver investigation workflow for simple hillslope surface interaction.
+
+This variant uses:
+
+- west divide / no-flow boundary,
+- east fixed head,
+- uniform recharge,
+- distributed top drainage on a sloping hillslope.
+"""
 
 from __future__ import annotations
 
@@ -27,20 +35,18 @@ from hydromodpy.solver.boussinesq import Boussinesq
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
+from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
 from hydromodpy.core.config.toml_loader import merge_toml_payloads
 from validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.reference import (
     build_linear_topography_values,
-    expected_linearized_unconfined_hillslope_drainage_profile_at_x,
 )
 from validation_cases.shared import (
     ValidationRunResult,
     load_case_config,
     load_case_metadata,
     load_last_npy_array,
-    max_abs_error,
     max_std_along_axis,
     mean_along_axis,
-    rmse,
 )
 from validation_cases.shared.boussinesq_uniform_strip import (
     aggregate_triangle_history_to_structured_grids,
@@ -83,15 +89,25 @@ SOLVER_COLORS = {
 }
 CONTACT_TOLERANCE_M = 0.02
 BOUSS_NX = 40
-BOUSS_NY = 5
-ACCEPTABLE_BOUSS_RESIDUAL_INF = 1.0e-5
+BOUSS_NY = 3
+ACCEPTABLE_BOUSS_RESIDUAL_INF = 5.0e-5
+LENGTH_X_M = 400.0
+WIDTH_Y_M = 30.0
+TOPOGRAPHY_BASE_ELEVATION_M = 5.0
+TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M = 5.0
+AQUIFER_THICKNESS_M = 20.0
+EAST_HEAD_M = TOPOGRAPHY_BASE_ELEVATION_M + (
+    TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M / (2.0 * BOUSS_NX)
+)
+INITIAL_HEAD_M = 6.0
+HYDRAULIC_CONDUCTIVITY_SCALE = 0.2
 
 
 @dataclass(frozen=True, slots=True)
 class ScenarioSpec:
     scenario_id: str
     label: str
-    head_offset_m: float
+    recharge_mm_day: float
     drainage_conductance_m2_per_s: float
 
 
@@ -123,21 +139,21 @@ class InvestigationResult:
 
 DEFAULT_SCENARIOS = (
     ScenarioSpec(
-        scenario_id="offset_25cm",
-        label="Head offset 25 cm",
-        head_offset_m=0.25,
+        scenario_id="rch_05",
+        label="Recharge 0.5 mm/day",
+        recharge_mm_day=0.5,
         drainage_conductance_m2_per_s=1.0e-5,
     ),
     ScenarioSpec(
-        scenario_id="offset_05cm",
-        label="Head offset 5 cm",
-        head_offset_m=0.05,
+        scenario_id="rch_10",
+        label="Recharge 1.0 mm/day",
+        recharge_mm_day=1.0,
         drainage_conductance_m2_per_s=1.0e-5,
     ),
     ScenarioSpec(
-        scenario_id="offset_02cm",
-        label="Head offset 2 cm",
-        head_offset_m=0.02,
+        scenario_id="rch_20",
+        label="Recharge 2.0 mm/day",
+        recharge_mm_day=2.0,
         drainage_conductance_m2_per_s=1.0e-5,
     ),
 )
@@ -175,24 +191,47 @@ def _apply_scenario_to_launcher_payload(
     *,
     scenario: ScenarioSpec,
     solver: str,
-    west_top_m: float,
-    east_top_m: float,
+    hydraulic_conductivity_m_s: float,
 ) -> dict[str, Any]:
     run_id = f"hillslope_surface_{scenario.scenario_id}_{solver}"
+    geographic = dict(payload.get("geographic", {}))
+    geographic_synthetic = dict(geographic.get("synthetic", {}))
+    geographic_synthetic["case_id"] = f"val_hillslope_surface_{scenario.scenario_id}"
+    geographic_synthetic["grid"] = {
+        "length_x": f"{LENGTH_X_M:.1f} m",
+        "length_y": f"{WIDTH_Y_M:.1f} m",
+        "nx": BOUSS_NX,
+        "ny": BOUSS_NY,
+    }
+    geographic_synthetic["topography"] = {
+        "kind": "linear",
+        "base_elevation": TOPOGRAPHY_BASE_ELEVATION_M,
+        "right_to_left_amplitude": TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
+    }
+    geographic["synthetic"] = geographic_synthetic
+
+    domain = dict(payload.get("domain", {}))
+    domain["depth_model"] = {
+        "type": "constant_thickness",
+        "thickness": f"{AQUIFER_THICKNESS_M:.1f} m",
+    }
+
     flow = dict(payload.get("flow", {}))
+    param = dict(flow.get("param", {}))
+    param_k = dict(param.get("K", {}))
+    field_homogeneous = dict(param_k.get("field_homogeneous", {}))
+    field_homogeneous["value"] = f"{hydraulic_conductivity_m_s:.12g} m/s"
+    param_k["field_homogeneous"] = field_homogeneous
+    param["K"] = param_k
+    flow["param"] = param
     bc = dict(flow.get("bc", {}))
     dirichlet = dict(bc.get("dirichlet", {}))
     cauchy = dict(bc.get("cauchy", {}))
-
-    dirichlet["west_side"] = {
-        **dict(dirichlet.get("west_side", {})),
-        "type": "dirichlet",
-        "value": f"{west_top_m + scenario.head_offset_m:.6f} m",
-    }
+    dirichlet.pop("west_side", None)
     dirichlet["east_side"] = {
         **dict(dirichlet.get("east_side", {})),
         "type": "dirichlet",
-        "value": f"{east_top_m + scenario.head_offset_m:.6f} m",
+        "value": f"{EAST_HEAD_M:.6f} m",
     }
     cauchy["drainage"] = {
         **dict(cauchy.get("drainage", {})),
@@ -203,15 +242,46 @@ def _apply_scenario_to_launcher_payload(
     bc["dirichlet"] = dirichlet
     bc["cauchy"] = cauchy
     flow["bc"] = bc
+    flow["active_sinks_sources"] = ["recharge"]
+    flow["active_bc"] = ["east_side", "drainage"]
     flow["ic"] = {
         "type": "custom",
-        "value": f"{0.5 * (west_top_m + east_top_m) + scenario.head_offset_m:.6f} m",
+        "value": f"{INITIAL_HEAD_M:.6f} m",
+    }
+    flow["sinks_sources"] = {"recharge": {"first_clim": "mean"}}
+
+    data = dict(payload.get("data", {}))
+    data["types"] = ["recharge"]
+    data["inference_mode"] = "warn"
+    data["recharge"] = {
+        "sources": [
+            {
+                "source": "synthetic",
+                "values": [float(scenario.recharge_mm_day)],
+                "runoff_ratio": 0.0,
+            }
+        ]
     }
 
     simulation = dict(payload.get("simulation", {}))
     simulation["run_id"] = run_id
     payload["simulation"] = simulation
+    payload["geographic"] = geographic
+    payload["domain"] = domain
     payload["flow"] = flow
+    payload["data"] = data
+
+    solver_section = dict(payload.get(solver, {}))
+    solver_sgrid = dict(solver_section.get("sgrid", {}))
+    solver_sgrid["planar"] = {
+        "mode": "resample_to_shape",
+        "nx": BOUSS_NX,
+        "ny": BOUSS_NY,
+        "resampling": "nearest",
+    }
+    solver_sgrid["vertical"] = {"nlay": 1}
+    solver_section["sgrid"] = solver_sgrid
+    payload[solver] = solver_section
     return payload
 
 
@@ -220,10 +290,9 @@ def _run_launcher_solver_scenario(
     metadata: dict[str, Any],
     scenario: ScenarioSpec,
     solver: str,
+    hydraulic_conductivity_m_s: float,
     timeout: int,
     runtime_configs_dir: Path,
-    west_top_m: float,
-    east_top_m: float,
 ) -> ValidationRunResult:
     out_path = resolve_validation_results_dir(
         test_file=__file__,
@@ -238,8 +307,7 @@ def _run_launcher_solver_scenario(
         payload,
         scenario=scenario,
         solver=solver,
-        west_top_m=west_top_m,
-        east_top_m=east_top_m,
+        hydraulic_conductivity_m_s=hydraulic_conductivity_m_s,
     )
 
     runtime_configs_dir.mkdir(parents=True, exist_ok=True)
@@ -290,8 +358,6 @@ def _run_boussinesq_scenario(
     *,
     scenario: ScenarioSpec,
     timeout: int,
-    west_top_m: float,
-    east_top_m: float,
     length_x_m: float,
     width_y_m: float,
     nx: int,
@@ -299,7 +365,7 @@ def _run_boussinesq_scenario(
     aquifer_thickness_m: float,
     hydraulic_conductivity_m_s: float,
 ) -> ValidationRunResult:
-    initial_head_m = 0.5 * (west_top_m + east_top_m) + scenario.head_offset_m
+    initial_head_m = INITIAL_HEAD_M
     out_path = resolve_validation_results_dir(
         test_file=__file__,
         run_name=f"{scenario.scenario_id}_boussinesq",
@@ -318,15 +384,15 @@ def _run_boussinesq_scenario(
             x_m=np.asarray(x_m, dtype=float),
             xmin=0.0,
             xmax=length_x_m,
-            topography_base_elevation_m=east_top_m,
-            topography_right_to_left_amplitude_m=west_top_m - east_top_m,
+            topography_base_elevation_m=TOPOGRAPHY_BASE_ELEVATION_M,
+            topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
         ),
         z_bottom_m=lambda x_m: build_linear_topography_values(
             x_m=np.asarray(x_m, dtype=float),
             xmin=0.0,
             xmax=length_x_m,
-            topography_base_elevation_m=east_top_m,
-            topography_right_to_left_amplitude_m=west_top_m - east_top_m,
+            topography_base_elevation_m=TOPOGRAPHY_BASE_ELEVATION_M,
+            topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
         )
         - aquifer_thickness_m,
         hydraulic_conductivity_m_s=float(hydraulic_conductivity_m_s),
@@ -339,23 +405,25 @@ def _run_boussinesq_scenario(
     flow = Flow(
         build_flow_config(
             {
-                "runtime_backend": "local",
-                "flow_regime": "steady",
-                "ic": {"type": "custom", "value": initial_head_m},
-                "active_sinks_sources": [],
-                "active_bc": ["west_side", "east_side", "drainage"],
-                "bc": {
-                    "dirichlet": {
-                        "west_side": {
-                            "type": "dirichlet",
-                            "value": west_top_m + scenario.head_offset_m,
-                        },
-                        "east_side": {
-                            "type": "dirichlet",
-                            "value": east_top_m + scenario.head_offset_m,
-                        },
+            "runtime_backend": "local",
+            "flow_regime": "steady",
+            "ic": {"type": "custom", "value": initial_head_m},
+            "active_sinks_sources": ["recharge"],
+            "active_bc": ["east_side", "drainage"],
+            "sinks_sources": {
+                "recharge": {
+                    "values": mm_day_to_m_s(float(scenario.recharge_mm_day)),
+                    "first_clim": "mean",
+                }
+            },
+            "bc": {
+                "dirichlet": {
+                    "east_side": {
+                        "type": "dirichlet",
+                        "value": EAST_HEAD_M,
                     },
-                    "cauchy": {
+                },
+                "cauchy": {
                         "drainage": {
                             "application_domain": "top",
                             "type": "cauchy",
@@ -500,12 +568,11 @@ def _build_investigation_result(
     scenario: ScenarioSpec,
     result: ValidationRunResult,
 ) -> InvestigationResult:
-    reference_cfg = dict(metadata.get("reference", {}))
     _timestep, heads = load_last_npy_array(result.postprocess_dir, "watertable_elevation")
-    profile_axis = int(reference_cfg.get("profile_axis", 0))
+    profile_axis = 0
     numerical_profile = mean_along_axis(heads, axis=profile_axis)
-    xmin = float(reference_cfg["xmin"])
-    xmax = float(reference_cfg["xmax"])
+    xmin = 0.0
+    xmax = LENGTH_X_M
     x = xmin + (
         (np.arange(numerical_profile.size, dtype=float) + 0.5)
         * ((xmax - xmin) / float(numerical_profile.size))
@@ -514,33 +581,11 @@ def _build_investigation_result(
         x_m=x,
         xmin=xmin,
         xmax=xmax,
-        topography_base_elevation_m=float(reference_cfg["topography_base_elevation_m"]),
-        topography_right_to_left_amplitude_m=float(
-            reference_cfg["topography_right_to_left_amplitude_m"]
-        ),
+        topography_base_elevation_m=TOPOGRAPHY_BASE_ELEVATION_M,
+        topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
     )
-    analytical_profile = expected_linearized_unconfined_hillslope_drainage_profile_at_x(
-        x_m=x,
-        xmin=xmin,
-        xmax=xmax,
-        west_head_m=float(topography_profile[0] + scenario.head_offset_m),
-        east_head_m=float(topography_profile[-1] + scenario.head_offset_m),
-        drainage_conductance_m2_per_s=float(scenario.drainage_conductance_m2_per_s),
-        cell_area_m2=float((xmax - xmin) / float(numerical_profile.size))
-        * float(reference_cfg["length_y_m"])
-        / float(heads.shape[0]),
-        hydraulic_conductivity_m_per_s=float(
-            reference_cfg["hydraulic_conductivity_m_per_s"]
-        ),
-        reference_saturated_thickness_m=float(
-            reference_cfg["reference_saturated_thickness_m"]
-        ),
-        topography_base_elevation_m=float(reference_cfg["topography_base_elevation_m"]),
-        topography_right_to_left_amplitude_m=float(
-            reference_cfg["topography_right_to_left_amplitude_m"]
-        ),
-    )
-    residual_profile = np.asarray(numerical_profile - analytical_profile, dtype=float)
+    analytical_profile = np.full_like(numerical_profile, np.nan, dtype=float)
+    residual_profile = np.full_like(numerical_profile, np.nan, dtype=float)
     clearance_profile = np.asarray(numerical_profile - topography_profile, dtype=float)
 
     bouss_summary: dict[str, Any] | None = None
@@ -568,8 +613,8 @@ def _build_investigation_result(
         numerical_profile=np.asarray(numerical_profile, dtype=float),
         residual_profile=residual_profile,
         clearance_profile=clearance_profile,
-        rms_error=rmse(numerical_profile, analytical_profile),
-        max_error=max_abs_error(numerical_profile, analytical_profile),
+        rms_error=float("nan"),
+        max_error=float("nan"),
         row_spread=max_std_along_axis(heads, axis=profile_axis),
         min_clearance_m=float(np.min(clearance_profile)),
         mean_clearance_m=float(np.mean(clearance_profile)),
@@ -663,13 +708,6 @@ def _write_scenario_figure(
         linewidth=1.6,
         linestyle="--",
         label="Topography",
-    )
-    axes[0].plot(
-        ref.x,
-        ref.analytical_profile,
-        color="#666666",
-        linewidth=1.8,
-        label="Analytical",
     )
     for item in ordered:
         axes[0].plot(
@@ -910,7 +948,7 @@ def _write_markdown_summary(
         "# Simple Hillslope Surface-Interaction Investigation",
         "",
         "This report keeps the same sloping 1D strip for MODFLOW-NWT, MODFLOW 6, and Boussinesq.",
-        "The only scenario change is the prescribed head overshoot above the local land surface.",
+        "The setup uses west no-flow, east fixed head, uniform recharge, and distributed top drainage.",
         "",
         f"Surface-lock tolerance: `{CONTACT_TOLERANCE_M:.3f} m`.",
         "",
@@ -924,18 +962,21 @@ def _write_markdown_summary(
         )
         lines.append(f"## {scenario.label}")
         lines.append("")
-        lines.append(f"- head offset above topography: `{scenario.head_offset_m:.3f} m`")
+        lines.append(f"- recharge: `{scenario.recharge_mm_day:.3f} mm/day`")
         lines.append(
             f"- drainage conductance: `{scenario.drainage_conductance_m2_per_s:.3g} m2/s`"
         )
+        lines.append(
+            f"- hydraulic conductivity scale: `{HYDRAULIC_CONDUCTIVITY_SCALE:.3f}x`"
+        )
         lines.append("")
         lines.append(
-            "| Solver | RMSE vs analytical [m] | Max abs error [m] | Min clearance [m] | Surface-lock fraction | Locked length from toe [m] | Results dir |"
+            "| Solver | Row spread [m] | Min clearance [m] | Mean clearance [m] | Surface-lock fraction | Locked length from toe [m] | Results dir |"
         )
         lines.append("| --- | ---: | ---: | ---: | ---: | ---: | --- |")
         for item in scenario_results:
             lines.append(
-                f"| {SOLVER_LABELS[item.solver]} | {item.rms_error:.4f} | {item.max_error:.4f} | {item.min_clearance_m:.4f} | {item.surface_lock_fraction:.3f} | {item.locked_length_from_toe_m:.2f} | `{item.out_path}` |"
+                f"| {SOLVER_LABELS[item.solver]} | {item.row_spread:.4f} | {item.min_clearance_m:.4f} | {item.mean_clearance_m:.4f} | {item.surface_lock_fraction:.3f} | {item.locked_length_from_toe_m:.2f} | `{item.out_path}` |"
             )
         case_pairwise = [
             row for row in pairwise_rows if row["scenario_id"] == scenario.scenario_id
@@ -996,7 +1037,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=REPO_ROOT / "out" / "sih_20260412",
+        default=REPO_ROOT / "out" / "sih_divide_20260413",
         help="Directory where the report and run artifacts are written.",
     )
     parser.add_argument(
@@ -1024,18 +1065,9 @@ def main(argv: list[str] | None = None) -> int:
 
     metadata = load_case_metadata(CASE_DIR)
     reference_cfg = dict(metadata.get("reference", {}))
-    length_x_m = float(reference_cfg["xmax"]) - float(reference_cfg["xmin"])
-    width_y_m = float(reference_cfg["length_y_m"])
-    nx = int(dict(metadata.get("output", {})).get("expected_shape", [5, 50])[1])
-    ny = int(dict(metadata.get("output", {})).get("expected_shape", [5, 50])[0])
-    west_top_m = float(reference_cfg["topography_base_elevation_m"]) + float(
-        reference_cfg["topography_right_to_left_amplitude_m"]
-    )
-    east_top_m = float(reference_cfg["topography_base_elevation_m"])
-    aquifer_thickness_m = float(reference_cfg["aquifer_thickness_m"])
     hydraulic_conductivity_m_s = float(
         reference_cfg["hydraulic_conductivity_m_per_s"]
-    )
+    ) * HYDRAULIC_CONDUCTIVITY_SCALE
 
     runtime_configs_dir = output_root / "runtime_configs"
     selected_scenarios = [SCENARIO_BY_ID[item] for item in args.scenarios]
@@ -1046,10 +1078,9 @@ def main(argv: list[str] | None = None) -> int:
                 metadata=metadata,
                 scenario=scenario,
                 solver=solver,
+                hydraulic_conductivity_m_s=hydraulic_conductivity_m_s,
                 timeout=int(args.timeout),
                 runtime_configs_dir=runtime_configs_dir,
-                west_top_m=west_top_m,
-                east_top_m=east_top_m,
             )
             results.append(
                 _build_investigation_result(
@@ -1061,13 +1092,11 @@ def main(argv: list[str] | None = None) -> int:
         bouss_result = _run_boussinesq_scenario(
             scenario=scenario,
             timeout=int(args.timeout),
-            west_top_m=west_top_m,
-            east_top_m=east_top_m,
-            length_x_m=length_x_m,
-            width_y_m=width_y_m,
+            length_x_m=LENGTH_X_M,
+            width_y_m=WIDTH_Y_M,
             nx=BOUSS_NX,
             ny=BOUSS_NY,
-            aquifer_thickness_m=aquifer_thickness_m,
+            aquifer_thickness_m=AQUIFER_THICKNESS_M,
             hydraulic_conductivity_m_s=hydraulic_conductivity_m_s,
         )
         results.append(
@@ -1084,8 +1113,6 @@ def main(argv: list[str] | None = None) -> int:
             "scenario_label": item.scenario.label,
             "solver": item.solver,
             "solver_label": SOLVER_LABELS[item.solver],
-            "rmse_vs_analytical_m": item.rms_error,
-            "max_abs_error_vs_analytical_m": item.max_error,
             "row_spread_m": item.row_spread,
             "min_clearance_m": item.min_clearance_m,
             "mean_clearance_m": item.mean_clearance_m,

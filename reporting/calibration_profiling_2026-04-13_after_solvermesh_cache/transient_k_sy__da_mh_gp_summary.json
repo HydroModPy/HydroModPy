@@ -1,0 +1,21 @@
+{
+  "case_id": "calibration_twin_linearized_recharge_step_modflow6",
+  "method_name": "da_mh_gp",
+  "method_instance_name": "da_mh_gp",
+  "benchmark_root": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_6157bfb793_190fcf4a",
+  "n_evaluations": 26,
+  "candidate_run_count": 0,
+  "calibration_time_seconds": 93.19942509999964,
+  "session_prepare_time_seconds": 1.4177995999343693,
+  "estimated_candidate_runtime_seconds": 92.03575659997296,
+  "algorithm_overhead_time_seconds": 1.163668500026688,
+  "mean_candidate_total_time_seconds": 3.539836792306652,
+  "mean_candidate_actualize_time_seconds": 0.008742930770565111,
+  "mean_candidate_launcher_prepare_time_seconds": 0.05022467307012098,
+  "mean_candidate_runtime_patch_time_seconds": 0.0008258577078007734,
+  "mean_candidate_simulation_time_seconds": 3.195674223077591,
+  "mean_candidate_output_selection_time_seconds": 0.29193298845516086,
+  "mean_candidate_objective_build_time_seconds": 0.0001733999950094865,
+  "mean_candidate_objective_compute_time_seconds": 0.000878680779491193,
+  "mean_candidate_objective_time_seconds": 0.2930431807762943
+}

@@ -94,9 +94,17 @@ class TwinMethodBenchmarkResult:
     calibration_time_seconds: float | None = None
     time_per_evaluation_seconds: float | None = None
     session_prepare_time_seconds: float | None = None
+    estimated_candidate_runtime_seconds: float | None = None
+    algorithm_overhead_time_seconds: float | None = None
     mean_candidate_total_time_seconds: float | None = None
     mean_candidate_preparation_time_seconds: float | None = None
     mean_candidate_simulation_time_seconds: float | None = None
+    mean_candidate_actualize_time_seconds: float | None = None
+    mean_candidate_launcher_prepare_time_seconds: float | None = None
+    mean_candidate_runtime_patch_time_seconds: float | None = None
+    mean_candidate_output_selection_time_seconds: float | None = None
+    mean_candidate_objective_build_time_seconds: float | None = None
+    mean_candidate_objective_compute_time_seconds: float | None = None
     mean_candidate_objective_time_seconds: float | None = None
     failed_iteration_count: int = 0
     meets_success_target: bool = False
@@ -114,6 +122,7 @@ class TwinMethodBenchmarkResult:
     truth_distribution_min_abs_error: dict[str, float] = field(default_factory=dict)
     objective_trace_figure: Path | None = None
     objective_landscape_figure: Path | None = None
+    posterior_distribution_figure: Path | None = None
 
     def to_mapping(self) -> dict[str, Any]:
         """Return one JSON-friendly representation."""
@@ -134,12 +143,36 @@ class TwinMethodBenchmarkResult:
             "calibration_time_seconds": self.calibration_time_seconds,
             "time_per_evaluation_seconds": self.time_per_evaluation_seconds,
             "session_prepare_time_seconds": self.session_prepare_time_seconds,
+            "estimated_candidate_runtime_seconds": (
+                self.estimated_candidate_runtime_seconds
+            ),
+            "algorithm_overhead_time_seconds": (
+                self.algorithm_overhead_time_seconds
+            ),
             "mean_candidate_total_time_seconds": self.mean_candidate_total_time_seconds,
             "mean_candidate_preparation_time_seconds": (
                 self.mean_candidate_preparation_time_seconds
             ),
             "mean_candidate_simulation_time_seconds": (
                 self.mean_candidate_simulation_time_seconds
+            ),
+            "mean_candidate_actualize_time_seconds": (
+                self.mean_candidate_actualize_time_seconds
+            ),
+            "mean_candidate_launcher_prepare_time_seconds": (
+                self.mean_candidate_launcher_prepare_time_seconds
+            ),
+            "mean_candidate_runtime_patch_time_seconds": (
+                self.mean_candidate_runtime_patch_time_seconds
+            ),
+            "mean_candidate_output_selection_time_seconds": (
+                self.mean_candidate_output_selection_time_seconds
+            ),
+            "mean_candidate_objective_build_time_seconds": (
+                self.mean_candidate_objective_build_time_seconds
+            ),
+            "mean_candidate_objective_compute_time_seconds": (
+                self.mean_candidate_objective_compute_time_seconds
             ),
             "mean_candidate_objective_time_seconds": (
                 self.mean_candidate_objective_time_seconds
@@ -193,6 +226,11 @@ class TwinMethodBenchmarkResult:
                 None
                 if self.objective_landscape_figure is None
                 else str(self.objective_landscape_figure)
+            ),
+            "posterior_distribution_figure": (
+                None
+                if self.posterior_distribution_figure is None
+                else str(self.posterior_distribution_figure)
             ),
         }
 

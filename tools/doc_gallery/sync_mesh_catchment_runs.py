@@ -257,14 +257,22 @@ def _managed_case_slug(family: ManagedMeshFamilySpec, outlet_id: str) -> str:
 
 def _clean_destination_roots(*, repo_root: Path, selected_families: tuple[ManagedMeshFamilySpec, ...]) -> None:
     gallery_root = mesh_gallery_root(repo_root=repo_root)
-    scales = {family.scale for family in selected_families}
-    for scale in scales:
-        scale_dir = gallery_root / scale
+    managed_case_dirs: set[Path] = set()
+    for family in selected_families:
+        scale_dir = gallery_root / family.scale
         if not scale_dir.exists():
             continue
+        prefix = f"mesh_{family.key}_outlet_"
+        suffix = f"_{family.variant}"
         for child in sorted(scale_dir.iterdir()):
-            if child.is_dir():
-                shutil.rmtree(child)
+            if not child.is_dir():
+                continue
+            name = child.name
+            if name.startswith(prefix) and name.endswith(suffix):
+                managed_case_dirs.add(child)
+
+    for case_dir in sorted(managed_case_dirs):
+        shutil.rmtree(case_dir)
 
 
 def sync_mesh_catchment_runs(

@@ -1,0 +1,28 @@
+base_config = "config_s3_10km2.toml"
+
+[workspace]
+project_root = "~/HydroModPy/mesh_gallery_s3_10km2_outlet_1_rivers_only"
+
+[geographic]
+dem_init_path = "../../../examples/data/dem/DEM_armorican_massif.tif"
+
+[mesh_catchment]
+constraints_mode = "rivers_only"
+
+[mesh_catchment_batch]
+outlets_table_path = "data/s3_10km2_outlet_1.csv"
+selection_mode = "selected"
+selected_outlet_ids = [1]
+
+[mesh_catchment.geology.source]
+path = "../../../examples/data/geology/GEO1M.shp"
+reference_raster_path = "../../../examples/data/dem/DEM_armorican_massif.tif"
+
+[mesh_catchment.hydraulic_properties.conductivity]
+values_csv_file = "../../../examples/data/geology/geology_K_dummy_demo.csv"
+
+[mesh_catchment.watershed_boundary.geology_conformity]
+mode = "full_domain"
+
+[mesh_catchment.zone_meshing.refinement_policy.families.geology_interface]
+enabled = false

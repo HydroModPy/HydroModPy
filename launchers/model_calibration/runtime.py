@@ -6,6 +6,7 @@ import copy
 import hashlib
 import json
 import math
+import os
 import re
 import time
 from collections.abc import Mapping
@@ -56,7 +57,10 @@ def resolve_workspace_config(
 ) -> WorkspaceConfig:
     """Resolve the simulation-side workspace config without loading the full runtime."""
     workspace_section = dict(raw_simulation_toml.get("workspace", {}))
-    if "project_root" not in workspace_section:
+    env_project_root = os.environ.get("HYDROMODPY_PROJECT_ROOT")
+    if env_project_root:
+        workspace_section["project_root"] = Path(env_project_root).expanduser().resolve()
+    elif "project_root" not in workspace_section:
         workspace_section["project_root"] = simulation_config_path.parent.resolve()
     else:
         project_root = Path(workspace_section["project_root"]).expanduser()
@@ -812,6 +816,9 @@ class CandidateRunOutcome:
     launcher_prepare_seconds: float | None = None
     runtime_patch_seconds: float | None = None
     simulation_seconds: float | None = None
+    output_selection_seconds: float | None = None
+    objective_build_seconds: float | None = None
+    objective_compute_seconds: float | None = None
     objective_seconds: float | None = None
     total_seconds: float | None = None
 
@@ -846,6 +853,9 @@ class CandidateRunOutcome:
             "launcher_prepare_seconds": self.launcher_prepare_seconds,
             "runtime_patch_seconds": self.runtime_patch_seconds,
             "simulation_seconds": self.simulation_seconds,
+            "output_selection_seconds": self.output_selection_seconds,
+            "objective_build_seconds": self.objective_build_seconds,
+            "objective_compute_seconds": self.objective_compute_seconds,
             "objective_seconds": self.objective_seconds,
             "total_seconds": self.total_seconds,
             "preparation_seconds": (
@@ -862,7 +872,13 @@ class CandidateRunOutcome:
         }
         if any(value is not None for value in timing_payload.values()):
             objective_metadata = dict(objective_metadata)
-            objective_metadata["timing"] = timing_payload
+            existing_timing = objective_metadata.get("timing")
+            if not isinstance(existing_timing, dict):
+                existing_timing = {}
+            objective_metadata["timing"] = {
+                **existing_timing,
+                **timing_payload,
+            }
         return IterationRecord(
             iteration_id=self.request.iteration_id,
             params_vector=self.request.params_vector,
@@ -877,6 +893,16 @@ class CandidateRunOutcome:
             candidate_run_id=self.request.candidate_run_id,
             candidate_config_path=str(self.request.candidate_config_path),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class ObjectiveEvaluationRun:
+    """Composite objective result plus a fine-grained runtime breakdown."""
+
+    evaluation: CompositeObjectiveEvaluation
+    output_selection_seconds: float | None = None
+    objective_build_seconds: float | None = None
+    objective_compute_seconds: float | None = None
 
 
 def _jsonable(value: Any) -> Any:
@@ -1901,8 +1927,14 @@ def _summarize_candidate_run_timings(
     if not outcomes:
         return {
             "count": 0,
+            "actualize_time_seconds": None,
+            "launcher_prepare_time_seconds": None,
+            "runtime_patch_time_seconds": None,
             "prepare_time_seconds": None,
             "simulation_time_seconds": None,
+            "output_selection_time_seconds": None,
+            "objective_build_time_seconds": None,
+            "objective_compute_time_seconds": None,
             "objective_time_seconds": None,
             "total_time_seconds": None,
         }
@@ -1918,11 +1950,23 @@ def _summarize_candidate_run_timings(
             "sum": float(np.sum(arr)),
         }
 
+    actualize_values: list[float] = []
+    launcher_prepare_values: list[float] = []
+    runtime_patch_values: list[float] = []
     prepare_values: list[float] = []
     simulation_values: list[float] = []
+    output_selection_values: list[float] = []
+    objective_build_values: list[float] = []
+    objective_compute_values: list[float] = []
     objective_values: list[float] = []
     total_values: list[float] = []
     for outcome in outcomes:
+        if outcome.request.actualize_seconds is not None and float(outcome.request.actualize_seconds) > 0.0:
+            actualize_values.append(float(outcome.request.actualize_seconds))
+        if outcome.launcher_prepare_seconds is not None and float(outcome.launcher_prepare_seconds) > 0.0:
+            launcher_prepare_values.append(float(outcome.launcher_prepare_seconds))
+        if outcome.runtime_patch_seconds is not None and float(outcome.runtime_patch_seconds) > 0.0:
+            runtime_patch_values.append(float(outcome.runtime_patch_seconds))
         prepare_seconds = (
             float(outcome.request.actualize_seconds or 0.0)
             + float(outcome.launcher_prepare_seconds or 0.0)
@@ -1932,14 +1976,26 @@ def _summarize_candidate_run_timings(
             prepare_values.append(prepare_seconds)
         if outcome.simulation_seconds is not None:
             simulation_values.append(float(outcome.simulation_seconds))
+        if outcome.output_selection_seconds is not None and float(outcome.output_selection_seconds) > 0.0:
+            output_selection_values.append(float(outcome.output_selection_seconds))
+        if outcome.objective_build_seconds is not None and float(outcome.objective_build_seconds) > 0.0:
+            objective_build_values.append(float(outcome.objective_build_seconds))
+        if outcome.objective_compute_seconds is not None and float(outcome.objective_compute_seconds) > 0.0:
+            objective_compute_values.append(float(outcome.objective_compute_seconds))
         if outcome.objective_seconds is not None and float(outcome.objective_seconds) > 0.0:
             objective_values.append(float(outcome.objective_seconds))
         if outcome.total_seconds is not None:
             total_values.append(float(outcome.total_seconds))
     return {
         "count": int(len(outcomes)),
+        "actualize_time_seconds": _series(actualize_values),
+        "launcher_prepare_time_seconds": _series(launcher_prepare_values),
+        "runtime_patch_time_seconds": _series(runtime_patch_values),
         "prepare_time_seconds": _series(prepare_values),
         "simulation_time_seconds": _series(simulation_values),
+        "output_selection_time_seconds": _series(output_selection_values),
+        "objective_build_time_seconds": _series(objective_build_values),
+        "objective_compute_time_seconds": _series(objective_compute_values),
         "objective_time_seconds": _series(objective_values),
         "total_time_seconds": _series(total_values),
     }
@@ -2895,13 +2951,16 @@ def evaluate_candidate_objective(
     cfg: ModelCalibrationConfig,
     run_state: Any,
     session: PreparedCalibrationSession | None = None,
-) -> CompositeObjectiveEvaluation:
+) -> ObjectiveEvaluationRun:
     """Evaluate configured composite objective from one candidate run-state."""
+    output_selection_start = time.perf_counter()
     selected = select_candidate_outputs(cfg=cfg, run_state=run_state, session=session)
+    output_selection_seconds = float(time.perf_counter() - output_selection_start)
     outputs_by_name = {
         output_cfg.name: output_cfg for output_cfg in cfg.model_calibration.output
     }
 
+    objective_build_start = time.perf_counter()
     blocks: list[CompositeObjectiveBlock] = []
     for block_cfg in cfg.model_calibration.objective_block:
         if block_cfg.metric == "direct_cost":
@@ -2946,7 +3005,31 @@ def evaluate_candidate_objective(
         simulator=lambda _params: selected,
         blocks=tuple(blocks),
     )
-    return objective.evaluate({})
+    objective_build_seconds = float(time.perf_counter() - objective_build_start)
+    objective_compute_start = time.perf_counter()
+    evaluation = objective.evaluate({})
+    objective_compute_seconds = float(time.perf_counter() - objective_compute_start)
+    evaluation_metadata = dict(evaluation.metadata)
+    existing_timing = evaluation_metadata.get("timing")
+    if not isinstance(existing_timing, dict):
+        existing_timing = {}
+    evaluation_metadata["timing"] = {
+        **existing_timing,
+        "output_selection_seconds": output_selection_seconds,
+        "objective_build_seconds": objective_build_seconds,
+        "objective_compute_seconds": objective_compute_seconds,
+        "objective_seconds": (
+            output_selection_seconds
+            + objective_build_seconds
+            + objective_compute_seconds
+        ),
+    }
+    return ObjectiveEvaluationRun(
+        evaluation=replace(evaluation, metadata=evaluation_metadata),
+        output_selection_seconds=output_selection_seconds,
+        objective_build_seconds=objective_build_seconds,
+        objective_compute_seconds=objective_compute_seconds,
+    )
 
 
 def actualize_candidate(
@@ -3267,6 +3350,9 @@ def execute_candidate_run(
     launcher_prepare_seconds = 0.0
     runtime_patch_seconds = 0.0
     simulation_seconds = 0.0
+    output_selection_seconds = 0.0
+    objective_build_seconds = 0.0
+    objective_compute_seconds = 0.0
     objective_seconds = 0.0
     try:
         launcher = None
@@ -3297,18 +3383,18 @@ def execute_candidate_run(
             runtime_patch_seconds = float(time.perf_counter() - runtime_patch_start)
         setup_state = getattr(getattr(launcher, "run_state", None), "setup", None)
         if setup_state is not None:
+            flow_runtime_overrides: dict[str, Any] = {
+                "source": "model_calibration",
+                "candidate_run_id": request.candidate_run_id,
+                "iteration_id": request.iteration_id,
+                "skip_solver_postprocess": bool("postprocess" in request.override_payload),
+            }
             if request.property_array_set is not None:
-                setup_state.flow_runtime_overrides = {
-                    "source": "model_calibration",
-                    "candidate_run_id": request.candidate_run_id,
-                    "iteration_id": request.iteration_id,
-                    "properties": {
-                        property_name: np.asarray(array.values, dtype=float).copy()
-                        for property_name, array in request.property_array_set.arrays.items()
-                    },
+                flow_runtime_overrides["properties"] = {
+                    property_name: np.asarray(array.values, dtype=float).copy()
+                    for property_name, array in request.property_array_set.arrays.items()
                 }
-            else:
-                setup_state.flow_runtime_overrides = None
+            setup_state.flow_runtime_overrides = flow_runtime_overrides
         run_callable = None
         if runtime_reusable:
             run_callable = getattr(launcher, "run_prepared", None)
@@ -3327,6 +3413,9 @@ def execute_candidate_run(
             launcher_prepare_seconds=launcher_prepare_seconds,
             runtime_patch_seconds=runtime_patch_seconds,
             simulation_seconds=simulation_seconds,
+            output_selection_seconds=output_selection_seconds,
+            objective_build_seconds=objective_build_seconds,
+            objective_compute_seconds=objective_compute_seconds,
             objective_seconds=objective_seconds,
             total_seconds=float(time.perf_counter() - overall_start),
         )
@@ -3334,12 +3423,16 @@ def execute_candidate_run(
     if cfg is not None and _objective_has_observations(cfg):
         try:
             objective_start = time.perf_counter()
-            objective_evaluation = evaluate_candidate_objective(
+            objective_run = evaluate_candidate_objective(
                 cfg=cfg,
                 run_state=run_state,
                 session=request.session,
             )
             objective_seconds = float(time.perf_counter() - objective_start)
+            output_selection_seconds = float(objective_run.output_selection_seconds or 0.0)
+            objective_build_seconds = float(objective_run.objective_build_seconds or 0.0)
+            objective_compute_seconds = float(objective_run.objective_compute_seconds or 0.0)
+            objective_evaluation = objective_run.evaluation
         except Exception as exc:
             return CandidateRunOutcome(
                 request=request,
@@ -3351,6 +3444,9 @@ def execute_candidate_run(
                 launcher_prepare_seconds=launcher_prepare_seconds,
                 runtime_patch_seconds=runtime_patch_seconds,
                 simulation_seconds=simulation_seconds,
+                output_selection_seconds=output_selection_seconds,
+                objective_build_seconds=objective_build_seconds,
+                objective_compute_seconds=objective_compute_seconds,
                 objective_seconds=objective_seconds,
                 total_seconds=float(time.perf_counter() - overall_start),
             )
@@ -3364,6 +3460,9 @@ def execute_candidate_run(
             launcher_prepare_seconds=launcher_prepare_seconds,
             runtime_patch_seconds=runtime_patch_seconds,
             simulation_seconds=simulation_seconds,
+            output_selection_seconds=output_selection_seconds,
+            objective_build_seconds=objective_build_seconds,
+            objective_compute_seconds=objective_compute_seconds,
             objective_seconds=objective_seconds,
             total_seconds=float(time.perf_counter() - overall_start),
         )
@@ -3377,6 +3476,9 @@ def execute_candidate_run(
         launcher_prepare_seconds=launcher_prepare_seconds,
         runtime_patch_seconds=runtime_patch_seconds,
         simulation_seconds=simulation_seconds,
+        output_selection_seconds=output_selection_seconds,
+        objective_build_seconds=objective_build_seconds,
+        objective_compute_seconds=objective_compute_seconds,
         objective_seconds=objective_seconds,
         total_seconds=float(time.perf_counter() - overall_start),
     )
