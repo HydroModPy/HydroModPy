@@ -476,12 +476,17 @@ def _extract_cross_section_data(
 def _prepare_streamflow_series(
     simulated_timeseries: pd.DataFrame,
     factor: int = 30,
-) -> tuple[pd.Series, pd.Series]:
+) -> tuple[pd.Series | None, pd.Series | None]:
     """Convert raw simulated timeseries to plotting-ready Series."""
-    recharge = simulated_timeseries["recharge_budget"] * factor * 1000
-    outflow = (
-        simulated_timeseries["outflow_drain"] + simulated_timeseries["runoff"]
-    ) * factor * 1000
+    recharge = None
+    if "recharge_budget" in simulated_timeseries.columns:
+        recharge = simulated_timeseries["recharge_budget"] * factor * 1000
+
+    outflow = None
+    if "outflow_drain" in simulated_timeseries.columns and "runoff" in simulated_timeseries.columns:
+        outflow = (
+            simulated_timeseries["outflow_drain"] + simulated_timeseries["runoff"]
+        ) * factor * 1000
     return outflow, recharge
 
 
@@ -621,15 +626,16 @@ def plot_flow_suite(
             obs_piezo = observed_piezometry_series(piezometry, freq="ME")
 
         _, recharge = _prepare_streamflow_series(simulated_timeseries)
-        wt_depth = simulated_timeseries["watertable_depth"]
-        plot_piezometry(
-            observed_df=obs_piezo,
-            simulated_series=wt_depth,
-            recharge_series=recharge,
-            model_label=run_id.upper(),
-            options=options,
-            save_path=output_dir / "piezometry.png",
-        )
+        wt_depth = simulated_timeseries.get("watertable_depth")
+        if wt_depth is not None:
+            plot_piezometry(
+                observed_df=obs_piezo,
+                simulated_series=wt_depth,
+                recharge_series=recharge,
+                model_label=run_id.upper(),
+                options=options,
+                save_path=output_dir / "piezometry.png",
+            )
 
     if options.flow.is_enabled("drainage_density", default=True) and simulated_timeseries is not None:
         from hydromodpy.analysis.display.figures.timeseries import plot_drainage_density
