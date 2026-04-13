@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
     from launchers.method_comparison.launcher import MethodComparisonLauncher
     from hydromodpy.analysis.calibration.engine.launcher import ModelCalibrationLauncher
-    from launchers.process_simulation.launcher import HydroModPyLauncher
+    from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
     from hydromodpy.analysis.batch.runtime import RegionalLabLauncher
 
 __all__ = [
@@ -34,7 +34,7 @@ def __getattr__(name: str):
 
         return DataOverviewLauncher
     if name == "HydroModPyLauncher":
-        from launchers.process_simulation.launcher import HydroModPyLauncher
+        from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
 
         return HydroModPyLauncher
     if name == "MeshCatchmentLauncher":

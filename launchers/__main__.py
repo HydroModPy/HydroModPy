@@ -25,7 +25,7 @@ from typing import Any
 
 def _run_simulation_launcher(config_path: Path) -> None:
     """Execute the simulation launcher for one TOML configuration path."""
-    from launchers import HydroModPyLauncher
+    from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
 
     HydroModPyLauncher(config_path).run()
 

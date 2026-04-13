@@ -263,7 +263,7 @@ class MethodComparisonLauncher:
         try:
             config_path = materialize_variant_config(cfg=self.cfg, variant=variant)
             if section.run_variants and config_path is not None:
-                from launchers import HydroModPyLauncher
+                from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
 
                 start = time.monotonic()
                 run_state = HydroModPyLauncher(config_path).run()
