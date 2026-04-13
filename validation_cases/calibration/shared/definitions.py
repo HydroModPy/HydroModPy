@@ -93,6 +93,11 @@ class TwinMethodBenchmarkResult:
     seed: int | None = None
     calibration_time_seconds: float | None = None
     time_per_evaluation_seconds: float | None = None
+    session_prepare_time_seconds: float | None = None
+    mean_candidate_total_time_seconds: float | None = None
+    mean_candidate_preparation_time_seconds: float | None = None
+    mean_candidate_simulation_time_seconds: float | None = None
+    mean_candidate_objective_time_seconds: float | None = None
     failed_iteration_count: int = 0
     meets_success_target: bool = False
     candidate_run_count: int = 0
@@ -128,6 +133,17 @@ class TwinMethodBenchmarkResult:
             "seed": self.seed,
             "calibration_time_seconds": self.calibration_time_seconds,
             "time_per_evaluation_seconds": self.time_per_evaluation_seconds,
+            "session_prepare_time_seconds": self.session_prepare_time_seconds,
+            "mean_candidate_total_time_seconds": self.mean_candidate_total_time_seconds,
+            "mean_candidate_preparation_time_seconds": (
+                self.mean_candidate_preparation_time_seconds
+            ),
+            "mean_candidate_simulation_time_seconds": (
+                self.mean_candidate_simulation_time_seconds
+            ),
+            "mean_candidate_objective_time_seconds": (
+                self.mean_candidate_objective_time_seconds
+            ),
             "failed_iteration_count": int(self.failed_iteration_count),
             "meets_success_target": bool(self.meets_success_target),
             "candidate_run_count": int(self.candidate_run_count),
