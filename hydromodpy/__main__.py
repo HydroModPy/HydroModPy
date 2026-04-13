@@ -418,7 +418,7 @@ def _cmd_run_script(script_path: Path, extra_args: list[str]) -> None:
 
 def _cmd_compare(args: argparse.Namespace) -> None:
     """Run a method-comparison launcher from a TOML configuration file."""
-    from hydromodpy.core.tools.toolbox import print_hydromodpy
+    from hydromodpy.core.tools.display import print_hydromodpy
     from launchers import MethodComparisonLauncher
 
     print_hydromodpy()
