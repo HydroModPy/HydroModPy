@@ -8,6 +8,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import json
 import math
+import platform
 from pathlib import Path
 import subprocess
 import sys
@@ -54,6 +55,33 @@ def _normalize_float(value: object) -> float | None:
     if text is None:
         return None
     return float(text)
+
+
+def _normalize_platform_token(value: object) -> str | None:
+    """Normalize one platform selector token."""
+    text = _normalize_text(value)
+    if text is None:
+        return None
+    normalized = text.lower().replace("_", "-")
+    if normalized in {"win32", "cygwin", "msys", "windows"}:
+        return "windows"
+    if normalized.startswith("linux"):
+        return "linux"
+    if normalized in {"darwin", "mac", "macos", "osx"}:
+        return "darwin"
+    return normalized
+
+
+def _current_platform_tokens() -> set[str]:
+    """Return the normalized platform aliases supported by this runtime."""
+    tokens: set[str] = set()
+    for raw_value in (sys.platform, platform.system()):
+        normalized = _normalize_platform_token(raw_value)
+        if normalized is not None:
+            tokens.add(normalized)
+    if "darwin" in tokens:
+        tokens.update({"macos", "mac"})
+    return tokens
 
 
 def _merge_tags(*tag_groups: Sequence[str]) -> tuple[str, ...]:
@@ -638,6 +666,29 @@ def _evaluate_recipe_site(
     """Expand or skip one site x recipe pair depending on contract completeness."""
     case_id = f"{recipe.id}::{site.site_id}"
     context = site.build_template_context(lab_id=cfg.lab_id, recipe=recipe)
+    if recipe.allowed_platforms:
+        current_platforms = _current_platform_tokens()
+        allowed_platforms = {
+            normalized
+            for item in recipe.allowed_platforms
+            if (normalized := _normalize_platform_token(item)) is not None
+        }
+        if allowed_platforms and current_platforms.isdisjoint(allowed_platforms):
+            return None, RegionalLabSkippedCase(
+                case_id=case_id,
+                site=site,
+                recipe_id=recipe.id,
+                recipe_label=recipe.label,
+                launcher=recipe.launcher,
+                reason="unsupported_platform",
+                detail=(
+                    "Recipe only supports platform(s): "
+                    + ", ".join(sorted(allowed_platforms))
+                    + f". Current platform: {', '.join(sorted(current_platforms))}"
+                ),
+                missing_fields=(),
+                config_path=None,
+            )
     missing_fields = _normalize_required_field_names(
         context,
         field_names=recipe.required_fields,
@@ -907,6 +958,7 @@ def _extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
 
 def _extract_method_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
     """Extract compact method-comparison artifacts from one child launcher config."""
+    from hydromodpy.core.config.toml_loader import load_toml_with_base_config
     from launchers.method_comparison.config import MethodComparisonConfig
 
     artifacts: dict[str, Any] = {
@@ -914,7 +966,8 @@ def _extract_method_comparison_child_artifacts(config_path: Path) -> dict[str, A
         "child_artifact_status": "unavailable",
     }
     try:
-        cfg = MethodComparisonConfig.from_file(config_path)
+        payload = load_toml_with_base_config(config_path)
+        cfg = MethodComparisonConfig.from_toml(payload, config_path=config_path)
     except Exception as exc:
         artifacts["child_artifact_status"] = "config_parse_failed"
         artifacts["child_artifact_error_type"] = type(exc).__name__
@@ -1051,6 +1104,7 @@ def _build_plan_payload(
                 "enabled": bool(recipe.enabled),
                 "config_path_template": recipe.config_path_template,
                 "required_fields": list(recipe.required_fields),
+                "allowed_platforms": list(recipe.allowed_platforms),
             }
             for recipe in cfg.recipes
         ],

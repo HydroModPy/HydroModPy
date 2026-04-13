@@ -31,6 +31,9 @@ def test_calibration_twin_dupuit_fixed_head_posterior_modflow6_distribution_meth
     )
 
     assert benchmark.summary_path.is_file()
+    assert benchmark.configuration_figure is not None
+    assert benchmark.configuration_figure.is_file()
+    assert benchmark.pruned_artifacts
     assert benchmark.observations_truth["q_east"]
     assert len(benchmark.method_results) == 3
     for result in benchmark.method_results:
@@ -39,4 +42,7 @@ def test_calibration_twin_dupuit_fixed_head_posterior_modflow6_distribution_meth
         assert math.isfinite(float(result.cost_best)), result.to_mapping()
         assert result.model_distribution_sample_count >= 1, result.to_mapping()
         assert result.truth_in_distribution is True, result.to_mapping()
-
+        assert result.objective_trace_figure is not None
+        assert result.objective_trace_figure.is_file()
+        assert result.objective_landscape_figure is not None
+        assert result.objective_landscape_figure.is_file()

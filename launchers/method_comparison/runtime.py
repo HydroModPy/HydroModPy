@@ -58,6 +58,7 @@ class CellCentroidTable:
     x: np.ndarray
     y: np.ndarray
     area_m2: np.ndarray | None = None
+    storage_coefficient: np.ndarray | None = None
 
     def nearest_cell_id(self, *, x: float, y: float) -> int:
         """Return the cell id whose centroid is closest to ``(x, y)``."""
@@ -77,6 +78,21 @@ class CellCentroidTable:
         if not np.isfinite(area) or area <= 0.0:
             return None
         return area
+
+    def storage_for_cell_id(self, cell_id: int) -> float | None:
+        """Return the storage coefficient for one cell id when available."""
+        if (
+            self.storage_coefficient is None
+            or self.storage_coefficient.size != self.cell_ids.size
+        ):
+            return None
+        matches = np.flatnonzero(self.cell_ids == int(cell_id))
+        if matches.size == 0:
+            return None
+        storage = float(self.storage_coefficient[int(matches[0])])
+        if not np.isfinite(storage):
+            return None
+        return storage
 
 
 def _candidate_solver_sections(solver_name: str | None = None) -> tuple[str, ...]:
@@ -238,6 +254,7 @@ def _structured_cells_from_config(
         x=grid_x.reshape(-1),
         y=grid_y.reshape(-1),
         area_m2=area_m2,
+        storage_coefficient=None,
     )
 
 
@@ -270,6 +287,7 @@ def _structured_cells_from_run_folder(
         x=grid_x.reshape(-1),
         y=grid_y.reshape(-1),
         area_m2=area_m2,
+        storage_coefficient=None,
     )
 
 
@@ -553,6 +571,7 @@ def resolve_bundle_cells(
             xs: list[float] = []
             ys: list[float] = []
             areas: list[float] = []
+            storage_coefficients: list[float] = []
             with cells_path.open("r", encoding="utf-8", newline="") as handle:
                 reader = csv.DictReader(handle)
                 for row in reader:
@@ -564,6 +583,12 @@ def resolve_bundle_cells(
                         areas.append(
                             float(area_value) if area_value not in (None, "") else math.nan
                         )
+                        storage_value = row.get("storage_coefficient")
+                        storage_coefficients.append(
+                            float(storage_value)
+                            if storage_value not in (None, "")
+                            else math.nan
+                        )
                     except Exception:
                         continue
 
@@ -571,11 +596,18 @@ def resolve_bundle_cells(
                 area_array = np.asarray(areas, dtype=float)
                 if area_array.size != len(cell_ids) or not np.any(np.isfinite(area_array)):
                     area_array = None
+                storage_array = np.asarray(storage_coefficients, dtype=float)
+                if (
+                    storage_array.size != len(cell_ids)
+                    or not np.any(np.isfinite(storage_array))
+                ):
+                    storage_array = None
                 return CellCentroidTable(
                     cell_ids=np.asarray(cell_ids, dtype=int),
                     x=np.asarray(xs, dtype=float),
                     y=np.asarray(ys, dtype=float),
                     area_m2=area_array,
+                    storage_coefficient=storage_array,
                 )
 
     if config_path is None:
@@ -634,6 +666,18 @@ def _variable_candidates(variable: str) -> tuple[str, ...]:
             "drainage_flux_history_m3_s",
             "drainage_flux_m3_s",
         ],
+        "surface_excess_flux": [
+            "surface_excess_total_m3_s",
+            "surface_threshold_total_m3_s",
+            "saturation_excess_total_m3_s",
+            "saturation_excess_history_m_s",
+        ],
+        "surface_excess_rate": [
+            "saturation_excess_history_m_s",
+        ],
+        "surface_excess_map": [
+            "saturation_excess_history_m_s",
+        ],
         "head": ["watertable_elevation"],
         "depth": ["watertable_depth"],
         "drainage_flux": ["drainage_flux_history_m3_s", "drainage_flux_m3_s"],
@@ -647,10 +691,19 @@ def _native_unit_for_variable(variable_name: str) -> str:
     key = variable_name.strip().lower()
     if key in {"outlet_flux", "outlet_flux_m3_s"}:
         return "m3/s"
+    if key in {
+        "surface_excess_flux",
+        "surface_excess_total_m3_s",
+        "surface_threshold_total_m3_s",
+        "saturation_excess_total_m3_s",
+    }:
+        return "m3/s"
     if key in {"watertable_elevation", "head"}:
         return "m"
     if key == "watertable_depth":
         return "m"
+    if key in {"surface_excess_rate", "surface_excess_map"}:
+        return "m/day"
     if key in {"accumulation_flux", "outflow_drain", "seepage_areas"}:
         return "m/day"
     if key.endswith("_m3_s") or "_m3_s" in key:
@@ -663,6 +716,11 @@ def _native_unit_for_variable(variable_name: str) -> str:
 def _is_canonical_outlet_flux(variable_name: str) -> bool:
     key = variable_name.strip().lower()
     return key in {"outlet_flux", "outlet_flux_m3_s"}
+
+
+def _is_canonical_surface_excess_flux(variable_name: str) -> bool:
+    key = variable_name.strip().lower()
+    return key in {"surface_excess_flux", "surface_excess_total_m3_s"}
 
 
 def _convert_accumulation_rate_to_m3_s(
@@ -681,6 +739,11 @@ def _convert_flux_m3_s_to_depth_m_per_day(
 ) -> float:
     """Convert one volumetric cell flux to a depth-rate over that cell."""
     return (float(value_m3_s) / float(cell_area_m2)) * 86400.0
+
+
+def _convert_rate_m_s_to_m_per_day(*, value_m_s: float) -> float:
+    """Convert one depth-rate from `m/s` to `m/day`."""
+    return float(value_m_s) * 86400.0
 
 
 def _area_for_series_value(
@@ -786,6 +849,13 @@ def normalize_observable_value(
         native_unit = "m3/s"
         conversion_applied = "drainage_flux_m3_s_to_m_per_day"
         cell_area_m2 = area_m2
+    elif observable.variable.strip().lower() in {
+        "surface_excess_rate",
+        "surface_excess_map",
+    } and series.variable_name == "saturation_excess_history_m_s":
+        output_value = _convert_rate_m_s_to_m_per_day(value_m_s=output_value)
+        native_unit = "m/s"
+        conversion_applied = "surface_excess_m_s_to_m_per_day"
 
     return {
         "value": output_value,
@@ -963,6 +1033,83 @@ def _load_boussinesq_npz_series(
     return VariableSeries(variable_name=variable_name, source_path=path, slices=slices)
 
 
+def _elapsed_seconds_from_period_lengths(
+    *,
+    n_snapshots: int,
+    period_lengths: np.ndarray,
+) -> list[float | None]:
+    if n_snapshots <= 0:
+        return []
+    if period_lengths.size == n_snapshots - 1:
+        elapsed: list[float | None] = [0.0]
+        elapsed.extend(float(value) for value in np.cumsum(period_lengths))
+        return elapsed
+    if period_lengths.size == n_snapshots:
+        return [float(value) for value in np.cumsum(period_lengths)]
+    return [None for _ in range(n_snapshots)]
+
+
+def _load_boussinesq_surface_excess_total_series(
+    run_folder: Path,
+    path: Path,
+    *,
+    variable_name: str,
+) -> VariableSeries:
+    payload = np.load(path, allow_pickle=True)
+    if "saturation_excess_history_m_s" not in payload:
+        raise KeyError(variable_name)
+    values = np.asarray(payload["saturation_excess_history_m_s"], dtype=float)
+    if values.ndim == 1:
+        values = values.reshape(1, -1)
+    if values.ndim != 2:
+        raise ValueError(
+            "saturation_excess_history_m_s must be 2-D to derive surface-excess totals"
+        )
+
+    cells = resolve_bundle_cells(
+        run_folder,
+        expected_size=int(values.shape[1]),
+        solver_name="boussinesq",
+    )
+    if cells is None or cells.area_m2 is None:
+        raise ValueError(
+            "Cannot derive surface_excess_total_m3_s without bundle cell areas"
+        )
+    area_m2 = np.asarray(cells.area_m2, dtype=float).reshape(-1)
+    if area_m2.size != values.shape[1]:
+        raise ValueError(
+            "Bundle cell areas do not match saturation_excess_history_m_s width"
+        )
+
+    positive = np.maximum(values, 0.0)
+    totals_m3_s = np.sum(positive * area_m2[None, :], axis=1, dtype=float)
+    period_lengths = (
+        np.asarray(payload["period_lengths_seconds"], dtype=float).ravel()
+        if "period_lengths_seconds" in payload
+        else np.asarray([], dtype=float)
+    )
+    elapsed_by_index = _elapsed_seconds_from_period_lengths(
+        n_snapshots=int(totals_m3_s.size),
+        period_lengths=period_lengths,
+    )
+    slices = tuple(
+        TimeSlice(
+            time_key=index,
+            time_index=index,
+            values=np.asarray([float(total)], dtype=float),
+            elapsed_seconds=elapsed_by_index[index],
+            is_initial_state=period_lengths.size == totals_m3_s.size - 1 and index == 0,
+        )
+        for index, total in enumerate(totals_m3_s.tolist())
+    )
+    return VariableSeries(
+        variable_name=variable_name,
+        source_path=path,
+        slices=slices,
+        cell_ids=None,
+    )
+
+
 def load_variable_series(
     *,
     run_folder: Path,
@@ -986,6 +1133,16 @@ def load_variable_series(
         searched.append(boussinesq_path)
         if boussinesq_path.exists():
             try:
+                if variable_name in {
+                    "surface_excess_total_m3_s",
+                    "surface_threshold_total_m3_s",
+                    "saturation_excess_total_m3_s",
+                }:
+                    return _load_boussinesq_surface_excess_total_series(
+                        run_folder,
+                        boussinesq_path,
+                        variable_name=variable_name,
+                    )
                 return _load_boussinesq_npz_series(
                     boussinesq_path,
                     variable_name=variable_name,
@@ -1309,6 +1466,8 @@ def extract_observable_rows(
     rows: list[dict[str, Any]] = []
     cells: CellCentroidTable | None = None
     for observable in observables:
+        if observable.variants is not None and variant.id not in set(observable.variants):
+            continue
         series = load_variable_series(run_folder=run_folder, variable=observable.variable)
         series = mask_depth_series_from_head_nodata(run_folder=run_folder, series=series)
         if cells is None:

@@ -32,6 +32,9 @@ def test_calibration_twin_dupuit_fixed_head_modflow6_benchmark_recovers_truth() 
     )
 
     assert benchmark.summary_path.is_file()
+    assert benchmark.configuration_figure is not None
+    assert benchmark.configuration_figure.is_file()
+    assert benchmark.pruned_artifacts
     assert benchmark.observations_truth["q_east"]
     assert len(benchmark.method_results) == 3
     for result in benchmark.method_results:
@@ -42,6 +45,10 @@ def test_calibration_twin_dupuit_fixed_head_modflow6_benchmark_recovers_truth() 
         assert result.iteration_count >= 1
         assert result.n_evaluations >= 1
         assert "K_global_factor" in result.param_abs_error
+        assert result.objective_trace_figure is not None
+        assert result.objective_trace_figure.is_file()
+        assert result.objective_landscape_figure is not None
+        assert result.objective_landscape_figure.is_file()
         if result.method_name == "random_search":
             assert result.model_distribution_sample_count >= 1
             assert result.truth_in_distribution is True

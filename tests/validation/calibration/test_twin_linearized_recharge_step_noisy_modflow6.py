@@ -31,6 +31,9 @@ def test_calibration_twin_linearized_recharge_step_noisy_modflow6_benchmark_reco
     )
 
     assert benchmark.summary_path.is_file()
+    assert benchmark.configuration_figure is not None
+    assert benchmark.configuration_figure.is_file()
+    assert benchmark.pruned_artifacts
     assert benchmark.observations_truth["head_mid"]
     assert benchmark.observations_used["head_mid"]
     assert benchmark.observations_truth != benchmark.observations_used
@@ -49,5 +52,9 @@ def test_calibration_twin_linearized_recharge_step_noisy_modflow6_benchmark_reco
         assert math.isfinite(float(result.cost_best)), result.to_mapping()
         assert result.iteration_count >= 1
         assert result.n_evaluations >= 1
+        assert result.objective_trace_figure is not None
+        assert result.objective_trace_figure.is_file()
+        assert result.objective_landscape_figure is not None
+        assert result.objective_landscape_figure.is_file()
     assert all(result.truth_in_distribution is True for result in random_results)
     assert sorted(result.seed for result in random_results) == [11, 23, 37]

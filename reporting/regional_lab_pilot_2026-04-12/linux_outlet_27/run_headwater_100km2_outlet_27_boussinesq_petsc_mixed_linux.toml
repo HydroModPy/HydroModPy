@@ -1,0 +1,36 @@
+# Linux/WSL probe for outlet 27 using the PETSc mixed-complementarity runtime.
+
+base_config = "/mnt/c/codes/HydroModPy-GH/examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_boussinesq_mesh_input.toml"
+
+[workspace]
+project_root = "/mnt/c/codes/HydroModPy-GH/reporting/regional_lab_pilot_2026-04-12/outputs/linux_compare_outlet_27/petsc_mixed"
+
+[geographic]
+dem_init_path = "/mnt/c/codes/HydroModPy-GH/examples/data/dem/DEM_armorican_massif.tif"
+x_outlet = 364275.0
+y_outlet = 6956025.0
+
+[mesh_input]
+mesh_path = "/mnt/c/Users/dreuzy/HydroModPy/mesh_gallery_headwater_100km2_outlet_27_rivers_only_outlet_27/mesh_catchment_outlet_27.msh"
+bundle_dir = "/mnt/c/codes/HydroModPy-GH/reporting/regional_lab_pilot_2026-04-12/sanitized_bundles/headwater_100km2_outlet_27_bundle"
+
+[flow]
+runtime_backend = "petsc"
+surface_interaction_model = "complementarity"
+runtime_max_iterations = 200
+
+[simulation]
+name = "Headwater 100 km2 outlet 27 boussinesq PETSc mixed Linux probe"
+run_id = "headwater_100km2_outlet_27_boussinesq_petsc_mixed_linux_probe"
+
+[postprocess]
+enabled = true
+
+[postprocess.flow]
+enabled = true
+display = true
+
+[display]
+enabled = true
+show = false
+save = true

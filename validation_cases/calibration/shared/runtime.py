@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import shutil
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -88,6 +90,53 @@ def _normalize_selected_outputs(selected: dict[str, Any]) -> dict[str, tuple[flo
         arr = np.asarray(values, dtype=float).reshape(-1)
         normalized[str(name)] = tuple(float(value) for value in arr)
     return normalized
+
+
+def _remove_artifact_path(path: Path, *, removed: list[str]) -> None:
+    """Remove one heavy artifact path when it exists."""
+    try:
+        if path.is_dir():
+            shutil.rmtree(path)
+            removed.append(str(path))
+        elif path.is_file():
+            path.unlink()
+            removed.append(str(path))
+    except OSError:
+        return
+
+
+def _prune_benchmark_artifacts(
+    *,
+    benchmark_root: Path,
+    retention: str,
+) -> tuple[str, ...]:
+    """Prune heavy benchmark artifacts according to the selected retention mode."""
+    mode = str(retention).strip().lower() or "minimal"
+    if mode == "full":
+        return ()
+    if mode != "minimal":
+        raise ValueError(
+            f"Unsupported calibration benchmark artifact_retention '{retention}'."
+        )
+
+    removed: list[str] = []
+    for project_name in ("project", "project_truth"):
+        project_root = benchmark_root / project_name
+        _remove_artifact_path(
+            project_root / "results_simulations",
+            removed=removed,
+        )
+        _remove_artifact_path(
+            project_root / "results_stable",
+            removed=removed,
+        )
+        _remove_artifact_path(
+            project_root / "hydromodpy_debug.log",
+            removed=removed,
+        )
+        if project_root.is_dir() and not any(project_root.iterdir()):
+            _remove_artifact_path(project_root, removed=removed)
+    return tuple(removed)
 
 
 def _placeholder_observations(
@@ -425,6 +474,10 @@ def _assess_method_result(
     distribution_path = None
     if isinstance(distribution_summary, dict) and distribution_summary.get("path"):
         distribution_path = Path(str(distribution_summary["path"]))
+    iteration_history_path = calibration_root = Path(str(summary["calibration_root"]))
+    iteration_history_path = calibration_root / "iteration_history.jsonl"
+    if not iteration_history_path.is_file():
+        iteration_history_path = None
     result_payload = {}
     result_path = (
         None
@@ -509,7 +562,7 @@ def _assess_method_result(
         },
         requested_evaluation_budget=requested_evaluation_budget,
         calibration_id=str(summary["calibration_id"]),
-        calibration_root=Path(str(summary["calibration_root"])),
+        calibration_root=calibration_root,
         result_path=result_path,
         cost_best=(
             None if summary.get("cost_best") is None else float(summary["cost_best"])
@@ -532,6 +585,7 @@ def _assess_method_result(
         block_normalized_cost_best=block_normalized_cost_best,
         block_reference_scale=block_reference_scale,
         block_n_values=block_n_values,
+        iteration_history_path=iteration_history_path,
         model_distribution_path=distribution_path,
         model_distribution_sample_count=int(distribution_sample_count),
         truth_in_distribution=truth_in_distribution,
@@ -550,6 +604,9 @@ def run_twin_benchmark_case(
     launcher_factory: Any = HydroModPyLauncher,
     method_names: tuple[str, ...] | None = None,
     evaluation_budget: int | None = None,
+    artifact_retention: str | None = None,
+    case_figures: bool | None = None,
+    figure_format: str = "png",
 ) -> TwinCalibrationBenchmarkResult:
     """Run one same-solver twin benchmark and assess each configured method."""
     del caller_file
@@ -596,6 +653,31 @@ def run_twin_benchmark_case(
             f"No method profile selected for benchmark '{definition.case_id}'."
         )
 
+    configuration_figure = None
+    generate_case_figures = (
+        definition.generate_case_figures
+        if case_figures is None
+        else bool(case_figures)
+    )
+    retained_mode = (
+        str(definition.artifact_retention)
+        if artifact_retention is None
+        else str(artifact_retention)
+    )
+    if generate_case_figures:
+        from validation_cases.calibration.plotting import (
+            write_case_configuration_figure,
+        )
+
+        configuration_figure = write_case_configuration_figure(
+            benchmark_root=benchmark_root,
+            definition=definition,
+            simulation_config_path=simulation_config_path,
+            truth_simulation_config_path=truth_simulation_config_path,
+            artifact_retention=retained_mode,
+            figure_format=figure_format,
+        )
+
     method_results: list[TwinMethodBenchmarkResult] = []
     for method_run in _iter_selected_method_runs(selected_profiles):
         method_profile = method_run["profile"]
@@ -622,18 +704,36 @@ def run_twin_benchmark_case(
         summary = ModelCalibrationLauncher(calibration_path).calibrate(
             launcher_factory=launcher_factory,
         )
-        method_results.append(
-            _assess_method_result(
-                definition=definition,
-                method_profile=method_profile,
-                method_instance_name=method_instance_name,
-                repeat_index=repeat_index,
-                seed=seed,
-                effective_method_kwargs=dict(effective_profile.method_kwargs),
-                requested_evaluation_budget=evaluation_budget,
-                summary=summary,
-            )
+        assessed_result = _assess_method_result(
+            definition=definition,
+            method_profile=method_profile,
+            method_instance_name=method_instance_name,
+            repeat_index=repeat_index,
+            seed=seed,
+            effective_method_kwargs=dict(effective_profile.method_kwargs),
+            requested_evaluation_budget=evaluation_budget,
+            summary=summary,
         )
+        if generate_case_figures:
+            from validation_cases.calibration.plotting import write_case_method_figures
+
+            figure_paths = write_case_method_figures(
+                benchmark_root=benchmark_root,
+                definition=definition,
+                result=assessed_result,
+                figure_format=figure_format,
+            )
+            assessed_result = replace(
+                assessed_result,
+                objective_trace_figure=figure_paths.get("objective_trace"),
+                objective_landscape_figure=figure_paths.get("objective_landscape"),
+            )
+        method_results.append(assessed_result)
+
+    pruned_artifacts = _prune_benchmark_artifacts(
+        benchmark_root=benchmark_root,
+        retention=retained_mode,
+    )
 
     benchmark = TwinCalibrationBenchmarkResult(
         definition=definition,
@@ -644,6 +744,9 @@ def run_twin_benchmark_case(
         observations_used=observations_used,
         method_results=tuple(method_results),
         summary_path=benchmark_root / "benchmark_summary.json",
+        artifact_retention=retained_mode,
+        configuration_figure=configuration_figure,
+        pruned_artifacts=pruned_artifacts,
     )
     benchmark.summary_path.write_text(
         json.dumps(benchmark.to_mapping(), indent=2, ensure_ascii=True) + "\n",

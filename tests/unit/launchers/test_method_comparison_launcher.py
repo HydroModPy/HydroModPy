@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,6 +13,7 @@ import pytest
 
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from launchers.method_comparison.config import MethodComparisonConfig
+from launchers.method_comparison.exports import write_budget_exports
 from launchers.method_comparison.launcher import MethodComparisonLauncher
 from launchers.method_comparison.metrics import (
     build_comparison_metrics,
@@ -19,6 +21,7 @@ from launchers.method_comparison.metrics import (
 )
 from launchers.method_comparison.runtime import (
     extract_observable_rows,
+    load_variable_series,
     materialize_variant_config,
 )
 
@@ -340,10 +343,10 @@ def _write_boussinesq_run_folder(run_folder: Path, bundle_dir: Path) -> None:
     (bundle_dir / "cells.csv").write_text(
         "\n".join(
             [
-                "cell_id,centroid_x,centroid_y,area_m2",
-                "0,0.0,0.0,5.0",
-                f"1,10.0,0.0,{OUTLET_CELL_AREA_M2}",
-                "2,20.0,0.0,7.0",
+                "cell_id,centroid_x,centroid_y,area_m2,storage_coefficient",
+                "0,0.0,0.0,5.0,0.08",
+                f"1,10.0,0.0,{OUTLET_CELL_AREA_M2},0.08",
+                "2,20.0,0.0,7.0,0.08",
             ]
         )
         + "\n",
@@ -351,6 +354,34 @@ def _write_boussinesq_run_folder(run_folder: Path, bundle_dir: Path) -> None:
     )
     np.savez(
         run_folder / "_boussinesq_state_history.npz",
+        recharge_rate_history_m_s=np.asarray(
+            [
+                [1.0e-8, 2.0e-8, 1.5e-8],
+                [2.0e-8, 1.0e-8, 2.5e-8],
+            ],
+            dtype=float,
+        ),
+        well_flux_history_m3_s=np.asarray(
+            [
+                [-0.01, -0.02, 0.0],
+                [-0.01, -0.015, 0.0],
+            ],
+            dtype=float,
+        ),
+        head_history_m=np.asarray(
+            [
+                [10.0, 11.0, 12.0],
+                [10.5, 11.25, 12.5],
+            ],
+            dtype=float,
+        ),
+        saturation_excess_history_m_s=np.asarray(
+            [
+                [0.0, 0.02, 0.01],
+                [0.01, 0.03, 0.0],
+            ],
+            dtype=float,
+        ),
         drainage_flux_history_m3_s=np.asarray(
             [
                 [0.05, 0.15, 0.07],
@@ -409,7 +440,7 @@ def test_method_comparison_config_resolves_paths(tmp_path: Path) -> None:
         (
             "run_method_comparison_example12_multi_method_moderate.toml",
             ["structured", "structured", "mesh_input", "mesh_input"],
-            ["point", "point", "point", "outlet", "map", "map", "map"],
+            ["point", "point", "point", "outlet", "map", "map", "map", "cell_mask", "map"],
         ),
         (
             "run_method_comparison_example12_fast_shared_mesh.toml",
@@ -783,6 +814,137 @@ def test_extract_observable_rows_converts_boussinesq_drainage_map_to_outflow_dra
     )
     first_value = float(rows[0]["value"])
     assert first_value == pytest.approx((0.08 / 5.0) * 86400.0)
+
+
+def test_load_variable_series_derives_boussinesq_surface_excess_flux(
+    tmp_path: Path,
+) -> None:
+    run_folder = tmp_path / "run_bouss_surface_excess"
+    bundle_dir = tmp_path / "bundle_bouss_surface_excess"
+    run_folder.mkdir(parents=True, exist_ok=True)
+    _write_boussinesq_run_folder(run_folder, bundle_dir)
+
+    series = load_variable_series(
+        run_folder=run_folder,
+        variable="surface_excess_flux",
+    )
+
+    assert series.variable_name == "surface_excess_total_m3_s"
+    assert len(series.slices) == 2
+    assert float(series.slices[0].values[0]) == pytest.approx(0.27)
+    assert float(series.slices[1].values[0]) == pytest.approx(0.35)
+
+
+def test_extract_observable_rows_reads_surface_excess_map_and_series(
+    tmp_path: Path,
+) -> None:
+    run_folder = tmp_path / "run_bouss_surface_compare"
+    bundle_dir = tmp_path / "bundle_bouss_surface_compare"
+    run_folder.mkdir(parents=True, exist_ok=True)
+    _write_boussinesq_run_folder(run_folder, bundle_dir)
+
+    config_path = tmp_path / "config_method_comparison_surface_excess.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "[method_comparison]",
+                'comparison_id = "demo_surface_excess"',
+                "run_variants = false",
+                "",
+                "[[method_comparison.variant]]",
+                'id = "bouss_demo"',
+                'solver = "boussinesq"',
+                'mesh_mode = "mesh_input"',
+                f'run_folder = "{run_folder.as_posix()}"',
+                "",
+                "[[method_comparison.observable]]",
+                'name = "surface_excess_flux_series"',
+                'variable = "surface_excess_flux"',
+                'support = "cell_mask"',
+                'time = "all"',
+                'reducer = "sum"',
+                'unit = "m3/s"',
+                "",
+                "[[method_comparison.observable]]",
+                'name = "surface_excess_map_last"',
+                'variable = "surface_excess_rate"',
+                'support = "map"',
+                'time = "last"',
+                'unit = "m/day"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    cfg = MethodComparisonConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        config_path=config_path,
+    )
+
+    rows = extract_observable_rows(
+        comparison_id="demo_surface_excess",
+        variant=cfg.method_comparison.variant[0],
+        run_folder=run_folder,
+        observables=tuple(cfg.method_comparison.observable),
+    )
+
+    series_rows = [
+        row for row in rows if row["observable"] == "surface_excess_flux_series"
+    ]
+    map_rows = [row for row in rows if row["observable"] == "surface_excess_map_last"]
+    assert [float(row["value"]) for row in series_rows] == pytest.approx([0.27, 0.35])
+    assert all(row["unit"] == "m3/s" for row in series_rows)
+    assert all(row["resolved_variable"] == "surface_excess_total_m3_s" for row in series_rows)
+    assert len(map_rows) == 3
+    assert all(row["resolved_variable"] == "saturation_excess_history_m_s" for row in map_rows)
+    assert all(row["conversion_applied"] == "surface_excess_m_s_to_m_per_day" for row in map_rows)
+    assert float(map_rows[0]["value"]) == pytest.approx(0.01 * 86400.0)
+
+
+def test_write_budget_exports_derives_boussinesq_budget_timeseries(
+    tmp_path: Path,
+) -> None:
+    run_folder = tmp_path / "run_bouss_budget"
+    bundle_dir = tmp_path / "bundle_bouss_budget"
+    run_folder.mkdir(parents=True, exist_ok=True)
+    _write_boussinesq_run_folder(run_folder, bundle_dir)
+
+    comparison_root = tmp_path / "comparison"
+    artifacts, rows = write_budget_exports(
+        comparison_root=comparison_root,
+        variant_summaries=[
+            {
+                "id": "bouss_demo",
+                "label": "Bouss demo",
+                "solver": "boussinesq",
+                "mesh_mode": "mesh_input",
+                "status": "completed",
+                "run_folder": str(run_folder),
+            }
+        ],
+    )
+
+    assert artifacts
+    assert any(row["component"] == "surface_excess_total_m3_s" for row in rows)
+    assert any(row["component"] == "storage_change_total_m3_s" for row in rows)
+    recharge_row = next(
+        row
+        for row in rows
+        if row["component"] == "recharge_total_m3_s" and int(row["time_index"]) == 0
+    )
+    storage_row = next(
+        row
+        for row in rows
+        if row["component"] == "storage_change_total_m3_s" and int(row["time_index"]) == 1
+    )
+    residual_row = next(
+        row
+        for row in rows
+        if row["component"] == "closure_residual_m3_s" and int(row["time_index"]) == 1
+    )
+    assert float(recharge_row["value"]) == pytest.approx(3.55e-7)
+    assert float(storage_row["value"]) == pytest.approx(0.68 / 3600.0)
+    assert math.isfinite(float(residual_row["value"]))
 
 
 @pytest.mark.skipif(os.name != "nt", reason="WSL bundle-path normalization is Windows-specific")
@@ -1226,12 +1388,49 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
         "launchers.method_comparison.launcher.read_variant_run_metadata",
         lambda _run_folder: {},
     )
+    import launchers.method_comparison.launcher as launcher_module
+
+    monkeypatch.setattr(
+        launcher_module.HydroModPyConfig,
+        "from_toml",
+        classmethod(
+            lambda _cls, _config_path: SimpleNamespace(
+                workspace=SimpleNamespace(
+                    simulations_folder=tmp_path / "project_root" / "results_simulations"
+                ),
+                simulation=SimpleNamespace(run_id="demo_run_reuse"),
+            )
+        ),
+    )
 
     launcher = MethodComparisonLauncher(comparison_config)
     summary = launcher._run_or_reuse_variant(launcher.cfg.method_comparison.variant[0])
 
     assert summary["status"] == "completed"
     assert Path(summary["run_folder"]) == actual_run_folder
+
+
+def test_method_comparison_launcher_reuse_infers_process_output_folder(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _ = tmp_path
+    _ = monkeypatch
+    config_path = (
+        Path(__file__).resolve().parents[3]
+        / "examples"
+        / "projects"
+        / "launcher_simulation"
+        / "run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml"
+    )
+
+    resolved = MethodComparisonLauncher._infer_run_folder_from_config(
+        config_path,
+        solver_name="boussinesq",
+    )
+
+    assert resolved.name == "flow_main__boussinesq"
+    assert resolved.exists()
 
 
 def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:

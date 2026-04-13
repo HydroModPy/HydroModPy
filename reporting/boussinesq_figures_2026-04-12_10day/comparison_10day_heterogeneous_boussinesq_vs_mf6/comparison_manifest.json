@@ -34,13 +34,6 @@
       "path": "C:\\codes\\HydroModPy-GH\\reporting\\boussinesq_figures_2026-04-12_10day\\comparison_10day_heterogeneous_boussinesq_vs_mf6\\comparison_figures\\watertable_elevation_map__difference__boussinesq_scipy_sparse__vs__boussinesq_petsc_mixed.png"
     },
     {
-      "kind": "difference_map",
-      "observable": "watertable_elevation_map",
-      "reference_variant": "boussinesq_scipy_sparse",
-      "candidate_variant": "mf6_heterogeneous_10day",
-      "path": "C:\\codes\\HydroModPy-GH\\reporting\\boussinesq_figures_2026-04-12_10day\\comparison_10day_heterogeneous_boussinesq_vs_mf6\\comparison_figures\\watertable_elevation_map__difference__boussinesq_scipy_sparse__vs__mf6_heterogeneous_10day.png"
-    },
-    {
       "kind": "map_comparison",
       "observable": "watertable_depth_map",
       "path": "C:\\codes\\HydroModPy-GH\\reporting\\boussinesq_figures_2026-04-12_10day\\comparison_10day_heterogeneous_boussinesq_vs_mf6\\comparison_figures\\watertable_depth_map__map_comparison.png"
@@ -60,13 +53,6 @@
       "path": "C:\\codes\\HydroModPy-GH\\reporting\\boussinesq_figures_2026-04-12_10day\\comparison_10day_heterogeneous_boussinesq_vs_mf6\\comparison_figures\\watertable_depth_map__difference__boussinesq_scipy_sparse__vs__boussinesq_petsc_mixed.png"
     },
     {
-      "kind": "difference_map",
-      "observable": "watertable_depth_map",
-      "reference_variant": "boussinesq_scipy_sparse",
-      "candidate_variant": "mf6_heterogeneous_10day",
-      "path": "C:\\codes\\HydroModPy-GH\\reporting\\boussinesq_figures_2026-04-12_10day\\comparison_10day_heterogeneous_boussinesq_vs_mf6\\comparison_figures\\watertable_depth_map__difference__boussinesq_scipy_sparse__vs__mf6_heterogeneous_10day.png"
-    },
-    {
       "kind": "timeseries",
       "observable": "head_reference_cell",
       "unit": "m",
@@ -77,6 +63,24 @@
       "observable": "outlet_flux_series",
       "unit": "m3/s",
       "path": "C:\\codes\\HydroModPy-GH\\reporting\\boussinesq_figures_2026-04-12_10day\\comparison_10day_heterogeneous_boussinesq_vs_mf6\\comparison_figures\\outlet_flux_series__timeseries.png"
+    },
+    {
+      "kind": "budget_diagnostics",
+      "observable": "budget",
+      "variant_id": "boussinesq_petsc_mixed",
+      "path": "C:\\codes\\HydroModPy-GH\\reporting\\boussinesq_figures_2026-04-12_10day\\comparison_10day_heterogeneous_boussinesq_vs_mf6\\comparison_figures\\boussinesq_petsc_mixed__budget_diagnostics.png"
+    },
+    {
+      "kind": "budget_diagnostics",
+      "observable": "budget",
+      "variant_id": "boussinesq_petsc_partition",
+      "path": "C:\\codes\\HydroModPy-GH\\reporting\\boussinesq_figures_2026-04-12_10day\\comparison_10day_heterogeneous_boussinesq_vs_mf6\\comparison_figures\\boussinesq_petsc_partition__budget_diagnostics.png"
+    },
+    {
+      "kind": "budget_diagnostics",
+      "observable": "budget",
+      "variant_id": "boussinesq_scipy_sparse",
+      "path": "C:\\codes\\HydroModPy-GH\\reporting\\boussinesq_figures_2026-04-12_10day\\comparison_10day_heterogeneous_boussinesq_vs_mf6\\comparison_figures\\boussinesq_scipy_sparse__budget_diagnostics.png"
     }
   ],
   "comparison_data_artifacts": [
@@ -93,14 +97,22 @@
       "path": "C:\\codes\\HydroModPy-GH\\reporting\\boussinesq_figures_2026-04-12_10day\\comparison_10day_heterogeneous_boussinesq_vs_mf6\\timeseries_delta.csv"
     },
     {
+      "kind": "budget_timeseries_long_csv",
+      "path": "C:\\codes\\HydroModPy-GH\\reporting\\boussinesq_figures_2026-04-12_10day\\comparison_10day_heterogeneous_boussinesq_vs_mf6\\budget_timeseries_long.csv"
+    },
+    {
+      "kind": "budget_timeseries_wide_csv",
+      "path": "C:\\codes\\HydroModPy-GH\\reporting\\boussinesq_figures_2026-04-12_10day\\comparison_10day_heterogeneous_boussinesq_vs_mf6\\budget_timeseries_wide.csv"
+    },
+    {
       "kind": "execution_times_csv",
       "path": "C:\\codes\\HydroModPy-GH\\reporting\\boussinesq_figures_2026-04-12_10day\\comparison_10day_heterogeneous_boussinesq_vs_mf6\\execution_times.csv"
     }
   ],
   "n_observable_rows": 34030,
-  "n_metric_rows": 12,
-  "n_difference_rows": 17240,
-  "wall_time_seconds": 4.0,
+  "n_metric_rows": 10,
+  "n_difference_rows": 17059,
+  "wall_time_seconds": 5.06,
   "variants": [
     {
       "id": "boussinesq_scipy_sparse",
@@ -225,7 +237,7 @@
       "run_folder": "C:\\codes\\HydroModPy-GH\\reporting\\boussinesq_figures_2026-04-12_10day\\mf6_10d\\results_simulations\\mf6_h100_10d",
       "wall_time_seconds": null,
       "metrics": {
-        "wall_time_seconds": 78.42,
+        "wall_time_seconds": 142.66,
         "solvers": [
           "modflow6"
         ],
@@ -237,7 +249,7 @@
       },
       "run_metadata": {
         "metrics": {
-          "wall_time_seconds": 78.42,
+          "wall_time_seconds": 142.66,
           "solvers": [
             "modflow6"
           ],
@@ -247,7 +259,7 @@
           "mesh_output_summary_json": null,
           "mesh_output_exchange_bundle_dir": "C:\\codes\\HydroModPy-GH\\examples\\mesh_gallery\\100km2\\mesh_headwater_100km2_outlet_2_geology_rivers_buffer30\\bundle"
         },
-        "wall_time_seconds": 78.42,
+        "wall_time_seconds": 142.66,
         "solvers": [
           "modflow6"
         ],
@@ -271,6 +283,7 @@
       "name": "head_reference_cell",
       "variable": "watertable_elevation",
       "source": "disk",
+      "variants": null,
       "support": "point",
       "anchor_id": null,
       "x": null,
@@ -289,6 +302,7 @@
       "name": "outlet_flux_series",
       "variable": "outlet_flux",
       "source": "disk",
+      "variants": null,
       "support": "outlet",
       "anchor_id": null,
       "x": null,
@@ -307,6 +321,7 @@
       "name": "watertable_elevation_map",
       "variable": "watertable_elevation",
       "source": "disk",
+      "variants": null,
       "support": "map",
       "anchor_id": null,
       "x": null,
@@ -325,6 +340,7 @@
       "name": "watertable_depth_map",
       "variable": "watertable_depth",
       "source": "disk",
+      "variants": null,
       "support": "map",
       "anchor_id": null,
       "x": null,

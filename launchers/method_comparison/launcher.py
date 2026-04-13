@@ -12,6 +12,7 @@ from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 from launchers.method_comparison.config import MethodComparisonConfig
 from launchers.method_comparison.exports import (
+    write_budget_exports,
     write_execution_summary_csv,
     write_native_timeseries_exports,
     write_observable_chronicle_exports,
@@ -156,6 +157,11 @@ class MethodComparisonLauncher:
             )
         )
         data_artifacts.extend(native_artifacts)
+        budget_artifacts, budget_rows = write_budget_exports(
+            comparison_root=comparison_root,
+            variant_summaries=variant_summaries,
+        )
+        data_artifacts.extend(budget_artifacts)
         execution_artifacts, execution_rows = write_execution_summary_csv(
             comparison_root=comparison_root,
             variant_summaries=variant_summaries,
@@ -171,6 +177,7 @@ class MethodComparisonLauncher:
             comparison_root=comparison_root,
             native_timeseries_rows=native_long_rows,
             native_timeseries_delta_rows=native_delta_rows,
+            budget_rows=budget_rows,
             execution_rows=execution_rows,
         )
         report_path = comparison_root / "comparison_report.md"
@@ -254,7 +261,10 @@ class MethodComparisonLauncher:
                 )
                 status = "completed"
             elif run_folder is None and config_path is not None:
-                run_folder = self._infer_run_folder_from_config(config_path)
+                run_folder = self._infer_run_folder_from_config(
+                    config_path,
+                    solver_name=str(variant.solver or ""),
+                )
                 status = "reused"
             elif run_folder is None:
                 raise ValueError(
@@ -298,10 +308,32 @@ class MethodComparisonLauncher:
             }
 
     @staticmethod
-    def _infer_run_folder_from_config(config_path: Path) -> Path:
+    def _infer_run_folder_from_config(
+        config_path: Path,
+        *,
+        solver_name: str | None = None,
+    ) -> Path:
         """Infer one existing run folder from a simulation config path."""
         cfg = HydroModPyConfig.from_toml(config_path)
-        return Path(cfg.workspace.simulations_folder) / str(cfg.simulation.run_id)
+        base_folder = Path(cfg.workspace.simulations_folder) / str(cfg.simulation.run_id)
+        if (base_folder / "_postprocess").exists() or (
+            base_folder / "_boussinesq_state_history.npz"
+        ).exists():
+            return base_folder
+
+        solver_key = str(solver_name or "").strip().lower()
+        if base_folder.parent.exists():
+            for child in sorted(base_folder.parent.iterdir()):
+                if not child.is_dir():
+                    continue
+                child_name = child.name.strip().lower()
+                if solver_key and solver_key not in child_name:
+                    continue
+                if (child / "_postprocess").exists() or (
+                    child / "_boussinesq_state_history.npz"
+                ).exists():
+                    return child
+        return base_folder
 
     @staticmethod
     def _resolve_completed_run_folder(*, run_state: Any, solver_name: str) -> Path:
