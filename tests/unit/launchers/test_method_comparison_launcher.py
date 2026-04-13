@@ -1381,9 +1381,9 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
                 ),
             )
 
-    import launchers
+    import hydromodpy.workflow.pipelines.process_simulation as ps_module
 
-    monkeypatch.setattr(launchers, "HydroModPyLauncher", _FakeHydroModPyLauncher)
+    monkeypatch.setattr(ps_module, "HydroModPyLauncher", _FakeHydroModPyLauncher)
     monkeypatch.setattr(
         "launchers.method_comparison.launcher.read_variant_run_metadata",
         lambda _run_folder: {},
