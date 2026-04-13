@@ -36,7 +36,7 @@ def test_calibration_twin_dupuit_fixed_head_modflow6_benchmark_recovers_truth() 
     assert benchmark.configuration_figure.is_file()
     assert benchmark.pruned_artifacts
     assert benchmark.observations_truth["q_east"]
-    assert len(benchmark.method_results) == 3
+    assert len(benchmark.method_results) == 4
     for result in benchmark.method_results:
         assert result.meets_success_target, result.to_mapping()
         assert result.recovered_truth, result.to_mapping()
@@ -44,6 +44,10 @@ def test_calibration_twin_dupuit_fixed_head_modflow6_benchmark_recovers_truth() 
         assert math.isfinite(float(result.cost_best)), result.to_mapping()
         assert result.iteration_count >= 1
         assert result.n_evaluations >= 1
+        assert result.session_prepare_time_seconds is not None
+        assert result.mean_candidate_total_time_seconds is not None
+        assert result.mean_candidate_preparation_time_seconds is not None
+        assert result.mean_candidate_simulation_time_seconds is not None
         assert "K_global_factor" in result.param_abs_error
         assert result.objective_trace_figure is not None
         assert result.objective_trace_figure.is_file()

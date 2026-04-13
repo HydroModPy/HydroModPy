@@ -120,8 +120,8 @@ def build_calibration_payload(
             method_profile.name: dict(method_profile.method_kwargs),
         },
         "bounds": {
-            "K_global_factor": [0.95, 1.05],
-            "Sy_global": [0.06, 0.14],
+            "K_global_factor": [0.8, 1.2],
+            "Sy_global": [0.04, 0.18],
         },
     }
 
@@ -132,16 +132,38 @@ def _gp_mapping_profile(*, seed: int = 13) -> CalibrationMethodProfile:
         name="gp_mapping",
         method_kwargs={
             "seed": int(seed),
-            "n_init": 8,
-            "n_refine": 2,
+            "n_init": 10,
+            "n_refine": 3,
             "batch_size": 2,
-            "n_candidates": 120,
+            "n_candidates": 160,
             "kappa": 2.0,
             "alpha": 1.0e-6,
             "jitter": 1.0e-8,
-            "n_posterior_pool": 240,
-            "n_posterior_samples": 48,
+            "n_posterior_pool": 280,
+            "n_posterior_samples": 64,
             "log_transform": False,
+        },
+        persist_model_distribution=True,
+        success_metric="distribution",
+    )
+
+
+def _da_mh_gp_profile(*, seed: int = 13) -> CalibrationMethodProfile:
+    """Return one compact delayed-acceptance GP-MH profile for transient K+Sy."""
+    return CalibrationMethodProfile(
+        name="da_mh_gp",
+        method_kwargs={
+            "sigma_noise": 0.1,
+            "n_init": 10,
+            "n_samples": 96,
+            "burn_in": 24,
+            "thin": 2,
+            "proposal_scale": 0.04,
+            "retrain_interval": 5,
+            "gp_noise": 1.0e-6,
+            "full_mh_prob": 0.05,
+            "seed": int(seed),
+            "cache_decimals": 10,
         },
         persist_model_distribution=True,
         success_metric="distribution",
@@ -158,8 +180,8 @@ TRANSIENT_RECHARGE_STEP_TWIN_CASE = TwinCalibrationCaseDefinition(
     ),
     truth_params={"K_global_factor": 1.0, "Sy_global": 0.10},
     bounds={
-        "K_global_factor": (0.95, 1.05),
-        "Sy_global": (0.06, 0.14),
+        "K_global_factor": (0.8, 1.2),
+        "Sy_global": (0.04, 0.18),
     },
     parameter_abs_tolerances={
         "K_global_factor": 0.03,
@@ -169,15 +191,16 @@ TRANSIENT_RECHARGE_STEP_TWIN_CASE = TwinCalibrationCaseDefinition(
     method_profiles=(
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"n_samples": 10, "seed": 11},
+            method_kwargs={"n_samples": 16, "seed": 11},
             persist_model_distribution=True,
         ),
         CalibrationMethodProfile(
             name="simplex",
-            method_kwargs={"max_iter": 10, "xtol": 1.0e-6, "ftol": 1.0e-6},
+            method_kwargs={"max_iter": 12, "xtol": 1.0e-6, "ftol": 1.0e-6},
             persist_model_distribution=False,
         ),
         _gp_mapping_profile(seed=13),
+        _da_mh_gp_profile(seed=13),
     ),
     fast=False,
     build_simulation_config=build_simulation_config,
@@ -196,8 +219,8 @@ TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
     ),
     truth_params={"K_global_factor": 1.0, "Sy_global": 0.10},
     bounds={
-        "K_global_factor": (0.95, 1.05),
-        "Sy_global": (0.06, 0.14),
+        "K_global_factor": (0.8, 1.2),
+        "Sy_global": (0.04, 0.18),
     },
     parameter_abs_tolerances={
         "K_global_factor": 0.03,
@@ -207,7 +230,7 @@ TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
     method_profiles=(
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"n_samples": 10},
+            method_kwargs={"n_samples": 16},
             persist_model_distribution=True,
             repeat_seeds=(11, 23, 37),
         ),
@@ -216,6 +239,7 @@ TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
             method_kwargs={"max_iter": 12, "xtol": 1.0e-6, "ftol": 1.0e-6},
             persist_model_distribution=False,
         ),
+        _gp_mapping_profile(seed=13),
     ),
     fast=False,
     observation_noise=ObservationNoiseSpec(
