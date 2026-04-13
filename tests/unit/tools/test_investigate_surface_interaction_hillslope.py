@@ -54,7 +54,7 @@ def test_pairwise_rows_interpolates_to_common_support() -> None:
     scenario = ScenarioSpec(
         scenario_id="demo",
         label="Demo",
-        head_offset_m=0.25,
+        recharge_mm_day=1.0,
         drainage_conductance_m2_per_s=1.0e-5,
     )
     left = _dummy_result(

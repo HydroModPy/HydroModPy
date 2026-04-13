@@ -62,6 +62,17 @@ def _make_result(
         seed=7 if "seed" in method_instance_name else None,
         calibration_time_seconds=calibration_time_seconds,
         time_per_evaluation_seconds=calibration_time_seconds / n_evaluations,
+        session_prepare_time_seconds=0.5,
+        estimated_candidate_runtime_seconds=0.75 * calibration_time_seconds,
+        algorithm_overhead_time_seconds=0.25 * calibration_time_seconds,
+        mean_candidate_total_time_seconds=(0.75 * calibration_time_seconds) / n_evaluations,
+        mean_candidate_actualize_time_seconds=0.01,
+        mean_candidate_launcher_prepare_time_seconds=0.02,
+        mean_candidate_runtime_patch_time_seconds=0.001,
+        mean_candidate_simulation_time_seconds=0.05,
+        mean_candidate_output_selection_time_seconds=0.004,
+        mean_candidate_objective_build_time_seconds=0.002,
+        mean_candidate_objective_compute_time_seconds=0.006,
         failed_iteration_count=0,
         meets_success_target=True,
         candidate_run_count=n_evaluations,
@@ -124,6 +135,20 @@ def test_apply_evaluation_budget_adapts_known_methods() -> None:
         n_parameters=2,
         evaluation_budget=10,
     )
+    da_mh = _apply_evaluation_budget(
+        CalibrationMethodProfile(
+            name="da_mh_gp",
+            method_kwargs={
+                "n_init": 10,
+                "n_samples": 96,
+                "burn_in": 24,
+                "thin": 2,
+                "proposal_scale": 0.04,
+            },
+        ),
+        n_parameters=2,
+        evaluation_budget=12,
+    )
 
     assert grid.method_kwargs["n_per_dim"] == 3
     assert random.method_kwargs["n_samples"] == 10
@@ -133,6 +158,11 @@ def test_apply_evaluation_budget_adapts_known_methods() -> None:
     assert gp_mapping.method_kwargs["n_init"] + (
         gp_mapping.method_kwargs["n_refine"] * gp_mapping.method_kwargs["batch_size"]
     ) <= 10
+    retained = (
+        da_mh.method_kwargs["n_samples"] - da_mh.method_kwargs["burn_in"]
+        + da_mh.method_kwargs["thin"] - 1
+    ) // da_mh.method_kwargs["thin"]
+    assert retained >= 8
 
 
 def test_benchmark_suite_writers_emit_extended_outputs(tmp_path: Path) -> None:
@@ -210,6 +240,9 @@ def test_benchmark_suite_writers_emit_extended_outputs(tmp_path: Path) -> None:
     assert payload["rows"][0]["target_success_rate"] == 1.0
     assert payload["rows"][0]["mean_time_per_evaluation_seconds"] == 0.625
     assert payload["rows"][0]["mean_param_abs_error_over_tol__K"] == 0.2
+    assert payload["rows"][0]["mean_algorithm_overhead_time_seconds"] == 1.25
+    assert "mean_candidate_preparation_time_seconds" in payload["rows"][0]
+    assert "mean_candidate_simulation_time_seconds" in payload["rows"][0]
 
     suite_payload = json.loads(suite_json.read_text(encoding="utf-8"))
     assert (
@@ -221,12 +254,14 @@ def test_benchmark_suite_writers_emit_extended_outputs(tmp_path: Path) -> None:
     assert "mean_block_normalized_cost_best__heads" in csv_text
     assert "requested_evaluation_budget" in csv_text
     assert "success_metric" in csv_text
+    assert "mean_algorithm_overhead_time_seconds" in csv_text
 
     assert figure_paths
     assert all(path.is_file() for path in figure_paths)
     report_text = report_path.read_text(encoding="utf-8")
     assert "Calibration Twin Benchmark Suite" in report_text
     assert "random_search" in report_text
+    assert "Algorithm Overhead (s)" in report_text
 
 
 def test_case_method_figures_and_minimal_pruning(tmp_path: Path) -> None:
@@ -332,8 +367,10 @@ def test_case_method_figures_and_minimal_pruning(tmp_path: Path) -> None:
 
     assert "objective_trace" in figure_paths
     assert "objective_landscape" in figure_paths
+    assert "posterior_distribution" in figure_paths
     assert figure_paths["objective_trace"].is_file()
     assert figure_paths["objective_landscape"].is_file()
+    assert figure_paths["posterior_distribution"].is_file()
 
     results_simulations = benchmark_root / "project" / "results_simulations"
     results_stable = benchmark_root / "project" / "results_stable"

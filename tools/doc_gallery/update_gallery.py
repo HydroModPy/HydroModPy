@@ -470,6 +470,15 @@ def _build_validation_solver_command(*, run_case_module: str, solver: str, inclu
     return command
 
 
+def _sanitize_gallery_token(text: str) -> str:
+    """Return one filesystem-safe token used in generated calibration assets."""
+    token = "".join(
+        char if char.isalnum() or char in {"_", "-"} else "_"
+        for char in str(text).strip().lower()
+    )
+    return token or "item"
+
+
 def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
     run_case_module = importlib.import_module(str(spec.metadata["run_case_module"]))
     comparison_runner = getattr(run_case_module, str(spec.metadata["comparison_function_name"]))
@@ -569,6 +578,470 @@ def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[
                 "summary_json_repo_path": _repo_docs_artifact_path(spec.category, f"{spec.slug}_summary.json"),
                 "image_repo_paths": all_image_repo_paths,
             },
+        },
+    )
+
+
+def _copy_generated_gallery_image(
+    *,
+    source_path: Path | None,
+    destination: Path,
+) -> bool:
+    """Copy one generated calibration figure into the docs tree."""
+    if source_path is None or not source_path.is_file():
+        return False
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_path, destination)
+    return True
+
+
+def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
+    """Run one curated calibration twin benchmark and republish compact figures."""
+    from validation_cases.calibration.shared.runtime import run_twin_benchmark_case
+
+    definition = _import_symbol(str(spec.metadata["definition_import_path"]))
+    run_case_file = _repo_path(str(spec.metadata["run_case_file"]))
+    raw_method_names = spec.metadata.get("gallery_method_names")
+    method_names = None
+    if isinstance(raw_method_names, (list, tuple)) and raw_method_names:
+        method_names = tuple(str(item) for item in raw_method_names)
+    evaluation_budget = spec.metadata.get("evaluation_budget")
+    benchmark = run_twin_benchmark_case(
+        definition,
+        caller_file=run_case_file,
+        method_names=method_names,
+        evaluation_budget=(
+            None if evaluation_budget is None else int(evaluation_budget)
+        ),
+        artifact_retention="minimal",
+        case_figures=True,
+    )
+
+    method_results = list(benchmark.method_results)
+    if not method_results:
+        raise RuntimeError(
+            f"Calibration gallery case '{spec.slug}' produced no method results."
+        )
+    display_method_name = str(
+        spec.metadata.get("display_method_name", method_results[0].method_name)
+    )
+    display_result = next(
+        (
+            result
+            for result in method_results
+            if str(result.method_name) == display_method_name
+        ),
+        method_results[0],
+    )
+
+    images_override: list[dict[str, Any]] = []
+    all_image_repo_paths: list[str] = []
+    lead_image_filenames: list[str] = []
+    tab_specs: list[dict[str, Any]] = []
+
+    configuration_filename = f"{spec.slug}__configuration.png"
+    configuration_destination = source_root / _docs_relative_static_path(
+        spec.category,
+        configuration_filename,
+    )
+    if _copy_generated_gallery_image(
+        source_path=benchmark.configuration_figure,
+        destination=configuration_destination,
+    ):
+        image = _build_validation_image_summary(
+            category=spec.category,
+            filename=configuration_filename,
+            caption=f"{spec.title} configuration summary used by the calibration gallery.",
+            alt_text=f"{spec.title} configuration figure",
+        )
+        images_override.append(image)
+        all_image_repo_paths.append(image["repo_path"])
+        lead_image_filenames.append(configuration_filename)
+
+    method_asset_rows: list[dict[str, Any]] = []
+    for result in method_results:
+        method_slug = _sanitize_gallery_token(result.method_instance_name)
+        landscape_filename = f"{spec.slug}__{method_slug}_landscape.png"
+        landscape_destination = source_root / _docs_relative_static_path(
+            spec.category,
+            landscape_filename,
+        )
+        landscape_copied = _copy_generated_gallery_image(
+            source_path=result.objective_landscape_figure,
+            destination=landscape_destination,
+        )
+        if landscape_copied:
+            image = _build_validation_image_summary(
+                category=spec.category,
+                filename=landscape_filename,
+                caption=(
+                    f"Objective landscape or pairwise projection for `{result.method_instance_name}` "
+                    f"on {spec.title}."
+                ),
+                alt_text=f"{spec.title} objective landscape for {result.method_instance_name}",
+            )
+            images_override.append(image)
+            all_image_repo_paths.append(image["repo_path"])
+
+        trace_filename = f"{spec.slug}__{method_slug}_trace.png"
+        trace_destination = source_root / _docs_relative_static_path(
+            spec.category,
+            trace_filename,
+        )
+        trace_copied = _copy_generated_gallery_image(
+            source_path=result.objective_trace_figure,
+            destination=trace_destination,
+        )
+        if trace_copied:
+            image = _build_validation_image_summary(
+                category=spec.category,
+                filename=trace_filename,
+                caption=(
+                    f"Objective trace for `{result.method_instance_name}` on {spec.title}, "
+                    "showing the evaluated models in order."
+                ),
+                alt_text=f"{spec.title} objective trace for {result.method_instance_name}",
+            )
+            images_override.append(image)
+            all_image_repo_paths.append(image["repo_path"])
+
+        posterior_filename = f"{spec.slug}__{method_slug}_posterior.png"
+        posterior_destination = source_root / _docs_relative_static_path(
+            spec.category,
+            posterior_filename,
+        )
+        posterior_copied = _copy_generated_gallery_image(
+            source_path=result.posterior_distribution_figure,
+            destination=posterior_destination,
+        )
+        if posterior_copied:
+            image = _build_validation_image_summary(
+                category=spec.category,
+                filename=posterior_filename,
+                caption=(
+                    f"Parameter distribution for `{result.method_instance_name}` "
+                    f"on {spec.title}."
+                ),
+                alt_text=f"{spec.title} posterior distribution for {result.method_instance_name}",
+            )
+            images_override.append(image)
+            all_image_repo_paths.append(image["repo_path"])
+
+        method_asset_rows.append(
+            {
+                "method_name": str(result.method_name),
+                "method_instance_name": str(result.method_instance_name),
+                "landscape_filename": landscape_filename if landscape_copied else None,
+                "trace_filename": trace_filename if trace_copied else None,
+                "posterior_filename": posterior_filename if posterior_copied else None,
+            }
+        )
+
+    metrics_override = [
+        {
+            "label": "Methods",
+            "key": "method_count",
+            "value": int(len(method_results)),
+            "display": str(len(method_results)),
+        },
+        {
+            "label": "Display method",
+            "key": "display_method_name",
+            "value": display_result.method_name,
+            "display": str(display_result.method_name),
+        },
+        {
+            "label": "Distribution samples",
+            "key": "model_distribution_sample_count",
+            "value": int(display_result.model_distribution_sample_count),
+            "display": str(int(display_result.model_distribution_sample_count)),
+        },
+        {
+            "label": "Calibration total",
+            "key": "calibration_time_seconds",
+            "value": display_result.calibration_time_seconds,
+            "display": (
+                ""
+                if display_result.calibration_time_seconds is None
+                else _format_metric_display(display_result.calibration_time_seconds, "s")
+            ),
+        },
+        {
+            "label": "Session prep",
+            "key": "session_prepare_time_seconds",
+            "value": display_result.session_prepare_time_seconds,
+            "display": (
+                ""
+                if display_result.session_prepare_time_seconds is None
+                else _format_metric_display(display_result.session_prepare_time_seconds, "s")
+            ),
+        },
+        {
+            "label": "Candidate runtime",
+            "key": "estimated_candidate_runtime_seconds",
+            "value": display_result.estimated_candidate_runtime_seconds,
+            "display": (
+                ""
+                if display_result.estimated_candidate_runtime_seconds is None
+                else _format_metric_display(
+                    display_result.estimated_candidate_runtime_seconds,
+                    "s",
+                )
+            ),
+        },
+        {
+            "label": "Algorithm overhead",
+            "key": "algorithm_overhead_time_seconds",
+            "value": display_result.algorithm_overhead_time_seconds,
+            "display": (
+                ""
+                if display_result.algorithm_overhead_time_seconds is None
+                else _format_metric_display(
+                    display_result.algorithm_overhead_time_seconds,
+                    "s",
+                )
+            ),
+        },
+        {
+            "label": "Model total",
+            "key": "mean_candidate_total_time_seconds",
+            "value": display_result.mean_candidate_total_time_seconds,
+            "display": (
+                ""
+                if display_result.mean_candidate_total_time_seconds is None
+                else _format_metric_display(display_result.mean_candidate_total_time_seconds, "s")
+            ),
+        },
+        {
+            "label": "Actualize",
+            "key": "mean_candidate_actualize_time_seconds",
+            "value": display_result.mean_candidate_actualize_time_seconds,
+            "display": (
+                ""
+                if display_result.mean_candidate_actualize_time_seconds is None
+                else _format_metric_display(
+                    display_result.mean_candidate_actualize_time_seconds,
+                    "s",
+                )
+            ),
+        },
+        {
+            "label": "Launcher prep",
+            "key": "mean_candidate_launcher_prepare_time_seconds",
+            "value": display_result.mean_candidate_launcher_prepare_time_seconds,
+            "display": (
+                ""
+                if display_result.mean_candidate_launcher_prepare_time_seconds is None
+                else _format_metric_display(
+                    display_result.mean_candidate_launcher_prepare_time_seconds,
+                    "s",
+                )
+            ),
+        },
+        {
+            "label": "Runtime patch",
+            "key": "mean_candidate_runtime_patch_time_seconds",
+            "value": display_result.mean_candidate_runtime_patch_time_seconds,
+            "display": (
+                ""
+                if display_result.mean_candidate_runtime_patch_time_seconds is None
+                else _format_metric_display(
+                    display_result.mean_candidate_runtime_patch_time_seconds,
+                    "s",
+                )
+            ),
+        },
+        {
+            "label": "Model prep",
+            "key": "mean_candidate_preparation_time_seconds",
+            "value": display_result.mean_candidate_preparation_time_seconds,
+            "display": (
+                ""
+                if display_result.mean_candidate_preparation_time_seconds is None
+                else _format_metric_display(
+                    display_result.mean_candidate_preparation_time_seconds,
+                    "s",
+                )
+            ),
+        },
+        {
+            "label": "Model sim",
+            "key": "mean_candidate_simulation_time_seconds",
+            "value": display_result.mean_candidate_simulation_time_seconds,
+            "display": (
+                ""
+                if display_result.mean_candidate_simulation_time_seconds is None
+                else _format_metric_display(
+                    display_result.mean_candidate_simulation_time_seconds,
+                    "s",
+                )
+            ),
+        },
+        {
+            "label": "Output select",
+            "key": "mean_candidate_output_selection_time_seconds",
+            "value": display_result.mean_candidate_output_selection_time_seconds,
+            "display": (
+                ""
+                if display_result.mean_candidate_output_selection_time_seconds is None
+                else _format_metric_display(
+                    display_result.mean_candidate_output_selection_time_seconds,
+                    "s",
+                )
+            ),
+        },
+        {
+            "label": "Objective score",
+            "key": "mean_candidate_objective_compute_time_seconds",
+            "value": display_result.mean_candidate_objective_compute_time_seconds,
+            "display": (
+                ""
+                if display_result.mean_candidate_objective_compute_time_seconds is None
+                else _format_metric_display(
+                    display_result.mean_candidate_objective_compute_time_seconds,
+                    "s",
+                )
+            ),
+        },
+    ]
+
+    method_run_rows = []
+    method_assets_by_instance = {
+        str(item["method_instance_name"]): item for item in method_asset_rows
+    }
+    for result in method_results:
+        method_assets = method_assets_by_instance.get(str(result.method_instance_name), {})
+        method_run_row = {
+            "method_name": result.method_name,
+            "method_instance_name": result.method_instance_name,
+            "success_metric": result.success_metric,
+            "meets_success_target": bool(result.meets_success_target),
+            "recovered_truth": bool(result.recovered_truth),
+            "cost_best": result.cost_best,
+            "n_evaluations": int(result.n_evaluations),
+            "model_distribution_sample_count": int(result.model_distribution_sample_count),
+            "calibration_time_seconds": result.calibration_time_seconds,
+            "session_prepare_time_seconds": result.session_prepare_time_seconds,
+            "estimated_candidate_runtime_seconds": (
+                result.estimated_candidate_runtime_seconds
+            ),
+            "algorithm_overhead_time_seconds": (
+                result.algorithm_overhead_time_seconds
+            ),
+            "mean_candidate_total_time_seconds": (
+                result.mean_candidate_total_time_seconds
+            ),
+            "mean_candidate_preparation_time_seconds": (
+                result.mean_candidate_preparation_time_seconds
+            ),
+            "mean_candidate_actualize_time_seconds": (
+                result.mean_candidate_actualize_time_seconds
+            ),
+            "mean_candidate_launcher_prepare_time_seconds": (
+                result.mean_candidate_launcher_prepare_time_seconds
+            ),
+            "mean_candidate_runtime_patch_time_seconds": (
+                result.mean_candidate_runtime_patch_time_seconds
+            ),
+            "mean_candidate_simulation_time_seconds": (
+                result.mean_candidate_simulation_time_seconds
+            ),
+            "mean_candidate_output_selection_time_seconds": (
+                result.mean_candidate_output_selection_time_seconds
+            ),
+            "mean_candidate_objective_build_time_seconds": (
+                result.mean_candidate_objective_build_time_seconds
+            ),
+            "mean_candidate_objective_compute_time_seconds": (
+                result.mean_candidate_objective_compute_time_seconds
+            ),
+            "mean_candidate_objective_time_seconds": (
+                result.mean_candidate_objective_time_seconds
+            ),
+            "param_abs_error": {
+                str(name): float(value)
+                for name, value in result.param_abs_error.items()
+            },
+            "params_best": {
+                str(name): float(value)
+                for name, value in result.params_best.items()
+            },
+            "objective_landscape_filename": method_assets.get("landscape_filename"),
+            "objective_trace_filename": method_assets.get("trace_filename"),
+            "posterior_distribution_filename": method_assets.get("posterior_filename"),
+        }
+        method_run_rows.append(method_run_row)
+
+        tab_filenames = [
+            str(filename)
+            for filename in (
+                method_run_row["objective_landscape_filename"],
+                method_run_row["posterior_distribution_filename"],
+                method_run_row["objective_trace_filename"],
+            )
+            if isinstance(filename, str) and filename.strip()
+        ]
+        timing_bits: list[str] = []
+        for label, key in (
+            ("calibration", "calibration_time_seconds"),
+            ("candidate runtime", "estimated_candidate_runtime_seconds"),
+            ("algorithm overhead", "algorithm_overhead_time_seconds"),
+            ("actualize", "mean_candidate_actualize_time_seconds"),
+            ("launcher prep", "mean_candidate_launcher_prepare_time_seconds"),
+            ("runtime patch", "mean_candidate_runtime_patch_time_seconds"),
+            ("simulate", "mean_candidate_simulation_time_seconds"),
+            ("output select", "mean_candidate_output_selection_time_seconds"),
+            ("objective score", "mean_candidate_objective_compute_time_seconds"),
+        ):
+            raw_value = method_run_row.get(key)
+            if raw_value is None:
+                continue
+            timing_bits.append(f"{label}={_format_metric_display(raw_value, 's')}")
+        tab_specs.append(
+            {
+                "title": str(result.method_instance_name),
+                "filenames": tab_filenames,
+                "body_lines": [
+                    f"metric={result.success_metric}",
+                    f"target={bool(result.meets_success_target)}",
+                    f"best_fit={bool(result.recovered_truth)}",
+                    f"cost={'' if result.cost_best is None else f'{float(result.cost_best):.6g}'}",
+                    f"n_eval={int(result.n_evaluations)}",
+                    f"distribution_samples={int(result.model_distribution_sample_count)}",
+                    *timing_bits,
+                ],
+            }
+        )
+
+    return _build_case_summary(
+        spec,
+        metrics_source=None,
+        metadata={
+            **dict(spec.metadata),
+            "benchmark_root": str(benchmark.benchmark_root),
+            "benchmark_summary_path": str(benchmark.summary_path),
+            "artifact_retention": benchmark.artifact_retention,
+            "display_method_name": display_result.method_name,
+            "method_runs": method_run_rows,
+            "lead_image_filenames": lead_image_filenames,
+            "tab_specs": tab_specs,
+            "configuration_figure": (
+                None if benchmark.configuration_figure is None else str(benchmark.configuration_figure)
+            ),
+        },
+        images_override=images_override,
+        metrics_override=metrics_override,
+        extra_summary={
+            "artifacts": {
+                "summary_json_doc_path": "/"
+                + _docs_relative_static_path(spec.category, f"{spec.slug}_summary.json"),
+                "summary_json_repo_path": _repo_docs_artifact_path(
+                    spec.category,
+                    f"{spec.slug}_summary.json",
+                ),
+                "image_repo_paths": all_image_repo_paths,
+            },
+            "method_runs": method_run_rows,
         },
     )
 
@@ -2401,6 +2874,8 @@ def _generate_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
         return _generate_copy_assets_case(spec, source_root)
     if spec.generator == "validation_case":
         return _generate_validation_case(spec, source_root)
+    if spec.generator == "calibration_case":
+        return _generate_calibration_case(spec, source_root)
     if spec.generator == "property_case":
         return _generate_property_case(spec, source_root)
     if spec.generator == "mesh_diagnostics_case":
@@ -2438,6 +2913,352 @@ def _render_grid_card(*, link: str, title: str, deck: str) -> list[str]:
         f"      {deck}",
         "",
     ]
+
+
+def _build_calibration_intercomparison_rows(
+    calibration_cases: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Flatten curated calibration cases to one row per case/method for comparison."""
+    rows: list[dict[str, Any]] = []
+    for case in calibration_cases:
+        metadata = dict(case.get("metadata", {}))
+        for method_row in metadata.get("method_runs", []):
+            if not isinstance(method_row, dict):
+                continue
+            rows.append(
+                {
+                    "case_id": str(case.get("title", case.get("slug", ""))),
+                    "case_slug": str(case.get("slug", "")),
+                    "case_docname": str(case.get("docname", "")),
+                    "solver_name": metadata.get("solver_name"),
+                    "regime": metadata.get("regime"),
+                    "method_name": method_row.get("method_name"),
+                    "method_instance_name": method_row.get(
+                        "method_instance_name",
+                        method_row.get("method_name"),
+                    ),
+                    "success_metric": method_row.get("success_metric"),
+                    "target_success_rate": (
+                        1.0 if bool(method_row.get("meets_success_target")) else 0.0
+                    ),
+                    "best_fit_rate": (
+                        1.0 if bool(method_row.get("recovered_truth")) else 0.0
+                    ),
+                    "mean_cost_best": method_row.get("cost_best"),
+                    "mean_n_evaluations": method_row.get("n_evaluations"),
+                    "calibration_time_seconds": method_row.get(
+                        "calibration_time_seconds"
+                    ),
+                    "mean_session_prepare_time_seconds": method_row.get(
+                        "session_prepare_time_seconds"
+                    ),
+                    "mean_estimated_candidate_runtime_seconds": method_row.get(
+                        "estimated_candidate_runtime_seconds"
+                    ),
+                    "mean_algorithm_overhead_time_seconds": method_row.get(
+                        "algorithm_overhead_time_seconds"
+                    ),
+                    "mean_candidate_total_time_seconds": method_row.get(
+                        "mean_candidate_total_time_seconds"
+                    ),
+                    "mean_candidate_preparation_time_seconds": method_row.get(
+                        "mean_candidate_preparation_time_seconds"
+                    ),
+                    "mean_candidate_actualize_time_seconds": method_row.get(
+                        "mean_candidate_actualize_time_seconds"
+                    ),
+                    "mean_candidate_launcher_prepare_time_seconds": method_row.get(
+                        "mean_candidate_launcher_prepare_time_seconds"
+                    ),
+                    "mean_candidate_runtime_patch_time_seconds": method_row.get(
+                        "mean_candidate_runtime_patch_time_seconds"
+                    ),
+                    "mean_candidate_simulation_time_seconds": method_row.get(
+                        "mean_candidate_simulation_time_seconds"
+                    ),
+                    "mean_candidate_output_selection_time_seconds": method_row.get(
+                        "mean_candidate_output_selection_time_seconds"
+                    ),
+                    "mean_candidate_objective_build_time_seconds": method_row.get(
+                        "mean_candidate_objective_build_time_seconds"
+                    ),
+                    "mean_candidate_objective_compute_time_seconds": method_row.get(
+                        "mean_candidate_objective_compute_time_seconds"
+                    ),
+                    "mean_candidate_objective_time_seconds": method_row.get(
+                        "mean_candidate_objective_time_seconds"
+                    ),
+                    "mean_time_per_evaluation_seconds": (
+                        None
+                        if method_row.get("calibration_time_seconds") is None
+                        or method_row.get("n_evaluations") in {None, 0}
+                        else float(method_row["calibration_time_seconds"])
+                        / float(method_row["n_evaluations"])
+                    ),
+                }
+            )
+    return rows
+
+
+def _generate_calibration_intercomparison_summary(
+    *,
+    source_root: Path,
+    calibration_cases: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Generate one cross-case calibration summary and the associated figures."""
+    rows = _build_calibration_intercomparison_rows(calibration_cases)
+    output_root = (
+        source_root
+        / "_static"
+        / "capability_gallery"
+        / "calibration"
+        / "intercomparison"
+    )
+    figures: list[dict[str, Any]] = []
+    if rows:
+        from validation_cases.calibration.plotting import write_suite_figures
+
+        figure_paths = write_suite_figures(rows, output_root=output_root)
+        for path in figure_paths:
+            relative_parts = path.relative_to(
+                source_root / "_static" / "capability_gallery"
+            ).parts
+            figures.append(
+                _build_validation_image_summary(
+                    category=str(Path(*relative_parts[:-1]).as_posix()),
+                    filename=path.name,
+                    caption=(
+                        f"Calibration intercomparison figure `{path.stem}` derived from the "
+                        "curated capability-gallery cases."
+                    ),
+                    alt_text=f"Calibration intercomparison figure {path.stem}",
+                )
+            )
+
+    summary_payload = {
+        "summary_schema_version": "capability_gallery_calibration_intercomparison_v1",
+        "case_count": int(len(calibration_cases)),
+        "method_row_count": int(len(rows)),
+        "cases": [
+            {
+                "slug": str(case.get("slug", "")),
+                "title": str(case.get("title", "")),
+                "docname": str(case.get("docname", "")),
+            }
+            for case in calibration_cases
+        ],
+        "rows": rows,
+        "figures": figures,
+    }
+    summary_path = output_root / "calibration_intercomparison_summary.json"
+    _write_json(summary_path, summary_payload)
+    return summary_payload
+
+
+def _build_calibration_intercomparison_page(
+    *,
+    calibration_cases: list[dict[str, Any]],
+    comparison_summary: dict[str, Any],
+) -> str:
+    """Render one gallery page dedicated to cross-case calibration comparison."""
+    lines = [
+        AUTO_GENERATED_COMMENT,
+        "",
+        "Calibration Intercomparison",
+        "===========================",
+        "",
+        *_render_note_block(),
+        (
+            "This page compares the curated calibration gallery cases across methods, "
+            "success targets, and timing breakdowns. It is meant to complement the "
+            "individual case pages, not replace them."
+        ),
+        "",
+        ".. seealso::",
+        "   Open :doc:`the calibration benchmark category <calibration>` for the case-by-case pages and their configuration figures.",
+        "",
+        "Coverage",
+        "--------",
+        "",
+        f"- Cases compared: {int(comparison_summary.get('case_count', 0))}",
+        f"- Method rows: {int(comparison_summary.get('method_row_count', 0))}",
+        "- Timing now separates candidate runtime from calibration-method overhead, and further splits actualize, launcher preparation, runtime patch, simulation, output selection, and objective scoring.",
+        "",
+    ]
+    figures = list(comparison_summary.get("figures", []))
+    if figures:
+        lines.extend(
+            [
+                "Summary Figures",
+                "---------------",
+                "",
+            ]
+        )
+        for figure in figures:
+            _append_figure(lines, figure)
+
+    if calibration_cases:
+        lines.extend(
+            [
+                "Linked Cases",
+                "------------",
+                "",
+                ".. grid:: 1 1 2 2",
+                "   :gutter: 2 2 3 3",
+                "",
+            ]
+        )
+        for case in calibration_cases:
+            lines.extend(
+                _render_grid_card(
+                    link=str(case["docname"]),
+                    title=str(case["title"]),
+                    deck=str(case["deck"]),
+                )
+            )
+
+    rows = list(comparison_summary.get("rows", []))
+    if rows:
+        lines.extend(
+            [
+                "Method Rows",
+                "-----------",
+                "",
+                ".. list-table::",
+                "   :header-rows: 1",
+                "",
+                "   * - Case",
+                "     - Method",
+                "     - Metric",
+                "     - Target",
+                "     - Cost",
+                "     - Eval",
+                "     - Calibration (s)",
+                "     - Candidate runtime (s)",
+                "     - Algorithm overhead (s)",
+                "     - Actualize (s)",
+                "     - Launcher prep (s)",
+                "     - Patch (s)",
+                "     - Sim (s)",
+                "     - Output select (s)",
+                "     - Objective score (s)",
+            ]
+        )
+        for row in rows:
+            case_link = (
+                f":doc:`{row['case_id']} <{row['case_docname']}>`"
+                if row.get("case_docname")
+                else str(row.get("case_id", ""))
+            )
+            lines.extend(
+                [
+                    f"   * - {case_link}",
+                    f"     - {row.get('method_instance_name', row.get('method_name', ''))}",
+                    f"     - {row.get('success_metric', '')}",
+                    f"     - {float(row.get('target_success_rate', 0.0)):.0f}",
+                    "     - "
+                    + (
+                        ""
+                        if row.get("mean_cost_best") is None
+                        else f"{float(row['mean_cost_best']):.6g}"
+                    ),
+                    "     - "
+                    + (
+                        ""
+                        if row.get("mean_n_evaluations") is None
+                        else f"{float(row['mean_n_evaluations']):.0f}"
+                    ),
+                    "     - "
+                    + (
+                        ""
+                        if row.get("calibration_time_seconds") is None
+                        else _format_metric_display(
+                            row["calibration_time_seconds"],
+                            "s",
+                        )
+                    ),
+                    "     - "
+                    + (
+                        ""
+                        if row.get("mean_estimated_candidate_runtime_seconds") is None
+                        else _format_metric_display(
+                            row["mean_estimated_candidate_runtime_seconds"],
+                            "s",
+                        )
+                    ),
+                    "     - "
+                    + (
+                        ""
+                        if row.get("mean_algorithm_overhead_time_seconds") is None
+                        else _format_metric_display(
+                            row["mean_algorithm_overhead_time_seconds"],
+                            "s",
+                        )
+                    ),
+                    "     - "
+                    + (
+                        ""
+                        if row.get("mean_candidate_actualize_time_seconds") is None
+                        else _format_metric_display(
+                            row["mean_candidate_actualize_time_seconds"], "s"
+                        )
+                    ),
+                    "     - "
+                    + (
+                        ""
+                        if row.get("mean_candidate_launcher_prepare_time_seconds") is None
+                        else _format_metric_display(
+                            row["mean_candidate_launcher_prepare_time_seconds"], "s"
+                        )
+                    ),
+                    "     - "
+                    + (
+                        ""
+                        if row.get("mean_candidate_runtime_patch_time_seconds") is None
+                        else _format_metric_display(
+                            row["mean_candidate_runtime_patch_time_seconds"], "s"
+                        )
+                    ),
+                    "     - "
+                    + (
+                        ""
+                        if row.get("mean_candidate_simulation_time_seconds") is None
+                        else _format_metric_display(
+                            row["mean_candidate_simulation_time_seconds"], "s"
+                        )
+                    ),
+                    "     - "
+                    + (
+                        ""
+                        if row.get("mean_candidate_output_selection_time_seconds") is None
+                        else _format_metric_display(
+                            row["mean_candidate_output_selection_time_seconds"], "s"
+                        )
+                    ),
+                    "     - "
+                    + (
+                        ""
+                        if row.get("mean_candidate_objective_compute_time_seconds") is None
+                        else _format_metric_display(
+                            row["mean_candidate_objective_compute_time_seconds"], "s"
+                        )
+                    ),
+                ]
+            )
+        lines.append("")
+
+    lines.extend(
+        [
+            "Artifacts",
+            "---------",
+            "",
+            "- ``docs/readthedocs/source/_static/capability_gallery/calibration/intercomparison/calibration_intercomparison_summary.json``",
+        ]
+    )
+    for figure in figures:
+        lines.append(f"- ``{figure['repo_path']}``")
+    lines.append("")
+    return "\n".join(lines)
 
 
 def _variant_rank(variant: str) -> int:
@@ -2503,25 +3324,29 @@ def _group_mesh_cases_for_site_tabs(
 def _group_mesh_cases_for_tabs(
     cases: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    grouped_candidates: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    grouped_candidates: dict[str, list[dict[str, Any]]] = {}
     standalone_cases: list[dict[str, Any]] = []
 
     for case in cases:
         metadata = dict(case.get("metadata", {}))
+        comparison_group = str(metadata.get("comparison_group", "")).strip()
         scale = str(metadata.get("scale", "")).strip()
         outlet_id = str(metadata.get("outlet_id", "")).strip()
-        if scale == "" or outlet_id == "":
+        if outlet_id == "":
             standalone_cases.append(case)
             continue
-        grouped_candidates.setdefault((scale, outlet_id), []).append(case)
+        grouped_candidates.setdefault(
+            comparison_group or f"{scale}::outlet::{outlet_id}",
+        ).append(case)
 
     scale_rank = {scale: index for index, scale in enumerate(MESH_GALLERY_SCALE_ORDER)}
     tabbed_groups: list[dict[str, Any]] = []
-    for (scale, outlet_id), group_cases in sorted(
+    for group_key, group_cases in sorted(
         grouped_candidates.items(),
         key=lambda item: (
-            scale_rank.get(item[0][0], 999),
-            int(item[0][1]) if item[0][1].isdigit() else item[0][1],
+            scale_rank.get(str(item[1][0].get("metadata", {}).get("scale", "")).strip(), 999),
+            _mesh_case_sort_token(str(item[1][0].get("metadata", {}).get("outlet_id", ""))),
+            str(item[1][0].get("metadata", {}).get("comparison_group_title", group_key)),
         ),
     ):
         ordered_cases = sorted(
@@ -2535,7 +3360,7 @@ def _group_mesh_cases_for_tabs(
                     "title": str(
                         metadata.get(
                             "comparison_group_title",
-                            f"{metadata.get('scale_label', scale)}, outlet {outlet_id}",
+                            group_key,
                         )
                     ),
                     "cases": ordered_cases,
@@ -2668,6 +3493,7 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                     "--------------",
                     "",
                     "These tab sets group one repeated mesh family across several outlets imported from the batch runs.",
+                    "Read this section horizontally: one tab equals one outlet, while the meshing policy stays fixed.",
                     "",
                 ]
             )
@@ -2721,7 +3547,21 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                         ]
                     )
 
-        standalone_cases, tabbed_groups = _group_mesh_cases_for_tabs(standalone_cases)
+        comparable_input = list(standalone_cases)
+        for group in site_tab_groups:
+            comparable_input.extend(list(group.get("cases", ())))
+
+        _, tabbed_groups = _group_mesh_cases_for_tabs(comparable_input)
+        grouped_variant_slugs = {
+            str(case.get("slug", "")).strip()
+            for group in tabbed_groups
+            for case in list(group.get("cases", ()))
+        }
+        standalone_cases = [
+            case
+            for case in standalone_cases
+            if str(case.get("slug", "")).strip() not in grouped_variant_slugs
+        ]
         if tabbed_groups:
             lines.extend(
                 [
@@ -2729,6 +3569,7 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                     "-------------------",
                     "",
                     "These tab sets group the same support and outlet across multiple meshing policies.",
+                    "Read this section horizontally: one tab equals one meshing variant applied to the same outlet.",
                     "",
                 ]
             )
@@ -2911,6 +3752,59 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 "",
             ]
         )
+    elif category_slug == "calibration":
+        regimes = sorted(
+            {
+                str(case.get("metadata", {}).get("regime", "")).strip()
+                for case in cases
+                if str(case.get("metadata", {}).get("regime", "")).strip()
+            }
+        )
+        solver_names = sorted(
+            {
+                str(case.get("metadata", {}).get("solver_name", "")).strip()
+                for case in cases
+                if str(case.get("metadata", {}).get("solver_name", "")).strip()
+            }
+        )
+        method_names = sorted(
+            {
+                str(method_name)
+                for case in cases
+                for method_name in case.get("metadata", {}).get("method_names", [])
+            }
+        )
+        lines.extend(
+            [
+                "Current Coverage",
+                "----------------",
+                "",
+                "- Solvers: " + (", ".join(solver_names) if solver_names else "none yet") + ".",
+                "- Regimes: " + (", ".join(regimes) if regimes else "none yet") + ".",
+                "- Benchmarked methods: "
+                + (", ".join(method_names) if method_names else "none yet")
+                + ".",
+                "- Each page combines one configuration figure, one tab set per method, and explicit timing diagnostics.",
+                "",
+                "Intercomparison",
+                "---------------",
+                "",
+                ".. grid:: 1 1 2 2",
+                "   :gutter: 2 2 3 3",
+                "",
+            ]
+        )
+        lines.extend(
+            _render_grid_card(
+                link="calibration_intercomparison",
+                title="Calibration Intercomparison",
+                deck=(
+                    "Cross-case view of method behaviour, target success, and the "
+                    "detailed timing breakdown used by the curated calibration pages."
+                ),
+            )
+        )
+        lines.append("")
 
     if cases:
         lines.extend(
@@ -2938,6 +3832,8 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
     )
     for case in all_cases:
             lines.append(f"   {case['docname']}")
+    if category_slug == "calibration":
+        lines.append("   calibration_intercomparison")
     return "\n".join(lines)
 
 
@@ -2988,9 +3884,23 @@ def _append_tabbed_images(
     )
     for tab in tab_specs:
         title = str(tab.get("title", "Variant"))
-        filename = str(tab.get("filename", "")).strip()
-        image = image_map.get(filename)
-        if image is None:
+        filenames = []
+        if tab.get("filenames") is not None:
+            filenames = [
+                str(filename).strip()
+                for filename in list(tab.get("filenames", []))
+                if str(filename).strip()
+            ]
+        else:
+            filename = str(tab.get("filename", "")).strip()
+            if filename != "":
+                filenames = [filename]
+        images = [
+            image_map[filename]
+            for filename in filenames
+            if filename in image_map
+        ]
+        if not images and not tab.get("body_lines"):
             continue
         lines.extend(
             [
@@ -2998,7 +3908,13 @@ def _append_tabbed_images(
                 "",
             ]
         )
-        _append_figure(lines, image, indent="      ")
+        for image in images:
+            _append_figure(lines, image, indent="      ")
+        body_lines = [str(item) for item in list(tab.get("body_lines", []))]
+        if body_lines:
+            for body_line in body_lines:
+                lines.append(f"      - {body_line}")
+            lines.append("")
 
 
 def _render_validation_solver_block(run: dict[str, Any], *, indent: str = "") -> list[str]:
@@ -3897,11 +4813,140 @@ def _build_property_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
     return {"sections": sections} if sections else {}
 
 
+def _build_calibration_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
+    metadata = dict(case.get("metadata", {}))
+    summary_source = _summary_source_path(case)
+
+    overview_rows: list[dict[str, Any]] = []
+    _add_parameter_row(
+        overview_rows,
+        field="solver_name",
+        meaning="Solver family used both to generate synthetic observations and to calibrate candidates.",
+        value=metadata.get("solver_name"),
+        source=summary_source,
+    )
+    _add_parameter_row(
+        overview_rows,
+        field="regime",
+        meaning="Flow regime exercised by the inverse benchmark.",
+        value=metadata.get("regime"),
+        source=summary_source,
+    )
+    _add_parameter_row(
+        overview_rows,
+        field="output_names",
+        meaning="Observables extracted from each candidate simulation and used in the composite objective.",
+        value=metadata.get("output_names"),
+        source=summary_source,
+    )
+    _add_parameter_row(
+        overview_rows,
+        field="observation_noise",
+        meaning="Synthetic noise injected after the truth run, if any.",
+        value=metadata.get("observation_noise"),
+        source=summary_source,
+    )
+    _add_parameter_row(
+        overview_rows,
+        field="perturbation_description",
+        meaning="Any deliberate mismatch between truth generation and calibration setup.",
+        value=metadata.get("perturbation_description"),
+        source=summary_source,
+    )
+    _add_parameter_row(
+        overview_rows,
+        field="evaluation_budget",
+        meaning="Approximate per-method evaluation budget used by the gallery generator when set.",
+        value=metadata.get("evaluation_budget"),
+        source=summary_source,
+    )
+
+    parameter_rows: list[dict[str, Any]] = []
+    truth_params = dict(metadata.get("truth_params", {}))
+    bounds = dict(metadata.get("bounds", {}))
+    tolerances = dict(metadata.get("parameter_abs_tolerances", {}))
+    for name, truth_value in truth_params.items():
+        _add_parameter_row(
+            parameter_rows,
+            field=str(name),
+            meaning="Truth value, initial search interval, and acceptance tolerance for this calibrated parameter.",
+            value={
+                "truth": truth_value,
+                "bounds": bounds.get(name),
+                "tolerance": tolerances.get(name),
+            },
+            source=summary_source,
+        )
+
+    method_rows: list[dict[str, Any]] = []
+    for method_row in metadata.get("method_runs", []):
+        if not isinstance(method_row, dict):
+            continue
+        _add_parameter_row(
+            method_rows,
+            field=str(method_row.get("method_instance_name", method_row.get("method_name"))),
+            meaning=(
+                "Method result summary including target status, evaluation count, total time, "
+                "and mean per-model actualize / launcher / simulation / objective timings."
+            ),
+            value={
+                "target": bool(method_row.get("meets_success_target")),
+                "cost": method_row.get("cost_best"),
+                "n_eval": method_row.get("n_evaluations"),
+                "distribution_samples": method_row.get("model_distribution_sample_count"),
+                "calib_s": method_row.get("calibration_time_seconds"),
+                "candidate_runtime_s": method_row.get(
+                    "estimated_candidate_runtime_seconds"
+                ),
+                "algorithm_overhead_s": method_row.get(
+                    "algorithm_overhead_time_seconds"
+                ),
+                "actualize_s": method_row.get(
+                    "mean_candidate_actualize_time_seconds"
+                ),
+                "launcher_prep_s": method_row.get(
+                    "mean_candidate_launcher_prepare_time_seconds"
+                ),
+                "runtime_patch_s": method_row.get(
+                    "mean_candidate_runtime_patch_time_seconds"
+                ),
+                "model_sim_s": method_row.get(
+                    "mean_candidate_simulation_time_seconds"
+                ),
+                "output_select_s": method_row.get(
+                    "mean_candidate_output_selection_time_seconds"
+                ),
+                "objective_score_s": method_row.get(
+                    "mean_candidate_objective_compute_time_seconds"
+                ),
+            },
+            source=summary_source,
+        )
+
+    metric_rows = _metric_rows(
+        case,
+        meaning="Metric surfaced on the gallery page for the selected display method.",
+    )
+
+    sections: list[dict[str, Any]] = []
+    if overview_rows:
+        sections.append({"title": "Benchmark Setup", "rows": overview_rows})
+    if parameter_rows:
+        sections.append({"title": "Calibrated Parameters", "rows": parameter_rows})
+    if method_rows:
+        sections.append({"title": "Methods And Timing", "rows": method_rows})
+    if metric_rows:
+        sections.append({"title": "Displayed Metrics", "rows": metric_rows})
+    return {"sections": sections} if sections else {}
+
+
 def _build_auto_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
     if case.get("category") == "validation":
         return dict(case.get("parameter_docs", {}))
 
     category = str(case.get("category", "")).strip()
+    if category == "calibration":
+        return _build_calibration_parameter_docs(case)
     if category == "geographic":
         return _build_geographic_parameter_docs(case)
     if category == "simulation":
@@ -4009,11 +5054,34 @@ def _build_case_page(case: dict[str, Any]) -> str:
     parameter_sections = _normalize_parameter_sections(case)
     if not solver_runs:
         image_map = {image["filename"]: image for image in case["images"]}
+        lead_image_filenames = [
+            str(filename).strip()
+            for filename in list(case.get("metadata", {}).get("lead_image_filenames", []))
+            if str(filename).strip()
+        ]
+        rendered_filenames: set[str] = set()
+        for filename in lead_image_filenames:
+            image = image_map.get(filename)
+            if image is None:
+                continue
+            _append_figure(lines, image)
+            rendered_filenames.add(filename)
         tab_specs = list(case.get("metadata", {}).get("tab_specs", []))
         if tab_specs:
             _append_tabbed_images(lines, image_map, tab_specs)
+            for tab in tab_specs:
+                rendered_filenames.update(
+                    str(filename).strip()
+                    for filename in list(tab.get("filenames", []))
+                    if str(filename).strip()
+                )
+                single_filename = str(tab.get("filename", "")).strip()
+                if single_filename:
+                    rendered_filenames.add(single_filename)
         else:
             for image in case["images"]:
+                if image["filename"] in rendered_filenames:
+                    continue
                 _append_figure(lines, image)
 
     if case_setup:
@@ -4326,6 +5394,19 @@ def generate_gallery(*, source_root: Path) -> None:
         _write_text(case_dir / f"{case['slug']}.rst", _build_case_page(case))
 
     _write_text(docs_dir / "index.rst", _build_index_page(summaries_by_category))
+    calibration_cases = list(summaries_by_category.get("calibration", []))
+    if calibration_cases:
+        comparison_summary = _generate_calibration_intercomparison_summary(
+            source_root=source_root,
+            calibration_cases=calibration_cases,
+        )
+        _write_text(
+            docs_dir / "calibration_intercomparison.rst",
+            _build_calibration_intercomparison_page(
+                calibration_cases=calibration_cases,
+                comparison_summary=comparison_summary,
+            ),
+        )
     for category_slug, cases in summaries_by_category.items():
         if cases:
             _write_text(docs_dir / f"{category_slug}.rst", _build_category_page(category_slug, cases))

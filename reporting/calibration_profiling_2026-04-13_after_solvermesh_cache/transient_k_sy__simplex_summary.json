@@ -1,0 +1,21 @@
+{
+  "case_id": "calibration_twin_linearized_recharge_step_modflow6",
+  "method_name": "simplex",
+  "method_instance_name": "simplex",
+  "benchmark_root": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_6157bfb793_fb73eed0",
+  "n_evaluations": 23,
+  "candidate_run_count": 0,
+  "calibration_time_seconds": 83.50255479989573,
+  "session_prepare_time_seconds": 0.9855125999310985,
+  "estimated_candidate_runtime_seconds": 82.54498980008066,
+  "algorithm_overhead_time_seconds": 0.9575649998150766,
+  "mean_candidate_total_time_seconds": 3.588912600003507,
+  "mean_candidate_actualize_time_seconds": 0.008184191290005718,
+  "mean_candidate_launcher_prepare_time_seconds": 0.046810573913440436,
+  "mean_candidate_runtime_patch_time_seconds": 0.0007116695531927373,
+  "mean_candidate_simulation_time_seconds": 3.239699099997423,
+  "mean_candidate_output_selection_time_seconds": 0.3004682087035769,
+  "mean_candidate_objective_build_time_seconds": 0.00013346953884415004,
+  "mean_candidate_objective_compute_time_seconds": 0.0009628130457080576,
+  "mean_candidate_objective_time_seconds": 0.30162508695629303
+}

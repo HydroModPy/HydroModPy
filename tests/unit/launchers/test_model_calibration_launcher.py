@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import math
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1043,6 +1044,76 @@ def test_model_calibration_canonicalizes_runtime_solver_model_outputs() -> None:
     assert bundle.variables["watertable_elevation"].source_key == (
         "execution.models_by_run_id[flow_main].runtime_attribute"
     )
+
+
+def test_model_calibration_caches_solver_mesh_coordinates() -> None:
+    class _CountingSolverMesh:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def cell_centroids(self):
+            self.calls += 1
+            return np.asarray(
+                [
+                    [0.0, 2.0],
+                    [2.0, 2.0],
+                ],
+                dtype=float,
+            )
+
+    solver_mesh = _CountingSolverMesh()
+    model = SimpleNamespace(
+        solver_mesh=solver_mesh,
+        dict_watertable_elevation={
+            "2020-08-15": np.asarray([10.0, 20.0], dtype=float),
+            "2020-09-15": np.asarray([14.0, 18.0], dtype=float),
+        },
+    )
+    run_state = SimpleNamespace(
+        execution=SimpleNamespace(models_by_run_id={"flow_main": model})
+    )
+
+    bundle = canonicalize_run_outputs(run_state)
+
+    watertable = bundle.get("watertable_elevation")
+    assert np.asarray(watertable["2020-08-15"]["coordinates"]).shape == (2, 2)
+    assert np.asarray(watertable["2020-09-15"]["coordinates"]).shape == (2, 2)
+    assert solver_mesh.calls == 1
+
+
+def test_model_calibration_caches_frozen_solver_mesh_coordinates() -> None:
+    @dataclass(frozen=True)
+    class _FrozenSolverMesh:
+        calls: int = 0
+
+        def cell_centroids(self):
+            object.__setattr__(self, "calls", self.calls + 1)
+            return np.asarray(
+                [
+                    [0.0, 2.0],
+                    [2.0, 2.0],
+                ],
+                dtype=float,
+            )
+
+    solver_mesh = _FrozenSolverMesh()
+    model = SimpleNamespace(
+        solver_mesh=solver_mesh,
+        dict_watertable_elevation={
+            "2020-08-15": np.asarray([10.0, 20.0], dtype=float),
+            "2020-09-15": np.asarray([14.0, 18.0], dtype=float),
+        },
+    )
+    run_state = SimpleNamespace(
+        execution=SimpleNamespace(models_by_run_id={"flow_main": model})
+    )
+
+    bundle = canonicalize_run_outputs(run_state)
+
+    watertable = bundle.get("watertable_elevation")
+    assert np.asarray(watertable["2020-08-15"]["coordinates"]).shape == (2, 2)
+    assert np.asarray(watertable["2020-09-15"]["coordinates"]).shape == (2, 2)
+    assert solver_mesh.calls == 1
 
 
 def test_model_calibration_selects_outputs_from_runtime_solver_models(

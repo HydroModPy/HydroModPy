@@ -90,6 +90,16 @@ class PreparedOutputSelector:
     reducer: str | None = None
 
 
+def _try_import_flopy_runtime_readers():
+    """Import optional FloPy readers used for direct solver-output selection."""
+    try:
+        import flopy.utils.binaryfile as bf
+        from flopy.utils import postprocessing as pp
+    except Exception:
+        return None, None
+    return bf, pp
+
+
 def _candidate_output_containers(run_state: Any) -> tuple[tuple[str, Any], ...]:
     """Return possible output containers in lookup priority order."""
     containers: list[tuple[str, Any]] = []
@@ -228,9 +238,9 @@ def _try_store_variable(
     """Try to load a variable from a ResultStore (DuckDB + Zarr).
 
     Returns ``(payload, source_tag)`` on success, ``(None, None)`` when the
-    variable is not available in the store. This is the preferred read path
-    on the ``dev-database`` branch; callers should fall back to legacy
-    ``.npy`` / runtime-attribute reads when this returns ``None``.
+    variable is not available in the store. This is the preferred read path;
+    callers should fall back to legacy ``.npy`` / runtime-attribute reads
+    when this returns ``None``.
     """
     try:
         root = result_store._zarr_root  # noqa: SLF001
@@ -263,6 +273,240 @@ def _try_store_variable(
             exc_info=True,
         )
     return None, None
+
+
+def _cached_xy_coordinates(
+    owner: Any,
+    *,
+    cache_attr: str,
+    build: callable,
+) -> np.ndarray | None:
+    """Return one cached `(n, 2)` coordinate array when the owner supports it."""
+    cached = getattr(owner, cache_attr, None)
+    if isinstance(cached, np.ndarray) and cached.ndim == 2 and cached.shape[1] >= 2:
+        return np.asarray(cached[:, :2], dtype=float)
+    coords = build()
+    if coords is None:
+        return None
+    try:
+        setattr(owner, cache_attr, coords)
+    except Exception:
+        try:
+            object.__setattr__(owner, cache_attr, coords)
+        except Exception:
+            pass
+    return coords
+
+
+def _export_array_like_model(model: Any, values: Any) -> np.ndarray:
+    """Match the solver export convention when the model exposes one helper."""
+    exporter = getattr(model, "_to_export_array", None)
+    if callable(exporter):
+        try:
+            return np.asarray(exporter(values), dtype=float)
+        except Exception:
+            pass
+    return np.asarray(values, dtype=float)
+
+
+def _modflow6_solver_output_paths(model: Any) -> tuple[Path, Path] | None:
+    """Return raw MODFLOW 6 solver output paths when the model exposes them."""
+    full_path = getattr(model, "full_path", None)
+    model_name = getattr(model, "model_name", None)
+    if not full_path or not model_name:
+        return None
+    model_root = Path(str(full_path)).expanduser()
+    return (
+        model_root / f"{model_name}.hds",
+        model_root / f"{model_name}.cbc",
+    )
+
+
+def _modflow6_raw_payload_cache(model: Any) -> dict[str, Any]:
+    """Return one per-model cache used by raw solver-output fallbacks."""
+    cache = getattr(model, "_calibration_raw_output_payload_cache", None)
+    if isinstance(cache, dict):
+        return cache
+    cache = {}
+    try:
+        setattr(model, "_calibration_raw_output_payload_cache", cache)
+    except Exception:
+        return {}
+    return cache
+
+
+def _modflow6_raw_output_payloads(
+    model: Any,
+    *,
+    variable_names: tuple[str, ...],
+) -> dict[str, Any]:
+    """Read selected MODFLOW 6 outputs directly from raw solver files."""
+    supported = {
+        "watertable_elevation",
+        "watertable_depth",
+        "seepage_areas",
+        "outflow_drain",
+        "outlet_discharge_east_side_m3_s",
+    }
+    requested = tuple(
+        name for name in variable_names if str(name).strip() in supported
+    )
+    if not requested:
+        return {}
+
+    cache = _modflow6_raw_payload_cache(model)
+    missing = tuple(name for name in requested if name not in cache)
+    if not missing:
+        return {name: cache[name] for name in requested if name in cache}
+
+    bf, pp = _try_import_flopy_runtime_readers()
+    paths = _modflow6_solver_output_paths(model)
+    if bf is None or pp is None or paths is None:
+        return {name: cache[name] for name in requested if name in cache}
+    head_path, cbc_path = paths
+    if not head_path.is_file():
+        return {name: cache[name] for name in requested if name in cache}
+
+    ncpl = int(getattr(model, "ncpl", 0) or 0)
+    if ncpl <= 0:
+        return {name: cache[name] for name in requested if name in cache}
+
+    dem_mask_flat = np.asarray(getattr(model, "dem_mask", ()), dtype=bool).reshape(-1)
+    if dem_mask_flat.size != ncpl:
+        dem_mask_flat = np.zeros(ncpl, dtype=bool)
+    dem_flat = np.asarray(getattr(model, "dem", ()), dtype=float).reshape(-1)
+    if dem_flat.size != ncpl:
+        dem_flat = np.zeros(ncpl, dtype=float)
+
+    payloads: dict[str, dict[int, Any]] = {name: {} for name in missing}
+    east_side_cell_ids: set[int] = set()
+    if "outlet_discharge_east_side_m3_s" in missing:
+        east_side_builder = getattr(model, "_east_side_cell_ids", None)
+        if callable(east_side_builder):
+            try:
+                east_side_cell_ids = {int(value) for value in east_side_builder()}
+            except Exception:
+                east_side_cell_ids = set()
+
+    head_fpu = None
+    cbb = None
+    try:
+        head_fpu = bf.HeadFile(str(head_path))
+        if cbc_path.is_file():
+            open_budget = getattr(model, "_open_budget_file", None)
+            if callable(open_budget):
+                cbb = open_budget(str(cbc_path))
+            else:
+                cbb = bf.CellBudgetFile(str(cbc_path))
+
+        for item, time in enumerate(head_fpu.get_times()):
+            wt = None
+            if (
+                "watertable_elevation" in missing
+                or "watertable_depth" in missing
+            ):
+                head = head_fpu.get_data(totim=time)
+                wt = np.asarray(pp.get_water_table(head, -9999), dtype=float).reshape(-1)
+                wt[np.isnan(wt)] = -9999.0
+                wt[wt <= -1.0e20] = -9999.0
+
+            if "watertable_elevation" in missing and wt is not None:
+                wt_out = wt.copy()
+                wt_out[dem_mask_flat] = -9999.0
+                payloads["watertable_elevation"][item] = _export_array_like_model(
+                    model,
+                    wt_out,
+                )
+
+            if "watertable_depth" in missing and wt is not None:
+                wtd = np.where(dem_mask_flat, -9999.0, np.maximum(dem_flat - wt, 0.0))
+                payloads["watertable_depth"][item] = _export_array_like_model(
+                    model,
+                    wtd,
+                )
+
+            if (
+                cbb is not None
+                and (
+                    "outflow_drain" in missing
+                    or "seepage_areas" in missing
+                )
+            ):
+                drn_getter = getattr(model, "_get_budget_records_or_none", None)
+                if callable(drn_getter):
+                    drn = drn_getter(cbb, kstpkper=(0, item), text="DRN")
+                else:
+                    drn = cbb.get_data(kstpkper=(0, item), text="DRN")
+                outflow = np.zeros(ncpl, dtype=float)
+                seepage = np.zeros(ncpl, dtype=float)
+                if drn is not None and len(drn) > 0:
+                    rec = drn[0]
+                    try:
+                        if getattr(rec, "dtype", None) is not None and rec.dtype.names is not None:
+                            node_field = "node" if "node" in rec.dtype.names else rec.dtype.names[0]
+                            q_field = "q" if "q" in rec.dtype.names else rec.dtype.names[-1]
+                            iterator = ((int(r[node_field]), float(r[q_field])) for r in rec)
+                        else:
+                            iterator = ((int(r[0]), float(r[-1])) for r in rec)
+                        for node, q in iterator:
+                            if node <= 0:
+                                continue
+                            layer = (node - 1) // ncpl
+                            cell_id = (node - 1) % ncpl
+                            if layer == 0:
+                                outflow[cell_id] += max(-q, 0.0)
+                                seepage[cell_id] = 1.0 if q < 0 else seepage[cell_id]
+                    except Exception:
+                        pass
+                outflow[dem_mask_flat] = -9999.0
+                seepage[dem_mask_flat] = -9999.0
+                if "outflow_drain" in missing:
+                    payloads["outflow_drain"][item] = _export_array_like_model(
+                        model,
+                        outflow,
+                    )
+                if "seepage_areas" in missing:
+                    payloads["seepage_areas"][item] = _export_array_like_model(
+                        model,
+                        seepage,
+                    )
+
+            if (
+                cbb is not None
+                and "outlet_discharge_east_side_m3_s" in missing
+            ):
+                chd_getter = getattr(model, "_get_budget_records_or_none", None)
+                discharge_builder = getattr(
+                    model,
+                    "_compute_chd_outlet_discharge_east_side_m3_s",
+                    None,
+                )
+                if callable(chd_getter) and callable(discharge_builder):
+                    chd = chd_getter(cbb, kstpkper=(0, item), text="CHD")
+                    discharge = discharge_builder(
+                        chd,
+                        ncpl=ncpl,
+                        east_side_cell_ids=east_side_cell_ids,
+                    )
+                    payloads["outlet_discharge_east_side_m3_s"][item] = np.asarray(
+                        [float(discharge)],
+                        dtype=float,
+                    )
+    except Exception:
+        return {name: cache[name] for name in requested if name in cache}
+    finally:
+        for handle in (head_fpu, cbb):
+            closer = getattr(handle, "close", None)
+            if callable(closer):
+                try:
+                    closer()
+                except Exception:
+                    pass
+
+    for name, payload in payloads.items():
+        if payload:
+            cache[name] = payload
+    return {name: cache[name] for name in requested if name in cache}
 
 
 def _raw_model_variable_payload(
@@ -309,6 +553,13 @@ def _raw_model_variable_payload(
         payload, cell_ids = _load_mesh_npz_payload(mesh_npz_path)
         return payload, "postprocess_mesh_npz", cell_ids
 
+    raw_payloads = _modflow6_raw_output_payloads(
+        model,
+        variable_names=(str(variable_name),),
+    )
+    if variable_name in raw_payloads:
+        return raw_payloads[variable_name], "solver_output_files", None
+
     return None, None, None
 
 
@@ -318,16 +569,28 @@ def _coordinates_from_runtime_mesh_support(
     cell_ids: np.ndarray | None = None,
 ) -> np.ndarray | None:
     """Return cell-centroid coordinates from runtime mesh support metadata."""
-    xs = np.asarray(getattr(support, "cell_centroid_x_m", ()), dtype=float).reshape(-1)
-    ys = np.asarray(getattr(support, "cell_centroid_y_m", ()), dtype=float).reshape(-1)
-    if xs.size == 0 or ys.size != xs.size:
+    if support is None:
+        return None
+
+    def _build_support_coordinates() -> np.ndarray | None:
+        xs = np.asarray(getattr(support, "cell_centroid_x_m", ()), dtype=float).reshape(-1)
+        ys = np.asarray(getattr(support, "cell_centroid_y_m", ()), dtype=float).reshape(-1)
+        if xs.size == 0 or ys.size != xs.size:
+            return None
+        return np.column_stack([xs, ys]).astype(float, copy=False)
+
+    coords = _cached_xy_coordinates(
+        support,
+        cache_attr="_calibration_cached_coordinates_xy",
+        build=_build_support_coordinates,
+    )
+    if coords is None:
         return None
     if cell_ids is not None and cell_ids.size > 0:
-        if np.any(cell_ids < 0) or np.any(cell_ids >= xs.size):
+        if np.any(cell_ids < 0) or np.any(cell_ids >= coords.shape[0]):
             return None
-        xs = xs[cell_ids]
-        ys = ys[cell_ids]
-    return np.column_stack([xs, ys]).astype(float, copy=False)
+        coords = coords[cell_ids]
+    return np.asarray(coords, dtype=float)
 
 
 def _coordinates_from_solver_mesh(
@@ -338,6 +601,22 @@ def _coordinates_from_solver_mesh(
     """Return cell-centroid coordinates from one solver mesh when exposed."""
     if solver_mesh is None or not hasattr(solver_mesh, "cell_centroids"):
         return None
+    coords = _cached_xy_coordinates(
+        solver_mesh,
+        cache_attr="_calibration_cached_coordinates_xy",
+        build=lambda: _build_solver_mesh_coordinates(solver_mesh),
+    )
+    if coords is None:
+        return None
+    if cell_ids is not None and cell_ids.size > 0:
+        if np.any(cell_ids < 0) or np.any(cell_ids >= coords.shape[0]):
+            return None
+        coords = coords[cell_ids]
+    return np.asarray(coords, dtype=float)
+
+
+def _build_solver_mesh_coordinates(solver_mesh: Any) -> np.ndarray | None:
+    """Materialize full solver-mesh `(x, y)` cell coordinates once."""
     try:
         centroids = np.asarray(solver_mesh.cell_centroids(), dtype=float)
     except Exception:
@@ -345,17 +624,11 @@ def _coordinates_from_solver_mesh(
     if centroids.size == 0:
         return None
     if centroids.ndim == 2 and centroids.shape[1] >= 2:
-        coords = centroids[:, :2]
-    else:
-        try:
-            coords = centroids.reshape(-1, 2)
-        except ValueError:
-            return None
-    if cell_ids is not None and cell_ids.size > 0:
-        if np.any(cell_ids < 0) or np.any(cell_ids >= coords.shape[0]):
-            return None
-        coords = coords[cell_ids]
-    return np.asarray(coords, dtype=float)
+        return np.asarray(centroids[:, :2], dtype=float)
+    try:
+        return np.asarray(centroids.reshape(-1, 2), dtype=float)
+    except ValueError:
+        return None
 
 
 def _coordinates_from_structured_grid(
@@ -468,13 +741,19 @@ def _canonicalize_model_payload(
 def _iter_runtime_model_variables(
     run_state: Any,
     *,
+    variable_names: tuple[str, ...] | None = None,
     result_store: Any = None,
     store_sim_id: str | None = None,
 ) -> tuple[CanonicalOutputVariable, ...]:
     """Extract canonical variables from produced solver models when available."""
     variables: list[CanonicalOutputVariable] = []
+    names = (
+        tuple(dict.fromkeys(str(name) for name in variable_names if str(name).strip()))
+        if variable_names is not None
+        else _RUNTIME_MODEL_VARIABLE_NAMES
+    )
     for run_id, model in _models_by_run_id(run_state).items():
-        for variable_name in _RUNTIME_MODEL_VARIABLE_NAMES:
+        for variable_name in names:
             raw_payload, payload_source, cell_ids = _raw_model_variable_payload(
                 model,
                 variable_name=variable_name,
@@ -507,6 +786,7 @@ def _iter_runtime_model_variables(
 def canonicalize_run_outputs(
     run_state: Any,
     *,
+    requested_variable_names: tuple[str, ...] | None = None,
     result_store: Any = None,
     store_sim_id: str | None = None,
 ) -> CanonicalOutputBundle:
@@ -534,6 +814,7 @@ def canonicalize_run_outputs(
 
     for variable in _iter_runtime_model_variables(
         run_state,
+        variable_names=requested_variable_names,
         result_store=result_store,
         store_sim_id=store_sim_id,
     ):
@@ -551,6 +832,23 @@ def canonicalize_run_outputs(
                 break
 
     return CanonicalOutputBundle(variables=variables, aliases=aliases)
+
+
+def _requested_runtime_variable_names(
+    selectors: tuple[PreparedOutputSelector, ...],
+) -> tuple[str, ...]:
+    """Return the minimal runtime-variable set needed by prepared selectors."""
+    names: list[str] = []
+    runtime_names = set(_RUNTIME_MODEL_VARIABLE_NAMES)
+    for selector in selectors:
+        for key in selector.variable_keys:
+            text = str(key).strip()
+            if text in runtime_names and text not in names:
+                names.append(text)
+            for alias_name in _VARIABLE_ALIASES.get(text, ()):
+                if alias_name in runtime_names and alias_name not in names:
+                    names.append(alias_name)
+    return tuple(names)
 
 
 def _lookup_bundle_or_run_state(
@@ -844,6 +1142,7 @@ def select_candidate_outputs_from_selectors(
     """Select configured observables using prepared selectors."""
     bundle = canonicalize_run_outputs(
         run_state,
+        requested_variable_names=_requested_runtime_variable_names(selectors),
         result_store=result_store,
         store_sim_id=store_sim_id,
     )

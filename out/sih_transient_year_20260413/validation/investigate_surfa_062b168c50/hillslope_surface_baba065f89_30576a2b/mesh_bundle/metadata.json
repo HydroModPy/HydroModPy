@@ -1,0 +1,7 @@
+{
+  "bundle_schema_version": "mesh_catchment_bundle_v1",
+  "crs": "EPSG:2154",
+  "files": {
+    "mesh": "mesh_2d.msh"
+  }
+}

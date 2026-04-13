@@ -13,7 +13,7 @@ Current Coverage
 
 - Imported case families: 10 km2, Strahler 3, 100 km2, Strahler 3, 100 km2, headwater, 1000 km2.
 - Imported scales: 10 km2, 100 km2, 1000 km2.
-- Present variants: Floor 200 m, target 200 m, Floor 340 m, target 200 m, Geology + rivers, 30% buffer.
+- Present variants: Floor 200 m, target 200 m, Floor 340 m, target 200 m, Geology + rivers, 30% buffer, Rivers only, 30% buffer.
 - Prepared but not yet versioned: none.
 
 Family Coverage
@@ -47,6 +47,7 @@ Repeated Sites
 --------------
 
 These tab sets group one repeated mesh family across several outlets imported from the batch runs.
+Read this section horizontally: one tab equals one outlet, while the meshing policy stays fixed.
 
 10 km2, Strahler 3
 ~~~~~~~~~~~~~~~~~~
@@ -612,6 +613,121 @@ Comparable Variants
 -------------------
 
 These tab sets group the same support and outlet across multiple meshing policies.
+Read this section horizontally: one tab equals one meshing variant applied to the same outlet.
+
+10 km2, outlet 1
+~~~~~~~~~~~~~~~~
+
+.. tab-set::
+
+   .. tab-item:: Geology + rivers, 30% buffer
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_geology_rivers_buffer30_overview.png
+         :alt: 10 km2, Strahler 3 Mesh, Outlet 1, Geology + rivers, 30% buffer overview
+         :width: 85%
+
+         Original mesh figure copied from the imported meshing run and reused directly in the documentation.
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_geology_rivers_buffer30_regional.png
+         :alt: 10 km2, Strahler 3 Mesh, Outlet 1, Geology + rivers, 30% buffer regional context
+         :width: 35%
+
+         Regional framing figure copied from the imported meshing run.
+
+      **10 km2, Strahler 3 Mesh, Outlet 1, Geology + rivers, 30% buffer**
+
+      10 km2 Strahler-3 catchment mesh with rivers, geology interfaces, watershed boundary, and outside coarsening kept active on a 30% buffered support.
+
+      - Constraints mode: ``geology_rivers``
+      - Nodes: 283
+      - Cells: 547
+      - River edges: 65
+      - Geology interfaces: 80
+
+      See :doc:`the full case page <cases/mesh_s3_10km2_outlet_1_geology_rivers_buffer30>`.
+
+   .. tab-item:: Rivers only, 30% buffer
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_rivers_only_buffer30_overview.png
+         :alt: 10 km2, Strahler 3 Mesh, Outlet 1, Rivers only, 30% buffer overview
+         :width: 85%
+
+         Original mesh figure copied from the imported meshing run and reused directly in the documentation.
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_rivers_only_buffer30_regional.png
+         :alt: 10 km2, Strahler 3 Mesh, Outlet 1, Rivers only, 30% buffer regional context
+         :width: 35%
+
+         Regional framing figure copied from the imported meshing run.
+
+      **10 km2, Strahler 3 Mesh, Outlet 1, Rivers only, 30% buffer**
+
+      10 km2 Strahler-3 catchment mesh where only rivers constrain the internal mesh, while the watershed boundary and outside coarsening remain active on a 30% buffered support.
+
+      - Constraints mode: ``rivers_only``
+      - Nodes: 296
+      - Cells: 574
+      - River edges: 90
+      - Geology interfaces: 83
+
+      See :doc:`the full case page <cases/mesh_s3_10km2_outlet_1_rivers_only_buffer30>`.
+
+100 km2, outlet 2
+~~~~~~~~~~~~~~~~~
+
+.. tab-set::
+
+   .. tab-item:: Geology + rivers, 30% buffer
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30_overview.png
+         :alt: 100 km2, headwater Mesh, Outlet 2, Geology + rivers, 30% buffer overview
+         :width: 85%
+
+         Original mesh figure copied from the imported meshing run and reused directly in the documentation.
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30_regional.png
+         :alt: 100 km2, headwater Mesh, Outlet 2, Geology + rivers, 30% buffer regional context
+         :width: 35%
+
+         Regional framing figure copied from the imported meshing run.
+
+      **100 km2, headwater Mesh, Outlet 2, Geology + rivers, 30% buffer**
+
+      100 km2 headwater catchment mesh with rivers, geology interfaces, watershed boundary, and outside coarsening kept active on a 30% buffered support.
+
+      - Constraints mode: ``geology_rivers``
+      - Nodes: 2129
+      - Cells: 4216
+      - River edges: 699
+      - Geology interfaces: 227
+
+      See :doc:`the full case page <cases/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30>`.
+
+   .. tab-item:: Geology + rivers, 30% buffer
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_2_geology_rivers_buffer30_overview.png
+         :alt: 100 km2, Strahler 3 Mesh, Outlet 2, Geology + rivers, 30% buffer overview
+         :width: 85%
+
+         Original mesh figure copied from the imported meshing run and reused directly in the documentation.
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_2_geology_rivers_buffer30_regional.png
+         :alt: 100 km2, Strahler 3 Mesh, Outlet 2, Geology + rivers, 30% buffer regional context
+         :width: 35%
+
+         Regional framing figure copied from the imported meshing run.
+
+      **100 km2, Strahler 3 Mesh, Outlet 2, Geology + rivers, 30% buffer**
+
+      100 km2 Strahler-3 catchment mesh with rivers, geology interfaces, watershed boundary, and outside coarsening kept active on a 30% buffered support.
+
+      - Constraints mode: ``geology_rivers``
+      - Nodes: 3584
+      - Cells: 7116
+      - River edges: 1227
+      - Geology interfaces: 474
+
+      See :doc:`the full case page <cases/mesh_s3_100km2_outlet_2_geology_rivers_buffer30>`.
 
 100 km2, outlet 27
 ~~~~~~~~~~~~~~~~~~
@@ -670,6 +786,58 @@ These tab sets group the same support and outlet across multiple meshing policie
 
       See :doc:`the full case page <cases/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200>`.
 
+   .. tab-item:: Geology + rivers, 30% buffer
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_overview.png
+         :alt: 100 km2, headwater Mesh, Outlet 27, Geology + rivers, 30% buffer overview
+         :width: 85%
+
+         Original mesh figure copied from the imported meshing run and reused directly in the documentation.
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_regional.png
+         :alt: 100 km2, headwater Mesh, Outlet 27, Geology + rivers, 30% buffer regional context
+         :width: 35%
+
+         Regional framing figure copied from the imported meshing run.
+
+      **100 km2, headwater Mesh, Outlet 27, Geology + rivers, 30% buffer**
+
+      100 km2 headwater catchment mesh with rivers, geology interfaces, watershed boundary, and outside coarsening kept active on a 30% buffered support.
+
+      - Constraints mode: ``geology_rivers``
+      - Nodes: 1981
+      - Cells: 3922
+      - River edges: 631
+      - Geology interfaces: 332
+
+      See :doc:`the full case page <cases/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30>`.
+
+   .. tab-item:: Rivers only, 30% buffer
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_100km2_outlet_27_rivers_only_buffer30_overview.png
+         :alt: 100 km2, headwater Mesh, Outlet 27, Rivers only, 30% buffer overview
+         :width: 85%
+
+         Original mesh figure copied from the imported meshing run and reused directly in the documentation.
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_100km2_outlet_27_rivers_only_buffer30_regional.png
+         :alt: 100 km2, headwater Mesh, Outlet 27, Rivers only, 30% buffer regional context
+         :width: 35%
+
+         Regional framing figure copied from the imported meshing run.
+
+      **100 km2, headwater Mesh, Outlet 27, Rivers only, 30% buffer**
+
+      100 km2 headwater catchment mesh where only rivers constrain the internal mesh, while the watershed boundary and outside coarsening remain active on a 30% buffered support.
+
+      - Constraints mode: ``rivers_only``
+      - Nodes: 2178
+      - Cells: 4312
+      - River edges: 717
+      - Geology interfaces: 343
+
+      See :doc:`the full case page <cases/mesh_100km2_outlet_27_rivers_only_buffer30>`.
+
 .. grid:: 1 1 2 2
    :gutter: 2 2 3 3
 
@@ -727,11 +895,13 @@ These tab sets group the same support and outlet across multiple meshing policie
    cases/mesh_constraint_balance_scale_ladder
    cases/mesh_resolution_sensitivity_scale_ladder
    cases/mesh_zoom_panels_naizin_10km2
+   cases/mesh_s3_10km2_outlet_1_rivers_only_buffer30
    cases/mesh_s3_10km2_outlet_1_geology_rivers_buffer30
    cases/mesh_s3_10km2_outlet_2_geology_rivers_buffer30
    cases/mesh_s3_10km2_outlet_3_geology_rivers_buffer30
    cases/mesh_s3_10km2_outlet_4_geology_rivers_buffer30
    cases/mesh_s3_10km2_outlet_5_geology_rivers_buffer30
+   cases/mesh_100km2_outlet_27_rivers_only_buffer30
    cases/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200
    cases/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200
    cases/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30

@@ -28,6 +28,13 @@ The runner produces one composite figure with:
 - overflow front and active-length dynamics.
 - optional GIF / HTML animation exports for the transient evolution.
 
+For Linux / PETSc comparisons across several Boussinesq methods, the case also
+ships a dedicated multi-solver runner that focuses on:
+
+- one total-overflow overlay shared by all compared methods,
+- one execution-time comparison figure,
+- one `timeseries.csv` and one `execution_times.csv` for downstream analysis.
+
 Useful forcing controls:
 
 - `--forcing-preset strong` triggers overflow earlier and more strongly over a `40 day` run,
@@ -46,6 +53,8 @@ python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pul
 python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_case --solver petsc --forcing-preset alternating --show
 python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_case --solver petsc_partition --forcing-preset strong --mp4 --frame-step 1 --video-fps 12 --show
 python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_case --solver petsc_partition --forcing-preset strong --output-root /mnt/c/Users/dreuzy/Documents/HydroModPyOutputs --show
+python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_multi_solver_case --solvers boussinesq petsc_partition petsc --forcing-preset strong --output-root /mnt/c/Users/dreuzy/Documents/HydroModPyOutputs/bouss_multi_linux
+bash validation_cases/numerical/transient/boussinesq_hillslope_recharge_pulse_overflow_1d/run_multi_solver_case_linux.sh /mnt/c/Users/dreuzy/Documents/HydroModPyOutputs/bouss_multi_linux
 ```
 
 Useful options:
@@ -62,3 +71,4 @@ Useful options:
 - `--html-animation` exports a browser slider from the rendered frames,
 - `--video-fps N` controls MP4 smoothness,
 - `--frame-step N` subsamples the animation frames.
+- `run_multi_solver_case` is the Linux-ready entrypoint when the goal is only the total-overflow overlay and execution-time comparison across several Boussinesq methods.
