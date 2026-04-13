@@ -1,0 +1,21 @@
+base_config = "C:/codes/HydroModPy-GH/examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_cycling_recharge_heterogeneous_10day.toml"
+
+[workspace]
+project_root = "C:/codes/HydroModPy-GH/reporting/mf6_debug_2026-04-12/rewet_on_drain_off"
+
+[simulation]
+name = "MF6 debug rewet on drain off"
+run_id = "mf6_debug_rewet_on_drain_off"
+
+[display]
+show = false
+save = false
+
+[postprocess]
+enabled = false
+
+[flow.bc.cauchy.drainage]
+value = "0.0 m2/s"
+
+[modflow6.runtime]
+mf6_enable_rewet = true

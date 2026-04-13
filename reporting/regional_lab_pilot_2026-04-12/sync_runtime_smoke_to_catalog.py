@@ -56,9 +56,13 @@ def main() -> None:
         "runtime_smoke_checked_at_utc",
         "runtime_smoke_recipe_id",
         "runtime_smoke_case_id",
+        "runtime_smoke_reused_from_report",
         "runtime_smoke_wall_time_seconds",
         "runtime_smoke_metrics_json",
         "runtime_smoke_boussinesq_summary_json",
+        "runtime_smoke_runtime_backend",
+        "runtime_smoke_solve_stage",
+        "runtime_smoke_residual_norm_inf",
         "runtime_smoke_note",
     ):
         _ensure_field(fieldnames, field_name)
@@ -95,6 +99,9 @@ def main() -> None:
         row["runtime_smoke_checked_at_utc"] = generated_at
         row["runtime_smoke_recipe_id"] = str(case.get("recipe_id", "")).strip()
         row["runtime_smoke_case_id"] = str(case.get("case_id", "")).strip()
+        row["runtime_smoke_reused_from_report"] = str(
+            bool(case.get("reused_from_report", False))
+        ).lower()
         wall_time = child_artifacts.get("child_wall_time_seconds", case.get("duration_seconds"))
         row["runtime_smoke_wall_time_seconds"] = "" if wall_time is None else str(wall_time)
         row["runtime_smoke_metrics_json"] = str(
@@ -103,7 +110,32 @@ def main() -> None:
         row["runtime_smoke_boussinesq_summary_json"] = str(
             child_artifacts.get("child_boussinesq_summary_json", "")
         ).strip()
+        row["runtime_smoke_runtime_backend"] = str(
+            child_artifacts.get("child_runtime_backend", "")
+        ).strip()
+        row["runtime_smoke_solve_stage"] = str(
+            child_artifacts.get("child_solve_stage", "")
+        ).strip()
+        residual = child_artifacts.get("child_steady_residual_norm_inf")
+        row["runtime_smoke_residual_norm_inf"] = (
+            "" if residual is None else str(residual)
+        )
         note = str(child_artifacts.get("child_artifact_error_message", "")).strip()
+        if note == "":
+            solve_stage = str(child_artifacts.get("child_solve_stage", "")).strip()
+            runtime_backend = str(child_artifacts.get("child_runtime_backend", "")).strip()
+            residual_text = row["runtime_smoke_residual_norm_inf"]
+            nonlinear_iterations = child_artifacts.get("child_steady_nonlinear_iterations")
+            note_parts: list[str] = []
+            if solve_stage:
+                note_parts.append(f"solve_stage={solve_stage}")
+            if runtime_backend:
+                note_parts.append(f"runtime_backend={runtime_backend}")
+            if residual_text:
+                note_parts.append(f"steady_residual_norm_inf={residual_text}")
+            if nonlinear_iterations is not None:
+                note_parts.append(f"steady_nonlinear_iterations={nonlinear_iterations}")
+            note = "; ".join(note_parts)
         row["runtime_smoke_note"] = note
 
         if status in {"ok", "skipped_existing_ok"}:

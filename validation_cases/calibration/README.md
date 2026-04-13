@@ -51,7 +51,18 @@ Each case produces:
 - synthetic truth observations,
 - optionally one distinct truth simulation config for perturbed twins,
 - one or more calibration runs for standardized methods,
-- a JSON benchmark summary with recovery metrics per method.
+- one case-level configuration figure summarizing parameters, observables,
+  objective blocks, methods, noise and the observation layout,
+- a JSON benchmark summary with recovery metrics per method,
+- per-method objective figures when iteration history is available.
+
+By default the benchmark runtime keeps a minimal retained footprint:
+
+- calibration summaries, histories, and per-method figures are kept;
+- heavy `results_simulations` and `results_stable` trees are pruned after the
+  benchmark finishes;
+- use `--artifact-retention full` when the full forward-output tree must be
+  kept for debugging.
 
 Method-level evaluation distinguishes:
 
@@ -81,4 +92,7 @@ Running multiple cases through `run_benchmarks.py` also produces one aggregate:
 - `--fast-only` or `--slow-only` to split quick CI coverage from the heavier suite;
 - `--evaluation-budget N` to apply one approximate common evaluation budget
   across methods;
+- `--artifact-retention {minimal,full}` to control how much each case keeps on
+  disk after completion;
+- `--no-case-figures` to skip per-case objective plots;
 - `--no-figures` to skip suite-level plots when only raw outputs are needed.

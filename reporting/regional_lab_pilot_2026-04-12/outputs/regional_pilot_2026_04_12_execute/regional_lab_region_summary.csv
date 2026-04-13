@@ -1,2 +1,2 @@
 region_id,site_count,planned_case_count,skipped_case_count,executed_case_count,reused_case_count,successful_case_count,failed_case_count,pending_case_count,execution_duration_seconds_total,child_wall_time_seconds_total,execution_duration_seconds_mean,child_wall_time_seconds_mean
-brittany,20,14,27,3,0,1,2,11,319.352976,212.52,106.450992,70.84
+brittany,20,12,29,1,11,11,1,0,22.760358,262.61,1.896697,21.884167

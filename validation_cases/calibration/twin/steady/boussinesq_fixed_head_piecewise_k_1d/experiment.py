@@ -146,9 +146,9 @@ def build_calibration_payload(
             method_profile.name: dict(method_profile.method_kwargs),
         },
         "bounds": {
-            "K_west": [1.0e-4, 3.0e-4],
-            "K_middle": [2.5e-5, 1.0e-4],
-            "K_east": [5.0e-5, 1.5e-4],
+            "K_west": [7.5e-5, 3.5e-4],
+            "K_middle": [1.5e-5, 1.2e-4],
+            "K_east": [3.5e-5, 1.75e-4],
         },
     }
 
@@ -168,9 +168,9 @@ PIECEWISE_K_TWIN_CASE = TwinCalibrationCaseDefinition(
         "K_east": 1.0e-4,
     },
     bounds={
-        "K_west": (1.0e-4, 3.0e-4),
-        "K_middle": (2.5e-5, 1.0e-4),
-        "K_east": (5.0e-5, 1.5e-4),
+        "K_west": (7.5e-5, 3.5e-4),
+        "K_middle": (1.5e-5, 1.2e-4),
+        "K_east": (3.5e-5, 1.75e-4),
     },
     parameter_abs_tolerances={
         "K_west": 2.5e-5,
@@ -181,14 +181,14 @@ PIECEWISE_K_TWIN_CASE = TwinCalibrationCaseDefinition(
     method_profiles=(
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"n_samples": 64},
+            method_kwargs={"n_samples": 96},
             persist_model_distribution=True,
             repeat_seeds=(17, 29),
             success_metric="distribution",
         ),
         CalibrationMethodProfile(
             name="simplex",
-            method_kwargs={"max_iter": 36, "xtol": 1.0e-8, "ftol": 1.0e-8},
+            method_kwargs={"max_iter": 42, "xtol": 1.0e-8, "ftol": 1.0e-8},
             persist_model_distribution=False,
         ),
     ),

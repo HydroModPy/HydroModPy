@@ -1,6 +1,6 @@
 recipe_id,recipe_label,launcher,candidate_site_count,planned_case_count,skipped_case_count,executed_case_count,reused_case_count,successful_case_count,failed_case_count,pending_case_count,execution_duration_seconds_total,execution_duration_seconds_mean,child_wall_time_seconds_total,coverage_ratio
-headwater_mf6_reference,Headwater reference replay,simulation,10,1,9,1,0,1,0,0,230.703651,230.703651,212.52,0.1
-headwater_backend_compare,Headwater backend comparison,method-comparison,10,1,9,1,0,0,1,0,47.373707,47.373707,,0.1
-headwater_transient_backend_compare,Headwater transient backend comparison,method-comparison,10,1,9,1,0,0,1,0,41.275618,41.275618,,0.1
-headwater_local_boussinesq_replay,Headwater local mesh replay,simulation,1,1,0,0,0,0,0,1,,,,1.0
-s3_future_reference,S3 local mesh replay,simulation,10,10,0,0,0,0,0,10,,,,1.0
+headwater_mf6_reference,Headwater reference replay,simulation,10,1,9,0,1,1,0,0,0.0,0.0,212.52,0.1
+headwater_backend_compare,Headwater backend comparison,method-comparison,10,0,10,0,0,0,0,0,,,,0.0
+headwater_transient_backend_compare,Headwater transient backend comparison,method-comparison,10,0,10,0,0,0,0,0,,,,0.0
+headwater_local_boussinesq_replay,Headwater local mesh replay,simulation,1,1,0,1,0,0,1,0,22.760358,22.760358,,1.0
+s3_future_reference,S3 local mesh replay,simulation,10,10,0,0,10,10,0,0,0.0,0.0,50.09,1.0

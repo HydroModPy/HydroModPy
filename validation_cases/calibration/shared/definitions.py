@@ -58,6 +58,8 @@ class TwinCalibrationCaseDefinition:
     fast: bool = False
     observation_noise: ObservationNoiseSpec | None = None
     perturbation_description: str | None = None
+    artifact_retention: str = "minimal"
+    generate_case_figures: bool = True
     build_simulation_config: Callable[[Path, Path], None] | None = None
     build_truth_simulation_config: Callable[[Path, Path], None] | None = None
     build_calibration_payload: (
@@ -91,6 +93,11 @@ class TwinMethodBenchmarkResult:
     seed: int | None = None
     calibration_time_seconds: float | None = None
     time_per_evaluation_seconds: float | None = None
+    session_prepare_time_seconds: float | None = None
+    mean_candidate_total_time_seconds: float | None = None
+    mean_candidate_preparation_time_seconds: float | None = None
+    mean_candidate_simulation_time_seconds: float | None = None
+    mean_candidate_objective_time_seconds: float | None = None
     failed_iteration_count: int = 0
     meets_success_target: bool = False
     candidate_run_count: int = 0
@@ -100,10 +107,13 @@ class TwinMethodBenchmarkResult:
     block_normalized_cost_best: dict[str, float] = field(default_factory=dict)
     block_reference_scale: dict[str, float] = field(default_factory=dict)
     block_n_values: dict[str, int] = field(default_factory=dict)
+    iteration_history_path: Path | None = None
     model_distribution_path: Path | None = None
     model_distribution_sample_count: int = 0
     truth_in_distribution: bool | None = None
     truth_distribution_min_abs_error: dict[str, float] = field(default_factory=dict)
+    objective_trace_figure: Path | None = None
+    objective_landscape_figure: Path | None = None
 
     def to_mapping(self) -> dict[str, Any]:
         """Return one JSON-friendly representation."""
@@ -123,6 +133,17 @@ class TwinMethodBenchmarkResult:
             "seed": self.seed,
             "calibration_time_seconds": self.calibration_time_seconds,
             "time_per_evaluation_seconds": self.time_per_evaluation_seconds,
+            "session_prepare_time_seconds": self.session_prepare_time_seconds,
+            "mean_candidate_total_time_seconds": self.mean_candidate_total_time_seconds,
+            "mean_candidate_preparation_time_seconds": (
+                self.mean_candidate_preparation_time_seconds
+            ),
+            "mean_candidate_simulation_time_seconds": (
+                self.mean_candidate_simulation_time_seconds
+            ),
+            "mean_candidate_objective_time_seconds": (
+                self.mean_candidate_objective_time_seconds
+            ),
             "failed_iteration_count": int(self.failed_iteration_count),
             "meets_success_target": bool(self.meets_success_target),
             "candidate_run_count": int(self.candidate_run_count),
@@ -142,6 +163,11 @@ class TwinMethodBenchmarkResult:
             "block_n_values": {
                 str(name): int(value) for name, value in self.block_n_values.items()
             },
+            "iteration_history_path": (
+                None
+                if self.iteration_history_path is None
+                else str(self.iteration_history_path)
+            ),
             "params_best": {
                 str(name): float(value) for name, value in self.params_best.items()
             },
@@ -158,6 +184,16 @@ class TwinMethodBenchmarkResult:
                 str(name): float(value)
                 for name, value in self.truth_distribution_min_abs_error.items()
             },
+            "objective_trace_figure": (
+                None
+                if self.objective_trace_figure is None
+                else str(self.objective_trace_figure)
+            ),
+            "objective_landscape_figure": (
+                None
+                if self.objective_landscape_figure is None
+                else str(self.objective_landscape_figure)
+            ),
         }
 
 
@@ -173,6 +209,9 @@ class TwinCalibrationBenchmarkResult:
     observations_used: dict[str, tuple[float, ...]]
     method_results: tuple[TwinMethodBenchmarkResult, ...]
     summary_path: Path
+    artifact_retention: str = "minimal"
+    configuration_figure: Path | None = None
+    pruned_artifacts: tuple[str, ...] = ()
 
     def to_mapping(self) -> dict[str, Any]:
         """Return one JSON-friendly summary."""
@@ -183,9 +222,16 @@ class TwinCalibrationBenchmarkResult:
             "regime": self.definition.regime,
             "description": self.definition.description,
             "perturbation_description": self.definition.perturbation_description,
+            "artifact_retention": str(self.artifact_retention),
             "benchmark_root": str(self.benchmark_root),
             "simulation_config_path": str(self.simulation_config_path),
             "truth_simulation_config_path": str(self.truth_simulation_config_path),
+            "configuration_figure": (
+                None
+                if self.configuration_figure is None
+                else str(self.configuration_figure)
+            ),
+            "pruned_artifacts": [str(item) for item in self.pruned_artifacts],
             "truth_params": {
                 str(name): float(value)
                 for name, value in self.definition.truth_params.items()

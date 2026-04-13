@@ -1,0 +1,18 @@
+2026-04-13 00:22:32,666 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:219] Hydraulic conductivity mapped from flow.K using direct homogeneous mapping
+2026-04-13 00:22:32,668 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 0
+2026-04-13 00:22:32,668 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:639] MODFLOW grid connectivity check passed
+2026-04-13 00:22:32,758 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:130] FloPy is using the following executable to run the model: ..\..\..\..\..\..\..\bin\win\mfnwt.exe
+2026-04-13 00:22:32,793 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:130] MODFLOW-NWT-SWR1
+2026-04-13 00:22:32,793 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:130] U.S. GEOLOGICAL SURVEY MODULAR FINITE-DIFFERENCE GROUNDWATER-FLOW MODEL
+2026-04-13 00:22:32,793 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:130] WITH NEWTON FORMULATION
+2026-04-13 00:22:32,793 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:130] Version 1.3.0 07/01/2022
+2026-04-13 00:22:32,793 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:130] BASED ON MODFLOW-2005 Version 1.12.0 02/03/2017
+2026-04-13 00:22:32,793 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:130] SWR1 Version 1.05.0 03/10/2022
+2026-04-13 00:22:32,803 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:130] Using NAME file: hillslope_surface_offset_05cm_modflownwt.nam
+2026-04-13 00:22:32,809 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:130] Run start date and time (yyyy/mm/dd hh:mm:ss): 2026/04/13  0:22:32
+2026-04-13 00:22:32,890 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:130] Run end date and time (yyyy/mm/dd hh:mm:ss): 2026/04/13  0:22:32
+2026-04-13 00:22:32,890 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:130] Elapsed run time:  0.087 Seconds
+2026-04-13 00:22:32,890 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:130] Normal termination of simulation
+2026-04-13 00:22:32,926 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:781] Post-processing MODFLOW: hillslope_surface_offset_05cm_modflownwt
+2026-04-13 00:22:33,256 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:949] Exported time series: watertable elevation, watertable depth, seepage areas, outflow drain, outlet discharge east side m3 s, groundwater flux, groundwater storage, accumulation flux
+2026-04-13 00:22:33,264 [WARNING] [hydromodpy.solver.modflow_nwt.modflow.intermittency] [intermittency:79] Intermittency monthly: not enough time steps (1 < 12), skipping.

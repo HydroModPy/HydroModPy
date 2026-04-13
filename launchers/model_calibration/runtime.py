@@ -7,8 +7,9 @@ import hashlib
 import json
 import math
 import re
+import time
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable
 
@@ -163,6 +164,7 @@ class PreparedCalibrationSession:
     parameter_names: tuple[str, ...]
     output_names: tuple[str, ...]
     objective_block_names: tuple[str, ...]
+    prepare_time_seconds: float | None = None
     prepared_hydraulic_support: "PreparedHydraulicPropertySupport | None" = None
     prepared_output_selectors: tuple[PreparedOutputSelector, ...] = ()
     candidates_root: Path | None = None
@@ -198,6 +200,7 @@ class PreparedCalibrationSession:
             "n_prepared_output_selectors": len(self.prepared_output_selectors),
             "objective_block_names": list(self.objective_block_names),
             "n_objective_blocks": len(self.objective_block_names),
+            "prepare_time_seconds": self.prepare_time_seconds,
             "prepared_hydraulic_support": (
                 None
                 if self.prepared_hydraulic_support is None
@@ -761,6 +764,7 @@ class CandidateRunRequest:
     property_array_set: PropertyArraySet | None = None
     property_array_summary: dict[str, Any] | None = None
     property_array_error: str | None = None
+    actualize_seconds: float | None = None
 
     def to_summary(self) -> dict[str, Any]:
         """Return one concise summary of the candidate runtime request."""
@@ -780,6 +784,7 @@ class CandidateRunRequest:
             ),
             "property_array_summary": self.property_array_summary,
             "property_array_error": self.property_array_error,
+            "actualize_seconds": self.actualize_seconds,
         }
 
 
@@ -793,6 +798,11 @@ class CandidateRunOutcome:
     objective_evaluation: CompositeObjectiveEvaluation | None = None
     error_type: str | None = None
     error_message: str | None = None
+    launcher_prepare_seconds: float | None = None
+    runtime_patch_seconds: float | None = None
+    simulation_seconds: float | None = None
+    objective_seconds: float | None = None
+    total_seconds: float | None = None
 
     def to_iteration_record(self) -> IterationRecord:
         """Convert one run outcome into the persisted minimal iteration record."""
@@ -816,6 +826,32 @@ class CandidateRunOutcome:
             objective_metadata = dict(self.objective_evaluation.metadata)
         elif self.status in {"solver_run_failed", "objective_evaluation_failed"}:
             objective_total = math.inf
+        timing_payload = {
+            "actualize_seconds": (
+                None
+                if self.request.actualize_seconds is None
+                else float(self.request.actualize_seconds)
+            ),
+            "launcher_prepare_seconds": self.launcher_prepare_seconds,
+            "runtime_patch_seconds": self.runtime_patch_seconds,
+            "simulation_seconds": self.simulation_seconds,
+            "objective_seconds": self.objective_seconds,
+            "total_seconds": self.total_seconds,
+            "preparation_seconds": (
+                None
+                if (
+                    self.request.actualize_seconds is None
+                    and self.launcher_prepare_seconds is None
+                    and self.runtime_patch_seconds is None
+                )
+                else float(self.request.actualize_seconds or 0.0)
+                + float(self.launcher_prepare_seconds or 0.0)
+                + float(self.runtime_patch_seconds or 0.0)
+            ),
+        }
+        if any(value is not None for value in timing_payload.values()):
+            objective_metadata = dict(objective_metadata)
+            objective_metadata["timing"] = timing_payload
         return IterationRecord(
             iteration_id=self.request.iteration_id,
             params_vector=self.request.params_vector,
@@ -1754,11 +1790,16 @@ class ModelCalibrationObjectiveEvaluator:
         self._next_iteration_index += 1
         iteration_id = f"iter_{int(iteration_index):04d}"
         try:
+            actualize_start = time.perf_counter()
             request = actualize_candidate(
                 session=self.session,
                 cfg=self.cfg,
                 params=key,
                 iteration_index=iteration_index,
+            )
+            request = replace(
+                request,
+                actualize_seconds=float(time.perf_counter() - actualize_start),
             )
         except Exception as exc:
             params_named = _safe_params_named_from_vector(
@@ -1819,6 +1860,57 @@ class ModelCalibrationObjectiveEvaluator:
         for key, outcome in self._outcomes_by_key.items():
             combined[key] = outcome.to_iteration_record()
         return tuple(combined.values())
+
+
+def _summarize_candidate_run_timings(
+    outcomes: tuple[CandidateRunOutcome, ...],
+) -> dict[str, Any]:
+    """Aggregate candidate timing diagnostics across executed outcomes."""
+    if not outcomes:
+        return {
+            "count": 0,
+            "prepare_time_seconds": None,
+            "simulation_time_seconds": None,
+            "objective_time_seconds": None,
+            "total_time_seconds": None,
+        }
+
+    def _series(values: list[float]) -> dict[str, float] | None:
+        if not values:
+            return None
+        arr = np.asarray(values, dtype=float)
+        return {
+            "mean": float(np.mean(arr)),
+            "median": float(np.median(arr)),
+            "max": float(np.max(arr)),
+            "sum": float(np.sum(arr)),
+        }
+
+    prepare_values: list[float] = []
+    simulation_values: list[float] = []
+    objective_values: list[float] = []
+    total_values: list[float] = []
+    for outcome in outcomes:
+        prepare_seconds = (
+            float(outcome.request.actualize_seconds or 0.0)
+            + float(outcome.launcher_prepare_seconds or 0.0)
+            + float(outcome.runtime_patch_seconds or 0.0)
+        )
+        if prepare_seconds > 0.0:
+            prepare_values.append(prepare_seconds)
+        if outcome.simulation_seconds is not None:
+            simulation_values.append(float(outcome.simulation_seconds))
+        if outcome.objective_seconds is not None and float(outcome.objective_seconds) > 0.0:
+            objective_values.append(float(outcome.objective_seconds))
+        if outcome.total_seconds is not None:
+            total_values.append(float(outcome.total_seconds))
+    return {
+        "count": int(len(outcomes)),
+        "prepare_time_seconds": _series(prepare_values),
+        "simulation_time_seconds": _series(simulation_values),
+        "objective_time_seconds": _series(objective_values),
+        "total_time_seconds": _series(total_values),
+    }
 
 
 def _split_target_path(target: str) -> tuple[str, ...]:
@@ -2481,6 +2573,7 @@ def prepare_calibration_session(
     cfg: ModelCalibrationConfig,
 ) -> PreparedCalibrationSession:
     """Resolve one prepared calibration session from launcher config plus target simulation."""
+    t_start = time.perf_counter()
     raw_simulation_toml = load_toml_with_base_config(cfg.simulation_config_path)
     simulation_workspace = resolve_workspace_config(
         raw_simulation_toml,
@@ -2506,6 +2599,7 @@ def prepare_calibration_session(
         solver_families=solver_families,
         prepared_hydraulic_support=prepared_hydraulic_support,
     )
+    prepare_time_seconds = float(time.perf_counter() - t_start)
 
     return PreparedCalibrationSession(
         config_path=config_path,
@@ -2525,6 +2619,7 @@ def prepare_calibration_session(
         parameter_names=cfg.parameter_names,
         output_names=cfg.output_names,
         objective_block_names=cfg.objective_block_names,
+        prepare_time_seconds=prepare_time_seconds,
         prepared_hydraulic_support=prepared_hydraulic_support,
         prepared_output_selectors=prepared_output_selectors,
     )
@@ -2681,6 +2776,12 @@ def finalize_calibration_session(
 ) -> dict[str, Any]:
     """Persist the final calibration result and update the session manifest."""
     result_payload = serialize_calibration_result(result)
+    result_metadata = dict(result_payload.get("metadata", {}))
+    result_metadata["session_prepare_time_seconds"] = session.prepare_time_seconds
+    result_metadata["candidate_timing_summary"] = _summarize_candidate_run_timings(
+        evaluator.outcomes
+    )
+    result_payload["metadata"] = result_metadata
     result_path = session.calibration_root / "calibration_result.json"
     result_path.write_text(
         json.dumps(result_payload, indent=2, ensure_ascii=True) + "\n",
@@ -2708,6 +2809,10 @@ def finalize_calibration_session(
             "candidate_run_count": int(evaluator.candidate_run_count),
             "objective_cache_hit_count": int(evaluator.cache_hit_count),
             "restored_evaluation_count": int(evaluator.restored_evaluation_count),
+            "session_prepare_time_seconds": session.prepare_time_seconds,
+            "candidate_timing_summary": _summarize_candidate_run_timings(
+                evaluator.outcomes
+            ),
             "model_distribution": distribution_summary,
             "model_distribution_rerun": model_distribution_rerun_summary,
             "objective_mapping": objective_mapping_summary,
@@ -3143,6 +3248,11 @@ def execute_candidate_run(
     cfg: ModelCalibrationConfig | None = None,
 ) -> CandidateRunOutcome:
     """Execute one candidate simulation via a launcher factory."""
+    overall_start = time.perf_counter()
+    launcher_prepare_seconds = 0.0
+    runtime_patch_seconds = 0.0
+    simulation_seconds = 0.0
+    objective_seconds = 0.0
     try:
         launcher = None
         launcher_path = request.candidate_config_path
@@ -3150,6 +3260,7 @@ def execute_candidate_run(
         runtime_reusable = runtime_direct and _launcher_supports_runtime_reuse(
             launcher_factory
         )
+        launcher_prepare_start = time.perf_counter()
         if runtime_direct:
             launcher_path = request.session.simulation_config_path
             if runtime_reusable:
@@ -3161,11 +3272,14 @@ def execute_candidate_run(
                 launcher = launcher_factory(launcher_path)
         if launcher is None:
             launcher = launcher_factory(launcher_path)
+        launcher_prepare_seconds = float(time.perf_counter() - launcher_prepare_start)
         if runtime_direct:
+            runtime_patch_start = time.perf_counter()
             _prepare_runtime_direct_launcher(
                 launcher=launcher,
                 request=request,
             )
+            runtime_patch_seconds = float(time.perf_counter() - runtime_patch_start)
         setup_state = getattr(getattr(launcher, "run_state", None), "setup", None)
         if setup_state is not None:
             if request.property_array_set is not None:
@@ -3185,7 +3299,9 @@ def execute_candidate_run(
             run_callable = getattr(launcher, "run_prepared", None)
         if not callable(run_callable):
             run_callable = launcher.run
+        simulation_start = time.perf_counter()
         run_state = run_callable()
+        simulation_seconds = float(time.perf_counter() - simulation_start)
     except Exception as exc:
         return CandidateRunOutcome(
             request=request,
@@ -3193,6 +3309,11 @@ def execute_candidate_run(
             run_state=None,
             error_type=type(exc).__name__,
             error_message=f"{type(exc).__name__}: {exc}",
+            launcher_prepare_seconds=launcher_prepare_seconds,
+            runtime_patch_seconds=runtime_patch_seconds,
+            simulation_seconds=simulation_seconds,
+            objective_seconds=objective_seconds,
+            total_seconds=float(time.perf_counter() - overall_start),
         )
 
     if cfg is not None and _objective_has_observations(cfg):
@@ -3201,6 +3322,7 @@ def execute_candidate_run(
         _store = getattr(launcher, "_result_store", None)
         _sid = getattr(launcher, "_sim_id", None) if _store is not None else None
         try:
+            objective_start = time.perf_counter()
             objective_evaluation = evaluate_candidate_objective(
                 cfg=cfg,
                 run_state=run_state,
@@ -3208,6 +3330,7 @@ def execute_candidate_run(
                 result_store=_store,
                 store_sim_id=_sid,
             )
+            objective_seconds = float(time.perf_counter() - objective_start)
         except Exception as exc:
             return CandidateRunOutcome(
                 request=request,
@@ -3216,6 +3339,11 @@ def execute_candidate_run(
                 objective_evaluation=None,
                 error_type=type(exc).__name__,
                 error_message=f"{type(exc).__name__}: {exc}",
+                launcher_prepare_seconds=launcher_prepare_seconds,
+                runtime_patch_seconds=runtime_patch_seconds,
+                simulation_seconds=simulation_seconds,
+                objective_seconds=objective_seconds,
+                total_seconds=float(time.perf_counter() - overall_start),
             )
         return CandidateRunOutcome(
             request=request,
@@ -3224,6 +3352,11 @@ def execute_candidate_run(
             objective_evaluation=objective_evaluation,
             error_type=None,
             error_message=None,
+            launcher_prepare_seconds=launcher_prepare_seconds,
+            runtime_patch_seconds=runtime_patch_seconds,
+            simulation_seconds=simulation_seconds,
+            objective_seconds=objective_seconds,
+            total_seconds=float(time.perf_counter() - overall_start),
         )
     return CandidateRunOutcome(
         request=request,
@@ -3232,6 +3365,11 @@ def execute_candidate_run(
         objective_evaluation=None,
         error_type=None,
         error_message=None,
+        launcher_prepare_seconds=launcher_prepare_seconds,
+        runtime_patch_seconds=runtime_patch_seconds,
+        simulation_seconds=simulation_seconds,
+        objective_seconds=objective_seconds,
+        total_seconds=float(time.perf_counter() - overall_start),
     )
 
 

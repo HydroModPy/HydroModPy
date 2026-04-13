@@ -73,6 +73,8 @@ def render_regional_lab_template() -> str:
         'id = "backend_compare"',
         'label = "Backend comparison"',
         'launcher = "method-comparison"',
+        '# Optional: constrain recipes using platform-specific backends.',
+        '# allowed_platforms = ["linux"]',
         'families = ["headwater"]',
         'scales = ["100km2"]',
         'required_fields = ["backend_comparison_config"]',

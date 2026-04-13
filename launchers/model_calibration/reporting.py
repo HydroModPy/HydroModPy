@@ -255,12 +255,18 @@ def build_calibration_report(
             },
         },
         "runtime": {
+            "session_prepare_time_seconds": _safe_float(
+                manifest.get("session_prepare_time_seconds")
+            ),
             "candidate_run_count": int(manifest.get("candidate_run_count", 0)),
             "objective_cache_hit_count": int(
                 manifest.get("objective_cache_hit_count", 0)
             ),
             "restored_evaluation_count": int(
                 manifest.get("restored_evaluation_count", 0)
+            ),
+            "candidate_timing_summary": dict(
+                manifest.get("candidate_timing_summary", {})
             ),
             "rerun_best_with_outputs": bool(
                 cfg.model_calibration.rerun_best_with_outputs

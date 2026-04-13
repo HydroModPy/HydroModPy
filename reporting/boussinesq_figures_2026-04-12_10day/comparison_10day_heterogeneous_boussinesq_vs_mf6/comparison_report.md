@@ -3,7 +3,7 @@
 - Reference variant: `boussinesq_scipy_sparse`
 - Completed variants: 4 / 4
 - Observable rows: 34030
-- Comparable metric groups: 12
+- Comparable metric groups: 10
 - Unmatched row groups: 0
 
 ## Variants
@@ -22,18 +22,21 @@
 - `map_comparison` / `watertable_elevation_map`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\comparison_figures\watertable_elevation_map__map_comparison.png`
 - `difference_map` / `watertable_elevation_map`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\comparison_figures\watertable_elevation_map__difference__boussinesq_scipy_sparse__vs__boussinesq_petsc_partition.png`
 - `difference_map` / `watertable_elevation_map`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\comparison_figures\watertable_elevation_map__difference__boussinesq_scipy_sparse__vs__boussinesq_petsc_mixed.png`
-- `difference_map` / `watertable_elevation_map`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\comparison_figures\watertable_elevation_map__difference__boussinesq_scipy_sparse__vs__mf6_heterogeneous_10day.png`
 - `map_comparison` / `watertable_depth_map`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\comparison_figures\watertable_depth_map__map_comparison.png`
 - `difference_map` / `watertable_depth_map`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\comparison_figures\watertable_depth_map__difference__boussinesq_scipy_sparse__vs__boussinesq_petsc_partition.png`
 - `difference_map` / `watertable_depth_map`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\comparison_figures\watertable_depth_map__difference__boussinesq_scipy_sparse__vs__boussinesq_petsc_mixed.png`
-- `difference_map` / `watertable_depth_map`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\comparison_figures\watertable_depth_map__difference__boussinesq_scipy_sparse__vs__mf6_heterogeneous_10day.png`
 - `timeseries` / `head_reference_cell`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\comparison_figures\head_reference_cell__timeseries.png`
 - `timeseries` / `outlet_flux_series`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\comparison_figures\outlet_flux_series__timeseries.png`
+- `budget_diagnostics` / `budget`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\comparison_figures\boussinesq_petsc_mixed__budget_diagnostics.png`
+- `budget_diagnostics` / `budget`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\comparison_figures\boussinesq_petsc_partition__budget_diagnostics.png`
+- `budget_diagnostics` / `budget`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\comparison_figures\boussinesq_scipy_sparse__budget_diagnostics.png`
 
 ## Data Exports
 - `timeseries_long_csv`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\timeseries_long.csv`
 - `timeseries_wide_csv`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\timeseries_wide.csv`
 - `timeseries_delta_csv`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\timeseries_delta.csv`
+- `budget_timeseries_long_csv`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\budget_timeseries_long.csv`
+- `budget_timeseries_wide_csv`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\budget_timeseries_wide.csv`
 - `execution_times_csv`: `C:\codes\HydroModPy-GH\reporting\boussinesq_figures_2026-04-12_10day\comparison_10day_heterogeneous_boussinesq_vs_mf6\execution_times.csv`
 
 ## Metrics
@@ -47,10 +50,8 @@
 | boussinesq_petsc_partition | outlet_flux_series | m3/s | 38 | 0 | 0 | 0 | 0 | nan |
 | boussinesq_petsc_partition | watertable_depth_map | m | 4216 | 8.94152e-06 | 1.03899e-05 | 0.000277236 | 0.0170807 | 1.43315e-07 |
 | boussinesq_petsc_partition | watertable_elevation_map | m | 4216 | -8.94152e-06 | 1.03899e-05 | 0.000277236 | 0.0170807 | 1.2564e-07 |
-| mf6_heterogeneous_10day | head_reference_cell | m | 37 | 686.889 | 686.889 | 825.384 | 1458.26 | 9.5215 |
+| mf6_heterogeneous_10day | head_reference_cell | m | 6 | 60.5099 | 60.5099 | 105.113 | 229.235 | 0.794954 |
 | mf6_heterogeneous_10day | outlet_flux_series | m3/s | 37 | 0 | 0 | 0 | 0 | nan |
-| mf6_heterogeneous_10day | watertable_depth_map | m | 75 | -8.81326 | 8.81326 | 8.85395 | 10.7047 | 1 |
-| mf6_heterogeneous_10day | watertable_elevation_map | m | 75 | 692.269 | 692.269 | 1103.84 | 4206.21 | 10.8465 |
 
 ## Gaps
 - No unmatched rows.

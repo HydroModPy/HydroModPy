@@ -205,7 +205,17 @@ def _solver_color(solver: str) -> str:
 
 def _is_flux_like_name(name: str) -> bool:
     key = str(name).strip().lower()
-    return any(token in key for token in ("flux", "drain", "accumulation", "runoff"))
+    return any(
+        token in key
+        for token in (
+            "flux",
+            "drain",
+            "accumulation",
+            "runoff",
+            "surface_excess",
+            "saturation_excess",
+        )
+    )
 
 
 def _safe_float(value: Any) -> float | None:
@@ -744,14 +754,6 @@ def _write_timeseries_figure(
     unit: str,
     grouped_rows: list[dict[str, Any]],
 ) -> bool:
-    variant_keys = {
-        str(row.get("variant_id", ""))
-        for row in grouped_rows
-        if str(row.get("variant_id", "")) != ""
-    }
-    if len(variant_keys) < 2:
-        return False
-
     use_elapsed_seconds = all(
         _safe_float(row.get("elapsed_seconds")) is not None for row in grouped_rows
     )
@@ -1195,6 +1197,195 @@ def _write_flux_dashboard(
     return True
 
 
+def _budget_component_label(component: str) -> str:
+    labels = {
+        "recharge_total_m3_s": "Recharge",
+        "well_total_m3_s": "Wells",
+        "drainage_total_m3_s": "Drainage",
+        "surface_excess_total_m3_s": "Surface excess",
+        "storage_change_total_m3_s": "Storage change",
+        "closure_residual_m3_s": "Closure residual",
+    }
+    return labels.get(component, _pretty_label(component))
+
+
+def _budget_component_color(component: str) -> str:
+    palette = {
+        "recharge_total_m3_s": "#1f77b4",
+        "well_total_m3_s": "#8c564b",
+        "drainage_total_m3_s": "#ff7f0e",
+        "surface_excess_total_m3_s": "#d62728",
+        "storage_change_total_m3_s": "#2ca02c",
+        "closure_residual_m3_s": "#6b7280",
+        "outlet_flux_series": "#111827",
+    }
+    return palette.get(component, "#6b7280")
+
+
+def _write_budget_diagnostic_figure(
+    *,
+    path: Path,
+    variant_id: str,
+    variant_label: str,
+    budget_rows: list[Mapping[str, Any]],
+    rows: list[dict[str, Any]],
+) -> bool:
+    variant_budget_rows = [
+        row for row in budget_rows if str(row.get("variant_id", "")) == variant_id
+    ]
+    if not variant_budget_rows:
+        return False
+
+    use_elapsed_seconds = all(
+        _safe_float(row.get("elapsed_seconds")) is not None for row in variant_budget_rows
+    )
+    x_field = "elapsed_seconds" if use_elapsed_seconds else "time_index"
+    x_label = "Elapsed time [s]" if use_elapsed_seconds else "Time step"
+
+    component_groups: dict[str, list[tuple[float, float]]] = {}
+    time_labels: dict[int, str] = {}
+    for row in variant_budget_rows:
+        component = str(row.get("component", "")).strip()
+        x_value = _safe_float(row.get(x_field))
+        value = _safe_float(row.get("value"))
+        if not component or x_value is None or value is None:
+            continue
+        component_groups.setdefault(component, []).append((x_value, value))
+        time_index = _safe_float(row.get("time_index"))
+        label = str(row.get("time_label", "")).strip()
+        if time_index is not None and label:
+            time_labels[int(time_index)] = label
+
+    if not component_groups:
+        return False
+
+    outlet_points: list[tuple[float, float]] = []
+    for row in rows:
+        if str(row.get("variant_id", "")) != variant_id:
+            continue
+        if str(row.get("observable", "")) != "outlet_flux_series":
+            continue
+        if str(row.get("unit", "")) != "m3/s":
+            continue
+        x_value = _safe_float(row.get(x_field))
+        value = _safe_float(row.get("value"))
+        if x_value is None or value is None:
+            continue
+        outlet_points.append((x_value, value))
+
+    release_components = [
+        component
+        for component in (
+            "drainage_total_m3_s",
+            "surface_excess_total_m3_s",
+        )
+        if component in component_groups
+    ]
+    balance_components = [
+        component
+        for component in (
+            "recharge_total_m3_s",
+            "well_total_m3_s",
+            "storage_change_total_m3_s",
+            "closure_residual_m3_s",
+        )
+        if component in component_groups
+    ]
+    if not release_components and not balance_components and not outlet_points:
+        return False
+
+    figure, axes = plt.subplots(2, 1, figsize=(7.8, 6.8), sharex=True, squeeze=False)
+    release_ax, balance_ax = np.asarray(axes, dtype=object).ravel()
+    tick_positions: list[float] = []
+
+    for component in release_components:
+        ordered = sorted(component_groups[component], key=lambda item: item[0])
+        x_values = [item[0] for item in ordered]
+        y_values = [item[1] for item in ordered]
+        tick_positions.extend(x_values)
+        release_ax.step(
+            x_values,
+            y_values,
+            where="post",
+            linewidth=1.9,
+            color=_budget_component_color(component),
+            label=_budget_component_label(component),
+        )
+    if outlet_points:
+        ordered = sorted(outlet_points, key=lambda item: item[0])
+        x_values = [item[0] for item in ordered]
+        y_values = [item[1] for item in ordered]
+        tick_positions.extend(x_values)
+        release_ax.step(
+            x_values,
+            y_values,
+            where="post",
+            linewidth=1.7,
+            linestyle="--",
+            color=_budget_component_color("outlet_flux_series"),
+            label="Compared outlet flux",
+        )
+    release_ax.set_title("Release terms", fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left")
+    release_ax.set_ylabel("m3/s", fontsize=_LABEL_FONT_SIZE)
+    release_ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    release_ax.grid(True, alpha=0.18, linewidth=0.6)
+    release_ax.axhline(0.0, color="#9ca3af", linewidth=0.8, alpha=0.8)
+    if release_ax.lines:
+        legend = release_ax.legend(
+            loc="upper center",
+            bbox_to_anchor=(0.5, 1.32),
+            ncol=_legend_ncols(len(release_ax.lines)),
+            frameon=False,
+            fontsize=_LEGEND_FONT_SIZE,
+        )
+        for line in legend.get_lines():
+            line.set_linewidth(1.9)
+
+    for component in balance_components:
+        ordered = sorted(component_groups[component], key=lambda item: item[0])
+        x_values = [item[0] for item in ordered]
+        y_values = [item[1] for item in ordered]
+        tick_positions.extend(x_values)
+        linestyle = "--" if component == "closure_residual_m3_s" else "-"
+        balance_ax.step(
+            x_values,
+            y_values,
+            where="post",
+            linewidth=1.8,
+            linestyle=linestyle,
+            color=_budget_component_color(component),
+            label=_budget_component_label(component),
+        )
+    balance_ax.set_title("Inputs and storage", fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left")
+    balance_ax.set_ylabel("m3/s", fontsize=_LABEL_FONT_SIZE)
+    balance_ax.set_xlabel(x_label, fontsize=_LABEL_FONT_SIZE)
+    balance_ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    balance_ax.grid(True, alpha=0.18, linewidth=0.6)
+    balance_ax.axhline(0.0, color="#9ca3af", linewidth=0.8, alpha=0.8)
+    if balance_ax.lines:
+        legend = balance_ax.legend(
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.2),
+            ncol=_legend_ncols(len(balance_ax.lines)),
+            frameon=False,
+            fontsize=_LEGEND_FONT_SIZE,
+        )
+        for line in legend.get_lines():
+            line.set_linewidth(1.8)
+    tick_labels = [time_labels[index] for index in sorted(time_labels)] if time_labels else None
+    _apply_time_ticks(balance_ax, tick_positions=tick_positions, tick_labels=tick_labels)
+    figure.suptitle(
+        f"Budget diagnostics: {_display_variant_label(variant_id=variant_id, variant_label=variant_label)}",
+        fontsize=_TITLE_FONT_SIZE,
+        y=0.98,
+    )
+    figure.subplots_adjust(left=0.11, right=0.98, top=0.85, bottom=0.18, hspace=0.36)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return True
+
+
 def _resolve_fine_grid_bounds(
     *,
     payloads: list[MapPayload],
@@ -1456,6 +1647,7 @@ def generate_comparison_figures(
     comparison_root: Path,
     native_timeseries_rows: list[dict[str, Any]] | None = None,
     native_timeseries_delta_rows: list[dict[str, Any]] | None = None,
+    budget_rows: list[dict[str, Any]] | None = None,
     execution_rows: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Generate best-effort PNG comparisons from extracted observables."""
@@ -1501,7 +1693,7 @@ def generate_comparison_figures(
             if payload is not None:
                 payloads.append(payload)
 
-        if len(payloads) >= 2:
+        if len(payloads) >= 1:
             map_path = figure_root / f"{_slug(observable.name)}__map_comparison.png"
             _write_map_comparison_figure(
                 path=map_path,
@@ -1592,7 +1784,7 @@ def generate_comparison_figures(
                                         "path": str(raster_path),
                                     }
                                 )
-                    if len(regridded) >= 2:
+                    if len(regridded) >= 1:
                         fine_map_path = figure_root / (
                             f"{_slug(observable.name)}__fine_raster_map_comparison.png"
                         )
@@ -1754,6 +1946,35 @@ def generate_comparison_figures(
                 "path": str(flux_dashboard_path),
             }
         )
+
+    budget_long = list(budget_rows or [])
+    budget_variants = sorted(
+        {
+            (
+                str(row.get("variant_id", "")),
+                str(row.get("variant_label", row.get("variant_id", ""))),
+            )
+            for row in budget_long
+            if str(row.get("variant_id", "")) != ""
+        }
+    )
+    for variant_id, variant_label in budget_variants:
+        budget_path = figure_root / f"{_slug(variant_id)}__budget_diagnostics.png"
+        if _write_budget_diagnostic_figure(
+            path=budget_path,
+            variant_id=variant_id,
+            variant_label=variant_label,
+            budget_rows=budget_long,
+            rows=rows,
+        ):
+            artifacts.append(
+                {
+                    "kind": "budget_diagnostics",
+                    "observable": "budget",
+                    "variant_id": variant_id,
+                    "path": str(budget_path),
+                }
+            )
 
     if execution_rows:
         runtime_path = figure_root / "execution_time_comparison.png"
