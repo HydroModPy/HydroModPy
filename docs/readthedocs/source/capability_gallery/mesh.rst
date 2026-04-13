@@ -13,7 +13,7 @@ Current Coverage
 
 - Imported case families: 10 km2, Strahler 3, 100 km2, Strahler 3, 100 km2, headwater, 1000 km2.
 - Imported scales: 10 km2, 100 km2, 1000 km2.
-- Present variants: Geology + rivers, 30% buffer.
+- Present variants: Floor 200 m, target 200 m, Floor 340 m, target 200 m, Geology + rivers, 30% buffer.
 - Prepared but not yet versioned: none.
 
 Family Coverage
@@ -608,6 +608,68 @@ These tab sets group one repeated mesh family across several outlets imported fr
 
       See :doc:`the full case page <cases/mesh_1000km2_outlet_7_geology_rivers_buffer30>`.
 
+Comparable Variants
+-------------------
+
+These tab sets group the same support and outlet across multiple meshing policies.
+
+100 km2, outlet 27
+~~~~~~~~~~~~~~~~~~
+
+.. tab-set::
+
+   .. tab-item:: Floor 200 m, target 200 m
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_overview.png
+         :alt: 100 km2, headwater Mesh, Outlet 27, floor 200 m, river target 200 m overview
+         :width: 85%
+
+         Original mesh figure copied from the imported meshing run and reused directly in the documentation.
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_regional.png
+         :alt: 100 km2, headwater Mesh, Outlet 27, floor 200 m, river target 200 m regional context
+         :width: 35%
+
+         Regional framing figure copied from the imported meshing run.
+
+      **100 km2, headwater Mesh, Outlet 27, floor 200 m, river target 200 m**
+
+      Controlled outlet-27 comparison where the river refinement still targets 200 m and the global mesh floor is also lowered to 200 m, so the local river field can actually be expressed.
+
+      - Constraints mode: ``geology_rivers``
+      - Nodes: 1802
+      - Cells: 3560
+      - River edges: 458
+      - Geology interfaces: 321
+
+      See :doc:`the full case page <cases/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200>`.
+
+   .. tab-item:: Floor 340 m, target 200 m
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200_overview.png
+         :alt: 100 km2, headwater Mesh, Outlet 27, floor 340 m, river target 200 m overview
+         :width: 85%
+
+         Original mesh figure copied from the imported meshing run and reused directly in the documentation.
+
+      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200_regional.png
+         :alt: 100 km2, headwater Mesh, Outlet 27, floor 340 m, river target 200 m regional context
+         :width: 35%
+
+         Regional framing figure copied from the imported meshing run.
+
+      **100 km2, headwater Mesh, Outlet 27, floor 340 m, river target 200 m**
+
+      Controlled outlet-27 comparison where river refinement still targets 200 m, but the global mesh floor stays at 340 m and therefore clips the local river field.
+
+      - Constraints mode: ``geology_rivers``
+      - Nodes: 1684
+      - Cells: 3324
+      - River edges: 458
+      - Geology interfaces: 294
+
+      See :doc:`the full case page <cases/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200>`.
+
 .. grid:: 1 1 2 2
    :gutter: 2 2 3 3
 
@@ -670,6 +732,8 @@ These tab sets group one repeated mesh family across several outlets imported fr
    cases/mesh_s3_10km2_outlet_3_geology_rivers_buffer30
    cases/mesh_s3_10km2_outlet_4_geology_rivers_buffer30
    cases/mesh_s3_10km2_outlet_5_geology_rivers_buffer30
+   cases/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200
+   cases/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200
    cases/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30
    cases/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30
    cases/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30

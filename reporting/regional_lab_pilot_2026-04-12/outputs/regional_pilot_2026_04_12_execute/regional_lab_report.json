@@ -1,6 +1,6 @@
 {
   "schema_version": "regional_lab_report_v2",
-  "generated_at_utc": "2026-04-12T20:09:39.915937+00:00",
+  "generated_at_utc": "2026-04-12T20:21:18.886107+00:00",
   "lab_id": "regional_pilot_2026_04_12_execute",
   "config_path": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\config_regional_lab_pilot_execute.toml",
   "site_catalog_path": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\site_catalog_pilot_20.csv",
@@ -10,13 +10,13 @@
   "resume_from_report": true,
   "skip_completed_cases": true,
   "selected_site_count": 20,
-  "planned_case_count": 14,
-  "skipped_case_count": 27,
-  "executed_case_count": 3,
-  "reused_case_count": 0,
-  "successful_case_count": 1,
-  "failed_case_count": 2,
-  "pending_case_count": 11,
+  "planned_case_count": 12,
+  "skipped_case_count": 29,
+  "executed_case_count": 1,
+  "reused_case_count": 11,
+  "successful_case_count": 11,
+  "failed_case_count": 1,
+  "pending_case_count": 0,
   "all_passed": false,
   "selected_sites": [
     {
@@ -1449,10 +1449,10 @@
         "simulation",
         "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
       ],
-      "status": "ok",
+      "status": "skipped_existing_ok",
       "returncode": 0,
-      "duration_seconds": 230.703651,
-      "reused_from_report": false,
+      "duration_seconds": 0.0,
+      "reused_from_report": true,
       "child_artifacts": {
         "child_artifact_kind": "simulation",
         "child_artifact_status": "resolved",
@@ -1465,100 +1465,6 @@
         "child_success": true,
         "child_mesh_output_mesh": "C:\\codes\\HydroModPy-GH\\examples\\mesh_gallery\\100km2\\mesh_headwater_100km2_outlet_2_geology_rivers_buffer30\\bundle\\mesh_2d.msh",
         "child_mesh_output_exchange_bundle_dir": "C:\\codes\\HydroModPy-GH\\examples\\mesh_gallery\\100km2\\mesh_headwater_100km2_outlet_2_geology_rivers_buffer30\\bundle"
-      }
-    },
-    {
-      "case_id": "headwater_backend_compare::headwater_100km2_outlet_2",
-      "site_id": "headwater_100km2_outlet_2",
-      "site_label": "Headwater 100 km2 outlet 2",
-      "cluster_id": "headwater_100km2",
-      "cluster_label": "Headwater 100 km2",
-      "cluster_family": "headwater",
-      "cluster_scale": "100km2",
-      "region_id": "brittany",
-      "site_status": "ready",
-      "maturity": "validated",
-      "site_tags": [
-        "regional_headwater",
-        "simulation_ready",
-        "backend_ready",
-        "transient_ready"
-      ],
-      "cluster_tags": [],
-      "tags": [
-        "regional_headwater",
-        "simulation_ready",
-        "backend_ready",
-        "transient_ready"
-      ],
-      "recipe_id": "headwater_backend_compare",
-      "recipe_label": "Headwater backend comparison",
-      "launcher": "method-comparison",
-      "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_backends.toml",
-      "command": [
-        "C:\\Python312\\python.exe",
-        "-m",
-        "launchers",
-        "method-comparison",
-        "run",
-        "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_backends.toml"
-      ],
-      "status": "failed",
-      "returncode": 1,
-      "duration_seconds": 47.373707,
-      "reused_from_report": false,
-      "child_artifacts": {
-        "child_artifact_kind": "method_comparison",
-        "child_artifact_status": "config_parse_failed",
-        "child_artifact_error_type": "AttributeError",
-        "child_artifact_error_message": "from_file"
-      }
-    },
-    {
-      "case_id": "headwater_transient_backend_compare::headwater_100km2_outlet_2",
-      "site_id": "headwater_100km2_outlet_2",
-      "site_label": "Headwater 100 km2 outlet 2",
-      "cluster_id": "headwater_100km2",
-      "cluster_label": "Headwater 100 km2",
-      "cluster_family": "headwater",
-      "cluster_scale": "100km2",
-      "region_id": "brittany",
-      "site_status": "ready",
-      "maturity": "validated",
-      "site_tags": [
-        "regional_headwater",
-        "simulation_ready",
-        "backend_ready",
-        "transient_ready"
-      ],
-      "cluster_tags": [],
-      "tags": [
-        "regional_headwater",
-        "simulation_ready",
-        "backend_ready",
-        "transient_ready"
-      ],
-      "recipe_id": "headwater_transient_backend_compare",
-      "recipe_label": "Headwater transient backend comparison",
-      "launcher": "method-comparison",
-      "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml",
-      "command": [
-        "C:\\Python312\\python.exe",
-        "-m",
-        "launchers",
-        "method-comparison",
-        "run",
-        "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
-      ],
-      "status": "failed",
-      "returncode": 1,
-      "duration_seconds": 41.275618,
-      "reused_from_report": false,
-      "child_artifacts": {
-        "child_artifact_kind": "method_comparison",
-        "child_artifact_status": "config_parse_failed",
-        "child_artifact_error_type": "AttributeError",
-        "child_artifact_error_message": "from_file"
       }
     },
     {
@@ -1596,11 +1502,27 @@
         "simulation",
         "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\child_configs\\run_headwater_100km2_outlet_27_boussinesq_local_mesh_replay.toml"
       ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
+      "status": "failed",
+      "returncode": 1,
+      "duration_seconds": 22.760358,
       "reused_from_report": false,
-      "child_artifacts": {}
+      "child_artifacts": {
+        "child_artifact_kind": "simulation",
+        "child_artifact_status": "resolved",
+        "child_project_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\headwater_100km2_outlet_27",
+        "child_output_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\headwater_100km2_outlet_27",
+        "child_run_id": "headwater_100km2_outlet_27_local_boussinesq_mesh_replay",
+        "child_run_folder": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\headwater_100km2_outlet_27\\results_simulations\\headwater_100km2_outlet_27_local_boussinesq_mesh_replay",
+        "child_boussinesq_summary_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\headwater_100km2_outlet_27\\results_simulations\\flow_main__boussinesq\\_boussinesq_summary.json",
+        "child_runtime_backend": "scipy_sparse",
+        "child_runtime_engine": "scipy_sparse",
+        "child_n_cells": 4312,
+        "child_solve_stage": "failed",
+        "child_steady_residual_norm_inf": 0.37140287080295437,
+        "child_steady_nonlinear_iterations": 200,
+        "child_surface_peak_active_fraction": 0.6110853432282004,
+        "child_surface_final_total_m3_day": 767497.2093295399
+      }
     },
     {
       "case_id": "s3_future_reference::s3_10km2_outlet_10",
@@ -1637,11 +1559,32 @@
         "simulation",
         "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\child_configs\\run_s3_10km2_outlet_10_boussinesq_local_mesh_replay.toml"
       ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
-      "reused_from_report": false,
-      "child_artifacts": {}
+      "status": "skipped_existing_ok",
+      "returncode": 0,
+      "duration_seconds": 0.0,
+      "reused_from_report": true,
+      "child_artifacts": {
+        "child_artifact_kind": "simulation",
+        "child_artifact_status": "resolved",
+        "child_project_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_10",
+        "child_output_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_10",
+        "child_run_id": "s3_10km2_outlet_10_local_boussinesq_mesh_replay",
+        "child_run_folder": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_10\\results_simulations\\s3_10km2_outlet_10_local_boussinesq_mesh_replay",
+        "child_metrics_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_10\\results_simulations\\s3_10km2_outlet_10_local_boussinesq_mesh_replay\\_metrics.json",
+        "child_wall_time_seconds": 4.95,
+        "child_success": true,
+        "child_mesh_output_mesh": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_10\\mesh_catchment_outlet_10.msh",
+        "child_mesh_output_exchange_bundle_dir": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_10\\mesh_catchment_outlet_10_bundle",
+        "child_boussinesq_summary_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_10\\results_simulations\\flow_main__boussinesq\\_boussinesq_summary.json",
+        "child_runtime_backend": "scipy_sparse",
+        "child_runtime_engine": "scipy_sparse",
+        "child_n_cells": 1030,
+        "child_solve_stage": "solved",
+        "child_steady_residual_norm_inf": 9.242941411746264e-08,
+        "child_steady_nonlinear_iterations": 20,
+        "child_surface_peak_active_fraction": 0.09805825242718447,
+        "child_surface_final_total_m3_day": 24494.57182093173
+      }
     },
     {
       "case_id": "s3_future_reference::s3_10km2_outlet_11",
@@ -1678,11 +1621,32 @@
         "simulation",
         "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\child_configs\\run_s3_10km2_outlet_11_boussinesq_local_mesh_replay.toml"
       ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
-      "reused_from_report": false,
-      "child_artifacts": {}
+      "status": "skipped_existing_ok",
+      "returncode": 0,
+      "duration_seconds": 0.0,
+      "reused_from_report": true,
+      "child_artifacts": {
+        "child_artifact_kind": "simulation",
+        "child_artifact_status": "resolved",
+        "child_project_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_11",
+        "child_output_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_11",
+        "child_run_id": "s3_10km2_outlet_11_local_boussinesq_mesh_replay",
+        "child_run_folder": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_11\\results_simulations\\s3_10km2_outlet_11_local_boussinesq_mesh_replay",
+        "child_metrics_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_11\\results_simulations\\s3_10km2_outlet_11_local_boussinesq_mesh_replay\\_metrics.json",
+        "child_wall_time_seconds": 5.27,
+        "child_success": true,
+        "child_mesh_output_mesh": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_11\\mesh_catchment_outlet_11.msh",
+        "child_mesh_output_exchange_bundle_dir": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_11\\mesh_catchment_outlet_11_bundle",
+        "child_boussinesq_summary_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_11\\results_simulations\\flow_main__boussinesq\\_boussinesq_summary.json",
+        "child_runtime_backend": "scipy_sparse",
+        "child_runtime_engine": "scipy_sparse",
+        "child_n_cells": 1304,
+        "child_solve_stage": "solved",
+        "child_steady_residual_norm_inf": 8.563936444759904e-08,
+        "child_steady_nonlinear_iterations": 28,
+        "child_surface_peak_active_fraction": 0.04141104294478527,
+        "child_surface_final_total_m3_day": 30326.455099700124
+      }
     },
     {
       "case_id": "s3_future_reference::s3_10km2_outlet_12",
@@ -1719,11 +1683,32 @@
         "simulation",
         "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\child_configs\\run_s3_10km2_outlet_12_boussinesq_local_mesh_replay.toml"
       ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
-      "reused_from_report": false,
-      "child_artifacts": {}
+      "status": "skipped_existing_ok",
+      "returncode": 0,
+      "duration_seconds": 0.0,
+      "reused_from_report": true,
+      "child_artifacts": {
+        "child_artifact_kind": "simulation",
+        "child_artifact_status": "resolved",
+        "child_project_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_12",
+        "child_output_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_12",
+        "child_run_id": "s3_10km2_outlet_12_local_boussinesq_mesh_replay",
+        "child_run_folder": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_12\\results_simulations\\s3_10km2_outlet_12_local_boussinesq_mesh_replay",
+        "child_metrics_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_12\\results_simulations\\s3_10km2_outlet_12_local_boussinesq_mesh_replay\\_metrics.json",
+        "child_wall_time_seconds": 3.53,
+        "child_success": true,
+        "child_mesh_output_mesh": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_12\\mesh_catchment_outlet_12.msh",
+        "child_mesh_output_exchange_bundle_dir": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_12\\mesh_catchment_outlet_12_bundle",
+        "child_boussinesq_summary_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_12\\results_simulations\\flow_main__boussinesq\\_boussinesq_summary.json",
+        "child_runtime_backend": "scipy_sparse",
+        "child_runtime_engine": "scipy_sparse",
+        "child_n_cells": 1196,
+        "child_solve_stage": "solved",
+        "child_steady_residual_norm_inf": 7.974752989003617e-08,
+        "child_steady_nonlinear_iterations": 19,
+        "child_surface_peak_active_fraction": 0.27842809364548493,
+        "child_surface_final_total_m3_day": 32659.15940068115
+      }
     },
     {
       "case_id": "s3_future_reference::s3_10km2_outlet_13",
@@ -1760,11 +1745,32 @@
         "simulation",
         "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\child_configs\\run_s3_10km2_outlet_13_boussinesq_local_mesh_replay.toml"
       ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
-      "reused_from_report": false,
-      "child_artifacts": {}
+      "status": "skipped_existing_ok",
+      "returncode": 0,
+      "duration_seconds": 0.0,
+      "reused_from_report": true,
+      "child_artifacts": {
+        "child_artifact_kind": "simulation",
+        "child_artifact_status": "resolved",
+        "child_project_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_13",
+        "child_output_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_13",
+        "child_run_id": "s3_10km2_outlet_13_local_boussinesq_mesh_replay",
+        "child_run_folder": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_13\\results_simulations\\s3_10km2_outlet_13_local_boussinesq_mesh_replay",
+        "child_metrics_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_13\\results_simulations\\s3_10km2_outlet_13_local_boussinesq_mesh_replay\\_metrics.json",
+        "child_wall_time_seconds": 2.47,
+        "child_success": true,
+        "child_mesh_output_mesh": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_13\\mesh_catchment_outlet_13.msh",
+        "child_mesh_output_exchange_bundle_dir": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_13\\mesh_catchment_outlet_13_bundle",
+        "child_boussinesq_summary_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_13\\results_simulations\\flow_main__boussinesq\\_boussinesq_summary.json",
+        "child_runtime_backend": "scipy_sparse",
+        "child_runtime_engine": "scipy_sparse",
+        "child_n_cells": 944,
+        "child_solve_stage": "solved",
+        "child_steady_residual_norm_inf": 6.348253132350788e-08,
+        "child_steady_nonlinear_iterations": 21,
+        "child_surface_peak_active_fraction": 0.09639830508474577,
+        "child_surface_final_total_m3_day": 25495.58504752496
+      }
     },
     {
       "case_id": "s3_future_reference::s3_10km2_outlet_14",
@@ -1801,11 +1807,32 @@
         "simulation",
         "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\child_configs\\run_s3_10km2_outlet_14_boussinesq_local_mesh_replay.toml"
       ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
-      "reused_from_report": false,
-      "child_artifacts": {}
+      "status": "skipped_existing_ok",
+      "returncode": 0,
+      "duration_seconds": 0.0,
+      "reused_from_report": true,
+      "child_artifacts": {
+        "child_artifact_kind": "simulation",
+        "child_artifact_status": "resolved",
+        "child_project_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_14",
+        "child_output_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_14",
+        "child_run_id": "s3_10km2_outlet_14_local_boussinesq_mesh_replay",
+        "child_run_folder": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_14\\results_simulations\\s3_10km2_outlet_14_local_boussinesq_mesh_replay",
+        "child_metrics_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_14\\results_simulations\\s3_10km2_outlet_14_local_boussinesq_mesh_replay\\_metrics.json",
+        "child_wall_time_seconds": 6.7,
+        "child_success": true,
+        "child_mesh_output_mesh": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_14\\mesh_catchment_outlet_14.msh",
+        "child_mesh_output_exchange_bundle_dir": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_14\\mesh_catchment_outlet_14_bundle",
+        "child_boussinesq_summary_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_14\\results_simulations\\flow_main__boussinesq\\_boussinesq_summary.json",
+        "child_runtime_backend": "scipy_sparse",
+        "child_runtime_engine": "scipy_sparse",
+        "child_n_cells": 1146,
+        "child_solve_stage": "solved",
+        "child_steady_residual_norm_inf": 8.553810452180746e-08,
+        "child_steady_nonlinear_iterations": 32,
+        "child_surface_peak_active_fraction": 0.1212914485165794,
+        "child_surface_final_total_m3_day": 30151.414404391402
+      }
     },
     {
       "case_id": "s3_future_reference::s3_10km2_outlet_2",
@@ -1842,11 +1869,32 @@
         "simulation",
         "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\child_configs\\run_s3_10km2_outlet_2_boussinesq_local_mesh_replay.toml"
       ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
-      "reused_from_report": false,
-      "child_artifacts": {}
+      "status": "skipped_existing_ok",
+      "returncode": 0,
+      "duration_seconds": 0.0,
+      "reused_from_report": true,
+      "child_artifacts": {
+        "child_artifact_kind": "simulation",
+        "child_artifact_status": "resolved",
+        "child_project_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_2",
+        "child_output_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_2",
+        "child_run_id": "s3_10km2_outlet_2_local_boussinesq_mesh_replay",
+        "child_run_folder": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_2\\results_simulations\\s3_10km2_outlet_2_local_boussinesq_mesh_replay",
+        "child_metrics_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_2\\results_simulations\\s3_10km2_outlet_2_local_boussinesq_mesh_replay\\_metrics.json",
+        "child_wall_time_seconds": 5.31,
+        "child_success": true,
+        "child_mesh_output_mesh": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_2\\mesh_catchment_outlet_2.msh",
+        "child_mesh_output_exchange_bundle_dir": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_2\\mesh_catchment_outlet_2_bundle",
+        "child_boussinesq_summary_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_2\\results_simulations\\flow_main__boussinesq\\_boussinesq_summary.json",
+        "child_runtime_backend": "scipy_sparse",
+        "child_runtime_engine": "scipy_sparse",
+        "child_n_cells": 1110,
+        "child_solve_stage": "solved",
+        "child_steady_residual_norm_inf": 9.541204366338152e-08,
+        "child_steady_nonlinear_iterations": 23,
+        "child_surface_peak_active_fraction": 0.24684684684684685,
+        "child_surface_final_total_m3_day": 27949.94982698677
+      }
     },
     {
       "case_id": "s3_future_reference::s3_10km2_outlet_6",
@@ -1883,11 +1931,32 @@
         "simulation",
         "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\child_configs\\run_s3_10km2_outlet_6_boussinesq_local_mesh_replay.toml"
       ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
-      "reused_from_report": false,
-      "child_artifacts": {}
+      "status": "skipped_existing_ok",
+      "returncode": 0,
+      "duration_seconds": 0.0,
+      "reused_from_report": true,
+      "child_artifacts": {
+        "child_artifact_kind": "simulation",
+        "child_artifact_status": "resolved",
+        "child_project_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_6",
+        "child_output_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_6",
+        "child_run_id": "s3_10km2_outlet_6_local_boussinesq_mesh_replay",
+        "child_run_folder": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_6\\results_simulations\\s3_10km2_outlet_6_local_boussinesq_mesh_replay",
+        "child_metrics_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_6\\results_simulations\\s3_10km2_outlet_6_local_boussinesq_mesh_replay\\_metrics.json",
+        "child_wall_time_seconds": 13.48,
+        "child_success": true,
+        "child_mesh_output_mesh": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_6\\mesh_catchment_outlet_6.msh",
+        "child_mesh_output_exchange_bundle_dir": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_6\\mesh_catchment_outlet_6_bundle",
+        "child_boussinesq_summary_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_6\\results_simulations\\flow_main__boussinesq\\_boussinesq_summary.json",
+        "child_runtime_backend": "scipy_sparse",
+        "child_runtime_engine": "scipy_sparse",
+        "child_n_cells": 1176,
+        "child_solve_stage": "solved",
+        "child_steady_residual_norm_inf": 8.788523743182095e-08,
+        "child_steady_nonlinear_iterations": 57,
+        "child_surface_peak_active_fraction": 0.1284013605442177,
+        "child_surface_final_total_m3_day": 26492.013157302194
+      }
     },
     {
       "case_id": "s3_future_reference::s3_10km2_outlet_7",
@@ -1924,11 +1993,32 @@
         "simulation",
         "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\child_configs\\run_s3_10km2_outlet_7_boussinesq_local_mesh_replay.toml"
       ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
-      "reused_from_report": false,
-      "child_artifacts": {}
+      "status": "skipped_existing_ok",
+      "returncode": 0,
+      "duration_seconds": 0.0,
+      "reused_from_report": true,
+      "child_artifacts": {
+        "child_artifact_kind": "simulation",
+        "child_artifact_status": "resolved",
+        "child_project_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_7",
+        "child_output_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_7",
+        "child_run_id": "s3_10km2_outlet_7_local_boussinesq_mesh_replay",
+        "child_run_folder": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_7\\results_simulations\\s3_10km2_outlet_7_local_boussinesq_mesh_replay",
+        "child_metrics_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_7\\results_simulations\\s3_10km2_outlet_7_local_boussinesq_mesh_replay\\_metrics.json",
+        "child_wall_time_seconds": 2.38,
+        "child_success": true,
+        "child_mesh_output_mesh": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_7\\mesh_catchment_outlet_7.msh",
+        "child_mesh_output_exchange_bundle_dir": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_7\\mesh_catchment_outlet_7_bundle",
+        "child_boussinesq_summary_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_7\\results_simulations\\flow_main__boussinesq\\_boussinesq_summary.json",
+        "child_runtime_backend": "scipy_sparse",
+        "child_runtime_engine": "scipy_sparse",
+        "child_n_cells": 942,
+        "child_solve_stage": "solved",
+        "child_steady_residual_norm_inf": 9.757486686971968e-08,
+        "child_steady_nonlinear_iterations": 16,
+        "child_surface_peak_active_fraction": 0.09023354564755838,
+        "child_surface_final_total_m3_day": 23954.946388724056
+      }
     },
     {
       "case_id": "s3_future_reference::s3_10km2_outlet_8",
@@ -1965,11 +2055,32 @@
         "simulation",
         "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\child_configs\\run_s3_10km2_outlet_8_boussinesq_local_mesh_replay.toml"
       ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
-      "reused_from_report": false,
-      "child_artifacts": {}
+      "status": "skipped_existing_ok",
+      "returncode": 0,
+      "duration_seconds": 0.0,
+      "reused_from_report": true,
+      "child_artifacts": {
+        "child_artifact_kind": "simulation",
+        "child_artifact_status": "resolved",
+        "child_project_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_8",
+        "child_output_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_8",
+        "child_run_id": "s3_10km2_outlet_8_local_boussinesq_mesh_replay",
+        "child_run_folder": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_8\\results_simulations\\s3_10km2_outlet_8_local_boussinesq_mesh_replay",
+        "child_metrics_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_8\\results_simulations\\s3_10km2_outlet_8_local_boussinesq_mesh_replay\\_metrics.json",
+        "child_wall_time_seconds": 2.86,
+        "child_success": true,
+        "child_mesh_output_mesh": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_8\\mesh_catchment_outlet_8.msh",
+        "child_mesh_output_exchange_bundle_dir": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_8\\mesh_catchment_outlet_8_bundle",
+        "child_boussinesq_summary_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_8\\results_simulations\\flow_main__boussinesq\\_boussinesq_summary.json",
+        "child_runtime_backend": "scipy_sparse",
+        "child_runtime_engine": "scipy_sparse",
+        "child_n_cells": 1112,
+        "child_solve_stage": "solved",
+        "child_steady_residual_norm_inf": 9.793935706777014e-08,
+        "child_steady_nonlinear_iterations": 20,
+        "child_surface_peak_active_fraction": 0.07014388489208633,
+        "child_surface_final_total_m3_day": 25019.208514740556
+      }
     },
     {
       "case_id": "s3_future_reference::s3_10km2_outlet_9",
@@ -2006,11 +2117,32 @@
         "simulation",
         "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\child_configs\\run_s3_10km2_outlet_9_boussinesq_local_mesh_replay.toml"
       ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
-      "reused_from_report": false,
-      "child_artifacts": {}
+      "status": "skipped_existing_ok",
+      "returncode": 0,
+      "duration_seconds": 0.0,
+      "reused_from_report": true,
+      "child_artifacts": {
+        "child_artifact_kind": "simulation",
+        "child_artifact_status": "resolved",
+        "child_project_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_9",
+        "child_output_root": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_9",
+        "child_run_id": "s3_10km2_outlet_9_local_boussinesq_mesh_replay",
+        "child_run_folder": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_9\\results_simulations\\s3_10km2_outlet_9_local_boussinesq_mesh_replay",
+        "child_metrics_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_9\\results_simulations\\s3_10km2_outlet_9_local_boussinesq_mesh_replay\\_metrics.json",
+        "child_wall_time_seconds": 3.14,
+        "child_success": true,
+        "child_mesh_output_mesh": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_9\\mesh_catchment_outlet_9.msh",
+        "child_mesh_output_exchange_bundle_dir": "C:\\Users\\dreuzy\\HydroModPy\\mesh_catchment_runs\\s3_10km2\\mesh_outlet_9\\mesh_catchment_outlet_9_bundle",
+        "child_boussinesq_summary_json": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\outputs\\child_runs\\s3_10km2_outlet_9\\results_simulations\\flow_main__boussinesq\\_boussinesq_summary.json",
+        "child_runtime_backend": "scipy_sparse",
+        "child_runtime_engine": "scipy_sparse",
+        "child_n_cells": 1128,
+        "child_solve_stage": "solved",
+        "child_steady_residual_norm_inf": 5.664614368089231e-08,
+        "child_steady_nonlinear_iterations": 24,
+        "child_surface_peak_active_fraction": 0.1347517730496454,
+        "child_surface_final_total_m3_day": 30710.47352178991
+      }
     }
   ],
   "skipped_cases": [
@@ -2250,11 +2382,34 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
+      "config_path": null
+    },
+    {
+      "case_id": "headwater_backend_compare::headwater_100km2_outlet_2",
+      "site_id": "headwater_100km2_outlet_2",
+      "site_label": "Headwater 100 km2 outlet 2",
+      "cluster_id": "headwater_100km2",
+      "cluster_label": "Headwater 100 km2",
+      "cluster_family": "headwater",
+      "cluster_scale": "100km2",
+      "region_id": "brittany",
+      "site_status": "ready",
+      "maturity": "validated",
+      "tags": [
+        "regional_headwater",
+        "simulation_ready",
+        "backend_ready",
+        "transient_ready"
       ],
+      "recipe_id": "headwater_backend_compare",
+      "recipe_label": "Headwater backend comparison",
+      "launcher": "method-comparison",
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2277,11 +2432,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2301,11 +2454,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2325,11 +2476,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2349,11 +2498,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2373,11 +2520,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2397,11 +2542,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2421,11 +2564,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2445,11 +2586,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2469,11 +2608,34 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
+      "config_path": null
+    },
+    {
+      "case_id": "headwater_transient_backend_compare::headwater_100km2_outlet_2",
+      "site_id": "headwater_100km2_outlet_2",
+      "site_label": "Headwater 100 km2 outlet 2",
+      "cluster_id": "headwater_100km2",
+      "cluster_label": "Headwater 100 km2",
+      "cluster_family": "headwater",
+      "cluster_scale": "100km2",
+      "region_id": "brittany",
+      "site_status": "ready",
+      "maturity": "validated",
+      "tags": [
+        "regional_headwater",
+        "simulation_ready",
+        "backend_ready",
+        "transient_ready"
       ],
+      "recipe_id": "headwater_transient_backend_compare",
+      "recipe_label": "Headwater transient backend comparison",
+      "launcher": "method-comparison",
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2496,11 +2658,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2520,11 +2680,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2544,11 +2702,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2568,11 +2724,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2592,11 +2746,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2616,11 +2768,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2640,11 +2790,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2664,11 +2812,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     }
   ],

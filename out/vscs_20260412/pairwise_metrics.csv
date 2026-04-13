@@ -1,0 +1,10 @@
+case_id,case_title,solver_left,solver_right,pairwise_profile_rmse_m,pairwise_max_abs_error_m,pairwise_mean_abs_error_m
+dupuit_fixed_head_1d,Dupuit fixed-head 1D,modflownwt,modflow6,0.005391324526678093,0.007791212062127961,0.004780257823235545
+dupuit_fixed_head_1d,Dupuit fixed-head 1D,modflownwt,boussinesq,0.044920410978118816,0.09937956956620475,0.03704545555114107
+dupuit_fixed_head_1d,Dupuit fixed-head 1D,modflow6,boussinesq,0.04290920580089237,0.09937956956620475,0.03535520946675545
+dupuit_uniform_recharge_1d,Dupuit uniform recharge 1D,modflownwt,modflow6,0.007017299434350707,0.008463001765253608,0.006572638039760581
+dupuit_uniform_recharge_1d,Dupuit uniform recharge 1D,modflownwt,boussinesq,0.07019515273452948,0.07347839241773091,0.07016700800965447
+dupuit_uniform_recharge_1d,Dupuit uniform recharge 1D,modflow6,boussinesq,0.06374227206383931,0.07347839241773091,0.0635943699698939
+boussinesq_fixed_head_piecewise_k_1d,Boussinesq fixed-head piecewise-K 1D,modflownwt,modflow6,0.0034717783974323574,0.005903756141721672,0.0029423431886765883
+boussinesq_fixed_head_piecewise_k_1d,Boussinesq fixed-head piecewise-K 1D,modflownwt,boussinesq,0.0317831541385918,0.07141710918120037,0.02543953624923596
+boussinesq_fixed_head_piecewise_k_1d,Boussinesq fixed-head piecewise-K 1D,modflow6,boussinesq,0.030687607820322246,0.07141710918120037,0.024330882822517563

@@ -187,6 +187,7 @@ class RegionalLabRecipeConfig:
     enabled: bool
     selection: RegionalLabSelectionConfig
     required_fields: tuple[str, ...]
+    allowed_platforms: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -402,6 +403,10 @@ class RegionalLabConfig:
                         recipe_mapping.get("required_fields"),
                         label=f"regional_lab.recipe[{recipe_id}].required_fields",
                     ),
+                    allowed_platforms=_normalize_text_list(
+                        recipe_mapping.get("allowed_platforms"),
+                        label=f"regional_lab.recipe[{recipe_id}].allowed_platforms",
+                    ),
                 )
             )
 
@@ -476,4 +481,3 @@ def _parse_selection(
         ),
         include_disabled=bool(raw_mapping.get("include_disabled", include_disabled_default)),
     )
-

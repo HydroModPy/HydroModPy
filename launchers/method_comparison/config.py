@@ -78,6 +78,7 @@ class MethodComparisonObservableSchema(BaseModel):
     name: str
     variable: str
     source: Literal["disk"] = "disk"
+    variants: list[str] | None = None
     support: Literal["point", "outlet", "boundary", "cell_mask", "map"] = "point"
     anchor_id: str | None = None
     x: float | None = None
@@ -128,6 +129,25 @@ class MethodComparisonObservableSchema(BaseModel):
         if any(index < 0 for index in indices):
             raise ValueError("method_comparison.observable.cell_indices must be >= 0")
         return indices
+
+    @field_validator("variants")
+    @classmethod
+    def _validate_variants(cls, value: object) -> list[str] | None:
+        if value is None:
+            return None
+        if not isinstance(value, list) or not value:
+            raise ValueError(
+                "method_comparison.observable.variants must be a non-empty list"
+            )
+        cleaned = []
+        for item in value:
+            text = str(item).strip()
+            if not text:
+                raise ValueError(
+                    "method_comparison.observable.variants cannot contain empty ids"
+                )
+            cleaned.append(text)
+        return cleaned
 
     @model_validator(mode="after")
     def _validate_support_specific_fields(self) -> "MethodComparisonObservableSchema":
@@ -220,6 +240,17 @@ class MethodComparisonSectionSchema(BaseModel):
             raise ValueError(
                 "method_comparison.reference_variant must match a declared variant id"
             )
+        variant_ids = set(ids)
+        for observable in self.observable:
+            if observable.variants is None:
+                continue
+            missing = sorted(set(observable.variants) - variant_ids)
+            if missing:
+                missing_text = ", ".join(missing)
+                raise ValueError(
+                    "method_comparison.observable.variants contains unknown ids: "
+                    f"{missing_text}"
+                )
         return self
 
 

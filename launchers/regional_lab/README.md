@@ -32,9 +32,11 @@ The current version supports:
 - `simulation` and `method-comparison` child launchers;
 - `config_path_template` placeholders based on site metadata;
 - recipe-level `required_fields` to distinguish runnable cases from coverage gaps;
+- recipe-level `allowed_platforms` to skip platform-specific child recipes cleanly
+  when the current runtime is incompatible;
 - resume/skip semantics based on an existing `regional_lab_report.json`;
 - synthesis artifacts: site inventory, case matrix, recipe/cluster/region/family/scale summaries,
-  plus one Markdown executive summary.
+  execution metrics, plus one Markdown executive summary.
 
 ## CLI
 
@@ -84,6 +86,11 @@ usable mesh asset while still being unsuitable for one replay recipe.
 
 Use `execute = false` first to verify the expanded plan and resolved config
 paths. Once the plan looks correct, switch to `execute = true`.
+
+When one recipe depends on a platform-specific child backend, declare it
+explicitly with `allowed_platforms = ["linux"]` or `["windows"]` so the
+regional-lab report records an `unsupported_platform` coverage gap instead of
+an avoidable child failure.
 
 ## Versioned Example
 

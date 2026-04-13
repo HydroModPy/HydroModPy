@@ -5,7 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from validation_cases.calibration.plotting import write_suite_figures
+from validation_cases.calibration.plotting import (
+    write_case_configuration_figure,
+    write_case_method_figures,
+    write_suite_figures,
+)
 from validation_cases.calibration.run_benchmarks import (
     _materialize_method_stat_rows,
     _write_method_stats_summary,
@@ -19,7 +23,10 @@ from validation_cases.calibration.shared.definitions import (
     TwinCalibrationCaseDefinition,
     TwinMethodBenchmarkResult,
 )
-from validation_cases.calibration.shared.runtime import _apply_evaluation_budget
+from validation_cases.calibration.shared.runtime import (
+    _apply_evaluation_budget,
+    _prune_benchmark_artifacts,
+)
 
 
 def _make_result(
@@ -220,3 +227,133 @@ def test_benchmark_suite_writers_emit_extended_outputs(tmp_path: Path) -> None:
     report_text = report_path.read_text(encoding="utf-8")
     assert "Calibration Twin Benchmark Suite" in report_text
     assert "random_search" in report_text
+
+
+def test_case_method_figures_and_minimal_pruning(tmp_path: Path) -> None:
+    benchmark_root = tmp_path / "case_a"
+    calibration_root = benchmark_root / "project" / "results_calibration" / "method_a"
+    calibration_root.mkdir(parents=True, exist_ok=True)
+    history_path = calibration_root / "iteration_history.jsonl"
+    history_rows = [
+        {
+            "iteration_id": "iter_0001",
+            "params_vector": [0.9],
+            "params_named": {"K": 0.9},
+            "objective_total": 2.0,
+            "block_costs": {"flux": 2.0},
+            "status": "objective_evaluated",
+            "failure_reason": None,
+        },
+        {
+            "iteration_id": "iter_0002",
+            "params_vector": [1.0],
+            "params_named": {"K": 1.0},
+            "objective_total": 0.2,
+            "block_costs": {"flux": 0.2},
+            "status": "objective_evaluated",
+            "failure_reason": None,
+        },
+        {
+            "iteration_id": "iter_0003",
+            "params_vector": [1.1],
+            "params_named": {"K": 1.1},
+            "objective_total": 1.0,
+            "block_costs": {"flux": 1.0},
+            "status": "objective_evaluated",
+            "failure_reason": None,
+        },
+    ]
+    history_path.write_text(
+        "\n".join(json.dumps(row, ensure_ascii=True) for row in history_rows) + "\n",
+        encoding="utf-8",
+    )
+    distribution_path = calibration_root / "model_distribution.json"
+    distribution_path.write_text(
+        json.dumps(
+            {
+                "samples": [
+                    {"params_named": {"K": 0.98}},
+                    {"params_named": {"K": 1.01}},
+                ]
+            },
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    definition = TwinCalibrationCaseDefinition(
+        case_id="case_a",
+        solver_name="modflow6",
+        regime="steady",
+        description="demo",
+        truth_params={"K": 1.0},
+        bounds={"K": (0.8, 1.2)},
+        parameter_abs_tolerances={"K": 0.1},
+        output_names=("q",),
+        method_profiles=(),
+        fast=True,
+    )
+    configuration_figure = write_case_configuration_figure(
+        benchmark_root=benchmark_root,
+        definition=definition,
+        simulation_config_path=benchmark_root / "simulation.toml",
+        truth_simulation_config_path=benchmark_root / "simulation.toml",
+        artifact_retention="minimal",
+    )
+    assert configuration_figure is not None
+    assert configuration_figure.is_file()
+
+    result = TwinMethodBenchmarkResult(
+        method_name="random_search",
+        method_instance_name="random_search_seed007",
+        success_metric="best_fit_or_distribution",
+        effective_method_kwargs={"seed": 7},
+        requested_evaluation_budget=8,
+        calibration_id="calibration_a",
+        calibration_root=calibration_root,
+        result_path=None,
+        cost_best=0.2,
+        iteration_count=3,
+        n_evaluations=3,
+        params_best={"K": 1.0},
+        param_abs_error={"K": 0.0},
+        recovered_truth=True,
+        iteration_history_path=history_path,
+        model_distribution_path=distribution_path,
+        model_distribution_sample_count=2,
+        truth_in_distribution=True,
+    )
+
+    figure_paths = write_case_method_figures(
+        benchmark_root=benchmark_root,
+        definition=definition,
+        result=result,
+    )
+
+    assert "objective_trace" in figure_paths
+    assert "objective_landscape" in figure_paths
+    assert figure_paths["objective_trace"].is_file()
+    assert figure_paths["objective_landscape"].is_file()
+
+    results_simulations = benchmark_root / "project" / "results_simulations"
+    results_stable = benchmark_root / "project" / "results_stable"
+    project_truth = benchmark_root / "project_truth"
+    (results_simulations / "dummy").mkdir(parents=True, exist_ok=True)
+    (results_stable / "dummy").mkdir(parents=True, exist_ok=True)
+    (benchmark_root / "project" / "hydromodpy_debug.log").write_text(
+        "x",
+        encoding="utf-8",
+    )
+    (project_truth / "results_simulations").mkdir(parents=True, exist_ok=True)
+    (project_truth / "results_stable").mkdir(parents=True, exist_ok=True)
+    (project_truth / "hydromodpy_debug.log").write_text("x", encoding="utf-8")
+
+    removed = _prune_benchmark_artifacts(
+        benchmark_root=benchmark_root,
+        retention="minimal",
+    )
+
+    assert removed
+    assert not results_simulations.exists()
+    assert not results_stable.exists()
+    assert calibration_root.exists()

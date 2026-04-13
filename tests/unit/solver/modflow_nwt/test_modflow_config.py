@@ -253,6 +253,11 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
                 "[modflow6.runtime]",
                 'mf6_executable_name = "mf6_custom"',
                 'mf6_ims_complexity = "SIMPLE"',
+                "mf6_enable_rewet = true",
+                "mf6_rewet_wetdry = 0.05",
+                "",
+                "[modflow6.process_specific]",
+                "evt_extinction_depth = 2.5",
             ]
         ),
         encoding="utf-8",
@@ -262,3 +267,6 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
     assert cfg.solver.solver_engine == SolverEngine.MODFLOW6
     assert cfg.modflow6.runtime.mf6_executable_name == "mf6_custom"
     assert cfg.modflow6.runtime.mf6_ims_complexity == "SIMPLE"
+    assert cfg.modflow6.runtime.mf6_enable_rewet is True
+    assert cfg.modflow6.runtime.mf6_rewet_wetdry == pytest.approx(0.05)
+    assert cfg.modflow6.process_specific.evt_extinction_depth == pytest.approx(2.5)

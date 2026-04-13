@@ -1,0 +1,108 @@
+[simulation]
+name = "LU hillslope drainage val"
+description = "Synthetic steady-state unconfined flow with fixed heads, linear topography, and uniform top drainage."
+run_id = "hillslope_surface_offset_05cm_modflow6"
+
+[[simulation.process]]
+id = "flow_validation"
+type = "flow"
+solvers = ["modflow6"]
+
+[workspace]
+project_root = "."
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "val_lu_hillslope_drainage"
+
+[geographic.synthetic.grid]
+length_x = "100.0 m"
+length_y = "10.0 m"
+nx = 50
+ny = 5
+
+[geographic.synthetic.topography]
+kind = "linear"
+base_elevation = 5.0
+right_to_left_amplitude = 2.0
+
+[domain]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "30.0 m"
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = []
+active_bc = ["west_side", "east_side", "drainage"]
+param_list = ["K"]
+
+[flow.param]
+
+[flow.param.K]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+
+[flow.param.K.field_homogeneous]
+value = "1e-4 m/s"
+
+[flow.ic]
+type = "custom"
+value = "6.050000 m"
+
+[flow.bc]
+
+[flow.bc.dirichlet]
+
+[flow.bc.dirichlet.west_side]
+type = "dirichlet"
+value = "7.050000 m"
+
+[flow.bc.dirichlet.east_side]
+type = "dirichlet"
+value = "5.050000 m"
+
+[flow.bc.cauchy]
+
+[flow.bc.cauchy.drainage]
+application_domain = "top"
+type = "cauchy"
+value = "1e-05 m2/s"
+
+[modflownwt]
+
+[modflownwt.sgrid]
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 50
+ny = 5
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+[display]
+enabled = false
+
+[modflow6]
+
+[modflow6.runtime]
+mf_verbose = false
+mf6_ims_complexity = "COMPLEX"
+
+[modflow6.sgrid]
+
+[modflow6.sgrid.planar]
+mode = "resample_to_shape"
+nx = 50
+ny = 5
+resampling = "nearest"
+
+[modflow6.sgrid.vertical]
+nlay = 1

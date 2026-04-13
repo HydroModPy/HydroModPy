@@ -31,6 +31,9 @@ def test_calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6_recovers_tru
     )
 
     assert benchmark.summary_path.is_file()
+    assert benchmark.configuration_figure is not None
+    assert benchmark.configuration_figure.is_file()
+    assert benchmark.pruned_artifacts
     assert benchmark.simulation_config_path.is_file()
     assert benchmark.truth_simulation_config_path.is_file()
     assert benchmark.simulation_config_path != benchmark.truth_simulation_config_path
@@ -41,7 +44,15 @@ def test_calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6_recovers_tru
         assert result.meets_success_target, result.to_mapping()
         assert result.cost_best is not None
         assert math.isfinite(float(result.cost_best)), result.to_mapping()
+        assert result.session_prepare_time_seconds is not None
+        assert result.mean_candidate_total_time_seconds is not None
+        assert result.mean_candidate_preparation_time_seconds is not None
+        assert result.mean_candidate_simulation_time_seconds is not None
         assert "K_global_factor" in result.param_abs_error
+        assert result.objective_trace_figure is not None
+        assert result.objective_trace_figure.is_file()
+        assert result.objective_landscape_figure is not None
+        assert result.objective_landscape_figure.is_file()
 
     deterministic = [
         result
@@ -57,4 +68,3 @@ def test_calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6_recovers_tru
     )
     assert random_result.model_distribution_sample_count >= 1
     assert random_result.truth_in_distribution is True
-

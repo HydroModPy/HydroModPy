@@ -1,6 +1,6 @@
 {
   "schema_version": "regional_lab_report_v2",
-  "generated_at_utc": "2026-04-12T20:04:20.021162+00:00",
+  "generated_at_utc": "2026-04-12T20:20:53.230626+00:00",
   "lab_id": "regional_pilot_2026_04_12",
   "config_path": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\config_regional_lab_pilot.toml",
   "site_catalog_path": "C:\\codes\\HydroModPy-GH\\reporting\\regional_lab_pilot_2026-04-12\\site_catalog_pilot_20.csv",
@@ -10,13 +10,13 @@
   "resume_from_report": true,
   "skip_completed_cases": true,
   "selected_site_count": 20,
-  "planned_case_count": 14,
-  "skipped_case_count": 27,
+  "planned_case_count": 12,
+  "skipped_case_count": 29,
   "executed_case_count": 0,
   "reused_case_count": 0,
   "successful_case_count": 0,
   "failed_case_count": 0,
-  "pending_case_count": 14,
+  "pending_case_count": 12,
   "all_passed": false,
   "selected_sites": [
     {
@@ -1456,90 +1456,6 @@
       "child_artifacts": {}
     },
     {
-      "case_id": "headwater_backend_compare::headwater_100km2_outlet_2",
-      "site_id": "headwater_100km2_outlet_2",
-      "site_label": "Headwater 100 km2 outlet 2",
-      "cluster_id": "headwater_100km2",
-      "cluster_label": "Headwater 100 km2",
-      "cluster_family": "headwater",
-      "cluster_scale": "100km2",
-      "region_id": "brittany",
-      "site_status": "ready",
-      "maturity": "validated",
-      "site_tags": [
-        "regional_headwater",
-        "simulation_ready",
-        "backend_ready",
-        "transient_ready"
-      ],
-      "cluster_tags": [],
-      "tags": [
-        "regional_headwater",
-        "simulation_ready",
-        "backend_ready",
-        "transient_ready"
-      ],
-      "recipe_id": "headwater_backend_compare",
-      "recipe_label": "Headwater backend comparison",
-      "launcher": "method-comparison",
-      "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_backends.toml",
-      "command": [
-        "C:\\Python312\\python.exe",
-        "-m",
-        "launchers",
-        "method-comparison",
-        "run",
-        "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_backends.toml"
-      ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
-      "reused_from_report": false,
-      "child_artifacts": {}
-    },
-    {
-      "case_id": "headwater_transient_backend_compare::headwater_100km2_outlet_2",
-      "site_id": "headwater_100km2_outlet_2",
-      "site_label": "Headwater 100 km2 outlet 2",
-      "cluster_id": "headwater_100km2",
-      "cluster_label": "Headwater 100 km2",
-      "cluster_family": "headwater",
-      "cluster_scale": "100km2",
-      "region_id": "brittany",
-      "site_status": "ready",
-      "maturity": "validated",
-      "site_tags": [
-        "regional_headwater",
-        "simulation_ready",
-        "backend_ready",
-        "transient_ready"
-      ],
-      "cluster_tags": [],
-      "tags": [
-        "regional_headwater",
-        "simulation_ready",
-        "backend_ready",
-        "transient_ready"
-      ],
-      "recipe_id": "headwater_transient_backend_compare",
-      "recipe_label": "Headwater transient backend comparison",
-      "launcher": "method-comparison",
-      "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml",
-      "command": [
-        "C:\\Python312\\python.exe",
-        "-m",
-        "launchers",
-        "method-comparison",
-        "run",
-        "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
-      ],
-      "status": "planned",
-      "returncode": null,
-      "duration_seconds": null,
-      "reused_from_report": false,
-      "child_artifacts": {}
-    },
-    {
       "case_id": "headwater_local_boussinesq_replay::headwater_100km2_outlet_27",
       "site_id": "headwater_100km2_outlet_27",
       "site_label": "Headwater 100 km2 outlet 27",
@@ -2228,11 +2144,34 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
+      "config_path": null
+    },
+    {
+      "case_id": "headwater_backend_compare::headwater_100km2_outlet_2",
+      "site_id": "headwater_100km2_outlet_2",
+      "site_label": "Headwater 100 km2 outlet 2",
+      "cluster_id": "headwater_100km2",
+      "cluster_label": "Headwater 100 km2",
+      "cluster_family": "headwater",
+      "cluster_scale": "100km2",
+      "region_id": "brittany",
+      "site_status": "ready",
+      "maturity": "validated",
+      "tags": [
+        "regional_headwater",
+        "simulation_ready",
+        "backend_ready",
+        "transient_ready"
       ],
+      "recipe_id": "headwater_backend_compare",
+      "recipe_label": "Headwater backend comparison",
+      "launcher": "method-comparison",
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2255,11 +2194,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2279,11 +2216,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2303,11 +2238,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2327,11 +2260,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2351,11 +2282,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2375,11 +2304,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2399,11 +2326,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2423,11 +2348,9 @@
       "recipe_id": "headwater_backend_compare",
       "recipe_label": "Headwater backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): backend_comparison_config",
-      "missing_fields": [
-        "backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2447,11 +2370,34 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
+      "config_path": null
+    },
+    {
+      "case_id": "headwater_transient_backend_compare::headwater_100km2_outlet_2",
+      "site_id": "headwater_100km2_outlet_2",
+      "site_label": "Headwater 100 km2 outlet 2",
+      "cluster_id": "headwater_100km2",
+      "cluster_label": "Headwater 100 km2",
+      "cluster_family": "headwater",
+      "cluster_scale": "100km2",
+      "region_id": "brittany",
+      "site_status": "ready",
+      "maturity": "validated",
+      "tags": [
+        "regional_headwater",
+        "simulation_ready",
+        "backend_ready",
+        "transient_ready"
       ],
+      "recipe_id": "headwater_transient_backend_compare",
+      "recipe_label": "Headwater transient backend comparison",
+      "launcher": "method-comparison",
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2474,11 +2420,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2498,11 +2442,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2522,11 +2464,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2546,11 +2486,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2570,11 +2508,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2594,11 +2530,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2618,11 +2552,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     },
     {
@@ -2642,11 +2574,9 @@
       "recipe_id": "headwater_transient_backend_compare",
       "recipe_label": "Headwater transient backend comparison",
       "launcher": "method-comparison",
-      "reason": "missing_required_fields",
-      "detail": "Missing required field(s): transient_backend_comparison_config",
-      "missing_fields": [
-        "transient_backend_comparison_config"
-      ],
+      "reason": "unsupported_platform",
+      "detail": "Recipe only supports platform(s): linux. Current platform: windows",
+      "missing_fields": [],
       "config_path": null
     }
   ],

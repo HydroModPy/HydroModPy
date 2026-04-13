@@ -135,6 +135,19 @@ def _materialize_suite_rows(benchmarks) -> list[dict[str, object]]:
                 "cost_best": result.cost_best,
                 "calibration_time_seconds": result.calibration_time_seconds,
                 "time_per_evaluation_seconds": result.time_per_evaluation_seconds,
+                "session_prepare_time_seconds": result.session_prepare_time_seconds,
+                "mean_candidate_total_time_seconds": (
+                    result.mean_candidate_total_time_seconds
+                ),
+                "mean_candidate_preparation_time_seconds": (
+                    result.mean_candidate_preparation_time_seconds
+                ),
+                "mean_candidate_simulation_time_seconds": (
+                    result.mean_candidate_simulation_time_seconds
+                ),
+                "mean_candidate_objective_time_seconds": (
+                    result.mean_candidate_objective_time_seconds
+                ),
                 "failed_iteration_count": result.failed_iteration_count,
                 "candidate_run_count": result.candidate_run_count,
                 "objective_cache_hit_count": result.objective_cache_hit_count,
@@ -144,6 +157,16 @@ def _materialize_suite_rows(benchmarks) -> list[dict[str, object]]:
                 ),
                 "benchmark_root": str(benchmark.benchmark_root),
                 "calibration_root": str(result.calibration_root),
+                "objective_trace_figure": (
+                    None
+                    if result.objective_trace_figure is None
+                    else str(result.objective_trace_figure)
+                ),
+                "objective_landscape_figure": (
+                    None
+                    if result.objective_landscape_figure is None
+                    else str(result.objective_landscape_figure)
+                ),
             }
             for name, value in result.param_abs_error.items():
                 row[f"param_abs_error__{name}"] = value
@@ -203,10 +226,35 @@ def _materialize_method_stat_rows(benchmarks) -> list[dict[str, object]]:
             for item in results
             if item.calibration_time_seconds is not None
         ]
+        session_prepare_times = [
+            float(item.session_prepare_time_seconds)
+            for item in results
+            if item.session_prepare_time_seconds is not None
+        ]
         time_per_eval_values = [
             float(item.time_per_evaluation_seconds)
             for item in results
             if item.time_per_evaluation_seconds is not None
+        ]
+        mean_candidate_total_times = [
+            float(item.mean_candidate_total_time_seconds)
+            for item in results
+            if item.mean_candidate_total_time_seconds is not None
+        ]
+        mean_candidate_prepare_times = [
+            float(item.mean_candidate_preparation_time_seconds)
+            for item in results
+            if item.mean_candidate_preparation_time_seconds is not None
+        ]
+        mean_candidate_simulation_times = [
+            float(item.mean_candidate_simulation_time_seconds)
+            for item in results
+            if item.mean_candidate_simulation_time_seconds is not None
+        ]
+        mean_candidate_objective_times = [
+            float(item.mean_candidate_objective_time_seconds)
+            for item in results
+            if item.mean_candidate_objective_time_seconds is not None
         ]
         failed_iterations = [float(item.failed_iteration_count) for item in results]
         cache_hit_rates = [
@@ -236,8 +284,21 @@ def _materialize_method_stat_rows(benchmarks) -> list[dict[str, object]]:
             "mean_iteration_count": _safe_mean(iteration_counts),
             "mean_calibration_time_seconds": _safe_mean(calibration_times),
             "std_calibration_time_seconds": _safe_std(calibration_times),
+            "mean_session_prepare_time_seconds": _safe_mean(session_prepare_times),
             "mean_time_per_evaluation_seconds": _safe_mean(time_per_eval_values),
             "std_time_per_evaluation_seconds": _safe_std(time_per_eval_values),
+            "mean_candidate_total_time_seconds": _safe_mean(
+                mean_candidate_total_times
+            ),
+            "mean_candidate_preparation_time_seconds": _safe_mean(
+                mean_candidate_prepare_times
+            ),
+            "mean_candidate_simulation_time_seconds": _safe_mean(
+                mean_candidate_simulation_times
+            ),
+            "mean_candidate_objective_time_seconds": _safe_mean(
+                mean_candidate_objective_times
+            ),
             "mean_failed_iteration_count": _safe_mean(failed_iterations),
             "mean_objective_cache_hit_rate": _safe_mean(cache_hit_rates),
             "mean_model_distribution_sample_count": _safe_mean(
@@ -419,15 +480,20 @@ def _write_suite_report(
     for benchmark in benchmarks:
         lines.append(
             f"- `{benchmark.definition.case_id}` "
-            f"({benchmark.definition.regime}, solver={benchmark.definition.solver_name}, fast={benchmark.definition.fast})"
+            f"({benchmark.definition.regime}, solver={benchmark.definition.solver_name}, "
+            f"fast={benchmark.definition.fast}, retention={benchmark.artifact_retention})"
         )
+        if benchmark.pruned_artifacts:
+            lines.append(
+                f"  - pruned heavy artifacts: {len(benchmark.pruned_artifacts)}"
+            )
     lines.extend(
         [
             "",
             "## Method Summary",
             "",
-            "| Case | Method | Success Metric | Target Success | Best Fit | Mean Cost | Mean Eval | Mean Time/Eval (s) |",
-            "|---|---|---:|---:|---:|---:|---:|---:|",
+            "| Case | Method | Success Metric | Target Success | Best Fit | Mean Cost | Mean Eval | Session Prep (s) | Model Prep (s) | Model Sim (s) | Mean Time/Eval (s) |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for row in method_rows:
@@ -449,6 +515,21 @@ def _write_suite_report(
                         ""
                         if row["mean_n_evaluations"] is None
                         else f"{float(row['mean_n_evaluations']):.2f}"
+                    ),
+                    (
+                        ""
+                        if row["mean_session_prepare_time_seconds"] is None
+                        else f"{float(row['mean_session_prepare_time_seconds']):.3f}"
+                    ),
+                    (
+                        ""
+                        if row["mean_candidate_preparation_time_seconds"] is None
+                        else f"{float(row['mean_candidate_preparation_time_seconds']):.3f}"
+                    ),
+                    (
+                        ""
+                        if row["mean_candidate_simulation_time_seconds"] is None
+                        else f"{float(row['mean_candidate_simulation_time_seconds']):.3f}"
                     ),
                     (
                         ""
@@ -509,6 +590,17 @@ def main(argv: list[str] | None = None) -> None:
         default="png",
         help="Raster format used for generated suite figures (default: png).",
     )
+    parser.add_argument(
+        "--artifact-retention",
+        default="minimal",
+        choices=("minimal", "full"),
+        help="Retention mode for per-case benchmark artifacts (default: minimal).",
+    )
+    parser.add_argument(
+        "--no-case-figures",
+        action="store_true",
+        help="Skip per-case objective figures while keeping suite-level summaries.",
+    )
     args = parser.parse_args(argv)
 
     if args.fast_only and args.slow_only:
@@ -534,15 +626,29 @@ def main(argv: list[str] | None = None) -> None:
             caller_file=Path(__file__),
             method_names=None if args.method is None else tuple(args.method),
             evaluation_budget=args.evaluation_budget,
+            artifact_retention=str(args.artifact_retention),
+            case_figures=not bool(args.no_case_figures),
+            figure_format=str(args.figure_format),
         )
         benchmarks.append(benchmark)
         print(f"[{definition.case_id}] summary={benchmark.summary_path}")
+        if benchmark.configuration_figure is not None:
+            print(f"  configuration={benchmark.configuration_figure}")
+        if benchmark.pruned_artifacts:
+            print(
+                f"  pruned_artifacts={len(benchmark.pruned_artifacts)} "
+                f"retention={benchmark.artifact_retention}"
+            )
         for result in benchmark.method_results:
             print(
                 f"  {result.method_instance_name}: meets_success_target={result.meets_success_target} "
                 f"recovered_truth={result.recovered_truth} "
                 f"n_eval={result.n_evaluations} cost_best={result.cost_best}"
             )
+            if result.objective_trace_figure is not None:
+                print(f"    trace={result.objective_trace_figure}")
+            if result.objective_landscape_figure is not None:
+                print(f"    landscape={result.objective_landscape_figure}")
     suite_paths = _write_suite_summary(benchmarks)
     if suite_paths is not None:
         json_path, csv_path = suite_paths

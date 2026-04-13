@@ -1,0 +1,7 @@
+{
+  "wall_time_seconds": 0.5,
+  "solvers": [
+    "modflownwt"
+  ],
+  "success": true
+}
