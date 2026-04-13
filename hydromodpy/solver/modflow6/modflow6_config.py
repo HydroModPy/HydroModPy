@@ -135,32 +135,6 @@ def _coerce_modflow6_config(
 
 
 @dataclass(frozen=True)
-class Modflow6RuntimeParams:
-    """Runtime container for MODFLOW 6 package settings."""
-
-    mf6_executable_name: str = "mf6"
-    mf6_ims_complexity: str = "COMPLEX"
-    mf_verbose: bool = False
-    mf6_outer_dvclose: float = 1e-4
-    mf6_inner_dvclose: float = 1e-4
-    mf6_outer_maximum: int = 500
-    mf6_inner_maximum: int = 500
-    mf6_enable_rewet: bool | None = None
-    mf6_rewet_wetfct: float = 0.1
-    mf6_rewet_iwetit: int = 1
-    mf6_rewet_ihdwet: int = 0
-    mf6_rewet_wetdry: float = 0.1
-
-
-@dataclass(frozen=True)
-class Modflow6ProcessSpecificParams:
-    """Runtime container for process-specific MODFLOW 6 settings."""
-
-    vka: float = 1.0
-    evt_extinction_depth: float = 1.0
-
-
-@dataclass(frozen=True)
 class Modflow6SpecifParams:
     """Runtime container grouped by MODFLOW 6 configuration section.
 
