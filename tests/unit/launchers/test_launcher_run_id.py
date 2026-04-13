@@ -14,7 +14,7 @@ from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
 from hydromodpy.workflow.steps.setup import step_setup
 from hydromodpy.workflow.steps.mesh import step_mesh_input
 
-from launchers.process_simulation.launcher import HydroModPyLauncher
+from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
 
 
 def _make_launcher_test_workspace_root(
@@ -589,35 +589,35 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(
         )
 
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.HydroModPyConfig.from_toml",
+        "hydromodpy.workflow.pipelines.process_simulation.HydroModPyConfig.from_toml",
         lambda _: cfg,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.apply_explicit_time_window_to_tgrids",
+        "hydromodpy.workflow.pipelines.process_simulation.apply_explicit_time_window_to_tgrids",
         lambda _: None,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.require_flow_simulation_time_grid",
+        "hydromodpy.workflow.pipelines.process_simulation.require_flow_simulation_time_grid",
         lambda _: SimpleNamespace(window=SimpleNamespace()),
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.load_toml_with_base_config",
+        "hydromodpy.workflow.pipelines.process_simulation.load_toml_with_base_config",
         lambda _: {"mesh_catchment": {"constraints_mode": "rivers_only"}},
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.prepare_geographic_config_for_meshing",
+        "hydromodpy.workflow.pipelines.process_simulation.prepare_geographic_config_for_meshing",
         lambda geographic_cfg, *, constraints_mode: geographic_cfg,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.build_default_spatial_support_provider_registry",
+        "hydromodpy.workflow.pipelines.process_simulation.build_default_spatial_support_provider_registry",
         lambda: {},
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher._build_data_plan",
+        "hydromodpy.workflow.pipelines.process_simulation._build_data_plan",
         lambda *args, **kwargs: _DummyPlanner().build(*args, **kwargs),
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.PostprocessRunner",
+        "hydromodpy.workflow.pipelines.process_simulation.PostprocessRunner",
         _DummyPostprocessRunner,
     )
     monkeypatch.setattr(
@@ -661,7 +661,7 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.SimulationPlanner",
+        "hydromodpy.workflow.pipelines.process_simulation.SimulationPlanner",
         lambda: _DummySimulationPlanner(),
     )
     monkeypatch.setattr(
@@ -811,31 +811,31 @@ def test_run_uses_external_mesh_input_phase_and_skips_embedded_workflow(
         return mesh_sentinel
 
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.HydroModPyConfig.from_toml",
+        "hydromodpy.workflow.pipelines.process_simulation.HydroModPyConfig.from_toml",
         lambda _: cfg,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.apply_explicit_time_window_to_tgrids",
+        "hydromodpy.workflow.pipelines.process_simulation.apply_explicit_time_window_to_tgrids",
         lambda _: None,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.require_flow_simulation_time_grid",
+        "hydromodpy.workflow.pipelines.process_simulation.require_flow_simulation_time_grid",
         lambda _: SimpleNamespace(window=SimpleNamespace()),
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.load_toml_with_base_config",
+        "hydromodpy.workflow.pipelines.process_simulation.load_toml_with_base_config",
         lambda _: {"mesh_input": {"mesh_path": "inputs/external_mesh.msh"}},
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.build_default_spatial_support_provider_registry",
+        "hydromodpy.workflow.pipelines.process_simulation.build_default_spatial_support_provider_registry",
         lambda: {},
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher._build_data_plan",
+        "hydromodpy.workflow.pipelines.process_simulation._build_data_plan",
         lambda *args, **kwargs: _DummyPlanner().build(*args, **kwargs),
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.PostprocessRunner",
+        "hydromodpy.workflow.pipelines.process_simulation.PostprocessRunner",
         _DummyPostprocessRunner,
     )
     monkeypatch.setattr(
@@ -879,7 +879,7 @@ def test_run_uses_external_mesh_input_phase_and_skips_embedded_workflow(
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.SimulationPlanner",
+        "hydromodpy.workflow.pipelines.process_simulation.SimulationPlanner",
         lambda: _DummySimulationPlanner(),
     )
     monkeypatch.setattr(

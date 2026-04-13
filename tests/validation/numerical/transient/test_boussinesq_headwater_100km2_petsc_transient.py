@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from launchers import HydroModPyLauncher
+from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
 
 
 def _require_linux_petsc4py() -> None:

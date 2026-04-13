@@ -12,7 +12,7 @@ from typing import Any
 
 import numpy as np
 
-from launchers import HydroModPyLauncher
+from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
 from hydromodpy.analysis.calibration.engine.launcher import ModelCalibrationLauncher
 from hydromodpy.analysis.calibration.engine.session import (
     actualize_candidate,
