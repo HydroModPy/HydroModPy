@@ -146,6 +146,18 @@ class RunArtifacts:
         """Create a run artifact from a directory name."""
         return cls(run_id=run_dir.name, run_dir=run_dir)
 
+    def base_raster(self, geographic: GeographicArtifacts) -> Path | None:
+        """Return the best available base raster for map overlays.
+
+        Checks for a solver grid template on disk first, then falls back
+        to the geographic watershed DEM path.
+        """
+        if self.run_dir is not None:
+            solver_tpl = self.run_dir / "_solver_grid_template.tif"
+            if solver_tpl.exists():
+                return solver_tpl
+        return geographic.watershed_dem
+
 
 @dataclass(frozen=True)
 class PosthocContext:

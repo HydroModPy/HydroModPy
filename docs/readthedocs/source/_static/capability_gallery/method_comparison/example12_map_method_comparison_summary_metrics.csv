@@ -1,0 +1,3 @@
+variant_id,reference_variant,observable,unit,n_pairs,bias,mae,rmse,max_abs_error,mean_relative_error
+boussinesq_reused_gmsh,mf6_gmsh_existing,watertable_depth_map,m,669,0.45613621718528596,0.45613621718528596,0.7506749809800943,2.348416379644064,5.4532589345374225
+boussinesq_reused_gmsh,mf6_gmsh_existing,watertable_elevation_map,m,669,-0.46503988972689475,0.46503988972689475,0.7512330456180012,2.348416379644064,0.0038824871997713627

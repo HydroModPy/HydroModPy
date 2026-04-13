@@ -63,11 +63,12 @@ def _write_tmp_config(work_root: Path) -> Path:
 @pytest.mark.slow
 def test_run_reference_river_network_nancon_case(
     monkeypatch: pytest.MonkeyPatch,
+    hydromodpy_test_scratch_root: Path,
 ) -> None:
     """Build one river-network case and check core outputs exist."""
     configure_whitebox_single_thread(monkeypatch)
     work_root = (
-        Path.cwd()
+        hydromodpy_test_scratch_root
         / "tmp"
         / "unit"
         / f"reference_river_network_nancon_case_{uuid4().hex}"

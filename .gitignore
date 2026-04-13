@@ -87,6 +87,7 @@ coverage.xml
 # Type checking
 # ──────────────────────────────────────────────
 .mypy_cache/
+.ruff_cache/
 .dmypy.json
 dmypy.json
 .pyre/
@@ -162,6 +163,8 @@ mesh-sim-int-*/
 river_trace_smoke_*/
 hydromodpy/solver/utils/mesh/gmsh_grid/cases/**/scratch_tests/
 validation_cases/**/.__validation_runtime_*.toml
+launchers/mesh_catchment/outputs/
+launchers/mesh_catchment/scratch_tests/
 launchers/mesh_catchment/._run*.toml
 launchers/mesh_catchment/._debug*.toml
 hydromodpy_annex/preprocess/catchment_identification_scan/._run*.toml

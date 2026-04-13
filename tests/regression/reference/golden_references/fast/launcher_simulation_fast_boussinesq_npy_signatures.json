@@ -47,7 +47,7 @@
     "runtime_convergence_policy": "residual_inf <= tol_residual_inf",
     "runtime_iteration_counter": "newton_iterations",
     "runtime_linear_system_layout": "sparse",
-    "runtime_solver_kind": "scipy_sparse_newton_line_search_semianalytic_base_sat_fd_colored",
+    "runtime_solver_kind": "scipy_sparse_newton_line_search_semianalytic_regularized_partition",
     "runtime_tol_residual_inf": 1e-09,
     "runtime_tol_state_update_inf": 1e-09,
     "solve_stage": "solved",

@@ -18,9 +18,11 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import shutil
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 from hydromodpy.analysis.display.common import (
     ensure_dir,
@@ -30,7 +32,18 @@ from hydromodpy.analysis.display.common import (
     _single_axes,
 )
 from hydromodpy.analysis.display.display_config import DisplayOptions
+from hydromodpy.analysis.display.flow_payloads import (
+    FlowSpatialFigurePayload,
+    build_flow_cumulative_payload,
+    build_flow_spatial_payload_from_run,
+)
 from hydromodpy.analysis.display.posthoc import GeographicArtifacts, PosthocContext, RunArtifacts
+from hydromodpy.analysis.display.figures.flow_synthesis import (
+    FLOW_SPATIAL_FIELD_SPECS,
+    plot_flow_recharge_discharge_cumulative,
+    plot_flow_spatial_field,
+    plot_flow_state_triptych,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +104,82 @@ def _load_raster(path=None, *, geo=None, name="watershed_dem"):
         mask = data < -9000
     masked = np.ma.masked_where(mask, data)
     return masked, transform, nodata_val
+
+
+def _copy_latest_native_mesh_figures(
+    run: RunArtifacts,
+    output_dir: Path,
+    *,
+    mapping: list[tuple[str, str]],
+) -> list[Path]:
+    """Copy solver-native mesh PNGs into the standard posthoc figure folder."""
+    native_dir = run.native_mesh_figure_dir
+    if native_dir is None:
+        return []
+    copied: list[Path] = []
+    ensure_dir(output_dir)
+    for pattern, target_name in mapping:
+        candidates = sorted(native_dir.glob(pattern))
+        if not candidates:
+            continue
+        source = candidates[-1]
+        target = output_dir / target_name
+        shutil.copyfile(source, target)
+        copied.append(target)
+    return copied
+
+
+def _load_simulated_timeseries(run: RunArtifacts) -> pd.DataFrame | None:
+    """Load the common simulated timeseries CSV when present."""
+    path = run.simulated_timeseries_csv
+    if path is None or not path.exists():
+        return None
+    return pd.read_csv(path, sep=";", index_col=0, parse_dates=True)
+
+
+def _plot_common_flow_spatial_outputs(
+    payload: FlowSpatialFigurePayload | None,
+    *,
+    options: DisplayOptions,
+    output_dir: Path,
+) -> bool:
+    """Render generic flow spatial figures from the common payload."""
+    if payload is None:
+        return False
+
+    has_dynamic_fields = any(
+        getattr(payload, attr_name) is not None
+        for attr_name in (
+            "watertable_elevation_m",
+            "watertable_depth_m",
+            "seepage_areas_m_per_day",
+            "outflow_drain_m_per_day",
+            "accumulation_flux_m_per_day",
+        )
+    )
+
+    if options.flow.is_enabled("state_triptych", default=True):
+        plot_flow_state_triptych(
+            payload=payload,
+            options=options,
+            save_path=output_dir / "flow_state_triptych.png",
+        )
+
+    if options.flow.is_enabled("watertable_map", default=True):
+        for field_name, spec in FLOW_SPATIAL_FIELD_SPECS.items():
+            if field_name == "top_elevation":
+                continue
+            values = getattr(payload, spec.attr_name)
+            if values is None:
+                continue
+            plot_flow_spatial_field(
+                payload=payload,
+                field_name=field_name,
+                options=options,
+                save_path=output_dir / f"{field_name}.png",
+            )
+
+    return has_dynamic_fields
 
 
 # ------------------------------------------------------------------
@@ -181,6 +270,8 @@ def _plot_watertable_maps(
         if data_dict is not None:
             last_key = max(data_dict.keys())
             arr = data_dict[last_key].astype(float)
+            if np.asarray(arr).ndim != 2:
+                continue
 
             dem_masked, transform, nodata = _load_raster(geo=geo)
             # Reshape flat store array to match 2D DEM grid.
@@ -704,6 +795,46 @@ def plot_posthoc_flow_suite(
 
     if output_dir is None:
         output_dir = run.run_dir / "figures" / run.run_id
+
+    spatial_payload = build_flow_spatial_payload_from_run(run)
+    cumulative_payload = build_flow_cumulative_payload(
+        _load_simulated_timeseries(run),
+        run_id=run.run_id,
+    )
+    rendered_common_spatial = _plot_common_flow_spatial_outputs(
+        spatial_payload,
+        options=options,
+        output_dir=output_dir,
+    )
+    if cumulative_payload is not None and options.flow.is_enabled(
+        "recharge_discharge_cumulative",
+        default=True,
+    ):
+        plot_flow_recharge_discharge_cumulative(
+            payload=cumulative_payload,
+            options=options,
+            save_path=output_dir / "recharge_discharge_cumulative.png",
+        )
+
+    _copy_latest_native_mesh_figures(
+        run,
+        output_dir,
+        mapping=[
+            ("flow_support_overview.png", "flow_support_overview.png"),
+        ],
+    )
+    if not rendered_common_spatial:
+        _copy_latest_native_mesh_figures(
+            run,
+            output_dir,
+            mapping=[
+                ("flow_watertable_depth_t(*).png", "watertable_depth.png"),
+                ("flow_watertable_elevation_t(*).png", "watertable_elevation.png"),
+                ("flow_seepage_areas_t(*).png", "seepage_areas.png"),
+                ("flow_outflow_drain_t(*).png", "outflow_drain.png"),
+                ("flow_accumulation_flux_t(*).png", "accumulation_flux.png"),
+            ],
+        )
 
     if options.flow.is_enabled("dem_map", default=True):
         logger.info("Generating DEM overview: %s", run.run_id)

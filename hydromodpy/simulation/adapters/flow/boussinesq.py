@@ -10,6 +10,7 @@ This adapter is intentionally independent from ``modflow_common``. The
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -85,6 +86,19 @@ def _has_required_flow_parameters(*, flow: object, required_properties: frozense
     return True
 
 
+def _has_any_flow_parameter(*, flow: object, canonical_name: str) -> bool:
+    """Tell whether one canonical flow parameter alias is available."""
+    alias_map = {
+        "K": ("K", "k"),
+        "Sy": ("Sy", "SY", "sy", "S", "s"),
+    }
+    parameters = getattr(flow, "parameters", {})
+    if not isinstance(parameters, dict):
+        return False
+    aliases = alias_map.get(str(canonical_name).strip(), ())
+    return any(alias in parameters for alias in aliases)
+
+
 def _flow_uses_stream_bc(flow: object) -> bool:
     """Tell whether the current Flow run activates the stream boundary condition."""
     active_bc = getattr(flow, "active_bc", ())
@@ -145,6 +159,128 @@ def _resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
     )
 
 
+def _resolve_optional_bundle_property_arrays(
+    *,
+    setup_state: object,
+    requested_properties: frozenset[str],
+) -> dict[str, np.ndarray]:
+    """Map available flow properties onto the bundle planar mesh when requested."""
+    if not requested_properties:
+        return {}
+
+    planar_mesh = _resolve_planar_mesh(setup_state)
+    flow = getattr(setup_state, "flow", None)
+    if planar_mesh is None or flow is None:
+        return {}
+
+    available_properties = frozenset(
+        canonical_name
+        for canonical_name in requested_properties
+        if _has_any_flow_parameter(flow=flow, canonical_name=canonical_name)
+    )
+    if not available_properties:
+        return {}
+
+    return resolve_flow_property_arrays(
+        flow=flow,
+        domain=getattr(setup_state, "domain", None),
+        solver_mesh=planar_mesh,
+        required_properties=available_properties,
+    )
+
+
+def _resolve_bundle_solver_mesh(
+    setup_state: object,
+    *,
+    bundle: CatchmentMeshBundle,
+) -> BoussinesqMesh:
+    """Build one solver mesh from a bundle, completing missing hydraulic terms."""
+    flow = getattr(setup_state, "flow", None)
+    regime = str(getattr(flow, "flow_regime", "transient")).strip().lower()
+    metadata_view = bundle.metadata_view
+    hydraulic_view = metadata_view.hydraulic_properties
+
+    needs_conductivity = any(
+        cell.hydraulic_conductivity_m_s is None for cell in bundle.cells
+    )
+    needs_storage = any(cell.storage_coefficient is None for cell in bundle.cells)
+    needed_properties: set[str] = set()
+    if needs_conductivity and hydraulic_view.conductivity.default_value is None:
+        needed_properties.add("K")
+    if needs_storage:
+        if hydraulic_view.storage_coefficient.default_value is None:
+            has_flow_sy = (
+                flow is not None
+                and _has_any_flow_parameter(flow=flow, canonical_name="Sy")
+            )
+            if regime != "steady" or has_flow_sy:
+                needed_properties.add("Sy")
+
+    override_properties: set[str] = set()
+    if flow is not None:
+        if _has_any_flow_parameter(flow=flow, canonical_name="K"):
+            override_properties.add("K")
+        if _has_any_flow_parameter(flow=flow, canonical_name="Sy"):
+            override_properties.add("Sy")
+
+    property_arrays = _resolve_optional_bundle_property_arrays(
+        setup_state=setup_state,
+        requested_properties=frozenset(needed_properties | override_properties),
+    )
+    mapped_conductivity = property_arrays.get("hydraulic_conductivity_m_s")
+    mapped_storage = property_arrays.get("storage_coefficient")
+
+    completed_cells = []
+    for cell_index, bundle_cell in enumerate(bundle.cells):
+        conductivity = (
+            float(mapped_conductivity[cell_index])
+            if mapped_conductivity is not None
+            else bundle_cell.hydraulic_conductivity_m_s
+        )
+        if conductivity is None:
+            default_k = hydraulic_view.conductivity.default_value
+            if default_k is not None:
+                conductivity = float(default_k)
+            elif mapped_conductivity is not None:
+                conductivity = float(mapped_conductivity[cell_index])
+            else:
+                raise ValueError(
+                    "Boussinesq requires hydraulic_conductivity_m_s for every cell; "
+                    f"cannot complete missing value on cell_id={int(bundle_cell.cell_id)}."
+                )
+
+        storage = (
+            float(mapped_storage[cell_index])
+            if mapped_storage is not None
+            else bundle_cell.storage_coefficient
+        )
+        if storage is None:
+            default_storage = hydraulic_view.storage_coefficient.default_value
+            if default_storage is not None:
+                storage = float(default_storage)
+            elif mapped_storage is not None:
+                storage = float(mapped_storage[cell_index])
+            elif regime == "steady":
+                storage = 0.0
+            else:
+                raise ValueError(
+                    "Boussinesq requires storage_coefficient for every cell; "
+                    "provide one bundle default, a flow Sy parameter, or per-cell "
+                    f"bundle values. Missing value on cell_id={int(bundle_cell.cell_id)}."
+                )
+
+        completed_cells.append(
+            replace(
+                bundle_cell,
+                hydraulic_conductivity_m_s=float(conductivity),
+                storage_coefficient=float(storage),
+            )
+        )
+
+    completed_bundle = replace(bundle, cells=tuple(completed_cells))
+    return BoussinesqMesh.from_bundle(completed_bundle)
+
+
 class BoussinesqFlowAdapter:
     """Bridge one planned ``flow/boussinesq`` run to the local solver API."""
 
@@ -154,8 +290,22 @@ class BoussinesqFlowAdapter:
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """Instantiate and execute one Boussinesq flow run."""
         state = ctx.state
-        solver_mesh = _resolve_runtime_solver_mesh(state.setup)
-        mesh_bundle = None if solver_mesh is not None else _resolve_mesh_bundle(state.setup)
+        mesh_bundle = None
+        try:
+            solver_mesh = _resolve_runtime_solver_mesh(state.setup)
+        except ValueError:
+            mesh_summary = getattr(state.setup, "mesh_summary", None)
+            bundle_dir = (
+                str(mesh_summary.get("output_exchange_bundle_dir", "")).strip()
+                if isinstance(mesh_summary, dict)
+                else ""
+            )
+            if getattr(state.setup, "mesh_bundle", None) is None and bundle_dir == "":
+                raise
+            solver_mesh = None
+        if solver_mesh is None:
+            mesh_bundle = _resolve_mesh_bundle(state.setup)
+            solver_mesh = _resolve_bundle_solver_mesh(state.setup, bundle=mesh_bundle)
         workspace = getattr(state.setup, "workspace", None)
         model_folder = (
             Path(getattr(workspace, "solver_scratch_folder"))
@@ -176,6 +326,10 @@ class BoussinesqFlowAdapter:
         model.pre_processing()
         success = model.processing(write_model=True, run_model=True)
         if not success:
+            try:
+                model.post_processing()
+            except Exception:
+                pass
             raise RuntimeError(
                 f"Flow solver 'boussinesq' failed for run '{ctx.run.id}'. "
                 f"See {getattr(model, 'full_path', '<unknown>')} for diagnostics."

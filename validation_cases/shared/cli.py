@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import inspect
+import os
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,16 @@ def build_run_case_parser(*, description: str) -> argparse.ArgumentParser:
         help=(
             "Optional PNG output path. Defaults to the validation run directory "
             "created for this execution."
+        ),
+    )
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=None,
+        help=(
+            "Optional root directory used for validation outputs. When provided, "
+            "it overrides HYDROMODPY_OUT_PATH for this run, and results are "
+            "written under <output-root>/validation/..."
         ),
     )
     parser.add_argument(
@@ -70,6 +81,15 @@ def resolve_output_png(
     return raw_output_png.expanduser().resolve()
 
 
+def apply_output_root_override(raw_output_root: Path | None) -> Path | None:
+    """Apply one per-run HYDROMODPY_OUT_PATH override from the CLI."""
+    if raw_output_root is None:
+        return None
+    resolved = raw_output_root.expanduser().resolve()
+    os.environ["HYDROMODPY_OUT_PATH"] = str(resolved)
+    return resolved
+
+
 def print_run_case_summary(
     *,
     saved_png: Path,
@@ -100,6 +120,7 @@ def run_case_main(
     """Run one analytical validation case, plot it, and print a short summary."""
     parser = build_run_case_parser(description=description)
     args = parser.parse_args(argv)
+    apply_output_root_override(args.output_root)
     run_signature = inspect.signature(run_comparison)
     supports_solver = "solver" in run_signature.parameters
     if args.solver is not None and not supports_solver:

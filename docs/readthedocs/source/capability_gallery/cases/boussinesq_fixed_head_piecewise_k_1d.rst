@@ -124,6 +124,365 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Reference Parameters
+^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``xmin``
+     - Minimum x coordinate of the analytical reference domain.
+     - 0
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/metadata.toml``
+   * - ``xmax``
+     - Maximum x coordinate of the analytical reference domain.
+     - 400
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/metadata.toml``
+   * - ``west_head``
+     - Fixed west-boundary hydraulic head used by the reference solution.
+     - 10 m
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/metadata.toml``
+   * - ``east_head``
+     - Fixed east-boundary hydraulic head used by the reference solution.
+     - 5 m
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/metadata.toml``
+   * - ``x_zone_breaks_m``
+     - x-coordinate breaks used to define conductivity zones in the reference solution.
+     - [120 m, 280 m]
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/metadata.toml``
+   * - ``hydraulic_conductivity_m_per_s_by_zone``
+     - Reference parameter `hydraulic_conductivity_m_per_s_by_zone` used by the analytical or benchmark solution.
+     - [0.0002, 5e-05, 0.0001]
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/metadata.toml``
+   * - ``aquifer_thickness_m``
+     - Aquifer thickness used by the reference formulation.
+     - 20 m
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/metadata.toml``
+   * - ``profile_axis``
+     - Axis along which the validation profile is extracted.
+     - 0
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/metadata.toml``
+
+Common Numerical Setup
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``geographic.synthetic.grid.length_x``
+     - Synthetic-domain length along the x axis.
+     - 400.0 m
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.length_y``
+     - Synthetic-domain length along the y axis.
+     - 50.0 m
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.nx``
+     - Grid cell count along the x axis.
+     - 40
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.ny``
+     - Grid cell count along the y axis.
+     - 5
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.topography.kind``
+     - Synthetic topography shape used by the benchmark.
+     - flat
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.topography.base_elevation``
+     - Base land-surface elevation of the synthetic topography.
+     - 20 m
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``domain.supports.k_bands.provider``
+     - How the support `k_bands` is generated.
+     - generated_bands
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``domain.supports.k_bands.axis``
+     - Axis used to build support `k_bands`.
+     - x
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``domain.supports.k_bands.coordinate_mode``
+     - Coordinate interpretation used to define support `k_bands`.
+     - relative
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``domain.supports.k_bands.breaks``
+     - Break values used to split support `k_bands`.
+     - [0.3, 0.7]
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``domain.supports.k_bands.labels``
+     - Labels assigned to the zones of support `k_bands`.
+     - [west_zone, middle_zone, east_zone]
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``domain.depth_model.type``
+     - Depth model used to build the aquifer support.
+     - constant_thickness
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``domain.depth_model.thickness``
+     - Aquifer or support thickness used by the benchmark.
+     - 20.0 m
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``flow.flow_regime``
+     - Steady or transient flow regime used by the benchmark.
+     - steady
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``flow.active_sinks_sources``
+     - Sink and source families activated in the benchmark.
+     - []
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``flow.active_bc``
+     - Boundary-condition families activated in the benchmark.
+     - [west_side, east_side]
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``flow.param_list``
+     - Hydraulic parameter families explicitly configured by the benchmark.
+     - [K]
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``flow.param.K.field.kind``
+     - Parameterization mode used for `K`.
+     - heterogeneous
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``flow.param.K.field_heterogeneous.values_source``
+     - Value source used for the heterogeneous `K` field.
+     - inline
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``flow.param.K.field_heterogeneous.values.west_zone``
+     - Heterogeneous `K` value applied on support zone `west_zone`.
+     - 2e-4 m/s
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``flow.param.K.field_heterogeneous.values.middle_zone``
+     - Heterogeneous `K` value applied on support zone `middle_zone`.
+     - 5e-5 m/s
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``flow.param.K.field_heterogeneous.values.east_zone``
+     - Heterogeneous `K` value applied on support zone `east_zone`.
+     - 1e-4 m/s
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``flow.param.K.field_heterogeneous.field_spatial_id``
+     - Support identifier used to distribute the heterogeneous `K` field.
+     - k_bands
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``flow.ic.value``
+     - Initial hydraulic head used to start the benchmark.
+     - 7.5 m
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``flow.bc.dirichlet.west_side.value``
+     - Fixed head applied on the west side boundary.
+     - 10.0 m
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+   * - ``flow.bc.dirichlet.east_side.value``
+     - Fixed head applied on the east side boundary.
+     - 5.0 m
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+
+Solver-Specific Overrides
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: MODFLOW-NWT
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``modflownwt.sgrid.planar.mode``
+           - Planar support construction mode used by MODFLOW-NWT.
+           - resample_to_shape
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.planar.nx``
+           - Planar support cell count along x used by MODFLOW-NWT.
+           - 40
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.planar.ny``
+           - Planar support cell count along y used by MODFLOW-NWT.
+           - 5
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.planar.resampling``
+           - Planar support resampling mode used by MODFLOW-NWT.
+           - nearest
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.vertical.nlay``
+           - Number of vertical layers used by MODFLOW-NWT.
+           - 1
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml``
+
+   .. tab-item:: MODFLOW 6
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``modflow6.runtime.mf_verbose``
+           - Solver-specific override applied to MODFLOW 6.
+           - false
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflow6.toml``
+         * - ``modflow6.runtime.mf6_ims_complexity``
+           - Linear-solver complexity preset used by MODFLOW 6.
+           - COMPLEX
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.mode``
+           - Planar support construction mode used by MODFLOW 6.
+           - resample_to_shape
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.nx``
+           - Planar support cell count along x used by MODFLOW 6.
+           - 40
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.ny``
+           - Planar support cell count along y used by MODFLOW 6.
+           - 5
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.resampling``
+           - Planar support resampling mode used by MODFLOW 6.
+           - nearest
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflow6.toml``
+         * - ``modflow6.sgrid.vertical.nlay``
+           - Number of vertical layers used by MODFLOW 6.
+           - 1
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflow6.toml``
+
+   .. tab-item:: Boussinesq
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``flow.runtime_backend``
+           - Runtime backend selected for the in-house solver.
+           - scipy_sparse
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_boussinesq.toml``
+
+Acceptance Criteria
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``output.observable_name``
+     - Simulated observable compared against the reference solution.
+     - watertable_elevation
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/metadata.toml``
+   * - ``output.expected_shape``
+     - Expected spatial output shape checked by the validation helper.
+     - [5, 40]
+     - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/metadata.toml``
+
+Acceptance Criteria by Solver
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: MODFLOW-NWT
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected shape: 5 x 40
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/metadata.toml``
+         * - ``head_profile.rmse``
+           - Maximum accepted root-mean-square error for head profile.
+           - 0.05
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/tolerances.toml``
+         * - ``head_profile.max_abs_error``
+           - Maximum accepted absolute error for head profile.
+           - 0.1
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/tolerances.toml``
+         * - ``head_profile.row_spread``
+           - Maximum accepted cross-row spread for head profile.
+           - 2e-05
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/tolerances.toml``
+
+   .. tab-item:: MODFLOW 6
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected shape: 5 x 40
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/metadata.toml``
+         * - ``head_profile.rmse``
+           - Maximum accepted root-mean-square error for head profile.
+           - 0.012
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/tolerances_modflow6.toml``
+         * - ``head_profile.max_abs_error``
+           - Maximum accepted absolute error for head profile.
+           - 0.025
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/tolerances_modflow6.toml``
+         * - ``head_profile.row_spread``
+           - Maximum accepted cross-row spread for head profile.
+           - 1e-05
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/tolerances_modflow6.toml``
+
+   .. tab-item:: Boussinesq
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected shape: 3 x 40
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/metadata.toml``
+         * - ``head_profile.rmse``
+           - Maximum accepted root-mean-square error for head profile.
+           - 0.2
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/tolerances_boussinesq.toml``
+         * - ``head_profile.max_abs_error``
+           - Maximum accepted absolute error for head profile.
+           - 0.35
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/tolerances_boussinesq.toml``
+         * - ``head_profile.row_spread``
+           - Maximum accepted cross-row spread for head profile.
+           - 0.08
+           - ``validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/tolerances_boussinesq.toml``
+
 Source Pointers
 ---------------
 

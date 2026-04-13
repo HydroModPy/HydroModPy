@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -70,3 +71,31 @@ def test_run_case_main_rejects_solver_for_unsupported_case(tmp_path: Path) -> No
             build_metric_lines=lambda comparison: (),
         )
     assert exc_info.value.code == 2
+
+
+def test_run_case_main_applies_output_root_override(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("HYDROMODPY_OUT_PATH", raising=False)
+
+    def _run_comparison(*, caller_file, timeout, solver=None):
+        del caller_file, timeout, solver
+        expected = tmp_path.resolve()
+        assert Path(os.environ["HYDROMODPY_OUT_PATH"]).resolve() == expected
+        return SimpleNamespace(
+            result=SimpleNamespace(
+                out_path=tmp_path,
+                postprocess_dir=tmp_path / "_postprocess",
+            )
+        )
+
+    run_case_main(
+        argv=["--output-root", str(tmp_path), "--no-show"],
+        description="demo",
+        default_figure_name="figure.png",
+        caller_file=__file__,
+        run_comparison=_run_comparison,
+        plot_comparison=lambda comparison, *, output_png, show_plot, dpi: output_png,
+        build_metric_lines=lambda comparison: (),
+    )

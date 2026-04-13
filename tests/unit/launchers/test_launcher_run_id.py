@@ -10,8 +10,19 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.core.state.run_state import LauncherRunState
+from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
 
 from launchers.process_simulation.launcher import HydroModPyLauncher
+
+
+def _make_launcher_test_workspace_root(
+    hydromodpy_test_scratch_root: Path,
+    *,
+    prefix: str,
+) -> Path:
+    base_dir = hydromodpy_test_scratch_root / "launcher_run_id"
+    base_dir.mkdir(parents=True, exist_ok=True)
+    return Path(tempfile.mkdtemp(prefix=prefix, dir=base_dir)).resolve()
 
 
 class _DummyWorkspace:
@@ -279,6 +290,31 @@ def test_resolve_optional_mesh_input_resolves_relative_paths(tmp_path: Path) -> 
     }
 
 
+def test_launcher_rejects_modflownwt_with_runtime_gmsh_mesh() -> None:
+    launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
+    launcher.mesh_section_data = None
+    launcher.external_mesh_input = {
+        "mesh_path": "mesh/external_mesh.msh",
+        "bundle_dir": "mesh/external_mesh_bundle",
+    }
+
+    plan = SimulationPlan(
+        name="demo",
+        description="demo",
+        runs=(
+            ProcessRun(
+                id="flow_main::modflownwt",
+                process_id="flow_main",
+                process_type="flow",
+                solver="modflownwt",
+            ),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="modflownwt.*structured sgrid backend"):
+        launcher._validate_runtime_mesh_solver_compatibility(plan)
+
+
 def test_run_setup_does_not_declare_unused_geology_zone(monkeypatch) -> None:
     monkeypatch.setattr(
         "launchers.process_simulation.launcher.hmp.Workspace",
@@ -451,10 +487,14 @@ def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeyp
         launcher._run_setup()
 
 
-def test_run_executes_embedded_mesh_phase_and_records_metrics(monkeypatch) -> None:
-    workspace_root = Path(
-        tempfile.mkdtemp(prefix="mesh-sim-int-")
-    ).resolve()
+def test_run_executes_embedded_mesh_phase_and_records_metrics(
+    monkeypatch,
+    hydromodpy_test_scratch_root: Path,
+) -> None:
+    workspace_root = _make_launcher_test_workspace_root(
+        hydromodpy_test_scratch_root,
+        prefix="mesh-sim-int-",
+    )
     config_path = workspace_root / "simulation_with_mesh.toml"
 
     class _DummyDataConfig:
@@ -682,10 +722,12 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(monkeypatch) -> No
 
 def test_run_uses_external_mesh_input_phase_and_skips_embedded_workflow(
     monkeypatch,
+    hydromodpy_test_scratch_root: Path,
 ) -> None:
-    workspace_root = Path(
-        tempfile.mkdtemp(prefix="mesh-input-sim-int-")
-    ).resolve()
+    workspace_root = _make_launcher_test_workspace_root(
+        hydromodpy_test_scratch_root,
+        prefix="mesh-input-sim-int-",
+    )
     config_path = workspace_root / "simulation_with_external_mesh.toml"
     external_mesh_path = workspace_root / "inputs" / "external_mesh.msh"
 

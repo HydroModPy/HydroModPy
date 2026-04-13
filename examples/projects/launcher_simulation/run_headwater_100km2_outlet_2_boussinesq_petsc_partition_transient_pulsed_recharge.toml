@@ -1,0 +1,12 @@
+# PETSc regularized-partition replay of the transient pulsed-recharge headwater case.
+
+base_config = "run_headwater_100km2_outlet_2_boussinesq_transient_pulsed_recharge.toml"
+
+[simulation]
+name = "Headwater 100 km2 Boussinesq PETSc partition transient pulsed recharge"
+run_id = "headwater_100km2_outlet_2_boussinesq_petsc_partition_transient_pulsed_recharge"
+
+[flow]
+runtime_backend = "petsc"
+surface_interaction_model = "regularized_partition"
+runtime_max_iterations = 80

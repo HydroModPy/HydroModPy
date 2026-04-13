@@ -9,21 +9,29 @@ partir de la convention de nommage retenue :
 
 - `data_overview/` : pour `DataOverviewLauncher`
 - `process_simulation/` : pour `ProcessSimulationLauncher`
+- `method_comparison/` : pour `MethodComparisonLauncher`
 - `model_calibration/` : pour `ModelCalibrationLauncher`
 - `hydro_cal_val/` : pour `HydroCalValLauncher`
 - `mesh_catchment/` : pour `MeshCatchmentLauncher`
+- `regional_lab/` : pour `RegionalLabLauncher`
 
 ## Intention
 
 - `DataOverviewLauncher` : illustration, visualisation et inventaire des
   donnees et de la configuration disponibles pour un site, sans simulation.
 - `ProcessSimulationLauncher` : execution des simulations de processus.
+- `MethodComparisonLauncher` : orchestration de variantes maillage/solveur
+  pour un meme probleme et extraction d'observables comparables depuis les
+  postprocess disque, avec CSV/JSON de metriques et rapport Markdown.
 - `ModelCalibrationLauncher` : orchestration des workflows de calibration.
 - `HydroCalValLauncher` : mise en place d'une strategie hydrologique de
   calibration-validation.
 - `MeshCatchmentLauncher` : generation de maillage catchment conforme
   au reseau de rivieres et/ou a la geologie, en mode mono-catchment ou batch
   par table d'exutoires.
+- `RegionalLabLauncher` : expansion d'un catalogue de sites regional en
+  campagnes `recette x site`, avec selection par clusters/tags et orchestration
+  vers `simulation` ou `method-comparison`.
 
 Cette arborescence prepare une separation claire des responsabilites sans
 modifier le launcher principal existant.
@@ -34,25 +42,70 @@ Commande recommandee pour la famille simulation :
 
 `python -m launchers simulation run <path/to/config.toml>`
 
+Commande recommandee pour la famille data-overview :
+
+`python -m launchers data-overview run <path/to/config.toml>`
+
 Commande recommandee pour la famille mesh-catchment :
 
 `python -m launchers mesh-catchment run <path/to/config.toml>`
+
+Commande recommandee pour comparer des methodes de resolution :
+
+`python -m launchers method-comparison run <path/to/config.toml>`
+
+Commande recommandee pour orchestrer un laboratoire regional :
+
+`python -m launchers regional-lab run <path/to/config.toml>`
+
+Commande utilitaire pour bootstrapper un `site_catalog.csv` a partir d'une
+table d'exutoires :
+
+`python -m launchers regional-lab bootstrap-catalog --help`
+
+Alias CLI principal :
+
+`hmp compare <path/to/config.toml>`
 
 Generation d'un template canonique derive des schemas `pydantic` :
 
 `python -m launchers mesh-catchment template [--batch] [--profile user|dev|expert] [--output path/to/template.toml]`
 
-Commande directe (utile depuis un IDE) :
+Template method-comparison :
 
-`python launchers/mesh_catchment/launcher.py <path/to/config.toml>`
+`python -m launchers method-comparison template [--output path/to/template.toml]`
+
+Template regional-lab :
+
+`python -m launchers regional-lab template [--output path/to/template.toml]`
 
 Exemple de config prete a lancer :
 
-`launchers/mesh_catchment/config_example.toml`
+`launchers/mesh_catchment/scenarios/config_example.toml`
 
 Exemple de config batch par `outlet_id` :
 
-`launchers/mesh_catchment/config_headwater_100km2.toml`
+`launchers/mesh_catchment/scenarios/config_headwater_100km2.toml`
+
+Guide de prise en main dedie :
+
+`launchers/mesh_catchment/README.md`
+
+Guide method-comparison :
+
+`launchers/method_comparison/README.md`
+
+Guide regional-lab :
+
+`launchers/regional_lab/README.md`
+
+Exemple regional-lab versionne :
+
+`examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml`
+
+Exemple data-overview versionne :
+
+`examples/projects/data_overview/project.toml`
 
 Le sous-commande `template` imprime un TOML commente produit directement depuis
 les schemas `mesh_catchment` et `mesh_catchment_batch`. Cela permet de repartir
@@ -63,19 +116,32 @@ Templates canoniques versionnes :
 - `launchers/mesh_catchment/config_template.toml`
 - `launchers/mesh_catchment/config_batch_template.toml`
 
+Organisation du sous-package `mesh_catchment` :
+
+- `launchers/mesh_catchment/*.py`
+  : code runtime du launcher, orchestration mono-catchment, batch, templates et validation.
+- `launchers/mesh_catchment/config_*.toml`
+  : bases partagees et templates canoniques lies au contrat du launcher.
+- `launchers/mesh_catchment/scenarios/*.toml`
+  : scenarios runnable versionnes, separes du code et des templates.
+- `launchers/mesh_catchment/tools/*.py`
+  : utilitaires operatoires, par exemple le smoke runner batch de reference.
+
 Configuration en deux niveaux (meme logique que process_simulation) :
 
 - `launchers/mesh_catchment/config_common.toml`
   : tronc commun partage (`workspace`, `geographic`, `geographic.river_network`, `domain.depth_model`).
-- `launchers/mesh_catchment/config_example.toml`
+- `launchers/mesh_catchment/config_batch_common.toml`
+  : base batch partagee qui specialise le tronc commun pour les scenarios multi-exutoires.
+- `launchers/mesh_catchment/scenarios/config_example.toml`
   : exemple mono-catchment par defaut du launcher, sur le cas Nancon, avec sorties finales ecrites directement dans le dossier catchment.
-- `launchers/mesh_catchment/config_scoped_example.toml`
+- `launchers/mesh_catchment/scenarios/config_scoped_example.toml`
   : variante mono-catchment qui montre `interface_scope` et `refinement_scope`, avec sorties finales directes dans le dossier catchment.
-- `launchers/mesh_catchment/config_headwater_100km2.toml`
+- `launchers/mesh_catchment/scenarios/config_headwater_100km2.toml`
   : batch headwater autour de 100 km2 a partir d'une table d'exutoires preselectionnes.
-- `launchers/mesh_catchment/config_1000km2.toml`
+- `launchers/mesh_catchment/scenarios/config_1000km2.toml`
   : batch autour de 1000 km2.
-- `launchers/mesh_catchment/config_s3_100km2.toml`
+- `launchers/mesh_catchment/scenarios/config_s3_100km2.toml`
   : batch filtre par ordre de Strahler 3 autour de 100 km2.
 - `launchers/mesh_catchment/config_template.toml`
   : template mono-catchment versionne, regenere depuis les schemas Pydantic.
@@ -94,7 +160,7 @@ le contexte geographique utile.
 
 Script utilitaire pour lancer successivement tous les TOML runnable du dossier :
 
-`python launchers/mesh_catchment/run_all_configs.py`
+`python -m launchers.mesh_catchment.tools.run_all_configs`
 
 Ordre d'execution du script :
 
@@ -199,6 +265,14 @@ range dans l'etat runtime (`mesh_summary`) et remonte dans les artefacts de run.
 
 `[mesh_catchment]` et `[mesh_input]` sont mutuellement exclusifs dans un meme
 run `process_simulation`.
+
+Le launcher reste le meme dans tous les cas. Il n'existe pas de variante
+`process_simulation_gmsh` separee : le maillage runtime Gmsh est simplement une
+option d'entree du launcher standard. En pratique, ce contrat runtime mesh est
+aujourd'hui consomme par `boussinesq` et `modflow6`. `modflownwt` reste borne au
+backend structure `[modflownwt.sgrid.*]` et le launcher refuse donc
+explicitement les combinaisons `modflownwt + [mesh_input]` ou
+`modflownwt + [mesh_catchment]`.
 
 ## Architecture
 

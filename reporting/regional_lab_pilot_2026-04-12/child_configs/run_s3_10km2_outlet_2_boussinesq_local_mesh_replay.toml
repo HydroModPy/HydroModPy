@@ -1,0 +1,16 @@
+base_config = "C:/codes/HydroModPy-GH/reporting/regional_lab_pilot_2026-04-12/child_configs/base_local_boussinesq_mesh_replay.toml"
+
+[workspace]
+project_root = "C:/codes/HydroModPy-GH/reporting/regional_lab_pilot_2026-04-12/outputs/child_runs/s3_10km2_outlet_2"
+
+[geographic]
+x_outlet = 430650.0
+y_outlet = 6741675.0
+
+[mesh_input]
+mesh_path = "C:/Users/dreuzy/HydroModPy/mesh_catchment_runs/s3_10km2/mesh_outlet_2/mesh_catchment_outlet_2.msh"
+bundle_dir = "C:/Users/dreuzy/HydroModPy/mesh_catchment_runs/s3_10km2/mesh_outlet_2/mesh_catchment_outlet_2_bundle"
+
+[simulation]
+name = "s3_10km2_outlet_2 local boussinesq mesh replay"
+run_id = "s3_10km2_outlet_2_local_boussinesq_mesh_replay"

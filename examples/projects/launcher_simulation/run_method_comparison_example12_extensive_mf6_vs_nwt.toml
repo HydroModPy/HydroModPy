@@ -1,0 +1,60 @@
+# Real baseline comparison between MODFLOW 6 and MODFLOW-NWT on example12.
+#
+# Both variants rebuild the same real-case forcing chain but keep their native
+# structured-grid backends. Anchor-based XY observables exercise the structured
+# point/outlet locator in addition to the map outputs.
+
+[method_comparison]
+comparison_id = "example12_extensive_mf6_vs_nwt"
+output_root = "method_comparison/example12_extensive_mf6_vs_nwt"
+anchors_file = "method_comparison_points.toml"
+run_variants = true
+continue_on_error = false
+reference_variant = "mf6_extensive"
+
+[[method_comparison.variant]]
+id = "mf6_extensive"
+label = "MODFLOW 6 extensive example12 baseline"
+solver = "modflow6"
+mesh_mode = "structured"
+mesh_label = "example12_sgrid"
+simulation_config = "run_extensive_mf6.toml"
+
+[[method_comparison.variant]]
+id = "nwt_extensive"
+label = "MODFLOW-NWT extensive example12 baseline"
+solver = "modflownwt"
+mesh_mode = "structured"
+mesh_label = "example12_sgrid"
+simulation_config = "run_extensive_nwt.toml"
+
+[[method_comparison.observable]]
+name = "head_reference_point"
+variable = "watertable_elevation"
+support = "point"
+anchor_id = "example12.reference_point"
+time = "all"
+time_reducer = "last"
+unit = "m"
+
+[[method_comparison.observable]]
+name = "outlet_flux_series"
+variable = "outlet_flux"
+support = "outlet"
+anchor_id = "example12.outlet"
+time = "all"
+unit = "m3/s"
+
+[[method_comparison.observable]]
+name = "head_map_last"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+
+[[method_comparison.observable]]
+name = "depth_map_last"
+variable = "watertable_depth"
+support = "map"
+time = "last"
+unit = "m"

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import shutil
+import tempfile
+import uuid
 
 import numpy as np
 
@@ -17,13 +20,51 @@ _PLANAR_GMSH_ELEMENT_TYPES = {
     2: ("triangle", 3),
     3: ("quadrilateral", 4),
 }
+_WINDOWS_GMSH_PATH_LIMIT = 240
 
 
 def write_repository_compatible_mesh(gmsh, output_path: str | os.PathLike[str]) -> None:
     """Write one planar mesh in the ASCII MSH2 format expected by repo readers."""
+    output_path_obj = Path(output_path).resolve()
+    output_path_obj.parent.mkdir(parents=True, exist_ok=True)
     gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
     gmsh.option.setNumber("Mesh.Binary", 0)
-    gmsh.write(str(output_path))
+    output_path_text = str(output_path_obj)
+    if os.name == "nt" and len(output_path_text) >= _WINDOWS_GMSH_PATH_LIMIT:
+        _write_mesh_via_short_windows_temp_path(gmsh, output_path_obj)
+        return
+    gmsh.write(output_path_text)
+
+
+def _write_mesh_via_short_windows_temp_path(gmsh, output_path: Path) -> None:
+    """Write through one short temp path when Gmsh cannot handle long paths."""
+    scratch_dir = Path(tempfile.gettempdir()) / "hydromodpy_gmsh_export"
+    scratch_dir.mkdir(parents=True, exist_ok=True)
+    temp_name = (
+        f"{output_path.stem[:32]}_{uuid.uuid4().hex[:8]}{output_path.suffix or '.msh'}"
+    )
+    temp_path = scratch_dir / temp_name
+    try:
+        gmsh.write(str(temp_path))
+        shutil.copyfile(
+            str(temp_path),
+            _as_windows_extended_length_path(output_path),
+        )
+    finally:
+        try:
+            temp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+def _as_windows_extended_length_path(path: Path) -> str:
+    """Return one Windows long-path-safe string for filesystem operations."""
+    normalized = str(Path(path).resolve())
+    if not normalized.startswith("\\\\?\\"):
+        if normalized.startswith("\\\\"):
+            return "\\\\?\\UNC\\" + normalized.lstrip("\\")
+        return "\\\\?\\" + normalized
+    return normalized
 
 
 def build_runtime_planar_mesh_from_gmsh(

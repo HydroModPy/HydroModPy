@@ -1,0 +1,16 @@
+# Shared local replay base for machine-local mesh bundles.
+base_config = "C:/codes/HydroModPy-GH/examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_boussinesq_mesh_input.toml"
+
+[geographic]
+dem_init_path = "C:/codes/HydroModPy-GH/examples/data/dem/DEM_armorican_massif.tif"
+
+[flow]
+runtime_max_iterations = 200
+
+[postprocess]
+enabled = false
+
+[display]
+enabled = false
+show = false
+save = false

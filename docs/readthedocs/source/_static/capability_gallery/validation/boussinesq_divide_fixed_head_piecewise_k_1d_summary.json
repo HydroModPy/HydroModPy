@@ -9,6 +9,9 @@
     "Strip with piecewise-constant `K`, west divide, east fixed head, uniform recharge",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "validate one no-flow side boundary together with heterogeneous `K`,",
     "keep a clear analytical reference while extending beyond the two-head case,",
@@ -25,6 +28,8 @@
     "U=h^2,\\qquad \\frac{\\mathrm{d}}{\\mathrm{d}x}\\left(K(x)\\,\\frac{\\mathrm{d}U}{\\mathrm{d}x}\\right)+2R=0",
     "\\frac{\\mathrm{d}U}{\\mathrm{d}x}(0)=0,\\qquad U(L)=h_e^2,\\qquad U(x)=h_e^2+2R\\int_x^L \\frac{s\\,\\mathrm{d}s}{K(s)}"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.steady.boussinesq_divide_fixed_head_piecewise_k_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -45,7 +50,7 @@
     "validation_cases/analytical/steady/boussinesq_piecewise.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/README.md": "2886a6b3056d7c3ba9e6dfdb42a506a3ebe56793f0ca6d42c14ebd81672550a8",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/reference.py": "25546751e0cbfa160feafa3b48639bfc18fe0584d1799c8e675cc65b9f1bab81",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/comparison.py": "2065fb6bc87f424f49419100e8257bf0325c15a97327ae7b4f531255b7fcefe9",
@@ -363,5 +368,421 @@
         "timestep": 0
       }
     }
-  ]
+  ],
+  "parameter_docs": {
+    "reference_parameters": [
+      {
+        "field": "xmin",
+        "meaning": "Minimum x coordinate of the analytical reference domain.",
+        "value": "0",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml"
+      },
+      {
+        "field": "xmax",
+        "meaning": "Maximum x coordinate of the analytical reference domain.",
+        "value": "400",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml"
+      },
+      {
+        "field": "east_head",
+        "meaning": "Fixed east-boundary hydraulic head used by the reference solution.",
+        "value": "5 m",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml"
+      },
+      {
+        "field": "recharge_mm_day",
+        "meaning": "Recharge rate used by the reference solution.",
+        "value": "1 mm/day",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml"
+      },
+      {
+        "field": "x_zone_breaks_m",
+        "meaning": "x-coordinate breaks used to define conductivity zones in the reference solution.",
+        "value": "[120 m, 280 m]",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml"
+      },
+      {
+        "field": "hydraulic_conductivity_m_per_s_by_zone",
+        "meaning": "Reference parameter `hydraulic_conductivity_m_per_s_by_zone` used by the analytical or benchmark solution.",
+        "value": "[0.0002, 5e-05, 0.0001]",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml"
+      },
+      {
+        "field": "aquifer_thickness_m",
+        "meaning": "Aquifer thickness used by the reference formulation.",
+        "value": "20 m",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml"
+      },
+      {
+        "field": "profile_axis",
+        "meaning": "Axis along which the validation profile is extracted.",
+        "value": "0",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml"
+      },
+      {
+        "field": "divide_side",
+        "meaning": "Side of the domain where the analytical no-flow divide is enforced.",
+        "value": "west",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml"
+      }
+    ],
+    "common_setup": [
+      {
+        "field": "geographic.synthetic.grid.length_x",
+        "meaning": "Synthetic-domain length along the x axis.",
+        "value": "400.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_y",
+        "meaning": "Synthetic-domain length along the y axis.",
+        "value": "50.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.nx",
+        "meaning": "Grid cell count along the x axis.",
+        "value": "40",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.ny",
+        "meaning": "Grid cell count along the y axis.",
+        "value": "5",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.kind",
+        "meaning": "Synthetic topography shape used by the benchmark.",
+        "value": "flat",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.base_elevation",
+        "meaning": "Base land-surface elevation of the synthetic topography.",
+        "value": "20 m",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.supports.k_bands.provider",
+        "meaning": "How the support `k_bands` is generated.",
+        "value": "generated_bands",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.supports.k_bands.axis",
+        "meaning": "Axis used to build support `k_bands`.",
+        "value": "x",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.supports.k_bands.coordinate_mode",
+        "meaning": "Coordinate interpretation used to define support `k_bands`.",
+        "value": "relative",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.supports.k_bands.breaks",
+        "meaning": "Break values used to split support `k_bands`.",
+        "value": "[0.3, 0.7]",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.supports.k_bands.labels",
+        "meaning": "Labels assigned to the zones of support `k_bands`.",
+        "value": "[west_zone, middle_zone, east_zone]",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.depth_model.type",
+        "meaning": "Depth model used to build the aquifer support.",
+        "value": "constant_thickness",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.depth_model.thickness",
+        "meaning": "Aquifer or support thickness used by the benchmark.",
+        "value": "20.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.flow_regime",
+        "meaning": "Steady or transient flow regime used by the benchmark.",
+        "value": "steady",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.active_sinks_sources",
+        "meaning": "Sink and source families activated in the benchmark.",
+        "value": "[recharge]",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.active_bc",
+        "meaning": "Boundary-condition families activated in the benchmark.",
+        "value": "[east_side]",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param_list",
+        "meaning": "Hydraulic parameter families explicitly configured by the benchmark.",
+        "value": "[K]",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field.kind",
+        "meaning": "Parameterization mode used for `K`.",
+        "value": "heterogeneous",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field_heterogeneous.values_source",
+        "meaning": "Value source used for the heterogeneous `K` field.",
+        "value": "inline",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field_heterogeneous.values.west_zone",
+        "meaning": "Heterogeneous `K` value applied on support zone `west_zone`.",
+        "value": "2e-4 m/s",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field_heterogeneous.values.middle_zone",
+        "meaning": "Heterogeneous `K` value applied on support zone `middle_zone`.",
+        "value": "5e-5 m/s",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field_heterogeneous.values.east_zone",
+        "meaning": "Heterogeneous `K` value applied on support zone `east_zone`.",
+        "value": "1e-4 m/s",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field_heterogeneous.field_spatial_id",
+        "meaning": "Support identifier used to distribute the heterogeneous `K` field.",
+        "value": "k_bands",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.ic.value",
+        "meaning": "Initial hydraulic head used to start the benchmark.",
+        "value": "7.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.east_side.value",
+        "meaning": "Fixed head applied on the east side boundary.",
+        "value": "5.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.types",
+        "meaning": "External data families loaded by the benchmark.",
+        "value": "[recharge]",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].source",
+        "meaning": "Recharge data source mode used by the benchmark.",
+        "value": "synthetic",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].values",
+        "meaning": "Recharge values used by the benchmark forcing.",
+        "value": "[1 mm/day]",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].runoff_ratio",
+        "meaning": "Runoff ratio applied when converting recharge forcing to effective infiltration.",
+        "value": "0",
+        "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+      }
+    ],
+    "solver_overrides": {
+      "modflownwt": [
+        {
+          "field": "modflownwt.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW-NWT.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW-NWT.",
+          "value": "40",
+          "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW-NWT.",
+          "value": "5",
+          "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW-NWT.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW-NWT.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml"
+        }
+      ],
+      "modflow6": [
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW 6.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW 6.",
+          "value": "40",
+          "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW 6.",
+          "value": "5",
+          "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW 6.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflow6.toml"
+        }
+      ],
+      "boussinesq": [
+        {
+          "field": "flow.runtime_backend",
+          "meaning": "Runtime backend selected for the in-house solver.",
+          "value": "scipy_sparse",
+          "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_boussinesq.toml"
+        }
+      ]
+    },
+    "acceptance_criteria": {
+      "common": [
+        {
+          "field": "output.observable_name",
+          "meaning": "Simulated observable compared against the reference solution.",
+          "value": "watertable_elevation",
+          "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml"
+        },
+        {
+          "field": "output.expected_shape",
+          "meaning": "Expected spatial output shape checked by the validation helper.",
+          "value": "[5, 40]",
+          "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml"
+        }
+      ],
+      "solver_specific": {
+        "modflownwt": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 40",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.05",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.1",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "1e-05",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances.toml"
+          }
+        ],
+        "modflow6": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 40",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.04",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.05",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "1e-05",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_modflow6.toml"
+          }
+        ],
+        "boussinesq": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 3 x 40",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.12",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.15",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "0.04",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_boussinesq.toml"
+          }
+        ]
+      }
+    }
+  }
 }

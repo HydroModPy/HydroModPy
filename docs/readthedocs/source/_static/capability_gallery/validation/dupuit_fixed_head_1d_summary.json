@@ -9,6 +9,9 @@
     "Homogeneous unconfined strip, fixed west/east heads, no recharge",
     "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "check that the end-to-end launcher workflow reproduces the expected head profile on a simple homogeneous domain,",
     "keep one lightweight, deterministic benchmark for future validation cases.",
@@ -24,6 +27,8 @@
     "\\frac{\\mathrm{d}}{\\mathrm{d}x}\\left(K\\,h\\,\\frac{\\mathrm{d}h}{\\mathrm{d}x}\\right)=0",
     "h(x)=\\sqrt{h_w^2+\\left(h_e^2-h_w^2\\right)\\frac{x-x_{\\min}}{x_{\\max}-x_{\\min}}}"
   ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
   "reproduction_command": "python -m validation_cases.analytical.steady.dupuit_fixed_head_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
@@ -38,23 +43,27 @@
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/runtime_boussinesq.py",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_modflow6.toml",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc.toml",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc_partition.toml",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflownwt.toml",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_boussinesq.toml",
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "3f9429c4ce09f192e21aafaabc6a959ecb3a9396cc6a819d773ed298981faa5c",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/README.md": "d6d472127a3024358f3ae2deadf26adf42d5e74c5acf44fc40873823f89752f1",
+    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/README.md": "3b5e1de21f97d888f5cd10866a246e50c6a1c1fea31c2cf245b08220cd9ecada",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/reference.py": "1aaa4f200c51669c4664e6266f892224855f63f9bd134ae3441069ad53c5383c",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/comparison.py": "b2274f04cd93aeb4278ffb9b38b78f67cc6e0059a7c0d88be6cc3ecc93c81f69",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/comparison.py": "11d27b0241c1920c419094997e8b8da815fa34cf0002b2be6367d02bba5a2cdb",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/plotting.py": "03c726f8fff47defc3459665f89e7274e1c0ba43ed88defa97341388a927b861",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/run_case.py": "c758f25e44acc2fd7716fe5ce4b4f4f72b719cc99c24a0c59ced85d3cc91b4b6",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml": "42a5ed29d4d35160a8e6131577bee5b897524696bbd11edb92d3340bfd614307",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml": "482843ea4f67e697406e3e1dab95cd0891627b55e0612f2fad4581592974df52",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/runtime_boussinesq.py": "fbc759be451a114a2c4931a779bfe7c55693299df3e4c0d07178ed98d90fce24",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/runtime_boussinesq.py": "6a6a27ccbb8f77db1bf6d55f12bc9bdcab3fd968cbb84f6e3940f3b7fb16781c",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_modflow6.toml": "2416096ac36036afd72b2c681546cd6682bf59faa92ce2cbc1a79de39d9ab297",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc.toml": "a5cf7e99d56641043d3a522937dae684f3e3573c44a571765095473710ed69a8",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc_partition.toml": "a5cf7e99d56641043d3a522937dae684f3e3573c44a571765095473710ed69a8",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflownwt.toml": "775254b3896dc6631b7da639d8f266e6d2b030a6caf09bada6053ae920da6b23",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml": "500d12e78009034e6feee87309dc89f3c3f876bad33c2c66b9fd0cad6dfd8d15",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
@@ -317,5 +326,343 @@
         "timestep": 0
       }
     }
-  ]
+  ],
+  "parameter_docs": {
+    "reference_parameters": [
+      {
+        "field": "xmin",
+        "meaning": "Minimum x coordinate of the analytical reference domain.",
+        "value": "0",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "xmax",
+        "meaning": "Maximum x coordinate of the analytical reference domain.",
+        "value": "400",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "west_head",
+        "meaning": "Fixed west-boundary hydraulic head used by the reference solution.",
+        "value": "10 m",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "east_head",
+        "meaning": "Fixed east-boundary hydraulic head used by the reference solution.",
+        "value": "5 m",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "hydraulic_conductivity_m_per_s",
+        "meaning": "Hydraulic conductivity used by the analytical or benchmark reference.",
+        "value": "0.0001 m/s",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "aquifer_thickness_m",
+        "meaning": "Aquifer thickness used by the reference formulation.",
+        "value": "20 m",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "profile_axis",
+        "meaning": "Axis along which the validation profile is extracted.",
+        "value": "0",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml"
+      }
+    ],
+    "common_setup": [
+      {
+        "field": "geographic.synthetic.grid.length_x",
+        "meaning": "Synthetic-domain length along the x axis.",
+        "value": "400.0 m",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_y",
+        "meaning": "Synthetic-domain length along the y axis.",
+        "value": "50.0 m",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.nx",
+        "meaning": "Grid cell count along the x axis.",
+        "value": "40",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.ny",
+        "meaning": "Grid cell count along the y axis.",
+        "value": "5",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.kind",
+        "meaning": "Synthetic topography shape used by the benchmark.",
+        "value": "flat",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.base_elevation",
+        "meaning": "Base land-surface elevation of the synthetic topography.",
+        "value": "20 m",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "domain.depth_model.type",
+        "meaning": "Depth model used to build the aquifer support.",
+        "value": "constant_thickness",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "domain.depth_model.thickness",
+        "meaning": "Aquifer or support thickness used by the benchmark.",
+        "value": "20.0 m",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.flow_regime",
+        "meaning": "Steady or transient flow regime used by the benchmark.",
+        "value": "steady",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.active_sinks_sources",
+        "meaning": "Sink and source families activated in the benchmark.",
+        "value": "[]",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.active_bc",
+        "meaning": "Boundary-condition families activated in the benchmark.",
+        "value": "[west_side, east_side]",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param_list",
+        "meaning": "Hydraulic parameter families explicitly configured by the benchmark.",
+        "value": "[K]",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.K.field.kind",
+        "meaning": "Parameterization mode used for `K`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.K.field_homogeneous.value",
+        "meaning": "Homogeneous `K` value used by the benchmark.",
+        "value": "1e-4 m/s",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.ic.value",
+        "meaning": "Initial hydraulic head used to start the benchmark.",
+        "value": "7.5 m",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.west_side.value",
+        "meaning": "Fixed head applied on the west side boundary.",
+        "value": "10.0 m",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.east_side.value",
+        "meaning": "Fixed head applied on the east side boundary.",
+        "value": "5.0 m",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      }
+    ],
+    "solver_overrides": {
+      "modflownwt": [
+        {
+          "field": "modflownwt.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW-NWT.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW-NWT.",
+          "value": "40",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW-NWT.",
+          "value": "5",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW-NWT.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW-NWT.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflownwt.toml"
+        }
+      ],
+      "modflow6": [
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "SIMPLE",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.process_specific.vka",
+          "meaning": "Vertical anisotropy ratio passed to MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW 6.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW 6.",
+          "value": "40",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW 6.",
+          "value": "5",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW 6.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml"
+        }
+      ],
+      "boussinesq": [
+        {
+          "field": "flow.runtime_backend",
+          "meaning": "Runtime backend selected for the in-house solver.",
+          "value": "scipy_sparse",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_boussinesq.toml"
+        }
+      ]
+    },
+    "acceptance_criteria": {
+      "common": [
+        {
+          "field": "output.observable_name",
+          "meaning": "Simulated observable compared against the reference solution.",
+          "value": "watertable_elevation",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml"
+        },
+        {
+          "field": "output.expected_shape",
+          "meaning": "Expected spatial output shape checked by the validation helper.",
+          "value": "[5, 40]",
+          "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml"
+        }
+      ],
+      "solver_specific": {
+        "modflownwt": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 40",
+            "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.05",
+            "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.1",
+            "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "2e-05",
+            "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml"
+          }
+        ],
+        "modflow6": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 40",
+            "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.0002",
+            "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.0003",
+            "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "1e-05",
+            "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_modflow6.toml"
+          }
+        ],
+        "boussinesq": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 40",
+            "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.05",
+            "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.1",
+            "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "2e-05",
+            "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml"
+          }
+        ]
+      }
+    }
+  }
 }

@@ -1,0 +1,63 @@
+@startuml
+title Launcher - MeshCatchment Package Components
+left to right direction
+
+package "Public entry points" {
+  component "python -m launchers\nmesh-catchment run / template" as MainCli
+  component "launcher.py\nMeshCatchmentLauncher" as Launcher
+}
+
+package "Config and versioned assets" {
+  component "config.py\nschema parsing" as Config
+  component "templates.py\ntemplate generation" as Templates
+  component "config_common.toml\nconfig_batch_common.toml" as CommonConfigs
+  component "scenarios/*.toml\nrunnable examples" as Scenarios
+  component "tools/run_all_configs.py\nsmoke runner" as Smoke
+}
+
+package "Dedicated mesh runtime" {
+  component "runtime.py\npublic facade" as Runtime
+  component "runtime_single_run.py\nmono-run execution" as SingleRun
+  component "batch.py\nMeshCatchmentBatchRunner" as Batch
+  component "batch_io.py\noutlet tables + raster coverage" as BatchIO
+  component "batch_reporting.py\nmanifest + summary" as BatchReporting
+}
+
+package "Shared HydroModPy runtime" {
+  component "Workspace / Geographic /\nDomain context / Gmsh conformal case" as SharedRuntime
+}
+
+MainCli --> Launcher
+MainCli --> Templates
+Launcher --> Config
+Launcher --> Runtime
+Launcher --> Batch : inject run_single_workflow\ncallback
+
+Templates --> Config
+CommonConfigs --> Scenarios
+Scenarios --> Launcher
+Smoke --> Scenarios
+Smoke --> MainCli : launches
+
+Runtime --> SingleRun
+Batch --> BatchIO
+Batch --> BatchReporting
+Batch --> Runtime : callback executes\nmono-run path
+
+SingleRun --> SharedRuntime
+Runtime --> SharedRuntime
+
+note bottom of Runtime
+runtime.py stays intentionally short:
+it validates the public launcher payload
+and delegates the concrete mono-run path
+to runtime_single_run.py.
+end note
+
+note bottom of Batch
+batch.py is orchestration only.
+It derives outlet-specific child configs,
+then reuses the same mono-catchment
+callback for each outlet.
+end note
+@enduml

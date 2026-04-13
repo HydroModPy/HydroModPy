@@ -14,6 +14,12 @@ def _resolve_test_scratch_root() -> Path:
     return (Path(tempfile.gettempdir()) / "hydromodpy_tests").resolve()
 
 
+def _path_has_suffix_parts(path: Path, suffix_parts: tuple[str, ...]) -> bool:
+    """Return True when ``path`` ends with the requested path-part suffix."""
+    parts = path.parts
+    return len(parts) >= len(suffix_parts) and tuple(parts[-len(suffix_parts) :]) == suffix_parts
+
+
 _TEST_SCRATCH_ROOT = _resolve_test_scratch_root()
 _TEST_TMP_ROOT = _TEST_SCRATCH_ROOT / "tmp"
 _TEST_PYTEST_ROOT = _TEST_SCRATCH_ROOT / "pytest"
@@ -49,6 +55,27 @@ def update_goldens(request):
 def hydromodpy_test_scratch_root() -> Path:
     """Expose the shared repository-external scratch root to tests."""
     return _TEST_SCRATCH_ROOT
+
+
+@pytest.fixture(autouse=True)
+def _redirect_repo_root_cwd_for_gmsh_grid_tests(
+    request,
+    monkeypatch: pytest.MonkeyPatch,
+    hydromodpy_test_scratch_root: Path,
+) -> None:
+    """Keep gmsh-grid tests from materializing scratch folders in the repo root."""
+    test_path = Path(str(getattr(request.node, "fspath", request.node.path))).resolve()
+    if not _path_has_suffix_parts(
+        test_path.parent,
+        ("tests", "unit", "solver", "utils", "mesh", "gmsh_grid"),
+    ):
+        return
+
+    scratch_cwd = (
+        hydromodpy_test_scratch_root / "cwd" / "gmsh_grid" / test_path.stem
+    )
+    scratch_cwd.mkdir(parents=True, exist_ok=True)
+    monkeypatch.chdir(scratch_cwd)
 
 
 def pytest_collection_modifyitems(config, items):

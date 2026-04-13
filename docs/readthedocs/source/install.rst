@@ -200,7 +200,9 @@ Linux / WSL quick start
 -----------------------
 
 Ubuntu and WSL users can bootstrap the editable development environment with
-the helper script shipped in ``install/``:
+the helper script shipped in ``install/``. It installs the minimal system
+dependency, creates the Conda env, and adds the Linux runtime library needed by
+``gmsh``:
 
 .. code-block:: bash
 
@@ -213,14 +215,37 @@ inside the same environment:
 
    bash install/setup_wsl_dev.sh --env-name hydromodpy-wsl --with-petsc
 
+For day-to-day work after the environment already exists, open one ready shell
+with the companion helper:
+
+.. code-block:: bash
+
+   bash install/enter_wsl_dev.sh
+
+The helper sources Conda, activates the chosen env, and moves to the repository
+root. Add ``--headless`` for non-interactive runs or ``--output-root`` to send
+outputs directly to one Windows path:
+
+.. code-block:: bash
+
+   bash install/enter_wsl_dev.sh --headless
+   bash install/enter_wsl_dev.sh --output-root /mnt/c/Users/<user>/Documents/HydroModPyOutputs
+
 If Conda is not installed inside WSL yet, Miniforge is a compact default:
 
 .. code-block:: bash
 
-   sudo apt update && sudo apt install -y curl git libglu1-mesa libxft2
+   sudo apt update && sudo apt install -y curl git libglu1-mesa
    curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
    bash Miniforge3-Linux-x86_64.sh
    source ~/miniforge3/etc/profile.d/conda.sh
+
+If you create the Conda environment manually instead of using
+``install/setup_wsl_dev.sh``, add the Linux ``gmsh`` runtime shim yourself:
+
+.. code-block:: bash
+
+   conda install -n <env>-light -c conda-forge xorg-libxft
 
 After activation, a typical Linux/WSL non-interactive test session is:
 
@@ -256,8 +281,9 @@ Check the installation
    font_sizes = toolbox.plot_params(8, 15, 18, 20)  # small, medium, intermediate, large
    print(hydromodpy.__version__)
 
-Refer to :doc:`examples` for complete notebooks and scripts once the import
-works.
+Refer to :doc:`getting_started/index` for a guided first workflow once the
+import works. Use :doc:`examples` when you want the full notebook and script
+inventory.
 
 Spyder note
 -----------

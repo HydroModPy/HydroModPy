@@ -223,6 +223,7 @@ def _normalize_dirichlet_boundary_payload(
         "data_value": data_value,
         "forcing": forcing_payload,
         "application_domain": application_domain,
+        "support_label": _extract_support_label(payload=payload),
     }
     return FlowBoundaryConditionConfig.model_validate(normalized_payload).model_dump(
         mode="python"
@@ -270,6 +271,7 @@ def _normalize_drainage_boundary_payload(
         "type": raw_type,
         "data_value": bool(payload.get("data_value", False)),
         "application_domain": application_domain,
+        "support_label": _extract_support_label(payload=payload),
     }
     return FlowBoundaryConditionConfig.model_validate(normalized_payload).model_dump(
         mode="python"
@@ -306,6 +308,7 @@ def _normalize_generic_boundary_payload(
         "units": units,
         "type": bc_type,
         "data_value": bool(payload.get("data_value", False)),
+        "support_label": _extract_support_label(payload=payload),
     }
 
     raw_application_domain = payload.get("application_domain")
@@ -338,6 +341,17 @@ def _extract_boundary_forcing(
     if not isinstance(forcing, Mapping):
         raise TypeError(f"{location_prefix}.forcing must be a mapping")
     return FlowBoundaryForcingConfig.model_validate(dict(forcing)).model_dump(mode="python")
+
+
+def _extract_support_label(
+    *,
+    payload: Mapping[str, object],
+) -> str | None:
+    """Return one optional explicit support label."""
+    raw_value = payload.get("support_label")
+    if raw_value is None:
+        return None
+    return str(raw_value)
 
 
 def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:

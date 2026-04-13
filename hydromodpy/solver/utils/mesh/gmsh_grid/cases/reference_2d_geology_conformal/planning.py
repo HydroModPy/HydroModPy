@@ -176,12 +176,15 @@ def _load_geology_dataframe(
     geology_cfg,
     config_path: Path,
     effective_domain_payload: ZoneConformalGeometryPayload,
+    loaded_payload: dict[str, object] | None = None,
 ) -> tuple[ZoneConformalSourcePayload, gpd.GeoDataFrame]:
-    payload = load_vector_geology_dataframe(
-        geology_cfg.to_mapping(),
-        config_path=config_path,
-        zone_key_column="zone_key",
-    )
+    payload = loaded_payload
+    if payload is None:
+        payload = load_vector_geology_dataframe(
+            geology_cfg.to_mapping(),
+            config_path=config_path,
+            zone_key_column="zone_key",
+        )
     gdf = payload["gdf"].copy()
     source_payload = ZoneConformalSourcePayload(
         field_id=str(payload["field_id"]),
@@ -784,12 +787,12 @@ def _build_zone_source_inputs(
     gpd.GeoDataFrame,
 ]:
     if cfg.geology is not None:
-        source_probe = load_vector_geology_dataframe(
+        source_payload_raw = load_vector_geology_dataframe(
             cfg.geology.to_mapping(),
             config_path=config_path,
             zone_key_column="zone_key",
         )
-        target_crs = source_probe["gdf"].crs
+        target_crs = source_payload_raw["gdf"].crs
         effective_domain_payload = _load_effective_domain_payload(
             cfg=cfg,
             config_path=config_path,
@@ -800,6 +803,7 @@ def _build_zone_source_inputs(
             geology_cfg=cfg.geology,
             config_path=config_path,
             effective_domain_payload=effective_domain_payload,
+            loaded_payload=source_payload_raw,
         )
         return (
             source_payload,

@@ -128,6 +128,449 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Reference Parameters
+^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``xmin``
+     - Minimum x coordinate of the analytical reference domain.
+     - 0
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+   * - ``xmax``
+     - Maximum x coordinate of the analytical reference domain.
+     - 100
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+   * - ``base_head_m``
+     - Baseline hydraulic head around which the linearized reference is expressed.
+     - 10 m
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+   * - ``mean_recharge_mm_day``
+     - Mean recharge applied in the periodic reference forcing.
+     - 5 mm/day
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+   * - ``amplitude_mm_day``
+     - Amplitude of the periodic recharge forcing used by the reference solution.
+     - 5 mm/day
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+   * - ``period_days``
+     - Period of the periodic forcing used by the reference solution.
+     - 10 days
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+   * - ``phase_radians``
+     - Phase shift applied to the periodic reference forcing.
+     - 0 rad
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+   * - ``hydraulic_conductivity_m_per_s``
+     - Hydraulic conductivity used by the analytical or benchmark reference.
+     - 0.0001 m/s
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+   * - ``reference_saturated_thickness_m``
+     - Reference saturated thickness used by the linearized formulation.
+     - 10 m
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+   * - ``specific_yield``
+     - Specific yield used by the transient reference formulation.
+     - 0.1 -
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+   * - ``profile_axis``
+     - Axis along which the validation profile is extracted.
+     - 0
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+   * - ``n_terms``
+     - Number of terms retained in the analytical series expansion.
+     - 400
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+   * - ``dt_seconds``
+     - Reference time step used by the analytical evaluator.
+     - 86400 s
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+
+Common Numerical Setup
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``simulation.time.start_datetime``
+     - Simulation start time used by the benchmark.
+     - 2003-01-01 00:00:00
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``simulation.time.end_datetime``
+     - Simulation end time used by the benchmark.
+     - 2003-02-09 00:00:00
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``simulation.time.step_value``
+     - Nominal time step used by the benchmark.
+     - 1 day
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.length_x``
+     - Synthetic-domain length along the x axis.
+     - 100.0 m
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.length_y``
+     - Synthetic-domain length along the y axis.
+     - 10.0 m
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.nx``
+     - Grid cell count along the x axis.
+     - 50
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.ny``
+     - Grid cell count along the y axis.
+     - 5
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.topography.kind``
+     - Synthetic topography shape used by the benchmark.
+     - flat
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.topography.base_elevation``
+     - Base land-surface elevation of the synthetic topography.
+     - 20 m
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``domain.depth_model.type``
+     - Depth model used to build the aquifer support.
+     - constant_thickness
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``domain.depth_model.thickness``
+     - Aquifer or support thickness used by the benchmark.
+     - 20.0 m
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``flow.flow_regime``
+     - Steady or transient flow regime used by the benchmark.
+     - transient
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``flow.active_sinks_sources``
+     - Sink and source families activated in the benchmark.
+     - [recharge]
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``flow.active_bc``
+     - Boundary-condition families activated in the benchmark.
+     - [west_side, east_side]
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``flow.param_list``
+     - Hydraulic parameter families explicitly configured by the benchmark.
+     - [K, Ss, Sy]
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``flow.param.K.field.kind``
+     - Parameterization mode used for `K`.
+     - homogeneous
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``flow.param.K.field_homogeneous.value``
+     - Homogeneous `K` value used by the benchmark.
+     - 1e-4 m/s
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``flow.param.Ss.field.kind``
+     - Parameterization mode used for `Ss`.
+     - homogeneous
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``flow.param.Ss.field_homogeneous.value``
+     - Homogeneous `Ss` value used by the benchmark.
+     - 1e-10 m-1
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``flow.param.Sy.field.kind``
+     - Parameterization mode used for `Sy`.
+     - homogeneous
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``flow.param.Sy.field_homogeneous.value``
+     - Homogeneous `Sy` value used by the benchmark.
+     - 0.10 -
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``flow.ic.value``
+     - Initial hydraulic head used to start the benchmark.
+     - 10.0 m
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``flow.bc.dirichlet.west_side.value``
+     - Fixed head applied on the west side boundary.
+     - 10.0 m
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``flow.bc.dirichlet.east_side.value``
+     - Fixed head applied on the east side boundary.
+     - 10.0 m
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``data.types``
+     - External data families loaded by the benchmark.
+     - [recharge]
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``data.recharge.sources[0].source``
+     - Recharge data source mode used by the benchmark.
+     - synthetic
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``data.recharge.sources[0].values``
+     - Recharge values used by the benchmark forcing.
+     - [5 mm/day]
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``data.recharge.sources[0].amplitude``
+     - Amplitude of the periodic recharge forcing.
+     - 5 mm/day
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``data.recharge.sources[0].period_days``
+     - Period of the periodic recharge forcing.
+     - 10 days
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``data.recharge.sources[0].start_date``
+     - Start date of the recharge forcing.
+     - 2003-01-01
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``data.recharge.sources[0].freq``
+     - Sampling frequency used for the recharge forcing.
+     - D
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``data.recharge.sources[0].periods``
+     - Number of recharge forcing periods.
+     - 40
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+   * - ``data.recharge.sources[0].runoff_ratio``
+     - Runoff ratio applied when converting recharge forcing to effective infiltration.
+     - 0
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+
+Solver-Specific Overrides
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: MODFLOW-NWT
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``modflownwt.sgrid.planar.mode``
+           - Planar support construction mode used by MODFLOW-NWT.
+           - resample_to_shape
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.planar.nx``
+           - Planar support cell count along x used by MODFLOW-NWT.
+           - 50
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.planar.ny``
+           - Planar support cell count along y used by MODFLOW-NWT.
+           - 5
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.planar.resampling``
+           - Planar support resampling mode used by MODFLOW-NWT.
+           - nearest
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.vertical.nlay``
+           - Number of vertical layers used by MODFLOW-NWT.
+           - 1
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+         * - ``modflownwt.tgrid.firstpersteady``
+           - Whether the first time period is treated as steady by MODFLOW-NWT.
+           - false
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflownwt.toml``
+
+   .. tab-item:: MODFLOW 6
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``modflow6.runtime.mf_verbose``
+           - Solver-specific override applied to MODFLOW 6.
+           - false
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflow6.toml``
+         * - ``modflow6.runtime.mf6_ims_complexity``
+           - Linear-solver complexity preset used by MODFLOW 6.
+           - COMPLEX
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.mode``
+           - Planar support construction mode used by MODFLOW 6.
+           - resample_to_shape
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.nx``
+           - Planar support cell count along x used by MODFLOW 6.
+           - 50
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.ny``
+           - Planar support cell count along y used by MODFLOW 6.
+           - 5
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.resampling``
+           - Planar support resampling mode used by MODFLOW 6.
+           - nearest
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflow6.toml``
+         * - ``modflow6.sgrid.vertical.nlay``
+           - Number of vertical layers used by MODFLOW 6.
+           - 1
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflow6.toml``
+         * - ``modflow6.tgrid.firstpersteady``
+           - Whether the first time period is treated as steady by MODFLOW 6.
+           - false
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflow6.toml``
+
+   .. tab-item:: Boussinesq
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``flow.runtime_backend``
+           - Runtime backend selected for the in-house solver.
+           - scipy_sparse
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_boussinesq.toml``
+
+Acceptance Criteria
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``output.observable_name``
+     - Simulated observable compared against the reference solution.
+     - watertable_elevation
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+   * - ``output.expected_periods``
+     - Expected number of stored time periods checked by the validation helper.
+     - 40
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+   * - ``output.expected_spatial_shape``
+     - Expected spatial shape for each stored time step.
+     - [5, 50]
+     - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+
+Acceptance Criteria by Solver
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: MODFLOW-NWT
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected output: 40 periods, spatial shape 5 x 50
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+         * - ``space_time.rmse``
+           - Maximum accepted root-mean-square error for space time.
+           - 0.02
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml``
+         * - ``space_time.max_abs_error``
+           - Maximum accepted absolute error for space time.
+           - 0.03
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml``
+         * - ``space_time.row_spread``
+           - Maximum accepted cross-row spread for space time.
+           - 0.0001
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml``
+         * - ``final_profile.rmse``
+           - Maximum accepted root-mean-square error for final profile.
+           - 0.02
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml``
+         * - ``final_profile.max_abs_error``
+           - Maximum accepted absolute error for final profile.
+           - 0.03
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml``
+
+   .. tab-item:: MODFLOW 6
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected output: 40 periods, spatial shape 5 x 50
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+         * - ``space_time.rmse``
+           - Maximum accepted root-mean-square error for space time.
+           - 0.01
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances_modflow6.toml``
+         * - ``space_time.max_abs_error``
+           - Maximum accepted absolute error for space time.
+           - 0.02
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances_modflow6.toml``
+         * - ``space_time.row_spread``
+           - Maximum accepted cross-row spread for space time.
+           - 1e-05
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances_modflow6.toml``
+         * - ``final_profile.rmse``
+           - Maximum accepted root-mean-square error for final profile.
+           - 0.002
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances_modflow6.toml``
+         * - ``final_profile.max_abs_error``
+           - Maximum accepted absolute error for final profile.
+           - 0.003
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances_modflow6.toml``
+
+   .. tab-item:: Boussinesq
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected output: 40 periods, spatial shape 5 x 50
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml``
+         * - ``space_time.rmse``
+           - Maximum accepted root-mean-square error for space time.
+           - 0.02
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml``
+         * - ``space_time.max_abs_error``
+           - Maximum accepted absolute error for space time.
+           - 0.03
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml``
+         * - ``space_time.row_spread``
+           - Maximum accepted cross-row spread for space time.
+           - 0.0001
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml``
+         * - ``final_profile.rmse``
+           - Maximum accepted root-mean-square error for final profile.
+           - 0.02
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml``
+         * - ``final_profile.max_abs_error``
+           - Maximum accepted absolute error for final profile.
+           - 0.03
+           - ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml``
+
 Source Pointers
 ---------------
 

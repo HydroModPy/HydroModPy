@@ -1,0 +1,26 @@
+[method_comparison_anchors.example12.reference_point]
+x = 265709.0603571266
+y = 6783838.949805205
+
+[method_comparison_anchors.example12.outlet]
+x = 266887.0154945171
+y = 6785678.67277686
+
+# Points chosen from a temporal-amplitude scan on example12 transient heads.
+# They give three distinct response modes: outlet lowland, mid-basin storage,
+# and upland recharge response.
+[method_comparison_anchors.example12.outlet_lowland]
+x = 266875.0
+y = 6785675.0
+
+[method_comparison_anchors.example12.mid_basin_response]
+x = 265875.0
+y = 6784625.0
+
+[method_comparison_anchors.example12.upstream_ridge]
+x = 265450.0
+y = 6784200.0
+
+[method_comparison_anchors.headwater_100km2_outlet_2.outlet]
+x = 407925.0
+y = 6808275.0

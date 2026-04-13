@@ -1,0 +1,780 @@
+"""Canonical output selection for model-calibration launchers.
+
+The calibration launcher needs a stable boundary between heterogeneous
+simulation run states and objective-ready observables. This module owns that
+boundary locally to `launchers.model_calibration`:
+
+`run_state -> CanonicalOutputBundle -> selected observable arrays`.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+from collections.abc import Mapping
+
+import numpy as np
+
+from launchers.model_calibration.config import ModelCalibrationConfig
+
+
+_RUNTIME_MODEL_VARIABLE_NAMES = (
+    "watertable_elevation",
+    "watertable_depth",
+    "seepage_areas",
+    "outflow_drain",
+    "outlet_discharge_east_side_m3_s",
+    "groundwater_flux",
+    "groundwater_storage",
+    "accumulation_flux",
+    "concentration_seepage",
+    "mass_seepage",
+    "mass_accumulated",
+)
+_VARIABLE_ALIASES = {
+    "outlet_discharge": ("outlet_discharge_east_side_m3_s",),
+    "head": ("watertable_elevation",),
+    "depth": ("watertable_depth",),
+}
+_BOUNDARY_VARIABLE_IDS = {
+    "outlet_discharge_east_side_m3_s": "east_side",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class CanonicalOutputVariable:
+    """One canonical simulation output variable."""
+
+    name: str
+    payload: Any
+    source_key: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class CanonicalOutputBundle:
+    """Canonical view of outputs exposed by one candidate simulation run."""
+
+    variables: dict[str, CanonicalOutputVariable]
+    aliases: dict[str, str] = field(default_factory=dict)
+
+    def get(self, key: str) -> Any:
+        """Return a variable payload by canonical name or alias."""
+        if key in self.variables:
+            return self.variables[key].payload
+        alias = self.aliases.get(key)
+        if alias is not None and alias in self.variables:
+            return self.variables[alias].payload
+        raise KeyError(f"Unknown canonical output '{key}'")
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedOutputSelector:
+    """Prepared observable selector compiled once from launcher config."""
+
+    name: str
+    variable: str
+    variable_keys: tuple[str, ...]
+    source: str
+    support: str
+    x: float | None = None
+    y: float | None = None
+    boundary_id: str | None = None
+    time: str | None = None
+    time_window: tuple[str, str] | None = None
+    time_reducer: str | None = None
+    reducer: str | None = None
+
+
+def _candidate_output_containers(run_state: Any) -> tuple[tuple[str, Any], ...]:
+    """Return possible output containers in lookup priority order."""
+    containers: list[tuple[str, Any]] = []
+    if isinstance(run_state, dict):
+        for key in ("calibration_outputs", "outputs"):
+            value = run_state.get(key)
+            if value is not None:
+                containers.append((key, value))
+        containers.append(("run_state", run_state))
+        return tuple(containers)
+
+    for attr in ("calibration_outputs", "outputs"):
+        value = getattr(run_state, attr, None)
+        if value is not None:
+            containers.append((attr, value))
+    execution = getattr(run_state, "execution", None)
+    if execution is not None:
+        for attr in ("calibration_outputs", "outputs"):
+            value = getattr(execution, attr, None)
+            if value is not None:
+                containers.append((f"execution.{attr}", value))
+    return tuple(containers)
+
+
+def _lookup_value_in_container(container: Any, key: str) -> tuple[bool, Any]:
+    """Lookup one value by key in a dict-like or attribute container."""
+    if isinstance(container, dict) and key in container:
+        return True, container[key]
+    if hasattr(container, key):
+        return True, getattr(container, key)
+    return False, None
+
+
+def _iter_container_items(container: Any) -> list[tuple[str, Any]]:
+    """Return string-keyed items exposed by one output container."""
+    if isinstance(container, dict):
+        return [(str(key), value) for key, value in container.items()]
+    if hasattr(container, "__dict__"):
+        return [
+            (str(key), value)
+            for key, value in vars(container).items()
+            if not str(key).startswith("_")
+        ]
+    return []
+
+
+def _sort_time_key(key: Any) -> tuple[int, float | str]:
+    """Return a stable sort key for mixed numeric/string time indices."""
+    if isinstance(key, (int, float, np.integer, np.floating)):
+        return (0, float(key))
+    text = str(key)
+    try:
+        return (0, float(text))
+    except ValueError:
+        return (1, text)
+
+
+def _execution_scope(run_state: Any) -> Any:
+    """Return the execution registry/scope exposed by one run-state payload."""
+    if isinstance(run_state, dict):
+        execution = run_state.get("execution")
+        if execution is not None:
+            return execution
+    return getattr(run_state, "execution", None)
+
+
+def _models_by_run_id(run_state: Any) -> Mapping[str, Any]:
+    """Return the produced solver models keyed by run id when available."""
+    execution = _execution_scope(run_state)
+    if execution is None:
+        return {}
+    if isinstance(execution, dict):
+        models = execution.get("models_by_run_id")
+        return models if isinstance(models, Mapping) else {}
+    models = getattr(execution, "models_by_run_id", None)
+    return models if isinstance(models, Mapping) else {}
+
+
+def _boundary_id_for_variable(variable_name: str) -> str | None:
+    """Return the canonical boundary id exposed by one boundary series."""
+    return _BOUNDARY_VARIABLE_IDS.get(str(variable_name).strip())
+
+
+def _model_postprocess_dir(model: Any) -> Path | None:
+    """Resolve the persisted `_postprocess` directory for one solver model."""
+    save_file = getattr(model, "save_file", None)
+    if save_file:
+        save_path = Path(str(save_file)).expanduser()
+        if save_path.name == "_postprocess":
+            return save_path
+    full_path = getattr(model, "full_path", None)
+    if full_path:
+        return Path(str(full_path)).expanduser() / "_postprocess"
+    return None
+
+
+def _load_npy_payload(path: Path) -> Any:
+    """Load one post-process `.npy` payload."""
+    payload = np.load(path, allow_pickle=True)
+    if getattr(payload, "shape", None) == () and hasattr(payload, "item"):
+        item = payload.item()
+        if isinstance(item, Mapping):
+            return dict(item)
+        return item
+    return np.asarray(payload, dtype=float)
+
+
+def _load_mesh_npz_payload(path: Path) -> tuple[dict[Any, Any], np.ndarray | None]:
+    """Load one native-mesh `.npz` export as a time-indexed mapping."""
+    payload = np.load(path, allow_pickle=True)
+    values = np.asarray(payload["values"], dtype=float)
+    if "time_index" in payload:
+        time_keys = list(payload["time_index"])
+    elif "times" in payload:
+        time_keys = list(payload["times"])
+    else:
+        time_keys = list(range(values.shape[0] if values.ndim > 1 else 1))
+    cell_ids = (
+        np.asarray(payload["cell_ids"], dtype=int).reshape(-1)
+        if "cell_ids" in payload
+        else None
+    )
+    if values.ndim <= 1:
+        return {time_keys[0]: values.reshape(-1)}, cell_ids
+    return {
+        time_keys[index]: np.asarray(values[index], dtype=float).reshape(-1)
+        for index in range(values.shape[0])
+    }, cell_ids
+
+
+def _raw_model_variable_payload(
+    model: Any,
+    *,
+    variable_name: str,
+) -> tuple[Any | None, str | None, np.ndarray | None]:
+    """Resolve one variable payload from model memory first, then disk fallback."""
+    attr_name = f"dict_{variable_name}"
+    attr_value = getattr(model, attr_name, None)
+    if attr_value is not None and (
+        not isinstance(attr_value, Mapping) or len(attr_value) > 0
+    ):
+        return attr_value, "runtime_attribute", None
+
+    postprocess_dir = _model_postprocess_dir(model)
+    if postprocess_dir is None:
+        return None, None, None
+
+    npy_path = postprocess_dir / f"{variable_name}.npy"
+    if npy_path.is_file():
+        return _load_npy_payload(npy_path), "postprocess_npy", None
+
+    mesh_npz_path = postprocess_dir / "_mesh" / f"flow_{variable_name}.npz"
+    if mesh_npz_path.is_file():
+        payload, cell_ids = _load_mesh_npz_payload(mesh_npz_path)
+        return payload, "postprocess_mesh_npz", cell_ids
+
+    return None, None, None
+
+
+def _coordinates_from_runtime_mesh_support(
+    support: Any,
+    *,
+    cell_ids: np.ndarray | None = None,
+) -> np.ndarray | None:
+    """Return cell-centroid coordinates from runtime mesh support metadata."""
+    xs = np.asarray(getattr(support, "cell_centroid_x_m", ()), dtype=float).reshape(-1)
+    ys = np.asarray(getattr(support, "cell_centroid_y_m", ()), dtype=float).reshape(-1)
+    if xs.size == 0 or ys.size != xs.size:
+        return None
+    if cell_ids is not None and cell_ids.size > 0:
+        if np.any(cell_ids < 0) or np.any(cell_ids >= xs.size):
+            return None
+        xs = xs[cell_ids]
+        ys = ys[cell_ids]
+    return np.column_stack([xs, ys]).astype(float, copy=False)
+
+
+def _coordinates_from_solver_mesh(
+    solver_mesh: Any,
+    *,
+    cell_ids: np.ndarray | None = None,
+) -> np.ndarray | None:
+    """Return cell-centroid coordinates from one solver mesh when exposed."""
+    if solver_mesh is None or not hasattr(solver_mesh, "cell_centroids"):
+        return None
+    try:
+        centroids = np.asarray(solver_mesh.cell_centroids(), dtype=float)
+    except Exception:
+        return None
+    if centroids.size == 0:
+        return None
+    if centroids.ndim == 2 and centroids.shape[1] >= 2:
+        coords = centroids[:, :2]
+    else:
+        try:
+            coords = centroids.reshape(-1, 2)
+        except ValueError:
+            return None
+    if cell_ids is not None and cell_ids.size > 0:
+        if np.any(cell_ids < 0) or np.any(cell_ids >= coords.shape[0]):
+            return None
+        coords = coords[cell_ids]
+    return np.asarray(coords, dtype=float)
+
+
+def _coordinates_from_structured_grid(
+    model: Any,
+    *,
+    cell_ids: np.ndarray | None = None,
+) -> np.ndarray | None:
+    """Return structured-grid cell centers from legacy solver attributes."""
+    nrow = getattr(model, "nrow", None)
+    ncol = getattr(model, "ncol", None)
+    resolution = getattr(model, "resolution", None)
+    xul = getattr(model, "xul", None)
+    yul = getattr(model, "yul", None)
+    if any(value is None for value in (nrow, ncol, resolution, xul, yul)):
+        return None
+    nrow = int(nrow)
+    ncol = int(ncol)
+    resolution = float(resolution)
+    xs = float(xul) + (np.arange(ncol, dtype=float) + 0.5) * resolution
+    ys = float(yul) - (np.arange(nrow, dtype=float) + 0.5) * resolution
+    grid_x, grid_y = np.meshgrid(xs, ys)
+    coords = np.column_stack([grid_x.reshape(-1), grid_y.reshape(-1)])
+    if cell_ids is not None and cell_ids.size > 0:
+        if np.any(cell_ids < 0) or np.any(cell_ids >= coords.shape[0]):
+            return None
+        coords = coords[cell_ids]
+    return np.asarray(coords, dtype=float)
+
+
+def _model_cell_coordinates(
+    model: Any,
+    *,
+    value_count: int,
+    cell_ids: np.ndarray | None = None,
+) -> np.ndarray | None:
+    """Resolve per-cell coordinates aligned with one flattened model array."""
+    if value_count <= 0:
+        return None
+    support = getattr(model, "runtime_mesh_support", None)
+    coords = _coordinates_from_runtime_mesh_support(support, cell_ids=cell_ids)
+    if coords is not None and coords.shape[0] == value_count:
+        return coords
+
+    solver_mesh = getattr(model, "solver_mesh", None)
+    coords = _coordinates_from_solver_mesh(solver_mesh, cell_ids=cell_ids)
+    if coords is not None and coords.shape[0] == value_count:
+        return coords
+
+    coords = _coordinates_from_structured_grid(model, cell_ids=cell_ids)
+    if coords is not None and coords.shape[0] == value_count:
+        return coords
+    return None
+
+
+def _canonicalize_model_slice(
+    *,
+    variable_name: str,
+    values: Any,
+    model: Any,
+    cell_ids: np.ndarray | None = None,
+) -> Any:
+    """Normalize one solver output slice to the canonical selection payload."""
+    boundary_id = _boundary_id_for_variable(variable_name)
+    flat_values = np.asarray(values, dtype=float).reshape(-1)
+    if boundary_id is not None:
+        return {boundary_id: tuple(float(value) for value in flat_values)}
+
+    coordinates = _model_cell_coordinates(
+        model,
+        value_count=int(flat_values.size),
+        cell_ids=cell_ids,
+    )
+    if coordinates is not None:
+        return {
+            "coordinates": np.asarray(coordinates, dtype=float),
+            "values": flat_values.astype(float, copy=False),
+        }
+    return flat_values.astype(float, copy=False)
+
+
+def _canonicalize_model_payload(
+    *,
+    variable_name: str,
+    payload: Any,
+    model: Any,
+    cell_ids: np.ndarray | None = None,
+) -> Any:
+    """Convert one raw solver payload to the canonical calibration structure."""
+    if isinstance(payload, Mapping):
+        return {
+            time_key: _canonicalize_model_slice(
+                variable_name=variable_name,
+                values=time_values,
+                model=model,
+                cell_ids=cell_ids,
+            )
+            for time_key, time_values in sorted(
+                payload.items(),
+                key=lambda item: _sort_time_key(item[0]),
+            )
+        }
+    return _canonicalize_model_slice(
+        variable_name=variable_name,
+        values=payload,
+        model=model,
+        cell_ids=cell_ids,
+    )
+
+
+def _iter_runtime_model_variables(
+    run_state: Any,
+) -> tuple[CanonicalOutputVariable, ...]:
+    """Extract canonical variables from produced solver models when available."""
+    variables: list[CanonicalOutputVariable] = []
+    for run_id, model in _models_by_run_id(run_state).items():
+        for variable_name in _RUNTIME_MODEL_VARIABLE_NAMES:
+            raw_payload, payload_source, cell_ids = _raw_model_variable_payload(
+                model,
+                variable_name=variable_name,
+            )
+            if raw_payload is None:
+                continue
+            variables.append(
+                CanonicalOutputVariable(
+                    name=variable_name,
+                    payload=_canonicalize_model_payload(
+                        variable_name=variable_name,
+                        payload=raw_payload,
+                        model=model,
+                        cell_ids=cell_ids,
+                    ),
+                    source_key=(
+                        f"execution.models_by_run_id[{run_id}].{payload_source}"
+                    ),
+                    metadata={
+                        "run_id": str(run_id),
+                        "source_kind": str(payload_source),
+                    },
+                )
+            )
+    return tuple(variables)
+
+
+def canonicalize_run_outputs(run_state: Any) -> CanonicalOutputBundle:
+    """Build a canonical output bundle from a heterogeneous run state."""
+    variables: dict[str, CanonicalOutputVariable] = {}
+    aliases: dict[str, str] = {}
+    for source_name, container in _candidate_output_containers(run_state):
+        for key, value in _iter_container_items(container):
+            if key not in variables:
+                variables[key] = CanonicalOutputVariable(
+                    name=key,
+                    payload=value,
+                    source_key=source_name,
+                )
+            aliases.setdefault(key, key)
+
+    for variable in _iter_runtime_model_variables(run_state):
+        if variable.name not in variables:
+            variables[variable.name] = variable
+        aliases.setdefault(variable.name, variable.name)
+
+    for alias_name, candidate_names in _VARIABLE_ALIASES.items():
+        if alias_name in variables:
+            aliases.setdefault(alias_name, alias_name)
+            continue
+        for candidate_name in candidate_names:
+            if candidate_name in variables:
+                aliases.setdefault(alias_name, candidate_name)
+                break
+
+    return CanonicalOutputBundle(variables=variables, aliases=aliases)
+
+
+def _lookup_bundle_or_run_state(
+    *,
+    bundle: CanonicalOutputBundle,
+    run_state: Any,
+    key: str,
+) -> Any:
+    """Lookup one key first in the canonical bundle, then by direct container."""
+    try:
+        return bundle.get(key)
+    except KeyError:
+        pass
+    for _, container in _candidate_output_containers(run_state):
+        found, value = _lookup_value_in_container(container, key)
+        if found:
+            return value
+    raise KeyError(f"Could not find calibration output key '{key}'")
+
+
+def _output_variable_keys(output_cfg: Any) -> tuple[str, ...]:
+    """Return variable lookup keys from most semantic to compatibility aliases."""
+    keys: list[str] = []
+    variable = str(output_cfg.variable).strip()
+    if variable:
+        keys.append(variable)
+    boundary_id = getattr(output_cfg, "boundary_id", None)
+    if variable == "outlet_discharge" and boundary_id is not None:
+        keys.append(f"outlet_discharge_{boundary_id}_m3_s")
+    return tuple(dict.fromkeys(keys))
+
+
+def prepare_output_selectors(
+    cfg: ModelCalibrationConfig,
+) -> tuple[PreparedOutputSelector, ...]:
+    """Compile stable observable selectors from launcher config."""
+    selectors: list[PreparedOutputSelector] = []
+    for output_cfg in cfg.model_calibration.output:
+        selectors.append(
+            PreparedOutputSelector(
+                name=str(output_cfg.name),
+                variable=str(output_cfg.variable),
+                variable_keys=_output_variable_keys(output_cfg),
+                source=str(output_cfg.source),
+                support=str(output_cfg.support),
+                x=output_cfg.x,
+                y=output_cfg.y,
+                boundary_id=output_cfg.boundary_id,
+                time=output_cfg.time,
+                time_window=output_cfg.time_window,
+                time_reducer=output_cfg.time_reducer,
+                reducer=output_cfg.reducer,
+            )
+        )
+    return tuple(selectors)
+
+
+def _is_spatial_sample_mapping(payload: Any) -> bool:
+    """Return True for `{x, y, values}` or `{coordinates, values}` payloads."""
+    if not isinstance(payload, dict) or "values" not in payload:
+        return False
+    return ("x" in payload and "y" in payload) or "coordinates" in payload
+
+
+def _as_1d_float_tuple(values: Any, *, label: str) -> tuple[float, ...]:
+    """Normalize one selected observable payload to a non-empty float tuple."""
+    arr = np.asarray(values, dtype=float).ravel()
+    if arr.size == 0:
+        raise ValueError(f"{label} cannot be empty")
+    return tuple(float(value) for value in arr)
+
+
+def _reduce_numeric_values(
+    values: Any,
+    *,
+    reducer: str | None,
+    label: str,
+) -> tuple[float, ...]:
+    """Apply a scalar reducer or return all numeric values."""
+    arr = np.asarray(values, dtype=float).ravel()
+    if arr.size == 0:
+        raise ValueError(f"{label} cannot be empty")
+    reducer_key = "identity" if reducer is None else str(reducer).strip().lower()
+    if reducer_key in {"identity", "all", "none"}:
+        return tuple(float(value) for value in arr)
+    if reducer_key == "sum":
+        return (float(np.nansum(arr)),)
+    if reducer_key == "mean":
+        return (float(np.nanmean(arr)),)
+    if reducer_key == "min":
+        return (float(np.nanmin(arr)),)
+    if reducer_key == "max":
+        return (float(np.nanmax(arr)),)
+    raise ValueError(f"Unsupported reducer '{reducer}' for {label}")
+
+
+def _weighted_point_interpolation(
+    payload: dict[str, Any],
+    *,
+    x: float,
+    y: float,
+    reducer: str | None,
+    label: str,
+) -> tuple[float, ...]:
+    """Interpolate spatial samples at one point using inverse-distance weights."""
+    values = np.asarray(payload["values"], dtype=float).ravel()
+    if "coordinates" in payload:
+        coordinates = np.asarray(payload["coordinates"], dtype=float)
+        if coordinates.ndim != 2 or coordinates.shape[1] < 2:
+            raise ValueError(f"{label}.coordinates must be a Nx2 array")
+        xs = coordinates[:, 0].ravel()
+        ys = coordinates[:, 1].ravel()
+    else:
+        xs = np.asarray(payload["x"], dtype=float).ravel()
+        ys = np.asarray(payload["y"], dtype=float).ravel()
+
+    if xs.size != ys.size or xs.size != values.size:
+        raise ValueError(f"{label} x/y/value arrays must have the same length")
+    if values.size == 0:
+        raise ValueError(f"{label} cannot be empty")
+
+    distances = np.hypot(xs - float(x), ys - float(y))
+    finite_mask = np.isfinite(distances) & np.isfinite(values)
+    if not np.any(finite_mask):
+        raise ValueError(f"{label} contains no finite interpolation samples")
+    distances = distances[finite_mask]
+    values = values[finite_mask]
+
+    exact_mask = distances == 0.0
+    if np.any(exact_mask):
+        return _reduce_numeric_values(
+            values[exact_mask],
+            reducer="mean",
+            label=label,
+        )
+
+    reducer_key = "weighted_interpolation" if reducer is None else str(reducer)
+    if reducer_key.strip().lower() == "nearest":
+        return (float(values[int(np.argmin(distances))]),)
+    if reducer_key.strip().lower() != "weighted_interpolation":
+        return _reduce_numeric_values(values, reducer=reducer, label=label)
+
+    weights = 1.0 / distances
+    return (float(np.average(values, weights=weights)),)
+
+
+def _mapping_lookup(mapping: dict[Any, Any], key: Any) -> tuple[bool, Any]:
+    """Lookup a mapping key by raw value first, then by string representation."""
+    if key in mapping:
+        return True, mapping[key]
+    text_key = str(key)
+    for candidate_key, value in mapping.items():
+        if str(candidate_key) == text_key:
+            return True, value
+    return False, None
+
+
+def _time_selected_payloads(output_cfg: Any, payload: Any) -> list[Any]:
+    """Resolve optional time selection over a variable payload."""
+    if not isinstance(payload, dict) or _is_spatial_sample_mapping(payload):
+        return [payload]
+    if output_cfg.support == "boundary" and output_cfg.boundary_id in payload:
+        return [payload]
+
+    if output_cfg.time_window is not None:
+        start, end = output_cfg.time_window
+        selected = [
+            value
+            for key, value in payload.items()
+            if str(start) <= str(key) <= str(end)
+        ]
+        return selected or list(payload.values())
+
+    if output_cfg.time not in {None, "all"}:
+        found, value = _mapping_lookup(payload, output_cfg.time)
+        if found:
+            return [value]
+
+    return list(payload.values())
+
+
+def _select_support_value(output_cfg: Any, payload: Any) -> tuple[float, ...]:
+    """Apply the configured spatial support and reducer to a variable payload."""
+    label = f"simulated variable '{output_cfg.variable}'"
+    if output_cfg.support == "point":
+        if not _is_spatial_sample_mapping(payload):
+            reducer = (
+                "identity"
+                if str(output_cfg.reducer).strip().lower()
+                == "weighted_interpolation"
+                else output_cfg.reducer
+            )
+            return _reduce_numeric_values(payload, reducer=reducer, label=label)
+        return _weighted_point_interpolation(
+            payload,
+            x=output_cfg.x,
+            y=output_cfg.y,
+            reducer=output_cfg.reducer,
+            label=label,
+        )
+    if output_cfg.support == "boundary":
+        values = payload
+        if isinstance(payload, dict) and output_cfg.boundary_id is not None:
+            found, boundary_values = _mapping_lookup(payload, output_cfg.boundary_id)
+            if found:
+                values = boundary_values
+            elif "values" in payload:
+                values = payload["values"]
+        return _reduce_numeric_values(values, reducer=output_cfg.reducer, label=label)
+    if output_cfg.support == "cell_mask":
+        values = (
+            payload["values"]
+            if isinstance(payload, dict) and "values" in payload
+            else payload
+        )
+        return _reduce_numeric_values(values, reducer=output_cfg.reducer, label=label)
+    if output_cfg.support == "map":
+        values = (
+            payload["values"]
+            if isinstance(payload, dict) and "values" in payload
+            else payload
+        )
+        return _reduce_numeric_values(values, reducer="identity", label=label)
+    raise KeyError(
+        f"Unsupported output support '{output_cfg.support}' for '{output_cfg.name}'"
+    )
+
+
+def _select_variable_output_value(
+    *,
+    bundle: CanonicalOutputBundle,
+    run_state: Any,
+    output_cfg: Any,
+) -> tuple[float, ...]:
+    """Select one observable by variable/support when no explicit name exists."""
+    last_error: Exception | None = None
+    variable_keys = getattr(output_cfg, "variable_keys", None)
+    if variable_keys is None:
+        variable_keys = _output_variable_keys(output_cfg)
+    for variable_key in variable_keys:
+        try:
+            payload = _lookup_bundle_or_run_state(
+                bundle=bundle,
+                run_state=run_state,
+                key=variable_key,
+            )
+        except KeyError as exc:
+            last_error = exc
+            continue
+        selected_parts: list[float] = []
+        for time_payload in _time_selected_payloads(output_cfg, payload):
+            selected_parts.extend(_select_support_value(output_cfg, time_payload))
+        return _reduce_numeric_values(
+            selected_parts,
+            reducer=output_cfg.time_reducer,
+            label=f"simulated output '{output_cfg.name}'",
+        )
+
+    if last_error is not None:
+        raise KeyError(
+            "Could not find calibration output "
+            f"'{output_cfg.name}' or variable '{output_cfg.variable}'"
+        ) from last_error
+    raise KeyError(f"Could not resolve output '{output_cfg.name}'")
+
+
+def select_candidate_outputs(
+    *,
+    cfg: ModelCalibrationConfig,
+    run_state: Any,
+) -> dict[str, tuple[float, ...]]:
+    """Select configured simulated observables from one run-state payload."""
+    selectors = prepare_output_selectors(cfg)
+    return select_candidate_outputs_from_selectors(
+        selectors=selectors,
+        run_state=run_state,
+    )
+
+
+def select_candidate_outputs_from_selectors(
+    *,
+    selectors: tuple[PreparedOutputSelector, ...],
+    run_state: Any,
+) -> dict[str, tuple[float, ...]]:
+    """Select configured observables using prepared selectors."""
+    bundle = canonicalize_run_outputs(run_state)
+    selected: dict[str, tuple[float, ...]] = {}
+    for output_cfg in selectors:
+        try:
+            value = _lookup_bundle_or_run_state(
+                bundle=bundle,
+                run_state=run_state,
+                key=output_cfg.name,
+            )
+            selected[output_cfg.name] = _as_1d_float_tuple(
+                value,
+                label=f"simulated output '{output_cfg.name}'",
+            )
+        except KeyError:
+            selected[output_cfg.name] = _select_variable_output_value(
+                bundle=bundle,
+                run_state=run_state,
+                output_cfg=output_cfg,
+            )
+    return selected
+
+
+__all__ = (
+    "CanonicalOutputBundle",
+    "CanonicalOutputVariable",
+    "PreparedOutputSelector",
+    "canonicalize_run_outputs",
+    "prepare_output_selectors",
+    "select_candidate_outputs",
+    "select_candidate_outputs_from_selectors",
+)

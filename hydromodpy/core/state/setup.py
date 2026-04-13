@@ -16,6 +16,9 @@ if TYPE_CHECKING:
     from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import (
         GmshPlanarMesh2D,
     )
+    from hydromodpy.solver.utils.mesh.gmsh_grid.runtime_support import (
+        GmshSupportMetadata,
+    )
     from hydromodpy.core.workspace import Workspace
 
 
@@ -33,5 +36,7 @@ class SetupContext:
     mesh_summary: dict[str, Any] | None = None
     mesh_bundle: CatchmentMeshBundle | None = None
     mesh_planar: GmshPlanarMesh2D | None = None
+    mesh_support: GmshSupportMetadata | None = None
+    flow_runtime_overrides: dict[str, Any] | None = None
     run_id: str = "default"
     time_grid: Any = None

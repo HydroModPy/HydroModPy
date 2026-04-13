@@ -13,6 +13,7 @@ Usage (hmp and hydromodpy are interchangeable):
     hmp config --list-modules
 
     hmp run config.toml                   # run a simulation from a TOML file
+    hmp compare config_method_comparison.toml # compare solver/mesh methods
 
     hmp display config.toml               # generate figures from existing outputs
     hmp display config.toml --save        # force saving figures to disk
@@ -391,6 +392,26 @@ def _cmd_run(args: argparse.Namespace) -> None:
         print(f"Produced models: {', '.join(model_ids)}", file=sys.stderr)
 
 
+def _cmd_compare(args: argparse.Namespace) -> None:
+    """Run a method-comparison launcher from a TOML configuration file."""
+    from hydromodpy.core.tools.toolbox import print_hydromodpy
+    from launchers import MethodComparisonLauncher
+
+    print_hydromodpy()
+    config_path = Path(args.config).expanduser().resolve()
+    if not config_path.is_file():
+        print(f"Configuration file not found: {config_path}", file=sys.stderr)
+        sys.exit(1)
+
+    summary = MethodComparisonLauncher(config_path).run()
+    print(
+        f"Method comparison complete: {summary['comparison_id']}",
+        file=sys.stderr,
+    )
+    print(f"Manifest: {summary['manifest_path']}", file=sys.stderr)
+    print(f"Observables: {summary['observables_csv']}", file=sys.stderr)
+
+
 def _cmd_list(args: argparse.Namespace) -> None:
     """List projects or runs inside a workspace."""
     from hydromodpy.data.scaffold import DEFAULT_ROOT
@@ -447,7 +468,7 @@ def _cmd_list(args: argparse.Namespace) -> None:
 def _cmd_test(args: argparse.Namespace) -> None:
     """Run tests via pytest."""
     root = _find_project_root()
-    pytest_args = ["pytest", "-v"]
+    pytest_args = [sys.executable, "-m", "pytest", "-v"]
     tiers = _selected_tiers(args.normal, args.extensive, args.fast)
 
     if args.suite == "unit":
@@ -856,6 +877,17 @@ def main() -> None:
         help="Path to the run TOML file",
     )
 
+    # --- compare subcommand ---
+    compare_parser = subparsers.add_parser(
+        "compare",
+        help="Compare solver/mesh methods from a TOML configuration file",
+    )
+    compare_parser.add_argument(
+        "config",
+        type=Path,
+        help="Path to the method-comparison TOML file",
+    )
+
     # --- display subcommand ---
     display_parser = subparsers.add_parser(
         "display",
@@ -1071,6 +1103,8 @@ def main() -> None:
         _cmd_config(args)
     elif args.command == "run":
         _cmd_run(args)
+    elif args.command == "compare":
+        _cmd_compare(args)
     elif args.command == "simulation":
         _cmd_run(args)
     elif args.command == "display":

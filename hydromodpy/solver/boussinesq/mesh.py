@@ -68,6 +68,15 @@ def _optional_finite_float(value: float) -> float | None:
     return float(value)
 
 
+def _optional_finite_nanmean(values: np.ndarray) -> float | None:
+    """Return one finite nanmean, or None when the sample contains no finite data."""
+    array = np.asarray(values, dtype=float).reshape(-1)
+    finite = np.isfinite(array)
+    if not np.any(finite):
+        return None
+    return float(np.nanmean(array[finite]))
+
+
 def _polygon_area(vertices: np.ndarray) -> float:
     """Compute one polygon area from ordered XY vertices."""
     coords = np.asarray(vertices, dtype=float)
@@ -330,13 +339,11 @@ class BoussinesqMesh:
                     z_top_centroid=_optional_finite_float(
                         float(centroid_z_top[cell_index])
                     ),
-                    z_top_mean=_optional_finite_float(float(np.nanmean(cell_node_z_top))),
+                    z_top_mean=_optional_finite_nanmean(cell_node_z_top),
                     z_bottom_centroid=_optional_finite_float(
                         float(centroid_z_bottom[cell_index])
                     ),
-                    z_bottom_mean=_optional_finite_float(
-                        float(np.nanmean(cell_node_z_bottom))
-                    ),
+                    z_bottom_mean=_optional_finite_nanmean(cell_node_z_bottom),
                     geology_code=None,
                     geology_key="",
                     hydraulic_conductivity_m_s=float(conductivity_values[cell_index]),

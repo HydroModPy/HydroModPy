@@ -83,7 +83,7 @@ if [[ "${USE_APT}" -eq 1 ]] && command -v apt-get >/dev/null 2>&1; then
     APT_PREFIX="sudo"
   fi
   ${APT_PREFIX} apt-get update
-  ${APT_PREFIX} apt-get install -y libglu1-mesa libxft2
+  ${APT_PREFIX} apt-get install -y libglu1-mesa
 fi
 
 pushd "${SCRIPT_DIR}" >/dev/null
@@ -91,6 +91,11 @@ if ! conda env create -n "${ENV_NAME}" -f "${ENV_FILE}"; then
   conda env update -n "${ENV_NAME}" -f "${ENV_FILE}" --prune
 fi
 popd >/dev/null
+
+# gmsh wheels on Linux can require libXft at runtime. Installing the conda
+# package keeps the fix inside the environment and avoids an extra system
+# dependency beyond libglu1-mesa.
+conda install -n "${ENV_NAME}" -c conda-forge -y xorg-libxft
 
 if [[ "${WITH_PETSC}" -eq 1 ]]; then
   conda install -n "${ENV_NAME}" -c conda-forge -y petsc petsc4py mpi4py mpich

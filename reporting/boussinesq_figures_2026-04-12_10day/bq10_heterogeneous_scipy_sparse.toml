@@ -1,0 +1,15 @@
+base_config = "C:/codes/HydroModPy-GH/examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_boussinesq_transient_cycling_recharge_heterogeneous_10day.toml"
+
+[workspace]
+project_root = "C:/codes/HydroModPy-GH/reporting/boussinesq_figures_2026-04-12_10day/bq10_scipy"
+
+[geographic]
+dem_init_path = "C:/codes/HydroModPy-GH/examples/data/dem/DEM_armorican_massif.tif"
+
+[mesh_input]
+mesh_path = "C:/codes/HydroModPy-GH/examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/bundle/mesh_2d.msh"
+bundle_dir = "C:/codes/HydroModPy-GH/examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/bundle"
+
+[display]
+show = false
+save = true

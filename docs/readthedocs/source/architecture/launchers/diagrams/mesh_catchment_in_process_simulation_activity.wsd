@@ -1,0 +1,48 @@
+@startuml
+title Launcher - Runtime Mesh Integration In ProcessSimulation
+
+start
+
+:Load validated config and raw TOML;
+:Resolve optional [mesh_catchment];
+:Resolve optional [mesh_input];
+
+if (Both [mesh_catchment]\nand [mesh_input] present?) then (yes)
+  :Raise ValueError;
+  stop
+endif
+
+if ([mesh_catchment_batch].enabled?) then (yes)
+  :Raise ValueError;
+  stop
+endif
+
+:Build SimulationPlan;
+
+if (Runtime mesh requested?) then (yes)
+  if (Flow plan contains\nmodflownwt?) then (yes)
+    :Raise ValueError;
+    stop
+  endif
+endif
+
+:Run setup;
+:Run shared data loading;
+
+if ([mesh_catchment] present?) then (yes)
+  :Prepare geographic config\nfor meshing;
+  :Execute embedded mono-catchment\nmesh phase once;
+  :Store mesh_summary and optional\nin-memory mesh artifacts in run_state;
+else (no)
+  if ([mesh_input] present?) then (yes)
+    :Load external mesh_path\nand/or bundle_dir;
+    :Store mesh_summary and loaded\nmesh artifacts in run_state;
+  else (no)
+    :Skip mesh injection;
+  endif
+endif
+
+:Continue standard simulation runner execution;
+
+stop
+@enduml

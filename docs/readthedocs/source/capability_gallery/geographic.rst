@@ -8,6 +8,9 @@ Geographic Diagnostics
 
 These cases highlight the geographic side of the workflow: watershed context, DEM-based views, and the local data overlays that feed later modelling steps.
 
+.. seealso::
+   Read :doc:`Data Overview walkthrough </getting_started/data-overview-walkthrough>` if you want a guided entry point before opening the case pages below.
+
 .. grid:: 1 1 2 2
    :gutter: 2 2 3 3
 

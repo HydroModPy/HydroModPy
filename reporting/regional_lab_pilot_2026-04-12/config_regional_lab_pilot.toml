@@ -1,0 +1,86 @@
+# Local pilot regional-lab config bootstrapped from real outlet tables and mesh assets.
+
+[regional_lab]
+lab_id = "regional_pilot_2026_04_12"
+output_root = "outputs/regional_pilot_2026_04_12"
+execute = false
+continue_on_error = true
+validate_config_paths = true
+resume_from_report = true
+skip_completed_cases = true
+
+[regional_lab.catalog]
+path = "site_catalog_pilot_20.csv"
+format = "csv"
+site_id_field = "site_id"
+site_label_field = "site_label"
+cluster_id_field = "cluster_id"
+cluster_label_field = "cluster_label"
+cluster_family_field = "cluster_family"
+cluster_scale_field = "cluster_scale"
+region_field = "region_id"
+source_selection_field = "source_selection_id"
+status_field = "site_status"
+maturity_field = "maturity"
+tags_field = "tags"
+enabled_field = "enabled"
+required_fields = ["source_selection_id", "site_status", "maturity"]
+path_fields = [
+  "mesh_output_mesh",
+  "mesh_summary_json",
+  "mesh_bundle_dir",
+  "mesh_figure",
+  "mesh_figure_regional",
+  "simulation_reference_config",
+  "local_simulation_reference_config",
+  "backend_comparison_config",
+  "transient_backend_comparison_config",
+]
+tag_separator = ";"
+
+[regional_lab.selection]
+regions = ["brittany"]
+
+[[regional_lab.recipe]]
+id = "headwater_mf6_reference"
+label = "Headwater reference replay"
+launcher = "simulation"
+families = ["headwater"]
+scales = ["100km2"]
+required_fields = ["simulation_reference_config"]
+config_path_template = "{simulation_reference_config}"
+
+[[regional_lab.recipe]]
+id = "headwater_backend_compare"
+label = "Headwater backend comparison"
+launcher = "method-comparison"
+families = ["headwater"]
+scales = ["100km2"]
+required_fields = ["backend_comparison_config"]
+config_path_template = "{backend_comparison_config}"
+
+[[regional_lab.recipe]]
+id = "headwater_transient_backend_compare"
+label = "Headwater transient backend comparison"
+launcher = "method-comparison"
+families = ["headwater"]
+scales = ["100km2"]
+required_fields = ["transient_backend_comparison_config"]
+config_path_template = "{transient_backend_comparison_config}"
+
+[[regional_lab.recipe]]
+id = "headwater_local_boussinesq_replay"
+label = "Headwater local mesh replay"
+launcher = "simulation"
+site_ids = ["headwater_100km2_outlet_27"]
+required_fields = ["local_simulation_reference_config"]
+config_path_template = "{local_simulation_reference_config}"
+
+[[regional_lab.recipe]]
+id = "s3_future_reference"
+label = "S3 local mesh replay"
+launcher = "simulation"
+families = ["s3"]
+scales = ["10km2"]
+required_fields = ["simulation_reference_config"]
+config_path_template = "{simulation_reference_config}"

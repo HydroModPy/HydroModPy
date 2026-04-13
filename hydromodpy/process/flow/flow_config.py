@@ -63,12 +63,25 @@ class FlowConfig(ProcessSpatialConfig):
         ),
     )
     runtime_backend: Annotated[
-        Literal["local", "scipy", "scipy_sparse"], ParamLevel("dev")
+        Literal["local", "scipy", "scipy_sparse", "petsc"], ParamLevel("dev")
     ] = Field(
         default="local",
         description=(
             "Optional nonlinear runtime backend hint used by the Boussinesq "
             "solver implementation. Other flow solvers may ignore this field."
+        ),
+    )
+    surface_interaction_model: Annotated[
+        Literal["auto", "regularized_partition", "complementarity"],
+        ParamLevel("dev"),
+    ] = Field(
+        default="auto",
+        description=(
+            "Optional Boussinesq surface-interaction closure selector. "
+            "'regularized_partition' uses the Marcais-style q_ex = G_r(theta) "
+            "R(balance) law; 'complementarity' uses the mixed PETSc "
+            "q_ex-perp-(z_top-h) formulation; 'auto' keeps the historical "
+            "backend-dependent default."
         ),
     )
     runtime_max_iterations: Annotated[int | None, ParamLevel("dev")] = Field(
@@ -236,9 +249,21 @@ class FlowConfig(ProcessSpatialConfig):
     def _validate_runtime_backend(cls, value):
         """Normalize the optional Boussinesq runtime backend selector."""
         text = str(value or "local").strip().lower()
-        if text not in {"local", "scipy", "scipy_sparse"}:
+        if text not in {"local", "scipy", "scipy_sparse", "petsc"}:
             raise ValueError(
-                "flow.runtime_backend must be 'local', 'scipy', or 'scipy_sparse'"
+                "flow.runtime_backend must be 'local', 'scipy', 'scipy_sparse', or 'petsc'"
+            )
+        return text
+
+    @field_validator("surface_interaction_model", mode="before")
+    @classmethod
+    def _validate_surface_interaction_model(cls, value):
+        """Normalize the optional Boussinesq surface-interaction selector."""
+        text = str(value or "auto").strip().lower() or "auto"
+        if text not in {"auto", "regularized_partition", "complementarity"}:
+            raise ValueError(
+                "flow.surface_interaction_model must be 'auto', "
+                "'regularized_partition', or 'complementarity'"
             )
         return text
 
@@ -461,12 +486,17 @@ class FlowConfig(ProcessSpatialConfig):
         )
         raw_flow_regime = flow_section.get("flow_regime", "transient")
         raw_runtime_backend = flow_section.get("runtime_backend", "local")
+        raw_surface_interaction_model = flow_section.get(
+            "surface_interaction_model",
+            "auto",
+        )
         raw_runtime_max_iterations = flow_section.get("runtime_max_iterations")
         raw_runtime_tol_residual_inf = flow_section.get("runtime_tol_residual_inf")
         raw_runtime_tol_state_update_inf = flow_section.get("runtime_tol_state_update_inf")
         return cls(
             flow_regime=raw_flow_regime,
             runtime_backend=raw_runtime_backend,
+            surface_interaction_model=raw_surface_interaction_model,
             runtime_max_iterations=raw_runtime_max_iterations,
             runtime_tol_residual_inf=raw_runtime_tol_residual_inf,
             runtime_tol_state_update_inf=raw_runtime_tol_state_update_inf,

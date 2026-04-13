@@ -7,6 +7,7 @@ import numpy as np
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
     flow_grid_shape,
+    resolve_flow_property_runtime_overrides,
 )
 
 
@@ -63,3 +64,44 @@ def test_build_concentration_runtime_overrides_normalizes_mapping_payloads() -> 
         sconc_input[2],
         np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
     )
+
+
+def test_resolve_flow_property_runtime_overrides_broadcasts_surface_payloads() -> None:
+    solver_mesh = SimpleNamespace(
+        nlay=2,
+        nrow=2,
+        ncol=3,
+        n_cells=6,
+        is_structured=True,
+    )
+
+    overrides = resolve_flow_property_runtime_overrides(
+        {"properties": {"K": [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], "Sy": 0.2}},
+        solver_mesh,
+        required_properties={"K", "Sy"},
+    )
+
+    assert overrides["hk"].shape == (2, 2, 3)
+    assert overrides["hk_value"].shape == (2, 3)
+    assert np.allclose(overrides["hk"][0], overrides["hk_value"])
+    assert np.allclose(overrides["hk"][1], overrides["hk_value"])
+    assert np.allclose(overrides["sy"], 0.2)
+
+
+def test_resolve_flow_property_runtime_overrides_accepts_unstructured_full_arrays() -> None:
+    solver_mesh = SimpleNamespace(
+        nlay=2,
+        n_cells=4,
+        is_structured=False,
+    )
+
+    overrides = resolve_flow_property_runtime_overrides(
+        {"K": [[1.0, 2.0, 3.0, 4.0], [10.0, 20.0, 30.0, 40.0]]},
+        solver_mesh,
+        required_properties={"K"},
+    )
+
+    assert overrides["hk"].shape == (2, 4)
+    assert overrides["hk_value"].shape == (4,)
+    assert np.allclose(overrides["hk"][1], [10.0, 20.0, 30.0, 40.0])
+    assert np.allclose(overrides["hk_value"], [1.0, 2.0, 3.0, 4.0])

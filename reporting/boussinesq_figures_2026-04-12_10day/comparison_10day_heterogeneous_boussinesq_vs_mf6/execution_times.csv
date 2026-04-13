@@ -1,0 +1,2 @@
+variant_id,variant_label,solver,mesh_mode,runtime_seconds,runtime_minutes,reference_variant,speedup_vs_reference
+mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,modflow6,mesh_input,78.42,1.307,boussinesq_scipy_sparse,nan

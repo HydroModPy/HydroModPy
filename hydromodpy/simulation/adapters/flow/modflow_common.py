@@ -19,7 +19,7 @@ from pathlib import Path
 
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
-from hydromodpy.solver.modflow_nwt import (
+from hydromodpy.solver.modflow_common.options import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
@@ -125,6 +125,9 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
         flow=state.setup.flow,
         domain=state.setup.domain,
         options=preprocess_options,
+        mesh_planar=getattr(state.setup, "mesh_planar", None),
+        mesh_support=getattr(state.setup, "mesh_support", None),
+        flow_runtime_overrides=getattr(state.setup, "flow_runtime_overrides", None),
     )
 
     # The numerical run is shared across flow backends: write files, execute
