@@ -209,16 +209,12 @@ class Project:
         self._run_state.setup.time_grid = self._time_grid
 
         # Phase 4: setup (workspace, geographic, domain, flow, transport)
-        from launchers.process_simulation.setup_phase import run_setup
-        run_setup(self.cfg, self._run_state)
+        from hydromodpy.workflow.steps.setup import step_setup
+        step_setup(self._run_state)
 
         # Phase 5: data loading + structural bindings
-        from launchers.process_simulation.data_phase import run_data
-        run_data(
-            config_path=self._config_path,
-            data_plan=data_plan,
-            run_state=self._run_state,
-        )
+        from hydromodpy.workflow.steps.data_loading import step_data_loading
+        step_data_loading(self._run_state)
 
         # Open store (stays open for project lifetime)
         ws = self._run_state.setup.workspace
