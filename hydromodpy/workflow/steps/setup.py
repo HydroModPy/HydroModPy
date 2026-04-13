@@ -306,8 +306,16 @@ def run_setup(
         geographic=setup_state.domain_geographic,
     )
 
-    # Set run_id from the simulation config.
-    setup_state.run_id = cfg.simulation.run_id or "default"
+    # Set run_id: explicit config > derive from TOML filename > "default".
+    if cfg.simulation.run_id:
+        setup_state.run_id = cfg.simulation.run_id
+    else:
+        import re
+
+        toml_path = run_state.config_path
+        setup_state.run_id = (
+            re.sub(r"^run_", "", Path(toml_path).stem) if toml_path else "default"
+        )
 
     # Eagerly create Flow/Transport so data binders can reference them.
     ensure_flow(run_state)
