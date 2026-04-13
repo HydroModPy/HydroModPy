@@ -14,6 +14,7 @@ Keeping that code here avoids duplicating the same lifecycle in both
 from __future__ import annotations
 
 import pickle
+from collections.abc import Mapping
 from pathlib import Path
 
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
@@ -170,7 +171,12 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
             f"Flow solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
             f"See {diagnostics_path} for diagnostics."
         )
-    if success:
+    flow_runtime_overrides = getattr(state.setup, "flow_runtime_overrides", None)
+    skip_solver_postprocess = bool(
+        isinstance(flow_runtime_overrides, Mapping)
+        and flow_runtime_overrides.get("skip_solver_postprocess", False)
+    )
+    if success and not skip_solver_postprocess:
         active_bc = {
             str(name).strip().lower()
             for name in getattr(state.setup.flow, "active_bc", [])

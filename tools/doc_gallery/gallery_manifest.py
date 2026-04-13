@@ -11,6 +11,7 @@ from .mesh_case_registry import (
     iter_mesh_case_json_paths,
     load_mesh_case_metadata,
 )
+from .calibration_case_registry import build_calibration_case_records
 from .validation_case_registry import build_validation_case_records
 
 
@@ -109,6 +110,18 @@ CATEGORY_SPECS: dict[str, GalleryCategorySpec] = {
         intro=(
             "These cases show how HydroModPy validates numerical behaviour against "
             "lightweight analytical references, with metrics that stay readable in a doc page."
+        ),
+        guide_doc="getting_started/reading-results-pages",
+        guide_title="How to read gallery, comparison, and validation pages",
+    ),
+    "calibration": GalleryCategorySpec(
+        slug="calibration",
+        title="Calibration Benchmarks",
+        deck="Synthetic inverse problems used to inspect calibration workflows, search methods, and timing diagnostics.",
+        intro=(
+            "These cases focus on inverse modelling rather than forward validation: "
+            "synthetic observations are generated first, then recovered with one or more "
+            "calibration strategies on the same solver family."
         ),
         guide_doc="getting_started/reading-results-pages",
         guide_title="How to read gallery, comparison, and validation pages",
@@ -258,6 +271,8 @@ def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSp
         "case_family_key",
         "case_family_label",
         "case_family_order",
+        "comparison_group",
+        "comparison_group_title",
         "site_tabs_group_key",
         "site_tabs_group_title",
         "site_tabs_label",
@@ -324,14 +339,32 @@ def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSp
                     alt_text=str(payload.get("image_alt_text", f"{title} overview")),
                 )
             )
+        family_key = str(payload.get("case_family_key", "")).strip()
+        family_label = str(payload.get("case_family_label", "")).strip()
+        comparison_group = str(payload.get("comparison_group", "")).strip()
+        comparison_group_title = str(payload.get("comparison_group_title", "")).strip()
+        if comparison_group == "":
+            if family_key != "":
+                comparison_group = f"{family_key}::outlet::{outlet_id}"
+                comparison_group_title = (
+                    comparison_group_title
+                    or f"{family_label or scale_label}, outlet {outlet_id}"
+                )
+            else:
+                comparison_group = f"{scale}::outlet::{outlet_id}"
+                comparison_group_title = (
+                    comparison_group_title
+                    or f"{scale_label}, outlet {outlet_id}"
+                )
+
         metadata = {
             "scale": scale,
             "scale_label": scale_label,
             "variant": variant,
             "variant_label": variant_label,
             "outlet_id": outlet_id,
-            "comparison_group": f"{scale}::outlet::{outlet_id}",
-            "comparison_group_title": f"{scale_label}, outlet {outlet_id}",
+            "comparison_group": comparison_group,
+            "comparison_group_title": comparison_group_title,
             "config_path": str(payload["config_path"]),
             "constraints_mode": str(payload.get("constraints_mode", "")),
         }
@@ -1286,7 +1319,32 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
         )
         for record in build_validation_case_records()
     )
-    return static_specs + validation_specs + build_repo_mesh_gallery_case_specs()
+    calibration_specs = tuple(
+        GalleryCaseSpec(
+            slug=record.slug,
+            title=record.title,
+            category="calibration",
+            deck=record.deck,
+            summary=record.summary,
+            what_it_shows=record.what_it_shows,
+            reproduction_command=record.reproduction_command,
+            source_paths=record.source_paths,
+            generator="calibration_case",
+            image_assets=(),
+            case_setup=record.case_setup,
+            key_parameters=record.key_parameters,
+            how_to_read=record.how_to_read,
+            next_steps=record.next_steps,
+            metadata=record.metadata,
+        )
+        for record in build_calibration_case_records()
+    )
+    return (
+        static_specs
+        + validation_specs
+        + calibration_specs
+        + build_repo_mesh_gallery_case_specs()
+    )
 
 
 __all__ = [

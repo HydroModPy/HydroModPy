@@ -1,0 +1,507 @@
+=== TOP 120 CUMULATIVE ===
+         81148461 function calls (78184155 primitive calls) in 123.768 seconds
+
+   Ordered by: cumulative time
+   List reduced from 6190 to 120 due to restriction <120>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.002    0.002  123.780  123.780 C:\codes\HydroModPy-GH\validation_cases\calibration\shared\runtime.py:737(run_twin_benchmark_case)
+       24    0.002    0.000  116.090    4.837 C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:3338(execute_candidate_run)
+        1    0.000    0.000  115.605  115.605 C:\codes\HydroModPy-GH\launchers\model_calibration\launcher.py:121(calibrate)
+        1    0.000    0.000  112.647  112.647 C:\codes\HydroModPy-GH\hydromodpy\analysis\calibration\core\engine.py:303(calibrate)
+        1    0.000    0.000  112.647  112.647 C:\codes\HydroModPy-GH\hydromodpy\analysis\calibration\core\methods_dispatcher.py:124(calibrate)
+        1    0.000    0.000  112.647  112.647 C:\codes\HydroModPy-GH\hydromodpy\analysis\calibration\core\methods\simplex.py:46(simplex_calibrate)
+        1    0.000    0.000  112.647  112.647 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\scipy\optimize\_optimize.py:541(fmin)
+        1    0.002    0.002  112.647  112.647 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\scipy\optimize\_optimize.py:666(_minimize_neldermead)
+       23    0.001    0.000  112.644    4.898 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\scipy\optimize\_optimize.py:521(function_wrapper)
+       23    0.001    0.000  112.643    4.898 C:\codes\HydroModPy-GH\hydromodpy\analysis\calibration\core\methods\simplex.py:33(_penalized_cost)
+       24    0.000    0.000  112.641    4.693 C:\codes\HydroModPy-GH\hydromodpy\analysis\calibration\core\engine.py:284(cost)
+       25    0.000    0.000  112.638    4.506 C:\codes\HydroModPy-GH\hydromodpy\analysis\calibration\core\engine.py:250(_evaluate_composite)
+       25    0.001    0.000  112.638    4.506 C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:1835(evaluate)
+       24    0.002    0.000   81.149    3.381 C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:325(run_prepared)
+       24    0.000    0.000   80.974    3.374 C:\codes\HydroModPy-GH\hydromodpy\simulation\execution\runner.py:129(execute)
+       24    0.000    0.000   80.973    3.374 C:\codes\HydroModPy-GH\hydromodpy\simulation\execution\runner.py:178(_run_process_run)
+       24    0.000    0.000   80.972    3.374 C:\codes\HydroModPy-GH\hydromodpy\simulation\adapters\flow\modflow6.py:24(execute)
+       24    0.021    0.001   80.964    3.373 C:\codes\HydroModPy-GH\hydromodpy\simulation\adapters\flow\modflow_common.py:131(run_flow_model)
+       24    0.001    0.000   64.863    2.703 C:\codes\HydroModPy-GH\hydromodpy\solver\modflow6\modflow6.py:1483(processing)
+       24    0.005    0.000   50.891    2.120 C:\Python312\Lib\site-packages\flopy\mf6\mfsimbase.py:1697(write_simulation)
+      264    0.010    0.000   50.862    0.193 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:3297(write)
+       24    0.008    0.000   50.235    2.093 C:\Python312\Lib\site-packages\flopy\mf6\mfmodel.py:1350(write)
+      264    0.007    0.000   41.709    0.158 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:3446(_write_blocks)
+      768    0.021    0.000   41.694    0.054 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:1268(write)
+     5016    0.158    0.000   38.020    0.008 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:1506(_write_block)
+       24    0.004    0.000   34.115    1.421 C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2922(select_candidate_outputs)
+       24    0.000    0.000   34.111    1.421 C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:744(select_candidate_outputs_from_selectors)
+       24    0.001    0.000   33.925    1.414 C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:436(canonicalize_run_outputs)
+       24    0.003    0.000   33.924    1.413 C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:402(_iter_runtime_model_variables)
+       23    0.002    0.000   32.912    1.431 C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2945(evaluate_candidate_objective)
+       96    0.017    0.000   32.456    0.338 C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:373(_canonicalize_model_payload)
+     5760    0.040    0.000   32.430    0.006 C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:347(_canonicalize_model_slice)
+     4320    0.020    0.000   32.329    0.007 C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:322(_model_cell_coordinates)
+     4320    0.050    0.000   32.247    0.007 C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:267(_coordinates_from_solver_mesh)
+     4320    7.850    0.002   32.181    0.007 C:\codes\HydroModPy-GH\hydromodpy\solver\modflow_common\solver_mesh.py:112(cell_centroids)
+     1440    0.006    0.000   27.357    0.019 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdataplist.py:2583(write_file_entry)
+     1440    0.016    0.000   27.326    0.019 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdataplist.py:1745(write_file_entry)
+     1440    0.079    0.000   27.310    0.019 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdataplist.py:1791(_write_file_entry)
+  2172000    1.865    0.000   24.424    0.000 {method 'mean' of 'numpy.ndarray' objects}
+  2172175    7.163    0.000   22.564    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\_methods.py:119(_mean)
+       24    0.002    0.000   13.971    0.582 C:\Python312\Lib\site-packages\flopy\mf6\mfsimbase.py:1803(run_simulation)
+       24    0.024    0.001   13.968    0.582 C:\Python312\Lib\site-packages\flopy\mbase.py:1668(run_model)
+     2232   13.714    0.006   13.714    0.006 {method 'readline' of '_io.BufferedReader' objects}
+     1440    0.105    0.000   11.453    0.008 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdataplist.py:1583(_increment_id_fields)
+     1440    0.088    0.000   11.138    0.008 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdataplist.py:1593(_decrement_id_fields)
+    11520    0.181    0.000   10.157    0.001 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:882(__setitem__)
+       24    0.022    0.001    8.090    0.337 C:\codes\HydroModPy-GH\hydromodpy\solver\modflow6\modflow6.py:1270(pre_processing)
+    11520    0.157    0.000    7.918    0.001 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:1785(_setitem_with_indexer)
+        1    0.000    0.000    7.745    7.745 C:\codes\HydroModPy-GH\validation_cases\calibration\shared\runtime.py:286(synthesize_truth_observations)
+  2326710    7.606    0.000    7.606    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+     4680    0.010    0.000    7.252    0.002 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdataarray.py:1217(get_file_entry)
+     4680    0.055    0.000    7.242    0.002 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdataarray.py:1237(_get_file_entry)
+      264    0.022    0.000    7.163    0.027 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:2505(_update_size_defs)
+     1440    0.013    0.000    7.111    0.005 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdataplist.py:2342(get_data)
+     3120    0.035    0.000    7.068    0.002 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdataarray.py:1405(_get_file_entry_layer)
+     1440    0.016    0.000    7.020    0.005 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdataplist.py:1679(get_data)
+     1440    0.012    0.000    7.003    0.005 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdataplist.py:1640(_get_data)
+     4320    0.018    0.000    6.974    0.002 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdataarray.py:2183(get_file_entry)
+     3072    0.026    0.000    6.962    0.002 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdataarray.py:1514(_get_data_layer_string)
+     1440    0.008    0.000    6.784    0.005 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdataplist.py:1633(_dataframe_to_recarray)
+42216/30696    0.240    0.000    6.715    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:1176(__getitem__)
+     3072    1.270    0.000    6.535    0.002 C:\Python312\Lib\site-packages\flopy\mf6\data\mffileaccess.py:516(get_data_string)
+       24    0.089    0.004    6.419    0.267 C:\codes\HydroModPy-GH\hydromodpy\solver\modflow6\modflow6.py:2242(post_processing)
+    11520    0.222    0.000    6.209    0.001 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:1946(_setitem_with_indexer_split_path)
+  2172180    5.580    0.000    6.132    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\_methods.py:77(_count_reduce_items)
+     1440    0.071    0.000    5.907    0.004 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdataplist.py:299(_add_cellid_fields)
+     3504    0.018    0.000    5.800    0.002 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:2893(build_mfdata)
+     3504    0.018    0.000    5.740    0.002 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:620(add_dataset)
+17450189/17366535    4.163    0.000    5.525    0.000 {built-in method builtins.isinstance}
+    14400    0.182    0.000    5.269    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:1032(_getitem_lowerdim)
+45292/43852    0.682    0.000    5.153    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\series.py:389(__init__)
+    11520    0.084    0.000    5.076    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:1365(_getitem_tuple)
+460776/456912    0.258    0.000    5.066    0.000 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdatastorage.py:683(get_data)
+470760/466896    1.050    0.000    4.937    0.000 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdatastorage.py:690(_access_data)
+24364/23764    0.059    0.000    4.702    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\ops\common.py:62(new_method)
+    23400    0.114    0.000    4.576    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:1397(_getitem_axis)
+   361728    0.756    0.000    4.515    0.000 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:291(get_transient_key)
+    15144    0.178    0.000    4.465    0.000 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:1347(header_exists)
+   402312    0.329    0.000    4.264    0.000 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdatascalar.py:115(get_data)
+    11520    0.186    0.000    4.211    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:2111(_setitem_single_column)
+     7992    0.027    0.000    4.139    0.001 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:416(data_factory)
+    26156    0.184    0.000    3.945    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\frame.py:4062(__getitem__)
+    11880    0.046    0.000    3.821    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:1205(_getbool_axis)
+        4    0.000    0.000    3.760    0.940 C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:657(_run_setup)
+    14760    0.048    0.000    3.588    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\generic.py:4142(_take_with_is_copy)
+        4    0.000    0.000    3.576    0.894 C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:457(_build_geographic_runtime)
+        4    0.000    0.000    3.575    0.894 C:\codes\HydroModPy-GH\hydromodpy\spatial\geographic\synthetic\synthetic_geographic.py:335(build_synthetic_geographic)
+        4    0.000    0.000    3.575    0.894 C:\codes\HydroModPy-GH\hydromodpy\spatial\geographic\synthetic\synthetic_geographic.py:108(__init__)
+        4    0.001    0.000    3.573    0.893 C:\codes\HydroModPy-GH\hydromodpy\spatial\geographic\synthetic\synthetic_geographic.py:132(_build)
+    14760    0.154    0.000    3.460    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\generic.py:4027(take)
+      240    0.019    0.000    3.459    0.014 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:1329(_add_missing_block_headers)
+        4    0.020    0.005    3.384    0.846 C:\codes\HydroModPy-GH\hydromodpy\spatial\geographic\synthetic\synthetic_geographic.py:255(_write_polygons_and_contour)
+       20    0.000    0.000    3.216    0.161 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\geopandas\geodataframe.py:1530(to_file)
+       20    0.001    0.000    3.216    0.161 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\geopandas\io\file.py:614(_to_file)
+       24    0.000    0.000    3.113    0.130 C:\codes\HydroModPy-GH\hydromodpy\solver\modflow6\modflow6.py:1508(_open_budget_file)
+       24    0.001    0.000    3.113    0.130 C:\Python312\Lib\site-packages\flopy\utils\binaryfile\__init__.py:942(__init__)
+       20    0.001    0.000    3.109    0.155 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\geopandas\io\file.py:775(_to_file_pyogrio)
+       20    0.003    0.000    3.108    0.155 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pyogrio\geopandas.py:528(write_dataframe)
+       48    0.002    0.000    3.103    0.065 C:\Python312\Lib\site-packages\flopy\utils\binaryfile\__init__.py:1059(_set_precision)
+       48    0.262    0.005    3.101    0.065 C:\Python312\Lib\site-packages\flopy\utils\binaryfile\__init__.py:1134(_build_index)
+    11520    0.104    0.000    3.091    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\generic.py:12678(_inplace_method)
+    23164    0.153    0.000    3.077    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\series.py:6201(_construct_result)
+       20    3.027    0.151    3.030    0.152 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pyogrio\raw.py:595(write)
+     4320    0.018    0.000    2.980    0.001 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\frame.py:5433(drop)
+     4320    0.035    0.000    2.962    0.001 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\generic.py:4757(drop)
+     4320    0.065    0.000    2.916    0.001 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\generic.py:4796(_drop_axis)
+    14760    0.083    0.000    2.900    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\internals\managers.py:869(take)
+2710680/771072    2.193    0.000    2.889    0.000 C:\Python312\Lib\site-packages\flopy\utils\datautil.py:240(next_item)
+        2    0.000    0.000    2.852    1.426 C:\codes\HydroModPy-GH\launchers\model_calibration\launcher.py:43(prepare)
+        2    0.000    0.000    2.834    1.417 C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2654(prepare_calibration_session)
+        2    0.000    0.000    2.803    1.402 C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2474(prepare_hydraulic_property_support)
+        2    0.000    0.000    2.803    1.401 C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:482(_prepare_runtime_hydraulic_property_support)
+   586/60    0.011    0.000    2.764    0.046 <frozen importlib._bootstrap>:1349(_find_and_load)
+     5832    0.181    0.000    2.762    0.000 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:670(_build_repeating_header)
+   535/32    0.006    0.000    2.758    0.086 <frozen importlib._bootstrap>:1304(_find_and_load_unlocked)
+    498/7    0.004    0.000    2.718    0.388 <frozen importlib._bootstrap>:911(_load_unlocked)
+    433/7    0.005    0.000    2.718    0.388 <frozen importlib._bootstrap_external>:989(exec_module)
+  1242/38    0.004    0.000    2.709    0.071 <frozen importlib._bootstrap>:480(_call_with_frames_removed)
+    883/7    0.076    0.000    2.707    0.387 {built-in method builtins.exec}
+    19080    0.124    0.000    2.647    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\internals\managers.py:623(reindex_indexer)
+
+
+
+=== TOP 120 INTERNAL TIME ===
+         81148461 function calls (78184155 primitive calls) in 123.768 seconds
+
+   Ordered by: internal time
+   List reduced from 6190 to 120 due to restriction <120>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     2232   13.714    0.006   13.714    0.006 {method 'readline' of '_io.BufferedReader' objects}
+     4320    7.850    0.002   32.181    0.007 C:\codes\HydroModPy-GH\hydromodpy\solver\modflow_common\solver_mesh.py:112(cell_centroids)
+  2326710    7.606    0.000    7.606    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+  2172175    7.163    0.000   22.564    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\_methods.py:119(_mean)
+  2172180    5.580    0.000    6.132    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\_methods.py:77(_count_reduce_items)
+17450189/17366535    4.163    0.000    5.525    0.000 {built-in method builtins.isinstance}
+       20    3.027    0.151    3.030    0.152 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pyogrio\raw.py:595(write)
+      729    2.505    0.003    2.510    0.003 {built-in method _io.open}
+2710680/771072    2.193    0.000    2.889    0.000 C:\Python312\Lib\site-packages\flopy\utils\datautil.py:240(next_item)
+  2172000    1.865    0.000   24.424    0.000 {method 'mean' of 'numpy.ndarray' objects}
+      267    1.700    0.006    1.700    0.006 {method 'close' of '_io.TextIOWrapper' objects}
+      702    1.577    0.002    1.577    0.002 {method '__exit__' of '_io._IOBase' objects}
+     3072    1.270    0.000    6.535    0.002 C:\Python312\Lib\site-packages\flopy\mf6\data\mffileaccess.py:516(get_data_string)
+   798096    1.237    0.000    1.237    0.000 {method 'format' of 'str' objects}
+      120    1.144    0.010    1.192    0.010 {built-in method _pickle.dump}
+470760/466896    1.050    0.000    4.937    0.000 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdatastorage.py:690(_access_data)
+3779051/3261296    1.015    0.000    1.244    0.000 {built-in method builtins.len}
+  4802138    0.987    0.000    0.988    0.000 {built-in method builtins.issubclass}
+   852336    0.980    0.000    2.398    0.000 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdatautil.py:351(to_string)
+2566300/2555866    0.930    0.000    2.150    0.000 {built-in method builtins.hasattr}
+  1514016    0.891    0.000    1.331    0.000 C:\Python312\Lib\site-packages\flopy\utils\datautil.py:514(__getitem__)
+    39144    0.874    0.000    0.918    0.000 {built-in method numpy.fromfile}
+      196    0.782    0.004    0.825    0.004 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\rasterio\__init__.py:112(open)
+   361728    0.756    0.000    4.515    0.000 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:291(get_transient_key)
+45292/43852    0.682    0.000    5.153    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\series.py:389(__init__)
+162816/20352    0.629    0.000    0.684    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\_internal.py:90(_array_descr)
+    74748    0.615    0.000    2.482    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\construction.py:517(sanitize_array)
+   393048    0.614    0.000    0.689    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\records.py:254(__getitem__)
+   483000    0.587    0.000    0.709    0.000 C:\Python312\Lib\site-packages\flopy\utils\datautil.py:623(first_index)
+  2207420    0.567    0.000    0.567    0.000 {built-in method numpy.lib.array_utils.normalize_axis_index}
+  2258335    0.520    0.000    0.520    0.000 {built-in method numpy.asanyarray}
+    11672    0.518    0.000    0.964    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\internals\managers.py:1066(iset)
+    40688    0.518    0.000    1.102    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\array_algos\take.py:120(_take_nd_ndarray)
+1603222/1601870    0.494    0.000    0.543    0.000 {built-in method builtins.getattr}
+318445/292097    0.482    0.000    1.632    0.000 {built-in method numpy.asarray}
+    64596    0.482    0.000    0.647    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\generic.py:6236(__finalize__)
+   961764    0.478    0.000    1.150    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\dtypes\generic.py:42(_instancecheck)
+      433    0.463    0.001    0.463    0.001 {built-in method _io.open_code}
+   961764    0.451    0.000    0.655    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\dtypes\generic.py:37(_check)
+    19084    0.442    0.000    2.432    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\internals\managers.py:708(_slice_take_blocks_ax0)
+   481464    0.440    0.000    0.688    0.000 C:\Python312\Lib\site-packages\flopy\utils\datautil.py:226(first_item)
+   165196    0.436    0.000    1.064    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\generic.py:6301(__setattr__)
+50000/25000    0.407    0.000    0.532    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\numeric.py:1185(roll)
+    59218    0.403    0.000    0.403    0.000 {built-in method numpy.array}
+    15144    0.400    0.000    1.569    0.000 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdatalist.py:937(_get_file_entry_record)
+    28920    0.394    0.000    2.591    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexes\base.py:475(__new__)
+       72    0.388    0.005    1.071    0.015 C:\codes\HydroModPy-GH\hydromodpy\core\tools\toolbox.py:803(export_tif)
+425328/424152    0.365    0.000    1.627    0.000 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdatastorage.py:2345(_build_full_data)
+    87916    0.355    0.000    0.431    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\generic.py:278(__init__)
+108956/108852    0.348    0.000    1.209    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\generic.py:6284(__getattr__)
+    64060    0.346    0.000    0.447    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexes\base.py:649(_simple_new)
+      731    0.338    0.000    0.339    0.000 {built-in method nt.unlink}
+  1204750    0.331    0.000    0.331    0.000 {method 'append' of 'list' objects}
+    17388    0.331    0.000    0.546    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\dtypes\cast.py:1156(maybe_infer_to_datetimelike)
+   402312    0.329    0.000    4.264    0.000 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdatascalar.py:115(get_data)
+     2825    0.325    0.000    0.351    0.000 {built-in method nt.stat}
+   110524    0.288    0.000    0.288    0.000 {built-in method numpy.empty}
+    14764    0.273    0.000    0.566    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexers\utils.py:239(maybe_convert_indices)
+   470952    0.265    0.000    0.956    0.000 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdatastorage.py:2484(_resolve_layer)
+       48    0.262    0.005    3.101    0.065 C:\Python312\Lib\site-packages\flopy\utils\binaryfile\__init__.py:1134(_build_index)
+    44815    0.261    0.000    0.437    0.000 {method 'write' of '_io.TextIOWrapper' objects}
+460776/456912    0.258    0.000    5.066    0.000 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdatastorage.py:683(get_data)
+    27560    0.258    0.000    0.382    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\internals\managers.py:1012(iget)
+    43764    0.256    0.000    0.374    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexes\base.py:5323(__contains__)
+   481464    0.251    0.000    0.938    0.000 C:\Python312\Lib\site-packages\flopy\utils\datautil.py:588(first_item)
+    11520    0.246    0.000    2.259    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:2348(_align_series)
+42216/30696    0.240    0.000    6.715    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:1176(__getitem__)
+    28080    0.238    0.000    1.112    0.000 C:\Python312\Lib\site-packages\flopy\mf6\data\mfdatalist.py:753(search_data)
+    14400    0.236    0.000    0.367    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexes\base.py:3955(_get_indexer)
+    18720    0.225    0.000    0.322    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexes\base.py:2744(inferred_type)
+    46652    0.224    0.000    0.501    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexes\base.py:5373(__getitem__)
+    11520    0.222    0.000    6.209    0.001 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:1946(_setitem_with_indexer_split_path)
+    23857    0.220    0.000    0.220    0.000 {method 'read' of '_io.BufferedReader' objects}
+       62    0.216    0.003    0.216    0.003 {built-in method _imp.create_dynamic}
+      433    0.212    0.000    0.339    0.001 <frozen importlib._bootstrap_external>:751(_compile_bytecode)
+    26280    0.208    0.000    0.217    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\dtypes\cast.py:550(maybe_promote)
+143330/2174    0.207    0.000    0.624    0.000 C:\Python312\Lib\copy.py:118(deepcopy)
+    37465    0.205    0.000    0.376    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\numeric.py:303(full)
+   160712    0.204    0.000    0.262    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\generic.py:586(_get_axis)
+    38084    0.200    0.000    0.582    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\internals\managers.py:1863(from_array)
+   809926    0.199    0.000    0.199    0.000 {built-in method builtins.abs}
+    11520    0.198    0.000    0.198    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\internals\blocks.py:1269(set_inplace)
+    52044    0.192    0.000    0.239    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\dtypes\common.py:572(condition)
+    82672    0.190    0.000    0.897    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\common.py:97(is_bool_indexer)
+   122568    0.189    0.000    0.332    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\records.py:488(__getitem__)
+   143256    0.189    0.000    0.464    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\dtypes\common.py:1434(_is_dtype_type)
+    11520    0.186    0.000    4.211    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:2111(_setitem_single_column)
+    26156    0.184    0.000    3.945    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\frame.py:4062(__getitem__)
+    14400    0.182    0.000    5.269    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:1032(_getitem_lowerdim)
+     5832    0.181    0.000    2.762    0.000 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:670(_build_repeating_header)
+    11520    0.181    0.000   10.157    0.001 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:882(__setitem__)
+    15144    0.178    0.000    4.465    0.000 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:1347(header_exists)
+    61432    0.176    0.000    0.403    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\dtypes\common.py:1596(pandas_dtype)
+    23916    0.171    0.000    1.595    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexers\utils.py:419(check_array_indexer)
+    20372    0.171    0.000    1.080    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\internals\managers.py:317(apply)
+    10176    0.166    0.000    1.966    0.000 C:\Python312\Lib\site-packages\flopy\utils\binaryfile\__init__.py:1313(_get_header)
+    64234    0.164    0.000    0.164    0.000 {built-in method _codecs.charmap_encode}
+    11552    0.164    0.000    2.425    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\base.py:1371(_arith_method)
+   114304    0.162    0.000    0.585    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\dtypes\common.py:137(is_object_dtype)
+    40688    0.161    0.000    0.459    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\array_algos\take.py:564(_take_preprocess_indexer_and_fill_value)
+    43344    0.161    0.000    0.838    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexes\base.py:5552(equals)
+    52784    0.160    0.000    0.315    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\internals\base.py:82(shape)
+   105852    0.159    0.000    0.396    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:2765(check_dict_or_set_indexers)
+    99456    0.158    0.000    0.179    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexers\utils.py:62(is_list_like_indexer)
+     5016    0.158    0.000   38.020    0.008 C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:1506(_write_block)
+    11520    0.157    0.000    7.918    0.001 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexing.py:1785(_setitem_with_indexer)
+   192644    0.157    0.000    0.179    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\internals\managers.py:1993(dtype)
+    62184    0.154    0.000    1.620    0.000 C:\Python312\Lib\site-packages\flopy\utils\binaryfile\__init__.py:168(binaryread)
+    14760    0.154    0.000    3.460    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\generic.py:4027(take)
+    23164    0.153    0.000    3.077    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\series.py:6201(_construct_result)
+    21608    0.152    0.000    0.404    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\common.py:231(asarray_tuplesafe)
+    53453    0.150    0.000    0.504    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\fromnumeric.py:69(_wrapreduction)
+    45376    0.144    0.000    0.226    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\internals\blocks.py:2716(new_block)
+    68744    0.142    0.000    0.429    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\series.py:784(name)
+    52128    0.140    0.000    0.796    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexes\base.py:5437(_can_hold_identifiers_and_holds_name)
+       24    0.140    0.006    0.140    0.006 {built-in method _winapi.CreateProcess}
+   117150    0.137    0.000    0.465    0.000 {built-in method builtins.all}
+    70212    0.135    0.000    0.364    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\dtypes\common.py:1198(is_bool_dtype)
+    11520    0.133    0.000    0.402    0.000 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\indexes\range.py:1148(take)
+       52    0.132    0.003    0.214    0.004 C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\rasterio\warp.py:158(reproject)
+
+
+
+=== CALLERS / CALLEES OF RUNNER HOTSPOTS ===
+   Ordered by: cumulative time
+   List reduced from 6190 to 37 due to restriction <'run_twin_benchmark_case|run_candidate|run_prepared|communicate|subprocess|select_candidate_outputs|execute_candidate_run|prepare|MFSimulation|write_simulation'>
+
+Function                                                                                                                      called...
+                                                                                                                                  ncalls  tottime  cumtime
+C:\codes\HydroModPy-GH\validation_cases\calibration\shared\runtime.py:737(run_twin_benchmark_case)                            ->       1    0.000    0.002  C:\Python312\Lib\json\__init__.py:183(dumps)
+                                                                                                                                       1    0.000    0.000  C:\Python312\Lib\pathlib.py:583(name)
+                                                                                                                                       4    0.000    0.000  C:\Python312\Lib\pathlib.py:719(__truediv__)
+                                                                                                                                       1    0.000    0.005  C:\Python312\Lib\pathlib.py:1039(write_text)
+                                                                                                                                       1    0.000    0.001  C:\Python312\Lib\pathlib.py:1306(mkdir)
+                                                                                                                                       1    0.000    0.024  C:\codes\HydroModPy-GH\launchers\model_calibration\launcher.py:34(__init__)
+                                                                                                                                       1    0.000  115.605  C:\codes\HydroModPy-GH\launchers\model_calibration\launcher.py:121(calibrate)
+                                                                                                                                       1    0.000    0.000  C:\codes\HydroModPy-GH\validation_cases\calibration\shared\definitions.py:254(to_mapping)
+                                                                                                                                       1    0.000    0.010  C:\codes\HydroModPy-GH\validation_cases\calibration\shared\runtime.py:32(_write_toml)
+                                                                                                                                       1    0.000    0.000  C:\codes\HydroModPy-GH\validation_cases\calibration\shared\runtime.py:63(_compact_calibration_id)
+                                                                                                                                       1    0.000    0.004  C:\codes\HydroModPy-GH\validation_cases\calibration\shared\runtime.py:76(_resolve_twin_benchmark_root)
+                                                                                                                                       1    0.000    0.354  C:\codes\HydroModPy-GH\validation_cases\calibration\shared\runtime.py:108(_prune_benchmark_artifacts)
+                                                                                                                                       1    0.000    0.000  C:\codes\HydroModPy-GH\validation_cases\calibration\shared\runtime.py:193(_apply_evaluation_budget)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\validation_cases\calibration\shared\runtime.py:257(_iter_selected_method_runs)
+                                                                                                                                       1    0.000    7.745  C:\codes\HydroModPy-GH\validation_cases\calibration\shared\runtime.py:286(synthesize_truth_observations)
+                                                                                                                                       1    0.000    0.013  C:\codes\HydroModPy-GH\validation_cases\calibration\shared\runtime.py:474(_assess_method_result)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\validation_cases\calibration\shared\runtime.py:783(<genexpr>)
+                                                                                                                                       1    0.000    0.015  C:\codes\HydroModPy-GH\validation_cases\calibration\twin\transient\linearized_unconfined_recharge_step_1d\experiment.py:24(build_simulation_config)
+                                                                                                                                       1    0.000    0.000  C:\codes\HydroModPy-GH\validation_cases\calibration\twin\transient\linearized_unconfined_recharge_step_1d\experiment.py:37(build_calibration_payload)
+                                                                                                                                       1    0.000    0.000  {built-in method builtins.len}
+                                                                                                                                       1    0.000    0.000  {method 'append' of 'list' objects}
+                                                                                                                                       1    0.000    0.000  {method 'lower' of 'str' objects}
+                                                                                                                                       1    0.000    0.000  {method 'strip' of 'str' objects}
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:3338(execute_candidate_run)                                     ->      23    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2937(_objective_has_observations)
+                                                                                                                                      23    0.002   32.912  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2945(evaluate_candidate_objective)
+                                                                                                                                      24    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:3140(_launcher_supports_runtime_direct)
+                                                                                                                                      24    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:3152(_launcher_supports_runtime_reuse)
+                                                                                                                                      24    0.000    2.007  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:3252(_get_or_create_runtime_reusable_launcher)
+                                                                                                                                      24    0.000    0.019  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:3276(_prepare_runtime_direct_launcher)
+                                                                                                                                      24    0.002   81.149  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:325(run_prepared)
+                                                                                                                                      24    0.000    0.000  {built-in method builtins.callable}
+                                                                                                                                      72    0.000    0.000  {built-in method builtins.getattr}
+                                                                                                                                      48    0.000    0.000  {built-in method numpy.asarray}
+                                                                                                                                     238    0.000    0.000  {built-in method time.perf_counter}
+                                                                                                                                      48    0.000    0.000  {method 'copy' of 'numpy.ndarray' objects}
+                                                                                                                                      24    0.000    0.000  {method 'items' of 'dict' objects}
+C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:325(run_prepared)                                             ->      24    0.000    0.000  C:\codes\HydroModPy-GH\hydromodpy\simulation\execution\runner.py:123(__init__)
+                                                                                                                                      24    0.000   80.974  C:\codes\HydroModPy-GH\hydromodpy\simulation\execution\runner.py:129(execute)
+                                                                                                                                      24    0.000    0.000  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:297(prepare_runtime)
+                                                                                                                                      24    0.002    0.174  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:402(_save_run_artifacts)
+                                                                                                                                      48    0.000    0.000  {built-in method time.monotonic}
+C:\Python312\Lib\site-packages\flopy\mf6\mfsimbase.py:1697(write_simulation)                                                  ->     192    0.000    0.000  C:\Python312\Lib\enum.py:202(__get__)
+                                                                                                                                      24    0.000    0.001  C:\Python312\Lib\site-packages\flopy\mf6\mfbase.py:318(set_last_accessed_path)
+                                                                                                                                      24    0.008   50.235  C:\Python312\Lib\site-packages\flopy\mf6\mfmodel.py:1350(write)
+                                                                                                                                      24    0.000    0.000  C:\Python312\Lib\site-packages\flopy\mf6\mfmodel.py:1612(get_package)
+                                                                                                                                      24    0.000    0.000  C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:2443(_get_pname)
+                                                                                                                                      72    0.003    0.647  C:\Python312\Lib\site-packages\flopy\mf6\mfpackage.py:3297(write)
+                                                                                                                                     120    0.000    0.000  C:\Python312\Lib\site-packages\flopy\mf6\mfsimbase.py:279(verbosity_level)
+                                                                                                                                     120    0.002    0.003  {built-in method builtins.print}
+                                                                                                                                     120    0.000    0.000  {method 'values' of 'dict' objects}
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2922(select_candidate_outputs)                                  ->      24    0.000   34.111  C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:744(select_candidate_outputs_from_selectors)
+C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:744(select_candidate_outputs_from_selectors)           ->      24    0.001   33.925  C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:436(canonicalize_run_outputs)
+                                                                                                                                      48    0.000    0.001  C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:467(_lookup_bundle_or_run_state)
+                                                                                                                                      48    0.003    0.185  C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:693(_select_variable_output_value)
+C:\codes\HydroModPy-GH\launchers\model_calibration\launcher.py:43(prepare)                                                    ->       2    0.000    2.834  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2654(prepare_calibration_session)
+                                                                                                                                       2    0.000    0.018  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2712(initialize_calibration_session)
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2654(prepare_calibration_session)                               ->       8    0.000    0.000  C:\Python312\Lib\pathlib.py:719(__truediv__)
+                                                                                                                                       2    0.000    0.022  C:\codes\HydroModPy-GH\hydromodpy\core\config\toml_loader.py:131(load_toml_with_base_config)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\hydromodpy\core\workspace\config.py:99(calibration_folder)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\config.py:528(parameter_names)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\config.py:533(output_names)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\config.py:538(objective_block_names)
+                                                                                                                                       2    0.000    0.001  C:\codes\HydroModPy-GH\launchers\model_calibration\config.py:543(resolve_core_settings)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:497(prepare_output_selectors)
+                                                                                                                                       2    0.000    0.004  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:52(resolve_workspace_config)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:86(detect_solver_families)
+                                                                                                                                       2    0.000    0.003  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:979(_session_contract_signature)
+                                                                                                                                       2    0.000    2.803  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2474(prepare_hydraulic_property_support)
+                                                                                                                                       4    0.000    0.000  {built-in method time.perf_counter}
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2474(prepare_hydraulic_property_support)                        ->       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:86(detect_solver_families)
+                                                                                                                                       2    0.000    2.803  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:482(_prepare_runtime_hydraulic_property_support)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2445(_infer_target_scalar_base_arrays)
+                                                                                                                                       6    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2493(<genexpr>)
+                                                                                                                                       2    0.000    0.000  {built-in method builtins.max}
+                                                                                                                                       2    0.000    0.000  {built-in method builtins.sorted}
+                                                                                                                                       8    0.000    0.000  {method 'items' of 'dict' objects}
+                                                                                                                                       4    0.000    0.000  {method 'setdefault' of 'dict' objects}
+                                                                                                                                       4    0.000    0.000  {method 'strip' of 'str' objects}
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:482(_prepare_runtime_hydraulic_property_support)                ->       2    0.000    0.000  <frozen importlib._bootstrap>:1390(_handle_fromlist)
+                                                                                                                                       2    0.000    0.013  C:\codes\HydroModPy-GH\hydromodpy\solver\modflow6\property_mapping.py:219(resolve_flow_property_arrays)
+                                                                                                                                       2    0.000    0.063  C:\codes\HydroModPy-GH\hydromodpy\solver\modflow_common\discretization_spatial.py:183(build_spatial_discretization)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\hydromodpy\solver\utils\mesh\cartesian_grid\sgrid_mesh_adapter.py:65(build_field_mesh_from_sgrid)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:101(_select_runtime_preparation_flow_solver)
+                                                                                                                                       4    0.000    0.001  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:278(_surface_property_vector)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:288(_setup_mesh_paths_from_runtime)
+                                                                                                                                       4    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:384(_parse_property_values_by_key)
+                                                                                                                                       4    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:410(_parse_property_support_id)
+                                                                                                                                       4    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2389(_resolve_flow_property_config)
+                                                                                                                                       2    0.000    0.034  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:138(__init__)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:371(_validate_runtime_mesh_solver_compatibility)
+                                                                                                                                       4    0.000    0.000  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:613(_build_domain_spatial_supports)
+                                                                                                                                       2    0.000    1.905  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:657(_run_setup)
+                                                                                                                                       2    0.000    0.786  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:711(_run_data)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:747(_run_mesh_phase)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:768(_run_mesh_input_phase)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:831(_create_simulation_plan)
+                                                                                                                                      14    0.000    0.000  {built-in method builtins.getattr}
+                                                                                                                                       2    0.000    0.000  {built-in method builtins.max}
+                                                                                                                                       2    0.000    0.000  {built-in method builtins.sorted}
+                                                                                                                                       4    0.000    0.000  {method 'strip' of 'str' objects}
+C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:297(prepare_runtime)                                          ->       2    0.000    0.000  C:\codes\HydroModPy-GH\hydromodpy\simulation\planning\config.py:249(has_processes)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:371(_validate_runtime_mesh_solver_compatibility)
+                                                                                                                                       4    0.000    0.000  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:613(_build_domain_spatial_supports)
+                                                                                                                                       2    0.000    1.855  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:657(_run_setup)
+                                                                                                                                       2    0.000    0.099  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:711(_run_data)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:747(_run_mesh_phase)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:768(_run_mesh_input_phase)
+                                                                                                                                       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:831(_create_simulation_plan)
+C:\Python312\Lib\subprocess.py:807(__init__)                                                                                  ->      48    0.000    0.000  C:\Python312\Lib\subprocess.py:218(Close)
+                                                                                                                                      24    0.000    0.000  C:\Python312\Lib\subprocess.py:223(Detach)
+                                                                                                                                      24    0.000    0.000  C:\Python312\Lib\subprocess.py:259(_cleanup)
+                                                                                                                                      24    0.000    0.002  C:\Python312\Lib\subprocess.py:1335(_get_handles)
+                                                                                                                                      24    0.001    0.145  C:\Python312\Lib\subprocess.py:1436(_execute_child)
+                                                                                                                                      24    0.001    0.001  {built-in method _io.open}
+                                                                                                                                      24    0.000    0.000  {built-in method _thread.allocate_lock}
+                                                                                                                                      48    0.000    0.000  {built-in method builtins.isinstance}
+                                                                                                                                      24    0.000    0.000  {built-in method msvcrt.open_osfhandle}
+C:\Python312\Lib\subprocess.py:1436(_execute_child)                                                                           ->      24    0.000    0.000  <frozen os>:853(fsdecode)
+                                                                                                                                      24    0.000    0.000  C:\Python312\Lib\subprocess.py:193(__init__)
+                                                                                                                                      24    0.000    0.001  C:\Python312\Lib\subprocess.py:576(list2cmdline)
+                                                                                                                                      24    0.001    0.002  C:\Python312\Lib\subprocess.py:1282(_close_pipe_fds)
+                                                                                                                                      24    0.000    0.000  C:\Python312\Lib\subprocess.py:1423(_filter_handle_list)
+                                                                                                                                      24    0.000    0.000  {built-in method _winapi.CloseHandle}
+                                                                                                                                      24    0.140    0.140  {built-in method _winapi.CreateProcess}
+                                                                                                                                      72    0.000    0.000  {built-in method builtins.isinstance}
+                                                                                                                                      24    0.000    0.000  {built-in method sys.audit}
+                                                                                                                                      24    0.000    0.000  {method 'get' of 'dict' objects}
+C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\ops\array_ops.py:507(maybe_prepare_scalar_for_op)  ->   46208    0.011    0.011  {built-in method builtins.isinstance}
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:3276(_prepare_runtime_direct_launcher)                          ->      47    0.000    0.000  C:\Python312\Lib\site-packages\pydantic\main.py:1028(__setattr__)
+                                                                                                                                     119    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:3173(_assign_runtime_override)
+                                                                                                                                      24    0.001    0.018  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:3202(_restore_runtime_direct_launcher_baseline)
+                                                                                                                                     190    0.000    0.000  {built-in method builtins.getattr}
+                                                                                                                                      24    0.000    0.000  {built-in method builtins.isinstance}
+                                                                                                                                      72    0.000    0.000  {built-in method builtins.setattr}
+C:\Python312\Lib\site-packages\sqlalchemy\sql\annotation.py:582(_prepare_annotations)                                         ->     176    0.012    0.016  C:\Python312\Lib\site-packages\sqlalchemy\sql\annotation.py:535(_new_annotation_type)
+                                                                                                                                     179    0.001    0.001  C:\Python312\Lib\site-packages\sqlalchemy\util\langhelpers.py:128(walk_subclasses)
+C:\Python312\Lib\subprocess.py:1282(_close_pipe_fds)                                                                          ->      24    0.000    0.000  C:\Python312\Lib\contextlib.py:481(__init__)
+                                                                                                                                      72    0.000    0.001  C:\Python312\Lib\contextlib.py:530(callback)
+                                                                                                                                      24    0.000    0.000  C:\Python312\Lib\contextlib.py:564(__enter__)
+                                                                                                                                      24    0.000    0.001  C:\Python312\Lib\contextlib.py:567(__exit__)
+                                                                                                                                      24    0.000    0.000  {built-in method builtins.getattr}
+C:\Python312\Lib\subprocess.py:1335(_get_handles)                                                                             ->      24    0.000    0.000  C:\Python312\Lib\contextlib.py:132(__enter__)
+                                                                                                                                      24    0.000    0.000  C:\Python312\Lib\contextlib.py:141(__exit__)
+                                                                                                                                      24    0.000    0.000  C:\Python312\Lib\contextlib.py:299(helper)
+                                                                                                                                      72    0.000    0.000  C:\Python312\Lib\subprocess.py:1414(_make_inheritable)
+                                                                                                                                      24    0.001    0.001  {built-in method _winapi.CreatePipe}
+                                                                                                                                      24    0.000    0.000  {built-in method _winapi.GetStdHandle}
+                                                                                                                                      24    0.000    0.000  {method 'extend' of 'list' objects}
+C:\Python312\Lib\enum.py:513(__prepare__)                                                                                     ->      43    0.000    0.000  C:\Python312\Lib\enum.py:383(__init__)
+                                                                                                                                      43    0.000    0.001  C:\Python312\Lib\enum.py:390(__setitem__)
+                                                                                                                                      43    0.000    0.000  C:\Python312\Lib\enum.py:957(_check_for_existing_members_)
+                                                                                                                                      43    0.000    0.000  C:\Python312\Lib\enum.py:967(_get_mixins_)
+                                                                                                                                      43    0.000    0.000  {built-in method builtins.getattr}
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:113(_prepared_numeric_array_summary)                            ->      10    0.000    0.000  C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\fromnumeric.py:3075(_max_dispatcher)
+                                                                                                                                      10    0.000    0.000  C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\fromnumeric.py:3080(max)
+                                                                                                                                      10    0.000    0.000  C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\fromnumeric.py:3220(_min_dispatcher)
+                                                                                                                                      10    0.000    0.000  C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\fromnumeric.py:3225(min)
+                                                                                                                                      10    0.000    0.000  C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\fromnumeric.py:3778(_mean_dispatcher)
+                                                                                                                                      10    0.000    0.000  C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\numpy\_core\fromnumeric.py:3783(mean)
+                                                                                                                                      10    0.001    0.001  {built-in method _hashlib.openssl_sha256}
+                                                                                                                                      10    0.000    0.000  {built-in method numpy.asarray}
+                                                                                                                                      10    0.000    0.000  {method 'astype' of 'numpy.ndarray' objects}
+                                                                                                                                      10    0.000    0.000  {method 'hexdigest' of '_hashlib.HASH' objects}
+                                                                                                                                      10    0.000    0.000  {method 'reshape' of 'numpy.ndarray' objects}
+                                                                                                                                      10    0.000    0.000  {method 'tobytes' of 'numpy.ndarray' objects}
+C:\Python312\Lib\subprocess.py:1120(__del__)                                                                                  ->      24    0.000    0.000  C:\Python312\Lib\subprocess.py:1563(_internal_poll)
+                                                                                                                                      24    0.001    0.001  {built-in method _warnings.warn}
+C:\Python312\Lib\site-packages\pyproj\crs\crs.py:127(_prepare_from_string)                                                    ->      50    0.000    0.000  {built-in method builtins.isinstance}
+C:\Python312\Lib\subprocess.py:576(list2cmdline)                                                                              ->      24    0.000    0.000  <frozen os>:853(fsdecode)
+                                                                                                                                     912    0.000    0.000  {method 'append' of 'list' objects}
+                                                                                                                                     120    0.000    0.000  {method 'extend' of 'list' objects}
+                                                                                                                                      24    0.000    0.000  {method 'join' of 'str' objects}
+C:\codes\HydroModPy-GH\hydromodpy\analysis\calibration\core\objective_function.py:36(_prepare_series)                         ->      92    0.000    0.000  {built-in method numpy.asarray}
+C:\Python312\Lib\subprocess.py:218(Close)                                                                                     ->     120    0.000    0.000  {built-in method _winapi.CloseHandle}
+C:\Python312\Lib\subprocess.py:1414(_make_inheritable)                                                                        ->      72    0.000    0.000  {built-in method _winapi.DuplicateHandle}
+                                                                                                                                     144    0.000    0.000  {built-in method _winapi.GetCurrentProcess}
+C:\Python312\Lib\subprocess.py:1233(poll)                                                                                     ->      24    0.000    0.000  C:\Python312\Lib\subprocess.py:1563(_internal_poll)
+C:\Python312\Lib\subprocess.py:1563(_internal_poll)                                                                           ->      48    0.000    0.000  {built-in method _winapi.WaitForSingleObject}
+C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:497(prepare_output_selectors)                          ->       4    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:485(_output_variable_keys)
+                                                                                                                                       4    0.000    0.000  {method 'append' of 'list' objects}
+C:\Python312\Lib\subprocess.py:1423(_filter_handle_list)                                                                      -> 
+C:\Python312\Lib\subprocess.py:223(Detach)                                                                                    -> 
+C:\Python312\Lib\subprocess.py:193(__init__)                                                                                  -> 
+C:\Python312\Lib\site-packages\pyproj\crs\crs.py:147(_prepare_from_authority)                                                 -> 
+C:\Python312\Lib\subprocess.py:1311(_on_error_fd_closer)                                                                      -> 
+C:\Python312\Lib\subprocess.py:259(_cleanup)                                                                                  -> 
+C:\Python312\Lib\site-packages\sqlalchemy\orm\decl_base.py:1900(_prepare_mapper_arguments)                                    ->       2    0.000    0.000  {method 'copy' of 'dict' objects}
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:133(_prepared_labels_summary)                                   -> 
+
+
+   Ordered by: cumulative time
+   List reduced from 6190 to 35 due to restriction <'communicate|subprocess|select_candidate_outputs|execute_candidate_run|run_prepared|prepare'>
+
+Function                                                                                                                      was called by...
+                                                                                                                                  ncalls  tottime  cumtime
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:3338(execute_candidate_run)                                     <-      23    0.002  111.509  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:1835(evaluate)
+                                                                                                                                       1    0.000    4.581  C:\codes\HydroModPy-GH\validation_cases\calibration\shared\runtime.py:286(synthesize_truth_observations)
+C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:325(run_prepared)                                             <-      24    0.002   81.149  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:3338(execute_candidate_run)
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2922(select_candidate_outputs)                                  <-      23    0.004   32.882  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2945(evaluate_candidate_objective)
+                                                                                                                                       1    0.000    1.233  C:\codes\HydroModPy-GH\validation_cases\calibration\shared\runtime.py:286(synthesize_truth_observations)
+C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:744(select_candidate_outputs_from_selectors)           <-      24    0.000   34.111  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2922(select_candidate_outputs)
+C:\codes\HydroModPy-GH\launchers\model_calibration\launcher.py:43(prepare)                                                    <-       1    0.000    0.972  C:\codes\HydroModPy-GH\launchers\model_calibration\launcher.py:121(calibrate)
+                                                                                                                                       1    0.000    1.879  C:\codes\HydroModPy-GH\validation_cases\calibration\shared\runtime.py:286(synthesize_truth_observations)
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2654(prepare_calibration_session)                               <-       2    0.000    2.834  C:\codes\HydroModPy-GH\launchers\model_calibration\launcher.py:43(prepare)
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2474(prepare_hydraulic_property_support)                        <-       2    0.000    2.803  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2654(prepare_calibration_session)
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:482(_prepare_runtime_hydraulic_property_support)                <-       2    0.000    2.803  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2474(prepare_hydraulic_property_support)
+C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:297(prepare_runtime)                                          <-       2    0.000    1.954  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:3252(_get_or_create_runtime_reusable_launcher)
+                                                                                                                                      24    0.000    0.000  C:\codes\HydroModPy-GH\launchers\process_simulation\launcher.py:325(run_prepared)
+C:\Python312\Lib\subprocess.py:807(__init__)                                                                                  <-      24    0.001    0.149  C:\Python312\Lib\site-packages\flopy\mbase.py:1668(run_model)
+C:\Python312\Lib\subprocess.py:1436(_execute_child)                                                                           <-      24    0.001    0.145  C:\Python312\Lib\subprocess.py:807(__init__)
+C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\ops\array_ops.py:507(maybe_prepare_scalar_for_op)  <-   11552    0.048    0.058  C:\Users\dreuzy\AppData\Roaming\Python\Python312\site-packages\pandas\core\base.py:1371(_arith_method)
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:3276(_prepare_runtime_direct_launcher)                          <-      24    0.000    0.019  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:3338(execute_candidate_run)
+C:\Python312\Lib\site-packages\sqlalchemy\sql\annotation.py:582(_prepare_annotations)                                         <-       3    0.000    0.017  C:\Python312\Lib\site-packages\sqlalchemy\sql\__init__.py:111(__go)
+C:\Python312\Lib\subprocess.py:1282(_close_pipe_fds)                                                                          <-      24    0.001    0.002  C:\Python312\Lib\subprocess.py:1436(_execute_child)
+C:\Python312\Lib\subprocess.py:1335(_get_handles)                                                                             <-      24    0.000    0.002  C:\Python312\Lib\subprocess.py:807(__init__)
+C:\Python312\Lib\enum.py:513(__prepare__)                                                                                     <-       4    0.000    0.000  C:\Python312\Lib\enum.py:863(_create_)
+                                                                                                                                      39    0.000    0.002  {built-in method builtins.__build_class__}
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:113(_prepared_numeric_array_summary)                            <-      10    0.000    0.002  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:229(to_summary)
+C:\Python312\Lib\subprocess.py:1120(__del__)                                                                                  <-      24    0.000    0.001  C:\Python312\Lib\site-packages\flopy\mf6\mfsimbase.py:1803(run_simulation)
+C:\Python312\Lib\site-packages\pyproj\crs\crs.py:127(_prepare_from_string)                                                    <-      50    0.001    0.001  C:\Python312\Lib\site-packages\pyproj\crs\crs.py:185(__init__)
+C:\Python312\Lib\subprocess.py:576(list2cmdline)                                                                              <-      24    0.000    0.001  C:\Python312\Lib\subprocess.py:1436(_execute_child)
+C:\codes\HydroModPy-GH\hydromodpy\analysis\calibration\core\objective_function.py:36(_prepare_series)                         <-      46    0.001    0.001  C:\codes\HydroModPy-GH\hydromodpy\analysis\calibration\core\objective_function.py:61(rmse)
+C:\Python312\Lib\subprocess.py:218(Close)                                                                                     <-      72    0.000    0.000  C:\Python312\Lib\contextlib.py:477(_exit_wrapper)
+                                                                                                                                      72    0.000    0.000  C:\Python312\Lib\site-packages\flopy\mbase.py:1668(run_model)
+                                                                                                                                      24    0.000    0.000  C:\Python312\Lib\site-packages\flopy\mf6\mfsimbase.py:1803(run_simulation)
+                                                                                                                                      48    0.000    0.000  C:\Python312\Lib\subprocess.py:807(__init__)
+C:\Python312\Lib\subprocess.py:1414(_make_inheritable)                                                                        <-      72    0.000    0.000  C:\Python312\Lib\subprocess.py:1335(_get_handles)
+C:\Python312\Lib\subprocess.py:1233(poll)                                                                                     <-      24    0.000    0.000  C:\Python312\Lib\site-packages\flopy\mbase.py:1668(run_model)
+C:\Python312\Lib\subprocess.py:1563(_internal_poll)                                                                           <-      24    0.000    0.000  C:\Python312\Lib\subprocess.py:1120(__del__)
+                                                                                                                                      24    0.000    0.000  C:\Python312\Lib\subprocess.py:1233(poll)
+C:\codes\HydroModPy-GH\launchers\model_calibration\output_selection.py:497(prepare_output_selectors)                          <-       2    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:2654(prepare_calibration_session)
+C:\Python312\Lib\subprocess.py:1423(_filter_handle_list)                                                                      <-      24    0.000    0.000  C:\Python312\Lib\subprocess.py:1436(_execute_child)
+C:\Python312\Lib\subprocess.py:223(Detach)                                                                                    <-      24    0.000    0.000  C:\Python312\Lib\subprocess.py:807(__init__)
+C:\Python312\Lib\subprocess.py:193(__init__)                                                                                  <-      24    0.000    0.000  C:\Python312\Lib\subprocess.py:1436(_execute_child)
+C:\Python312\Lib\site-packages\pyproj\crs\crs.py:147(_prepare_from_authority)                                                 <-      26    0.000    0.000  C:\Python312\Lib\site-packages\pyproj\crs\crs.py:185(__init__)
+C:\Python312\Lib\subprocess.py:1311(_on_error_fd_closer)                                                                      <-      48    0.000    0.000  {built-in method builtins.next}
+C:\Python312\Lib\subprocess.py:259(_cleanup)                                                                                  <-      24    0.000    0.000  C:\Python312\Lib\subprocess.py:807(__init__)
+C:\Python312\Lib\site-packages\sqlalchemy\orm\decl_base.py:1900(_prepare_mapper_arguments)                                    <-       2    0.000    0.000  C:\Python312\Lib\site-packages\sqlalchemy\orm\decl_base.py:1981(map)
+C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:133(_prepared_labels_summary)                                   <-       5    0.000    0.000  C:\codes\HydroModPy-GH\launchers\model_calibration\runtime.py:229(to_summary)
+
+

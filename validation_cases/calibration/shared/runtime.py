@@ -231,6 +231,14 @@ def _apply_evaluation_budget(
         burn_in = kwargs.get("burn_in")
         if burn_in is not None:
             kwargs["burn_in"] = min(int(burn_in), max(0, int(kwargs["n_samples"]) - 1))
+        thin = max(1, int(kwargs.get("thin", 1)))
+        retained_target = max(8, min(32, int(budget)))
+        retained_count = max(
+            0,
+            (int(kwargs["n_samples"]) - int(kwargs.get("burn_in", 0)) + thin - 1) // thin,
+        )
+        if retained_count < retained_target:
+            kwargs["n_samples"] = int(kwargs.get("burn_in", 0)) + thin * retained_target
     else:
         raise ValueError(
             f"Unsupported evaluation-budget adaptation for method '{profile.name}'."
@@ -432,6 +440,37 @@ def _distribution_truth_metrics(
     return int(len(samples)), truth_in_distribution, normalized_min_errors
 
 
+def _estimate_candidate_runtime_seconds(
+    *,
+    mean_candidate_total_time_seconds: float | None,
+    candidate_run_count: int,
+    n_evaluations: int,
+) -> float | None:
+    """Estimate aggregate candidate runtime from mean-per-candidate timings."""
+    if mean_candidate_total_time_seconds is None:
+        return None
+    run_count = int(candidate_run_count)
+    if run_count <= 0:
+        run_count = int(n_evaluations)
+    if run_count <= 0:
+        return None
+    return float(mean_candidate_total_time_seconds) * float(run_count)
+
+
+def _algorithm_overhead_time_seconds(
+    *,
+    calibration_time_seconds: float | None,
+    estimated_candidate_runtime_seconds: float | None,
+) -> float | None:
+    """Estimate method overhead not spent inside candidate runtime segments."""
+    if calibration_time_seconds is None or estimated_candidate_runtime_seconds is None:
+        return None
+    raw = float(calibration_time_seconds) - float(estimated_candidate_runtime_seconds)
+    if raw < 0.0 and abs(raw) < 1.0e-9:
+        return 0.0
+    return max(0.0, raw)
+
+
 def _assess_method_result(
     *,
     definition: TwinCalibrationCaseDefinition,
@@ -492,6 +531,12 @@ def _assess_method_result(
     mean_candidate_total_time_seconds = None
     mean_candidate_preparation_time_seconds = None
     mean_candidate_simulation_time_seconds = None
+    mean_candidate_actualize_time_seconds = None
+    mean_candidate_launcher_prepare_time_seconds = None
+    mean_candidate_runtime_patch_time_seconds = None
+    mean_candidate_output_selection_time_seconds = None
+    mean_candidate_objective_build_time_seconds = None
+    mean_candidate_objective_compute_time_seconds = None
     mean_candidate_objective_time_seconds = None
     block_raw_cost_best: dict[str, float] = {}
     block_normalized_cost_best: dict[str, float] = {}
@@ -519,6 +564,30 @@ def _assess_method_result(
         raw_value = candidate_timing_summary["simulation_time_seconds"].get("mean")
         if raw_value is not None:
             mean_candidate_simulation_time_seconds = float(raw_value)
+    if isinstance(candidate_timing_summary.get("actualize_time_seconds"), dict):
+        raw_value = candidate_timing_summary["actualize_time_seconds"].get("mean")
+        if raw_value is not None:
+            mean_candidate_actualize_time_seconds = float(raw_value)
+    if isinstance(candidate_timing_summary.get("launcher_prepare_time_seconds"), dict):
+        raw_value = candidate_timing_summary["launcher_prepare_time_seconds"].get("mean")
+        if raw_value is not None:
+            mean_candidate_launcher_prepare_time_seconds = float(raw_value)
+    if isinstance(candidate_timing_summary.get("runtime_patch_time_seconds"), dict):
+        raw_value = candidate_timing_summary["runtime_patch_time_seconds"].get("mean")
+        if raw_value is not None:
+            mean_candidate_runtime_patch_time_seconds = float(raw_value)
+    if isinstance(candidate_timing_summary.get("output_selection_time_seconds"), dict):
+        raw_value = candidate_timing_summary["output_selection_time_seconds"].get("mean")
+        if raw_value is not None:
+            mean_candidate_output_selection_time_seconds = float(raw_value)
+    if isinstance(candidate_timing_summary.get("objective_build_time_seconds"), dict):
+        raw_value = candidate_timing_summary["objective_build_time_seconds"].get("mean")
+        if raw_value is not None:
+            mean_candidate_objective_build_time_seconds = float(raw_value)
+    if isinstance(candidate_timing_summary.get("objective_compute_time_seconds"), dict):
+        raw_value = candidate_timing_summary["objective_compute_time_seconds"].get("mean")
+        if raw_value is not None:
+            mean_candidate_objective_compute_time_seconds = float(raw_value)
     if isinstance(candidate_timing_summary.get("objective_time_seconds"), dict):
         raw_value = candidate_timing_summary["objective_time_seconds"].get("mean")
         if raw_value is not None:
@@ -563,6 +632,15 @@ def _assess_method_result(
                 objective_cache_hit_rate = (
                     float(objective_cache_hit_count) / float(candidate_run_count)
                 )
+    estimated_candidate_runtime_seconds = _estimate_candidate_runtime_seconds(
+        mean_candidate_total_time_seconds=mean_candidate_total_time_seconds,
+        candidate_run_count=candidate_run_count,
+        n_evaluations=int(summary.get("n_evaluations", 0)),
+    )
+    algorithm_overhead_time_seconds = _algorithm_overhead_time_seconds(
+        calibration_time_seconds=calibration_time_seconds,
+        estimated_candidate_runtime_seconds=estimated_candidate_runtime_seconds,
+    )
     distribution_sample_count, truth_in_distribution, min_distribution_error = (
         _distribution_truth_metrics(
             model_distribution_path=distribution_path,
@@ -605,12 +683,32 @@ def _assess_method_result(
         calibration_time_seconds=calibration_time_seconds,
         time_per_evaluation_seconds=time_per_evaluation_seconds,
         session_prepare_time_seconds=session_prepare_time_seconds,
+        estimated_candidate_runtime_seconds=estimated_candidate_runtime_seconds,
+        algorithm_overhead_time_seconds=algorithm_overhead_time_seconds,
         mean_candidate_total_time_seconds=mean_candidate_total_time_seconds,
         mean_candidate_preparation_time_seconds=(
             mean_candidate_preparation_time_seconds
         ),
         mean_candidate_simulation_time_seconds=(
             mean_candidate_simulation_time_seconds
+        ),
+        mean_candidate_actualize_time_seconds=(
+            mean_candidate_actualize_time_seconds
+        ),
+        mean_candidate_launcher_prepare_time_seconds=(
+            mean_candidate_launcher_prepare_time_seconds
+        ),
+        mean_candidate_runtime_patch_time_seconds=(
+            mean_candidate_runtime_patch_time_seconds
+        ),
+        mean_candidate_output_selection_time_seconds=(
+            mean_candidate_output_selection_time_seconds
+        ),
+        mean_candidate_objective_build_time_seconds=(
+            mean_candidate_objective_build_time_seconds
+        ),
+        mean_candidate_objective_compute_time_seconds=(
+            mean_candidate_objective_compute_time_seconds
         ),
         mean_candidate_objective_time_seconds=(
             mean_candidate_objective_time_seconds
@@ -766,6 +864,9 @@ def run_twin_benchmark_case(
                 assessed_result,
                 objective_trace_figure=figure_paths.get("objective_trace"),
                 objective_landscape_figure=figure_paths.get("objective_landscape"),
+                posterior_distribution_figure=figure_paths.get(
+                    "posterior_distribution"
+                ),
             )
         method_results.append(assessed_result)
 
