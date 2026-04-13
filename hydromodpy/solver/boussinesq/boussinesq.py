@@ -246,41 +246,6 @@ class Boussinesq(Solver):
         )
         self.solve_stage = "post_processed"
 
-    def _write_standard_postprocess_outputs(self) -> None:
-        """Export the canonical ``_postprocess`` arrays expected by validation helpers.
-
-        This small compatibility layer lets existing plotting and validation
-        utilities consume Boussinesq results without a dedicated code path.
-        """
-        if self.state is None or self.mesh is None:
-            return
-
-        postprocess_dir = self.full_path / "_postprocess"
-        postprocess_dir.mkdir(parents=True, exist_ok=True)
-
-        raw_head_history = self.state.head_history_m
-        if raw_head_history is None:
-            head_history = np.asarray(self.state.head_m, dtype=float).reshape(1, -1)
-        else:
-            head_history = np.asarray(raw_head_history, dtype=float)
-            if head_history.ndim == 1:
-                head_history = head_history.reshape(1, -1)
-            if head_history.size == 0:
-                head_history = np.asarray(self.state.head_m, dtype=float).reshape(1, -1)
-
-        z_top = np.asarray(self.mesh.z_top_m, dtype=float).reshape(1, -1)
-        watertable_elevation = {
-            int(index): np.asarray(head_values, dtype=float)
-            for index, head_values in enumerate(head_history)
-        }
-        watertable_depth = {
-            int(index): np.maximum(z_top[0] - np.asarray(head_values, dtype=float), 0.0)
-            for index, head_values in enumerate(head_history)
-        }
-
-        np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
-        np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
-
     def _record_surface_threshold_summary(self) -> None:
         """Record compact diagnostics about surface-threshold activation.
 
