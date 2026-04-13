@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 import math
 import numbers
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import TYPE_CHECKING, Any, Mapping
 
 import numpy as np
 
@@ -23,10 +24,15 @@ from launchers.method_comparison.config import (
     MethodComparisonVariantSchema,
 )
 
+if TYPE_CHECKING:
+    from hydromodpy.results.store import ResultStore
+
 try:
     import rasterio
 except Exception:  # pragma: no cover - optional dependency in lightweight envs
     rasterio = None
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1110,12 +1116,307 @@ def _load_boussinesq_surface_excess_total_series(
     )
 
 
+def _store_variable_mapping(variable_name: str) -> str | None:
+    """Map a postprocess variable name to its ResultStore field name.
+
+    Returns ``None`` when no known mapping exists.
+    """
+    mapping: dict[str, str] = {
+        "watertable_elevation": "watertable_elevation",
+        "watertable_depth": "watertable_depth",
+        "seepage_areas": "seepage_areas",
+        "head": "head",
+        "accumulation_flux": "accumulation_flux",
+        "outflow_drain": "outflow_drain",
+        "groundwater_flux": "groundwater_flux",
+        "concentration_seepage": "concentration_seepage",
+        "mass_seepage": "mass_seepage",
+        "mass_accumulated": "mass_accumulated",
+    }
+    return mapping.get(variable_name.strip().lower())
+
+
+def _load_store_series(
+    store: ResultStore,
+    sim_id: str,
+    *,
+    variable_name: str,
+) -> VariableSeries | None:
+    """Try loading a variable series from the ResultStore (Zarr fields).
+
+    Returns ``None`` when the variable is not available in the store,
+    allowing the caller to fall back to legacy loaders.
+    """
+    store_field = _store_variable_mapping(variable_name)
+    if store_field is None:
+        return None
+
+    try:
+        grp = store.open_zarr_group(sim_id)
+    except (KeyError, Exception):
+        return None
+
+    # Locate the Zarr array across root and subgroups.
+    arr = None
+    for loc in (grp, grp.get("derived"), grp.get("budget")):
+        if loc is not None and store_field in loc:
+            arr = loc[store_field]
+            break
+    if arr is None:
+        return None
+
+    try:
+        data = arr[:]
+    except Exception:
+        return None
+
+    if data.ndim == 0:
+        return None
+
+    # Build TimeSlice list from the stored array.
+    if data.ndim == 1:
+        slices = (
+            TimeSlice(
+                time_key=0,
+                time_index=0,
+                values=np.asarray(data, dtype=float).ravel(),
+            ),
+        )
+    else:
+        # data.shape[0] is the time dimension.  For multilayer fields the
+        # shape is (n_timesteps, n_layers, n_cells) — flatten to (n_cells,)
+        # per slice.
+        slices = tuple(
+            TimeSlice(
+                time_key=t,
+                time_index=t,
+                values=np.asarray(data[t], dtype=float).ravel(),
+            )
+            for t in range(data.shape[0])
+        )
+
+    if not slices:
+        return None
+
+    return VariableSeries(
+        variable_name=variable_name,
+        source_path=Path(store.zarr_path),
+        slices=slices,
+        cell_ids=None,
+    )
+
+
+def _load_store_boussinesq_state_series(
+    store: ResultStore,
+    sim_id: str,
+    *,
+    variable_name: str,
+) -> VariableSeries | None:
+    """Try loading a Boussinesq state history variable from the store.
+
+    The Boussinesq extractor persists the full ``.npz`` content into a
+    ``boussinesq_state`` Zarr subgroup.  This reader mirrors the logic
+    of ``_load_boussinesq_npz_series`` but reads from Zarr instead of
+    the on-disk ``.npz`` file.
+    """
+    try:
+        grp = store.open_zarr_group(sim_id)
+    except (KeyError, Exception):
+        return None
+
+    state_grp = grp.get("boussinesq_state")
+    if state_grp is None or variable_name not in state_grp:
+        return None
+
+    try:
+        values = np.asarray(state_grp[variable_name][:], dtype=float)
+    except Exception:
+        return None
+
+    period_lengths = np.asarray([], dtype=float)
+    if "period_lengths_seconds" in state_grp:
+        try:
+            period_lengths = np.asarray(
+                state_grp["period_lengths_seconds"][:], dtype=float
+            ).ravel()
+        except Exception:
+            pass
+
+    if values.ndim <= 1:
+        elapsed = (
+            float(np.nansum(period_lengths))
+            if period_lengths.size > 0
+            else None
+        )
+        slices = (
+            TimeSlice(
+                time_key="final",
+                time_index=max(0, int(period_lengths.size)),
+                values=values.ravel(),
+                elapsed_seconds=elapsed,
+            ),
+        )
+    else:
+        elapsed_by_index = _elapsed_seconds_from_period_lengths(
+            n_snapshots=int(values.shape[0]),
+            period_lengths=period_lengths,
+        )
+        slices = tuple(
+            TimeSlice(
+                time_key=index,
+                time_index=index,
+                values=values[index].ravel(),
+                elapsed_seconds=elapsed_by_index[index],
+                is_initial_state=period_lengths.size == values.shape[0] - 1
+                and index == 0,
+            )
+            for index in range(values.shape[0])
+        )
+
+    return VariableSeries(
+        variable_name=variable_name,
+        source_path=Path(store.zarr_path),
+        slices=slices,
+        cell_ids=None,
+    )
+
+
+def _load_store_surface_excess_total_series(
+    store: ResultStore,
+    sim_id: str,
+    *,
+    variable_name: str,
+    run_folder: Path,
+) -> VariableSeries | None:
+    """Try loading surface-excess totals from the store.
+
+    Mirrors ``_load_boussinesq_surface_excess_total_series`` but reads
+    the ``saturation_excess_history_m_s`` array from the Zarr
+    ``boussinesq_state`` group.
+    """
+    try:
+        grp = store.open_zarr_group(sim_id)
+    except (KeyError, Exception):
+        return None
+
+    state_grp = grp.get("boussinesq_state")
+    if state_grp is None or "saturation_excess_history_m_s" not in state_grp:
+        return None
+
+    try:
+        values = np.asarray(
+            state_grp["saturation_excess_history_m_s"][:], dtype=float,
+        )
+    except Exception:
+        return None
+
+    if values.ndim == 1:
+        values = values.reshape(1, -1)
+    if values.ndim != 2:
+        return None
+
+    cells = resolve_bundle_cells(
+        run_folder,
+        expected_size=int(values.shape[1]),
+        solver_name="boussinesq",
+    )
+    if cells is None or cells.area_m2 is None:
+        return None
+    area_m2 = np.asarray(cells.area_m2, dtype=float).reshape(-1)
+    if area_m2.size != values.shape[1]:
+        return None
+
+    positive = np.maximum(values, 0.0)
+    totals_m3_s = np.sum(positive * area_m2[None, :], axis=1, dtype=float)
+
+    period_lengths = np.asarray([], dtype=float)
+    if "period_lengths_seconds" in state_grp:
+        try:
+            period_lengths = np.asarray(
+                state_grp["period_lengths_seconds"][:], dtype=float,
+            ).ravel()
+        except Exception:
+            pass
+
+    elapsed_by_index = _elapsed_seconds_from_period_lengths(
+        n_snapshots=int(totals_m3_s.size),
+        period_lengths=period_lengths,
+    )
+    slices = tuple(
+        TimeSlice(
+            time_key=index,
+            time_index=index,
+            values=np.asarray([float(total)], dtype=float),
+            elapsed_seconds=elapsed_by_index[index],
+            is_initial_state=period_lengths.size == totals_m3_s.size - 1
+            and index == 0,
+        )
+        for index, total in enumerate(totals_m3_s.tolist())
+    )
+    return VariableSeries(
+        variable_name=variable_name,
+        source_path=Path(store.zarr_path),
+        slices=slices,
+        cell_ids=None,
+    )
+
+
 def load_variable_series(
     *,
     run_folder: Path,
     variable: str,
+    store: ResultStore | None = None,
+    sim_id: str | None = None,
 ) -> VariableSeries:
-    """Load one variable series from common postprocess disk artefacts."""
+    """Load one variable series, preferring ResultStore when available.
+
+    When *store* and *sim_id* are provided the function tries to read
+    from the DuckDB+Zarr result store first.  If the variable is not
+    found in the store (or the store is ``None``), it falls back to the
+    legacy ``.npy`` / ``.npz`` loaders so existing workflows are not
+    broken.
+    """
+    # --- Try ResultStore first ------------------------------------------------
+    if store is not None and sim_id is not None:
+        for variable_name in _variable_candidates(variable):
+            # 1. Direct spatial fields (watertable_elevation, head, ...)
+            series = _load_store_series(store, sim_id, variable_name=variable_name)
+            if series is not None:
+                logger.debug(
+                    "Loaded '%s' from ResultStore (sim_id=%s).",
+                    variable_name, sim_id,
+                )
+                return series
+
+            # 2. Boussinesq state variables (head_history_m, etc.)
+            if variable_name in {
+                "surface_excess_total_m3_s",
+                "surface_threshold_total_m3_s",
+                "saturation_excess_total_m3_s",
+            }:
+                series = _load_store_surface_excess_total_series(
+                    store, sim_id,
+                    variable_name=variable_name,
+                    run_folder=run_folder,
+                )
+            else:
+                series = _load_store_boussinesq_state_series(
+                    store, sim_id, variable_name=variable_name,
+                )
+            if series is not None:
+                logger.debug(
+                    "Loaded '%s' from ResultStore boussinesq_state (sim_id=%s).",
+                    variable_name, sim_id,
+                )
+                return series
+
+        logger.debug(
+            "Variable '%s' not found in ResultStore (sim_id=%s), "
+            "falling back to legacy loaders.",
+            variable, sim_id,
+        )
+
+    # --- Fallback: legacy .npy / .npz loaders --------------------------------
     postprocess_dir = run_folder / "_postprocess"
     searched: list[Path] = []
     for variable_name in _variable_candidates(variable):
@@ -1161,6 +1462,8 @@ def mask_depth_series_from_head_nodata(
     *,
     run_folder: Path,
     series: VariableSeries,
+    store: ResultStore | None = None,
+    sim_id: str | None = None,
 ) -> VariableSeries:
     """Mask `watertable_depth` where the companion head series carries nodata."""
     if series.variable_name.strip().lower() != "watertable_depth":
@@ -1170,6 +1473,8 @@ def mask_depth_series_from_head_nodata(
         head_series = load_variable_series(
             run_folder=run_folder,
             variable="watertable_elevation",
+            store=store,
+            sim_id=sim_id,
         )
     except Exception:
         return series
@@ -1461,6 +1766,8 @@ def extract_observable_rows(
     run_folder: Path,
     observables: tuple[MethodComparisonObservableSchema, ...],
     config_path: Path | None = None,
+    store: ResultStore | None = None,
+    sim_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Extract all observable rows for one completed/reused variant."""
     rows: list[dict[str, Any]] = []
@@ -1468,8 +1775,18 @@ def extract_observable_rows(
     for observable in observables:
         if observable.variants is not None and variant.id not in set(observable.variants):
             continue
-        series = load_variable_series(run_folder=run_folder, variable=observable.variable)
-        series = mask_depth_series_from_head_nodata(run_folder=run_folder, series=series)
+        series = load_variable_series(
+            run_folder=run_folder,
+            variable=observable.variable,
+            store=store,
+            sim_id=sim_id,
+        )
+        series = mask_depth_series_from_head_nodata(
+            run_folder=run_folder,
+            series=series,
+            store=store,
+            sim_id=sim_id,
+        )
         if cells is None:
             first_slice_size = (
                 int(series.slices[0].values.size) if series.slices else None
@@ -1610,6 +1927,44 @@ def extract_observable_rows(
     return rows
 
 
+def discover_result_store(
+    config_path: Path | None,
+) -> tuple[Any, str | None]:
+    """Open a ResultStore from the project root inferred from a config path.
+
+    Returns ``(store, sim_id)`` on success, ``(None, None)`` when the
+    store is unavailable.  The caller is responsible for closing the
+    store via ``store.close()`` when finished.
+    """
+    if config_path is None:
+        return None, None
+
+    project_root = _resolve_project_root_from_config(config_path)
+    if project_root is None:
+        return None, None
+
+    db_path = project_root / "project.duckdb"
+    if not db_path.exists():
+        return None, None
+
+    try:
+        from hydromodpy.results.store import ResultStore as _ResultStore
+
+        store = _ResultStore(project_path=project_root)
+        sims = store.list_simulations()
+        if sims.empty:
+            store.close()
+            return None, None
+        # Pick the most recent (last) simulation.
+        sim_id = str(sims.iloc[-1]["sim_id"])
+        return store, sim_id
+    except Exception:
+        logger.debug(
+            "Could not open ResultStore from %s", project_root, exc_info=True
+        )
+        return None, None
+
+
 def write_observables_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     """Persist long-format comparison observables."""
     fieldnames = [
@@ -1661,6 +2016,7 @@ __all__ = (
     "CellCentroidTable",
     "TimeSlice",
     "VariableSeries",
+    "discover_result_store",
     "extract_observable_rows",
     "load_variable_series",
     "materialize_variant_config",

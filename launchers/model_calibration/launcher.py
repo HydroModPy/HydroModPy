@@ -203,6 +203,7 @@ class ModelCalibrationLauncher:
             evaluator=evaluator,
             result=result,
         )
+        result_store = self._open_calibration_result_store(session)
         self.state.session_manifest = finalize_calibration_session(
             session=session,
             result=result,
@@ -212,7 +213,13 @@ class ModelCalibrationLauncher:
             model_distribution_rerun_summary=model_distribution_rerun_summary,
             objective_mapping_summary=objective_mapping_summary,
             persist_distribution=self.cfg.model_calibration.persist_model_distribution,
+            result_store=result_store,
         )
+        if result_store is not None:
+            try:
+                result_store.close()
+            except Exception:
+                pass
         if self.cfg.model_calibration.persist_calibration_report:
             report_summary = persist_calibration_report(
                 session=session,
@@ -227,6 +234,32 @@ class ModelCalibrationLauncher:
             )
             self.state.session_manifest = refreshed_manifest
         return dict(self.state.session_manifest)
+
+    def _open_calibration_result_store(self, session) -> "Any | None":
+        """Best-effort open of a ResultStore for persisting calibration results.
+
+        Returns None when the store cannot be opened (missing workspace,
+        import error, etc.) so that calibration never fails because of
+        store integration.
+        """
+        try:
+            from hydromodpy.results.store import ResultStore
+
+            workspace = session.simulation_workspace
+            if workspace is None or workspace.project_root is None:
+                return None
+            return ResultStore(
+                project_path=workspace.project_root,
+                workspace_path=workspace.workspace_root,
+            )
+        except Exception:
+            import logging as _logging
+
+            _logging.getLogger(__name__).debug(
+                "Could not open ResultStore for calibration persistence",
+                exc_info=True,
+            )
+            return None
 
     def run(self) -> dict[str, Any]:
         """Validate launcher and simulation-side contracts, then prepare one session."""

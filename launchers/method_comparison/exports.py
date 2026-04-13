@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 import csv
-import json
+import logging
 import math
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import TYPE_CHECKING, Any, Iterable, Mapping
 
 import numpy as np
 
 from launchers.method_comparison.runtime import resolve_bundle_cells
+
+if TYPE_CHECKING:
+    from hydromodpy.results.store import ResultStore
+
+logger = logging.getLogger(__name__)
 
 
 def _as_float(value: Any) -> float | None:
@@ -266,7 +271,7 @@ def write_native_timeseries_exports(
         loaded = _load_simulated_timeseries_csv(source_path)
         if loaded is None:
             continue
-        raw_rows, _delimiter = loaded
+        raw_rows, _ = loaded
         numeric_columns = {
             key
             for key in raw_rows[0].keys()
@@ -416,15 +421,6 @@ def write_native_timeseries_exports(
     return artifacts, long_rows, wide_rows, delta_rows
 
 
-def _load_json_mapping(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-    return payload if isinstance(payload, dict) else {}
-
 
 def _history_matrix(payload: Mapping[str, Any], key: str) -> np.ndarray | None:
     if key not in payload:
@@ -501,13 +497,62 @@ def _storage_change_series_m3_s(
     return None
 
 
-def _load_boussinesq_budget_rows(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
-    run_folder = Path(str(summary.get("run_folder", "")))
-    npz_path = run_folder / "_boussinesq_state_history.npz"
-    if not npz_path.exists():
-        return []
+def _load_boussinesq_state_from_store(
+    store: ResultStore,
+    sim_id: str,
+) -> Mapping[str, Any] | None:
+    """Try reading Boussinesq state arrays from the ResultStore Zarr group.
 
-    payload = np.load(npz_path, allow_pickle=True)
+    Returns a dict-like mapping of array names to numpy arrays (same
+    interface as ``np.load(...)``), or ``None`` if unavailable.
+    """
+    try:
+        grp = store.open_zarr_group(sim_id)
+    except (KeyError, Exception):
+        return None
+
+    state_grp = grp.get("boussinesq_state")
+    if state_grp is None:
+        return None
+
+    # Build a lazy dict reading arrays on demand.
+    result: dict[str, np.ndarray] = {}
+    try:
+        for key in state_grp:
+            result[key] = np.asarray(state_grp[key][:])
+    except Exception:
+        return None
+
+    return result if result else None
+
+
+def _load_boussinesq_budget_rows(
+    summary: Mapping[str, Any],
+    store: ResultStore | None = None,
+    sim_id: str | None = None,
+) -> list[dict[str, Any]]:
+    run_folder = Path(str(summary.get("run_folder", "")))
+
+    # --- Try ResultStore first ------------------------------------------------
+    payload: Mapping[str, Any] | None = None
+    source_label: str = ""
+    if store is not None and sim_id is not None:
+        payload = _load_boussinesq_state_from_store(store, sim_id)
+        if payload is not None:
+            source_label = f"ResultStore(sim_id={sim_id})"
+            logger.debug(
+                "Loaded Boussinesq state from ResultStore for budget (sim_id=%s).",
+                sim_id,
+            )
+
+    # --- Fallback to legacy .npz file -----------------------------------------
+    if payload is None:
+        npz_path = run_folder / "_boussinesq_state_history.npz"
+        if not npz_path.exists():
+            return []
+        payload = np.load(npz_path, allow_pickle=True)
+        source_label = str(npz_path)
+
     recharge_history = _history_matrix(payload, "recharge_rate_history_m_s")
     well_history = _history_matrix(payload, "well_flux_history_m3_s")
     drainage_history = _history_matrix(payload, "drainage_flux_history_m3_s")
@@ -642,7 +687,7 @@ def _load_boussinesq_budget_rows(summary: Mapping[str, Any]) -> list[dict[str, A
                     "elapsed_seconds": float(elapsed_seconds[time_index]),
                     "time_label": time_labels[time_index],
                     "value": float(value),
-                    "source": str(npz_path),
+                    "source": source_label,
                 }
             )
     return rows
@@ -654,9 +699,25 @@ def write_budget_exports(
     variant_summaries: Iterable[Mapping[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write budget diagnostics derived from Boussinesq state histories."""
+    from launchers.method_comparison.runtime import discover_result_store
+
     rows: list[dict[str, Any]] = []
     for summary in _completed_variant_summaries(variant_summaries):
-        rows.extend(_load_boussinesq_budget_rows(summary))
+        config_path_raw = summary.get("config_path")
+        config_path = (
+            None if config_path_raw in (None, "") else Path(str(config_path_raw))
+        )
+        store, sim_id = discover_result_store(config_path)
+        try:
+            rows.extend(
+                _load_boussinesq_budget_rows(summary, store=store, sim_id=sim_id)
+            )
+        finally:
+            if store is not None:
+                try:
+                    store.close()
+                except Exception:
+                    pass
 
     artifacts: list[dict[str, Any]] = []
     if not rows:

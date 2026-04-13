@@ -27,6 +27,7 @@ from launchers.method_comparison.metrics import (
 from launchers.method_comparison.reporting import build_comparison_report
 from launchers.method_comparison.runtime import (
     compact_run_metrics,
+    discover_result_store,
     extract_observable_rows,
     materialize_variant_config,
     read_json_file,
@@ -81,16 +82,22 @@ class MethodComparisonLauncher:
                 )
 
             run_folder = Path(str(summary["run_folder"]))
+            store = None
+            sim_id = None
             try:
                 config_path = summary.get("config_path")
+                resolved_config_path = (
+                    None if config_path in (None, "") else Path(str(config_path))
+                )
+                store, sim_id = discover_result_store(resolved_config_path)
                 rows = extract_observable_rows(
                     comparison_id=str(section.comparison_id),
                     variant=variant,
                     run_folder=run_folder,
                     observables=tuple(section.observable),
-                    config_path=(
-                        None if config_path in (None, "") else Path(str(config_path))
-                    ),
+                    config_path=resolved_config_path,
+                    store=store,
+                    sim_id=sim_id,
                 )
             except Exception as exc:
                 summary["status"] = "observable_extraction_failed"
@@ -99,6 +106,12 @@ class MethodComparisonLauncher:
                 if section.continue_on_error:
                     continue
                 raise
+            finally:
+                if store is not None:
+                    try:
+                        store.close()
+                    except Exception:
+                        pass
             all_rows.extend(rows)
             summary["n_observable_rows"] = len(rows)
 

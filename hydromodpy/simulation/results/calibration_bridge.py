@@ -121,3 +121,77 @@ def persist_calibration_result(
 
     store.finalize(sim_id, status="calibrated")
     logger.info("Persisted calibration result for sim %s", sim_id)
+
+
+def persist_calibration_summary_to_store(
+    store: Any,
+    sim_id: str,
+    *,
+    best_params: dict,
+    best_objective: float,
+    method: str,
+    iteration_count: int,
+    score_best: float | None = None,
+    solver: str | None = None,
+    calibration_id: str | None = None,
+) -> None:
+    """Persist a lightweight calibration summary into the ResultStore.
+
+    Unlike :func:`persist_calibration_result`, this does **not** re-run the
+    simulation.  It only records the optimizer output (best parameters,
+    objective value, method, iteration count) so that the calibration
+    outcome is discoverable from the store.
+
+    Parameters
+    ----------
+    store : ResultStore
+        The result store to write into.
+    sim_id : str
+        Simulation UUID for the persisted record.
+    best_params : dict
+        Best parameter set found by the optimizer.
+    best_objective : float
+        Best objective (cost) value.
+    method : str
+        Optimization method used (e.g. ``"nelder_mead"``, ``"differential_evolution"``).
+    iteration_count : int
+        Total number of objective evaluations.
+    score_best : float, optional
+        Best score value (higher-is-better metric), if available.
+    solver : str, optional
+        Solver name for registration metadata.
+    calibration_id : str, optional
+        Human-readable calibration session identifier.
+    """
+    name = calibration_id or "calibration_best"
+    store.register_simulation(
+        sim_id,
+        solver=solver or "calibration",
+        name=name,
+        tags=["calibration"],
+    )
+
+    # Persist summary metrics under a synthetic "__calibration__" station so
+    # they are queryable through the standard metrics table.
+    station = "__calibration__"
+    store.write_metric(sim_id, station, "objective_best", best_objective)
+    store.write_metric(sim_id, station, "iteration_count", float(iteration_count))
+    if score_best is not None:
+        store.write_metric(sim_id, station, "score_best", score_best)
+
+    # Write calibration params enriched with metadata so the method and
+    # objective are recoverable from the single JSON blob.
+    params_with_meta = dict(best_params)
+    params_with_meta["__method__"] = method
+    params_with_meta["__iteration_count__"] = iteration_count
+    params_with_meta["__objective_best__"] = best_objective
+    if score_best is not None:
+        params_with_meta["__score_best__"] = score_best
+    store.write_calibration_params(sim_id, params_with_meta)
+
+    store.finalize(sim_id, status="calibrated")
+    logger.info(
+        "Persisted calibration summary for sim %s "
+        "(method=%s, objective=%.6g, iterations=%d)",
+        sim_id, method, best_objective, iteration_count,
+    )

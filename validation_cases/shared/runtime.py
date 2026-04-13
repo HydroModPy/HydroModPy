@@ -294,6 +294,8 @@ class ValidationRunResult:
     run_returncode: int = 0
     run_stdout: str = ""
     run_stderr: str = ""
+    store: Any = None
+    sim_id: str | None = None
 
 
 def _short_validation_name(value: str | Path, *, max_length: int = 28) -> str:
@@ -379,6 +381,30 @@ def resolve_model_workspace(
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
     return model_ws, postprocess_dir, particles_dir
+
+
+def _discover_result_store(project_path: Path) -> tuple[Any, str | None]:
+    """Try to open a ResultStore from a project directory and find its sim_id.
+
+    Returns ``(store, sim_id)`` on success, ``(None, None)`` on failure.
+    The caller is responsible for closing the store when done.
+    """
+    db_path = project_path / "project.duckdb"
+    if not db_path.exists():
+        return None, None
+    try:
+        from hydromodpy.results.store import ResultStore
+
+        store = ResultStore(project_path=project_path)
+        sims = store.list_simulations()
+        if sims.empty:
+            store.close()
+            return None, None
+        # Pick the most recent (last) simulation
+        sim_id = str(sims.iloc[-1]["sim_id"])
+        return store, sim_id
+    except Exception:
+        return None, None
 
 
 def run_example_script(
@@ -632,6 +658,10 @@ def run_launcher_validation_case(
                 )
             ) from exc
         raise
+
+    # Try to discover a ResultStore produced by the launcher subprocess.
+    store, sim_id = _discover_result_store(out_path)
+
     return ValidationRunResult(
         case_dir=case_dir,
         solver_name=solver_name,
@@ -642,4 +672,6 @@ def run_launcher_validation_case(
         run_returncode=int(completed.returncode),
         run_stdout=str(completed.stdout),
         run_stderr=str(completed.stderr),
+        store=store,
+        sim_id=sim_id,
     )
