@@ -1,0 +1,150 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "geometry_constraints_canut",
+  "title": "Catchment Geometry Constraints",
+  "category": "geometry",
+  "deck": "Basin outline, hydro network, geology units, and regional context rendered without mesh overlays.",
+  "summary": "This case focuses on geometry only: a catchment mask, the clipped river network, geology units inside the boundary, and a regional DEM backdrop. It documents the inputs that drive meshing and solver setup before any discretization happens.",
+  "case_setup": [
+    "Domain mask sourced from the shipped `canut` polygon.",
+    "Hydrography and geology layers clipped to the same boundary.",
+    "Regional DEM added for context; no mesh data used."
+  ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
+  "what_it_shows": [
+    "How the river network, geology units, and boundary align on the same domain.",
+    "How geometry layers are clipped and contextualized before any mesh is generated.",
+    "Where the catchment sits relative to the regional DEM backdrop."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m tools.doc_gallery",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "examples/data/masks/canut.shp",
+    "examples/data/hydrography/regional_stream_network.shp",
+    "examples/data/geology/GEO1M_brittany.shp",
+    "tools/doc_gallery/update_gallery.py"
+  ],
+  "source_hashes": {
+    "examples/data/masks/canut.shp": "31931653587ad6b644b86e43138ce9a648ed98c4787cddf8262bf2cec42f2efd",
+    "examples/data/hydrography/regional_stream_network.shp": "7ea4ba0714d8674a55070527ca9236052c1832036c8303b4afc40e5f7ce184e9",
+    "examples/data/geology/GEO1M_brittany.shp": "cc219d3a2fd0c768aec9c4ea9e7f51cdefe5e1f386c4e9503513cf1dc97eff4a",
+    "tools/doc_gallery/update_gallery.py": "9ef702be969f8111afce1b11ff3e1d744e5815bade329800c191208a35b8fe51"
+  },
+  "docname": "cases/geometry_constraints_canut",
+  "images": [
+    {
+      "filename": "geometry_constraints_canut.png",
+      "caption": "Boundary, hydro network, and geology units clipped to the same domain.",
+      "alt_text": "Catchment geometry constraints map",
+      "doc_path": "/_static/capability_gallery/geometry/geometry_constraints_canut.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_constraints_canut.png"
+    }
+  ],
+  "metrics": [
+    {
+      "label": "Boundary area",
+      "key": "boundary_area_km2",
+      "value": 24.91875,
+      "display": "24.9 km2"
+    },
+    {
+      "label": "River length",
+      "key": "river_length_km",
+      "value": 0.0,
+      "display": "0.0 km"
+    },
+    {
+      "label": "Geology units",
+      "key": "geology_unit_count",
+      "value": 0,
+      "display": "0"
+    }
+  ],
+  "metadata": {
+    "geometry_case_kind": "constraints_overview",
+    "boundary_path": "examples/data/masks/canut.shp",
+    "rivers_path": "examples/data/hydrography/regional_stream_network.shp",
+    "geology_path": "examples/data/geology/GEO1M_brittany.shp",
+    "dem_path": "examples/data/dem/regional_dem_naizin.tif",
+    "boundary_area_km2": 24.91875,
+    "river_length_km": 0.0,
+    "geology_unit_count": 0,
+    "dem_min_m": null,
+    "dem_max_m": null
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/geometry/geometry_constraints_canut_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_constraints_canut_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_constraints_canut.png"
+    ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Geometry Inputs",
+        "rows": [
+          {
+            "field": "geometry_case_kind",
+            "meaning": "Geometry-focused rendering mode used to build this gallery page.",
+            "value": "constraints_overview",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_constraints_canut_summary.json"
+          },
+          {
+            "field": "boundary_path",
+            "meaning": "Boundary polygon used to clip and frame the catchment domain.",
+            "value": "canut.shp",
+            "source": "examples/data/masks/canut.shp"
+          },
+          {
+            "field": "rivers_path",
+            "meaning": "Hydrographic layer overlaid inside the catchment boundary.",
+            "value": "regional_stream_network.shp",
+            "source": "examples/data/hydrography/regional_stream_network.shp"
+          },
+          {
+            "field": "geology_path",
+            "meaning": "Geology layer clipped to the same boundary when available.",
+            "value": "GEO1M_brittany.shp",
+            "source": "examples/data/geology/GEO1M_brittany.shp"
+          },
+          {
+            "field": "dem_path",
+            "meaning": "DEM raster used for regional relief and slope context.",
+            "value": "regional_dem_naizin.tif",
+            "source": "examples/data/dem/regional_dem_naizin.tif"
+          }
+        ]
+      },
+      {
+        "title": "Derived Geometry Values",
+        "rows": [
+          {
+            "field": "boundary_area_km2",
+            "meaning": "Catchment area represented on the geometry page.",
+            "value": "24.9187 km2",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_constraints_canut_summary.json"
+          },
+          {
+            "field": "river_length_km",
+            "meaning": "Total clipped river length visible inside the boundary.",
+            "value": "0 km",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_constraints_canut_summary.json"
+          },
+          {
+            "field": "geology_unit_count",
+            "meaning": "Number of distinct geology units intersecting the catchment.",
+            "value": "0",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_constraints_canut_summary.json"
+          }
+        ]
+      }
+    ]
+  }
+}

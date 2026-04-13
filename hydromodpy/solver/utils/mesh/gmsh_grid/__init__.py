@@ -76,6 +76,8 @@ _EXPORT_TO_MODULE = {
     "load_zone_meshing_domain_payload": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
     "parse_zone_meshing_domain_config": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
     "parse_zone_meshing_settings": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
+    "GmshSupportMetadata": "hydromodpy.solver.utils.mesh.gmsh_grid.runtime_support",
+    "build_gmsh_support_metadata": "hydromodpy.solver.utils.mesh.gmsh_grid.runtime_support",
 }
 
 __all__ = list(_EXPORT_TO_MODULE)

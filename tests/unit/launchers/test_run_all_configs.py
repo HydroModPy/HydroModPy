@@ -8,7 +8,7 @@ import sys
 
 
 def _load_run_all_configs_module():
-    module_path = Path("launchers/mesh_catchment/run_all_configs.py").resolve()
+    module_path = Path("launchers/mesh_catchment/tools/run_all_configs.py").resolve()
     spec = importlib.util.spec_from_file_location(
         "test_run_all_configs_module",
         module_path,
@@ -103,6 +103,11 @@ def test_build_step_plan_collocates_identification_and_mesh_outputs(
 
         assert identification_override_path.parent == identification_dir
         assert mesh_override_path.parent == mesh_config_dir
+        assert plan.identification_command[:3] == [
+            sys.executable,
+            "-m",
+            "hydromodpy_annex.preprocess.catchment_identification_scan.run_catchment_identification_case",
+        ]
         assert 'base_config = "config_demo_case.toml"' in identification_override_text
         assert "\n\n" not in identification_override_text
         assert f'output_dir = "{identification_dir_out.as_posix()}"' in identification_override_text

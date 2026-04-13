@@ -97,7 +97,9 @@ class TransportNetcdfPostprocess(FlowNetcdfPostprocess):
         shapes = (
             (geom, float(val))
             for geom, val in zip(geometries, values)
-            if geom is not None and val is not None and not (isinstance(val, float) and np.isnan(val))
+            if geom is not None
+            and val is not None
+            and np.isfinite(float(val))
         )
 
         fill_value = float("nan") if nodata is None else nodata
@@ -111,6 +113,69 @@ class TransportNetcdfPostprocess(FlowNetcdfPostprocess):
         )
         return {0: raster}
 
+    def _load_residence_cells(self) -> dict[int, np.ndarray] | None:
+        """Map particle residence times directly to unstructured mesh cells."""
+
+        shapefile_path = next(
+            (path for path in self._candidate_particle_shapefiles() if os.path.exists(path)),
+            None,
+        )
+        if shapefile_path is None:
+            return None
+
+        try:
+            particles = gpd.read_file(shapefile_path)
+        except Exception:
+            return None
+
+        if particles.empty or "geometry" not in particles or self.solver_mesh is None:
+            return None
+
+        value_column = "time_win" if "time_win" in particles else "time" if "time" in particles else None
+        if value_column is None:
+            return None
+
+        support = getattr(self.model_modflow, "runtime_mesh_support", None)
+        centroids = np.asarray(self.solver_mesh.cell_centroids(), dtype=float)
+        n_cells = int(centroids.shape[0])
+        buckets: list[list[float]] = [[] for _ in range(n_cells)]
+
+        for geom, value in zip(particles.geometry, particles[value_column], strict=False):
+            if geom is None or value is None:
+                continue
+            value_float = float(value)
+            if not np.isfinite(value_float):
+                continue
+            if getattr(geom, "is_empty", False):
+                continue
+
+            point = geom if getattr(geom, "geom_type", "") == "Point" else geom.representative_point()
+            point_x = float(point.x)
+            point_y = float(point.y)
+            try:
+                if support is not None:
+                    cell_index = int(
+                        support.locate_cell_index_for_point(
+                            point_x,
+                            point_y,
+                            allow_nearest=True,
+                        )
+                    )
+                else:
+                    delta_x = centroids[:, 0] - point_x
+                    delta_y = centroids[:, 1] - point_y
+                    cell_index = int(np.argmin((delta_x * delta_x) + (delta_y * delta_y)))
+            except Exception:
+                continue
+            if 0 <= cell_index < n_cells:
+                buckets[cell_index].append(value_float)
+
+        values = np.full(n_cells, np.nan, dtype=float)
+        for cell_index, bucket in enumerate(buckets):
+            if bucket:
+                values[cell_index] = float(np.nanmean(np.asarray(bucket, dtype=float)))
+        return {0: values}
+
     def _export_additional_outputs(self, *, times: Any) -> None:
         """Export transport-only outputs when enabled and available."""
         if self.concentration_seepage and self.model_mt3dms is not None:
@@ -120,17 +185,35 @@ class TransportNetcdfPostprocess(FlowNetcdfPostprocess):
             self._export_named_output(name="mass_accumulated", times=times)
 
         if self.residence_times:
-            data = self._load_residence_raster()
+            data = (
+                self._load_residence_cells()
+                if self.is_unstructured
+                else self._load_residence_raster()
+            )
             if data is None:
                 return
             try:
-                self.export_netcdf(
-                    data,
-                    base_path=self.base_raster_path,
-                    out_path=os.path.join(self.netcdf_file, "residence_times.nc"),
-                    base_crs=self.geographic.crs_proj,
-                    times=[0],
-                )
+                out_path = os.path.join(self.netcdf_file, "residence_times.nc")
+                if self.is_unstructured:
+                    centroids = np.asarray(self.solver_mesh.cell_centroids(), dtype=float)
+                    areas = np.asarray(self.solver_mesh.cell_areas(), dtype=float)
+                    self.export_cell_netcdf(
+                        data,
+                        out_path=out_path,
+                        cell_x=centroids[:, 0],
+                        cell_y=centroids[:, 1],
+                        cell_area=areas,
+                        base_crs=self.geographic.crs_proj,
+                        times=[0],
+                    )
+                else:
+                    self.export_netcdf(
+                        data,
+                        base_path=self.base_raster_path,
+                        out_path=out_path,
+                        base_crs=self.geographic.crs_proj,
+                        times=[0],
+                    )
             except Exception:
                 pass
 

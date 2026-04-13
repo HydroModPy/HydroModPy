@@ -125,3 +125,39 @@ def test_resolve_flow_property_arrays_reports_missing_requested_support() -> Non
             solver_mesh=mesh,
             required_properties={"K"},
         )
+
+
+def test_resolve_flow_property_arrays_prefers_runtime_overrides() -> None:
+    flow = SimpleNamespace(
+        parameters={
+            "K": FieldParam(
+                identifier="K",
+                kind="homogeneous",
+                value=1.25,
+            ),
+            "Sy": FieldParam(
+                identifier="Sy",
+                kind="homogeneous",
+                value=0.05,
+            ),
+        }
+    )
+    domain = SimpleNamespace(zones={})
+    mesh = _build_solver_mesh(nlay=2)
+
+    actual = resolve_flow_property_arrays(
+        flow=flow,
+        domain=domain,
+        solver_mesh=mesh,
+        required_properties={"K", "Sy"},
+        runtime_property_overrides={
+            "properties": {
+                "K": np.full((2, 2, 4), 3.0, dtype=float),
+            }
+        },
+    )
+
+    np.testing.assert_allclose(actual["hk"], 3.0)
+    np.testing.assert_allclose(actual["hk_value"], 3.0)
+    np.testing.assert_allclose(actual["sy"], 0.05)
+    np.testing.assert_allclose(actual["sy_value"], 0.05)

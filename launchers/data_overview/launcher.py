@@ -29,6 +29,7 @@ def _ensure_repo_root_on_sys_path() -> Path:
 
 _REPO_ROOT = _ensure_repo_root_on_sys_path()
 
+
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 from launchers.data_overview.config import DataOverviewConfig

@@ -2,11 +2,13 @@
 
 Usage example:
 
-    python -m pytest tests/unit -q --junitxml timing_reports/unit_junit.xml
+    PowerShell:
+        $timing_root = Join-Path $env:HYDROMODPY_TEST_SCRATCH_ROOT "timing_reports"
+        python -m pytest tests/unit -q --junitxml "$timing_root/unit_junit.xml"
     python tests/support/pytest_timing_distribution.py \
-        --junitxml timing_reports/unit_junit.xml \
-        --out-json timing_reports/unit_timing_distribution.json \
-        --out-csv timing_reports/unit_test_durations.csv
+        --junitxml "$timing_root/unit_junit.xml" \
+        --out-json "$timing_root/unit_timing_distribution.json" \
+        --out-csv "$timing_root/unit_test_durations.csv"
 """
 
 from __future__ import annotations

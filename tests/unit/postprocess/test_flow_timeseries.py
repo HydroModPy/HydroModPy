@@ -4,10 +4,14 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pandas as pd
+import pytest
 import rasterio
 from rasterio.transform import from_origin
 
 from hydromodpy.analysis.postprocess.timeseries.flow_timeseries import FlowTimeseriesPostprocess
+from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
+from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 
 
 def _write_raster(
@@ -101,3 +105,104 @@ def test_flow_timeseries_accepts_missing_recharge() -> None:
     assert time == [0]
     assert recharge is None
     assert np.isnan(runoff)
+
+
+def _build_unstructured_solver_mesh() -> SolverMesh:
+    planar_mesh = HydroMesh(
+        vertices=np.asarray(
+            [
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [1.0, 1.0],
+                [0.0, 1.0],
+                [3.0, 0.0],
+                [3.0, 1.0],
+            ],
+            dtype=float,
+        ),
+        cell_blocks=(
+            CellBlock(
+                CellType.QUADRILATERAL,
+                np.asarray(
+                    [
+                        [0, 1, 2, 3],
+                        [1, 4, 5, 2],
+                    ],
+                    dtype=int,
+                ),
+            ),
+        ),
+    )
+    return SolverMesh(
+        planar_mesh=planar_mesh,
+        top=np.asarray([10.0, 10.0], dtype=float),
+        botm=np.asarray([[1.0, 1.0]], dtype=float),
+        inactive_mask=np.zeros((1, 2), dtype=bool),
+    )
+
+
+def test_flow_timeseries_exports_unstructured_weighted_outputs(tmp_path: Path) -> None:
+    nodata = -9999.0
+    solver_mesh = _build_unstructured_solver_mesh()
+    model_root = tmp_path / "models" / "flow_unstructured" / "_postprocess"
+    model_root.mkdir(parents=True, exist_ok=True)
+
+    np.save(model_root / "watertable_depth", {0: np.asarray([1.0, 4.0], dtype=float)})
+    np.save(model_root / "seepage_areas", {0: np.asarray([1.0, 0.0], dtype=float)})
+
+    _write_raster(
+        tmp_path / "stable" / "subbasin" / "zone_a" / "watershed_dem.tif",
+        np.array([[nodata, 1.0, 1.0]], dtype=np.float32),
+        transform=from_origin(0.0, 1.0, 1.0, 1.0),
+        nodata=nodata,
+    )
+
+    geographic = SimpleNamespace(
+        stable_folder=str(tmp_path / "stable"),
+        simulations_folder=str(tmp_path / "simulations"),
+        watershed_dem=str(tmp_path / "unused_base.tif"),
+        nodata=nodata,
+    )
+    model_modflow = SimpleNamespace(
+        model_name="flow_unstructured",
+        model_folder=str(tmp_path / "models"),
+        resolution=1.0,
+        cell_area=1.0,
+        dem_watershed_path=str(tmp_path / "unused_base.tif"),
+        recharge=pd.Series([0.1], index=["2020-01-01"]),
+        solver_mesh=solver_mesh,
+        dem=np.asarray([10.0, 10.0], dtype=float),
+        dem_mask=np.asarray([False, False], dtype=bool),
+    )
+
+    FlowTimeseriesPostprocess(
+        geographic=geographic,
+        model_modflow=model_modflow,
+        subbasin_results=True,
+    )
+
+    catchment_csv = (
+        tmp_path
+        / "models"
+        / "flow_unstructured"
+        / "_postprocess"
+        / "_timeseries"
+        / "_simulated_timeseries.csv"
+    )
+    subbasin_csv = (
+        tmp_path
+        / "models"
+        / "flow_unstructured"
+        / "_subbasins"
+        / "zone_a"
+        / "_simulated_timeseries.csv"
+    )
+
+    catchment = pd.read_csv(catchment_csv, sep=";")
+    subbasin = pd.read_csv(subbasin_csv, sep=";")
+
+    assert catchment.loc[0, "date"] == "2020-01-01"
+    assert catchment.loc[0, "watertable_depth"] == pytest.approx(3.0)
+    assert catchment.loc[0, "seepage_areas"] == pytest.approx((1.0 / 3.0) * 100.0)
+    assert subbasin.loc[0, "watertable_depth"] == pytest.approx(4.0)
+    assert subbasin.loc[0, "seepage_areas"] == pytest.approx(0.0)

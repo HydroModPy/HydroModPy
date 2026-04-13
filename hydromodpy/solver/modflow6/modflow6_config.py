@@ -50,6 +50,32 @@ class Modflow6RuntimeConfig(BaseModel):
         ge=1,
         description="Maximum number of IMS inner iterations.",
     )
+    mf6_enable_rewet: Annotated[bool | None, ParamLevel("expert")] = Field(
+        default=None,
+        description=(
+            "Enable NPF cell rewetting. When left to None, HydroModPy "
+            "keeps rewetting disabled unless explicitly enabled."
+        ),
+    )
+    mf6_rewet_wetfct: Annotated[float, ParamLevel("expert")] = Field(
+        default=0.1,
+        gt=0.0,
+        description="MF6 NPF rewet WETFCT factor.",
+    )
+    mf6_rewet_iwetit: Annotated[int, ParamLevel("expert")] = Field(
+        default=1,
+        ge=1,
+        description="MF6 NPF rewet IWETIT interval.",
+    )
+    mf6_rewet_ihdwet: Annotated[int, ParamLevel("expert")] = Field(
+        default=0,
+        description="MF6 NPF rewet IHDWET flag.",
+    )
+    mf6_rewet_wetdry: Annotated[float, ParamLevel("expert")] = Field(
+        default=0.1,
+        gt=0.0,
+        description="MF6 NPF WETDRY threshold used when rewetting is active.",
+    )
 
 
 class Modflow6ProcessSpecificConfig(BaseModel):
@@ -60,6 +86,11 @@ class Modflow6ProcessSpecificConfig(BaseModel):
     vka: Annotated[float, ParamLevel("expert")] = Field(
         default=1.0,
         description="Vertical anisotropy factor used to derive k33 from k.",
+    )
+    evt_extinction_depth: Annotated[float, ParamLevel("expert")] = Field(
+        default=1.0,
+        gt=0.0,
+        description="MF6 EVT extinction depth in meters when recharge negatives are routed to EVT.",
     )
 
 
@@ -101,6 +132,32 @@ def _coerce_modflow6_config(
     if isinstance(config, Mapping):
         return Modflow6Config.model_validate(dict(config))
     raise TypeError("modflow6_config must be None, Modflow6Config, or a mapping of values")
+
+
+@dataclass(frozen=True)
+class Modflow6RuntimeParams:
+    """Runtime container for MODFLOW 6 package settings."""
+
+    mf6_executable_name: str = "mf6"
+    mf6_ims_complexity: str = "COMPLEX"
+    mf_verbose: bool = False
+    mf6_outer_dvclose: float = 1e-4
+    mf6_inner_dvclose: float = 1e-4
+    mf6_outer_maximum: int = 500
+    mf6_inner_maximum: int = 500
+    mf6_enable_rewet: bool | None = None
+    mf6_rewet_wetfct: float = 0.1
+    mf6_rewet_iwetit: int = 1
+    mf6_rewet_ihdwet: int = 0
+    mf6_rewet_wetdry: float = 0.1
+
+
+@dataclass(frozen=True)
+class Modflow6ProcessSpecificParams:
+    """Runtime container for process-specific MODFLOW 6 settings."""
+
+    vka: float = 1.0
+    evt_extinction_depth: float = 1.0
 
 
 @dataclass(frozen=True)

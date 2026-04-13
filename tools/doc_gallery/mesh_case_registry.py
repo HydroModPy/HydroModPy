@@ -23,15 +23,15 @@ MESH_GALLERY_REQUIRED_BUNDLE_FILES = (
 MESH_GALLERY_SCALE_SPECS: dict[str, dict[str, str]] = {
     "10km2": {
         "label": "10 km2",
-        "default_launcher_config": "launchers/mesh_catchment/config_s3_10km2.toml",
+        "default_launcher_config": "launchers/mesh_catchment/scenarios/config_s3_10km2.toml",
     },
     "100km2": {
         "label": "100 km2",
-        "default_launcher_config": "launchers/mesh_catchment/config_headwater_100km2.toml",
+        "default_launcher_config": "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml",
     },
     "1000km2": {
         "label": "1000 km2",
-        "default_launcher_config": "launchers/mesh_catchment/config_1000km2.toml",
+        "default_launcher_config": "launchers/mesh_catchment/scenarios/config_1000km2.toml",
     },
 }
 MESH_GALLERY_SCALE_ORDER = tuple(MESH_GALLERY_SCALE_SPECS)

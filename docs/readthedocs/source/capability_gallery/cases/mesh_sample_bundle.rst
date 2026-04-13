@@ -44,6 +44,85 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Selected Parameters
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``[mesh_distribution.plot] color_field``
+     - Cell attribute used to color the mesh in the overview figure.
+     - geology_key
+     - ``examples/mesh_viewer/config_example.toml``
+   * - ``[mesh_distribution.plot] show_topography_panel``
+     - Whether a dedicated topography panel is shown alongside the mesh map.
+     - true
+     - ``examples/mesh_viewer/config_example.toml``
+   * - ``[mesh_distribution.plot] topography_field``
+     - Node or cell field used to render the topography panel when it is enabled.
+     - z_top_mean
+     - ``examples/mesh_viewer/config_example.toml``
+   * - ``[mesh_distribution.plot] show_geology_interfaces``
+     - Whether geology interfaces are explicitly highlighted in the viewer output.
+     - true
+     - ``examples/mesh_viewer/config_example.toml``
+   * - ``[mesh_distribution.plot] show_river_edges``
+     - Whether river-constrained edges are highlighted in the viewer output.
+     - true
+     - ``examples/mesh_viewer/config_example.toml``
+
+Mesh Summary
+^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``crs``
+     - Coordinate reference system declared by the imported mesh bundle.
+     - EPSG:2154
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json``
+   * - ``node_count``
+     - Number of nodes available in the displayed mesh bundle.
+     - 4
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json``
+   * - ``cell_count``
+     - Number of cells available in the displayed mesh bundle.
+     - 2
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json``
+   * - ``edge_count``
+     - Number of edges available in the displayed mesh bundle.
+     - 5
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json``
+   * - ``river_edge_count``
+     - Count of edges tagged as river constraints in the bundle.
+     - 1
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json``
+   * - ``boundary_edge_count``
+     - Count of watershed-boundary edges in the bundle.
+     - 4
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json``
+   * - ``geology_interface_edge_count``
+     - Count of geology-interface edges present in the bundle.
+     - 1
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json``
+   * - ``geology_keys``
+     - Distinct geology codes present in the imported bundle.
+     - granite, schist
+     - ``docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json``
+
 Source Pointers
 ---------------
 

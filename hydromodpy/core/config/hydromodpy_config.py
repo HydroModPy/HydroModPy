@@ -32,6 +32,7 @@ from pydantic.fields import FieldInfo
 
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.data.data_managers_config import DataManagersConfig
+from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
 from hydromodpy.analysis.display.display_config import DisplayConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.analysis.postprocess.postprocess_config import PostprocessConfig
@@ -152,6 +153,13 @@ class HydroModPyConfig(BaseModel):
             "[postprocess] section."
         ),
     )
+    capability_gallery: CapabilityGalleryConfig = Field(
+        default_factory=CapabilityGalleryConfig,
+        description=(
+            "Optional publication block copying selected run figures into a "
+            "versionable capability-gallery source folder."
+        ),
+    )
 
     @classmethod
     def from_toml(cls, toml_path: "Path | str") -> "HydroModPyConfig":
@@ -222,6 +230,14 @@ class HydroModPyConfig(BaseModel):
             "postprocess": (
                 {},
                 lambda data, b: _load_standard_section(data, PostprocessConfig, b),
+            ),
+            "capability_gallery": (
+                {},
+                lambda data, b: _load_standard_section(
+                    data,
+                    CapabilityGalleryConfig,
+                    b,
+                ),
             ),
         }
 

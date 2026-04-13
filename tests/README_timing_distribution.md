@@ -8,18 +8,19 @@ analysis.
 Example:
 
 ```powershell
-python -m pytest tests/unit/solver/utils/mesh/gmsh_grid -q --junitxml timing_reports/gmsh_grid_junit.xml -p no:cacheprovider
+$timingRoot = Join-Path $env:HYDROMODPY_TEST_SCRATCH_ROOT "timing_reports"
+python -m pytest tests/unit/solver/utils/mesh/gmsh_grid -q --junitxml "$timingRoot/gmsh_grid_junit.xml" -p no:cacheprovider
 ```
 
 ## 2) Build the timing distribution report
 
 ```powershell
 python tests/support/pytest_timing_distribution.py `
-  --junitxml timing_reports/gmsh_grid_junit.xml `
+  --junitxml "$timingRoot/gmsh_grid_junit.xml" `
   --status-filter passed `
   --top-n 20 `
-  --out-json timing_reports/gmsh_grid_timing_distribution_passed.json `
-  --out-csv timing_reports/gmsh_grid_test_durations_passed.csv
+  --out-json "$timingRoot/gmsh_grid_timing_distribution_passed.json" `
+  --out-csv "$timingRoot/gmsh_grid_test_durations_passed.csv"
 ```
 
 ## 3) What the tool returns

@@ -3,9 +3,16 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import matplotlib
 import numpy as np
 import pandas as pd
 
+matplotlib.use("Agg", force=True)
+
+from hydromodpy.analysis.display.flow_payloads import (
+    FlowCumulativeSeriesPayload,
+    FlowSpatialFigurePayload,
+)
 from hydromodpy.analysis.display.display_config import DisplayOptions, DisplaySectionOptions
 from hydromodpy.analysis.display.suites import (
     plot_boussinesq_flow_suite,
@@ -13,6 +20,50 @@ from hydromodpy.analysis.display.suites import (
     plot_particles_suite,
     plot_transport_suite,
 )
+from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+
+
+def _build_spatial_payload(run_id: str = "flow_main") -> FlowSpatialFigurePayload:
+    hydro_mesh = HydroMesh(
+        vertices=np.asarray(
+            [
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [1.0, 1.0],
+                [0.0, 1.0],
+            ],
+            dtype=float,
+        ),
+        cell_blocks=(
+            CellBlock(
+                cell_type=CellType.TRIANGLE,
+                connectivity=np.asarray([[0, 1, 2], [0, 2, 3]], dtype=int),
+            ),
+        ),
+    )
+    return FlowSpatialFigurePayload(
+        run_id=run_id,
+        hydro_mesh=hydro_mesh,
+        top_elevation_m=np.asarray([10.0, 9.0], dtype=float),
+        watertable_elevation_m=np.asarray([8.5, 8.0], dtype=float),
+        watertable_depth_m=np.asarray([1.5, 1.0], dtype=float),
+        seepage_areas_m_per_day=np.asarray([0.1, 0.0], dtype=float),
+        outflow_drain_m_per_day=np.asarray([0.2, 0.3], dtype=float),
+        accumulation_flux_m_per_day=np.asarray([0.5, 0.8], dtype=float),
+    )
+
+
+def _build_cumulative_payload(run_id: str = "flow_main") -> FlowCumulativeSeriesPayload:
+    return FlowCumulativeSeriesPayload(
+        run_id=run_id,
+        time_days=np.asarray([0.0, 30.0, 60.0], dtype=float),
+        recharge_cumulative_mm=np.asarray([10.0, 30.0, 45.0], dtype=float),
+        discharge_components_cumulative_mm={
+            "Drain discharge": np.asarray([2.0, 6.0, 10.0], dtype=float),
+            "Runoff": np.asarray([1.0, 4.0, 7.0], dtype=float),
+        },
+        discharge_total_cumulative_mm=np.asarray([3.0, 10.0, 17.0], dtype=float),
+    )
 
 
 def _build_result(
@@ -165,6 +216,213 @@ def test_plot_transport_suite_passes_solver_base_raster(monkeypatch) -> None:
     assert captured == [Path("solver_grid_template.tif")]
 
 
+def test_plot_flow_suite_copies_native_mesh_figures_for_unstructured_solver(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    native_dir = tmp_path / "flow_main" / "_postprocess" / "_figures" / "native_mesh"
+    native_dir.mkdir(parents=True, exist_ok=True)
+    (native_dir / "flow_watertable_depth_t(0)_time(1).png").write_text("depth", encoding="utf-8")
+    (native_dir / "flow_support_overview.png").write_text("overview", encoding="utf-8")
+
+    flow_model = SimpleNamespace(
+        model_name="flow_main",
+        full_path=tmp_path / "flow_main",
+        solver_mesh=SimpleNamespace(is_structured=False),
+    )
+    result = _build_result(flow_model=flow_model)
+    result.setup.workspace.simulations_folder = tmp_path
+
+    monkeypatch.setattr(
+        "hydromodpy.analysis.display.suites._load_flow_timeseries",
+        lambda result: pd.DataFrame({"dummy": [0.0]}),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.analysis.display.suites._load_observed_streamflow",
+        lambda result: None,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.analysis.display.suites._extract_cross_section_data",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("cross section should be skipped")),
+    )
+
+    options = DisplayOptions(
+        enabled=True,
+        show=False,
+        save=True,
+        flow=DisplaySectionOptions(
+            enabled=True,
+            flags={
+                "cross_section": True,
+                "streamflow": False,
+                "piezometry": False,
+            },
+        ),
+    )
+
+    plot_flow_suite(result, options)
+
+    figure_dir = tmp_path / "flow_main" / "_postprocess" / "_figures"
+    assert (figure_dir / "watertable_depth.png").exists()
+    assert (figure_dir / "flow_support_overview.png").exists()
+
+
+def test_plot_flow_suite_renders_solver_agnostic_common_flow_figures(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    flow_model = SimpleNamespace(
+        model_name="flow_main",
+        full_path=tmp_path / "flow_main",
+        solver_mesh=SimpleNamespace(is_structured=False),
+    )
+    result = _build_result(flow_model=flow_model)
+    result.setup.workspace.simulations_folder = tmp_path
+
+    monkeypatch.setattr(
+        "hydromodpy.analysis.display.suites._load_flow_timeseries",
+        lambda result: pd.DataFrame(
+            {
+                "recharge": [0.001, 0.002],
+                "outflow_drain": [0.0005, 0.0007],
+                "runoff": [0.0001, 0.0002],
+            },
+            index=pd.to_datetime(["2000-01-31", "2000-02-29"]),
+        ),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.analysis.display.suites._load_observed_streamflow",
+        lambda result: None,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.analysis.display.suites.build_flow_spatial_payload_from_model",
+        lambda model: _build_spatial_payload(model.model_name),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.analysis.display.suites.build_flow_cumulative_payload",
+        lambda simulated_timeseries, *, run_id: _build_cumulative_payload(run_id),
+    )
+
+    options = DisplayOptions(
+        enabled=True,
+        show=False,
+        save=True,
+        flow=DisplaySectionOptions(
+            enabled=True,
+            flags={
+                "cross_section": False,
+                "streamflow": False,
+                "piezometry": False,
+                "state_triptych": True,
+                "recharge_discharge_cumulative": True,
+                "watertable_map": True,
+            },
+        ),
+    )
+
+    plot_flow_suite(result, options)
+
+    figure_dir = tmp_path / "flow_main" / "_postprocess" / "_figures"
+    assert (figure_dir / "flow_state_triptych.png").exists()
+    assert (figure_dir / "recharge_discharge_cumulative.png").exists()
+    assert (figure_dir / "watertable_depth.png").exists()
+    assert (figure_dir / "outflow_drain.png").exists()
+
+
+def test_plot_flow_suite_renders_spatial_synthesis_without_timeseries(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    flow_model = SimpleNamespace(
+        model_name="flow_main",
+        full_path=tmp_path / "flow_main",
+        solver_mesh=SimpleNamespace(is_structured=False),
+    )
+    result = _build_result(flow_model=flow_model)
+    result.setup.workspace.simulations_folder = tmp_path
+
+    monkeypatch.setattr(
+        "hydromodpy.analysis.display.suites._load_flow_timeseries",
+        lambda result: None,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.analysis.display.suites._load_observed_streamflow",
+        lambda result: None,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.analysis.display.suites.build_flow_spatial_payload_from_model",
+        lambda model: _build_spatial_payload(model.model_name),
+    )
+
+    options = DisplayOptions(
+        enabled=True,
+        show=False,
+        save=True,
+        flow=DisplaySectionOptions(
+            enabled=True,
+            flags={
+                "cross_section": False,
+                "streamflow": False,
+                "piezometry": False,
+                "state_triptych": True,
+                "recharge_discharge_cumulative": False,
+                "watertable_map": True,
+            },
+        ),
+    )
+
+    plot_flow_suite(result, options)
+
+    figure_dir = tmp_path / "flow_main" / "_postprocess" / "_figures"
+    assert (figure_dir / "flow_state_triptych.png").exists()
+    assert (figure_dir / "watertable_elevation.png").exists()
+
+
+def test_plot_transport_suite_copies_native_mesh_figures_for_unstructured_solver(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    native_dir = tmp_path / "flow_main" / "_postprocess" / "_figures" / "native_mesh"
+    native_dir.mkdir(parents=True, exist_ok=True)
+    (native_dir / "transport_concentration_seepage_t(0)_time(1).png").write_text(
+        "transport",
+        encoding="utf-8",
+    )
+
+    flow_model = SimpleNamespace(
+        model_name="flow_main",
+        full_path=tmp_path / "flow_main",
+        solver_mesh=SimpleNamespace(is_structured=False),
+    )
+    transport_model = SimpleNamespace(name="transport")
+    result = _build_result(flow_model=flow_model, transport_model=transport_model)
+    result.setup.workspace.simulations_folder = tmp_path
+
+    monkeypatch.setattr(
+        "hydromodpy.analysis.display.suites.plot_concentration_frames",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("native mesh path should bypass raster concentration frames")),
+    )
+
+    options = DisplayOptions(
+        enabled=True,
+        show=False,
+        save=True,
+        transport=DisplaySectionOptions(
+            enabled=True,
+            flags={
+                "concentration": True,
+                "gif": False,
+                "web_animation": False,
+            },
+        ),
+    )
+
+    plot_transport_suite(result, options)
+
+    figure_dir = tmp_path / "flow_main" / "_postprocess" / "_figures" / "transport"
+    assert (figure_dir / "concentration_seepage.png").exists()
+
+
 def test_plot_boussinesq_flow_suite_saves_figure(tmp_path) -> None:
     mesh = SimpleNamespace(
         node_x_m=np.array([0.0, 20.0, 0.0, 20.0], dtype=float),
@@ -202,6 +460,13 @@ def test_plot_boussinesq_flow_suite_saves_figure(tmp_path) -> None:
         / "bouss_main"
         / "figures"
         / "boussinesq_state.png"
+    ).exists()
+    assert (
+        tmp_path
+        / "bouss_main"
+        / "_postprocess"
+        / "_figures"
+        / "flow_state_triptych.png"
     ).exists()
 
 

@@ -1,0 +1,47 @@
+@startuml
+title Launcher - MeshCatchment Batch Activity
+
+start
+
+:Load and validate [mesh_catchment_batch];
+:validate_output_configuration();
+:validate_raster_coverage();
+:Load outlet records;
+:Resolve manifest CSV path;
+
+while (Remaining outlet record?) is (yes)
+  :Build child catch_name,\nworkspace_cfg, geographic_cfg,\noutput_overrides;
+  :Run mono-catchment workflow\nthrough injected callback;
+
+  if (Child run raised exception?) then (yes)
+    :Format one concise error message;
+    :Append error row;
+    :Rewrite manifest CSV;
+    if (continue_on_error?) then (yes)
+      :Keep batch loop alive;
+    else (no)
+      :Re-raise exception;
+      stop
+    endif
+  else (no)
+    if (Summary returned but\nmesh file missing?) then (yes)
+      :Append error row;
+      :Rewrite manifest CSV;
+      if (continue_on_error?) then (yes)
+        :Keep batch loop alive;
+      else (no)
+        :Raise RuntimeError;
+        stop
+      endif
+    else (no)
+      :Append success row;
+      :Rewrite manifest CSV;
+    endif
+  endif
+endwhile (no)
+
+:Rewrite manifest CSV one last time;
+:Return MeshCatchmentBatchSummary;
+
+stop
+@enduml

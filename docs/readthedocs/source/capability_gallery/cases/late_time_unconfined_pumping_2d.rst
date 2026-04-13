@@ -131,6 +131,441 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Reference Parameters
+^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``xmin``
+     - Minimum x coordinate of the analytical reference domain.
+     - 0
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+   * - ``xmax``
+     - Maximum x coordinate of the analytical reference domain.
+     - 2000
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+   * - ``ymin``
+     - Minimum y coordinate of the analytical reference domain.
+     - 0
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+   * - ``ymax``
+     - Maximum y coordinate of the analytical reference domain.
+     - 2000
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+   * - ``center_x_m``
+     - Reference x coordinate of the domain centre or pumping location.
+     - 1000 m
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+   * - ``center_y_m``
+     - Reference y coordinate of the domain centre or pumping location.
+     - 1000 m
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+   * - ``base_head_m``
+     - Baseline hydraulic head around which the linearized reference is expressed.
+     - 30 m
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+   * - ``hydraulic_conductivity_m_per_s``
+     - Hydraulic conductivity used by the analytical or benchmark reference.
+     - 0.0001 m/s
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+   * - ``reference_saturated_thickness_m``
+     - Reference saturated thickness used by the linearized formulation.
+     - 30 m
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+   * - ``specific_yield``
+     - Specific yield used by the transient reference formulation.
+     - 0.15 -
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+   * - ``pumping_rate_m3_day``
+     - Pumping rate used by the radial pumping reference.
+     - 1000 m3/day
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+   * - ``compare_start_day``
+     - Start day retained when comparing the numerical and reference time series.
+     - 4
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+   * - ``dt_seconds``
+     - Reference time step used by the analytical evaluator.
+     - 43200 s
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+
+Common Numerical Setup
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``simulation.time.start_datetime``
+     - Simulation start time used by the benchmark.
+     - 2003-01-01 00:00:00
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``simulation.time.end_datetime``
+     - Simulation end time used by the benchmark.
+     - 2003-01-15 23:00:00
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``simulation.time.step_value``
+     - Nominal time step used by the benchmark.
+     - 12 hour
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.length_x``
+     - Synthetic-domain length along the x axis.
+     - 2000.0 m
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.length_y``
+     - Synthetic-domain length along the y axis.
+     - 2000.0 m
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.nx``
+     - Grid cell count along the x axis.
+     - 101
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.ny``
+     - Grid cell count along the y axis.
+     - 101
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``geographic.synthetic.topography.kind``
+     - Synthetic topography shape used by the benchmark.
+     - flat
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``geographic.synthetic.topography.base_elevation``
+     - Base land-surface elevation of the synthetic topography.
+     - 40 m
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``domain.depth_model.type``
+     - Depth model used to build the aquifer support.
+     - constant_thickness
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``domain.depth_model.thickness``
+     - Aquifer or support thickness used by the benchmark.
+     - 40.0 m
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.flow_regime``
+     - Steady or transient flow regime used by the benchmark.
+     - transient
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.active_sinks_sources``
+     - Sink and source families activated in the benchmark.
+     - [wells]
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.active_bc``
+     - Boundary-condition families activated in the benchmark.
+     - [west_side, east_side, north_side, south_side]
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.param_list``
+     - Hydraulic parameter families explicitly configured by the benchmark.
+     - [K, Ss, Sy]
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.param.K.field.kind``
+     - Parameterization mode used for `K`.
+     - homogeneous
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.param.K.field_homogeneous.value``
+     - Homogeneous `K` value used by the benchmark.
+     - 1e-4 m/s
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.param.Ss.field.kind``
+     - Parameterization mode used for `Ss`.
+     - homogeneous
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.param.Ss.field_homogeneous.value``
+     - Homogeneous `Ss` value used by the benchmark.
+     - 1e-5 m-1
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.param.Sy.field.kind``
+     - Parameterization mode used for `Sy`.
+     - homogeneous
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.param.Sy.field_homogeneous.value``
+     - Homogeneous `Sy` value used by the benchmark.
+     - 0.15 -
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.ic.value``
+     - Initial hydraulic head used to start the benchmark.
+     - 30.0 m
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.bc.dirichlet.west_side.value``
+     - Fixed head applied on the west side boundary.
+     - 30.0 m
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.bc.dirichlet.east_side.value``
+     - Fixed head applied on the east side boundary.
+     - 30.0 m
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.bc.dirichlet.north_side.value``
+     - Fixed head applied on the north side boundary.
+     - 30.0 m
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.bc.dirichlet.south_side.value``
+     - Fixed head applied on the south side boundary.
+     - 30.0 m
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.sinks_sources.wells.P1.cell``
+     - Cell index used by pumping well `P1`.
+     - [0, 50, 50]
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.sinks_sources.wells.P1.units``
+     - Units used by pumping well `P1` forcing.
+     - m3/day
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.sinks_sources.wells.P1.description``
+     - Short description of pumping well `P1`.
+     - Central pumping well
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.sinks_sources.wells.P1.forcing.mode``
+     - Forcing mode used by pumping well `P1`.
+     - constant
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.sinks_sources.wells.P1.forcing.value``
+     - Forcing value applied to pumping well `P1`.
+     - -1000
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+
+Solver-Specific Overrides
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: MODFLOW-NWT
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``modflownwt.sgrid.planar.mode``
+           - Planar support construction mode used by MODFLOW-NWT.
+           - resample_to_shape
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.planar.nx``
+           - Planar support cell count along x used by MODFLOW-NWT.
+           - 101
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.planar.ny``
+           - Planar support cell count along y used by MODFLOW-NWT.
+           - 101
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.planar.resampling``
+           - Planar support resampling mode used by MODFLOW-NWT.
+           - nearest
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.vertical.nlay``
+           - Number of vertical layers used by MODFLOW-NWT.
+           - 1
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+         * - ``modflownwt.tgrid.firstpersteady``
+           - Whether the first time period is treated as steady by MODFLOW-NWT.
+           - false
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+
+   .. tab-item:: MODFLOW 6
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``modflow6.runtime.mf_verbose``
+           - Solver-specific override applied to MODFLOW 6.
+           - false
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml``
+         * - ``modflow6.runtime.mf6_ims_complexity``
+           - Linear-solver complexity preset used by MODFLOW 6.
+           - COMPLEX
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.mode``
+           - Planar support construction mode used by MODFLOW 6.
+           - resample_to_shape
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.nx``
+           - Planar support cell count along x used by MODFLOW 6.
+           - 101
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.ny``
+           - Planar support cell count along y used by MODFLOW 6.
+           - 101
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.resampling``
+           - Planar support resampling mode used by MODFLOW 6.
+           - nearest
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml``
+         * - ``modflow6.sgrid.vertical.nlay``
+           - Number of vertical layers used by MODFLOW 6.
+           - 1
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml``
+         * - ``modflow6.tgrid.firstpersteady``
+           - Whether the first time period is treated as steady by MODFLOW 6.
+           - false
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml``
+
+   .. tab-item:: Boussinesq
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``flow.runtime_backend``
+           - Runtime backend selected for the in-house solver.
+           - scipy_sparse
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml``
+
+Acceptance Criteria
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``output.observable_name``
+     - Simulated observable compared against the reference solution.
+     - watertable_elevation
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+   * - ``output.expected_periods``
+     - Expected number of stored time periods checked by the validation helper.
+     - 30
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+   * - ``output.expected_spatial_shape``
+     - Expected spatial shape for each stored time step.
+     - [101, 101]
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+
+Acceptance Criteria by Solver
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: MODFLOW-NWT
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected output: 30 periods, spatial shape 101 x 101
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+         * - ``space_time.rmse``
+           - Maximum accepted root-mean-square error for space time.
+           - 0.03
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml``
+         * - ``space_time.max_abs_error``
+           - Maximum accepted absolute error for space time.
+           - 0.08
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml``
+         * - ``space_time.azimuthal_spread``
+           - Acceptance threshold for `space_time.azimuthal_spread`.
+           - 0.0005
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml``
+         * - ``final_time.rmse``
+           - Maximum accepted root-mean-square error for final time.
+           - 0.02
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml``
+         * - ``final_time.max_abs_error``
+           - Maximum accepted absolute error for final time.
+           - 0.03
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml``
+
+   .. tab-item:: MODFLOW 6
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected output: 30 periods, spatial shape 101 x 101
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+         * - ``space_time.rmse``
+           - Maximum accepted root-mean-square error for space time.
+           - 0.015
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml``
+         * - ``space_time.max_abs_error``
+           - Maximum accepted absolute error for space time.
+           - 0.07
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml``
+         * - ``space_time.azimuthal_spread``
+           - Acceptance threshold for `space_time.azimuthal_spread`.
+           - 1e-05
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml``
+         * - ``final_time.rmse``
+           - Maximum accepted root-mean-square error for final time.
+           - 0.008
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml``
+         * - ``final_time.max_abs_error``
+           - Maximum accepted absolute error for final time.
+           - 0.015
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml``
+
+   .. tab-item:: Boussinesq
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected output: 30 periods, spatial shape 101 x 101
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml``
+         * - ``space_time.rmse``
+           - Maximum accepted root-mean-square error for space time.
+           - 0.1
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml``
+         * - ``space_time.max_abs_error``
+           - Maximum accepted absolute error for space time.
+           - 0.12
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml``
+         * - ``space_time.azimuthal_spread``
+           - Acceptance threshold for `space_time.azimuthal_spread`.
+           - 0.15
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml``
+         * - ``final_time.rmse``
+           - Maximum accepted root-mean-square error for final time.
+           - 0.1
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml``
+         * - ``final_time.max_abs_error``
+           - Maximum accepted absolute error for final time.
+           - 0.12
+           - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml``
+
 Source Pointers
 ---------------
 

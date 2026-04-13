@@ -36,6 +36,10 @@ from hydromodpy.solver.boussinesq.jacobian_semianalytic import (
     build_sparse_semianalytic_base_jacobian_triplets,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from hydromodpy.solver.boussinesq.partition_runtime_utils import (
+    interiorize_regularized_partition_initial_guess,
+    regularized_partition_jacobian_shift,
+)
 from hydromodpy.solver.boussinesq.runtime_contract import (
     RuntimeSolveResult,
     SteadySolveInputs,
@@ -114,7 +118,10 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
 
 def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
     """Solve one steady nonlinear balance with sparse Newton iterations."""
-    head = np.asarray(inputs.head_initial_guess_m, dtype=float).copy()
+    head = interiorize_regularized_partition_initial_guess(
+        inputs.mesh,
+        np.asarray(inputs.head_initial_guess_m, dtype=float),
+    )
     options = inputs.options
     jacobian_rows_by_col = build_cell_coupling_rows_by_column(
         n_cells=inputs.mesh.n_cells,
@@ -182,6 +189,7 @@ def _solve_nonlinear_system(
     assembly = assembly_for(head)
     residual = np.asarray(assembly.residual_m3_s, dtype=float)
     residual_norm = float(np.linalg.norm(residual, ord=np.inf))
+    initial_residual_norm = residual_norm
     if residual_norm <= float(tol_residual_inf):
         return RuntimeSolveResult(
             head_m=head,
@@ -220,9 +228,38 @@ def _solve_nonlinear_system(
                 warnings.simplefilter("error", matrix_rank_warning)
                 delta = scipy_sparse_linalg.spsolve(jacobian, -residual)
         except matrix_rank_warning:
-            termination_reason = "sparse Newton Jacobian solve failed"
-            break
+            try:
+                delta = _solve_shifted_sparse_system(
+                    scipy_sparse_linalg=scipy_sparse_linalg,
+                    scipy_sparse=scipy_sparse,
+                    jacobian=jacobian,
+                    rhs=-residual,
+                    diagonal_shift=regularized_partition_jacobian_shift(
+                        jacobian.diagonal(),
+                        residual_norm_inf=residual_norm,
+                        initial_residual_norm_inf=initial_residual_norm,
+                    ),
+                )
+            except (RuntimeError, ValueError, TypeError):
+                termination_reason = "sparse Newton Jacobian solve failed"
+                break
         except (RuntimeError, ValueError, TypeError):
+            try:
+                delta = _solve_shifted_sparse_system(
+                    scipy_sparse_linalg=scipy_sparse_linalg,
+                    scipy_sparse=scipy_sparse,
+                    jacobian=jacobian,
+                    rhs=-residual,
+                    diagonal_shift=regularized_partition_jacobian_shift(
+                        jacobian.diagonal(),
+                        residual_norm_inf=residual_norm,
+                        initial_residual_norm_inf=initial_residual_norm,
+                    ),
+                )
+            except (RuntimeError, ValueError, TypeError):
+                termination_reason = "sparse Newton Jacobian solve failed"
+                break
+        if not np.all(np.isfinite(delta)):
             termination_reason = "sparse Newton Jacobian solve failed"
             break
 
@@ -272,6 +309,30 @@ def _solve_nonlinear_system(
         backend_name=str(backend_name),
         termination_reason=termination_reason,
     )
+
+
+def _solve_shifted_sparse_system(
+    *,
+    scipy_sparse_linalg,
+    scipy_sparse,
+    jacobian,
+    rhs: np.ndarray,
+    diagonal_shift: float,
+) -> np.ndarray:
+    """Solve one sparse Newton system with adaptive diagonal regularization."""
+    identity = scipy_sparse.eye(jacobian.shape[0], format="csc")
+    shift = max(float(diagonal_shift), 0.0)
+    last_error: Exception | None = None
+    for _ in range(6):
+        try:
+            system_matrix = jacobian if shift == 0.0 else jacobian + shift * identity
+            return scipy_sparse_linalg.spsolve(system_matrix, rhs)
+        except Exception as exc:  # pragma: no cover - depends on sparse backend state
+            last_error = exc
+            shift = max(1.0e-8, shift * 10.0 if shift > 0.0 else 1.0e-8)
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("Sparse Newton Jacobian solve failed.")
 
 
 def _build_sparse_jacobian(

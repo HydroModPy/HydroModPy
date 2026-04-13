@@ -1,0 +1,65 @@
+[method_comparison]
+comparison_id = "review_cycling_heterogeneous_backends"
+output_root = "c:/codes/HydroModPy-GH/reporting/boussinesq_figures_2026-04-12/comparison_cycling_heterogeneous_backends"
+anchors_file = "C:/codes/HydroModPy-GH/examples/projects/launcher_simulation/method_comparison_points.toml"
+run_variants = false
+continue_on_error = false
+reference_variant = "boussinesq_scipy_sparse"
+
+[[method_comparison.variant]]
+id = "boussinesq_scipy_sparse"
+label = "Boussinesq SciPy sparse cycling heterogeneous"
+solver = "boussinesq"
+mesh_mode = "mesh_input"
+mesh_label = "headwater_100km2_outlet_2"
+simulation_config = "c:/codes/HydroModPy-GH/reporting/boussinesq_figures_2026-04-12/cycling_heterogeneous_scipy_sparse.toml"
+run_folder = "c:/codes/HydroModPy-GH/reporting/boussinesq_figures_2026-04-12/cycling_heterogeneous_scipy_sparse/results_simulations/flow_main__boussinesq"
+
+[[method_comparison.variant]]
+id = "boussinesq_petsc_partition"
+label = "Boussinesq PETSc partition cycling heterogeneous"
+solver = "boussinesq"
+mesh_mode = "mesh_input"
+mesh_label = "headwater_100km2_outlet_2"
+simulation_config = "c:/codes/HydroModPy-GH/reporting/boussinesq_figures_2026-04-12/cycling_heterogeneous_petsc_partition.toml"
+run_folder = "c:/codes/HydroModPy-GH/reporting/boussinesq_figures_2026-04-12/cycling_heterogeneous_petsc_partition/results_simulations/flow_main__boussinesq"
+
+[[method_comparison.variant]]
+id = "boussinesq_petsc_mixed"
+label = "Boussinesq PETSc mixed cycling heterogeneous"
+solver = "boussinesq"
+mesh_mode = "mesh_input"
+mesh_label = "headwater_100km2_outlet_2"
+simulation_config = "c:/codes/HydroModPy-GH/reporting/boussinesq_figures_2026-04-12/cycling_heterogeneous_petsc_mixed.toml"
+run_folder = "c:/codes/HydroModPy-GH/reporting/boussinesq_figures_2026-04-12/cycling_heterogeneous_petsc_mixed/results_simulations/flow_main__boussinesq"
+
+[[method_comparison.observable]]
+name = "head_outlet_point"
+variable = "watertable_elevation"
+support = "point"
+anchor_id = "headwater_100km2_outlet_2.outlet"
+time = "all"
+time_reducer = "last"
+unit = "m"
+
+[[method_comparison.observable]]
+name = "outlet_flux_series"
+variable = "outlet_flux"
+support = "outlet"
+anchor_id = "headwater_100km2_outlet_2.outlet"
+time = "all"
+unit = "m3/s"
+
+[[method_comparison.observable]]
+name = "watertable_elevation_map"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+
+[[method_comparison.observable]]
+name = "watertable_depth_map"
+variable = "watertable_depth"
+support = "map"
+time = "last"
+unit = "m"

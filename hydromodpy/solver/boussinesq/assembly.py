@@ -312,7 +312,7 @@ def drainage_outflow_from_head(
     return effective_conductance * np.maximum(head - mesh.z_top_m, 0.0)
 
 
-def saturation_excess_rate_from_balance(
+def regularized_partition_surface_rate_from_balance(
     mesh: BoussinesqMesh,
     head_m: np.ndarray,
     *,
@@ -320,11 +320,22 @@ def saturation_excess_rate_from_balance(
     surface_input_rate_m_s: np.ndarray | float | None,
     regularization_radius: float,
 ) -> np.ndarray:
-    """Return the regularized saturation-excess rate for each cell.
+    """Return the Marcais-style regularized partition surface flux.
 
-    This term is a pragmatic regularization for near-surface overflow. Instead
-    of creating a sharp on/off switch exactly at saturation, the release is
-    smoothly ramped as the cell approaches full saturation.
+    The closure follows the same structure as the regularized partition law:
+
+    ``q_ex = G_r(theta) R(balance)``
+
+    with:
+
+    - ``theta`` the local saturation ratio,
+    - ``balance`` the positive incoming balance that would keep filling the
+      near-surface groundwater store,
+    - ``G_r(theta) = exp(-(1-theta)/r)``,
+    - ``R(u) = max(u, 0)``.
+
+    The implementation remains written in terms of head because the current
+    HydroModPy Boussinesq solver uses ``h`` as its primary unknown.
     """
     if float(regularization_radius) <= 0.0:
         raise ValueError("regularization_radius must be strictly positive.")
@@ -353,6 +364,55 @@ def saturation_excess_rate_from_balance(
         -(1.0 - np.clip(saturation_ratio, 0.0, 1.0)) / float(regularization_radius)
     )
     return regularization * ramp_rate
+
+
+def saturation_excess_rate_from_balance(
+    mesh: BoussinesqMesh,
+    head_m: np.ndarray,
+    *,
+    lateral_flux_residual_m3_s: np.ndarray,
+    surface_input_rate_m_s: np.ndarray | float | None,
+    regularization_radius: float,
+) -> np.ndarray:
+    """Backward-compatible alias for the regularized partition surface law."""
+    return regularized_partition_surface_rate_from_balance(
+        mesh,
+        head_m,
+        lateral_flux_residual_m3_s=lateral_flux_residual_m3_s,
+        surface_input_rate_m_s=surface_input_rate_m_s,
+        regularization_radius=regularization_radius,
+    )
+
+
+def _resolve_saturation_excess_rate(
+    mesh: BoussinesqMesh,
+    *,
+    head_m: np.ndarray,
+    lateral_flux_residual_m3_s: np.ndarray,
+    recharge_rate_m_s: np.ndarray,
+    regularization_radius: float,
+    saturation_excess_rate_m_s: np.ndarray | float | None,
+) -> np.ndarray:
+    """Return the saturation-excess rate used by one residual assembly.
+
+    The historical Boussinesq backend reconstructs ``q_ex`` from the smooth
+    regularization law. The PETSc DAE backend instead provides ``q_ex`` as an
+    explicit algebraic unknown. This helper centralizes that choice so the
+    physical balance stays identical apart from how ``q_ex`` is obtained.
+    """
+    if saturation_excess_rate_m_s is not None:
+        return _as_cell_vector(
+            saturation_excess_rate_m_s,
+            n_cells=mesh.n_cells,
+            label="saturation_excess_rate_m_s",
+        )
+    return regularized_partition_surface_rate_from_balance(
+        mesh,
+        head_m,
+        lateral_flux_residual_m3_s=lateral_flux_residual_m3_s,
+        surface_input_rate_m_s=np.maximum(recharge_rate_m_s, 0.0),
+        regularization_radius=float(regularization_radius),
+    )
 
 
 def assemble_transient_residual(
@@ -419,6 +479,68 @@ def assemble_transient_residual(
     )
 
 
+def assemble_transient_residual_with_saturation_excess(
+    mesh: BoussinesqMesh,
+    *,
+    head_m: np.ndarray,
+    head_prev_m: np.ndarray,
+    dt_seconds: float,
+    saturation_excess_rate_m_s: np.ndarray | float,
+    recharge_rate_m_s: np.ndarray | float | None = None,
+    well_flux_m3_s: np.ndarray | float | None = None,
+    imposed_head_m_by_edge: np.ndarray | None = None,
+    drainage_conductance_m2_s: np.ndarray | float | None = None,
+    regularization_radius: float = 0.05,
+) -> BoussinesqAssembly:
+    """Assemble one transient residual with an externally supplied ``q_ex``.
+
+    This variant is used by the PETSc complementarity runtime where
+    ``saturation_excess_rate_m_s`` is no longer reconstructed from the smooth
+    regularization law but solved as an algebraic unknown of the DAE system.
+    """
+    if float(dt_seconds) <= 0.0:
+        raise ValueError("dt_seconds must be strictly positive.")
+
+    spatial_terms = _assemble_spatial_terms(
+        mesh,
+        head_m=np.asarray(head_m, dtype=float),
+        recharge_rate_m_s=recharge_rate_m_s,
+        well_flux_m3_s=well_flux_m3_s,
+        imposed_head_m_by_edge=imposed_head_m_by_edge,
+        drainage_conductance_m2_s=drainage_conductance_m2_s,
+        regularization_radius=float(regularization_radius),
+        saturation_excess_rate_m_s=saturation_excess_rate_m_s,
+    )
+    head_prev = np.asarray(head_prev_m, dtype=float)
+    temporal_term = (
+        mesh.cell_area_m2
+        * mesh.storage_coefficient
+        * (spatial_terms.head_m - head_prev)
+        / float(dt_seconds)
+    )
+    residual = (
+        temporal_term
+        + spatial_terms.internal_flux_residual_m3_s
+        + spatial_terms.imposed_head_flux_residual_m3_s
+        + spatial_terms.drainage_flux_m3_s
+        + mesh.cell_area_m2 * spatial_terms.saturation_excess_rate_m_s
+        - mesh.cell_area_m2 * spatial_terms.recharge_rate_m_s
+        - spatial_terms.well_flux_m3_s
+    )
+    return BoussinesqAssembly(
+        head_m=spatial_terms.head_m,
+        saturated_thickness_m=spatial_terms.saturated_thickness_m,
+        transmissivity_m2_s=spatial_terms.transmissivity_m2_s,
+        recharge_rate_m_s=spatial_terms.recharge_rate_m_s,
+        well_flux_m3_s=spatial_terms.well_flux_m3_s,
+        saturation_excess_rate_m_s=spatial_terms.saturation_excess_rate_m_s,
+        internal_edge_flux_m3_s=spatial_terms.internal_edge_flux_m3_s,
+        imposed_head_edge_flux_m3_s=spatial_terms.imposed_head_edge_flux_m3_s,
+        drainage_flux_m3_s=spatial_terms.drainage_flux_m3_s,
+        residual_m3_s=residual,
+    )
+
+
 def assemble_steady_residual(
     mesh: BoussinesqMesh,
     *,
@@ -461,6 +583,50 @@ def assemble_steady_residual(
     )
 
 
+def assemble_steady_residual_with_saturation_excess(
+    mesh: BoussinesqMesh,
+    *,
+    head_m: np.ndarray,
+    saturation_excess_rate_m_s: np.ndarray | float,
+    recharge_rate_m_s: np.ndarray | float | None = None,
+    well_flux_m3_s: np.ndarray | float | None = None,
+    imposed_head_m_by_edge: np.ndarray | None = None,
+    drainage_conductance_m2_s: np.ndarray | float | None = None,
+    regularization_radius: float = 0.05,
+) -> BoussinesqAssembly:
+    """Assemble one steady residual with an externally supplied ``q_ex``."""
+    spatial_terms = _assemble_spatial_terms(
+        mesh,
+        head_m=np.asarray(head_m, dtype=float),
+        recharge_rate_m_s=recharge_rate_m_s,
+        well_flux_m3_s=well_flux_m3_s,
+        imposed_head_m_by_edge=imposed_head_m_by_edge,
+        drainage_conductance_m2_s=drainage_conductance_m2_s,
+        regularization_radius=float(regularization_radius),
+        saturation_excess_rate_m_s=saturation_excess_rate_m_s,
+    )
+    residual = (
+        spatial_terms.internal_flux_residual_m3_s
+        + spatial_terms.imposed_head_flux_residual_m3_s
+        + spatial_terms.drainage_flux_m3_s
+        + mesh.cell_area_m2 * spatial_terms.saturation_excess_rate_m_s
+        - mesh.cell_area_m2 * spatial_terms.recharge_rate_m_s
+        - spatial_terms.well_flux_m3_s
+    )
+    return BoussinesqAssembly(
+        head_m=spatial_terms.head_m,
+        saturated_thickness_m=spatial_terms.saturated_thickness_m,
+        transmissivity_m2_s=spatial_terms.transmissivity_m2_s,
+        recharge_rate_m_s=spatial_terms.recharge_rate_m_s,
+        well_flux_m3_s=spatial_terms.well_flux_m3_s,
+        saturation_excess_rate_m_s=spatial_terms.saturation_excess_rate_m_s,
+        internal_edge_flux_m3_s=spatial_terms.internal_edge_flux_m3_s,
+        imposed_head_edge_flux_m3_s=spatial_terms.imposed_head_edge_flux_m3_s,
+        drainage_flux_m3_s=spatial_terms.drainage_flux_m3_s,
+        residual_m3_s=residual,
+    )
+
+
 def _assemble_spatial_terms(
     mesh: BoussinesqMesh,
     *,
@@ -470,6 +636,7 @@ def _assemble_spatial_terms(
     imposed_head_m_by_edge: np.ndarray | None,
     drainage_conductance_m2_s: np.ndarray | float | None,
     regularization_radius: float,
+    saturation_excess_rate_m_s: np.ndarray | float | None = None,
 ) -> _BoussinesqSpatialTerms:
     """Return the spatial/operator contributions for a candidate head field.
 
@@ -499,12 +666,13 @@ def _assemble_spatial_terms(
     # Saturation excess is evaluated after lateral and imposed-head exchanges,
     # because it is meant to regularize whatever water would still overfill the
     # near-surface storage after those exchanges have taken place.
-    saturation_excess_rate = saturation_excess_rate_from_balance(
+    saturation_excess_rate = _resolve_saturation_excess_rate(
         mesh,
-        head,
+        head_m=head,
         lateral_flux_residual_m3_s=internal_flux_residual + imposed_head_flux_residual,
-        surface_input_rate_m_s=np.maximum(recharge_rate, 0.0),
+        recharge_rate_m_s=recharge_rate,
         regularization_radius=float(regularization_radius),
+        saturation_excess_rate_m_s=saturation_excess_rate_m_s,
     )
     drainage_flux = drainage_outflow_from_head(
         mesh,
@@ -531,10 +699,13 @@ __all__ = [
     "accumulate_boundary_flux_residual",
     "accumulate_internal_flux_residual",
     "assemble_steady_residual",
+    "assemble_steady_residual_with_saturation_excess",
     "assemble_transient_residual",
+    "assemble_transient_residual_with_saturation_excess",
     "drainage_outflow_from_head",
     "internal_edge_flux_from_head",
     "imposed_head_edge_flux_from_head",
+    "regularized_partition_surface_rate_from_balance",
     "saturated_thickness_from_head",
     "saturation_excess_rate_from_balance",
     "transmissivity_from_head",

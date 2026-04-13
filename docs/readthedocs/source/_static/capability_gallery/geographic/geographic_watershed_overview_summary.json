@@ -5,7 +5,27 @@
   "category": "geographic",
   "deck": "Versioned watershed context figures copied into the documentation as stable teaching assets.",
   "summary": "This pair of figures documents the pre-solver side of HydroModPy. It shows how one watershed is contextualized before any flow run: local framing, DEM, and overlay-ready geographic inputs.",
-  "case_setup": [],
+  "case_setup": [
+    "Launcher family: `data-overview`, so the workflow stops after setup, domain assembly, and data loading.",
+    "Primary editable file: `examples/projects/data_overview/project.toml`.",
+    "Committed figures are reused as stable teaching assets instead of rerunning the full example during doc builds."
+  ],
+  "key_parameters": [
+    "`[geographic] catch_def`, `x_outlet`, and `y_outlet` decide where the watershed is extracted from.",
+    "`[geographic] buff_area` controls how much regional context stays visible around the basin in the overview figures.",
+    "`[domain] zone_ids` and `[domain.depth_model]` define the spatial support that later workflows would reuse.",
+    "`[data] types` selects which thematic layers are loaded and therefore which overlays can appear on the basin.",
+    "Date windows in `[data.hydrometry]`, `[data.intermittency]`, and `[data.oceanic]` change the queried observation horizon without changing the basin geometry."
+  ],
+  "how_to_read": [
+    "Read the DEM-oriented figure first to understand the broader terrain setting and outlet placement.",
+    "Read the local overview second to inspect which basin-scale overlays are available before any meshing or solving happens.",
+    "If the basin outline looks wrong, check outlet coordinates and snap distance before changing downstream modelling options."
+  ],
+  "next_steps": [
+    "Continue with :doc:`the data-overview walkthrough </getting_started/data-overview-walkthrough>` for a parameter-by-parameter reading strategy.",
+    "When the watershed framing looks correct, move to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` to add meshing and solving."
+  ],
   "what_it_shows": [
     "How a watershed can be documented before any groundwater solve, using only setup and data loading.",
     "How HydroModPy distinguishes a local watershed view from a broader DEM-oriented overview.",
@@ -13,15 +33,19 @@
   ],
   "reference_highlights": [],
   "equations_rst": [],
+  "walkthrough_doc": "getting_started/data-overview-walkthrough",
+  "walkthrough_title": "the Data Overview walkthrough",
   "reproduction_command": "python examples/projects/data_overview/run_data_overview.py",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
     "examples/projects/data_overview/run_data_overview.py",
+    "examples/projects/data_overview/project.toml",
     "examples/results/example13data/results_stable/_figures/watershed_dem.png",
     "examples/results/example13data/results_stable/_figures/watershed_local.png"
   ],
   "source_hashes": {
-    "examples/projects/data_overview/run_data_overview.py": "f48a00b0598098864e28d277c3e95d44940c2ab8c4195e2b6545ae15f2b20d3d",
+    "examples/projects/data_overview/run_data_overview.py": "75820221b4ad8edd314a810cbcf5d2a122ffeda61180a76a2a2b8f4575beef78",
+    "examples/projects/data_overview/project.toml": "b9c305fc766e4c7cd565cbd478901270b0183ec24a394135e26d8afe22d7792e",
     "examples/results/example13data/results_stable/_figures/watershed_dem.png": "e89a7527ccc0ce66f7c55f5acfcd4fa0c286ad83b78bcb04589a463c6c6d1979",
     "examples/results/example13data/results_stable/_figures/watershed_local.png": "851a58eea24b3710185702557b5d74e7505f5f656507b5d2236fb537570ae92d"
   },
@@ -61,6 +85,116 @@
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_watershed_dem.png",
       "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_watershed_local.png"
+    ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Selected Parameters",
+        "rows": [
+          {
+            "field": "[geographic] catch_def",
+            "meaning": "Watershed extraction mode used to derive the basin from the outlet definition.",
+            "value": "from_outlet_coord",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[geographic] x_outlet",
+            "meaning": "Projected x coordinate of the outlet used by watershed extraction.",
+            "value": "127348",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[geographic] y_outlet",
+            "meaning": "Projected y coordinate of the outlet used by watershed extraction.",
+            "value": "6.8358e+06",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[geographic] snap_dist",
+            "meaning": "Maximum snapping distance used to align the requested outlet with the drainage network.",
+            "value": "150 m",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[geographic] buff_area",
+            "meaning": "Extra area kept around the watershed to preserve regional context in overview figures.",
+            "value": "20%",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[domain] zone_ids",
+            "meaning": "Domain layers kept on the spatial support before any meshing or solving stage.",
+            "value": "geology",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[domain.depth_model] type",
+            "meaning": "Depth-model strategy used to define the vertical support of the basin.",
+            "value": "constant_thickness",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[domain.depth_model] thickness",
+            "meaning": "Constant basin thickness assigned by the depth model when that mode is selected.",
+            "value": "50.0 m",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data] types",
+            "meaning": "Families of data loaded during the data-overview workflow.",
+            "value": "geology, hydrography, hydrometry, intermittency, oceanic",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data] inference_mode",
+            "meaning": "Policy controlling how strictly the data-loading stage resolves requested layers.",
+            "value": "strict",
+            "source": "examples/projects/data_overview/project.toml"
+          }
+        ]
+      },
+      {
+        "title": "Observation Windows",
+        "rows": [
+          {
+            "field": "[data.hydrometry] date_start",
+            "meaning": "Start date used when querying hydrometry observations for this case.",
+            "value": "2019-01-01",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data.hydrometry] date_end",
+            "meaning": "End date used when querying hydrometry observations for this case.",
+            "value": "2025-12-31",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data.intermittency] date_start",
+            "meaning": "Start date used when querying intermittency observations for this case.",
+            "value": "2019-01-01",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data.intermittency] date_end",
+            "meaning": "End date used when querying intermittency observations for this case.",
+            "value": "2025-12-31",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data.oceanic] date_start",
+            "meaning": "Start date used when querying oceanic observations for this case.",
+            "value": "2003-01-01",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data.oceanic] date_end",
+            "meaning": "End date used when querying oceanic observations for this case.",
+            "value": "2003-01-30",
+            "source": "examples/projects/data_overview/project.toml"
+          }
+        ]
+      }
     ]
   }
 }

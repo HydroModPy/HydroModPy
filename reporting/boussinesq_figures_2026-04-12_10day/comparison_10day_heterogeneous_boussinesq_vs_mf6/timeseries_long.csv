@@ -1,0 +1,303 @@
+comparison_id,observable,variable,support,unit,variant_id,variant_label,comparison_time_key,time,time_index,elapsed_seconds,value_index,value
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:0,0,0,,0,75.0
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:1,1,1,,0,75.14219608986694
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:2,2,2,,0,75.14663740863544
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:3,3,3,,0,75.14983452368405
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:4,4,4,,0,76.5882880217827
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:5,5,5,,0,77.22767176116267
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:6,6,6,,0,74.49151031554673
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:7,7,7,,0,71.7584378117192
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:8,8,8,,0,68.98203263826016
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:9,9,9,,0,66.1624189889521
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:10,10,10,,0,70.14102317230301
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:11,11,11,,0,73.55166189684802
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:12,12,12,,0,75.80248323661762
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:13,13,13,,0,73.0594082554495
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:14,14,14,,0,70.29447303726019
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:15,15,15,,0,67.4915188260493
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:16,16,16,,0,71.36443181877048
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:17,17,17,,0,74.44999008974165
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:18,18,18,,0,76.27805682250846
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:19,19,19,,0,73.56508164151542
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:20,20,20,,0,70.84041414775331
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:21,21,21,,0,68.07537069669684
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:22,22,22,,0,71.90284752377859
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:23,23,23,,0,74.82254636779273
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:24,24,24,,0,76.46295237575079
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:25,25,25,,0,73.77000866091718
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:26,26,26,,0,71.07306185869103
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:27,27,27,,0,68.33524076644582
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:28,28,28,,0,72.14440845269996
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:29,29,29,,0,74.9852421570642
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:30,30,30,,0,76.54151370589712
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:31,31,31,,0,73.85993722033545
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:32,32,32,,0,71.17941833420873
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:33,33,33,,0,68.4584329871435
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:34,34,34,,0,68.7071842824929
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:35,35,35,,0,68.93187302396426
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:36,36,36,,0,69.1376207702512
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,time_index:37,37,37,,0,69.32829147044167
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:0,0,0,0.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:864000,1,1,864000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:1728000,2,2,1728000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:2592000,3,3,2592000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:3456000,4,4,3456000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:4320000,5,5,4320000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:5184000,6,6,5184000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:6048000,7,7,6048000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:6912000,8,8,6912000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:7776000,9,9,7776000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:8640000,10,10,8640000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:9504000,11,11,9504000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:10368000,12,12,10368000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:11232000,13,13,11232000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:12096000,14,14,12096000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:12960000,15,15,12960000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:13824000,16,16,13824000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:14688000,17,17,14688000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:15552000,18,18,15552000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:16416000,19,19,16416000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:17280000,20,20,17280000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:18144000,21,21,18144000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:19008000,22,22,19008000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:19872000,23,23,19872000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:20736000,24,24,20736000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:21600000,25,25,21600000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:22464000,26,26,22464000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:23328000,27,27,23328000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:24192000,28,28,24192000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:25056000,29,29,25056000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:25920000,30,30,25920000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:26784000,31,31,26784000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:27648000,32,32,27648000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:28512000,33,33,28512000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:29376000,34,34,29376000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:30240000,35,35,30240000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:31104000,36,36,31104000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_scipy_sparse,Boussinesq SciPy sparse heterogeneous 10-day,elapsed_seconds:31968000,37,37,31968000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:0,0,0,,0,75.0
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:1,1,1,,0,75.14219608795736
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:2,2,2,,0,75.14663740687524
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:3,3,3,,0,75.14983452243395
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:4,4,4,,0,76.58828802122784
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:5,5,5,,0,77.22767176093791
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:6,6,6,,0,74.49151031279327
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:7,7,7,,0,71.75843765785336
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:8,8,8,,0,68.98203257134857
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:9,9,9,,0,66.16241925764514
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:10,10,10,,0,70.14102336019944
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:11,11,11,,0,73.5516620248214
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:12,12,12,,0,75.80248330423511
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:13,13,13,,0,73.0594083247465
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:14,14,14,,0,70.29447396065466
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:15,15,15,,0,67.49152005184683
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:16,16,16,,0,71.36443303279151
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:17,17,17,,0,74.44999087652904
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:18,18,18,,0,76.27805720501487
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:19,19,19,,0,73.56507701314426
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:20,20,20,,0,70.84041088251816
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:21,21,21,,0,68.07536801607107
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:22,22,22,,0,71.90284851460028
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:23,23,23,,0,74.82254084960269
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:24,24,24,,0,76.4629498322507
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:25,25,25,,0,73.76999899354949
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:26,26,26,,0,71.07305991666996
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:27,27,27,,0,68.33524070873179
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:28,28,28,,0,72.14441447905484
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:29,29,29,,0,74.98523758791801
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:30,30,30,,0,76.54151165490248
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:31,31,31,,0,73.85993566278107
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:32,32,32,,0,71.17942438312436
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:33,33,33,,0,68.45844086628577
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:34,34,34,,0,68.70719282024987
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:35,35,35,,0,68.93188174768787
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:36,36,36,,0,69.13762944925618
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,time_index:37,37,37,,0,69.32829999553778
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:0,0,0,0.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:864000,1,1,864000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:1728000,2,2,1728000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:2592000,3,3,2592000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:3456000,4,4,3456000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:4320000,5,5,4320000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:5184000,6,6,5184000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:6048000,7,7,6048000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:6912000,8,8,6912000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:7776000,9,9,7776000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:8640000,10,10,8640000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:9504000,11,11,9504000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:10368000,12,12,10368000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:11232000,13,13,11232000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:12096000,14,14,12096000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:12960000,15,15,12960000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:13824000,16,16,13824000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:14688000,17,17,14688000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:15552000,18,18,15552000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:16416000,19,19,16416000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:17280000,20,20,17280000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:18144000,21,21,18144000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:19008000,22,22,19008000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:19872000,23,23,19872000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:20736000,24,24,20736000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:21600000,25,25,21600000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:22464000,26,26,22464000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:23328000,27,27,23328000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:24192000,28,28,24192000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:25056000,29,29,25056000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:25920000,30,30,25920000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:26784000,31,31,26784000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:27648000,32,32,27648000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:28512000,33,33,28512000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:29376000,34,34,29376000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:30240000,35,35,30240000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:31104000,36,36,31104000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_partition,Boussinesq PETSc partition heterogeneous 10-day,elapsed_seconds:31968000,37,37,31968000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:0,0,0,,0,75.0
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:1,1,1,,0,75.21583988965872
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:2,2,2,,0,75.21468937469166
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:3,3,3,,0,75.21254575161585
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:4,4,4,,0,77.61835095708949
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:5,5,5,,0,77.61835095708935
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:6,6,6,,0,75.0872042269243
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:7,7,7,,0,72.45535129215466
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:8,8,8,,0,69.73966857728183
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:9,9,9,,0,66.96178361033438
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:10,10,10,,0,71.1675979763037
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:11,11,11,,0,75.35772065847371
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:12,12,12,,0,77.61835095708935
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:13,13,13,,0,75.02348574921224
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:14,14,14,,0,72.32938870660112
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:15,15,15,,0,69.56419831355232
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:16,16,16,,0,73.77692720329763
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:17,17,17,,0,77.61835095708935
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:18,18,18,,0,77.61835095708935
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:19,19,19,,0,75.10507540949435
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:20,20,20,,0,72.49823405304438
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:21,21,21,,0,69.80987137441352
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:22,22,22,,0,74.09783686793898
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:23,23,23,,0,77.61835095708935
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:24,24,24,,0,77.61835095708935
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:25,25,25,,0,75.1344524705796
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:26,26,26,,0,72.56240444600215
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:27,27,27,,0,69.90686881979988
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:28,28,28,,0,74.22870879201618
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:29,29,29,,0,77.61835095708935
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:30,30,30,,0,77.61835095708935
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:31,31,31,,0,75.14673334236087
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:32,32,32,,0,72.58985361408729
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:33,33,33,,0,69.94962953319678
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:34,34,34,,0,70.26289370009103
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:35,35,35,,0,70.53948382283534
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:36,36,36,,0,70.78777975273826
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,time_index:37,37,37,,0,71.01411428513171
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:0,0,0,0.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:864000,1,1,864000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:1728000,2,2,1728000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:2592000,3,3,2592000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:3456000,4,4,3456000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:4320000,5,5,4320000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:5184000,6,6,5184000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:6048000,7,7,6048000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:6912000,8,8,6912000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:7776000,9,9,7776000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:8640000,10,10,8640000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:9504000,11,11,9504000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:10368000,12,12,10368000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:11232000,13,13,11232000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:12096000,14,14,12096000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:12960000,15,15,12960000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:13824000,16,16,13824000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:14688000,17,17,14688000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:15552000,18,18,15552000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:16416000,19,19,16416000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:17280000,20,20,17280000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:18144000,21,21,18144000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:19008000,22,22,19008000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:19872000,23,23,19872000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:20736000,24,24,20736000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:21600000,25,25,21600000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:22464000,26,26,22464000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:23328000,27,27,23328000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:24192000,28,28,24192000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:25056000,29,29,25056000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:25920000,30,30,25920000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:26784000,31,31,26784000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:27648000,32,32,27648000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:28512000,33,33,28512000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:29376000,34,34,29376000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:30240000,35,35,30240000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:31104000,36,36,31104000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,boussinesq_petsc_mixed,Boussinesq PETSc mixed heterogeneous 10-day,elapsed_seconds:31968000,37,37,31968000.0,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:0,0,0,,0,77.01497708031239
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:1,1,1,,0,76.92989929558267
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:2,2,2,,0,76.88084024203943
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:3,3,3,,0,191.7550801411714
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:4,4,4,,0,305.8230879864082
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:5,5,5,,0,212.6861650981389
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:6,6,6,,0,165.35274972669797
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:7,7,7,,0,139.3351443983957
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:8,8,8,,0,124.05567331335097
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:9,9,9,,0,296.05144721413734
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:10,10,10,,0,426.55685599939034
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:11,11,11,,0,565.19632977814
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:12,12,12,,0,474.85625622122984
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:13,13,13,,0,417.88145340606405
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:14,14,14,,0,380.1569002113799
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:15,15,15,,0,595.2311753644851
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:16,16,16,,0,792.0702722503589
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:17,17,17,,0,975.7218421519622
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:18,18,18,,0,905.303975644065
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:19,19,19,,0,847.2868273430515
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:20,20,20,,0,794.4393783497292
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:21,21,21,,0,986.9472936024376
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:22,22,22,,0,1158.4090060911046
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:23,23,23,,0,1316.4642187390384
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:24,24,24,,0,1221.461987863582
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:25,25,25,,0,1140.3665331968318
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:26,26,26,,0,1066.0867908648966
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:27,27,27,,0,1238.7914078920785
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:28,28,28,,0,1391.9978001667125
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:29,29,29,,0,1533.2419388335527
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:30,30,30,,0,1422.7647928777935
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:31,31,31,,0,1327.4255315271425
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:32,32,32,,0,1240.0340568023435
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:33,33,33,,0,1159.301863322787
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:34,34,34,,0,1084.626682474129
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:35,35,35,,0,1015.5574518261859
+review_10day_heterogeneous_boussinesq_vs_mf6,head_reference_cell,watertable_elevation,point,m,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:36,36,36,,0,951.6896258808581
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:0,0,0,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:1,1,1,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:2,2,2,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:3,3,3,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:4,4,4,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:5,5,5,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:6,6,6,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:7,7,7,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:8,8,8,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:9,9,9,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:10,10,10,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:11,11,11,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:12,12,12,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:13,13,13,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:14,14,14,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:15,15,15,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:16,16,16,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:17,17,17,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:18,18,18,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:19,19,19,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:20,20,20,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:21,21,21,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:22,22,22,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:23,23,23,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:24,24,24,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:25,25,25,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:26,26,26,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:27,27,27,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:28,28,28,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:29,29,29,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:30,30,30,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:31,31,31,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:32,32,32,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:33,33,33,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:34,34,34,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:35,35,35,,0,0.0
+review_10day_heterogeneous_boussinesq_vs_mf6,outlet_flux_series,outlet_flux,outlet,m3/s,mf6_heterogeneous_10day,MODFLOW 6 heterogeneous 10-day,time_index:36,36,36,,0,0.0

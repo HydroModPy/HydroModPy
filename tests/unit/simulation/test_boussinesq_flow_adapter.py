@@ -30,17 +30,41 @@ def _write_csv(path: Path, header: str, rows: list[str]) -> None:
 
 
 def _write_minimal_bundle(bundle_dir: Path, *, river_internal_edge: bool = False) -> Path:
+    return _write_custom_bundle(
+        bundle_dir,
+        river_internal_edge=river_internal_edge,
+        storage_values=("0.10", "0.15"),
+        storage_default=None,
+    )
+
+
+def _write_custom_bundle(
+    bundle_dir: Path,
+    *,
+    river_internal_edge: bool = False,
+    storage_values: tuple[str, str] = ("0.10", "0.15"),
+    storage_default: float | None = None,
+) -> Path:
     bundle_dir.mkdir(parents=True, exist_ok=True)
     (bundle_dir / "mesh_2d.msh").write_text(
         "$MeshFormat\n2.2 0 8\n$EndMeshFormat\n",
         encoding="utf-8",
     )
+    hydraulic_properties = {}
+    if storage_default is not None:
+        hydraulic_properties["storage_coefficient"] = {
+            "available": True,
+            "unit": "-",
+            "values_source": "inline",
+            "default_value": float(storage_default),
+        }
     (bundle_dir / "metadata.json").write_text(
         json.dumps(
             {
                 "bundle_schema_version": "mesh_catchment_bundle_v1",
                 "crs": "EPSG:2154",
                 "files": {"mesh": "mesh_2d.msh"},
+                "hydraulic_properties": hydraulic_properties,
             },
             indent=2,
             ensure_ascii=True,
@@ -67,8 +91,8 @@ def _write_minimal_bundle(bundle_dir: Path, *, river_internal_edge: bool = False
         bundle_dir / "cells.csv",
         "cell_id,geom_type,n0,n1,n2,n3,centroid_x,centroid_y,area_m2,z_top_centroid,z_top_mean,z_bottom_centroid,z_bottom_mean,geology_code,geology_key,hydraulic_conductivity_m_s,storage_coefficient",
         [
-            "0,triangle,0,1,2,,0.666667,0.333333,0.5,10.0,10.0,5.0,5.0,1,granite,1.0e-5,0.10",
-            "1,triangle,0,2,3,,0.333333,0.666667,0.5,11.0,11.0,4.0,4.0,2,schist,2.0e-5,0.15",
+            f"0,triangle,0,1,2,,0.666667,0.333333,0.5,10.0,10.0,5.0,5.0,1,granite,1.0e-5,{storage_values[0]}",
+            f"1,triangle,0,2,3,,0.333333,0.666667,0.5,11.0,11.0,4.0,4.0,2,schist,2.0e-5,{storage_values[1]}",
         ],
     )
     _write_csv(
@@ -453,6 +477,85 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_heterogeneous_flow_param
     assert np.allclose(model.state.head_m, [5.0, 5.0])
 
 
+def test_boussinesq_flow_adapter_falls_back_to_bundle_and_overrides_properties(
+    tmp_path: Path,
+) -> None:
+    planar_mesh = GmshPlanarMesh2D(
+        points_xy=np.asarray(
+            [
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [1.0, 1.0],
+                [0.0, 1.0],
+            ],
+            dtype=float,
+        ),
+        connectivity=np.asarray(
+            [
+                [0, 1, 2],
+                [0, 2, 3],
+            ],
+            dtype=int,
+        ),
+        cell_type="triangle",
+    )
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle_heterogeneous_override")
+    flow = Flow(
+        FlowConfig.model_validate(
+            {
+                "param_list": ["K", "Sy"],
+                "param": {
+                    "K": {
+                        "kind": "heterogeneous",
+                        "values_by_key": {"west": 3.0e-4, "east": 8.0e-7},
+                        "field_spatial_id": "field_hydrofacies",
+                    },
+                    "Sy": {
+                        "kind": "heterogeneous",
+                        "values_by_key": {"west": 0.21, "east": 0.03},
+                        "field_spatial_id": "field_hydrofacies",
+                    },
+                },
+                "ic": {"type": "top"},
+            }
+        )
+    )
+    state = SimpleNamespace(
+        setup=SimpleNamespace(
+            mesh_planar=planar_mesh,
+            mesh_bundle=None,
+            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+            flow=flow,
+            domain=SimpleNamespace(
+                zones={"field_hydrofacies": _HalfDomainSupport("field_hydrofacies")}
+            ),
+            domain_geographic=None,
+            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
+            workspace=SimpleNamespace(simulations_folder=tmp_path),
+        ),
+    )
+    run = ProcessRun(
+        id="flow_main::boussinesq_bundle_heterogeneous_override",
+        process_id="flow_main",
+        process_type="flow",
+        solver="boussinesq",
+    )
+    ctx = RunContext(
+        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
+        run=run,
+        state=state,
+    )
+
+    result = BoussinesqFlowAdapter().execute(ctx)
+    model = result.primary_model
+
+    assert model.mesh_bundle is not None
+    assert model.mesh is not None
+    assert np.allclose(model.mesh.hydraulic_conductivity_m_s, [8.0e-7, 3.0e-4])
+    assert np.allclose(model.mesh.storage_coefficient, [0.03, 0.21])
+    assert model.has_numerical_solution is True
+
+
 def test_boussinesq_flow_adapter_uses_geographic_features_for_stream_runtime_mesh(
     tmp_path: Path,
 ) -> None:
@@ -612,6 +715,85 @@ def test_boussinesq_flow_adapter_runs_transient_and_writes_outputs(tmp_path: Pat
     # Post-processing is no longer called by the adapter — ResultStore
     # extractors handle it.  Verify the solver output directory exists.
     assert result.solver_output_dir is not None
+
+
+def test_boussinesq_flow_adapter_completes_bundle_storage_from_metadata_default(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_custom_bundle(
+        tmp_path / "bundle_default_storage",
+        storage_values=("", ""),
+        storage_default=0.02,
+    )
+    state = SimpleNamespace(
+        setup=SimpleNamespace(
+            mesh_bundle=None,
+            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+            flow=Flow(FlowConfig.model_validate({"ic": {"type": "top"}})),
+            domain=None,
+            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
+            workspace=SimpleNamespace(simulations_folder=tmp_path),
+        ),
+    )
+    run = ProcessRun(
+        id="flow_main::boussinesq_bundle_default_storage",
+        process_id="flow_main",
+        process_type="flow",
+        solver="boussinesq",
+    )
+    ctx = RunContext(
+        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
+        run=run,
+        state=state,
+    )
+
+    result = BoussinesqFlowAdapter().execute(ctx)
+    model = result.primary_model
+
+    assert model.mesh is not None
+    assert np.allclose(model.mesh.storage_coefficient, [0.02, 0.02])
+    assert model.has_numerical_solution is True
+
+
+def test_boussinesq_flow_adapter_allows_missing_bundle_storage_in_steady_mode(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_custom_bundle(
+        tmp_path / "bundle_steady_missing_storage",
+        storage_values=("", ""),
+    )
+    state = SimpleNamespace(
+        setup=SimpleNamespace(
+            mesh_bundle=None,
+            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+            flow=Flow(
+                FlowConfig.model_validate(
+                    {"flow_regime": "steady", "ic": {"type": "bottom"}}
+                )
+            ),
+            domain=None,
+            time_grid=None,
+            workspace=SimpleNamespace(simulations_folder=tmp_path),
+        ),
+    )
+    run = ProcessRun(
+        id="flow_main::boussinesq_bundle_steady_missing_storage",
+        process_id="flow_main",
+        process_type="flow",
+        solver="boussinesq",
+    )
+    ctx = RunContext(
+        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
+        run=run,
+        state=state,
+    )
+
+    result = BoussinesqFlowAdapter().execute(ctx)
+    model = result.primary_model
+
+    assert model.mesh is not None
+    assert np.allclose(model.mesh.storage_coefficient, [0.0, 0.0])
+    assert model.has_numerical_solution is True
 
 
 def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(

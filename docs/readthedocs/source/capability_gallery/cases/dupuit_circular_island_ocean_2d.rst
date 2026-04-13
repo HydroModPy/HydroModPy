@@ -134,6 +134,437 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Reference Parameters
+^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``crs``
+     - Coordinate reference system used by the synthetic geometry.
+     - EPSG:2154
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``xmin``
+     - Minimum x coordinate of the analytical reference domain.
+     - 265400
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``ymin``
+     - Minimum y coordinate of the analytical reference domain.
+     - 6.7841e+06
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``length_x_m``
+     - Reference-domain length along the x axis.
+     - 610 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``length_y_m``
+     - Reference-domain length along the y axis.
+     - 610 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``nx``
+     - Reference discretization count along the x axis used by the comparison helper.
+     - 61
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``ny``
+     - Reference discretization count along the y axis used by the comparison helper.
+     - 61
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``center_x_m``
+     - Reference x coordinate of the domain centre or pumping location.
+     - 265705 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``center_y_m``
+     - Reference y coordinate of the domain centre or pumping location.
+     - 6.7844e+06 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``sea_level_m``
+     - Sea level used by the coastal or island reference.
+     - 0 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``ocean_floor_elevation_m``
+     - Ocean-floor elevation used by the coastal reference geometry.
+     - -1 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``crest_elevation_m``
+     - Crest elevation used by the synthetic island topography.
+     - 12 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``island_radius_m``
+     - Island radius used by the radial reference domain.
+     - 200 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``comparison_radius_max_m``
+     - Maximum radius used when sampling radial comparisons.
+     - 190 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``radial_bin_width_m``
+     - Radial bin width used when aggregating the numerical solution.
+     - 10 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``substratum_elevation_m``
+     - Substratum elevation used to build the analytical aquifer geometry.
+     - -5 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``hydraulic_conductivity_m_per_s``
+     - Hydraulic conductivity used by the analytical or benchmark reference.
+     - 5e-06 m/s
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``recharge_mm_day``
+     - Recharge rate used by the reference solution.
+     - 1 mm/day
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``comparison_radius_max_by_solver.boussinesq``
+     - Maximum comparison radius retained for `boussinesq`.
+     - 170
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+
+Common Numerical Setup
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``simulation.time.start_datetime``
+     - Simulation start time used by the benchmark.
+     - 2003-01-01 00:00:00
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``simulation.time.end_datetime``
+     - Simulation end time used by the benchmark.
+     - 2003-01-02 00:00:00
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``simulation.time.step_value``
+     - Nominal time step used by the benchmark.
+     - 1 day
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.length_x``
+     - Synthetic-domain length along the x axis.
+     - 610.0 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.length_y``
+     - Synthetic-domain length along the y axis.
+     - 610.0 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.nx``
+     - Grid cell count along the x axis.
+     - 61
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.ny``
+     - Grid cell count along the y axis.
+     - 61
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``geographic.synthetic.topography.kind``
+     - Synthetic topography shape used by the benchmark.
+     - radial_island
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``geographic.synthetic.topography.base_elevation``
+     - Base land-surface elevation of the synthetic topography.
+     - -1 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``geographic.synthetic.topography.crest_elevation``
+     - Crest elevation used by the synthetic topography.
+     - 12 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``geographic.synthetic.topography.island_radius``
+     - Island radius used by the synthetic topography.
+     - 200.0 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``domain.depth_model.type``
+     - Depth model used to build the aquifer support.
+     - flat_substratum
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``domain.depth_model.substratum_elevation``
+     - Substratum elevation used to build the synthetic support.
+     - -5 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``data.types``
+     - External data families loaded by the benchmark.
+     - [oceanic, recharge]
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``data.oceanic.sources[0].source``
+     - Oceanic data source mode used by the benchmark.
+     - constant
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``data.oceanic.sources[0].value``
+     - Ocean level value supplied to the benchmark.
+     - 0 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``data.recharge.sources[0].source``
+     - Recharge data source mode used by the benchmark.
+     - synthetic
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``data.recharge.sources[0].values``
+     - Recharge values used by the benchmark forcing.
+     - [1 mm/day]
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``data.recharge.sources[0].runoff_ratio``
+     - Runoff ratio applied when converting recharge forcing to effective infiltration.
+     - 0
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``flow.flow_regime``
+     - Steady or transient flow regime used by the benchmark.
+     - steady
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``flow.active_sinks_sources``
+     - Sink and source families activated in the benchmark.
+     - [recharge]
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``flow.active_bc``
+     - Boundary-condition families activated in the benchmark.
+     - [ocean]
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``flow.param_list``
+     - Hydraulic parameter families explicitly configured by the benchmark.
+     - [K]
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``flow.param.K.field.kind``
+     - Parameterization mode used for `K`.
+     - homogeneous
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``flow.param.K.field_homogeneous.value``
+     - Homogeneous `K` value used by the benchmark.
+     - 5e-6 m/s
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``flow.ic.value``
+     - Initial hydraulic head used to start the benchmark.
+     - 1.0 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``flow.bc.dirichlet.ocean.value``
+     - Fixed head applied on the ocean boundary.
+     - 0.0 m
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+
+Solver-Specific Overrides
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: MODFLOW-NWT
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``modflownwt.sgrid.planar.mode``
+           - Planar support construction mode used by MODFLOW-NWT.
+           - resample_to_shape
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.planar.nx``
+           - Planar support cell count along x used by MODFLOW-NWT.
+           - 61
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.planar.ny``
+           - Planar support cell count along y used by MODFLOW-NWT.
+           - 61
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.planar.resampling``
+           - Planar support resampling mode used by MODFLOW-NWT.
+           - nearest
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.vertical.nlay``
+           - Number of vertical layers used by MODFLOW-NWT.
+           - 1
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+
+   .. tab-item:: MODFLOW 6
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``modflow6.runtime.mf_verbose``
+           - Solver-specific override applied to MODFLOW 6.
+           - false
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml``
+         * - ``modflow6.runtime.mf6_ims_complexity``
+           - Linear-solver complexity preset used by MODFLOW 6.
+           - COMPLEX
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.mode``
+           - Planar support construction mode used by MODFLOW 6.
+           - resample_to_shape
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.nx``
+           - Planar support cell count along x used by MODFLOW 6.
+           - 61
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.ny``
+           - Planar support cell count along y used by MODFLOW 6.
+           - 61
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.resampling``
+           - Planar support resampling mode used by MODFLOW 6.
+           - nearest
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml``
+         * - ``modflow6.sgrid.vertical.nlay``
+           - Number of vertical layers used by MODFLOW 6.
+           - 1
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml``
+
+   .. tab-item:: Boussinesq
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``flow.runtime_backend``
+           - Runtime backend selected for the in-house solver.
+           - scipy_sparse
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml``
+
+Acceptance Criteria
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``output.observable_name``
+     - Simulated observable compared against the reference solution.
+     - watertable_elevation
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+   * - ``output.expected_shape``
+     - Expected spatial output shape checked by the validation helper.
+     - [61, 61]
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+
+Acceptance Criteria by Solver
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: MODFLOW-NWT
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected shape: 61 x 61
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+         * - ``radial_profile.rmse``
+           - Maximum accepted root-mean-square error for radial profile.
+           - 0.25
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml``
+         * - ``radial_profile.max_abs_error``
+           - Maximum accepted absolute error for radial profile.
+           - 0.5
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml``
+         * - ``radial_profile.azimuthal_spread``
+           - Acceptance threshold for `radial_profile.azimuthal_spread`.
+           - 0.25
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml``
+         * - ``radial_profile.ocean_head_max_error``
+           - Acceptance threshold for `radial_profile.ocean_head_max_error`.
+           - 1e-06
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml``
+         * - ``radial_profile.min_land_clearance``
+           - Acceptance threshold for `radial_profile.min_land_clearance`.
+           - 0.1
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml``
+
+   .. tab-item:: MODFLOW 6
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected shape: 61 x 61
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+         * - ``radial_profile.rmse``
+           - Maximum accepted root-mean-square error for radial profile.
+           - 0.15
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml``
+         * - ``radial_profile.max_abs_error``
+           - Maximum accepted absolute error for radial profile.
+           - 0.18
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml``
+         * - ``radial_profile.azimuthal_spread``
+           - Acceptance threshold for `radial_profile.azimuthal_spread`.
+           - 0.15
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml``
+         * - ``radial_profile.ocean_head_max_error``
+           - Acceptance threshold for `radial_profile.ocean_head_max_error`.
+           - 1e-08
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml``
+         * - ``radial_profile.min_land_clearance``
+           - Acceptance threshold for `radial_profile.min_land_clearance`.
+           - 0.6
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml``
+
+   .. tab-item:: Boussinesq
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected shape: 61 x 61
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+         * - ``radial_profile.rmse``
+           - Maximum accepted root-mean-square error for radial profile.
+           - 0.15
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml``
+         * - ``radial_profile.max_abs_error``
+           - Maximum accepted absolute error for radial profile.
+           - 0.35
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml``
+         * - ``radial_profile.azimuthal_spread``
+           - Acceptance threshold for `radial_profile.azimuthal_spread`.
+           - 0.25
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml``
+         * - ``radial_profile.ocean_head_max_error``
+           - Acceptance threshold for `radial_profile.ocean_head_max_error`.
+           - 1e-08
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml``
+         * - ``radial_profile.min_land_clearance``
+           - Acceptance threshold for `radial_profile.min_land_clearance`.
+           - 0.75
+           - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml``
+
 Source Pointers
 ---------------
 

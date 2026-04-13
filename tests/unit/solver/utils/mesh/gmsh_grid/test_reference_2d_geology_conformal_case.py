@@ -105,6 +105,58 @@ def test_collect_display_zone_keys_includes_background_lithology() -> None:
     assert zone_keys == ["geo_inside", "geo_outside"]
 
 
+def test_build_zone_source_inputs_loads_geology_once(monkeypatch) -> None:
+    geology_gdf = gpd.GeoDataFrame(
+        {"zone_key": ["geo_a"]},
+        geometry=[box(0.0, 0.0, 10.0, 10.0)],
+        crs="EPSG:2154",
+    )
+    domain_gdf = gpd.GeoDataFrame(
+        geometry=[box(0.0, 0.0, 10.0, 10.0)],
+        crs="EPSG:2154",
+    )
+    call_count = 0
+
+    def _fake_load_vector_geology_dataframe(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return {
+            "field_id": "field_geology",
+            "source_kind": "vector",
+            "source_path": "geology.shp",
+            "gdf": geology_gdf,
+        }
+
+    class _GeologyCfg:
+        def to_mapping(self):
+            return {"source": {"kind": "vector", "path": "geology.shp"}}
+
+    monkeypatch.setattr(
+        conformal_planning_module,
+        "load_vector_geology_dataframe",
+        _fake_load_vector_geology_dataframe,
+    )
+    monkeypatch.setattr(
+        conformal_planning_module,
+        "_load_effective_domain_payload",
+        lambda **_: ZoneConformalGeometryPayload(
+            geometry=domain_gdf.geometry.iloc[0],
+            gdf=domain_gdf,
+            summary={},
+        ),
+    )
+
+    _, zone_gdf, _, source_plot_gdf = conformal_planning_module._build_zone_source_inputs(
+        cfg=SimpleNamespace(geology=_GeologyCfg()),
+        config_path=Path("config.toml"),
+        domain_geographic=None,
+    )
+
+    assert call_count == 1
+    assert len(zone_gdf) == 1
+    assert len(source_plot_gdf) == 1
+
+
 def test_geographic_mesh_figure_uses_raw_black_boundary_and_blue_hydro_overlay() -> None:
     domain_gdf = gpd.GeoDataFrame(
         geometry=[box(0.0, 0.0, 10.0, 10.0)],

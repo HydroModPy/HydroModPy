@@ -42,6 +42,12 @@ constraints_mode = ""
 # Type: bool | Default: true
 figures_enabled = true
 
+# If true, export the solver-exchange mesh bundle next to the generated mesh.
+# Set it to false for profiling or mesh-only runs that do not need bundle metadata.
+# Downstream solvers that require runtime mesh support may fail without this bundle.
+# Type: bool | Default: true
+export_exchange_bundle = true
+
 # Pixel density used when rendering the main mesh overview figure.
 # Increase it when you need to inspect mesh edges and constraints more closely in the saved PNG.
 # Type: int | > 0 | Default: 300

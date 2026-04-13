@@ -25,6 +25,7 @@ def test_parse_mesh_catchment_config_defaults_domain_and_rivers() -> None:
     assert cfg.rivers.source == "domain_geographic"
     assert cfg.watershed_boundary.enabled is False
     assert cfg.figures_enabled is True
+    assert cfg.export_exchange_bundle is True
     assert cfg.figure_dpi == 300
     assert cfg.figure_regional_dpi == 220
     assert cfg.zone_meshing.algorithm == "delaunay"
@@ -39,6 +40,17 @@ def test_parse_mesh_catchment_config_accepts_figures_disabled() -> None:
     )
 
     assert cfg.figures_enabled is False
+
+
+def test_parse_mesh_catchment_config_accepts_exchange_bundle_disabled() -> None:
+    cfg = parse_mesh_catchment_config_data(
+        {
+            "constraints_mode": "rivers_only",
+            "export_exchange_bundle": False,
+        }
+    )
+
+    assert cfg.export_exchange_bundle is False
 
 
 def test_parse_mesh_catchment_config_accepts_custom_figure_dpi() -> None:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import shutil
 from typing import Any
 
 import numpy as np
@@ -17,6 +18,11 @@ from hydromodpy.analysis.display.common import (
     _extract_recharge_series_m_per_day,
     resolve_flow_base_raster,
     resolve_model_figure_dir,
+)
+from hydromodpy.analysis.display.flow_payloads import (
+    FlowSpatialFigurePayload,
+    build_flow_cumulative_payload,
+    build_flow_spatial_payload_from_model,
 )
 from hydromodpy.analysis.display.figures.animation import build_gif, build_plotly_slider
 from hydromodpy.analysis.display.figures.boussinesq import (
@@ -28,6 +34,12 @@ from hydromodpy.analysis.display.figures.cross_section import plot_cross_section
 from hydromodpy.analysis.display.figures.flow_diagnostics import (
     plot_flow_mass_balance,
     plot_flow_probe_timeseries,
+)
+from hydromodpy.analysis.display.figures.flow_synthesis import (
+    FLOW_SPATIAL_FIELD_SPECS,
+    plot_flow_recharge_discharge_cumulative,
+    plot_flow_spatial_field,
+    plot_flow_state_triptych,
 )
 from hydromodpy.analysis.display.figures.maps import plot_pathlines_map
 from hydromodpy.analysis.display.figures.timeseries import plot_discharge, plot_piezometry
@@ -60,6 +72,45 @@ def _resolve_flow_model(result):
 def _resolve_boussinesq_model(result):
     """Return the configured Boussinesq flow model when present."""
     return result.get_model_for_solver("boussinesq")
+
+
+def _is_unstructured_flow_model(flow_model) -> bool:
+    """Return True when the active flow model uses an irregular planar mesh."""
+    solver_mesh = getattr(flow_model, "solver_mesh", None)
+    return bool(solver_mesh is not None and not getattr(solver_mesh, "is_structured", True))
+
+
+def _native_mesh_figure_dir(model) -> Path | None:
+    """Return the solver-native mesh figure directory when present."""
+    full_path = getattr(model, "full_path", None)
+    if full_path is None:
+        return None
+    figure_dir = Path(full_path) / "_postprocess" / "_figures" / "native_mesh"
+    if not figure_dir.is_dir():
+        return None
+    return figure_dir
+
+
+def _copy_latest_native_mesh_figures(
+    native_dir: Path | None,
+    output_dir: Path,
+    *,
+    mapping: list[tuple[str, str]],
+) -> list[Path]:
+    """Copy the latest native-mesh figures to the standard display directory."""
+    if native_dir is None:
+        return []
+    copied: list[Path] = []
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for pattern, target_name in mapping:
+        candidates = sorted(native_dir.glob(pattern))
+        if not candidates:
+            continue
+        source = candidates[-1]
+        target = output_dir / target_name
+        shutil.copyfile(source, target)
+        copied.append(target)
+    return copied
 
 
 def _resolve_boussinesq_triangles(mesh) -> np.ndarray:
@@ -344,10 +395,11 @@ def _load_observed_streamflow(result) -> pd.DataFrame | None:
     return observed_discharge_series(records, freq="ME", area_m2=area_m2)
 
 
-def _load_flow_timeseries(result) -> pd.DataFrame:
-    """Load the simulated flow time series from ResultStore or legacy CSV."""
-    # Try ResultStore path first (handled by caller); this is the legacy
-    # CSV fallback kept only for pre-migration projects.
+def _load_flow_timeseries(result) -> pd.DataFrame | None:
+    """Load the simulated flow time series from ResultStore or legacy CSV.
+
+    Returns ``None`` when no timeseries file is found on disk.
+    """
     run_id = _resolve_flow_model(result).model_name
     for base in (
         Path(result.setup.workspace.project_root) / ".solver_scratch",
@@ -355,7 +407,7 @@ def _load_flow_timeseries(result) -> pd.DataFrame:
         smod_path = base / run_id / "_postprocess" / "_timeseries" / "_simulated_timeseries.csv"
         if smod_path.exists():
             return pd.read_csv(smod_path, sep=";", index_col=0, parse_dates=True)
-    raise FileNotFoundError("No simulated flow timeseries found")
+    return None
 
 
 def _load_flow_timeseries_from_store(
@@ -435,6 +487,51 @@ def _prepare_streamflow_series(
     return outflow, recharge
 
 
+def _plot_common_flow_spatial_outputs(
+    payload: FlowSpatialFigurePayload | None,
+    *,
+    options: DisplayOptions,
+    output_dir: Path,
+) -> bool:
+    """Render generic flow spatial figures from the common payload."""
+    if payload is None:
+        return False
+
+    has_dynamic_fields = any(
+        getattr(payload, attr_name) is not None
+        for attr_name in (
+            "watertable_elevation_m",
+            "watertable_depth_m",
+            "seepage_areas_m_per_day",
+            "outflow_drain_m_per_day",
+            "accumulation_flux_m_per_day",
+        )
+    )
+
+    if options.flow.is_enabled("state_triptych", default=True):
+        plot_flow_state_triptych(
+            payload=payload,
+            options=options,
+            save_path=output_dir / "flow_state_triptych.png",
+        )
+
+    if options.flow.is_enabled("watertable_map", default=True):
+        for field_name, spec in FLOW_SPATIAL_FIELD_SPECS.items():
+            if field_name == "top_elevation":
+                continue
+            values = getattr(payload, spec.attr_name)
+            if values is None:
+                continue
+            plot_flow_spatial_field(
+                payload=payload,
+                field_name=field_name,
+                options=options,
+                save_path=output_dir / f"{field_name}.png",
+            )
+
+    return has_dynamic_fields
+
+
 # ------------------------------------------------------------------
 # Suites
 # ------------------------------------------------------------------
@@ -467,14 +564,74 @@ def plot_flow_suite(
     run_id = flow_model.model_name
     output_dir = resolve_model_figure_dir(result.setup.workspace, run_id)
     base_raster = resolve_flow_base_raster(flow_model, result.setup.geographic)
+    is_unstructured = _is_unstructured_flow_model(flow_model)
 
+    # Load simulated timeseries: prefer store, fallback to legacy CSV.
     simulated_timeseries = None
     if store is not None and sim_id is not None:
         simulated_timeseries = _load_flow_timeseries_from_store(store, sim_id)
+    if simulated_timeseries is None:
+        need_simulated_timeseries = any(
+            [
+                options.flow.is_enabled("streamflow", default=True),
+                options.flow.is_enabled("piezometry", default=True),
+                options.flow.is_enabled("recharge_discharge_cumulative", default=True),
+            ]
+        )
+        if need_simulated_timeseries:
+            simulated_timeseries = _load_flow_timeseries(result)
 
-    observed_streamflow = _load_observed_streamflow(result)
+    observed_streamflow = (
+        _load_observed_streamflow(result)
+        if options.flow.is_enabled("streamflow", default=True)
+        else None
+    )
 
-    if options.flow.is_enabled("cross_section", default=True):
+    spatial_payload = build_flow_spatial_payload_from_model(flow_model)
+    cumulative_payload = (
+        build_flow_cumulative_payload(simulated_timeseries, run_id=run_id)
+        if simulated_timeseries is not None
+        else None
+    )
+
+    rendered_common_spatial = _plot_common_flow_spatial_outputs(
+        spatial_payload,
+        options=options,
+        output_dir=output_dir,
+    )
+
+    if cumulative_payload is not None and options.flow.is_enabled(
+        "recharge_discharge_cumulative",
+        default=True,
+    ):
+        plot_flow_recharge_discharge_cumulative(
+            payload=cumulative_payload,
+            options=options,
+            save_path=output_dir / "recharge_discharge_cumulative.png",
+        )
+
+    if is_unstructured:
+        _copy_latest_native_mesh_figures(
+            _native_mesh_figure_dir(flow_model),
+            output_dir,
+            mapping=[
+                ("flow_support_overview.png", "flow_support_overview.png"),
+            ],
+        )
+        if not rendered_common_spatial:
+            _copy_latest_native_mesh_figures(
+                _native_mesh_figure_dir(flow_model),
+                output_dir,
+                mapping=[
+                    ("flow_watertable_depth_t(*).png", "watertable_depth.png"),
+                    ("flow_watertable_elevation_t(*).png", "watertable_elevation.png"),
+                    ("flow_seepage_areas_t(*).png", "seepage_areas.png"),
+                    ("flow_outflow_drain_t(*).png", "outflow_drain.png"),
+                    ("flow_accumulation_flux_t(*).png", "accumulation_flux.png"),
+                ],
+            )
+
+    if options.flow.is_enabled("cross_section", default=True) and not is_unstructured:
         dem_section, wt_section, x_coords = _extract_cross_section_data(
             base_raster, store=store, sim_id=sim_id,
         )
@@ -486,7 +643,11 @@ def plot_flow_suite(
             save_path=output_dir / "cross_section.png",
         )
 
-    if options.flow.is_enabled("streamflow", default=True) and observed_streamflow is not None:
+    if (
+        options.flow.is_enabled("streamflow", default=True)
+        and observed_streamflow is not None
+        and simulated_timeseries is not None
+    ):
         outflow, recharge = _prepare_streamflow_series(simulated_timeseries)
         plot_discharge(
             observed_df=observed_streamflow,
@@ -498,7 +659,7 @@ def plot_flow_suite(
             save_path=output_dir / "streamflow.png",
         )
 
-    if options.flow.is_enabled("piezometry", default=True):
+    if options.flow.is_enabled("piezometry", default=True) and simulated_timeseries is not None:
         from hydromodpy.analysis.display.adapters import observed_piezometry_series
 
         obs_piezo = None
@@ -593,6 +754,14 @@ def plot_boussinesq_flow_suite(result, options: DisplayOptions) -> None:
     cell_bottom = np.asarray(mesh.z_bottom_m, dtype=float)
     raw_cell_area = getattr(mesh, "cell_area_m2", None)
     cell_area = None if raw_cell_area is None else np.asarray(raw_cell_area, dtype=float)
+    generic_payload = build_flow_spatial_payload_from_model(model)
+
+    if generic_payload is not None and options.flow.is_enabled("state_triptych", default=True):
+        plot_flow_state_triptych(
+            payload=generic_payload,
+            options=options,
+            save_path=output_dir / "flow_state_triptych.png",
+        )
 
     if options.flow.is_enabled("boussinesq_state", default=True):
         plot_boussinesq_state(
@@ -724,6 +893,18 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
 
     run_id = flow_model.model_name
     output_dir = resolve_model_figure_dir(result.setup.workspace, run_id) / "transport"
+    if _is_unstructured_flow_model(flow_model):
+        _copy_latest_native_mesh_figures(
+            _native_mesh_figure_dir(flow_model),
+            output_dir,
+            mapping=[
+                ("transport_concentration_seepage_t(*).png", "concentration_seepage.png"),
+                ("transport_mass_seepage_t(*).png", "mass_seepage.png"),
+                ("transport_mass_accumulated_t(*).png", "mass_accumulated.png"),
+            ],
+        )
+        return
+
     save_frame_files = options.save or run_gif or run_web_animation
     show_last_frame = run_concentration and options.show
 

@@ -1,7 +1,7 @@
 |br|
 
-Welcome to HydroModPy's !
-======================================
+Welcome to HydroModPy
+=====================
 
 HydroModPy was initiated in 2018 to streamline the deployment of hydrological
 models in catchments across the crystalline basement regions of Normandy and
@@ -30,8 +30,25 @@ The development of HydroModPy was driven by two primary objectives:
 
    HydroModPy's user-friendly Python interface allows for testing and exploring various aquifer models across different geomorphological contexts and recharge conditions. Ongoing improvements include methods for calibrating and estimating hydraulic properties using multiple datasets such as hydrographic network maps, streamflow, and piezometric level data. HydroModPy is developed as an open-source toolkit. It is currently being used in climate change effects on groundwater-dependent ecosystems and water resource management issues. Collaborative development should enhance the modeling capacity of near-surface aquifers, facilitate their extension to the regional scale for predictive purposes.
 
-Guides
-------
+First visit
+-----------
+
+.. important::
+
+   Most first-time users should follow this order:
+
+   1. :doc:`install`
+   2. :doc:`getting_started/index`
+   3. :doc:`examples`
+   4. :doc:`capability_gallery/index`
+
+Use :doc:`getting_started/index` when you want a guided first workflow. Use
+:doc:`examples` when you already know that you want the full notebook and
+script inventory. Use :doc:`capability_gallery/index` when you want stable,
+curated result pages before running anything locally.
+
+Documentation map
+-----------------
 
 .. grid:: 1 1 2 2
    :gutter: 2 2 3 3
@@ -53,6 +70,16 @@ Guides
       **Installation**
       ^^^
       Pip, conda, and offline installation paths plus verification steps.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: getting_started/index
+      :link-type: doc
+
+      **Getting started**
+      ^^^
+      First-run guidance, workflow selection, and parameter-reading help for
+      the main example families.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -162,6 +189,7 @@ For any question or collaboration request, contact:
    Home <self>
    news
    install
+   getting_started/index
    examples
    capability_gallery/index
    scientific/index

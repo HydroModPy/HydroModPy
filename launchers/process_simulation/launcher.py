@@ -63,6 +63,7 @@ import hydromodpy as hmp
 from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.analysis.capability_gallery import publish_run_to_capability_gallery
 from hydromodpy.spatial.domain import Domain
 from hydromodpy.spatial.domain.spatial_support import (
     SupportBuildContext,
@@ -87,7 +88,10 @@ from hydromodpy.core.time import (
     require_flow_simulation_time_grid,
     resolve_simulation_time_window,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid import load_planar_mesh
+from hydromodpy.solver.utils.mesh.gmsh_grid import (
+    build_gmsh_support_metadata,
+    load_planar_mesh,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
@@ -164,6 +168,9 @@ class HydroModPyLauncher:
     bootstrap (workspace, domain, flow config, transport config) and the models
     produced by executed runs.
     """
+
+    model_calibration_runtime_direct = True
+    model_calibration_runtime_reusable = True
 
     def __init__(self, config_path: str | Path) -> None:
         """Load configuration and raw TOML for one launcher run.
@@ -259,10 +266,8 @@ class HydroModPyLauncher:
         self.postprocess_runner = PostprocessRunner(self.cfg.postprocess)
         self._result_store = None
         self._sim_id = None
-
-    # ------------------------------------------------------------------
-    # Thin delegation to setup_phase
-    # ------------------------------------------------------------------
+        self._prepared_runtime_plan = None
+        self._prepared_runtime_ready = False
 
     @staticmethod
     def _log_data_plan(data_plan: DataLoadPlan) -> None:
@@ -318,31 +323,10 @@ class HydroModPyLauncher:
     # Main run orchestration
     # ------------------------------------------------------------------
 
-    def run(self) -> LauncherRunState:
-        """Execute one full launcher session and return the populated runtime state.
-
-        The execution order is:
-
-        1. validate that the TOML declares at least one simulation process,
-        2. build the resolved execution plan,
-        3. create the shared structural objects (setup),
-        4. load shared forcings (data),
-        5. execute planned process runs through ``SimulationRunner``.
-
-        A useful mental model is:
-
-        - ``setup`` and ``loaded_data`` run once per launcher session,
-        - planned process runs (flow, transport, etc.) run once per declared
-          process/solver pair.
-
-        For example, if the TOML declares:
-
-        - one ``flow`` process with ``["modflownwt", "modflow6"]``
-        - one ``transport`` process with ``["mt3dms", "modflow6gwt"]``
-
-        then ``run()`` will still perform setup/loaded_data only once, but it will
-        later execute four concrete solver runs in the resolved order.
-        """
+    def prepare_runtime(self):
+        """Prepare the shared runtime once and cache the resolved execution plan."""
+        if self._prepared_runtime_ready and self._prepared_runtime_plan is not None:
+            return self._prepared_runtime_plan
         if not self.cfg.simulation.has_processes():
             raise ValueError(
                 "Launchers require an explicit [simulation] block with at least "
@@ -352,32 +336,34 @@ class HydroModPyLauncher:
         run_state = self.run_state
         execution_state = run_state.execution
         plan = self._create_simulation_plan()
+        self._validate_runtime_mesh_solver_compatibility(plan)
         execution_state.simulation_plan = plan
-        # Keep a direct lookup table by run id because downstream code often
-        # needs concrete run-level lookup, not just the flat list.
         execution_state.process_runs_by_id = {run.id: run for run in plan.runs}
 
-        wall_start = time.monotonic()
-
-        # Phase 1: Setup
         self._run_setup()
         self._build_domain_spatial_supports(phase="setup")
-
-        # Phase 2: Data
         self._run_data()
         self._build_domain_spatial_supports(phase="data")
-
-        # Phase 3: Mesh
         self._run_mesh_phase()
         self._run_mesh_input_phase()
 
-        # Phase 4: Open ResultStore for results ingestion
+        self._prepared_runtime_plan = plan
+        self._prepared_runtime_ready = True
+        return plan
+
+    def run_prepared(self) -> LauncherRunState:
+        """Execute the cached runtime state after resetting only execution outputs."""
+        plan = self.prepare_runtime()
+        run_state = self.run_state
+        execution_state = run_state.execution
+        execution_state.simulation_plan = plan
+        execution_state.process_runs_by_id = {run.id: run for run in plan.runs}
+        execution_state.models_by_run_id = {}
+
+        # Open ResultStore for results ingestion
         self._open_result_store()
 
-        # Phase 5: Execution
-        # The runner owns the fine-grained solver dispatch. The launcher
-        # provides process-family callbacks for managed postprocess and
-        # per-run callbacks for ResultStore ingestion.
+        wall_start = time.monotonic()
         try:
             SimulationRunner(
                 callbacks=ProcessCallbacks(
@@ -387,7 +373,6 @@ class HydroModPyLauncher:
             ).execute(plan, run_state)
             wall_seconds = time.monotonic() - wall_start
 
-            # Save run artifacts into the project root.
             self._save_run_artifacts(run_state, wall_seconds)
 
             # Clean up solver scratch directory (deferred from per-run callback
@@ -423,8 +408,65 @@ class HydroModPyLauncher:
             if self._result_store is not None:
                 self._result_store.close()
                 self._result_store = None
-
         return run_state
+
+    def run(self) -> LauncherRunState:
+        """Execute one full launcher session and return the populated runtime state.
+
+        The execution order is:
+
+        1. validate that the TOML declares at least one simulation process,
+        2. build the resolved execution plan,
+        3. create the shared structural objects (setup),
+        4. load shared forcings (data),
+        5. execute planned process runs through ``SimulationRunner``.
+
+        A useful mental model is:
+
+        - ``setup`` and ``loaded_data`` run once per launcher session,
+        - planned process runs (flow, transport, etc.) run once per declared
+          process/solver pair.
+
+        For example, if the TOML declares:
+
+        - one ``flow`` process with ``["modflownwt", "modflow6"]``
+        - one ``transport`` process with ``["mt3dms", "modflow6gwt"]``
+
+        then ``run()`` will still perform setup/loaded_data only once, but it will
+        later execute four concrete solver runs in the resolved order.
+        """
+        return self.run_prepared()
+
+    def _validate_runtime_mesh_solver_compatibility(self, plan) -> None:
+        """Reject unsupported flow solvers when the launcher injects a Gmsh mesh.
+
+        `process_simulation` keeps a single launcher entry point for all flow
+        backends. Runtime Gmsh meshes therefore remain a launcher-level option
+        (`[mesh_catchment]` or `[mesh_input]`), not a separate launcher family.
+
+        Today, only Boussinesq and MODFLOW 6 consume that runtime mesh contract.
+        MODFLOW-NWT still relies on its structured `sgrid` backend and should
+        fail early with a clear message instead of silently ignoring the mesh.
+        """
+        if self.mesh_section_data is None and self.external_mesh_input is None:
+            return
+
+        uses_modflow_nwt = any(
+            getattr(run, "process_type", None) == "flow"
+            and str(getattr(run, "solver", "")).strip().lower() == "modflownwt"
+            for run in getattr(plan, "runs", ())
+        )
+        if not uses_modflow_nwt:
+            return
+
+        mesh_source = "[mesh_input]" if self.external_mesh_input is not None else "[mesh_catchment]"
+        raise ValueError(
+            f"{mesh_source} provides a runtime Gmsh mesh in process_simulation, "
+            "but flow solver 'modflownwt' still supports only the structured "
+            "sgrid backend. Use 'modflow6' (or 'boussinesq') with the same "
+            f"{mesh_source} block, or remove {mesh_source} and configure "
+            "[modflownwt.sgrid.planar] instead."
+        )
 
     # ------------------------------------------------------------------
     # Setup phase
@@ -639,6 +681,7 @@ class HydroModPyLauncher:
         if not preserve_preloaded:
             setup_state.mesh_bundle = None
             setup_state.mesh_planar = None
+            setup_state.mesh_support = None
 
         mesh_summary = setup_state.mesh_summary
         if not isinstance(mesh_summary, Mapping):
@@ -649,6 +692,8 @@ class HydroModPyLauncher:
         bundle_dir = str(mesh_summary.get("output_exchange_bundle_dir", "")).strip()
         if bundle_dir != "" and setup_state.mesh_bundle is None:
             setup_state.mesh_bundle = load_catchment_mesh_bundle(bundle_dir)
+        if setup_state.mesh_bundle is not None and setup_state.mesh_support is None:
+            setup_state.mesh_support = build_gmsh_support_metadata(setup_state.mesh_bundle)
             if isinstance(mesh_summary, dict):
                 mesh_summary.setdefault(
                     "output_mesh",
@@ -675,7 +720,7 @@ class HydroModPyLauncher:
     # ------------------------------------------------------------------
 
     def _save_run_artifacts(self, run_state: LauncherRunState, wall_seconds: float) -> None:
-        """Save config snapshot into the project root.
+        """Save config snapshot and optional capability gallery into the project root.
 
         Metrics and solver information are already stored in project.duckdb
         via ``ResultStore.register_simulation`` and ``ResultStore.finalize``.
@@ -690,6 +735,19 @@ class HydroModPyLauncher:
             snapshot_path.write_bytes(tomli_w.dumps(run_state.raw_toml).encode())
         except Exception:
             pass
+
+        # Capability gallery
+        gallery_cfg = getattr(run_state.cfg, "capability_gallery", None)
+        if gallery_cfg is not None and getattr(gallery_cfg, "enabled", False):
+            run_id = run_state.setup.run_id
+            plan = run_state.execution.simulation_plan
+            solvers_used = {r.solver for r in plan.runs} if plan is not None else set()
+            publish_run_to_capability_gallery(
+                run_id=str(run_id),
+                run_folder=project_root,
+                config=gallery_cfg,
+                solvers=tuple(str(solver) for solver in solvers_used),
+            )
 
     def _create_simulation_plan(self):
         """Resolve the declarative ``[simulation]`` block into concrete runs.

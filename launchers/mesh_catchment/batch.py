@@ -44,10 +44,6 @@ from launchers.mesh_catchment.config import (
 from launchers.mesh_catchment.runtime_single_run import clone_config_like
 
 
-class _RecordedBatchFailure(RuntimeError):
-    """Internal marker used when one batch failure has already been recorded."""
-
-
 @dataclass(frozen=True)
 class MeshCatchmentBatchOutputsConfig:
     """Resolved filename patterns used to materialize one outlet batch run."""
@@ -130,6 +126,15 @@ class MeshCatchmentBatchConfig:
 
 
 @dataclass(frozen=True)
+class _BatchChildRunOutcome:
+    """Outcome of one child run, ready to be persisted to the batch manifest."""
+
+    row: MeshCatchmentBatchResultRow
+    error_message: str | None = None
+    caught_exception: Exception | None = None
+
+
+@dataclass(frozen=True)
 class MeshCatchmentBatchRunner:
     """Orchestrate the multi-outlet mesh workflow for one launcher session."""
 
@@ -139,6 +144,14 @@ class MeshCatchmentBatchRunner:
     geographic_cfg: object
     domain_cfg: object | None
     run_single_workflow: Callable[..., dict[str, Any]]
+
+    def run_preflight(
+        self,
+        batch_cfg: MeshCatchmentBatchConfig,
+    ) -> None:
+        """Run all fail-fast validations required before entering the outlet loop."""
+        self.validate_output_configuration(batch_cfg)
+        self.validate_raster_coverage(batch_cfg)
 
     def validate_output_configuration(
         self,
@@ -207,69 +220,23 @@ class MeshCatchmentBatchRunner:
         results: list[MeshCatchmentBatchResultRow] = []
 
         for record in records:
-            catch_name, workspace_cfg, geographic_cfg, output_overrides = (
-                self._build_child_runtime(
-                    batch_cfg=batch_cfg,
-                    record=record,
-                )
+            outcome = self._run_child_record(
+                batch_cfg=batch_cfg,
+                record=record,
+            )
+            self._persist_result(
+                manifest_path=manifest_path,
+                results=results,
+                row=outcome.row,
             )
 
-            try:
-                summary = self.run_single_workflow(
-                    workspace_cfg=workspace_cfg,
-                    geographic_cfg=geographic_cfg,
-                    domain_cfg=self.domain_cfg,
-                    output_overrides=output_overrides,
-                )
-                failure_message = self._detect_failed_mesh_run(summary)
-                if failure_message is not None:
-                    self._emit_batch_error(
-                        catch_name=catch_name,
-                        outlet_id=record.outlet_id,
-                        message=failure_message,
-                    )
-                    results.append(
-                        self._build_result_row(
-                            record=record,
-                            catch_name=catch_name,
-                            status="error",
-                            summary=summary,
-                            error=failure_message,
-                        )
-                    )
-                    write_mesh_catchment_batch_manifest(manifest_path, results)
-                    if not batch_cfg.continue_on_error:
-                        raise _RecordedBatchFailure(failure_message)
-                    continue
-                results.append(
-                    self._build_result_row(
-                        record=record,
-                        catch_name=catch_name,
-                        status="ok",
-                        summary=summary,
-                    )
-                )
-                write_mesh_catchment_batch_manifest(manifest_path, results)
-            except _RecordedBatchFailure as exc:
-                raise RuntimeError(str(exc)) from None
-            except Exception as exc:
-                error_message = self._format_batch_exception(exc)
-                self._emit_batch_error(
-                    catch_name=catch_name,
-                    outlet_id=record.outlet_id,
-                    message=error_message,
-                )
-                results.append(
-                    self._build_result_row(
-                        record=record,
-                        catch_name=catch_name,
-                        status="error",
-                        error=error_message,
-                    )
-                )
-                write_mesh_catchment_batch_manifest(manifest_path, results)
-                if not batch_cfg.continue_on_error:
-                    raise
+            if outcome.error_message is None:
+                continue
+            if batch_cfg.continue_on_error:
+                continue
+            if outcome.caught_exception is not None:
+                raise outcome.caught_exception
+            raise RuntimeError(outcome.error_message)
 
         write_mesh_catchment_batch_manifest(manifest_path, results)
         return MeshCatchmentBatchSummary(
@@ -399,6 +366,83 @@ class MeshCatchmentBatchRunner:
             record=record,
         )
         return catch_name, workspace_cfg, geographic_cfg, output_overrides
+
+    def _run_child_record(
+        self,
+        *,
+        batch_cfg: MeshCatchmentBatchConfig,
+        record: MeshCatchmentOutletRecord,
+    ) -> _BatchChildRunOutcome:
+        """Execute one child mono-catchment run and normalize its batch outcome."""
+        catch_name, workspace_cfg, geographic_cfg, output_overrides = (
+            self._build_child_runtime(
+                batch_cfg=batch_cfg,
+                record=record,
+            )
+        )
+
+        try:
+            summary = self.run_single_workflow(
+                workspace_cfg=workspace_cfg,
+                geographic_cfg=geographic_cfg,
+                domain_cfg=self.domain_cfg,
+                output_overrides=output_overrides,
+            )
+        except Exception as exc:
+            error_message = self._format_batch_exception(exc)
+            self._emit_batch_error(
+                catch_name=catch_name,
+                outlet_id=record.outlet_id,
+                message=error_message,
+            )
+            return _BatchChildRunOutcome(
+                row=self._build_result_row(
+                    record=record,
+                    catch_name=catch_name,
+                    status="error",
+                    error=error_message,
+                ),
+                error_message=error_message,
+                caught_exception=exc,
+            )
+
+        failure_message = self._detect_failed_mesh_run(summary)
+        if failure_message is not None:
+            self._emit_batch_error(
+                catch_name=catch_name,
+                outlet_id=record.outlet_id,
+                message=failure_message,
+            )
+            return _BatchChildRunOutcome(
+                row=self._build_result_row(
+                    record=record,
+                    catch_name=catch_name,
+                    status="error",
+                    summary=summary,
+                    error=failure_message,
+                ),
+                error_message=failure_message,
+            )
+
+        return _BatchChildRunOutcome(
+            row=self._build_result_row(
+                record=record,
+                catch_name=catch_name,
+                status="ok",
+                summary=summary,
+            )
+        )
+
+    @staticmethod
+    def _persist_result(
+        *,
+        manifest_path: Path,
+        results: list[MeshCatchmentBatchResultRow],
+        row: MeshCatchmentBatchResultRow,
+    ) -> None:
+        """Append one row and rewrite the manifest so progress stays visible."""
+        results.append(row)
+        write_mesh_catchment_batch_manifest(manifest_path, results)
 
     @staticmethod
     def _build_result_row(

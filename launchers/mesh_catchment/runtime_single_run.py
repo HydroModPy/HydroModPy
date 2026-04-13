@@ -355,6 +355,10 @@ def _export_exchange_bundle_if_possible(
 ) -> None:
     """Export the catchment-mesh exchange bundle when the mesh file exists."""
 
+    if not bool(section_cfg.export_exchange_bundle):
+        summary_dict["exchange_bundle_export_enabled"] = False
+        return
+    summary_dict["exchange_bundle_export_enabled"] = True
     if not resolved_outputs.output_mesh.exists():
         return
     geology_cfg = (

@@ -1,0 +1,67 @@
+# Compare three Boussinesq runtime backends on one real committed 100 km2 basin.
+#
+# This keeps the exact same versioned mesh gallery bundle and isolates the
+# backend/surface-interaction differences on a true field-scale geometry.
+
+[method_comparison]
+comparison_id = "headwater_100km2_outlet_2_backends"
+output_root = "method_comparison/headwater_100km2_outlet_2_backends"
+anchors_file = "method_comparison_points.toml"
+run_variants = true
+continue_on_error = false
+reference_variant = "boussinesq_scipy_sparse"
+
+[[method_comparison.variant]]
+id = "boussinesq_scipy_sparse"
+label = "Boussinesq SciPy sparse runtime"
+solver = "boussinesq"
+mesh_mode = "mesh_input"
+mesh_label = "headwater_100km2_outlet_2"
+simulation_config = "run_headwater_100km2_outlet_2_boussinesq_mesh_input.toml"
+
+[[method_comparison.variant]]
+id = "boussinesq_petsc_partition"
+label = "Boussinesq PETSc regularized-partition runtime"
+solver = "boussinesq"
+mesh_mode = "mesh_input"
+mesh_label = "headwater_100km2_outlet_2"
+simulation_config = "run_headwater_100km2_outlet_2_boussinesq_petsc_partition_mesh_input.toml"
+
+[[method_comparison.variant]]
+id = "boussinesq_petsc_mixed"
+label = "Boussinesq PETSc mixed complementarity runtime"
+solver = "boussinesq"
+mesh_mode = "mesh_input"
+mesh_label = "headwater_100km2_outlet_2"
+simulation_config = "run_headwater_100km2_outlet_2_boussinesq_petsc_mesh_input.toml"
+
+[[method_comparison.observable]]
+name = "head_outlet_point"
+variable = "watertable_elevation"
+support = "point"
+anchor_id = "headwater_100km2_outlet_2.outlet"
+time = "all"
+time_reducer = "last"
+unit = "m"
+
+[[method_comparison.observable]]
+name = "outlet_flux_series"
+variable = "outlet_flux"
+support = "outlet"
+anchor_id = "headwater_100km2_outlet_2.outlet"
+time = "all"
+unit = "m3/s"
+
+[[method_comparison.observable]]
+name = "watertable_elevation_map"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+
+[[method_comparison.observable]]
+name = "watertable_depth_map"
+variable = "watertable_depth"
+support = "map"
+time = "last"
+unit = "m"

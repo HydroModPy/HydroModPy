@@ -1,0 +1,15 @@
+[geology]
+id = "field_geology"
+cell_samples_per_axis = 6
+
+[geology.source]
+path = "../../../../../examples/data/geology/GEO1M_brittany.shp"
+kind = "vector"
+code_field = "CODE_LEG"
+reference_raster_path = "../../../../../examples/data/dem/regional_dem_naizin.tif"
+all_touched = false
+
+[geology.landsea]
+enabled = false
+sea_value = 0
+override_code = "1"

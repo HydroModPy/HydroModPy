@@ -107,6 +107,315 @@ Refresh the committed gallery artifacts with:
 
    python -m tools.doc_gallery
 
+Case Parameters
+---------------
+
+Reference Parameters
+^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``xmin``
+     - Minimum x coordinate of the analytical reference domain.
+     - 0
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+   * - ``xmax``
+     - Maximum x coordinate of the analytical reference domain.
+     - 100
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+   * - ``length_y_m``
+     - Reference-domain length along the y axis.
+     - 10 m
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+   * - ``west_head_m``
+     - Fixed west-boundary hydraulic head used by the reference solution.
+     - 7.25 m
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+   * - ``east_head_m``
+     - Fixed east-boundary hydraulic head used by the reference solution.
+     - 5.25 m
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+   * - ``topography_base_elevation_m``
+     - Base elevation used by the synthetic reference topography.
+     - 5 m
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+   * - ``topography_right_to_left_amplitude_m``
+     - Right-to-left topographic amplitude used by the hillslope reference.
+     - 2 m
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+   * - ``drainage_conductance_m2_per_s``
+     - Drainage conductance used by the analytical drainage boundary.
+     - 1e-05 m2/s
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+   * - ``hydraulic_conductivity_m_per_s``
+     - Hydraulic conductivity used by the analytical or benchmark reference.
+     - 0.0001 m/s
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+   * - ``reference_saturated_thickness_m``
+     - Reference saturated thickness used by the linearized formulation.
+     - 30 m
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+   * - ``aquifer_thickness_m``
+     - Aquifer thickness used by the reference formulation.
+     - 30 m
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+   * - ``profile_axis``
+     - Axis along which the validation profile is extracted.
+     - 0
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+
+Common Numerical Setup
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``geographic.synthetic.grid.length_x``
+     - Synthetic-domain length along the x axis.
+     - 100.0 m
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.length_y``
+     - Synthetic-domain length along the y axis.
+     - 10.0 m
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.nx``
+     - Grid cell count along the x axis.
+     - 50
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.grid.ny``
+     - Grid cell count along the y axis.
+     - 5
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.topography.kind``
+     - Synthetic topography shape used by the benchmark.
+     - linear
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.topography.base_elevation``
+     - Base land-surface elevation of the synthetic topography.
+     - 5 m
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``geographic.synthetic.topography.right_to_left_amplitude``
+     - Right-to-left topographic amplitude used by the synthetic topography.
+     - 2
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``domain.depth_model.type``
+     - Depth model used to build the aquifer support.
+     - constant_thickness
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``domain.depth_model.thickness``
+     - Aquifer or support thickness used by the benchmark.
+     - 30.0 m
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``flow.flow_regime``
+     - Steady or transient flow regime used by the benchmark.
+     - steady
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``flow.active_sinks_sources``
+     - Sink and source families activated in the benchmark.
+     - []
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``flow.active_bc``
+     - Boundary-condition families activated in the benchmark.
+     - [west_side, east_side, drainage]
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``flow.param_list``
+     - Hydraulic parameter families explicitly configured by the benchmark.
+     - [K]
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``flow.param.K.field.kind``
+     - Parameterization mode used for `K`.
+     - homogeneous
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``flow.param.K.field_homogeneous.value``
+     - Homogeneous `K` value used by the benchmark.
+     - 1e-4 m/s
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``flow.ic.value``
+     - Initial hydraulic head used to start the benchmark.
+     - 6.25 m
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``flow.bc.dirichlet.west_side.value``
+     - Fixed head applied on the west side boundary.
+     - 7.25 m
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``flow.bc.dirichlet.east_side.value``
+     - Fixed head applied on the east side boundary.
+     - 5.25 m
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``flow.bc.cauchy.drainage.application_domain``
+     - Part of the domain where the drainage Cauchy boundary is applied.
+     - top
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+   * - ``flow.bc.cauchy.drainage.value``
+     - Cauchy coefficient or conductance applied on the drainage boundary.
+     - 1e-5 m2/s
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+
+Solver-Specific Overrides
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: MODFLOW-NWT
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``modflownwt.sgrid.planar.mode``
+           - Planar support construction mode used by MODFLOW-NWT.
+           - resample_to_shape
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.planar.nx``
+           - Planar support cell count along x used by MODFLOW-NWT.
+           - 50
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.planar.ny``
+           - Planar support cell count along y used by MODFLOW-NWT.
+           - 5
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.planar.resampling``
+           - Planar support resampling mode used by MODFLOW-NWT.
+           - nearest
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+         * - ``modflownwt.sgrid.vertical.nlay``
+           - Number of vertical layers used by MODFLOW-NWT.
+           - 1
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml``
+
+   .. tab-item:: MODFLOW 6
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``modflow6.runtime.mf_verbose``
+           - Solver-specific override applied to MODFLOW 6.
+           - false
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6.toml``
+         * - ``modflow6.runtime.mf6_ims_complexity``
+           - Linear-solver complexity preset used by MODFLOW 6.
+           - COMPLEX
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.mode``
+           - Planar support construction mode used by MODFLOW 6.
+           - resample_to_shape
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.nx``
+           - Planar support cell count along x used by MODFLOW 6.
+           - 50
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.ny``
+           - Planar support cell count along y used by MODFLOW 6.
+           - 5
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6.toml``
+         * - ``modflow6.sgrid.planar.resampling``
+           - Planar support resampling mode used by MODFLOW 6.
+           - nearest
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6.toml``
+         * - ``modflow6.sgrid.vertical.nlay``
+           - Number of vertical layers used by MODFLOW 6.
+           - 1
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6.toml``
+
+Acceptance Criteria
+^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``output.observable_name``
+     - Simulated observable compared against the reference solution.
+     - watertable_elevation
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+   * - ``output.expected_shape``
+     - Expected spatial output shape checked by the validation helper.
+     - [5, 50]
+     - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+
+Acceptance Criteria by Solver
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: MODFLOW-NWT
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected shape: 5 x 50
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+         * - ``head_profile.rmse``
+           - Maximum accepted root-mean-square error for head profile.
+           - 0.08
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml``
+         * - ``head_profile.max_abs_error``
+           - Maximum accepted absolute error for head profile.
+           - 0.12
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml``
+         * - ``head_profile.row_spread``
+           - Maximum accepted cross-row spread for head profile.
+           - 2e-05
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml``
+
+   .. tab-item:: MODFLOW 6
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected shape: 5 x 50
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+         * - ``head_profile.rmse``
+           - Maximum accepted root-mean-square error for head profile.
+           - 0.08
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml``
+         * - ``head_profile.max_abs_error``
+           - Maximum accepted absolute error for head profile.
+           - 0.12
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml``
+         * - ``head_profile.row_spread``
+           - Maximum accepted cross-row spread for head profile.
+           - 2e-05
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml``
+
 Source Pointers
 ---------------
 

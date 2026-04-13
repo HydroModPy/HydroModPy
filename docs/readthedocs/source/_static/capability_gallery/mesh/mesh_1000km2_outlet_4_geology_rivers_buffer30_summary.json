@@ -13,6 +13,9 @@
     "Gallery variant: Geology + rivers, 30% buffer.",
     "Bundle-reported constraints mode: geology_rivers."
   ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
   "what_it_shows": [
     "How several 1000 km2 outlets compare under the same conformal meshing policy.",
     "How larger supports change the visual balance between basin focus and outside coarsening.",
@@ -20,10 +23,12 @@
   ],
   "reference_highlights": [],
   "equations_rst": [],
-  "reproduction_command": "python -m launchers mesh-catchment run launchers/mesh_catchment/config_1000km2.toml",
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m launchers mesh-catchment run launchers/mesh_catchment/scenarios/config_1000km2.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "launchers/mesh_catchment/config_1000km2.toml",
+    "launchers/mesh_catchment/scenarios/config_1000km2.toml",
     "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/case.json",
     "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/viewer_config.toml",
     "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/README.md",
@@ -39,10 +44,10 @@
     "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/figures/mesh_regional.png"
   ],
   "source_hashes": {
-    "launchers/mesh_catchment/config_1000km2.toml": "614219223e3c18193737972c7c9b862efd399704d81d11809a7a5092a2fad28c",
-    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/case.json": "bb44715a665f6f101b0b4f90d96283d0087468998ec85aac6fb7d32484753335",
+    "launchers/mesh_catchment/scenarios/config_1000km2.toml": "cb3c52aeefd2baa82457b91ded3187f0055fff520b8db7f735542965f0df01cd",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/case.json": "15357b5ba157e38efb0048262465be44281bd2f31c493a0cc917681b867fe885",
     "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/viewer_config.toml": "100a57978304314448430861dd7534234950d58b2973be4c0e40adea05ab86b9",
-    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/README.md": "7836f5060ab6ad6b8c1462f1fbb7ab3c64dba00ebcbac2e65e44f69f21de92af",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/README.md": "c403e09d7a258b5f47c72abe258d39062468bbafdc4bc0e75f333ad7a8823848",
     "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/bundle/mesh_2d.msh": "f3e31bb3cf261d2bdaae3e8986edd718818db90987018b2c281d3cd10a39d10a",
     "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/bundle/nodes.csv": "1d6bc951fa5a0bd51ae8b70fffa538967471f81151806a92dd310382ef71ec7b",
     "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/bundle/cells.csv": "6d00b033598bf490c22ef817ef05bc6da2d9ff7b6647f5d6eb39f2e3686ebe38",
@@ -168,6 +173,122 @@
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_4_geology_rivers_buffer30_overview.png",
       "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_4_geology_rivers_buffer30_regional.png"
+    ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Selected Parameters",
+        "rows": [
+          {
+            "field": "scale_label",
+            "meaning": "Scale bucket used to group repeated mesh gallery cases.",
+            "value": "1000 km2",
+            "source": "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/viewer_config.toml"
+          },
+          {
+            "field": "outlet_id",
+            "meaning": "Outlet identifier used by the source batch meshing run.",
+            "value": "4",
+            "source": "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/viewer_config.toml"
+          },
+          {
+            "field": "variant_label",
+            "meaning": "Gallery variant describing the active constraints and buffering policy.",
+            "value": "Geology + rivers, 30% buffer",
+            "source": "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/viewer_config.toml"
+          },
+          {
+            "field": "constraints_mode",
+            "meaning": "Constraint family carried by the imported bundle or viewer config.",
+            "value": "geology_rivers",
+            "source": "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/viewer_config.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] color_field",
+            "meaning": "Cell attribute used to color the mesh in the overview figure.",
+            "value": "geology_key",
+            "source": "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/viewer_config.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] show_topography_panel",
+            "meaning": "Whether a dedicated topography panel is shown alongside the mesh map.",
+            "value": "true",
+            "source": "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/viewer_config.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] topography_field",
+            "meaning": "Node or cell field used to render the topography panel when it is enabled.",
+            "value": "z_top_mean",
+            "source": "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/viewer_config.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] show_geology_interfaces",
+            "meaning": "Whether geology interfaces are explicitly highlighted in the viewer output.",
+            "value": "true",
+            "source": "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/viewer_config.toml"
+          },
+          {
+            "field": "[mesh_distribution.plot] show_river_edges",
+            "meaning": "Whether river-constrained edges are highlighted in the viewer output.",
+            "value": "true",
+            "source": "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_4_geology_rivers_buffer30/viewer_config.toml"
+          }
+        ]
+      },
+      {
+        "title": "Mesh Summary",
+        "rows": [
+          {
+            "field": "crs",
+            "meaning": "Coordinate reference system declared by the imported mesh bundle.",
+            "value": "EPSG:2154",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_4_geology_rivers_buffer30_summary.json"
+          },
+          {
+            "field": "node_count",
+            "meaning": "Number of nodes available in the displayed mesh bundle.",
+            "value": "18308",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_4_geology_rivers_buffer30_summary.json"
+          },
+          {
+            "field": "cell_count",
+            "meaning": "Number of cells available in the displayed mesh bundle.",
+            "value": "36480",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_4_geology_rivers_buffer30_summary.json"
+          },
+          {
+            "field": "edge_count",
+            "meaning": "Number of edges available in the displayed mesh bundle.",
+            "value": "54787",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_4_geology_rivers_buffer30_summary.json"
+          },
+          {
+            "field": "river_edge_count",
+            "meaning": "Count of edges tagged as river constraints in the bundle.",
+            "value": "6382",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_4_geology_rivers_buffer30_summary.json"
+          },
+          {
+            "field": "boundary_edge_count",
+            "meaning": "Count of watershed-boundary edges in the bundle.",
+            "value": "134",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_4_geology_rivers_buffer30_summary.json"
+          },
+          {
+            "field": "geology_interface_edge_count",
+            "meaning": "Count of geology-interface edges present in the bundle.",
+            "value": "1835",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_4_geology_rivers_buffer30_summary.json"
+          },
+          {
+            "field": "geology_keys",
+            "meaning": "Distinct geology codes present in the imported bundle.",
+            "value": "1, 1241, 1321, 1341, 1381, 1421, 1481, 1521, 1561, 161, 1621, 1641, 1701, 1981, 2041, 2061, 2081, 21, 2101, 2121",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_4_geology_rivers_buffer30_summary.json"
+          }
+        ]
+      }
     ]
   }
 }

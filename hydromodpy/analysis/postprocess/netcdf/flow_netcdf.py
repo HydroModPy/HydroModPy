@@ -42,12 +42,18 @@ class FlowNetcdfPostprocess(NetcdfWriter):
         logger.info("Exporting flow NetCDF outputs for model %s", model_modflow.model_name)
 
         self.geographic = geographic
+        self.model_modflow = model_modflow
         self.model_name = model_modflow.model_name
         self.model_folder = model_modflow.model_folder
         self.datetime_format = datetime_format
         self.recharge = model_modflow.recharge
         self._store = store
         self._sim_id = sim_id
+        self.solver_mesh = getattr(model_modflow, "solver_mesh", None)
+        self.is_unstructured = bool(
+            self.solver_mesh is not None
+            and not getattr(self.solver_mesh, "is_structured", True)
+        )
         self.base_raster_path = getattr(
             model_modflow,
             "dem_watershed_path",
@@ -113,13 +119,27 @@ class FlowNetcdfPostprocess(NetcdfWriter):
         }
 
         try:
-            self.export_netcdf(
-                data,
-                base_path=self.base_raster_path,
-                out_path=os.path.join(self.netcdf_file, f"{name}.nc"),
-                base_crs=self.geographic.crs_proj,
-                times=times,
-            )
+            out_path = os.path.join(self.netcdf_file, f"{name}.nc")
+            if self.is_unstructured:
+                centroids = np.asarray(self.solver_mesh.cell_centroids(), dtype=float)
+                areas = np.asarray(self.solver_mesh.cell_areas(), dtype=float)
+                self.export_cell_netcdf(
+                    data,
+                    out_path=out_path,
+                    cell_x=centroids[:, 0],
+                    cell_y=centroids[:, 1],
+                    cell_area=areas,
+                    base_crs=self.geographic.crs_proj,
+                    times=times,
+                )
+            else:
+                self.export_netcdf(
+                    data,
+                    base_path=self.base_raster_path,
+                    out_path=out_path,
+                    base_crs=self.geographic.crs_proj,
+                    times=times,
+                )
             return True
         except Exception:
             return False

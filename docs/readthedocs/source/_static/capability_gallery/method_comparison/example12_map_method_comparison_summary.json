@@ -1,0 +1,198 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "example12_map_method_comparison",
+  "title": "Shared-Mesh Solver Comparison on Naizin",
+  "category": "method_comparison",
+  "deck": "Map-wide comparison of MODFLOW 6 and Boussinesq on the same committed triangular catchment mesh.",
+  "summary": "This case reuses two committed run folders for the same Naizin catchment mesh. It compares full water-table elevation and water-table depth maps at the last saved time step, then renders parity plots and compact error bars.",
+  "case_setup": [
+    "Reference variant: MODFLOW 6 on the committed Gmsh catchment mesh.",
+    "Candidate variant: Boussinesq reusing the exact same mesh bundle.",
+    "Compared observables: full `watertable_elevation` and `watertable_depth` maps at the last saved time step."
+  ],
+  "key_parameters": [
+    "The most important modelling choice is not a scalar parameter but support equality: both runs must use the same saved mesh if you want a fair map-wide comparison.",
+    "`run_method_comparison_example12_map_existing.toml` defines which run folders are compared and which observables are sampled from them.",
+    "The compared observables (`watertable_elevation`, `watertable_depth`) determine whether the figure emphasizes absolute state mismatch or near-surface response mismatch.",
+    "Interpret RMSE and MAE together: RMSE highlights stronger local mismatches while MAE gives the typical cell-wise discrepancy."
+  ],
+  "how_to_read": [
+    "Check first that the comparison is support-consistent: same mesh, same spatial observable, same saved time step.",
+    "Then read the parity cloud shape. A tight cloud around the 1:1 line means the two solvers agree across most cells.",
+    "Use the error bars and scalar metrics to judge whether disagreement is diffuse or concentrated in specific ranges of the state variable.",
+    "Do not read this page as a validation benchmark: it is a solver-to-solver comparison, not a comparison against an analytical truth."
+  ],
+  "next_steps": [
+    "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, method-comparison pages, and validation pages.",
+    "If you need to understand the reference MODFLOW 6 run itself, go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>`."
+  ],
+  "what_it_shows": [
+    "How two solver families can be compared on exactly the same triangular support.",
+    "How map-wide parity plots complement scalar metrics such as MAE and RMSE.",
+    "How comparison figures can be regenerated from committed run folders without rerunning the solvers."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": "getting_started/reading-results-pages",
+  "walkthrough_title": "the gallery and validation reading guide",
+  "reproduction_command": "python -m launchers method-comparison run examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
+    "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
+    "examples/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml",
+    "examples/projects/launcher_simulation/results_simulations/example12_fast_mf6_mesh_catchment/_metrics.json",
+    "examples/projects/launcher_simulation/results_simulations/example12_fast_mf6_mesh_catchment/_postprocess/watertable_elevation.npy",
+    "examples/projects/launcher_simulation/results_simulations/example12_fast_mf6_mesh_catchment/_postprocess/watertable_depth.npy",
+    "examples/projects/launcher_simulation/results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq/_boussinesq_summary.json",
+    "examples/projects/launcher_simulation/results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq/_postprocess/watertable_elevation.npy",
+    "examples/projects/launcher_simulation/results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq/_postprocess/watertable_depth.npy"
+  ],
+  "source_hashes": {
+    "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml": "72eb62a1685f1235935c2cd2e2169ac52616787d043ef266bdcb90a9ca317026",
+    "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml": "17d15c8629d6fbc75c4b944eb612d539fa1633b682d0a10c1c9079b2d7fec87f",
+    "examples/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml": "d09b9199e79102f12feed3cff098a16b14e2ae3c0a7745b0e54ddfaceac44537",
+    "examples/projects/launcher_simulation/results_simulations/example12_fast_mf6_mesh_catchment/_metrics.json": "c87c4872e62e51d995b70e46c536a87a6f7c5ffb7e49c1dea3c2b8b7e225d77c",
+    "examples/projects/launcher_simulation/results_simulations/example12_fast_mf6_mesh_catchment/_postprocess/watertable_elevation.npy": "c83e5e3df970cb3f3a4eb9e04c03fbbbbc271e456bb6df82fefb3993a8f9b043",
+    "examples/projects/launcher_simulation/results_simulations/example12_fast_mf6_mesh_catchment/_postprocess/watertable_depth.npy": "b6f16e576fa1c04617b177ad61a10936d8f073fa0b562a2dce09ceeae149643f",
+    "examples/projects/launcher_simulation/results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq/_boussinesq_summary.json": "06a1b18cc94cfb8bb04612d986e2a073aa886a6274446c2cdfc4dfff77358695",
+    "examples/projects/launcher_simulation/results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq/_postprocess/watertable_elevation.npy": "cdee717728d90deeef66a2ed89de9cc03444ae61a3040bc623b270a8a3ac5e5f",
+    "examples/projects/launcher_simulation/results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq/_postprocess/watertable_depth.npy": "b39a7d8d675b2b0c2da7028df2729325cdfd411c35857ea382c823c6b081e6aa"
+  },
+  "docname": "cases/example12_map_method_comparison",
+  "images": [
+    {
+      "filename": "example12_map_method_comparison.png",
+      "caption": "Parity plots and error bars comparing the committed MODFLOW 6 and Boussinesq runs on the shared Naizin mesh.",
+      "alt_text": "Method comparison figure for the shared Naizin mesh",
+      "doc_path": "/_static/capability_gallery/method_comparison/example12_map_method_comparison.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison.png"
+    }
+  ],
+  "metrics": [
+    {
+      "label": "Watertable Depth RMSE",
+      "key": "watertable_depth_map_rmse",
+      "value": 0.7506749809800943,
+      "display": "0.7507 m"
+    },
+    {
+      "label": "Watertable Depth MAE",
+      "key": "watertable_depth_map_mae",
+      "value": 0.45613621718528596,
+      "display": "0.4561 m"
+    },
+    {
+      "label": "Watertable Elevation RMSE",
+      "key": "watertable_elevation_map_rmse",
+      "value": 0.7512330456180012,
+      "display": "0.7512 m"
+    },
+    {
+      "label": "Watertable Elevation MAE",
+      "key": "watertable_elevation_map_mae",
+      "value": 0.46503988972689475,
+      "display": "0.465 m"
+    }
+  ],
+  "metadata": {
+    "comparison_config_path": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
+    "study_area": "Naizin catchment",
+    "focus_variant_id": "boussinesq_reused_gmsh",
+    "comparison_id": "example12_map_method_comparison",
+    "reference_variant": "mf6_gmsh_existing",
+    "reference_variant_label": "MODFLOW 6 on generated Gmsh mesh",
+    "focus_variant_label": "Boussinesq on reused Gmsh mesh",
+    "variant_labels": {
+      "mf6_gmsh_existing": "MODFLOW 6 on generated Gmsh mesh",
+      "boussinesq_reused_gmsh": "Boussinesq on reused Gmsh mesh"
+    },
+    "observable_names": [
+      "watertable_elevation_map",
+      "watertable_depth_map"
+    ],
+    "n_observable_rows": 2676,
+    "n_difference_rows": 1338
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison.png"
+    ],
+    "extra_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_comparison_manifest.json",
+      "docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_comparison_metrics.json",
+      "docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_observables.csv",
+      "docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary_metrics.csv",
+      "docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_difference_metrics.csv"
+    ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Comparison Setup",
+        "rows": [
+          {
+            "field": "[method_comparison] comparison_id",
+            "meaning": "Stable identifier used to collect outputs and summary artifacts for the comparison.",
+            "value": "example12_map_method_comparison",
+            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+          },
+          {
+            "field": "[method_comparison] reference_variant",
+            "meaning": "Variant used as the baseline when computing map-wise differences and error metrics.",
+            "value": "mf6_gmsh_existing",
+            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+          },
+          {
+            "field": "[method_comparison] run_variants",
+            "meaning": "Whether the launcher reruns the variants or only reuses committed run folders.",
+            "value": "false",
+            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+          },
+          {
+            "field": "study_area",
+            "meaning": "Study area summarized by the gallery page for this comparison case.",
+            "value": "Naizin catchment",
+            "source": "docs/readthedocs/source/_static/capability_gallery/method_comparison/example12_map_method_comparison_summary.json"
+          }
+        ]
+      },
+      {
+        "title": "Compared Variants",
+        "rows": [
+          {
+            "field": "variant.mf6_gmsh_existing",
+            "meaning": "Compared run folder and solver definition used by the method-comparison launcher.",
+            "value": "MODFLOW 6 on generated Gmsh mesh; solver=modflow6; mesh_mode=mesh_catchment; run_folder=results_simulations/example12_fast_mf6_mesh_catchment",
+            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+          },
+          {
+            "field": "variant.boussinesq_reused_gmsh",
+            "meaning": "Compared run folder and solver definition used by the method-comparison launcher.",
+            "value": "Boussinesq on reused Gmsh mesh; solver=boussinesq; mesh_mode=mesh_input; run_folder=results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq",
+            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+          }
+        ]
+      },
+      {
+        "title": "Compared Observables",
+        "rows": [
+          {
+            "field": "observable.watertable_elevation_map",
+            "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
+            "value": "variable=watertable_elevation; support=map; time=last; unit=m",
+            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+          },
+          {
+            "field": "observable.watertable_depth_map",
+            "meaning": "Observable extracted from each run before parity plots and difference metrics are computed.",
+            "value": "variable=watertable_depth; support=map; time=last; unit=m",
+            "source": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
+          }
+        ]
+      }
+    ]
+  }
+}

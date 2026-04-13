@@ -46,6 +46,14 @@ class FlowDisplayConfig(BaseModel):
         default=True,
         description="Render the piezometry plot.",
     )
+    state_triptych: Annotated[bool, ParamLevel("user")] = Field(
+        default=True,
+        description="Render the solver-agnostic topography/head/depth triptych.",
+    )
+    recharge_discharge_cumulative: Annotated[bool, ParamLevel("user")] = Field(
+        default=True,
+        description="Render cumulative recharge and discharge curves.",
+    )
     watertable_map: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
         description="Render water-table depth and elevation maps.",
@@ -101,6 +109,8 @@ class FlowDisplayConfig(BaseModel):
                 "cross_section_column": self.cross_section_column,
                 "streamflow": self.streamflow,
                 "piezometry": self.piezometry,
+                "state_triptych": self.state_triptych,
+                "recharge_discharge_cumulative": self.recharge_discharge_cumulative,
                 "watertable_map": self.watertable_map,
                 "dem_map": self.dem_map,
                 "hydrography": self.hydrography,

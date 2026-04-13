@@ -79,6 +79,30 @@ class NetcdfWriter:
         except TypeError:
             return None
 
+    def _apply_common_encoding(
+        self,
+        dataset: xr.Dataset,
+        *,
+        variable_name: str,
+    ) -> xr.Dataset:
+        """Apply shared packing metadata to one exported variable."""
+
+        bound_max = float(dataset[variable_name].max())
+        bound_min = float(dataset[variable_name].min())
+        if bound_min < 0:
+            bound_min *= 1.1
+        elif bound_min > 0:
+            bound_min /= 1.1
+        else:
+            bound_min = bound_min - 0.01 * bound_max
+
+        scale_factor, add_offset = self.compute_scale_and_offset(bound_min, bound_max, 16)
+        dataset[variable_name].encoding["scale_factor"] = scale_factor
+        dataset[variable_name].encoding["add_offset"] = add_offset
+        dataset[variable_name].encoding["dtype"] = "int16"
+        dataset[variable_name].encoding["_FillValue"] = -32768
+        return dataset
+
     def export_netcdf(
         self,
         data: Any,
@@ -174,22 +198,88 @@ class NetcdfWriter:
         if crs_to_write is not None:
             dataset.rio.write_crs(crs_to_write, inplace=True)
 
-        bound_max = float(dataset[main_var].max())
-        bound_min = float(dataset[main_var].min())
-        if bound_min < 0:
-            bound_min *= 1.1
-        elif bound_min > 0:
-            bound_min /= 1.1
-        else:
-            bound_min = bound_min - 0.01 * bound_max
+        self._apply_common_encoding(dataset, variable_name=main_var).to_netcdf(out_path)
 
-        scale_factor, add_offset = self.compute_scale_and_offset(bound_min, bound_max, 16)
-        dataset[main_var].encoding["scale_factor"] = scale_factor
-        dataset[main_var].encoding["add_offset"] = add_offset
-        dataset[main_var].encoding["dtype"] = "int16"
-        dataset[main_var].encoding["_FillValue"] = -32768
+    def export_cell_netcdf(
+        self,
+        data: Any,
+        *,
+        out_path: str,
+        cell_x: Any,
+        cell_y: Any,
+        cell_area: Any,
+        base_crs: Any = None,
+        times: Any = None,
+        append: bool = False,
+    ) -> None:
+        """Export one time-indexed per-cell dataset to NetCDF."""
 
-        dataset.to_netcdf(out_path)
+        values = self._ordered_data_values(data)
+        if not values:
+            return
+
+        matrix = np.asarray(values, dtype=float)
+        if matrix.ndim == 1:
+            matrix = np.expand_dims(matrix, axis=0)
+
+        cell_x = np.asarray(cell_x, dtype=float).reshape(-1)
+        cell_y = np.asarray(cell_y, dtype=float).reshape(-1)
+        cell_area = np.asarray(cell_area, dtype=float).reshape(-1)
+        n_cells = int(matrix.shape[-1])
+        if (
+            cell_x.size != n_cells
+            or cell_y.size != n_cells
+            or cell_area.size != n_cells
+        ):
+            raise ValueError(
+                "Cell NetCDF export requires cell_x/cell_y/cell_area sized to the number of cells."
+            )
+
+        times = self._normalize_time_coordinate(times)
+        coords: dict[str, tuple[str, Any]] = {
+            "cell": ("cell", np.arange(n_cells, dtype=int)),
+            "cell_x": ("cell", cell_x),
+            "cell_y": ("cell", cell_y),
+            "cell_area": ("cell", cell_area),
+        }
+        if times is not None and len(times) == matrix.shape[0]:
+            coords["time"] = ("time", times)
+
+        dataset = xr.Dataset()
+        main_var = os.path.splitext(os.path.split(out_path)[-1])[0]
+        dataset[main_var] = xr.DataArray(matrix, dims=("time", "cell"), coords=coords)
+
+        if append:
+            with xr.open_dataset(out_path, decode_coords="all", decode_times=True) as ds_prev:
+                dataset = xr.concat([ds_prev, dataset], dim="time")
+
+        dataset.cell.attrs = {
+            "long_name": "solver mesh cell identifier",
+        }
+        dataset.cell_x.attrs = {
+            "standard_name": "projection_x_coordinate",
+            "long_name": "cell centroid x coordinate of projection",
+            "units": "Meter",
+        }
+        dataset.cell_y.attrs = {
+            "standard_name": "projection_y_coordinate",
+            "long_name": "cell centroid y coordinate of projection",
+            "units": "Meter",
+        }
+        dataset.cell_area.attrs = {
+            "long_name": "planar cell area",
+            "units": "m2",
+        }
+
+        if base_crs is not None:
+            if isinstance(base_crs, str):
+                dataset.attrs["crs"] = base_crs
+            elif isinstance(base_crs, int):
+                dataset.attrs["crs"] = f"EPSG:{base_crs}"
+            else:
+                dataset.attrs["crs"] = str(base_crs)
+
+        self._apply_common_encoding(dataset, variable_name=main_var).to_netcdf(out_path)
 
 
 __all__ = [

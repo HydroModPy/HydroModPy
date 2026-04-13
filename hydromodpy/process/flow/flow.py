@@ -16,7 +16,10 @@ runtime attributes after ``set_config(...)`` is called:
 - ``flow_regime`` : ``'steady'`` or ``'transient'``, forwarded from config.
 - ``runtime_backend`` : optional nonlinear runtime backend hint used by the
   Boussinesq solver implementation (for example ``local``, ``scipy``,
-  ``scipy_sparse``).
+  ``scipy_sparse``, ``petsc``).
+- ``surface_interaction_model`` : optional Boussinesq closure selector for the
+  groundwater/surface interaction (``auto``, ``regularized_partition``,
+  ``complementarity``).
 - ``runtime_max_iterations`` / ``runtime_tol_*`` : optional nonlinear runtime
   overrides forwarded to the Boussinesq backend.
 - ``parameters`` : normalized hydraulic property dict (K, Sy, Ss, …),
@@ -119,6 +122,9 @@ class Flow(ProcessSpatial):
     runtime_backend : str
         Optional nonlinear runtime backend hint, currently consumed by the
         Boussinesq solver implementation.
+    surface_interaction_model : str
+        Optional groundwater/surface interaction closure selector consumed by
+        the Boussinesq solver implementation.
     runtime_max_iterations : int | None
         Optional nonlinear iteration-budget override forwarded to Boussinesq.
     runtime_tol_residual_inf : float | None
@@ -166,6 +172,7 @@ class Flow(ProcessSpatial):
         self.config: FlowConfig
         self.flow_regime: str
         self.runtime_backend: str
+        self.surface_interaction_model: str
         self.runtime_max_iterations: int | None
         self.runtime_tol_residual_inf: float | None
         self.runtime_tol_state_update_inf: float | None
@@ -205,6 +212,7 @@ class Flow(ProcessSpatial):
         self.config = config
         self.flow_regime = config.flow_regime
         self.runtime_backend = config.runtime_backend
+        self.surface_interaction_model = config.surface_interaction_model
         self.runtime_max_iterations = config.runtime_max_iterations
         self.runtime_tol_residual_inf = config.runtime_tol_residual_inf
         self.runtime_tol_state_update_inf = config.runtime_tol_state_update_inf

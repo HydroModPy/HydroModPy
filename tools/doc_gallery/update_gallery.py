@@ -10,6 +10,7 @@ import json
 import os
 import stat
 import time
+import tomllib
 from dataclasses import replace
 from pathlib import Path
 import shutil
@@ -50,6 +51,13 @@ VALIDATION_SOLVER_LABELS = {
     "boussinesq": "Boussinesq",
 }
 VALIDATION_SOLVER_ORDER = ("modflownwt", "modflow6", "boussinesq")
+
+
+def _absolute_docname(docname: str) -> str:
+    """Return one Sphinx doc target rooted at the docs source directory."""
+    if docname.startswith("/"):
+        return docname
+    return f"/{docname}"
 
 
 def _render_mesh_coverage_matrix(cases: list[dict[str, Any]]) -> list[str]:
@@ -339,9 +347,14 @@ def _build_case_summary(
         "deck": spec.deck,
         "summary": spec.summary,
         "case_setup": list(spec.case_setup),
+        "key_parameters": list(spec.key_parameters),
+        "how_to_read": list(spec.how_to_read),
+        "next_steps": list(spec.next_steps),
         "what_it_shows": list(spec.what_it_shows),
         "reference_highlights": list(spec.reference_highlights),
         "equations_rst": list(spec.equations_rst),
+        "walkthrough_doc": spec.walkthrough_doc,
+        "walkthrough_title": spec.walkthrough_title,
         "reproduction_command": spec.reproduction_command,
         "gallery_update_command": "python -m tools.doc_gallery",
         "source_paths": list(spec.source_paths),
@@ -469,6 +482,7 @@ def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[
     solver_details = {
         str(key): value for key, value in dict(spec.metadata.get("solver_details", {})).items()
     }
+    parameter_docs = dict(spec.metadata.get("parameter_docs", {}))
     include_solver_flag = len(solver_variants) > 1
 
     solver_runs: list[dict[str, Any]] = []
@@ -549,6 +563,7 @@ def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[
         metrics_override=[],
         extra_summary={
             "solver_runs": solver_runs,
+            "parameter_docs": parameter_docs,
             "artifacts": {
                 "summary_json_doc_path": "/" + _docs_relative_static_path(spec.category, f"{spec.slug}_summary.json"),
                 "summary_json_repo_path": _repo_docs_artifact_path(spec.category, f"{spec.slug}_summary.json"),
@@ -557,6 +572,1828 @@ def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[
         },
     )
 
+
+def _humanize_case_token(value: str) -> str:
+    tokens = [
+        token
+        for token in str(value).replace("-", "_").split("_")
+        if token and token.lower() not in {"map"}
+    ]
+    if not tokens:
+        return str(value)
+    return " ".join(token.capitalize() for token in tokens)
+
+
+def _format_metric_display(value: Any, unit: str = "", *, precision: int = 4) -> str:
+    number = float(value)
+    rendered = f"{number:.{precision}g}"
+    return f"{rendered} {unit}".strip()
+
+
+def _import_pyplot():
+    import matplotlib
+
+    matplotlib.use("Agg", force=True)
+    import matplotlib.pyplot as plt
+
+    return plt
+
+
+def _add_horizontal_colorbar(fig, mappable, *, axes, label: str):
+    bbox = axes[0].get_position()
+    right = axes[-1].get_position().x1
+    bottom = min(ax.get_position().y0 for ax in axes) - 0.045
+    height = 0.015
+    cbar_ax = fig.add_axes([bbox.x0, max(0.02, bottom), right - bbox.x0, height])
+    cbar = fig.colorbar(mappable, cax=cbar_ax, orientation="horizontal")
+    cbar.set_label(label)
+    return cbar
+
+
+def _build_method_comparison_payload(config_path: Path) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
+    from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+    from launchers.method_comparison.config import MethodComparisonConfig
+    from launchers.method_comparison.metrics import build_comparison_metrics
+    from launchers.method_comparison.runtime import (
+        compact_run_metrics,
+        extract_observable_rows,
+        read_json_file,
+        read_variant_run_metadata,
+    )
+
+    raw_toml = load_toml_with_base_config(config_path)
+    cfg = MethodComparisonConfig.from_toml(raw_toml, config_path=config_path)
+    section = cfg.method_comparison
+    if section.run_variants:
+        raise ValueError(
+            "Capability-gallery method comparison cases must reuse committed run folders "
+            "(run_variants=false)."
+        )
+
+    all_rows: list[dict[str, Any]] = []
+    variant_summaries: list[dict[str, Any]] = []
+    for variant in section.variant:
+        if not variant.enabled:
+            variant_summaries.append(
+                {
+                    "id": variant.id,
+                    "label": variant.label or variant.id,
+                    "status": "skipped",
+                    "enabled": False,
+                }
+            )
+            continue
+
+        run_folder = cfg.resolve_variant_run_folder(variant)
+        if run_folder is None:
+            raise ValueError(
+                f"Capability-gallery method comparison case '{config_path}' requires "
+                f"a committed run_folder for variant '{variant.id}'."
+            )
+        if not run_folder.exists():
+            raise FileNotFoundError(
+                f"Missing run folder for variant '{variant.id}': {run_folder}"
+            )
+
+        rows = extract_observable_rows(
+            comparison_id=str(section.comparison_id),
+            variant=variant,
+            run_folder=run_folder,
+            observables=tuple(section.observable),
+        )
+        all_rows.extend(rows)
+        variant_summaries.append(
+            {
+                "id": variant.id,
+                "label": variant.label or variant.id,
+                "status": "reused",
+                "enabled": True,
+                "solver": variant.solver,
+                "mesh_label": variant.mesh_label,
+                "mesh_mode": variant.mesh_mode,
+                "run_folder": str(run_folder),
+                "metrics": compact_run_metrics(read_json_file(run_folder / "_metrics.json")),
+                "run_metadata": read_variant_run_metadata(run_folder),
+                "n_observable_rows": len(rows),
+            }
+        )
+
+    reference_variant = section.reference_variant
+    if reference_variant is None:
+        for summary in variant_summaries:
+            if summary.get("status") in {"completed", "reused"}:
+                reference_variant = str(summary.get("id"))
+                break
+
+    _align_single_snapshot_rows(all_rows)
+    detail_metrics, summary_metrics = build_comparison_metrics(
+        all_rows,
+        reference_variant=reference_variant,
+    )
+
+    manifest = {
+        "schema_version": "method_comparison_manifest_v1",
+        "comparison_id": section.comparison_id,
+        "config_path": str(config_path),
+        "run_variants": section.run_variants,
+        "continue_on_error": section.continue_on_error,
+        "reference_variant": reference_variant,
+        "n_observable_rows": len(all_rows),
+        "n_metric_rows": len(summary_metrics),
+        "n_difference_rows": len(detail_metrics),
+        "variants": variant_summaries,
+        "observables": [
+            observable.model_dump(mode="json")
+            for observable in section.observable
+        ],
+    }
+    metrics_payload = {
+        "schema_version": "method_comparison_metrics_v1",
+        "comparison_id": section.comparison_id,
+        "reference_variant": reference_variant,
+        "summary": summary_metrics,
+        "differences": detail_metrics,
+    }
+    return manifest, metrics_payload, all_rows
+
+
+def _align_single_snapshot_rows(rows: list[dict[str, Any]]) -> None:
+    """Align snapshot-only observables across variants even when time indices differ."""
+
+    snapshot_keys: dict[tuple[str, str], set[str]] = {}
+    for row in rows:
+        key = (str(row.get("observable", "")), str(row.get("variant_id", "")))
+        snapshot_keys.setdefault(key, set()).add(str(row.get("comparison_time_key", "")))
+
+    aligned_observables = {
+        observable
+        for observable, _variant in snapshot_keys
+        if observable
+        and all(
+            len(keys) == 1
+            for (obs, _), keys in snapshot_keys.items()
+            if obs == observable
+        )
+    }
+    for row in rows:
+        observable = str(row.get("observable", ""))
+        if observable in aligned_observables:
+            row["comparison_time_key"] = f"snapshot:{observable}"
+
+
+def _sample_scatter_indices(size: int, *, max_points: int = 3000) -> np.ndarray:
+    if size <= max_points:
+        return np.arange(size, dtype=int)
+    return np.linspace(0, size - 1, num=max_points, dtype=int)
+
+
+def _render_method_comparison_figure(
+    *,
+    figure_path: Path,
+    case_title: str,
+    focus_variant_label: str,
+    reference_variant_label: str,
+    summary_rows: list[dict[str, Any]],
+    detail_rows: list[dict[str, Any]],
+) -> None:
+    plt = _import_pyplot()
+
+    observable_order = [
+        str(row["observable"])
+        for row in summary_rows
+    ]
+    grouped_detail: dict[str, list[dict[str, Any]]] = {
+        observable: [
+            row for row in detail_rows if str(row.get("observable", "")) == observable
+        ]
+        for observable in observable_order
+    }
+
+    figure_path.parent.mkdir(parents=True, exist_ok=True)
+    fig = plt.figure(figsize=(14.0, 8.8), dpi=140)
+    gs = fig.add_gridspec(2, 2, height_ratios=[1.15, 0.85])
+    ax_left = fig.add_subplot(gs[0, 0])
+    ax_right = fig.add_subplot(gs[0, 1])
+    ax_bar = fig.add_subplot(gs[1, :])
+
+    scatter_axes = [ax_left, ax_right]
+    for ax, observable in zip(scatter_axes, observable_order[:2], strict=False):
+        rows = grouped_detail.get(observable, [])
+        reference_values = np.asarray(
+            [float(row["reference_value"]) for row in rows],
+            dtype=float,
+        )
+        variant_values = np.asarray(
+            [float(row["value"]) for row in rows],
+            dtype=float,
+        )
+        sample_index = _sample_scatter_indices(reference_values.size)
+        sampled_reference = reference_values[sample_index]
+        sampled_variant = variant_values[sample_index]
+        low = float(np.nanmin(np.concatenate([sampled_reference, sampled_variant])))
+        high = float(np.nanmax(np.concatenate([sampled_reference, sampled_variant])))
+        ax.scatter(
+            sampled_reference,
+            sampled_variant,
+            s=8,
+            alpha=0.30,
+            color="#1f77b4",
+            edgecolors="none",
+        )
+        ax.plot([low, high], [low, high], linestyle="--", color="0.35", linewidth=1.0)
+        summary_row = next(
+            row for row in summary_rows if str(row["observable"]) == observable
+        )
+        unit = str(summary_row.get("unit", "")).strip()
+        ax.set_title(
+            f"{_humanize_case_token(observable)}\n"
+            f"RMSE {float(summary_row['rmse']):.4g} {unit}, "
+            f"MAE {float(summary_row['mae']):.4g} {unit}".strip()
+        )
+        ax.set_xlabel(f"{reference_variant_label} [{unit}]".strip())
+        ax.set_ylabel(f"{focus_variant_label} [{unit}]".strip())
+        ax.grid(True, alpha=0.25)
+
+    if len(observable_order) < 2:
+        ax_right.axis("off")
+        if observable_order:
+            only_summary = summary_rows[0]
+            ax_right.text(
+                0.02,
+                0.98,
+                "\n".join(
+                    [
+                        f"Reference: {reference_variant_label}",
+                        f"Candidate: {focus_variant_label}",
+                        f"Observable: {_humanize_case_token(str(only_summary['observable']))}",
+                        f"Matched value pairs: {int(only_summary['n_pairs'])}",
+                        f"Bias: {float(only_summary['bias']):.4g} {only_summary['unit']}",
+                        f"Max abs. error: {float(only_summary['max_abs_error']):.4g} {only_summary['unit']}",
+                    ]
+                ),
+                transform=ax_right.transAxes,
+                ha="left",
+                va="top",
+                family="monospace",
+                fontsize=10.0,
+                bbox={"boxstyle": "round,pad=0.5", "fc": "#f7f7f7", "ec": "0.75"},
+            )
+
+    x = np.arange(len(summary_rows), dtype=float)
+    mae_values = np.asarray([float(row["mae"]) for row in summary_rows], dtype=float)
+    rmse_values = np.asarray([float(row["rmse"]) for row in summary_rows], dtype=float)
+    ax_bar.bar(x - 0.18, mae_values, width=0.34, label="MAE", color="#1f77b4")
+    ax_bar.bar(x + 0.18, rmse_values, width=0.34, label="RMSE", color="#ff7f0e")
+    ax_bar.set_xticks(x)
+    ax_bar.set_xticklabels([_humanize_case_token(str(row["observable"])) for row in summary_rows])
+    ax_bar.set_ylabel("Error [m]")
+    ax_bar.set_title("Map-wide error summary")
+    ax_bar.grid(True, axis="y", alpha=0.25)
+    ax_bar.legend()
+
+    fig.suptitle(f"{case_title}: {focus_variant_label} vs {reference_variant_label}", fontsize=14)
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.savefig(figure_path, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _generate_square_parameterizations_property_case(
+    spec: GalleryCaseSpec,
+    source_root: Path,
+) -> dict[str, Any]:
+    plt = _import_pyplot()
+
+    from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
+    from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
+    from hydromodpy.spatial.field.core.field_param import FieldParam
+
+    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path.parent.mkdir(parents=True, exist_ok=True)
+
+    field = FieldSquare(
+        line="diag_main",
+        zone1_side="positive",
+        identifier="field_square",
+        zone1_name="granite",
+        zone2_name="micaschists",
+    )
+    structured_mesh = FieldMeshSquare.from_unit_square(target_n_cells=64, mesh_kind="structured")
+    triangular_mesh = FieldMeshSquare.from_unit_square(
+        target_n_cells=128,
+        mesh_kind="triangular_structured",
+    )
+    conductivity = FieldParam(
+        identifier="K",
+        kind="heterogeneous",
+        values_by_key={"granite": "10 m/day", "micaschists": "2 m/day"},
+        field_spatial_id="field_square",
+    )
+    structured_values = np.asarray(
+        conductivity.to_mesh_field(field.on_mesh(structured_mesh)).cell_values,
+        dtype=float,
+    ) * 86400.0
+    triangular_values = np.asarray(
+        conductivity.to_mesh_field(field.on_mesh(triangular_mesh)).cell_values,
+        dtype=float,
+    ) * 86400.0
+    k_min = float(min(np.nanmin(structured_values), np.nanmin(triangular_values)))
+    k_max = float(max(np.nanmax(structured_values), np.nanmax(triangular_values)))
+
+    depths = np.linspace(0.0, 50.0, 200, dtype=float)
+    profiles = [
+        (
+            "No profile",
+            FieldParam(identifier="K", kind="homogeneous", value="8.64 m/day"),
+            "-",
+        ),
+        (
+            "Exponential",
+            FieldParam(
+                identifier="K",
+                kind="homogeneous",
+                value="8.64 m/day",
+                vertical_profile={
+                    "mode": "exponential",
+                    "characteristic_depth": 18.0,
+                    "min_factor": 0.05,
+                },
+            ),
+            "--",
+        ),
+        (
+            "Tabulated",
+            FieldParam(
+                identifier="K",
+                kind="homogeneous",
+                value="8.64 m/day",
+                vertical_profile={
+                    "mode": "tabulated",
+                    "depths": [0.0, 10.0, 25.0, 50.0],
+                    "factors": [1.0, 0.75, 0.35, 0.15],
+                    "interpolation": "linear",
+                },
+            ),
+            ":",
+        ),
+    ]
+
+    unit_examples = [
+        ("K", "8.64 m/day", FieldParam(identifier="K", kind="homogeneous", value="8.64 m/day")),
+        ("K", "8640 mm/day", FieldParam(identifier="K", kind="homogeneous", value="8640 mm/day")),
+        ("K", "1.0e-4 m/s", FieldParam(identifier="K", kind="homogeneous", value="1.0e-4 m/s")),
+        ("Ss", "1.0e-6 cm-1", FieldParam(identifier="Ss", kind="homogeneous", value="1.0e-6 cm-1")),
+        ("Sy", "0.20 -", FieldParam(identifier="Sy", kind="homogeneous", value="0.20 -")),
+    ]
+
+    fig = plt.figure(figsize=(16.2, 11.0), dpi=150)
+    gs = fig.add_gridspec(2, 2, height_ratios=[1.05, 0.95], wspace=0.2, hspace=0.28)
+    ax_struct = fig.add_subplot(gs[0, 0])
+    ax_tri = fig.add_subplot(gs[0, 1])
+    ax_profile = fig.add_subplot(gs[1, 0])
+    ax_text = fig.add_subplot(gs[1, 1])
+
+    image_handle = structured_mesh.plot_cell_values(
+        ax_struct,
+        structured_values,
+        cmap="viridis",
+        show_mesh=True,
+        vmin=k_min,
+        vmax=k_max,
+    )
+    ax_struct.set_title("Structured mesh conductivity")
+    ax_struct.set_aspect("equal")
+
+    triangular_mesh.plot_cell_values(
+        ax_tri,
+        triangular_values,
+        cmap="viridis",
+        show_mesh=True,
+        vmin=k_min,
+        vmax=k_max,
+    )
+    ax_tri.set_title("Triangular mesh conductivity")
+    ax_tri.set_aspect("equal")
+
+    for label, parameter, linestyle in profiles:
+        profile_values = np.asarray(parameter.to_array(depth=depths), dtype=float) * 86400.0
+        ax_profile.plot(depths, profile_values, linestyle=linestyle, linewidth=2.0, label=label)
+    ax_profile.set_title("Depth-profile modes")
+    ax_profile.set_xlabel("Depth [m]")
+    ax_profile.set_ylabel("K [m/day]")
+    ax_profile.grid(True, alpha=0.25)
+    ax_profile.legend()
+
+    ax_text.axis("off")
+    unit_lines = ["Inline units normalized internally", ""]
+    for identifier, raw_value, parameter in unit_examples:
+        normalized = float(np.asarray(parameter.to_array(), dtype=float).reshape(-1)[0])
+        unit_lines.append(f"{identifier:<2} {raw_value:<12} -> {normalized:.3e} {parameter.unit}")
+    ax_text.text(
+        0.02,
+        0.98,
+        "\n".join(unit_lines),
+        transform=ax_text.transAxes,
+        ha="left",
+        va="top",
+        family="monospace",
+        fontsize=10.5,
+        bbox={"boxstyle": "round,pad=0.5", "fc": "#f7f7f7", "ec": "0.75"},
+    )
+
+    _add_horizontal_colorbar(fig, image_handle, axes=[ax_struct, ax_tri], label="K [m/day]")
+    fig.suptitle("Hydraulic property parameterizations", fontsize=15)
+    fig.subplots_adjust(top=0.92)
+    fig.savefig(figure_path, bbox_inches="tight")
+    plt.close(fig)
+
+    return _build_case_summary(
+        spec,
+        metrics_source={
+            "structured_cell_count": int(structured_mesh.n_cells),
+            "triangular_cell_count": int(triangular_mesh.n_cells),
+            "k_min_m_per_day": k_min,
+            "k_max_m_per_day": k_max,
+        },
+        metadata={
+            **dict(spec.metadata),
+            "unit_examples": [
+                {
+                    "identifier": identifier,
+                    "raw_value": raw_value,
+                    "normalized_value": float(np.asarray(parameter.to_array(), dtype=float).reshape(-1)[0]),
+                    "normalized_unit": parameter.unit,
+                }
+                for identifier, raw_value, parameter in unit_examples
+            ],
+            "vertical_profiles": [label for label, _, _ in profiles],
+        },
+    )
+
+
+def _generate_irregular_mesh_property_case(
+    spec: GalleryCaseSpec,
+    source_root: Path,
+) -> dict[str, Any]:
+    plt = _import_pyplot()
+
+    from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
+    from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
+    from hydromodpy.spatial.field.core.field_param import FieldParam
+
+    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path.parent.mkdir(parents=True, exist_ok=True)
+
+    field = FieldSquare(
+        line="diag_main",
+        zone1_side="positive",
+        identifier="field_square",
+        zone1_name="granite",
+        zone2_name="micaschists",
+    )
+    structured_mesh = FieldMeshSquare.from_unit_square(target_n_cells=64, mesh_kind="structured")
+    irregular_mesh = FieldMeshSquare.from_unit_square(
+        target_n_cells=160,
+        mesh_kind="triangular_unstructured",
+        seed=23,
+    )
+    conductivity = FieldParam(
+        identifier="K",
+        kind="heterogeneous",
+        values_by_key={"granite": "12 m/day", "micaschists": "2.5 m/day"},
+        field_spatial_id="field_square",
+    )
+    structured_values = np.asarray(
+        conductivity.to_mesh_field(field.on_mesh(structured_mesh)).cell_values,
+        dtype=float,
+    ) * 86400.0
+    irregular_values = np.asarray(
+        conductivity.to_mesh_field(field.on_mesh(irregular_mesh)).cell_values,
+        dtype=float,
+    ) * 86400.0
+    k_min = float(min(np.nanmin(structured_values), np.nanmin(irregular_values)))
+    k_max = float(max(np.nanmax(structured_values), np.nanmax(irregular_values)))
+
+    fig, axes = plt.subplots(1, 2, figsize=(15.8, 7.2), dpi=150)
+    ax_struct, ax_irregular = axes
+
+    image_handle = structured_mesh.plot_cell_values(
+        ax_struct,
+        structured_values,
+        cmap="viridis",
+        show_mesh=True,
+        vmin=k_min,
+        vmax=k_max,
+    )
+    ax_struct.set_title("Structured mesh conductivity")
+    ax_struct.set_aspect("equal")
+
+    irregular_mesh.plot_cell_values(
+        ax_irregular,
+        irregular_values,
+        cmap="viridis",
+        show_mesh=True,
+        vmin=k_min,
+        vmax=k_max,
+    )
+    ax_irregular.set_title("Irregular triangular conductivity")
+    ax_irregular.set_aspect("equal")
+
+    _add_horizontal_colorbar(fig, image_handle, axes=list(axes), label="K [m/day]")
+    fig.suptitle("Hydraulic conductivity on irregular supports", fontsize=15)
+    fig.subplots_adjust(top=0.9)
+    fig.savefig(figure_path, bbox_inches="tight")
+    plt.close(fig)
+
+    return _build_case_summary(
+        spec,
+        metrics_source={
+            "structured_cell_count": int(structured_mesh.n_cells),
+            "irregular_cell_count": int(irregular_mesh.n_cells),
+            "k_min_m_per_day": k_min,
+            "k_max_m_per_day": k_max,
+        },
+        metadata={
+            **dict(spec.metadata),
+            "irregular_mesh_seed": 23,
+        },
+    )
+
+
+def _generate_depth_dependence_property_case(
+    spec: GalleryCaseSpec,
+    source_root: Path,
+) -> dict[str, Any]:
+    plt = _import_pyplot()
+
+    from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
+    from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
+    from hydromodpy.spatial.field.core.field_param import FieldParam
+
+    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path.parent.mkdir(parents=True, exist_ok=True)
+
+    field = FieldSquare(
+        line="diag_main",
+        zone1_side="positive",
+        identifier="field_square",
+        zone1_name="granite",
+        zone2_name="micaschists",
+    )
+    mesh = FieldMeshSquare.from_unit_square(target_n_cells=96, mesh_kind="structured")
+    depth_m = float(spec.metadata.get("depth_m", 40.0))
+
+    exponential_param = FieldParam(
+        identifier="K",
+        kind="heterogeneous",
+        values_by_key={"granite": "15 m/day", "micaschists": "3 m/day"},
+        field_spatial_id="field_square",
+        vertical_profile={
+            "mode": "exponential",
+            "characteristic_depth": 22.0,
+            "min_factor": 0.08,
+        },
+    )
+    surface_values = np.asarray(
+        exponential_param.to_mesh_field(field.on_mesh(mesh), depth=0.0).cell_values,
+        dtype=float,
+    ) * 86400.0
+    deep_values = np.asarray(
+        exponential_param.to_mesh_field(field.on_mesh(mesh), depth=depth_m).cell_values,
+        dtype=float,
+    ) * 86400.0
+
+    depths = np.linspace(0.0, 60.0, 220, dtype=float)
+    exponential_profile = FieldParam(
+        identifier="K",
+        kind="homogeneous",
+        value="12 m/day",
+        vertical_profile={
+            "mode": "exponential",
+            "characteristic_depth": 22.0,
+            "min_factor": 0.08,
+        },
+    )
+    tabulated_profile = FieldParam(
+        identifier="K",
+        kind="homogeneous",
+        value="12 m/day",
+        vertical_profile={
+            "mode": "tabulated",
+            "depths": [0.0, 10.0, 25.0, 40.0, 60.0],
+            "factors": [1.0, 0.8, 0.55, 0.3, 0.15],
+            "interpolation": "linear",
+        },
+    )
+
+    fig = plt.figure(figsize=(17.0, 7.2), dpi=150)
+    gs = fig.add_gridspec(1, 3, width_ratios=[1.0, 1.0, 0.95], wspace=0.28)
+    ax_surface = fig.add_subplot(gs[0, 0])
+    ax_deep = fig.add_subplot(gs[0, 1])
+    ax_profile = fig.add_subplot(gs[0, 2])
+
+    k_min = float(min(np.nanmin(surface_values), np.nanmin(deep_values)))
+    k_max = float(max(np.nanmax(surface_values), np.nanmax(deep_values)))
+
+    image_handle = mesh.plot_cell_values(
+        ax_surface,
+        surface_values,
+        cmap="viridis",
+        show_mesh=True,
+        vmin=k_min,
+        vmax=k_max,
+    )
+    ax_surface.set_title("Surface K (0 m)")
+    ax_surface.set_aspect("equal")
+
+    mesh.plot_cell_values(
+        ax_deep,
+        deep_values,
+        cmap="viridis",
+        show_mesh=True,
+        vmin=k_min,
+        vmax=k_max,
+    )
+    ax_deep.set_title(f"Depth K ({depth_m:.0f} m)")
+    ax_deep.set_aspect("equal")
+
+    exp_profile_values = np.asarray(exponential_profile.to_array(depth=depths), dtype=float) * 86400.0
+    tab_profile_values = np.asarray(tabulated_profile.to_array(depth=depths), dtype=float) * 86400.0
+    ax_profile.plot(depths, exp_profile_values, linewidth=2.0, label="Exponential")
+    ax_profile.plot(depths, tab_profile_values, linewidth=2.0, linestyle="--", label="Tabulated")
+    ax_profile.axvline(depth_m, color="0.45", linestyle=":", linewidth=1.5)
+    ax_profile.set_title("Depth profiles")
+    ax_profile.set_xlabel("Depth [m]")
+    ax_profile.set_ylabel("K [m/day]")
+    ax_profile.grid(True, alpha=0.25)
+    ax_profile.legend()
+
+    _add_horizontal_colorbar(fig, image_handle, axes=[ax_surface, ax_deep], label="K [m/day]")
+    fig.suptitle("Depth-dependent hydraulic conductivity", fontsize=15)
+    fig.subplots_adjust(top=0.9)
+    fig.savefig(figure_path, bbox_inches="tight")
+    plt.close(fig)
+
+    return _build_case_summary(
+        spec,
+        metrics_source={
+            "mesh_cell_count": int(mesh.n_cells),
+            "k_surface_m_per_day": float(np.nanmean(surface_values)),
+            "k_deep_m_per_day": float(np.nanmean(deep_values)),
+            "depth_m": depth_m,
+        },
+        metadata={
+            **dict(spec.metadata),
+            "depth_profiles": ["exponential", "tabulated"],
+        },
+    )
+
+
+def _generate_geology_transfer_property_case(
+    spec: GalleryCaseSpec,
+    source_root: Path,
+) -> dict[str, Any]:
+    plt = _import_pyplot()
+
+    from hydromodpy.data.variables.geology.cases import run_geology_property_case as demo
+
+    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path.parent.mkdir(parents=True, exist_ok=True)
+    geology_config_path = _repo_path(str(spec.metadata["geology_config_path"]))
+    field_param_path = _repo_path(str(spec.metadata["field_param_config_path"]))
+
+    summary = _render_geology_transfer_demo(
+        demo=demo,
+        figure_path=figure_path,
+        geology_config_path=geology_config_path,
+        field_param_path=field_param_path,
+        window_km=20.0,
+        target_n_cells=400,
+        cell_samples_per_axis=6,
+    )
+    values = summary["values"]
+
+    return _build_case_summary(
+        spec,
+        metrics_source={
+            "n_polygons": int(summary["n_polygons"]),
+            "n_unique_zones": int(summary["n_unique_zones"]),
+            "n_mesh_cells": int(summary["n_mesh_cells"]),
+            "property_max": float(np.nanmax(values)),
+        },
+        metadata={
+            **dict(spec.metadata),
+            "field_id": str(summary["field_id"]),
+            "field_param_id": str(summary["field_param_id"]),
+            "property_min": float(np.nanmin(values)),
+            "property_mean": float(np.nanmean(values)),
+            "sea_info": _json_ready(summary["sea_info"]),
+        },
+    )
+
+
+def _render_geology_transfer_demo(
+    *,
+    demo,
+    figure_path: Path,
+    geology_config_path: Path,
+    field_param_path: Path,
+    window_km: float,
+    target_n_cells: int,
+    cell_samples_per_axis: int,
+) -> dict[str, Any]:
+    plt = _import_pyplot()
+    args = demo._parse_args(
+        [
+            "--geology-config-file",
+            str(geology_config_path),
+            "--field-param-config-file",
+            str(field_param_path),
+            "--window-km",
+            str(window_km),
+            "--target-n-cells",
+            str(target_n_cells),
+            "--cell-samples-per-axis",
+            str(cell_samples_per_axis),
+            "--output-file",
+            str(figure_path),
+            "--no-show-plot",
+        ]
+    )
+    loaded, gdf, _window_polygon, sea_info = demo._load_display_geology(args, geology_config_path)
+    field_param = demo._load_and_validate_field_param(
+        args,
+        field_param_path,
+        expected_field_id=str(loaded["field_id"]),
+    )
+    geology_field = demo._build_local_geology_field(
+        gdf,
+        identifier=str(loaded["field_id"]),
+        target_n_cells=int(args.target_n_cells),
+    )
+    mesh = demo.GeologyStructuredMesh.from_bounds(
+        gdf.total_bounds,
+        target_n_cells=int(args.target_n_cells),
+    )
+    discretized = geology_field.on_mesh(
+        mesh,
+        cell_samples_per_axis=max(2, int(args.cell_samples_per_axis)),
+    )
+    values_mesh = field_param.to_mesh_field(discretized)
+    values = np.asarray(values_mesh.cell_values, dtype=float).reshape(-1)
+
+    fig = plt.figure(figsize=(22.0, 7.6), dpi=160)
+    gs = fig.add_gridspec(1, 3, width_ratios=[1.25, 1.0, 1.35], wspace=0.2)
+    ax_left = fig.add_subplot(gs[0, 0])
+    ax_mid = fig.add_subplot(gs[0, 1])
+    ax_right = fig.add_subplot(gs[0, 2])
+    demo._plot_zone_map(ax_left, gdf)
+    ax_mid.axis("off")
+    ax_mid.text(
+        0.5,
+        0.5,
+        demo._values_panel_text(gdf, field_param),
+        transform=ax_mid.transAxes,
+        ha="center",
+        va="center",
+        fontsize=10.5,
+        family="monospace",
+        bbox={"boxstyle": "round,pad=0.55", "fc": "#f7f7f7", "ec": "0.70"},
+    )
+    image_handle = demo._plot_mesh_property_map(
+        ax_right,
+        mesh,
+        values_mesh,
+        property_label=str(field_param.identifier),
+    )
+    _add_horizontal_colorbar(fig, image_handle, axes=[ax_left, ax_right], label="K [m/day]")
+    fig.subplots_adjust(top=0.9)
+    fig.savefig(figure_path, bbox_inches="tight")
+    plt.close(fig)
+
+    return {
+        "values": values,
+        "n_polygons": int(len(gdf)),
+        "n_unique_zones": int(gdf["zone_key"].astype(str).nunique()),
+        "n_mesh_cells": int(mesh.n_cells),
+        "field_id": str(loaded["field_id"]),
+        "field_param_id": str(field_param.identifier),
+        "sea_info": _json_ready(sea_info),
+    }
+
+
+def _render_geology_bundle_variant(
+    *,
+    figure_path: Path,
+    bundle_path: Path,
+    title: str,
+) -> dict[str, Any]:
+    plt = _import_pyplot()
+    import matplotlib.tri as mtri
+    from tools.mesh_bundle_viewer.reader import load_catchment_mesh_bundle
+
+    bundle = load_catchment_mesh_bundle(bundle_path)
+    x, y, triangles, _areas = _triangulation_from_bundle(bundle)
+    triangulation = mtri.Triangulation(x, y, triangles=triangles)
+
+    geology_keys: list[str] = []
+    k_values: list[float] = []
+    for cell in bundle.cells:
+        if len(cell.node_indices) != 3:
+            continue
+        geology_keys.append(str(cell.geology_key))
+        if cell.hydraulic_conductivity_m_s is None:
+            k_values.append(float("nan"))
+        else:
+            k_values.append(float(cell.hydraulic_conductivity_m_s) * 86400.0)
+    geology_keys_arr = np.asarray(geology_keys, dtype=str)
+    unique_keys = sorted(set(geology_keys_arr.tolist()))
+    key_to_idx = {key: idx for idx, key in enumerate(unique_keys)}
+    geology_idx = np.asarray([key_to_idx.get(key, -1) for key in geology_keys_arr], dtype=float)
+    k_values_arr = np.asarray(k_values, dtype=float)
+
+    fig, axes = plt.subplots(1, 2, figsize=(18.0, 7.0), dpi=160)
+    ax_geo, ax_k = axes
+
+    geo_handle = ax_geo.tripcolor(
+        triangulation,
+        geology_idx,
+        shading="flat",
+        cmap="tab20",
+    )
+    ax_geo.set_title(f"{title} - geology zones")
+    ax_geo.set_aspect("equal")
+
+    k_handle = ax_k.tripcolor(
+        triangulation,
+        k_values_arr,
+        shading="flat",
+        cmap="viridis",
+    )
+    ax_k.set_title(f"{title} - conductivity (K)")
+    ax_k.set_aspect("equal")
+
+    fig.colorbar(k_handle, ax=ax_k, shrink=0.75, pad=0.02, label="K [m/day]")
+    fig.suptitle(title, fontsize=14)
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
+    fig.savefig(figure_path, bbox_inches="tight")
+    plt.close(fig)
+
+    return {
+        "n_unique_zones": int(len(unique_keys)),
+        "n_mesh_cells": int(len(k_values_arr)),
+        "property_max": float(np.nanmax(k_values_arr)) if k_values_arr.size else float("nan"),
+    }
+
+
+def _generate_geology_transfer_variants_property_case(
+    spec: GalleryCaseSpec,
+    source_root: Path,
+) -> dict[str, Any]:
+    from hydromodpy.data.variables.geology.cases import run_geology_property_case as demo
+
+    variant_specs = list(spec.metadata.get("variant_specs", []))
+    if len(variant_specs) != len(spec.image_assets):
+        raise ValueError("Variant specs and image assets must have the same length.")
+
+    metrics_reference: dict[str, Any] | None = None
+    tab_specs: list[dict[str, Any]] = []
+    variant_metrics: list[dict[str, Any]] = []
+
+    for variant, asset in zip(variant_specs, spec.image_assets, strict=False):
+        figure_path = source_root / _docs_relative_static_path(spec.category, asset.filename)
+        figure_path.parent.mkdir(parents=True, exist_ok=True)
+        variant_title = str(variant.get("title", asset.filename))
+
+        if str(variant.get("kind", "")).strip() == "brittany":
+            summary = _render_geology_transfer_demo(
+                demo=demo,
+                figure_path=figure_path,
+                geology_config_path=_repo_path(str(variant["geology_config_path"])),
+                field_param_path=_repo_path(str(variant["field_param_config_path"])),
+                window_km=20.0,
+                target_n_cells=420,
+                cell_samples_per_axis=6,
+            )
+            variant_metric = {
+                "title": variant_title,
+                "n_polygons": int(summary["n_polygons"]),
+                "n_unique_zones": int(summary["n_unique_zones"]),
+                "n_mesh_cells": int(summary["n_mesh_cells"]),
+                "property_max": float(np.nanmax(summary["values"])),
+            }
+        else:
+            bundle_summary = _render_geology_bundle_variant(
+                figure_path=figure_path,
+                bundle_path=_repo_path(str(variant["bundle_path"])),
+                title=variant_title,
+            )
+            variant_metric = {
+                "title": variant_title,
+                "n_polygons": 0,
+                "n_unique_zones": int(bundle_summary["n_unique_zones"]),
+                "n_mesh_cells": int(bundle_summary["n_mesh_cells"]),
+                "property_max": float(bundle_summary["property_max"]),
+            }
+
+        if metrics_reference is None:
+            metrics_reference = variant_metric
+        variant_metrics.append(variant_metric)
+        tab_specs.append({"title": variant_title, "filename": asset.filename})
+
+    if metrics_reference is None:
+        raise ValueError("No variant metrics were produced for geology_transfer_variants.")
+
+    return _build_case_summary(
+        spec,
+        metrics_source={
+            "n_polygons": int(metrics_reference["n_polygons"]),
+            "n_unique_zones": int(metrics_reference["n_unique_zones"]),
+            "n_mesh_cells": int(metrics_reference["n_mesh_cells"]),
+            "property_max": float(metrics_reference["property_max"]),
+        },
+        metadata={
+            **dict(spec.metadata),
+            "tab_specs": tab_specs,
+            "variant_metrics": variant_metrics,
+        },
+    )
+
+
+def _generate_property_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
+    property_case_kind = str(spec.metadata.get("property_case_kind", "")).strip()
+    if property_case_kind == "square_parameterizations":
+        return _generate_square_parameterizations_property_case(spec, source_root)
+    if property_case_kind == "irregular_mesh":
+        return _generate_irregular_mesh_property_case(spec, source_root)
+    if property_case_kind == "depth_dependence":
+        return _generate_depth_dependence_property_case(spec, source_root)
+    if property_case_kind == "geology_transfer_demo":
+        return _generate_geology_transfer_property_case(spec, source_root)
+    if property_case_kind == "geology_transfer_variants":
+        return _generate_geology_transfer_variants_property_case(spec, source_root)
+    raise ValueError(f"Unsupported property_case_kind '{property_case_kind}'")
+
+
+def _triangulation_from_bundle(bundle) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    node_ids = [node.node_id for node in bundle.nodes]
+    if not node_ids:
+        raise ValueError("Mesh bundle contains no nodes.")
+    node_index = {node_id: idx for idx, node_id in enumerate(node_ids)}
+    x = np.asarray([node.x for node in bundle.nodes], dtype=float)
+    y = np.asarray([node.y for node in bundle.nodes], dtype=float)
+    triangles: list[tuple[int, int, int]] = []
+    areas: list[float] = []
+    for cell in bundle.cells:
+        if len(cell.node_indices) != 3:
+            continue
+        try:
+            triangles.append(tuple(node_index[idx] for idx in cell.node_indices))
+            areas.append(float(cell.area_m2))
+        except KeyError:
+            continue
+    if not triangles:
+        raise ValueError("Mesh bundle contains no triangle cells.")
+    return x, y, np.asarray(triangles, dtype=int), np.asarray(areas, dtype=float)
+
+
+def _triangle_quality_metrics(
+    x: np.ndarray, y: np.ndarray, triangles: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    coords = np.column_stack((x, y))
+    min_angles: list[float] = []
+    aspect_ratios: list[float] = []
+    for tri in triangles:
+        vertices = coords[tri]
+        edges = np.vstack(
+            [
+                vertices[1] - vertices[0],
+                vertices[2] - vertices[1],
+                vertices[0] - vertices[2],
+            ]
+        )
+        lengths = np.sqrt(np.sum(edges**2, axis=1))
+        max_len = float(np.max(lengths))
+        min_len = float(np.min(lengths))
+        aspect_ratios.append(max_len / max(min_len, 1e-9))
+        a, b, c = lengths
+        cos_A = np.clip((b**2 + c**2 - a**2) / (2.0 * b * c), -1.0, 1.0)
+        cos_B = np.clip((a**2 + c**2 - b**2) / (2.0 * a * c), -1.0, 1.0)
+        cos_C = np.clip((a**2 + b**2 - c**2) / (2.0 * a * b), -1.0, 1.0)
+        angles = np.degrees(np.arccos([cos_A, cos_B, cos_C]))
+        min_angles.append(float(np.min(angles)))
+    return np.asarray(min_angles, dtype=float), np.asarray(aspect_ratios, dtype=float)
+
+
+def _generate_mesh_diagnostics_case(
+    spec: GalleryCaseSpec,
+    source_root: Path,
+) -> dict[str, Any]:
+    plt = _import_pyplot()
+    import matplotlib.tri as mtri
+
+    from tools.mesh_bundle_viewer.reader import load_catchment_mesh_bundle
+
+    bundle_path = _repo_path(str(spec.metadata["bundle_path"]))
+    bundle = load_catchment_mesh_bundle(bundle_path)
+    x, y, triangles, areas = _triangulation_from_bundle(bundle)
+    min_angles, aspect_ratios = _triangle_quality_metrics(x, y, triangles)
+
+    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path.parent.mkdir(parents=True, exist_ok=True)
+
+    triangulation = mtri.Triangulation(x, y, triangles=triangles)
+    area_log = np.log10(np.maximum(areas, 1e-9))
+    area_vmin, area_vmax = np.percentile(area_log, [5, 95])
+    aspect_vmax = float(np.percentile(aspect_ratios, 95))
+
+    fig = plt.figure(figsize=(16.5, 10.5), dpi=140)
+    gs = fig.add_gridspec(2, 2, height_ratios=[1.05, 0.95])
+    ax_area = fig.add_subplot(gs[0, 0])
+    ax_aspect = fig.add_subplot(gs[0, 1])
+    ax_hist_area = fig.add_subplot(gs[1, 0])
+    ax_hist_angle = fig.add_subplot(gs[1, 1])
+
+    area_handle = ax_area.tripcolor(
+        triangulation,
+        area_log,
+        shading="flat",
+        cmap="viridis",
+        vmin=area_vmin,
+        vmax=area_vmax,
+    )
+    ax_area.set_title("Log10 cell area [m2]")
+    ax_area.set_aspect("equal")
+
+    aspect_handle = ax_aspect.tripcolor(
+        triangulation,
+        aspect_ratios,
+        shading="flat",
+        cmap="magma",
+        vmin=1.0,
+        vmax=aspect_vmax,
+    )
+    ax_aspect.set_title("Aspect ratio (clipped at p95)")
+    ax_aspect.set_aspect("equal")
+
+    ax_hist_area.hist(area_log, bins=40, color="#4c78a8", alpha=0.9)
+    ax_hist_area.set_title("Cell area distribution (log10 m2)")
+    ax_hist_area.set_xlabel("log10(area)")
+    ax_hist_area.set_ylabel("Cell count")
+    ax_hist_area.grid(True, alpha=0.2)
+
+    ax_hist_angle.hist(min_angles, bins=40, color="#f58518", alpha=0.9)
+    ax_hist_angle.set_title("Minimum angle distribution")
+    ax_hist_angle.set_xlabel("Angle [deg]")
+    ax_hist_angle.set_ylabel("Cell count")
+    ax_hist_angle.grid(True, alpha=0.2)
+
+    fig.colorbar(area_handle, ax=ax_area, shrink=0.75, pad=0.02)
+    fig.colorbar(aspect_handle, ax=ax_aspect, shrink=0.75, pad=0.02)
+    fig.suptitle("Mesh quality diagnostics (triangle cells)", fontsize=15)
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.savefig(figure_path, bbox_inches="tight")
+    plt.close(fig)
+
+    min_angle_p05 = float(np.percentile(min_angles, 5))
+    aspect_p95 = float(np.percentile(aspect_ratios, 95))
+    area_p05 = float(np.percentile(areas, 5))
+
+    return _build_case_summary(
+        spec,
+        metrics_source={
+            "triangle_cell_count": int(len(triangles)),
+            "min_angle_p05_deg": min_angle_p05,
+            "aspect_ratio_p95": aspect_p95,
+            "area_p05_m2": area_p05,
+        },
+        metadata={
+            **dict(spec.metadata),
+            "area_log_range": [float(area_vmin), float(area_vmax)],
+        },
+    )
+
+
+def _bundle_edge_counts(bundle) -> dict[str, int]:
+    river_edges = 0
+    boundary_edges = 0
+    interface_edges = 0
+    for edge in bundle.edges:
+        if edge.is_river:
+            river_edges += 1
+        if str(edge.edge_kind).strip().lower() == "boundary":
+            boundary_edges += 1
+        if str(edge.geology_b_key).strip() and str(edge.geology_a_key).strip():
+            if str(edge.geology_a_key).strip() != str(edge.geology_b_key).strip():
+                interface_edges += 1
+    return {
+        "river_edge_count": int(river_edges),
+        "boundary_edge_count": int(boundary_edges),
+        "interface_edge_count": int(interface_edges),
+    }
+
+
+def _load_bundle_entry(entry: dict[str, Any]):
+    from tools.mesh_bundle_viewer.reader import load_catchment_mesh_bundle
+
+    bundle_path = _repo_path(str(entry["bundle_path"]))
+    bundle = load_catchment_mesh_bundle(bundle_path)
+    return bundle
+
+
+def _generate_mesh_constraint_balance_case(
+    spec: GalleryCaseSpec,
+    source_root: Path,
+) -> dict[str, Any]:
+    plt = _import_pyplot()
+
+    entries = list(spec.metadata.get("bundle_entries", []))
+    if not entries:
+        raise ValueError("mesh_constraint_balance_case requires bundle_entries metadata.")
+
+    labels: list[str] = []
+    river_counts: list[int] = []
+    boundary_counts: list[int] = []
+    interface_counts: list[int] = []
+    cell_counts: list[int] = []
+    bundle_metrics: list[dict[str, Any]] = []
+
+    for entry in entries:
+        bundle = _load_bundle_entry(entry)
+        counts = _bundle_edge_counts(bundle)
+        labels.append(str(entry.get("label", bundle.bundle_dir.name)))
+        river_counts.append(counts["river_edge_count"])
+        boundary_counts.append(counts["boundary_edge_count"])
+        interface_counts.append(counts["interface_edge_count"])
+        cell_counts.append(int(bundle.n_cells))
+        bundle_metrics.append(
+            {
+                "label": labels[-1],
+                "river_edge_count": counts["river_edge_count"],
+                "boundary_edge_count": counts["boundary_edge_count"],
+                "geology_interface_edge_count": counts["interface_edge_count"],
+                "cell_count": int(bundle.n_cells),
+            }
+        )
+
+    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path.parent.mkdir(parents=True, exist_ok=True)
+
+    fig, ax = plt.subplots(1, 1, figsize=(10.8, 6.8), dpi=140)
+    x = np.arange(len(labels), dtype=float)
+    ax.bar(x, boundary_counts, color="#9aa0a6", label="Boundary edges")
+    ax.bar(x, interface_counts, bottom=boundary_counts, color="#5c7cfa", label="Geology interfaces")
+    ax.bar(
+        x,
+        river_counts,
+        bottom=np.asarray(boundary_counts) + np.asarray(interface_counts),
+        color="#1f78b4",
+        label="River edges",
+    )
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=0)
+    ax.set_ylabel("Edge count")
+    ax.set_title("Constraint edge balance across scales")
+    ax.grid(True, axis="y", alpha=0.25)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(figure_path, bbox_inches="tight")
+    plt.close(fig)
+
+    reference = bundle_metrics[0]
+    return _build_case_summary(
+        spec,
+        metrics_source={
+            "river_edge_count": reference["river_edge_count"],
+            "geology_interface_edge_count": reference["geology_interface_edge_count"],
+            "boundary_edge_count": reference["boundary_edge_count"],
+            "cell_count": reference["cell_count"],
+        },
+        metadata={
+            **dict(spec.metadata),
+            "bundle_metrics": bundle_metrics,
+        },
+    )
+
+
+def _generate_mesh_resolution_case(
+    spec: GalleryCaseSpec,
+    source_root: Path,
+) -> dict[str, Any]:
+    plt = _import_pyplot()
+
+    entries = list(spec.metadata.get("bundle_entries", []))
+    if not entries:
+        raise ValueError("mesh_resolution_case requires bundle_entries metadata.")
+
+    labels: list[str] = []
+    area_stats: list[dict[str, Any]] = []
+    hist_series: list[np.ndarray] = []
+    bins = np.linspace(3.0, 9.0, 45, dtype=float)
+
+    for entry in entries:
+        bundle = _load_bundle_entry(entry)
+        areas = np.asarray([float(cell.area_m2) for cell in bundle.cells], dtype=float)
+        if areas.size == 0:
+            continue
+        areas = areas[np.isfinite(areas)]
+        labels.append(str(entry.get("label", bundle.bundle_dir.name)))
+        hist_series.append(np.log10(np.maximum(areas, 1e-9)))
+        area_stats.append(
+            {
+                "label": labels[-1],
+                "cell_count": int(areas.size),
+                "area_p10_m2": float(np.percentile(areas, 10)),
+                "area_median_m2": float(np.percentile(areas, 50)),
+                "area_p90_m2": float(np.percentile(areas, 90)),
+            }
+        )
+
+    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path.parent.mkdir(parents=True, exist_ok=True)
+
+    fig, (ax_hist, ax_table) = plt.subplots(1, 2, figsize=(15.8, 6.4), dpi=140, gridspec_kw={"width_ratios": [1.2, 0.8]})
+    colors = ["#4c78a8", "#f58518", "#54a24b", "#e45756"]
+    for idx, series in enumerate(hist_series):
+        ax_hist.hist(series, bins=bins, alpha=0.5, label=labels[idx], color=colors[idx % len(colors)])
+    ax_hist.set_title("Cell-area distributions (log10 m2)")
+    ax_hist.set_xlabel("log10(area)")
+    ax_hist.set_ylabel("Cell count")
+    ax_hist.grid(True, alpha=0.2)
+    ax_hist.legend()
+
+    ax_table.axis("off")
+    table_lines = ["Resolution summary", ""]
+    for stats in area_stats:
+        table_lines.append(
+            f"{stats['label']}: n={stats['cell_count']} "
+            f"p10={stats['area_p10_m2']:.2e} m2 "
+            f"p50={stats['area_median_m2']:.2e} m2 "
+            f"p90={stats['area_p90_m2']:.2e} m2"
+        )
+    ax_table.text(
+        0.02,
+        0.98,
+        "\n".join(table_lines),
+        transform=ax_table.transAxes,
+        ha="left",
+        va="top",
+        family="monospace",
+        fontsize=10.0,
+        bbox={"boxstyle": "round,pad=0.5", "fc": "#f7f7f7", "ec": "0.75"},
+    )
+
+    fig.suptitle("Resolution sensitivity across scales", fontsize=14)
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
+    fig.savefig(figure_path, bbox_inches="tight")
+    plt.close(fig)
+
+    reference = area_stats[0]
+    return _build_case_summary(
+        spec,
+        metrics_source={
+            "cell_count": reference["cell_count"],
+            "area_p10_m2": reference["area_p10_m2"],
+            "area_median_m2": reference["area_median_m2"],
+            "area_p90_m2": reference["area_p90_m2"],
+        },
+        metadata={
+            **dict(spec.metadata),
+            "area_stats": area_stats,
+        },
+    )
+
+
+def _select_zoom_bounds(
+    points: np.ndarray,
+    domain_bounds: tuple[float, float, float, float],
+    *,
+    zoom_fraction: float,
+    max_windows: int = 3,
+) -> list[tuple[float, float, float, float]]:
+    xmin, ymin, xmax, ymax = domain_bounds
+    width = xmax - xmin
+    height = ymax - ymin
+    zoom_w = width * zoom_fraction
+    zoom_h = height * zoom_fraction
+
+    if points.size == 0:
+        centers = np.array(
+            [
+                [xmin + 0.25 * width, ymin + 0.25 * height],
+                [xmin + 0.75 * width, ymin + 0.25 * height],
+                [xmin + 0.50 * width, ymin + 0.75 * height],
+            ]
+        )
+    else:
+        bins = 12
+        hist, xedges, yedges = np.histogram2d(points[:, 0], points[:, 1], bins=bins)
+        flat_indices = np.argsort(hist.ravel())[::-1]
+        centers = []
+        for flat_idx in flat_indices:
+            if len(centers) >= max_windows:
+                break
+            ix, iy = np.unravel_index(flat_idx, hist.shape)
+            if hist[ix, iy] == 0:
+                break
+            cx = 0.5 * (xedges[ix] + xedges[ix + 1])
+            cy = 0.5 * (yedges[iy] + yedges[iy + 1])
+            candidate = np.array([cx, cy])
+            if centers:
+                distances = [np.linalg.norm(candidate - np.array(center)) for center in centers]
+                if min(distances) < 0.35 * min(width, height) * zoom_fraction:
+                    continue
+            centers.append([cx, cy])
+        centers = np.asarray(centers, dtype=float)
+
+    bounds: list[tuple[float, float, float, float]] = []
+    for cx, cy in centers[:max_windows]:
+        bx_min = max(xmin, cx - 0.5 * zoom_w)
+        bx_max = min(xmax, cx + 0.5 * zoom_w)
+        by_min = max(ymin, cy - 0.5 * zoom_h)
+        by_max = min(ymax, cy + 0.5 * zoom_h)
+        bounds.append((bx_min, by_min, bx_max, by_max))
+    return bounds
+
+
+def _generate_mesh_zoom_case(
+    spec: GalleryCaseSpec,
+    source_root: Path,
+) -> dict[str, Any]:
+    plt = _import_pyplot()
+    import matplotlib.tri as mtri
+    from matplotlib.collections import LineCollection
+
+    bundle = _load_bundle_entry({"bundle_path": spec.metadata["bundle_path"]})
+    x, y, triangles, _areas = _triangulation_from_bundle(bundle)
+    triangulation = mtri.Triangulation(x, y, triangles=triangles)
+    domain_bounds = (float(x.min()), float(y.min()), float(x.max()), float(y.max()))
+
+    node_index = {node.node_id: idx for idx, node in enumerate(bundle.nodes)}
+    river_segments: list[np.ndarray] = []
+    interface_segments: list[np.ndarray] = []
+    river_midpoints: list[list[float]] = []
+    for edge in bundle.edges:
+        if edge.node_a not in node_index or edge.node_b not in node_index:
+            continue
+        a = node_index[edge.node_a]
+        b = node_index[edge.node_b]
+        seg = np.array([[x[a], y[a]], [x[b], y[b]]], dtype=float)
+        if edge.is_river:
+            river_segments.append(seg)
+            river_midpoints.append([(seg[0, 0] + seg[1, 0]) * 0.5, (seg[0, 1] + seg[1, 1]) * 0.5])
+        if str(edge.geology_b_key).strip() and str(edge.geology_a_key).strip():
+            if str(edge.geology_a_key).strip() != str(edge.geology_b_key).strip():
+                interface_segments.append(seg)
+
+    river_midpoints_arr = np.asarray(river_midpoints, dtype=float)
+    zoom_fraction = float(spec.metadata.get("zoom_fraction", 0.2))
+    zoom_bounds = _select_zoom_bounds(river_midpoints_arr, domain_bounds, zoom_fraction=zoom_fraction)
+
+    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path.parent.mkdir(parents=True, exist_ok=True)
+
+    fig = plt.figure(figsize=(16.8, 10.2), dpi=140)
+    gs = fig.add_gridspec(2, 2, height_ratios=[1.05, 0.95])
+    ax_full = fig.add_subplot(gs[0, 0])
+    ax_zoom1 = fig.add_subplot(gs[0, 1])
+    ax_zoom2 = fig.add_subplot(gs[1, 0])
+    ax_zoom3 = fig.add_subplot(gs[1, 1])
+    zoom_axes = [ax_zoom1, ax_zoom2, ax_zoom3]
+
+    ax_full.triplot(triangulation, color="0.65", linewidth=0.35)
+    if interface_segments:
+        ax_full.add_collection(LineCollection(interface_segments, colors="#5c7cfa", linewidths=0.5, alpha=0.8))
+    if river_segments:
+        ax_full.add_collection(LineCollection(river_segments, colors="#1f78b4", linewidths=0.7, alpha=0.9))
+    ax_full.set_title("Full mesh with river and interface edges")
+    ax_full.set_aspect("equal")
+
+    for ax, bounds in zip(zoom_axes, zoom_bounds):
+        ax.triplot(triangulation, color="0.65", linewidth=0.45)
+        if interface_segments:
+            ax.add_collection(LineCollection(interface_segments, colors="#5c7cfa", linewidths=0.7, alpha=0.85))
+        if river_segments:
+            ax.add_collection(LineCollection(river_segments, colors="#1f78b4", linewidths=1.0, alpha=0.95))
+        ax.set_xlim(bounds[0], bounds[2])
+        ax.set_ylim(bounds[1], bounds[3])
+        ax.set_aspect("equal")
+        ax.set_title("Zoom panel")
+
+    fig.suptitle("Mesh zoom panels", fontsize=15)
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
+    fig.savefig(figure_path, bbox_inches="tight")
+    plt.close(fig)
+
+    edge_counts = _bundle_edge_counts(bundle)
+    zoom_span_m = float(zoom_fraction * max(domain_bounds[2] - domain_bounds[0], domain_bounds[3] - domain_bounds[1]))
+    return _build_case_summary(
+        spec,
+        metrics_source={
+            "river_edge_count": edge_counts["river_edge_count"],
+            "interface_edge_count": edge_counts["interface_edge_count"],
+            "zoom_span_m": zoom_span_m,
+        },
+        metadata={
+            **dict(spec.metadata),
+            "zoom_bounds": zoom_bounds,
+        },
+    )
+
+
+def _load_geometry_layers(metadata: dict[str, Any]):
+    import geopandas as gpd
+
+    boundary = gpd.read_file(str(_repo_path(str(metadata["boundary_path"]))))
+    rivers_path = metadata.get("rivers_path")
+    rivers = (
+        gpd.read_file(str(_repo_path(str(rivers_path))))
+        if rivers_path
+        else gpd.GeoDataFrame(geometry=[], crs=boundary.crs)
+    )
+    geology = None
+    geology_path = metadata.get("geology_path")
+    if geology_path:
+        geology = gpd.read_file(str(_repo_path(str(geology_path))))
+
+    target_crs = boundary.crs or rivers.crs or (geology.crs if geology is not None else None)
+    if target_crs is not None:
+        if boundary.crs != target_crs:
+            boundary = boundary.to_crs(target_crs)
+        if rivers.crs != target_crs:
+            rivers = rivers.to_crs(target_crs)
+        if geology is not None and geology.crs != target_crs:
+            geology = geology.to_crs(target_crs)
+
+    boundary_geom = boundary.unary_union
+    rivers_clipped = gpd.clip(rivers, boundary_geom) if not rivers.empty else rivers
+    geology_clipped = None
+    if geology is not None:
+        geology_clipped = gpd.clip(geology, boundary_geom) if not geology.empty else geology
+
+    return boundary, boundary_geom, rivers_clipped, geology_clipped
+
+
+def _read_dem_for_plot(dem_path: Path, *, max_dim: int = 1200):
+    import rasterio
+    from rasterio.enums import Resampling
+
+    with rasterio.open(str(dem_path)) as src:
+        scale = max(float(src.width) / float(max_dim), float(src.height) / float(max_dim), 1.0)
+        out_height = max(1, int(round(float(src.height) / scale)))
+        out_width = max(1, int(round(float(src.width) / scale)))
+        read_kwargs: dict[str, object] = {}
+        if out_height != src.height or out_width != src.width:
+            read_kwargs = {"out_shape": (out_height, out_width), "resampling": Resampling.bilinear}
+        dem = src.read(1, **read_kwargs)
+        nodata = src.nodata
+        if nodata is not None:
+            dem = np.where(dem == nodata, np.nan, dem)
+        extent = (float(src.bounds.left), float(src.bounds.right), float(src.bounds.bottom), float(src.bounds.top))
+    return np.asarray(dem, dtype=float), extent
+
+
+def _read_dem_with_transform(dem_path: Path, *, max_dim: int = 1200):
+    dem, extent = _read_dem_for_plot(dem_path, max_dim=max_dim)
+    width = dem.shape[1]
+    height = dem.shape[0]
+    pixel_size_x = (extent[1] - extent[0]) / max(width, 1)
+    pixel_size_y = (extent[3] - extent[2]) / max(height, 1)
+    return dem, extent, float(pixel_size_x), float(pixel_size_y)
+
+
+def _generate_geometry_case(
+    spec: GalleryCaseSpec,
+    source_root: Path,
+) -> dict[str, Any]:
+    plt = _import_pyplot()
+    metadata = dict(spec.metadata)
+    geometry_case_kind = str(metadata.get("geometry_case_kind", "")).strip()
+
+    boundary, boundary_geom, rivers, geology = _load_geometry_layers(metadata)
+    boundary_area_km2 = float(boundary.area.sum() / 1e6)
+    river_length_km = float(rivers.length.sum() / 1e3) if not rivers.empty else 0.0
+
+    geology_unit_count = 0
+    if geology is not None and not geology.empty:
+        if "zone_key" in geology.columns:
+            geology_unit_count = int(geology["zone_key"].astype(str).nunique())
+        elif "geology_key" in geology.columns:
+            geology_unit_count = int(geology["geology_key"].astype(str).nunique())
+        else:
+            geology_unit_count = int(len(geology))
+
+    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path.parent.mkdir(parents=True, exist_ok=True)
+
+    dem_min = None
+    dem_max = None
+    if geometry_case_kind == "constraints_overview":
+        dem_path_value = metadata.get("dem_path")
+        show_context = bool(dem_path_value)
+        ncols = 3 if show_context else 2
+        fig, axes = plt.subplots(1, ncols, figsize=(19.5, 7.6), dpi=150)
+        ax_geo = axes[0]
+        ax_river = axes[1]
+        ax_context = axes[2] if show_context else None
+        if geology is not None and not geology.empty:
+            plot_geology = geology.copy()
+            if "zone_key" in plot_geology.columns:
+                plot_geology["zone_idx"] = plot_geology["zone_key"].astype("category").cat.codes
+            else:
+                plot_geology["zone_idx"] = np.arange(len(plot_geology))
+            plot_geology.plot(
+                column="zone_idx",
+                ax=ax_geo,
+                cmap="tab20",
+                linewidth=0.25,
+                edgecolor="0.35",
+                alpha=0.85,
+            )
+        boundary.boundary.plot(ax=ax_geo, color="black", linewidth=1.1)
+        ax_geo.set_title("Geology units clipped to the catchment")
+        ax_geo.set_aspect("equal")
+
+        if not rivers.empty:
+            rivers.plot(ax=ax_river, color="#1f78b4", linewidth=0.8, alpha=0.9)
+        boundary.boundary.plot(ax=ax_river, color="black", linewidth=1.1)
+        ax_river.set_title("Hydro network within the catchment")
+        ax_river.set_aspect("equal")
+
+        if show_context and ax_context is not None:
+            dem, extent = _read_dem_for_plot(_repo_path(str(dem_path_value)), max_dim=1400)
+            im = ax_context.imshow(dem, extent=extent, cmap="terrain", origin="upper")
+            boundary.boundary.plot(ax=ax_context, color="black", linewidth=1.0)
+            if not rivers.empty:
+                rivers.plot(ax=ax_context, color="#1f78b4", linewidth=0.6, alpha=0.85)
+            ax_context.set_title("Regional DEM context")
+            ax_context.set_aspect("equal")
+            fig.colorbar(im, ax=ax_context, shrink=0.75, pad=0.02, label="Elevation [m]")
+
+        for ax in axes:
+            ax.set_xlabel("x [m]")
+            ax.set_ylabel("y [m]")
+            ax.grid(False)
+
+        fig.suptitle("Catchment geometry constraints", fontsize=15)
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        fig.savefig(figure_path, bbox_inches="tight")
+        plt.close(fig)
+
+        metrics_source = {
+            "boundary_area_km2": boundary_area_km2,
+            "river_length_km": river_length_km,
+            "geology_unit_count": geology_unit_count,
+        }
+    elif geometry_case_kind == "topography_context":
+        dem_path = _repo_path(str(metadata["dem_path"]))
+        dem, extent, dx, dy = _read_dem_with_transform(dem_path, max_dim=1400)
+        dem_min = float(np.nanmin(dem))
+        dem_max = float(np.nanmax(dem))
+        filled = np.where(np.isfinite(dem), dem, np.nanmedian(dem))
+        dz_dy, dz_dx = np.gradient(filled, dy, dx)
+        slope = np.degrees(np.arctan(np.sqrt(dz_dx**2 + dz_dy**2)))
+
+        fig, axes = plt.subplots(1, 2, figsize=(16.5, 7.2), dpi=150)
+        ax_dem, ax_slope = axes
+        image_handle = ax_dem.imshow(
+            dem,
+            extent=extent,
+            cmap="terrain",
+            origin="upper",
+        )
+        boundary.boundary.plot(ax=ax_dem, color="black", linewidth=1.0)
+        ax_dem.set_title("Elevation context")
+        ax_dem.set_xlabel("x [m]")
+        ax_dem.set_ylabel("y [m]")
+        ax_dem.set_aspect("equal")
+        fig.colorbar(image_handle, ax=ax_dem, shrink=0.75, pad=0.02, label="Elevation [m]")
+
+        slope_handle = ax_slope.imshow(slope, extent=extent, cmap="magma", origin="upper")
+        boundary.boundary.plot(ax=ax_slope, color="black", linewidth=1.0)
+        ax_slope.set_title("Slope context")
+        ax_slope.set_xlabel("x [m]")
+        ax_slope.set_ylabel("y [m]")
+        ax_slope.set_aspect("equal")
+        fig.colorbar(slope_handle, ax=ax_slope, shrink=0.75, pad=0.02, label="Slope [deg]")
+
+        fig.suptitle("Catchment topography context", fontsize=15)
+        fig.tight_layout(rect=[0, 0, 1, 0.94])
+        fig.savefig(figure_path, bbox_inches="tight")
+        plt.close(fig)
+
+        metrics_source = {
+            "boundary_area_km2": boundary_area_km2,
+            "river_length_km": river_length_km,
+            "dem_min_m": dem_min,
+            "dem_max_m": dem_max,
+        }
+    elif geometry_case_kind == "hypsometry_indicators":
+        dem_path = _repo_path(str(metadata["dem_path"]))
+        dem, extent, dx, dy = _read_dem_with_transform(dem_path, max_dim=1400)
+        dem_min = float(np.nanmin(dem))
+        dem_max = float(np.nanmax(dem))
+        dem_range = dem_max - dem_min
+
+        try:
+            import rasterio
+            import rasterio.features
+            mask = rasterio.features.geometry_mask(
+                [boundary_geom],
+                transform=rasterio.transform.from_bounds(
+                    extent[0],
+                    extent[2],
+                    extent[1],
+                    extent[3],
+                    dem.shape[1],
+                    dem.shape[0],
+                ),
+                invert=True,
+                out_shape=dem.shape,
+            )
+        except Exception:
+            mask = np.ones_like(dem, dtype=bool)
+
+        dem_masked = np.where(mask, dem, np.nan)
+        filled = np.where(np.isfinite(dem_masked), dem_masked, np.nanmedian(dem_masked))
+        dz_dy, dz_dx = np.gradient(filled, dy, dx)
+        slope = np.degrees(np.arctan(np.sqrt(dz_dx**2 + dz_dy**2)))
+        slope = np.where(mask, slope, np.nan)
+
+        elevations = dem_masked[np.isfinite(dem_masked)]
+        if elevations.size == 0:
+            elevations = np.array([0.0])
+        elevations_sorted = np.sort(elevations)
+        cum_area = np.linspace(0.0, 1.0, elevations_sorted.size)
+
+        fig = plt.figure(figsize=(16.4, 6.6), dpi=140)
+        gs = fig.add_gridspec(1, 3, width_ratios=[1.1, 1.1, 0.9])
+        ax_dem = fig.add_subplot(gs[0, 0])
+        ax_slope = fig.add_subplot(gs[0, 1])
+        ax_curve = fig.add_subplot(gs[0, 2])
+
+        im_dem = ax_dem.imshow(dem_masked, extent=extent, cmap="terrain", origin="upper")
+        boundary.boundary.plot(ax=ax_dem, color="black", linewidth=0.9)
+        ax_dem.set_title("Masked elevation")
+        ax_dem.set_aspect("equal")
+
+        im_slope = ax_slope.imshow(slope, extent=extent, cmap="magma", origin="upper")
+        boundary.boundary.plot(ax=ax_slope, color="black", linewidth=0.9)
+        ax_slope.set_title("Slope [deg]")
+        ax_slope.set_aspect("equal")
+
+        ax_curve.plot(cum_area, elevations_sorted, color="#1f77b4", linewidth=2.0)
+        ax_curve.set_title("Hypsometric curve")
+        ax_curve.set_xlabel("Cumulative area fraction")
+        ax_curve.set_ylabel("Elevation [m]")
+        ax_curve.grid(True, alpha=0.25)
+
+        fig.colorbar(im_dem, ax=ax_dem, shrink=0.75, pad=0.02, label="Elevation [m]")
+        fig.colorbar(im_slope, ax=ax_slope, shrink=0.75, pad=0.02, label="Slope [deg]")
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        fig.savefig(figure_path, bbox_inches="tight")
+        plt.close(fig)
+
+        slope_mean = float(np.nanmean(slope))
+        slope_p90 = float(np.nanpercentile(slope, 90))
+        metrics_source = {
+            "boundary_area_km2": boundary_area_km2,
+            "slope_mean_deg": slope_mean,
+            "slope_p90_deg": slope_p90,
+            "dem_range_m": dem_range,
+        }
+    else:
+        raise ValueError(f"Unsupported geometry_case_kind '{geometry_case_kind}'")
+
+    return _build_case_summary(
+        spec,
+        metrics_source=metrics_source,
+        metadata={
+            **metadata,
+            "boundary_area_km2": boundary_area_km2,
+            "river_length_km": river_length_km,
+            "geology_unit_count": geology_unit_count,
+            "dem_min_m": dem_min,
+            "dem_max_m": dem_max,
+        },
+    )
+
+
+def _generate_method_comparison_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
+    from launchers.method_comparison.metrics import DETAIL_METRIC_FIELDS, SUMMARY_METRIC_FIELDS, write_metrics_csv
+    from launchers.method_comparison.runtime import write_observables_csv
+
+    config_path = _repo_path(str(spec.metadata["comparison_config_path"]))
+    manifest, metrics_payload, all_rows = _build_method_comparison_payload(config_path)
+    focus_variant_id = str(
+        spec.metadata.get("focus_variant_id")
+        or next(
+            (
+                row["variant_id"]
+                for row in metrics_payload["summary"]
+                if str(row.get("variant_id", "")) != str(metrics_payload.get("reference_variant", ""))
+            ),
+            "",
+        )
+    )
+    if focus_variant_id == "":
+        raise ValueError(f"No non-reference variant available for method comparison case '{spec.slug}'")
+
+    variant_labels = {
+        str(item.get("id", "")): str(item.get("label", item.get("id", "")))
+        for item in manifest["variants"]
+    }
+    focus_variant_label = variant_labels.get(focus_variant_id, focus_variant_id)
+    reference_variant = str(metrics_payload.get("reference_variant", ""))
+    reference_variant_label = variant_labels.get(reference_variant, reference_variant)
+
+    focus_summary_rows = [
+        row for row in metrics_payload["summary"] if str(row.get("variant_id", "")) == focus_variant_id
+    ]
+    focus_detail_rows = [
+        row for row in metrics_payload["differences"] if str(row.get("variant_id", "")) == focus_variant_id
+    ]
+    if not focus_summary_rows or not focus_detail_rows:
+        raise ValueError(
+            f"Method comparison case '{spec.slug}' produced no comparable rows for '{focus_variant_id}'."
+        )
+
+    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    _render_method_comparison_figure(
+        figure_path=figure_path,
+        case_title=spec.title,
+        focus_variant_label=focus_variant_label,
+        reference_variant_label=reference_variant_label,
+        summary_rows=focus_summary_rows,
+        detail_rows=focus_detail_rows,
+    )
+
+    static_dir = source_root / Path("_static") / "capability_gallery" / spec.category
+    static_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = static_dir / f"{spec.slug}_comparison_manifest.json"
+    metrics_path = static_dir / f"{spec.slug}_comparison_metrics.json"
+    observables_path = static_dir / f"{spec.slug}_observables.csv"
+    summary_csv_path = static_dir / f"{spec.slug}_summary_metrics.csv"
+    differences_csv_path = static_dir / f"{spec.slug}_difference_metrics.csv"
+    _write_json(manifest_path, manifest)
+    _write_json(metrics_path, metrics_payload)
+    write_observables_csv(observables_path, all_rows)
+    write_metrics_csv(summary_csv_path, focus_summary_rows, fieldnames=SUMMARY_METRIC_FIELDS)
+    write_metrics_csv(differences_csv_path, focus_detail_rows, fieldnames=DETAIL_METRIC_FIELDS)
+
+    metrics_override: list[dict[str, Any]] = []
+    for row in focus_summary_rows:
+        observable_label = _humanize_case_token(str(row["observable"]))
+        unit = str(row.get("unit", "")).strip()
+        metrics_override.append(
+            {
+                "label": f"{observable_label} RMSE",
+                "key": f"{row['observable']}_rmse",
+                "value": float(row["rmse"]),
+                "display": _format_metric_display(row["rmse"], unit),
+            }
+        )
+        metrics_override.append(
+            {
+                "label": f"{observable_label} MAE",
+                "key": f"{row['observable']}_mae",
+                "value": float(row["mae"]),
+                "display": _format_metric_display(row["mae"], unit),
+            }
+        )
+
+    return _build_case_summary(
+        spec,
+        metrics_source=None,
+        metrics_override=metrics_override,
+        metadata={
+            **dict(spec.metadata),
+            "comparison_id": manifest["comparison_id"],
+            "reference_variant": reference_variant,
+            "reference_variant_label": reference_variant_label,
+            "focus_variant_id": focus_variant_id,
+            "focus_variant_label": focus_variant_label,
+            "variant_labels": variant_labels,
+            "observable_names": [str(item["name"]) for item in manifest["observables"]],
+            "n_observable_rows": int(manifest["n_observable_rows"]),
+            "n_difference_rows": int(manifest["n_difference_rows"]),
+        },
+        extra_summary={
+            "artifacts": {
+                "summary_json_doc_path": "/" + _docs_relative_static_path(spec.category, f"{spec.slug}_summary.json"),
+                "summary_json_repo_path": _repo_docs_artifact_path(spec.category, f"{spec.slug}_summary.json"),
+                "image_repo_paths": [_repo_docs_artifact_path(spec.category, spec.image_assets[0].filename)],
+                "extra_repo_paths": [
+                    _repo_docs_artifact_path(spec.category, f"{spec.slug}_comparison_manifest.json"),
+                    _repo_docs_artifact_path(spec.category, f"{spec.slug}_comparison_metrics.json"),
+                    _repo_docs_artifact_path(spec.category, f"{spec.slug}_observables.csv"),
+                    _repo_docs_artifact_path(spec.category, f"{spec.slug}_summary_metrics.csv"),
+                    _repo_docs_artifact_path(spec.category, f"{spec.slug}_difference_metrics.csv"),
+                ],
+            },
+        },
+    )
+
+
 def _generate_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
     if spec.generator == "mesh_viewer":
         return _generate_mesh_viewer_case(spec, source_root)
@@ -564,6 +2401,20 @@ def _generate_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
         return _generate_copy_assets_case(spec, source_root)
     if spec.generator == "validation_case":
         return _generate_validation_case(spec, source_root)
+    if spec.generator == "property_case":
+        return _generate_property_case(spec, source_root)
+    if spec.generator == "mesh_diagnostics_case":
+        return _generate_mesh_diagnostics_case(spec, source_root)
+    if spec.generator == "mesh_constraint_balance_case":
+        return _generate_mesh_constraint_balance_case(spec, source_root)
+    if spec.generator == "mesh_resolution_case":
+        return _generate_mesh_resolution_case(spec, source_root)
+    if spec.generator == "mesh_zoom_case":
+        return _generate_mesh_zoom_case(spec, source_root)
+    if spec.generator == "geometry_case":
+        return _generate_geometry_case(spec, source_root)
+    if spec.generator == "method_comparison_case":
+        return _generate_method_comparison_case(spec, source_root)
     raise ValueError(f"Unsupported gallery generator kind: {spec.generator}")
 
 
@@ -708,11 +2559,18 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
             "HydroModPy can do without requiring notebook execution during the documentation build."
         ),
         "",
+        ".. seealso::",
+        "   New to HydroModPy? Start with :doc:`the getting started guide </getting_started/index>` "
+        "if you need help choosing a first workflow, reading the key parameters, or navigating the "
+        "different example families.",
+        "",
         ".. grid:: 1 1 2 3",
         "   :gutter: 2 2 3 3",
         "",
     ]
-    for category_slug in ("mesh", "validation", "geographic"):
+    for category_slug, category in CATEGORY_SPECS.items():
+        if not cases_by_category.get(category_slug):
+            continue
         category = CATEGORY_SPECS[category_slug]
         lines.extend(
             _render_grid_card(
@@ -729,7 +2587,7 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
             "",
         ]
     )
-    for category_slug in ("mesh", "validation", "geographic"):
+    for category_slug in CATEGORY_SPECS:
         if cases_by_category.get(category_slug):
             lines.append(f"   {category_slug}")
     return "\n".join(lines)
@@ -748,6 +2606,16 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
         category.intro,
         "",
     ]
+    if category.guide_doc:
+        guide_title = category.guide_title or "the guided walkthrough"
+        guide_doc = _absolute_docname(category.guide_doc)
+        lines.extend(
+            [
+                ".. seealso::",
+                f"   Read :doc:`{guide_title} <{guide_doc}>` if you want a guided entry point before opening the case pages below.",
+                "",
+            ]
+        )
 
     if category_slug == "mesh":
         imported_scale_labels = sorted(
@@ -954,6 +2822,95 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
         else:
             lines.append("- No committed validation batch reports yet.")
         lines.append("")
+    elif category_slug == "geometry":
+        layers = sorted(
+            {
+                str(case.get("metadata", {}).get("geometry_case_kind", "")).strip()
+                for case in cases
+                if str(case.get("metadata", {}).get("geometry_case_kind", "")).strip()
+            }
+        )
+        lines.extend(
+            [
+                "Current Coverage",
+                "----------------",
+                "",
+                "- Geometry layers: " + (", ".join(layers) if layers else "none yet") + ".",
+                "- These cases intentionally avoid mesh overlays to highlight raw geometry inputs.",
+                "",
+            ]
+        )
+    elif category_slug == "hydraulic_properties":
+        parameter_ids = sorted(
+            {
+                str(parameter_id)
+                for case in cases
+                for parameter_id in case.get("metadata", {}).get("parameter_ids", [])
+            }
+        )
+        parameterization_modes = sorted(
+            {
+                str(mode)
+                for case in cases
+                for mode in case.get("metadata", {}).get("parameterization_modes", [])
+            }
+        )
+        supports = sorted(
+            {
+                str(support)
+                for case in cases
+                for support in case.get("metadata", {}).get("supports", [])
+            }
+        )
+        lines.extend(
+            [
+                "Current Coverage",
+                "----------------",
+                "",
+                "- Parameters illustrated: " + (", ".join(parameter_ids) if parameter_ids else "none yet") + ".",
+                "- Parameterization modes: "
+                + (", ".join(parameterization_modes) if parameterization_modes else "none yet")
+                + ".",
+                "- Spatial supports: " + (", ".join(supports) if supports else "none yet") + ".",
+                "",
+            ]
+        )
+    elif category_slug == "method_comparison":
+        study_areas = sorted(
+            {
+                str(case.get("metadata", {}).get("study_area", "")).strip()
+                for case in cases
+                if str(case.get("metadata", {}).get("study_area", "")).strip()
+            }
+        )
+        observable_names = sorted(
+            {
+                _humanize_case_token(str(observable))
+                for case in cases
+                for observable in case.get("metadata", {}).get("observable_names", [])
+            }
+        )
+        variant_labels = sorted(
+            {
+                str(label)
+                for case in cases
+                for label in case.get("metadata", {}).get("variant_labels", {}).values()
+            }
+        )
+        lines.extend(
+            [
+                "Current Coverage",
+                "----------------",
+                "",
+                "- Study areas: " + (", ".join(study_areas) if study_areas else "none yet") + ".",
+                "- Compared variants: " + (", ".join(variant_labels) if variant_labels else "none yet") + ".",
+                "- Compared observables: "
+                + (", ".join(observable_names) if observable_names else "none yet")
+                + ".",
+                "- Add one committed comparison TOML per basin to extend this section without changing the page generator.",
+                "",
+            ]
+        )
 
     if cases:
         lines.extend(
@@ -1016,6 +2973,34 @@ def _append_mesh_tab_images(
         _append_figure(lines, images[1], indent=indent, width="35%")
 
 
+def _append_tabbed_images(
+    lines: list[str],
+    image_map: dict[str, dict[str, Any]],
+    tab_specs: list[dict[str, Any]],
+) -> None:
+    if not tab_specs:
+        return
+    lines.extend(
+        [
+            ".. tab-set::",
+            "",
+        ]
+    )
+    for tab in tab_specs:
+        title = str(tab.get("title", "Variant"))
+        filename = str(tab.get("filename", "")).strip()
+        image = image_map.get(filename)
+        if image is None:
+            continue
+        lines.extend(
+            [
+                f"   .. tab-item:: {title}",
+                "",
+            ]
+        )
+        _append_figure(lines, image, indent="      ")
+
+
 def _render_validation_solver_block(run: dict[str, Any], *, indent: str = "") -> list[str]:
     lines: list[str] = []
     image = run.get("image")
@@ -1051,8 +3036,950 @@ def _render_validation_solver_block(run: dict[str, Any], *, indent: str = "") ->
     return lines
 
 
+def _literal_cell(text: Any) -> str:
+    raw = str(text).strip()
+    if not raw:
+        return ""
+    return f"``{raw}``"
+
+
+def _append_parameter_table(lines: list[str], rows: list[dict[str, Any]], *, indent: str = "") -> None:
+    if not rows:
+        return
+    lines.extend(
+        [
+            f"{indent}.. list-table::",
+            f"{indent}   :header-rows: 1",
+            f"{indent}   :widths: 26 42 20 12",
+            "",
+            f"{indent}   * - Field",
+            f"{indent}     - Meaning",
+            f"{indent}     - Value",
+            f"{indent}     - Source",
+        ]
+    )
+    for row in rows:
+        lines.extend(
+            [
+                f"{indent}   * - {_literal_cell(row.get('field', ''))}",
+                f"{indent}     - {row.get('meaning', '')}",
+                f"{indent}     - {row.get('value', '')}",
+                f"{indent}     - {_literal_cell(row.get('source', ''))}",
+            ]
+        )
+    lines.append("")
+
+
+def _append_parameter_tabs(
+    lines: list[str],
+    sections: dict[str, list[dict[str, Any]]],
+    *,
+    solver_display_names: dict[str, str],
+    empty_message: str,
+) -> None:
+    if not sections:
+        return
+    lines.extend(
+        [
+            ".. tab-set::",
+            "",
+        ]
+    )
+    for solver, display_name in solver_display_names.items():
+        rows = list(sections.get(solver, []))
+        lines.extend(
+            [
+                f"   .. tab-item:: {display_name}",
+                "",
+            ]
+        )
+        if rows:
+            _append_parameter_table(lines, rows, indent="      ")
+        else:
+            lines.extend(
+                [
+                    f"      - {empty_message}",
+                    "",
+                ]
+            )
+
+
+def _is_empty_parameter_value(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value.strip() == ""
+    if isinstance(value, (list, tuple, set, dict)):
+        return len(value) == 0
+    if isinstance(value, (float, np.floating)):
+        return not np.isfinite(float(value))
+    return False
+
+
+def _format_case_parameter_value(value: Any) -> str:
+    if _is_empty_parameter_value(value):
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, np.integer)):
+        return str(int(value))
+    if isinstance(value, (float, np.floating)):
+        return f"{float(value):.6g}"
+    if isinstance(value, (list, tuple, set)):
+        rendered = [_format_case_parameter_value(item) for item in value]
+        return ", ".join(item for item in rendered if item)
+    if isinstance(value, dict):
+        parts = []
+        for key, item in value.items():
+            rendered = _format_case_parameter_value(item)
+            if rendered:
+                parts.append(f"{key}={rendered}")
+        return ", ".join(parts)
+    return str(value)
+
+
+def _add_parameter_row(
+    rows: list[dict[str, Any]],
+    *,
+    field: str,
+    meaning: str,
+    value: Any,
+    source: str,
+) -> None:
+    if _is_empty_parameter_value(value):
+        return
+    rows.append(
+        {
+            "field": field,
+            "meaning": meaning,
+            "value": _format_case_parameter_value(value),
+            "source": source,
+        }
+    )
+
+
+def _find_first_source_path(
+    case: dict[str, Any],
+    *,
+    suffix: str | None = None,
+    contains: str | None = None,
+) -> str | None:
+    for path in case.get("source_paths", []):
+        text = str(path)
+        if suffix and not text.endswith(suffix):
+            continue
+        if contains and contains not in text:
+            continue
+        return text
+    return None
+
+
+def _load_plain_toml(relative_path: str | None) -> dict[str, Any]:
+    if not relative_path:
+        return {}
+    try:
+        return tomllib.loads(_repo_path(relative_path).read_text(encoding="utf-8-sig"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+
+
+def _load_toml_with_base(relative_path: str | None) -> dict[str, Any]:
+    if not relative_path:
+        return {}
+    try:
+        from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+
+        return load_toml_with_base_config(_repo_path(relative_path))
+    except Exception:
+        return {}
+
+
+def _lookup_path(payload: Any, *tokens: str | int) -> Any:
+    current = payload
+    for token in tokens:
+        if isinstance(current, dict):
+            current = current.get(token)
+            continue
+        if isinstance(current, list):
+            try:
+                index = int(token)
+            except (TypeError, ValueError):
+                return None
+            if index < 0 or index >= len(current):
+                return None
+            current = current[index]
+            continue
+        return None
+    return current
+
+
+def _summary_source_path(case: dict[str, Any]) -> str:
+    return str(case.get("artifacts", {}).get("summary_json_repo_path", "")).strip()
+
+
+def _metric_rows(case: dict[str, Any], *, meaning: str = "Metric displayed on this page.") -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    source = _summary_source_path(case)
+    for metric in case.get("metrics", []):
+        _add_parameter_row(
+            rows,
+            field=str(metric.get("key", metric.get("label", ""))),
+            meaning=meaning,
+            value=metric.get("display", metric.get("value")),
+            source=source,
+        )
+    return rows
+
+
+def _build_geographic_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
+    config_path = _find_first_source_path(case, suffix="project.toml")
+    config = _load_plain_toml(config_path)
+    if not config:
+        return {}
+
+    geographic = dict(config.get("geographic", {}))
+    domain = dict(config.get("domain", {}))
+    depth_model = dict(domain.get("depth_model", {}))
+    data_cfg = dict(config.get("data", {}))
+
+    selected_rows: list[dict[str, Any]] = []
+    _add_parameter_row(
+        selected_rows,
+        field="[geographic] catch_def",
+        meaning="Watershed extraction mode used to derive the basin from the outlet definition.",
+        value=geographic.get("catch_def"),
+        source=config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[geographic] x_outlet",
+        meaning="Projected x coordinate of the outlet used by watershed extraction.",
+        value=geographic.get("x_outlet"),
+        source=config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[geographic] y_outlet",
+        meaning="Projected y coordinate of the outlet used by watershed extraction.",
+        value=geographic.get("y_outlet"),
+        source=config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[geographic] snap_dist",
+        meaning="Maximum snapping distance used to align the requested outlet with the drainage network.",
+        value=geographic.get("snap_dist"),
+        source=config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[geographic] buff_area",
+        meaning="Extra area kept around the watershed to preserve regional context in overview figures.",
+        value=geographic.get("buff_area"),
+        source=config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[domain] zone_ids",
+        meaning="Domain layers kept on the spatial support before any meshing or solving stage.",
+        value=domain.get("zone_ids"),
+        source=config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[domain.depth_model] type",
+        meaning="Depth-model strategy used to define the vertical support of the basin.",
+        value=depth_model.get("type"),
+        source=config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[domain.depth_model] thickness",
+        meaning="Constant basin thickness assigned by the depth model when that mode is selected.",
+        value=depth_model.get("thickness"),
+        source=config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[data] types",
+        meaning="Families of data loaded during the data-overview workflow.",
+        value=data_cfg.get("types"),
+        source=config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[data] inference_mode",
+        meaning="Policy controlling how strictly the data-loading stage resolves requested layers.",
+        value=data_cfg.get("inference_mode"),
+        source=config_path or "",
+    )
+
+    window_rows: list[dict[str, Any]] = []
+    for section_name in ("hydrometry", "intermittency", "oceanic"):
+        section = dict(data_cfg.get(section_name, {}))
+        _add_parameter_row(
+            window_rows,
+            field=f"[data.{section_name}] date_start",
+            meaning=f"Start date used when querying {section_name} observations for this case.",
+            value=section.get("date_start"),
+            source=config_path or "",
+        )
+        _add_parameter_row(
+            window_rows,
+            field=f"[data.{section_name}] date_end",
+            meaning=f"End date used when querying {section_name} observations for this case.",
+            value=section.get("date_end"),
+            source=config_path or "",
+        )
+
+    sections: list[dict[str, Any]] = []
+    if selected_rows:
+        sections.append({"title": "Selected Parameters", "rows": selected_rows})
+    if window_rows:
+        sections.append({"title": "Observation Windows", "rows": window_rows})
+    return {"sections": sections} if sections else {}
+
+
+def _build_simulation_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
+    run_config_path = _find_first_source_path(case, suffix=".toml", contains="run_")
+    shared_config_path = _find_first_source_path(case, suffix="config_mf6_mesh_catchment_common.toml")
+    payload = _load_toml_with_base(run_config_path)
+    if not payload:
+        return {}
+
+    recharge_source = _lookup_path(payload, "data", "recharge", "sources", 0) or {}
+    time_cfg = _lookup_path(payload, "simulation", "time") or {}
+
+    selected_rows: list[dict[str, Any]] = []
+    _add_parameter_row(
+        selected_rows,
+        field="[simulation.time] start_datetime",
+        meaning="Start of the simulated period used by the flow and transport run.",
+        value=time_cfg.get("start_datetime"),
+        source=run_config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[simulation.time] end_datetime",
+        meaning="End of the simulated period used by the flow and transport run.",
+        value=time_cfg.get("end_datetime"),
+        source=run_config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[simulation.time] step_value",
+        meaning="Nominal time step used to discretize the simulation period.",
+        value=time_cfg.get("step_value"),
+        source=run_config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[data.recharge.sources] values",
+        meaning="Synthetic recharge sequence injected into the run over the configured time support.",
+        value=recharge_source.get("values"),
+        source=run_config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[data.recharge.sources] freq",
+        meaning="Temporal frequency used to interpret the synthetic recharge sequence.",
+        value=recharge_source.get("freq"),
+        source=run_config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[data.recharge.sources] runoff_ratio",
+        meaning="Fraction of recharge redirected to runoff rather than infiltration.",
+        value=recharge_source.get("runoff_ratio"),
+        source=run_config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[flow.param.K.field_homogeneous] value",
+        meaning="Homogeneous hydraulic conductivity used by the flow model in this tutorial run.",
+        value=_lookup_path(payload, "flow", "param", "K", "field_homogeneous", "value"),
+        source=run_config_path or "",
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[flow.param.Sy.field_homogeneous] value",
+        meaning="Specific yield used to control the free-surface response of the aquifer.",
+        value=_lookup_path(payload, "flow", "param", "Sy", "field_homogeneous", "value"),
+        source=run_config_path or "",
+    )
+
+    mesh_rows: list[dict[str, Any]] = []
+    mesh_source = shared_config_path or run_config_path or ""
+    _add_parameter_row(
+        mesh_rows,
+        field="[mesh_catchment] constraints_mode",
+        meaning="Constraint family activated when building the runtime Gmsh support.",
+        value=_lookup_path(payload, "mesh_catchment", "constraints_mode"),
+        source=mesh_source,
+    )
+    _add_parameter_row(
+        mesh_rows,
+        field="[mesh_catchment.zone_meshing] global_size",
+        meaning="Target background edge size used by the conformal meshing policy.",
+        value=_lookup_path(payload, "mesh_catchment", "zone_meshing", "global_size"),
+        source=mesh_source,
+    )
+    _add_parameter_row(
+        mesh_rows,
+        field="[mesh_catchment.zone_meshing] min_size",
+        meaning="Lower bound applied to local mesh refinement.",
+        value=_lookup_path(payload, "mesh_catchment", "zone_meshing", "min_size"),
+        source=mesh_source,
+    )
+    _add_parameter_row(
+        mesh_rows,
+        field="[mesh_catchment.zone_meshing] max_size",
+        meaning="Upper bound applied to local mesh coarsening.",
+        value=_lookup_path(payload, "mesh_catchment", "zone_meshing", "max_size"),
+        source=mesh_source,
+    )
+    _add_parameter_row(
+        mesh_rows,
+        field="[capability_gallery] assets",
+        meaning="Subset of run outputs copied into the static documentation gallery.",
+        value=_lookup_path(payload, "capability_gallery", "assets"),
+        source=run_config_path or "",
+    )
+
+    sections: list[dict[str, Any]] = []
+    if selected_rows:
+        sections.append({"title": "Selected Parameters", "rows": selected_rows})
+    if mesh_rows:
+        sections.append({"title": "Mesh and Output Selection", "rows": mesh_rows})
+    return {"sections": sections} if sections else {}
+
+
+def _build_method_comparison_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
+    config_path = str(case.get("metadata", {}).get("comparison_config_path", "")).strip()
+    if not config_path:
+        config_path = _find_first_source_path(case, suffix=".toml") or ""
+    payload = _load_plain_toml(config_path)
+    comparison_cfg = dict(payload.get("method_comparison", {}))
+    if not comparison_cfg:
+        return {}
+
+    setup_rows: list[dict[str, Any]] = []
+    _add_parameter_row(
+        setup_rows,
+        field="[method_comparison] comparison_id",
+        meaning="Stable identifier used to collect outputs and summary artifacts for the comparison.",
+        value=comparison_cfg.get("comparison_id"),
+        source=config_path,
+    )
+    _add_parameter_row(
+        setup_rows,
+        field="[method_comparison] reference_variant",
+        meaning="Variant used as the baseline when computing map-wise differences and error metrics.",
+        value=comparison_cfg.get("reference_variant"),
+        source=config_path,
+    )
+    _add_parameter_row(
+        setup_rows,
+        field="[method_comparison] run_variants",
+        meaning="Whether the launcher reruns the variants or only reuses committed run folders.",
+        value=comparison_cfg.get("run_variants"),
+        source=config_path,
+    )
+    _add_parameter_row(
+        setup_rows,
+        field="study_area",
+        meaning="Study area summarized by the gallery page for this comparison case.",
+        value=case.get("metadata", {}).get("study_area"),
+        source=_summary_source_path(case),
+    )
+
+    variant_rows: list[dict[str, Any]] = []
+    for variant in comparison_cfg.get("variant", []):
+        variant_id = str(variant.get("id", "")).strip()
+        if not variant_id:
+            continue
+        value = (
+            f"{variant.get('label', variant_id)}; solver={variant.get('solver')}; "
+            f"mesh_mode={variant.get('mesh_mode')}; run_folder={variant.get('run_folder')}"
+        )
+        _add_parameter_row(
+            variant_rows,
+            field=f"variant.{variant_id}",
+            meaning="Compared run folder and solver definition used by the method-comparison launcher.",
+            value=value,
+            source=config_path,
+        )
+
+    observable_rows: list[dict[str, Any]] = []
+    for observable in comparison_cfg.get("observable", []):
+        name = str(observable.get("name", "")).strip()
+        if not name:
+            continue
+        value = (
+            f"variable={observable.get('variable')}; support={observable.get('support')}; "
+            f"time={observable.get('time')}; unit={observable.get('unit')}"
+        )
+        _add_parameter_row(
+            observable_rows,
+            field=f"observable.{name}",
+            meaning="Observable extracted from each run before parity plots and difference metrics are computed.",
+            value=value,
+            source=config_path,
+        )
+
+    sections: list[dict[str, Any]] = []
+    if setup_rows:
+        sections.append({"title": "Comparison Setup", "rows": setup_rows})
+    if variant_rows:
+        sections.append({"title": "Compared Variants", "rows": variant_rows})
+    if observable_rows:
+        sections.append({"title": "Compared Observables", "rows": observable_rows})
+    return {"sections": sections} if sections else {}
+
+
+def _build_geometry_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
+    metadata = dict(case.get("metadata", {}))
+    summary_source = _summary_source_path(case)
+
+    input_rows: list[dict[str, Any]] = []
+    _add_parameter_row(
+        input_rows,
+        field="geometry_case_kind",
+        meaning="Geometry-focused rendering mode used to build this gallery page.",
+        value=metadata.get("geometry_case_kind"),
+        source=summary_source,
+    )
+    for key, meaning in (
+        ("boundary_path", "Boundary polygon used to clip and frame the catchment domain."),
+        ("rivers_path", "Hydrographic layer overlaid inside the catchment boundary."),
+        ("geology_path", "Geology layer clipped to the same boundary when available."),
+        ("dem_path", "DEM raster used for regional relief and slope context."),
+    ):
+        path_value = str(metadata.get(key, "")).strip()
+        _add_parameter_row(
+            input_rows,
+            field=key,
+            meaning=meaning,
+            value=Path(path_value).name if path_value else "",
+            source=path_value,
+        )
+
+    derived_rows: list[dict[str, Any]] = []
+    for key, meaning, suffix in (
+        ("boundary_area_km2", "Catchment area represented on the geometry page.", " km2"),
+        ("river_length_km", "Total clipped river length visible inside the boundary.", " km"),
+        ("geology_unit_count", "Number of distinct geology units intersecting the catchment.", ""),
+        ("dem_min_m", "Minimum DEM elevation represented by the rendered extent.", " m"),
+        ("dem_max_m", "Maximum DEM elevation represented by the rendered extent.", " m"),
+        ("dem_range_m", "Elevation range covered by the masked DEM.", " m"),
+        ("slope_mean_deg", "Mean slope estimated from DEM gradients on the masked area.", " deg"),
+        ("slope_p90_deg", "90th percentile slope estimated from DEM gradients on the masked area.", " deg"),
+    ):
+        value = metadata.get(key)
+        if _is_empty_parameter_value(value):
+            continue
+        rendered = f"{_format_case_parameter_value(value)}{suffix}".strip()
+        _add_parameter_row(
+            derived_rows,
+            field=key,
+            meaning=meaning,
+            value=rendered,
+            source=summary_source,
+        )
+
+    sections: list[dict[str, Any]] = []
+    if input_rows:
+        sections.append({"title": "Geometry Inputs", "rows": input_rows})
+    if derived_rows:
+        sections.append({"title": "Derived Geometry Values", "rows": derived_rows})
+    return {"sections": sections} if sections else {}
+
+
+def _build_mesh_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
+    metadata = dict(case.get("metadata", {}))
+    summary_source = _summary_source_path(case)
+    config_path = str(metadata.get("config_path", "")).strip()
+    viewer_cfg = _load_plain_toml(config_path)
+
+    selected_rows: list[dict[str, Any]] = []
+    for key, meaning in (
+        ("scale_label", "Scale bucket used to group repeated mesh gallery cases."),
+        ("outlet_id", "Outlet identifier used by the source batch meshing run."),
+        ("variant_label", "Gallery variant describing the active constraints and buffering policy."),
+        ("constraints_mode", "Constraint family carried by the imported bundle or viewer config."),
+    ):
+        _add_parameter_row(
+            selected_rows,
+            field=key,
+            meaning=meaning,
+            value=metadata.get(key),
+            source=config_path or summary_source,
+        )
+
+    plot_cfg = _lookup_path(viewer_cfg, "mesh_distribution", "plot") or {}
+    _add_parameter_row(
+        selected_rows,
+        field="[mesh_distribution.plot] color_field",
+        meaning="Cell attribute used to color the mesh in the overview figure.",
+        value=plot_cfg.get("color_field"),
+        source=config_path,
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[mesh_distribution.plot] show_topography_panel",
+        meaning="Whether a dedicated topography panel is shown alongside the mesh map.",
+        value=plot_cfg.get("show_topography_panel"),
+        source=config_path,
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[mesh_distribution.plot] topography_field",
+        meaning="Node or cell field used to render the topography panel when it is enabled.",
+        value=plot_cfg.get("topography_field"),
+        source=config_path,
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[mesh_distribution.plot] show_geology_interfaces",
+        meaning="Whether geology interfaces are explicitly highlighted in the viewer output.",
+        value=plot_cfg.get("show_geology_interfaces"),
+        source=config_path,
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="[mesh_distribution.plot] show_river_edges",
+        meaning="Whether river-constrained edges are highlighted in the viewer output.",
+        value=plot_cfg.get("show_river_edges"),
+        source=config_path,
+    )
+
+    summary_rows: list[dict[str, Any]] = []
+    viewer_summary = dict(metadata.get("viewer_summary", {}))
+    for key, meaning in (
+        ("crs", "Coordinate reference system declared by the imported mesh bundle."),
+        ("node_count", "Number of nodes available in the displayed mesh bundle."),
+        ("cell_count", "Number of cells available in the displayed mesh bundle."),
+        ("edge_count", "Number of edges available in the displayed mesh bundle."),
+        ("river_edge_count", "Count of edges tagged as river constraints in the bundle."),
+        ("boundary_edge_count", "Count of watershed-boundary edges in the bundle."),
+        ("geology_interface_edge_count", "Count of geology-interface edges present in the bundle."),
+    ):
+        _add_parameter_row(
+            summary_rows,
+            field=key,
+            meaning=meaning,
+            value=viewer_summary.get(key),
+            source=summary_source,
+        )
+    geology_keys = viewer_summary.get("geology_keys")
+    if not _is_empty_parameter_value(geology_keys):
+        _add_parameter_row(
+            summary_rows,
+            field="geology_keys",
+            meaning="Distinct geology codes present in the imported bundle.",
+            value=geology_keys,
+            source=summary_source,
+        )
+
+    bundle_rows: list[dict[str, Any]] = []
+    bundle_path = str(metadata.get("bundle_path", "")).strip()
+    _add_parameter_row(
+        bundle_rows,
+        field="bundle_path",
+        meaning="Versioned bundle used to compute or display the mesh-focused figure.",
+        value=Path(bundle_path).name if bundle_path else "",
+        source=bundle_path,
+    )
+    for entry in metadata.get("bundle_entries", []):
+        label = str(entry.get("label", "")).strip()
+        path_value = str(entry.get("bundle_path", "")).strip()
+        _add_parameter_row(
+            bundle_rows,
+            field=f"bundle.{label}" if label else "bundle",
+            meaning="Committed bundle included in the cross-case mesh comparison.",
+            value=Path(path_value).name if path_value else "",
+            source=path_value,
+        )
+
+    bundle_metrics_rows: list[dict[str, Any]] = []
+    for item in metadata.get("bundle_metrics", []):
+        label = str(item.get("label", "")).strip()
+        if not label:
+            continue
+        value = (
+            f"river_edges={item.get('river_edge_count')}, "
+            f"geology_interfaces={item.get('geology_interface_edge_count')}, "
+            f"boundary_edges={item.get('boundary_edge_count')}, "
+            f"cells={item.get('cell_count')}"
+        )
+        _add_parameter_row(
+            bundle_metrics_rows,
+            field=f"metrics.{label}",
+            meaning="Constraint and cell counts carried by one compared mesh bundle.",
+            value=value,
+            source=summary_source,
+        )
+
+    if not summary_rows and not bundle_metrics_rows:
+        summary_rows.extend(_metric_rows(case))
+
+    sections: list[dict[str, Any]] = []
+    if selected_rows:
+        sections.append({"title": "Selected Parameters", "rows": selected_rows})
+    if bundle_rows:
+        sections.append({"title": "Bundle Inputs", "rows": bundle_rows})
+    if summary_rows:
+        sections.append({"title": "Mesh Summary", "rows": summary_rows})
+    if bundle_metrics_rows:
+        sections.append({"title": "Compared Bundle Values", "rows": bundle_metrics_rows})
+    return {"sections": sections} if sections else {}
+
+
+def _build_property_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
+    metadata = dict(case.get("metadata", {}))
+    summary_source = _summary_source_path(case)
+    property_kind = str(metadata.get("property_case_kind", "")).strip()
+
+    selected_rows: list[dict[str, Any]] = []
+    _add_parameter_row(
+        selected_rows,
+        field="property_case_kind",
+        meaning="Hydraulic-property rendering mode used to build this gallery figure.",
+        value=property_kind,
+        source=summary_source,
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="parameter_ids",
+        meaning="Hydraulic parameters illustrated by the case.",
+        value=metadata.get("parameter_ids"),
+        source=summary_source,
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="parameterization_modes",
+        meaning="Parameterization modes intentionally demonstrated by the case.",
+        value=metadata.get("parameterization_modes"),
+        source=summary_source,
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="supports",
+        meaning="Spatial supports used to render the field or compare variants.",
+        value=metadata.get("supports"),
+        source=summary_source,
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="depth_m",
+        meaning="Depth at which the deep conductivity snapshot is sampled when the case is depth-dependent.",
+        value=metadata.get("depth_m"),
+        source=summary_source,
+    )
+    _add_parameter_row(
+        selected_rows,
+        field="depth_profiles",
+        meaning="Vertical attenuation profiles compared on the same field definition.",
+        value=metadata.get("depth_profiles"),
+        source=summary_source,
+    )
+
+    config_rows: list[dict[str, Any]] = []
+    field_param_path = str(metadata.get("field_param_config_path", "")).strip()
+    if not field_param_path:
+        field_param_path = _find_first_source_path(case, suffix="field_param_config.toml") or ""
+    field_param_cfg = _load_plain_toml(field_param_path)
+    if field_param_cfg:
+        _add_parameter_row(
+            config_rows,
+            field="[field] id",
+            meaning="Identifier used by FieldParam for the illustrated hydraulic property.",
+            value=_lookup_path(field_param_cfg, "field", "id"),
+            source=field_param_path,
+        )
+        _add_parameter_row(
+            config_rows,
+            field="[field] kind",
+            meaning="Homogeneous or heterogeneous assignment mode used by the field parameter.",
+            value=_lookup_path(field_param_cfg, "field", "kind"),
+            source=field_param_path,
+        )
+        _add_parameter_row(
+            config_rows,
+            field="[field] unit",
+            meaning="Unit declared for the property values before internal normalization.",
+            value=_lookup_path(field_param_cfg, "field", "unit"),
+            source=field_param_path,
+        )
+        _add_parameter_row(
+            config_rows,
+            field="[field_heterogeneous] values_source",
+            meaning="How heterogeneous values are supplied to the field parameter.",
+            value=_lookup_path(field_param_cfg, "field_heterogeneous", "values_source"),
+            source=field_param_path,
+        )
+        heterogeneous_values = _lookup_path(field_param_cfg, "field_heterogeneous", "values")
+        if not _is_empty_parameter_value(heterogeneous_values):
+            _add_parameter_row(
+                config_rows,
+                field="[field_heterogeneous] values",
+                meaning="Inline heterogeneous values used to map zones or materials to property values.",
+                value=heterogeneous_values,
+                source=field_param_path,
+            )
+        csv_file = _lookup_path(field_param_cfg, "field_heterogeneous", "values_csv_file")
+        _add_parameter_row(
+            config_rows,
+            field="[field_heterogeneous] values_csv_file",
+            meaning="CSV file used to map zone keys to property values when the case is CSV-driven.",
+            value=Path(str(csv_file)).name if csv_file else "",
+            source=str(csv_file or ""),
+        )
+        _add_parameter_row(
+            config_rows,
+            field="[field_vertical_profile] mode",
+            meaning="Vertical-profile mode applied to the field when depth dependence is active.",
+            value=_lookup_path(field_param_cfg, "field_vertical_profile", "mode"),
+            source=field_param_path,
+        )
+
+    geology_cfg_path = str(metadata.get("geology_config_path", "")).strip()
+    geology_cfg = _load_plain_toml(geology_cfg_path)
+    if geology_cfg:
+        _add_parameter_row(
+            config_rows,
+            field="[geology] id",
+            meaning="Identifier of the geology field used to spatialize the property mapping.",
+            value=_lookup_path(geology_cfg, "geology", "id"),
+            source=geology_cfg_path,
+        )
+        _add_parameter_row(
+            config_rows,
+            field="[geology] cell_samples_per_axis",
+            meaning="Sampling density used when rasterizing geology polygons onto the support.",
+            value=_lookup_path(geology_cfg, "geology", "cell_samples_per_axis"),
+            source=geology_cfg_path,
+        )
+        _add_parameter_row(
+            config_rows,
+            field="[geology.source] kind",
+            meaning="Source type used to load the geology layer shown by the property demo.",
+            value=_lookup_path(geology_cfg, "geology", "source", "kind"),
+            source=geology_cfg_path,
+        )
+        _add_parameter_row(
+            config_rows,
+            field="[geology.source] code_field",
+            meaning="Attribute used as the geology code when transferring values onto the support.",
+            value=_lookup_path(geology_cfg, "geology", "source", "code_field"),
+            source=geology_cfg_path,
+        )
+
+    variant_specs = list(metadata.get("variant_specs", []))
+    if variant_specs:
+        _add_parameter_row(
+            config_rows,
+            field="variant_titles",
+            meaning="Tabbed variants included in the same property-comparison page.",
+            value=[variant.get("title") for variant in variant_specs],
+            source=summary_source,
+        )
+
+    metric_rows = _metric_rows(case)
+
+    sections: list[dict[str, Any]] = []
+    if selected_rows:
+        sections.append({"title": "Selected Parameters", "rows": selected_rows})
+    if config_rows:
+        sections.append({"title": "Configuration Values", "rows": config_rows})
+    if metric_rows:
+        sections.append({"title": "Displayed Values", "rows": metric_rows})
+    return {"sections": sections} if sections else {}
+
+
+def _build_auto_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
+    if case.get("category") == "validation":
+        return dict(case.get("parameter_docs", {}))
+
+    category = str(case.get("category", "")).strip()
+    if category == "geographic":
+        return _build_geographic_parameter_docs(case)
+    if category == "simulation":
+        return _build_simulation_parameter_docs(case)
+    if category == "method_comparison":
+        return _build_method_comparison_parameter_docs(case)
+    if category == "geometry":
+        return _build_geometry_parameter_docs(case)
+    if category == "mesh":
+        return _build_mesh_parameter_docs(case)
+    if category == "hydraulic_properties":
+        return _build_property_parameter_docs(case)
+    return {}
+
+
+def _with_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
+    enriched = dict(case)
+    parameter_docs = _build_auto_parameter_docs(enriched)
+    if parameter_docs:
+        enriched["parameter_docs"] = parameter_docs
+    return enriched
+
+
+def _normalize_parameter_sections(case: dict[str, Any]) -> list[dict[str, Any]]:
+    parameter_docs = dict(case.get("parameter_docs", {}))
+    sections = list(parameter_docs.get("sections", []))
+    if sections:
+        return sections
+
+    reference_parameters = list(parameter_docs.get("reference_parameters", []))
+    common_setup_parameters = list(parameter_docs.get("common_setup", []))
+    solver_override_docs = {
+        str(key): list(value)
+        for key, value in dict(parameter_docs.get("solver_overrides", {})).items()
+    }
+    acceptance_criteria = dict(parameter_docs.get("acceptance_criteria", {}))
+    common_acceptance_rows = list(acceptance_criteria.get("common", []))
+    solver_acceptance_rows = {
+        str(key): list(value)
+        for key, value in dict(acceptance_criteria.get("solver_specific", {})).items()
+    }
+
+    normalized: list[dict[str, Any]] = []
+    if reference_parameters:
+        normalized.append({"title": "Reference Parameters", "rows": reference_parameters})
+    if common_setup_parameters:
+        normalized.append({"title": "Common Numerical Setup", "rows": common_setup_parameters})
+    if solver_override_docs:
+        normalized.append(
+            {
+                "title": "Solver-Specific Overrides",
+                "tabs": solver_override_docs,
+                "empty_message": "No additional override beyond the common validation setup.",
+            }
+        )
+    if common_acceptance_rows:
+        normalized.append({"title": "Acceptance Criteria", "rows": common_acceptance_rows})
+    if solver_acceptance_rows:
+        normalized.append(
+            {
+                "title": "Acceptance Criteria by Solver",
+                "tabs": solver_acceptance_rows,
+                "empty_message": "No solver-specific acceptance override beyond the common criteria.",
+            }
+        )
+    return normalized
+
+
 def _build_case_page(case: dict[str, Any]) -> str:
     title = str(case["title"])
+    case_setup = list(case.get("case_setup", []))
+    what_it_shows = list(case.get("what_it_shows", []))
+    key_parameters = list(case.get("key_parameters", []))
+    how_to_read = list(case.get("how_to_read", []))
+    metrics = list(case.get("metrics", []))
+    reference_highlights = list(case.get("reference_highlights", []))
+    equations_rst = list(case.get("equations_rst", []))
+    next_steps = list(case.get("next_steps", []))
     lines = [
         AUTO_GENERATED_COMMENT,
         "",
@@ -1063,12 +3990,33 @@ def _build_case_page(case: dict[str, Any]) -> str:
         str(case["summary"]),
         "",
     ]
+    walkthrough_doc = case.get("walkthrough_doc")
+    if walkthrough_doc:
+        walkthrough_title = str(case.get("walkthrough_title") or "the guided walkthrough")
+        walkthrough_doc = _absolute_docname(str(walkthrough_doc))
+        lines.extend(
+            [
+                ".. seealso::",
+                f"   Read :doc:`{walkthrough_title} <{walkthrough_doc}>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.",
+                "",
+            ]
+        )
     solver_runs = list(case.get("solver_runs", []))
+    solver_display_name_map = {
+        str(run.get("solver", "")): str(run.get("solver_display_name", run.get("solver", "")))
+        for run in solver_runs
+    }
+    parameter_sections = _normalize_parameter_sections(case)
     if not solver_runs:
-        for image in case["images"]:
-            _append_figure(lines, image)
+        image_map = {image["filename"]: image for image in case["images"]}
+        tab_specs = list(case.get("metadata", {}).get("tab_specs", []))
+        if tab_specs:
+            _append_tabbed_images(lines, image_map, tab_specs)
+        else:
+            for image in case["images"]:
+                _append_figure(lines, image)
 
-    if case["case_setup"]:
+    if case_setup:
         lines.extend(
             [
                 "Case Setup",
@@ -1076,7 +4024,7 @@ def _build_case_page(case: dict[str, Any]) -> str:
                 "",
             ]
         )
-        for bullet in case["case_setup"]:
+        for bullet in case_setup:
             lines.append(f"- {bullet}")
         lines.append("")
 
@@ -1087,11 +4035,35 @@ def _build_case_page(case: dict[str, Any]) -> str:
             "",
         ]
     )
-    for bullet in case["what_it_shows"]:
+    for bullet in what_it_shows:
         lines.append(f"- {bullet}")
     lines.append("")
 
-    if case["metrics"]:
+    if key_parameters and not parameter_sections:
+        lines.extend(
+            [
+                "Key Parameters",
+                "--------------",
+                "",
+            ]
+        )
+        for bullet in key_parameters:
+            lines.append(f"- {bullet}")
+        lines.append("")
+
+    if how_to_read:
+        lines.extend(
+            [
+                "How To Read It",
+                "--------------",
+                "",
+            ]
+        )
+        for bullet in how_to_read:
+            lines.append(f"- {bullet}")
+        lines.append("")
+
+    if metrics:
         lines.extend(
             [
                 "Key Metrics",
@@ -1099,11 +4071,11 @@ def _build_case_page(case: dict[str, Any]) -> str:
                 "",
             ]
         )
-        for metric in case["metrics"]:
+        for metric in metrics:
             lines.append(f"- {metric['label']}: {metric['display']}")
         lines.append("")
 
-    if case["reference_highlights"] or case["equations_rst"]:
+    if reference_highlights or equations_rst:
         lines.extend(
             [
                 "Analytical Reference",
@@ -1111,11 +4083,11 @@ def _build_case_page(case: dict[str, Any]) -> str:
                 "",
             ]
         )
-        for bullet in case["reference_highlights"]:
+        for bullet in reference_highlights:
             lines.append(f"- {bullet}")
-        if case["reference_highlights"] and case["equations_rst"]:
+        if reference_highlights and equations_rst:
             lines.append("")
-        for equation in case["equations_rst"]:
+        for equation in equations_rst:
             lines.extend(
                 [
                     ".. math::",
@@ -1172,6 +4144,18 @@ def _build_case_page(case: dict[str, Any]) -> str:
         else:
             lines.extend(_render_validation_solver_block(solver_runs[0]))
 
+    if next_steps:
+        lines.extend(
+            [
+                "Next Steps",
+                "----------",
+                "",
+            ]
+        )
+        for bullet in next_steps:
+            lines.append(f"- {bullet}")
+        lines.append("")
+
     lines.extend(
         [
             "Reproduce",
@@ -1189,6 +4173,46 @@ def _build_case_page(case: dict[str, Any]) -> str:
             "",
             f"   {case['gallery_update_command']}",
             "",
+        ]
+    )
+    if parameter_sections:
+        lines.extend(
+            [
+                "Case Parameters",
+                "---------------",
+                "",
+            ]
+        )
+        for section in parameter_sections:
+            title = str(section.get("title", "")).strip()
+            if not title:
+                continue
+            lines.extend(
+                [
+                    title,
+                    "^" * len(title),
+                    "",
+                ]
+            )
+            rows = list(section.get("rows", []))
+            tabs = {
+                str(key): list(value)
+                for key, value in dict(section.get("tabs", {})).items()
+            }
+            if rows:
+                _append_parameter_table(lines, rows)
+            if tabs:
+                _append_parameter_tabs(
+                    lines,
+                    tabs,
+                    solver_display_names=solver_display_name_map,
+                    empty_message=str(section.get("empty_message", "No additional case-specific parameters.")),
+                )
+        if lines[-1] != "":
+            lines.append("")
+
+    lines.extend(
+        [
             "Source Pointers",
             "---------------",
             "",
@@ -1207,6 +4231,8 @@ def _build_case_page(case: dict[str, Any]) -> str:
     )
     for image_path in case["artifacts"]["image_repo_paths"]:
         lines.append(f"- ``{image_path}``")
+    for extra_path in case["artifacts"].get("extra_repo_paths", []):
+        lines.append(f"- ``{extra_path}``")
     lines.append(
         "- ``{}`` stores the displayed metrics plus source hashes used by "
         "``python -m tools.doc_gallery --check``.".format(
@@ -1282,7 +4308,7 @@ def generate_gallery(*, source_root: Path) -> None:
 
     _reset_generated_dirs(source_root)
     specs = build_gallery_specs()
-    case_summaries = [_generate_case(spec, source_root) for spec in specs]
+    case_summaries = [_with_parameter_docs(_generate_case(spec, source_root)) for spec in specs]
     summaries_by_category: dict[str, list[dict[str, Any]]] = {}
     for category_slug in CATEGORY_SPECS:
         summaries_by_category[category_slug] = [

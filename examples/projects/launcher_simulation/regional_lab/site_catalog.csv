@@ -1,0 +1,7 @@
+site_id,site_label,cluster_id,cluster_label,cluster_family,cluster_scale,region_id,source_selection_id,site_status,maturity,tags,enabled,simulation_reference_config,backend_comparison_config,transient_backend_comparison_config,notes
+headwater_100km2_outlet_2,Headwater 100 km2 outlet 2,,,,,brittany,scan_headwater_100km2,ready,validated,mesh_ready,true,../run_headwater_100km2_outlet_2_mf6_transient_reference.toml,../run_method_comparison_headwater_100km2_outlet_2_backends.toml,../run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml,real committed 100 km2 outlet 2
+headwater_100km2_outlet_27,Headwater 100 km2 outlet 27,,,,,brittany,scan_headwater_100km2,prototype,screening,mesh_ready,true,,,,inventory-only headwater site
+headwater_100km2_outlet_34,Headwater 100 km2 outlet 34,,,,,brittany,scan_headwater_100km2,prototype,screening,mesh_ready,true,,,,inventory-only headwater site
+s3_100km2_outlet_8,Strahler 3 100 km2 outlet 8,,,,,brittany,scan_s3_100km2,inventory,screening,mesh_ready,true,,,,regional screening site
+s3_10km2_outlet_3,Strahler 3 10 km2 outlet 3,,,,,brittany,scan_s3_10km2,inventory,screening,mesh_ready,true,,,,regional screening site
+regional_1000km2_outlet_1,Regional 1000 km2 outlet 1,,,,,brittany,scan_1000km2,inventory,screening,inventory_only,false,,,,disabled placeholder for future extension

@@ -304,6 +304,13 @@ class TestAnimation:
         result = build_gif(frame_paths=[], gif_path=Path("/tmp/test.gif"))
         assert result is None
 
+    def test_build_mp4_returns_none_on_empty(self):
+        from hydromodpy.analysis.display.figures.animation import build_mp4
+        from pathlib import Path
+
+        result = build_mp4(frame_paths=[], mp4_path=Path("/tmp/test.mp4"))
+        assert result is None
+
 
 class TestMakeFigure:
     def test_make_figure_returns_fig_and_axes(self):

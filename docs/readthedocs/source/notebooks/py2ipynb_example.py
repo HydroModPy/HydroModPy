@@ -149,4 +149,9 @@ for folder in folders:
     subprocess.run(['jupyter', 'nbconvert', '--to', 'notebook', '--execute', 
                     '--inplace', notebook_path])
 
+subprocess.run(
+    [sys.executable, os.path.join(current, 'update_example_parameters.py')],
+    check=True,
+)
+
     

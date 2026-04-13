@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "test_bounds",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::2154" } },
+"features": [
+{ "type": "Feature", "properties": { "id": 1 }, "geometry": { "type": "Polygon", "coordinates": [ [ [ 421087.5, 6845887.5 ], [ 421087.5, 6862912.5 ], [ 399562.5, 6862912.5 ], [ 399562.5, 6845887.5 ], [ 421087.5, 6845887.5 ] ] ] } }
+]
+}

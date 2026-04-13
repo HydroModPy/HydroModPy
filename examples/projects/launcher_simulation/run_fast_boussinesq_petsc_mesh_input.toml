@@ -1,0 +1,13 @@
+# Reduced pure-flow Boussinesq example using the Linux-only PETSc backend.
+#
+# This inherits the same embedded catchment-meshing workflow as the standard
+# fast Boussinesq example, but overrides the nonlinear runtime backend to use
+# the mixed PETSc complementarity formulation for saturation excess.
+base_config = "run_fast_boussinesq_mesh_input.toml"
+
+[simulation]
+name = "Example 12 launcher fast boussinesq PETSc"
+
+[flow]
+runtime_backend = "petsc"
+surface_interaction_model = "complementarity"

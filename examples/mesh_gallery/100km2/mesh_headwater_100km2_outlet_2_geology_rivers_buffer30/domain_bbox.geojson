@@ -1,0 +1,31 @@
+{
+  "type": "FeatureCollection",
+  "name": "mesh_headwater_100km2_outlet_2_domain_bbox",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::2154"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "label": "headwater_100km2_outlet_2_domain_bbox"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [421087.5, 6845887.5],
+            [421087.5, 6862912.5],
+            [399562.5, 6862912.5],
+            [399562.5, 6845887.5],
+            [421087.5, 6845887.5]
+          ]
+        ]
+      }
+    }
+  ]
+}

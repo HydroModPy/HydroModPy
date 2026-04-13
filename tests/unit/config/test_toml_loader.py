@@ -129,3 +129,90 @@ def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data
     assert "hydrography" not in payload["data"]
     assert payload["data"]["oceanic"]["sources"][0]["source"] == "custom"
     assert payload["data"]["recharge"]["sources"][0]["source"] == "synthetic"
+
+
+def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh() -> None:
+    example_config = (
+        Path(__file__).resolve().parents[3]
+        / "examples"
+        / "projects"
+        / "launcher_simulation"
+        / "run_fast_mf6_precomputed_mesh_input.toml"
+    )
+
+    payload = load_toml_with_base_config(example_config)
+
+    assert payload["mesh_input"]["mesh_path"] == "results_stable/mesh/mesh_catchment.msh"
+    assert payload["mesh_input"]["bundle_dir"] == "results_stable/mesh/mesh_catchment_bundle"
+    assert "planar" not in payload["modflow6"]["sgrid"]
+    assert payload["modflow6"]["sgrid"]["vertical"]["nlay"] == 2
+    assert payload["postprocess"]["flow"]["native_mesh_png"] is True
+
+
+def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation() -> None:
+    example_config = (
+        Path(__file__).resolve().parents[3]
+        / "examples"
+        / "projects"
+        / "launcher_simulation"
+        / "run_fast_mf6_mesh_catchment.toml"
+    )
+
+    payload = load_toml_with_base_config(example_config)
+
+    assert payload["mesh_catchment"]["constraints_mode"] == "geology_rivers"
+    assert payload["simulation"]["run_id"] == "example12_fast_mf6_mesh_catchment"
+    assert payload["simulation"]["process"][0]["solvers"] == ["modflow6"]
+    assert payload["simulation"]["process"][1]["solvers"] == ["modflow6gwt"]
+    assert payload["simulation"]["time"]["step_value"] == "10 day"
+    assert payload["modflow6"]["tgrid"]["firstpersteady"] is False
+    assert payload["flow"]["ic"]["type"] == "top"
+    assert payload["flow"]["param"]["K"]["field_homogeneous"]["value"] == "1e-5 m/s"
+    assert payload["flow"]["param"]["Sy"]["field_homogeneous"]["value"] == "0.12 -"
+    assert payload["data"]["recharge"]["sources"][0]["freq"] == "10D"
+    assert payload["postprocess"]["flow"]["display"] is True
+    assert payload["postprocess"]["flow"]["native_mesh_png"] is True
+    assert payload["capability_gallery"]["enabled"] is True
+    assert payload["capability_gallery"]["case_slug"] == "modflow6_gmsh_mesh_catchment"
+
+    cfg = HydroModPyConfig.from_toml(example_config)
+    assert cfg.capability_gallery.enabled is True
+    assert cfg.modflow6.tgrid is not None
+    assert cfg.modflow6.tgrid.firstpersteady is False
+    assert cfg.capability_gallery.output_dir == (
+        example_config.parent
+        / "../../capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment"
+    ).resolve()
+
+
+def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
+    dem_path = tmp_path / "dem.tif"
+    dem_path.touch()
+    config_path = tmp_path / "profile.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "[geographic]",
+                'catch_def = "dem"',
+                'dem_init_path = "dem.tif"',
+                "reuse_existing_outputs = true",
+                "",
+                "[postprocess]",
+                'profile = "solver_only"',
+                "",
+                "[postprocess.flow]",
+                "display = true",
+                "native_mesh_npz = true",
+                "native_mesh_csv = true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = HydroModPyConfig.from_toml(config_path)
+
+    assert cfg.geographic.reuse_existing_outputs is True
+    assert cfg.postprocess.profile == "solver_only"
+    assert cfg.postprocess.flow.display is False
+    assert cfg.postprocess.flow.native_mesh_npz is False
+    assert cfg.postprocess.flow.native_mesh_csv is False

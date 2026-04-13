@@ -19,6 +19,23 @@ from hydromodpy.spatial.mesh.cell_types import CellType
 from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
 
 
+def _signed_polygon_area_xy(vertices_xy: np.ndarray) -> float:
+    """Return the signed planar polygon area in XY coordinates."""
+    x = vertices_xy[:, 0]
+    y = vertices_xy[:, 1]
+    return float(0.5 * np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y))
+
+
+def _orient_nodes_for_disv(nodes: np.ndarray, vertices: np.ndarray) -> np.ndarray:
+    """Return nodes ordered with the clockwise orientation expected by MF6 DISV."""
+    if nodes.size < 3:
+        return nodes
+    polygon = vertices[np.asarray(nodes, dtype=int)]
+    if _signed_polygon_area_xy(polygon) <= 0.0:
+        return np.asarray(nodes, dtype=int)
+    return np.asarray([nodes[0], *nodes[:0:-1]], dtype=int)
+
+
 def from_flopy_structured(sgrid) -> HydroMesh:
     """Convert a flopy ``StructuredGrid`` into a 2D ``HydroMesh``.
 
@@ -100,7 +117,7 @@ def to_flopy_disv_args(
     # cell2d: list of (icell, xc, yc, ncvert, iv1, iv2, ...)
     cell2d: list[list] = []
     for ic in range(ncpl):
-        nodes = conn[ic]
+        nodes = _orient_nodes_for_disv(conn[ic], verts)
         cell_verts = verts[nodes]
         xc = float(cell_verts[:, 0].mean())
         yc = float(cell_verts[:, 1].mean())

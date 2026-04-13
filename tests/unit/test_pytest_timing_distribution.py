@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import uuid
 
@@ -12,7 +13,11 @@ from tests.support.pytest_timing_distribution import (
     _parse_status_filter,
 )
 
-_LOCAL_TMP_ROOT = Path.cwd() / "timing_reports" / "tmp_pytest_timing_distribution"
+_LOCAL_TMP_ROOT = (
+    Path(os.environ["HYDROMODPY_TEST_SCRATCH_ROOT"])
+    / "timing_reports"
+    / "tmp_pytest_timing_distribution"
+)
 _LOCAL_TMP_ROOT.mkdir(parents=True, exist_ok=True)
 
 
