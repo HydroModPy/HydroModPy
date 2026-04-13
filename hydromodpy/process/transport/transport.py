@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from hydromodpy.process.prototype import ProcessSpatial
+from hydromodpy.process.base import ProcessSpatial
 from hydromodpy.process.transport.transport_config import TransportConfig
 
 
