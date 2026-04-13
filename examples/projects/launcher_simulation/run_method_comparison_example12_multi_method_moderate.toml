@@ -103,3 +103,20 @@ variable = "outflow_drain"
 support = "map"
 time = "last"
 unit = "m/day"
+
+[[method_comparison.observable]]
+name = "surface_excess_flux_series"
+variable = "surface_excess_flux"
+variants = ["bouss_mod_tri"]
+support = "cell_mask"
+time = "all"
+reducer = "sum"
+unit = "m3/s"
+
+[[method_comparison.observable]]
+name = "surface_excess_map_last"
+variable = "surface_excess_rate"
+variants = ["bouss_mod_tri"]
+support = "map"
+time = "last"
+unit = "m/day"

@@ -89,5 +89,5 @@ date,source,commit,short_commit,commit_changed_from_previous_day,source_files,no
 2026-04-09,git,5d5e34d771ba93ba427eb1cfd7285ee30a85afab,5d5e34d7,true,1146,185326,Add PETSc runtimes and DISV workflow groundwork
 2026-04-10,git,a8121c1bc8665c161e0b0a58364723b180da5bd6,a8121c1b,true,1164,186888,Add mesh-catchment onboarding and launcher diagrams
 2026-04-11,git,4a18f1952ac3be23f120c3213d0feb34abc056ae,4a18f195,true,1172,190744,Honor calibration iteration history setting
-2026-04-12,git,98e60d9e34b0f52f4b7d61f1501f5b8161b992ae,98e60d9e,true,1190,196947,Add calibration hydraulic property arrays
-2026-04-12,working_tree,WORKTREE,WORKTREE,n/a,1202,196655,Etat courant incluant modifications non commitees et fichiers non ignores
+2026-04-12,git,754bd6abd28c70a870b8df9169f644a5675ab1f5,754bd6ab,true,1244,219408,Add perturbed twin calibration benchmark
+2026-04-12,working_tree,WORKTREE,WORKTREE,n/a,1253,220299,Etat courant incluant modifications non commitees et fichiers non ignores

@@ -144,6 +144,16 @@ def _materialize_suite_rows(benchmarks) -> list[dict[str, object]]:
                 ),
                 "benchmark_root": str(benchmark.benchmark_root),
                 "calibration_root": str(result.calibration_root),
+                "objective_trace_figure": (
+                    None
+                    if result.objective_trace_figure is None
+                    else str(result.objective_trace_figure)
+                ),
+                "objective_landscape_figure": (
+                    None
+                    if result.objective_landscape_figure is None
+                    else str(result.objective_landscape_figure)
+                ),
             }
             for name, value in result.param_abs_error.items():
                 row[f"param_abs_error__{name}"] = value
@@ -419,8 +429,13 @@ def _write_suite_report(
     for benchmark in benchmarks:
         lines.append(
             f"- `{benchmark.definition.case_id}` "
-            f"({benchmark.definition.regime}, solver={benchmark.definition.solver_name}, fast={benchmark.definition.fast})"
+            f"({benchmark.definition.regime}, solver={benchmark.definition.solver_name}, "
+            f"fast={benchmark.definition.fast}, retention={benchmark.artifact_retention})"
         )
+        if benchmark.pruned_artifacts:
+            lines.append(
+                f"  - pruned heavy artifacts: {len(benchmark.pruned_artifacts)}"
+            )
     lines.extend(
         [
             "",
@@ -509,6 +524,17 @@ def main(argv: list[str] | None = None) -> None:
         default="png",
         help="Raster format used for generated suite figures (default: png).",
     )
+    parser.add_argument(
+        "--artifact-retention",
+        default="minimal",
+        choices=("minimal", "full"),
+        help="Retention mode for per-case benchmark artifacts (default: minimal).",
+    )
+    parser.add_argument(
+        "--no-case-figures",
+        action="store_true",
+        help="Skip per-case objective figures while keeping suite-level summaries.",
+    )
     args = parser.parse_args(argv)
 
     if args.fast_only and args.slow_only:
@@ -534,15 +560,29 @@ def main(argv: list[str] | None = None) -> None:
             caller_file=Path(__file__),
             method_names=None if args.method is None else tuple(args.method),
             evaluation_budget=args.evaluation_budget,
+            artifact_retention=str(args.artifact_retention),
+            case_figures=not bool(args.no_case_figures),
+            figure_format=str(args.figure_format),
         )
         benchmarks.append(benchmark)
         print(f"[{definition.case_id}] summary={benchmark.summary_path}")
+        if benchmark.configuration_figure is not None:
+            print(f"  configuration={benchmark.configuration_figure}")
+        if benchmark.pruned_artifacts:
+            print(
+                f"  pruned_artifacts={len(benchmark.pruned_artifacts)} "
+                f"retention={benchmark.artifact_retention}"
+            )
         for result in benchmark.method_results:
             print(
                 f"  {result.method_instance_name}: meets_success_target={result.meets_success_target} "
                 f"recovered_truth={result.recovered_truth} "
                 f"n_eval={result.n_evaluations} cost_best={result.cost_best}"
             )
+            if result.objective_trace_figure is not None:
+                print(f"    trace={result.objective_trace_figure}")
+            if result.objective_landscape_figure is not None:
+                print(f"    landscape={result.objective_landscape_figure}")
     suite_paths = _write_suite_summary(benchmarks)
     if suite_paths is not None:
         json_path, csv_path = suite_paths

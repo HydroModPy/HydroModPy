@@ -11,6 +11,7 @@ from launchers.regional_lab.bootstrap import build_site_catalog_from_outlet_tabl
 from launchers.regional_lab.config import RegionalLabConfig
 from launchers.regional_lab.launcher import (
     RegionalLabLauncher,
+    _extract_method_comparison_child_artifacts,
     build_regional_lab_plan,
     build_run_command,
     load_site_catalog,
@@ -266,6 +267,37 @@ def test_regional_lab_supports_utf8_bom_csv_catalog(tmp_path: Path) -> None:
     assert [site.site_id for site in sites] == ["headwater_100km2_outlet_2"]
 
 
+def test_regional_lab_recipe_can_skip_unsupported_platform(tmp_path: Path) -> None:
+    config_path = _write_regional_lab_config(tmp_path, execute=False)
+    unsupported_platform = "linux" if sys.platform.startswith("win") else "windows"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            'id = "backend_compare"\n'
+            'launcher = "method-comparison"\n',
+            'id = "backend_compare"\n'
+            'launcher = "method-comparison"\n'
+            f'allowed_platforms = ["{unsupported_platform}"]\n',
+        ),
+        encoding="utf-8",
+    )
+    _write_csv_catalog(tmp_path)
+    _write_planned_configs(tmp_path)
+
+    cfg = RegionalLabConfig.from_file(config_path)
+    _, planned_cases, skipped_cases = build_regional_lab_plan(cfg, load_site_catalog(cfg.catalog))
+
+    assert [case.case_id for case in planned_cases] == [
+        "sim_reference::headwater_100km2_outlet_2",
+        "sim_reference::headwater_100km2_outlet_3",
+    ]
+    assert [case.case_id for case in skipped_cases] == [
+        "backend_compare::headwater_100km2_outlet_2",
+        "backend_compare::headwater_100km2_outlet_3",
+    ]
+    assert all(case.reason == "unsupported_platform" for case in skipped_cases)
+    assert unsupported_platform in skipped_cases[0].detail
+
+
 def test_regional_lab_execution_stops_on_first_failure(monkeypatch, tmp_path: Path) -> None:
     config_path = _write_regional_lab_config(
         tmp_path,
@@ -391,6 +423,78 @@ def test_regional_lab_build_run_command_dispatches_launchers(tmp_path: Path) -> 
         "run",
         str((tmp_path / "configs" / "compare_headwater_100km2_outlet_2.toml").resolve()),
     ]
+
+
+def test_regional_lab_extracts_method_comparison_child_artifacts(tmp_path: Path) -> None:
+    config_path = tmp_path / "compare_case.toml"
+    comparison_root = tmp_path / "comparison_outputs"
+    comparison_root.mkdir(parents=True, exist_ok=True)
+    (comparison_root / "comparison_manifest.json").write_text(
+        json.dumps(
+            {
+                "comparison_id": "demo_compare",
+                "reference_variant": "reference",
+                "wall_time_seconds": 12.5,
+                "n_metric_rows": 3,
+                "n_difference_rows": 2,
+                "n_observable_rows": 1,
+                "variants": [
+                    {"id": "reference", "status": "completed"},
+                    {"id": "candidate", "status": "failed"},
+                ],
+            },
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (comparison_root / "comparison_metrics.json").write_text(
+        json.dumps(
+            {
+                "summary": [
+                    {"observable": "head", "rmse": 1.5, "mae": 0.8},
+                    {"observable": "flow", "rmse": 2.0, "mae": 1.1},
+                ],
+                "differences": [{"observable": "head"}, {"observable": "flow"}],
+            },
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config_path.write_text(
+        "\n".join(
+            [
+                "[method_comparison]",
+                'comparison_id = "demo_compare"',
+                f'output_root = "{comparison_root.as_posix()}"',
+                "",
+                "[[method_comparison.variant]]",
+                'id = "reference"',
+                'run_folder = "runs/reference"',
+                "",
+                "[[method_comparison.observable]]",
+                'name = "head"',
+                'variable = "head"',
+                'support = "point"',
+                "cell_index = 0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    artifacts = _extract_method_comparison_child_artifacts(config_path)
+
+    assert artifacts["child_artifact_status"] == "resolved"
+    assert artifacts["child_comparison_id"] == "demo_compare"
+    assert artifacts["child_reference_variant"] == "reference"
+    assert artifacts["child_wall_time_seconds"] == 12.5
+    assert artifacts["child_variant_count"] == 2
+    assert artifacts["child_completed_variant_count"] == 1
+    assert artifacts["child_failed_variant_count"] == 1
+    assert artifacts["child_summary_max_rmse"] == 2.0
+    assert artifacts["child_summary_max_mae"] == 1.1
 
 
 def test_regional_lab_bootstrap_catalog_merges_manifest(tmp_path: Path) -> None:

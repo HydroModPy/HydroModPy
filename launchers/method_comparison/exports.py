@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import csv
+import json
 import math
 from pathlib import Path
 from typing import Any, Iterable, Mapping
+
+import numpy as np
+
+from launchers.method_comparison.runtime import resolve_bundle_cells
 
 
 def _as_float(value: Any) -> float | None:
@@ -411,6 +416,306 @@ def write_native_timeseries_exports(
     return artifacts, long_rows, wide_rows, delta_rows
 
 
+def _load_json_mapping(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _history_matrix(payload: Mapping[str, Any], key: str) -> np.ndarray | None:
+    if key not in payload:
+        return None
+    values = np.asarray(payload[key], dtype=float)
+    if values.ndim == 1:
+        return values.reshape(1, -1)
+    if values.ndim == 2:
+        return values
+    return None
+
+
+def _elapsed_seconds_axis(period_lengths: np.ndarray, *, n_snapshots: int) -> np.ndarray:
+    if n_snapshots <= 0:
+        return np.asarray([], dtype=float)
+    if period_lengths.size == n_snapshots - 1:
+        elapsed = np.concatenate(
+            (np.asarray([0.0], dtype=float), np.cumsum(period_lengths, dtype=float))
+        )
+        return np.asarray(elapsed, dtype=float)
+    if period_lengths.size == n_snapshots:
+        return np.asarray(np.cumsum(period_lengths, dtype=float), dtype=float)
+    return np.arange(n_snapshots, dtype=float)
+
+
+def _storage_change_series_m3_s(
+    *,
+    head_history_m: np.ndarray | None,
+    area_m2: np.ndarray | None,
+    storage_coefficient: np.ndarray | None,
+    period_lengths_seconds: np.ndarray,
+) -> np.ndarray | None:
+    if (
+        head_history_m is None
+        or area_m2 is None
+        or storage_coefficient is None
+        or head_history_m.ndim != 2
+    ):
+        return None
+    if not (
+        head_history_m.shape[1] == area_m2.size == storage_coefficient.size
+    ):
+        return None
+
+    n_snapshots = int(head_history_m.shape[0])
+    storage_change = np.full(n_snapshots, np.nan, dtype=float)
+    if n_snapshots == 0:
+        return storage_change
+
+    if period_lengths_seconds.size == n_snapshots - 1:
+        storage_change[0] = 0.0
+        for index in range(1, n_snapshots):
+            dt_seconds = float(period_lengths_seconds[index - 1])
+            if dt_seconds <= 0.0 or not math.isfinite(dt_seconds):
+                continue
+            delta_head_m = head_history_m[index] - head_history_m[index - 1]
+            storage_change[index] = float(
+                np.nansum(area_m2 * storage_coefficient * delta_head_m) / dt_seconds
+            )
+        return storage_change
+
+    if period_lengths_seconds.size == n_snapshots:
+        storage_change[0] = 0.0
+        for index in range(1, n_snapshots):
+            dt_seconds = float(period_lengths_seconds[index])
+            if dt_seconds <= 0.0 or not math.isfinite(dt_seconds):
+                continue
+            delta_head_m = head_history_m[index] - head_history_m[index - 1]
+            storage_change[index] = float(
+                np.nansum(area_m2 * storage_coefficient * delta_head_m) / dt_seconds
+            )
+        return storage_change
+
+    return None
+
+
+def _load_boussinesq_budget_rows(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
+    run_folder = Path(str(summary.get("run_folder", "")))
+    npz_path = run_folder / "_boussinesq_state_history.npz"
+    if not npz_path.exists():
+        return []
+
+    payload = np.load(npz_path, allow_pickle=True)
+    recharge_history = _history_matrix(payload, "recharge_rate_history_m_s")
+    well_history = _history_matrix(payload, "well_flux_history_m3_s")
+    drainage_history = _history_matrix(payload, "drainage_flux_history_m3_s")
+    surface_history = _history_matrix(payload, "saturation_excess_history_m_s")
+    head_history = _history_matrix(payload, "head_history_m")
+
+    n_snapshots = max(
+        (
+            int(matrix.shape[0])
+            for matrix in (
+                recharge_history,
+                well_history,
+                drainage_history,
+                surface_history,
+                head_history,
+            )
+            if matrix is not None
+        ),
+        default=0,
+    )
+    if n_snapshots <= 0:
+        return []
+
+    area_m2: np.ndarray | None = None
+    storage_coefficient: np.ndarray | None = None
+    n_cells = next(
+        (
+            int(matrix.shape[1])
+            for matrix in (
+                recharge_history,
+                well_history,
+                drainage_history,
+                surface_history,
+                head_history,
+            )
+            if matrix is not None and matrix.ndim == 2
+        ),
+        0,
+    )
+    if n_cells > 0:
+        cells = resolve_bundle_cells(
+            run_folder,
+            expected_size=n_cells,
+            solver_name="boussinesq",
+        )
+        if cells is not None:
+            if cells.area_m2 is not None:
+                area_m2 = np.asarray(cells.area_m2, dtype=float).reshape(-1)
+            if cells.storage_coefficient is not None:
+                storage_coefficient = np.asarray(
+                    cells.storage_coefficient,
+                    dtype=float,
+                ).reshape(-1)
+
+    period_lengths = (
+        np.asarray(payload["period_lengths_seconds"], dtype=float).ravel()
+        if "period_lengths_seconds" in payload
+        else np.asarray([], dtype=float)
+    )
+    elapsed_seconds = _elapsed_seconds_axis(
+        period_lengths,
+        n_snapshots=n_snapshots,
+    )
+
+    component_series: dict[str, np.ndarray] = {}
+    if recharge_history is not None and area_m2 is not None and recharge_history.shape[1] == area_m2.size:
+        component_series["recharge_total_m3_s"] = np.sum(
+            recharge_history * area_m2[None, :],
+            axis=1,
+            dtype=float,
+        )
+    if well_history is not None:
+        component_series["well_total_m3_s"] = np.sum(well_history, axis=1, dtype=float)
+    if drainage_history is not None:
+        component_series["drainage_total_m3_s"] = np.sum(
+            drainage_history,
+            axis=1,
+            dtype=float,
+        )
+    if surface_history is not None and area_m2 is not None and surface_history.shape[1] == area_m2.size:
+        component_series["surface_excess_total_m3_s"] = np.sum(
+            np.maximum(surface_history, 0.0) * area_m2[None, :],
+            axis=1,
+            dtype=float,
+        )
+
+    storage_change = _storage_change_series_m3_s(
+        head_history_m=head_history,
+        area_m2=area_m2,
+        storage_coefficient=storage_coefficient,
+        period_lengths_seconds=period_lengths,
+    )
+    if storage_change is not None:
+        component_series["storage_change_total_m3_s"] = storage_change
+
+    if {
+        "recharge_total_m3_s",
+        "well_total_m3_s",
+        "drainage_total_m3_s",
+        "surface_excess_total_m3_s",
+        "storage_change_total_m3_s",
+    }.issubset(component_series):
+        component_series["closure_residual_m3_s"] = (
+            component_series["recharge_total_m3_s"]
+            + component_series["well_total_m3_s"]
+            - component_series["drainage_total_m3_s"]
+            - component_series["surface_excess_total_m3_s"]
+            - component_series["storage_change_total_m3_s"]
+        )
+
+    time_labels = [
+        (f"{elapsed / 86400.0:.1f} d" if math.isfinite(float(elapsed)) else str(index))
+        for index, elapsed in enumerate(elapsed_seconds.tolist())
+    ]
+    rows: list[dict[str, Any]] = []
+    for component, series in sorted(component_series.items()):
+        values = np.asarray(series, dtype=float).reshape(-1)
+        if values.size != n_snapshots:
+            continue
+        for time_index, value in enumerate(values.tolist()):
+            if not math.isfinite(float(value)):
+                continue
+            rows.append(
+                {
+                    "variant_id": summary.get("id", ""),
+                    "variant_label": summary.get("label", summary.get("id", "")),
+                    "solver": summary.get("solver", ""),
+                    "mesh_mode": summary.get("mesh_mode", ""),
+                    "component": component,
+                    "unit": "m3/s",
+                    "time_index": time_index,
+                    "elapsed_seconds": float(elapsed_seconds[time_index]),
+                    "time_label": time_labels[time_index],
+                    "value": float(value),
+                    "source": str(npz_path),
+                }
+            )
+    return rows
+
+
+def write_budget_exports(
+    *,
+    comparison_root: Path,
+    variant_summaries: Iterable[Mapping[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Write budget diagnostics derived from Boussinesq state histories."""
+    rows: list[dict[str, Any]] = []
+    for summary in _completed_variant_summaries(variant_summaries):
+        rows.extend(_load_boussinesq_budget_rows(summary))
+
+    artifacts: list[dict[str, Any]] = []
+    if not rows:
+        return artifacts, rows
+
+    long_path = comparison_root / "budget_timeseries_long.csv"
+    _write_csv(
+        long_path,
+        rows,
+        [
+            "variant_id",
+            "variant_label",
+            "solver",
+            "mesh_mode",
+            "component",
+            "unit",
+            "time_index",
+            "elapsed_seconds",
+            "time_label",
+            "value",
+            "source",
+        ],
+    )
+    artifacts.append({"kind": "budget_timeseries_long_csv", "path": str(long_path)})
+
+    wide_index: dict[tuple[str, int], dict[str, Any]] = {}
+    for row in rows:
+        key = (str(row["component"]), int(row["time_index"]))
+        item = wide_index.setdefault(
+            key,
+            {
+                "component": row["component"],
+                "unit": row["unit"],
+                "time_index": row["time_index"],
+                "elapsed_seconds": row["elapsed_seconds"],
+                "time_label": row["time_label"],
+            },
+        )
+        item[f"value__{row['variant_id']}"] = row["value"]
+    wide_rows = list(wide_index.values())
+    wide_path = comparison_root / "budget_timeseries_wide.csv"
+    variant_columns = sorted(
+        {
+            key
+            for row in wide_rows
+            for key in row
+            if key.startswith("value__")
+        }
+    )
+    _write_csv(
+        wide_path,
+        wide_rows,
+        ["component", "unit", "time_index", "elapsed_seconds", "time_label"]
+        + variant_columns,
+    )
+    artifacts.append({"kind": "budget_timeseries_wide_csv", "path": str(wide_path)})
+    return artifacts, rows
+
+
 def write_execution_summary_csv(
     *,
     comparison_root: Path,
@@ -469,6 +774,7 @@ def write_execution_summary_csv(
 
 
 __all__ = (
+    "write_budget_exports",
     "write_execution_summary_csv",
     "write_native_timeseries_exports",
     "write_observable_chronicle_exports",

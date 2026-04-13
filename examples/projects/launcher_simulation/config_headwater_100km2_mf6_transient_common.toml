@@ -90,8 +90,14 @@ cross_section = false
 streamflow = false
 piezometry = false
 
+[modflow6.runtime]
+mf6_enable_rewet = false
+
 [modflow6.tgrid]
 firstpersteady = false
+
+[modflow6.process_specific]
+evt_extinction_depth = 1.0
 
 [modflow6.sgrid.vertical]
 genmtd_lay = "decay"

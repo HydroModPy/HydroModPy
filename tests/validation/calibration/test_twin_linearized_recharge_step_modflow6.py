@@ -32,6 +32,9 @@ def test_calibration_twin_linearized_recharge_step_modflow6_benchmark_recovers_t
     )
 
     assert benchmark.summary_path.is_file()
+    assert benchmark.configuration_figure is not None
+    assert benchmark.configuration_figure.is_file()
+    assert benchmark.pruned_artifacts
     assert benchmark.observations_truth["head_mid"]
     assert benchmark.observations_truth["q_east"]
     assert len(benchmark.method_results) == 3
@@ -39,6 +42,10 @@ def test_calibration_twin_linearized_recharge_step_modflow6_benchmark_recovers_t
         assert result.meets_success_target, result.to_mapping()
         assert result.cost_best is not None
         assert math.isfinite(float(result.cost_best)), result.to_mapping()
+        assert result.objective_trace_figure is not None
+        assert result.objective_trace_figure.is_file()
+        assert result.objective_landscape_figure is not None
+        assert result.objective_landscape_figure.is_file()
         if result.method_name in {"random_search", "simplex"}:
             assert result.recovered_truth, result.to_mapping()
 

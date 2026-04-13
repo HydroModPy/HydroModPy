@@ -1,3 +1,3 @@
 cluster_scale,site_count,planned_case_count,skipped_case_count,executed_case_count,reused_case_count,successful_case_count,failed_case_count,pending_case_count,execution_duration_seconds_total,child_wall_time_seconds_total,execution_duration_seconds_mean,child_wall_time_seconds_mean
-100km2,10,4,27,3,0,1,2,1,319.352976,212.52,106.450992,70.84
-10km2,10,10,0,0,0,0,0,10,,,,
+100km2,10,2,29,1,1,1,1,0,22.760358,212.52,11.380179,106.26
+10km2,10,10,0,0,10,10,0,0,0.0,50.09,0.0,5.009
