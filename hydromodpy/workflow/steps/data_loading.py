@@ -1,9 +1,7 @@
-"""Data phase for the process-simulation launcher.
+"""Data-loading step — load external forcings and apply structural bindings.
 
 This module contains the functions that load external forcings and bind the
-loaded data objects to runtime structures. Extracted from
-``HydroModPyLauncher`` to allow independent testing and to keep the launcher
-a thin orchestrator.
+loaded data objects to runtime structures.
 """
 
 from __future__ import annotations
@@ -114,4 +112,17 @@ def apply_structural_updates_from_data(
         flow=setup_state.flow,
         recharge_result=data_state.recharge,
         simulation_window=window,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Step entry point (unified signature for workflow pipelines)
+# ---------------------------------------------------------------------------
+
+def step_data_loading(ctx: LauncherRunState) -> None:
+    """Load forcings into ``ctx.loaded_data`` and bind them to runtime structures."""
+    run_data(
+        config_path=ctx.config_path,
+        data_plan=ctx.data_plan,
+        run_state=ctx,
     )

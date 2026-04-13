@@ -500,7 +500,7 @@ def _prepare_runtime_hydraulic_property_support(
     from launchers.process_simulation.launcher import HydroModPyLauncher
 
     launcher = HydroModPyLauncher(simulation_config_path)
-    plan = launcher.prepare_runtime()
+    launcher.prepare_runtime()
 
     setup_state = launcher.run_state.setup
     if setup_state.flow is None or setup_state.domain is None:
@@ -2159,7 +2159,7 @@ def _mesh_catchment_output_dir(
     workspace_paths = WorkspacePathRegistry.from_config(simulation_workspace)
     if output_layout == "flat":
         return workspace_paths.project_root
-    return workspace_paths.stable_folder / "mesh"
+    return workspace_paths.solver_scratch_folder / "_preprocessing" / "mesh"
 
 
 def _candidate_mesh_catchment_summary_paths(
@@ -2581,7 +2581,7 @@ def prepare_calibration_session(
     )
     core_settings = cfg.resolve_core_settings()
     calibration_id = cfg.model_calibration.calibration_id or config_path.stem
-    calibration_root = simulation_workspace.calibration_folder / calibration_id
+    calibration_root = simulation_workspace.solver_scratch_folder / calibration_id
     solver_families = detect_solver_families(raw_simulation_toml)
     primary_solver = solver_families[0] if solver_families else None
     prepared_output_selectors = prepare_output_selectors(cfg)
@@ -2773,8 +2773,21 @@ def finalize_calibration_session(
     model_distribution_rerun_summary: dict[str, Any] | None = None,
     objective_mapping_summary: dict[str, Any] | None = None,
     persist_distribution: bool = True,
+    result_store: Any = None,
+    store_sim_id: str | None = None,
 ) -> dict[str, Any]:
-    """Persist the final calibration result and update the session manifest."""
+    """Persist the final calibration result and update the session manifest.
+
+    Parameters
+    ----------
+    result_store : ResultStore, optional
+        When provided, a calibration summary (best params, objective,
+        method, iteration count) is also written to the project store
+        so that the result is discoverable alongside simulation results.
+    store_sim_id : str, optional
+        Simulation UUID for the store record. Auto-generated when
+        *result_store* is provided but *store_sim_id* is not.
+    """
     result_payload = serialize_calibration_result(result)
     result_metadata = dict(result_payload.get("metadata", {}))
     result_metadata["session_prepare_time_seconds"] = session.prepare_time_seconds
@@ -2832,7 +2845,60 @@ def finalize_calibration_session(
         json.dumps(manifest, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
+
+    # -- Persist to ResultStore if available ---------------------------------
+    if result_store is not None:
+        _persist_summary_to_store(
+            result_store=result_store,
+            store_sim_id=store_sim_id,
+            result_payload=result_payload,
+            session=session,
+        )
+
     return manifest
+
+
+def _persist_summary_to_store(
+    *,
+    result_store: Any,
+    store_sim_id: str | None,
+    result_payload: dict[str, Any],
+    session: PreparedCalibrationSession,
+) -> None:
+    """Best-effort persistence of the calibration summary to the ResultStore."""
+    import logging as _logging
+
+    _logger = _logging.getLogger(__name__)
+    try:
+        from hydromodpy.simulation.results.calibration_bridge import (
+            persist_calibration_summary_to_store,
+        )
+
+        if store_sim_id is None:
+            from uuid import uuid4
+
+            store_sim_id = str(uuid4())
+
+        persist_calibration_summary_to_store(
+            result_store,
+            store_sim_id,
+            best_params=result_payload.get("params_best", {}),
+            best_objective=float(result_payload.get("cost_best", float("inf"))),
+            method=str(result_payload.get("method", "unknown")),
+            iteration_count=int(result_payload.get("n_evaluations", 0)),
+            score_best=(
+                None
+                if result_payload.get("score_best") is None
+                else float(result_payload["score_best"])
+            ),
+            solver=session.primary_solver,
+            calibration_id=session.calibration_id,
+        )
+    except Exception:
+        _logger.warning(
+            "Failed to persist calibration summary to ResultStore",
+            exc_info=True,
+        )
 
 
 def select_candidate_outputs(

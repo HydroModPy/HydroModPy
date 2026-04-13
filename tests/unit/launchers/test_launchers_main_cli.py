@@ -54,7 +54,7 @@ class _DummyCliWorkspace:
         self.catch_name = str(
             getattr(config, "catch_name", self.project_root.name)
         )
-        self.stable_folder = self.project_root / ".solver_scratch/_preprocessing"
+        self.solver_scratch_folder = self.project_root / ".solver_scratch"
 
 
 class _DummyCliDomainGeographic:

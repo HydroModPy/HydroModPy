@@ -1716,7 +1716,7 @@ class Modflow6(Solver):
 			return
 
 		mesh_dir = os.path.join(self.save_file, "_mesh")
-		toolbox.create_folder(mesh_dir)
+		create_folder(mesh_dir)
 		time_index = np.arange(len(times), dtype=int)
 		times_array = np.asarray(times, dtype=float)
 		cell_ids = np.arange(int(self.ncpl), dtype=int)
@@ -1778,7 +1778,7 @@ class Modflow6(Solver):
 			from hydromodpy.spatial.mesh.plotting import plot_cell_values
 
 			figure_dir = os.path.join(self.save_file, "_figures", "native_mesh")
-			toolbox.create_folder(figure_dir)
+			create_folder(figure_dir)
 			field_styles = {
 				"watertable_elevation": ("Hydraulic head", "Head [m]", "viridis"),
 				"watertable_depth": ("Water-table depth", "Top - h [m]", "Blues"),
@@ -2018,7 +2018,7 @@ class Modflow6(Solver):
 		from matplotlib.patches import Patch
 
 		figure_dir = os.path.join(self.save_file, "_figures", "native_mesh")
-		toolbox.create_folder(figure_dir)
+		create_folder(figure_dir)
 
 		all_edge_indices = np.arange(np.asarray(getattr(support, "edge_ids", ()), dtype=int).size, dtype=int)
 		all_segments = self._support_edge_segments(support, all_edge_indices)

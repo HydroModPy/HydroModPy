@@ -1,9 +1,7 @@
-"""Mesh phase for the process-simulation launcher.
+"""Mesh step — optional catchment meshing or external mesh loading.
 
 This module contains the functions that handle the optional catchment meshing
 phase, including both embedded mesh generation and external mesh loading.
-Extracted from ``HydroModPyLauncher`` to allow independent testing and to
-keep the launcher a thin orchestrator.
 """
 
 from __future__ import annotations
@@ -16,11 +14,6 @@ from typing import TYPE_CHECKING
 from hydromodpy.solver.utils.mesh.gmsh_grid import load_planar_mesh
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
-)
-from launchers.mesh_catchment.config import parse_mesh_catchment_batch_config_data
-from launchers.mesh_catchment.runtime import (
-    get_optional_mesh_section,
-    run_single_mesh_catchment_workflow_with_runtime_artifacts,
 )
 
 if TYPE_CHECKING:
@@ -38,6 +31,9 @@ def resolve_optional_mesh_section(
     raw_toml: Mapping[str, object],
 ) -> MeshCatchmentConfigSchema | None:
     """Extract and validate the optional [mesh_catchment] section from raw TOML."""
+    from launchers.mesh_catchment.config import parse_mesh_catchment_batch_config_data
+    from launchers.mesh_catchment.runtime import get_optional_mesh_section
+
     section = get_optional_mesh_section(raw_toml)
     batch_section = raw_toml.get("mesh_catchment_batch")
     if batch_section is None:
@@ -99,6 +95,11 @@ def run_mesh_phase(
     """Run the optional catchment meshing phase embedded in simulation TOML."""
     if mesh_section_data is None or constraints_mode is None:
         return
+
+    from launchers.mesh_catchment.runtime import (
+        run_single_mesh_catchment_workflow_with_runtime_artifacts,
+    )
+
     setup_state = run_state.setup
     mesh_runtime = run_single_mesh_catchment_workflow_with_runtime_artifacts(
         config_path=config_path,
@@ -183,3 +184,32 @@ def load_mesh_artifacts_from_summary(
         return
     if setup_state.mesh_planar is None:
         setup_state.mesh_planar = load_planar_mesh(mesh_path_obj)
+
+
+# ---------------------------------------------------------------------------
+# Step entry points (unified signature for workflow pipelines)
+# ---------------------------------------------------------------------------
+
+def step_mesh(
+    ctx: LauncherRunState,
+    *,
+    mesh_section_data: MeshCatchmentConfigSchema | None = None,
+    constraints_mode: str | None = None,
+) -> None:
+    """Run the optional catchment meshing phase embedded in simulation TOML."""
+    run_mesh_phase(
+        config_path=ctx.config_path,
+        cfg=ctx.cfg,
+        run_state=ctx,
+        mesh_section_data=mesh_section_data,
+        constraints_mode=constraints_mode,
+    )
+
+
+def step_mesh_input(
+    ctx: LauncherRunState,
+    *,
+    external_mesh_input: dict[str, str] | None = None,
+) -> None:
+    """Load one pre-existing external mesh declared in ``[mesh_input]``."""
+    run_mesh_input_phase(ctx, external_mesh_input)

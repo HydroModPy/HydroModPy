@@ -76,7 +76,7 @@ def _build_result(
         watershed_dem=Path("native_dem.tif"),
         watershed_shp=Path("watershed.shp"),
     )
-    workspace = SimpleNamespace(simulations_folder=Path("simulations"), project_root=Path("."))
+    workspace = SimpleNamespace(solver_scratch_folder=Path("simulations"), project_root=Path("."))
     hydrography = SimpleNamespace(streams=Path("streams.shp"))
 
     class _Result:
@@ -231,7 +231,7 @@ def test_plot_flow_suite_copies_native_mesh_figures_for_unstructured_solver(
         solver_mesh=SimpleNamespace(is_structured=False),
     )
     result = _build_result(flow_model=flow_model)
-    result.setup.workspace.simulations_folder = tmp_path
+    result.setup.workspace.solver_scratch_folder = tmp_path
 
     monkeypatch.setattr(
         "hydromodpy.analysis.display.suites._load_flow_timeseries",
@@ -277,7 +277,7 @@ def test_plot_flow_suite_renders_solver_agnostic_common_flow_figures(
         solver_mesh=SimpleNamespace(is_structured=False),
     )
     result = _build_result(flow_model=flow_model)
-    result.setup.workspace.simulations_folder = tmp_path
+    result.setup.workspace.solver_scratch_folder = tmp_path
 
     monkeypatch.setattr(
         "hydromodpy.analysis.display.suites._load_flow_timeseries",
@@ -339,7 +339,7 @@ def test_plot_flow_suite_renders_spatial_synthesis_without_timeseries(
         solver_mesh=SimpleNamespace(is_structured=False),
     )
     result = _build_result(flow_model=flow_model)
-    result.setup.workspace.simulations_folder = tmp_path
+    result.setup.workspace.solver_scratch_folder = tmp_path
 
     monkeypatch.setattr(
         "hydromodpy.analysis.display.suites._load_flow_timeseries",
@@ -396,7 +396,7 @@ def test_plot_transport_suite_copies_native_mesh_figures_for_unstructured_solver
     )
     transport_model = SimpleNamespace(name="transport")
     result = _build_result(flow_model=flow_model, transport_model=transport_model)
-    result.setup.workspace.simulations_folder = tmp_path
+    result.setup.workspace.solver_scratch_folder = tmp_path
 
     monkeypatch.setattr(
         "hydromodpy.analysis.display.suites.plot_concentration_frames",

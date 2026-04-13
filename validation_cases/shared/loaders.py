@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import logging
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config, merge_toml_payloads
+
+if TYPE_CHECKING:
+    from hydromodpy.results.store import ResultStore
+
+logger = logging.getLogger(__name__)
 
 
 def _load_toml(path: Path) -> dict:
@@ -69,6 +76,73 @@ def load_last_npy_array(postprocess_dir: Path, observable_name: str) -> tuple[in
     assert payload, f"{observable_name}.npy is empty."
     last_key = sorted(payload)[-1]
     return int(last_key), np.asarray(payload[last_key], dtype=float)
+
+
+def load_field(
+    *,
+    postprocess_dir: Path | None = None,
+    store: Any = None,
+    sim_id: str | None = None,
+    observable_name: str,
+    timestep: int = -1,
+) -> tuple[int, np.ndarray]:
+    """Load one spatial field, preferring the ResultStore when available.
+
+    Parameters
+    ----------
+    postprocess_dir : Path, optional
+        Legacy ``_postprocess`` directory containing ``.npy`` files.
+    store : ResultStore, optional
+        Open :class:`~hydromodpy.results.store.ResultStore` instance.
+    sim_id : str, optional
+        Simulation identifier inside *store*.
+    observable_name : str
+        Variable name (e.g. ``"head"``, ``"watertable_elevation"``).
+    timestep : int
+        Timestep index to load.  ``-1`` (the default) loads the last
+        available timestep, matching the legacy ``load_last_npy_array``
+        behaviour.
+
+    Returns
+    -------
+    tuple[int, np.ndarray]
+        ``(timestep_key, values)`` — the resolved integer timestep key
+        and the corresponding spatial array.
+    """
+    # --- Try the store first -------------------------------------------------
+    if store is not None and sim_id is not None:
+        try:
+            data = store.query_field(sim_id, observable_name, timestep)
+            resolved_ts = timestep
+            # When the caller asked for the last timestep via -1, try to
+            # resolve the actual integer key from the Zarr array shape.
+            if timestep < 0:
+                try:
+                    grp = store.open_zarr_group(sim_id)
+                    for loc in (grp, grp.get("derived"), grp.get("budget")):
+                        if loc is not None and observable_name in loc:
+                            n_ts = loc[observable_name].shape[0]
+                            resolved_ts = n_ts + timestep  # e.g. n-1 for -1
+                            break
+                except Exception:
+                    resolved_ts = timestep
+            return int(resolved_ts), np.asarray(data, dtype=float)
+        except Exception:
+            logger.debug(
+                "ResultStore query failed for variable '%s' (sim_id=%s), "
+                "falling back to legacy .npy loader.",
+                observable_name,
+                sim_id,
+                exc_info=True,
+            )
+
+    # --- Fallback to legacy .npy loader --------------------------------------
+    if postprocess_dir is None:
+        raise ValueError(
+            f"Cannot load field '{observable_name}': no store provided and "
+            "postprocess_dir is None."
+        )
+    return load_last_npy_array(postprocess_dir, observable_name)
 
 
 def load_npy_time_series_arrays(

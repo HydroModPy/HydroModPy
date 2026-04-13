@@ -296,8 +296,8 @@ def build_flow_cumulative_payload(
         return None
 
     recharge_cumulative_mm = None
-    if "recharge" in simulated_timeseries.columns:
-        recharge = np.asarray(simulated_timeseries["recharge"], dtype=float).reshape(-1)
+    if "recharge_budget" in simulated_timeseries.columns:
+        recharge = np.asarray(simulated_timeseries["recharge_budget"], dtype=float).reshape(-1)
         if _has_at_least_one_finite_value(recharge):
             recharge_cumulative_mm = _rate_m_per_s_to_cumulative_mm(recharge, step_days)
 

@@ -91,9 +91,9 @@ class MatchingStreams:
         self.geographic = geographic
         self.hydrography = hydrography
         self.model_modflow = model_modflow
-        self.calibration_folder = str(
+        self.output_folder = str(
             getattr(initializing, "solver_scratch_folder", None)
-            or getattr(initializing, "simulations_folder", initializing.project_root)
+            or initializing.project_root
         )
         self.iteration_label = iteration_label
 
@@ -134,11 +134,11 @@ class MatchingStreams:
         """
 
         self.results_folder = os.path.join(
-            self.calibration_folder, self.iteration_label, "_postprocess"
+            self.output_folder, self.iteration_label, "_postprocess"
         )
         create_folder(self.results_folder)
         self.dichotomy_folder = os.path.join(
-            self.calibration_folder, self.iteration_label, "_matchingstreams"
+            self.output_folder, self.iteration_label, "_matchingstreams"
         )
         create_folder(self.dichotomy_folder)
 

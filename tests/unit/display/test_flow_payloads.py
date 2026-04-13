@@ -9,7 +9,7 @@ from hydromodpy.analysis.display.flow_payloads import build_flow_cumulative_payl
 def test_build_flow_cumulative_payload_converts_si_rates_to_display_mm() -> None:
     timeseries = pd.DataFrame(
         {
-            "recharge": [1.0e-3 / 86_400.0, 1.0e-3 / 86_400.0],
+            "recharge_budget": [1.0e-3 / 86_400.0, 1.0e-3 / 86_400.0],
             "outflow_drain": [0.5e-3 / 86_400.0, 0.5e-3 / 86_400.0],
             "runoff": [0.25e-3 / 86_400.0, 0.25e-3 / 86_400.0],
         },
@@ -36,7 +36,7 @@ def test_build_flow_cumulative_payload_converts_si_rates_to_display_mm() -> None
 def test_build_flow_cumulative_payload_ignores_empty_optional_components() -> None:
     timeseries = pd.DataFrame(
         {
-            "recharge": [2.0e-3 / 86_400.0, 0.0],
+            "recharge_budget": [2.0e-3 / 86_400.0, 0.0],
             "outflow_drain": [1.0e-3 / 86_400.0, 1.0e-3 / 86_400.0],
             "runoff": [np.nan, np.nan],
         },

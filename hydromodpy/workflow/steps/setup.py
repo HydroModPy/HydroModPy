@@ -1,9 +1,8 @@
-"""Setup phase for the process-simulation launcher.
+"""Setup step — structural bootstrap (workspace, geographic, domain, flow, transport).
 
 This module contains the functions that build the shared structural objects
 (workspace, geographic context, domain, flow/transport configs) used by all
-later process runs. Extracted from ``HydroModPyLauncher`` to allow independent
-testing and to keep the launcher a thin orchestrator.
+later process runs.
 """
 
 from __future__ import annotations
@@ -307,8 +306,16 @@ def run_setup(
         geographic=setup_state.domain_geographic,
     )
 
-    # Set run_id from the simulation config.
-    setup_state.run_id = cfg.simulation.run_id or "default"
+    # Set run_id: explicit config > derive from TOML filename > "default".
+    if cfg.simulation.run_id:
+        setup_state.run_id = cfg.simulation.run_id
+    else:
+        import re
+
+        toml_path = run_state.config_path
+        setup_state.run_id = (
+            re.sub(r"^run_", "", Path(toml_path).stem) if toml_path else "default"
+        )
 
     # Eagerly create Flow/Transport so data binders can reference them.
     ensure_flow(run_state)
@@ -316,5 +323,24 @@ def run_setup(
     validate_domain_support_contract(
         domain_cfg=domain_cfg,
         flow=setup_state.flow,
+        requested_domain_supports=requested_domain_supports,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Step entry point (unified signature for workflow pipelines)
+# ---------------------------------------------------------------------------
+
+def step_setup(
+    ctx: LauncherRunState,
+    *,
+    requested_spatial_support_ids: tuple[str, ...] = (),
+    requested_domain_supports: dict[str, object] | None = None,
+) -> None:
+    """Populate ``ctx.setup`` with workspace, geographic, domain, flow, transport."""
+    run_setup(
+        ctx.cfg,
+        ctx,
+        requested_spatial_support_ids=requested_spatial_support_ids,
         requested_domain_supports=requested_domain_supports,
     )
