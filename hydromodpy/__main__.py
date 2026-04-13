@@ -373,16 +373,30 @@ def _derive_run_id_from_filename(toml_path: Path) -> str:
 
 
 def _cmd_run(args: argparse.Namespace) -> None:
+    """Run a simulation (.toml) or a prototype script (.py)."""
+    target = Path(args.config).expanduser().resolve()
+    if not target.is_file():
+        print(f"File not found: {target}", file=sys.stderr)
+        sys.exit(1)
+
+    if target.suffix == ".py":
+        _cmd_run_script(target, getattr(args, "script_args", []))
+    elif target.suffix == ".toml":
+        _cmd_run_toml(target)
+    else:
+        print(
+            f"Unsupported file type: {target.suffix} (expected .toml or .py)",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def _cmd_run_toml(config_path: Path) -> None:
     """Run a simulation from a TOML configuration file."""
     from hydromodpy.core.tools.display import print_hydromodpy
     from launchers import HydroModPyLauncher
 
     print_hydromodpy()
-    config_path = Path(args.config).expanduser().resolve()
-    if not config_path.is_file():
-        print(f"Configuration file not found: {config_path}", file=sys.stderr)
-        sys.exit(1)
-
     launcher = HydroModPyLauncher(config_path)
     run_state = launcher.run()
 
@@ -390,6 +404,16 @@ def _cmd_run(args: argparse.Namespace) -> None:
     model_ids = list(run_state.execution.models_by_run_id.keys())
     if model_ids:
         print(f"Produced models: {', '.join(model_ids)}", file=sys.stderr)
+
+
+def _cmd_run_script(script_path: Path, extra_args: list[str]) -> None:
+    """Run a Python prototype script as a subprocess."""
+    from hydromodpy.core.tools.display import print_hydromodpy
+
+    print_hydromodpy()
+    cmd = [sys.executable, str(script_path), *extra_args]
+    result = subprocess.run(cmd, cwd=str(script_path.parent))
+    sys.exit(result.returncode)
 
 
 def _cmd_compare(args: argparse.Namespace) -> None:
@@ -869,12 +893,17 @@ def main() -> None:
     # --- run subcommand (replaces 'simulation') ---
     run_parser = subparsers.add_parser(
         "run",
-        help="Run a simulation from a TOML configuration file",
+        help="Run a simulation (.toml) or a prototype script (.py)",
     )
     run_parser.add_argument(
         "config",
         type=Path,
-        help="Path to the run TOML file",
+        help="Path to a TOML config or Python script",
+    )
+    run_parser.add_argument(
+        "script_args",
+        nargs="*",
+        help="Extra arguments forwarded to .py scripts",
     )
 
     # --- compare subcommand ---
