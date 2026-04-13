@@ -492,8 +492,8 @@ def _write_suite_report(
             "",
             "## Method Summary",
             "",
-            "| Case | Method | Success Metric | Target Success | Best Fit | Mean Cost | Mean Eval | Mean Time/Eval (s) |",
-            "|---|---|---:|---:|---:|---:|---:|---:|",
+            "| Case | Method | Success Metric | Target Success | Best Fit | Mean Cost | Mean Eval | Session Prep (s) | Model Prep (s) | Model Sim (s) | Mean Time/Eval (s) |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for row in method_rows:
@@ -515,6 +515,21 @@ def _write_suite_report(
                         ""
                         if row["mean_n_evaluations"] is None
                         else f"{float(row['mean_n_evaluations']):.2f}"
+                    ),
+                    (
+                        ""
+                        if row["mean_session_prepare_time_seconds"] is None
+                        else f"{float(row['mean_session_prepare_time_seconds']):.3f}"
+                    ),
+                    (
+                        ""
+                        if row["mean_candidate_preparation_time_seconds"] is None
+                        else f"{float(row['mean_candidate_preparation_time_seconds']):.3f}"
+                    ),
+                    (
+                        ""
+                        if row["mean_candidate_simulation_time_seconds"] is None
+                        else f"{float(row['mean_candidate_simulation_time_seconds']):.3f}"
                     ),
                     (
                         ""
