@@ -10,22 +10,22 @@ from typing import Any
 from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
-from launchers.method_comparison.config import MethodComparisonConfig
-from launchers.method_comparison.exports import (
+from hydromodpy.analysis.comparison.config import MethodComparisonConfig
+from hydromodpy.analysis.comparison.exports import (
     write_budget_exports,
     write_execution_summary_csv,
     write_native_timeseries_exports,
     write_observable_chronicle_exports,
 )
-from launchers.method_comparison.metrics import (
+from hydromodpy.analysis.comparison.metrics import (
     DETAIL_METRIC_FIELDS,
     SUMMARY_METRIC_FIELDS,
     build_comparison_metrics,
     write_metrics_csv,
     write_metrics_json,
 )
-from launchers.method_comparison.reporting import build_comparison_report
-from launchers.method_comparison.runtime import (
+from hydromodpy.analysis.comparison.reporting import build_comparison_report
+from hydromodpy.analysis.comparison.runtime import (
     compact_run_metrics,
     discover_result_store,
     extract_observable_rows,
@@ -34,7 +34,7 @@ from launchers.method_comparison.runtime import (
     read_variant_run_metadata,
     write_observables_csv,
 )
-from launchers.method_comparison.visuals import generate_comparison_figures
+from hydromodpy.analysis.comparison.visuals import generate_comparison_figures
 
 
 class MethodComparisonLauncher:

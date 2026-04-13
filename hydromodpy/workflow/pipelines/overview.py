@@ -11,29 +11,15 @@ Orchestrates four phases:
 from __future__ import annotations
 
 import logging
-import sys
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
-
-def _ensure_repo_root_on_sys_path() -> Path:
-    """Make direct script execution behave like ``python -m`` from the repo root."""
-    repo_root = Path(__file__).resolve().parents[2]
-    repo_root_str = str(repo_root)
-    if repo_root_str not in sys.path:
-        sys.path.insert(0, repo_root_str)
-    return repo_root
-
-
-_REPO_ROOT = _ensure_repo_root_on_sys_path()
-
-
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
-from launchers.data_overview.config import DataOverviewConfig
-from launchers.data_overview.state import DataOverviewState
+logger = logging.getLogger(__name__)
+
+from hydromodpy.analysis.display.report.overview_config import DataOverviewConfig
+from hydromodpy.analysis.display.report.overview_config import DataOverviewState
 
 
 class DataOverviewLauncher:
@@ -183,7 +169,7 @@ class DataOverviewLauncher:
 
     def _load_data(self, state: DataOverviewState) -> None:
         from hydromodpy.data.plan import DataLoadPlan
-        from launchers.data_overview.data_loader import OverviewDataLoader
+        from hydromodpy.analysis.display.report.overview_data_loader import OverviewDataLoader
 
         # Build a minimal data plan from the explicit types list.
         data_plan = DataLoadPlan(

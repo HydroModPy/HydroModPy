@@ -6,6 +6,6 @@ This subpackage hosts the launcher that:
 - generates an overview report (PNGs) without running any simulation.
 """
 
-from launchers.data_overview.launcher import DataOverviewLauncher
+from hydromodpy.workflow.pipelines.overview import DataOverviewLauncher
 
 __all__ = ["DataOverviewLauncher"]

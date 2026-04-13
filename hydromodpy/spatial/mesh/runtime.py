@@ -22,11 +22,11 @@ from hydromodpy.solver.utils.mesh.gmsh_grid import export_catchment_mesh_bundle
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal import (
     run_reference_2d_zone_conformal_case_from_toml,
 )
-from launchers.mesh_catchment.config import (
+from hydromodpy.spatial.mesh.config import (
     MeshCatchmentConfigSchema,
     parse_mesh_catchment_config_data,
 )
-from launchers.mesh_catchment.runtime_single_run import (
+from hydromodpy.spatial.mesh.runtime_single_run import (
     MeshCatchmentWorkflowRuntimeArtifacts,
     MeshCatchmentSingleRunDependencies,
     clone_config_like,

@@ -13,8 +13,8 @@ from typing import Any
 import numpy as np
 
 from launchers import HydroModPyLauncher
-from launchers.model_calibration.launcher import ModelCalibrationLauncher
-from launchers.model_calibration.runtime import (
+from hydromodpy.analysis.calibration.engine.launcher import ModelCalibrationLauncher
+from hydromodpy.analysis.calibration.engine.session import (
     actualize_candidate,
     execute_candidate_run,
     select_candidate_outputs,

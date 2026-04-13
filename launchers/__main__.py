@@ -182,7 +182,7 @@ def _bootstrap_regional_lab_catalog(
     tags: list[str],
 ) -> None:
     """Build one canonical regional-lab site catalog from one outlets table."""
-    from launchers.regional_lab.bootstrap import build_site_catalog_from_outlet_table
+    from hydromodpy.analysis.batch.bootstrap import build_site_catalog_from_outlet_table
 
     summary = build_site_catalog_from_outlet_table(
         outlets_table_path=outlets_table,

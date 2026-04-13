@@ -19,7 +19,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid._bundle_export_contracts import (
     CatchmentBundleHydraulicPropertiesConfig,
     CatchmentBundleSummaryReference,
 )
-from launchers.mesh_catchment.config import MeshCatchmentConfigSchema
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
 
 
 _RIVER_TRACE_CONSTRAINT_MODES = {"rivers_only", "geology_rivers"}

@@ -1085,9 +1085,9 @@ def _add_horizontal_colorbar(fig, mappable, *, axes, label: str):
 
 def _build_method_comparison_payload(config_path: Path) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-    from launchers.method_comparison.config import MethodComparisonConfig
-    from launchers.method_comparison.metrics import build_comparison_metrics
-    from launchers.method_comparison.runtime import (
+    from hydromodpy.analysis.comparison.config import MethodComparisonConfig
+    from hydromodpy.analysis.comparison.metrics import build_comparison_metrics
+    from hydromodpy.analysis.comparison.runtime import (
         compact_run_metrics,
         extract_observable_rows,
         read_json_file,
@@ -2752,8 +2752,8 @@ def _generate_geometry_case(
 
 
 def _generate_method_comparison_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
-    from launchers.method_comparison.metrics import DETAIL_METRIC_FIELDS, SUMMARY_METRIC_FIELDS, write_metrics_csv
-    from launchers.method_comparison.runtime import write_observables_csv
+    from hydromodpy.analysis.comparison.metrics import DETAIL_METRIC_FIELDS, SUMMARY_METRIC_FIELDS, write_metrics_csv
+    from hydromodpy.analysis.comparison.runtime import write_observables_csv
 
     config_path = _repo_path(str(spec.metadata["comparison_config_path"]))
     manifest, metrics_payload, all_rows = _build_method_comparison_payload(config_path)

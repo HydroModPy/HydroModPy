@@ -30,7 +30,7 @@ from hydromodpy.workflow.steps.store_lifecycle import (
 
 if TYPE_CHECKING:
     from hydromodpy.workflow.context import WorkflowContext
-    from launchers.mesh_catchment.config import MeshCatchmentConfigSchema
+    from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
 
 logger = logging.getLogger(__name__)
 

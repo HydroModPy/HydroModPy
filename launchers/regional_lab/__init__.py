@@ -1,17 +1,17 @@
 """Regional-lab launcher family."""
 
-from launchers.regional_lab.config import (
+from hydromodpy.analysis.batch.config import (
     RegionalLabCatalogConfig,
     RegionalLabClusterRuleConfig,
     RegionalLabConfig,
     RegionalLabRecipeConfig,
     RegionalLabSelectionConfig,
 )
-from launchers.regional_lab.bootstrap import (
+from hydromodpy.analysis.batch.bootstrap import (
     build_site_catalog_from_outlet_table,
     inspect_mesh_bundle_boussinesq_readiness,
 )
-from launchers.regional_lab.launcher import RegionalLabLauncher
+from hydromodpy.analysis.batch.runtime import RegionalLabLauncher
 
 __all__ = (
     "build_site_catalog_from_outlet_table",

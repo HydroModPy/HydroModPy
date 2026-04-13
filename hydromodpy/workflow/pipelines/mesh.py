@@ -29,8 +29,8 @@ from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from launchers.mesh_catchment import runtime as mesh_runtime
-from launchers.mesh_catchment.batch import (
+from hydromodpy.spatial.mesh import runtime as mesh_runtime
+from hydromodpy.spatial.mesh.batch import (
     MeshCatchmentBatchConfig,
     MeshCatchmentBatchRunner,
 )

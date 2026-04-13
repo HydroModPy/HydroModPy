@@ -26,22 +26,22 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from launchers.mesh_catchment.batch_io import (
+from hydromodpy.spatial.mesh.batch_io import (
     MeshCatchmentOutletRecord,
     load_mesh_catchment_outlet_records,
     sanitize_batch_path_token,
     validate_outlets_within_raster,
 )
-from launchers.mesh_catchment.batch_reporting import (
+from hydromodpy.spatial.mesh.batch_reporting import (
     MeshCatchmentBatchResultRow,
     MeshCatchmentBatchSummary,
     write_mesh_catchment_batch_manifest,
 )
-from launchers.mesh_catchment.config import (
+from hydromodpy.spatial.mesh.config import (
     MeshCatchmentConfigSchema,
     parse_mesh_catchment_batch_config_data,
 )
-from launchers.mesh_catchment.runtime_single_run import clone_config_like
+from hydromodpy.spatial.mesh.runtime_single_run import clone_config_like
 
 
 @dataclass(frozen=True)

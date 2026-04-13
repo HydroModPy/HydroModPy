@@ -11,7 +11,7 @@ REPO_ROOT = PILOT_DIR.parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from launchers.regional_lab.bootstrap import inspect_mesh_bundle_boussinesq_readiness
+from hydromodpy.analysis.batch.bootstrap import inspect_mesh_bundle_boussinesq_readiness
 
 
 def _merge_tags(raw_tags: str, *extra_tags: str) -> str:

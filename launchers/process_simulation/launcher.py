@@ -25,7 +25,7 @@ from hydromodpy.core.time import (
     apply_explicit_time_window_to_tgrids,
     require_flow_simulation_time_grid,
 )
-from launchers.mesh_catchment.runtime import (
+from hydromodpy.spatial.mesh.runtime import (
     prepare_geographic_config_for_meshing,
 )
 
@@ -43,7 +43,7 @@ from hydromodpy.workflow.steps.mesh import (
 
 if TYPE_CHECKING:
     from hydromodpy.data import DataLoadPlan
-    from launchers.mesh_catchment.config import MeshCatchmentConfigSchema
+    from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
 
 logger = logging.getLogger(__name__)
 

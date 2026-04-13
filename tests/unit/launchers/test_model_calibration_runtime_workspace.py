@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from launchers.model_calibration.runtime import resolve_workspace_config
+from hydromodpy.analysis.calibration.engine.session import resolve_workspace_config
 
 
 def test_model_calibration_runtime_respects_project_root_env_override(

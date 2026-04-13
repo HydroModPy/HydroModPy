@@ -1,6 +1,6 @@
 """Launcher family for mesh/solver method comparisons."""
 
-from launchers.method_comparison.config import (
+from hydromodpy.analysis.comparison.config import (
     MethodComparisonConfig,
     MethodComparisonObservableSchema,
     MethodComparisonSectionSchema,

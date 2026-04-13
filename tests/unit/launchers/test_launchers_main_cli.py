@@ -81,8 +81,8 @@ def _minimal_geology_toml_lines() -> list[str]:
 
 
 def _install_mesh_catchment_runtime_stubs(monkeypatch, tmp_path: Path):
-    import launchers.mesh_catchment.launcher as launcher_module
-    import launchers.mesh_catchment.runtime as runtime_module
+    import hydromodpy.workflow.pipelines.mesh as launcher_module
+    import hydromodpy.spatial.mesh.runtime as runtime_module
 
     dem_path = tmp_path / "data" / "reference.tif"
     _write_test_raster(

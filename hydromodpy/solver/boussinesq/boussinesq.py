@@ -45,7 +45,7 @@ from hydromodpy.solver.boussinesq.runtime_selection import (
     BoussinesqRuntimeBackend,
     resolve_runtime_backend,
 )
-from hydromodpy.solver.prototype.solver import Solver
+from hydromodpy.solver.base.solver import Solver
 from hydromodpy.solver.utils.mesh.gmsh_grid import load_planar_mesh
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,

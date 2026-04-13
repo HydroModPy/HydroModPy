@@ -7,9 +7,9 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 
-from launchers.regional_lab.bootstrap import build_site_catalog_from_outlet_table
-from launchers.regional_lab.config import RegionalLabConfig
-from launchers.regional_lab.launcher import (
+from hydromodpy.analysis.batch.bootstrap import build_site_catalog_from_outlet_table
+from hydromodpy.analysis.batch.config import RegionalLabConfig
+from hydromodpy.analysis.batch.runtime import (
     RegionalLabLauncher,
     _extract_method_comparison_child_artifacts,
     build_regional_lab_plan,
@@ -315,7 +315,7 @@ def test_regional_lab_execution_stops_on_first_failure(monkeypatch, tmp_path: Pa
         return SimpleNamespace(returncode=returncode)
 
     monkeypatch.setattr(
-        "launchers.regional_lab.launcher.subprocess.run",
+        "hydromodpy.analysis.batch.runtime.subprocess.run",
         _fake_subprocess_run,
     )
 
@@ -379,7 +379,7 @@ def test_regional_lab_resume_skips_completed_cases(monkeypatch, tmp_path: Path) 
         return SimpleNamespace(returncode=0)
 
     monkeypatch.setattr(
-        "launchers.regional_lab.launcher.subprocess.run",
+        "hydromodpy.analysis.batch.runtime.subprocess.run",
         _fake_subprocess_run,
     )
 

@@ -5,7 +5,7 @@ import sys
 
 from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-from launchers.method_comparison.config import MethodComparisonConfig
+from hydromodpy.analysis.comparison.config import MethodComparisonConfig
 from examples.projects.launcher_simulation.realistic_campaign.run_campaign import (
     CampaignExecution,
     build_execution_report,

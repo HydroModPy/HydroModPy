@@ -669,7 +669,7 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(
         _DummySimulationRunner,
     )
     monkeypatch.setattr(
-        "launchers.mesh_catchment.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
+        "hydromodpy.spatial.mesh.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
         _fake_mesh_workflow,
     )
     monkeypatch.setattr(
@@ -887,7 +887,7 @@ def test_run_uses_external_mesh_input_phase_and_skips_embedded_workflow(
         _DummySimulationRunner,
     )
     monkeypatch.setattr(
-        "launchers.mesh_catchment.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
+        "hydromodpy.spatial.mesh.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
         lambda **kwargs: (_ for _ in ()).throw(
             AssertionError("embedded mesh workflow should not run")
         ),

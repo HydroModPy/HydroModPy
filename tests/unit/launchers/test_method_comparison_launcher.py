@@ -12,14 +12,14 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-from launchers.method_comparison.config import MethodComparisonConfig
-from launchers.method_comparison.exports import write_budget_exports
+from hydromodpy.analysis.comparison.config import MethodComparisonConfig
+from hydromodpy.analysis.comparison.exports import write_budget_exports
 from launchers.method_comparison.launcher import MethodComparisonLauncher
-from launchers.method_comparison.metrics import (
+from hydromodpy.analysis.comparison.metrics import (
     build_comparison_metrics,
     build_unmatched_groups,
 )
-from launchers.method_comparison.runtime import (
+from hydromodpy.analysis.comparison.runtime import (
     extract_observable_rows,
     load_variable_series,
     materialize_variant_config,
