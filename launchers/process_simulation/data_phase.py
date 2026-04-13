@@ -1,117 +1,14 @@
-"""Data phase for the process-simulation launcher.
+"""Data phase — re-exports from ``hydromodpy.workflow.steps.data_loading``.
 
-This module contains the functions that load external forcings and bind the
-loaded data objects to runtime structures. Extracted from
-``HydroModPyLauncher`` to allow independent testing and to keep the launcher
-a thin orchestrator.
+This module is kept for backward compatibility.  All implementation has
+moved to :mod:`hydromodpy.workflow.steps.data_loading`.
 """
 
-from __future__ import annotations
-
-import logging
-from pathlib import Path
-from typing import TYPE_CHECKING
-
-from hydromodpy.spatial.geographic.structure_binders import apply_geology_to_domain
-from hydromodpy.process.flow.structure_binders import (
-    apply_oceanic_to_flow,
-    apply_recharge_load_result_to_flow,
+from hydromodpy.workflow.steps.data_loading import (  # noqa: F401
+    _build_data_plan,
+    _build_data_runtime_loader,
+    log_data_plan,
+    run_data,
+    apply_structural_updates_from_data,
+    step_data_loading,
 )
-from hydromodpy.simulation import ensure_flow
-from hydromodpy.core.time import resolve_simulation_time_window
-
-if TYPE_CHECKING:
-    from hydromodpy.core.state.run_state import LauncherRunState
-    from hydromodpy.data import DataLoadPlan
-
-logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Lazy-import helpers (kept at module level for patchability in tests)
-# ---------------------------------------------------------------------------
-
-def _build_data_plan(*args, **kwargs):
-    """Import planner lazily to keep launcher imports lightweight in tests."""
-    from hydromodpy.data import DataManagersPlanner
-
-    return DataManagersPlanner().build(*args, **kwargs)
-
-
-def _build_data_runtime_loader(*args, **kwargs):
-    """Import runtime loader lazily to avoid importing the full data stack at module import."""
-    from hydromodpy.data import DataManagersRuntimeLoader
-
-    return DataManagersRuntimeLoader(*args, **kwargs)
-
-
-# ---------------------------------------------------------------------------
-# Data plan logging
-# ---------------------------------------------------------------------------
-
-def log_data_plan(data_plan: DataLoadPlan) -> None:
-    """Log concise planner diagnostics when inferred types are present."""
-    if not data_plan.inferred_types:
-        return
-    logger.info(
-        "[DataManagersPlanner] inferred data types: %s",
-        ", ".join(data_plan.inferred_types),
-    )
-    for type_name in data_plan.inferred_types:
-        reasons = data_plan.reasons_for(type_name)
-        if reasons:
-            logger.info(
-                "[DataManagersPlanner] %s: %s",
-                type_name,
-                "; ".join(reasons),
-            )
-
-
-# ---------------------------------------------------------------------------
-# Data loading
-# ---------------------------------------------------------------------------
-
-def run_data(
-    config_path: str | Path,
-    data_plan: DataLoadPlan,
-    run_state: LauncherRunState,
-) -> None:
-    """Load the external forcings shared by all process runs.
-
-    Runtime loading is delegated to ``DataManagersRuntimeLoader`` in the
-    data_managers package. Structural bindings are then applied explicitly
-    through domain/process binder modules.
-    """
-    loader = _build_data_runtime_loader(
-        config_path=config_path,
-        data_plan=data_plan,
-    )
-    loader.load_all(run_state)
-    apply_structural_updates_from_data(run_state)
-
-
-# ---------------------------------------------------------------------------
-# Structural updates from loaded data
-# ---------------------------------------------------------------------------
-
-def apply_structural_updates_from_data(
-    run_state: LauncherRunState,
-) -> None:
-    """Bind loaded data objects to runtime structures using explicit updaters."""
-    setup_state = run_state.setup
-    data_state = run_state.loaded_data
-    apply_geology_to_domain(domain=setup_state.domain, geology=data_state.geology)
-    ensure_flow(run_state)
-    apply_oceanic_to_flow(flow=setup_state.flow, oceanic=data_state.oceanic)
-
-    resolved_grid = getattr(setup_state, "time_grid", None)
-    window = (
-        resolved_grid.window
-        if resolved_grid is not None
-        else resolve_simulation_time_window(run_state.cfg)
-    )
-    apply_recharge_load_result_to_flow(
-        flow=setup_state.flow,
-        recharge_result=data_state.recharge,
-        simulation_window=window,
-    )

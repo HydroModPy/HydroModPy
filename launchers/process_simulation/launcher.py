@@ -83,6 +83,7 @@ from hydromodpy.simulation import SimulationPlanner, ensure_flow, ensure_transpo
 from hydromodpy.simulation.execution.runner import ProcessCallbacks, SimulationRunner
 from hydromodpy.simulation.planning.plan import ProcessRun, RunExecutionResult
 from hydromodpy.core.state.run_state import LauncherRunState
+from hydromodpy.workflow.context import WorkflowContext
 from hydromodpy.core.time import (
     apply_explicit_time_window_to_tgrids,
     require_flow_simulation_time_grid,
@@ -256,7 +257,7 @@ class HydroModPyLauncher:
         self.cfg.data = self.cfg.data.with_resolved_types(data_plan.types)
         self.data_plan = data_plan
 
-        self.run_state = LauncherRunState(
+        self.run_state = WorkflowContext(
             cfg=self.cfg,
             config_path=self.config_path,
             raw_toml=raw_toml,
@@ -264,6 +265,7 @@ class HydroModPyLauncher:
         self.run_state.setup.time_grid = self.time_grid
         self.run_state.data_plan = data_plan
         self.postprocess_runner = PostprocessRunner(self.cfg.postprocess)
+        self.run_state.postprocess_runner = self.postprocess_runner
         self._result_store = None
         self._sim_id = None
         self._prepared_runtime_plan = None
