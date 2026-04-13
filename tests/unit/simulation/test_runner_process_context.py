@@ -201,13 +201,9 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
         execution=SimpleNamespace(models_by_run_id={}),
     )
 
-    monkeypatch.setattr(
-        "hydromodpy.simulation.adapters.flow.modflow_common._persist_pre_run_payload",
-        lambda workspace, model_name, model_modflow: None,
-    )
-
     class _SuccessfulFlowModel:
         model_name = "demo_model"
+        full_path = "/tmp/demo_model"
 
         def __init__(self) -> None:
             self.pre_kwargs = None

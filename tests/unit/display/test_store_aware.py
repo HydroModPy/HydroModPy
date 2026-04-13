@@ -36,12 +36,12 @@ class TestLoadFlowTimeseriesFromStore:
         store.register_simulation(sid, solver="modflownwt")
 
         idx = pd.date_range("2020-01-01", periods=5, freq="ME")
-        store.write_timeseries(sid, _CATCHMENT_STATION, "recharge", pd.Series(np.arange(5.0), index=idx))
+        store.write_timeseries(sid, _CATCHMENT_STATION, "recharge_budget", pd.Series(np.arange(5.0), index=idx))
         store.write_timeseries(sid, _CATCHMENT_STATION, "outflow_drain", pd.Series(np.arange(5.0) * 2, index=idx))
 
         df = _load_flow_timeseries_from_store(store, sid)
         assert df is not None
-        assert "recharge" in df.columns
+        assert "recharge_budget" in df.columns
         assert "outflow_drain" in df.columns
         assert len(df) == 5
 

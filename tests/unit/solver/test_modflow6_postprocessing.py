@@ -420,7 +420,7 @@ def test_modflow6_post_processing_exports_native_unstructured_mesh_outputs(
         lambda head, nodata: np.asarray(head, dtype=float).reshape(-1),
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.modflow6.export_tif",
         lambda *args, **kwargs: None,
     )
 
@@ -487,7 +487,7 @@ def test_modflow6_post_processing_accumulates_unstructured_flow_on_mesh(
         lambda head, nodata: np.asarray(head, dtype=float).reshape(-1),
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.modflow6.export_tif",
         lambda *args, **kwargs: None,
     )
 
@@ -544,7 +544,7 @@ def test_modflow6_transport_post_processing_exports_native_unstructured_mesh_out
         _DummyUcnFileUnstructured,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.modflow6.export_tif",
         lambda *args, **kwargs: None,
     )
     monkeypatch.setattr(
@@ -610,7 +610,7 @@ def test_modflow6_transport_post_processing_accumulates_unstructured_mass(
         _DummyUcnFileUnstructured,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.modflow6.export_tif",
         lambda *args, **kwargs: None,
     )
 
@@ -644,7 +644,7 @@ def test_modflow6_post_processing_tolerates_missing_meshio_for_vtu_export(
         lambda head, nodata: np.asarray(head, dtype=float).reshape(-1),
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.modflow6.export_tif",
         lambda *args, **kwargs: None,
     )
 
@@ -707,7 +707,7 @@ def test_modflow6_post_processing_exports_runtime_support_overview(
         lambda head, nodata: np.asarray(head, dtype=float).reshape(-1),
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.modflow6.export_tif",
         lambda *args, **kwargs: None,
     )
 

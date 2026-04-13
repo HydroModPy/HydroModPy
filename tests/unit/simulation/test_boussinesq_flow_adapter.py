@@ -531,7 +531,7 @@ def test_boussinesq_flow_adapter_falls_back_to_bundle_and_overrides_properties(
             ),
             domain_geographic=None,
             time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path),
+            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
         ),
     )
     run = ProcessRun(
@@ -732,7 +732,7 @@ def test_boussinesq_flow_adapter_completes_bundle_storage_from_metadata_default(
             flow=Flow(FlowConfig.model_validate({"ic": {"type": "top"}})),
             domain=None,
             time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path),
+            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
         ),
     )
     run = ProcessRun(
@@ -773,7 +773,7 @@ def test_boussinesq_flow_adapter_allows_missing_bundle_storage_in_steady_mode(
             ),
             domain=None,
             time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=tmp_path),
+            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
         ),
     )
     run = ProcessRun(
