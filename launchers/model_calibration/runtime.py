@@ -39,6 +39,7 @@ from launchers.model_calibration.output_selection import (
 )
 from launchers.model_calibration.property_arrays import build_property_array_set
 from launchers.model_calibration.property_arrays import PropertyArraySet
+from launchers.model_calibration._utils import jsonable as _jsonable
 
 
 _NUMERIC_WITH_SUFFIX_RE = re.compile(
@@ -496,19 +497,7 @@ def _prepare_runtime_hydraulic_property_support(
     from launchers.process_simulation.launcher import HydroModPyLauncher
 
     launcher = HydroModPyLauncher(simulation_config_path)
-    plan = launcher._create_simulation_plan()
-    launcher._validate_runtime_mesh_solver_compatibility(plan)
-    launcher.run_state.execution.simulation_plan = plan
-    launcher.run_state.execution.process_runs_by_id = {
-        run.id: run for run in plan.runs
-    }
-
-    launcher._run_setup()
-    launcher._build_domain_spatial_supports(phase="setup")
-    launcher._run_data()
-    launcher._build_domain_spatial_supports(phase="data")
-    launcher._run_mesh_phase()
-    launcher._run_mesh_input_phase()
+    plan = launcher.prepare_runtime()
 
     setup_state = launcher.run_state.setup
     if setup_state.flow is None or setup_state.domain is None:
@@ -841,27 +830,6 @@ class CandidateRunOutcome:
             candidate_run_id=self.request.candidate_run_id,
             candidate_config_path=str(self.request.candidate_config_path),
         )
-
-
-def _jsonable(value: Any) -> Any:
-    """Convert common runtime values to JSON-friendly Python values."""
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, np.ndarray):
-        return [_jsonable(item) for item in value.tolist()]
-    if isinstance(value, np.generic):
-        return _jsonable(value.item())
-    if isinstance(value, dict):
-        return {str(key): _jsonable(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_jsonable(item) for item in value]
-    try:
-        json.dumps(value)
-    except TypeError:
-        return repr(value)
-    return value
 
 
 def _session_contract_payload(
@@ -2767,14 +2735,23 @@ def select_candidate_outputs(
     cfg: ModelCalibrationConfig,
     run_state: Any,
     session: PreparedCalibrationSession | None = None,
+    result_store: Any = None,
+    store_sim_id: str | None = None,
 ) -> dict[str, tuple[float, ...]]:
     """Select configured simulated observables from one run-state payload."""
     if session is not None and session.prepared_output_selectors:
         return select_candidate_outputs_from_selectors(
             selectors=session.prepared_output_selectors,
             run_state=run_state,
+            result_store=result_store,
+            store_sim_id=store_sim_id,
         )
-    return _select_candidate_outputs_from_bundle(cfg=cfg, run_state=run_state)
+    return _select_candidate_outputs_from_bundle(
+        cfg=cfg,
+        run_state=run_state,
+        result_store=result_store,
+        store_sim_id=store_sim_id,
+    )
 
 
 def _objective_has_observations(cfg: ModelCalibrationConfig) -> bool:
@@ -2790,9 +2767,17 @@ def evaluate_candidate_objective(
     cfg: ModelCalibrationConfig,
     run_state: Any,
     session: PreparedCalibrationSession | None = None,
+    result_store: Any = None,
+    store_sim_id: str | None = None,
 ) -> CompositeObjectiveEvaluation:
     """Evaluate configured composite objective from one candidate run-state."""
-    selected = select_candidate_outputs(cfg=cfg, run_state=run_state, session=session)
+    selected = select_candidate_outputs(
+        cfg=cfg,
+        run_state=run_state,
+        session=session,
+        result_store=result_store,
+        store_sim_id=store_sim_id,
+    )
     outputs_by_name = {
         output_cfg.name: output_cfg for output_cfg in cfg.model_calibration.output
     }
@@ -3211,11 +3196,17 @@ def execute_candidate_run(
         )
 
     if cfg is not None and _objective_has_observations(cfg):
+        # Extract ResultStore reference from the launcher if still open.
+        # On dev-database, the store is the preferred read path for outputs.
+        _store = getattr(launcher, "_result_store", None)
+        _sid = getattr(launcher, "_sim_id", None) if _store is not None else None
         try:
             objective_evaluation = evaluate_candidate_objective(
                 cfg=cfg,
                 run_state=run_state,
                 session=request.session,
+                result_store=_store,
+                store_sim_id=_sid,
             )
         except Exception as exc:
             return CandidateRunOutcome(
