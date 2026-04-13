@@ -66,7 +66,7 @@ def write_suite_figures(
     extension = str(figure_format).strip().lower() or "png"
     figure_paths = []
 
-    labels = [
+    row_labels = [
         f"{row['case_id']} | {row['method_name']}"
         for row in rows
     ]
@@ -75,13 +75,22 @@ def write_suite_figures(
     mean_cost = [row.get("mean_cost_best") for row in rows]
     mean_eval = [row.get("mean_n_evaluations") for row in rows]
     mean_time_per_eval = [row.get("mean_time_per_evaluation_seconds") for row in rows]
+    mean_candidate_prepare = [
+        row.get("mean_candidate_preparation_time_seconds") for row in rows
+    ]
+    mean_candidate_simulation = [
+        row.get("mean_candidate_simulation_time_seconds") for row in rows
+    ]
+    mean_candidate_objective = [
+        row.get("mean_candidate_objective_time_seconds") for row in rows
+    ]
 
     fig, ax = plt.subplots(figsize=(12, max(4, 0.45 * len(rows) + 1)))
     y_positions = list(range(len(rows)))
     ax.barh(y_positions, best_fit, color="#9db5c9", label="best_fit_rate")
     ax.barh(y_positions, target_success, color="#284b63", alpha=0.85, label="target_success_rate")
     ax.set_yticks(y_positions)
-    ax.set_yticklabels(labels)
+    ax.set_yticklabels(row_labels)
     ax.set_xlim(0.0, 1.0)
     ax.set_xlabel("Success Rate")
     ax.set_title("Calibration Benchmark Success Rates")
@@ -172,6 +181,54 @@ def write_suite_figures(
         ax.set_title("Normalized Parameter Error")
         fig.tight_layout()
         path = output_root / f"benchmark_parameter_error_ratio.{extension}"
+        fig.savefig(path, dpi=180)
+        plt.close(fig)
+        figure_paths.append(path)
+
+    timing_breakdown_rows = [
+        (
+            label,
+            float(prepare_value or 0.0),
+            float(simulation_value or 0.0),
+            float(objective_value or 0.0),
+        )
+        for label, prepare_value, simulation_value, objective_value in zip(
+            row_labels,
+            mean_candidate_prepare,
+            mean_candidate_simulation,
+            mean_candidate_objective,
+            strict=False,
+        )
+        if any(
+            value is not None and float(value) > 0.0
+            for value in (prepare_value, simulation_value, objective_value)
+        )
+    ]
+    if timing_breakdown_rows:
+        fig, ax = plt.subplots(
+            figsize=(12, max(4, 0.45 * len(timing_breakdown_rows) + 1))
+        )
+        y_positions = list(range(len(timing_breakdown_rows)))
+        prep = [item[1] for item in timing_breakdown_rows]
+        sim = [item[2] for item in timing_breakdown_rows]
+        obj = [item[3] for item in timing_breakdown_rows]
+        timing_labels = [item[0] for item in timing_breakdown_rows]
+        ax.barh(y_positions, prep, color="#d9bf77", label="prepare")
+        ax.barh(y_positions, sim, left=prep, color="#3c6e71", label="simulate")
+        ax.barh(
+            y_positions,
+            obj,
+            left=[p + s for p, s in zip(prep, sim, strict=False)],
+            color="#284b63",
+            label="objective",
+        )
+        ax.set_yticks(y_positions)
+        ax.set_yticklabels(timing_labels)
+        ax.set_xlabel("Mean Candidate Time (s)")
+        ax.set_title("Candidate Timing Breakdown")
+        ax.legend()
+        fig.tight_layout()
+        path = output_root / f"benchmark_candidate_timing_breakdown.{extension}"
         fig.savefig(path, dpi=180)
         plt.close(fig)
         figure_paths.append(path)
