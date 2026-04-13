@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 _CATCHMENT_STATION = "_catchment"
 
 _FLOW_TIMESERIES_VARIABLES = [
-    "recharge", "runoff", "watertable_elevation", "watertable_depth",
+    "recharge_budget", "runoff", "watertable_elevation", "watertable_depth",
     "seepage_areas", "outflow_drain", "groundwater_flux",
     "groundwater_storage", "accumulation_flux",
 ]
@@ -478,7 +478,7 @@ def _prepare_streamflow_series(
     factor: int = 30,
 ) -> tuple[pd.Series, pd.Series]:
     """Convert raw simulated timeseries to plotting-ready Series."""
-    recharge = simulated_timeseries["recharge"] * factor * 1000
+    recharge = simulated_timeseries["recharge_budget"] * factor * 1000
     outflow = (
         simulated_timeseries["outflow_drain"] + simulated_timeseries["runoff"]
     ) * factor * 1000
