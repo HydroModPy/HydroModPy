@@ -54,6 +54,10 @@ def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_r
         assert result.meets_success_target, result.to_mapping()
         assert result.cost_best is not None
         assert math.isfinite(float(result.cost_best)), result.to_mapping()
+        assert result.session_prepare_time_seconds is not None
+        assert result.mean_candidate_total_time_seconds is not None
+        assert result.mean_candidate_preparation_time_seconds is not None
+        assert result.mean_candidate_simulation_time_seconds is not None
         assert "K_west" in result.param_abs_error
         assert "K_middle" in result.param_abs_error
         assert "K_east" in result.param_abs_error
@@ -64,5 +68,5 @@ def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_r
     assert simplex_result.recovered_truth, simplex_result.to_mapping()
     assert all(result.truth_in_distribution is True for result in random_results)
     assert all(
-        result.model_distribution_sample_count >= 64 for result in random_results
+        result.model_distribution_sample_count >= 96 for result in random_results
     )

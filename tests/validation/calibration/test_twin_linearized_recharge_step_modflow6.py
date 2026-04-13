@@ -28,7 +28,7 @@ def test_calibration_twin_linearized_recharge_step_modflow6_benchmark_recovers_t
     benchmark = run_twin_benchmark_case(
         TRANSIENT_RECHARGE_STEP_TWIN_CASE,
         caller_file=__file__,
-        evaluation_budget=8,
+        evaluation_budget=12,
     )
 
     assert benchmark.summary_path.is_file()
@@ -37,11 +37,15 @@ def test_calibration_twin_linearized_recharge_step_modflow6_benchmark_recovers_t
     assert benchmark.pruned_artifacts
     assert benchmark.observations_truth["head_mid"]
     assert benchmark.observations_truth["q_east"]
-    assert len(benchmark.method_results) == 3
+    assert len(benchmark.method_results) == 4
     for result in benchmark.method_results:
         assert result.meets_success_target, result.to_mapping()
         assert result.cost_best is not None
         assert math.isfinite(float(result.cost_best)), result.to_mapping()
+        assert result.session_prepare_time_seconds is not None
+        assert result.mean_candidate_total_time_seconds is not None
+        assert result.mean_candidate_preparation_time_seconds is not None
+        assert result.mean_candidate_simulation_time_seconds is not None
         assert result.objective_trace_figure is not None
         assert result.objective_trace_figure.is_file()
         assert result.objective_landscape_figure is not None
@@ -52,9 +56,9 @@ def test_calibration_twin_linearized_recharge_step_modflow6_benchmark_recovers_t
     distribution_results = [
         result
         for result in benchmark.method_results
-        if result.method_name in {"random_search", "gp_mapping"}
+        if result.method_name in {"random_search", "gp_mapping", "da_mh_gp"}
     ]
-    assert len(distribution_results) == 2
+    assert len(distribution_results) == 3
     assert all(
         result.model_distribution_path is not None for result in distribution_results
     )

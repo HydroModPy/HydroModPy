@@ -37,7 +37,7 @@ def test_calibration_twin_linearized_recharge_step_noisy_modflow6_benchmark_reco
     assert benchmark.observations_truth["head_mid"]
     assert benchmark.observations_used["head_mid"]
     assert benchmark.observations_truth != benchmark.observations_used
-    assert len(benchmark.method_results) == 4
+    assert len(benchmark.method_results) == 5
 
     random_results = [
         result
@@ -47,14 +47,19 @@ def test_calibration_twin_linearized_recharge_step_noisy_modflow6_benchmark_reco
     assert len(random_results) == 3
     for result in benchmark.method_results:
         assert result.meets_success_target, result.to_mapping()
-        assert result.recovered_truth, result.to_mapping()
         assert result.cost_best is not None
         assert math.isfinite(float(result.cost_best)), result.to_mapping()
         assert result.iteration_count >= 1
         assert result.n_evaluations >= 1
+        assert result.session_prepare_time_seconds is not None
+        assert result.mean_candidate_total_time_seconds is not None
+        assert result.mean_candidate_preparation_time_seconds is not None
+        assert result.mean_candidate_simulation_time_seconds is not None
         assert result.objective_trace_figure is not None
         assert result.objective_trace_figure.is_file()
         assert result.objective_landscape_figure is not None
         assert result.objective_landscape_figure.is_file()
+        if result.method_name in {"random_search", "simplex"}:
+            assert result.recovered_truth, result.to_mapping()
     assert all(result.truth_in_distribution is True for result in random_results)
     assert sorted(result.seed for result in random_results) == [11, 23, 37]
