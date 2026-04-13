@@ -11,6 +11,8 @@ import pytest
 
 from hydromodpy.core.state.run_state import LauncherRunState
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
+from hydromodpy.workflow.steps.setup import step_setup
+from hydromodpy.workflow.steps.mesh import step_mesh_input
 
 from launchers.process_simulation.launcher import HydroModPyLauncher
 
@@ -70,27 +72,19 @@ def _standard_geographic_cfg() -> SimpleNamespace:
 
 
 def _patch_launcher_deps(monkeypatch):
-    """Patch Workspace, Geographic, Domain, and ensure_* for launcher tests."""
-    monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Workspace",
-        _DummyWorkspace,
-    )
-    monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Geographic",
-        _DummyGeographic,
-    )
-    monkeypatch.setattr(
-        "launchers.process_simulation.launcher.Domain",
-        _DummyDomain,
-    )
-    monkeypatch.setattr(
-        "launchers.process_simulation.launcher.ensure_flow",
-        _noop_ensure,
-    )
-    monkeypatch.setattr(
-        "launchers.process_simulation.launcher.ensure_transport",
-        _noop_ensure,
-    )
+    """Patch Workspace, Geographic, Domain, and ensure_* for launcher tests.
+
+    Patches target the workflow step modules where the business logic now lives.
+    ``hmp.Workspace`` and ``hmp.Geographic`` are global (patching the module
+    attribute affects all importers).
+    """
+    # Global module patches (affect all importers)
+    monkeypatch.setattr("hydromodpy.workflow.steps.setup.hmp.Workspace", _DummyWorkspace)
+    monkeypatch.setattr("hydromodpy.workflow.steps.setup.hmp.Geographic", _DummyGeographic)
+    # Namespace-binding patches (step module)
+    monkeypatch.setattr("hydromodpy.workflow.steps.setup.Domain", _DummyDomain)
+    monkeypatch.setattr("hydromodpy.workflow.steps.setup.ensure_flow", _noop_ensure)
+    monkeypatch.setattr("hydromodpy.workflow.steps.setup.ensure_transport", _noop_ensure)
 
 
 def test_run_setup_uses_simulation_run_id(monkeypatch) -> None:
@@ -112,7 +106,7 @@ def test_run_setup_uses_simulation_run_id(monkeypatch) -> None:
     launcher.cfg = cfg
     launcher.run_state = run_state
 
-    launcher._run_setup()
+    step_setup(launcher.run_state)
 
     assert run_state.setup.run_id == "my_run_id"
 
@@ -136,7 +130,7 @@ def test_run_setup_defaults_run_id_when_empty(monkeypatch) -> None:
     launcher.cfg = cfg
     launcher.run_state = run_state
 
-    launcher._run_setup()
+    step_setup(launcher.run_state)
 
     assert run_state.setup.run_id == "config"  # derived from config.toml stem
 
@@ -151,7 +145,7 @@ def test_run_setup_stores_explicit_domain_geographic_context(monkeypatch) -> Non
         captured["zone_id"] = zone_id
 
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.apply_catchment_zones_to_domain",
+        "hydromodpy.workflow.steps.setup.apply_catchment_zones_to_domain",
         _fake_apply_catchment_zones_to_domain,
     )
 
@@ -171,7 +165,7 @@ def test_run_setup_stores_explicit_domain_geographic_context(monkeypatch) -> Non
     launcher.cfg = cfg
     launcher.run_state = run_state
 
-    launcher._run_setup()
+    step_setup(launcher.run_state)
 
     assert run_state.setup.domain_geographic is not None
     assert captured["domain"] is run_state.setup.domain
@@ -183,11 +177,11 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Workspace",
+        "hydromodpy.workflow.steps.setup.hmp.Workspace",
         _DummyWorkspace,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.Domain",
+        "hydromodpy.workflow.steps.setup.Domain",
         _DummyDomain,
     )
 
@@ -195,7 +189,7 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
         raise AssertionError("standard geographic runtime should not be built")
 
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Geographic",
+        "hydromodpy.workflow.steps.setup.hmp.Geographic",
         _unexpected_geographic,
     )
 
@@ -208,11 +202,11 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
         return synthetic_runtime
 
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.build_synthetic_geographic",
+        "hydromodpy.workflow.steps.setup.build_synthetic_geographic",
         _fake_build_synthetic_geographic,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.apply_catchment_zones_to_domain",
+        "hydromodpy.workflow.steps.setup.apply_catchment_zones_to_domain",
         lambda **kwargs: None,
     )
 
@@ -233,11 +227,11 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
     )
 
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.ensure_flow",
+        "hydromodpy.workflow.steps.setup.ensure_flow",
         _noop_ensure,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.ensure_transport",
+        "hydromodpy.workflow.steps.setup.ensure_transport",
         _noop_ensure,
     )
 
@@ -245,7 +239,7 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
     launcher.cfg = cfg
     launcher.run_state = run_state
 
-    launcher._run_setup()
+    step_setup(launcher.run_state)
 
     assert run_state.setup.geographic is synthetic_runtime
     assert captured["config"] is geographic_cfg.synthetic
@@ -254,10 +248,10 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
 
 
 def test_process_launcher_rejects_embedded_mesh_catchment_batch_section() -> None:
-    launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
+    from hydromodpy.workflow.steps.mesh import resolve_optional_mesh_section
 
     with pytest.raises(ValueError, match="Embedded \\[mesh_catchment_batch\\] is not supported"):
-        launcher._resolve_optional_mesh_section(
+        resolve_optional_mesh_section(
             {
                 "mesh_catchment": {"constraints_mode": "rivers_only"},
                 "mesh_catchment_batch": {
@@ -269,23 +263,25 @@ def test_process_launcher_rejects_embedded_mesh_catchment_batch_section() -> Non
 
 
 def test_resolve_optional_mesh_input_resolves_relative_paths(tmp_path: Path) -> None:
-    launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
-    launcher.config_path = tmp_path / "configs" / "simulation.toml"
-    launcher.config_path.parent.mkdir(parents=True, exist_ok=True)
+    from hydromodpy.workflow.steps.mesh import resolve_optional_mesh_input
 
-    actual = launcher._resolve_optional_mesh_input(
+    config_path = tmp_path / "configs" / "simulation.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+
+    actual = resolve_optional_mesh_input(
         {
             "mesh_input": {
                 "mesh_path": "mesh/external_mesh.msh",
                 "bundle_dir": "mesh/external_mesh_bundle",
             }
-        }
+        },
+        config_path,
     )
 
     assert actual == {
-        "mesh_path": str((launcher.config_path.parent / "mesh/external_mesh.msh").resolve()),
+        "mesh_path": str((config_path.parent / "mesh/external_mesh.msh").resolve()),
         "bundle_dir": str(
-            (launcher.config_path.parent / "mesh/external_mesh_bundle").resolve()
+            (config_path.parent / "mesh/external_mesh_bundle").resolve()
         ),
     }
 
@@ -317,27 +313,27 @@ def test_launcher_rejects_modflownwt_with_runtime_gmsh_mesh() -> None:
 
 def test_run_setup_does_not_declare_unused_geology_zone(monkeypatch) -> None:
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Workspace",
+        "hydromodpy.workflow.steps.setup.hmp.Workspace",
         _DummyWorkspace,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Geographic",
+        "hydromodpy.workflow.steps.setup.hmp.Geographic",
         _DummyGeographic,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.Domain",
+        "hydromodpy.workflow.steps.setup.Domain",
         _DummyDomain,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.apply_catchment_zones_to_domain",
+        "hydromodpy.workflow.steps.setup.apply_catchment_zones_to_domain",
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.ensure_flow",
+        "hydromodpy.workflow.steps.setup.ensure_flow",
         lambda state: None,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.ensure_transport",
+        "hydromodpy.workflow.steps.setup.ensure_transport",
         lambda state: None,
     )
 
@@ -358,26 +354,26 @@ def test_run_setup_does_not_declare_unused_geology_zone(monkeypatch) -> None:
     launcher.run_state = run_state
     launcher.data_plan = SimpleNamespace(types=("geology",))
 
-    launcher._run_setup()
+    step_setup(launcher.run_state)
 
     assert run_state.setup.domain.config.zone_ids == ["catchment"]
 
 
 def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Workspace",
+        "hydromodpy.workflow.steps.setup.hmp.Workspace",
         _DummyWorkspace,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Geographic",
+        "hydromodpy.workflow.steps.setup.hmp.Geographic",
         _DummyGeographic,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.Domain",
+        "hydromodpy.workflow.steps.setup.Domain",
         _DummyDomain,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.apply_catchment_zones_to_domain",
+        "hydromodpy.workflow.steps.setup.apply_catchment_zones_to_domain",
         lambda **kwargs: None,
     )
 
@@ -404,44 +400,40 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
         )
 
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.ensure_flow",
+        "hydromodpy.workflow.steps.setup.ensure_flow",
         _ensure_flow,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.ensure_transport",
+        "hydromodpy.workflow.steps.setup.ensure_transport",
         lambda state: None,
     )
 
-    launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
-    launcher.cfg = cfg
-    launcher.run_state = run_state
-    launcher.data_plan = SimpleNamespace(types=("geology",))
-    launcher.requested_spatial_support_ids = ("field_geology",)
-    launcher.requested_domain_supports = {
-        "field_geology": SimpleNamespace(provider="geology")
-    }
-    launcher._build_domain_spatial_supports = lambda *, phase: None
-
-    launcher._run_setup()
+    step_setup(
+        run_state,
+        requested_spatial_support_ids=("field_geology",),
+        requested_domain_supports={
+            "field_geology": SimpleNamespace(provider="geology"),
+        },
+    )
 
     assert run_state.setup.domain.config.zone_ids == ["catchment", "field_geology"]
 
 
 def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeypatch) -> None:
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Workspace",
+        "hydromodpy.workflow.steps.setup.hmp.Workspace",
         _DummyWorkspace,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Geographic",
+        "hydromodpy.workflow.steps.setup.hmp.Geographic",
         _DummyGeographic,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.Domain",
+        "hydromodpy.workflow.steps.setup.Domain",
         _DummyDomain,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.apply_catchment_zones_to_domain",
+        "hydromodpy.workflow.steps.setup.apply_catchment_zones_to_domain",
         lambda **kwargs: None,
     )
 
@@ -468,23 +460,20 @@ def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeyp
         )
 
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.ensure_flow",
+        "hydromodpy.workflow.steps.setup.ensure_flow",
         _ensure_flow,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.ensure_transport",
+        "hydromodpy.workflow.steps.setup.ensure_transport",
         lambda state: None,
     )
 
-    launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
-    launcher.cfg = cfg
-    launcher.run_state = run_state
-    launcher.data_plan = SimpleNamespace(types=())
-    launcher.requested_spatial_support_ids = ("field_geology",)
-    launcher.requested_domain_supports = {}
-
     with pytest.raises(ValueError, match="domain.supports"):
-        launcher._run_setup()
+        step_setup(
+            run_state,
+            requested_spatial_support_ids=("field_geology",),
+            requested_domain_supports={},
+        )
 
 
 def test_run_executes_embedded_mesh_phase_and_records_metrics(
@@ -635,43 +624,43 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(
         _DummyPostprocessRunner,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Workspace",
+        "hydromodpy.workflow.steps.setup.hmp.Workspace",
         _DummyRunWorkspace,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Geographic",
+        "hydromodpy.workflow.steps.setup.hmp.Geographic",
         _DummyRunGeographic,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.Domain",
+        "hydromodpy.workflow.steps.setup.Domain",
         _DummyRunDomain,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.apply_catchment_zones_to_domain",
+        "hydromodpy.workflow.steps.setup.apply_catchment_zones_to_domain",
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.ensure_flow",
+        "hydromodpy.workflow.steps.setup.ensure_flow",
         lambda state: setattr(state.setup, "flow", SimpleNamespace(parameters={})),
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.ensure_transport",
+        "hydromodpy.workflow.steps.setup.ensure_transport",
         lambda state: setattr(state.setup, "transport", SimpleNamespace()),
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher._build_data_runtime_loader",
+        "hydromodpy.workflow.steps.data_loading._build_data_runtime_loader",
         lambda *args, **kwargs: _DummyRuntimeLoader(*args, **kwargs),
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.apply_geology_to_domain",
+        "hydromodpy.workflow.steps.data_loading.apply_geology_to_domain",
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.apply_oceanic_to_flow",
+        "hydromodpy.workflow.steps.data_loading.apply_oceanic_to_flow",
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.apply_recharge_load_result_to_flow",
+        "hydromodpy.workflow.steps.data_loading.apply_recharge_load_result_to_flow",
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
@@ -679,24 +668,24 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(
         lambda: _DummySimulationPlanner(),
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.SimulationRunner",
+        "hydromodpy.workflow.pipelines.simulation.SimulationRunner",
         _DummySimulationRunner,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.run_single_mesh_catchment_workflow_with_runtime_artifacts",
+        "launchers.mesh_catchment.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
         _fake_mesh_workflow,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.load_planar_mesh",
+        "hydromodpy.workflow.steps.mesh.load_planar_mesh",
         lambda path: (_ for _ in ()).throw(
             AssertionError("embedded mesh phase should keep the runtime mesh in memory")
         ),
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.HydroModPyLauncher._save_run_artifacts",
-        lambda self, run_state, wall_seconds: captured_artifacts.update(
+        "hydromodpy.workflow.pipelines.simulation.step_save_run_artifacts",
+        lambda ctx, wall_seconds: captured_artifacts.update(
             {
-                "mesh_summary": run_state.setup.mesh_summary,
+                "mesh_summary": ctx.setup.mesh_summary,
                 "wall_seconds": wall_seconds,
             }
         ),
@@ -855,43 +844,43 @@ def test_run_uses_external_mesh_input_phase_and_skips_embedded_workflow(
         _DummyPostprocessRunner,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Workspace",
+        "hydromodpy.workflow.steps.setup.hmp.Workspace",
         _DummyRunWorkspace,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Geographic",
+        "hydromodpy.workflow.steps.setup.hmp.Geographic",
         _DummyRunGeographic,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.Domain",
+        "hydromodpy.workflow.steps.setup.Domain",
         _DummyRunDomain,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.apply_catchment_zones_to_domain",
+        "hydromodpy.workflow.steps.setup.apply_catchment_zones_to_domain",
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.ensure_flow",
+        "hydromodpy.workflow.steps.setup.ensure_flow",
         lambda state: setattr(state.setup, "flow", SimpleNamespace(parameters={})),
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.ensure_transport",
+        "hydromodpy.workflow.steps.setup.ensure_transport",
         lambda state: setattr(state.setup, "transport", SimpleNamespace()),
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher._build_data_runtime_loader",
+        "hydromodpy.workflow.steps.data_loading._build_data_runtime_loader",
         lambda *args, **kwargs: _DummyRuntimeLoader(*args, **kwargs),
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.apply_geology_to_domain",
+        "hydromodpy.workflow.steps.data_loading.apply_geology_to_domain",
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.apply_oceanic_to_flow",
+        "hydromodpy.workflow.steps.data_loading.apply_oceanic_to_flow",
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.apply_recharge_load_result_to_flow",
+        "hydromodpy.workflow.steps.data_loading.apply_recharge_load_result_to_flow",
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
@@ -899,17 +888,17 @@ def test_run_uses_external_mesh_input_phase_and_skips_embedded_workflow(
         lambda: _DummySimulationPlanner(),
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.SimulationRunner",
+        "hydromodpy.workflow.pipelines.simulation.SimulationRunner",
         _DummySimulationRunner,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.run_single_mesh_catchment_workflow_with_runtime_artifacts",
+        "launchers.mesh_catchment.runtime.run_single_mesh_catchment_workflow_with_runtime_artifacts",
         lambda **kwargs: (_ for _ in ()).throw(
             AssertionError("embedded mesh workflow should not run")
         ),
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.load_planar_mesh",
+        "hydromodpy.workflow.steps.mesh.load_planar_mesh",
         _fake_load_planar_mesh,
     )
 
@@ -939,22 +928,21 @@ def test_run_mesh_input_phase_loads_bundle_and_infers_mesh_path(monkeypatch) -> 
     bundle = SimpleNamespace(mesh_path=bundle_path / "mesh_2d.msh")
 
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.load_catchment_mesh_bundle",
+        "hydromodpy.workflow.steps.mesh.load_catchment_mesh_bundle",
         lambda path: bundle,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.load_planar_mesh",
+        "hydromodpy.workflow.steps.mesh.load_planar_mesh",
         lambda path: mesh_sentinel,
     )
 
-    launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
-    launcher.run_state = run_state
-    launcher.external_mesh_input = {
-        "mesh_path": "",
-        "bundle_dir": str(bundle_path),
-    }
-
-    launcher._run_mesh_input_phase()
+    step_mesh_input(
+        run_state,
+        external_mesh_input={
+            "mesh_path": "",
+            "bundle_dir": str(bundle_path),
+        },
+    )
 
     assert run_state.setup.mesh_bundle is bundle
     assert run_state.setup.mesh_planar is mesh_sentinel
