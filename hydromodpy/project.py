@@ -165,7 +165,6 @@ class Project:
     def __init__(self, config_path: str | Path, *, solver: str | None = None) -> None:
         from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
         from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-        from hydromodpy.core.state.run_state import LauncherRunState
         from hydromodpy.core.time import (
             apply_explicit_time_window_to_tgrids,
             require_flow_simulation_time_grid,
@@ -175,6 +174,10 @@ class Project:
         from hydromodpy.spatial.geographic.store_ingestion import (
             cleanup_stable_folder,
             persist_geographic_to_store,
+        )
+        from hydromodpy.workflow.context import WorkflowContext
+        from hydromodpy.workflow.pipelines.simulation import (
+            prepare_simulation_runtime,
         )
 
         self._config_path = Path(config_path).resolve()
@@ -199,25 +202,19 @@ class Project:
         )
         self.cfg.data = self.cfg.data.with_resolved_types(data_plan.types)
 
-        # Build runtime state
-        self._run_state = LauncherRunState(
+        # Phase 4: build workflow context + run preparation pipeline
+        self._ctx = WorkflowContext(
             cfg=self.cfg,
             config_path=self._config_path,
             raw_toml=raw_toml,
         )
-        self._run_state.data_plan = data_plan
-        self._run_state.setup.time_grid = self._time_grid
+        self._ctx.data_plan = data_plan
+        self._ctx.setup.time_grid = self._time_grid
 
-        # Phase 4: setup (workspace, geographic, domain, flow, transport)
-        from hydromodpy.workflow.steps.setup import step_setup
-        step_setup(self._run_state)
-
-        # Phase 5: data loading + structural bindings
-        from hydromodpy.workflow.steps.data_loading import step_data_loading
-        step_data_loading(self._run_state)
+        prepare_simulation_runtime(self._ctx)
 
         # Open store (stays open for project lifetime)
-        ws = self._run_state.setup.workspace
+        ws = self._ctx.setup.workspace
         self._store = ResultStore(
             project_path=ws.project_root,
             workspace_path=getattr(ws, "workspace_root", None),
@@ -233,12 +230,12 @@ class Project:
     @property
     def geographic(self):
         """Geographic runtime object (DEM, watershed, CRS)."""
-        return self._run_state.setup.geographic
+        return self._ctx.setup.geographic
 
     @property
     def domain(self):
         """Spatial domain (mesh, layers, zones)."""
-        return self._run_state.setup.domain
+        return self._ctx.setup.domain
 
     @property
     def store(self):
@@ -253,7 +250,7 @@ class Project:
     @property
     def data(self):
         """Loaded data context (recharge, geology, hydrometry, etc.)."""
-        return self._run_state.loaded_data
+        return self._ctx.loaded_data
 
     # -- Run ---------------------------------------------------------------
 
@@ -319,23 +316,23 @@ class Project:
 
         # Apply recharge binding
         window = self._time_grid.window if self._time_grid else None
-        if window is not None and self._run_state.loaded_data.recharge is not None:
+        if window is not None and self._ctx.loaded_data.recharge is not None:
             apply_recharge_load_result_to_flow(
                 flow=flow,
-                recharge_result=self._run_state.loaded_data.recharge,
+                recharge_result=self._ctx.loaded_data.recharge,
                 simulation_window=window,
             )
 
         # Domain (optionally with new thickness)
-        domain = self._run_state.setup.domain
+        domain = self._ctx.setup.domain
         if thickness is not None:
             domain = self._rebuild_domain(thickness)
 
         # Inject into run_state
-        self._run_state.setup.flow = flow
-        self._run_state.setup.run_id = name
-        original_domain = self._run_state.setup.domain
-        self._run_state.setup.domain = domain
+        self._ctx.setup.flow = flow
+        self._ctx.setup.run_id = name
+        original_domain = self._ctx.setup.domain
+        self._ctx.setup.domain = domain
 
         # Minimal plan: single flow run
         run_entry = ProcessRun(
@@ -345,8 +342,8 @@ class Project:
             solver=self._solver,
         )
         plan = SimulationPlan(name=name, description=name, runs=(run_entry,))
-        self._run_state.execution.simulation_plan = plan
-        self._run_state.execution.process_runs_by_id = {run_entry.id: run_entry}
+        self._ctx.execution.simulation_plan = plan
+        self._ctx.execution.process_runs_by_id = {run_entry.id: run_entry}
 
         # Register in store (replaces existing with same name)
         self._store.register_simulation(
@@ -362,9 +359,9 @@ class Project:
         try:
             SimulationRunner(
                 callbacks=ProcessCallbacks(after_run=_after_run),
-            ).execute(plan, self._run_state)
+            ).execute(plan, self._ctx)
         finally:
-            self._run_state.setup.domain = original_domain
+            self._ctx.setup.domain = original_domain
 
         # Ingest results
         results_cfg = ResultsConfig(
@@ -465,15 +462,15 @@ class Project:
 
         domain_cfg = self.cfg.domain.model_copy(deep=True)
         domain_cfg.depth_model.thickness = thickness
-        surface_topo = self._run_state.setup.geographic_features.surface_topo
+        surface_topo = self._ctx.setup.geographic_features.surface_topo
         domain = Domain(config=domain_cfg, surface_topo=surface_topo)
         apply_catchment_zones_to_domain(
             domain=domain,
-            geographic=self._run_state.setup.domain_geographic,
+            geographic=self._ctx.setup.domain_geographic,
         )
-        if self._run_state.loaded_data.geology is not None:
+        if self._ctx.loaded_data.geology is not None:
             apply_geology_to_domain(
                 domain=domain,
-                geology=self._run_state.loaded_data.geology,
+                geology=self._ctx.loaded_data.geology,
             )
         return domain
