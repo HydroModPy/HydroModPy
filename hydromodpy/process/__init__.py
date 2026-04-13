@@ -4,7 +4,7 @@ from hydromodpy.process.flow import (
     FlowInitialCondition,
     FlowInitialConditions,
 )
-from hydromodpy.process.prototype import (
+from hydromodpy.process.base import (
     BoundaryCondition,
     InitialCondition,
     Process,
