@@ -1,0 +1,4 @@
+scenario_id,scenario_label,surface_threshold_peak_total_m3_day,surface_threshold_final_total_m3_day,surface_threshold_peak_active_fraction,surface_threshold_peak_head_above_top_m,results_dir
+rch_05,Recharge 0.5 mm/day,12.25398268940558,12.25398268940558,0.07083333333333333,1.5987211554602254e-14,C:\codes\HydroModPy-GH\out\sih_divide_20260413\validation\investigate_surfa_413bd6031c\rch_05_boussinesq_6d11c5ad
+rch_10,Recharge 1.0 mm/day,18.905586029841363,18.905586029841363,0.0125,2.6645352591003757e-15,C:\codes\HydroModPy-GH\out\sih_divide_20260413\validation\investigate_surfa_413bd6031c\rch_10_boussinesq_bee2ec71
+rch_20,Recharge 2.0 mm/day,29.792466639771206,29.792466639771206,0.8708333333333333,1.397104654188297e-12,C:\codes\HydroModPy-GH\out\sih_divide_20260413\validation\investigate_surfa_413bd6031c\rch_20_boussinesq_f27313fa

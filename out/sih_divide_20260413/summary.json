@@ -1,0 +1,17 @@
+{
+  "scenarios": [
+    "rch_05",
+    "rch_10",
+    "rch_20"
+  ],
+  "solvers": [
+    "modflownwt",
+    "modflow6",
+    "boussinesq"
+  ],
+  "metrics_csv": "C:\\codes\\HydroModPy-GH\\out\\sih_divide_20260413\\metrics.csv",
+  "pairwise_metrics_csv": "C:\\codes\\HydroModPy-GH\\out\\sih_divide_20260413\\pairwise_metrics.csv",
+  "boussinesq_surface_metrics_csv": "C:\\codes\\HydroModPy-GH\\out\\sih_divide_20260413\\boussinesq_surface_metrics.csv",
+  "summary_md": "C:\\codes\\HydroModPy-GH\\out\\sih_divide_20260413\\summary.md",
+  "figures_dir": "C:\\codes\\HydroModPy-GH\\out\\sih_divide_20260413\\figures"
+}

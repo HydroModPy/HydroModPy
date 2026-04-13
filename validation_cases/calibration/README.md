@@ -41,10 +41,15 @@ The first V1 inventory focuses on `modflow6` inverse benchmarks:
 - one steady mesh-perturbed scalar `K` case on `dupuit_fixed_head_1d`,
 - one noisy steady scalar `K` variant on `dupuit_fixed_head_1d`,
 - one transient multiobservable `K + Sy` case on
-  `linearized_unconfined_recharge_step_1d`, including one GP-mapping profile,
+  `linearized_unconfined_recharge_step_1d`, including `gp_mapping` and
+  `da_mh_gp`,
 - one noisy transient `K + Sy` variant with repeated stochastic seeds,
 - one steady zoned `piecewise K` case on
   `boussinesq_fixed_head_piecewise_k_1d`.
+
+The current gallery and validation defaults also use wider initial bounds than
+the first V1 tranche so that inverse benchmarks exercise a less local search
+region before converging back to the synthetic truth.
 
 Each case produces:
 
@@ -54,6 +59,9 @@ Each case produces:
 - one case-level configuration figure summarizing parameters, observables,
   objective blocks, methods, noise and the observation layout,
 - a JSON benchmark summary with recovery metrics per method,
+- method-level timing diagnostics including total calibration time, one-time
+  session preparation time, and mean per-model preparation/simulation/objective
+  costs,
 - per-method objective figures when iteration history is available.
 
 By default the benchmark runtime keeps a minimal retained footprint:
@@ -72,6 +80,11 @@ Method-level evaluation distinguishes:
   compatible with the truth within the case tolerance;
 - `best_fit_or_distribution`: either of the two previous conditions is accepted.
 
+For noisy or repeated stochastic benchmarks, the suite report is intended to be
+read primarily through success rates, distribution coverage, and timing
+statistics rather than a strict expectation that every seed or every local
+method reaches the truth on every run.
+
 Running multiple cases through `run_benchmarks.py` also produces one aggregate:
 
 - `benchmark_suite_summary.json`
@@ -84,6 +97,7 @@ Running multiple cases through `run_benchmarks.py` also produces one aggregate:
   - `benchmark_cost_vs_budget.png`
   - `benchmark_time_vs_cost.png`
   - `benchmark_parameter_error_ratio.png`
+  - `benchmark_candidate_timing_breakdown.png`
 
 ## Runner Notes
 

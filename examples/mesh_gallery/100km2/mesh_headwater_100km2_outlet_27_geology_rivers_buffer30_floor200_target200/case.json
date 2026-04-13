@@ -47,6 +47,9 @@
   "preferred_doc_regional_figure_path": "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/figures/mesh_regional.png",
   "regional_image_caption": "Regional framing figure copied from the imported meshing run.",
   "regional_image_alt_text": "100 km2, headwater Mesh, Outlet 27, floor 200 m, river target 200 m regional context",
+  "case_family_key": "headwater_100km2",
+  "case_family_label": "100 km2, headwater",
+  "case_family_order": 2,
   "key_parameters": [
     "The comparison is controlled: the river target stays at `200 m` in both cases, and the river linework count stays at `48` input lines and `473` embedded river curves.",
     "Here the global floor is also `200 m`, so the river family field can reach the size it requests near the constrained river curves.",

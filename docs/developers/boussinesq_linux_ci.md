@@ -61,6 +61,23 @@ Covered PETSc smoke cases:
 This repository can be tested from WSL with the same scripts once a Linux
 environment has the needed packages installed.
 
+Current working local references on this machine:
+
+```text
+WSL distro           : Ubuntu 22.04
+Linux repo path      : /mnt/c/codes/HydroModPy-GH
+Miniforge root       : /home/dreuzy/miniforge3
+Standard env         : /home/dreuzy/miniforge3/envs/hydromodpy-wsl
+PETSc env            : /home/dreuzy/miniforge3/envs/hydromodpy-petsc
+```
+
+Quick checks:
+
+```bash
+/home/dreuzy/miniforge3/bin/conda env list
+/home/dreuzy/miniforge3/bin/conda run -n hydromodpy-petsc python -c "import petsc4py, whitebox_workflows, hydromodpy; print('ok')"
+```
+
 Bootstrap a conda-forge PETSc environment from PowerShell:
 
 ```powershell
@@ -79,6 +96,19 @@ contains `petsc`, `petsc4py`, and the HydroModPy test dependencies:
 
 ```powershell
 wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy-GH && source ~/miniforge3/etc/profile.d/conda.sh && conda activate hydromodpy-petsc && bash tools/ci/run_boussinesq_petsc_smoke.sh"
+```
+
+Direct multi-method Boussinesq comparison already validated on Linux with the
+PETSc environment:
+
+```powershell
+wsl.exe /home/dreuzy/miniforge3/bin/conda run -n hydromodpy-petsc python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_multi_solver_case --solvers boussinesq petsc_partition petsc --forcing-preset strong --output-root /mnt/c/codes/HydroModPy-GH/out/boussinesq_hillslope_overflow_multi_linux_20260413
+```
+
+Generated outputs:
+
+```text
+/mnt/c/codes/HydroModPy-GH/out/boussinesq_hillslope_overflow_multi_linux_20260413
 ```
 
 ## Real 100 km2 Case

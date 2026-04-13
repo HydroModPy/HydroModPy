@@ -44,9 +44,11 @@ Usage (hmp and hydromodpy are interchangeable):
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -57,6 +59,37 @@ def _find_project_root() -> Path:
         if (parent / "tests").is_dir():
             return parent
     return Path.cwd()
+
+
+def _resolve_test_scratch_root() -> Path:
+    """Return the shared repository-external scratch root for test runs."""
+    override = os.environ.get("HYDROMODPY_TEST_SCRATCH_ROOT")
+    if override:
+        return Path(override).expanduser().resolve()
+    return (Path(tempfile.gettempdir()) / "hydromodpy_tests").resolve()
+
+
+def _pytest_addopts_declares_basetemp(pytest_addopts: str) -> bool:
+    """Return True when ``PYTEST_ADDOPTS`` already declares ``--basetemp``."""
+    return re.search(r"(^|\\s)--basetemp(?:=|\\s|$)", str(pytest_addopts)) is not None
+
+
+def _build_pytest_runtime_env() -> tuple[Path, dict[str, str]]:
+    """Prepare one external scratch root for pytest internals and subprocesses."""
+    scratch_root = _resolve_test_scratch_root()
+    tmp_root = scratch_root / "tmp"
+    pytest_root = scratch_root / "pytest"
+    basetemp_root = pytest_root / f"cli_{os.getpid()}"
+    for path in (scratch_root, tmp_root, pytest_root, basetemp_root):
+        path.mkdir(parents=True, exist_ok=True)
+
+    env = os.environ.copy()
+    env["HYDROMODPY_TEST_SCRATCH_ROOT"] = str(scratch_root)
+    env["PYTEST_DEBUG_TEMPROOT"] = str(pytest_root)
+    env["TMPDIR"] = str(tmp_root)
+    env["TMP"] = str(tmp_root)
+    env["TEMP"] = str(tmp_root)
+    return basetemp_root, env
 
 
 # ---------------------------------------------------------------------------
@@ -493,6 +526,9 @@ def _cmd_test(args: argparse.Namespace) -> None:
     """Run tests via pytest."""
     root = _find_project_root()
     pytest_args = [sys.executable, "-m", "pytest", "-v"]
+    basetemp_root, pytest_env = _build_pytest_runtime_env()
+    if not _pytest_addopts_declares_basetemp(pytest_env.get("PYTEST_ADDOPTS", "")):
+        pytest_args.extend(["--basetemp", str(basetemp_root)])
     tiers = _selected_tiers(args.normal, args.extensive, args.fast)
 
     if args.suite == "unit":
@@ -575,7 +611,7 @@ def _cmd_test(args: argparse.Namespace) -> None:
         pytest_args.extend(["-n", args.jobs])
 
     print(f"Running: {' '.join(pytest_args)}", file=sys.stderr)
-    sys.exit(subprocess.call(pytest_args))
+    sys.exit(subprocess.call(pytest_args, env=pytest_env))
 
 
 def _cmd_overview(args: argparse.Namespace) -> None:

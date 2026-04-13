@@ -1,0 +1,4 @@
+solver,solver_label,wall_time_seconds,results_dir
+modflownwt,MODFLOW-NWT,17.608480399940163,C:\codes\HydroModPy-GH\out\sih_tx_nwtpts\validation\investigate_surfa_062b168c50\transient_modflownwt
+modflow6,MODFLOW 6,18.499038700014353,C:\codes\HydroModPy-GH\out\sih_tx_nwtpts\validation\investigate_surfa_062b168c50\transient_modflow6
+boussinesq,Boussinesq,75.12140929989982,C:\codes\HydroModPy-GH\out\sih_tx_nwtpts\validation\investigate_surfa_062b168c50\hillslope_surface_baba065f89

@@ -1,0 +1,577 @@
+point_id,point_label,x_m,solver,solver_label,elapsed_days,head_m,clearance_m
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,15.0,5.151569843292236,-4.785930156707764
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,30.0,5.239923636118571,-4.697576363881429
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,45.0,5.503353595733643,-4.434146404266357
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,60.0,5.760384241739909,-4.177115758260091
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,75.0,6.185426712036133,-3.752073287963867
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,90.0,6.593727111816406,-3.3437728881835938
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,105.0,7.156081994374593,-2.781418005625407
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,120.0,7.682950655619304,-2.2545493443806963
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,135.0,8.326127052307129,-1.611372947692871
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,150.0,8.856501897176107,-1.0809981028238926
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,165.0,9.389317830403646,-0.5481821695963536
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,180.0,9.619259516398111,-0.3182404836018886
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,195.0,9.624704043070475,-0.31279595692952533
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,210.0,9.62551466623942,-0.31198533376058
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,225.0,9.548853556315104,-0.3886464436848964
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,240.0,9.520011901855469,-0.41748809814453125
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,255.0,9.410474141438803,-0.5270258585611973
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,270.0,9.357198079427084,-0.5803019205729161
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,285.0,9.205366770426432,-0.7321332295735683
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,300.0,9.1098264058431,-0.8276735941569004
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,315.0,8.894232114156088,-1.0432678858439122
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,330.0,8.72748851776123,-1.2100114822387695
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,345.0,8.509904225667318,-1.4275957743326817
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,360.0,8.323684692382812,-1.6138153076171875
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,375.0,8.073894818623861,-1.8636051813761387
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,390.0,7.846555391947429,-2.0909446080525713
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,405.0,7.6386105219523115,-2.2988894780476885
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,420.0,7.448053201039632,-2.489446798960368
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,435.0,7.272877852121989,-2.6646221478780108
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,450.0,7.111618677775065,-2.8258813222249346
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,465.0,6.962912877400716,-2.974587122599284
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,480.0,6.8253248532613116,-3.1121751467386884
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,495.0,6.697778542836507,-3.239721457163493
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,510.0,6.579885164896647,-3.3576148351033526
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,525.0,6.470549742380778,-3.4669502576192217
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,540.0,6.369190375010173,-3.568309624989827
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,555.0,6.27539587020874,-3.6621041297912598
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,570.0,6.188326358795166,-3.749173641204834
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,585.0,6.10757048924764,-3.8299295107523603
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,600.0,6.03265364964803,-3.9048463503519697
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,615.0,5.963141918182373,-3.974358081817627
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,630.0,5.898707548777263,-4.038792451222737
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,645.0,5.838834921518962,-4.098665078481038
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,660.0,5.783339818318685,-4.154160181681315
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,675.0,5.731839497884114,-4.205660502115886
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,690.0,5.683959325154622,-4.253540674845378
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,705.0,5.6395870844523115,-4.2979129155476885
+upper_slope,Upper slope,5.0,modflownwt,MODFLOW-NWT,720.0,5.598401228586833,-4.339098771413167
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,15.0,5.15199119519389,-4.78550880480611
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,30.0,5.239913505106738,-4.697586494893262
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,45.0,5.503772724919174,-4.433727275080826
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,60.0,5.760472749167703,-4.177027250832297
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,75.0,6.185107647912907,-3.752392352087093
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,90.0,6.592602776543186,-3.3448972234568144
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,105.0,7.155286549497446,-2.782213450502554
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,120.0,7.682550828031913,-2.2549491719680868
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,135.0,8.32579448651394,-1.6117055134860596
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,150.0,8.85620574257833,-1.0812942574216695
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,165.0,9.389010155390908,-0.548489844609092
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,180.0,9.619097110063095,-0.31840288993690535
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,195.0,9.624255774705427,-0.3132442252945733
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,210.0,9.625158622030996,-0.31234137796900363
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,225.0,9.548301711069344,-0.3891982889306558
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,240.0,9.519091395192826,-0.41840860480717446
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,255.0,9.409486646056223,-0.528013353943777
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,270.0,9.356361048903317,-0.5811389510966833
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,285.0,9.204300067030127,-0.7331999329698728
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,300.0,9.108289575677176,-0.8292104243228238
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,315.0,8.892586038970505,-1.0449139610294953
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,330.0,8.725328687997154,-1.2121713120028463
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,345.0,8.507520691185013,-1.4299793088149872
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,360.0,8.320674695603373,-1.6168253043966274
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,375.0,8.070338632115666,-1.867161367884334
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,390.0,7.842345708321658,-2.095154291678342
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,405.0,7.633902653795073,-2.303597346204927
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,420.0,7.4427642013380355,-2.4947357986619645
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,435.0,7.267066699796188,-2.670433300203812
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,450.0,7.105181282618745,-2.8323187173812547
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,465.0,6.9558756979721705,-2.9816243020278295
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,480.0,6.81802217058527,-3.1194778294147296
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,495.0,6.690643754110057,-3.2468562458899433
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,510.0,6.572845127253797,-3.364654872746203
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,525.0,6.463836629242846,-3.473663370757154
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,540.0,6.362909425643618,-3.5745905743563817
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,555.0,6.269423730054729,-3.6680762699452707
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,570.0,6.1828006038378325,-3.7546993961621675
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,585.0,6.102512956363269,-3.8349870436367306
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,600.0,6.028078868307141,-3.9094211316928593
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,615.0,5.959056258500447,-3.978443741499553
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,630.0,5.89498706615201,-4.04251293384799
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,645.0,5.835553284482259,-4.101946715517741
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,660.0,5.7804179064816275,-4.1570820935183725
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,675.0,5.729263547774881,-4.208236452225119
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,690.0,5.6817960008049795,-4.2557039991950205
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,705.0,5.637743409303117,-4.299756590696883
+upper_slope,Upper slope,5.0,modflow6,MODFLOW 6,720.0,5.596852295593536,-4.340647704406464
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,15.0,5.150836909340063,-4.786663090659937
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,30.0,5.2351175688478975,-4.7023824311521025
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,45.0,5.489974879401866,-4.447525120598134
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,60.0,5.729605077271646,-4.207894922728354
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,75.0,6.125866621097431,-3.8116333789025694
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,90.0,6.491945763859829,-3.445554236140171
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,105.0,6.998556035757514,-2.938943964242486
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,120.0,7.455969349475834,-2.4815306505241663
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,135.0,8.016085854857765,-1.9214141451422346
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,150.0,8.471415290274583,-1.4660847097254166
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,165.0,8.999835093970004,-0.9376649060299957
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,180.0,9.300432839901324,-0.6370671600986757
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,195.0,9.343883177751247,-0.5936168222487535
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,210.0,9.361329056605122,-0.5761709433948781
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,225.0,9.267977082639717,-0.6695229173602826
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,240.0,9.221614923250462,-0.7158850767495384
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,255.0,9.07320897814054,-0.8642910218594597
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,270.0,8.98258736398597,-0.9549126360140292
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,285.0,8.782398212289555,-1.1551017877104446
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,300.0,8.639774963849035,-1.2977250361509647
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,315.0,8.375597104804333,-1.5619028951956668
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,330.0,8.161852302058614,-1.7756476979413858
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,345.0,7.902765188332378,-2.0347348116676223
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,360.0,7.68022910918653,-2.25727089081347
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,375.0,7.400702579294489,-2.5367974207055113
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,390.0,7.1507106453811415,-2.7867893546188585
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,405.0,6.927419862889942,-3.010080137110058
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,420.0,6.728169414815066,-3.209330585184934
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,435.0,6.550502141460129,-3.3869978585398712
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,450.0,6.392058003352903,-3.5454419966470967
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,465.0,6.250758933488469,-3.686741066511531
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,480.0,6.124725209054572,-3.8127747909454284
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,495.0,6.012252098234087,-3.925247901765913
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,510.0,5.911845879086607,-4.025654120913393
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,525.0,5.822179364002572,-4.115320635997428
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,540.0,5.7420774431288395,-4.1954225568711605
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,555.0,5.670499087090079,-4.267000912909921
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,570.0,5.606521562780326,-4.330978437219674
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,585.0,5.549326231927064,-4.388173768072936
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,600.0,5.49818555800925,-4.43931444199075
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,615.0,5.452431752625781,-4.485068247374219
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,630.0,5.411503314304691,-4.525996685695309
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,645.0,5.374892590995063,-4.562607409004937
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,660.0,5.342141095894436,-4.595358904105564
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,675.0,5.312838603334242,-4.624661396665758
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,690.0,5.286617077670894,-4.650882922329106
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,705.0,5.263152020826013,-4.674347979173987
+upper_slope,Upper slope,5.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,720.0,5.242150291363809,-4.695349708636191
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,15.0,5.149671287721943,-4.787828712278057
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,30.0,5.233859536190099,-4.703640463809901
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,45.0,5.486913383393685,-4.450586616606315
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,60.0,5.727580568050862,-4.209919431949138
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,75.0,6.121082676602337,-3.816417323397663
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,90.0,6.484632519605184,-3.452867480394816
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,105.0,6.969709852260482,-2.9677901477395183
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,120.0,7.393844805578209,-2.543655194421791
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,135.0,7.882935008516525,-2.054564991483475
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,150.0,8.269863811477139,-1.6676361885228612
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,165.0,8.696086903010919,-1.2414130969890813
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,180.0,8.983209261481507,-0.9542907385184929
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,195.0,9.122997480758984,-0.8145025192410156
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,210.0,9.22634948117647,-0.7111505188235299
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,225.0,9.256700669650987,-0.6807993303490125
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,240.0,9.285669471743253,-0.6518305282567471
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,255.0,9.249296096521979,-0.688203903478021
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,270.0,9.237354327075868,-0.7001456729241315
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,285.0,9.115220715351247,-0.8222792846487526
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,300.0,9.039178608078423,-0.8983213919215771
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,315.0,8.838436906048514,-1.0990630939514858
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,330.0,8.682613402119836,-1.254886597880164
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,345.0,8.478889165322613,-1.458610834677387
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,360.0,8.309907176616187,-1.6275928233838126
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,375.0,8.064170686846843,-1.8733293131531568
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,390.0,7.840005112918237,-2.097494887081763
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,405.0,7.6343493171637435,-2.3031506828362565
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,420.0,7.445082878738101,-2.492417121261899
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,435.0,7.2705342901362755,-2.6669657098637245
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,450.0,7.109324981686046,-2.828175018313954
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,465.0,6.960279744174582,-2.9772202558254177
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,480.0,6.822373016160626,-3.1151269838393736
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,495.0,6.694695102706043,-3.242804897293957
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,510.0,6.576429898174534,-3.361070101825466
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,525.0,6.466839476750473,-3.470660523249527
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,540.0,6.365252918112066,-3.5722470818879337
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,555.0,6.271057828081169,-3.666442171918831
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,570.0,6.183693637870408,-3.753806362129592
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,585.0,6.102646123634188,-3.8348538763658118
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,600.0,6.027442800504121,-3.9100571994958786
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,615.0,5.957648967912036,-3.9798510320879643
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,630.0,5.892864260300065,-4.044635739699935
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,645.0,5.8327196041772025,-4.1047803958227975
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,660.0,5.77687450875159,-4.16062549124841
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,675.0,5.725014639881145,-4.212485360118855
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,690.0,5.67684963538742,-4.26065036461258
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,705.0,5.632111132170771,-4.305388867829229
+upper_slope,Upper slope,5.0,boussinesq,Boussinesq,720.0,5.59055097743047,-4.34694902256953
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,15.0,5.149868647257487,-3.1626313527425127
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,30.0,5.2339409192403155,-3.0785590807596845
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,45.0,5.48721710840861,-2.8252828915913897
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,60.0,5.726989110310872,-2.585510889689128
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,75.0,6.125227928161621,-2.187272071838379
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,90.0,6.497676054636638,-1.8148239453633623
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,105.0,7.0107442537943525,-1.3017557462056475
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,120.0,7.469114303588867,-0.8433856964111328
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,135.0,7.9862745602925616,-0.32622543970743845
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,150.0,8.296626726786295,-0.01587327321370502
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,165.0,8.406969706217447,0.09446970621744732
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,180.0,8.415197372436523,0.10269737243652344
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,195.0,8.401537895202637,0.08903789520263672
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,210.0,8.401540438334147,0.08904043833414654
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,225.0,8.387012481689453,0.07451248168945312
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,240.0,8.386654535929361,0.07415453592936139
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,255.0,8.37054411570231,0.058044115702310606
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,270.0,8.368966420491537,0.05646642049153705
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,285.0,8.342219352722168,0.02971935272216797
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,300.0,8.326360066731771,0.013860066731771425
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,315.0,8.215178807576498,-0.09732119242350201
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,330.0,8.124940236409506,-0.1875597635904942
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,345.0,7.968213081359863,-0.3442869186401367
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,360.0,7.830471674601237,-0.4820283253987627
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,375.0,7.621109803517659,-0.6913901964823408
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,390.0,7.4290666580200195,-0.8834333419799805
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,405.0,7.252591768900554,-1.0599082310994463
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,420.0,7.090391476949056,-1.2221085230509443
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,435.0,6.9409637451171875,-1.3715362548828125
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,450.0,6.803246974945068,-1.5092530250549316
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,465.0,6.676034609476726,-1.6364653905232744
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,480.0,6.558483282725017,-1.7540167172749834
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,495.0,6.449764251708984,-1.8627357482910156
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,510.0,6.3490974108378095,-1.9634025891621905
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,525.0,6.255843639373779,-2.0566563606262207
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,540.0,6.169478893280029,-2.1430211067199707
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,555.0,6.089476903279622,-2.223023096720378
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,570.0,6.0153249104817705,-2.2971750895182295
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,585.0,5.946567376454671,-2.365932623545329
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,600.0,5.882832686106364,-2.4296673138936358
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,615.0,5.823740164438884,-2.4887598355611162
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,630.0,5.768977165222168,-2.543522834777832
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,645.0,5.718163013458252,-2.594336986541748
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,660.0,5.6710710525512695,-2.6414289474487305
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,675.0,5.627398331960042,-2.685101668039958
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,690.0,5.586849530537923,-2.725650469462077
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,705.0,5.549267768859863,-2.7632322311401367
+mid_slope,Mid slope,135.0,modflownwt,MODFLOW-NWT,720.0,5.514402389526367,-2.798097610473633
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,15.0,5.150301906940543,-3.162198093059457
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,30.0,5.233857711019838,-3.078642288980162
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,45.0,5.487540790643735,-2.8249592093562654
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,60.0,5.726953265645097,-2.585546734354903
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,75.0,6.124889901077182,-2.1876100989228178
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,90.0,6.4965413563860315,-1.8159586436139685
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,105.0,7.01008557512947,-1.3024144248705296
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,120.0,7.468812430881525,-0.8436875691184751
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,135.0,7.986249129926833,-0.3262508700731672
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,150.0,8.296808627731004,-0.015691372268996417
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,165.0,8.406986679096685,0.09448667909668451
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,180.0,8.415202584471873,0.10270258447187253
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,195.0,8.401539016516342,0.08903901651634172
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,210.0,8.401541348985006,0.08904134898500615
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,225.0,8.387010275901787,0.07451027590178683
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,240.0,8.386646411381234,0.07414641138123379
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,255.0,8.370536213289439,0.058036213289438976
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,270.0,8.368952691253526,0.0564526912535257
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,285.0,8.342205191372178,0.02970519137217842
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,300.0,8.32624408482936,0.013744084829360403
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,315.0,8.214814594657868,-0.09768540534213166
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,330.0,8.12414384001701,-0.18835615998298927
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,345.0,7.967065539336201,-0.3454344606637987
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,360.0,7.8287242152747085,-0.4837757847252915
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,375.0,7.618842167458634,-0.6936578325413656
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,390.0,7.426111325602055,-0.8863886743979448
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,405.0,7.249131790920543,-1.0633682090794574
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,420.0,7.086345884033754,-1.2261541159662457
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,435.0,6.93639605951961,-1.37610394048039
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,450.0,6.79808433779728,-1.5144156622027198
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,465.0,6.6704463692934715,-1.6420536307065285
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,480.0,6.55260615114695,-1.75989384885305
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,495.0,6.443767635013592,-1.8687323649864078
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,510.0,6.343128048674902,-1.9693719513250976
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,525.0,6.2500491447770115,-2.0624508552229885
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,540.0,6.163925357637919,-2.148574642362081
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,555.0,6.084208615266466,-2.2282913847335344
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,570.0,6.010399882981819,-2.302100117018181
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,585.0,5.94204274556735,-2.37045725443265
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,600.0,5.878718774343003,-2.433781225656997
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,615.0,5.82004365177249,-2.4924563482275097
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,630.0,5.765643972861564,-2.5468560271384364
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,645.0,5.715219656829625,-2.5972803431703753
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,660.0,5.668469466587773,-2.644030533412227
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,675.0,5.625117432208345,-2.687382567791655
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,690.0,5.584909837636613,-2.727590162363387
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,705.0,5.547612947942818,-2.7648870520571824
+mid_slope,Mid slope,135.0,modflow6,MODFLOW 6,720.0,5.513013571340987,-2.799486428659013
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,15.0,5.147547888685108,-3.164952111314892
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,30.0,5.224902368569436,-3.0875976314305644
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,45.0,5.464025236883962,-2.8484747631160383
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,60.0,5.67994218602718,-2.63255781397282
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,75.0,6.041699499212709,-2.270800500787291
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,90.0,6.365621006382589,-1.9468789936174113
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,105.0,6.819972707993396,-1.4925272920066037
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,120.0,7.21405082701439,-1.0984491729856103
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,135.0,7.674087517998953,-0.6384124820010468
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,150.0,7.997572699378783,-0.31492730062121677
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,165.0,8.26947537150123,-0.04302462849877031
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,180.0,8.32906347065026,0.01656347065025976
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,195.0,8.321326036266294,0.008826036266293968
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,210.0,8.32205908798605,0.009559087986049875
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,225.0,8.30084562400223,-0.011654375997769861
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,240.0,8.29532724266716,-0.017172757332840405
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,255.0,8.242617870388711,-0.06988212961128859
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,270.0,8.215518150377706,-0.09698184962229384
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,285.0,8.100273004140684,-0.21222699585931615
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,300.0,8.022790407130598,-0.2897095928694018
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,315.0,7.825434326018358,-0.48706567398164236
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,330.0,7.6694147805024855,-0.6430852194975145
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,345.0,7.460246820118239,-0.8522531798817612
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,360.0,7.279402420870795,-1.0330975791292047
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,375.0,7.037031734460412,-1.2754682655395877
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,390.0,6.821455112181692,-1.4910448878183082
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,405.0,6.630199327657981,-1.682300672342019
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,420.0,6.460477666883249,-1.852022333116751
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,435.0,6.3097358354063005,-2.0027641645936995
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,450.0,6.17572609744695,-2.13677390255305
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,465.0,6.056460282332323,-2.2560397176676767
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,480.0,5.950261173952559,-2.3622388260474407
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,495.0,5.855646119165815,-2.456853880834185
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,510.0,5.77130167867185,-2.5411983213281504
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,525.0,5.696074659485288,-2.616425340514712
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,540.0,5.628949727219424,-2.6835502727805762
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,555.0,5.569030582438665,-2.743469417561335
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,570.0,5.515524842483528,-2.7969751575164716
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,585.0,5.467731223457508,-2.844768776542492
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,600.0,5.425028373037442,-2.887471626962558
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,615.0,5.386856626901339,-2.9256433730986613
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,630.0,5.352737587225275,-2.959762412774725
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,645.0,5.3222324430353725,-2.9902675569646275
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,660.0,5.294953109663133,-3.0175468903368667
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,675.0,5.27055495587091,-3.04194504412909
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,690.0,5.248729961624962,-3.063770038375038
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,705.0,5.229203015507662,-3.083296984492338
+mid_slope,Mid slope,135.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,720.0,5.2117310916154125,-3.1007689083845875
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,15.0,5.144708645419323,-3.167791354580677
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,30.0,5.221879471597715,-3.090620528402285
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,45.0,5.454862092190678,-2.8576379078093224
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,60.0,5.670476284657461,-2.642023715342539
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,75.0,6.019596029868919,-2.292903970131081
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,90.0,6.33293805258446,-1.9795619474155401
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,105.0,6.7404472062248475,-1.5720527937751525
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,120.0,7.083452550462638,-1.2290474495373616
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,135.0,7.455853912210976,-0.8566460877890236
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,150.0,7.732366573249721,-0.5801334267502787
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,165.0,7.992637171355685,-0.3198628286443146
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,180.0,8.143943036032327,-0.1685569639676725
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,195.0,8.215716353030803,-0.09678364696919672
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,210.0,8.25835856038179,-0.05414143961820983
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,225.0,8.278862064394076,-0.033637935605923985
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,240.0,8.291895993926587,-0.020604006073412506
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,255.0,8.298211358087988,-0.014288641912012068
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,270.0,8.302575135045968,-0.009924864954031776
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,285.0,8.29864431958571,-0.01385568041428975
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,300.0,8.28709803903182,-0.02540196096818015
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,315.0,8.18534925936597,-0.12715074063403087
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,330.0,8.100429121881534,-0.2120708781184657
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,345.0,7.95332865361804,-0.35917134638196035
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,360.0,7.828243408524194,-0.48425659147580635
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,375.0,7.62143048816021,-0.6910695118397898
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,390.0,7.430630564875268,-0.8818694351247318
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,405.0,7.254571164123424,-1.0579288358765764
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,420.0,7.092068690264232,-1.2204313097357682
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,435.0,6.942014424915331,-1.3704855750846692
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,450.0,6.803390388676289,-1.5091096113237112
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,465.0,6.675267491112933,-1.6372325088870667
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,480.0,6.556798754962955,-1.755701245037045
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,495.0,6.4472118126652544,-1.8652881873347456
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,510.0,6.3458017802519215,-1.9666982197480785
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,525.0,6.251924756909676,-2.060575243090324
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,540.0,6.164991968018733,-2.1475080319812667
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,555.0,6.084464512370492,-2.2280354876295076
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,570.0,6.009848659570881,-2.3026513404291187
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,585.0,5.940691639869487,-2.3718083601305127
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,600.0,5.876577873735272,-2.435922126264728
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,615.0,5.817125591691038,-2.4953744083089617
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,630.0,5.761983800527843,-2.550516199472157
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,645.0,5.710829556256101,-2.601670443743899
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,660.0,5.663365509335859,-2.6491344906641414
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,675.0,5.6193176917962875,-2.6931823082037125
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,690.0,5.578433518746671,-2.734066481253329
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,705.0,5.540479981472724,-2.772020018527276
+mid_slope,Mid slope,135.0,boussinesq,Boussinesq,720.0,5.505242010631977,-2.807257989368023
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,15.0,5.1375932693481445,-1.5499067306518555
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,30.0,5.1999538739522295,-1.4875461260477705
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,45.0,5.402551968892415,-1.284948031107585
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,60.0,5.571892738342285,-1.1156072616577148
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,75.0,5.866069475809733,-0.8214305241902666
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,90.0,6.113306363423665,-0.5741936365763349
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,105.0,6.447507858276367,-0.2399921417236328
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,120.0,6.650647799173991,-0.03685220082600882
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,135.0,6.7236127853393555,0.03611278533935547
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,150.0,6.728906631469727,0.04140663146972656
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,165.0,6.749950885772705,0.06245088577270508
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,180.0,6.749964237213135,0.062464237213134766
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,195.0,6.736096064249675,0.048596064249674775
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,210.0,6.736098289489746,0.048598289489746094
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,225.0,6.722230434417725,0.03473043441772461
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,240.0,6.722229957580566,0.034729957580566406
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,255.0,6.708359718322754,0.020859718322753906
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,270.0,6.708357334136963,0.02085733413696289
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,285.0,6.694469928741455,0.006969928741455078
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,300.0,6.69444465637207,0.0069446563720703125
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,315.0,6.680153528849284,-0.00734647115071585
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,330.0,6.679015318552653,-0.00848468144734671
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,345.0,6.652556260426839,-0.0349437395731611
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,360.0,6.615939935048421,-0.07156006495157907
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,375.0,6.501829306284587,-0.18567069371541312
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,390.0,6.396927356719971,-0.2905726432800293
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,405.0,6.299171765645345,-0.38832823435465524
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,420.0,6.2080278396606445,-0.47947216033935547
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,435.0,6.123288631439209,-0.564211368560791
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,450.0,6.044875621795654,-0.6426243782043457
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,465.0,5.972291946411133,-0.7152080535888672
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,480.0,5.905333042144775,-0.7821669578552246
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,495.0,5.8434098561604815,-0.8440901438395185
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,510.0,5.785887877146403,-0.9016121228535967
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,525.0,5.732778072357178,-0.9547219276428223
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,540.0,5.683658281962077,-1.0038417180379229
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,555.0,5.638104597727458,-1.049395402272542
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,570.0,5.596016089121501,-1.091483910878499
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,585.0,5.557031472524007,-1.1304685274759931
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,600.0,5.520955721537272,-1.1665442784627276
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,615.0,5.48756217956543,-1.1999378204345703
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,630.0,5.456632773081462,-1.2308672269185381
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,645.0,5.428016185760498,-1.259483814239502
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,660.0,5.401503403981526,-1.2859965960184736
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,675.0,5.376952012379964,-1.310547987620036
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,690.0,5.35421880086263,-1.33328119913737
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,705.0,5.333141803741455,-1.354358196258545
+near_toe,Near toe,265.0,modflownwt,MODFLOW-NWT,720.0,5.313612143198649,-1.3738878568013506
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,15.0,5.137871375049591,-1.549628624950409
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,30.0,5.199732749069946,-1.4877672509300544
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,45.0,5.402685194731743,-1.2848148052682573
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,60.0,5.571686860320199,-1.1158131396798012
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,75.0,5.8656502370680785,-0.8218497629319215
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,90.0,6.1126261169449565,-0.5748738830550435
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,105.0,6.447340561417156,-0.24015943858284405
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,120.0,6.650762368484815,-0.03673763151518461
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,135.0,6.723623783477823,0.03612378347782297
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,150.0,6.728907717859383,0.04140771785938302
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,165.0,6.749950884158122,0.062450884158121944
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,180.0,6.74996419964025,0.062464199640250406
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,195.0,6.736097640891097,0.04859764089109664
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,210.0,6.736097970714407,0.048597970714406635
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,225.0,6.722230364261873,0.034730364261872815
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,240.0,6.722229792345678,0.03472979234567841
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,255.0,6.708359611832626,0.02085961183262608
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,270.0,6.708357112426472,0.020857112426472035
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,285.0,6.6944699193861466,0.00696991938614655
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,300.0,6.694444190477282,0.006944190477281786
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,315.0,6.680153868814475,-0.00734613118552474
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,330.0,6.679009804835938,-0.008490195164061909
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,345.0,6.652489113597163,-0.035010886402837116
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,360.0,6.615598842566333,-0.07190115743366743
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,375.0,6.501093910731324,-0.18640608926867586
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,390.0,6.3957351201618176,-0.29176487983818244
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,405.0,6.297634584413352,-0.3898654155866481
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,420.0,6.2060767857770465,-0.48142321422295353
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,435.0,6.120967218357073,-0.5665327816429269
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,450.0,6.042141139945809,-0.6453588600541913
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,465.0,5.969311404510317,-0.718188595489683
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,480.0,5.902090971259121,-0.7854090287408786
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,495.0,5.839967354191373,-0.8475326458086272
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,510.0,5.78249956480705,-0.9050004351929504
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,525.0,5.729377443341168,-0.9581225566588323
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,540.0,5.680285236018034,-1.007214763981966
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,555.0,5.634917960439946,-1.052582039560054
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,570.0,5.59298663184812,-1.0945133681518797
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,585.0,5.554221522139476,-1.1332784778605243
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,600.0,5.518373080796056,-1.1691269192039444
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,615.0,5.4852118863802,-1.2022881136198
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,630.0,5.454571218276608,-1.232928781723392
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,645.0,5.426194501893311,-1.2613054981066893
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,660.0,5.3999118122559855,-1.2875881877440145
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,675.0,5.375565389528494,-1.3119346104715062
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,690.0,5.353009146329902,-1.334490853670098
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,705.0,5.332108056341883,-1.355391943658117
+near_toe,Near toe,265.0,modflow6,MODFLOW 6,720.0,5.312750097196316,-1.3747499028036838
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,15.0,5.132558046091111,-1.5549419539088891
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,30.0,5.1874766622531725,-1.5000233377468275
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,45.0,5.37271728305522,-1.31478271694478
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,60.0,5.520935514051698,-1.1665644859483022
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,75.0,5.784031603588203,-0.9034683964117969
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,90.0,5.999070414966084,-0.6884295850339157
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,105.0,6.314510765970635,-0.37298923402936524
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,120.0,6.541023292668602,-0.14647670733139773
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,135.0,6.690276516775191,0.0027765167751914177
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,150.0,6.721495145729752,0.03399514572975182
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,165.0,6.745175401959006,0.05767540195900622
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,180.0,6.745845076719493,0.05834507671949307
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,195.0,6.734617933292001,0.04711793329200109
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,210.0,6.734617494736068,0.04711749473606819
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,225.0,6.722682748766014,0.03518274876601435
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,240.0,6.722547409551329,0.035047409551329345
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,255.0,6.709759687225518,0.0222596872255183
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,270.0,6.709221576859782,0.0217215768597816
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,285.0,6.693855680226534,0.006355680226533877
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,300.0,6.690387015082261,0.0028870150822610796
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,315.0,6.649007435729654,-0.03849256427034575
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,330.0,6.613232235989763,-0.07426776401023716
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,345.0,6.513387625745712,-0.17411237425428805
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,360.0,6.418894610072189,-0.2686053899278109
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,375.0,6.259821382909219,-0.42767861709078137
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,390.0,6.12305756014502,-0.5644424398549797
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,405.0,6.004143390580798,-0.6833566094192021
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,420.0,5.899862925201707,-0.787637074798293
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,435.0,5.807896674310315,-0.8796033256896854
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,450.0,5.726527078831545,-0.9609729211684552
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,465.0,5.654375166461835,-1.0331248335381646
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,480.0,5.590334056185434,-1.0971659438145656
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,495.0,5.533428150931069,-1.1540718490689308
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,510.0,5.482824439166627,-1.2046755608333726
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,525.0,5.4377937717793,-1.2497062282206999
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,540.0,5.3976968119972675,-1.2898031880027325
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,555.0,5.3619722404493,-1.3255277595506998
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,570.0,5.330126238762035,-1.357373761237965
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,585.0,5.301723477160384,-1.385776522839616
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,600.0,5.276379593490971,-1.4111204065090286
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,615.0,5.253790292228704,-1.4337097077712961
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,630.0,5.233604672984719,-1.4538953270152808
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,645.0,5.215567249644647,-1.4719327503553528
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,660.0,5.199447829378337,-1.4880521706216632
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,675.0,5.185041351652118,-1.502458648347882
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,690.0,5.172153103694039,-1.515346896305961
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,705.0,5.16063325301977,-1.5268667469802297
+near_toe,Near toe,265.0,modflow6_irregular_tri,MODFLOW 6 irregular triangles,720.0,5.1503325132873075,-1.5371674867126925
+near_toe,Near toe,265.0,boussinesq,Boussinesq,15.0,5.122714190437827,-1.5647858095621734
+near_toe,Near toe,265.0,boussinesq,Boussinesq,30.0,5.17427670380271,-1.5132232961972898
+near_toe,Near toe,265.0,boussinesq,Boussinesq,45.0,5.33555899332988,-1.3519410066701196
+near_toe,Near toe,265.0,boussinesq,Boussinesq,60.0,5.474393096262397,-1.2131069037376028
+near_toe,Near toe,265.0,boussinesq,Boussinesq,75.0,5.694246829647443,-0.9932531703525571
+near_toe,Near toe,265.0,boussinesq,Boussinesq,90.0,5.878203427496583,-0.8092965725034169
+near_toe,Near toe,265.0,boussinesq,Boussinesq,105.0,6.102274707017266,-0.5852252929827344
+near_toe,Near toe,265.0,boussinesq,Boussinesq,120.0,6.274367497258286,-0.4131325027417141
+near_toe,Near toe,265.0,boussinesq,Boussinesq,135.0,6.4367127701166496,-0.25078722988335045
+near_toe,Near toe,265.0,boussinesq,Boussinesq,150.0,6.540658526869062,-0.1468414731309382
+near_toe,Near toe,265.0,boussinesq,Boussinesq,165.0,6.616559085602901,-0.07094091439709871
+near_toe,Near toe,265.0,boussinesq,Boussinesq,180.0,6.653446124454123,-0.0340538755458768
+near_toe,Near toe,265.0,boussinesq,Boussinesq,195.0,6.669532910026177,-0.01796708997382268
+near_toe,Near toe,265.0,boussinesq,Boussinesq,210.0,6.678033623381087,-0.009466376618912697
+near_toe,Near toe,265.0,boussinesq,Boussinesq,225.0,6.681987747753623,-0.005512252246377081
+near_toe,Near toe,265.0,boussinesq,Boussinesq,240.0,6.684292552703506,-0.003207447296493804
+near_toe,Near toe,265.0,boussinesq,Boussinesq,255.0,6.685414440383133,-0.002085559616866739
+near_toe,Near toe,265.0,boussinesq,Boussinesq,270.0,6.686145078127673,-0.0013549218723269973
+near_toe,Near toe,265.0,boussinesq,Boussinesq,285.0,6.686503083274524,-0.0009969167254757494
+near_toe,Near toe,265.0,boussinesq,Boussinesq,300.0,6.68676661415532,-0.000733385844680079
+near_toe,Near toe,265.0,boussinesq,Boussinesq,315.0,6.686878220444389,-0.0006217795556109351
+near_toe,Near toe,265.0,boussinesq,Boussinesq,330.0,6.6869728771494605,-0.0005271228505394632
+near_toe,Near toe,265.0,boussinesq,Boussinesq,345.0,6.6723156660256855,-0.015184333974314512
+near_toe,Near toe,265.0,boussinesq,Boussinesq,360.0,6.638895411062009,-0.04860458893799091
+near_toe,Near toe,265.0,boussinesq,Boussinesq,375.0,6.5210992952924025,-0.1664007047075975
+near_toe,Near toe,265.0,boussinesq,Boussinesq,390.0,6.411234010392387,-0.27626598960761317
+near_toe,Near toe,265.0,boussinesq,Boussinesq,405.0,6.309110964861318,-0.3783890351386816
+near_toe,Near toe,265.0,boussinesq,Boussinesq,420.0,6.2144853814335645,-0.47301461856643545
+near_toe,Near toe,265.0,boussinesq,Boussinesq,435.0,6.126997737548089,-0.5605022624519114
+near_toe,Near toe,265.0,boussinesq,Boussinesq,450.0,6.046206776592577,-0.6412932234074233
+near_toe,Near toe,265.0,boussinesq,Boussinesq,465.0,5.971640160277086,-0.7158598397229143
+near_toe,Near toe,265.0,boussinesq,Boussinesq,480.0,5.902827180791917,-0.7846728192080832
+near_toe,Near toe,265.0,boussinesq,Boussinesq,495.0,5.839316370438426,-0.8481836295615741
+near_toe,Near toe,265.0,boussinesq,Boussinesq,510.0,5.780683872904984,-0.9068161270950164
+near_toe,Near toe,265.0,boussinesq,Boussinesq,525.0,5.726536592888675,-0.9609634071113247
+near_toe,Near toe,265.0,boussinesq,Boussinesq,540.0,5.6765125115926525,-1.0109874884073475
+near_toe,Near toe,265.0,boussinesq,Boussinesq,555.0,5.630279534250757,-1.0572204657492428
+near_toe,Near toe,265.0,boussinesq,Boussinesq,570.0,5.5875336376986295,-1.0999663623013705
+near_toe,Near toe,265.0,boussinesq,Boussinesq,585.0,5.54799674503348,-1.1395032549665203
+near_toe,Near toe,265.0,boussinesq,Boussinesq,600.0,5.511414557027426,-1.1760854429725738
+near_toe,Near toe,265.0,boussinesq,Boussinesq,615.0,5.477554459905001,-1.2099455400949992
+near_toe,Near toe,265.0,boussinesq,Boussinesq,630.0,5.446203567268246,-1.2412964327317537
+near_toe,Near toe,265.0,boussinesq,Boussinesq,645.0,5.4171669183805164,-1.2703330816194836
+near_toe,Near toe,265.0,boussinesq,Boussinesq,660.0,5.3902658366796325,-1.2972341633203675
+near_toe,Near toe,265.0,boussinesq,Boussinesq,675.0,5.365336442947945,-1.322163557052055
+near_toe,Near toe,265.0,boussinesq,Boussinesq,690.0,5.342228312871836,-1.3452716871281636
+near_toe,Near toe,265.0,boussinesq,Boussinesq,705.0,5.320803266376363,-1.3666967336236366
+near_toe,Near toe,265.0,boussinesq,Boussinesq,720.0,5.300934276317282,-1.3865657236827182
