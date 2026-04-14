@@ -78,7 +78,7 @@ class BoussinesqOutputAdapter:
     def _persist_state_history(sim_id: str, store: ResultStore, payload) -> None:
         """Write all Boussinesq state arrays to a ``boussinesq_state`` Zarr group."""
         try:
-            grp = store._zarr_root[str(sim_id)]
+            grp = store.open_zarr_group(sim_id)
             if "boussinesq_state" not in grp:
                 grp.create_group("boussinesq_state")
             state_grp = grp["boussinesq_state"]
@@ -112,7 +112,7 @@ class BoussinesqOutputAdapter:
                 # Try reading from the npz (no z_top in summary, estimate from head).
                 return
 
-            grp = store._zarr_root[str(sim_id)]
+            grp = store.open_zarr_group(sim_id)
             if "mesh" not in grp:
                 grp.create_group("mesh")
             mesh = grp["mesh"]

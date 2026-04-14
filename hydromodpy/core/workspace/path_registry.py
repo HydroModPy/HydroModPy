@@ -66,7 +66,7 @@ class WorkspacePathRegistry:
     @property
     def catalog_path(self) -> Path | None:
         if self.workspace_root is not None:
-            return self.workspace_root / "catalog.duckdb"
+            return self.workspace_root / "data" / "cache.duckdb"
         return None
 
     def figures_subdir(self, *parts: str) -> Path:

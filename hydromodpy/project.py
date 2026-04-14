@@ -179,7 +179,7 @@ class Project:
             require_flow_simulation_time_grid,
         )
         from hydromodpy.data import DataManagersPlanner
-        from hydromodpy.results.store import ResultStore
+        from hydromodpy.results.catalog import SimulationCatalog
         from hydromodpy.spatial.geographic.store_ingestion import (
             cleanup_stable_folder,
             persist_geographic_to_store,
@@ -305,13 +305,17 @@ class Project:
             requested_spatial_support_ids=self._requested_support_ids,
         )
 
-        # Open store (stays open for project lifetime)
+        # Open catalog (stays open for project lifetime)
         ws = self._ctx.setup.workspace
-        self._store = ResultStore(
-            project_path=ws.project_root,
-            workspace_path=getattr(ws, "workspace_root", None),
+        workspace_root = getattr(ws, "workspace_root", None) or ws.project_root
+        self._store = SimulationCatalog(workspace_root)
+        self._project_name = ws.project_root.name
+
+        # Persist geographic features/metadata once (project-scoped in DuckDB)
+        persist_geographic_to_store(
+            self.geographic, self._store,
+            project=self._project_name,
         )
-        persist_geographic_to_store(self.geographic, self._store)
         cleanup_stable_folder(self.geographic)
 
         self._run_counter = 0
@@ -331,7 +335,7 @@ class Project:
 
     @property
     def store(self):
-        """Open ResultStore for direct queries across all runs."""
+        """Open SimulationCatalog for direct queries across all runs."""
         return self._store
 
     @property
@@ -381,6 +385,9 @@ class Project:
         )
         from hydromodpy.simulation import SimulationPlanner
         from hydromodpy.simulation.results.post_run import post_run_results
+        from hydromodpy.spatial.geographic.store_ingestion import (
+            persist_geographic_to_store,
+        )
         from hydromodpy.results.config import (
             BudgetConfig,
             DerivedConfig,
@@ -414,10 +421,17 @@ class Project:
         else:
             self._ctx.setup.flow_runtime_overrides = None
 
-        # Register in store
+        # Register in catalog
         solvers = ",".join(r.solver for r in plan.runs)
         self._store.register_simulation(
-            sim_id, name=name, solver=solvers, run_id=name,
+            sim_id, project=self._project_name, solver=solvers,
+            name=name, run_id=name,
+        )
+
+        # Persist geographic rasters into this simulation's Zarr
+        persist_geographic_to_store(
+            self.geographic, self._store,
+            sim_id=sim_id,
         )
 
         # Execute
@@ -527,7 +541,7 @@ class Project:
     # -- Lifecycle ---------------------------------------------------------
 
     def close(self) -> None:
-        """Close the ResultStore."""
+        """Close the SimulationCatalog."""
         if self._store is not None:
             self._store.close()
             self._store = None

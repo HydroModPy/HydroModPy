@@ -379,7 +379,11 @@ def _accumulation_flux_routed(
     surface_top = np.asarray(mesh["surface_top"][:], dtype="float64")
 
     # Infer 2D grid shape: try geographic metadata first, then assume square.
-    geo_meta = store.read_geographic_metadata()
+    project = store.connection.execute(
+        "SELECT project FROM simulations WHERE sim_id = ?", [sim_id],
+    ).fetchone()
+    project_name = project[0] if project else ""
+    geo_meta = store.read_geographic_metadata(project_name)
     nrow = int(geo_meta.get("nrow", 0))
     ncol = int(geo_meta.get("ncol", 0))
     if nrow * ncol == n_cells:

@@ -9,7 +9,6 @@ from hydromodpy.results.schema import (
     PROJECT_GEOGRAPHIC_TABLE_NAMES,
     PROJECT_TABLE_NAMES,
     create_project_tables,
-    create_registry_table,
 )
 
 
@@ -58,48 +57,3 @@ class TestProjectTables:
         assert expected <= cols
 
 
-class TestRegistryTable:
-    def test_creates_table(self, mem_conn):
-        create_registry_table(mem_conn)
-        tables = {
-            r[0]
-            for r in mem_conn.execute(
-                "SELECT table_name FROM information_schema.tables"
-            ).fetchall()
-        }
-        assert "simulation_registry" in tables
-
-    def test_idempotent(self, mem_conn):
-        create_registry_table(mem_conn)
-        create_registry_table(mem_conn)
-
-    def test_indexes_created(self, mem_conn):
-        create_registry_table(mem_conn)
-        indexes = {
-            r[0]
-            for r in mem_conn.execute(
-                "SELECT index_name FROM duckdb_indexes()"
-            ).fetchall()
-        }
-        for ix in (
-            "ix_registry_project",
-            "ix_registry_solver",
-            "ix_registry_status",
-            "ix_registry_created",
-        ):
-            assert ix in indexes, f"missing index {ix}"
-
-    def test_registry_columns(self, mem_conn):
-        create_registry_table(mem_conn)
-        cols = {
-            r[0]
-            for r in mem_conn.execute(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = 'simulation_registry'"
-            ).fetchall()
-        }
-        expected = {
-            "sim_id", "project", "project_path", "solver", "status",
-            "best_nse", "best_kge", "config_hash", "forcing_sources",
-        }
-        assert expected <= cols

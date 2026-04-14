@@ -240,7 +240,7 @@ class Modflow6OutputAdapter:
             else:
                 return  # no grid binary file
 
-            grp = store._zarr_root[str(sim_id)]
+            grp = store.open_zarr_group(sim_id)
             if "mesh" not in grp:
                 grp.create_group("mesh")
             mesh = grp["mesh"]

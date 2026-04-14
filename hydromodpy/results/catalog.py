@@ -1,0 +1,857 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+import shutil
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+from uuid import UUID
+
+import duckdb
+import numpy as np
+import pandas as pd
+
+from hydromodpy.results.catalog_schema import (
+    HOMOGENEOUS_ZONE,
+    PER_SIM_TABLE_NAMES,
+    SOLVER_CATEGORIES,
+    ensure_schema,
+)
+from hydromodpy.results.provenance import fingerprint
+from hydromodpy.results.spatial_index import point_in_cell
+from hydromodpy.results.zarr_store import SimulationZarr
+
+if TYPE_CHECKING:
+    import geopandas as gpd
+
+    from hydromodpy.results.simulation import Simulation
+    from hydromodpy.results.simulation_group import SimulationGroup
+
+logger = logging.getLogger(__name__)
+
+
+class SimulationCatalog:
+
+    def __init__(self, workspace_path: Path | str) -> None:
+        self._workspace = Path(workspace_path)
+        self._workspace.mkdir(parents=True, exist_ok=True)
+
+        self._db_path = self._workspace / "hydromodpy.duckdb"
+        self._db = duckdb.connect(str(self._db_path))
+        ensure_schema(self._db)
+
+        self._simulations_dir = self._workspace / "simulations"
+        self._simulations_dir.mkdir(exist_ok=True)
+
+    @property
+    def connection(self) -> duckdb.DuckDBPyConnection:
+        return self._db
+
+    @property
+    def workspace_path(self) -> Path:
+        return self._workspace
+
+    @property
+    def project_path(self) -> Path:
+        return self._workspace
+
+    # -- Registration --------------------------------------------------------
+
+    def register_simulation(
+        self,
+        sim_id: str | UUID,
+        project: str,
+        solver: str,
+        *,
+        name: str | None = None,
+        solver_category: str | None = None,
+        flow_regime: str | None = None,
+        config: dict | None = None,
+        n_cells: int | None = None,
+        n_layers: int | None = None,
+        n_timesteps: int | None = None,
+        cell_types: list[str] | None = None,
+        bbox: list[float] | None = None,
+        crs: str | None = None,
+        period_start: Any = None,
+        period_end: Any = None,
+        time_unit: str | None = None,
+        parent_sim_id: str | UUID | None = None,
+        mesh_hash: str | None = None,
+        mesh_type: str | None = None,
+        tags: list[str] | None = None,
+        notes: str | None = None,
+        run_id: str | None = None,
+    ) -> SimulationZarr | None:
+        sid = str(sim_id)
+
+        if run_id:
+            existing = self._db.execute(
+                "SELECT sim_id FROM simulations WHERE name = ?", [run_id],
+            ).fetchall()
+            for (old_sid,) in existing:
+                self.delete(old_sid)
+                logger.info("Replaced previous simulation %s (run_id=%s)", old_sid, run_id)
+
+        if solver_category is None:
+            solver_category = SOLVER_CATEGORIES.get(solver)
+
+        config_json = json.dumps(config) if config else None
+        config_hash = None
+        if config:
+            config_hash = hashlib.sha256(
+                json.dumps(config, sort_keys=True).encode()
+            ).hexdigest()
+
+        zarr_path = f"simulations/{sid}.zarr"
+        parent_sid = str(parent_sim_id) if parent_sim_id else None
+        p_start = str(period_start) if period_start is not None else None
+        p_end = str(period_end) if period_end is not None else None
+
+        self._db.execute(
+            """INSERT INTO simulations
+               (sim_id, name, project, solver, solver_category, flow_regime,
+                n_cells, n_layers, n_timesteps, cell_types, bbox, crs,
+                period_start, period_end, time_unit,
+                config_toml, config_hash, zarr_path,
+                parent_sim_id, mesh_hash, mesh_type, tags, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                       ?, ?, ?, ?, ?)""",
+            [
+                sid, name, project, solver, solver_category, flow_regime,
+                n_cells, n_layers, n_timesteps, cell_types, bbox, crs,
+                p_start, p_end, time_unit,
+                config_json, config_hash, zarr_path,
+                parent_sid, mesh_hash, mesh_type, tags, notes,
+            ],
+        )
+
+        if n_cells is not None and n_layers is not None:
+            zarr_abs = self._workspace / zarr_path
+            return SimulationZarr.create(
+                zarr_abs, n_cells=n_cells, n_layers=n_layers,
+                cell_types=cell_types,
+            )
+        return None
+
+    # -- Parameter writes ----------------------------------------------------
+
+    def write_parameters(
+        self,
+        sim_id: str | UUID,
+        params: list[dict],
+    ) -> None:
+        sid = str(sim_id)
+        for p in params:
+            zone = p.get("zone_id")
+            zone_val = HOMOGENEOUS_ZONE if zone is None else str(zone)
+            self._db.execute(
+                """INSERT INTO parameters
+                   (sim_id, param_name, zone_id, value, unit, parameterization)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                [
+                    sid, p["param_name"], zone_val,
+                    p.get("value"), p.get("unit"), p.get("parameterization"),
+                ],
+            )
+
+    # -- Timeseries ----------------------------------------------------------
+
+    def write_timeseries(
+        self,
+        sim_id: str | UUID,
+        station_id: str,
+        variable: str,
+        ts: pd.Series,
+        unit: str = "",
+    ) -> None:
+        n = len(ts)
+        if n == 0:
+            return
+        sid = str(sim_id)
+        insert_df = pd.DataFrame(
+            {
+                "sim_id": np.full(n, sid, dtype=object),
+                "station_id": np.full(n, station_id, dtype=object),
+                "variable": np.full(n, variable, dtype=object),
+                "timestamp": ts.index,
+                "value": ts.values.astype("float64"),
+                "unit": np.full(n, unit, dtype=object),
+            }
+        )
+        self._db.execute(
+            "INSERT INTO timeseries "
+            "(sim_id, station_id, variable, timestamp, value, unit) "
+            "SELECT sim_id, station_id, variable, timestamp, value, unit "
+            "FROM insert_df"
+        )
+
+    # -- Budget --------------------------------------------------------------
+
+    def write_budget(
+        self,
+        sim_id: str | UUID,
+        timestep: int,
+        zone_id: str,
+        component: str,
+        flux_in: float,
+        flux_out: float,
+        unit: str = "m3/d",
+    ) -> None:
+        self._db.execute(
+            """INSERT INTO budgets
+               (sim_id, timestep, zone_id, component, flux_in, flux_out, unit)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            [str(sim_id), timestep, zone_id, component, flux_in, flux_out, unit],
+        )
+
+    # -- Mass balance --------------------------------------------------------
+
+    def write_mass_balance(
+        self,
+        sim_id: str | UUID,
+        timestep: int,
+        total_in: float,
+        total_out: float,
+        percent_error: float,
+        storage_in: float = 0.0,
+        storage_out: float = 0.0,
+    ) -> None:
+        self._db.execute(
+            """INSERT INTO mass_balance
+               (sim_id, timestep, total_in, total_out,
+                storage_in, storage_out, percent_error)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            [
+                str(sim_id), timestep, total_in, total_out,
+                storage_in, storage_out, percent_error,
+            ],
+        )
+
+    # -- Metrics -------------------------------------------------------------
+
+    def write_metric(
+        self,
+        sim_id: str | UUID,
+        station_id: str,
+        metric_name: str,
+        value: float,
+    ) -> None:
+        self._db.execute(
+            """INSERT OR REPLACE INTO metrics
+               (sim_id, station_id, metric_name, value)
+               VALUES (?, ?, ?, ?)""",
+            [str(sim_id), station_id, metric_name, value],
+        )
+
+    # -- Provenance ----------------------------------------------------------
+
+    def write_provenance(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        source_ref: str,
+        data: np.ndarray,
+        *,
+        source_type: str = "data_manager",
+        period_start: Any = None,
+        period_end: Any = None,
+    ) -> None:
+        fp = fingerprint(data)
+        self._db.execute(
+            """INSERT INTO provenance
+               (sim_id, variable, source_type, source_ref,
+                period_start, period_end, checksum, n_records, stats)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            [
+                str(sim_id), variable, source_type, source_ref,
+                str(period_start) if period_start is not None else None,
+                str(period_end) if period_end is not None else None,
+                fp["checksum"],
+                int(np.prod(data.shape)),
+                json.dumps(fp["stats"]),
+            ],
+        )
+
+    record_provenance = write_provenance
+
+    # -- Observation points --------------------------------------------------
+
+    def register_observation_points(
+        self,
+        sim_id: str | UUID,
+        points: dict[str, tuple[float, float]],
+        variable: str = "head",
+        layer: int = 0,
+    ) -> None:
+        sid = str(sim_id)
+        sz = self.open_zarr(sim_id)
+        mesh = sz.root["mesh"]
+        vertices = mesh["vertices"][:]
+        connectivity = mesh["face_node_connectivity"][:]
+
+        mapping = point_in_cell(vertices, connectivity, points)
+        for station_id, (x, y) in points.items():
+            cell_id = mapping[station_id]
+            self._db.execute(
+                """INSERT INTO observation_points
+                   (sim_id, station_id, x, y, cell_id, layer, variable)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                [sid, station_id, x, y, cell_id, layer, variable],
+            )
+
+    # -- Geographic (project-scoped in DuckDB) -------------------------------
+
+    def write_geographic_feature(
+        self,
+        project: str,
+        feature_name: str,
+        gdf: gpd.GeoDataFrame,
+    ) -> None:
+        if gdf.empty:
+            return
+        geojson_str = gdf.to_json()
+        from shapely.ops import unary_union
+        union_geom = unary_union(
+            [g for g in gdf.geometry if g is not None and not g.is_empty]
+        )
+        geom_type = union_geom.geom_type
+        crs_str = str(gdf.crs) if gdf.crs else ""
+
+        self._db.execute(
+            "INSERT OR REPLACE INTO geographic_features "
+            "(project, feature_name, geojson, geometry_type, crs, properties) "
+            "VALUES (?, ?, ?, ?, ?, NULL)",
+            [project, feature_name, geojson_str, geom_type, crs_str],
+        )
+
+    def read_geographic_feature(
+        self, project: str, feature_name: str,
+    ) -> gpd.GeoDataFrame:
+        import geopandas as gpd_mod
+
+        row = self._db.execute(
+            "SELECT geojson, crs FROM geographic_features "
+            "WHERE project = ? AND feature_name = ?",
+            [project, feature_name],
+        ).fetchone()
+        if row is None:
+            raise KeyError(
+                f"Feature '{feature_name}' not found for project '{project}'"
+            )
+        geojson_str, crs = row
+        if geojson_str:
+            gdf = gpd_mod.read_file(geojson_str)
+            if crs and gdf.crs is None:
+                gdf = gdf.set_crs(crs)
+            return gdf
+        raise KeyError(f"No GeoJSON data for feature '{feature_name}'")
+
+    def list_geographic_features(self, project: str) -> list[str]:
+        rows = self._db.execute(
+            "SELECT feature_name FROM geographic_features "
+            "WHERE project = ? ORDER BY feature_name",
+            [project],
+        ).fetchall()
+        return [r[0] for r in rows]
+
+    def write_geographic_metadata(
+        self, project: str, metadata: dict[str, str],
+    ) -> None:
+        for key, value in metadata.items():
+            self._db.execute(
+                "INSERT OR REPLACE INTO geographic_metadata (project, key, value) "
+                "VALUES (?, ?, ?)",
+                [project, str(key), str(value)],
+            )
+
+    def read_geographic_metadata(self, project: str) -> dict[str, str]:
+        rows = self._db.execute(
+            "SELECT key, value FROM geographic_metadata WHERE project = ?",
+            [project],
+        ).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    # -- Geographic rasters (sim-scoped in Zarr) -----------------------------
+
+    def write_geographic_raster(
+        self,
+        sim_id: str | UUID,
+        name: str,
+        data: np.ndarray,
+        *,
+        transform: tuple[float, ...],
+        crs: str,
+        nodata: float = -99999.0,
+    ) -> None:
+        sz = self.open_zarr(sim_id)
+        sz.write_geographic_raster(name, data, transform=transform,
+                                   crs=crs, nodata=nodata)
+
+    # -- Zarr access ---------------------------------------------------------
+
+    def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
+        zarr_path = self._simulations_dir / f"{sim_id}.zarr"
+        return SimulationZarr(zarr_path)
+
+    def open_zarr_group(self, sim_id: str | UUID, *, mode: str = "r"):
+        return self.open_zarr(sim_id).root
+
+    # -- Field I/O (delegates to SimulationZarr) -----------------------------
+
+    def write_field(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        timestep: int,
+        values: np.ndarray,
+        *,
+        n_timesteps: int | None = None,
+        subgroup: str | None = None,
+    ) -> None:
+        sz = self.open_zarr(sim_id)
+        sz.write_field(variable, timestep, values,
+                       n_timesteps=n_timesteps, subgroup=subgroup)
+
+    def write_mesh(
+        self,
+        sim_id: str | UUID,
+        vertices: np.ndarray,
+        face_node_connectivity: np.ndarray,
+        z_interfaces: np.ndarray,
+        layer_indices: np.ndarray | None = None,
+        source_cell_indices: np.ndarray | None = None,
+    ) -> None:
+        sz = self.open_zarr(sim_id)
+        sz.write_mesh(vertices, face_node_connectivity, z_interfaces,
+                      layer_indices=layer_indices,
+                      source_cell_indices=source_cell_indices)
+
+    def query_field(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        timestep: int,
+        layer: int | None = None,
+    ) -> np.ndarray:
+        sz = self.open_zarr(sim_id)
+        try:
+            return sz.read_field(variable, timestep, layer=layer)
+        except KeyError:
+            from hydromodpy.results.virtual_fields import compute_virtual_field
+            result = compute_virtual_field(self, str(sim_id), variable, timestep)
+            if result is not None:
+                if layer is not None and result.ndim == 2:
+                    return result[layer]
+                return result
+            raise KeyError(f"Variable '{variable}' not found for sim={sim_id}")
+
+    # -- Tabular queries -----------------------------------------------------
+
+    def query_timeseries(
+        self,
+        sim_id: str | UUID,
+        station_id: str,
+        variable: str,
+        period: tuple | None = None,
+    ) -> pd.Series:
+        query = (
+            "SELECT timestamp, value FROM timeseries "
+            "WHERE sim_id = ? AND station_id = ? AND variable = ?"
+        )
+        params: list = [str(sim_id), station_id, variable]
+        if period is not None:
+            query += " AND timestamp >= ? AND timestamp <= ?"
+            params.extend([period[0], period[1]])
+        query += " ORDER BY timestamp"
+        result = self._db.execute(query, params).fetchdf()
+        if result.empty:
+            raise KeyError(
+                f"No timeseries for sim={sim_id}, station={station_id}, var={variable}"
+            )
+        return pd.Series(
+            result["value"].values,
+            index=pd.DatetimeIndex(result["timestamp"]),
+            name=variable,
+        )
+
+    def query_budget(
+        self,
+        sim_id: str | UUID,
+        zone_id: str | None = None,
+        period: tuple[int, int] | None = None,
+    ) -> pd.DataFrame:
+        query = "SELECT * FROM budgets WHERE sim_id = ?"
+        params: list = [str(sim_id)]
+        if zone_id is not None:
+            query += " AND zone_id = ?"
+            params.append(zone_id)
+        if period is not None:
+            query += " AND timestep >= ? AND timestep <= ?"
+            params.extend(period)
+        return self._db.execute(query, params).fetchdf()
+
+    def query_mass_balance(self, sim_id: str | UUID) -> pd.DataFrame:
+        return self._db.execute(
+            "SELECT * FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
+            [str(sim_id)],
+        ).fetchdf()
+
+    def get_provenance(
+        self,
+        sim_id: str | UUID,
+        variable: str | None = None,
+    ) -> pd.DataFrame:
+        query = "SELECT * FROM provenance WHERE sim_id = ?"
+        params: list = [str(sim_id)]
+        if variable is not None:
+            query += " AND variable = ?"
+            params.append(variable)
+        return self._db.execute(query, params).fetchdf()
+
+    def list_simulations(self, **filters) -> pd.DataFrame:
+        query = "SELECT * FROM simulations"
+        params: list = []
+        if filters:
+            clauses = []
+            for key, val in filters.items():
+                clauses.append(f"{key} = ?")
+                params.append(val)
+            query += " WHERE " + " AND ".join(clauses)
+        return self._db.execute(query, params).fetchdf()
+
+    def export(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        fmt: str,
+        path: Path | str,
+        **kwargs,
+    ) -> Path:
+        sid = str(sim_id)
+        path = Path(path)
+        zarr_path = str(self.open_zarr(sim_id).path)
+
+        if fmt == "netcdf":
+            from hydromodpy.results.exporters.netcdf import export_netcdf
+            variables = [v.strip() for v in variable.split(",")]
+            return export_netcdf(zarr_path, sid, variables, path, **kwargs)
+        elif fmt == "csv":
+            from hydromodpy.results.exporters.csv import export_csv
+            return export_csv(
+                self._db, sid, path,
+                variable=variable if variable != "*" else None, **kwargs,
+            )
+        elif fmt == "vtu":
+            from hydromodpy.results.exporters.vtu import export_vtu
+            timestep = kwargs.pop("timestep", 0)
+            return export_vtu(zarr_path, sid, variable, timestep, path, **kwargs)
+        elif fmt == "geotiff":
+            from hydromodpy.results.exporters.geotiff import export_geotiff
+            timestep = kwargs.pop("timestep", 0)
+            return export_geotiff(zarr_path, sid, variable, timestep, path, **kwargs)
+        elif fmt == "shapefile":
+            from hydromodpy.results.exporters.shapefile import export_shapefile
+            timestep = kwargs.pop("timestep", 0)
+            return export_shapefile(zarr_path, sid, variable, timestep, path, **kwargs)
+        else:
+            raise ValueError(f"Unknown export format '{fmt}'")
+
+    # -- Simulation discovery ------------------------------------------------
+
+    @property
+    def simulations(self) -> pd.DataFrame:
+        return self._db.execute(
+            "SELECT * FROM simulations ORDER BY created_at DESC"
+        ).fetchdf()
+
+    def __getitem__(self, sim_id: str | UUID) -> Simulation:
+        from hydromodpy.results.simulation import Simulation
+
+        sid = str(sim_id)
+        row = self._db.execute(
+            "SELECT sim_id FROM simulations WHERE sim_id = ?", [sid],
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"Simulation '{sid}' not found")
+        return Simulation(sid, self)
+
+    def find(self, **filters) -> SimulationGroup:
+        from hydromodpy.results.simulation_group import SimulationGroup
+
+        query = "SELECT DISTINCT s.sim_id FROM simulations s"
+        joins: list[str] = []
+        clauses: list[str] = []
+        params: list = []
+
+        for key, val in filters.items():
+            if key == "tags":
+                clauses.append("list_contains(s.tags, ?)")
+                params.append(val)
+            elif key.endswith("_gt"):
+                metric = key[:-3]
+                alias = f"m_{len(joins)}"
+                joins.append(
+                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
+                    f"AND {alias}.metric_name = ?"
+                )
+                params.append(metric)
+                clauses.append(f"{alias}.value > ?")
+                params.append(val)
+            elif key.endswith("_lt"):
+                metric = key[:-3]
+                alias = f"m_{len(joins)}"
+                joins.append(
+                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
+                    f"AND {alias}.metric_name = ?"
+                )
+                params.append(metric)
+                clauses.append(f"{alias}.value < ?")
+                params.append(val)
+            elif key.endswith("_gte"):
+                metric = key[:-4]
+                alias = f"m_{len(joins)}"
+                joins.append(
+                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
+                    f"AND {alias}.metric_name = ?"
+                )
+                params.append(metric)
+                clauses.append(f"{alias}.value >= ?")
+                params.append(val)
+            elif key in (
+                "project", "solver", "solver_category", "flow_regime",
+                "status", "name", "crs",
+            ):
+                clauses.append(f"s.{key} = ?")
+                params.append(val)
+            else:
+                raise ValueError(f"Unknown filter: '{key}'")
+
+        if joins:
+            query += " " + " ".join(joins)
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY s.created_at DESC"
+
+        rows = self._db.execute(query, params).fetchall()
+        sim_ids = [str(r[0]) for r in rows]
+        return SimulationGroup(sim_ids, self)
+
+    def latest(self, project: str) -> Simulation:
+        from hydromodpy.results.simulation import Simulation
+
+        row = self._db.execute(
+            "SELECT sim_id FROM simulations "
+            "WHERE project = ? AND status = 'completed' "
+            "ORDER BY created_at DESC LIMIT 1",
+            [project],
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"No completed simulation for project '{project}'")
+        return Simulation(str(row[0]), self)
+
+    def best(self, project: str, metric: str = "nse") -> Simulation:
+        from hydromodpy.results.simulation import Simulation
+
+        row = self._db.execute(
+            "SELECT s.sim_id FROM simulations s "
+            "JOIN metrics m ON s.sim_id = m.sim_id "
+            "WHERE s.project = ? AND s.status = 'completed' "
+            "AND m.metric_name = ? "
+            "ORDER BY m.value DESC LIMIT 1",
+            [project, metric],
+        ).fetchone()
+        if row is None:
+            raise KeyError(
+                f"No completed simulation with metric '{metric}' "
+                f"for project '{project}'"
+            )
+        return Simulation(str(row[0]), self)
+
+    def sql(self, query: str, params: list | None = None) -> pd.DataFrame:
+        if params:
+            return self._db.execute(query, params).fetchdf()
+        return self._db.execute(query).fetchdf()
+
+    def cleanup(
+        self,
+        *,
+        status: str | None = None,
+        older_than: str | None = None,
+    ) -> int:
+        query = "SELECT sim_id FROM simulations WHERE 1=1"
+        params: list = []
+        if status is not None:
+            query += " AND status = ?"
+            params.append(status)
+        if older_than is not None:
+            query += " AND created_at < ?"
+            params.append(older_than)
+
+        rows = self._db.execute(query, params).fetchall()
+        for (sid,) in rows:
+            self.delete(str(sid))
+        return len(rows)
+
+    # -- Import / export -----------------------------------------------------
+
+    def export_simulation(
+        self, sim_id: str | UUID, output_path: Path | str,
+    ) -> Path:
+        sid = str(sim_id)
+        output = Path(output_path)
+        output.mkdir(parents=True, exist_ok=True)
+
+        row = self._db.execute(
+            "SELECT project, zarr_path FROM simulations WHERE sim_id = ?", [sid],
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"Simulation '{sid}' not found")
+        project, zarr_rel = row
+
+        pkg_db_path = output / "simulation.duckdb"
+        pkg_db = duckdb.connect(str(pkg_db_path))
+        try:
+            sim_df = self._db.execute(
+                "SELECT * FROM simulations WHERE sim_id = ?", [sid],
+            ).fetchdf()
+            pkg_db.execute("CREATE TABLE simulations AS SELECT * FROM sim_df")
+
+            for table in PER_SIM_TABLE_NAMES:
+                df = self._db.execute(
+                    f"SELECT * FROM {table} WHERE sim_id = ?", [sid],
+                ).fetchdf()
+                pkg_db.execute(f"CREATE TABLE {table} AS SELECT * FROM df")
+
+            geo_feat = self._db.execute(
+                "SELECT * FROM geographic_features WHERE project = ?", [project],
+            ).fetchdf()
+            pkg_db.execute(
+                "CREATE TABLE geographic_features AS SELECT * FROM geo_feat"
+            )
+
+            geo_meta = self._db.execute(
+                "SELECT * FROM geographic_metadata WHERE project = ?", [project],
+            ).fetchdf()
+            pkg_db.execute(
+                "CREATE TABLE geographic_metadata AS SELECT * FROM geo_meta"
+            )
+
+            ver_df = self._db.execute("SELECT * FROM _schema_version").fetchdf()
+            pkg_db.execute(
+                "CREATE TABLE _schema_version AS SELECT * FROM ver_df"
+            )
+        finally:
+            pkg_db.close()
+
+        zarr_src = self._workspace / zarr_rel
+        zarr_dst = output / "results.zarr"
+        if zarr_src.exists():
+            shutil.copytree(zarr_src, zarr_dst, dirs_exist_ok=True)
+
+        return output
+
+    def import_simulation(
+        self, package_path: Path | str, *, force: bool = False,
+    ) -> str:
+        pkg = Path(package_path)
+        pkg_db_path = pkg / "simulation.duckdb"
+        if not pkg_db_path.exists():
+            raise FileNotFoundError(f"No simulation.duckdb in {pkg}")
+
+        pkg_db = duckdb.connect(str(pkg_db_path), read_only=True)
+        try:
+            sim_row = pkg_db.execute("SELECT sim_id FROM simulations").fetchone()
+            if sim_row is None:
+                raise ValueError("Package contains no simulation")
+            sid = str(sim_row[0])
+
+            existing = self._db.execute(
+                "SELECT sim_id FROM simulations WHERE sim_id = ?", [sid],
+            ).fetchone()
+            if existing is not None:
+                if not force:
+                    raise ValueError(
+                        f"Simulation '{sid}' already exists. Use force=True to overwrite."
+                    )
+                self.delete(sid)
+
+            pkg_tables = {
+                r[0] for r in pkg_db.execute(
+                    "SELECT table_name FROM information_schema.tables "
+                    "WHERE table_schema = 'main'"
+                ).fetchall()
+            }
+
+            sim_df = pkg_db.execute("SELECT * FROM simulations").fetchdf()
+            self._db.execute("INSERT INTO simulations SELECT * FROM sim_df")
+
+            for table in PER_SIM_TABLE_NAMES:
+                if table in pkg_tables:
+                    df = pkg_db.execute(f"SELECT * FROM {table}").fetchdf()
+                    if not df.empty:
+                        self._db.execute(
+                            f"INSERT INTO {table} SELECT * FROM df"
+                        )
+
+            for geo_table in ("geographic_features", "geographic_metadata"):
+                if geo_table in pkg_tables:
+                    df = pkg_db.execute(f"SELECT * FROM {geo_table}").fetchdf()
+                    if not df.empty:
+                        self._db.execute(
+                            f"INSERT OR REPLACE INTO {geo_table} SELECT * FROM df"
+                        )
+        finally:
+            pkg_db.close()
+
+        zarr_path = f"simulations/{sid}.zarr"
+        self._db.execute(
+            "UPDATE simulations SET zarr_path = ? WHERE sim_id = ?",
+            [zarr_path, sid],
+        )
+
+        pkg_zarr = pkg / "results.zarr"
+        if pkg_zarr.exists():
+            dst = self._workspace / zarr_path
+            shutil.copytree(pkg_zarr, dst, dirs_exist_ok=True)
+
+        return sid
+
+    # -- Lifecycle -----------------------------------------------------------
+
+    def finalize(
+        self,
+        sim_id: str | UUID,
+        status: str = "completed",
+        duration_s: float | None = None,
+    ) -> None:
+        self._db.execute(
+            "UPDATE simulations SET status = ?, duration_s = ? WHERE sim_id = ?",
+            [status, duration_s, str(sim_id)],
+        )
+
+    def delete(self, sim_id: str | UUID) -> None:
+        sid = str(sim_id)
+
+        row = self._db.execute(
+            "SELECT zarr_path FROM simulations WHERE sim_id = ?", [sid],
+        ).fetchone()
+
+        for table in PER_SIM_TABLE_NAMES:
+            self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
+        self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+
+        if row and row[0]:
+            zarr_abs = self._workspace / row[0]
+            if zarr_abs.exists():
+                shutil.rmtree(zarr_abs, ignore_errors=True)
+
+    def close(self) -> None:
+        self._db.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()

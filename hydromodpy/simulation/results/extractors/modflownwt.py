@@ -197,7 +197,7 @@ class ModflowNwtOutputAdapter:
             botm = np.asarray(m.dis.botm.array, dtype="float64")
             z_flat = np.concatenate([top[:1], botm[:, 0, 0]]) if botm.ndim == 3 else np.array([float(top[0]), float(top[0]) - 10.0])
 
-            grp = store._zarr_root[str(sim_id)]
+            grp = store.open_zarr_group(sim_id)
             if "mesh" not in grp:
                 grp.create_group("mesh")
             mesh = grp["mesh"]
