@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import csv
-import importlib.util
 import json
 import math
 import os
@@ -14,7 +13,7 @@ import pytest
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.analysis.comparison.config import MethodComparisonConfig
 from hydromodpy.analysis.comparison.exports import write_budget_exports
-from launchers.method_comparison.launcher import MethodComparisonLauncher
+from hydromodpy.workflow.pipelines.method_comparison import MethodComparisonLauncher
 from hydromodpy.analysis.comparison.metrics import (
     build_comparison_metrics,
     build_unmatched_groups,
@@ -26,19 +25,6 @@ from hydromodpy.analysis.comparison.runtime import (
 )
 
 OUTLET_CELL_AREA_M2 = 10.0
-
-
-def _load_launchers_main_module():
-    module_path = Path(__file__).resolve().parents[3] / "launchers" / "__main__.py"
-    spec = importlib.util.spec_from_file_location(
-        "launchers_main_method_comparison_test_module",
-        module_path,
-    )
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Unable to load module spec for {module_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 def _write_base_simulation_config(path: Path) -> None:
@@ -1385,10 +1371,10 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
 
     monkeypatch.setattr(ps_module, "HydroModPyLauncher", _FakeHydroModPyLauncher)
     monkeypatch.setattr(
-        "launchers.method_comparison.launcher.read_variant_run_metadata",
+        "hydromodpy.workflow.pipelines.method_comparison.read_variant_run_metadata",
         lambda _run_folder: {},
     )
-    import launchers.method_comparison.launcher as launcher_module
+    import hydromodpy.workflow.pipelines.method_comparison as launcher_module
 
     monkeypatch.setattr(
         launcher_module.HydroModPyConfig,
@@ -1583,20 +1569,3 @@ def test_build_comparison_metrics_aligns_non_initial_steps_and_keeps_initial_unm
             "reason": "missing aligned reference row or unit mismatch",
         }
     ]
-
-
-def test_launchers_cli_method_comparison_run_dispatches_to_launcher(monkeypatch) -> None:
-    module = _load_launchers_main_module()
-    captured: dict[str, Path] = {}
-
-    config_path = Path("sample_method_comparison.toml")
-
-    def _fake_runner(path: Path) -> None:
-        captured["config"] = path
-
-    monkeypatch.setattr(module, "_run_method_comparison_launcher", _fake_runner)
-
-    code = module.main(["method-comparison", "run", str(config_path)])
-
-    assert code == 0
-    assert captured["config"] == config_path.resolve()

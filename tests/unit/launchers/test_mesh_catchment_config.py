@@ -9,7 +9,7 @@ from hydromodpy.spatial.mesh.config import (
     parse_mesh_catchment_batch_config_data,
     parse_mesh_catchment_config_data,
 )
-from launchers.mesh_catchment.templates import render_mesh_catchment_template
+from hydromodpy.runners.templates.mesh_catchment import render_mesh_catchment_template
 
 
 def test_parse_mesh_catchment_config_defaults_domain_and_rivers() -> None:
@@ -250,21 +250,6 @@ def test_generate_toml_exposes_mesh_catchment_sections() -> None:
     assert "Meshing compliance target" in content
     assert "Enable batch mode" in content
     assert "hydraulic_properties" in content
-
-
-def test_versioned_templates_match_renderer() -> None:
-    template_dir = Path("launchers/mesh_catchment")
-    single_path = template_dir / "config_template.toml"
-    batch_path = template_dir / "config_batch_template.toml"
-
-    assert single_path.read_text(encoding="utf-8") == render_mesh_catchment_template(
-        batch=False,
-        profile="user",
-    )
-    assert batch_path.read_text(encoding="utf-8") == render_mesh_catchment_template(
-        batch=True,
-        profile="user",
-    )
 
 
 def test_template_renderer_mentions_output_layout() -> None:

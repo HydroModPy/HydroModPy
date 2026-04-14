@@ -3,7 +3,7 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-from launchers import LauncherRunState
+from hydromodpy.core.state.run_state import LauncherRunState
 
 
 def _build_state() -> LauncherRunState:
