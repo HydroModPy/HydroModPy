@@ -90,11 +90,11 @@ def build_calibration_payload(
             "reuse_persisted_iterations": False,
             "parameter": [
                 {
-                    "name": "K_global_factor",
+                    "name": "K_global",
                     "property": "K",
                     "target": "flow.param.K.field_homogeneous.value",
-                    "mode": "scale",
-                    "parameterization": "global_factor",
+                    "mode": "replace",
+                    "parameterization": "global_value",
                 }
             ],
             "output": [
@@ -129,7 +129,7 @@ def build_calibration_payload(
             method_profile.name: dict(method_profile.method_kwargs),
         },
         "bounds": {
-            "K_global_factor": [0.65, 1.35],
+            "K_global": [5.0e-5, 3.0e-4],
         },
     }
 
@@ -157,11 +157,11 @@ def build_mesh_perturbed_calibration_payload(
             "reuse_persisted_iterations": False,
             "parameter": [
                 {
-                    "name": "K_global_factor",
+                    "name": "K_global",
                     "property": "K",
                     "target": "flow.param.K.field_homogeneous.value",
-                    "mode": "scale",
-                    "parameterization": "global_factor",
+                    "mode": "replace",
+                    "parameterization": "global_value",
                 }
             ],
             "output": [
@@ -213,7 +213,7 @@ def build_mesh_perturbed_calibration_payload(
             method_profile.name: dict(method_profile.method_kwargs),
         },
         "bounds": {
-            "K_global_factor": [0.65, 1.35],
+            "K_global": [5.0e-5, 3.0e-4],
         },
     }
 
@@ -268,11 +268,11 @@ STEADY_DUPUIT_TWIN_CASE = TwinCalibrationCaseDefinition(
     regime="steady",
     description=(
         "Same-solver twin benchmark on dupuit_fixed_head_1d with one scalar "
-        "K multiplier and one outlet-discharge observable."
+        "K value and one outlet-discharge observable."
     ),
-    truth_params={"K_global_factor": 1.0},
-    bounds={"K_global_factor": (0.65, 1.35)},
-    parameter_abs_tolerances={"K_global_factor": 0.06},
+    truth_params={"K_global": 1.0e-4},
+    bounds={"K_global": (5.0e-5, 3.0e-4)},
+    parameter_abs_tolerances={"K_global": 2.0e-5},
     output_names=("q_east",),
     method_profiles=(
         CalibrationMethodProfile(
@@ -308,11 +308,11 @@ STEADY_DUPUIT_POSTERIOR_TWIN_CASE = TwinCalibrationCaseDefinition(
     regime="steady",
     description=(
         "Same-solver posterior-oriented twin benchmark on dupuit_fixed_head_1d "
-        "with one scalar K multiplier and distribution-valued methods."
+        "with one scalar K value and distribution-valued methods."
     ),
-    truth_params={"K_global_factor": 1.0},
-    bounds={"K_global_factor": (0.65, 1.35)},
-    parameter_abs_tolerances={"K_global_factor": 0.06},
+    truth_params={"K_global": 1.0e-4},
+    bounds={"K_global": (5.0e-5, 3.0e-4)},
+    parameter_abs_tolerances={"K_global": 2.0e-5},
     output_names=("q_east",),
     method_profiles=(
         CalibrationMethodProfile(
@@ -336,12 +336,12 @@ STEADY_DUPUIT_MESH_PERTURBED_TWIN_CASE = TwinCalibrationCaseDefinition(
     regime="steady",
     description=(
         "Perturbed twin benchmark on dupuit_fixed_head_1d with one scalar K "
-        "multiplier, truth generated on a refined mesh, and calibration run "
+        "value, truth generated on a refined mesh, and calibration run "
         "on the standard mesh."
     ),
-    truth_params={"K_global_factor": 1.0},
-    bounds={"K_global_factor": (0.65, 1.35)},
-    parameter_abs_tolerances={"K_global_factor": 0.08},
+    truth_params={"K_global": 1.0e-4},
+    bounds={"K_global": (5.0e-5, 3.0e-4)},
+    parameter_abs_tolerances={"K_global": 2.5e-5},
     output_names=("head_mid", "q_east"),
     method_profiles=(
         CalibrationMethodProfile(
@@ -378,12 +378,12 @@ STEADY_DUPUIT_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
     regime="steady",
     description=(
         "Same-solver noisy twin benchmark on dupuit_fixed_head_1d with one "
-        "scalar K multiplier, one outlet-discharge observable, and repeated "
+        "scalar K value, one outlet-discharge observable, and repeated "
         "random-search seeds."
     ),
-    truth_params={"K_global_factor": 1.0},
-    bounds={"K_global_factor": (0.65, 1.35)},
-    parameter_abs_tolerances={"K_global_factor": 0.06},
+    truth_params={"K_global": 1.0e-4},
+    bounds={"K_global": (5.0e-5, 3.0e-4)},
+    parameter_abs_tolerances={"K_global": 2.0e-5},
     output_names=("q_east",),
     method_profiles=(
         CalibrationMethodProfile(

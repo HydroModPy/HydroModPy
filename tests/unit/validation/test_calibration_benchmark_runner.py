@@ -394,3 +394,105 @@ def test_case_method_figures_and_minimal_pruning(tmp_path: Path) -> None:
     assert not results_simulations.exists()
     assert not results_stable.exists()
     assert calibration_root.exists()
+
+
+def test_case_method_figures_use_regular_objective_grid_for_two_parameters(
+    tmp_path: Path,
+) -> None:
+    benchmark_root = tmp_path / "case_b"
+    calibration_root = benchmark_root / "project" / "results_calibration" / "method_b"
+    calibration_root.mkdir(parents=True, exist_ok=True)
+    history_path = calibration_root / "iteration_history.jsonl"
+    history_rows = [
+        {
+            "iteration_id": "iter_0001",
+            "params_vector": [0.9, 0.08],
+            "params_named": {"K": 0.9, "Sy": 0.08},
+            "objective_total": 1.2,
+            "block_costs": {"heads": 0.7, "flux": 0.5},
+            "status": "objective_evaluated",
+            "failure_reason": None,
+        },
+        {
+            "iteration_id": "iter_0002",
+            "params_vector": [1.0, 0.10],
+            "params_named": {"K": 1.0, "Sy": 0.10},
+            "objective_total": 0.05,
+            "block_costs": {"heads": 0.03, "flux": 0.02},
+            "status": "objective_evaluated",
+            "failure_reason": None,
+        },
+        {
+            "iteration_id": "iter_0003",
+            "params_vector": [1.1, 0.12],
+            "params_named": {"K": 1.1, "Sy": 0.12},
+            "objective_total": 0.9,
+            "block_costs": {"heads": 0.5, "flux": 0.4},
+            "status": "objective_evaluated",
+            "failure_reason": None,
+        },
+    ]
+    history_path.write_text(
+        "\n".join(json.dumps(row, ensure_ascii=True) for row in history_rows) + "\n",
+        encoding="utf-8",
+    )
+    (benchmark_root / "objective_regular_grid.json").write_text(
+        json.dumps(
+            {
+                "role": "calibration_regular_objective_grid",
+                "case_id": "case_b",
+                "parameter_names": ["K", "Sy"],
+                "n_per_dim": 3,
+                "x": [0.8, 1.0, 1.2],
+                "y": [0.06, 0.10, 0.14],
+                "objective_total": [
+                    [1.5, 0.8, 1.0],
+                    [0.7, 0.05, 0.6],
+                    [1.1, 0.7, 1.4],
+                ],
+            },
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    definition = TwinCalibrationCaseDefinition(
+        case_id="case_b",
+        solver_name="modflow6",
+        regime="transient",
+        description="demo2d",
+        truth_params={"K": 1.0, "Sy": 0.10},
+        bounds={"K": (0.8, 1.2), "Sy": (0.06, 0.14)},
+        parameter_abs_tolerances={"K": 0.1, "Sy": 0.03},
+        output_names=("head", "q"),
+        method_profiles=(),
+        fast=True,
+    )
+    result = TwinMethodBenchmarkResult(
+        method_name="simplex",
+        method_instance_name="simplex",
+        success_metric="best_fit",
+        effective_method_kwargs={},
+        requested_evaluation_budget=None,
+        calibration_id="calibration_b",
+        calibration_root=calibration_root,
+        result_path=None,
+        cost_best=0.05,
+        iteration_count=3,
+        n_evaluations=3,
+        params_best={"K": 1.0, "Sy": 0.10},
+        param_abs_error={"K": 0.0, "Sy": 0.0},
+        recovered_truth=True,
+        iteration_history_path=history_path,
+    )
+
+    figure_paths = write_case_method_figures(
+        benchmark_root=benchmark_root,
+        definition=definition,
+        result=result,
+    )
+
+    assert "objective_trace" in figure_paths
+    assert "objective_landscape" in figure_paths
+    assert figure_paths["objective_trace"].is_file()
+    assert figure_paths["objective_landscape"].is_file()

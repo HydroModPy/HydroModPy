@@ -26,6 +26,47 @@ from validation_cases.calibration.shared.definitions import (
 )
 
 
+SUITE_TITLE_FONTSIZE = 10.0
+CASE_TITLE_FONTSIZE = 9.4
+CASE_SUPTITLE_FONTSIZE = 11.8
+SECTION_TITLE_FONTSIZE = 9.2
+AXIS_LABEL_FONTSIZE = 8.4
+TICK_LABEL_FONTSIZE = 7.4
+LEGEND_FONTSIZE = 6.8
+LEGEND_TITLE_FONTSIZE = 6.9
+ANNOTATION_FONTSIZE = 6.4
+CONFIG_TEXT_FONTSIZE = 7.9
+CONFIG_SMALL_TEXT_FONTSIZE = 7.6
+
+
+def _compact_case_title(
+    case_id: str,
+    detail: str,
+) -> str:
+    """Return one compact two-line title for case-level figures."""
+    return f"{case_id}\n{detail}"
+
+
+def _apply_tick_style(axis) -> None:
+    """Apply one compact tick-label style."""
+    axis.tick_params(labelsize=TICK_LABEL_FONTSIZE)
+
+
+def _apply_compact_legend(axis, **kwargs):
+    """Render one compact legend suited to dense calibration figures."""
+    return axis.legend(
+        fontsize=LEGEND_FONTSIZE,
+        title_fontsize=LEGEND_TITLE_FONTSIZE,
+        framealpha=0.94,
+        borderpad=0.35,
+        labelspacing=0.3,
+        handlelength=1.35,
+        handletextpad=0.45,
+        borderaxespad=0.35,
+        **kwargs,
+    )
+
+
 def _try_import_matplotlib():
     """Import matplotlib lazily and return pyplot, or None when unavailable."""
     try:
@@ -132,9 +173,10 @@ def write_suite_figures(
     ax.set_yticks(y_positions)
     ax.set_yticklabels(row_labels)
     ax.set_xlim(0.0, 1.0)
-    ax.set_xlabel("Success Rate")
-    ax.set_title("Calibration Benchmark Success Rates")
-    ax.legend()
+    ax.set_xlabel("Success Rate", fontsize=AXIS_LABEL_FONTSIZE)
+    ax.set_title("Calibration Benchmark Success Rates", fontsize=SUITE_TITLE_FONTSIZE)
+    _apply_tick_style(ax)
+    _apply_compact_legend(ax)
     fig.tight_layout()
     path = output_root / f"benchmark_target_success_rates.{extension}"
     fig.savefig(path, dpi=180)
@@ -156,11 +198,12 @@ def write_suite_figures(
         ys = [item[1] for item in scatter_points]
         ax.scatter(xs, ys, color="#284b63")
         for x_value, y_value, label in scatter_points:
-            ax.annotate(label, (x_value, y_value), fontsize=8)
-        ax.set_xlabel("Mean Evaluations")
-        ax.set_ylabel("Mean Best Cost")
+            ax.annotate(label, (x_value, y_value), fontsize=ANNOTATION_FONTSIZE)
+        ax.set_xlabel("Mean Evaluations", fontsize=AXIS_LABEL_FONTSIZE)
+        ax.set_ylabel("Mean Best Cost", fontsize=AXIS_LABEL_FONTSIZE)
         ax.set_yscale("log")
-        ax.set_title("Cost vs Evaluation Budget")
+        ax.set_title("Cost vs Evaluation Budget", fontsize=SUITE_TITLE_FONTSIZE)
+        _apply_tick_style(ax)
         fig.tight_layout()
         path = output_root / f"benchmark_cost_vs_budget.{extension}"
         fig.savefig(path, dpi=180)
@@ -182,12 +225,13 @@ def write_suite_figures(
         ys = [item[1] for item in time_points]
         ax.scatter(xs, ys, color="#3c6e71")
         for x_value, y_value, label in time_points:
-            ax.annotate(label, (x_value, y_value), fontsize=8)
+            ax.annotate(label, (x_value, y_value), fontsize=ANNOTATION_FONTSIZE)
         ax.set_xscale("log")
         ax.set_yscale("log")
-        ax.set_xlabel("Mean Time per Evaluation (s)")
-        ax.set_ylabel("Mean Best Cost")
-        ax.set_title("Cost vs Time per Evaluation")
+        ax.set_xlabel("Mean Time per Evaluation (s)", fontsize=AXIS_LABEL_FONTSIZE)
+        ax.set_ylabel("Mean Best Cost", fontsize=AXIS_LABEL_FONTSIZE)
+        ax.set_title("Cost vs Time per Evaluation", fontsize=SUITE_TITLE_FONTSIZE)
+        _apply_tick_style(ax)
         fig.tight_layout()
         path = output_root / f"benchmark_time_vs_cost.{extension}"
         fig.savefig(path, dpi=180)
@@ -217,8 +261,9 @@ def write_suite_figures(
         ax.axvline(1.0, color="#7a5c00", linestyle="--", linewidth=1.2)
         ax.set_yticks(y_positions)
         ax.set_yticklabels(labels)
-        ax.set_xlabel("Mean Parameter Absolute Error / Tolerance")
-        ax.set_title("Normalized Parameter Error")
+        ax.set_xlabel("Mean Parameter Absolute Error / Tolerance", fontsize=AXIS_LABEL_FONTSIZE)
+        ax.set_title("Normalized Parameter Error", fontsize=SUITE_TITLE_FONTSIZE)
+        _apply_tick_style(ax)
         fig.tight_layout()
         path = output_root / f"benchmark_parameter_error_ratio.{extension}"
         fig.savefig(path, dpi=180)
@@ -298,9 +343,10 @@ def write_suite_figures(
         )
         ax.set_yticks(y_positions)
         ax.set_yticklabels(timing_labels)
-        ax.set_xlabel("Calibration Time (s)")
-        ax.set_title("Calibration Time Closure")
-        ax.legend()
+        ax.set_xlabel("Calibration Time (s)", fontsize=AXIS_LABEL_FONTSIZE)
+        ax.set_title("Calibration Time Closure", fontsize=SUITE_TITLE_FONTSIZE)
+        _apply_tick_style(ax)
+        _apply_compact_legend(ax)
         fig.tight_layout()
         path = output_root / f"benchmark_calibration_time_closure.{extension}"
         fig.savefig(path, dpi=180)
@@ -401,9 +447,10 @@ def write_suite_figures(
             ]
         ax.set_yticks(y_positions)
         ax.set_yticklabels(timing_labels)
-        ax.set_xlabel("Mean Candidate Time (s)")
-        ax.set_title("Candidate Timing Breakdown")
-        ax.legend()
+        ax.set_xlabel("Mean Candidate Time (s)", fontsize=AXIS_LABEL_FONTSIZE)
+        ax.set_title("Candidate Timing Breakdown", fontsize=SUITE_TITLE_FONTSIZE)
+        _apply_tick_style(ax)
+        _apply_compact_legend(ax)
         fig.tight_layout()
         path = output_root / f"benchmark_candidate_timing_breakdown.{extension}"
         fig.savefig(path, dpi=180)
@@ -429,9 +476,10 @@ def write_suite_figures(
         )
         ax.set_yticks(y_positions)
         ax.set_yticklabels(timing_labels)
-        ax.set_xlabel("Mean Candidate Time (s)")
-        ax.set_title("Candidate Timing Breakdown")
-        ax.legend()
+        ax.set_xlabel("Mean Candidate Time (s)", fontsize=AXIS_LABEL_FONTSIZE)
+        ax.set_title("Candidate Timing Breakdown", fontsize=SUITE_TITLE_FONTSIZE)
+        _apply_tick_style(ax)
+        _apply_compact_legend(ax)
         fig.tight_layout()
         path = output_root / f"benchmark_candidate_timing_breakdown.{extension}"
         fig.savefig(path, dpi=180)
@@ -448,6 +496,27 @@ def _sanitize_method_slug(text: str) -> str:
         for char in str(text).strip().lower()
     )
     return token or "method"
+
+
+def _load_regular_objective_grid(
+    *,
+    benchmark_root: Path,
+    definition: TwinCalibrationCaseDefinition,
+) -> dict[str, object] | None:
+    """Load one shared regular-grid objective payload when available."""
+    path = benchmark_root / "objective_regular_grid.json"
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    parameter_names = tuple(str(name) for name in definition.truth_params.keys())
+    if tuple(payload.get("parameter_names", ())) != parameter_names:
+        return None
+    return payload
 
 
 def _placeholder_observations(
@@ -575,7 +644,12 @@ def _draw_case_layout(
     zone_labels: list[str],
 ) -> None:
     """Draw a simple schematic of observation supports for one case."""
-    axis.set_title("Observable Layout", loc="left", fontsize=11, fontweight="bold")
+    axis.set_title(
+        "Observable Layout",
+        loc="left",
+        fontsize=SECTION_TITLE_FONTSIZE,
+        fontweight="bold",
+    )
     axis.set_xlim(0.0, 1.0)
     axis.set_ylim(0.0, 1.0)
     axis.set_aspect("auto")
@@ -590,7 +664,14 @@ def _draw_case_layout(
         zorder=0,
     )
     del rectangle
-    axis.text(0.5, 0.88, "conceptual domain", ha="center", va="bottom", fontsize=9)
+    axis.text(
+        0.5,
+        0.88,
+        "conceptual domain",
+        ha="center",
+        va="bottom",
+        fontsize=CONFIG_TEXT_FONTSIZE,
+    )
 
     point_outputs = [item for item in outputs if str(item.get("support")) == "point"]
     boundary_outputs = [
@@ -638,7 +719,7 @@ def _draw_case_layout(
             f"{output.get('name')}\n{output.get('variable')}",
             ha="center",
             va="bottom",
-            fontsize=8,
+            fontsize=CONFIG_SMALL_TEXT_FONTSIZE,
         )
 
     boundary_positions = {
@@ -674,7 +755,7 @@ def _draw_case_layout(
             f"{output.get('name')}\n{output.get('boundary_id')}",
             ha="center",
             va="bottom",
-            fontsize=8,
+            fontsize=CONFIG_SMALL_TEXT_FONTSIZE,
         )
 
     if zone_labels:
@@ -684,7 +765,7 @@ def _draw_case_layout(
             "zones: " + ", ".join(zone_labels),
             ha="left",
             va="center",
-            fontsize=8,
+            fontsize=CONFIG_SMALL_TEXT_FONTSIZE,
         )
 
 
@@ -739,8 +820,8 @@ def write_case_configuration_figure(
         axis.axis("off")
 
     figure.suptitle(
-        f"{definition.case_id} | configuration overview",
-        fontsize=15,
+        _compact_case_title(definition.case_id, "configuration overview"),
+        fontsize=CASE_SUPTITLE_FONTSIZE,
         fontweight="bold",
         y=0.985,
     )
@@ -774,14 +855,19 @@ def write_case_configuration_figure(
             subsequent_indent="  ",
         )
     )
-    ax_meta.set_title("Case Context", loc="left", fontsize=11, fontweight="bold")
+    ax_meta.set_title(
+        "Case Context",
+        loc="left",
+        fontsize=SECTION_TITLE_FONTSIZE,
+        fontweight="bold",
+    )
     ax_meta.text(
         0.0,
         1.0,
         "\n".join(meta_lines),
         ha="left",
         va="top",
-        fontsize=9,
+        fontsize=CONFIG_TEXT_FONTSIZE,
         family="monospace",
         transform=ax_meta.transAxes,
     )
@@ -800,14 +886,19 @@ def write_case_configuration_figure(
                 f"  param={parameter.get('parameterization')}",
             ]
         )
-    ax_params.set_title("Parameters", loc="left", fontsize=11, fontweight="bold")
+    ax_params.set_title(
+        "Parameters",
+        loc="left",
+        fontsize=SECTION_TITLE_FONTSIZE,
+        fontweight="bold",
+    )
     ax_params.text(
         0.0,
         1.0,
         "\n".join(parameter_lines or ["no parameter"]),
         ha="left",
         va="top",
-        fontsize=9,
+        fontsize=CONFIG_TEXT_FONTSIZE,
         family="monospace",
         transform=ax_params.transAxes,
     )
@@ -824,14 +915,19 @@ def write_case_configuration_figure(
             output_lines.append(
                 f"- {block.get('name')} metric={block.get('metric')} weight={float(block.get('weight', 0.0)):g} outputs={list(block.get('uses_outputs', []))}"
             )
-    ax_outputs.set_title("Observables And Objective", loc="left", fontsize=11, fontweight="bold")
+    ax_outputs.set_title(
+        "Observables And Objective",
+        loc="left",
+        fontsize=SECTION_TITLE_FONTSIZE,
+        fontweight="bold",
+    )
     ax_outputs.text(
         0.0,
         1.0,
         "\n".join(output_lines or ["no output"]),
         ha="left",
         va="top",
-        fontsize=8.8,
+        fontsize=CONFIG_SMALL_TEXT_FONTSIZE,
         family="monospace",
         transform=ax_outputs.transAxes,
     )
@@ -842,14 +938,19 @@ def write_case_configuration_figure(
         "",
         *noise_lines,
     ]
-    ax_methods.set_title("Methods And Noise", loc="left", fontsize=11, fontweight="bold")
+    ax_methods.set_title(
+        "Methods And Noise",
+        loc="left",
+        fontsize=SECTION_TITLE_FONTSIZE,
+        fontweight="bold",
+    )
     ax_methods.text(
         0.0,
         1.0,
         "\n".join(method_lines),
         ha="left",
         va="top",
-        fontsize=9,
+        fontsize=CONFIG_TEXT_FONTSIZE,
         family="monospace",
         transform=ax_methods.transAxes,
     )
@@ -1013,13 +1114,18 @@ def _write_objective_trace_figure(
             s=44,
             label="failed",
         )
-    axis.set_xlabel("Iteration / evaluation index")
-    axis.set_ylabel("Objective total")
+    axis.set_xlabel("Iteration / evaluation index", fontsize=AXIS_LABEL_FONTSIZE)
+    axis.set_ylabel("Objective total", fontsize=AXIS_LABEL_FONTSIZE)
     axis.set_title(
-        f"{definition.case_id} | {result.method_instance_name} | objective trace"
+        _compact_case_title(
+            definition.case_id,
+            f"{result.method_instance_name} | objective trace",
+        ),
+        fontsize=CASE_TITLE_FONTSIZE,
     )
     axis.set_ylim(y_min, y_max)
-    axis.legend(loc="best")
+    _apply_tick_style(axis)
+    _apply_compact_legend(axis, loc="best")
     figure.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180)
@@ -1118,12 +1224,17 @@ def _write_objective_landscape_1d(
     lower, upper = definition.bounds[parameter_name]
     axis.set_xlim(float(lower), float(upper))
     axis.set_ylim(y_min, y_max)
-    axis.set_xlabel(parameter_name)
-    axis.set_ylabel("Objective total")
+    axis.set_xlabel(parameter_name, fontsize=AXIS_LABEL_FONTSIZE)
+    axis.set_ylabel("Objective total", fontsize=AXIS_LABEL_FONTSIZE)
     axis.set_title(
-        f"{definition.case_id} | {result.method_instance_name} | objective landscape"
+        _compact_case_title(
+            definition.case_id,
+            f"{result.method_instance_name} | objective landscape",
+        ),
+        fontsize=CASE_TITLE_FONTSIZE,
     )
-    axis.legend(loc="best")
+    _apply_tick_style(axis)
+    _apply_compact_legend(axis, loc="best")
     figure.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180)
@@ -1140,6 +1251,7 @@ def _write_objective_landscape_2d(
     parameter_names: tuple[str, str],
     points: list[ObjectiveMappingPoint],
     distribution_samples: list[dict[str, float]],
+    regular_grid_payload: dict[str, object] | None = None,
 ) -> bool:
     """Write one 2D interpolated objective map with solution overlays."""
     finite_points = [
@@ -1160,7 +1272,36 @@ def _write_objective_landscape_2d(
         return False
 
     figure, axis = plt.subplots(figsize=(7.4, 6.0))
-    if len(finite_points) >= 3:
+    x_values = np.asarray(())
+    y_values = np.asarray(())
+    grid = np.asarray(())
+    used_regular_grid = False
+    if regular_grid_payload is not None:
+        try:
+            x_values = np.asarray(regular_grid_payload.get("x", ()), dtype=float)
+            y_values = np.asarray(regular_grid_payload.get("y", ()), dtype=float)
+            grid = np.asarray(
+                regular_grid_payload.get("objective_total", ()),
+                dtype=float,
+            )
+            if (
+                x_values.ndim == 1
+                and y_values.ndim == 1
+                and grid.ndim == 2
+                and grid.shape == (y_values.size, x_values.size)
+                and x_values.size >= 2
+                and y_values.size >= 2
+            ):
+                used_regular_grid = True
+            else:
+                x_values = np.asarray(())
+                y_values = np.asarray(())
+                grid = np.asarray(())
+        except Exception:
+            x_values = np.asarray(())
+            y_values = np.asarray(())
+            grid = np.asarray(())
+    if not used_regular_grid and len(finite_points) >= 3:
         bounds_x = tuple(float(value) for value in definition.bounds[parameter_names[0]])
         bounds_y = tuple(float(value) for value in definition.bounds[parameter_names[1]])
         x_values = np.linspace(bounds_x[0], bounds_x[1], 60)
@@ -1186,14 +1327,31 @@ def _write_objective_landscape_2d(
             grid_x=grid_x,
             grid_y=grid_y,
         )
+    if (
+        isinstance(grid, np.ndarray)
+        and grid.ndim == 2
+        and np.any(np.isfinite(grid))
+    ):
         contour = axis.contourf(
             x_values,
             y_values,
             grid,
-            levels=20,
+            levels=24,
             cmap="viridis",
         )
-        figure.colorbar(contour, ax=axis, label="Objective total")
+        colorbar = figure.colorbar(contour, ax=axis, label="Objective total")
+        colorbar.ax.tick_params(labelsize=TICK_LABEL_FONTSIZE)
+        colorbar.set_label("Objective total", fontsize=AXIS_LABEL_FONTSIZE)
+        if used_regular_grid:
+            axis.contour(
+                x_values,
+                y_values,
+                grid,
+                levels=10,
+                colors="white",
+                linewidths=0.35,
+                alpha=0.45,
+            )
 
     if finite_points:
         axis.scatter(
@@ -1263,12 +1421,32 @@ def _write_objective_landscape_2d(
 
     axis.set_xlim(*[float(value) for value in definition.bounds[parameter_names[0]]])
     axis.set_ylim(*[float(value) for value in definition.bounds[parameter_names[1]]])
-    axis.set_xlabel(parameter_names[0])
-    axis.set_ylabel(parameter_names[1])
+    axis.set_xlabel(parameter_names[0], fontsize=AXIS_LABEL_FONTSIZE)
+    axis.set_ylabel(parameter_names[1], fontsize=AXIS_LABEL_FONTSIZE)
     axis.set_title(
-        f"{definition.case_id} | {result.method_instance_name} | objective landscape"
+        _compact_case_title(
+            definition.case_id,
+            f"{result.method_instance_name} | objective landscape",
+        ),
+        fontsize=CASE_TITLE_FONTSIZE,
     )
-    axis.legend(loc="best")
+    if used_regular_grid:
+        axis.text(
+            0.99,
+            0.01,
+            (
+                "surface: regular grid "
+                f"{int(np.asarray(regular_grid_payload.get('n_per_dim', 0)))}x"
+                f"{int(np.asarray(regular_grid_payload.get('n_per_dim', 0)))}"
+            ),
+            transform=axis.transAxes,
+            ha="right",
+            va="bottom",
+            fontsize=ANNOTATION_FONTSIZE,
+            bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.75, "pad": 2.0},
+        )
+    _apply_tick_style(axis)
+    _apply_compact_legend(axis, loc="best")
     figure.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180)
@@ -1360,7 +1538,7 @@ def _write_objective_landscape_pairgrid(
                             s=90,
                             linewidths=1.0,
                         )
-                axis.set_ylabel("Objective")
+                axis.set_ylabel("Objective", fontsize=AXIS_LABEL_FONTSIZE)
             else:
                 if finite_points:
                     axis.scatter(
@@ -1428,13 +1606,18 @@ def _write_objective_landscape_pairgrid(
                     *[float(value) for value in definition.bounds[row_name]]
                 )
             if row_index == n_params - 1:
-                axis.set_xlabel(col_name)
+                axis.set_xlabel(col_name, fontsize=AXIS_LABEL_FONTSIZE)
             if col_index == 0 and row_index != col_index:
-                axis.set_ylabel(row_name)
+                axis.set_ylabel(row_name, fontsize=AXIS_LABEL_FONTSIZE)
+            _apply_tick_style(axis)
             axis.grid(alpha=0.15)
 
     figure.suptitle(
-        f"{definition.case_id} | {result.method_instance_name} | objective pair view",
+        _compact_case_title(
+            definition.case_id,
+            f"{result.method_instance_name} | objective pair view",
+        ),
+        fontsize=CASE_SUPTITLE_FONTSIZE,
         y=0.995,
     )
     figure.tight_layout()
@@ -1504,12 +1687,17 @@ def _write_posterior_distribution_1d(
             label="best",
         )
     axis.set_xlim(float(lower), float(upper))
-    axis.set_xlabel(parameter_name)
-    axis.set_ylabel("Sample count")
+    axis.set_xlabel(parameter_name, fontsize=AXIS_LABEL_FONTSIZE)
+    axis.set_ylabel("Sample count", fontsize=AXIS_LABEL_FONTSIZE)
     axis.set_title(
-        f"{definition.case_id} | {result.method_instance_name} | distribution (n={len(sample_values)})"
+        _compact_case_title(
+            definition.case_id,
+            f"{result.method_instance_name} | distribution (n={len(sample_values)})",
+        ),
+        fontsize=CASE_TITLE_FONTSIZE,
     )
-    axis.legend(loc="best")
+    _apply_tick_style(axis)
+    _apply_compact_legend(axis, loc="best")
     figure.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180)
@@ -1586,12 +1774,17 @@ def _write_posterior_distribution_2d(
         )
     axis.set_xlim(*[float(value) for value in definition.bounds[parameter_names[0]]])
     axis.set_ylim(*[float(value) for value in definition.bounds[parameter_names[1]]])
-    axis.set_xlabel(parameter_names[0])
-    axis.set_ylabel(parameter_names[1])
+    axis.set_xlabel(parameter_names[0], fontsize=AXIS_LABEL_FONTSIZE)
+    axis.set_ylabel(parameter_names[1], fontsize=AXIS_LABEL_FONTSIZE)
     axis.set_title(
-        f"{definition.case_id} | {result.method_instance_name} | distribution (n={len(sample_xy)})"
+        _compact_case_title(
+            definition.case_id,
+            f"{result.method_instance_name} | distribution (n={len(sample_xy)})",
+        ),
+        fontsize=CASE_TITLE_FONTSIZE,
     )
-    axis.legend(loc="best")
+    _apply_tick_style(axis)
+    _apply_compact_legend(axis, loc="best")
     figure.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180)
@@ -1652,7 +1845,7 @@ def _write_posterior_distribution_pairgrid(
                         linewidth=1.2,
                     )
                 axis.set_xlim(*[float(value) for value in definition.bounds[row_name]])
-                axis.set_ylabel("Count")
+                axis.set_ylabel("Count", fontsize=AXIS_LABEL_FONTSIZE)
             else:
                 axis.scatter(
                     [float(sample[col_name]) for sample in valid_samples],
@@ -1687,13 +1880,18 @@ def _write_posterior_distribution_pairgrid(
                 axis.set_xlim(*[float(value) for value in definition.bounds[col_name]])
                 axis.set_ylim(*[float(value) for value in definition.bounds[row_name]])
             if row_index == n_params - 1:
-                axis.set_xlabel(col_name)
+                axis.set_xlabel(col_name, fontsize=AXIS_LABEL_FONTSIZE)
             if col_index == 0 and row_index != col_index:
-                axis.set_ylabel(row_name)
+                axis.set_ylabel(row_name, fontsize=AXIS_LABEL_FONTSIZE)
+            _apply_tick_style(axis)
             axis.grid(alpha=0.15)
 
     figure.suptitle(
-        f"{definition.case_id} | {result.method_instance_name} | distribution (n={len(valid_samples)})",
+        _compact_case_title(
+            definition.case_id,
+            f"{result.method_instance_name} | distribution (n={len(valid_samples)})",
+        ),
+        fontsize=CASE_SUPTITLE_FONTSIZE,
         y=0.995,
     )
     figure.tight_layout()
@@ -1724,6 +1922,10 @@ def write_case_method_figures(
         return {}
 
     distribution_samples = _distribution_named_samples(result.model_distribution_path)
+    regular_grid_payload = _load_regular_objective_grid(
+        benchmark_root=benchmark_root,
+        definition=definition,
+    )
     parameter_names = tuple(definition.truth_params.keys())
     figure_root = benchmark_root / "figures"
     figure_root.mkdir(parents=True, exist_ok=True)
@@ -1763,6 +1965,7 @@ def write_case_method_figures(
             parameter_names=(parameter_names[0], parameter_names[1]),
             points=points,
             distribution_samples=distribution_samples,
+            regular_grid_payload=regular_grid_payload,
         )
     else:
         landscape_written = _write_objective_landscape_pairgrid(

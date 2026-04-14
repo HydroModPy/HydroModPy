@@ -1,0 +1,147 @@
+[simulation]
+name = "Transient sloping substratum MODFLOW 6 irregular triangles"
+description = "Transient sloping-substratum strip on one irregular triangular mesh."
+run_id = "sloping_substratum_modflow6_irregular_tri"
+
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2004-02-24 00:00:00"
+step_value = "15 day"
+coverage_policy = "ignore"
+
+[[simulation.process]]
+id = "flow_validation"
+type = "flow"
+solvers = ["modflow6"]
+
+[workspace]
+project_root = "."
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "val_hillslope_surface_transient_modflow6_irregular_tri"
+
+[geographic.synthetic.grid]
+length_x = "100.0 m"
+length_y = "12.0 m"
+nx = 25
+ny = 3
+
+[geographic.synthetic.topography]
+kind = "linear"
+base_elevation = 5.0
+right_to_left_amplitude = 21.25565616700221
+
+[domain]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "20.0 m"
+
+[flow]
+flow_regime = "transient"
+active_sinks_sources = ["recharge"]
+active_bc = ["east_side", "drainage"]
+param_list = ["K", "Ss", "Sy"]
+
+[flow.param]
+
+[flow.param.K]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+
+[flow.param.K.field_homogeneous]
+value = "2e-05 m/s"
+
+[flow.param.Ss]
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+
+[flow.param.Ss.field_homogeneous]
+value = "1e-10 m-1"
+
+[flow.param.Sy]
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+
+[flow.param.Sy.field_homogeneous]
+value = "0.1 -"
+
+[flow.ic]
+type = "custom"
+value = "5.062500 m"
+
+[flow.bc]
+
+[flow.bc.dirichlet]
+
+[flow.bc.dirichlet.east_side]
+type = "dirichlet"
+value = "5.062500 m"
+
+[flow.bc.cauchy]
+
+[flow.bc.cauchy.drainage]
+application_domain = "top"
+type = "cauchy"
+value = "0.0001 m2/s"
+
+[flow.sinks_sources]
+
+[flow.sinks_sources.recharge]
+first_clim = "first"
+negative_to_evt = false
+
+[modflownwt]
+
+[modflownwt.sgrid]
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 50
+ny = 5
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+[display]
+enabled = false
+
+[modflow6]
+
+[modflow6.runtime]
+mf_verbose = false
+mf6_ims_complexity = "COMPLEX"
+
+[modflow6.sgrid]
+
+[modflow6.sgrid.vertical]
+nlay = 1
+
+[modflow6.tgrid]
+firstpersteady = false
+
+[data]
+types = ["recharge"]
+inference_mode = "warn"
+
+[data.recharge]
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [0.6, 0.6, 1.8, 1.8, 3.0, 3.0, 4.2, 4.2, 5.4, 5.4, 7.2, 7.2, 6.0, 6.0, 4.8, 4.8, 3.6, 3.6, 2.4, 2.4, 1.2, 1.2, 0.6, 0.6, 0.0, 0.0, 0.0, 0.0]
+freq = "15D"
+runoff_ratio = 0.0
+
+[mesh_input]
+mesh_path = "C:\\codes\\HydroModPy-GH\\out\\sih_sloping_substratum_10deg_20260413\\validation\\investigate_slopi_62f9eb2d8a\\sloping_substratu_de581b6b00_d669e5ae\\mesh_bundle\\mesh_2d.msh"
+bundle_dir = "C:\\codes\\HydroModPy-GH\\out\\sih_sloping_substratum_10deg_20260413\\validation\\investigate_slopi_62f9eb2d8a\\sloping_substratu_de581b6b00_d669e5ae\\mesh_bundle"

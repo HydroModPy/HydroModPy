@@ -312,5 +312,86 @@ def test_build_mesh_category_page_groups_similar_cases_in_tabs() -> None:
     assert ".. tab-set::" in page
     assert ".. tab-item:: Geology + rivers, 30% buffer" in page
     assert ".. tab-item:: Rivers only, 30% buffer" in page
+    assert (
+        "Cross-variant comparisons: 100 km2, outlet 27 "
+        "(Geology + rivers, 30% buffer; Rivers only, 30% buffer)."
+    ) in page
     assert "See :doc:`the full case page <cases/mesh_100km2_outlet_27_rivers_only_buffer30>`." in page
     assert ":link: cases/mesh_100km2_outlet_27_geology_rivers_buffer30" not in page
+
+
+def test_build_mesh_category_page_family_coverage_lists_variant_specific_outlets() -> None:
+    page = _build_category_page(
+        "mesh",
+        [
+            {
+                "title": "10 km2 geology+rivers outlet 1",
+                "deck": "Deck geology+rivers outlet 1",
+                "docname": "cases/mesh_s3_10km2_outlet_1_geology_rivers_buffer30",
+                "images": [],
+                "metrics": [],
+                "metadata": {
+                    "scale": "10km2",
+                    "scale_label": "10 km2",
+                    "variant": "geology_rivers_buffer30",
+                    "variant_label": "Geology + rivers, 30% buffer",
+                    "outlet_id": "1",
+                    "case_family_key": "s3_10km2",
+                    "case_family_label": "10 km2, Strahler 3",
+                    "case_family_order": 1,
+                    "site_tabs_group_key": "family::s3_10km2",
+                    "site_tabs_group_title": "10 km2, Strahler 3",
+                    "site_tabs_label": "Outlet 1",
+                    "site_tabs_order": 1,
+                },
+            },
+            {
+                "title": "10 km2 geology+rivers outlet 2",
+                "deck": "Deck geology+rivers outlet 2",
+                "docname": "cases/mesh_s3_10km2_outlet_2_geology_rivers_buffer30",
+                "images": [],
+                "metrics": [],
+                "metadata": {
+                    "scale": "10km2",
+                    "scale_label": "10 km2",
+                    "variant": "geology_rivers_buffer30",
+                    "variant_label": "Geology + rivers, 30% buffer",
+                    "outlet_id": "2",
+                    "case_family_key": "s3_10km2",
+                    "case_family_label": "10 km2, Strahler 3",
+                    "case_family_order": 1,
+                    "site_tabs_group_key": "family::s3_10km2",
+                    "site_tabs_group_title": "10 km2, Strahler 3",
+                    "site_tabs_label": "Outlet 2",
+                    "site_tabs_order": 2,
+                },
+            },
+            {
+                "title": "10 km2 rivers only outlet 1",
+                "deck": "Deck rivers only outlet 1",
+                "docname": "cases/mesh_s3_10km2_outlet_1_rivers_only_buffer30",
+                "images": [],
+                "metrics": [],
+                "metadata": {
+                    "scale": "10km2",
+                    "scale_label": "10 km2",
+                    "variant": "rivers_only_buffer30",
+                    "variant_label": "Rivers only, 30% buffer",
+                    "outlet_id": "1",
+                    "case_family_key": "s3_10km2",
+                    "case_family_label": "10 km2, Strahler 3",
+                    "case_family_order": 1,
+                    "comparison_group": "s3_10km2::outlet::1",
+                    "comparison_group_title": "10 km2, Strahler 3, outlet 1",
+                },
+            },
+        ],
+    )
+
+    assert "Family Coverage" in page
+    assert "Variants present" in page
+    assert "Coverage detail" in page
+    assert "Geology + rivers, 30% buffer" in page
+    assert "Rivers only, 30% buffer" in page
+    assert "Geology + rivers, 30% buffer: outlet 1, outlet 2" in page
+    assert "Rivers only, 30% buffer: outlet 1" in page

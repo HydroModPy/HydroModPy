@@ -117,13 +117,22 @@ def _render_mesh_family_matrix(cases: list[dict[str, Any]]) -> list[str]:
                 "label": family_label,
                 "order": int(metadata.get("case_family_order", 999)),
                 "scale_label": str(metadata.get("scale_label", metadata.get("scale", ""))).strip(),
-                "variant_label": str(metadata.get("variant_label", metadata.get("variant", ""))).strip(),
-                "outlet_ids": [],
+                "variant_entries": {},
             },
         )
+        variant_key = str(metadata.get("variant", "")).strip()
+        variant_label = str(metadata.get("variant_label", metadata.get("variant", ""))).strip()
+        if variant_label != "":
+            entry["variant_entries"].setdefault(
+                variant_key or variant_label,
+                {
+                    "label": variant_label,
+                    "outlet_ids": [],
+                },
+            )
         outlet_id = str(metadata.get("outlet_id", "")).strip()
-        if outlet_id != "":
-            entry["outlet_ids"].append(outlet_id)
+        if outlet_id != "" and variant_label != "":
+            entry["variant_entries"][variant_key or variant_label]["outlet_ids"].append(outlet_id)
 
     if not families:
         return []
@@ -137,23 +146,38 @@ def _render_mesh_family_matrix(cases: list[dict[str, Any]]) -> list[str]:
         "",
         "   * - Case family",
         "     - Scale",
-        "     - Variant",
-        "     - Imported outlets",
+        "     - Variants present",
+        "     - Coverage detail",
     ]
     for family in sorted(
         families.values(),
         key=lambda item: (int(item["order"]), str(item["label"])),
     ):
-        ordered_outlets = sorted(
-            set(str(item) for item in family["outlet_ids"]),
-            key=lambda item: int(item) if str(item).isdigit() else str(item),
+        ordered_variants = sorted(
+            family["variant_entries"].items(),
+            key=lambda item: (_variant_rank(str(item[0])), str(item[1]["label"])),
         )
+        variant_labels = ", ".join(
+            str(variant_entry["label"]) for _, variant_entry in ordered_variants
+        )
+        coverage_details: list[str] = []
+        for _, variant_entry in ordered_variants:
+            ordered_outlets = sorted(
+                set(str(item) for item in variant_entry["outlet_ids"]),
+                key=_mesh_case_sort_token,
+            )
+            if ordered_outlets:
+                coverage_details.append(
+                    f"{variant_entry['label']}: {', '.join(f'outlet {item}' for item in ordered_outlets)}"
+                )
+            else:
+                coverage_details.append(str(variant_entry["label"]))
         lines.extend(
             [
                 f"   * - {family['label']}",
                 f"     - {family['scale_label']}",
-                f"     - {family['variant_label']}",
-                f"     - {', '.join(f'outlet {item}' for item in ordered_outlets)}",
+                f"     - {variant_labels or 'Not declared'}",
+                f"     - {'; '.join(coverage_details) if coverage_details else 'Not declared'}",
             ]
         )
     lines.append("")
@@ -508,18 +532,19 @@ def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[
             solver=solver,
         )
         plotting_function(comparison, output_png=figure_path, show_plot=False)
-
-        image_summary = _build_validation_image_summary(
-            category=spec.category,
-            filename=filename,
-            caption=(
-                f"{spec.title} rendered with {detail.get('display_name', solver)} for the analytical gallery."
-            ),
-            alt_text=f"{spec.title} validation figure for {detail.get('display_name', solver)}",
-        )
-        all_image_repo_paths.append(image_summary["repo_path"])
-        if solver == default_solver:
-            default_images = [image_summary]
+        image_summary = None
+        if figure_path.is_file():
+            image_summary = _build_validation_image_summary(
+                category=spec.category,
+                filename=filename,
+                caption=(
+                    f"{spec.title} rendered with {detail.get('display_name', solver)} for the analytical gallery."
+                ),
+                alt_text=f"{spec.title} validation figure for {detail.get('display_name', solver)}",
+            )
+            all_image_repo_paths.append(image_summary["repo_path"])
+            if solver == default_solver:
+                default_images = [image_summary]
 
         solver_metadata = {
             "observable_name": getattr(comparison, "observable_name", None),
@@ -552,8 +577,13 @@ def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[
             }
         )
 
-    if not default_images and solver_runs:
-        default_images = [solver_runs[0]["image"]]
+    if not default_images:
+        first_available_image = next(
+            (run["image"] for run in solver_runs if run.get("image")),
+            None,
+        )
+        if first_available_image is not None:
+            default_images = [first_available_image]
 
     return _build_case_summary(
         spec,
@@ -3337,6 +3367,7 @@ def _group_mesh_cases_for_tabs(
             continue
         grouped_candidates.setdefault(
             comparison_group or f"{scale}::outlet::{outlet_id}",
+            [],
         ).append(case)
 
     scale_rank = {scale: index for index, scale in enumerate(MESH_GALLERY_SCALE_ORDER)}
@@ -3346,7 +3377,7 @@ def _group_mesh_cases_for_tabs(
         key=lambda item: (
             scale_rank.get(str(item[1][0].get("metadata", {}).get("scale", "")).strip(), 999),
             _mesh_case_sort_token(str(item[1][0].get("metadata", {}).get("outlet_id", ""))),
-            str(item[1][0].get("metadata", {}).get("comparison_group_title", group_key)),
+            str(item[1][0].get("metadata", {}).get("comparison_group_title", item[0])),
         ),
     ):
         ordered_cases = sorted(
@@ -3469,6 +3500,29 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
             for scale_label in ("10 km2", "100 km2", "1000 km2")
             if scale_label not in imported_scale_labels
         ]
+        family_matrix = _render_mesh_family_matrix(cases)
+        standalone_cases, site_tab_groups = _group_mesh_cases_for_site_tabs(cases)
+        comparable_input = list(standalone_cases)
+        for group in site_tab_groups:
+            comparable_input.extend(list(group.get("cases", ())))
+        _, tabbed_groups = _group_mesh_cases_for_tabs(comparable_input)
+        comparison_summaries = [
+            (
+                str(group["title"])
+                + " ("
+                + "; ".join(
+                    str(
+                        case.get("metadata", {}).get(
+                            "variant_label",
+                            case.get("metadata", {}).get("variant", case.get("title", "Variant")),
+                        )
+                    )
+                    for case in group["cases"]
+                )
+                + ")"
+            )
+            for group in tabbed_groups
+        ]
         lines.extend(
             [
                 "Current Coverage",
@@ -3479,13 +3533,14 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 + ".",
                 "- Imported scales: " + (", ".join(imported_scale_labels) if imported_scale_labels else "none yet") + ".",
                 "- Present variants: " + (", ".join(present_variants) if present_variants else "none yet") + ".",
+                "- Cross-variant comparisons: "
+                + (", ".join(comparison_summaries) if comparison_summaries else "none yet")
+                + ".",
                 "- Prepared but not yet versioned: " + (", ".join(missing_scale_labels) if missing_scale_labels else "none") + ".",
                 "",
             ]
         )
-        family_matrix = _render_mesh_family_matrix(cases)
         lines.extend(family_matrix if family_matrix else _render_mesh_coverage_matrix(cases))
-        standalone_cases, site_tab_groups = _group_mesh_cases_for_site_tabs(cases)
         if site_tab_groups:
             lines.extend(
                 [
@@ -3547,11 +3602,6 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                         ]
                     )
 
-        comparable_input = list(standalone_cases)
-        for group in site_tab_groups:
-            comparable_input.extend(list(group.get("cases", ())))
-
-        _, tabbed_groups = _group_mesh_cases_for_tabs(comparable_input)
         grouped_variant_slugs = {
             str(case.get("slug", "")).strip()
             for group in tabbed_groups

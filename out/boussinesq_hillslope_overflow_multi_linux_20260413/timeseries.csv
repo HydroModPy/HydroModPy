@@ -1,124 +1,124 @@
-solver,solver_label,runtime_backend,surface_interaction_model,elapsed_days,recharge_mm_day,total_overflow_m3_day,active_overflow_length_m,overflow_front_x_m,overflow_centroid_x_m,max_head_clearance_m
-boussinesq,Local dense runtime,local,regularized_partition,0.0,0.0,0.0,0.0,nan,nan,-1.0750000000000002
-boussinesq,Local dense runtime,local,regularized_partition,1.0,0.0,0.0,0.0,nan,nan,-1.2219897821335453
-boussinesq,Local dense runtime,local,regularized_partition,2.0,0.0,0.0,0.0,nan,nan,-1.2451089799342916
-boussinesq,Local dense runtime,local,regularized_partition,3.0,10.000000000000002,0.061897891104999915,0.0,nan,346.3570301084525,-1.2259674083001104
-boussinesq,Local dense runtime,local,regularized_partition,4.0,10.000000000000002,0.06666335328703148,0.0,nan,340.20700629165003,-1.2146142111396179
-boussinesq,Local dense runtime,local,regularized_partition,5.0,10.000000000000002,0.07487482276725425,0.0,nan,335.83685106127774,-1.2055136507005186
-boussinesq,Local dense runtime,local,regularized_partition,6.0,0.0,0.0,0.0,nan,nan,-1.2242656078764371
-boussinesq,Local dense runtime,local,regularized_partition,7.0,0.0,0.0,0.0,nan,nan,-1.2322656855538687
-boussinesq,Local dense runtime,local,regularized_partition,8.0,20.000000000000004,0.2845061067764365,70.0,385.0,340.9636893207676,-1.1838018890680884
-boussinesq,Local dense runtime,local,regularized_partition,9.0,20.000000000000004,0.39658127583139025,90.0,385.0,333.67051909847413,-1.1343070983995425
-boussinesq,Local dense runtime,local,regularized_partition,10.0,20.000000000000004,0.5678961782772842,120.0,385.0,328.11022586129815,-1.070168947906681
-boussinesq,Local dense runtime,local,regularized_partition,11.0,0.0,0.0,0.0,nan,nan,-1.1449951908507314
-boussinesq,Local dense runtime,local,regularized_partition,12.0,0.0,0.0,0.0,nan,nan,-1.18260205289664
-boussinesq,Local dense runtime,local,regularized_partition,13.0,32.0,1.8240246505775228,180.0,395.0,327.24009150726,-0.9915404941470696
-boussinesq,Local dense runtime,local,regularized_partition,14.0,32.0,3.5745275949183664,210.0,395.0,321.03166244960596,-0.8078018264790892
-boussinesq,Local dense runtime,local,regularized_partition,15.0,32.0,6.845990494324985,240.0,395.0,315.6579226037591,-0.6321720629684648
-boussinesq,Local dense runtime,local,regularized_partition,16.0,0.0,0.0,0.0,nan,nan,-0.7356391665522048
-boussinesq,Local dense runtime,local,regularized_partition,17.0,0.0,0.0,0.0,nan,nan,-0.8152630284295999
-boussinesq,Local dense runtime,local,regularized_partition,18.0,42.0,17.260536826491766,300.0,395.0,309.4305961257058,-0.5333237949778535
-boussinesq,Local dense runtime,local,regularized_partition,19.0,42.0,37.70280815739979,340.0,395.0,303.6649083574595,-0.3145338027623348
-boussinesq,Local dense runtime,local,regularized_partition,20.0,42.0,69.50162038509661,380.0,395.0,296.43485048769924,-0.16217581753506582
-boussinesq,Local dense runtime,local,regularized_partition,21.0,0.0,0.0,0.0,nan,nan,-0.23502723743536347
-boussinesq,Local dense runtime,local,regularized_partition,22.0,0.0,0.0,0.0,nan,nan,-0.3049928716590218
-boussinesq,Local dense runtime,local,regularized_partition,23.0,0.0,0.0,0.0,nan,nan,-0.36930296608005797
-boussinesq,Local dense runtime,local,regularized_partition,24.0,0.0,0.0,0.0,nan,nan,-0.4284923729671899
-boussinesq,Local dense runtime,local,regularized_partition,25.0,0.0,0.0,0.0,nan,nan,-0.4835983495931071
-boussinesq,Local dense runtime,local,regularized_partition,26.0,0.0,0.0,0.0,nan,nan,-0.5345158468897946
-boussinesq,Local dense runtime,local,regularized_partition,27.0,0.0,0.0,0.0,nan,nan,-0.5815048938151195
-boussinesq,Local dense runtime,local,regularized_partition,28.0,0.0,0.0,0.0,nan,nan,-0.6249407851916358
-boussinesq,Local dense runtime,local,regularized_partition,29.0,0.0,0.0,0.0,nan,nan,-0.6652093452668426
-boussinesq,Local dense runtime,local,regularized_partition,30.0,0.0,0.0,0.0,nan,nan,-0.702667199687939
-boussinesq,Local dense runtime,local,regularized_partition,31.0,0.0,0.0,0.0,nan,nan,-0.7376300058691019
-boussinesq,Local dense runtime,local,regularized_partition,32.0,0.0,0.0,0.0,nan,nan,-0.7703721008874274
-boussinesq,Local dense runtime,local,regularized_partition,33.0,0.0,0.0,0.0,nan,nan,-0.8005853520094224
-boussinesq,Local dense runtime,local,regularized_partition,34.0,0.0,0.0,0.0,nan,nan,-0.828149125345325
-boussinesq,Local dense runtime,local,regularized_partition,35.0,0.0,0.0,0.0,nan,nan,-0.8541146819192811
-boussinesq,Local dense runtime,local,regularized_partition,36.0,0.0,0.0,0.0,nan,nan,-0.8786438255275097
-boussinesq,Local dense runtime,local,regularized_partition,37.0,0.0,0.0,0.0,nan,nan,-0.9018724822547606
-boussinesq,Local dense runtime,local,regularized_partition,38.0,0.0,0.0,0.0,nan,nan,-0.9239261562991086
-boussinesq,Local dense runtime,local,regularized_partition,39.0,0.0,0.0,0.0,nan,nan,-0.9448545055586486
-boussinesq,Local dense runtime,local,regularized_partition,40.0,0.0,0.0,0.0,nan,nan,-0.9632873932296429
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,0.0,0.0,0.0,0.0,nan,nan,-1.0750000000000002
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,1.0,0.0,0.0,0.0,nan,nan,-1.2219897810517297
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,2.0,0.0,0.0,0.0,nan,nan,-1.2451089420131711
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,3.0,10.000000000000002,0.061897876409094395,0.0,nan,346.357028743057,-1.2259673919732195
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,4.0,10.000000000000002,0.0666632586885273,0.0,nan,340.2070317095938,-1.2146142555862727
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,5.0,10.000000000000002,0.07487439712119387,0.0,nan,335.8369668773297,-1.2055138817731241
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,6.0,0.0,0.0,0.0,nan,nan,-1.2242655318956173
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,7.0,0.0,0.0,0.0,nan,nan,-1.2322636152840363
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,8.0,20.000000000000004,0.2845117160019461,70.0,385.0,340.96367136339535,-1.1838001822728423
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,9.0,20.000000000000004,0.3965878636261693,90.0,385.0,333.67054367154265,-1.134303328696963
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,10.0,20.000000000000004,0.5678983787535995,120.0,385.0,328.110415473787,-1.0701657809352847
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,11.0,0.0,0.0,0.0,nan,nan,-1.1449807446472224
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,12.0,0.0,0.0,0.0,nan,nan,-1.1825899285647683
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,13.0,32.0,1.824126714118254,180.0,395.0,327.24037307035206,-0.9915252690595366
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,14.0,32.0,3.574680800498731,210.0,395.0,321.0320225574302,-0.8077868348899884
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,15.0,32.0,6.8462318120352315,240.0,395.0,315.65825267151456,-0.632158027263455
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,16.0,0.0,0.0,0.0,nan,nan,-0.7356199632674212
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,17.0,0.0,0.0,0.0,nan,nan,-0.8152445745557522
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,18.0,42.0,17.261178038701043,300.0,395.0,309.4309759481985,-0.5333094943242553
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,19.0,42.0,37.70379056061247,340.0,395.0,303.6652400953366,-0.31452343016718043
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,20.0,42.0,69.5027235171275,380.0,395.0,296.43512786392586,-0.16216968675228394
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,21.0,0.0,0.0,0.0,nan,nan,-0.23502033992380067
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,22.0,0.0,0.0,0.0,nan,nan,-0.3049856316620234
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,23.0,0.0,0.0,0.0,nan,nan,-0.369291193573007
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,24.0,0.0,0.0,0.0,nan,nan,-0.428480237040211
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,25.0,0.0,0.0,0.0,nan,nan,-0.48357748838590187
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,26.0,0.0,0.0,0.0,nan,nan,-0.5344965236636074
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,27.0,0.0,0.0,0.0,nan,nan,-0.5814868937094584
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,28.0,0.0,0.0,0.0,nan,nan,-0.6249239581663755
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,29.0,0.0,0.0,0.0,nan,nan,-0.6651935859034639
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,30.0,0.0,0.0,0.0,nan,nan,-0.702652422376838
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,31.0,0.0,0.0,0.0,nan,nan,-0.7376161393810721
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,32.0,0.0,0.0,0.0,nan,nan,-0.770346545725693
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,33.0,0.0,0.0,0.0,nan,nan,-0.8005527711785358
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,34.0,0.0,0.0,0.0,nan,nan,-0.8281101614137016
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,35.0,0.0,0.0,0.0,nan,nan,-0.854070990724539
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,36.0,0.0,0.0,0.0,nan,nan,-0.8785966684288633
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,37.0,0.0,0.0,0.0,nan,nan,-0.9018262456266797
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,38.0,0.0,0.0,0.0,nan,nan,-0.9238804326902201
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,39.0,0.0,0.0,0.0,nan,nan,-0.9448115717215453
-petsc_partition,PETSc regularized partition,petsc,regularized_partition,40.0,0.0,0.0,0.0,nan,nan,-0.9632448237828992
-petsc,PETSc complementarity,petsc,complementarity,0.0,0.0,0.0,0.0,nan,nan,-1.0750000000000002
-petsc,PETSc complementarity,petsc,complementarity,1.0,0.0,0.0,0.0,nan,nan,-1.2219897821942447
-petsc,PETSc complementarity,petsc,complementarity,2.0,0.0,0.0,0.0,nan,nan,-1.2451089799479962
-petsc,PETSc complementarity,petsc,complementarity,3.0,10.000000000000002,1.2265214874918646e-13,0.0,nan,154.34447601166517,-1.22590814637446
-petsc,PETSc complementarity,petsc,complementarity,4.0,10.000000000000002,-2.4783791512839956e-13,0.0,nan,158.2125579123257,-1.214528800828472
-petsc,PETSc complementarity,petsc,complementarity,5.0,10.000000000000002,-3.975927015377691e-13,0.0,nan,180.61669743299606,-1.2054067699273818
-petsc,PETSc complementarity,petsc,complementarity,6.0,0.0,0.0,0.0,nan,nan,-1.2241897671060014
-petsc,PETSc complementarity,petsc,complementarity,7.0,0.0,0.0,0.0,nan,nan,-1.2322082867701636
-petsc,PETSc complementarity,petsc,complementarity,8.0,20.000000000000004,-3.3842948324558343e-13,0.0,nan,159.39173148296928,-1.183526188943214
-petsc,PETSc complementarity,petsc,complementarity,9.0,20.000000000000004,-1.6082003837686225e-13,0.0,nan,185.38509796705884,-1.1331771303688294
-petsc,PETSc complementarity,petsc,complementarity,10.0,20.000000000000004,-1.6239924794756486e-13,0.0,nan,161.62455119645293,-1.0677262489318489
-petsc,PETSc complementarity,petsc,complementarity,11.0,0.0,0.0,0.0,nan,nan,-1.1430809476165082
-petsc,PETSc complementarity,petsc,complementarity,12.0,0.0,0.0,0.0,nan,nan,-1.181584900171452
-petsc,PETSc complementarity,petsc,complementarity,13.0,32.0,-2.0107663107384787e-12,0.0,nan,148.077154363865,-0.9864602779296234
-petsc,PETSc complementarity,petsc,complementarity,14.0,32.0,-4.70927806813542e-11,0.0,nan,129.38003388628488,-0.7945984648939399
-petsc,PETSc complementarity,petsc,complementarity,15.0,32.0,-1.3443440935566574e-09,0.0,nan,107.0460502049984,-0.6029890884256348
-petsc,PETSc complementarity,petsc,complementarity,16.0,0.0,0.0,0.0,nan,nan,-0.7093819822341283
-petsc,PETSc complementarity,petsc,complementarity,17.0,0.0,0.0,0.0,nan,nan,-0.7927667663569604
-petsc,PETSc complementarity,petsc,complementarity,18.0,42.0,-1.0540582961421748e-08,0.0,nan,80.56670617466499,-0.47142468199340115
-petsc,PETSc complementarity,petsc,complementarity,19.0,42.0,-2.156074991876683e-06,0.0,nan,50.03193376512048,-0.16399944992986182
-petsc,PETSc complementarity,petsc,complementarity,20.0,42.0,26.065229198988625,50.0,345.0,327.32643110988624,8.881784197001252e-16
-petsc,PETSc complementarity,petsc,complementarity,21.0,0.0,-6.291376188435886e-06,0.0,nan,nan,-0.064284202034945
-petsc,PETSc complementarity,petsc,complementarity,22.0,0.0,0.0,0.0,nan,nan,-0.14126318861477838
-petsc,PETSc complementarity,petsc,complementarity,23.0,0.0,0.0,0.0,nan,nan,-0.21761151621633168
-petsc,PETSc complementarity,petsc,complementarity,24.0,0.0,0.0,0.0,nan,nan,-0.28933001542152414
-petsc,PETSc complementarity,petsc,complementarity,25.0,0.0,0.0,0.0,nan,nan,-0.3554108956224242
-petsc,PETSc complementarity,petsc,complementarity,26.0,0.0,0.0,0.0,nan,nan,-0.4159517017103145
-petsc,PETSc complementarity,petsc,complementarity,27.0,0.0,0.0,0.0,nan,nan,-0.47142125418992986
-petsc,PETSc complementarity,petsc,complementarity,28.0,0.0,0.0,0.0,nan,nan,-0.5223734023635576
-petsc,PETSc complementarity,petsc,complementarity,29.0,0.0,0.0,0.0,nan,nan,-0.569340137589978
-petsc,PETSc complementarity,petsc,complementarity,30.0,0.0,0.0,0.0,nan,nan,-0.612796958328139
-petsc,PETSc complementarity,petsc,complementarity,31.0,0.0,0.0,0.0,nan,nan,-0.6531566955233519
-petsc,PETSc complementarity,petsc,complementarity,32.0,0.0,0.0,0.0,nan,nan,-0.6907610579018852
-petsc,PETSc complementarity,petsc,complementarity,33.0,0.0,0.0,0.0,nan,nan,-0.7259310074640206
-petsc,PETSc complementarity,petsc,complementarity,34.0,0.0,0.0,0.0,nan,nan,-0.7589250976517681
-petsc,PETSc complementarity,petsc,complementarity,35.0,0.0,0.0,0.0,nan,nan,-0.7899662497389306
-petsc,PETSc complementarity,petsc,complementarity,36.0,0.0,0.0,0.0,nan,nan,-0.8182105218971651
-petsc,PETSc complementarity,petsc,complementarity,37.0,0.0,0.0,0.0,nan,nan,-0.8444253888949085
-petsc,PETSc complementarity,petsc,complementarity,38.0,0.0,0.0,0.0,nan,nan,-0.8692199142653854
-petsc,PETSc complementarity,petsc,complementarity,39.0,0.0,0.0,0.0,nan,nan,-0.8927252787260436
-petsc,PETSc complementarity,petsc,complementarity,40.0,0.0,0.0,0.0,nan,nan,-0.91505646203347
+solver,solver_label,runtime_backend,surface_interaction_model,elapsed_days,recharge_mm_day,recharge_flux_m3_day,surface_excess_flux_m3_day,east_boundary_outflow_m3_day,total_outflow_m3_day,storage_balance_m3_day,total_overflow_m3_day,active_overflow_length_m,overflow_front_x_m,overflow_centroid_x_m,max_head_clearance_m
+boussinesq,Local dense runtime,local,regularized_partition,0.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.0750000000000002
+boussinesq,Local dense runtime,local,regularized_partition,1.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.2219897821335453
+boussinesq,Local dense runtime,local,regularized_partition,2.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.2451089799342916
+boussinesq,Local dense runtime,local,regularized_partition,3.0,10.000000000000002,120.00000000000003,0.061897891104999915,-0.0,0.061897891104999915,119.93810210889502,0.061897891104999915,0.0,nan,346.3570301084525,-1.2259674083001104
+boussinesq,Local dense runtime,local,regularized_partition,4.0,10.000000000000002,120.00000000000003,0.06666335328703148,-0.0,0.06666335328703148,119.933336646713,0.06666335328703148,0.0,nan,340.20700629165003,-1.2146142111396179
+boussinesq,Local dense runtime,local,regularized_partition,5.0,10.000000000000002,120.00000000000003,0.07487482276725425,-0.0,0.07487482276725425,119.92512517723277,0.07487482276725425,0.0,nan,335.83685106127774,-1.2055136507005186
+boussinesq,Local dense runtime,local,regularized_partition,6.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.2242656078764371
+boussinesq,Local dense runtime,local,regularized_partition,7.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.2322656855538687
+boussinesq,Local dense runtime,local,regularized_partition,8.0,20.000000000000004,240.00000000000006,0.2845061067764365,-0.0,0.2845061067764365,239.71549389322362,0.2845061067764365,70.0,385.0,340.9636893207676,-1.1838018890680884
+boussinesq,Local dense runtime,local,regularized_partition,9.0,20.000000000000004,240.00000000000006,0.39658127583139025,-0.0,0.39658127583139025,239.60341872416868,0.39658127583139025,90.0,385.0,333.67051909847413,-1.1343070983995425
+boussinesq,Local dense runtime,local,regularized_partition,10.0,20.000000000000004,240.00000000000006,0.5678961782772842,-0.0,0.5678961782772842,239.43210382172276,0.5678961782772842,120.0,385.0,328.11022586129815,-1.070168947906681
+boussinesq,Local dense runtime,local,regularized_partition,11.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.1449951908507314
+boussinesq,Local dense runtime,local,regularized_partition,12.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.18260205289664
+boussinesq,Local dense runtime,local,regularized_partition,13.0,32.0,384.0,1.8240246505775228,-0.0,1.8240246505775228,382.17597534942246,1.8240246505775228,180.0,395.0,327.24009150726,-0.9915404941470696
+boussinesq,Local dense runtime,local,regularized_partition,14.0,32.0,384.0,3.5745275949183664,-0.0,3.5745275949183664,380.4254724050816,3.5745275949183664,210.0,395.0,321.03166244960596,-0.8078018264790892
+boussinesq,Local dense runtime,local,regularized_partition,15.0,32.0,384.0,6.845990494324985,-0.0,6.845990494324985,377.154009505675,6.845990494324985,240.0,395.0,315.6579226037591,-0.6321720629684648
+boussinesq,Local dense runtime,local,regularized_partition,16.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.7356391665522048
+boussinesq,Local dense runtime,local,regularized_partition,17.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.8152630284295999
+boussinesq,Local dense runtime,local,regularized_partition,18.0,42.0,504.0,17.260536826491766,-0.0,17.260536826491766,486.7394631735082,17.260536826491766,300.0,395.0,309.4305961257058,-0.5333237949778535
+boussinesq,Local dense runtime,local,regularized_partition,19.0,42.0,504.0,37.70280815739979,-0.0,37.70280815739979,466.2971918426002,37.70280815739979,340.0,395.0,303.6649083574595,-0.3145338027623348
+boussinesq,Local dense runtime,local,regularized_partition,20.0,42.0,504.0,69.50162038509661,-0.0,69.50162038509661,434.4983796149034,69.50162038509661,380.0,395.0,296.43485048769924,-0.16217581753506582
+boussinesq,Local dense runtime,local,regularized_partition,21.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.23502723743536347
+boussinesq,Local dense runtime,local,regularized_partition,22.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.3049928716590218
+boussinesq,Local dense runtime,local,regularized_partition,23.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.36930296608005797
+boussinesq,Local dense runtime,local,regularized_partition,24.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.4284923729671899
+boussinesq,Local dense runtime,local,regularized_partition,25.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.4835983495931071
+boussinesq,Local dense runtime,local,regularized_partition,26.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.5345158468897946
+boussinesq,Local dense runtime,local,regularized_partition,27.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.5815048938151195
+boussinesq,Local dense runtime,local,regularized_partition,28.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.6249407851916358
+boussinesq,Local dense runtime,local,regularized_partition,29.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.6652093452668426
+boussinesq,Local dense runtime,local,regularized_partition,30.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.702667199687939
+boussinesq,Local dense runtime,local,regularized_partition,31.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.7376300058691019
+boussinesq,Local dense runtime,local,regularized_partition,32.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.7703721008874274
+boussinesq,Local dense runtime,local,regularized_partition,33.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.8005853520094224
+boussinesq,Local dense runtime,local,regularized_partition,34.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.828149125345325
+boussinesq,Local dense runtime,local,regularized_partition,35.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.8541146819192811
+boussinesq,Local dense runtime,local,regularized_partition,36.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.8786438255275097
+boussinesq,Local dense runtime,local,regularized_partition,37.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.9018724822547606
+boussinesq,Local dense runtime,local,regularized_partition,38.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.9239261562991086
+boussinesq,Local dense runtime,local,regularized_partition,39.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.9448545055586486
+boussinesq,Local dense runtime,local,regularized_partition,40.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.9632873932296429
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,0.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.0750000000000002
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,1.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.2219897810517297
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,2.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.2451089420131711
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,3.0,10.000000000000002,120.00000000000003,0.061897876409094395,-0.0,0.061897876409094395,119.93810212359094,0.061897876409094395,0.0,nan,346.357028743057,-1.2259673919732195
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,4.0,10.000000000000002,120.00000000000003,0.0666632586885273,-0.0,0.0666632586885273,119.9333367413115,0.0666632586885273,0.0,nan,340.2070317095938,-1.2146142555862727
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,5.0,10.000000000000002,120.00000000000003,0.07487439712119387,-0.0,0.07487439712119387,119.92512560287884,0.07487439712119387,0.0,nan,335.8369668773297,-1.2055138817731241
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,6.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.2242655318956173
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,7.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.2322636152840363
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,8.0,20.000000000000004,240.00000000000006,0.2845117160019461,-0.0,0.2845117160019461,239.7154882839981,0.2845117160019461,70.0,385.0,340.96367136339535,-1.1838001822728423
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,9.0,20.000000000000004,240.00000000000006,0.3965878636261693,-0.0,0.3965878636261693,239.6034121363739,0.3965878636261693,90.0,385.0,333.67054367154265,-1.134303328696963
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,10.0,20.000000000000004,240.00000000000006,0.5678983787535995,-0.0,0.5678983787535995,239.43210162124646,0.5678983787535995,120.0,385.0,328.110415473787,-1.0701657809352847
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,11.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.1449807446472224
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,12.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.1825899285647683
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,13.0,32.0,384.0,1.824126714118254,-0.0,1.824126714118254,382.1758732858817,1.824126714118254,180.0,395.0,327.24037307035206,-0.9915252690595366
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,14.0,32.0,384.0,3.574680800498731,-0.0,3.574680800498731,380.42531919950125,3.574680800498731,210.0,395.0,321.0320225574302,-0.8077868348899884
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,15.0,32.0,384.0,6.8462318120352315,-0.0,6.8462318120352315,377.1537681879648,6.8462318120352315,240.0,395.0,315.65825267151456,-0.632158027263455
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,16.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.7356199632674212
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,17.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.8152445745557522
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,18.0,42.0,504.0,17.261178038701043,-0.0,17.261178038701043,486.738821961299,17.261178038701043,300.0,395.0,309.4309759481985,-0.5333094943242553
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,19.0,42.0,504.0,37.70379056061247,-0.0,37.70379056061247,466.29620943938755,37.70379056061247,340.0,395.0,303.6652400953366,-0.31452343016718043
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,20.0,42.0,504.0,69.5027235171275,-0.0,69.5027235171275,434.4972764828725,69.5027235171275,380.0,395.0,296.43512786392586,-0.16216968675228394
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,21.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.23502033992380067
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,22.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.3049856316620234
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,23.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.369291193573007
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,24.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.428480237040211
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,25.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.48357748838590187
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,26.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.5344965236636074
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,27.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.5814868937094584
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,28.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.6249239581663755
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,29.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.6651935859034639
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,30.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.702652422376838
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,31.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.7376161393810721
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,32.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.770346545725693
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,33.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.8005527711785358
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,34.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.8281101614137016
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,35.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.854070990724539
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,36.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.8785966684288633
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,37.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.9018262456266797
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,38.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.9238804326902201
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,39.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.9448115717215453
+petsc_partition,PETSc regularized partition,petsc,regularized_partition,40.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.9632448237828992
+petsc,PETSc complementarity,petsc,complementarity,0.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.0750000000000002
+petsc,PETSc complementarity,petsc,complementarity,1.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.2219897821942447
+petsc,PETSc complementarity,petsc,complementarity,2.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.2451089799479962
+petsc,PETSc complementarity,petsc,complementarity,3.0,10.000000000000002,120.00000000000003,1.2265214874918646e-13,-0.0,1.2265214874918646e-13,119.9999999999999,1.2265214874918646e-13,0.0,nan,154.34447601166517,-1.22590814637446
+petsc,PETSc complementarity,petsc,complementarity,4.0,10.000000000000002,120.00000000000003,-2.4783791512839956e-13,-0.0,-2.4783791512839956e-13,120.00000000000027,-2.4783791512839956e-13,0.0,nan,158.2125579123257,-1.214528800828472
+petsc,PETSc complementarity,petsc,complementarity,5.0,10.000000000000002,120.00000000000003,-3.975927015377691e-13,-0.0,-3.975927015377691e-13,120.00000000000043,-3.975927015377691e-13,0.0,nan,180.61669743299606,-1.2054067699273818
+petsc,PETSc complementarity,petsc,complementarity,6.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.2241897671060014
+petsc,PETSc complementarity,petsc,complementarity,7.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.2322082867701636
+petsc,PETSc complementarity,petsc,complementarity,8.0,20.000000000000004,240.00000000000006,-3.3842948324558343e-13,-0.0,-3.3842948324558343e-13,240.0000000000004,-3.3842948324558343e-13,0.0,nan,159.39173148296928,-1.183526188943214
+petsc,PETSc complementarity,petsc,complementarity,9.0,20.000000000000004,240.00000000000006,-1.6082003837686225e-13,-0.0,-1.6082003837686225e-13,240.00000000000023,-1.6082003837686225e-13,0.0,nan,185.38509796705884,-1.1331771303688294
+petsc,PETSc complementarity,petsc,complementarity,10.0,20.000000000000004,240.00000000000006,-1.6239924794756486e-13,-0.0,-1.6239924794756486e-13,240.00000000000023,-1.6239924794756486e-13,0.0,nan,161.62455119645293,-1.0677262489318489
+petsc,PETSc complementarity,petsc,complementarity,11.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.1430809476165082
+petsc,PETSc complementarity,petsc,complementarity,12.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-1.181584900171452
+petsc,PETSc complementarity,petsc,complementarity,13.0,32.0,384.0,-2.0107663107384787e-12,-0.0,-2.0107663107384787e-12,384.000000000002,-2.0107663107384787e-12,0.0,nan,148.077154363865,-0.9864602779296234
+petsc,PETSc complementarity,petsc,complementarity,14.0,32.0,384.0,-4.70927806813542e-11,-0.0,-4.70927806813542e-11,384.00000000004707,-4.70927806813542e-11,0.0,nan,129.38003388628488,-0.7945984648939399
+petsc,PETSc complementarity,petsc,complementarity,15.0,32.0,384.0,-1.3443440935566574e-09,-0.0,-1.3443440935566574e-09,384.00000000134435,-1.3443440935566574e-09,0.0,nan,107.0460502049984,-0.6029890884256348
+petsc,PETSc complementarity,petsc,complementarity,16.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.7093819822341283
+petsc,PETSc complementarity,petsc,complementarity,17.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.7927667663569604
+petsc,PETSc complementarity,petsc,complementarity,18.0,42.0,504.0,-1.0540582961421748e-08,-0.0,-1.0540582961421748e-08,504.0000000105406,-1.0540582961421748e-08,0.0,nan,80.56670617466499,-0.47142468199340115
+petsc,PETSc complementarity,petsc,complementarity,19.0,42.0,504.0,-2.156074991876683e-06,-0.0,-2.156074991876683e-06,504.00000215607497,-2.156074991876683e-06,0.0,nan,50.03193376512048,-0.16399944992986182
+petsc,PETSc complementarity,petsc,complementarity,20.0,42.0,504.0,26.065229198988625,-0.0,26.065229198988625,477.9347708010114,26.065229198988625,50.0,345.0,327.32643110988624,8.881784197001252e-16
+petsc,PETSc complementarity,petsc,complementarity,21.0,0.0,0.0,-6.291376188435886e-06,-0.0,-6.291376188435886e-06,6.291376188435886e-06,-6.291376188435886e-06,0.0,nan,nan,-0.064284202034945
+petsc,PETSc complementarity,petsc,complementarity,22.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.14126318861477838
+petsc,PETSc complementarity,petsc,complementarity,23.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.21761151621633168
+petsc,PETSc complementarity,petsc,complementarity,24.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.28933001542152414
+petsc,PETSc complementarity,petsc,complementarity,25.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.3554108956224242
+petsc,PETSc complementarity,petsc,complementarity,26.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.4159517017103145
+petsc,PETSc complementarity,petsc,complementarity,27.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.47142125418992986
+petsc,PETSc complementarity,petsc,complementarity,28.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.5223734023635576
+petsc,PETSc complementarity,petsc,complementarity,29.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.569340137589978
+petsc,PETSc complementarity,petsc,complementarity,30.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.612796958328139
+petsc,PETSc complementarity,petsc,complementarity,31.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.6531566955233519
+petsc,PETSc complementarity,petsc,complementarity,32.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.6907610579018852
+petsc,PETSc complementarity,petsc,complementarity,33.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.7259310074640206
+petsc,PETSc complementarity,petsc,complementarity,34.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.7589250976517681
+petsc,PETSc complementarity,petsc,complementarity,35.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.7899662497389306
+petsc,PETSc complementarity,petsc,complementarity,36.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.8182105218971651
+petsc,PETSc complementarity,petsc,complementarity,37.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.8444253888949085
+petsc,PETSc complementarity,petsc,complementarity,38.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.8692199142653854
+petsc,PETSc complementarity,petsc,complementarity,39.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.8927252787260436
+petsc,PETSc complementarity,petsc,complementarity,40.0,0.0,0.0,0.0,-0.0,0.0,0.0,0.0,0.0,nan,nan,-0.91505646203347

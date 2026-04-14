@@ -59,6 +59,9 @@ Each case produces:
 - one case-level configuration figure summarizing parameters, observables,
   objective blocks, methods, noise and the observation layout,
 - a JSON benchmark summary with recovery metrics per method,
+- for selected two-parameter cases, one shared regular-grid objective scan used
+  to reconstruct the objective surface more faithfully than method-only sample
+  clouds,
 - method-level timing diagnostics including total calibration time, one-time
   session preparation time, and mean per-model preparation/simulation/objective
   costs,

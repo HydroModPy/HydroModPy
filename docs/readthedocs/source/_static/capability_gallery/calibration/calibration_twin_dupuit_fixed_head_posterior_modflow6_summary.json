@@ -1,0 +1,731 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "calibration_twin_dupuit_fixed_head_posterior_modflow6",
+  "title": "Calibration Twin: Dupuit Posterior 1D",
+  "category": "calibration",
+  "deck": "Steady modflow6 twin calibration benchmark with K_global_factor.",
+  "summary": "Same-solver posterior-oriented twin benchmark on dupuit_fixed_head_1d with one scalar K multiplier and distribution-valued methods.",
+  "case_setup": [
+    "Solver: `modflow6` in `steady` regime.",
+    "Truth parameters: K_global_factor.",
+    "Observed outputs: q_east.",
+    "Benchmarked methods: random_search, gp_mapping, da_mh_gp.",
+    "Initial bounds widened to: K_global_factor=[0.65, 1.35]."
+  ],
+  "key_parameters": [
+    "Calibrated parameters: K_global_factor.",
+    "Outputs used in the composite objective: q_east.",
+    "Observation noise: none.",
+    "Perturbation: none."
+  ],
+  "how_to_read": [
+    "Open `case_configuration.png` first to understand the parameter block, outputs, and weighting before reading the optimization figures.",
+    "Use `objective_trace` to judge convergence speed and `objective_landscape` to see where the evaluated candidates concentrate relative to the truth and the selected solution(s).",
+    "Read timing metrics as benchmark diagnostics, not as universal solver performance numbers: they depend on the chosen method, case size, and evaluation budget."
+  ],
+  "next_steps": [
+    "Compare this case with the other calibration gallery pages to see how deterministic and distribution-valued methods behave under different inverse problems.",
+    "Use the full benchmark suite in `validation_cases/calibration` when you need multi-seed comparisons or noisy variants beyond the curated gallery subset."
+  ],
+  "what_it_shows": [
+    "A same-solver twin experiment where synthetic observations are generated first, then recovered through calibration on the same physics stack.",
+    "A case-level configuration figure, an objective trace, and an objective landscape or pairwise projection for the selected display method.",
+    "Per-method timing diagnostics with total calibration time plus average per-model preparation, simulation, and objective-evaluation costs."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.run_case --case posterior",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/calibration/README.md",
+    "validation_cases/calibration/run_benchmarks.py",
+    "validation_cases/calibration/plotting.py",
+    "validation_cases/calibration/shared/definitions.py",
+    "validation_cases/calibration/shared/runtime.py",
+    "validation_cases/calibration/twin/steady/dupuit_fixed_head_1d/run_case.py",
+    "validation_cases/calibration/twin/steady/dupuit_fixed_head_1d/experiment.py",
+    "launchers/model_calibration/launcher.py",
+    "launchers/model_calibration/runtime.py"
+  ],
+  "source_hashes": {
+    "validation_cases/calibration/README.md": "16aa6dcf2b0dbdd1fe57e0ec703e29374e6ed0679a743d059558b604882bad0b",
+    "validation_cases/calibration/run_benchmarks.py": "e870902c6f3a5196e728e0ab54348125022771538f3ee6c1b8b64620a3bd660c",
+    "validation_cases/calibration/plotting.py": "c9c5ca46e48c9eaba33836211ec4efc50bc6bd3d0ed852afcbdc053a1e229f0f",
+    "validation_cases/calibration/shared/definitions.py": "257a44fb213c7db06885ccd1dd6f0069ba5bdae6149c266728abce8fb3c6d201",
+    "validation_cases/calibration/shared/runtime.py": "8aebf0af78babcc879daf042a12b5eb1bd4dd147dbc4463c9beb0631db9c29f1",
+    "validation_cases/calibration/twin/steady/dupuit_fixed_head_1d/run_case.py": "cad36fa96752b1d923446a88a43d51f00674fd876a1eca1ea3b01ffc5ed9112a",
+    "validation_cases/calibration/twin/steady/dupuit_fixed_head_1d/experiment.py": "303b776adb33700aae0184264cc523e67a96003b7c61dfdbd87410cd9a1f8e9e",
+    "launchers/model_calibration/launcher.py": "fd8399af0cc77024ae6039e73bc56c73b9861c8c069cc181fcef29a6e2dbee8e",
+    "launchers/model_calibration/runtime.py": "ebc1c650ce1cbf1710ed52b6e10d68b746c87f6cdb71c3f2bcfb83bd61752be3"
+  },
+  "docname": "cases/calibration_twin_dupuit_fixed_head_posterior_modflow6",
+  "images": [
+    {
+      "filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__configuration.png",
+      "caption": "Calibration Twin: Dupuit Posterior 1D configuration summary used by the calibration gallery.",
+      "alt_text": "Calibration Twin: Dupuit Posterior 1D configuration figure",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__configuration.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__configuration.png"
+    },
+    {
+      "filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_landscape.png",
+      "caption": "Objective landscape or pairwise projection for `random_search` on Calibration Twin: Dupuit Posterior 1D.",
+      "alt_text": "Calibration Twin: Dupuit Posterior 1D objective landscape for random_search",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_landscape.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_landscape.png"
+    },
+    {
+      "filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_trace.png",
+      "caption": "Objective trace for `random_search` on Calibration Twin: Dupuit Posterior 1D, showing the evaluated models in order.",
+      "alt_text": "Calibration Twin: Dupuit Posterior 1D objective trace for random_search",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_trace.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_trace.png"
+    },
+    {
+      "filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_posterior.png",
+      "caption": "Parameter distribution for `random_search` on Calibration Twin: Dupuit Posterior 1D.",
+      "alt_text": "Calibration Twin: Dupuit Posterior 1D posterior distribution for random_search",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_posterior.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_posterior.png"
+    },
+    {
+      "filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_landscape.png",
+      "caption": "Objective landscape or pairwise projection for `gp_mapping` on Calibration Twin: Dupuit Posterior 1D.",
+      "alt_text": "Calibration Twin: Dupuit Posterior 1D objective landscape for gp_mapping",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_landscape.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_landscape.png"
+    },
+    {
+      "filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_trace.png",
+      "caption": "Objective trace for `gp_mapping` on Calibration Twin: Dupuit Posterior 1D, showing the evaluated models in order.",
+      "alt_text": "Calibration Twin: Dupuit Posterior 1D objective trace for gp_mapping",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_trace.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_trace.png"
+    },
+    {
+      "filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_posterior.png",
+      "caption": "Parameter distribution for `gp_mapping` on Calibration Twin: Dupuit Posterior 1D.",
+      "alt_text": "Calibration Twin: Dupuit Posterior 1D posterior distribution for gp_mapping",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_posterior.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_posterior.png"
+    },
+    {
+      "filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_landscape.png",
+      "caption": "Objective landscape or pairwise projection for `da_mh_gp` on Calibration Twin: Dupuit Posterior 1D.",
+      "alt_text": "Calibration Twin: Dupuit Posterior 1D objective landscape for da_mh_gp",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_landscape.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_landscape.png"
+    },
+    {
+      "filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_trace.png",
+      "caption": "Objective trace for `da_mh_gp` on Calibration Twin: Dupuit Posterior 1D, showing the evaluated models in order.",
+      "alt_text": "Calibration Twin: Dupuit Posterior 1D objective trace for da_mh_gp",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_trace.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_trace.png"
+    },
+    {
+      "filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_posterior.png",
+      "caption": "Parameter distribution for `da_mh_gp` on Calibration Twin: Dupuit Posterior 1D.",
+      "alt_text": "Calibration Twin: Dupuit Posterior 1D posterior distribution for da_mh_gp",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_posterior.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_posterior.png"
+    }
+  ],
+  "metrics": [
+    {
+      "label": "Methods",
+      "key": "method_count",
+      "value": 3,
+      "display": "3"
+    },
+    {
+      "label": "Display method",
+      "key": "display_method_name",
+      "value": "da_mh_gp",
+      "display": "da_mh_gp"
+    },
+    {
+      "label": "Distribution samples",
+      "key": "model_distribution_sample_count",
+      "value": 18,
+      "display": "18"
+    },
+    {
+      "label": "Calibration total",
+      "key": "calibration_time_seconds",
+      "value": 3.8489898000843823,
+      "display": "3.849 s"
+    },
+    {
+      "label": "Session prep",
+      "key": "session_prepare_time_seconds",
+      "value": 0.9602662000106648,
+      "display": "0.9603 s"
+    },
+    {
+      "label": "Candidate runtime",
+      "key": "estimated_candidate_runtime_seconds",
+      "value": 3.4271934998687357,
+      "display": "3.427 s"
+    },
+    {
+      "label": "Algorithm overhead",
+      "key": "algorithm_overhead_time_seconds",
+      "value": 0.4217963002156466,
+      "display": "0.4218 s"
+    },
+    {
+      "label": "Model total",
+      "key": "mean_candidate_total_time_seconds",
+      "value": 0.2447995357049097,
+      "display": "0.2448 s"
+    },
+    {
+      "label": "Actualize",
+      "key": "mean_candidate_actualize_time_seconds",
+      "value": 0.007906664270974164,
+      "display": "0.007907 s"
+    },
+    {
+      "label": "Launcher prep",
+      "key": "mean_candidate_launcher_prepare_time_seconds",
+      "value": 0.07032304285426758,
+      "display": "0.07032 s"
+    },
+    {
+      "label": "Runtime patch",
+      "key": "mean_candidate_runtime_patch_time_seconds",
+      "value": 5.7635712437331676e-05,
+      "display": "5.764e-05 s"
+    },
+    {
+      "label": "Model prep",
+      "key": "mean_candidate_preparation_time_seconds",
+      "value": 0.07828734283767906,
+      "display": "0.07829 s"
+    },
+    {
+      "label": "Model sim",
+      "key": "mean_candidate_simulation_time_seconds",
+      "value": 0.16620926428419938,
+      "display": "0.1662 s"
+    },
+    {
+      "label": "Output select",
+      "key": "mean_candidate_output_selection_time_seconds",
+      "value": 0.007860435738361307,
+      "display": "0.00786 s"
+    },
+    {
+      "label": "Objective score",
+      "key": "mean_candidate_objective_compute_time_seconds",
+      "value": 0.0002480000008030662,
+      "display": "0.000248 s"
+    }
+  ],
+  "metadata": {
+    "definition_import_path": "validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment:STEADY_DUPUIT_POSTERIOR_TWIN_CASE",
+    "run_case_module": "validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.run_case",
+    "run_case_file": "validation_cases/calibration/twin/steady/dupuit_fixed_head_1d/run_case.py",
+    "display_method_name": "da_mh_gp",
+    "evaluation_budget": 18,
+    "gallery_method_names": null,
+    "solver_name": "modflow6",
+    "regime": "steady",
+    "truth_params": {
+      "K_global_factor": 1.0
+    },
+    "bounds": {
+      "K_global_factor": [
+        0.65,
+        1.35
+      ]
+    },
+    "parameter_abs_tolerances": {
+      "K_global_factor": 0.06
+    },
+    "output_names": [
+      "q_east"
+    ],
+    "method_names": [
+      "random_search",
+      "gp_mapping",
+      "da_mh_gp"
+    ],
+    "observation_noise": "none",
+    "perturbation_description": null,
+    "fast": false,
+    "benchmark_root": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_8eb5f99d2d_b5ffdf58",
+    "benchmark_summary_path": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_8eb5f99d2d_b5ffdf58\\benchmark_summary.json",
+    "artifact_retention": "minimal",
+    "method_runs": [
+      {
+        "method_name": "random_search",
+        "method_instance_name": "random_search",
+        "success_metric": "distribution",
+        "meets_success_target": true,
+        "recovered_truth": true,
+        "cost_best": 1530364.5817845422,
+        "n_evaluations": 18,
+        "model_distribution_sample_count": 18,
+        "calibration_time_seconds": 4.479752099956386,
+        "session_prepare_time_seconds": 1.024078099988401,
+        "estimated_candidate_runtime_seconds": 3.9507473999401554,
+        "algorithm_overhead_time_seconds": 0.5290047000162303,
+        "mean_candidate_total_time_seconds": 0.21948596666334197,
+        "mean_candidate_preparation_time_seconds": 0.053245338895875544,
+        "mean_candidate_actualize_time_seconds": 0.007935527776781883,
+        "mean_candidate_launcher_prepare_time_seconds": 0.04524902777565229,
+        "mean_candidate_runtime_patch_time_seconds": 6.078334344137046e-05,
+        "mean_candidate_simulation_time_seconds": 0.16622054999849448,
+        "mean_candidate_output_selection_time_seconds": 0.00763559445557702,
+        "mean_candidate_objective_build_time_seconds": 2.6127776234514182e-05,
+        "mean_candidate_objective_compute_time_seconds": 0.00021923887672730617,
+        "mean_candidate_objective_time_seconds": 0.007902672216813598,
+        "param_abs_error": {
+          "K_global_factor": 0.0031837812705672874
+        },
+        "params_best": {
+          "K_global_factor": 1.0031837812705673
+        },
+        "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_landscape.png",
+        "objective_trace_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_trace.png",
+        "posterior_distribution_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_posterior.png"
+      },
+      {
+        "method_name": "gp_mapping",
+        "method_instance_name": "gp_mapping",
+        "success_metric": "distribution",
+        "meets_success_target": true,
+        "recovered_truth": true,
+        "cost_best": 2337865.531032847,
+        "n_evaluations": 18,
+        "model_distribution_sample_count": 64,
+        "calibration_time_seconds": 4.565213900059462,
+        "session_prepare_time_seconds": 0.9316270999843255,
+        "estimated_candidate_runtime_seconds": 4.021220500115305,
+        "algorithm_overhead_time_seconds": 0.5439933999441564,
+        "mean_candidate_total_time_seconds": 0.22340113889529473,
+        "mean_candidate_preparation_time_seconds": 0.061570044432301074,
+        "mean_candidate_actualize_time_seconds": 0.007618105543466906,
+        "mean_candidate_launcher_prepare_time_seconds": 0.05389080556213028,
+        "mean_candidate_runtime_patch_time_seconds": 6.11333267038895e-05,
+        "mean_candidate_simulation_time_seconds": 0.16110880553282592,
+        "mean_candidate_output_selection_time_seconds": 0.008011766657647159,
+        "mean_candidate_objective_build_time_seconds": 2.547777775261137e-05,
+        "mean_candidate_objective_compute_time_seconds": 0.00022516111170666086,
+        "mean_candidate_objective_time_seconds": 0.008283455539236052,
+        "param_abs_error": {
+          "K_global_factor": 0.004863709644674308
+        },
+        "params_best": {
+          "K_global_factor": 0.9951362903553257
+        },
+        "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_landscape.png",
+        "objective_trace_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_trace.png",
+        "posterior_distribution_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_posterior.png"
+      },
+      {
+        "method_name": "da_mh_gp",
+        "method_instance_name": "da_mh_gp",
+        "success_metric": "distribution",
+        "meets_success_target": true,
+        "recovered_truth": true,
+        "cost_best": 4952032.869586572,
+        "n_evaluations": 14,
+        "model_distribution_sample_count": 18,
+        "calibration_time_seconds": 3.8489898000843823,
+        "session_prepare_time_seconds": 0.9602662000106648,
+        "estimated_candidate_runtime_seconds": 3.4271934998687357,
+        "algorithm_overhead_time_seconds": 0.4217963002156466,
+        "mean_candidate_total_time_seconds": 0.2447995357049097,
+        "mean_candidate_preparation_time_seconds": 0.07828734283767906,
+        "mean_candidate_actualize_time_seconds": 0.007906664270974164,
+        "mean_candidate_launcher_prepare_time_seconds": 0.07032304285426758,
+        "mean_candidate_runtime_patch_time_seconds": 5.7635712437331676e-05,
+        "mean_candidate_simulation_time_seconds": 0.16620926428419938,
+        "mean_candidate_output_selection_time_seconds": 0.007860435738361307,
+        "mean_candidate_objective_build_time_seconds": 2.6707121703241554e-05,
+        "mean_candidate_objective_compute_time_seconds": 0.0002480000008030662,
+        "mean_candidate_objective_time_seconds": 0.00815667858946004,
+        "param_abs_error": {
+          "K_global_factor": 0.010302235041999896
+        },
+        "params_best": {
+          "K_global_factor": 1.010302235042
+        },
+        "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_landscape.png",
+        "objective_trace_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_trace.png",
+        "posterior_distribution_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_posterior.png"
+      }
+    ],
+    "lead_image_filenames": [
+      "calibration_twin_dupuit_fixed_head_posterior_modflow6__configuration.png"
+    ],
+    "tab_specs": [
+      {
+        "title": "random_search",
+        "filenames": [
+          "calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_landscape.png",
+          "calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_posterior.png",
+          "calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_trace.png"
+        ],
+        "body_lines": [
+          "metric=distribution",
+          "target=True",
+          "best_fit=True",
+          "cost=1.53036e+06",
+          "n_eval=18",
+          "distribution_samples=18",
+          "calibration=4.48 s",
+          "candidate runtime=3.951 s",
+          "algorithm overhead=0.529 s",
+          "actualize=0.007936 s",
+          "launcher prep=0.04525 s",
+          "runtime patch=6.078e-05 s",
+          "simulate=0.1662 s",
+          "output select=0.007636 s",
+          "objective score=0.0002192 s"
+        ]
+      },
+      {
+        "title": "gp_mapping",
+        "filenames": [
+          "calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_landscape.png",
+          "calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_posterior.png",
+          "calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_trace.png"
+        ],
+        "body_lines": [
+          "metric=distribution",
+          "target=True",
+          "best_fit=True",
+          "cost=2.33787e+06",
+          "n_eval=18",
+          "distribution_samples=64",
+          "calibration=4.565 s",
+          "candidate runtime=4.021 s",
+          "algorithm overhead=0.544 s",
+          "actualize=0.007618 s",
+          "launcher prep=0.05389 s",
+          "runtime patch=6.113e-05 s",
+          "simulate=0.1611 s",
+          "output select=0.008012 s",
+          "objective score=0.0002252 s"
+        ]
+      },
+      {
+        "title": "da_mh_gp",
+        "filenames": [
+          "calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_landscape.png",
+          "calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_posterior.png",
+          "calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_trace.png"
+        ],
+        "body_lines": [
+          "metric=distribution",
+          "target=True",
+          "best_fit=True",
+          "cost=4.95203e+06",
+          "n_eval=14",
+          "distribution_samples=18",
+          "calibration=3.849 s",
+          "candidate runtime=3.427 s",
+          "algorithm overhead=0.4218 s",
+          "actualize=0.007907 s",
+          "launcher prep=0.07032 s",
+          "runtime patch=5.764e-05 s",
+          "simulate=0.1662 s",
+          "output select=0.00786 s",
+          "objective score=0.000248 s"
+        ]
+      }
+    ],
+    "configuration_figure": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_8eb5f99d2d_b5ffdf58\\figures\\case_configuration.png"
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__configuration.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_landscape.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_trace.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_posterior.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_landscape.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_trace.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_posterior.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_landscape.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_trace.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_posterior.png"
+    ]
+  },
+  "method_runs": [
+    {
+      "method_name": "random_search",
+      "method_instance_name": "random_search",
+      "success_metric": "distribution",
+      "meets_success_target": true,
+      "recovered_truth": true,
+      "cost_best": 1530364.5817845422,
+      "n_evaluations": 18,
+      "model_distribution_sample_count": 18,
+      "calibration_time_seconds": 4.479752099956386,
+      "session_prepare_time_seconds": 1.024078099988401,
+      "estimated_candidate_runtime_seconds": 3.9507473999401554,
+      "algorithm_overhead_time_seconds": 0.5290047000162303,
+      "mean_candidate_total_time_seconds": 0.21948596666334197,
+      "mean_candidate_preparation_time_seconds": 0.053245338895875544,
+      "mean_candidate_actualize_time_seconds": 0.007935527776781883,
+      "mean_candidate_launcher_prepare_time_seconds": 0.04524902777565229,
+      "mean_candidate_runtime_patch_time_seconds": 6.078334344137046e-05,
+      "mean_candidate_simulation_time_seconds": 0.16622054999849448,
+      "mean_candidate_output_selection_time_seconds": 0.00763559445557702,
+      "mean_candidate_objective_build_time_seconds": 2.6127776234514182e-05,
+      "mean_candidate_objective_compute_time_seconds": 0.00021923887672730617,
+      "mean_candidate_objective_time_seconds": 0.007902672216813598,
+      "param_abs_error": {
+        "K_global_factor": 0.0031837812705672874
+      },
+      "params_best": {
+        "K_global_factor": 1.0031837812705673
+      },
+      "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_landscape.png",
+      "objective_trace_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_trace.png",
+      "posterior_distribution_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__random_search_posterior.png"
+    },
+    {
+      "method_name": "gp_mapping",
+      "method_instance_name": "gp_mapping",
+      "success_metric": "distribution",
+      "meets_success_target": true,
+      "recovered_truth": true,
+      "cost_best": 2337865.531032847,
+      "n_evaluations": 18,
+      "model_distribution_sample_count": 64,
+      "calibration_time_seconds": 4.565213900059462,
+      "session_prepare_time_seconds": 0.9316270999843255,
+      "estimated_candidate_runtime_seconds": 4.021220500115305,
+      "algorithm_overhead_time_seconds": 0.5439933999441564,
+      "mean_candidate_total_time_seconds": 0.22340113889529473,
+      "mean_candidate_preparation_time_seconds": 0.061570044432301074,
+      "mean_candidate_actualize_time_seconds": 0.007618105543466906,
+      "mean_candidate_launcher_prepare_time_seconds": 0.05389080556213028,
+      "mean_candidate_runtime_patch_time_seconds": 6.11333267038895e-05,
+      "mean_candidate_simulation_time_seconds": 0.16110880553282592,
+      "mean_candidate_output_selection_time_seconds": 0.008011766657647159,
+      "mean_candidate_objective_build_time_seconds": 2.547777775261137e-05,
+      "mean_candidate_objective_compute_time_seconds": 0.00022516111170666086,
+      "mean_candidate_objective_time_seconds": 0.008283455539236052,
+      "param_abs_error": {
+        "K_global_factor": 0.004863709644674308
+      },
+      "params_best": {
+        "K_global_factor": 0.9951362903553257
+      },
+      "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_landscape.png",
+      "objective_trace_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_trace.png",
+      "posterior_distribution_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__gp_mapping_posterior.png"
+    },
+    {
+      "method_name": "da_mh_gp",
+      "method_instance_name": "da_mh_gp",
+      "success_metric": "distribution",
+      "meets_success_target": true,
+      "recovered_truth": true,
+      "cost_best": 4952032.869586572,
+      "n_evaluations": 14,
+      "model_distribution_sample_count": 18,
+      "calibration_time_seconds": 3.8489898000843823,
+      "session_prepare_time_seconds": 0.9602662000106648,
+      "estimated_candidate_runtime_seconds": 3.4271934998687357,
+      "algorithm_overhead_time_seconds": 0.4217963002156466,
+      "mean_candidate_total_time_seconds": 0.2447995357049097,
+      "mean_candidate_preparation_time_seconds": 0.07828734283767906,
+      "mean_candidate_actualize_time_seconds": 0.007906664270974164,
+      "mean_candidate_launcher_prepare_time_seconds": 0.07032304285426758,
+      "mean_candidate_runtime_patch_time_seconds": 5.7635712437331676e-05,
+      "mean_candidate_simulation_time_seconds": 0.16620926428419938,
+      "mean_candidate_output_selection_time_seconds": 0.007860435738361307,
+      "mean_candidate_objective_build_time_seconds": 2.6707121703241554e-05,
+      "mean_candidate_objective_compute_time_seconds": 0.0002480000008030662,
+      "mean_candidate_objective_time_seconds": 0.00815667858946004,
+      "param_abs_error": {
+        "K_global_factor": 0.010302235041999896
+      },
+      "params_best": {
+        "K_global_factor": 1.010302235042
+      },
+      "objective_landscape_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_landscape.png",
+      "objective_trace_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_trace.png",
+      "posterior_distribution_filename": "calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_posterior.png"
+    }
+  ],
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Benchmark Setup",
+        "rows": [
+          {
+            "field": "solver_name",
+            "meaning": "Solver family used both to generate synthetic observations and to calibrate candidates.",
+            "value": "modflow6",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "regime",
+            "meaning": "Flow regime exercised by the inverse benchmark.",
+            "value": "steady",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "output_names",
+            "meaning": "Observables extracted from each candidate simulation and used in the composite objective.",
+            "value": "q_east",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "observation_noise",
+            "meaning": "Synthetic noise injected after the truth run, if any.",
+            "value": "none",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "evaluation_budget",
+            "meaning": "Approximate per-method evaluation budget used by the gallery generator when set.",
+            "value": "18",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          }
+        ]
+      },
+      {
+        "title": "Calibrated Parameters",
+        "rows": [
+          {
+            "field": "K_global_factor",
+            "meaning": "Truth value, initial search interval, and acceptance tolerance for this calibrated parameter.",
+            "value": "truth=1, bounds=0.65, 1.35, tolerance=0.06",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          }
+        ]
+      },
+      {
+        "title": "Methods And Timing",
+        "rows": [
+          {
+            "field": "random_search",
+            "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
+            "value": "target=true, cost=1.53036e+06, n_eval=18, distribution_samples=18, calib_s=4.47975, candidate_runtime_s=3.95075, algorithm_overhead_s=0.529005, actualize_s=0.00793553, launcher_prep_s=0.045249, runtime_patch_s=6.07833e-05, model_sim_s=0.166221, output_select_s=0.00763559, objective_score_s=0.000219239",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "gp_mapping",
+            "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
+            "value": "target=true, cost=2.33787e+06, n_eval=18, distribution_samples=64, calib_s=4.56521, candidate_runtime_s=4.02122, algorithm_overhead_s=0.543993, actualize_s=0.00761811, launcher_prep_s=0.0538908, runtime_patch_s=6.11333e-05, model_sim_s=0.161109, output_select_s=0.00801177, objective_score_s=0.000225161",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "da_mh_gp",
+            "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
+            "value": "target=true, cost=4.95203e+06, n_eval=14, distribution_samples=18, calib_s=3.84899, candidate_runtime_s=3.42719, algorithm_overhead_s=0.421796, actualize_s=0.00790666, launcher_prep_s=0.070323, runtime_patch_s=5.76357e-05, model_sim_s=0.166209, output_select_s=0.00786044, objective_score_s=0.000248",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          }
+        ]
+      },
+      {
+        "title": "Displayed Metrics",
+        "rows": [
+          {
+            "field": "method_count",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "3",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "display_method_name",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "da_mh_gp",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "model_distribution_sample_count",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "18",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "calibration_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "3.849 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "session_prepare_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.9603 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "estimated_candidate_runtime_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "3.427 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "algorithm_overhead_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.4218 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_total_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.2448 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_actualize_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.007907 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_launcher_prepare_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.07032 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_runtime_patch_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "5.764e-05 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_preparation_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.07829 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_simulation_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.1662 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_output_selection_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.00786 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_objective_compute_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.000248 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6_summary.json"
+          }
+        ]
+      }
+    ]
+  }
+}
