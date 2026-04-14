@@ -14,17 +14,12 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Only persist final rasters needed for display and derived variables.
+# Intermediate WhiteboxTools outputs (buff_direc, buff_dem, etc.) stay
+# in memory during processing and are not written to the Zarr store.
 _RASTER_ATTRS = [
-    "watershed_box_buff_dem",
-    "watershed_box_buff_fill",
-    "watershed_box_buff_direc",
-    "watershed_buff_dem",
-    "watershed_buff_fill",
-    "watershed_buff_direc",
     "watershed_dem",
     "watershed_fill",
-    "watershed_direc",
-    "watershed_contour_tif",
 ]
 
 _SHAPEFILE_ATTRS = [
@@ -41,34 +36,20 @@ def persist_geographic_to_store(
     geographic: Any,
     store: Any,
     *,
-    project: str | None = None,
     sim_id: str | None = None,
     cleanup: bool = False,
 ) -> None:
-    """Ingest geographic rasters and metadata into the catalog.
+    """Ingest geographic rasters, features and metadata into the catalog.
 
-    Parameters
-    ----------
-    geographic : Geographic
-        The geographic object after processing.
-    store : SimulationCatalog
-        Open catalog for the workspace.
-    project : str, optional
-        Project name for DuckDB geographic tables. Auto-detected from
-        store if not provided.
-    sim_id : str, optional
-        Simulation UUID for Zarr raster storage. Auto-detected from
-        store if not provided.
-    cleanup : bool
-        If True, delete intermediate geographic directories after ingestion.
+    All geographic data is scoped by simulation UUID.
     """
-    _project = project
-    _sim_id = sim_id
+    if sim_id is None:
+        return
 
-    _ingest_rasters(geographic, store, _sim_id)
-    _ingest_shapefiles(geographic, store, _project)
-    _ingest_river_network(geographic, store, _project)
-    _ingest_metadata(geographic, store, _project)
+    _ingest_rasters(geographic, store, sim_id)
+    _ingest_shapefiles(geographic, store, sim_id)
+    _ingest_river_network(geographic, store, sim_id)
+    _ingest_metadata(geographic, store, sim_id)
 
     if cleanup:
         _cleanup_intermediate_dirs(geographic)
@@ -119,10 +100,7 @@ def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
         logger.debug("Ingested raster %s from disk (%s)", name, data.shape)
 
 
-def _ingest_shapefiles(geographic: Any, store: Any, project: str | None) -> None:
-    if project is None:
-        return
-
+def _ingest_shapefiles(geographic: Any, store: Any, sim_id: str) -> None:
     try:
         import geopandas as gpd
     except ImportError:
@@ -139,14 +117,11 @@ def _ingest_shapefiles(geographic: Any, store: Any, project: str | None) -> None
         if gdf.empty:
             continue
 
-        store.write_geographic_feature(project, feature_name, gdf)
+        store.write_geographic_feature(sim_id, feature_name, gdf)
         logger.debug("Ingested feature %s (%d rows)", feature_name, len(gdf))
 
 
-def _ingest_river_network(geographic: Any, store: Any, project: str | None) -> None:
-    if project is None:
-        return
-
+def _ingest_river_network(geographic: Any, store: Any, sim_id: str) -> None:
     try:
         import geopandas as gpd
     except ImportError:
@@ -176,16 +151,14 @@ def _ingest_river_network(geographic: Any, store: Any, project: str | None) -> N
     if gdf.empty:
         return
 
-    store.write_geographic_feature(project, _RIVER_NETWORK_STORE_NAME, gdf)
+    store.write_geographic_feature(sim_id, _RIVER_NETWORK_STORE_NAME, gdf)
     logger.debug(
         "Ingested river network (%d segments, %s)",
         len(gdf), gdf.geometry.geom_type.unique().tolist(),
     )
 
 
-def _ingest_metadata(geographic: Any, store: Any, project: str | None) -> None:
-    if project is None:
-        return
+def _ingest_metadata(geographic: Any, store: Any, sim_id: str) -> None:
 
     metadata = {}
 
@@ -201,7 +174,7 @@ def _ingest_metadata(geographic: Any, store: Any, project: str | None) -> None:
         metadata["ncol"] = str(dem_data.shape[1])
 
     if metadata:
-        store.write_geographic_metadata(project, metadata)
+        store.write_geographic_metadata(sim_id, metadata)
         logger.debug("Ingested %d geographic metadata entries", len(metadata))
 
 
