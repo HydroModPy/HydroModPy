@@ -174,6 +174,26 @@ class TestSimulationDisplayCapabilities:
         assert "head_timeseries" in caps
 
 
+class TestSimulationPlot:
+    def test_plot_invalid_raises(self, catalog):
+        sid = _register(catalog, n_cells=10, n_layers=1)
+        sim = Simulation(sid, catalog)
+        with pytest.raises(ValueError, match="not available"):
+            sim.plot("nonexistent_figure")
+
+    def test_plot_save(self, catalog, tmp_path, monkeypatch):
+        monkeypatch.setenv("HYDROMODPY_NO_DISPLAY", "1")
+        sid = _register(catalog, n_cells=5, n_layers=1, n_timesteps=2)
+        sz = catalog.open_zarr(sid)
+        sz.write_field("head", 0, np.ones(5), n_timesteps=2)
+        sz.write_field("head", 1, np.ones(5) * 2.0)
+        catalog.write_budget(sid, 0, "z1", "recharge", 100.0, 0.0)
+        sim = Simulation(sid, catalog)
+        out = tmp_path / "figures"
+        sim.plot("budget_chart", save=out)
+        assert (out / "budget_chart.png").exists()
+
+
 class TestSimulationRepr:
     def test_repr_found(self, catalog):
         sid = _register(catalog)
