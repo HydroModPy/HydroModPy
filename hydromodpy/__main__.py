@@ -14,7 +14,7 @@ Usage (hmp and hydromodpy are interchangeable):
     hmp test <suite>                      # run tests
 
 ``hmp run`` auto-detects the workflow from the TOML sections present:
-    [simulation] or [flow]   -> simulation (via Project)
+    [simulation] or [flow]   -> simulation (via Simulation)
     [overview]               -> watershed identity card
     [mesh_catchment]         -> mesh-only pipeline
     [calibration]            -> calibration loop (Phase 4)
