@@ -131,7 +131,6 @@ class ModelCalibrationLauncher:
         self,
         *,
         project: Any = None,
-        launcher_factory: Any = None,
         calibration_method: Any = None,
     ) -> dict[str, Any]:
         """Run the configured optimization loop through CalibrationEngine.
@@ -142,15 +141,12 @@ class ModelCalibrationLauncher:
             Pre-built :class:`~hydromodpy.project.Project` instance.
             When *None* (default), one is created automatically from
             ``simulation_config_path`` in headless mode.
-        launcher_factory:
-            Legacy fallback.  Ignored when *project* is given.
         calibration_method:
             Override for the optimization method.
         """
         session = self.prepare()
 
-        # Preferred path: use Project (setup-once / run-many).
-        if project is None and launcher_factory is None:
+        if project is None:
             import hydromodpy.project as _project_mod
 
             project = _project_mod.Project(
@@ -168,7 +164,6 @@ class ModelCalibrationLauncher:
             session=session,
             cfg=self.cfg,
             project=project,
-            launcher_factory=launcher_factory,
             iteration_start=(
                 int(self.state.session_manifest.get("iteration_count", 0)) + 1
             ),
@@ -212,7 +207,6 @@ class ModelCalibrationLauncher:
                 cfg=self.cfg,
                 result=result,
                 project=project,
-                launcher_factory=launcher_factory,
             )
         model_distribution_rerun_summary = None
         if self.cfg.model_calibration.rerun_model_distribution_with_outputs:
@@ -221,7 +215,6 @@ class ModelCalibrationLauncher:
                 cfg=self.cfg,
                 distribution_payload=model_distribution_payload,
                 project=project,
-                launcher_factory=launcher_factory,
                 max_reruns=self.cfg.model_calibration.model_distribution_max_reruns,
                 selection=(
                     self.cfg.model_calibration.model_distribution_rerun_selection
