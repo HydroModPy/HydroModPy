@@ -309,8 +309,13 @@ class Project:
         ws = self._ctx.setup.workspace
         workspace_root = getattr(ws, "workspace_root", None) or ws.project_root
         self._store = SimulationCatalog(workspace_root)
-        self._store._current_project = ws.project_root.name
-        persist_geographic_to_store(self.geographic, self._store)
+        self._project_name = ws.project_root.name
+
+        # Persist geographic features/metadata once (project-scoped in DuckDB)
+        persist_geographic_to_store(
+            self.geographic, self._store,
+            project=self._project_name,
+        )
         cleanup_stable_folder(self.geographic)
 
         self._run_counter = 0
@@ -380,6 +385,9 @@ class Project:
         )
         from hydromodpy.simulation import SimulationPlanner
         from hydromodpy.simulation.results.post_run import post_run_results
+        from hydromodpy.spatial.geographic.store_ingestion import (
+            persist_geographic_to_store,
+        )
         from hydromodpy.results.config import (
             BudgetConfig,
             DerivedConfig,
@@ -415,11 +423,15 @@ class Project:
 
         # Register in catalog
         solvers = ",".join(r.solver for r in plan.runs)
-        ws = self._ctx.setup.workspace
-        project_name = ws.project_root.name
         self._store.register_simulation(
-            sim_id, project=project_name, solver=solvers,
+            sim_id, project=self._project_name, solver=solvers,
             name=name, run_id=name,
+        )
+
+        # Persist geographic rasters into this simulation's Zarr
+        persist_geographic_to_store(
+            self.geographic, self._store,
+            sim_id=sim_id,
         )
 
         # Execute
