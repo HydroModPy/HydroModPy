@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 import warnings
 from pathlib import Path
 from typing import Any
@@ -20,7 +19,6 @@ from hydromodpy.results.schema import (
     PROJECT_TABLE_NAMES,
     SIMULATIONS_COLUMNS,
     create_project_tables,
-    create_registry_table,
 )
 from hydromodpy.results.spatial_index import point_in_cell
 from hydromodpy.results.zarr_layout import (
@@ -30,9 +28,6 @@ from hydromodpy.results.zarr_layout import (
 )
 
 logger = logging.getLogger(__name__)
-
-_REGISTRY_RETRY = 3
-_REGISTRY_BACKOFF = 0.1  # seconds
 
 
 class ResultStore:
@@ -81,16 +76,6 @@ class ResultStore:
         self._zarr_root = zarr.open_group(self._zarr_store, mode="a")
 
         self._workspace_path = Path(workspace_path) if workspace_path else None
-        self._catalog_path = (
-            self._workspace_path / "catalog.duckdb"
-            if self._workspace_path
-            else None
-        )
-        if self._catalog_path is not None:
-            self._catalog_path.parent.mkdir(parents=True, exist_ok=True)
-            cat = duckdb.connect(str(self._catalog_path))
-            create_registry_table(cat)
-            cat.close()
 
     # -- Public accessors -------------------------------------------------------
 
@@ -431,111 +416,6 @@ class ResultStore:
             [status, duration_s, sid],
         )
 
-        if self._catalog_path is None:
-            return
-
-        row = self._db.execute(
-            "SELECT * FROM simulations WHERE sim_id = ?", [sid]
-        ).fetchone()
-        if row is None:
-            return
-
-        cols = [d[0] for d in self._db.description]
-        sim = dict(zip(cols, row))
-
-        best_nse = self._db.execute(
-            "SELECT MAX(value) FROM metrics WHERE sim_id = ? AND metric_name = 'nse'",
-            [sid],
-        ).fetchone()[0]
-        best_kge = self._db.execute(
-            "SELECT MAX(value) FROM metrics WHERE sim_id = ? AND metric_name = 'kge'",
-            [sid],
-        ).fetchone()[0]
-        best_rmse = self._db.execute(
-            "SELECT MIN(value) FROM metrics WHERE sim_id = ? AND metric_name = 'rmse'",
-            [sid],
-        ).fetchone()[0]
-        n_obs = self._db.execute(
-            "SELECT COUNT(DISTINCT station_id) FROM observation_points WHERE sim_id = ?",
-            [sid],
-        ).fetchone()[0]
-
-        forcing = self._db.execute(
-            "SELECT DISTINCT source_ref FROM input_provenance WHERE sim_id = ?",
-            [sid],
-        ).fetchall()
-        forcing_sources = [r[0] for r in forcing] if forcing else None
-
-        # Derive period from provenance if not provided
-        if period_start is None or period_end is None:
-            prov_dates = self._db.execute(
-                "SELECT MIN(period_start), MAX(period_end) FROM input_provenance WHERE sim_id = ?",
-                [sid],
-            ).fetchone()
-            if prov_dates[0] is not None and period_start is None:
-                period_start = prov_dates[0]
-            if prov_dates[1] is not None and period_end is None:
-                period_end = prov_dates[1]
-
-        config_hash = None
-        if sim.get("config_toml"):
-            import hashlib
-            config_hash = hashlib.sha256(
-                json.dumps(sim["config_toml"], sort_keys=True).encode()
-            ).hexdigest()
-
-        project_name = self._project_path.name
-        project_path = str(self._project_path / "project.duckdb")
-
-        self._write_to_registry({
-            "sim_id": sid,
-            "project": project_name,
-            "project_path": project_path,
-            "name": sim.get("name"),
-            "solver": sim.get("solver", "unknown"),
-            "process_types": process_types,
-            "status": status,
-            "n_cells": sim.get("n_cells"),
-            "n_layers": sim.get("n_layers"),
-            "cell_types": sim.get("cell_types"),
-            "bbox": sim.get("bbox"),
-            "crs": crs,
-            "n_timesteps": sim.get("n_timesteps"),
-            "period_start": period_start,
-            "period_end": period_end,
-            "time_unit": time_unit,
-            "duration_s": duration_s or sim.get("duration_s"),
-            "best_nse": best_nse,
-            "best_kge": best_kge,
-            "best_rmse": best_rmse,
-            "n_observation_points": n_obs,
-            "forcing_sources": forcing_sources,
-            "config_hash": config_hash,
-        })
-
-    def _write_to_registry(self, row: dict) -> None:
-        """Insert into simulation_registry with retry for concurrency."""
-        for attempt in range(_REGISTRY_RETRY):
-            try:
-                cat = duckdb.connect(str(self._catalog_path))
-                cat.execute(
-                    """INSERT OR REPLACE INTO simulation_registry
-                       (sim_id, project, project_path, name, solver,
-                        process_types, status, n_cells, n_layers, cell_types,
-                        bbox, crs, n_timesteps, period_start, period_end,
-                        time_unit, duration_s, best_nse, best_kge, best_rmse,
-                        n_observation_points, forcing_sources, config_hash)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                               ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    list(row.values()),
-                )
-                cat.close()
-                return
-            except duckdb.IOException:
-                if attempt < _REGISTRY_RETRY - 1:
-                    time.sleep(_REGISTRY_BACKOFF * (2 ** attempt))
-                else:
-                    raise
 
     # -- Read methods ----------------------------------------------------------
 
@@ -1025,19 +905,3 @@ class ResultStore:
                 del root[sid]
         except Exception:
             logger.warning("Could not delete Zarr group for %s", sid)
-
-        if self._catalog_path is not None:
-            for attempt in range(_REGISTRY_RETRY):
-                try:
-                    cat = duckdb.connect(str(self._catalog_path))
-                    cat.execute(
-                        "DELETE FROM simulation_registry WHERE sim_id = ?",
-                        [sid],
-                    )
-                    cat.close()
-                    return
-                except duckdb.IOException:
-                    if attempt < _REGISTRY_RETRY - 1:
-                        time.sleep(_REGISTRY_BACKOFF * (2 ** attempt))
-                    else:
-                        raise
