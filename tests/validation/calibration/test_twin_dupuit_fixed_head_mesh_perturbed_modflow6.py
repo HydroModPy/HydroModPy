@@ -48,7 +48,7 @@ def test_calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6_recovers_tru
         assert result.mean_candidate_total_time_seconds is not None
         assert result.mean_candidate_preparation_time_seconds is not None
         assert result.mean_candidate_simulation_time_seconds is not None
-        assert "K_global_factor" in result.param_abs_error
+        assert "K_global" in result.param_abs_error
         assert result.objective_trace_figure is not None
         assert result.objective_trace_figure.is_file()
         assert result.objective_landscape_figure is not None

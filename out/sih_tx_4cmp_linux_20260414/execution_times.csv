@@ -1,0 +1,5 @@
+solver,solver_label,wall_time_seconds,results_dir
+modflownwt,MODFLOW-NWT,96.63030871799992,/mnt/c/codes/HydroModPy-GH/out/sih_tx_4cmp_linux_20260414/validation/investigate_surfa_062b168c50/transient_modflownwt_a8f3828d
+modflow6,MODFLOW 6,109.34174952100011,/mnt/c/codes/HydroModPy-GH/out/sih_tx_4cmp_linux_20260414/validation/investigate_surfa_062b168c50/transient_modflow6_20d7cd0e
+modflow6_irregular_tri,MODFLOW 6 irregular triangles,73.62765274900039,/mnt/c/codes/HydroModPy-GH/out/sih_tx_4cmp_linux_20260414/validation/investigate_surfa_062b168c50/transient_modflow_30d11bbf32_8965c053
+boussinesq,Boussinesq,79.49465487399993,/mnt/c/codes/HydroModPy-GH/out/sih_tx_4cmp_linux_20260414/validation/investigate_surfa_062b168c50/hillslope_surface_baba065f89

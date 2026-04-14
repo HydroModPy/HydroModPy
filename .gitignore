@@ -187,6 +187,24 @@ reports*/
 timing_reports/
 _profile_launcher_*/
 _profiling_out/
+reporting/calibration_profiling_*_after_solver_reuse/
+reporting/**/_postprocess/_rasters/
+
+# Local generated validation outputs
+examples/projects/launcher_simulation/method_comparison/example12_extensive_mf6_vs_nwt/
+examples/projects/launcher_simulation/method_comparison/example12_fast_shared_mesh/
+examples/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_moderate/
+examples/projects/launcher_simulation/method_comparison/*_backends/
+out/**/validation/**/rch_*_modflownwt/
+out/**/validation/**/transient_modflownwt/
+out/**/validation/**/boussinesq_hillsl_*/mesh_bundle/
+out/**/figures/flux_budget_comparison.png
+out/**/figures/flux_timeseries.png
+out/**/figures/head_point_timeseries.png
+out/**/figures/head_snapshots.png
+out/**/figures/outflow_components.png
+out/**/head_point_timeseries.csv
+out/**/summary_metrics.csv
 
 # ──────────────────────────────────────────────
 # OS / misc

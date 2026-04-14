@@ -1,4 +1,4 @@
-"""Runtime for one transient Boussinesq hillslope case with sloping substratum."""
+"""Runtime for one transient Boussinesq hillslope case with a 10-degree substratum."""
 
 from __future__ import annotations
 
@@ -14,12 +14,14 @@ CASE_ID = "boussinesq_hillslope_sloping_substratum_1d"
 CASE_DIR = Path(__file__).resolve().parent
 NX = 40
 NY = 3
-LENGTH_X_M = 400.0
-WIDTH_Y_M = 30.0
+LENGTH_X_M = 100.0
+WIDTH_Y_M = 12.0
 TOPOGRAPHY_BASE_ELEVATION_M = 5.0
-TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M = 5.0
-BOTTOM_BASE_ELEVATION_M = -14.0
-BOTTOM_RIGHT_TO_LEFT_AMPLITUDE_M = 1.8
+TOPOGRAPHY_SLOPE_DEG = 12.0
+BOTTOM_SLOPE_DEG = 10.0
+TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M = float(np.tan(np.deg2rad(TOPOGRAPHY_SLOPE_DEG)) * LENGTH_X_M)
+BOTTOM_RIGHT_TO_LEFT_AMPLITUDE_M = float(np.tan(np.deg2rad(BOTTOM_SLOPE_DEG)) * LENGTH_X_M)
+BOTTOM_BASE_ELEVATION_M = -15.0
 HYDRAULIC_CONDUCTIVITY_M_S = 2.0e-5
 SPECIFIC_YIELD = 0.10
 INITIAL_HEAD_M = 5.25
@@ -136,7 +138,7 @@ def run_boussinesq_hillslope_sloping_substratum_case(
             },
         },
         plan_name="Transient hillslope with sloping substratum",
-        plan_description="Transient Boussinesq strip where the surface and substratum slopes are independent.",
+        plan_description="Transient Boussinesq strip with a 10-degree substratum and independent topographic slope.",
         flow_regime="transient",
         export_initial_state=False,
     )

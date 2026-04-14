@@ -1,0 +1,13 @@
+{
+  "bundle_schema_version": "mesh_catchment_bundle_v1",
+  "crs": "EPSG:2154",
+  "files": {
+    "mesh": "mesh_2d.msh",
+    "nodes": "nodes.csv",
+    "cells": "cells.csv",
+    "edges": "edges.csv",
+    "cell_geology_fractions": "cell_geology_fractions.csv",
+    "metadata": "metadata.json",
+    "mesh_summary": "mesh_summary.json"
+  }
+}
