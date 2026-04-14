@@ -1,7 +1,7 @@
 """Launcher-managed postprocessing runner.
 
 This module centralizes postprocess tasks run after flow/transport families.
-When a :class:`~hydromodpy.simulation.results.store.ResultStore` is provided,
+When a :class:`~hydromodpy.simulation.results.catalog.SimulationCatalog` is provided,
 catchment-aggregated timeseries are also written into the store so that
 display suites can consume them without reading the legacy CSV files.
 """
@@ -54,7 +54,7 @@ class PostprocessRunner:
     ----------
     config : PostprocessConfig, optional
         Controls which postprocess tasks are enabled.
-    store : ResultStore, optional
+    store : SimulationCatalog, optional
         When provided, catchment-aggregated timeseries produced by
         legacy postprocessors are replicated into the store.
     sim_id : str, optional
@@ -85,7 +85,7 @@ class PostprocessRunner:
             self._after_transport(state)
 
     def _write_timeseries_to_store(self, df: pd.DataFrame) -> None:
-        """Write catchment-aggregated timeseries into the ResultStore.
+        """Write catchment-aggregated timeseries into the SimulationCatalog.
 
         Each numeric column of *df* (except ``date``) is stored as a
         separate timeseries entry under station ``_CATCHMENT_STATION``.
