@@ -1,4 +1,4 @@
-"""Post-run hook that ingests solver outputs into the ResultStore.
+"""Post-run hook that ingests solver outputs into the SimulationCatalog.
 
 Called by ``SimulationRunner`` after each solver execution completes.
 Orchestrates the full results lifecycle: extract → derive → export →
@@ -60,7 +60,7 @@ def post_run_results(
     keep_solver_files: bool | None = None,
     run_id: str | None = None,
 ) -> None:
-    """Ingest solver outputs into the ResultStore after a run completes.
+    """Ingest solver outputs into the SimulationCatalog after a run completes.
 
     Parameters
     ----------
@@ -73,7 +73,7 @@ def post_run_results(
         in-memory solvers (GR4J).
     results_config : ResultsConfig
         The ``[simulation.results]`` config block.
-    store : ResultStore
+    store : SimulationCatalog
         The open result store.
     run_id : str, optional
         Human-readable run identifier used to name export subdirectories.

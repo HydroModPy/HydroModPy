@@ -1,1 +1,1 @@
-"""Output adapters: solver files → ResultStore."""
+"""Output adapters: solver files → SimulationCatalog."""
