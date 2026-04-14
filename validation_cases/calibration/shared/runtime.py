@@ -12,7 +12,6 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
 from hydromodpy.analysis.calibration.engine.launcher import ModelCalibrationLauncher
 from hydromodpy.analysis.calibration.engine.session import (
     actualize_candidate,
@@ -288,7 +287,7 @@ def synthesize_truth_observations(
     definition: TwinCalibrationCaseDefinition,
     truth_simulation_config_path: Path,
     benchmark_root: Path,
-    launcher_factory: Any = HydroModPyLauncher,
+    launcher_factory: Any = None,
 ) -> dict[str, dict[str, tuple[float, ...]]]:
     """Run the truth candidate once and extract the synthetic observations."""
     if definition.build_calibration_payload is None:
@@ -738,7 +737,7 @@ def run_twin_benchmark_case(
     definition: TwinCalibrationCaseDefinition,
     *,
     caller_file: str | Path,
-    launcher_factory: Any = HydroModPyLauncher,
+    launcher_factory: Any = None,
     method_names: tuple[str, ...] | None = None,
     evaluation_budget: int | None = None,
     artifact_retention: str | None = None,

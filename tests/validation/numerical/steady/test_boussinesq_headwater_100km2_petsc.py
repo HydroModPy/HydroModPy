@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
+from hydromodpy.project import Project
 
 
 def _require_linux_petsc4py() -> None:
@@ -108,8 +108,9 @@ def test_headwater_real_case_petsc_variants_converge_on_committed_mesh(
     monkeypatch.setenv("HYDROMODPY_NO_SAVE", "1")
     monkeypatch.setenv("MPLBACKEND", "Agg")
 
-    run_state = HydroModPyLauncher(config_path).run()
-    model = run_state.get_model_for_solver("boussinesq")
+    with Project(config_path) as project:
+        project.run()
+    model = project._ctx.get_model_for_solver("boussinesq")
     assert model is not None
     assert model.has_numerical_solution is True
 

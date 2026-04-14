@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
 from hydromodpy.analysis.calibration.engine.launcher import ModelCalibrationLauncher
 from hydromodpy.analysis.calibration.engine.session import (
     actualize_candidate,
@@ -247,7 +246,6 @@ def _extract_reference_flux(
     )
     outcome = execute_candidate_run(
         request=request,
-        launcher_factory=HydroModPyLauncher,
         cfg=None,
     )
     assert outcome.status == "solver_run_succeeded"
@@ -281,7 +279,6 @@ def _extract_reference_transient_outputs(
     )
     outcome = execute_candidate_run(
         request=request,
-        launcher_factory=HydroModPyLauncher,
         cfg=None,
     )
     assert outcome.status == "solver_run_succeeded"
@@ -384,7 +381,6 @@ def test_model_calibration_linearized_recharge_step_modflow6_runs_multiobservabl
             }
 
     summary = ModelCalibrationLauncher(calibration_path).calibrate(
-        launcher_factory=HydroModPyLauncher,
         calibration_method=_ExactVectorMethod(),
     )
 

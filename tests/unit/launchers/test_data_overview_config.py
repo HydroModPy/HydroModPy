@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.analysis.display.report.overview_config import DataOverviewConfig
+import tomllib
+
+from hydromodpy.core.config import HydroModPyConfig
 
 
-def test_data_overview_config_respects_project_root_env_override(
+def test_overview_config_respects_project_root_env_override(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -17,22 +19,27 @@ def test_data_overview_config_respects_project_root_env_override(
         str(redirected_project_root),
     )
 
-    cfg = DataOverviewConfig.from_toml(
-        {
-            "workspace": {
-                "project_root": ".",
-            },
-            "geographic": {
-                "catch_def": "from_outlet_coord",
-                "dem_init_path": "dem.tif",
-                "x_outlet": 1.0,
-                "y_outlet": 2.0,
-                "snap_dist": "150 m",
-                "buff_area": "20%",
-            },
-        },
-        base_dir=tmp_path,
-    )
+    toml_content = """\
+[workspace]
+project_root = "."
+
+[geographic]
+catch_def = "from_outlet_coord"
+dem_init_path = "dem.tif"
+x_outlet = 1.0
+y_outlet = 2.0
+snap_dist = "150 m"
+buff_area = "20%"
+
+[overview]
+name = "Test"
+"""
+    toml_path = tmp_path / "overview.toml"
+    toml_path.write_text(toml_content, encoding="utf-8")
+
+    cfg = HydroModPyConfig.from_toml(toml_path)
 
     assert cfg.workspace.project_root == redirected_project_root.resolve()
     assert cfg.geographic.dem_init_path == dem_path.resolve()
+    assert cfg.overview is not None
+    assert cfg.overview.name == "Test"
