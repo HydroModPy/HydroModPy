@@ -62,7 +62,7 @@ class GR4JOutputAdapter:
             store.write_timeseries(sim_id, station_id, "storage", storage, unit="mm")
         if extra:
             for name, series in extra.items():
-                store.write_timeseries(sim_id, station_id, name, series)
+                store.write_timeseries(sim_id, station_id, name, series, unit="")
 
         logger.info("GR4J results written for sim %s", sim_id)
 

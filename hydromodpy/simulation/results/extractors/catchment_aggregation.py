@@ -12,6 +12,17 @@ logger = logging.getLogger(__name__)
 
 _CATCHMENT_STATION = "_catchment"
 
+VARIABLE_UNITS: dict[str, str] = {
+    "watertable_depth": "m",
+    "watertable_elevation": "m",
+    "seepage_areas": "%",
+    "outflow_drain": "m3/d/cell",
+    "recharge_budget": "m/d",
+    "recharge_forcing": "m/d",
+    "accumulation_flux": "m3/d",
+    "well_pumping": "m3/d",
+}
+
 # (source_variable, output_variable, reducer)
 # source_variable is looked up in derived/ then budget/ then root.
 _AGGREGATION_SPEC: list[tuple[str, str, str]] = [
@@ -68,7 +79,8 @@ def aggregate_catchment_timeseries(
             continue
 
         ts = pd.Series(values, index=ts_index, name=output_var, dtype="float64")
-        store.write_timeseries(sim_id, _CATCHMENT_STATION, output_var, ts)
+        unit = VARIABLE_UNITS.get(output_var, "")
+        store.write_timeseries(sim_id, _CATCHMENT_STATION, output_var, ts, unit=unit)
         written += 1
 
     # Write recharge_forcing: the INPUT recharge rate (constant per stress period).
@@ -219,7 +231,10 @@ def _write_recharge_forcing(
 
     ts = pd.Series(period_values, index=pd.DatetimeIndex(period_dates),
                     name="recharge_forcing", dtype="float64")
-    store.write_timeseries(sim_id, _CATCHMENT_STATION, "recharge_forcing", ts)
+    store.write_timeseries(
+        sim_id, _CATCHMENT_STATION, "recharge_forcing", ts,
+        unit=VARIABLE_UNITS.get("recharge_forcing", ""),
+    )
 
 
 def _detect_n_timesteps(grp) -> int:

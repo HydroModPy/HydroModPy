@@ -108,6 +108,7 @@ class Modflow6OutputAdapter:
         cbb = bf.CellBudgetFile(str(cbc_path))
         record_names = [r.decode().strip() for r in cbb.get_unique_record_names()]
 
+        budget_records: list[dict] = []
         for t, (time, kstpkper) in enumerate(zip(times, kstpkpers)):
             for component in record_names:
                 try:
@@ -126,10 +127,14 @@ class Modflow6OutputAdapter:
                     else:
                         flux_in = 0.0
                         flux_out = 0.0
-                    store.write_budget(
-                        sim_id, t, 0, component.lower().strip(),
-                        flux_in, abs(flux_out),
-                    )
+                    budget_records.append({
+                        "timestep": t,
+                        "zone_id": "0",
+                        "component": component.lower().strip(),
+                        "flux_in": flux_in,
+                        "flux_out": abs(flux_out),
+                        "unit": "m3/d",
+                    })
                     if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
                         store.write_field(
                             sim_id, component.lower().strip(), t,
@@ -140,6 +145,8 @@ class Modflow6OutputAdapter:
                 except Exception:
                     logger.debug("Could not read MF6 budget '%s' at t=%d", component, t)
 
+        if budget_records:
+            store.write_budgets(sim_id, budget_records)
         cbb.close()
 
     @staticmethod
@@ -191,6 +198,7 @@ class Modflow6OutputAdapter:
             inc, cum = mf6_list.get_budget()
             if inc is not None:
                 names = inc.dtype.names
+                records = []
                 for t in range(len(inc)):
                     total_in = float(inc[t]["TOTAL_IN"]) if "TOTAL_IN" in names else 0.0
                     total_out = float(inc[t]["TOTAL_OUT"]) if "TOTAL_OUT" in names else 0.0
@@ -199,9 +207,17 @@ class Modflow6OutputAdapter:
                         if "PERCENT_DISCREPANCY" in names
                         else 0.0
                     )
-                    store.write_mass_balance(sim_id, t, total_in, total_out, pct_err)
+                    records.append({
+                        "timestep": t,
+                        "total_in": total_in,
+                        "total_out": total_out,
+                        "storage_in": 0.0,
+                        "storage_out": 0.0,
+                        "percent_error": pct_err,
+                    })
+                store.write_mass_balances(sim_id, records)
         except Exception:
-            logger.debug("Could not parse MF6 listing file %s", lst_path)
+            logger.warning("Could not parse MF6 listing file %s", lst_path)
 
     def _write_surface_elevation(
         self,

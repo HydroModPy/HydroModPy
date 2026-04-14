@@ -110,6 +110,7 @@ class ModflowNwtOutputAdapter:
         record_names = [r.decode().strip() for r in cbb.get_unique_record_names()]
 
         n_cells = nrow * ncol
+        budget_records: list[dict] = []
         for t, (time, kstpkper) in enumerate(zip(times, kstpkpers)):
             for component in record_names:
                 try:
@@ -129,10 +130,14 @@ class ModflowNwtOutputAdapter:
                     else:
                         flux_in = 0.0
                         flux_out = 0.0
-                    store.write_budget(
-                        sim_id, t, 0, component.lower().strip(),
-                        flux_in, abs(flux_out),
-                    )
+                    budget_records.append({
+                        "timestep": t,
+                        "zone_id": "0",
+                        "component": component.lower().strip(),
+                        "flux_in": flux_in,
+                        "flux_out": abs(flux_out),
+                        "unit": "m3/d",
+                    })
                     if spatial_fields and arr.ndim >= 2:
                         field = arr.reshape(nlay, n_cells) if arr.ndim == 3 else arr.reshape(1, n_cells)
                         store.write_field(
@@ -143,6 +148,8 @@ class ModflowNwtOutputAdapter:
                 except Exception:
                     logger.debug("Could not read budget component '%s' at t=%d", component, t)
 
+        if budget_records:
+            store.write_budgets(sim_id, budget_records)
         cbb.close()
 
     def _extract_mass_balance(
@@ -157,13 +164,22 @@ class ModflowNwtOutputAdapter:
             mf_list = MfListBudget(str(lst_path))
             inc, cum = mf_list.get_budget_from_list()
             if inc is not None:
+                records = []
                 for t in range(len(inc)):
                     total_in = float(inc[t]["IN-OUT"])
                     total_out = 0.0
                     pct_err = float(inc[t]["PERCENT_DISCREPANCY"]) if "PERCENT_DISCREPANCY" in inc.dtype.names else 0.0
-                    store.write_mass_balance(sim_id, t, total_in, total_out, pct_err)
+                    records.append({
+                        "timestep": t,
+                        "total_in": total_in,
+                        "total_out": total_out,
+                        "storage_in": 0.0,
+                        "storage_out": 0.0,
+                        "percent_error": pct_err,
+                    })
+                store.write_mass_balances(sim_id, records)
         except Exception:
-            logger.debug("Could not parse listing file %s", lst_path)
+            logger.warning("Could not parse listing file %s", lst_path)
 
     def _write_surface_elevation(
         self,
