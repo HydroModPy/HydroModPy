@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
+from tools.doc_gallery.gallery_manifest import GalleryCaseSpec
 from tools.doc_gallery.gallery_manifest import build_gallery_specs
-from tools.doc_gallery.update_gallery import _build_case_page
+from tools.doc_gallery.update_gallery import _build_case_page, _generate_validation_case
 from tools.doc_gallery.validation_case_registry import build_validation_case_records
 
 
@@ -126,3 +129,74 @@ def test_build_case_page_renders_solver_tabs_when_multiple_variants_exist() -> N
     assert ".. tab-item:: MODFLOW-NWT" in page
     assert ".. tab-item:: Boussinesq" in page
     assert "Config file: ``validation_cases/synthetic/config_modflownwt.toml``" in page
+
+
+def test_generate_validation_case_skips_missing_solver_figures(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    def comparison_function(*, caller_file, timeout, solver):
+        return SimpleNamespace(
+            solver=solver,
+            observable_name="head",
+            metadata={"solver": solver},
+            tolerances={"rmse": 0.1},
+        )
+
+    def plotting_function(comparison, *, output_png, show_plot):
+        if comparison.solver == "modflownwt":
+            output_png.parent.mkdir(parents=True, exist_ok=True)
+            output_png.write_bytes(b"fake-png")
+
+    def metric_builder(comparison):
+        return [f"Solver: {comparison.solver}"]
+
+    fake_module = SimpleNamespace(
+        comparison_function=comparison_function,
+        plotting_function=plotting_function,
+        metric_builder=metric_builder,
+    )
+    monkeypatch.setattr(
+        "tools.doc_gallery.update_gallery.importlib.import_module",
+        lambda name: fake_module,
+    )
+
+    spec = GalleryCaseSpec(
+        slug="synthetic_validation_case",
+        title="Synthetic Validation Case",
+        category="validation",
+        deck="Synthetic deck.",
+        summary="Synthetic summary.",
+        what_it_shows=("One synthetic purpose bullet.",),
+        reproduction_command="python -m validation_cases.synthetic.run_case --no-show",
+        source_paths=("README.md",),
+        generator="validation_case",
+        image_assets=(),
+        metadata={
+            "run_case_module": "validation_cases.synthetic.run_case",
+            "comparison_function_name": "comparison_function",
+            "plotting_function_name": "plotting_function",
+            "metric_builder_name": "metric_builder",
+            "run_case_file": "README.md",
+            "case_dir": "validation_cases/synthetic",
+            "solver_variants": ("modflownwt", "boussinesq"),
+            "default_solver": "modflownwt",
+            "solver_details": {
+                "modflownwt": {"display_name": "MODFLOW-NWT"},
+                "boussinesq": {"display_name": "Boussinesq"},
+            },
+        },
+    )
+
+    summary = _generate_validation_case(spec, tmp_path)
+
+    solver_runs = {run["solver"]: run for run in summary["solver_runs"]}
+    assert solver_runs["modflownwt"]["image"] is not None
+    assert solver_runs["boussinesq"]["image"] is None
+    assert summary["artifacts"]["image_repo_paths"] == [
+        "docs/readthedocs/source/_static/capability_gallery/validation/synthetic_validation_case__modflownwt.png"
+    ]
+
+    page = _build_case_page(summary)
+    assert "synthetic_validation_case__modflownwt.png" in page
+    assert "synthetic_validation_case__boussinesq.png" not in page

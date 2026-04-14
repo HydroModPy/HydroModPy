@@ -1,0 +1,3 @@
+solver,solver_label,wall_time_seconds,results_dir
+modflow6_irregular_tri,MODFLOW 6 irregular triangles,10.35930249991361,C:\codes\HydroModPy-GH\out\sih_sloping_substratum_10deg_20260413\validation\investigate_slopi_62f9eb2d8a\sloping_substratu_de581b6b00_d669e5ae
+boussinesq,Boussinesq,5.720620199921541,C:\codes\HydroModPy-GH\out\sih_sloping_substratum_10deg_20260413\validation\investigate_slopi_62f9eb2d8a\sloping_substratu_db8131e9e1_cadd1d11

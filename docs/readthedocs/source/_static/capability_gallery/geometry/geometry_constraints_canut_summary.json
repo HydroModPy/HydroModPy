@@ -34,7 +34,7 @@
     "examples/data/masks/canut.shp": "31931653587ad6b644b86e43138ce9a648ed98c4787cddf8262bf2cec42f2efd",
     "examples/data/hydrography/regional_stream_network.shp": "7ea4ba0714d8674a55070527ca9236052c1832036c8303b4afc40e5f7ce184e9",
     "examples/data/geology/GEO1M_brittany.shp": "cc219d3a2fd0c768aec9c4ea9e7f51cdefe5e1f386c4e9503513cf1dc97eff4a",
-    "tools/doc_gallery/update_gallery.py": "9ef702be969f8111afce1b11ff3e1d744e5815bade329800c191208a35b8fe51"
+    "tools/doc_gallery/update_gallery.py": "5d86e3a2dd48619ccbffba51095f2f8dc46f54acb0b9e28377e8e35c216be6fd"
   },
   "docname": "cases/geometry_constraints_canut",
   "images": [

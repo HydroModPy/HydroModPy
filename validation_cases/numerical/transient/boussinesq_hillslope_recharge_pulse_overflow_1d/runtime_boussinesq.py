@@ -31,6 +31,46 @@ from validation_cases.shared.runtime import (
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "boussinesq_hillslope_recharge_pulse_overflow_1d"
 DEFAULT_SOLVER = "petsc_partition"
+WINDOWS_SURFACE_CONTEXT_PRESET = "windows_surface_transient"
+
+_WINDOWS_SURFACE_CONTEXT_OVERRIDES: dict[str, object] = {
+    "geometry": {
+        "nx": 40,
+        "ny": 3,
+        "length_x_m": 400.0,
+        "width_y_m": 30.0,
+        "bottom_elevation_m": -15.0,
+        "toe_elevation_m": 5.0,
+        "topography_slope_m_per_m": 5.0 / 400.0,
+        "east_head_m": 5.0625,
+        "initial_head_m": 5.0625,
+        "hydraulic_conductivity_m_per_s": 2.0e-5,
+        "storage_coefficient": 0.10,
+        "drainage_conductance_m2_s": 1.0e-4,
+    },
+    "time": {
+        "dt_days": 15.0,
+    },
+    "forcing": {
+        "first_clim": "first",
+        "recharge_mm_day": [
+            0.6, 0.6,
+            1.8, 1.8,
+            3.0, 3.0,
+            4.2, 4.2,
+            5.4, 5.4,
+            7.2, 7.2,
+            6.0, 6.0,
+            4.8, 4.8,
+            3.6, 3.6,
+            2.4, 2.4,
+            1.2, 1.2,
+            0.6, 0.6,
+            0.0, 0.0,
+            0.0, 0.0,
+        ],
+    },
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +132,7 @@ def _resolve_case_settings(
     metadata: dict[str, object],
     *,
     variant: SolverVariant,
+    context_preset: str | None,
     forcing_preset: str | None,
     forcing_scale: float,
     east_head_m: float | None,
@@ -103,6 +144,21 @@ def _resolve_case_settings(
     geometry_cfg = dict(metadata.get("geometry", {}))
     time_cfg = dict(metadata.get("time", {}))
     forcing_cfg = dict(metadata.get("forcing", {}))
+    context_name = str(context_preset or "").strip().lower()
+
+    if context_name:
+        if context_name != WINDOWS_SURFACE_CONTEXT_PRESET:
+            raise ValueError(
+                "Unsupported context preset "
+                f"'{context_preset}'. Supported values: {WINDOWS_SURFACE_CONTEXT_PRESET}."
+            )
+        geometry_cfg.update(
+            dict(_WINDOWS_SURFACE_CONTEXT_OVERRIDES.get("geometry", {}))
+        )
+        time_cfg.update(dict(_WINDOWS_SURFACE_CONTEXT_OVERRIDES.get("time", {})))
+        forcing_cfg.update(
+            dict(_WINDOWS_SURFACE_CONTEXT_OVERRIDES.get("forcing", {}))
+        )
 
     preset_name = str(forcing_preset or "").strip().lower()
     if preset_name not in {"", "default", "baseline"}:
@@ -171,6 +227,7 @@ def run_boussinesq_hillslope_overflow_case(
     caller_file: str | Path,
     timeout: int = 1800,
     solver: str | None = None,
+    context_preset: str | None = None,
     forcing_preset: str | None = None,
     forcing_scale: float = 1.0,
     east_head_m: float | None = None,
@@ -193,6 +250,7 @@ def run_boussinesq_hillslope_overflow_case(
     ) = _resolve_case_settings(
         metadata,
         variant=variant,
+        context_preset=context_preset,
         forcing_preset=forcing_preset,
         forcing_scale=float(forcing_scale),
         east_head_m=east_head_m,
@@ -249,6 +307,16 @@ def run_boussinesq_hillslope_overflow_case(
         },
         "surface_interaction_model": str(variant.surface_interaction_model),
     }
+    drainage_conductance_m2_s = geometry_cfg.get("drainage_conductance_m2_s", None)
+    if drainage_conductance_m2_s is not None and float(drainage_conductance_m2_s) > 0.0:
+        flow_section["active_bc"] = ["east_side", "drainage"]
+        flow_section["bc"]["cauchy"] = {
+            "drainage": {
+                "application_domain": "top",
+                "type": "cauchy",
+                "value": float(drainage_conductance_m2_s),
+            }
+        }
     if variant.runtime_backend is not None:
         flow_section["runtime_backend"] = str(variant.runtime_backend)
     if resolved_runtime_max_iterations is not None:
@@ -315,6 +383,7 @@ __all__ = [
     "CASE_ID",
     "DEFAULT_SOLVER",
     "SolverVariant",
+    "WINDOWS_SURFACE_CONTEXT_PRESET",
     "_resolve_case_settings",
     "resolve_solver_variant",
     "run_boussinesq_hillslope_overflow_case",

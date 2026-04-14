@@ -1532,6 +1532,13 @@ def _sanitize_candidate_label(label: str) -> str:
     return re.sub(r"[^a-z0-9_.-]+", "_", text)
 
 
+def _runtime_solver_model_name(session: PreparedCalibrationSession) -> str:
+    """Return one compact stable model name for reusable calibration candidates."""
+    base = _sanitize_candidate_label(session.calibration_id)
+    digest = hashlib.sha1(base.encode("utf-8")).hexdigest()[:6]
+    return f"{base[:24]}_rt_{digest}"
+
+
 def validate_objective_ready_for_calibration(
     cfg: ModelCalibrationConfig,
 ) -> None:
@@ -3383,12 +3390,25 @@ def execute_candidate_run(
             runtime_patch_seconds = float(time.perf_counter() - runtime_patch_start)
         setup_state = getattr(getattr(launcher, "run_state", None), "setup", None)
         if setup_state is not None:
+            lean_calibration_candidate = bool(
+                runtime_reusable and "postprocess" in request.override_payload
+            )
             flow_runtime_overrides: dict[str, Any] = {
                 "source": "model_calibration",
                 "candidate_run_id": request.candidate_run_id,
                 "iteration_id": request.iteration_id,
                 "skip_solver_postprocess": bool("postprocess" in request.override_payload),
             }
+            if lean_calibration_candidate:
+                flow_runtime_overrides.update(
+                    {
+                        "reuse_solver_model": True,
+                        "model_name_override": _runtime_solver_model_name(
+                            request.session
+                        ),
+                        "skip_pre_run_pickle": True,
+                    }
+                )
             if request.property_array_set is not None:
                 flow_runtime_overrides["properties"] = {
                     property_name: np.asarray(array.values, dtype=float).copy()

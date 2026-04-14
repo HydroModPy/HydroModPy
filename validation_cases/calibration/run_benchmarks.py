@@ -180,6 +180,11 @@ def _materialize_suite_rows(benchmarks) -> list[dict[str, object]]:
                     result.model_distribution_sample_count
                 ),
                 "benchmark_root": str(benchmark.benchmark_root),
+                "regular_objective_grid_path": (
+                    None
+                    if benchmark.regular_objective_grid_path is None
+                    else str(benchmark.regular_objective_grid_path)
+                ),
                 "calibration_root": str(result.calibration_root),
                 "objective_trace_figure": (
                     None
