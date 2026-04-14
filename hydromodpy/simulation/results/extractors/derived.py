@@ -52,7 +52,7 @@ def compute_derived(
     ----------
     sim_id : str
         Simulation UUID.
-    store : ResultStore
+    store : SimulationCatalog
         Store containing the raw head field.
     config : dict
         Toggles per variable, e.g. ``{"watertable_depth": True}``.
