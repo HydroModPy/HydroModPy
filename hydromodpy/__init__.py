@@ -279,6 +279,8 @@ _LAZY_IMPORTS = {
     # project API
     "Project": "hydromodpy.project",
     "SimulationResult": "hydromodpy.project",
+    # catalog API
+    "SimulationCatalog": "hydromodpy.results.catalog",
 }
 
 
@@ -295,11 +297,18 @@ def __getattr__(name):
     raise AttributeError(f"module 'hydromodpy' has no attribute {name!r}")
 
 
+def open(workspace_path):
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    return SimulationCatalog(workspace_path)
+
+
 __all__ = [
     "analysis",
     "core",
     "data",
     "log_manager",
+    "open",
     "process",
     "simulation",
     "solver",
