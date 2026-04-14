@@ -3312,6 +3312,62 @@ def execute_best_candidate_rerun(
     )
 
 
+def persist_to_catalog(
+    session: PreparedCalibrationSession,
+    catalog: Any,
+    *,
+    best_sim_id: str | None = None,
+) -> None:
+    """Write calibration session + iterations into the SimulationCatalog in bulk.
+
+    Call once after calibration completes. Reads the session manifest
+    and iteration history from disk, then bulk-inserts into
+    ``calibration_sessions`` and ``calibration_iterations``.
+    """
+    from uuid import uuid4
+
+    manifest_path = session.session_manifest_path
+    if not manifest_path.is_file():
+        return
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    session_id = str(uuid4())
+    method = manifest.get("method", "unknown")
+    n_iterations = int(manifest.get("iteration_count", 0))
+    best_objective = manifest.get("cost_best")
+    duration_s = manifest.get("wall_seconds")
+    config_json = json.dumps(manifest.get("core_settings")) if manifest.get("core_settings") else None
+
+    catalog.connection.execute(
+        """INSERT INTO calibration_sessions
+           (session_id, best_sim_id, method, n_iterations,
+            best_objective, duration_s, config)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        [session_id, best_sim_id, method, n_iterations,
+         best_objective, duration_s, config_json],
+    )
+
+    history_path = session.iteration_history_path
+    if history_path.is_file():
+        lines = history_path.read_text(encoding="utf-8").strip().splitlines()
+        for i, line in enumerate(lines):
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            params_json = json.dumps(record.get("params") or record.get("parameters"))
+            objective = record.get("cost") or record.get("objective_value")
+            metrics_json = json.dumps(record.get("metrics")) if record.get("metrics") else None
+            iter_duration = record.get("duration_s")
+
+            catalog.connection.execute(
+                """INSERT INTO calibration_iterations
+                   (session_id, iteration, parameters, objective_value,
+                    metrics, duration_s)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                [session_id, i, params_json, objective, metrics_json, iter_duration],
+            )
+
+
 __all__ = (
     "actualize_candidate",
     "build_model_distribution_payload",
@@ -3329,6 +3385,7 @@ __all__ = (
     "ModelCalibrationObjectiveEvaluator",
     "persist_iteration_record",
     "persist_model_distribution",
+    "persist_to_catalog",
     "prepare_calibration_session",
     "resolve_workspace_config",
     "serialize_calibration_result",
