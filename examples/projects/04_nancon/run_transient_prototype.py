@@ -27,11 +27,9 @@ HK = 5e-5       # m/s
 SS = 1e-5        # 1/m
 THICKNESS = 30   # m
 
-# Project setup (loads geographic, domain and data once)
 project = hmp.Project(Path(__file__).parent / "project.toml")
 print(f"Catchment area: {project.geographic.catch_area:.1f} km2")
 
-# Run loop
 results = {}
 for i, sy in enumerate(SY_VALUES):
     name = f"nancon_sy_{sy:.4f}"
@@ -47,10 +45,12 @@ print(f"\n{len(results)}/{len(SY_VALUES)} runs converged.")
 if not results:
     sys.exit(1)
 
-# Read DEM and build grid metadata
-store = project.store
-dem_data = store.read_geographic_raster("watershed_dem").astype(float)
-dem_meta = store.read_geographic_raster_metadata("watershed_dem")
+# Read DEM from the first simulation's Zarr geographic group
+first_result = next(iter(results.values()))
+catalog = project.store
+sz = catalog.open_zarr(first_result.sim_id)
+dem_data, dem_meta = sz.read_geographic_raster("watershed_dem")
+dem_data = dem_data.astype(float)
 dem_data[dem_data < 0] = np.nan
 
 cell_size = abs(float(dem_meta["transform"][0]))
@@ -68,7 +68,6 @@ fig_dir.mkdir(parents=True, exist_ok=True)
 
 
 def drainage_density(r, n):
-    """Saturated cell fraction (%) per stress period."""
     d = np.zeros(n)
     for t in range(n):
         seepage = r.field("seepage_areas", t).reshape(grid_shape)
@@ -77,7 +76,6 @@ def drainage_density(r, n):
 
 
 def load_accflux(r, n):
-    """Routed accumulation flux per stress period."""
     return {t: r.field("accumulation_flux", t).reshape(grid_shape) for t in range(n)}
 
 
@@ -85,7 +83,7 @@ all_density = {sy: drainage_density(r, nper) for sy, r in results.items()}
 all_accflux = {sy: load_accflux(r, nper) for sy, r in results.items()}
 
 
-# 1. Cross-sections (centre row, min/max saturation timesteps)
+# 1. Cross-sections
 
 fig, axes = plt.subplots(len(results), 1, figsize=(7, 3.5 * len(results)), dpi=200)
 if len(results) == 1:
@@ -127,7 +125,7 @@ plt.close(fig)
 print("[plot] cross_section_comparison.png")
 
 
-# 2. Streamflow (simulated drain + optional runoff vs observed)
+# 2. Streamflow
 
 data_root = Path(__file__).parent.parent.parent / "data"
 
@@ -145,8 +143,8 @@ if qobs_candidates:
         qobs_candidates[0], index_col=0, parse_dates=True,
     ).squeeze()
     area_m2 = project.geographic.catch_area * 1e6
-    Qobs = Qobs_raw / area_m2 * 86400          # m3/s -> mm/d
-    Qobs = Qobs.resample("ME").sum() * 1000     # -> mm/month
+    Qobs = Qobs_raw / area_m2 * 86400
+    Qobs = Qobs.resample("ME").sum() * 1000
     Qobs = Qobs[(Qobs.index.year >= 2000) & (Qobs.index.year <= 2002)]
 
 all_qmod = {}
@@ -212,7 +210,7 @@ plt.close(fig)
 print("[plot] streamflow_comparison.png")
 
 
-# 3. Drainage density (total vs perennial)
+# 3. Drainage density
 
 fig, axes = plt.subplots(len(results), 1, figsize=(8, 3 * len(results)), dpi=200)
 if len(results) == 1:
@@ -255,12 +253,12 @@ plt.close(fig)
 print("[plot] drainage_density_comparison.png")
 
 
-# 4. Saturation maps (min/max drainage density timesteps)
+# 4. Saturation maps
 
 contour = None
 try:
-    contour = store.read_geographic_raster("watershed_contour")
-    contour = np.ma.masked_where(contour <= 0, contour)
+    contour_data, _ = sz.read_geographic_raster("watershed_contour")
+    contour = np.ma.masked_where(contour_data <= 0, contour_data)
 except KeyError:
     pass
 
