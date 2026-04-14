@@ -40,7 +40,7 @@ from hydromodpy.spatial.geographic.structure_binders import (
 from hydromodpy.process.flow import Flow
 from hydromodpy.process.flow.structure_binders import apply_recharge_load_result_to_flow
 from hydromodpy.process.transport import Transport
-from hydromodpy.core.state.run_state import LauncherRunState
+from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.solver.modflow_nwt import (
     Modflow,
     ModflowPostprocessOptions,
@@ -84,7 +84,7 @@ data_plan = DataManagersPlanner().build(
 )
 cfg.data = cfg.data.with_resolved_types(data_plan.types)
 
-run_state = LauncherRunState(
+run_state = WorkflowContext(
     cfg=cfg,
     config_path=config_path.resolve(),
     raw_toml=raw_toml,
