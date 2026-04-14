@@ -129,7 +129,8 @@ def _aggregate_variable(
 def _resolve_time_index(store: Any, sim_id: str, n_timesteps: int) -> pd.DatetimeIndex:
     """Build a DatetimeIndex from simulation metadata or synthetic."""
     try:
-        row = store._db.execute(
+        conn = getattr(store, "connection", None) or store._db
+        row = conn.execute(
             "SELECT period_start, period_end, time_unit FROM simulations WHERE sim_id = ?",
             [str(sim_id)],
         ).fetchone()
