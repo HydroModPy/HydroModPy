@@ -148,6 +148,21 @@ def _gp_mapping_profile(*, seed: int = 13) -> CalibrationMethodProfile:
     )
 
 
+def _cma_es_profile(*, seed: int = 13) -> CalibrationMethodProfile:
+    """Return one compact CMA-ES profile for transient K+Sy recovery."""
+    return CalibrationMethodProfile(
+        name="cma_es",
+        method_kwargs={
+            "sigma0": 0.22,
+            "popsize": 10,
+            "max_evaluations": 40,
+            "seed": int(seed),
+            "normalize": True,
+        },
+        persist_model_distribution=False,
+    )
+
+
 def _da_mh_gp_profile(*, seed: int = 13) -> CalibrationMethodProfile:
     """Return one compact delayed-acceptance GP-MH profile for transient K+Sy."""
     return CalibrationMethodProfile(
@@ -194,6 +209,7 @@ TRANSIENT_RECHARGE_STEP_TWIN_CASE = TwinCalibrationCaseDefinition(
             method_kwargs={"n_samples": 16, "seed": 11},
             persist_model_distribution=True,
         ),
+        _cma_es_profile(seed=13),
         CalibrationMethodProfile(
             name="simplex",
             method_kwargs={"max_iter": 12, "xtol": 1.0e-6, "ftol": 1.0e-6},
@@ -203,7 +219,9 @@ TRANSIENT_RECHARGE_STEP_TWIN_CASE = TwinCalibrationCaseDefinition(
         _da_mh_gp_profile(seed=13),
     ),
     fast=False,
-    regular_objective_grid_n_per_dim=17,
+    reference_objective_sample_count=169,
+    reference_objective_sampling="sobol",
+    reference_objective_seed=13,
     build_simulation_config=build_simulation_config,
     build_calibration_payload=build_calibration_payload,
 )
@@ -235,6 +253,7 @@ TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
             persist_model_distribution=True,
             repeat_seeds=(11, 23, 37),
         ),
+        _cma_es_profile(seed=13),
         CalibrationMethodProfile(
             name="simplex",
             method_kwargs={"max_iter": 12, "xtol": 1.0e-6, "ftol": 1.0e-6},
@@ -243,7 +262,9 @@ TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
         _gp_mapping_profile(seed=13),
     ),
     fast=False,
-    regular_objective_grid_n_per_dim=17,
+    reference_objective_sample_count=169,
+    reference_objective_sampling="sobol",
+    reference_objective_seed=17,
     observation_noise=ObservationNoiseSpec(
         absolute_sigma_by_output={"head_mid": 0.005},
         relative_sigma_by_output={"q_east": 0.02},

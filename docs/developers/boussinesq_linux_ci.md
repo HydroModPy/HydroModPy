@@ -131,6 +131,19 @@ Generated outputs:
 /mnt/c/codes/HydroModPy-GH/out/sih_tx_4cmp_linux_20260414
 ```
 
+Linux benchmark comparing `MODFLOW-NWT` with the three Boussinesq variants on
+one common `4 months up / 4 months down / 6 months dry` forcing:
+
+```powershell
+wsl.exe /home/dreuzy/miniforge3/bin/conda run -n hydromodpy-petsc python -m tools.investigate_linux_nwt_boussinesq_transient --output-root /mnt/c/codes/HydroModPy-GH/out/linux_nwt_bouss_4m4m6m_20260414
+```
+
+Generated outputs:
+
+```text
+/mnt/c/codes/HydroModPy-GH/out/linux_nwt_bouss_4m4m6m_20260414
+```
+
 ## Real 100 km2 Case
 
 The steady headwater 100 km2 PETSc replay remains a diagnostic/manual run, not

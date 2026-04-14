@@ -35,6 +35,9 @@ def test_build_calibration_case_records_discovers_curated_benchmarks() -> None:
     assert "da_mh_gp" in records[
         "calibration_twin_linearized_recharge_step_modflow6"
     ].metadata["method_names"]
+    assert "cma_es" in records[
+        "calibration_twin_dupuit_fixed_head_modflow6"
+    ].metadata["method_names"]
     assert records[
         "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6"
     ].metadata["output_names"] == [

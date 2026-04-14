@@ -60,7 +60,9 @@ class TwinCalibrationCaseDefinition:
     perturbation_description: str | None = None
     artifact_retention: str = "minimal"
     generate_case_figures: bool = True
-    regular_objective_grid_n_per_dim: int | None = None
+    reference_objective_sample_count: int | None = None
+    reference_objective_sampling: str = "sobol"
+    reference_objective_seed: int = 91
     build_simulation_config: Callable[[Path, Path], None] | None = None
     build_truth_simulation_config: Callable[[Path, Path], None] | None = None
     build_calibration_payload: (
@@ -250,7 +252,7 @@ class TwinCalibrationBenchmarkResult:
     summary_path: Path
     artifact_retention: str = "minimal"
     configuration_figure: Path | None = None
-    regular_objective_grid_path: Path | None = None
+    reference_objective_path: Path | None = None
     pruned_artifacts: tuple[str, ...] = ()
 
     def to_mapping(self) -> dict[str, Any]:
@@ -271,10 +273,10 @@ class TwinCalibrationBenchmarkResult:
                 if self.configuration_figure is None
                 else str(self.configuration_figure)
             ),
-            "regular_objective_grid_path": (
+            "reference_objective_path": (
                 None
-                if self.regular_objective_grid_path is None
-                else str(self.regular_objective_grid_path)
+                if self.reference_objective_path is None
+                else str(self.reference_objective_path)
             ),
             "pruned_artifacts": [str(item) for item in self.pruned_artifacts],
             "truth_params": {

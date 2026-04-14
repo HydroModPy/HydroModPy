@@ -64,7 +64,7 @@ Linked Cases
 
       **Calibration Twin: Dupuit Fixed-Head 1D**
       ^^^
-      Steady modflow6 twin calibration benchmark with K_global_factor.
+      Steady modflow6 twin calibration benchmark with K_global.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -73,7 +73,7 @@ Linked Cases
 
       **Calibration Twin: Dupuit Posterior 1D**
       ^^^
-      Steady modflow6 twin calibration benchmark with K_global_factor.
+      Steady modflow6 twin calibration benchmark with K_global.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -82,7 +82,7 @@ Linked Cases
 
       **Calibration Twin: Recharge-Step K+Sy 1D**
       ^^^
-      Transient modflow6 twin calibration benchmark with K_global_factor, Sy_global.
+      Transient modflow6 twin calibration benchmark with K_global, Sy_global.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -120,210 +120,210 @@ Method Rows
      - 1
      - 0
      - 11
-     - 3.255 s
-     - 2.923 s
-     - 0.3312 s
-     - 0.008965 s
-     - 0.08774 s
-     - 6.075e-05 s
-     - 0.1702 s
-     - 0.007448 s
-     - 0.0002104 s
+     - 5.122 s
+     - 4.603 s
+     - 0.5192 s
+     - 0.01195 s
+     - 0.1148 s
+     - 0.0001827 s
+     - 0.2813 s
+     - 0.02143 s
+     - 0.0005964 s
    * - :doc:`Calibration Twin: Dupuit Fixed-Head 1D <cases/calibration_twin_dupuit_fixed_head_modflow6>`
      - random_search
      - best_fit
      - 1
-     - 1.53036e+06
+     - 1.83963e+07
      - 24
-     - 5.673 s
-     - 4.941 s
-     - 0.7316 s
-     - 0.008167 s
-     - 0.04207 s
-     - 6.43e-05 s
-     - 0.1554 s
-     - 0.008054 s
-     - 0.0002168 s
+     - 10.83 s
+     - 9.543 s
+     - 1.289 s
+     - 0.01286 s
+     - 0.05365 s
+     - 0.0001676 s
+     - 0.3123 s
+     - 0.0307 s
+     - 0.0006066 s
    * - :doc:`Calibration Twin: Dupuit Fixed-Head 1D <cases/calibration_twin_dupuit_fixed_head_modflow6>`
      - simplex
      - best_fit
      - 1
      - 0
-     - 53
-     - 11.15 s
-     - 9.7 s
-     - 1.447 s
-     - 0.008256 s
-     - 0.01798 s
-     - 6.753e-05 s
-     - 0.1571 s
-     - 0.007557 s
-     - 0.0002216 s
+     - 60
+     - 18.3 s
+     - 19 s
+     - 0 s
+     - 0.0148 s
+     - 0.02095 s
+     - 0.000169 s
+     - 0.2644 s
+     - 0.03038 s
+     - 0.0005748 s
    * - :doc:`Calibration Twin: Dupuit Fixed-Head 1D <cases/calibration_twin_dupuit_fixed_head_modflow6>`
      - nelder_mead
      - best_fit
      - 1
      - 0
-     - 65
-     - 12.59 s
-     - 11.53 s
-     - 1.061 s
-     - 0.008276 s
-     - 0.01673 s
-     - 7.256e-05 s
-     - 0.1519 s
-     - 0.008364 s
-     - 0.0002244 s
+     - 62
+     - 18.77 s
+     - 19.28 s
+     - 0 s
+     - 0.01272 s
+     - 0.02078 s
+     - 0.0001686 s
+     - 0.2596 s
+     - 0.02961 s
+     - 0.0005512 s
    * - :doc:`Calibration Twin: Dupuit Posterior 1D <cases/calibration_twin_dupuit_fixed_head_posterior_modflow6>`
      - random_search
      - distribution
      - 1
-     - 1.53036e+06
+     - 3.02912e+07
      - 18
-     - 4.48 s
-     - 3.951 s
-     - 0.529 s
-     - 0.007936 s
-     - 0.04525 s
-     - 6.078e-05 s
-     - 0.1662 s
-     - 0.007636 s
-     - 0.0002192 s
+     - 7.601 s
+     - 6.828 s
+     - 0.7726 s
+     - 0.00982 s
+     - 0.06271 s
+     - 0.0001879 s
+     - 0.2966 s
+     - 0.01901 s
+     - 0.0005828 s
    * - :doc:`Calibration Twin: Dupuit Posterior 1D <cases/calibration_twin_dupuit_fixed_head_posterior_modflow6>`
      - gp_mapping
      - distribution
      - 1
-     - 2.33787e+06
+     - 5.0463e+06
      - 18
-     - 4.565 s
-     - 4.021 s
-     - 0.544 s
-     - 0.007618 s
-     - 0.05389 s
-     - 6.113e-05 s
-     - 0.1611 s
-     - 0.008012 s
-     - 0.0002252 s
+     - 9.858 s
+     - 8.729 s
+     - 1.129 s
+     - 0.01292 s
+     - 0.08342 s
+     - 0.0002475 s
+     - 0.3577 s
+     - 0.04265 s
+     - 0.0006754 s
    * - :doc:`Calibration Twin: Dupuit Posterior 1D <cases/calibration_twin_dupuit_fixed_head_posterior_modflow6>`
      - da_mh_gp
      - distribution
-     - 1
-     - 4.95203e+06
-     - 14
-     - 3.849 s
-     - 3.427 s
-     - 0.4218 s
-     - 0.007907 s
-     - 0.07032 s
-     - 5.764e-05 s
-     - 0.1662 s
-     - 0.00786 s
-     - 0.000248 s
+     - 0
+     - 1.12464e+08
+     - 2
+     - 2.277 s
+     - 2.128 s
+     - 0.1483 s
+     - 0.01165 s
+     - 0.5084 s
+     - 0.0001522 s
+     - 0.5287 s
+     - 0.02617 s
+     - 0.0004941 s
    * - :doc:`Calibration Twin: Recharge-Step K+Sy 1D <cases/calibration_twin_linearized_recharge_step_modflow6>`
      - random_search
      - best_fit
-     - 1
-     - 3.97696
+     - 0
+     - 36.6585
      - 16
-     - 10.44 s
-     - 9.759 s
-     - 0.6834 s
-     - 0.008608 s
-     - 0.05377 s
-     - 9e-05 s
-     - 0.4422 s
-     - 0.1135 s
-     - 0.0002904 s
+     - 32.07 s
+     - 30.56 s
+     - 1.508 s
+     - 0.01798 s
+     - 0.07375 s
+     - 0.0002602 s
+     - 1.312 s
+     - 0.5195 s
+     - 0.004111 s
    * - :doc:`Calibration Twin: Recharge-Step K+Sy 1D <cases/calibration_twin_linearized_recharge_step_modflow6>`
      - simplex
      - best_fit
-     - 1
-     - 0.263432
-     - 23
-     - 17.24 s
-     - 16.4 s
-     - 0.8454 s
-     - 0.007971 s
-     - 0.04235 s
-     - 0.0001171 s
-     - 0.5285 s
-     - 0.1415 s
-     - 0.0003807 s
+     - 0
+     - 14.9693
+     - 24
+     - 38.53 s
+     - 37.37 s
+     - 1.162 s
+     - 0.01032 s
+     - 0.08153 s
+     - 0.0002612 s
+     - 1.093 s
+     - 0.381 s
+     - 0.0007224 s
    * - :doc:`Calibration Twin: Recharge-Step K+Sy 1D <cases/calibration_twin_linearized_recharge_step_modflow6>`
      - gp_mapping
-     - distribution
+     - best_fit_or_distribution
      - 1
-     - 1.59105
+     - 8.53469
      - 16
-     - 11.58 s
-     - 10.89 s
-     - 0.6881 s
-     - 0.00853 s
-     - 0.05089 s
-     - 9.816e-05 s
-     - 0.4857 s
-     - 0.1434 s
-     - 0.0003617 s
+     - 27.39 s
+     - 26.48 s
+     - 0.9124 s
+     - 0.01558 s
+     - 0.07693 s
+     - 0.0008061 s
+     - 1.12 s
+     - 0.456 s
+     - 0.0009383 s
    * - :doc:`Calibration Twin: Recharge-Step K+Sy 1D <cases/calibration_twin_linearized_recharge_step_modflow6>`
      - da_mh_gp
-     - distribution
-     - 1
-     - 3.73964
-     - 26
-     - 18.93 s
-     - 17.96 s
-     - 0.9753 s
-     - 0.00741 s
-     - 0.03583 s
-     - 0.0001129 s
-     - 0.5159 s
-     - 0.1384 s
-     - 0.0003659 s
+     - best_fit_or_distribution
+     - 0
+     - 34.5568
+     - 10
+     - 18.09 s
+     - 17.61 s
+     - 0.4761 s
+     - 0.01106 s
+     - 0.1292 s
+     - 0.000239 s
+     - 1.201 s
+     - 0.4294 s
+     - 0.0007883 s
    * - :doc:`Calibration Twin: Piecewise-K 1D <cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6>`
      - random_search_seed017
      - distribution
      - 1
      - 383826
      - 48
-     - 10.49 s
-     - 8.97 s
-     - 1.525 s
-     - 0.008072 s
-     - 0.01677 s
-     - 6.228e-05 s
-     - 0.1546 s
-     - 0.0151 s
-     - 0.0002408 s
+     - 21.41 s
+     - 18.96 s
+     - 2.45 s
+     - 0.01374 s
+     - 0.02799 s
+     - 0.0005927 s
+     - 0.2985 s
+     - 0.06675 s
+     - 0.0007981 s
    * - :doc:`Calibration Twin: Piecewise-K 1D <cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6>`
      - random_search_seed029
      - distribution
      - 1
      - 319874
      - 48
-     - 10.73 s
-     - 9.204 s
-     - 1.529 s
-     - 0.008174 s
-     - 0.01807 s
-     - 7.146e-05 s
-     - 0.1597 s
-     - 0.01356 s
-     - 0.0002681 s
+     - 20.77 s
+     - 18.52 s
+     - 2.251 s
+     - 0.01081 s
+     - 0.02932 s
+     - 0.0002274 s
+     - 0.2912 s
+     - 0.06414 s
+     - 0.0007772 s
    * - :doc:`Calibration Twin: Piecewise-K 1D <cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6>`
      - simplex
      - best_fit
      - 0
      - 109811
      - 48
-     - 10.38 s
-     - 8.853 s
-     - 1.525 s
-     - 0.008357 s
-     - 0.01903 s
-     - 6.666e-05 s
-     - 0.1512 s
-     - 0.01379 s
-     - 0.0002439 s
+     - 19.7 s
+     - 17.31 s
+     - 2.394 s
+     - 0.01162 s
+     - 0.02201 s
+     - 0.0002351 s
+     - 0.2847 s
+     - 0.05223 s
+     - 0.00114 s
 
 Artifacts
 ---------

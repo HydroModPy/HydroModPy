@@ -110,6 +110,11 @@ def test_apply_evaluation_budget_adapts_known_methods() -> None:
         n_parameters=2,
         evaluation_budget=10,
     )
+    cma_es = _apply_evaluation_budget(
+        CalibrationMethodProfile(name="cma_es", method_kwargs={"max_evaluations": 50, "popsize": 12}),
+        n_parameters=2,
+        evaluation_budget=10,
+    )
     simplex = _apply_evaluation_budget(
         CalibrationMethodProfile(name="simplex", method_kwargs={"max_iter": 50}),
         n_parameters=2,
@@ -152,6 +157,8 @@ def test_apply_evaluation_budget_adapts_known_methods() -> None:
 
     assert grid.method_kwargs["n_per_dim"] == 3
     assert random.method_kwargs["n_samples"] == 10
+    assert cma_es.method_kwargs["max_evaluations"] == 10
+    assert cma_es.method_kwargs["popsize"] == 10
     assert simplex.method_kwargs["max_iter"] == 10
     assert simplex.method_kwargs["max_fun"] == 10
     assert gp_mapping.method_kwargs["n_init"] <= 10
@@ -396,7 +403,7 @@ def test_case_method_figures_and_minimal_pruning(tmp_path: Path) -> None:
     assert calibration_root.exists()
 
 
-def test_case_method_figures_use_regular_objective_grid_for_two_parameters(
+def test_case_method_figures_use_reference_objective_samples_for_two_parameters(
     tmp_path: Path,
 ) -> None:
     benchmark_root = tmp_path / "case_b"
@@ -436,19 +443,51 @@ def test_case_method_figures_use_regular_objective_grid_for_two_parameters(
         "\n".join(json.dumps(row, ensure_ascii=True) for row in history_rows) + "\n",
         encoding="utf-8",
     )
-    (benchmark_root / "objective_regular_grid.json").write_text(
+    (benchmark_root / "objective_reference_samples.json").write_text(
         json.dumps(
             {
-                "role": "calibration_regular_objective_grid",
+                "role": "calibration_reference_objective",
                 "case_id": "case_b",
                 "parameter_names": ["K", "Sy"],
-                "n_per_dim": 3,
-                "x": [0.8, 1.0, 1.2],
-                "y": [0.06, 0.10, 0.14],
-                "objective_total": [
-                    [1.5, 0.8, 1.0],
-                    [0.7, 0.05, 0.6],
-                    [1.1, 0.7, 1.4],
+                "sampling": "sobol",
+                "sample_count": 6,
+                "points": [
+                    {
+                        "point_id": "reference_0001",
+                        "params_named": {"K": 0.82, "Sy": 0.07},
+                        "objective_total": 1.5,
+                        "block_costs": {"heads": 0.9, "flux": 0.6},
+                    },
+                    {
+                        "point_id": "reference_0002",
+                        "params_named": {"K": 0.96, "Sy": 0.09},
+                        "objective_total": 0.3,
+                        "block_costs": {"heads": 0.2, "flux": 0.1},
+                    },
+                    {
+                        "point_id": "reference_0003",
+                        "params_named": {"K": 1.04, "Sy": 0.11},
+                        "objective_total": 0.05,
+                        "block_costs": {"heads": 0.03, "flux": 0.02},
+                    },
+                    {
+                        "point_id": "reference_0004",
+                        "params_named": {"K": 1.17, "Sy": 0.13},
+                        "objective_total": 0.8,
+                        "block_costs": {"heads": 0.45, "flux": 0.35},
+                    },
+                    {
+                        "point_id": "reference_0005",
+                        "params_named": {"K": 1.10, "Sy": 0.08},
+                        "objective_total": 0.7,
+                        "block_costs": {"heads": 0.4, "flux": 0.3},
+                    },
+                    {
+                        "point_id": "reference_0006",
+                        "params_named": {"K": 0.88, "Sy": 0.12},
+                        "objective_total": 1.0,
+                        "block_costs": {"heads": 0.55, "flux": 0.45},
+                    },
                 ],
             },
             ensure_ascii=True,

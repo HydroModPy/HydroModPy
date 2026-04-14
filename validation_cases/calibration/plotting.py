@@ -498,25 +498,114 @@ def _sanitize_method_slug(text: str) -> str:
     return token or "method"
 
 
-def _load_regular_objective_grid(
+def _load_reference_objective_payload(
     *,
     benchmark_root: Path,
     definition: TwinCalibrationCaseDefinition,
 ) -> dict[str, object] | None:
-    """Load one shared regular-grid objective payload when available."""
-    path = benchmark_root / "objective_regular_grid.json"
-    if not path.is_file():
-        return None
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    if not isinstance(payload, dict):
-        return None
+    """Load one shared reference-objective payload when available."""
     parameter_names = tuple(str(name) for name in definition.truth_params.keys())
-    if tuple(payload.get("parameter_names", ())) != parameter_names:
-        return None
-    return payload
+    candidate_paths = (
+        benchmark_root / "objective_reference_samples.json",
+        benchmark_root / "objective_regular_grid.json",
+    )
+    for path in candidate_paths:
+        if not path.is_file():
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if tuple(payload.get("parameter_names", ())) != parameter_names:
+            continue
+        return payload
+    return None
+
+
+def _reference_objective_points(
+    payload: dict[str, object] | None,
+) -> list[ObjectiveMappingPoint]:
+    """Convert one persisted reference-objective payload to point objects."""
+    if not isinstance(payload, dict):
+        return []
+    raw_points = payload.get("points")
+    if isinstance(raw_points, list):
+        points: list[ObjectiveMappingPoint] = []
+        for index, raw_point in enumerate(raw_points, start=1):
+            if not isinstance(raw_point, dict):
+                continue
+            params_named = raw_point.get("params_named", {})
+            if not isinstance(params_named, dict):
+                continue
+            try:
+                normalized_named = {
+                    str(name): float(value)
+                    for name, value in params_named.items()
+                }
+            except (TypeError, ValueError):
+                continue
+            objective_total = raw_point.get("objective_total")
+            try:
+                objective_total_value = (
+                    None
+                    if objective_total is None
+                    else float(objective_total)
+                )
+            except (TypeError, ValueError):
+                objective_total_value = None
+            block_costs_raw = raw_point.get("block_costs", {})
+            if not isinstance(block_costs_raw, dict):
+                block_costs_raw = {}
+            points.append(
+                ObjectiveMappingPoint(
+                    iteration_id=str(raw_point.get("point_id", f"reference_{index:04d}")),
+                    params_vector=tuple(
+                        float(normalized_named[name]) for name in normalized_named
+                    ),
+                    params_named=normalized_named,
+                    objective_total=objective_total_value,
+                    block_costs={
+                        str(name): float(value)
+                        for name, value in block_costs_raw.items()
+                        if value is not None
+                    },
+                    status=str(raw_point.get("status", "objective_evaluated")),
+                    failure_reason=raw_point.get("failure_reason"),
+                )
+            )
+        return points
+
+    if payload.get("role") == "calibration_regular_objective_grid":
+        x_values = np.asarray(payload.get("x", ()), dtype=float)
+        y_values = np.asarray(payload.get("y", ()), dtype=float)
+        grid = np.asarray(payload.get("objective_total", ()), dtype=float)
+        if x_values.ndim != 1 or y_values.ndim != 1 or grid.ndim != 2:
+            return []
+        points: list[ObjectiveMappingPoint] = []
+        for row_index, y_value in enumerate(y_values):
+            for col_index, x_value in enumerate(x_values):
+                objective_value = grid[row_index, col_index]
+                points.append(
+                    ObjectiveMappingPoint(
+                        iteration_id=f"reference_grid_{row_index:03d}_{col_index:03d}",
+                        params_vector=(float(x_value), float(y_value)),
+                        params_named={
+                            str(payload["parameter_names"][0]): float(x_value),
+                            str(payload["parameter_names"][1]): float(y_value),
+                        },
+                        objective_total=(
+                            None
+                            if not math.isfinite(float(objective_value))
+                            else float(objective_value)
+                        ),
+                        status="objective_evaluated",
+                        failure_reason=None,
+                    )
+                )
+        return points
+    return []
 
 
 def _placeholder_observations(
@@ -1142,9 +1231,10 @@ def _write_objective_landscape_1d(
     parameter_name: str,
     points: list[ObjectiveMappingPoint],
     distribution_samples: list[dict[str, float]],
+    reference_points: list[ObjectiveMappingPoint] | None = None,
 ) -> bool:
     """Write one 1D objective plot with truth, best, and sampled solutions."""
-    finite_points = sorted(
+    method_finite_points = sorted(
         [
             point
             for point in points
@@ -1157,17 +1247,52 @@ def _write_objective_landscape_1d(
         for point in points
         if not point.finite_objective and parameter_name in point.params_named
     ]
-    if not finite_points and not failed_points:
+    reference_finite_points = sorted(
+        [
+            point
+            for point in (reference_points or [])
+            if point.finite_objective and parameter_name in point.params_named
+        ],
+        key=lambda point: float(point.params_named[parameter_name]),
+    )
+    if not method_finite_points and not reference_finite_points and not failed_points:
         return False
 
     figure, axis = plt.subplots(figsize=(8.0, 4.8))
-    finite_costs = [float(point.objective_total) for point in finite_points]
+    finite_costs = [
+        float(point.objective_total)
+        for point in (reference_finite_points or method_finite_points)
+    ]
     y_min, y_max = _plot_y_limits(finite_costs)
-    if finite_points:
-        xs = [float(point.params_named[parameter_name]) for point in finite_points]
-        ys = [float(point.objective_total) for point in finite_points]
-        axis.plot(xs, ys, color="#284b63", linewidth=1.5, alpha=0.9)
-        axis.scatter(xs, ys, color="#284b63", s=34, label="evaluated")
+    if reference_finite_points:
+        ref_x = [float(point.params_named[parameter_name]) for point in reference_finite_points]
+        ref_y = [float(point.objective_total) for point in reference_finite_points]
+        axis.plot(
+            ref_x,
+            ref_y,
+            color="#5e6472",
+            linewidth=1.1,
+            alpha=0.9,
+            label=f"reference ({len(reference_finite_points)})",
+        )
+        axis.scatter(
+            ref_x,
+            ref_y,
+            color="#5e6472",
+            s=18,
+            alpha=0.75,
+        )
+    if method_finite_points:
+        xs = [float(point.params_named[parameter_name]) for point in method_finite_points]
+        ys = [float(point.objective_total) for point in method_finite_points]
+        axis.scatter(
+            xs,
+            ys,
+            color="#284b63",
+            s=34,
+            label="evaluated",
+            zorder=4,
+        )
     failed_level = None
     if failed_points:
         failed_level = y_max + 0.08 * max(y_max - y_min, 1.0)
@@ -1251,7 +1376,7 @@ def _write_objective_landscape_2d(
     parameter_names: tuple[str, str],
     points: list[ObjectiveMappingPoint],
     distribution_samples: list[dict[str, float]],
-    regular_grid_payload: dict[str, object] | None = None,
+    reference_payload: dict[str, object] | None = None,
 ) -> bool:
     """Write one 2D interpolated objective map with solution overlays."""
     finite_points = [
@@ -1268,40 +1393,23 @@ def _write_objective_landscape_2d(
         and parameter_names[0] in point.params_named
         and parameter_names[1] in point.params_named
     ]
-    if not finite_points and not failed_points:
+    reference_points = [
+        point
+        for point in _reference_objective_points(reference_payload)
+        if point.finite_objective
+        and parameter_names[0] in point.params_named
+        and parameter_names[1] in point.params_named
+    ]
+    if not finite_points and not failed_points and not reference_points:
         return False
 
     figure, axis = plt.subplots(figsize=(7.4, 6.0))
     x_values = np.asarray(())
     y_values = np.asarray(())
     grid = np.asarray(())
-    used_regular_grid = False
-    if regular_grid_payload is not None:
-        try:
-            x_values = np.asarray(regular_grid_payload.get("x", ()), dtype=float)
-            y_values = np.asarray(regular_grid_payload.get("y", ()), dtype=float)
-            grid = np.asarray(
-                regular_grid_payload.get("objective_total", ()),
-                dtype=float,
-            )
-            if (
-                x_values.ndim == 1
-                and y_values.ndim == 1
-                and grid.ndim == 2
-                and grid.shape == (y_values.size, x_values.size)
-                and x_values.size >= 2
-                and y_values.size >= 2
-            ):
-                used_regular_grid = True
-            else:
-                x_values = np.asarray(())
-                y_values = np.asarray(())
-                grid = np.asarray(())
-        except Exception:
-            x_values = np.asarray(())
-            y_values = np.asarray(())
-            grid = np.asarray(())
-    if not used_regular_grid and len(finite_points) >= 3:
+    grid_source_label = None
+    interpolation_xy_points = reference_points if len(reference_points) >= 3 else finite_points
+    if len(interpolation_xy_points) >= 3:
         bounds_x = tuple(float(value) for value in definition.bounds[parameter_names[0]])
         bounds_y = tuple(float(value) for value in definition.bounds[parameter_names[1]])
         x_values = np.linspace(bounds_x[0], bounds_x[1], 60)
@@ -1313,12 +1421,12 @@ def _write_objective_landscape_2d(
                     float(point.params_named[parameter_names[0]]),
                     float(point.params_named[parameter_names[1]]),
                 )
-                for point in finite_points
+                for point in interpolation_xy_points
             ],
             dtype=float,
         )
         costs = np.asarray(
-            [float(point.objective_total) for point in finite_points],
+            [float(point.objective_total) for point in interpolation_xy_points],
             dtype=float,
         )
         grid = _idw_grid(
@@ -1327,6 +1435,10 @@ def _write_objective_landscape_2d(
             grid_x=grid_x,
             grid_y=grid_y,
         )
+        if reference_points:
+            grid_source_label = f"reference sample n={len(reference_points)}"
+        else:
+            grid_source_label = f"evaluated points n={len(finite_points)}"
     if (
         isinstance(grid, np.ndarray)
         and grid.ndim == 2
@@ -1342,16 +1454,28 @@ def _write_objective_landscape_2d(
         colorbar = figure.colorbar(contour, ax=axis, label="Objective total")
         colorbar.ax.tick_params(labelsize=TICK_LABEL_FONTSIZE)
         colorbar.set_label("Objective total", fontsize=AXIS_LABEL_FONTSIZE)
-        if used_regular_grid:
-            axis.contour(
-                x_values,
-                y_values,
-                grid,
-                levels=10,
-                colors="white",
-                linewidths=0.35,
-                alpha=0.45,
-            )
+        axis.contour(
+            x_values,
+            y_values,
+            grid,
+            levels=10,
+            colors="white",
+            linewidths=0.35,
+            alpha=0.35,
+        )
+
+    if reference_points:
+        axis.scatter(
+            [float(point.params_named[parameter_names[0]]) for point in reference_points],
+            [float(point.params_named[parameter_names[1]]) for point in reference_points],
+            c=[float(point.objective_total) for point in reference_points],
+            cmap="viridis",
+            s=10,
+            alpha=0.32,
+            linewidths=0.0,
+            label="reference sample",
+            zorder=2,
+        )
 
     if finite_points:
         axis.scatter(
@@ -1430,15 +1554,11 @@ def _write_objective_landscape_2d(
         ),
         fontsize=CASE_TITLE_FONTSIZE,
     )
-    if used_regular_grid:
+    if grid_source_label is not None:
         axis.text(
             0.99,
             0.01,
-            (
-                "surface: regular grid "
-                f"{int(np.asarray(regular_grid_payload.get('n_per_dim', 0)))}x"
-                f"{int(np.asarray(regular_grid_payload.get('n_per_dim', 0)))}"
-            ),
+            f"surface: {grid_source_label}",
             transform=axis.transAxes,
             ha="right",
             va="bottom",
@@ -1463,9 +1583,10 @@ def _write_objective_landscape_pairgrid(
     parameter_names: tuple[str, ...],
     points: list[ObjectiveMappingPoint],
     distribution_samples: list[dict[str, float]],
+    reference_points: list[ObjectiveMappingPoint] | None = None,
 ) -> bool:
     """Write one pair-grid view when the benchmark has more than 2 parameters."""
-    finite_points = [
+    method_finite_points = [
         point
         for point in points
         if point.finite_objective
@@ -1475,6 +1596,12 @@ def _write_objective_landscape_pairgrid(
         point
         for point in points
         if not point.finite_objective
+        and all(name in point.params_named for name in parameter_names)
+    ]
+    finite_points = [
+        point
+        for point in (reference_points or method_finite_points)
+        if point.finite_objective
         and all(name in point.params_named for name in parameter_names)
     ]
     if not finite_points and not failed_points:
@@ -1503,6 +1630,16 @@ def _write_objective_landscape_pairgrid(
                         cmap="viridis",
                         vmin=cost_min,
                         vmax=cost_max,
+                        s=16 if reference_points else 28,
+                        alpha=0.7 if reference_points else 0.9,
+                    )
+                if reference_points and method_finite_points:
+                    axis.scatter(
+                        [float(point.params_named[row_name]) for point in method_finite_points],
+                        [float(point.objective_total) for point in method_finite_points],
+                        facecolors="none",
+                        edgecolors="#284b63",
+                        linewidths=0.7,
                         s=28,
                     )
                 axis.axvline(
@@ -1548,7 +1685,17 @@ def _write_objective_landscape_pairgrid(
                         cmap="viridis",
                         vmin=cost_min,
                         vmax=cost_max,
-                        s=26,
+                        s=14 if reference_points else 26,
+                        alpha=0.55 if reference_points else 0.9,
+                    )
+                if reference_points and method_finite_points:
+                    axis.scatter(
+                        [float(point.params_named[col_name]) for point in method_finite_points],
+                        [float(point.params_named[row_name]) for point in method_finite_points],
+                        facecolors="none",
+                        edgecolors="#284b63",
+                        linewidths=0.6,
+                        s=24,
                         alpha=0.9,
                     )
                 if failed_points:
@@ -1615,7 +1762,14 @@ def _write_objective_landscape_pairgrid(
     figure.suptitle(
         _compact_case_title(
             definition.case_id,
-            f"{result.method_instance_name} | objective pair view",
+            (
+                f"{result.method_instance_name} | objective pair view"
+                + (
+                    f" | reference n={len(reference_points)}"
+                    if reference_points
+                    else ""
+                )
+            ),
         ),
         fontsize=CASE_SUPTITLE_FONTSIZE,
         y=0.995,
@@ -1922,10 +2076,11 @@ def write_case_method_figures(
         return {}
 
     distribution_samples = _distribution_named_samples(result.model_distribution_path)
-    regular_grid_payload = _load_regular_objective_grid(
+    reference_payload = _load_reference_objective_payload(
         benchmark_root=benchmark_root,
         definition=definition,
     )
+    reference_points = _reference_objective_points(reference_payload)
     parameter_names = tuple(definition.truth_params.keys())
     figure_root = benchmark_root / "figures"
     figure_root.mkdir(parents=True, exist_ok=True)
@@ -1955,6 +2110,7 @@ def write_case_method_figures(
             parameter_name=parameter_names[0],
             points=points,
             distribution_samples=distribution_samples,
+            reference_points=reference_points,
         )
     elif len(parameter_names) == 2:
         landscape_written = _write_objective_landscape_2d(
@@ -1965,7 +2121,7 @@ def write_case_method_figures(
             parameter_names=(parameter_names[0], parameter_names[1]),
             points=points,
             distribution_samples=distribution_samples,
-            regular_grid_payload=regular_grid_payload,
+            reference_payload=reference_payload,
         )
     else:
         landscape_written = _write_objective_landscape_pairgrid(
@@ -1976,6 +2132,7 @@ def write_case_method_figures(
             parameter_names=parameter_names,
             points=points,
             distribution_samples=distribution_samples,
+            reference_points=reference_points,
         )
     if landscape_written:
         written["objective_landscape"] = landscape_path
