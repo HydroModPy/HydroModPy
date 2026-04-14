@@ -33,11 +33,16 @@ class SolverOverflowDiagnostics:
     surface_interaction_model: str
     elapsed_days: np.ndarray
     recharge_mm_day: np.ndarray
+    recharge_flux_m3_day: np.ndarray
     x_m: np.ndarray
     topography_profile_m: np.ndarray
     mean_head_profiles_m: np.ndarray
     mean_head_clearance_m: np.ndarray
     mean_saturation_excess_mm_day: np.ndarray
+    surface_excess_flux_m3_day: np.ndarray
+    east_boundary_outflow_m3_day: np.ndarray
+    total_outflow_m3_day: np.ndarray
+    storage_balance_m3_day: np.ndarray
     total_overflow_m3_day: np.ndarray
     active_overflow_length_m: np.ndarray
     overflow_front_x_m: np.ndarray
@@ -74,6 +79,33 @@ def _load_cell_geometry(bundle_dir: Path) -> tuple[np.ndarray, np.ndarray, np.nd
         np.asarray(cells["centroid_x"], dtype=float).reshape(-1),
         np.asarray(cells["centroid_y"], dtype=float).reshape(-1),
         np.asarray(cells["area_m2"], dtype=float).reshape(-1),
+    )
+
+
+def _load_east_boundary_edge_mask(bundle_dir: Path) -> np.ndarray:
+    nodes = np.genfromtxt(
+        bundle_dir / "nodes.csv",
+        delimiter=",",
+        names=True,
+        dtype=None,
+        encoding="utf-8",
+    )
+    edges = np.genfromtxt(
+        bundle_dir / "edges.csv",
+        delimiter=",",
+        names=True,
+        dtype=None,
+        encoding="utf-8",
+    )
+    node_x = np.asarray(nodes["x"], dtype=float)
+    edge_kind = np.asarray(edges["edge_kind"])
+    node_a = np.asarray(edges["node_a"], dtype=int)
+    node_b = np.asarray(edges["node_b"], dtype=int)
+    max_x = float(np.max(node_x))
+    return (
+        np.asarray(edge_kind == "boundary", dtype=bool)
+        & np.isclose(node_x[node_a], max_x)
+        & np.isclose(node_x[node_b], max_x)
     )
 
 
@@ -185,6 +217,25 @@ def _resolve_recharge_series_mm_day(
     return np.asarray(forcing_cfg.get("recharge_mm_day", ()), dtype=float).reshape(-1)
 
 
+def _align_period_values_to_elapsed_days(
+    values: np.ndarray,
+    *,
+    elapsed_days: np.ndarray,
+) -> np.ndarray:
+    array = np.asarray(values, dtype=float).reshape(-1)
+    elapsed = np.asarray(elapsed_days, dtype=float).reshape(-1)
+    if array.size == elapsed.size:
+        return array
+    if array.size == max(0, elapsed.size - 1):
+        if array.size == 0:
+            return np.zeros_like(elapsed, dtype=float)
+        return np.concatenate(([float(array[0])], array))
+    raise ValueError(
+        "Value chronology length does not match elapsed days "
+        f"({array.size} vs {elapsed.size})."
+    )
+
+
 def build_hillslope_overflow_diagnostics(
     *,
     result: ValidationRunResult,
@@ -225,7 +276,7 @@ def build_hillslope_overflow_diagnostics(
         width_y_m=width_y_m,
     )
     mean_saturation_excess_mm_day = np.mean(saturation_excess_grid_m_s, axis=1) * MM_DAY_PER_M_S
-    total_overflow_m3_day = (
+    surface_excess_flux_m3_day = (
         np.sum(saturation_excess_history_m_s * cell_area_m2[None, :], axis=1) * SECONDS_PER_DAY
     )
 
@@ -259,13 +310,41 @@ def build_hillslope_overflow_diagnostics(
         cell_area_m2=cell_area_m2,
         n_periods=n_periods,
     )
+    recharge_mm_day = _align_period_values_to_elapsed_days(
+        recharge_mm_day,
+        elapsed_days=elapsed_days,
+    )
+    recharge_flux_m3_day = (
+        np.asarray(recharge_mm_day, dtype=float)
+        / 1000.0
+        * float(length_x_m)
+        * float(width_y_m)
+    )
+
+    imposed_head_history = np.asarray(
+        state_history["imposed_head_edge_flux_history_m3_s"],
+        dtype=float,
+    )
+    east_edge_mask = _load_east_boundary_edge_mask(result.out_path / "mesh_bundle")
+    east_boundary_outflow_m3_day = (
+        -np.sum(np.minimum(imposed_head_history[:, east_edge_mask], 0.0), axis=1, dtype=float)
+        * SECONDS_PER_DAY
+    )
+    total_outflow_m3_day = np.asarray(
+        east_boundary_outflow_m3_day + surface_excess_flux_m3_day,
+        dtype=float,
+    )
+    storage_balance_m3_day = np.asarray(
+        recharge_flux_m3_day - total_outflow_m3_day,
+        dtype=float,
+    )
 
     onset_day = float("nan")
     active_indices = np.flatnonzero(active_overflow_length_m > 0.0)
     if active_indices.size:
         onset_day = float(elapsed_days[active_indices[0]])
 
-    peak_index = int(np.argmax(total_overflow_m3_day))
+    peak_index = int(np.argmax(surface_excess_flux_m3_day))
     variant = resolve_solver_variant(result.solver_name)
 
     return SolverOverflowDiagnostics(
@@ -279,19 +358,24 @@ def build_hillslope_overflow_diagnostics(
         ),
         elapsed_days=elapsed_days,
         recharge_mm_day=recharge_mm_day,
+        recharge_flux_m3_day=np.asarray(recharge_flux_m3_day, dtype=float),
         x_m=np.asarray(x_m, dtype=float),
         topography_profile_m=np.asarray(topography_profile_m, dtype=float),
         mean_head_profiles_m=np.asarray(mean_head_profiles_m, dtype=float),
         mean_head_clearance_m=np.asarray(mean_head_clearance_m, dtype=float),
         mean_saturation_excess_mm_day=np.asarray(mean_saturation_excess_mm_day, dtype=float),
-        total_overflow_m3_day=np.asarray(total_overflow_m3_day, dtype=float),
+        surface_excess_flux_m3_day=np.asarray(surface_excess_flux_m3_day, dtype=float),
+        east_boundary_outflow_m3_day=np.asarray(east_boundary_outflow_m3_day, dtype=float),
+        total_outflow_m3_day=np.asarray(total_outflow_m3_day, dtype=float),
+        storage_balance_m3_day=np.asarray(storage_balance_m3_day, dtype=float),
+        total_overflow_m3_day=np.asarray(surface_excess_flux_m3_day, dtype=float),
         active_overflow_length_m=np.asarray(active_overflow_length_m, dtype=float),
         overflow_front_x_m=np.asarray(overflow_front_x_m, dtype=float),
         overflow_centroid_x_m=np.asarray(overflow_centroid_x_m, dtype=float),
         overflow_threshold_mm_day=resolved_threshold,
         onset_day=onset_day,
         peak_overflow_day=float(elapsed_days[peak_index]),
-        peak_total_overflow_m3_day=float(total_overflow_m3_day[peak_index]),
+        peak_total_overflow_m3_day=float(surface_excess_flux_m3_day[peak_index]),
         peak_active_length_m=float(np.max(active_overflow_length_m)),
         max_head_clearance_m=float(np.max(mean_head_clearance_m)),
         runtime_summary=summary,

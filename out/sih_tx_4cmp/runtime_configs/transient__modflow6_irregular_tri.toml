@@ -143,5 +143,5 @@ freq = "15D"
 runoff_ratio = 0.0
 
 [mesh_input]
-mesh_path = "C:\\codes\\HydroModPy-GH\\out\\sih_tx_4cmp\\validation\\investigate_surfa_062b168c50\\transient_modflow_30d11bbf32_c14a80a7\\mesh_bundle\\mesh_2d.msh"
-bundle_dir = "C:\\codes\\HydroModPy-GH\\out\\sih_tx_4cmp\\validation\\investigate_surfa_062b168c50\\transient_modflow_30d11bbf32_c14a80a7\\mesh_bundle"
+mesh_path = "C:\\codes\\HydroModPy-GH\\out\\sih_tx_4cmp\\validation\\investigate_surfa_062b168c50\\transient_modflow_30d11bbf32\\mesh_bundle\\mesh_2d.msh"
+bundle_dir = "C:\\codes\\HydroModPy-GH\\out\\sih_tx_4cmp\\validation\\investigate_surfa_062b168c50\\transient_modflow_30d11bbf32\\mesh_bundle"

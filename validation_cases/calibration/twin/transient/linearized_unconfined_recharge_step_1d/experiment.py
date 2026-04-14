@@ -57,11 +57,11 @@ def build_calibration_payload(
             "reuse_persisted_iterations": False,
             "parameter": [
                 {
-                    "name": "K_global_factor",
+                    "name": "K_global",
                     "property": "K",
                     "target": "flow.param.K.field_homogeneous.value",
-                    "mode": "scale",
-                    "parameterization": "global_factor",
+                    "mode": "replace",
+                    "parameterization": "global_value",
                 },
                 {
                     "name": "Sy_global",
@@ -120,7 +120,7 @@ def build_calibration_payload(
             method_profile.name: dict(method_profile.method_kwargs),
         },
         "bounds": {
-            "K_global_factor": [0.8, 1.2],
+            "K_global": [5.0e-5, 3.0e-4],
             "Sy_global": [0.04, 0.18],
         },
     }
@@ -144,7 +144,7 @@ def _gp_mapping_profile(*, seed: int = 13) -> CalibrationMethodProfile:
             "log_transform": False,
         },
         persist_model_distribution=True,
-        success_metric="distribution",
+        success_metric="best_fit_or_distribution",
     )
 
 
@@ -166,7 +166,7 @@ def _da_mh_gp_profile(*, seed: int = 13) -> CalibrationMethodProfile:
             "cache_decimals": 10,
         },
         persist_model_distribution=True,
-        success_metric="distribution",
+        success_metric="best_fit_or_distribution",
     )
 
 
@@ -178,13 +178,13 @@ TRANSIENT_RECHARGE_STEP_TWIN_CASE = TwinCalibrationCaseDefinition(
         "Same-solver twin benchmark on linearized_unconfined_recharge_step_1d "
         "with K+Sy and multiobservable head/flux blocks."
     ),
-    truth_params={"K_global_factor": 1.0, "Sy_global": 0.10},
+    truth_params={"K_global": 1.0e-4, "Sy_global": 0.10},
     bounds={
-        "K_global_factor": (0.8, 1.2),
+        "K_global": (5.0e-5, 3.0e-4),
         "Sy_global": (0.04, 0.18),
     },
     parameter_abs_tolerances={
-        "K_global_factor": 0.03,
+        "K_global": 1.5e-5,
         "Sy_global": 0.03,
     },
     output_names=("head_mid", "q_east"),
@@ -203,6 +203,7 @@ TRANSIENT_RECHARGE_STEP_TWIN_CASE = TwinCalibrationCaseDefinition(
         _da_mh_gp_profile(seed=13),
     ),
     fast=False,
+    regular_objective_grid_n_per_dim=17,
     build_simulation_config=build_simulation_config,
     build_calibration_payload=build_calibration_payload,
 )
@@ -217,13 +218,13 @@ TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
         "with K+Sy, multiobservable head/flux blocks, and repeated "
         "random-search seeds."
     ),
-    truth_params={"K_global_factor": 1.0, "Sy_global": 0.10},
+    truth_params={"K_global": 1.0e-4, "Sy_global": 0.10},
     bounds={
-        "K_global_factor": (0.8, 1.2),
+        "K_global": (5.0e-5, 3.0e-4),
         "Sy_global": (0.04, 0.18),
     },
     parameter_abs_tolerances={
-        "K_global_factor": 0.03,
+        "K_global": 1.5e-5,
         "Sy_global": 0.03,
     },
     output_names=("head_mid", "q_east"),
@@ -242,6 +243,7 @@ TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
         _gp_mapping_profile(seed=13),
     ),
     fast=False,
+    regular_objective_grid_n_per_dim=17,
     observation_noise=ObservationNoiseSpec(
         absolute_sigma_by_output={"head_mid": 0.005},
         relative_sigma_by_output={"q_east": 0.02},

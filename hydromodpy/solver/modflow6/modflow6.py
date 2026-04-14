@@ -797,6 +797,153 @@ class Modflow6(Solver):
 		return payload
 
 	@staticmethod
+	def _calibration_runtime_reuse_enabled(
+		flow_runtime_overrides: Mapping[str, object] | None,
+	) -> bool:
+		"""Return ``True`` when calibration asks for one reusable MF6 runtime."""
+		return bool(
+			isinstance(flow_runtime_overrides, Mapping)
+			and flow_runtime_overrides.get("reuse_solver_model", False)
+		)
+
+	def _runtime_reuse_signature(
+		self,
+		*,
+		flow: object,
+		domain: object,
+		options: ModflowPreprocessOptions,
+		mesh_planar: object | None,
+		mesh_support: object | None,
+	) -> tuple[object, ...]:
+		"""Capture the static runtime structure that must remain stable."""
+		time_grid = getattr(options, "time_grid", None)
+		return (
+			id(flow),
+			id(domain),
+			id(mesh_planar),
+			id(mesh_support),
+			id(time_grid),
+			str(self.flow_regime or ""),
+		)
+
+	def _can_refresh_runtime_reuse(
+		self,
+		*,
+		flow: object,
+		domain: object,
+		options: ModflowPreprocessOptions,
+		mesh_planar: object | None,
+		mesh_support: object | None,
+		flow_runtime_overrides: Mapping[str, object] | None,
+	) -> bool:
+		"""Return ``True`` when a cached runtime can be refreshed in place."""
+		if not self._calibration_runtime_reuse_enabled(flow_runtime_overrides):
+			return False
+		if getattr(self, "sim", None) is None or getattr(self, "gwf", None) is None:
+			return False
+		signature = self._runtime_reuse_signature(
+			flow=flow,
+			domain=domain,
+			options=options,
+			mesh_planar=mesh_planar,
+			mesh_support=mesh_support,
+		)
+		return signature == getattr(self, "_calibration_runtime_reuse_signature", None)
+
+	def _build_drain_stress_period_data(
+		self,
+		*,
+		solver_mesh,
+		drainage_cond_series: np.ndarray,
+		ocean_support_mask: np.ndarray,
+		stream_support_mask: np.ndarray,
+	) -> dict[int, list[list[float]]]:
+		"""Build DRN stress-period data, including hk-scaled fallback conductance."""
+		drn_spd = {}
+		top_flat = solver_mesh.top
+		dem_mask_flat = np.asarray(self.dem_mask, dtype=bool).reshape(-1)
+		ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
+		stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
+		cell_areas = solver_mesh.cell_areas()
+		for kper in range(int(self.nper)):
+			period_cells = []
+			configured_cond_value = float(drainage_cond_series[kper])
+			for cid in range(int(self.ncpl)):
+				if dem_mask_flat[cid] or ocean_mask_flat[cid] or stream_mask_flat[cid]:
+					continue
+				if configured_cond_value > 0.0:
+					cond_value = max(configured_cond_value, 1e-12)
+				else:
+					cond_value = max(float(self.hk[0, cid]) * float(cell_areas[cid]), 1e-12)
+				period_cells.append([0, cid, float(top_flat[cid]), cond_value])
+			drn_spd[kper] = period_cells
+		return drn_spd
+
+	def _refresh_reused_runtime_property_packages(
+		self,
+		*,
+		flow_runtime_overrides: Mapping[str, object] | None,
+	) -> tuple[str, ...]:
+		"""Update only runtime-varying hydraulic packages on a reused MF6 object."""
+		flow_params = resolve_flow_property_arrays(
+			flow=self.flow,
+			domain=self.domain,
+			solver_mesh=self.solver_mesh,
+			planar_mesh=self.runtime_mesh_planar,
+			required_properties=resolve_required_flow_properties(flow_regime=self.flow_regime),
+			optional_fill_values={"Sy": 0.0, "Ss": 0.0},
+			runtime_property_overrides=flow_runtime_overrides,
+		)
+		self.hk = self.solver_mesh.flatten_from_grid(flow_params["hk"])
+		self.sy = self.solver_mesh.flatten_from_grid(flow_params["sy"])
+		self.ss = self.solver_mesh.flatten_from_grid(flow_params["ss"])
+
+		updated_packages: list[str] = []
+		if getattr(self, "npf", None) is not None:
+			self.npf.k.set_data(self.hk)
+			self.npf.k33.set_data(
+				self.hk
+				/ max(
+					float(
+						getattr(
+							getattr(self.modflow_config, "process_specific", object()),
+							"vka",
+							1.0,
+						)
+					),
+					1e-12,
+				)
+			)
+			updated_packages.append("npf")
+		if getattr(self, "sto", None) is not None:
+			self.sto.sy.set_data(self.sy)
+			self.sto.ss.set_data(self.ss)
+			updated_packages.append("sto")
+
+		drainage_cond_series = getattr(self, "_drainage_cond_series", None)
+		if (
+			getattr(self, "drn", None) is not None
+			and drainage_cond_series is not None
+			and bool(getattr(self, "_drainage_uses_hk", False))
+		):
+			drn_spd = self._build_drain_stress_period_data(
+				solver_mesh=self.solver_mesh,
+				drainage_cond_series=drainage_cond_series,
+				ocean_support_mask=np.asarray(
+					getattr(self, "_ocean_support_mask", np.zeros(int(self.ncpl), dtype=bool)),
+					dtype=bool,
+				),
+				stream_support_mask=np.asarray(
+					getattr(self, "_stream_support_mask", np.zeros(int(self.ncpl), dtype=bool)),
+					dtype=bool,
+				),
+			)
+			self.drn.stress_period_data.set_data(drn_spd)
+			updated_packages.append("drn")
+
+		return tuple(updated_packages)
+
+	@staticmethod
 	def _sanitize_numeric_payload(payload: object) -> object:
 		"""Replace unsupported/invalid numeric payload values by finite MF6-safe values."""
 		if payload is None:
@@ -1293,8 +1440,29 @@ class Modflow6(Solver):
 		self._apply_preprocess_options(active_options)
 		self._validate_pre_processing_inputs()
 		self._bind_recharge_from_flow()
+		self._calibration_raw_output_payload_cache = {}
 
 		self.flow_regime = self._resolve_flow_regime() or "transient"
+		runtime_reuse_signature = self._runtime_reuse_signature(
+			flow=flow,
+			domain=domain,
+			options=active_options,
+			mesh_planar=mesh_planar,
+			mesh_support=mesh_support,
+		)
+		if self._can_refresh_runtime_reuse(
+			flow=flow,
+			domain=domain,
+			options=active_options,
+			mesh_planar=mesh_planar,
+			mesh_support=mesh_support,
+			flow_runtime_overrides=flow_runtime_overrides,
+		):
+			self._runtime_dirty_packages = self._refresh_reused_runtime_property_packages(
+				flow_runtime_overrides=flow_runtime_overrides,
+			)
+			self._calibration_runtime_reuse_signature = runtime_reuse_signature
+			return
 		launcher_time_grid = self.time_grid
 		temporal = build_temporal_discretization_from_time_grid(
 			time_grid=launcher_time_grid,
@@ -1397,6 +1565,8 @@ class Modflow6(Solver):
 		self.ic = flopy.mf6.ModflowGwfic(self.gwf, strt=strt)
 		ocean_chd_spd, ocean_support_mask = self._build_ocean_boundary_chd_spd()
 		stream_chd_spd, stream_support_mask = self._build_stream_boundary_chd_spd()
+		self._ocean_support_mask = np.asarray(ocean_support_mask, dtype=bool).copy()
+		self._stream_support_mask = np.asarray(stream_support_mask, dtype=bool).copy()
 		rewet_record, wetdry = self._resolve_rewet_npf_options(solver_mesh)
 
 		self.npf = flopy.mf6.ModflowGwfnpf(
@@ -1441,25 +1611,22 @@ class Modflow6(Solver):
 			)
 
 		drainage_cond_series = self._resolve_drainage_conductance_series()
+		self._drainage_cond_series = (
+			None
+			if drainage_cond_series is None
+			else np.asarray(drainage_cond_series, dtype=float).copy()
+		)
+		self._drainage_uses_hk = bool(
+			drainage_cond_series is not None
+			and np.any(np.asarray(drainage_cond_series, dtype=float) <= 0.0)
+		)
 		if drainage_cond_series is not None:
-			drn_spd = {}
-			top_flat = solver_mesh.top  # (ncpl,)
-			dem_mask_flat = np.asarray(self.dem_mask, dtype=bool).reshape(-1)
-			ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
-			stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
-			cell_areas = solver_mesh.cell_areas()  # per-cell areas
-			for kper in range(int(self.nper)):
-				period_cells = []
-				configured_cond_value = float(drainage_cond_series[kper])
-				for cid in range(int(self.ncpl)):
-					if dem_mask_flat[cid] or ocean_mask_flat[cid] or stream_mask_flat[cid]:
-						continue
-					if configured_cond_value > 0.0:
-						cond_value = max(configured_cond_value, 1e-12)
-					else:
-						cond_value = max(float(self.hk[0, cid]) * float(cell_areas[cid]), 1e-12)
-					period_cells.append([0, cid, float(top_flat[cid]), cond_value])
-				drn_spd[kper] = period_cells
+			drn_spd = self._build_drain_stress_period_data(
+				solver_mesh=solver_mesh,
+				drainage_cond_series=np.asarray(drainage_cond_series, dtype=float),
+				ocean_support_mask=np.asarray(ocean_support_mask, dtype=bool),
+				stream_support_mask=np.asarray(stream_support_mask, dtype=bool),
+			)
 			self.drn = flopy.mf6.ModflowGwfdrn(self.gwf, stress_period_data=drn_spd, save_flows=True)
 
 		side_chd_spd = self._build_side_boundary_chd_spd()
@@ -1487,6 +1654,8 @@ class Modflow6(Solver):
 			saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
 			printrecord=[("HEAD", "LAST")],
 		)
+		self._runtime_dirty_packages = ()
+		self._calibration_runtime_reuse_signature = runtime_reuse_signature
 
 	def processing(self, options: ModflowRunOptions | None = None):
 		if options is None:
@@ -1495,7 +1664,16 @@ class Modflow6(Solver):
 			raise TypeError("processing options must be ModflowRunOptions")
 
 		if options.write_model:
-			self.sim.write_simulation(silent=not options.verbose)
+			dirty_packages = tuple(getattr(self, "_runtime_dirty_packages", ()) or ())
+			if dirty_packages:
+				for package_name in dirty_packages:
+					package = getattr(self, str(package_name), None)
+					if package is None:
+						continue
+					package.write()
+				self._runtime_dirty_packages = ()
+			else:
+				self.sim.write_simulation(silent=not options.verbose)
 
 		success_model = False
 		if options.run_model:

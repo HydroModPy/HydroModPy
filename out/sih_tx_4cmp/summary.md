@@ -10,10 +10,10 @@ West no-flow, east fixed head, annual recharge ramp followed by one dry year, an
 
 | Solver | Onset day [d] | Peak drainage flux [m3/day] | Peak drainage day [d] | Max clearance [m] | Wall time [s] | Results dir |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| MODFLOW-NWT | 15.0 | 67.5639 | 180.0 | 0.1073 | 17.83 | `C:\codes\HydroModPy-GH\out\sih_tx_4cmp\validation\investigate_surfa_062b168c50\transient_modflownwt_0b77c10c` |
-| MODFLOW 6 | 15.0 | 67.5738 | 180.0 | 0.1073 | 22.10 | `C:\codes\HydroModPy-GH\out\sih_tx_4cmp\validation\investigate_surfa_062b168c50\transient_modflow6_11ba1e6e` |
-| MODFLOW 6 irregular triangles | 15.0 | 56.7180 | 180.0 | 0.2006 | 13.22 | `C:\codes\HydroModPy-GH\out\sih_tx_4cmp\validation\investigate_surfa_062b168c50\transient_modflow_30d11bbf32_c14a80a7` |
-| Boussinesq | 15.0 | 0.0201 | 15.0 | -0.0000 | 59.06 | `C:\codes\HydroModPy-GH\out\sih_tx_4cmp\validation\investigate_surfa_062b168c50\hillslope_surface_baba065f89_5d7a5474` |
+| MODFLOW-NWT | 15.0 | 67.5639 | 180.0 | 0.1073 | 18.53 | `C:\codes\HydroModPy-GH\out\sih_tx_4cmp\validation\investigate_surfa_062b168c50\transient_modflownwt` |
+| MODFLOW 6 | 15.0 | 67.5738 | 180.0 | 0.1073 | 24.44 | `C:\codes\HydroModPy-GH\out\sih_tx_4cmp\validation\investigate_surfa_062b168c50\transient_modflow6` |
+| MODFLOW 6 irregular triangles | 15.0 | 56.7180 | 180.0 | 0.2006 | 16.49 | `C:\codes\HydroModPy-GH\out\sih_tx_4cmp\validation\investigate_surfa_062b168c50\transient_modflow_30d11bbf32` |
+| Boussinesq | 15.0 | 0.0201 | 15.0 | -0.0000 | 74.16 | `C:\codes\HydroModPy-GH\out\sih_tx_4cmp\validation\investigate_surfa_062b168c50\hillslope_surface_baba065f89` |
 
 Head snapshots: `C:\codes\HydroModPy-GH\out\sih_tx_4cmp\figures\head_snapshots.png`
 Head point time series: `C:\codes\HydroModPy-GH\out\sih_tx_4cmp\figures\head_point_timeseries.png`

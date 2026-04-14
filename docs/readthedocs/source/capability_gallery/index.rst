@@ -34,6 +34,15 @@ This section groups a small set of static, versioned illustrations that explain 
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: calibration
+      :link-type: doc
+
+      **Calibration Benchmarks**
+      ^^^
+      Synthetic inverse problems used to inspect calibration workflows, search methods, and timing diagnostics.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: geographic
       :link-type: doc
 
@@ -83,6 +92,7 @@ This section groups a small set of static, versioned illustrations that explain 
 
    mesh
    validation
+   calibration
    geographic
    geometry
    hydraulic_properties

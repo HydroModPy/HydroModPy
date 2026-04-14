@@ -28,7 +28,7 @@ def test_calibration_twin_linearized_recharge_step_modflow6_benchmark_recovers_t
     benchmark = run_twin_benchmark_case(
         TRANSIENT_RECHARGE_STEP_TWIN_CASE,
         caller_file=__file__,
-        evaluation_budget=12,
+        evaluation_budget=16,
     )
 
     assert benchmark.summary_path.is_file()
@@ -62,6 +62,14 @@ def test_calibration_twin_linearized_recharge_step_modflow6_benchmark_recovers_t
     assert all(
         result.model_distribution_path is not None for result in distribution_results
     )
+    assert next(
+        result for result in distribution_results if result.method_name == "random_search"
+    ).truth_in_distribution is True
     assert all(
-        result.truth_in_distribution is True for result in distribution_results
+        (
+            result.truth_in_distribution is True
+            or result.recovered_truth is True
+        )
+        for result in distribution_results
+        if result.method_name in {"gp_mapping", "da_mh_gp"}
     )

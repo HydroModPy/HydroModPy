@@ -14,4 +14,5 @@ It is the right place for:
 .. toctree::
    :maxdepth: 2
 
+   calibration/index
    solvers/index

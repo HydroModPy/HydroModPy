@@ -242,7 +242,7 @@ def build_calibration_case_records() -> tuple[CalibrationCaseRecord, ...]:
                 "linearized_unconfined_recharge_step_1d.run_case"
             ),
             display_method_name="gp_mapping",
-            evaluation_budget=12,
+            evaluation_budget=None,
         ),
         _record(
             definition=PIECEWISE_K_TWIN_CASE,

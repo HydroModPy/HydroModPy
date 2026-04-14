@@ -78,6 +78,12 @@ Quick checks:
 /home/dreuzy/miniforge3/bin/conda run -n hydromodpy-petsc python -c "import petsc4py, whitebox_workflows, hydromodpy; print('ok')"
 ```
 
+System packages needed by the local WSL setup for `gmsh`-based benchmarks:
+
+```bash
+apt-get install -y libxft2 libglu1-mesa libgl1 libxcursor1 libxinerama1 libxrandr2 libfreetype6 libfontconfig1
+```
+
 Bootstrap a conda-forge PETSc environment from PowerShell:
 
 ```powershell
@@ -109,6 +115,20 @@ Generated outputs:
 
 ```text
 /mnt/c/codes/HydroModPy-GH/out/boussinesq_hillslope_overflow_multi_linux_20260413
+```
+
+Full cross-model transient benchmark on Linux with the same context as the
+Windows benchmark, including `MODFLOW-NWT`, `MODFLOW 6`, `MODFLOW 6 irregular
+triangles`, and `Boussinesq`:
+
+```powershell
+wsl.exe /home/dreuzy/miniforge3/bin/conda run -n hydromodpy-petsc python -m tools.investigate_surface_interaction_hillslope_transient --output-root /mnt/c/codes/HydroModPy-GH/out/sih_tx_4cmp_linux_20260414
+```
+
+Generated outputs:
+
+```text
+/mnt/c/codes/HydroModPy-GH/out/sih_tx_4cmp_linux_20260414
 ```
 
 ## Real 100 km2 Case

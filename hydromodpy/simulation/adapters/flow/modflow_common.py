@@ -15,6 +15,7 @@ Keeping that code here avoids duplicating the same lifecycle in both
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
@@ -73,6 +74,13 @@ def resolve_run_model_name(ctx) -> str:
     Canonical source is ``ctx.state.setup.run_id``.
     When the plan has multiple flow runs, a positional suffix is appended.
     """
+    flow_runtime_overrides = getattr(ctx.state.setup, "flow_runtime_overrides", None)
+    if isinstance(flow_runtime_overrides, Mapping):
+        override_name = str(
+            flow_runtime_overrides.get("model_name_override", "") or ""
+        ).strip()
+        if override_name:
+            return flow_model_name(ctx.plan, override_name, ctx.run)
     run_id = str(getattr(ctx.state.setup, "run_id", "") or "").strip()
     if not run_id:
         run_id = "default"
@@ -119,6 +127,7 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
     """
 
     state = ctx.state
+    flow_runtime_overrides = getattr(state.setup, "flow_runtime_overrides", None)
     # Pre-processing materializes the grid, packages, and disk inputs for the
     # chosen flow backend using the already-prepared shared domain objects.
     model_modflow.pre_processing(
@@ -127,7 +136,7 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
         options=preprocess_options,
         mesh_planar=getattr(state.setup, "mesh_planar", None),
         mesh_support=getattr(state.setup, "mesh_support", None),
-        flow_runtime_overrides=getattr(state.setup, "flow_runtime_overrides", None),
+        flow_runtime_overrides=flow_runtime_overrides,
     )
 
     # The numerical run is shared across flow backends: write files, execute

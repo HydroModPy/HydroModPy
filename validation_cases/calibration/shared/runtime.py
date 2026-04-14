@@ -14,6 +14,7 @@ import numpy as np
 
 from hydromodpy.analysis.calibration.engine.launcher import ModelCalibrationLauncher
 from hydromodpy.analysis.calibration.engine.session import (
+    ModelCalibrationObjectiveEvaluator,
     actualize_candidate,
     execute_candidate_run,
     select_candidate_outputs,
@@ -143,6 +144,156 @@ def _placeholder_observations(
 ) -> dict[str, tuple[float, ...]]:
     """Return one minimal observed-value mapping accepted by config parsing."""
     return {str(name): (0.0,) for name in definition.output_names}
+
+
+def _regular_objective_grid_enabled(
+    *,
+    definition: TwinCalibrationCaseDefinition,
+    evaluation_budget: int | None,
+) -> bool:
+    """Return True when one case should run a shared regular 2D objective scan."""
+    n_per_dim = definition.regular_objective_grid_n_per_dim
+    if n_per_dim is None or int(n_per_dim) < 2:
+        return False
+    if len(definition.truth_params) != 2:
+        return False
+    if evaluation_budget is not None:
+        return False
+    return True
+
+
+def _regular_objective_grid_path(benchmark_root: Path) -> Path:
+    """Return the persisted shared regular-grid objective payload path."""
+    return benchmark_root / "objective_regular_grid.json"
+
+
+def _block_normalized_cost_mapping(evaluation: Any) -> dict[str, float]:
+    """Extract normalized block costs from one composite objective evaluation."""
+    costs: dict[str, float] = {}
+    for block in tuple(getattr(evaluation, "blocks", ())):
+        name = getattr(block, "name", None)
+        normalized_cost = getattr(block, "normalized_cost", None)
+        if name is None or normalized_cost is None:
+            continue
+        try:
+            value = float(normalized_cost)
+        except (TypeError, ValueError):
+            continue
+        costs[str(name)] = value
+    return costs
+
+
+def _write_regular_objective_grid_payload(
+    *,
+    benchmark_root: Path,
+    definition: TwinCalibrationCaseDefinition,
+    observations_used: dict[str, tuple[float, ...]],
+    launcher_factory: Any,
+) -> Path:
+    """Evaluate one regular shared 2D objective grid for a benchmark case."""
+    parameter_names = tuple(str(name) for name in definition.truth_params.keys())
+    n_per_dim = int(definition.regular_objective_grid_n_per_dim or 0)
+    if len(parameter_names) != 2 or n_per_dim < 2:
+        raise ValueError(
+            "regular objective grid requires exactly two calibrated parameters"
+        )
+
+    method_profile = CalibrationMethodProfile(
+        name="random_search",
+        method_kwargs={"n_samples": 1, "seed": 0},
+        persist_model_distribution=False,
+    )
+    calibration_id = _compact_calibration_id(definition, "objective_grid")
+    calibration_path = benchmark_root / "objective_regular_grid.toml"
+    payload = definition.build_calibration_payload(
+        "simulation.toml",
+        calibration_id,
+        observations_used,
+        method_profile,
+    )
+    _write_toml(calibration_path, payload)
+
+    launcher = ModelCalibrationLauncher(calibration_path)
+    session = launcher.prepare()
+    evaluator = ModelCalibrationObjectiveEvaluator(
+        session=session,
+        cfg=launcher.cfg,
+        launcher_factory=launcher_factory,
+        iteration_start=1,
+        record_callback=None,
+    )
+
+    x_name, y_name = parameter_names
+    x_bounds = tuple(float(value) for value in definition.bounds[x_name])
+    y_bounds = tuple(float(value) for value in definition.bounds[y_name])
+    x_values = np.linspace(x_bounds[0], x_bounds[1], n_per_dim, dtype=float)
+    y_values = np.linspace(y_bounds[0], y_bounds[1], n_per_dim, dtype=float)
+    objective_total: list[list[float | None]] = []
+    block_cost_grids: dict[str, list[list[float | None]]] = {}
+
+    try:
+        for y_value in y_values:
+            row: list[float | None] = []
+            row_block_values: dict[str, list[float | None]] = {}
+            for x_value in x_values:
+                evaluation = evaluator.evaluate(
+                    {
+                        x_name: float(x_value),
+                        y_name: float(y_value),
+                    }
+                )
+                total_cost = getattr(evaluation, "total_cost", None)
+                try:
+                    total_cost_value = (
+                        None
+                        if total_cost is None or not math.isfinite(float(total_cost))
+                        else float(total_cost)
+                    )
+                except (TypeError, ValueError):
+                    total_cost_value = None
+                row.append(total_cost_value)
+                block_costs = _block_normalized_cost_mapping(evaluation)
+                for block_name in set(block_cost_grids) | set(block_costs) | set(row_block_values):
+                    row_block_values.setdefault(block_name, [])
+                for block_name, values in row_block_values.items():
+                    block_value = block_costs.get(block_name)
+                    values.append(
+                        None
+                        if block_value is None or not math.isfinite(float(block_value))
+                        else float(block_value)
+                    )
+            objective_total.append(row)
+            for block_name, values in row_block_values.items():
+                block_cost_grids.setdefault(block_name, []).append(list(values))
+    finally:
+        calibration_root = session.calibration_root
+        if calibration_root.is_dir():
+            shutil.rmtree(calibration_root, ignore_errors=True)
+
+    grid_path = _regular_objective_grid_path(benchmark_root)
+    grid_path.write_text(
+        json.dumps(
+            {
+                "role": "calibration_regular_objective_grid",
+                "case_id": definition.case_id,
+                "parameter_names": list(parameter_names),
+                "n_per_dim": int(n_per_dim),
+                "x": [float(value) for value in x_values],
+                "y": [float(value) for value in y_values],
+                "objective_total": objective_total,
+                "block_normalized_costs": block_cost_grids,
+                "truth_params": {
+                    str(name): float(value)
+                    for name, value in definition.truth_params.items()
+                },
+            },
+            indent=2,
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return grid_path
 
 
 def _apply_observation_noise(
@@ -790,6 +941,7 @@ def run_twin_benchmark_case(
         )
 
     configuration_figure = None
+    regular_objective_grid_path = None
     generate_case_figures = (
         definition.generate_case_figures
         if case_figures is None
@@ -813,6 +965,16 @@ def run_twin_benchmark_case(
             artifact_retention=retained_mode,
             figure_format=figure_format,
         )
+        if _regular_objective_grid_enabled(
+            definition=definition,
+            evaluation_budget=evaluation_budget,
+        ):
+            regular_objective_grid_path = _write_regular_objective_grid_payload(
+                benchmark_root=benchmark_root,
+                definition=definition,
+                observations_used=observations_used,
+                launcher_factory=launcher_factory,
+            )
 
     method_results: list[TwinMethodBenchmarkResult] = []
     for method_run in _iter_selected_method_runs(selected_profiles):
@@ -885,6 +1047,7 @@ def run_twin_benchmark_case(
         summary_path=benchmark_root / "benchmark_summary.json",
         artifact_retention=retained_mode,
         configuration_figure=configuration_figure,
+        regular_objective_grid_path=regular_objective_grid_path,
         pruned_artifacts=pruned_artifacts,
     )
     benchmark.summary_path.write_text(
