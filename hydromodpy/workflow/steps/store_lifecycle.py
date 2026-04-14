@@ -1,8 +1,4 @@
-"""Store-lifecycle step — open, register, finalize, and close ResultStore.
-
-Code extracted from ``HydroModPyLauncher._open_result_store`` and the
-finalization block in ``HydroModPyLauncher.run_prepared``.
-"""
+"""Store-lifecycle step — open, register, finalize, and close ResultStore."""
 
 from __future__ import annotations
 
