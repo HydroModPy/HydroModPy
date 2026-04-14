@@ -1,22 +1,31 @@
 from __future__ import annotations
 
+import logging
+import shutil
+import zipfile
 from pathlib import Path
 
 import numpy as np
 import zarr
 import zarr.codecs
 
+logger = logging.getLogger(__name__)
+
 BLOSC_ZSTD = zarr.codecs.BloscCodec(cname="zstd", clevel=3)
 
-_SUBGROUPS = ("mesh", "derived", "budget", "pathlines", "geographic")
+_SUBGROUPS = ("mesh", "derived", "budget", "pathlines", "geographic", "forcing")
 
 
 class SimulationZarr:
 
     def __init__(self, path: Path | str) -> None:
         self._path = Path(path)
-        self._store = zarr.storage.LocalStore(str(self._path))
-        self._root = zarr.open_group(self._store, mode="a")
+        if self._path.suffix == ".zip" or str(self._path).endswith(".zarr.zip"):
+            self._store = zarr.storage.ZipStore(str(self._path), mode="r")
+            self._root = zarr.open_group(self._store, mode="r")
+        else:
+            self._store = zarr.storage.LocalStore(str(self._path))
+            self._root = zarr.open_group(self._store, mode="a")
 
     @classmethod
     def create(
@@ -65,7 +74,7 @@ class SimulationZarr:
         *,
         start_index: int = 0,
     ) -> None:
-        mesh = self._root["mesh"]
+        mesh = self._root.require_group("mesh")
 
         mesh.create_array(
             "vertices", data=vertices.astype("float64"), overwrite=True,
@@ -185,7 +194,7 @@ class SimulationZarr:
         crs: str,
         nodata: float = -99999.0,
     ) -> None:
-        geo = self._root["geographic"]
+        geo = self._root.require_group("geographic")
         geo.create_array(
             name, data=data, compressors=BLOSC_ZSTD, overwrite=True,
         )
@@ -208,6 +217,96 @@ class SimulationZarr:
             "shape": tuple(arr.attrs.get("shape", ())),
         }
         return data, meta
+
+    # -- Forcing persistence --------------------------------------------------
+
+    def write_forcing_timeseries(
+        self,
+        variable: str,
+        station_id: str,
+        timestamps: np.ndarray,
+        values: np.ndarray,
+        *,
+        unit: str = "",
+        source: str = "",
+    ) -> None:
+        """Persist one input forcing timeseries into ``forcing/<variable>/<station_id>``."""
+        forcing = self._root.require_group("forcing")
+        var_grp = forcing.require_group(variable)
+        sta_grp = var_grp.require_group(station_id)
+
+        ts_bytes = np.asarray(timestamps, dtype="datetime64[ns]").view("int64")
+        sta_grp.create_array("timestamps", data=ts_bytes, overwrite=True)
+        sta_grp.create_array("values", data=np.asarray(values, dtype="float64"), overwrite=True)
+        sta_grp.attrs["unit"] = unit
+        sta_grp.attrs["source"] = source
+        sta_grp.attrs["n_records"] = int(len(values))
+
+    def write_forcing_field(
+        self,
+        variable: str,
+        data: np.ndarray,
+        *,
+        unit: str = "",
+        source: str = "",
+    ) -> None:
+        """Persist one static forcing field (e.g. geology zones) into ``forcing/<variable>``."""
+        forcing = self._root.require_group("forcing")
+        forcing.create_array(
+            variable, data=data, compressors=BLOSC_ZSTD, overwrite=True,
+        )
+        forcing[variable].attrs["unit"] = unit
+        forcing[variable].attrs["source"] = source
+
+    def read_forcing_timeseries(
+        self,
+        variable: str,
+        station_id: str,
+    ) -> tuple[np.ndarray, np.ndarray, dict]:
+        """Read a forcing timeseries. Returns (timestamps, values, attrs)."""
+        forcing = self._root.get("forcing")
+        if forcing is None:
+            raise KeyError("No forcing group")
+        var_grp = forcing.get(variable)
+        if var_grp is None:
+            raise KeyError(f"No forcing variable '{variable}'")
+        sta_grp = var_grp.get(station_id)
+        if sta_grp is None:
+            raise KeyError(f"No forcing station '{station_id}' for '{variable}'")
+
+        ts_int = np.asarray(sta_grp["timestamps"][:], dtype="int64")
+        timestamps = ts_int.view("datetime64[ns]")
+        values = np.asarray(sta_grp["values"][:], dtype="float64")
+        attrs = dict(sta_grp.attrs)
+        return timestamps, values, attrs
+
+    # -- Packing -------------------------------------------------------------
+
+    def pack_to_zip(self) -> Path:
+        """Compact the directory-based Zarr store into a ``.zarr.zip`` file.
+
+        The original directory is removed after successful packing.
+        Returns the path to the new zip file.
+        """
+        if not self._path.is_dir():
+            return self._path
+
+        self.close()
+
+        zip_path = self._path.with_suffix(".zarr.zip")
+        with zipfile.ZipFile(str(zip_path), "w", compression=zipfile.ZIP_STORED) as zf:
+            for fpath in sorted(self._path.rglob("*")):
+                if fpath.is_file():
+                    arcname = str(fpath.relative_to(self._path))
+                    zf.write(str(fpath), arcname)
+
+        shutil.rmtree(self._path, ignore_errors=True)
+        logger.debug("Packed %s -> %s", self._path.name, zip_path.name)
+
+        self._path = zip_path
+        self._store = zarr.storage.ZipStore(str(zip_path), mode="r")
+        self._root = zarr.open_group(self._store, mode="r")
+        return zip_path
 
     # -- Lifecycle -----------------------------------------------------------
 

@@ -1,6 +1,6 @@
 """CLI adapter for ``hmp run <config.toml>`` (simulation workflow).
 
-Domain logic lives in :class:`hydromodpy.project.Project` and
+Domain logic lives in :class:`hydromodpy.simulation.Simulation` and
 ``hydromodpy.workflow.pipelines.simulation``.
 """
 
@@ -13,12 +13,12 @@ def run(config_path: str | Path) -> dict:
     """Execute a single simulation from a TOML file.
 
     This is the CLI entry point for ``hmp run config.toml`` when the TOML
-    describes a simulation workflow.  It creates a Project, runs once
+    describes a simulation workflow.  It creates a Simulation, runs once
     (no overrides), and closes.
     """
-    from hydromodpy.project import Project
+    from hydromodpy.simulation import Simulation
 
-    with Project(config_path) as project:
+    with Simulation(config_path) as project:
         result = project.run()
         return {
             "name": result.name,

@@ -206,6 +206,23 @@ class SimulationCatalog:
             [str(sim_id), timestep, zone_id, component, flux_in, flux_out, unit],
         )
 
+    def write_budgets(
+        self,
+        sim_id: str | UUID,
+        records: list[dict],
+    ) -> None:
+        if not records:
+            return
+        sid = str(sim_id)
+        df = pd.DataFrame(records)
+        df["sim_id"] = sid
+        self._db.execute(
+            "INSERT INTO budgets "
+            "(sim_id, timestep, zone_id, component, flux_in, flux_out, unit) "
+            "SELECT sim_id, timestep, zone_id, component, flux_in, flux_out, unit "
+            "FROM df"
+        )
+
     # -- Mass balance --------------------------------------------------------
 
     def write_mass_balance(
@@ -227,6 +244,24 @@ class SimulationCatalog:
                 str(sim_id), timestep, total_in, total_out,
                 storage_in, storage_out, percent_error,
             ],
+        )
+
+    def write_mass_balances(
+        self,
+        sim_id: str | UUID,
+        records: list[dict],
+    ) -> None:
+        if not records:
+            return
+        sid = str(sim_id)
+        df = pd.DataFrame(records)
+        df["sim_id"] = sid
+        self._db.execute(
+            "INSERT INTO mass_balance "
+            "(sim_id, timestep, total_in, total_out, "
+            "storage_in, storage_out, percent_error) "
+            "SELECT sim_id, timestep, total_in, total_out, "
+            "storage_in, storage_out, percent_error FROM df"
         )
 
     # -- Metrics -------------------------------------------------------------
@@ -301,11 +336,11 @@ class SimulationCatalog:
                 [sid, station_id, x, y, cell_id, layer, variable],
             )
 
-    # -- Geographic (project-scoped in DuckDB) -------------------------------
+    # -- Geographic features & metadata (sim-scoped in DuckDB) ----------------
 
     def write_geographic_feature(
         self,
-        project: str,
+        sim_id: str | UUID,
         feature_name: str,
         gdf: gpd.GeoDataFrame,
     ) -> None:
@@ -321,24 +356,24 @@ class SimulationCatalog:
 
         self._db.execute(
             "INSERT OR REPLACE INTO geographic_features "
-            "(project, feature_name, geojson, geometry_type, crs, properties) "
+            "(sim_id, feature_name, geojson, geometry_type, crs, properties) "
             "VALUES (?, ?, ?, ?, ?, NULL)",
-            [project, feature_name, geojson_str, geom_type, crs_str],
+            [str(sim_id), feature_name, geojson_str, geom_type, crs_str],
         )
 
     def read_geographic_feature(
-        self, project: str, feature_name: str,
+        self, sim_id: str | UUID, feature_name: str,
     ) -> gpd.GeoDataFrame:
         import geopandas as gpd_mod
 
         row = self._db.execute(
             "SELECT geojson, crs FROM geographic_features "
-            "WHERE project = ? AND feature_name = ?",
-            [project, feature_name],
+            "WHERE sim_id = ? AND feature_name = ?",
+            [str(sim_id), feature_name],
         ).fetchone()
         if row is None:
             raise KeyError(
-                f"Feature '{feature_name}' not found for project '{project}'"
+                f"Feature '{feature_name}' not found for sim '{sim_id}'"
             )
         geojson_str, crs = row
         if geojson_str:
@@ -348,28 +383,29 @@ class SimulationCatalog:
             return gdf
         raise KeyError(f"No GeoJSON data for feature '{feature_name}'")
 
-    def list_geographic_features(self, project: str) -> list[str]:
+    def list_geographic_features(self, sim_id: str | UUID) -> list[str]:
         rows = self._db.execute(
             "SELECT feature_name FROM geographic_features "
-            "WHERE project = ? ORDER BY feature_name",
-            [project],
+            "WHERE sim_id = ? ORDER BY feature_name",
+            [str(sim_id)],
         ).fetchall()
         return [r[0] for r in rows]
 
     def write_geographic_metadata(
-        self, project: str, metadata: dict[str, str],
+        self, sim_id: str | UUID, metadata: dict[str, str],
     ) -> None:
+        sid = str(sim_id)
         for key, value in metadata.items():
             self._db.execute(
-                "INSERT OR REPLACE INTO geographic_metadata (project, key, value) "
+                "INSERT OR REPLACE INTO geographic_metadata (sim_id, key, value) "
                 "VALUES (?, ?, ?)",
-                [project, str(key), str(value)],
+                [sid, str(key), str(value)],
             )
 
-    def read_geographic_metadata(self, project: str) -> dict[str, str]:
+    def read_geographic_metadata(self, sim_id: str | UUID) -> dict[str, str]:
         rows = self._db.execute(
-            "SELECT key, value FROM geographic_metadata WHERE project = ?",
-            [project],
+            "SELECT key, value FROM geographic_metadata WHERE sim_id = ?",
+            [str(sim_id)],
         ).fetchall()
         return {r[0]: r[1] for r in rows}
 
@@ -392,8 +428,11 @@ class SimulationCatalog:
     # -- Zarr access ---------------------------------------------------------
 
     def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
-        zarr_path = self._simulations_dir / f"{sim_id}.zarr"
-        return SimulationZarr(zarr_path)
+        zarr_dir = self._simulations_dir / f"{sim_id}.zarr"
+        zarr_zip = self._simulations_dir / f"{sim_id}.zarr.zip"
+        if zarr_zip.exists():
+            return SimulationZarr(zarr_zip)
+        return SimulationZarr(zarr_dir)
 
     def open_zarr_group(self, sim_id: str | UUID, *, mode: str = "r"):
         return self.open_zarr(sim_id).root
@@ -704,11 +743,11 @@ class SimulationCatalog:
         output.mkdir(parents=True, exist_ok=True)
 
         row = self._db.execute(
-            "SELECT project, zarr_path FROM simulations WHERE sim_id = ?", [sid],
+            "SELECT zarr_path FROM simulations WHERE sim_id = ?", [sid],
         ).fetchone()
         if row is None:
             raise KeyError(f"Simulation '{sid}' not found")
-        project, zarr_rel = row
+        zarr_rel = row[0]
 
         pkg_db_path = output / "simulation.duckdb"
         pkg_db = duckdb.connect(str(pkg_db_path))
@@ -724,20 +763,6 @@ class SimulationCatalog:
                 ).fetchdf()
                 pkg_db.execute(f"CREATE TABLE {table} AS SELECT * FROM df")
 
-            geo_feat = self._db.execute(
-                "SELECT * FROM geographic_features WHERE project = ?", [project],
-            ).fetchdf()
-            pkg_db.execute(
-                "CREATE TABLE geographic_features AS SELECT * FROM geo_feat"
-            )
-
-            geo_meta = self._db.execute(
-                "SELECT * FROM geographic_metadata WHERE project = ?", [project],
-            ).fetchdf()
-            pkg_db.execute(
-                "CREATE TABLE geographic_metadata AS SELECT * FROM geo_meta"
-            )
-
             ver_df = self._db.execute("SELECT * FROM _schema_version").fetchdf()
             pkg_db.execute(
                 "CREATE TABLE _schema_version AS SELECT * FROM ver_df"
@@ -746,8 +771,11 @@ class SimulationCatalog:
             pkg_db.close()
 
         zarr_src = self._workspace / zarr_rel
-        zarr_dst = output / "results.zarr"
-        if zarr_src.exists():
+        if zarr_src.is_file():
+            zarr_dst = output / "results.zarr.zip"
+            shutil.copy2(zarr_src, zarr_dst)
+        elif zarr_src.is_dir():
+            zarr_dst = output / "results.zarr"
             shutil.copytree(zarr_src, zarr_dst, dirs_exist_ok=True)
 
         return output
@@ -784,37 +812,49 @@ class SimulationCatalog:
                 ).fetchall()
             }
 
-            sim_df = pkg_db.execute("SELECT * FROM simulations").fetchdf()
-            self._db.execute("INSERT INTO simulations SELECT * FROM sim_df")
+            self._db.begin()
+            try:
+                sim_df = pkg_db.execute("SELECT * FROM simulations").fetchdf()
+                self._db.execute("INSERT INTO simulations SELECT * FROM sim_df")
 
-            for table in PER_SIM_TABLE_NAMES:
-                if table in pkg_tables:
-                    df = pkg_db.execute(f"SELECT * FROM {table}").fetchdf()
-                    if not df.empty:
-                        self._db.execute(
-                            f"INSERT INTO {table} SELECT * FROM df"
-                        )
+                for table in PER_SIM_TABLE_NAMES:
+                    if table in pkg_tables:
+                        df = pkg_db.execute(f"SELECT * FROM {table}").fetchdf()
+                        if not df.empty:
+                            self._db.execute(
+                                f"INSERT INTO {table} SELECT * FROM df"
+                            )
 
-            for geo_table in ("geographic_features", "geographic_metadata"):
-                if geo_table in pkg_tables:
-                    df = pkg_db.execute(f"SELECT * FROM {geo_table}").fetchdf()
-                    if not df.empty:
-                        self._db.execute(
-                            f"INSERT OR REPLACE INTO {geo_table} SELECT * FROM df"
-                        )
+                # Determine zarr_path based on package content
+                pkg_zarr_zip = pkg / "results.zarr.zip"
+                pkg_zarr_dir = pkg / "results.zarr"
+                if pkg_zarr_zip.exists():
+                    zarr_path = f"simulations/{sid}.zarr.zip"
+                else:
+                    zarr_path = f"simulations/{sid}.zarr.zip"
+                self._db.execute(
+                    "UPDATE simulations SET zarr_path = ? WHERE sim_id = ?",
+                    [zarr_path, sid],
+                )
+                self._db.commit()
+            except Exception:
+                self._db.rollback()
+                raise
         finally:
             pkg_db.close()
 
-        zarr_path = f"simulations/{sid}.zarr"
-        self._db.execute(
-            "UPDATE simulations SET zarr_path = ? WHERE sim_id = ?",
-            [zarr_path, sid],
-        )
-
-        pkg_zarr = pkg / "results.zarr"
-        if pkg_zarr.exists():
-            dst = self._workspace / zarr_path
-            shutil.copytree(pkg_zarr, dst, dirs_exist_ok=True)
+        pkg_zarr_zip = pkg / "results.zarr.zip"
+        pkg_zarr_dir = pkg / "results.zarr"
+        dst = self._workspace / zarr_path
+        if pkg_zarr_zip.exists():
+            shutil.copy2(pkg_zarr_zip, dst)
+        elif pkg_zarr_dir.exists():
+            # Import from old-format directory: pack to zip
+            import zipfile
+            with zipfile.ZipFile(str(dst), "w", compression=zipfile.ZIP_STORED) as zf:
+                for fpath in sorted(pkg_zarr_dir.rglob("*")):
+                    if fpath.is_file():
+                        zf.write(str(fpath), str(fpath.relative_to(pkg_zarr_dir)))
 
         return sid
 
@@ -826,10 +866,25 @@ class SimulationCatalog:
         status: str = "completed",
         duration_s: float | None = None,
     ) -> None:
+        sid = str(sim_id)
         self._db.execute(
             "UPDATE simulations SET status = ?, duration_s = ? WHERE sim_id = ?",
-            [status, duration_s, str(sim_id)],
+            [status, duration_s, sid],
         )
+
+        if status == "completed":
+            zarr_dir = self._simulations_dir / f"{sid}.zarr"
+            if zarr_dir.is_dir():
+                try:
+                    sz = SimulationZarr(zarr_dir)
+                    zip_path = sz.pack_to_zip()
+                    rel = f"simulations/{zip_path.name}"
+                    self._db.execute(
+                        "UPDATE simulations SET zarr_path = ? WHERE sim_id = ?",
+                        [rel, sid],
+                    )
+                except Exception:
+                    logger.debug("Could not pack zarr to zip for sim %s", sid)
 
     def delete(self, sim_id: str | UUID) -> None:
         sid = str(sim_id)
@@ -838,13 +893,21 @@ class SimulationCatalog:
             "SELECT zarr_path FROM simulations WHERE sim_id = ?", [sid],
         ).fetchone()
 
-        for table in PER_SIM_TABLE_NAMES:
-            self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
-        self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+        self._db.begin()
+        try:
+            for table in PER_SIM_TABLE_NAMES:
+                self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
+            self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+            self._db.commit()
+        except Exception:
+            self._db.rollback()
+            raise
 
         if row and row[0]:
             zarr_abs = self._workspace / row[0]
-            if zarr_abs.exists():
+            if zarr_abs.is_file():
+                zarr_abs.unlink(missing_ok=True)
+            elif zarr_abs.is_dir():
                 shutil.rmtree(zarr_abs, ignore_errors=True)
 
     def close(self) -> None:

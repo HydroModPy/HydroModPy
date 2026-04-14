@@ -84,26 +84,30 @@ def persist_calibration_result(
         name=name or "calibration_best",
     )
 
-    results = run_fn(**best_params)
+    try:
+        results = run_fn(**best_params)
 
-    for station_id, variable, timestamps in observation_plan:
-        key = f"{station_id}_{variable}"
-        ts = results.get(key)
-        if ts is None:
-            ts = results.get(station_id)
-        if ts is None:
-            ts = results.get(variable)
-        if ts is not None:
-            store.write_timeseries(sim_id, station_id, variable, ts)
+        for station_id, variable, timestamps in observation_plan:
+            key = f"{station_id}_{variable}"
+            ts = results.get(key)
+            if ts is None:
+                ts = results.get(station_id)
+            if ts is None:
+                ts = results.get(variable)
+            if ts is not None:
+                store.write_timeseries(sim_id, station_id, variable, ts, unit="")
 
-    if metrics:
-        for station_id, metric_name, value in metrics:
-            store.write_metric(sim_id, station_id, metric_name, value)
+        if metrics:
+            for station_id, metric_name, value in metrics:
+                store.write_metric(sim_id, station_id, metric_name, value)
 
-    store.write_parameters(sim_id, [
-        {"param_name": k, "value": v, "parameterization": "calibrated"}
-        for k, v in best_params.items()
-    ])
+        store.write_parameters(sim_id, [
+            {"param_name": k, "value": v, "parameterization": "calibrated"}
+            for k, v in best_params.items()
+        ])
+    except Exception:
+        store.finalize(sim_id, status="failed")
+        raise
 
     store.finalize(sim_id, status="calibrated")
     logger.info("Persisted calibration result for sim %s", sim_id)

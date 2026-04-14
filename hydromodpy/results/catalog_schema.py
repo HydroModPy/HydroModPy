@@ -172,22 +172,22 @@ CREATE TABLE IF NOT EXISTS calibration_iterations (
 
 _GEOGRAPHIC_FEATURES_DDL = """\
 CREATE TABLE IF NOT EXISTS geographic_features (
-    project       VARCHAR NOT NULL,
+    sim_id        UUID NOT NULL,
     feature_name  VARCHAR NOT NULL,
     geojson       TEXT,
     geometry_type VARCHAR,
     crs           VARCHAR,
     properties    JSON,
-    PRIMARY KEY (project, feature_name)
+    PRIMARY KEY (sim_id, feature_name)
 );
 """
 
 _GEOGRAPHIC_METADATA_DDL = """\
 CREATE TABLE IF NOT EXISTS geographic_metadata (
-    project VARCHAR NOT NULL,
+    sim_id  UUID NOT NULL,
     key     VARCHAR NOT NULL,
     value   VARCHAR,
-    PRIMARY KEY (project, key)
+    PRIMARY KEY (sim_id, key)
 );
 """
 
@@ -231,6 +231,8 @@ PER_SIM_TABLE_NAMES: tuple[str, ...] = (
     "metrics",
     "observation_points",
     "provenance",
+    "geographic_features",
+    "geographic_metadata",
 )
 
 MIGRATIONS: dict[int, list[str]] = {
