@@ -124,44 +124,6 @@ CREATE TABLE IF NOT EXISTS geographic_features (
 );
 """
 
-# -- Registry table (workspace-level) ---------------------------------------
-
-_REGISTRY_TABLE_SQL = """\
-CREATE TABLE IF NOT EXISTS simulation_registry (
-    sim_id         UUID PRIMARY KEY,
-    project        VARCHAR NOT NULL,
-    project_path   TEXT NOT NULL,
-    name           VARCHAR,
-    description    VARCHAR,
-    tags           VARCHAR[],
-    created_at     TIMESTAMP DEFAULT now(),
-    solver         VARCHAR NOT NULL,
-    process_types  VARCHAR[],
-    status         VARCHAR NOT NULL,
-    n_cells        INTEGER,
-    n_layers       INTEGER,
-    cell_types     VARCHAR[],
-    bbox           DOUBLE[4],
-    crs            VARCHAR,
-    n_timesteps    INTEGER,
-    period_start   DATE,
-    period_end     DATE,
-    time_unit      VARCHAR,
-    duration_s     DOUBLE,
-    best_nse       DOUBLE,
-    best_kge       DOUBLE,
-    best_rmse      DOUBLE,
-    n_observation_points INTEGER,
-    forcing_sources VARCHAR[],
-    config_hash     VARCHAR
-);
-
-CREATE INDEX IF NOT EXISTS ix_registry_project ON simulation_registry(project);
-CREATE INDEX IF NOT EXISTS ix_registry_solver ON simulation_registry(solver);
-CREATE INDEX IF NOT EXISTS ix_registry_status ON simulation_registry(status);
-CREATE INDEX IF NOT EXISTS ix_registry_created ON simulation_registry(created_at);
-"""
-
 # -- Public constants --------------------------------------------------------
 
 PROJECT_TABLE_NAMES = (
@@ -259,9 +221,3 @@ def create_project_tables(conn: duckdb.DuckDBPyConnection) -> None:
     _ensure_schema(conn)
 
 
-def create_registry_table(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create the simulation_registry table in the workspace catalog database.
-
-    Safe to call multiple times (``IF NOT EXISTS``).
-    """
-    conn.execute(_REGISTRY_TABLE_SQL)
