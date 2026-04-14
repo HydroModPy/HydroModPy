@@ -25,7 +25,7 @@ from hydromodpy.analysis.postprocess.postprocess_config import PostprocessConfig
 
 if TYPE_CHECKING:
     from hydromodpy.data.contracts.load_result import LoadResult
-    from hydromodpy.core.state.run_state import LauncherRunState
+    from hydromodpy.core.state.run_state import WorkflowContext
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ class PostprocessRunner:
         self.store = store
         self.sim_id = sim_id
 
-    def after_process(self, process_type: str, state: "LauncherRunState") -> None:
+    def after_process(self, process_type: str, state: "WorkflowContext") -> None:
         """Run postprocess tasks registered for one process family."""
         if not self.config.enabled:
             return
@@ -106,7 +106,7 @@ class PostprocessRunner:
                 logger.debug("Failed to write %s to store", col, exc_info=True)
 
     @staticmethod
-    def _resolve_flow_model(state: "LauncherRunState"):
+    def _resolve_flow_model(state: "WorkflowContext"):
         """Resolve flow model from canonical run registry."""
         flow_model = state.get_model_for_solver("modflownwt")
         if flow_model is None:
@@ -114,11 +114,11 @@ class PostprocessRunner:
         return flow_model
 
     @staticmethod
-    def _resolve_boussinesq_model(state: "LauncherRunState"):
+    def _resolve_boussinesq_model(state: "WorkflowContext"):
         """Resolve the Boussinesq flow model from canonical run registry."""
         return state.get_model_for_solver("boussinesq")
 
-    def _after_flow(self, state: "LauncherRunState") -> None:
+    def _after_flow(self, state: "WorkflowContext") -> None:
         cfg = self.config.flow
         if not cfg.enabled:
             return
@@ -180,7 +180,7 @@ class PostprocessRunner:
                 store=self.store, sim_id=self.sim_id,
             )
 
-    def _after_transport(self, state: "LauncherRunState") -> None:
+    def _after_transport(self, state: "WorkflowContext") -> None:
         cfg = self.config.transport
         if not cfg.enabled:
             return
