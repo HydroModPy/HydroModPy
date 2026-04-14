@@ -154,7 +154,7 @@ def _load_boussinesq_state_payload(model) -> dict[str, np.ndarray]:
                 continue
             payload[key] = array.copy()
 
-    # Try reading from the ResultStore (boussinesq_state Zarr group).
+    # Try reading from the catalog (boussinesq_state Zarr group).
     _store = getattr(model, "_result_store", None)
     _sim_id = getattr(model, "_sim_id", None)
     if _store is not None and _sim_id is not None:
@@ -394,7 +394,7 @@ def _load_observed_streamflow(result) -> pd.DataFrame | None:
 
 
 def _load_flow_timeseries(result) -> pd.DataFrame | None:
-    """Load the simulated flow time series from ResultStore or legacy CSV.
+    """Load the simulated flow time series from catalog or legacy CSV.
 
     Returns ``None`` when no timeseries file is found on disk.
     """
@@ -412,7 +412,7 @@ def _load_flow_timeseries_from_store(
     store: Any,
     sim_id: str,
 ) -> pd.DataFrame | None:
-    """Load catchment-aggregated timeseries from a ResultStore.
+    """Load catchment-aggregated timeseries from a SimulationCatalog (or compatible store).
 
     Queries the store for each standard flow variable using the
     ``_catchment`` synthetic station.  Returns ``None`` if no
@@ -437,7 +437,7 @@ def _extract_cross_section_data(
     sim_id: str | None = None,
     x_index: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Extract 1-D cross-section arrays from DEM and ResultStore water-table."""
+    """Extract 1-D cross-section arrays from DEM and catalog water-table field."""
     import rasterio
     from hydromodpy.analysis.display.common import load_field_dict_from_store
 
@@ -456,7 +456,7 @@ def _extract_cross_section_data(
     if store is not None and sim_id is not None:
         wt_dict = load_field_dict_from_store(store, sim_id, "watertable_elevation")
     if wt_dict is None:
-        raise FileNotFoundError("No watertable_elevation in ResultStore")
+        raise FileNotFoundError("No watertable_elevation in catalog")
 
     last_key = max(wt_dict.keys())
     wt = wt_dict[last_key].astype(float)
@@ -509,11 +509,11 @@ def plot_flow_suite(
         Runtime simulation result object.
     options : DisplayOptions
         Rendering options.
-    store : ResultStore, optional
-        When provided, timeseries are loaded from the store instead of
+    store : SimulationCatalog, optional
+        When provided, timeseries are loaded from the catalog instead of
         the legacy ``_postprocess/_timeseries/`` CSV path.
     sim_id : str, optional
-        Simulation UUID in the store.  Required when *store* is given.
+        Simulation UUID in the catalog.  Required when *store* is given.
     """
     if not options.should_render():
         return

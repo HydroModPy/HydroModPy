@@ -2,7 +2,7 @@
 
 This module discovers and loads simulation outputs without requiring
 runtime objects.  ``GeographicArtifacts`` reads geographic rasters from
-the ``ResultStore`` (preferred) or falls back to files on disk.
+the ``SimulationCatalog`` (preferred) or falls back to files on disk.
 
 Typical usage::
 
@@ -24,9 +24,9 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class GeographicArtifacts:
-    """Geographic data for display — reads from store or files.
+    """Geographic data for display — reads from catalog or files.
 
-    Use :meth:`from_store` when a ``ResultStore`` is available (preferred).
+    Use :meth:`from_catalog` when a ``SimulationCatalog`` is available (preferred).
     Use :meth:`discover` as fallback when only the filesystem is available.
     """
 
@@ -39,11 +39,17 @@ class GeographicArtifacts:
     river_network_shp: Path | None = None
     dem_acc_tif: Path | None = None
 
-    # Store reference (None when using file-based discovery)
+    # Catalog reference (None when using file-based discovery)
     _store: Any = field(default=None, repr=False, compare=False)
+    _sim_id: str | None = field(default=None, repr=False, compare=False)
+    _project: str | None = field(default=None, repr=False, compare=False)
 
     def read_raster(self, name: str) -> tuple[np.ndarray, dict]:
-        """Read a geographic raster as (data, metadata) from the store.
+        """Read a geographic raster as (data, metadata) from the catalog.
+
+        Rasters are stored per-simulation in the Zarr archive under the
+        ``geographic/`` group.  Access goes through
+        ``catalog.open_zarr(sim_id).read_geographic_raster(name)``.
 
         Parameters
         ----------
@@ -58,28 +64,29 @@ class GeographicArtifacts:
         Raises
         ------
         KeyError
-            If the raster is not found in the store.
+            If the raster is not found in the catalog.
         """
-        if self._store is None:
+        if self._store is None or self._sim_id is None:
             raise KeyError(
-                f"Geographic raster '{name}' unavailable: no store attached. "
-                "Use GeographicArtifacts.from_store(store) or persist_geographic_to_store() first."
+                f"Geographic raster '{name}' unavailable: no catalog/sim_id attached. "
+                "Use GeographicArtifacts.from_catalog(catalog, sim_id, project) first."
             )
-        data = self._store.read_geographic_raster(name)
-        meta = self._store.read_geographic_raster_metadata(name)
-        return data, meta
+        zarr = self._store.open_zarr(self._sim_id)
+        return zarr.read_geographic_raster(name)
 
     def read_feature(self, name: str):
-        """Read a vector feature from the store as a GeoDataFrame.
+        """Read a vector feature from the catalog as a GeoDataFrame.
+
+        Features are stored per-project in the DuckDB catalog.
 
         Parameters
         ----------
         name : str
             Feature name, e.g. ``"watershed"``, ``"river_network"``.
         """
-        if self._store is None:
-            raise KeyError(f"Feature '{name}' unavailable: no store attached.")
-        return self._store.read_features(name)
+        if self._store is None or self._project is None:
+            raise KeyError(f"Feature '{name}' unavailable: no catalog/project attached.")
+        return self._store.read_geographic_feature(self._project, name)
 
     def feature_path(self, name: str, output_dir: Path | str) -> Path:
         """Materialize a vector feature to a temp shapefile.
@@ -94,9 +101,19 @@ class GeographicArtifacts:
         return out
 
     @classmethod
-    def from_store(cls, store: Any) -> GeographicArtifacts:
-        """Build artifacts backed by a ResultStore (no filesystem needed)."""
-        return cls(_store=store)
+    def from_catalog(
+        cls,
+        catalog: Any,
+        sim_id: str,
+        project: str,
+    ) -> GeographicArtifacts:
+        """Build artifacts backed by a SimulationCatalog (no filesystem needed)."""
+        return cls(_store=catalog, _sim_id=sim_id, _project=project)
+
+    @classmethod
+    def from_store(cls, store: Any, sim_id: str = "", project: str = "") -> GeographicArtifacts:
+        """Backward-compatible alias for :meth:`from_catalog`."""
+        return cls(_store=store, _sim_id=sim_id or None, _project=project or None)
 
     @classmethod
     def discover(cls, geographic_dir: Path) -> GeographicArtifacts:
@@ -135,7 +152,7 @@ class GeographicArtifacts:
 class RunArtifacts:
     """Lightweight descriptor for one simulation run.
 
-    All data is read from the ``ResultStore`` (DuckDB + Zarr).
+    All data is read from the ``SimulationCatalog`` (DuckDB + Zarr).
     Filesystem paths are derived lazily from ``run_dir`` for legacy
     compatibility (posthoc orchestration, native mesh figures, particles).
     """
@@ -244,26 +261,34 @@ class PosthocContext:
         return cls.from_project_dir(toml_path.parent)
 
     @classmethod
-    def from_result_store(
+    def from_catalog(
         cls,
         project_dir: Path,
-        store,
+        catalog,
+        sim_id: str,
+        project: str,
     ) -> PosthocContext:
-        """Build a context from the ResultStore (preferred, no filesystem needed).
+        """Build a context from a SimulationCatalog (preferred, no filesystem needed).
 
-        Geographic data is read from the store. Run artifacts (particles,
-        solver grid template) are still discovered on disk when available.
+        Geographic rasters are read from the sim's Zarr archive.  Vector
+        features are read from DuckDB keyed by *project*.  Run artifacts
+        (particles, solver grid template) are still discovered on disk when
+        available.
 
         Parameters
         ----------
         project_dir : Path
             Project root directory.
-        store : ResultStore
-            An open ResultStore instance.
+        catalog : SimulationCatalog
+            An open SimulationCatalog instance.
+        sim_id : str
+            Simulation UUID whose Zarr holds geographic rasters.
+        project : str
+            Project name used to look up features in DuckDB.
         """
         project_dir = Path(project_dir).resolve()
 
-        geographic = GeographicArtifacts.from_store(store)
+        geographic = GeographicArtifacts.from_catalog(catalog, sim_id, project)
 
         # Discover run artifacts from solver scratch / results_simulations.
         runs: list[RunArtifacts] = []
@@ -279,4 +304,18 @@ class PosthocContext:
             project_dir=project_dir,
             geographic=geographic,
             runs=runs,
+        )
+
+    @classmethod
+    def from_result_store(
+        cls,
+        project_dir: Path,
+        store,
+        sim_id: str = "",
+        project: str = "",
+    ) -> PosthocContext:
+        """Backward-compatible alias for :meth:`from_catalog`."""
+        return cls.from_catalog(
+            project_dir, store,
+            sim_id=sim_id, project=project,
         )

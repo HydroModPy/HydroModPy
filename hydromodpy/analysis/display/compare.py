@@ -1,6 +1,6 @@
 """Post-hoc comparison display — ``hmp display compare --sim A --sim B``.
 
-Reads completed simulation results from the project ResultStore and
+Reads completed simulation results from the project SimulationCatalog and
 generates comparative figures/metrics.  This is analysis, not a workflow:
 simulations must already have been run independently.
 """
@@ -24,9 +24,9 @@ def run_display_compare(
     Parameters
     ----------
     sim_names:
-        Names (or sim_ids) of completed simulations in the ResultStore.
+        Names (or sim_ids) of completed simulations in the catalog.
     project_dir:
-        Project directory containing ``project.duckdb``.  When *None*,
+        Project directory containing ``hydromodpy.duckdb``.  When *None*,
         defaults to the current working directory.
 
     Returns
@@ -37,18 +37,18 @@ def run_display_compare(
     if project_dir is None:
         project_dir = Path.cwd()
 
-    db_path = project_dir / "project.duckdb"
+    db_path = project_dir / "hydromodpy.duckdb"
     if not db_path.exists():
         print(
-            f"No project store found at {project_dir}.\n"
+            f"No hydromodpy.duckdb found at {project_dir}.\n"
             "Run simulations first with: hmp run <config.toml>",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    from hydromodpy.results.store import ResultStore
+    from hydromodpy.results.catalog import SimulationCatalog
 
-    store = ResultStore(project_dir)
+    store = SimulationCatalog(project_dir)
     available = store.list_simulations()
     if available.empty:
         store.close()

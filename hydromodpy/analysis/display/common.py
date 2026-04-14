@@ -113,7 +113,7 @@ def load_field_dict_from_store(
     sim_id: str,
     variable: str,
 ) -> dict | None:
-    """Load a multi-timestep spatial field from a ResultStore.
+    """Load a multi-timestep spatial field from a SimulationCatalog (or compatible store).
 
     Returns a dict mapping timestep index to ndarray, or ``None``
     if the variable is not found.  This is the canonical way to load
