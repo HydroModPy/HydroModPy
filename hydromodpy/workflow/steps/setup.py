@@ -23,7 +23,7 @@ from hydromodpy.spatial.geographic.synthetic import build_synthetic_geographic
 from hydromodpy.simulation import ensure_flow, ensure_transport
 
 if TYPE_CHECKING:
-    from hydromodpy.core.state.run_state import LauncherRunState
+    from hydromodpy.core.state.run_state import WorkflowContext
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +203,7 @@ def validate_domain_support_contract(
 
 def build_domain_spatial_supports(
     cfg: object,
-    run_state: LauncherRunState,
+    run_state: WorkflowContext,
     requested_domain_supports: dict[str, object],
     registry: object,
     phase: str,
@@ -256,7 +256,7 @@ def build_domain_spatial_supports(
 
 def run_setup(
     cfg: object,
-    run_state: LauncherRunState,
+    run_state: WorkflowContext,
     *,
     requested_spatial_support_ids: tuple[str, ...] = (),
     requested_domain_supports: dict[str, object] | None = None,
@@ -332,7 +332,7 @@ def run_setup(
 # ---------------------------------------------------------------------------
 
 def step_setup(
-    ctx: LauncherRunState,
+    ctx: WorkflowContext,
     *,
     requested_spatial_support_ids: tuple[str, ...] = (),
     requested_domain_supports: dict[str, object] | None = None,
