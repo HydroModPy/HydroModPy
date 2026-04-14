@@ -1337,9 +1337,10 @@ def execute_model_distribution_reruns(
     project: Any,
     max_reruns: int,
     selection: str,
-    launcher_factory: Any = None,
 ) -> dict[str, Any] | None:
     """Run a selected subset of model-distribution samples with full outputs."""
+    from hydromodpy.project import Project
+
     if distribution_payload is None:
         return {
             "status": "skipped",
@@ -1354,53 +1355,11 @@ def execute_model_distribution_reruns(
     )
     manifest_path = session.calibration_root / "model_distribution_reruns.json"
     rerun_rows: list[dict[str, Any]] = []
-    parameter_set = session.core_settings["parameter_set"]
     for ordinal, (sample_index, sample) in enumerate(selected_samples, start=1):
         sample_id = str(sample.get("sample_id", f"sample_{sample_index + 1:06d}"))
         params_vector = tuple(float(value) for value in sample["params_vector"])
         rerun_id = f"ensemble_{ordinal:04d}"
 
-        if project is not None:
-            # Project path: direct project.run() call.
-            params_named = dict(zip(
-                parameter_set.names,
-                (float(v) for v in parameter_set.vector_from(params_vector)),
-            ))
-            run_name = f"{rerun_id}_{sample_id}"
-            try:
-                project.run(name=run_name, **params_named)
-                rerun_rows.append({
-                    "rerun_id": rerun_id,
-                    "sample_index": int(sample_index),
-                    "sample_id": sample_id,
-                    "source_objective_total": sample.get("objective_total"),
-                    "source_block_costs": sample.get("block_costs"),
-                    "status": "solver_run_succeeded",
-                    "candidate_run_id": run_name,
-                    "candidate_config_path": None,
-                    "params_vector": list(params_vector),
-                    "params_named": params_named,
-                    "error_type": None,
-                    "error_message": None,
-                })
-            except Exception as exc:
-                rerun_rows.append({
-                    "rerun_id": rerun_id,
-                    "sample_index": int(sample_index),
-                    "sample_id": sample_id,
-                    "source_objective_total": sample.get("objective_total"),
-                    "source_block_costs": sample.get("block_costs"),
-                    "status": "solver_run_failed",
-                    "candidate_run_id": run_name,
-                    "candidate_config_path": None,
-                    "params_vector": list(params_vector),
-                    "params_named": params_named,
-                    "error_type": type(exc).__name__,
-                    "error_message": f"{type(exc).__name__}: {exc}",
-                })
-            continue
-
-        # Legacy launcher_factory fallback (used by tests).
         try:
             request = actualize_candidate(
                 session=session,
@@ -1426,25 +1385,49 @@ def execute_model_distribution_reruns(
                 "error_message": f"{type(exc).__name__}: {exc}",
             })
             continue
-        outcome = execute_candidate_run(
-            request=request,
-            launcher_factory=launcher_factory,
-            cfg=None,
-        )
-        rerun_rows.append({
-            "rerun_id": rerun_id,
-            "sample_index": int(sample_index),
-            "sample_id": sample_id,
-            "source_objective_total": sample.get("objective_total"),
-            "source_block_costs": sample.get("block_costs"),
-            "status": outcome.status,
-            "candidate_run_id": outcome.request.candidate_run_id,
-            "candidate_config_path": str(outcome.request.candidate_config_path),
-            "params_vector": list(outcome.request.params_vector),
-            "params_named": dict(outcome.request.params_named),
-            "error_type": outcome.error_type,
-            "error_message": outcome.error_message,
-        })
+
+        properties = None
+        if request.property_array_set is not None:
+            properties = {
+                pa.property_name: pa.values
+                for pa in request.property_array_set.arrays.values()
+            }
+
+        try:
+            candidate_project = Project(request.candidate_config_path)
+            run_kwargs: dict[str, Any] = {}
+            if properties is not None:
+                run_kwargs["properties"] = properties
+            candidate_project.run(name=request.candidate_run_id, **run_kwargs)
+            rerun_rows.append({
+                "rerun_id": rerun_id,
+                "sample_index": int(sample_index),
+                "sample_id": sample_id,
+                "source_objective_total": sample.get("objective_total"),
+                "source_block_costs": sample.get("block_costs"),
+                "status": "solver_run_succeeded",
+                "candidate_run_id": request.candidate_run_id,
+                "candidate_config_path": str(request.candidate_config_path),
+                "params_vector": list(request.params_vector),
+                "params_named": dict(request.params_named),
+                "error_type": None,
+                "error_message": None,
+            })
+        except Exception as exc:
+            rerun_rows.append({
+                "rerun_id": rerun_id,
+                "sample_index": int(sample_index),
+                "sample_id": sample_id,
+                "source_objective_total": sample.get("objective_total"),
+                "source_block_costs": sample.get("block_costs"),
+                "status": "solver_run_failed",
+                "candidate_run_id": request.candidate_run_id,
+                "candidate_config_path": str(request.candidate_config_path),
+                "params_vector": list(request.params_vector),
+                "params_named": dict(request.params_named),
+                "error_type": type(exc).__name__,
+                "error_message": f"{type(exc).__name__}: {exc}",
+            })
 
     status = (
         "completed"
@@ -1801,18 +1784,12 @@ def _rehydrate_objective_evaluation(
 class ModelCalibrationObjectiveEvaluator:
     """Objective evaluator that lets CalibrationEngine drive launcher candidates.
 
-    Supports two execution backends:
-
-    - **project** (preferred): Uses ``Project.run(**overrides)`` natively.
-      Set ``project`` and leave ``launcher_factory`` as ``None``.
-    - **launcher_factory** (legacy): Uses ``execute_candidate_run()``
-      with launcher patching.  Will be removed once the ``Project``
-      path is fully validated.
+    Uses ``actualize_candidate()`` to create a TOML overlay, then
+    ``Project(candidate_config_path).run()`` for each candidate.
     """
 
     session: PreparedCalibrationSession
     cfg: ModelCalibrationConfig
-    launcher_factory: Any = None
     project: Any = None  # hydromodpy.project.Project (lazy typed to avoid circular import)
     iteration_start: int = 1
     record_callback: Callable[[IterationRecord], None] | None = None
@@ -1876,120 +1853,16 @@ class ModelCalibrationObjectiveEvaluator:
         self._next_iteration_index += 1
         iteration_id = f"iter_{int(iteration_index):04d}"
 
-        if self.project is not None:
-            return self._evaluate_via_project(key, iteration_id)
-
-        return self._evaluate_via_launcher(key, iteration_id)
+        return self._evaluate_via_project(key, iteration_id)
 
     def _evaluate_via_project(
         self,
         key: tuple[float, ...],
         iteration_id: str,
     ) -> CompositeObjectiveEvaluation:
-        """Execute via Project.run() — the preferred path."""
-        parameter_set = self.session.core_settings["parameter_set"]
-        params_named = dict(zip(parameter_set.names, key))
+        """Execute via actualize_candidate() + Project(overlay).run()."""
+        from hydromodpy.project import Project
 
-        # Build property arrays if the calibration uses spatialized params
-        properties = None
-        if self.session.prepared_hydraulic_support is not None:
-            support = self.session.prepared_hydraulic_support
-            property_set = build_property_array_set(
-                cfg=self.cfg,
-                params=params_named,
-                base_property_arrays=support.base_property_arrays,
-                lithology_labels=support.lithology_labels,
-                zone_fractions_by_property=support.zone_fractions_by_property,
-                zone_fractions_by_key=support.zone_fractions_by_key,
-                base_property_values_by_key=support.base_property_values_by_key,
-                default_cell_count=support.n_cells,
-            )
-            if property_set is not None:
-                properties = {
-                    pa.property_name: pa.values
-                    for pa in property_set.arrays.values()
-                }
-                for pa in property_set.arrays.values():
-                    params_named.pop(pa.property_name, None)
-
-        try:
-            run_overrides = dict(params_named)
-            if properties is not None:
-                run_overrides["properties"] = properties
-            result = self.project.run(name=iteration_id, **run_overrides)
-        except Exception as exc:
-            logger.warning("Project.run failed for %s: %s", iteration_id, exc)
-            record = IterationRecord(
-                iteration_id=iteration_id,
-                params_vector=key,
-                params_named=params_named,
-                objective_total=math.inf,
-                block_costs={},
-                status="simulation_failed",
-                failure_reason=f"{type(exc).__name__}: {exc}",
-                objective_score=-math.inf,
-                objective_metadata={
-                    "status": "simulation_failed",
-                    "error_type": type(exc).__name__,
-                    "error_message": str(exc),
-                },
-            )
-            if self.record_callback is not None:
-                self.record_callback(record)
-            evaluation = _failed_parameter_injection_evaluation(
-                iteration_id=iteration_id,
-                params_vector=key,
-                error=exc,
-            )
-            self._evaluations_by_key[key] = evaluation
-            return evaluation
-
-        # Evaluate objective using project._ctx as the run_state
-        self.candidate_run_count += 1
-        try:
-            obj_eval_run = evaluate_candidate_objective(
-                cfg=self.cfg,
-                run_state=self.project._ctx,
-                session=self.session,
-                result_store=self.project.store,
-                store_sim_id=result.sim_id,
-            )
-            evaluation = obj_eval_run.evaluation
-        except Exception as exc:
-            logger.warning("Objective evaluation failed for %s: %s", iteration_id, exc)
-            evaluation = _failed_parameter_injection_evaluation(
-                iteration_id=iteration_id,
-                params_vector=key,
-                error=exc,
-            )
-
-        minimal_request = CandidateRunRequest(
-            session=self.session,
-            iteration_id=iteration_id,
-            candidate_run_id=iteration_id,
-            candidate_root=self.session.calibration_root / iteration_id,
-            candidate_config_path=self.session.simulation_config_path,
-            params_vector=key,
-            params_named=params_named,
-            override_payload={},
-        )
-        outcome = CandidateRunOutcome(
-            request=minimal_request,
-            status="objective_evaluated" if evaluation is not None else "solver_run_succeeded",
-            objective_evaluation=evaluation,
-        )
-        self._outcomes_by_key[key] = outcome
-        self._evaluations_by_key[key] = evaluation
-        if self.record_callback is not None:
-            self.record_callback(outcome.to_iteration_record())
-        return evaluation
-
-    def _evaluate_via_launcher(
-        self,
-        key: tuple[float, ...],
-        iteration_id: str,
-    ) -> CompositeObjectiveEvaluation:
-        """Execute via launcher factory — legacy path."""
         try:
             actualize_start = time.perf_counter()
             request = actualize_candidate(
@@ -2019,7 +1892,7 @@ class ModelCalibrationObjectiveEvaluator:
                 objective_metadata={
                     "status": "parameter_injection_failed",
                     "error_type": type(exc).__name__,
-                    "error_message": f"{type(exc).__name__}: {exc}",
+                    "error_message": str(exc),
                 },
             )
             if self.record_callback is not None:
@@ -2031,22 +1904,78 @@ class ModelCalibrationObjectiveEvaluator:
             )
             self._evaluations_by_key[key] = evaluation
             return evaluation
-        outcome = execute_candidate_run(
-            request=request,
-            launcher_factory=self.launcher_factory,
-            cfg=self.cfg,
-        )
-        self.candidate_run_count += 1
-        if self.record_callback is not None:
-            self.record_callback(outcome.to_iteration_record())
 
-        evaluation = (
-            outcome.objective_evaluation
-            if outcome.objective_evaluation is not None
-            else _failed_objective_evaluation(outcome)
+        # Build property arrays if the calibration uses spatialized params
+        properties = None
+        if request.property_array_set is not None:
+            properties = {
+                pa.property_name: pa.values
+                for pa in request.property_array_set.arrays.values()
+            }
+
+        try:
+            candidate_project = Project(
+                request.candidate_config_path,
+                headless=True,
+            )
+            run_kwargs: dict[str, Any] = {}
+            if properties is not None:
+                run_kwargs["properties"] = properties
+            result = candidate_project.run(name=request.candidate_run_id, **run_kwargs)
+        except Exception as exc:
+            logger.warning("Project.run failed for %s: %s", iteration_id, exc)
+            record = IterationRecord(
+                iteration_id=iteration_id,
+                params_vector=key,
+                params_named=request.params_named,
+                objective_total=math.inf,
+                block_costs={},
+                status="simulation_failed",
+                failure_reason=f"{type(exc).__name__}: {exc}",
+                objective_score=-math.inf,
+                objective_metadata={
+                    "status": "simulation_failed",
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                },
+            )
+            if self.record_callback is not None:
+                self.record_callback(record)
+            evaluation = _failed_parameter_injection_evaluation(
+                iteration_id=iteration_id,
+                params_vector=key,
+                error=exc,
+            )
+            self._evaluations_by_key[key] = evaluation
+            return evaluation
+
+        self.candidate_run_count += 1
+        try:
+            obj_eval_run = evaluate_candidate_objective(
+                cfg=self.cfg,
+                run_state=candidate_project._ctx,
+                session=self.session,
+                result_store=candidate_project.store,
+                store_sim_id=result.sim_id,
+            )
+            evaluation = obj_eval_run.evaluation
+        except Exception as exc:
+            logger.warning("Objective evaluation failed for %s: %s", iteration_id, exc)
+            evaluation = _failed_parameter_injection_evaluation(
+                iteration_id=iteration_id,
+                params_vector=key,
+                error=exc,
+            )
+
+        outcome = CandidateRunOutcome(
+            request=request,
+            status="objective_evaluated" if evaluation is not None else "solver_run_succeeded",
+            objective_evaluation=evaluation,
         )
         self._outcomes_by_key[key] = outcome
         self._evaluations_by_key[key] = evaluation
+        if self.record_callback is not None:
+            self.record_callback(outcome.to_iteration_record())
         return evaluation
 
     @property
@@ -3258,15 +3187,6 @@ def evaluate_candidate_objective(
     )
 
 
-# ======================================================================
-# Legacy launcher-factory helpers (deprecated).
-#
-# These functions support the old ``execute_candidate_run(launcher_factory=...)``
-# path.  New code should use ``Project.run(**params)`` instead.
-# Retained for backward compatibility with validation cases and tests.
-# ======================================================================
-
-
 def actualize_candidate(
     *,
     session: PreparedCalibrationSession,
@@ -3356,29 +3276,14 @@ def execute_best_candidate_rerun(
     cfg: ModelCalibrationConfig,
     result: Any,
     project: Any = None,
-    launcher_factory: Any = None,
 ) -> CandidateRunOutcome:
     """Rerun the best candidate without calibration-time output suppression."""
+    from hydromodpy.project import Project
+
     params = getattr(result, "params_best", None)
     if params is None:
         params = getattr(result, "x_best")
 
-    if project is not None:
-        parameter_set = session.core_settings["parameter_set"]
-        params_named = dict(zip(
-            parameter_set.names,
-            (float(v) for v in parameter_set.vector_from(params)),
-        ))
-        project.run(name="best_rerun", **params_named)
-        return CandidateRunOutcome(
-            iteration_id="best_rerun",
-            candidate_run_id="best_rerun",
-            params_vector=tuple(float(v) for v in parameter_set.vector_from(params)),
-            params_named=params_named,
-            status="completed",
-        )
-
-    # Legacy launcher_factory fallback (used by tests).
     request = actualize_candidate(
         session=session,
         cfg=cfg,
@@ -3387,358 +3292,23 @@ def execute_best_candidate_rerun(
         disable_display=False,
         disable_postprocess=False,
     )
-    return execute_candidate_run(
-        request=request,
-        launcher_factory=launcher_factory,
-        cfg=None,
-    )
 
+    properties = None
+    if request.property_array_set is not None:
+        properties = {
+            pa.property_name: pa.values
+            for pa in request.property_array_set.arrays.values()
+        }
 
-def _launcher_supports_runtime_direct(launcher_factory: Any) -> bool:
-    """Return True when one launcher factory can run from the base config path."""
-    return bool(getattr(launcher_factory, "model_calibration_runtime_direct", False))
+    candidate_project = Project(request.candidate_config_path)
+    run_kwargs: dict[str, Any] = {}
+    if properties is not None:
+        run_kwargs["properties"] = properties
+    candidate_project.run(name=request.candidate_run_id, **run_kwargs)
 
-
-def _launcher_supports_runtime_reuse(launcher_factory: Any) -> bool:
-    """Return True when one launcher factory supports prepared-runtime reuse."""
-    return bool(getattr(launcher_factory, "model_calibration_runtime_reusable", False))
-
-
-def _launcher_cache_key(launcher_factory: Any) -> str:
-    """Return one stable session-local cache key for a launcher factory."""
-    module_name = str(getattr(launcher_factory, "__module__", ""))
-    qualname = str(getattr(launcher_factory, "__qualname__", ""))
-    if module_name or qualname:
-        return f"{module_name}:{qualname}"
-    return repr(launcher_factory)
-
-
-def _assign_runtime_override(raw_toml: dict[str, Any], path: tuple[str, ...], value: Any) -> None:
-    """Best-effort assignment into a raw TOML payload used for snapshots only."""
-    try:
-        _assign_nested_value(raw_toml, path, value)
-    except Exception:
-        return
-
-
-def _capture_runtime_direct_launcher_baseline(launcher: Any) -> dict[str, Any]:
-    """Capture mutable launcher fields that must be restored before each candidate."""
-    cfg = getattr(launcher, "cfg", None)
-    display_cfg = None if cfg is None else getattr(cfg, "display", None)
-    postprocess_cfg = None if cfg is None else getattr(cfg, "postprocess", None)
-    simulation_cfg = None if cfg is None else getattr(cfg, "simulation", None)
-    raw_toml = getattr(getattr(launcher, "run_state", None), "raw_toml", None)
-    return {
-        "simulation_run_id": None if simulation_cfg is None else getattr(simulation_cfg, "run_id", None),
-        "display": {
-            "enabled": None if display_cfg is None else getattr(display_cfg, "enabled", None),
-            "show": None if display_cfg is None else getattr(display_cfg, "show", None),
-            "save": None if display_cfg is None else getattr(display_cfg, "save", None),
-        },
-        "postprocess_enabled": (
-            None if postprocess_cfg is None else getattr(postprocess_cfg, "enabled", None)
-        ),
-        "raw_toml": copy.deepcopy(raw_toml) if isinstance(raw_toml, dict) else None,
-    }
-
-
-def _restore_runtime_direct_launcher_baseline(launcher: Any) -> None:
-    """Restore one cached launcher to its pre-candidate baseline."""
-    baseline = getattr(launcher, "_model_calibration_runtime_baseline", None)
-    if not isinstance(baseline, dict):
-        baseline = _capture_runtime_direct_launcher_baseline(launcher)
-        setattr(launcher, "_model_calibration_runtime_baseline", baseline)
-
-    cfg = getattr(launcher, "cfg", None)
-    run_state = getattr(launcher, "run_state", None)
-    raw_toml = getattr(run_state, "raw_toml", None)
-    setup_state = getattr(run_state, "setup", None)
-    if cfg is not None:
-        simulation_cfg = getattr(cfg, "simulation", None)
-        if simulation_cfg is not None:
-            try:
-                simulation_cfg.run_id = baseline.get("simulation_run_id")
-            except Exception:
-                pass
-        display_cfg = getattr(cfg, "display", None)
-        display_baseline = baseline.get("display", {})
-        if display_cfg is not None and isinstance(display_baseline, dict):
-            for attr_name in ("enabled", "show", "save"):
-                if attr_name not in display_baseline:
-                    continue
-                try:
-                    setattr(display_cfg, attr_name, display_baseline.get(attr_name))
-                except Exception:
-                    pass
-        postprocess_cfg = getattr(cfg, "postprocess", None)
-        if postprocess_cfg is not None:
-            try:
-                postprocess_cfg.enabled = baseline.get("postprocess_enabled")
-            except Exception:
-                pass
-        postprocess_runner = getattr(launcher, "postprocess_runner", None)
-        if postprocess_runner is not None and postprocess_cfg is not None:
-            try:
-                postprocess_runner.config = postprocess_cfg
-            except Exception:
-                pass
-    if isinstance(raw_toml, dict) and isinstance(baseline.get("raw_toml"), dict):
-        raw_toml.clear()
-        raw_toml.update(copy.deepcopy(baseline["raw_toml"]))
-    if setup_state is not None:
-        try:
-            setup_state.flow_runtime_overrides = None
-        except Exception:
-            pass
-
-
-def _get_or_create_runtime_reusable_launcher(
-    *,
-    request: CandidateRunRequest,
-    launcher_factory: Any,
-) -> Any:
-    """Return one reusable launcher instance cached on the calibration session."""
-    cache_key = _launcher_cache_key(launcher_factory)
-    launcher = request.session.runtime_launcher_cache.get(cache_key)
-    if launcher is None:
-        launcher = launcher_factory(request.session.simulation_config_path)
-        prepare_runtime = getattr(launcher, "prepare_runtime", None)
-        if callable(prepare_runtime):
-            prepare_runtime()
-        setattr(
-            launcher,
-            "_model_calibration_runtime_baseline",
-            _capture_runtime_direct_launcher_baseline(launcher),
-        )
-        request.session.runtime_launcher_cache[cache_key] = launcher
-        return launcher
-    _restore_runtime_direct_launcher_baseline(launcher)
-    return launcher
-
-
-def _prepare_runtime_direct_launcher(
-    *,
-    launcher: Any,
-    request: CandidateRunRequest,
-) -> None:
-    """Patch one launcher instance so it can execute a candidate without overlay TOML."""
-    _restore_runtime_direct_launcher_baseline(launcher)
-    cfg = getattr(launcher, "cfg", None)
-    run_state = getattr(launcher, "run_state", None)
-    setup_state = getattr(run_state, "setup", None)
-    raw_toml = getattr(run_state, "raw_toml", None)
-    if cfg is not None:
-        simulation_cfg = getattr(cfg, "simulation", None)
-        if simulation_cfg is not None:
-            try:
-                simulation_cfg.run_id = request.candidate_run_id
-            except Exception:
-                pass
-        if "display" in request.override_payload:
-            display_cfg = getattr(cfg, "display", None)
-            if display_cfg is not None:
-                for attr_name, default_value in (
-                    ("enabled", False),
-                    ("show", False),
-                    ("save", False),
-                ):
-                    try:
-                        setattr(display_cfg, attr_name, default_value)
-                    except Exception:
-                        pass
-        if "postprocess" in request.override_payload:
-            postprocess_cfg = getattr(cfg, "postprocess", None)
-            if postprocess_cfg is not None:
-                try:
-                    postprocess_cfg.enabled = False
-                except Exception:
-                    pass
-            postprocess_runner = getattr(launcher, "postprocess_runner", None)
-            if postprocess_runner is not None and postprocess_cfg is not None:
-                try:
-                    postprocess_runner.config = postprocess_cfg
-                except Exception:
-                    pass
-    if setup_state is not None:
-        try:
-            setup_state.run_id = request.candidate_run_id
-        except Exception:
-            pass
-    if isinstance(raw_toml, dict):
-        _assign_runtime_override(
-            raw_toml,
-            ("simulation", "run_id"),
-            request.candidate_run_id,
-        )
-        if "display" in request.override_payload:
-            _assign_runtime_override(raw_toml, ("display", "enabled"), False)
-            _assign_runtime_override(raw_toml, ("display", "show"), False)
-            _assign_runtime_override(raw_toml, ("display", "save"), False)
-        if "postprocess" in request.override_payload:
-            _assign_runtime_override(raw_toml, ("postprocess", "enabled"), False)
-
-
-def execute_candidate_run(
-    *,
-    request: CandidateRunRequest,
-    launcher_factory: Any,
-    cfg: ModelCalibrationConfig | None = None,
-) -> CandidateRunOutcome:
-    """Execute one candidate simulation via a launcher factory."""
-    overall_start = time.perf_counter()
-    launcher_prepare_seconds = 0.0
-    runtime_patch_seconds = 0.0
-    simulation_seconds = 0.0
-    output_selection_seconds = 0.0
-    objective_build_seconds = 0.0
-    objective_compute_seconds = 0.0
-    objective_seconds = 0.0
-    try:
-        launcher = None
-        launcher_path = request.candidate_config_path
-        runtime_direct = _launcher_supports_runtime_direct(launcher_factory)
-        runtime_reusable = runtime_direct and _launcher_supports_runtime_reuse(
-            launcher_factory
-        )
-        launcher_prepare_start = time.perf_counter()
-        if runtime_direct:
-            launcher_path = request.session.simulation_config_path
-            if runtime_reusable:
-                launcher = _get_or_create_runtime_reusable_launcher(
-                    request=request,
-                    launcher_factory=launcher_factory,
-                )
-            else:
-                launcher = launcher_factory(launcher_path)
-        if launcher is None:
-            launcher = launcher_factory(launcher_path)
-        launcher_prepare_seconds = float(time.perf_counter() - launcher_prepare_start)
-        if runtime_direct:
-            runtime_patch_start = time.perf_counter()
-            _prepare_runtime_direct_launcher(
-                launcher=launcher,
-                request=request,
-            )
-            runtime_patch_seconds = float(time.perf_counter() - runtime_patch_start)
-        setup_state = getattr(getattr(launcher, "run_state", None), "setup", None)
-        if setup_state is not None:
-            lean_calibration_candidate = bool(
-                runtime_reusable and "postprocess" in request.override_payload
-            )
-            flow_runtime_overrides: dict[str, Any] = {
-                "source": "model_calibration",
-                "candidate_run_id": request.candidate_run_id,
-                "iteration_id": request.iteration_id,
-                "skip_solver_postprocess": bool("postprocess" in request.override_payload),
-            }
-            if lean_calibration_candidate:
-                flow_runtime_overrides.update(
-                    {
-                        "reuse_solver_model": True,
-                        "model_name_override": _runtime_solver_model_name(
-                            request.session
-                        ),
-                        "skip_pre_run_pickle": True,
-                    }
-                )
-            if request.property_array_set is not None:
-                flow_runtime_overrides["properties"] = {
-                    property_name: np.asarray(array.values, dtype=float).copy()
-                    for property_name, array in request.property_array_set.arrays.items()
-                }
-            setup_state.flow_runtime_overrides = flow_runtime_overrides
-        run_callable = None
-        if runtime_reusable:
-            run_callable = getattr(launcher, "run_prepared", None)
-        if not callable(run_callable):
-            run_callable = launcher.run
-        simulation_start = time.perf_counter()
-        run_state = run_callable()
-        simulation_seconds = float(time.perf_counter() - simulation_start)
-    except Exception as exc:
-        return CandidateRunOutcome(
-            request=request,
-            status="solver_run_failed",
-            run_state=None,
-            error_type=type(exc).__name__,
-            error_message=f"{type(exc).__name__}: {exc}",
-            launcher_prepare_seconds=launcher_prepare_seconds,
-            runtime_patch_seconds=runtime_patch_seconds,
-            simulation_seconds=simulation_seconds,
-            output_selection_seconds=output_selection_seconds,
-            objective_build_seconds=objective_build_seconds,
-            objective_compute_seconds=objective_compute_seconds,
-            objective_seconds=objective_seconds,
-            total_seconds=float(time.perf_counter() - overall_start),
-        )
-
-    if cfg is not None and _objective_has_observations(cfg):
-        # Extract ResultStore reference from the launcher if still open.
-        # On dev-database, the store is the preferred read path for outputs.
-        _store = getattr(launcher, "_result_store", None)
-        _sid = getattr(launcher, "_sim_id", None) if _store is not None else None
-        try:
-            objective_start = time.perf_counter()
-            objective_run = evaluate_candidate_objective(
-                cfg=cfg,
-                run_state=run_state,
-                session=request.session,
-                result_store=_store,
-                store_sim_id=_sid,
-            )
-            objective_seconds = float(time.perf_counter() - objective_start)
-            output_selection_seconds = float(objective_run.output_selection_seconds or 0.0)
-            objective_build_seconds = float(objective_run.objective_build_seconds or 0.0)
-            objective_compute_seconds = float(objective_run.objective_compute_seconds or 0.0)
-            objective_evaluation = objective_run.evaluation
-        except Exception as exc:
-            return CandidateRunOutcome(
-                request=request,
-                status="objective_evaluation_failed",
-                run_state=run_state,
-                objective_evaluation=None,
-                error_type=type(exc).__name__,
-                error_message=f"{type(exc).__name__}: {exc}",
-                launcher_prepare_seconds=launcher_prepare_seconds,
-                runtime_patch_seconds=runtime_patch_seconds,
-                simulation_seconds=simulation_seconds,
-                output_selection_seconds=output_selection_seconds,
-                objective_build_seconds=objective_build_seconds,
-                objective_compute_seconds=objective_compute_seconds,
-                objective_seconds=objective_seconds,
-                total_seconds=float(time.perf_counter() - overall_start),
-            )
-        return CandidateRunOutcome(
-            request=request,
-            status="objective_evaluated",
-            run_state=run_state,
-            objective_evaluation=objective_evaluation,
-            error_type=None,
-            error_message=None,
-            launcher_prepare_seconds=launcher_prepare_seconds,
-            runtime_patch_seconds=runtime_patch_seconds,
-            simulation_seconds=simulation_seconds,
-            output_selection_seconds=output_selection_seconds,
-            objective_build_seconds=objective_build_seconds,
-            objective_compute_seconds=objective_compute_seconds,
-            objective_seconds=objective_seconds,
-            total_seconds=float(time.perf_counter() - overall_start),
-        )
     return CandidateRunOutcome(
         request=request,
-        status="solver_run_succeeded",
-        run_state=run_state,
-        objective_evaluation=None,
-        error_type=None,
-        error_message=None,
-        launcher_prepare_seconds=launcher_prepare_seconds,
-        runtime_patch_seconds=runtime_patch_seconds,
-        simulation_seconds=simulation_seconds,
-        output_selection_seconds=output_selection_seconds,
-        objective_build_seconds=objective_build_seconds,
-        objective_compute_seconds=objective_compute_seconds,
-        objective_seconds=objective_seconds,
-        total_seconds=float(time.perf_counter() - overall_start),
+        status="completed",
     )
 
 
@@ -3752,7 +3322,6 @@ __all__ = (
     "append_iteration_record",
     "detect_solver_families",
     "execute_best_candidate_rerun",
-    "execute_candidate_run",
     "execute_model_distribution_reruns",
     "evaluate_candidate_objective",
     "finalize_calibration_session",
