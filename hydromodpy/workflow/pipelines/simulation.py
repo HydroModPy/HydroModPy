@@ -47,8 +47,8 @@ def prepare_simulation_runtime(
 ) -> None:
     """Run all preparation steps so *ctx* is ready for execution.
 
-    This is the shared preparation path used by ``HydroModPyLauncher``,
-    ``Project``, and any future consumer.
+    This is the shared preparation path used by ``Project``
+    and any future consumer.
     """
     from hydromodpy.workflow.steps.data_loading import step_data_loading
     from hydromodpy.workflow.steps.mesh import step_mesh, step_mesh_input
