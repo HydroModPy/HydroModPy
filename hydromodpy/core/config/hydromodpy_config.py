@@ -290,6 +290,41 @@ class HydroModPyConfig(BaseModel):
 
         return cfg
 
+    @classmethod
+    def from_snapshot(
+        cls,
+        snapshot: dict,
+        **overrides,
+    ) -> "HydroModPyConfig":
+        """Reconstruct a config from a stored JSON snapshot.
+
+        Parameters
+        ----------
+        snapshot : dict
+            The ``config_toml`` JSON snapshot stored in DuckDB.
+        **overrides
+            Key-value overrides merged into the snapshot before
+            validation.  Nested dicts are merged recursively.
+
+        Returns
+        -------
+        HydroModPyConfig
+        """
+        merged = _deep_merge(snapshot, overrides) if overrides else dict(snapshot)
+        return cls.model_validate(merged)
+
+
+def _deep_merge(base: dict, overrides: dict) -> dict:
+    """Recursively merge *overrides* into a copy of *base*."""
+    result = dict(base)
+    for key, val in overrides.items():
+        if key in result and isinstance(result[key], dict) and isinstance(val, dict):
+            result[key] = _deep_merge(result[key], val)
+        else:
+            result[key] = val
+    return result
+
+
 def _is_path_field(field_info: FieldInfo) -> bool:
     """
     Return True if the field is typed as ``Path`` or ``Path | None``.
