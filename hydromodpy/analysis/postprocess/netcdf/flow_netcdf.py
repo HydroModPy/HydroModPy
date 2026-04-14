@@ -96,7 +96,7 @@ class FlowNetcdfPostprocess(NetcdfWriter):
         return np.array(range(len(recharge)))
 
     def _load_field_from_store(self, name: str) -> dict | None:
-        """Load a spatial field from the ResultStore as a timestep dict."""
+        """Load a spatial field from the SimulationCatalog as a timestep dict."""
         if self._store is None or self._sim_id is None:
             return None
         from hydromodpy.analysis.display.common import load_field_dict_from_store
