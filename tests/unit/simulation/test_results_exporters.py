@@ -9,19 +9,18 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from hydromodpy.results.store import ResultStore
+from hydromodpy.results.catalog import SimulationCatalog
 
 
 @pytest.fixture
-def store_with_data(tmp_path):
-    """A store with one simulation containing mesh, head field, and timeseries."""
-    project = tmp_path / "project"
-    s = ResultStore(project)
+def catalog_with_data(tmp_path):
+    """A catalog with one simulation containing mesh, head field, and timeseries."""
+    c = SimulationCatalog(tmp_path / "workspace")
     sid = str(uuid4())
 
     n_cells, n_layers, n_ts = 6, 2, 3
-    s.register_simulation(
-        sid, solver="modflownwt",
+    c.register_simulation(
+        sid, project="test", solver="modflownwt",
         n_cells=n_cells, n_layers=n_layers, n_timesteps=n_ts,
     )
 
@@ -47,27 +46,27 @@ def store_with_data(tmp_path):
     ], dtype="int32")
 
     z_intf = np.array([10.0, 5.0, 0.0])
-    s.write_mesh(sid, verts, conn, z_intf)
+    c.write_mesh(sid, verts, conn, z_intf)
 
     rng = np.random.default_rng(42)
     for t in range(n_ts):
         head = rng.uniform(3.0, 12.0, (n_layers, n_cells))
-        s.write_field(sid, "head", t, head, n_timesteps=n_ts if t == 0 else None)
+        c.write_field(sid, "head", t, head, n_timesteps=n_ts if t == 0 else None)
 
     # Timeseries
     idx = pd.date_range("2020-01-01", periods=10, freq="D")
     q = pd.Series(rng.random(10), index=idx, name="discharge")
-    s.write_timeseries(sid, "outlet", "discharge", q, unit="m3/s")
+    c.write_timeseries(sid, "outlet", "discharge", q, unit="m3/s")
 
-    yield s, sid, tmp_path
-    s.close()
+    yield c, sid, tmp_path
+    c.close()
 
 
 class TestNetCDFExport:
-    def test_roundtrip(self, store_with_data):
-        store, sid, tmp_path = store_with_data
+    def test_roundtrip(self, catalog_with_data):
+        catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "export.nc"
-        result = store.export(sid, "head", "netcdf", out)
+        result = catalog.export(sid, "head", "netcdf", out)
         assert result.exists()
 
         ds = xr.open_dataset(out)
@@ -79,12 +78,12 @@ class TestNetCDFExport:
         assert ds["head"].shape == (3, 2, 6)
         ds.close()
 
-    def test_multi_variable(self, store_with_data):
-        store, sid, tmp_path = store_with_data
+    def test_multi_variable(self, catalog_with_data):
+        catalog, sid, tmp_path = catalog_with_data
         # Write a 2D derived field
         rng = np.random.default_rng(0)
         for t in range(3):
-            store.write_field(
+            catalog.write_field(
                 sid, "watertable_depth", t,
                 rng.random(6),
                 n_timesteps=3 if t == 0 else None,
@@ -92,27 +91,27 @@ class TestNetCDFExport:
             )
 
         out = tmp_path / "multi.nc"
-        result = store.export(sid, "head,watertable_depth", "netcdf", out)
+        result = catalog.export(sid, "head,watertable_depth", "netcdf", out)
         ds = xr.open_dataset(out)
         assert "head" in ds
         assert "watertable_depth" in ds
         assert ds["watertable_depth"].dims == ("time", "n_face")
         ds.close()
 
-    def test_timestep_subset(self, store_with_data):
-        store, sid, tmp_path = store_with_data
+    def test_timestep_subset(self, catalog_with_data):
+        catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "subset.nc"
-        result = store.export(sid, "head", "netcdf", out, timesteps=[0, 2])
+        result = catalog.export(sid, "head", "netcdf", out, timesteps=[0, 2])
         ds = xr.open_dataset(out)
         assert ds["head"].shape[0] == 2
         ds.close()
 
 
 class TestCSVExport:
-    def test_basic(self, store_with_data):
-        store, sid, tmp_path = store_with_data
+    def test_basic(self, catalog_with_data):
+        catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "ts.csv"
-        result = store.export(sid, "*", "csv", out)
+        result = catalog.export(sid, "*", "csv", out)
         assert result.exists()
         df = pd.read_csv(out)
         assert len(df) == 10
@@ -120,33 +119,33 @@ class TestCSVExport:
         assert "variable" in df.columns
         assert df["station_id"].iloc[0] == "outlet"
 
-    def test_filter_variable(self, store_with_data):
-        store, sid, tmp_path = store_with_data
+    def test_filter_variable(self, catalog_with_data):
+        catalog, sid, tmp_path = catalog_with_data
         # Add another variable
         idx = pd.date_range("2020-01-01", periods=5, freq="D")
-        store.write_timeseries(
+        catalog.write_timeseries(
             sid, "outlet", "head",
             pd.Series(range(5), index=idx, dtype=float),
         )
         out = tmp_path / "filtered.csv"
-        store.export(sid, "discharge", "csv", out)
+        catalog.export(sid, "discharge", "csv", out)
         df = pd.read_csv(out)
         assert all(df["variable"] == "discharge")
 
-    def test_empty_result(self, store_with_data):
-        store, sid, tmp_path = store_with_data
+    def test_empty_result(self, catalog_with_data):
+        catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "empty.csv"
-        store.export(sid, "nonexistent", "csv", out)
+        catalog.export(sid, "nonexistent", "csv", out)
         df = pd.read_csv(out)
         assert len(df) == 0
 
 
 class TestVTUExport:
-    def test_basic(self, store_with_data):
+    def test_basic(self, catalog_with_data):
         meshio = pytest.importorskip("meshio")
-        store, sid, tmp_path = store_with_data
+        catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "field.vtu"
-        result = store.export(sid, "head", "vtu", out, timestep=0, layer=0)
+        result = catalog.export(sid, "head", "vtu", out, timestep=0, layer=0)
         assert result.exists()
         mesh = meshio.read(str(out))
         assert "head" in mesh.cell_data
@@ -155,11 +154,11 @@ class TestVTUExport:
 
 
 class TestGeoTIFFExport:
-    def test_basic(self, store_with_data):
+    def test_basic(self, catalog_with_data):
         rasterio = pytest.importorskip("rasterio")
-        store, sid, tmp_path = store_with_data
+        catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "field.tif"
-        result = store.export(
+        result = catalog.export(
             sid, "head", "geotiff", out,
             timestep=0, layer=0, resolution=0.5,
         )
@@ -174,11 +173,11 @@ class TestGeoTIFFExport:
 
 
 class TestShapefileExport:
-    def test_basic(self, store_with_data):
+    def test_basic(self, catalog_with_data):
         gpd = pytest.importorskip("geopandas")
-        store, sid, tmp_path = store_with_data
+        catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "cells.shp"
-        result = store.export(
+        result = catalog.export(
             sid, "head", "shapefile", out,
             timestep=0, layer=0,
         )
@@ -190,16 +189,16 @@ class TestShapefileExport:
 
 
 class TestExportErrors:
-    def test_unknown_format(self, store_with_data):
-        store, sid, tmp_path = store_with_data
+    def test_unknown_format(self, catalog_with_data):
+        catalog, sid, tmp_path = catalog_with_data
         with pytest.raises(ValueError, match="Unknown export format"):
-            store.export(sid, "head", "parquet", tmp_path / "out.pq")
+            catalog.export(sid, "head", "parquet", tmp_path / "out.pq")
 
-    def test_missing_variable_netcdf(self, store_with_data):
-        store, sid, tmp_path = store_with_data
+    def test_missing_variable_netcdf(self, catalog_with_data):
+        catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "missing.nc"
         # Should succeed but with warning (variable skipped)
-        store.export(sid, "nonexistent_field", "netcdf", out)
+        catalog.export(sid, "nonexistent_field", "netcdf", out)
         ds = xr.open_dataset(out)
         assert "nonexistent_field" not in ds
         ds.close()

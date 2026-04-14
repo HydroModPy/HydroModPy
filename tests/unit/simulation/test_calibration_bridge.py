@@ -12,13 +12,12 @@ from hydromodpy.simulation.results.calibration_bridge import (
     make_hot_simulator,
     persist_calibration_result,
 )
-from hydromodpy.results.store import ResultStore
+from hydromodpy.results.catalog import SimulationCatalog
 
 
 @pytest.fixture
 def store(tmp_path):
-    project = tmp_path / "project"
-    s = ResultStore(project)
+    s = SimulationCatalog(tmp_path / "workspace")
     yield s
     s.close()
 

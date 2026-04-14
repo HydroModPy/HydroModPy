@@ -1,4 +1,4 @@
-"""Tests for PostprocessRunner integration with ResultStore."""
+"""Tests for PostprocessRunner integration with SimulationCatalog."""
 
 from __future__ import annotations
 
@@ -12,25 +12,24 @@ import pytest
 from hydromodpy.analysis.display.suites import _CATCHMENT_STATION
 from hydromodpy.analysis.postprocess.postprocess_config import PostprocessConfig
 from hydromodpy.analysis.postprocess.runner import PostprocessRunner
-from hydromodpy.results.store import ResultStore
+from hydromodpy.results.catalog import SimulationCatalog
 
 
 @pytest.fixture
-def store(tmp_path):
-    project = tmp_path / "project"
-    s = ResultStore(project)
-    yield s
-    s.close()
+def catalog(tmp_path):
+    c = SimulationCatalog(tmp_path / "workspace")
+    yield c
+    c.close()
 
 
 class TestPostprocessRunnerStore:
-    def test_write_timeseries_to_store(self, store):
+    def test_write_timeseries_to_store(self, catalog):
         sid = str(uuid4())
-        store.register_simulation(sid, solver="modflownwt")
+        catalog.register_simulation(sid, project="test", solver="modflownwt")
 
         runner = PostprocessRunner(
             PostprocessConfig(enabled=True),
-            store=store,
+            store=catalog,
             sim_id=sid,
         )
         idx = pd.date_range("2020-01-01", periods=5, freq="ME")
@@ -42,18 +41,18 @@ class TestPostprocessRunnerStore:
 
         runner._write_timeseries_to_store(df)
 
-        ts = store.query_timeseries(sid, _CATCHMENT_STATION, "recharge")
+        ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "recharge")
         assert len(ts) == 5
         np.testing.assert_array_almost_equal(ts.values, np.arange(5, dtype=float))
 
-        ts = store.query_timeseries(sid, _CATCHMENT_STATION, "outflow_drain")
+        ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "outflow_drain")
         np.testing.assert_array_almost_equal(ts.values, np.arange(5, dtype=float) * 2)
 
-    def test_write_skips_empty_columns(self, store):
+    def test_write_skips_empty_columns(self, catalog):
         sid = str(uuid4())
-        store.register_simulation(sid, solver="modflownwt")
+        catalog.register_simulation(sid, project="test", solver="modflownwt")
 
-        runner = PostprocessRunner(store=store, sim_id=sid)
+        runner = PostprocessRunner(store=catalog, sim_id=sid)
         idx = pd.date_range("2020-01-01", periods=3, freq="ME")
         df = pd.DataFrame({
             "recharge": [1.0, 2.0, 3.0],
@@ -62,11 +61,11 @@ class TestPostprocessRunnerStore:
 
         runner._write_timeseries_to_store(df)
 
-        ts = store.query_timeseries(sid, _CATCHMENT_STATION, "recharge")
+        ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "recharge")
         assert len(ts) == 3
 
         with pytest.raises(KeyError):
-            store.query_timeseries(sid, _CATCHMENT_STATION, "empty_col")
+            catalog.query_timeseries(sid, _CATCHMENT_STATION, "empty_col")
 
     def test_write_noop_without_store(self):
         runner = PostprocessRunner()
@@ -74,9 +73,9 @@ class TestPostprocessRunnerStore:
         df = pd.DataFrame({"recharge": [1.0, 2.0, 3.0]}, index=idx)
         runner._write_timeseries_to_store(df)  # should not raise
 
-    def test_after_flow_writes_to_store(self, monkeypatch, store):
+    def test_after_flow_writes_to_store(self, monkeypatch, catalog):
         sid = str(uuid4())
-        store.register_simulation(sid, solver="modflownwt")
+        catalog.register_simulation(sid, project="test", solver="modflownwt")
 
         cfg = PostprocessConfig.model_validate({
             "enabled": True,
@@ -88,7 +87,7 @@ class TestPostprocessRunnerStore:
             },
             "transport": {"enabled": False},
         })
-        runner = PostprocessRunner(cfg, store=store, sim_id=sid)
+        runner = PostprocessRunner(cfg, store=catalog, sim_id=sid)
 
         idx = pd.date_range("2020-01-01", periods=10, freq="ME")
         fake_mfdata = pd.DataFrame({
@@ -123,13 +122,13 @@ class TestPostprocessRunnerStore:
 
         runner.after_process("flow", _State())
 
-        ts = store.query_timeseries(sid, _CATCHMENT_STATION, "recharge")
+        ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "recharge")
         assert len(ts) == 10
         np.testing.assert_array_almost_equal(ts.values, np.arange(10, dtype=float))
 
-    def test_display_receives_store(self, monkeypatch, store):
+    def test_display_receives_store(self, monkeypatch, catalog):
         sid = str(uuid4())
-        store.register_simulation(sid, solver="modflownwt")
+        catalog.register_simulation(sid, project="test", solver="modflownwt")
 
         cfg = PostprocessConfig.model_validate({
             "enabled": True,
@@ -140,7 +139,7 @@ class TestPostprocessRunnerStore:
                 "display": True,
             },
         })
-        runner = PostprocessRunner(cfg, store=store, sim_id=sid)
+        runner = PostprocessRunner(cfg, store=catalog, sim_id=sid)
 
         captured_kwargs = {}
 
@@ -170,5 +169,5 @@ class TestPostprocessRunnerStore:
 
         runner.after_process("flow", _State())
 
-        assert captured_kwargs.get("store") is store
+        assert captured_kwargs.get("store") is catalog
         assert captured_kwargs.get("sim_id") == sid

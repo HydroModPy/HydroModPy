@@ -151,7 +151,7 @@ def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_store(
         lambda: _FakeWhiteboxBackend(),
     )
     monkeypatch.setattr(
-        "hydromodpy.results.store.ResultStore.__new__",
+        "hydromodpy.results.catalog.SimulationCatalog.__new__",
         lambda cls, *a, **kw: _FakeStore(),
     )
     import rasterio as _rio_mod
