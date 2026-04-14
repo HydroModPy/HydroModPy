@@ -336,7 +336,7 @@ class BoussinesqFlowAdapter:
             )
 
         # Serialize state and summary so the BoussinesqOutputAdapter can
-        # extract them into the ResultStore (same lifecycle as MODFLOW
+        # extract them into the SimulationCatalog (same lifecycle as MODFLOW
         # writing .hds/.cbc that its adapter then reads).
         model.post_processing()
 
