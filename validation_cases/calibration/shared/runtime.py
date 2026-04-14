@@ -16,7 +16,6 @@ from hydromodpy.analysis.calibration.engine.launcher import ModelCalibrationLaun
 from hydromodpy.analysis.calibration.engine.session import (
     ModelCalibrationObjectiveEvaluator,
     actualize_candidate,
-    execute_candidate_run,
     select_candidate_outputs,
 )
 from validation_cases.calibration.shared.definitions import (
@@ -465,19 +464,15 @@ def synthesize_truth_observations(
         candidate_label="truth",
         disable_postprocess=False,
     )
-    outcome = execute_candidate_run(
-        request=request,
-        launcher_factory=launcher_factory,
-        cfg=None,
-    )
-    if outcome.status != "solver_run_succeeded":
-        raise RuntimeError(
-            f"Truth simulation failed for benchmark '{definition.case_id}': "
-            f"{outcome.error_message or outcome.status}"
-        )
+    import hydromodpy.project as _project_mod
+
+    project = _project_mod.Project(request.candidate_config_path, headless=True)
+    project.run()
+    run_state = project._ctx
+    project.close()
     selected = select_candidate_outputs(
         cfg=launcher.cfg,
-        run_state=outcome.run_state,
+        run_state=run_state,
         session=request.session,
     )
     clean_observations = _normalize_selected_outputs(selected)
