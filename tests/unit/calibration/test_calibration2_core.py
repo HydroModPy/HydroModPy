@@ -71,6 +71,24 @@ def test_unknown_method_kwargs_are_rejected():
         )
 
 
+def test_cma_es_method_kwargs_are_normalized():
+    """CMA-ES TOML kwargs should validate and keep explicit runtime values."""
+    normalized = normalize_format_method_kwargs(
+        method="cma_es",
+        method_kwargs={
+            "sigma0": 0.2,
+            "max_evaluations": 40,
+            "seed": 7,
+            "normalize": True,
+        },
+        parameter_names=("K", "Sy"),
+    )
+    assert normalized["sigma0"] == 0.2
+    assert normalized["max_evaluations"] == 40
+    assert normalized["seed"] == 7
+    assert normalized["normalize"] is True
+
+
 def test_da_mh_named_mapping_is_reordered_by_parameter_names():
     """Per-parameter mappings are normalized in canonical parameter order."""
     normalized = normalize_format_method_kwargs(
@@ -119,6 +137,75 @@ def test_calibration_engine_da_mh_does_not_inject_legacy_context():
     assert np.isclose(result.score_best, result.cost_best)
     assert "calibration_time_seconds" in result.metadata
     assert float(result.metadata["calibration_time_seconds"]) >= 0.0
+
+
+def test_calibration_engine_cma_es_does_not_inject_legacy_context():
+    """Engine dispatch should remain method-agnostic for CMA-ES too."""
+    captured = {}
+
+    def _fake_cma(objective_cost, bounds, **kwargs):
+        captured.update(kwargs)
+        x = np.array([0.5 * (lo + hi) for lo, hi in bounds], dtype=float)
+        return CalibrationResults(
+            method="cma_es",
+            x_best=x,
+            params_best=None,
+            cost_best=float(objective_cost(x)),
+            score_best=None,
+            n_evaluations=4,
+        )
+
+    methods = CalibrationMethod({"cma_es": _fake_cma})
+
+    def _simulator(params):
+        return np.array([params["a"], params["a"]], dtype=float)
+
+    engine = CalibrationEngine(
+        observed=np.array([1.0, 2.0], dtype=float),
+        simulator=_simulator,
+        bounds={"a": (0.0, 5.0)},
+        objective_metric="rmse",
+        calibration_method=methods,
+    )
+    result = engine.calibrate(method="cma_es", max_evaluations=12)
+
+    assert "observed" not in captured
+    assert "simulator" not in captured
+    assert "parameter_names" not in captured
+    assert "vector_to_params" not in captured
+    assert captured["max_evaluations"] == 12
+    assert isinstance(result, CalibrationResults)
+    assert np.isclose(result.score_best, result.cost_best)
+    assert "calibration_time_seconds" in result.metadata
+    assert float(result.metadata["calibration_time_seconds"]) >= 0.0
+
+
+def test_cma_es_quadratic_smoke():
+    """CMA-ES should minimize a smooth quadratic on a bounded box."""
+    pytest.importorskip("cma")
+
+    def _simulator(params):
+        value = float(params["x"])
+        return np.array([(value - 0.7) ** 2], dtype=float)
+
+    engine = CalibrationEngine(
+        observed=np.array([0.0], dtype=float),
+        simulator=_simulator,
+        bounds={"x": (0.0, 1.0)},
+        objective_metric="rmse",
+    )
+    result = engine.calibrate(
+        method="cma_es",
+        sigma0=0.2,
+        max_evaluations=36,
+        seed=7,
+        normalize=True,
+    )
+
+    assert result.method == "cma_es"
+    assert result.params_best is not None
+    assert result.params_best["x"] == pytest.approx(0.7, abs=0.08)
+    assert result.cost_best == pytest.approx(0.0, abs=0.02)
 
 
 def test_objective_value_to_cost_respects_metric_direction():

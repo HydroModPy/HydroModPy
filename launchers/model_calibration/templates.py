@@ -45,7 +45,7 @@ def render_model_calibration_template() -> str:
         "",
         "[calibration]",
         'objective_metric = "rmse"',
-        'global_method = "simplex"',
+        'global_method = "cma_es"',
         "",
         "[objective]",
         'transform = "identity"',
@@ -112,10 +112,12 @@ def render_model_calibration_template() -> str:
         'uses_outputs = ["q_outlet_lowflow_mean"]',
         "normalize_cost = true",
         "",
-        "[calibration_method.simplex]",
-        "max_iter = 50",
-        "xtol = 1.0e-3",
-        "ftol = 1.0e-3",
+        "[calibration_method.cma_es]",
+        "sigma0 = 0.20",
+        "popsize = 12",
+        "max_evaluations = 120",
+        "seed = 42",
+        "normalize = true",
     ]
     return "\n".join(lines) + "\n"
 

@@ -32,6 +32,7 @@ CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "boussinesq_hillslope_recharge_pulse_overflow_1d"
 DEFAULT_SOLVER = "petsc_partition"
 WINDOWS_SURFACE_CONTEXT_PRESET = "windows_surface_transient"
+LINUX_NWT_BOUSS_RAMP_CONTEXT_PRESET = "linux_nwt_bouss_ramp_4m4m6m"
 
 _WINDOWS_SURFACE_CONTEXT_OVERRIDES: dict[str, object] = {
     "geometry": {
@@ -70,6 +71,40 @@ _WINDOWS_SURFACE_CONTEXT_OVERRIDES: dict[str, object] = {
             0.0, 0.0,
         ],
     },
+}
+
+_LINUX_NWT_BOUSS_RAMP_CONTEXT_OVERRIDES: dict[str, object] = {
+    "geometry": {
+        "nx": 40,
+        "ny": 3,
+        "length_x_m": 400.0,
+        "width_y_m": 30.0,
+        "bottom_elevation_m": -15.0,
+        "toe_elevation_m": 5.0,
+        "topography_slope_m_per_m": 5.0 / 400.0,
+        "east_head_m": 5.0625,
+        "initial_head_m": 5.0625,
+        "hydraulic_conductivity_m_per_s": 2.0e-5,
+        "storage_coefficient": 0.10,
+        "drainage_conductance_m2_s": 1.0e-4,
+    },
+    "time": {
+        "dt_days": 10.0,
+    },
+    "forcing": {
+        "first_clim": "first",
+        "recharge_mm_day": [
+            0.50, 1.00, 1.50, 2.00, 2.50, 3.00, 3.50, 4.00, 4.50, 5.00, 5.50, 6.00,
+            5.50, 5.00, 4.50, 4.00, 3.50, 3.00, 2.50, 2.00, 1.50, 1.00, 0.50, 0.25,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0,
+        ],
+    },
+}
+
+_CONTEXT_PRESET_OVERRIDES: dict[str, dict[str, object]] = {
+    WINDOWS_SURFACE_CONTEXT_PRESET: _WINDOWS_SURFACE_CONTEXT_OVERRIDES,
+    LINUX_NWT_BOUSS_RAMP_CONTEXT_PRESET: _LINUX_NWT_BOUSS_RAMP_CONTEXT_OVERRIDES,
 }
 
 
@@ -147,18 +182,16 @@ def _resolve_case_settings(
     context_name = str(context_preset or "").strip().lower()
 
     if context_name:
-        if context_name != WINDOWS_SURFACE_CONTEXT_PRESET:
+        if context_name not in _CONTEXT_PRESET_OVERRIDES:
+            supported = ", ".join(sorted(_CONTEXT_PRESET_OVERRIDES))
             raise ValueError(
                 "Unsupported context preset "
-                f"'{context_preset}'. Supported values: {WINDOWS_SURFACE_CONTEXT_PRESET}."
+                f"'{context_preset}'. Supported values: {supported}."
             )
-        geometry_cfg.update(
-            dict(_WINDOWS_SURFACE_CONTEXT_OVERRIDES.get("geometry", {}))
-        )
-        time_cfg.update(dict(_WINDOWS_SURFACE_CONTEXT_OVERRIDES.get("time", {})))
-        forcing_cfg.update(
-            dict(_WINDOWS_SURFACE_CONTEXT_OVERRIDES.get("forcing", {}))
-        )
+        preset_overrides = _CONTEXT_PRESET_OVERRIDES[context_name]
+        geometry_cfg.update(dict(preset_overrides.get("geometry", {})))
+        time_cfg.update(dict(preset_overrides.get("time", {})))
+        forcing_cfg.update(dict(preset_overrides.get("forcing", {})))
 
     preset_name = str(forcing_preset or "").strip().lower()
     if preset_name not in {"", "default", "baseline"}:

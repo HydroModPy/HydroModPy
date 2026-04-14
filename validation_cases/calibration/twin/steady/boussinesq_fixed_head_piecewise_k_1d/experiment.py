@@ -153,6 +153,21 @@ def build_calibration_payload(
     }
 
 
+def _cma_es_profile(*, seed: int = 17) -> CalibrationMethodProfile:
+    """Return one compact CMA-ES profile for piecewise-K recovery."""
+    return CalibrationMethodProfile(
+        name="cma_es",
+        method_kwargs={
+            "sigma0": 0.20,
+            "popsize": 12,
+            "max_evaluations": 72,
+            "seed": int(seed),
+            "normalize": True,
+        },
+        persist_model_distribution=False,
+    )
+
+
 PIECEWISE_K_TWIN_CASE = TwinCalibrationCaseDefinition(
     case_id="calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6",
     solver_name="modflow6",
@@ -186,6 +201,7 @@ PIECEWISE_K_TWIN_CASE = TwinCalibrationCaseDefinition(
             repeat_seeds=(17, 29),
             success_metric="distribution",
         ),
+        _cma_es_profile(seed=17),
         CalibrationMethodProfile(
             name="simplex",
             method_kwargs={"max_iter": 42, "xtol": 1.0e-8, "ftol": 1.0e-8},
@@ -193,6 +209,9 @@ PIECEWISE_K_TWIN_CASE = TwinCalibrationCaseDefinition(
         ),
     ),
     fast=False,
+    reference_objective_sample_count=192,
+    reference_objective_sampling="sobol",
+    reference_objective_seed=17,
     build_simulation_config=build_simulation_config,
     build_calibration_payload=build_calibration_payload,
 )

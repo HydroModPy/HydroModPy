@@ -212,6 +212,11 @@ def _write_minimal_model_calibration_config(
             "n_samples = 2",
             "seed = 42",
         ],
+        "cma_es": [
+            "[calibration_method.cma_es]",
+            "max_evaluations = 12",
+            "seed = 42",
+        ],
         "da_mh_gp": [
             "[calibration_method.da_mh_gp]",
             "sigma_noise = 0.1",

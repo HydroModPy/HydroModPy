@@ -45,7 +45,7 @@ Intercomparison
 
       **Calibration Twin: Dupuit Fixed-Head 1D**
       ^^^
-      Steady modflow6 twin calibration benchmark with K_global_factor.
+      Steady modflow6 twin calibration benchmark with K_global.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -54,7 +54,7 @@ Intercomparison
 
       **Calibration Twin: Dupuit Posterior 1D**
       ^^^
-      Steady modflow6 twin calibration benchmark with K_global_factor.
+      Steady modflow6 twin calibration benchmark with K_global.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -63,7 +63,7 @@ Intercomparison
 
       **Calibration Twin: Recharge-Step K+Sy 1D**
       ^^^
-      Transient modflow6 twin calibration benchmark with K_global_factor, Sy_global.
+      Transient modflow6 twin calibration benchmark with K_global, Sy_global.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4

@@ -39,6 +39,7 @@ class SolverOverflowDiagnostics:
     mean_head_profiles_m: np.ndarray
     mean_head_clearance_m: np.ndarray
     mean_saturation_excess_mm_day: np.ndarray
+    drainage_flux_m3_day: np.ndarray
     surface_excess_flux_m3_day: np.ndarray
     east_boundary_outflow_m3_day: np.ndarray
     total_outflow_m3_day: np.ndarray
@@ -326,12 +327,17 @@ def build_hillslope_overflow_diagnostics(
         dtype=float,
     )
     east_edge_mask = _load_east_boundary_edge_mask(result.out_path / "mesh_bundle")
+    drainage_history = np.asarray(
+        state_history["drainage_flux_history_m3_s"],
+        dtype=float,
+    )
+    drainage_flux_m3_day = np.sum(drainage_history, axis=1, dtype=float) * SECONDS_PER_DAY
     east_boundary_outflow_m3_day = (
         -np.sum(np.minimum(imposed_head_history[:, east_edge_mask], 0.0), axis=1, dtype=float)
         * SECONDS_PER_DAY
     )
     total_outflow_m3_day = np.asarray(
-        east_boundary_outflow_m3_day + surface_excess_flux_m3_day,
+        drainage_flux_m3_day + east_boundary_outflow_m3_day + surface_excess_flux_m3_day,
         dtype=float,
     )
     storage_balance_m3_day = np.asarray(
@@ -364,6 +370,7 @@ def build_hillslope_overflow_diagnostics(
         mean_head_profiles_m=np.asarray(mean_head_profiles_m, dtype=float),
         mean_head_clearance_m=np.asarray(mean_head_clearance_m, dtype=float),
         mean_saturation_excess_mm_day=np.asarray(mean_saturation_excess_mm_day, dtype=float),
+        drainage_flux_m3_day=np.asarray(drainage_flux_m3_day, dtype=float),
         surface_excess_flux_m3_day=np.asarray(surface_excess_flux_m3_day, dtype=float),
         east_boundary_outflow_m3_day=np.asarray(east_boundary_outflow_m3_day, dtype=float),
         total_outflow_m3_day=np.asarray(total_outflow_m3_day, dtype=float),

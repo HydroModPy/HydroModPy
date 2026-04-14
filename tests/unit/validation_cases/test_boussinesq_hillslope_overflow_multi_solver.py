@@ -14,6 +14,7 @@ from validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_ov
     _normalize_solver_names,
 )
 from validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.runtime_boussinesq import (
+    LINUX_NWT_BOUSS_RAMP_CONTEXT_PRESET,
     WINDOWS_SURFACE_CONTEXT_PRESET,
     _resolve_case_settings,
     resolve_solver_variant,
@@ -130,3 +131,30 @@ def test_windows_surface_context_preset_overrides_geometry_and_forcing() -> None
     assert time_cfg["dt_days"] == 15.0
     assert forcing_cfg["recharge_mm_day"][-1] == 0.0
     assert len(forcing_cfg["recharge_mm_day"]) == 28
+
+
+def test_linux_nwt_bouss_ramp_context_preset_has_expected_schedule() -> None:
+    metadata = {
+        "geometry": {},
+        "time": {},
+        "forcing": {},
+    }
+    _, time_cfg, forcing_cfg, _, _ = _resolve_case_settings(
+        metadata,
+        variant=resolve_solver_variant("petsc_partition"),
+        context_preset=LINUX_NWT_BOUSS_RAMP_CONTEXT_PRESET,
+        forcing_preset=None,
+        forcing_scale=1.0,
+        east_head_m=None,
+        initial_head_m=None,
+        dt_days=None,
+        runtime_max_iterations=None,
+        runtime_tol_residual_inf=None,
+    )
+
+    recharge = forcing_cfg["recharge_mm_day"]
+    assert time_cfg["dt_days"] == 10.0
+    assert len(recharge) == 42
+    assert recharge[:12] == [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0]
+    assert recharge[12:24] == [5.5, 5.0, 4.5, 4.0, 3.5, 3.0, 2.5, 2.0, 1.5, 1.0, 0.5, 0.25]
+    assert recharge[24:] == [0.0] * 18
