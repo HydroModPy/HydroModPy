@@ -464,9 +464,9 @@ def synthesize_truth_observations(
         candidate_label="truth",
         disable_postprocess=False,
     )
-    import hydromodpy.project as _project_mod
+    import hydromodpy.simulation as _simulation_mod
 
-    project = _project_mod.Project(request.candidate_config_path, headless=True)
+    project = _simulation_mod.Simulation(request.candidate_config_path, headless=True)
     project.run()
     run_state = project._ctx
     project.close()

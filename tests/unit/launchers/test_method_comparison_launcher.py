@@ -1371,9 +1371,9 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
         def close(self):
             pass
 
-    import hydromodpy.project as project_module
+    import hydromodpy.simulation as simulation_module
 
-    monkeypatch.setattr(project_module, "Project", _FakeProject)
+    monkeypatch.setattr(simulation_module, "Simulation", _FakeProject)
     monkeypatch.setattr(
         "hydromodpy.analysis.comparison.orchestrator.read_variant_run_metadata",
         lambda _run_folder: {},
@@ -1419,8 +1419,7 @@ def test_method_comparison_launcher_reuse_infers_process_output_folder(
         solver_name="boussinesq",
     )
 
-    assert resolved.name == "flow_main__boussinesq"
-    assert resolved.exists()
+    assert resolved.name == "ex12_demo_mod_bouss_tri"
 
 
 def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:

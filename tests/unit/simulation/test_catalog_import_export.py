@@ -22,10 +22,12 @@ def _sid():
 
 
 def _populate(catalog, sid, project="test"):
-    catalog.register_simulation(
+    sz = catalog.register_simulation(
         sid, project=project, solver="modflow6",
         n_cells=10, n_layers=1,
     )
+    if sz is not None:
+        sz.close()
     catalog.write_parameters(sid, [
         {"param_name": "K", "value": 1.5, "unit": "m/d"},
     ])

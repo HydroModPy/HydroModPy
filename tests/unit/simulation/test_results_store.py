@@ -39,11 +39,13 @@ class TestFullCycle:
         n_cells, n_layers, n_ts = 4, 2, 5
         verts, conn, z = _make_mesh()
 
-        catalog.register_simulation(
+        sz = catalog.register_simulation(
             sid, project="test", solver="modflownwt",
             name="test_run",
             n_cells=n_cells, n_layers=n_layers, n_timesteps=n_ts,
         )
+        if sz is not None:
+            sz.close()
         catalog.write_mesh(sid, verts, conn, z)
 
         rng = np.random.default_rng(42)
@@ -152,10 +154,12 @@ class TestProvenance:
 class TestDeleteSimulation:
     def test_cleans_all_stores(self, catalog):
         sid = str(uuid4())
-        catalog.register_simulation(
+        sz = catalog.register_simulation(
             sid, project="test", solver="modflownwt",
             n_cells=4, n_layers=2, n_timesteps=1,
         )
+        if sz is not None:
+            sz.close()
         verts, conn, z = _make_mesh()
         catalog.write_mesh(sid, verts, conn, z)
         catalog.write_field(sid, "head", 0, np.zeros((2, 4)), n_timesteps=1)
@@ -177,10 +181,12 @@ class TestCompare:
         n_cells, n_layers = 10, 1
 
         for sid in (sid_a, sid_b):
-            catalog.register_simulation(
+            sz = catalog.register_simulation(
                 sid, project="test", solver="test",
                 n_cells=n_cells, n_layers=n_layers, n_timesteps=1,
             )
+            if sz is not None:
+                sz.close()
 
         vals_a = np.ones((n_layers, n_cells))
         vals_b = np.ones((n_layers, n_cells)) * 2.0

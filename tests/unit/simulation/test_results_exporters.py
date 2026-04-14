@@ -19,10 +19,12 @@ def catalog_with_data(tmp_path):
     sid = str(uuid4())
 
     n_cells, n_layers, n_ts = 6, 2, 3
-    c.register_simulation(
+    sz = c.register_simulation(
         sid, project="test", solver="modflownwt",
         n_cells=n_cells, n_layers=n_layers, n_timesteps=n_ts,
     )
+    if sz is not None:
+        sz.close()
 
     # Triangle mesh (6 triangles, 7 nodes)
     verts = np.array([
