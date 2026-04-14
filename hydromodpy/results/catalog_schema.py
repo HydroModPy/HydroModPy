@@ -62,7 +62,7 @@ CREATE INDEX IF NOT EXISTS ix_sim_created ON simulations(created_at);
 
 _PARAMETERS_DDL = """\
 CREATE TABLE IF NOT EXISTS parameters (
-    sim_id           UUID NOT NULL REFERENCES simulations(sim_id),
+    sim_id           UUID NOT NULL,
     param_name       VARCHAR NOT NULL,
     zone_id          VARCHAR NOT NULL DEFAULT '_homogeneous',
     value            DOUBLE,
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS parameters (
 
 _TIMESERIES_DDL = """\
 CREATE TABLE IF NOT EXISTS timeseries (
-    sim_id     UUID REFERENCES simulations(sim_id),
+    sim_id     UUID NOT NULL,
     station_id VARCHAR NOT NULL,
     variable   VARCHAR NOT NULL,
     timestamp  TIMESTAMP NOT NULL,
@@ -87,7 +87,7 @@ CREATE INDEX IF NOT EXISTS ix_ts_lookup
 
 _BUDGETS_DDL = """\
 CREATE TABLE IF NOT EXISTS budgets (
-    sim_id    UUID REFERENCES simulations(sim_id),
+    sim_id    UUID NOT NULL,
     timestep  INTEGER,
     zone_id   VARCHAR,
     component VARCHAR,
@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS budgets (
 
 _MASS_BALANCE_DDL = """\
 CREATE TABLE IF NOT EXISTS mass_balance (
-    sim_id        UUID REFERENCES simulations(sim_id),
+    sim_id        UUID NOT NULL,
     timestep      INTEGER,
     total_in      DOUBLE,
     total_out     DOUBLE,
@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS mass_balance (
 
 _METRICS_DDL = """\
 CREATE TABLE IF NOT EXISTS metrics (
-    sim_id      UUID REFERENCES simulations(sim_id),
+    sim_id      UUID NOT NULL,
     station_id  VARCHAR NOT NULL,
     metric_name VARCHAR NOT NULL,
     value       DOUBLE,
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS metrics (
 
 _OBSERVATION_POINTS_DDL = """\
 CREATE TABLE IF NOT EXISTS observation_points (
-    sim_id     UUID REFERENCES simulations(sim_id),
+    sim_id     UUID NOT NULL,
     station_id VARCHAR,
     x          DOUBLE,
     y          DOUBLE,
@@ -133,7 +133,7 @@ CREATE TABLE IF NOT EXISTS observation_points (
 
 _PROVENANCE_DDL = """\
 CREATE TABLE IF NOT EXISTS provenance (
-    sim_id       UUID REFERENCES simulations(sim_id),
+    sim_id       UUID NOT NULL,
     variable     VARCHAR,
     source_type  VARCHAR,
     source_ref   VARCHAR,
@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS provenance (
 _CALIBRATION_SESSIONS_DDL = """\
 CREATE TABLE IF NOT EXISTS calibration_sessions (
     session_id     UUID PRIMARY KEY,
-    best_sim_id    UUID REFERENCES simulations(sim_id),
+    best_sim_id    UUID,
     method         VARCHAR,
     n_iterations   INTEGER,
     best_objective DOUBLE,
@@ -160,7 +160,7 @@ CREATE TABLE IF NOT EXISTS calibration_sessions (
 
 _CALIBRATION_ITERATIONS_DDL = """\
 CREATE TABLE IF NOT EXISTS calibration_iterations (
-    session_id      UUID NOT NULL REFERENCES calibration_sessions(session_id),
+    session_id      UUID NOT NULL,
     iteration       INTEGER NOT NULL,
     parameters      JSON,
     objective_value DOUBLE,
