@@ -25,6 +25,9 @@ from hydromodpy.results.zarr_store import SimulationZarr
 if TYPE_CHECKING:
     import geopandas as gpd
 
+    from hydromodpy.results.simulation import Simulation
+    from hydromodpy.results.simulation_group import SimulationGroup
+
 logger = logging.getLogger(__name__)
 
 
@@ -334,6 +337,142 @@ class SimulationCatalog:
     def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
         zarr_path = self._simulations_dir / f"{sim_id}.zarr"
         return SimulationZarr(zarr_path)
+
+    # -- Query methods -------------------------------------------------------
+
+    @property
+    def simulations(self) -> pd.DataFrame:
+        return self._db.execute(
+            "SELECT * FROM simulations ORDER BY created_at DESC"
+        ).fetchdf()
+
+    def __getitem__(self, sim_id: str | UUID) -> Simulation:
+        from hydromodpy.results.simulation import Simulation
+
+        sid = str(sim_id)
+        row = self._db.execute(
+            "SELECT sim_id FROM simulations WHERE sim_id = ?", [sid],
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"Simulation '{sid}' not found")
+        return Simulation(sid, self)
+
+    def find(self, **filters) -> SimulationGroup:
+        from hydromodpy.results.simulation_group import SimulationGroup
+
+        query = "SELECT DISTINCT s.sim_id FROM simulations s"
+        joins: list[str] = []
+        clauses: list[str] = []
+        params: list = []
+
+        for key, val in filters.items():
+            if key == "tags":
+                clauses.append("list_contains(s.tags, ?)")
+                params.append(val)
+            elif key.endswith("_gt"):
+                metric = key[:-3]
+                alias = f"m_{len(joins)}"
+                joins.append(
+                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
+                    f"AND {alias}.metric_name = ?"
+                )
+                params.append(metric)
+                clauses.append(f"{alias}.value > ?")
+                params.append(val)
+            elif key.endswith("_lt"):
+                metric = key[:-3]
+                alias = f"m_{len(joins)}"
+                joins.append(
+                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
+                    f"AND {alias}.metric_name = ?"
+                )
+                params.append(metric)
+                clauses.append(f"{alias}.value < ?")
+                params.append(val)
+            elif key.endswith("_gte"):
+                metric = key[:-4]
+                alias = f"m_{len(joins)}"
+                joins.append(
+                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
+                    f"AND {alias}.metric_name = ?"
+                )
+                params.append(metric)
+                clauses.append(f"{alias}.value >= ?")
+                params.append(val)
+            elif key in (
+                "project", "solver", "solver_category", "flow_regime",
+                "status", "name", "crs",
+            ):
+                clauses.append(f"s.{key} = ?")
+                params.append(val)
+            else:
+                raise ValueError(f"Unknown filter: '{key}'")
+
+        if joins:
+            query += " " + " ".join(joins)
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY s.created_at DESC"
+
+        rows = self._db.execute(query, params).fetchall()
+        sim_ids = [str(r[0]) for r in rows]
+        return SimulationGroup(sim_ids, self)
+
+    def latest(self, project: str) -> Simulation:
+        from hydromodpy.results.simulation import Simulation
+
+        row = self._db.execute(
+            "SELECT sim_id FROM simulations "
+            "WHERE project = ? AND status = 'completed' "
+            "ORDER BY created_at DESC LIMIT 1",
+            [project],
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"No completed simulation for project '{project}'")
+        return Simulation(str(row[0]), self)
+
+    def best(self, project: str, metric: str = "nse") -> Simulation:
+        from hydromodpy.results.simulation import Simulation
+
+        row = self._db.execute(
+            "SELECT s.sim_id FROM simulations s "
+            "JOIN metrics m ON s.sim_id = m.sim_id "
+            "WHERE s.project = ? AND s.status = 'completed' "
+            "AND m.metric_name = ? "
+            "ORDER BY m.value DESC LIMIT 1",
+            [project, metric],
+        ).fetchone()
+        if row is None:
+            raise KeyError(
+                f"No completed simulation with metric '{metric}' "
+                f"for project '{project}'"
+            )
+        return Simulation(str(row[0]), self)
+
+    def sql(self, query: str, params: list | None = None) -> pd.DataFrame:
+        if params:
+            return self._db.execute(query, params).fetchdf()
+        return self._db.execute(query).fetchdf()
+
+    def cleanup(
+        self,
+        *,
+        status: str | None = None,
+        older_than: str | None = None,
+    ) -> int:
+        query = "SELECT sim_id FROM simulations WHERE 1=1"
+        params: list = []
+        if status is not None:
+            query += " AND status = ?"
+            params.append(status)
+        if older_than is not None:
+            query += " AND created_at < ?"
+            params.append(older_than)
+
+        rows = self._db.execute(query, params).fetchall()
+        for (sid,) in rows:
+            self.delete(str(sid))
+        return len(rows)
 
     # -- Lifecycle -----------------------------------------------------------
 
