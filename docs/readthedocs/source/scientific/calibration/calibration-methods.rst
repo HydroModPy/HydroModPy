@@ -352,11 +352,13 @@ competing one-shot choices.
 
 1. Use ``grid_search`` or ``random_search`` to understand scale, rough
    parameter ranges, and basic multimodality.
-2. Use ``simplex`` or ``nelder_mead`` when the problem already looks local and
+2. Use ``cma_es`` when the box is still broad but the problem is too irregular
+   for a local simplex to be trusted.
+3. Use ``simplex`` or ``nelder_mead`` when the problem already looks local and
    a best-fit point estimate is the main target.
-3. Use ``gp_mapping`` when the simulator is expensive and you want a practical,
+4. Use ``gp_mapping`` when the simulator is expensive and you want a practical,
    approximate uncertainty picture.
-4. Use ``da_mh_gp`` when the final deliverable is a posterior sample and an
+5. Use ``da_mh_gp`` when the final deliverable is a posterior sample and an
    uncertainty statement, not only one calibrated optimum.
 
 Implementation Provenance And References
@@ -372,6 +374,12 @@ Implementation Provenance And References
   baseline. For the practical argument that random search is a strong baseline
   for bounded search spaces, see `Bergstra and Bengio (2012)
   <https://www.jmlr.org/papers/v13/bergstra12a.html>`_.
+- ``cma_es`` is implemented in
+  ``hydromodpy.analysis.calibration.core.methods.cma_es`` and delegates the
+  covariance-update logic to the `cma <https://cma-es.github.io/>`_ package,
+  while HydroModPy keeps bound normalization and result packaging consistent
+  with the other methods. Reference: `Hansen (2016)
+  <https://arxiv.org/abs/1604.00772>`_.
 - ``simplex`` and ``nelder_mead`` are thin wrappers around SciPy optimizers:
   ``scipy.optimize.fmin`` and
   ``scipy.optimize.minimize(..., method="Nelder-Mead")``. References:
