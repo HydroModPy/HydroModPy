@@ -7,13 +7,13 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.results.store import ResultStore
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class ModpathOutputAdapter:
-    """Read MODPATH pathline / endpoint files and inject into a ResultStore.
+    """Read MODPATH pathline / endpoint files and inject into a SimulationCatalog.
 
     Stores pathline data as Zarr arrays under the ``pathlines/`` subgroup:
     x, y, z, time — each shaped ``(n_particles, max_steps)`` with NaN
@@ -24,7 +24,7 @@ class ModpathOutputAdapter:
         self,
         sim_id: str,
         solver_output_dir: Path,
-        store: ResultStore,
+        store: Any,
         *,
         model_name: str | None = None,
     ) -> None:
@@ -50,7 +50,7 @@ class ModpathOutputAdapter:
     def _extract_pathlines(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         pth_path: Path,
     ) -> None:
         """Read pathline file and write x/y/z/time arrays to Zarr."""
@@ -93,7 +93,7 @@ class ModpathOutputAdapter:
     def _extract_endpoints(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         ept_path: Path,
     ) -> None:
         """Read endpoint file and write as a single-step pathline."""
@@ -127,7 +127,7 @@ class ModpathOutputAdapter:
     def derive(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         config: dict | None = None,
     ) -> None:
         """No derived variables for particle tracking."""

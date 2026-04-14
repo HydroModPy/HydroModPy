@@ -250,33 +250,37 @@ class Modpath(Solver):
         return None
 
     def _restore_seepage_raster_from_store(self, seepage_tif: str) -> bool:
-        """Rebuild the seepage GeoTIFF from the ResultStore."""
+        """Rebuild the seepage GeoTIFF from the SimulationCatalog."""
         base_raster = self._get_base_raster_path()
         if base_raster is None or not os.path.isfile(base_raster):
             return False
 
         try:
-            from hydromodpy.results.store import ResultStore
+            from hydromodpy.core.workspace.config import WorkspaceConfig
+            from hydromodpy.results.catalog import SimulationCatalog
 
             # model_folder is .solver_scratch/ — project root is its parent.
             mf = Path(self.model_folder)
             project_root = mf.parent if mf.name == ".solver_scratch" else mf
-            store = ResultStore(project_root)
-            sims = store.list_simulations()
+            workspace_root = WorkspaceConfig.discover_workspace_root(project_root)
+            if workspace_root is None:
+                workspace_root = project_root
+            catalog = SimulationCatalog(workspace_root)
+            sims = catalog.list_simulations()
             if not sims.empty:
                 sim_id = str(sims.iloc[-1]["sim_id"])
-                arr = store.query_field(sim_id, "seepage_areas", 0)
+                arr = catalog.query_field(sim_id, "seepage_areas", 0)
                 seepage_flat = np.asarray(arr, dtype=float).ravel()
                 import rasterio as _rio
                 with _rio.open(base_raster) as _src:
                     seepage_array = seepage_flat.reshape(_src.height, _src.width)
                 os.makedirs(os.path.dirname(seepage_tif), exist_ok=True)
                 export_tif(base_raster, seepage_array, seepage_tif, -9999.0)
-            store.close()
+            catalog.close()
             if os.path.isfile(seepage_tif):
                 return True
         except Exception as exc:
-            logger.debug("Failed to rebuild seepage from ResultStore: %s", exc)
+            logger.debug("Failed to rebuild seepage from SimulationCatalog: %s", exc)
 
         return False
 

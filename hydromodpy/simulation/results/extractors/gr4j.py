@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pandas as pd
 
-from hydromodpy.results.store import ResultStore
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class GR4JOutputAdapter:
-    """Inject GR4J in-memory results into a ResultStore.
+    """Inject GR4J in-memory results into a SimulationCatalog.
 
     GR4J is a lumped catchment model — results are already in memory
     as pandas Series (no binary files to parse). This adapter simply
@@ -24,7 +24,7 @@ class GR4JOutputAdapter:
         self,
         sim_id: str,
         solver_output_dir: Path,
-        store: ResultStore,
+        store: Any,
     ) -> None:
         """No-op: GR4J results are injected via write_from_memory."""
         pass
@@ -32,7 +32,7 @@ class GR4JOutputAdapter:
     def extract_from_memory(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         *,
         discharge: pd.Series | None = None,
         storage: pd.Series | None = None,
@@ -45,7 +45,7 @@ class GR4JOutputAdapter:
         ----------
         sim_id : str
             Simulation UUID.
-        store : ResultStore
+        store : SimulationCatalog
             Target store.
         discharge : pd.Series, optional
             Simulated discharge Q(t) at the outlet.
@@ -69,7 +69,7 @@ class GR4JOutputAdapter:
     def derive(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         config: dict | None = None,
     ) -> None:
         """No derived variables for lumped models."""

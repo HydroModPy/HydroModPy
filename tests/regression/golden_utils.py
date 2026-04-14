@@ -350,7 +350,7 @@ def snapshot_signature(path: Path) -> dict:
 
 
 def collect_store_modpath_signatures(store, sim_id: str) -> dict:
-    """Collect MODPATH signatures from the ResultStore pathlines group."""
+    """Collect MODPATH signatures from the SimulationCatalog pathlines group."""
     result = {}
     try:
         grp = store.open_zarr_group(sim_id)
@@ -424,20 +424,20 @@ def collect_json_signatures(
     return {key: payload[key] for key in ordered_keys}
 
 
-# -- ResultStore-based signature collection ----------------------------------
+# -- SimulationCatalog-based signature collection ----------------------------
 
 
-def _open_result_store(project_path: Path):
-    """Open a read-only ResultStore for golden comparison."""
-    from hydromodpy.results.store import ResultStore
-    return ResultStore(project_path)
+def _open_result_store(workspace_path: Path):
+    """Open a read-only SimulationCatalog for golden comparison."""
+    from hydromodpy.results.catalog import SimulationCatalog
+    return SimulationCatalog(workspace_path)
 
 
 def _resolve_sim_id(store, sim_name: str | None = None) -> str:
     """Return the sim_id of the most recent (or only) simulation as a string."""
     sims = store.list_simulations()
     if sims.empty:
-        raise FileNotFoundError("No simulations in ResultStore")
+        raise FileNotFoundError("No simulations in SimulationCatalog")
     if sim_name is not None:
         match = sims[sims["name"] == sim_name]
         if not match.empty:
@@ -447,7 +447,7 @@ def _resolve_sim_id(store, sim_name: str | None = None) -> str:
 
 
 def store_field_signature(store, sim_id: str, variable: str) -> dict:
-    """Build a modflow-compatible signature from a ResultStore field.
+    """Build a modflow-compatible signature from a SimulationCatalog field.
 
     Reads the last available timestep and computes the same stats as
     ``modflow_signature`` so golden comparison is identical.
@@ -491,7 +491,7 @@ def collect_store_field_signatures(
     sim_id: str,
     names: list[str],
 ) -> dict:
-    """Collect ResultStore field signatures — drop-in for ``collect_modflow_signatures``."""
+    """Collect SimulationCatalog field signatures — drop-in for ``collect_modflow_signatures``."""
     result = {}
     for name in names:
         try:

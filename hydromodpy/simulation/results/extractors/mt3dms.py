@@ -7,13 +7,13 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.results.store import ResultStore
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class Mt3dmsOutputAdapter:
-    """Read MT3DMS / MF6-GWT binary outputs and inject them into a ResultStore.
+    """Read MT3DMS / MF6-GWT binary outputs and inject them into a SimulationCatalog.
 
     Expects a solver output directory containing ``{model_name}.ucn``
     (unformatted concentration file).
@@ -23,7 +23,7 @@ class Mt3dmsOutputAdapter:
         self,
         sim_id: str,
         solver_output_dir: Path,
-        store: ResultStore,
+        store: Any,
         *,
         model_name: str | None = None,
     ) -> None:
@@ -80,7 +80,7 @@ class Mt3dmsOutputAdapter:
     def derive(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         config: dict | None = None,
     ) -> None:
         """Compute derived variables from stored concentration fields.

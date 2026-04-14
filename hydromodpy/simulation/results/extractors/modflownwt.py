@@ -7,13 +7,13 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.results.store import ResultStore
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class ModflowNwtOutputAdapter:
-    """Read MODFLOW-NWT binary outputs and inject them into a ResultStore.
+    """Read MODFLOW-NWT binary outputs and inject them into a SimulationCatalog.
 
     Expects a solver output directory containing ``{model_name}.hds``,
     ``{model_name}.cbc``, and optionally ``{model_name}.lst``.
@@ -23,7 +23,7 @@ class ModflowNwtOutputAdapter:
         self,
         sim_id: str,
         solver_output_dir: Path,
-        store: ResultStore,
+        store: Any,
         *,
         model_name: str | None = None,
         budget_spatial_fields: bool = False,
@@ -93,7 +93,7 @@ class ModflowNwtOutputAdapter:
     def _extract_budget(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         cbc_path: Path,
         times: list,
         kstpkpers: list,
@@ -148,7 +148,7 @@ class ModflowNwtOutputAdapter:
     def _extract_mass_balance(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         lst_path: Path,
     ) -> None:
         """Parse MODFLOW listing file for mass balance summary."""
@@ -168,7 +168,7 @@ class ModflowNwtOutputAdapter:
     def _write_surface_elevation(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         solver_output_dir: Path,
         model_name: str,
         nlay: int,
@@ -211,7 +211,7 @@ class ModflowNwtOutputAdapter:
     def derive(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         config: dict | None = None,
     ) -> None:
         """Compute derived variables from stored head fields.

@@ -7,13 +7,13 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.results.store import ResultStore
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class Modflow6OutputAdapter:
-    """Read MODFLOW 6 binary outputs and inject them into a ResultStore.
+    """Read MODFLOW 6 binary outputs and inject them into a SimulationCatalog.
 
     Expects a solver output directory with ``{model_name}.hds`` and
     ``{model_name}.cbc`` in MODFLOW 6 format.
@@ -23,7 +23,7 @@ class Modflow6OutputAdapter:
         self,
         sim_id: str,
         solver_output_dir: Path,
-        store: ResultStore,
+        store: Any,
         *,
         model_name: str | None = None,
         budget_spatial_fields: bool = False,
@@ -93,7 +93,7 @@ class Modflow6OutputAdapter:
     def _extract_budget(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         cbc_path: Path,
         times: list,
         kstpkpers: list,
@@ -176,7 +176,7 @@ class Modflow6OutputAdapter:
     def _extract_mass_balance(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         lst_path: Path,
     ) -> None:
         """Parse MODFLOW 6 listing file for mass balance summary.
@@ -206,7 +206,7 @@ class Modflow6OutputAdapter:
     def _write_surface_elevation(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         solver_output_dir: Path,
         model_name: str,
         nlay: int,
@@ -255,7 +255,7 @@ class Modflow6OutputAdapter:
     def derive(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         config: dict | None = None,
     ) -> None:
         """Compute derived variables from stored head fields."""
