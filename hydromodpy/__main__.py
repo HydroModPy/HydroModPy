@@ -2,43 +2,23 @@
 HydroModPy command-line interface.
 
 Usage (hmp and hydromodpy are interchangeable):
-    hmp init                              # creates ~/hydromodpy/
-    hmp init --path /mnt/shared/hydrodata # creates at custom location
+    hmp init [--path PATH]                # create workspace
+    hmp new <project> [--workspace PATH]  # create project
 
-    hmp new my_project                    # create project in workspace
-    hmp new my_project --workspace /path  # specify workspace root
+    hmp config [output.toml]              # generate TOML template
+    hmp run <config.toml | script.py>     # execute (auto-detect workflow)
+    hmp display <config.toml>             # generate figures post-hoc
 
-    hmp config my_config.toml
-    hmp config --profile user --modules geographic
-    hmp config --list-modules
+    hmp list [project] [--workspace PATH] # list projects or runs
+    hmp export <project> [--sim NAME]     # export results
+    hmp test <suite>                      # run tests
 
-    hmp run config.toml                   # run a simulation from a TOML file
-    hmp compare config_method_comparison.toml # compare solver/mesh methods
-
-    hmp display config.toml               # generate figures from existing outputs
-    hmp display config.toml --save        # force saving figures to disk
-    hmp display config.toml --no-show     # headless mode (no interactive display)
-
-    hmp list                              # list projects in workspace
-    hmp list my_project                   # list runs in a project
-
-    hmp test unit
-    hmp test regression
-    hmp test regression --fast
-    hmp test regression --extensive
-    hmp test regression --slow
-    hmp test regression --nwt
-    hmp test regression --mf6
-    hmp test regression --normal
-    hmp test regression --list
-    hmp test regression launcher_simulation_fast_nwt --fast --nwt
-    hmp test regression launcher_simulation_fast_mf6 --fast --mf6
-    hmp test regression launcher_simulation_extensive_nwt --extensive --nwt
-    hmp test regression launcher_simulation_extensive_mf6 --extensive --mf6
-    hmp test regression --update-goldens
-    hmp test validation
-    hmp test validation --fast
-    hmp test validation --steady --nwt
+``hmp run`` auto-detects the workflow from the TOML sections present:
+    [simulation] or [flow]   -> simulation (via Project)
+    [overview]               -> watershed identity card
+    [mesh_catchment]         -> mesh-only pipeline
+    [calibration]            -> calibration loop (Phase 4)
+    [batch]                  -> regional batch  (Phase 4)
 """
 
 from __future__ import annotations
@@ -425,18 +405,35 @@ def _cmd_run(args: argparse.Namespace) -> None:
 
 
 def _cmd_run_toml(config_path: Path) -> None:
-    """Run a simulation from a TOML configuration file."""
+    """Run a workflow from a TOML file (auto-detected from sections)."""
+    import importlib
+    import tomllib
+
     from hydromodpy.core.tools.display import print_hydromodpy
-    from launchers import HydroModPyLauncher
+    from hydromodpy.runners import detect_workflow
 
     print_hydromodpy()
-    launcher = HydroModPyLauncher(config_path)
-    run_state = launcher.run()
 
-    print(f"Simulation complete: {config_path.name}", file=sys.stderr)
-    model_ids = list(run_state.execution.models_by_run_id.keys())
-    if model_ids:
-        print(f"Produced models: {', '.join(model_ids)}", file=sys.stderr)
+    with open(config_path, "rb") as f:
+        raw_toml = tomllib.load(f)
+
+    workflow = detect_workflow(raw_toml)
+
+    dispatch = {
+        "simulation": "hydromodpy.runners.simulation",
+        "overview": "hydromodpy.runners.overview",
+        "mesh": "hydromodpy.runners.mesh",
+        "calibration": "hydromodpy.runners.calibration",
+        "batch": "hydromodpy.runners.batch",
+    }
+
+    module = importlib.import_module(dispatch[workflow])
+    summary = module.run(config_path)
+
+    print(f"Workflow '{workflow}' complete: {config_path.name}", file=sys.stderr)
+    if summary:
+        for key, value in summary.items():
+            print(f"  {key}: {value}", file=sys.stderr)
 
 
 def _cmd_run_script(script_path: Path, extra_args: list[str]) -> None:
@@ -447,26 +444,6 @@ def _cmd_run_script(script_path: Path, extra_args: list[str]) -> None:
     cmd = [sys.executable, str(script_path), *extra_args]
     result = subprocess.run(cmd, cwd=str(script_path.parent))
     sys.exit(result.returncode)
-
-
-def _cmd_compare(args: argparse.Namespace) -> None:
-    """Run a method-comparison launcher from a TOML configuration file."""
-    from hydromodpy.core.tools.display import print_hydromodpy
-    from launchers import MethodComparisonLauncher
-
-    print_hydromodpy()
-    config_path = Path(args.config).expanduser().resolve()
-    if not config_path.is_file():
-        print(f"Configuration file not found: {config_path}", file=sys.stderr)
-        sys.exit(1)
-
-    summary = MethodComparisonLauncher(config_path).run()
-    print(
-        f"Method comparison complete: {summary['comparison_id']}",
-        file=sys.stderr,
-    )
-    print(f"Manifest: {summary['manifest_path']}", file=sys.stderr)
-    print(f"Observables: {summary['observables_csv']}", file=sys.stderr)
 
 
 def _cmd_list(args: argparse.Namespace) -> None:
@@ -612,23 +589,6 @@ def _cmd_test(args: argparse.Namespace) -> None:
 
     print(f"Running: {' '.join(pytest_args)}", file=sys.stderr)
     sys.exit(subprocess.call(pytest_args, env=pytest_env))
-
-
-def _cmd_overview(args: argparse.Namespace) -> None:
-    """Generate a watershed identity card from a TOML configuration file."""
-    from launchers import DataOverviewLauncher
-
-    config_path = Path(args.config).expanduser().resolve()
-    if not config_path.is_file():
-        print(f"Configuration file not found: {config_path}", file=sys.stderr)
-        sys.exit(1)
-
-    summary = DataOverviewLauncher(config_path).run()
-    report_paths = summary.get("report_paths", [])
-    if report_paths:
-        print(f"\nOverview complete - {len(report_paths)} panel(s) generated.", file=sys.stderr)
-    else:
-        print("Overview complete - no panels generated.", file=sys.stderr)
 
 
 def _cmd_display(args: argparse.Namespace) -> None:
@@ -942,17 +902,6 @@ def main() -> None:
         help="Extra arguments forwarded to .py scripts",
     )
 
-    # --- compare subcommand ---
-    compare_parser = subparsers.add_parser(
-        "compare",
-        help="Compare solver/mesh methods from a TOML configuration file",
-    )
-    compare_parser.add_argument(
-        "config",
-        type=Path,
-        help="Path to the method-comparison TOML file",
-    )
-
     # --- display subcommand ---
     display_parser = subparsers.add_parser(
         "display",
@@ -972,33 +921,6 @@ def main() -> None:
         "--no-show",
         action="store_true",
         help="Disable interactive display (overrides TOML display.show)",
-    )
-
-    # --- overview subcommand ---
-    overview_parser = subparsers.add_parser(
-        "overview",
-        help="Generate a watershed identity card from a TOML file",
-    )
-    overview_parser.add_argument(
-        "config",
-        type=Path,
-        help="Path to the overview TOML file",
-    )
-
-    # Keep 'simulation' as hidden alias for backwards compatibility
-    sim_parser = subparsers.add_parser(
-        "simulation",
-        help=argparse.SUPPRESS,
-    )
-    sim_parser.add_argument(
-        "config",
-        type=Path,
-        help="Path to the simulation TOML file",
-    )
-    sim_parser.add_argument(
-        "--out",
-        default=None,
-        help=argparse.SUPPRESS,
     )
 
     # --- list subcommand ---
@@ -1160,28 +1082,19 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.command == "init":
-        _cmd_init(args)
-    elif args.command == "new":
-        _cmd_new(args)
-    elif args.command == "config":
-        _cmd_config(args)
-    elif args.command == "run":
-        _cmd_run(args)
-    elif args.command == "compare":
-        _cmd_compare(args)
-    elif args.command == "simulation":
-        _cmd_run(args)
-    elif args.command == "display":
-        _cmd_display(args)
-    elif args.command == "overview":
-        _cmd_overview(args)
-    elif args.command == "list":
-        _cmd_list(args)
-    elif args.command == "export":
-        _cmd_export(args)
-    elif args.command == "test":
-        _cmd_test(args)
+    handlers = {
+        "init": _cmd_init,
+        "new": _cmd_new,
+        "config": _cmd_config,
+        "run": _cmd_run,
+        "display": _cmd_display,
+        "list": _cmd_list,
+        "export": _cmd_export,
+        "test": _cmd_test,
+    }
+    handler = handlers.get(args.command)
+    if handler is not None:
+        handler(args)
     else:
         parser.print_help()
         sys.exit(1)

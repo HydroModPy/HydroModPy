@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
-    from launchers.data_overview.state import DataOverviewState
+    from hydromodpy.analysis.display.report.overview_config import DataOverviewState
 
 
 @dataclass

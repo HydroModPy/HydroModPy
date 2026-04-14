@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from launchers.data_overview.config import DataOverviewConfig
+from hydromodpy.analysis.display.report.overview_config import DataOverviewConfig
 
 
 def test_data_overview_config_respects_project_root_env_override(

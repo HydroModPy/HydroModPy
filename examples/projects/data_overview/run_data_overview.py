@@ -23,14 +23,11 @@ def main() -> int:
     """Delegate to the canonical launcher CLI using the local example config."""
     _ensure_repo_root_on_sys_path()
 
-    from launchers.__main__ import main as launchers_main
+    from hydromodpy.workflow.pipelines.overview import DataOverviewLauncher
 
     config_path = Path(__file__).with_name("project.toml").resolve()
-    return int(
-        launchers_main(
-            ["data-overview", "run", str(config_path)]
-        )
-    )
+    DataOverviewLauncher(config_path).run()
+    return 0
 
 
 if __name__ == "__main__":

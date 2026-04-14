@@ -52,8 +52,8 @@ from hydromodpy.solver.boussinesq.scipy_runtime import (
 from hydromodpy.solver.boussinesq.scipy_sparse_runtime import (
     solve_steady_problem as solve_steady_problem_scipy_sparse,
 )
-from hydromodpy.solver.prototype.solver_config import SolverConfig
-from hydromodpy.solver.prototype.solver_engine import SolverEngine
+from hydromodpy.solver.base.solver_config import SolverConfig
+from hydromodpy.solver.base.solver_engine import SolverEngine
 from hydromodpy.solver.utils.mesh.gmsh_grid import GmshPlanarMesh2D
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,

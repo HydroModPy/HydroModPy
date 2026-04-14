@@ -1,34 +1,20 @@
 from __future__ import annotations
 
 import csv
-import importlib.util
 import json
 from pathlib import Path
 import sys
 from types import SimpleNamespace
 
-from launchers.regional_lab.bootstrap import build_site_catalog_from_outlet_table
-from launchers.regional_lab.config import RegionalLabConfig
-from launchers.regional_lab.launcher import (
+from hydromodpy.analysis.batch.bootstrap import build_site_catalog_from_outlet_table
+from hydromodpy.analysis.batch.config import RegionalLabConfig
+from hydromodpy.analysis.batch.runtime import (
     RegionalLabLauncher,
     _extract_method_comparison_child_artifacts,
     build_regional_lab_plan,
     build_run_command,
     load_site_catalog,
 )
-
-
-def _load_launchers_main_module():
-    module_path = Path(__file__).resolve().parents[3] / "launchers" / "__main__.py"
-    spec = importlib.util.spec_from_file_location(
-        "launchers_main_regional_lab_test_module",
-        module_path,
-    )
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Unable to load module spec for {module_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 def _write_regional_lab_config(
@@ -315,7 +301,7 @@ def test_regional_lab_execution_stops_on_first_failure(monkeypatch, tmp_path: Pa
         return SimpleNamespace(returncode=returncode)
 
     monkeypatch.setattr(
-        "launchers.regional_lab.launcher.subprocess.run",
+        "hydromodpy.analysis.batch.runtime.subprocess.run",
         _fake_subprocess_run,
     )
 
@@ -379,7 +365,7 @@ def test_regional_lab_resume_skips_completed_cases(monkeypatch, tmp_path: Path) 
         return SimpleNamespace(returncode=0)
 
     monkeypatch.setattr(
-        "launchers.regional_lab.launcher.subprocess.run",
+        "hydromodpy.analysis.batch.runtime.subprocess.run",
         _fake_subprocess_run,
     )
 
@@ -716,74 +702,6 @@ def test_regional_lab_bootstrap_catalog_infers_bundle_dir_from_manifest_mesh_pat
     assert rows[0]["bundle_boussinesq_steady_ready"] == "true"
     assert rows[0]["bundle_boussinesq_transient_ready"] == "true"
     assert "boussinesq_transient_ready" in rows[0]["tags"]
-
-
-def test_launchers_cli_regional_lab_run_dispatches_to_launcher(monkeypatch) -> None:
-    module = _load_launchers_main_module()
-    captured: dict[str, Path] = {}
-    config_path = Path("sample_regional_lab.toml")
-
-    def _fake_runner(path: Path) -> None:
-        captured["config"] = path
-
-    monkeypatch.setattr(module, "_run_regional_lab_launcher", _fake_runner)
-
-    code = module.main(["regional-lab", "run", str(config_path)])
-
-    assert code == 0
-    assert captured["config"] == config_path.resolve()
-
-
-def test_launchers_cli_regional_lab_bootstrap_dispatches(monkeypatch) -> None:
-    module = _load_launchers_main_module()
-    captured: dict[str, object] = {}
-
-    def _fake_bootstrap(**kwargs) -> None:
-        captured.update(kwargs)
-
-    monkeypatch.setattr(module, "_bootstrap_regional_lab_catalog", _fake_bootstrap)
-
-    code = module.main(
-        [
-            "regional-lab",
-            "bootstrap-catalog",
-            "--outlets-table",
-            "outlets.csv",
-            "--output",
-            "site_catalog.csv",
-            "--cluster-id",
-            "headwater_100km2",
-            "--region-id",
-            "brittany",
-            "--source-selection-id",
-            "scan_headwater_100km2",
-            "--tag",
-            "mesh_ready",
-            "--mesh-run-root",
-            "mesh_runs",
-        ]
-    )
-
-    assert code == 0
-    assert captured["outlets_table"] == Path("outlets.csv").resolve()
-    assert captured["output"] == Path("site_catalog.csv").resolve()
-    assert captured["cluster_id"] == "headwater_100km2"
-    assert captured["region_id"] == "brittany"
-    assert captured["source_selection_id"] == "scan_headwater_100km2"
-    assert captured["tags"] == ["mesh_ready"]
-    assert captured["mesh_run_root"] == Path("mesh_runs").resolve()
-
-
-def test_launchers_cli_regional_lab_template_prints_template(capsys) -> None:
-    module = _load_launchers_main_module()
-
-    code = module.main(["regional-lab", "template"])
-    captured = capsys.readouterr()
-
-    assert code == 0
-    assert "[regional_lab]" in captured.out
-    assert "[regional_lab.catalog]" in captured.out
-    assert "[[regional_lab.recipe]]" in captured.out
 
 
 def test_regional_lab_repo_example_expands_existing_cases() -> None:

@@ -48,13 +48,13 @@ def _get_registry() -> dict[str, type[BaseModel]]:
         from hydromodpy.process.transport.transport_config import TransportConfig
         from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
         from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
-        from hydromodpy.solver.prototype.solver_config import SolverConfig
+        from hydromodpy.solver.base.solver_config import SolverConfig
         from hydromodpy.core.workspace.config import WorkspaceConfig
         from hydromodpy.simulation.planning.config import SimulationConfig
         from hydromodpy.analysis.display.display_config import DisplayConfig
         from hydromodpy.analysis.postprocess.postprocess_config import PostprocessConfig
-        from launchers.data_overview.config import OverviewSection
-        from launchers.mesh_catchment.config import (
+        from hydromodpy.analysis.display.report.overview_config import OverviewSection
+        from hydromodpy.spatial.mesh.config import (
             MeshCatchmentBatchSectionSchema,
             MeshCatchmentConfigSchema,
         )

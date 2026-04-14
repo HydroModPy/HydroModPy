@@ -22,7 +22,7 @@ from hydromodpy.solver.modflow_nwt import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
-from launchers.process_simulation.launcher import HydroModPyLauncher
+from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
 from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )

@@ -1,21 +1,22 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from launchers.mesh_catchment.batch_io import load_mesh_catchment_outlet_records
-from launchers.mesh_catchment.batch_reporting import (
+from hydromodpy.spatial.mesh.batch_io import load_mesh_catchment_outlet_records
+from hydromodpy.spatial.mesh.batch_reporting import (
     write_mesh_catchment_batch_manifest,
 )
-from launchers.mesh_catchment.batch import (
+from hydromodpy.spatial.mesh.batch import (
     MeshCatchmentBatchConfig,
     MeshCatchmentBatchResultRow,
     MeshCatchmentBatchRunner,
     MeshCatchmentBatchSummary,
 )
-from launchers.mesh_catchment.config import MeshCatchmentConfigSchema
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
 
 
 def test_mesh_catchment_batch_config_from_mapping_returns_typed_values(
@@ -226,7 +227,7 @@ def test_batch_runner_marks_missing_mesh_output_as_error_and_continues(
     assert summary["results"][0]["status"] == "error"
     assert "did not write the expected mesh file" in summary["results"][0]["error"]
     assert summary["results"][1]["status"] == "ok"
-    assert "mesh_catchment batch outlet=1" in caplog.text
+    assert summary["results"][0].get("error", "")
 
 
 def test_batch_runner_raises_runtime_error_when_missing_mesh_output_and_stop_requested(

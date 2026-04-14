@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib.util
 import json
 import math
 from dataclasses import dataclass
@@ -14,9 +13,9 @@ from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle import (
     resolve_default_catchment_mesh_bundle_dir,
 )
-from launchers.model_calibration.config import ModelCalibrationConfig
-from launchers.model_calibration.launcher import ModelCalibrationLauncher
-from launchers.model_calibration.runtime import (
+from hydromodpy.analysis.calibration.engine.config import ModelCalibrationConfig
+from hydromodpy.analysis.calibration.engine.launcher import ModelCalibrationLauncher
+from hydromodpy.analysis.calibration.engine.session import (
     IterationRecord,
     ModelCalibrationObjectiveEvaluator,
     actualize_candidate,
@@ -24,30 +23,17 @@ from launchers.model_calibration.runtime import (
     execute_candidate_run,
     select_candidate_outputs,
 )
-from launchers.model_calibration.output_selection import (
+from hydromodpy.analysis.calibration.engine.output_selection import (
     canonicalize_run_outputs,
     prepare_output_selectors,
 )
-from launchers.model_calibration.property_arrays import build_property_array_set
-from launchers.model_calibration.templates import render_model_calibration_template
+from hydromodpy.analysis.calibration.engine.property_arrays import build_property_array_set
+from hydromodpy.runners.templates.model_calibration import render_model_calibration_template
 from validation_cases.shared.runtime import (
     _dump_toml,
     _merge_toml_payloads,
     _read_toml,
 )
-
-
-def _load_launchers_main_module():
-    module_path = Path(__file__).resolve().parents[3] / "launchers" / "__main__.py"
-    spec = importlib.util.spec_from_file_location(
-        "launchers_main_model_calibration_test_module",
-        module_path,
-    )
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Unable to load module spec for {module_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 def _write_minimal_simulation_config(path: Path) -> None:
@@ -3003,34 +2989,3 @@ def test_model_calibration_calibrate_persists_random_search_empirical_ensemble(
         "objective_evaluated",
     ]
     assert payload["samples"][1]["objective_total"] == pytest.approx(0.0)
-
-
-def test_launchers_cli_model_calibration_run_dispatches_to_launcher(
-    monkeypatch,
-) -> None:
-    module = _load_launchers_main_module()
-    captured: dict[str, Path] = {}
-
-    config_path = Path("sample_model_calibration.toml")
-
-    def _fake_runner(path: Path) -> None:
-        captured["config"] = path
-
-    monkeypatch.setattr(module, "_run_model_calibration_launcher", _fake_runner)
-
-    code = module.main(["model-calibration", "run", str(config_path)])
-
-    assert code == 0
-    assert captured["config"] == config_path.resolve()
-
-
-def test_launchers_cli_model_calibration_template_prints_template(capsys) -> None:
-    module = _load_launchers_main_module()
-
-    code = module.main(["model-calibration", "template"])
-    captured = capsys.readouterr()
-
-    assert code == 0
-    assert "[model_calibration]" in captured.out
-    assert "[[model_calibration.parameter]]" in captured.out
-    assert "weighted_interpolation" in captured.out
