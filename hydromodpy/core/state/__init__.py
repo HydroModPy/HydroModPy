@@ -2,12 +2,12 @@
 
 from hydromodpy.core.state.data import LoadedDataContext
 from hydromodpy.core.state.execution import ExecutionRegistry
-from hydromodpy.core.state.run_state import LauncherRunState
+from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.core.state.setup import SetupContext
 
 __all__ = [
     "ExecutionRegistry",
-    "LauncherRunState",
+    "WorkflowContext",
     "LoadedDataContext",
     "SetupContext",
 ]
