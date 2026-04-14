@@ -44,6 +44,9 @@ class SimulationCatalog:
         self._simulations_dir = self._workspace / "simulations"
         self._simulations_dir.mkdir(exist_ok=True)
 
+        self._current_sim_id: str | None = None
+        self._current_project: str | None = None
+
     @property
     def connection(self) -> duckdb.DuckDBPyConnection:
         return self._db
@@ -122,6 +125,9 @@ class SimulationCatalog:
                 parent_sid, mesh_hash, mesh_type, tags, notes,
             ],
         )
+
+        self._current_sim_id = sid
+        self._current_project = project
 
         if n_cells is not None and n_layers is not None:
             zarr_abs = self._workspace / zarr_path
@@ -322,14 +328,24 @@ class SimulationCatalog:
 
     def write_geographic_metadata(
         self,
-        project: str,
-        metadata: dict[str, str],
+        project_or_metadata: str | dict[str, str],
+        metadata: dict[str, str] | None = None,
     ) -> None:
-        for key, value in metadata.items():
+        if isinstance(project_or_metadata, dict):
+            proj = self._current_project
+            meta = project_or_metadata
+        else:
+            proj = project_or_metadata
+            meta = metadata
+        if proj is None:
+            raise ValueError("No current project set")
+        if meta is None:
+            return
+        for key, value in meta.items():
             self._db.execute(
                 "INSERT OR REPLACE INTO geographic_metadata (project, key, value) "
                 "VALUES (?, ?, ?)",
-                [project, str(key), str(value)],
+                [proj, str(key), str(value)],
             )
 
     # -- Zarr access ---------------------------------------------------------
@@ -337,6 +353,247 @@ class SimulationCatalog:
     def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
         zarr_path = self._simulations_dir / f"{sim_id}.zarr"
         return SimulationZarr(zarr_path)
+
+    def open_zarr_group(self, sim_id: str | UUID, *, mode: str = "r"):
+        return self.open_zarr(sim_id).root
+
+    # -- Facade methods (ResultStore-compatible interface for extractors) -----
+
+    def write_field(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        timestep: int,
+        values: np.ndarray,
+        *,
+        n_timesteps: int | None = None,
+        subgroup: str | None = None,
+    ) -> None:
+        sz = self.open_zarr(sim_id)
+        sz.write_field(variable, timestep, values,
+                       n_timesteps=n_timesteps, subgroup=subgroup)
+
+    def write_mesh(
+        self,
+        sim_id: str | UUID,
+        vertices: np.ndarray,
+        face_node_connectivity: np.ndarray,
+        z_interfaces: np.ndarray,
+        layer_indices: np.ndarray | None = None,
+        source_cell_indices: np.ndarray | None = None,
+    ) -> None:
+        sz = self.open_zarr(sim_id)
+        sz.write_mesh(vertices, face_node_connectivity, z_interfaces,
+                      layer_indices=layer_indices,
+                      source_cell_indices=source_cell_indices)
+
+    def record_provenance(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        source_ref: str,
+        data: np.ndarray,
+        *,
+        source_type: str = "data_manager",
+        period_start: Any = None,
+        period_end: Any = None,
+    ) -> None:
+        self.write_provenance(sim_id, variable, source_ref, data,
+                              source_type=source_type,
+                              period_start=period_start,
+                              period_end=period_end)
+
+    def write_geographic_raster(
+        self,
+        name: str,
+        data: np.ndarray,
+        *,
+        transform: tuple[float, ...],
+        crs: str,
+        nodata: float = -99999.0,
+        sim_id: str | UUID | None = None,
+    ) -> None:
+        if sim_id is None:
+            sim_id = self._current_sim_id
+        if sim_id is None:
+            raise ValueError("sim_id required for write_geographic_raster")
+        sz = self.open_zarr(sim_id)
+        sz.write_geographic_raster(name, data, transform=transform,
+                                   crs=crs, nodata=nodata)
+
+    def write_features(self, name: str, gdf: gpd.GeoDataFrame) -> None:
+        project = self._current_project
+        if project is None:
+            raise ValueError("No current project set")
+        self.write_geographic_feature(project, name, gdf)
+
+    def read_features(self, name: str) -> gpd.GeoDataFrame:
+        import geopandas as gpd_mod
+
+        project = self._current_project
+        row = self._db.execute(
+            "SELECT geojson, crs FROM geographic_features "
+            "WHERE project = ? AND feature_name = ?",
+            [project, name],
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"Feature '{name}' not found for project '{project}'")
+        geojson_str, crs = row
+        if geojson_str:
+            gdf = gpd_mod.read_file(geojson_str)
+            if crs and gdf.crs is None:
+                gdf = gdf.set_crs(crs)
+            return gdf
+        raise KeyError(f"No GeoJSON data for feature '{name}'")
+
+    def list_features(self) -> list[str]:
+        project = self._current_project
+        rows = self._db.execute(
+            "SELECT feature_name FROM geographic_features "
+            "WHERE project = ? ORDER BY feature_name",
+            [project],
+        ).fetchall()
+        return [r[0] for r in rows]
+
+    def read_geographic_metadata(self) -> dict[str, str]:
+        project = self._current_project
+        rows = self._db.execute(
+            "SELECT key, value FROM geographic_metadata WHERE project = ?",
+            [project],
+        ).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def query_field(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        timestep: int,
+        layer: int | None = None,
+    ) -> np.ndarray:
+        sz = self.open_zarr(sim_id)
+        try:
+            return sz.read_field(variable, timestep, layer=layer)
+        except KeyError:
+            from hydromodpy.results.virtual_fields import compute_virtual_field
+            result = compute_virtual_field(self, str(sim_id), variable, timestep)
+            if result is not None:
+                if layer is not None and result.ndim == 2:
+                    return result[layer]
+                return result
+            raise KeyError(f"Variable '{variable}' not found for sim={sim_id}")
+
+    def query_timeseries(
+        self,
+        sim_id: str | UUID,
+        station_id: str,
+        variable: str,
+        period: tuple | None = None,
+    ) -> pd.Series:
+        query = (
+            "SELECT timestamp, value FROM timeseries "
+            "WHERE sim_id = ? AND station_id = ? AND variable = ?"
+        )
+        params: list = [str(sim_id), station_id, variable]
+        if period is not None:
+            query += " AND timestamp >= ? AND timestamp <= ?"
+            params.extend([period[0], period[1]])
+        query += " ORDER BY timestamp"
+        result = self._db.execute(query, params).fetchdf()
+        if result.empty:
+            raise KeyError(
+                f"No timeseries for sim={sim_id}, station={station_id}, var={variable}"
+            )
+        return pd.Series(
+            result["value"].values,
+            index=pd.DatetimeIndex(result["timestamp"]),
+            name=variable,
+        )
+
+    def query_budget(
+        self,
+        sim_id: str | UUID,
+        zone_id: str | None = None,
+        period: tuple[int, int] | None = None,
+    ) -> pd.DataFrame:
+        query = "SELECT * FROM budgets WHERE sim_id = ?"
+        params: list = [str(sim_id)]
+        if zone_id is not None:
+            query += " AND zone_id = ?"
+            params.append(zone_id)
+        if period is not None:
+            query += " AND timestep >= ? AND timestep <= ?"
+            params.extend(period)
+        return self._db.execute(query, params).fetchdf()
+
+    def query_mass_balance(self, sim_id: str | UUID) -> pd.DataFrame:
+        return self._db.execute(
+            "SELECT * FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
+            [str(sim_id)],
+        ).fetchdf()
+
+    def get_provenance(
+        self,
+        sim_id: str | UUID,
+        variable: str | None = None,
+    ) -> pd.DataFrame:
+        query = "SELECT * FROM provenance WHERE sim_id = ?"
+        params: list = [str(sim_id)]
+        if variable is not None:
+            query += " AND variable = ?"
+            params.append(variable)
+        return self._db.execute(query, params).fetchdf()
+
+    def list_simulations(self, **filters) -> pd.DataFrame:
+        query = "SELECT * FROM simulations"
+        params: list = []
+        if filters:
+            clauses = []
+            for key, val in filters.items():
+                clauses.append(f"{key} = ?")
+                params.append(val)
+            query += " WHERE " + " AND ".join(clauses)
+        return self._db.execute(query, params).fetchdf()
+
+    def export(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        fmt: str,
+        path: Path | str,
+        **kwargs,
+    ) -> Path:
+        sid = str(sim_id)
+        path = Path(path)
+        zarr_path = str(self.open_zarr(sim_id).path)
+
+        if fmt == "netcdf":
+            from hydromodpy.results.exporters.netcdf import export_netcdf
+            variables = [v.strip() for v in variable.split(",")]
+            return export_netcdf(zarr_path, sid, variables, path, **kwargs)
+        elif fmt == "csv":
+            from hydromodpy.results.exporters.csv import export_csv
+            return export_csv(
+                self._db, sid, path,
+                variable=variable if variable != "*" else None, **kwargs,
+            )
+        elif fmt == "vtu":
+            from hydromodpy.results.exporters.vtu import export_vtu
+            timestep = kwargs.pop("timestep", 0)
+            return export_vtu(zarr_path, sid, variable, timestep, path, **kwargs)
+        elif fmt == "geotiff":
+            from hydromodpy.results.exporters.geotiff import export_geotiff
+            timestep = kwargs.pop("timestep", 0)
+            return export_geotiff(zarr_path, sid, variable, timestep, path, **kwargs)
+        elif fmt == "shapefile":
+            from hydromodpy.results.exporters.shapefile import export_shapefile
+            timestep = kwargs.pop("timestep", 0)
+            return export_shapefile(zarr_path, sid, variable, timestep, path, **kwargs)
+        else:
+            raise ValueError(f"Unknown export format '{fmt}'")
+
+    @property
+    def project_path(self) -> Path:
+        return self._workspace
 
     # -- Query methods -------------------------------------------------------
 
