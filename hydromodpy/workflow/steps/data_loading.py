@@ -19,7 +19,7 @@ from hydromodpy.simulation import ensure_flow
 from hydromodpy.core.time import resolve_simulation_time_window
 
 if TYPE_CHECKING:
-    from hydromodpy.core.state.run_state import LauncherRunState
+    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.data import DataLoadPlan
 
 logger = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ def log_data_plan(data_plan: DataLoadPlan) -> None:
 def run_data(
     config_path: str | Path,
     data_plan: DataLoadPlan,
-    run_state: LauncherRunState,
+    run_state: WorkflowContext,
 ) -> None:
     """Load the external forcings shared by all process runs.
 
@@ -93,7 +93,7 @@ def run_data(
 # ---------------------------------------------------------------------------
 
 def apply_structural_updates_from_data(
-    run_state: LauncherRunState,
+    run_state: WorkflowContext,
 ) -> None:
     """Bind loaded data objects to runtime structures using explicit updaters."""
     setup_state = run_state.setup
@@ -119,7 +119,7 @@ def apply_structural_updates_from_data(
 # Step entry point (unified signature for workflow pipelines)
 # ---------------------------------------------------------------------------
 
-def step_data_loading(ctx: LauncherRunState) -> None:
+def step_data_loading(ctx: WorkflowContext) -> None:
     """Load forcings into ``ctx.loaded_data`` and bind them to runtime structures."""
     run_data(
         config_path=ctx.config_path,
