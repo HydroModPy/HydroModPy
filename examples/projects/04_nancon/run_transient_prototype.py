@@ -27,7 +27,7 @@ HK = 5e-5       # m/s
 SS = 1e-5        # 1/m
 THICKNESS = 30   # m
 
-project = hmp.Project(Path(__file__).parent / "project.toml")
+project = hmp.Simulation(Path(__file__).parent / "project.toml")
 print(f"Catchment area: {project.geographic.catch_area:.1f} km2")
 
 results = {}

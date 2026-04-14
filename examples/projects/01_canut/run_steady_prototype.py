@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Example 01 — Canut catchment, steady-state with hmp.Project API.
+"""Example 01 — Canut catchment, steady-state with hmp.Simulation API.
 
 Runs MODFLOW-NWT in steady state and produces cross-section,
 streamflow statistics, and recharge plots.
@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 import hydromodpy as hmp
 
-project = hmp.Project(Path(__file__).parent / "project.toml")
+project = hmp.Simulation(Path(__file__).parent / "project.toml")
 print(f"Catchment area: {project.geographic.catch_area:.1f} km2")
 
 r = project.run(name="canut_steady")
