@@ -1,4 +1,4 @@
-"""Store-lifecycle step — open, register, finalize, and close ResultStore."""
+"""Store-lifecycle step — open, register, finalize, and close SimulationCatalog."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def step_open_store(ctx: WorkflowContext) -> None:
-    """Open a ``ResultStore`` and register the current simulation.
+    """Open a ``SimulationCatalog`` and register the current simulation.
 
     Does nothing when ``cfg.simulation.results.store`` is disabled.
     After this step ``ctx.store`` and ``ctx.sim_id`` are set.
@@ -23,20 +23,23 @@ def step_open_store(ctx: WorkflowContext) -> None:
 
     from uuid import uuid4
 
-    from hydromodpy.results.store import ResultStore
+    from hydromodpy.results.catalog import SimulationCatalog
 
     workspace = ctx.setup.workspace
-    ctx.store = ResultStore(
-        project_path=workspace.project_root,
-        workspace_path=workspace.workspace_root,
-    )
+    workspace_root = getattr(workspace, "workspace_root", None)
+    if workspace_root is None:
+        workspace_root = workspace.project_root
+
+    ctx.store = SimulationCatalog(workspace_root)
     ctx.sim_id = str(uuid4())
 
+    project_name = workspace.project_root.name
     plan = ctx.execution.simulation_plan
     ctx.store.register_simulation(
         ctx.sim_id,
-        name=ctx.setup.run_id,
+        project=project_name,
         solver=",".join(r.solver for r in plan.runs),
+        name=ctx.setup.run_id,
         run_id=ctx.setup.run_id,
     )
 
@@ -61,13 +64,10 @@ def step_finalize_store(
         return
 
     try:
-        plan = ctx.execution.simulation_plan
-        process_types = list({r.process_type for r in plan.runs}) if plan else []
         ctx.store.finalize(
             ctx.sim_id,
             status="completed",
             duration_s=wall_seconds,
-            process_types=process_types,
         )
     finally:
         ctx.store.close()
