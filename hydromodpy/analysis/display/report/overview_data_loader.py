@@ -1,6 +1,6 @@
 """Facade adapter bridging :class:`DataOverviewState` to the runtime loader.
 
-``DataManagersRuntimeLoader.load_all()`` expects a ``LauncherRunState``-shaped
+``DataManagersRuntimeLoader.load_all()`` expects a ``WorkflowContext``-shaped
 object.  This module builds a lightweight duck-typed proxy so the runtime
 loader can be re-used without modification.
 """
@@ -22,7 +22,7 @@ class OverviewDataLoader:
     """Load all requested data families into a :class:`DataOverviewState`.
 
     Internally delegates to :class:`DataManagersRuntimeLoader` through a
-    duck-typed proxy that satisfies the ``LauncherRunState`` interface.
+    duck-typed proxy that satisfies the ``WorkflowContext`` interface.
     """
 
     def __init__(self, *, config_path: Path, data_plan: DataLoadPlan) -> None:
@@ -76,7 +76,7 @@ class OverviewDataLoader:
 
     @staticmethod
     def _build_proxy(state: DataOverviewState) -> Any:
-        """Build a duck-typed proxy mimicking ``LauncherRunState``.
+        """Build a duck-typed proxy mimicking ``WorkflowContext``.
 
         The proxy satisfies the attribute paths accessed by
         ``DataManagersRuntimeLoader``:
