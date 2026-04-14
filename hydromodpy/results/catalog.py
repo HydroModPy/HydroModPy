@@ -44,15 +44,16 @@ class SimulationCatalog:
         self._simulations_dir = self._workspace / "simulations"
         self._simulations_dir.mkdir(exist_ok=True)
 
-        self._current_sim_id: str | None = None
-        self._current_project: str | None = None
-
     @property
     def connection(self) -> duckdb.DuckDBPyConnection:
         return self._db
 
     @property
     def workspace_path(self) -> Path:
+        return self._workspace
+
+    @property
+    def project_path(self) -> Path:
         return self._workspace
 
     # -- Registration --------------------------------------------------------
@@ -125,9 +126,6 @@ class SimulationCatalog:
                 parent_sid, mesh_hash, mesh_type, tags, notes,
             ],
         )
-
-        self._current_sim_id = sid
-        self._current_project = project
 
         if n_cells is not None and n_layers is not None:
             zarr_abs = self._workspace / zarr_path
@@ -276,6 +274,8 @@ class SimulationCatalog:
             ],
         )
 
+    record_provenance = write_provenance
+
     # -- Observation points --------------------------------------------------
 
     def register_observation_points(
@@ -301,7 +301,7 @@ class SimulationCatalog:
                 [sid, station_id, x, y, cell_id, layer, variable],
             )
 
-    # -- Geographic (project-scoped) -----------------------------------------
+    # -- Geographic (project-scoped in DuckDB) -------------------------------
 
     def write_geographic_feature(
         self,
@@ -326,27 +326,68 @@ class SimulationCatalog:
             [project, feature_name, geojson_str, geom_type, crs_str],
         )
 
+    def read_geographic_feature(
+        self, project: str, feature_name: str,
+    ) -> gpd.GeoDataFrame:
+        import geopandas as gpd_mod
+
+        row = self._db.execute(
+            "SELECT geojson, crs FROM geographic_features "
+            "WHERE project = ? AND feature_name = ?",
+            [project, feature_name],
+        ).fetchone()
+        if row is None:
+            raise KeyError(
+                f"Feature '{feature_name}' not found for project '{project}'"
+            )
+        geojson_str, crs = row
+        if geojson_str:
+            gdf = gpd_mod.read_file(geojson_str)
+            if crs and gdf.crs is None:
+                gdf = gdf.set_crs(crs)
+            return gdf
+        raise KeyError(f"No GeoJSON data for feature '{feature_name}'")
+
+    def list_geographic_features(self, project: str) -> list[str]:
+        rows = self._db.execute(
+            "SELECT feature_name FROM geographic_features "
+            "WHERE project = ? ORDER BY feature_name",
+            [project],
+        ).fetchall()
+        return [r[0] for r in rows]
+
     def write_geographic_metadata(
-        self,
-        project_or_metadata: str | dict[str, str],
-        metadata: dict[str, str] | None = None,
+        self, project: str, metadata: dict[str, str],
     ) -> None:
-        if isinstance(project_or_metadata, dict):
-            proj = self._current_project
-            meta = project_or_metadata
-        else:
-            proj = project_or_metadata
-            meta = metadata
-        if proj is None:
-            raise ValueError("No current project set")
-        if meta is None:
-            return
-        for key, value in meta.items():
+        for key, value in metadata.items():
             self._db.execute(
                 "INSERT OR REPLACE INTO geographic_metadata (project, key, value) "
                 "VALUES (?, ?, ?)",
-                [proj, str(key), str(value)],
+                [project, str(key), str(value)],
             )
+
+    def read_geographic_metadata(self, project: str) -> dict[str, str]:
+        rows = self._db.execute(
+            "SELECT key, value FROM geographic_metadata WHERE project = ?",
+            [project],
+        ).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    # -- Geographic rasters (sim-scoped in Zarr) -----------------------------
+
+    def write_geographic_raster(
+        self,
+        sim_id: str | UUID,
+        name: str,
+        data: np.ndarray,
+        *,
+        transform: tuple[float, ...],
+        crs: str,
+        nodata: float = -99999.0,
+    ) -> None:
+        sz = self.open_zarr(sim_id)
+        sz.write_geographic_raster(name, data, transform=transform,
+                                   crs=crs, nodata=nodata)
 
     # -- Zarr access ---------------------------------------------------------
 
@@ -357,7 +398,7 @@ class SimulationCatalog:
     def open_zarr_group(self, sim_id: str | UUID, *, mode: str = "r"):
         return self.open_zarr(sim_id).root
 
-    # -- Facade methods (ResultStore-compatible interface for extractors) -----
+    # -- Field I/O (delegates to SimulationZarr) -----------------------------
 
     def write_field(
         self,
@@ -387,82 +428,6 @@ class SimulationCatalog:
                       layer_indices=layer_indices,
                       source_cell_indices=source_cell_indices)
 
-    def record_provenance(
-        self,
-        sim_id: str | UUID,
-        variable: str,
-        source_ref: str,
-        data: np.ndarray,
-        *,
-        source_type: str = "data_manager",
-        period_start: Any = None,
-        period_end: Any = None,
-    ) -> None:
-        self.write_provenance(sim_id, variable, source_ref, data,
-                              source_type=source_type,
-                              period_start=period_start,
-                              period_end=period_end)
-
-    def write_geographic_raster(
-        self,
-        name: str,
-        data: np.ndarray,
-        *,
-        transform: tuple[float, ...],
-        crs: str,
-        nodata: float = -99999.0,
-        sim_id: str | UUID | None = None,
-    ) -> None:
-        if sim_id is None:
-            sim_id = self._current_sim_id
-        if sim_id is None:
-            raise ValueError("sim_id required for write_geographic_raster")
-        sz = self.open_zarr(sim_id)
-        sz.write_geographic_raster(name, data, transform=transform,
-                                   crs=crs, nodata=nodata)
-
-    def write_features(self, name: str, gdf: gpd.GeoDataFrame) -> None:
-        project = self._current_project
-        if project is None:
-            raise ValueError("No current project set")
-        self.write_geographic_feature(project, name, gdf)
-
-    def read_features(self, name: str) -> gpd.GeoDataFrame:
-        import geopandas as gpd_mod
-
-        project = self._current_project
-        row = self._db.execute(
-            "SELECT geojson, crs FROM geographic_features "
-            "WHERE project = ? AND feature_name = ?",
-            [project, name],
-        ).fetchone()
-        if row is None:
-            raise KeyError(f"Feature '{name}' not found for project '{project}'")
-        geojson_str, crs = row
-        if geojson_str:
-            gdf = gpd_mod.read_file(geojson_str)
-            if crs and gdf.crs is None:
-                gdf = gdf.set_crs(crs)
-            return gdf
-        raise KeyError(f"No GeoJSON data for feature '{name}'")
-
-    def list_features(self) -> list[str]:
-        project = self._current_project
-        rows = self._db.execute(
-            "SELECT feature_name FROM geographic_features "
-            "WHERE project = ? ORDER BY feature_name",
-            [project],
-        ).fetchall()
-        return [r[0] for r in rows]
-
-    def read_geographic_metadata(self) -> dict[str, str]:
-        project = self._current_project
-        rows = self._db.execute(
-            "SELECT key, value FROM geographic_metadata WHERE project = ?",
-            [project],
-        ).fetchall()
-        return {r[0]: r[1] for r in rows}
-
     def query_field(
         self,
         sim_id: str | UUID,
@@ -481,6 +446,8 @@ class SimulationCatalog:
                     return result[layer]
                 return result
             raise KeyError(f"Variable '{variable}' not found for sim={sim_id}")
+
+    # -- Tabular queries -----------------------------------------------------
 
     def query_timeseries(
         self,
@@ -591,11 +558,7 @@ class SimulationCatalog:
         else:
             raise ValueError(f"Unknown export format '{fmt}'")
 
-    @property
-    def project_path(self) -> Path:
-        return self._workspace
-
-    # -- Query methods -------------------------------------------------------
+    # -- Simulation discovery ------------------------------------------------
 
     @property
     def simulations(self) -> pd.DataFrame:
