@@ -143,14 +143,30 @@ def _build_unstructured_solver_mesh() -> SolverMesh:
     )
 
 
+class _FakeFieldStore:
+    """Minimal store mock that serves pre-loaded spatial fields."""
+
+    def __init__(self, fields: dict[str, dict[int, np.ndarray]]) -> None:
+        self._fields = fields
+
+    def list_simulations(self, sim_id: str | None = None) -> pd.DataFrame:
+        return pd.DataFrame({"sim_id": ["fake"], "n_timesteps": [1]})
+
+    def query_field(self, sim_id: str, variable: str, timestep: int) -> np.ndarray:
+        if variable in self._fields and timestep in self._fields[variable]:
+            return self._fields[variable][timestep]
+        raise KeyError(f"{variable} t={timestep}")
+
+
 def test_flow_timeseries_exports_unstructured_weighted_outputs(tmp_path: Path) -> None:
     nodata = -9999.0
     solver_mesh = _build_unstructured_solver_mesh()
-    model_root = tmp_path / "models" / "flow_unstructured" / "_postprocess"
-    model_root.mkdir(parents=True, exist_ok=True)
 
-    np.save(model_root / "watertable_depth", {0: np.asarray([1.0, 4.0], dtype=float)})
-    np.save(model_root / "seepage_areas", {0: np.asarray([1.0, 0.0], dtype=float)})
+    fields = {
+        "watertable_depth": {0: np.asarray([1.0, 4.0], dtype=float)},
+        "seepage_areas": {0: np.asarray([1.0, 0.0], dtype=float)},
+    }
+    store = _FakeFieldStore(fields)
 
     _write_raster(
         tmp_path / "stable" / "subbasin" / "zone_a" / "watershed_dem.tif",
@@ -181,6 +197,8 @@ def test_flow_timeseries_exports_unstructured_weighted_outputs(tmp_path: Path) -
         geographic=geographic,
         model_modflow=model_modflow,
         subbasin_results=True,
+        store=store,
+        sim_id="fake",
     )
 
     catchment_csv = (

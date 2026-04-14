@@ -91,11 +91,11 @@ class TestSchemaCreation:
         assert "calibration_sessions" in tables
         assert "calibration_iterations" in tables
 
-    def test_geographic_tables_have_project(self, mem_conn):
+    def test_geographic_tables_have_sim_id(self, mem_conn):
         ensure_schema(mem_conn)
         for tbl in ("geographic_features", "geographic_metadata"):
             cols = _column_names(mem_conn, tbl)
-            assert "project" in cols, f"Missing 'project' in {tbl}"
+            assert "sim_id" in cols, f"Missing 'sim_id' in {tbl}"
 
     def test_budgets_zone_id_varchar(self, mem_conn):
         ensure_schema(mem_conn)
@@ -152,11 +152,15 @@ class TestPrimaryKeys:
     def test_geographic_features_pk(self, mem_conn):
         ensure_schema(mem_conn)
         mem_conn.execute(
-            "INSERT INTO geographic_features (project, feature_name, geojson) "
-            "VALUES ('canut', 'watershed', '{}')"
+            "INSERT INTO simulations (sim_id, project, solver) "
+            "VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'test', 'mf6')"
+        )
+        mem_conn.execute(
+            "INSERT INTO geographic_features (sim_id, feature_name, geojson) "
+            "VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'watershed', '{}')"
         )
         with pytest.raises(duckdb.ConstraintException):
             mem_conn.execute(
-                "INSERT INTO geographic_features (project, feature_name, geojson) "
-                "VALUES ('canut', 'watershed', '{}')"
+                "INSERT INTO geographic_features (sim_id, feature_name, geojson) "
+                "VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'watershed', '{}')"
             )

@@ -83,10 +83,6 @@ def test_modflow6_flow_adapter_reuses_solver_instance(monkeypatch) -> None:
         "hydromodpy.simulation.adapters.flow.modflow6.Modflow6",
         _FakeModel,
     )
-    monkeypatch.setattr(
-        "hydromodpy.simulation.adapters.flow.modflow_common._persist_pre_run_payload",
-        lambda workspace, model_name, model_modflow: None,
-    )
 
     adapter = Modflow6FlowAdapter()
     ctx = _build_flow_run_context(
@@ -94,7 +90,6 @@ def test_modflow6_flow_adapter_reuses_solver_instance(monkeypatch) -> None:
             "source": "model_calibration",
             "reuse_solver_model": True,
             "model_name_override": "stable_runtime_model",
-            "skip_solver_postprocess": True,
         }
     )
 

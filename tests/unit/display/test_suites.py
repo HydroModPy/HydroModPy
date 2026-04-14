@@ -232,6 +232,7 @@ def test_plot_flow_suite_copies_native_mesh_figures_for_unstructured_solver(
     )
     result = _build_result(flow_model=flow_model)
     result.setup.workspace.solver_scratch_folder = tmp_path
+    result.setup.workspace.project_root = tmp_path
 
     monkeypatch.setattr(
         "hydromodpy.analysis.display.suites._load_flow_timeseries",
@@ -262,7 +263,7 @@ def test_plot_flow_suite_copies_native_mesh_figures_for_unstructured_solver(
 
     plot_flow_suite(result, options)
 
-    figure_dir = tmp_path / "flow_main" / "_postprocess" / "_figures"
+    figure_dir = tmp_path / "exports" / "flow_main" / "figures"
     assert (figure_dir / "watertable_depth.png").exists()
     assert (figure_dir / "flow_support_overview.png").exists()
 
@@ -278,6 +279,7 @@ def test_plot_flow_suite_renders_solver_agnostic_common_flow_figures(
     )
     result = _build_result(flow_model=flow_model)
     result.setup.workspace.solver_scratch_folder = tmp_path
+    result.setup.workspace.project_root = tmp_path
 
     monkeypatch.setattr(
         "hydromodpy.analysis.display.suites._load_flow_timeseries",
@@ -322,7 +324,7 @@ def test_plot_flow_suite_renders_solver_agnostic_common_flow_figures(
 
     plot_flow_suite(result, options)
 
-    figure_dir = tmp_path / "flow_main" / "_postprocess" / "_figures"
+    figure_dir = tmp_path / "exports" / "flow_main" / "figures"
     assert (figure_dir / "flow_state_triptych.png").exists()
     assert (figure_dir / "recharge_discharge_cumulative.png").exists()
     assert (figure_dir / "watertable_depth.png").exists()
@@ -340,6 +342,7 @@ def test_plot_flow_suite_renders_spatial_synthesis_without_timeseries(
     )
     result = _build_result(flow_model=flow_model)
     result.setup.workspace.solver_scratch_folder = tmp_path
+    result.setup.workspace.project_root = tmp_path
 
     monkeypatch.setattr(
         "hydromodpy.analysis.display.suites._load_flow_timeseries",
@@ -373,7 +376,7 @@ def test_plot_flow_suite_renders_spatial_synthesis_without_timeseries(
 
     plot_flow_suite(result, options)
 
-    figure_dir = tmp_path / "flow_main" / "_postprocess" / "_figures"
+    figure_dir = tmp_path / "exports" / "flow_main" / "figures"
     assert (figure_dir / "flow_state_triptych.png").exists()
     assert (figure_dir / "watertable_elevation.png").exists()
 
@@ -397,6 +400,7 @@ def test_plot_transport_suite_copies_native_mesh_figures_for_unstructured_solver
     transport_model = SimpleNamespace(name="transport")
     result = _build_result(flow_model=flow_model, transport_model=transport_model)
     result.setup.workspace.solver_scratch_folder = tmp_path
+    result.setup.workspace.project_root = tmp_path
 
     monkeypatch.setattr(
         "hydromodpy.analysis.display.suites.plot_concentration_frames",
@@ -419,7 +423,7 @@ def test_plot_transport_suite_copies_native_mesh_figures_for_unstructured_solver
 
     plot_transport_suite(result, options)
 
-    figure_dir = tmp_path / "flow_main" / "_postprocess" / "_figures" / "transport"
+    figure_dir = tmp_path / "exports" / "flow_main" / "figures" / "transport"
     assert (figure_dir / "concentration_seepage.png").exists()
 
 
@@ -454,20 +458,9 @@ def test_plot_boussinesq_flow_suite_saves_figure(tmp_path) -> None:
 
     plot_boussinesq_flow_suite(result, options)
 
-    assert (
-        tmp_path
-        / "exports"
-        / "bouss_main"
-        / "figures"
-        / "boussinesq_state.png"
-    ).exists()
-    assert (
-        tmp_path
-        / "bouss_main"
-        / "_postprocess"
-        / "_figures"
-        / "flow_state_triptych.png"
-    ).exists()
+    figure_dir = tmp_path / "exports" / "bouss_main" / "figures"
+    assert (figure_dir / "boussinesq_state.png").exists()
+    assert (figure_dir / "flow_state_triptych.png").exists()
 
 
 def test_plot_boussinesq_flow_suite_emits_diagnostics_when_histories_exist(tmp_path) -> None:

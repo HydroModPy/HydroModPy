@@ -45,7 +45,7 @@ class TestExportSimulation:
         out = tmp_path / "export.hmp"
         catalog.export_simulation(sid, out)
         assert (out / "simulation.duckdb").exists()
-        assert (out / "results.zarr").exists()
+        assert (out / "results.zarr.zip").exists()
 
     def test_package_contains_sim_data(self, catalog, tmp_path):
         sid = _sid()
@@ -133,7 +133,7 @@ class TestImportSimulation:
         zarr_path = cat2.connection.execute(
             "SELECT zarr_path FROM simulations WHERE sim_id = ?", [sid]
         ).fetchone()[0]
-        assert zarr_path == f"simulations/{sid}.zarr"
+        assert zarr_path == f"simulations/{sid}.zarr.zip"
         assert (ws2 / zarr_path).exists()
         cat2.close()
 

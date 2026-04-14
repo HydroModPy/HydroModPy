@@ -161,13 +161,13 @@ class TestDeleteSimulation:
         catalog.write_field(sid, "head", 0, np.zeros((2, 4)), n_timesteps=1)
         catalog.finalize(sid, status="completed")
 
-        zarr_dir = catalog.workspace_path / "simulations" / f"{sid}.zarr"
-        assert zarr_dir.exists()
+        zarr_zip = catalog.workspace_path / "simulations" / f"{sid}.zarr.zip"
+        assert zarr_zip.exists()
 
         catalog.delete(sid)
 
         assert len(catalog.list_simulations()) == 0
-        assert not zarr_dir.exists()
+        assert not zarr_zip.exists()
 
 
 class TestCompare:

@@ -113,6 +113,7 @@ def test_resolve_case_settings_applies_preset_scale_and_solver_overrides() -> No
     geometry_cfg, time_cfg, forcing_cfg, max_it, tol = _resolve_case_settings(
         metadata,
         variant=resolve_solver_variant("petsc"),
+        context_preset=None,
         forcing_preset="strong",
         forcing_scale=2.0,
         east_head_m=None,
@@ -211,6 +212,7 @@ def test_real_strong_and_extreme_presets_cover_40_days() -> None:
         _, time_cfg, forcing_cfg, _, _ = _resolve_case_settings(
             metadata,
             variant=resolve_solver_variant(solver_name),
+            context_preset=None,
             forcing_preset=preset_name,
             forcing_scale=1.0,
             east_head_m=None,
@@ -229,6 +231,7 @@ def test_real_alternating_preset_covers_20_days() -> None:
     _, time_cfg, forcing_cfg, _, _ = _resolve_case_settings(
         metadata,
         variant=resolve_solver_variant("petsc"),
+        context_preset=None,
         forcing_preset="alternating",
         forcing_scale=1.0,
         east_head_m=None,
