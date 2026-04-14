@@ -1,7 +1,7 @@
 @startuml
 title Process - Config Class Diagram
 
-package "hydromodpy.process.prototype" {
+package "hydromodpy.process.base" {
   class ProcessSpatialConfig {
     +param_list: list[str]
     +param: dict[str, object]
