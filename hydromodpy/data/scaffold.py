@@ -105,7 +105,7 @@ def scaffold(root_dir: str | Path | None = None) -> Path:
 
     Structure:
         hydromodpy/
-            catalog.duckdb                      <- central registry (DuckDB)
+            data/cache.duckdb                   <- data cache (DuckDB)
             data/
                 hydrometry/
                     hydrometry_custom_LOC.csv

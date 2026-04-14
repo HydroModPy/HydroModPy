@@ -164,7 +164,7 @@ class Visualization():
         except Exception:
             logger.debug("Failed to read streams shapefile", exc_info=True)
 
-        # Load spatial fields from ResultStore.
+        # Load spatial fields from SimulationCatalog.
         from hydromodpy.analysis.display.common import load_field_dict_from_store
         _store = getattr(self, "_store", None)
         _sim_id = getattr(self, "_sim_id", None)

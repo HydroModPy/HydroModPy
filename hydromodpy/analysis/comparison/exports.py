@@ -13,7 +13,7 @@ import numpy as np
 from hydromodpy.analysis.comparison.runtime import resolve_bundle_cells
 
 if TYPE_CHECKING:
-    from hydromodpy.results.store import ResultStore
+    from hydromodpy.results.catalog import SimulationCatalog
 
 logger = logging.getLogger(__name__)
 
@@ -498,10 +498,10 @@ def _storage_change_series_m3_s(
 
 
 def _load_boussinesq_state_from_store(
-    store: ResultStore,
+    store: SimulationCatalog,
     sim_id: str,
 ) -> Mapping[str, Any] | None:
-    """Try reading Boussinesq state arrays from the ResultStore Zarr group.
+    """Try reading Boussinesq state arrays from the SimulationCatalog Zarr group.
 
     Returns a dict-like mapping of array names to numpy arrays (same
     interface as ``np.load(...)``), or ``None`` if unavailable.
@@ -528,20 +528,20 @@ def _load_boussinesq_state_from_store(
 
 def _load_boussinesq_budget_rows(
     summary: Mapping[str, Any],
-    store: ResultStore | None = None,
+    store: SimulationCatalog | None = None,
     sim_id: str | None = None,
 ) -> list[dict[str, Any]]:
     run_folder = Path(str(summary.get("run_folder", "")))
 
-    # --- Try ResultStore first ------------------------------------------------
+    # --- Try SimulationCatalog first ------------------------------------------------
     payload: Mapping[str, Any] | None = None
     source_label: str = ""
     if store is not None and sim_id is not None:
         payload = _load_boussinesq_state_from_store(store, sim_id)
         if payload is not None:
-            source_label = f"ResultStore(sim_id={sim_id})"
+            source_label = f"SimulationCatalog(sim_id={sim_id})"
             logger.debug(
-                "Loaded Boussinesq state from ResultStore for budget (sim_id=%s).",
+                "Loaded Boussinesq state from SimulationCatalog for budget (sim_id=%s).",
                 sim_id,
             )
 

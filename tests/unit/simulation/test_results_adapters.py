@@ -11,59 +11,58 @@ import pytest
 from hydromodpy.simulation.results.extractors.base import cleanup_solver_files
 from hydromodpy.simulation.results.extractors.derived import compute_derived
 from hydromodpy.simulation.results.extractors.gr4j import GR4JOutputAdapter
-from hydromodpy.results.store import ResultStore
+from hydromodpy.results.catalog import SimulationCatalog
 
 
 @pytest.fixture
-def store(tmp_path):
-    project = tmp_path / "project"
-    s = ResultStore(project)
-    yield s
-    s.close()
+def catalog(tmp_path):
+    c = SimulationCatalog(tmp_path / "workspace")
+    yield c
+    c.close()
 
 
 class TestGR4JOutputAdapter:
-    def test_discharge_stored(self, store):
+    def test_discharge_stored(self, catalog):
         sid = str(uuid4())
-        store.register_simulation(sid, solver="gr4j")
+        catalog.register_simulation(sid, project="test", solver="gr4j")
 
         idx = pd.date_range("2020-01-01", periods=30, freq="D")
         q = pd.Series(np.random.default_rng(1).random(30), index=idx, name="Q")
 
         adapter = GR4JOutputAdapter()
-        adapter.extract_from_memory(sid, store, discharge=q)
+        adapter.extract_from_memory(sid, catalog, discharge=q)
 
-        result = store.query_timeseries(sid, "outlet", "discharge")
+        result = catalog.query_timeseries(sid, "outlet", "discharge")
         assert len(result) == 30
         np.testing.assert_array_almost_equal(result.values, q.values)
 
-    def test_extra_series(self, store):
+    def test_extra_series(self, catalog):
         sid = str(uuid4())
-        store.register_simulation(sid, solver="gr4j")
+        catalog.register_simulation(sid, project="test", solver="gr4j")
 
         idx = pd.date_range("2020-01-01", periods=10, freq="D")
         adapter = GR4JOutputAdapter()
         adapter.extract_from_memory(
-            sid, store,
+            sid, catalog,
             extra={"evap": pd.Series(range(10), index=idx, dtype=float)},
             station_id="BV1",
         )
 
-        result = store.query_timeseries(sid, "BV1", "evap")
+        result = catalog.query_timeseries(sid, "BV1", "evap")
         assert len(result) == 10
 
-    def test_derive_noop(self, store):
+    def test_derive_noop(self, catalog):
         sid = str(uuid4())
-        store.register_simulation(sid, solver="gr4j")
+        catalog.register_simulation(sid, project="test", solver="gr4j")
         adapter = GR4JOutputAdapter()
-        adapter.derive(sid, store)  # should not raise
+        adapter.derive(sid, catalog)  # should not raise
 
 
 class TestDerivedVariables:
-    def _setup_sim_with_head(self, store, n_ts=3, n_layers=2, n_cells=10):
+    def _setup_sim_with_head(self, catalog, n_ts=3, n_layers=2, n_cells=10):
         sid = str(uuid4())
-        store.register_simulation(
-            sid, solver="modflownwt", n_cells=n_cells,
+        catalog.register_simulation(
+            sid, project="test", solver="modflownwt", n_cells=n_cells,
             n_layers=n_layers, n_timesteps=n_ts,
         )
         verts = np.random.default_rng(0).random((n_cells + 2, 2))
@@ -72,37 +71,37 @@ class TestDerivedVariables:
             np.full(n_cells, n_cells + 1),
         ]).astype("int32")
         z_intf = np.array([10.0, 5.0, 0.0])  # top=10, mid=5, bot=0
-        store.write_mesh(sid, verts, conn, z_intf)
+        catalog.write_mesh(sid, verts, conn, z_intf)
 
         rng = np.random.default_rng(42)
         for t in range(n_ts):
             # Head values between 8 and 12 (some above surface at 10)
             head = rng.uniform(8.0, 12.0, (n_layers, n_cells))
-            store.write_field(sid, "head", t, head, n_timesteps=n_ts if t == 0 else None)
+            catalog.write_field(sid, "head", t, head, n_timesteps=n_ts if t == 0 else None)
 
         return sid
 
-    def test_watertable_elevation(self, store):
-        sid = self._setup_sim_with_head(store)
-        compute_derived(sid, store, {"watertable_elevation": True, "watertable_depth": False, "seepage_areas": False})
+    def test_watertable_elevation(self, catalog):
+        sid = self._setup_sim_with_head(catalog)
+        compute_derived(sid, catalog, {"watertable_elevation": True, "watertable_depth": False, "seepage_areas": False})
 
-        wt = store.query_field(sid, "watertable_elevation", 0)
+        wt = catalog.query_field(sid, "watertable_elevation", 0)
         assert wt.shape == (10,)
 
-    def test_watertable_depth(self, store):
-        sid = self._setup_sim_with_head(store)
-        compute_derived(sid, store, {"watertable_elevation": True, "watertable_depth": True, "seepage_areas": False})
+    def test_watertable_depth(self, catalog):
+        sid = self._setup_sim_with_head(catalog)
+        compute_derived(sid, catalog, {"watertable_elevation": True, "watertable_depth": True, "seepage_areas": False})
 
-        depth = store.query_field(sid, "watertable_depth", 0)
+        depth = catalog.query_field(sid, "watertable_depth", 0)
         assert depth.shape == (10,)
         # top=10, head~8-12, so depth = 10 - wt should be roughly -2 to 2
         assert np.all(np.isfinite(depth))
 
-    def test_seepage_areas(self, store):
-        sid = self._setup_sim_with_head(store)
-        compute_derived(sid, store, {"watertable_elevation": True, "watertable_depth": False, "seepage_areas": True})
+    def test_seepage_areas(self, catalog):
+        sid = self._setup_sim_with_head(catalog)
+        compute_derived(sid, catalog, {"watertable_elevation": True, "watertable_depth": False, "seepage_areas": True})
 
-        seep = store.query_field(sid, "seepage_areas", 0)
+        seep = catalog.query_field(sid, "seepage_areas", 0)
         assert seep.shape == (10,)
         # Some cells have head > 10 (surface), so seepage > 0
         assert seep.sum() > 0

@@ -1,4 +1,4 @@
-"""Calibration bridge: hot path (RAM) vs cold path (ResultStore).
+"""Calibration bridge: hot path (RAM) vs cold path (SimulationCatalog).
 
 During calibration, the optimizer runs hundreds of simulations. Each
 iteration must be fast — no disk I/O in the inner loop. Only the best
@@ -10,7 +10,7 @@ The bridge provides:
   that returns a 1D numpy vector of simulated values aligned with
   observations (the "calibration vector").
 - ``persist_calibration_result``: after calibration converges, stores
-  the best run into the ResultStore for archival and comparison.
+  the best run into the SimulationCatalog for archival and comparison.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ def make_hot_simulator(
     observation_plan : list of (station_id, variable, timestamps)
         Defines which stations, variables, and time points to extract.
         This is the same format accepted by
-        ``ResultStore.extract_calibration_vector``.
+        ``SimulationCatalog.extract_calibration_vector``.
 
     Returns
     -------
@@ -74,32 +74,15 @@ def persist_calibration_result(
     best_params: dict,
     observation_plan: list[tuple[str, str, list]],
     *,
+    project: str = "calibration",
     solver: str = "unknown",
     name: str | None = None,
     metrics: list[tuple[str, str, float]] | None = None,
 ) -> None:
-    """Re-run the best calibration result and persist it into the store.
-
-    Parameters
-    ----------
-    store : ResultStore
-        The result store to write into.
-    sim_id : str
-        Simulation UUID for the persisted result.
-    run_fn : callable
-        Same run function used during calibration.
-    best_params : dict
-        Best parameter set found by the optimizer.
-    observation_plan : list of (station_id, variable, timestamps)
-        Observation alignment plan.
-    solver : str
-        Solver name for registration.
-    name : str, optional
-        Human-readable name for the simulation.
-    metrics : list of (station_id, metric_name, value), optional
-        Performance metrics to write (e.g. NSE, KGE, RMSE per station).
-    """
-    store.register_simulation(sim_id, solver=solver, name=name or "calibration_best")
+    store.register_simulation(
+        sim_id, project=project, solver=solver,
+        name=name or "calibration_best",
+    )
 
     results = run_fn(**best_params)
 
@@ -117,7 +100,10 @@ def persist_calibration_result(
         for station_id, metric_name, value in metrics:
             store.write_metric(sim_id, station_id, metric_name, value)
 
-    store.write_calibration_params(sim_id, best_params)
+    store.write_parameters(sim_id, [
+        {"param_name": k, "value": v, "parameterization": "calibrated"}
+        for k, v in best_params.items()
+    ])
 
     store.finalize(sim_id, status="calibrated")
     logger.info("Persisted calibration result for sim %s", sim_id)
@@ -135,7 +121,7 @@ def persist_calibration_summary_to_store(
     solver: str | None = None,
     calibration_id: str | None = None,
 ) -> None:
-    """Persist a lightweight calibration summary into the ResultStore.
+    """Persist a lightweight calibration summary into the SimulationCatalog.
 
     Unlike :func:`persist_calibration_result`, this does **not** re-run the
     simulation.  It only records the optimizer output (best parameters,
@@ -144,7 +130,7 @@ def persist_calibration_summary_to_store(
 
     Parameters
     ----------
-    store : ResultStore
+    store : SimulationCatalog
         The result store to write into.
     sim_id : str
         Simulation UUID for the persisted record.
@@ -166,6 +152,7 @@ def persist_calibration_summary_to_store(
     name = calibration_id or "calibration_best"
     store.register_simulation(
         sim_id,
+        project="calibration",
         solver=solver or "calibration",
         name=name,
         tags=["calibration"],
@@ -187,7 +174,10 @@ def persist_calibration_summary_to_store(
     params_with_meta["__objective_best__"] = best_objective
     if score_best is not None:
         params_with_meta["__score_best__"] = score_best
-    store.write_calibration_params(sim_id, params_with_meta)
+    store.write_parameters(sim_id, [
+        {"param_name": k, "value": v, "parameterization": "calibrated"}
+        for k, v in params_with_meta.items()
+    ])
 
     store.finalize(sim_id, status="calibrated")
     logger.info(

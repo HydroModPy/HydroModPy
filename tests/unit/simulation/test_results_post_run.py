@@ -9,21 +9,20 @@ import pytest
 
 from hydromodpy.results.config import ResultsConfig
 from hydromodpy.simulation.results.post_run import post_run_results
-from hydromodpy.results.store import ResultStore
+from hydromodpy.results.catalog import SimulationCatalog
 
 
 @pytest.fixture
-def store(tmp_path):
-    project = tmp_path / "project"
-    s = ResultStore(project)
-    yield s
-    s.close()
+def catalog(tmp_path):
+    c = SimulationCatalog(tmp_path / "workspace")
+    yield c
+    c.close()
 
 
 class TestPostRunResults:
-    def test_store_disabled_noop(self, store, tmp_path):
+    def test_store_disabled_noop(self, catalog, tmp_path):
         sid = str(uuid4())
-        store.register_simulation(sid, solver="modflownwt")
+        catalog.register_simulation(sid, project="test", solver="modflownwt")
         config = ResultsConfig(store=False)
         # Should return without doing anything
         post_run_results(
@@ -31,12 +30,12 @@ class TestPostRunResults:
             solver_name="modflownwt",
             solver_output_dir=tmp_path,
             results_config=config,
-            store=store,
+            store=catalog,
         )
 
-    def test_unknown_solver_skips(self, store, tmp_path):
+    def test_unknown_solver_skips(self, catalog, tmp_path):
         sid = str(uuid4())
-        store.register_simulation(sid, solver="custom_solver")
+        catalog.register_simulation(sid, project="test", solver="custom_solver")
         config = ResultsConfig()
         # Should not raise for unknown solver
         post_run_results(
@@ -44,12 +43,12 @@ class TestPostRunResults:
             solver_name="custom_solver",
             solver_output_dir=tmp_path,
             results_config=config,
-            store=store,
+            store=catalog,
         )
 
-    def test_gr4j_no_output_dir(self, store):
+    def test_gr4j_no_output_dir(self, catalog):
         sid = str(uuid4())
-        store.register_simulation(sid, solver="gr4j")
+        catalog.register_simulation(sid, project="test", solver="gr4j")
         config = ResultsConfig()
         # GR4J has no solver output dir
         post_run_results(
@@ -57,12 +56,12 @@ class TestPostRunResults:
             solver_name="gr4j",
             solver_output_dir=None,
             results_config=config,
-            store=store,
+            store=catalog,
         )
 
-    def test_cleanup_when_keep_false(self, store, tmp_path):
+    def test_cleanup_when_keep_false(self, catalog, tmp_path):
         sid = str(uuid4())
-        store.register_simulation(sid, solver="gr4j")
+        catalog.register_simulation(sid, project="test", solver="gr4j")
 
         solver_dir = tmp_path / "solver_out"
         solver_dir.mkdir()
@@ -74,14 +73,14 @@ class TestPostRunResults:
             solver_name="gr4j",
             solver_output_dir=solver_dir,
             results_config=config,
-            store=store,
+            store=catalog,
         )
         # Solver files should be cleaned up
         assert not solver_dir.exists()
 
-    def test_keep_solver_files(self, store, tmp_path):
+    def test_keep_solver_files(self, catalog, tmp_path):
         sid = str(uuid4())
-        store.register_simulation(sid, solver="gr4j")
+        catalog.register_simulation(sid, project="test", solver="gr4j")
 
         solver_dir = tmp_path / "solver_out"
         solver_dir.mkdir()
@@ -93,7 +92,7 @@ class TestPostRunResults:
             solver_name="gr4j",
             solver_output_dir=solver_dir,
             results_config=config,
-            store=store,
+            store=catalog,
         )
         # Solver files should remain
         assert (solver_dir / "model.hds").exists()

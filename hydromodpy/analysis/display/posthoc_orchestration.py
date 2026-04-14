@@ -215,7 +215,7 @@ def _plot_watertable_maps(
         ("watertable_elevation", "terrain", "WT elevation [m]"),
         ("seepage_areas", "Reds", "Seepage [0/1]"),
     ]:
-        # Load array from ResultStore.
+        # Load array from catalog.
         data_dict = None
         if store is not None and sim_id is not None:
             data_dict = load_field_dict_from_store(store, sim_id, label)
@@ -571,7 +571,7 @@ def _plot_budget(
     store: Any = None,
     sim_id: str | None = None,
 ) -> None:
-    """Groundwater budget bar chart from ResultStore fields."""
+    """Groundwater budget bar chart from catalog fields."""
     import matplotlib.pyplot as plt
 
     _BUDGET_VARIABLE_MAP = {
@@ -732,11 +732,11 @@ def plot_posthoc_flow_suite(
 
     Parameters
     ----------
-    store : ResultStore, optional
-        When provided, spatial fields are loaded from the store as
-        reads data exclusively from the ResultStore.
+    store : SimulationCatalog, optional
+        When provided, spatial fields and timeseries are loaded from
+        the catalog.
     sim_id : str, optional
-        Simulation UUID in the store.
+        Simulation UUID in the catalog.
     """
     if not options.should_render():
         return
@@ -886,9 +886,9 @@ def plot_posthoc_all(
 
     Parameters
     ----------
-    store : ResultStore, optional
+    store : SimulationCatalog, optional
         When provided, spatial fields and timeseries are loaded from
-        the store as fallback when disk files are absent.
+        the catalog.
 
     Returns the list of directories where figures were saved.
     """

@@ -261,27 +261,24 @@ class ModelCalibrationLauncher:
         return dict(self.state.session_manifest)
 
     def _open_calibration_result_store(self, session) -> "Any | None":
-        """Best-effort open of a ResultStore for persisting calibration results.
+        """Best-effort open of a SimulationCatalog for persisting calibration results.
 
-        Returns None when the store cannot be opened (missing workspace,
+        Returns None when the catalog cannot be opened (missing workspace,
         import error, etc.) so that calibration never fails because of
-        store integration.
+        catalog integration.
         """
         try:
-            from hydromodpy.results.store import ResultStore
+            from hydromodpy.results.catalog import SimulationCatalog
 
             workspace = session.simulation_workspace
-            if workspace is None or workspace.project_root is None:
+            if workspace is None or workspace.workspace_root is None:
                 return None
-            return ResultStore(
-                project_path=workspace.project_root,
-                workspace_path=workspace.workspace_root,
-            )
+            return SimulationCatalog(workspace.workspace_root)
         except Exception:
             import logging as _logging
 
             _logging.getLogger(__name__).debug(
-                "Could not open ResultStore for calibration persistence",
+                "Could not open SimulationCatalog for calibration persistence",
                 exc_info=True,
             )
             return None

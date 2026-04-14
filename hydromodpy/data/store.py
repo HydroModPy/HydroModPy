@@ -6,8 +6,8 @@ managers.
 
 If *workspace_root* is provided (path to an ``hmp init`` workspace), API
 results are persisted as CSV files in ``data/<variable>/`` and registered
-in ``catalog.duckdb`` at the workspace root. Custom data stays at the path
-specified by the user in the TOML.
+in ``data/cache.duckdb`` under the workspace root. Custom data stays at the
+path specified by the user in the TOML.
 
 If *workspace_root* is None, data is loaded in memory only (no persistence).
 """
@@ -27,14 +27,15 @@ from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 def _find_workspace_root(start_path: Path) -> Path | None:
     """Walk up from *start_path* looking for a workspace directory.
 
-    Recognises both the new ``catalog.duckdb`` and legacy ``catalog.db``.
+    Recognises ``data/cache.duckdb`` and legacy ``catalog.duckdb`` / ``catalog.db``.
     """
     current = start_path.resolve()
     if current.is_file():
         current = current.parent
     for _ in range(10):
         has_catalog = (
-            (current / "catalog.duckdb").exists()
+            (current / "data" / "cache.duckdb").exists()
+            or (current / "catalog.duckdb").exists()
             or (current / "catalog.db").exists()
         )
         if has_catalog and (current / "data").is_dir():
@@ -53,7 +54,7 @@ class DataStore:
     ----------
     workspace_root : Path or str, optional
         Root of the HydroModPy workspace (created by ``hmp init``).
-        If provided, ``catalog.duckdb`` is opened at this location and API
+        If provided, ``data/cache.duckdb`` is opened at this location and API
         results are saved as CSV in ``data/<variable>/``.
         If *None*, the catalog is in-memory and nothing is persisted.
     project_extent : tuple, optional
@@ -76,7 +77,7 @@ class DataStore:
                     f"Workspace invalide : dossier 'data/' introuvable dans "
                     f"{self.workspace_root}. Lancez 'hmp init' ou verifiez le chemin."
                 )
-            self.catalog = DataCatalogDuckDB(self.workspace_root / "catalog.duckdb")
+            self.catalog = DataCatalogDuckDB(self.workspace_root / "data" / "cache.duckdb")
         else:
             self.workspace_root = None
             self.catalog = DataCatalogDuckDB()  # in-memory

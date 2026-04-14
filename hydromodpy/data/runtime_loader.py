@@ -41,7 +41,7 @@ class DataManagersRuntimeLoader:
         self._cache_root: Path | None = None
 
     def _init_catalog(self, workspace_paths: WorkspacePathRegistry) -> None:
-        """Lazily create the shared DataCatalogDuckDB backed by ``catalog.duckdb``."""
+        """Lazily create the shared DataCatalogDuckDB backed by ``data/cache.duckdb``."""
         if self._catalog is not None:
             return
         self._cache_root = workspace_paths.data_path
@@ -49,7 +49,7 @@ class DataManagersRuntimeLoader:
             self._cache_root.mkdir(parents=True, exist_ok=True)
         catalog_path = workspace_paths.catalog_path
         if catalog_path is None and self._cache_root is not None:
-            catalog_path = self._cache_root / "catalog.duckdb"
+            catalog_path = self._cache_root / "cache.duckdb"
         if catalog_path is not None:
             self._catalog = DataCatalogDuckDB(catalog_path)
 

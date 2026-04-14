@@ -2,7 +2,7 @@
 
 Placeholder module for future resampling functionality.
 Provides sub-daily → daily and daily → monthly aggregations
-for time series and spatial fields stored in the ResultStore.
+for time series and spatial fields stored in the SimulationCatalog.
 """
 
 from __future__ import annotations

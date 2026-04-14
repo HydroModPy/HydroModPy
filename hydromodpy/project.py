@@ -312,10 +312,11 @@ class Project:
         self._project_name = ws.project_root.name
 
         # Persist geographic features/metadata once (project-scoped in DuckDB)
-        persist_geographic_to_store(
-            self.geographic, self._store,
-            project=self._project_name,
-        )
+        if self.geographic is not None:
+            persist_geographic_to_store(
+                self.geographic, self._store,
+                project=self._project_name,
+            )
         cleanup_stable_folder(self.geographic)
 
         self._run_counter = 0
@@ -429,10 +430,11 @@ class Project:
         )
 
         # Persist geographic rasters into this simulation's Zarr
-        persist_geographic_to_store(
-            self.geographic, self._store,
-            sim_id=sim_id,
-        )
+        if self.geographic is not None:
+            persist_geographic_to_store(
+                self.geographic, self._store,
+                sim_id=sim_id,
+            )
 
         # Execute
         solver_dir = [None]

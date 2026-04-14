@@ -7,7 +7,7 @@ This module intentionally contains only solver-agnostic flow logic:
 - run the common pre/process sequence once a concrete flow model exists.
 
 Post-processing (derived variables, result extraction) is handled by
-the ``ResultStore`` pipeline via ``post_run_results()``.
+the ``SimulationCatalog`` pipeline via ``post_run_results()``.
 
 Keeping that code here avoids duplicating the same lifecycle in both
 ``modflownwt`` and ``modflow6`` adapters.

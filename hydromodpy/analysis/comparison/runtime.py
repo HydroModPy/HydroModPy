@@ -25,7 +25,7 @@ from hydromodpy.analysis.comparison.config import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.results.store import ResultStore
+    from hydromodpy.results.catalog import SimulationCatalog
 
 try:
     import rasterio
@@ -1117,7 +1117,7 @@ def _load_boussinesq_surface_excess_total_series(
 
 
 def _store_variable_mapping(variable_name: str) -> str | None:
-    """Map a postprocess variable name to its ResultStore field name.
+    """Map a postprocess variable name to its SimulationCatalog field name.
 
     Returns ``None`` when no known mapping exists.
     """
@@ -1137,12 +1137,12 @@ def _store_variable_mapping(variable_name: str) -> str | None:
 
 
 def _load_store_series(
-    store: ResultStore,
+    store: SimulationCatalog,
     sim_id: str,
     *,
     variable_name: str,
 ) -> VariableSeries | None:
-    """Try loading a variable series from the ResultStore (Zarr fields).
+    """Try loading a variable series from the SimulationCatalog (Zarr fields).
 
     Returns ``None`` when the variable is not available in the store,
     allowing the caller to fall back to legacy loaders.
@@ -1207,7 +1207,7 @@ def _load_store_series(
 
 
 def _load_store_boussinesq_state_series(
-    store: ResultStore,
+    store: SimulationCatalog,
     sim_id: str,
     *,
     variable_name: str,
@@ -1282,7 +1282,7 @@ def _load_store_boussinesq_state_series(
 
 
 def _load_store_surface_excess_total_series(
-    store: ResultStore,
+    store: SimulationCatalog,
     sim_id: str,
     *,
     variable_name: str,
@@ -1365,10 +1365,10 @@ def load_variable_series(
     *,
     run_folder: Path,
     variable: str,
-    store: ResultStore | None = None,
+    store: SimulationCatalog | None = None,
     sim_id: str | None = None,
 ) -> VariableSeries:
-    """Load one variable series, preferring ResultStore when available.
+    """Load one variable series, preferring SimulationCatalog when available.
 
     When *store* and *sim_id* are provided the function tries to read
     from the DuckDB+Zarr result store first.  If the variable is not
@@ -1376,14 +1376,14 @@ def load_variable_series(
     legacy ``.npy`` / ``.npz`` loaders so existing workflows are not
     broken.
     """
-    # --- Try ResultStore first ------------------------------------------------
+    # --- Try SimulationCatalog first ------------------------------------------------
     if store is not None and sim_id is not None:
         for variable_name in _variable_candidates(variable):
             # 1. Direct spatial fields (watertable_elevation, head, ...)
             series = _load_store_series(store, sim_id, variable_name=variable_name)
             if series is not None:
                 logger.debug(
-                    "Loaded '%s' from ResultStore (sim_id=%s).",
+                    "Loaded '%s' from SimulationCatalog (sim_id=%s).",
                     variable_name, sim_id,
                 )
                 return series
@@ -1405,13 +1405,13 @@ def load_variable_series(
                 )
             if series is not None:
                 logger.debug(
-                    "Loaded '%s' from ResultStore boussinesq_state (sim_id=%s).",
+                    "Loaded '%s' from SimulationCatalog boussinesq_state (sim_id=%s).",
                     variable_name, sim_id,
                 )
                 return series
 
         logger.debug(
-            "Variable '%s' not found in ResultStore (sim_id=%s), "
+            "Variable '%s' not found in SimulationCatalog (sim_id=%s), "
             "falling back to legacy loaders.",
             variable, sim_id,
         )
@@ -1462,7 +1462,7 @@ def mask_depth_series_from_head_nodata(
     *,
     run_folder: Path,
     series: VariableSeries,
-    store: ResultStore | None = None,
+    store: SimulationCatalog | None = None,
     sim_id: str | None = None,
 ) -> VariableSeries:
     """Mask `watertable_depth` where the companion head series carries nodata."""
@@ -1766,7 +1766,7 @@ def extract_observable_rows(
     run_folder: Path,
     observables: tuple[MethodComparisonObservableSchema, ...],
     config_path: Path | None = None,
-    store: ResultStore | None = None,
+    store: SimulationCatalog | None = None,
     sim_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Extract all observable rows for one completed/reused variant."""
@@ -1930,11 +1930,11 @@ def extract_observable_rows(
 def discover_result_store(
     config_path: Path | None,
 ) -> tuple[Any, str | None]:
-    """Open a ResultStore from the project root inferred from a config path.
+    """Open a SimulationCatalog from the workspace root inferred from a config path.
 
-    Returns ``(store, sim_id)`` on success, ``(None, None)`` when the
-    store is unavailable.  The caller is responsible for closing the
-    store via ``store.close()`` when finished.
+    Returns ``(catalog, sim_id)`` on success, ``(None, None)`` when the
+    catalog is unavailable.  The caller is responsible for closing the
+    catalog via ``catalog.close()`` when finished.
     """
     if config_path is None:
         return None, None
@@ -1943,24 +1943,26 @@ def discover_result_store(
     if project_root is None:
         return None, None
 
-    db_path = project_root / "project.duckdb"
-    if not db_path.exists():
-        return None, None
+    from hydromodpy.core.workspace.config import WorkspaceConfig
+
+    workspace_root = WorkspaceConfig.discover_workspace_root(project_root)
+    if workspace_root is None:
+        workspace_root = project_root
 
     try:
-        from hydromodpy.results.store import ResultStore as _ResultStore
+        from hydromodpy.results.catalog import SimulationCatalog
 
-        store = _ResultStore(project_path=project_root)
-        sims = store.list_simulations()
+        catalog = SimulationCatalog(workspace_root)
+        sims = catalog.list_simulations()
         if sims.empty:
-            store.close()
+            catalog.close()
             return None, None
         # Pick the most recent (last) simulation.
         sim_id = str(sims.iloc[-1]["sim_id"])
-        return store, sim_id
+        return catalog, sim_id
     except Exception:
         logger.debug(
-            "Could not open ResultStore from %s", project_root, exc_info=True
+            "Could not open SimulationCatalog from %s", workspace_root, exc_info=True
         )
         return None, None
 

@@ -41,6 +41,14 @@ def _find_project_root() -> Path:
     return Path.cwd()
 
 
+def _find_workspace_root(project_dir: Path) -> Path:
+    """Walk up from *project_dir* to find the directory containing hydromodpy.duckdb."""
+    for parent in [project_dir] + list(project_dir.parents):
+        if (parent / "hydromodpy.duckdb").exists():
+            return parent
+    return project_dir
+
+
 def _resolve_test_scratch_root() -> Path:
     """Return the shared repository-external scratch root for test runs."""
     override = os.environ.get("HYDROMODPY_TEST_SCRATCH_ROOT")
@@ -458,32 +466,34 @@ def _cmd_list(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     if args.project:
-        # List runs for a specific project from project.duckdb
         project_dir = projects_dir / args.project
         if not project_dir.is_dir():
             print(f"Project not found: {args.project}", file=sys.stderr)
             sys.exit(1)
-        db_path = project_dir / "project.duckdb"
+        workspace_root = _find_workspace_root(project_dir)
+        db_path = workspace_root / "hydromodpy.duckdb"
         if not db_path.exists():
-            print(f"No project.duckdb in {args.project}")
+            print(f"No hydromodpy.duckdb in {workspace_root}")
             return
         try:
-            import duckdb
-            conn = duckdb.connect(str(db_path), read_only=True)
-            rows = conn.execute(
-                "SELECT sim_id, name, solver, status, duration_s, created_at "
-                "FROM simulations ORDER BY created_at DESC"
-            ).fetchall()
-            conn.close()
-            for row in rows:
-                sim_id, name, solver, status, dur, created = row
-                label = name or sim_id[:8]
-                dur_str = f" {dur:.1f}s" if dur else ""
-                print(f"  {label}  solver={solver}  status={status}{dur_str}")
-            if not rows:
+            from hydromodpy.results.catalog import SimulationCatalog
+            catalog = SimulationCatalog(workspace_root)
+            sims = catalog.list_simulations(project=args.project)
+            if sims.empty:
                 print(f"  No simulations recorded in {args.project}")
+            else:
+                for _, row in sims.iterrows():
+                    sim_id = str(row["sim_id"])
+                    name = row.get("name", "")
+                    solver = row.get("solver", "")
+                    status = row.get("status", "")
+                    dur = row.get("duration_s")
+                    label = name or sim_id[:8]
+                    dur_str = f" {dur:.1f}s" if dur else ""
+                    print(f"  {label}  solver={solver}  status={status}{dur_str}")
+            catalog.close()
         except Exception as exc:
-            print(f"  Error reading project.duckdb: {exc}", file=sys.stderr)
+            print(f"  Error reading hydromodpy.duckdb: {exc}", file=sys.stderr)
     else:
         # List all projects
         for project_dir in sorted(projects_dir.iterdir()):
@@ -626,22 +636,29 @@ def _cmd_display(args: argparse.Namespace) -> None:
     raw_toml_patched["display"] = display_section
     options = display_options_from_raw_toml(raw_toml_patched)
 
-    # Open ResultStore for DB-backed display.
     project_dir = config_path.parent.resolve()
-    store = None
-    db_path = project_dir / "project.duckdb"
+    project_name = project_dir.name
+    workspace_root = _find_workspace_root(project_dir)
+    catalog = None
+    db_path = workspace_root / "hydromodpy.duckdb"
     if db_path.exists():
-        from hydromodpy.results.store import ResultStore
-        store = ResultStore(project_dir)
+        from hydromodpy.results.catalog import SimulationCatalog
+        catalog = SimulationCatalog(workspace_root)
 
-    if store is not None:
-        ctx = PosthocContext.from_result_store(project_dir, store)
+    if catalog is not None:
+        # Resolve the latest sim_id for this project.
+        _sims = catalog.list_simulations(project=project_name)
+        _latest_sim_id = str(_sims.iloc[-1]["sim_id"]) if not _sims.empty else ""
+        ctx = PosthocContext.from_catalog(
+            project_dir, catalog,
+            sim_id=_latest_sim_id,
+            project=project_name,
+        )
     else:
         ctx = PosthocContext.from_toml(config_path)
 
-    if not ctx.runs and store is not None:
-        # No filesystem runs — create lightweight placeholders from DB sims.
-        sims = store.list_simulations()
+    if not ctx.runs and catalog is not None:
+        sims = catalog.list_simulations(project=project_name)
         if not sims.empty:
             from hydromodpy.analysis.display.posthoc import RunArtifacts
             for _, row in sims.iterrows():
@@ -658,8 +675,8 @@ def _cmd_display(args: argparse.Namespace) -> None:
 
     if not ctx.runs:
         print("No simulation runs found. Run a simulation first.", file=sys.stderr)
-        if store is not None:
-            store.close()
+        if catalog is not None:
+            catalog.close()
         sys.exit(1)
 
     print(
@@ -668,16 +685,9 @@ def _cmd_display(args: argparse.Namespace) -> None:
         file=sys.stderr,
     )
 
-    # Pass sim_id to posthoc_all for store-backed loading.
-    sim_id = None
-    if store is not None:
-        sims = store.list_simulations()
-        if not sims.empty:
-            sim_id = str(sims.iloc[-1]["sim_id"])
-
-    figure_dirs = plot_posthoc_all(ctx, options, store=store)
-    if store is not None:
-        store.close()
+    figure_dirs = plot_posthoc_all(ctx, options, store=catalog)
+    if catalog is not None:
+        catalog.close()
 
     if figure_dirs:
         for d in figure_dirs:
@@ -705,21 +715,27 @@ def _cmd_display_compare(args: argparse.Namespace) -> None:
 
 def _cmd_export(args: argparse.Namespace) -> None:
     """Export geographic data or simulation results from the project store."""
-    from hydromodpy.results.store import ResultStore
+    from hydromodpy.results.catalog import SimulationCatalog
 
     project_dir = Path(args.project).expanduser().resolve()
-    db_path = project_dir / "project.duckdb"
+    project_name = project_dir.name
+    workspace_root = _find_workspace_root(project_dir)
+    db_path = workspace_root / "hydromodpy.duckdb"
     if not db_path.exists():
-        print(f"No project store found at {project_dir}", file=sys.stderr)
+        print(f"No catalog found at {workspace_root}", file=sys.stderr)
         sys.exit(1)
 
-    store = ResultStore(project_dir)
+    catalog = SimulationCatalog(workspace_root)
 
     if args.list:
         # Geographic data
-        geo_grp = store._zarr_root.get("geographic")
-        rasters = list(geo_grp.keys()) if geo_grp is not None else []
-        features = store.list_features()
+        sims = catalog.list_simulations(project=project_name)
+        rasters: list[str] = []
+        if not sims.empty:
+            latest_sid = str(sims.iloc[-1]["sim_id"])
+            geo_grp = catalog.open_zarr_group(latest_sid).get("geographic")
+            rasters = list(geo_grp.keys()) if geo_grp is not None else []
+        features = catalog.list_geographic_features(project_name)
         print("Geographic rasters:", file=sys.stderr)
         for name in sorted(rasters):
             print(f"  {name}", file=sys.stderr)
@@ -728,7 +744,6 @@ def _cmd_export(args: argparse.Namespace) -> None:
             print(f"  {name}", file=sys.stderr)
 
         # Simulations
-        sims = store.list_simulations()
         if not sims.empty:
             print(f"\nSimulations:", file=sys.stderr)
             for _, row in sims.iterrows():
@@ -739,7 +754,7 @@ def _cmd_export(args: argparse.Namespace) -> None:
                 created = row.get("created_at", "")
                 date_str = str(created)[:16] if created else ""
                 print(f"  {name or sid}  solver={solver}  {date_str}  {status}", file=sys.stderr)
-        store.close()
+        catalog.close()
         return
 
     output_dir = Path(args.output) if args.output else None
@@ -751,18 +766,42 @@ def _cmd_export(args: argparse.Namespace) -> None:
         geo_dir.mkdir(parents=True, exist_ok=True)
 
         if args.raster:
-            for name in args.raster:
-                try:
-                    out = store.materialize_geographic_raster(name, geo_dir)
-                    exported.append(out)
-                    print(f"  {out}", file=sys.stderr)
-                except KeyError:
-                    print(f"  Raster '{name}' not found in store", file=sys.stderr)
+            sims = catalog.list_simulations(project=project_name)
+            if sims.empty:
+                print("  No simulations found; cannot export rasters", file=sys.stderr)
+            else:
+                latest_sid = str(sims.iloc[-1]["sim_id"])
+                sz = catalog.open_zarr(latest_sid)
+                geo_grp = sz.root.get("geographic")
+                for name in args.raster:
+                    try:
+                        if geo_grp is None or name not in geo_grp:
+                            raise KeyError(name)
+                        import numpy as np
+                        import rasterio
+                        from rasterio.transform import Affine
+                        data = np.array(geo_grp[name][:])
+                        attrs = dict(geo_grp[name].attrs)
+                        transform = Affine(*attrs["transform"][:6])
+                        crs = attrs.get("crs", "")
+                        nodata = attrs.get("nodata", -99999.0)
+                        out_path = geo_dir / f"{name}.tif"
+                        with rasterio.open(
+                            out_path, "w", driver="GTiff",
+                            height=data.shape[-2], width=data.shape[-1],
+                            count=1, dtype=data.dtype,
+                            crs=crs, transform=transform, nodata=nodata,
+                        ) as dst:
+                            dst.write(data if data.ndim == 3 else data[np.newaxis])
+                        exported.append(out_path)
+                        print(f"  {out_path}", file=sys.stderr)
+                    except KeyError:
+                        print(f"  Raster '{name}' not found in store", file=sys.stderr)
 
         if args.feature:
             for name in args.feature:
                 try:
-                    gdf = store.read_features(name)
+                    gdf = catalog.read_geographic_feature(project_name, name)
                     out_path = geo_dir / f"{name}.shp"
                     gdf.to_file(out_path)
                     exported.append(out_path)
@@ -773,15 +812,13 @@ def _cmd_export(args: argparse.Namespace) -> None:
     # --- Simulation exports ---
     if args.sim:
         sim_name = args.sim
-        # Resolve sim_id from name
-        sims = store.list_simulations()
+        sims = catalog.list_simulations(project=project_name)
         match = sims[sims["name"] == sim_name]
         if match.empty:
-            # Try prefix match on sim_id
             match = sims[sims["sim_id"].str.startswith(sim_name)]
         if match.empty:
             print(f"Simulation '{sim_name}' not found (use --list)", file=sys.stderr)
-            store.close()
+            catalog.close()
             sys.exit(1)
         sim_id = match.iloc[-1]["sim_id"]
         label = sim_name
@@ -791,31 +828,31 @@ def _cmd_export(args: argparse.Namespace) -> None:
 
         any_format = args.csv or args.netcdf or args.geotiff or args.vtu
         if not any_format:
-            args.csv = True  # default: export CSV
+            args.csv = True
 
         if args.csv:
             out = sim_dir / "timeseries.csv"
-            store.export(sim_id, "*", "csv", out)
+            catalog.export(sim_id, "*", "csv", out)
             exported.append(out)
             print(f"  {out}", file=sys.stderr)
 
         if args.netcdf:
             out = sim_dir / "fields.nc"
             try:
-                store.export(sim_id, "head", "netcdf", out)
+                catalog.export(sim_id, "head", "netcdf", out)
                 exported.append(out)
                 print(f"  {out}", file=sys.stderr)
             except Exception as exc:
                 print(f"  NetCDF export failed: {exc}", file=sys.stderr)
 
         if args.geotiff:
-            grp = store.open_zarr_group(sim_id, mode="r")
+            grp = catalog.open_zarr_group(sim_id, mode="r")
             for var in list(grp.keys()) + list((grp.get("derived") or {}).keys()):
                 if var in ("mesh", "budget", "derived", "pathlines"):
                     continue
                 try:
                     out = sim_dir / f"{var}_t0.tif"
-                    store.export(sim_id, var, "geotiff", out, timestep=0)
+                    catalog.export(sim_id, var, "geotiff", out, timestep=0)
                     exported.append(out)
                     print(f"  {out}", file=sys.stderr)
                 except Exception:
@@ -824,13 +861,13 @@ def _cmd_export(args: argparse.Namespace) -> None:
         if args.vtu:
             out = sim_dir / "head_t0.vtu"
             try:
-                store.export(sim_id, "head", "vtu", out, timestep=0)
+                catalog.export(sim_id, "head", "vtu", out, timestep=0)
                 exported.append(out)
                 print(f"  {out}", file=sys.stderr)
             except Exception as exc:
                 print(f"  VTU export failed: {exc}", file=sys.stderr)
 
-    store.close()
+    catalog.close()
 
     if not any([args.raster, args.feature, args.sim]):
         print("Usage: hmp export <project> --list | --sim NAME [--csv --netcdf] | --raster NAME", file=sys.stderr)

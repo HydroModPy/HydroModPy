@@ -2940,7 +2940,7 @@ def finalize_calibration_session(
 
     Parameters
     ----------
-    result_store : ResultStore, optional
+    result_store : SimulationCatalog, optional
         When provided, a calibration summary (best params, objective,
         method, iteration count) is also written to the project store
         so that the result is discoverable alongside simulation results.
@@ -3006,7 +3006,7 @@ def finalize_calibration_session(
         encoding="utf-8",
     )
 
-    # -- Persist to ResultStore if available ---------------------------------
+    # -- Persist to SimulationCatalog if available -----------------------------
     if result_store is not None:
         _persist_summary_to_store(
             result_store=result_store,
@@ -3025,7 +3025,7 @@ def _persist_summary_to_store(
     result_payload: dict[str, Any],
     session: PreparedCalibrationSession,
 ) -> None:
-    """Best-effort persistence of the calibration summary to the ResultStore."""
+    """Best-effort persistence of the calibration summary to the SimulationCatalog."""
     import logging as _logging
 
     _logger = _logging.getLogger(__name__)
@@ -3056,7 +3056,7 @@ def _persist_summary_to_store(
         )
     except Exception:
         _logger.warning(
-            "Failed to persist calibration summary to ResultStore",
+            "Failed to persist calibration summary to SimulationCatalog",
             exc_info=True,
         )
 

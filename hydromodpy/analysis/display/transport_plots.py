@@ -90,10 +90,10 @@ def _load_outflow_drain_array(
     store=None,
     sim_id: str | None = None,
 ):
-    """Load one flow outflow mask from ResultStore or cache."""
+    """Load one flow outflow mask from catalog/store or cache."""
     import numpy as np
 
-    # Try ResultStore first.
+    # Try catalog/store first.
     if store is not None and sim_id is not None:
         try:
             arr = store.query_field(sim_id, "outflow_drain", stress_period)

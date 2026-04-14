@@ -13,13 +13,14 @@ class WorkspaceConfig(BaseModel):
     The workspace layout is convention-based::
 
         workspace_root/
-            catalog.duckdb
+            hydromodpy.duckdb
             data/
+                cache.duckdb
             projects/
                 <project>/          <- project_root
                     config.toml
-                    project.duckdb
-                    project_results.zarr.db/
+                    simulations/
+                        <uuid>.zarr/
 
     Legacy directories (``results_stable/``, ``results_simulations/``,
     ``results_calibration/``) are no longer created eagerly.  Properties
@@ -38,7 +39,7 @@ class WorkspaceConfig(BaseModel):
     output_root: Annotated[Path | None, ParamLevel("user")] = Field(
         default=None,
         description=(
-            "Root directory for all outputs (project.duckdb, project_results.zarr.db, "
+            "Root directory for all outputs (simulations/<uuid>.zarr, "
             ".solver_scratch/). Defaults to project_root when not set. "
             "Use this to redirect heavy outputs to a separate disk."
         ),

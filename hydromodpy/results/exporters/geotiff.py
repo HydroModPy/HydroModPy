@@ -30,7 +30,7 @@ def export_geotiff(
     Parameters
     ----------
     zarr_path : str or Path
-        Path to ``project_results.zarr``.
+        Path to the simulation Zarr store.
     sim_id : str
         Simulation UUID.
     variable : str
@@ -62,7 +62,7 @@ def export_geotiff(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     root = zarr.open_group(str(zarr_path), mode="r")
-    grp = root[sim_id]
+    grp = root
     mesh = grp["mesh"]
 
     vertices = mesh["vertices"][:]

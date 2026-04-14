@@ -91,7 +91,7 @@ class FlowTimeseriesPostprocess:
         subbasin_results:
             If ``True``, repeat extraction for each available subbasin mask.
         store:
-            ResultStore instance for reading spatial fields.
+            SimulationCatalog instance for reading spatial fields.
         sim_id:
             Simulation UUID in the store.
 
@@ -251,7 +251,7 @@ class FlowTimeseriesPostprocess:
         return time, recharge, runoff
 
     def _load_field_from_store(self, name: str) -> dict[Any, np.ndarray] | None:
-        """Load a spatial field from the ResultStore as a timestep dict."""
+        """Load a spatial field from the SimulationCatalog as a timestep dict."""
         if self._store is None or self._sim_id is None:
             return None
         from hydromodpy.analysis.display.common import load_field_dict_from_store
@@ -259,7 +259,7 @@ class FlowTimeseriesPostprocess:
         return load_field_dict_from_store(self._store, self._sim_id, name)
 
     def _load_flow_products(self) -> None:
-        """Load flow-derived fields from the ResultStore."""
+        """Load flow-derived fields from the SimulationCatalog."""
         self.watertable_elevation = self._load_field_from_store("watertable_elevation")
         self.watertable_depth = self._load_field_from_store("watertable_depth")
         self.seepage_areas = self._load_field_from_store("seepage_areas")

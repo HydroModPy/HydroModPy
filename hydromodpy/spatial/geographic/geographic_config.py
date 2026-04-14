@@ -286,7 +286,7 @@ class GeographicConfig(BaseModel):
         description=(
             "Keep intermediate rasters and shapefiles on disk after geographic "
             "preprocessing. When false (default), results_stable/ is removed "
-            "after ingestion into the project store (project_results.zarr.db)."
+            "after ingestion into the simulation Zarr store."
         ),
     )
 

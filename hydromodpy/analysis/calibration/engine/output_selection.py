@@ -235,7 +235,7 @@ def _try_store_variable(
     sim_id: str,
     variable_name: str,
 ) -> tuple[Any | None, str | None]:
-    """Try to load a variable from a ResultStore (DuckDB + Zarr).
+    """Try to load a variable from a SimulationCatalog (DuckDB + Zarr).
 
     Returns ``(payload, source_tag)`` on success, ``(None, None)`` when the
     variable is not available in the store. This is the preferred read path;
@@ -243,8 +243,7 @@ def _try_store_variable(
     when this returns ``None``.
     """
     try:
-        root = result_store._zarr_root  # noqa: SLF001
-        grp = root.get(str(sim_id))
+        grp = result_store.open_zarr_group(sim_id)
         if grp is None:
             return None, None
 
@@ -266,7 +265,7 @@ def _try_store_variable(
                 return payload, "result_store"
     except Exception:
         logger.debug(
-            "ResultStore lookup failed for variable '%s' (sim=%s), "
+            "SimulationCatalog lookup failed for variable '%s' (sim=%s), "
             "falling back to legacy path",
             variable_name,
             sim_id,
@@ -516,14 +515,14 @@ def _raw_model_variable_payload(
     result_store: Any = None,
     store_sim_id: str | None = None,
 ) -> tuple[Any | None, str | None, np.ndarray | None]:
-    """Resolve one variable payload from ResultStore, model memory, or disk.
+    """Resolve one variable payload from SimulationCatalog, model memory, or disk.
 
     Resolution order (first hit wins):
-    1. ResultStore (DuckDB + Zarr) — preferred on dev-database branch
+    1. SimulationCatalog (DuckDB + Zarr) — preferred on dev-database branch
     2. Runtime attribute (``model.dict_<variable_name>``)
     3. Legacy ``_postprocess/*.npy`` or ``_postprocess/_mesh/*.npz``
     """
-    # --- 1. ResultStore path (progressive migration) -------------------------
+    # --- 1. SimulationCatalog path (progressive migration) -------------------------
     if result_store is not None and store_sim_id is not None:
         payload, source = _try_store_variable(
             result_store, store_sim_id, variable_name,
@@ -794,7 +793,7 @@ def canonicalize_run_outputs(
 
     Parameters
     ----------
-    result_store : ResultStore, optional
+    result_store : SimulationCatalog, optional
         When provided, spatial fields are read from the store first before
         falling back to legacy ``.npy`` files. Progressive migration path.
     store_sim_id : str, optional

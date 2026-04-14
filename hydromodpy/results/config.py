@@ -117,7 +117,7 @@ class BudgetConfig(BaseModel):
 class ResultsConfig(BaseModel):
     """Configuration for ``[simulation.results]``.
 
-    Controls whether simulation outputs are stored in the ResultStore,
+    Controls whether simulation outputs are stored in the SimulationCatalog,
     which derived variables are computed, and which export formats are
     produced automatically after each run.
     """
@@ -126,7 +126,7 @@ class ResultsConfig(BaseModel):
 
     store: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
-        description="Store simulation outputs in the ResultStore (DuckDB + Zarr).",
+        description="Store simulation outputs in the SimulationCatalog (DuckDB + Zarr).",
     )
     keep_solver_files: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,

@@ -8,13 +8,13 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.results.store import ResultStore
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class BoussinesqOutputAdapter:
-    """Read Boussinesq state history and inject fields into a ResultStore.
+    """Read Boussinesq state history and inject fields into a SimulationCatalog.
 
     Expects a solver output directory with ``_boussinesq_state_history.npz``
     (head history, derived fluxes) and ``_boussinesq_summary.json``
@@ -27,7 +27,7 @@ class BoussinesqOutputAdapter:
         self,
         sim_id: str,
         solver_output_dir: Path,
-        store: ResultStore,
+        store: Any,
     ) -> None:
         """Read .npz state history and write head fields to the store."""
         solver_output_dir = Path(solver_output_dir)
@@ -75,7 +75,7 @@ class BoussinesqOutputAdapter:
         self._write_surface_elevation(sim_id, store, solver_output_dir, n_cells)
 
     @staticmethod
-    def _persist_state_history(sim_id: str, store: ResultStore, payload) -> None:
+    def _persist_state_history(sim_id: str, store: Any, payload) -> None:
         """Write all Boussinesq state arrays to a ``boussinesq_state`` Zarr group."""
         try:
             grp = store.open_zarr_group(sim_id)
@@ -92,7 +92,7 @@ class BoussinesqOutputAdapter:
     def _write_surface_elevation(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         solver_output_dir: Path,
         n_cells: int,
     ) -> None:
@@ -127,7 +127,7 @@ class BoussinesqOutputAdapter:
     def derive(
         self,
         sim_id: str,
-        store: ResultStore,
+        store: Any,
         config: dict | None = None,
     ) -> None:
         """Compute watertable_elevation and watertable_depth from head.
