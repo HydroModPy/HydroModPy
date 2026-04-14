@@ -1,23 +1,19 @@
-"""Ingest geographic preprocessing outputs into the ResultStore.
+"""Ingest geographic preprocessing outputs into the SimulationCatalog.
 
 Called once per project after :class:`Geographic` processing completes.
 Reads rasters (via rasterio) and shapefiles (via geopandas) from the
-file-based outputs, then writes them into the project database (Zarr +
-DuckDB) so that downstream consumers can read from the store directly.
+file-based outputs, then writes them into the catalog (Zarr + DuckDB)
+so that downstream consumers can read from the store directly.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
 logger = logging.getLogger(__name__)
 
-# Rasters to ingest: (store_name, geographic_attribute)
 _RASTER_ATTRS = [
     "watershed_box_buff_dem",
     "watershed_box_buff_fill",
@@ -31,14 +27,12 @@ _RASTER_ATTRS = [
     "watershed_contour_tif",
 ]
 
-# Shapefiles to ingest: (store_name, geographic_attribute)
 _SHAPEFILE_ATTRS = [
     ("watershed", "watershed_shp"),
     ("watershed_box_buff", "box_buff"),
     ("watershed_contour", "watershed_contour_shp"),
 ]
 
-# River network shapefile (multi-feature, preserves individual segments).
 _RIVER_NETWORK_ATTR = "river_network_shp"
 _RIVER_NETWORK_STORE_NAME = "river_network"
 
@@ -47,36 +41,43 @@ def persist_geographic_to_store(
     geographic: Any,
     store: Any,
     *,
+    project: str | None = None,
+    sim_id: str | None = None,
     cleanup: bool = False,
 ) -> None:
-    """Ingest geographic rasters and metadata into the ResultStore.
+    """Ingest geographic rasters and metadata into the catalog.
 
     Parameters
     ----------
     geographic : Geographic
-        The geographic object after processing (has file path attributes).
-    store : ResultStore
-        Open store for the project.
+        The geographic object after processing.
+    store : SimulationCatalog
+        Open catalog for the workspace.
+    project : str, optional
+        Project name for DuckDB geographic tables. Auto-detected from
+        store if not provided.
+    sim_id : str, optional
+        Simulation UUID for Zarr raster storage. Auto-detected from
+        store if not provided.
     cleanup : bool
-        If True, delete intermediate geographic directories after ingestion
-        (``results_stable/geographic/`` and ``results_stable/demcorrecflow/``).
-        Used when ``write_intermediates=False`` in GeographicConfig.
+        If True, delete intermediate geographic directories after ingestion.
     """
-    _ingest_rasters(geographic, store)
-    _ingest_shapefiles(geographic, store)
-    _ingest_river_network(geographic, store)
-    _ingest_metadata(geographic, store)
+    _project = project
+    _sim_id = sim_id
+
+    _ingest_rasters(geographic, store, _sim_id)
+    _ingest_shapefiles(geographic, store, _project)
+    _ingest_river_network(geographic, store, _project)
+    _ingest_metadata(geographic, store, _project)
 
     if cleanup:
         _cleanup_intermediate_dirs(geographic)
 
 
-def _ingest_rasters(geographic: Any, store: Any) -> None:
-    """Read each geographic raster and write it into Zarr.
+def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
+    if sim_id is None:
+        return
 
-    Checks the whitebox in-memory cache first; falls back to rasterio
-    for rasters that were written to disk (or when caching is disabled).
-    """
     from hydromodpy.core.backends import get_whitebox_backend
 
     wb = get_whitebox_backend()
@@ -89,12 +90,11 @@ def _ingest_rasters(geographic: Any, store: Any) -> None:
 
         name = attr.removesuffix("_tif")
 
-        # Try whitebox in-memory cache first
         data = wb.get_cached_raster_numpy(path)
         if data is not None:
             meta = wb.get_cached_raster_metadata(path)
             store.write_geographic_raster(
-                name, data,
+                sim_id, name, data,
                 transform=meta["transform"],
                 crs=str(meta.get("crs", "")),
                 nodata=float(meta["nodata"]) if meta["nodata"] is not None else -99999.0,
@@ -102,7 +102,6 @@ def _ingest_rasters(geographic: Any, store: Any) -> None:
             logger.debug("Ingested raster %s from cache (%s)", name, data.shape)
             continue
 
-        # Fallback: read from disk
         if not Path(path).exists():
             logger.debug("Skipping raster %s (not on disk)", attr)
             continue
@@ -115,13 +114,15 @@ def _ingest_rasters(geographic: Any, store: Any) -> None:
             nodata = float(src.nodata) if src.nodata is not None else -99999.0
 
         store.write_geographic_raster(
-            name, data, transform=transform, crs=crs, nodata=nodata,
+            sim_id, name, data, transform=transform, crs=crs, nodata=nodata,
         )
         logger.debug("Ingested raster %s from disk (%s)", name, data.shape)
 
 
-def _ingest_shapefiles(geographic: Any, store: Any) -> None:
-    """Read each shapefile and write it into the store as a GeoDataFrame."""
+def _ingest_shapefiles(geographic: Any, store: Any, project: str | None) -> None:
+    if project is None:
+        return
+
     try:
         import geopandas as gpd
     except ImportError:
@@ -138,19 +139,20 @@ def _ingest_shapefiles(geographic: Any, store: Any) -> None:
         if gdf.empty:
             continue
 
-        store.write_features(feature_name, gdf)
+        store.write_geographic_feature(project, feature_name, gdf)
         logger.debug("Ingested feature %s (%d rows)", feature_name, len(gdf))
 
 
-def _ingest_river_network(geographic: Any, store: Any) -> None:
-    """Ingest the river network shapefile preserving individual segments."""
+def _ingest_river_network(geographic: Any, store: Any, project: str | None) -> None:
+    if project is None:
+        return
+
     try:
         import geopandas as gpd
     except ImportError:
         logger.debug("geopandas not available, skipping river network ingestion")
         return
 
-    # Try the direct attribute first, then RiverNetworkProducts.
     path = getattr(geographic, _RIVER_NETWORK_ATTR, None)
     if path is None:
         products = getattr(geographic, "_river_network_products", None)
@@ -174,15 +176,17 @@ def _ingest_river_network(geographic: Any, store: Any) -> None:
     if gdf.empty:
         return
 
-    store.write_features(_RIVER_NETWORK_STORE_NAME, gdf)
+    store.write_geographic_feature(project, _RIVER_NETWORK_STORE_NAME, gdf)
     logger.debug(
         "Ingested river network (%d segments, %s)",
         len(gdf), gdf.geometry.geom_type.unique().tolist(),
     )
 
 
-def _ingest_metadata(geographic: Any, store: Any) -> None:
-    """Collect scalar metadata from the Geographic object."""
+def _ingest_metadata(geographic: Any, store: Any, project: str | None) -> None:
+    if project is None:
+        return
+
     metadata = {}
 
     for key in ("crs_proj", "epsg", "catch_area", "dem_res",
@@ -191,19 +195,17 @@ def _ingest_metadata(geographic: Any, store: Any) -> None:
         if val is not None:
             metadata[key] = str(val)
 
-    # Grid dimensions from the box-buffered DEM
     dem_data = getattr(geographic, "dem_box_buff_data", None)
     if dem_data is not None:
         metadata["nrow"] = str(dem_data.shape[0])
         metadata["ncol"] = str(dem_data.shape[1])
 
     if metadata:
-        store.write_geographic_metadata(metadata)
+        store.write_geographic_metadata(project, metadata)
         logger.debug("Ingested %d geographic metadata entries", len(metadata))
 
 
 def _cleanup_intermediate_dirs(geographic: Any) -> None:
-    """Remove geographic intermediate directories after store ingestion."""
     import shutil
 
     for attr in ("geographic_path", "correcflow_path"):
@@ -212,7 +214,6 @@ def _cleanup_intermediate_dirs(geographic: Any) -> None:
             shutil.rmtree(path, ignore_errors=True)
             logger.debug("Cleaned up intermediate dir %s", path)
 
-    # Remove results_stable/ if now empty.
     stable = getattr(geographic, "stable_folder", None)
     if stable is not None:
         stable_path = Path(stable)
@@ -222,11 +223,6 @@ def _cleanup_intermediate_dirs(geographic: Any) -> None:
 
 
 def dump_cached_rasters_to_disk(geographic: Any) -> None:
-    """Write all whitebox-cached rasters to their intended file paths.
-
-    Called when ``write_intermediates=True`` so that TIF files are
-    available on disk for debugging / inspection after the run.
-    """
     from hydromodpy.core.backends import get_whitebox_backend
 
     wb = get_whitebox_backend()
@@ -244,12 +240,6 @@ def dump_cached_rasters_to_disk(geographic: Any) -> None:
 
 
 def cleanup_stable_folder(geographic: Any) -> None:
-    """Remove .solver_scratch/_preprocessing/ and clear the raster cache.
-
-    Call at the **end** of the pipeline, after store ingestion and all
-    consumers have finished.  Only deletes the preprocessing subtree,
-    not the solver scratch root (which may still contain solver files).
-    """
     import shutil
     from hydromodpy.core.backends import get_whitebox_backend
 
