@@ -65,8 +65,9 @@ def test_modflow6_flow_adapter_reuses_solver_instance(monkeypatch) -> None:
             modflow_config,
             preprocess_options,
         ) -> None:
-            del geographic, model_folder, bin_path, modflow_config, preprocess_options
+            del geographic, bin_path, modflow_config, preprocess_options
             self.model_name = model_name
+            self.full_path = str(Path(model_folder) / model_name)
             build_calls.append(str(model_name))
 
         def pre_processing(self, **kwargs) -> None:
