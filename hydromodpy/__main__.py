@@ -735,7 +735,7 @@ def _cmd_export(args: argparse.Namespace) -> None:
             latest_sid = str(sims.iloc[-1]["sim_id"])
             geo_grp = catalog.open_zarr_group(latest_sid).get("geographic")
             rasters = list(geo_grp.keys()) if geo_grp is not None else []
-        features = catalog.list_geographic_features(project_name)
+        features = catalog.list_geographic_features(latest_sid) if not sims.empty else []
         print("Geographic rasters:", file=sys.stderr)
         for name in sorted(rasters):
             print(f"  {name}", file=sys.stderr)
@@ -801,7 +801,7 @@ def _cmd_export(args: argparse.Namespace) -> None:
         if args.feature:
             for name in args.feature:
                 try:
-                    gdf = catalog.read_geographic_feature(project_name, name)
+                    gdf = catalog.read_geographic_feature(latest_sid, name)
                     out_path = geo_dir / f"{name}.shp"
                     gdf.to_file(out_path)
                     exported.append(out_path)
