@@ -593,13 +593,23 @@ def _cmd_test(args: argparse.Namespace) -> None:
 
 def _cmd_display(args: argparse.Namespace) -> None:
     """Generate display figures from existing simulation outputs."""
+    subcommand = getattr(args, "config_or_subcommand", None)
+
+    if subcommand == "compare":
+        _cmd_display_compare(args)
+        return
+
+    if subcommand is None:
+        print("Usage: hmp display <config.toml>  or  hmp display compare --sim A --sim B", file=sys.stderr)
+        sys.exit(1)
+
     import tomllib
 
     from hydromodpy.analysis.display.display_config import display_options_from_raw_toml
     from hydromodpy.analysis.display.posthoc import PosthocContext
     from hydromodpy.analysis.display.posthoc_orchestration import plot_posthoc_all
 
-    config_path = Path(args.config).expanduser().resolve()
+    config_path = Path(subcommand).expanduser().resolve()
     if not config_path.is_file():
         print(f"Configuration file not found: {config_path}", file=sys.stderr)
         sys.exit(1)
@@ -675,6 +685,22 @@ def _cmd_display(args: argparse.Namespace) -> None:
             print(f"  {d.relative_to(config_path.parent)}: {n_figs} figure(s)", file=sys.stderr)
     elif not options.save:
         print("Figures displayed interactively (use --save to write to disk).", file=sys.stderr)
+
+
+def _cmd_display_compare(args: argparse.Namespace) -> None:
+    """Compare simulation results post-hoc."""
+    from hydromodpy.analysis.display.compare import run_display_compare
+
+    sim_names = getattr(args, "sim_names", None) or []
+    if len(sim_names) < 2:
+        print(
+            "Usage: hmp display compare --sim <name1> --sim <name2>\n"
+            "At least two --sim arguments are required.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    run_display_compare(sim_names=sim_names)
 
 
 def _cmd_export(args: argparse.Namespace) -> None:
@@ -908,9 +934,9 @@ def main() -> None:
         help="Generate figures from existing simulation outputs",
     )
     display_parser.add_argument(
-        "config",
-        type=Path,
-        help="Path to the project TOML file",
+        "config_or_subcommand",
+        nargs="?",
+        help="Path to the project TOML file, or 'compare' for post-hoc comparison",
     )
     display_parser.add_argument(
         "--save",
@@ -921,6 +947,12 @@ def main() -> None:
         "--no-show",
         action="store_true",
         help="Disable interactive display (overrides TOML display.show)",
+    )
+    display_parser.add_argument(
+        "--sim",
+        action="append",
+        dest="sim_names",
+        help="Simulation name to compare (use twice: --sim A --sim B)",
     )
 
     # --- list subcommand ---
