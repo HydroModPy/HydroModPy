@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -22,6 +23,8 @@ from hydromodpy.analysis.calibration.core.composite_objective import (
     CompositeObjectiveBlock,
     CompositeObjectiveEvaluation,
 )
+logger = logging.getLogger(__name__)
+
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
@@ -501,13 +504,13 @@ def _prepare_runtime_hydraulic_property_support(
     from hydromodpy.solver.modflow_common.discretization_spatial import (
         build_spatial_discretization,
     )
-    from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
+    from hydromodpy.project import Project
 
-    launcher = HydroModPyLauncher(simulation_config_path)
-    launcher.prepare_runtime()
+    project = Project(simulation_config_path, headless=True)
 
-    setup_state = launcher.run_state.setup
+    setup_state = project._ctx.setup
     if setup_state.flow is None or setup_state.domain is None:
+        project.close()
         return None
 
     if selected_solver == "modflow6":
@@ -515,13 +518,13 @@ def _prepare_runtime_hydraulic_property_support(
             resolve_flow_property_arrays as resolve_runtime_property_arrays,
         )
 
-        sgrid_config = launcher.cfg.modflow6.sgrid
+        sgrid_config = project.cfg.modflow6.sgrid
     elif selected_solver == "modflownwt":
         from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
             resolve_flow_property_arrays as resolve_runtime_property_arrays,
         )
 
-        sgrid_config = launcher.cfg.modflownwt.sgrid
+        sgrid_config = project.cfg.modflownwt.sgrid
     else:
         return None
 
@@ -683,6 +686,7 @@ def _prepare_runtime_hydraulic_property_support(
     mesh_bundle_dir, mesh_path, mesh_summary_path = _setup_mesh_paths_from_runtime(
         setup_state
     )
+    project.close()
     return PreparedHydraulicPropertySupport(
         n_cells=max(1, int(getattr(solver_mesh, "n_cells", 1))),
         lithology_labels=lithology_labels,
@@ -1330,9 +1334,10 @@ def execute_model_distribution_reruns(
     session: PreparedCalibrationSession,
     cfg: ModelCalibrationConfig,
     distribution_payload: dict[str, Any] | None,
-    launcher_factory: Any,
+    project: Any,
     max_reruns: int,
     selection: str,
+    launcher_factory: Any = None,
 ) -> dict[str, Any] | None:
     """Run a selected subset of model-distribution samples with full outputs."""
     if distribution_payload is None:
@@ -1349,60 +1354,97 @@ def execute_model_distribution_reruns(
     )
     manifest_path = session.calibration_root / "model_distribution_reruns.json"
     rerun_rows: list[dict[str, Any]] = []
+    parameter_set = session.core_settings["parameter_set"]
     for ordinal, (sample_index, sample) in enumerate(selected_samples, start=1):
         sample_id = str(sample.get("sample_id", f"sample_{sample_index + 1:06d}"))
         params_vector = tuple(float(value) for value in sample["params_vector"])
+        rerun_id = f"ensemble_{ordinal:04d}"
+
+        if project is not None:
+            # Project path: direct project.run() call.
+            params_named = dict(zip(
+                parameter_set.names,
+                (float(v) for v in parameter_set.vector_from(params_vector)),
+            ))
+            run_name = f"{rerun_id}_{sample_id}"
+            try:
+                project.run(name=run_name, **params_named)
+                rerun_rows.append({
+                    "rerun_id": rerun_id,
+                    "sample_index": int(sample_index),
+                    "sample_id": sample_id,
+                    "source_objective_total": sample.get("objective_total"),
+                    "source_block_costs": sample.get("block_costs"),
+                    "status": "solver_run_succeeded",
+                    "candidate_run_id": run_name,
+                    "candidate_config_path": None,
+                    "params_vector": list(params_vector),
+                    "params_named": params_named,
+                    "error_type": None,
+                    "error_message": None,
+                })
+            except Exception as exc:
+                rerun_rows.append({
+                    "rerun_id": rerun_id,
+                    "sample_index": int(sample_index),
+                    "sample_id": sample_id,
+                    "source_objective_total": sample.get("objective_total"),
+                    "source_block_costs": sample.get("block_costs"),
+                    "status": "solver_run_failed",
+                    "candidate_run_id": run_name,
+                    "candidate_config_path": None,
+                    "params_vector": list(params_vector),
+                    "params_named": params_named,
+                    "error_type": type(exc).__name__,
+                    "error_message": f"{type(exc).__name__}: {exc}",
+                })
+            continue
+
+        # Legacy launcher_factory fallback (used by tests).
         try:
             request = actualize_candidate(
                 session=session,
                 cfg=cfg,
                 params=params_vector,
-                candidate_label=f"ensemble_{ordinal:04d}_{sample_id}",
+                candidate_label=f"{rerun_id}_{sample_id}",
                 disable_display=False,
                 disable_postprocess=False,
             )
         except Exception as exc:
-            rerun_rows.append(
-                {
-                    "rerun_id": f"ensemble_{ordinal:04d}",
-                    "sample_index": int(sample_index),
-                    "sample_id": sample_id,
-                    "source_objective_total": sample.get("objective_total"),
-                    "source_block_costs": sample.get("block_costs"),
-                    "status": "parameter_injection_failed",
-                    "candidate_run_id": None,
-                    "candidate_config_path": None,
-                    "params_vector": list(params_vector),
-                    "params_named": _safe_params_named_from_vector(
-                        session=session,
-                        vector=params_vector,
-                    ),
-                    "error_type": type(exc).__name__,
-                    "error_message": f"{type(exc).__name__}: {exc}",
-                }
-            )
+            rerun_rows.append({
+                "rerun_id": rerun_id,
+                "sample_index": int(sample_index),
+                "sample_id": sample_id,
+                "source_objective_total": sample.get("objective_total"),
+                "source_block_costs": sample.get("block_costs"),
+                "status": "parameter_injection_failed",
+                "candidate_run_id": None,
+                "candidate_config_path": None,
+                "params_vector": list(params_vector),
+                "params_named": _safe_params_named_from_vector(session=session, vector=params_vector),
+                "error_type": type(exc).__name__,
+                "error_message": f"{type(exc).__name__}: {exc}",
+            })
             continue
         outcome = execute_candidate_run(
             request=request,
             launcher_factory=launcher_factory,
             cfg=None,
         )
-        rerun_rows.append(
-            {
-                "rerun_id": f"ensemble_{ordinal:04d}",
-                "sample_index": int(sample_index),
-                "sample_id": sample_id,
-                "source_objective_total": sample.get("objective_total"),
-                "source_block_costs": sample.get("block_costs"),
-                "status": outcome.status,
-                "candidate_run_id": outcome.request.candidate_run_id,
-                "candidate_config_path": str(outcome.request.candidate_config_path),
-                "params_vector": list(outcome.request.params_vector),
-                "params_named": dict(outcome.request.params_named),
-                "error_type": outcome.error_type,
-                "error_message": outcome.error_message,
-            }
-        )
+        rerun_rows.append({
+            "rerun_id": rerun_id,
+            "sample_index": int(sample_index),
+            "sample_id": sample_id,
+            "source_objective_total": sample.get("objective_total"),
+            "source_block_costs": sample.get("block_costs"),
+            "status": outcome.status,
+            "candidate_run_id": outcome.request.candidate_run_id,
+            "candidate_config_path": str(outcome.request.candidate_config_path),
+            "params_vector": list(outcome.request.params_vector),
+            "params_named": dict(outcome.request.params_named),
+            "error_type": outcome.error_type,
+            "error_message": outcome.error_message,
+        })
 
     status = (
         "completed"
@@ -1844,17 +1886,23 @@ class ModelCalibrationObjectiveEvaluator:
         # Build property arrays if the calibration uses spatialized params
         properties = None
         if self.session.prepared_hydraulic_support is not None:
+            support = self.session.prepared_hydraulic_support
             property_set = build_property_array_set(
                 cfg=self.cfg,
-                params_named=params_named,
-                support=self.session.prepared_hydraulic_support,
+                params=params_named,
+                base_property_arrays=support.base_property_arrays,
+                lithology_labels=support.lithology_labels,
+                zone_fractions_by_property=support.zone_fractions_by_property,
+                zone_fractions_by_key=support.zone_fractions_by_key,
+                base_property_values_by_key=support.base_property_values_by_key,
+                default_cell_count=support.n_cells,
             )
             if property_set is not None:
                 properties = {
-                    pa.property_name: pa.values for pa in property_set.arrays
+                    pa.property_name: pa.values
+                    for pa in property_set.arrays.values()
                 }
-                # Remove spatialized params from scalar overrides
-                for pa in property_set.arrays:
+                for pa in property_set.arrays.values():
                     params_named.pop(pa.property_name, None)
 
         try:
@@ -1908,12 +1956,19 @@ class ModelCalibrationObjectiveEvaluator:
                 error=exc,
             )
 
-        outcome = CandidateRunOutcome(
+        minimal_request = CandidateRunRequest(
+            session=self.session,
             iteration_id=iteration_id,
             candidate_run_id=iteration_id,
+            candidate_root=self.session.calibration_root / iteration_id,
+            candidate_config_path=self.session.simulation_config_path,
             params_vector=key,
             params_named=params_named,
-            status="completed",
+            override_payload={},
+        )
+        outcome = CandidateRunOutcome(
+            request=minimal_request,
+            status="objective_evaluated" if evaluation is not None else "solver_run_succeeded",
             objective_evaluation=evaluation,
         )
         self._outcomes_by_key[key] = outcome
@@ -3196,6 +3251,15 @@ def evaluate_candidate_objective(
     )
 
 
+# ======================================================================
+# Legacy launcher-factory helpers (deprecated).
+#
+# These functions support the old ``execute_candidate_run(launcher_factory=...)``
+# path.  New code should use ``Project.run(**params)`` instead.
+# Retained for backward compatibility with validation cases and tests.
+# ======================================================================
+
+
 def actualize_candidate(
     *,
     session: PreparedCalibrationSession,
@@ -3284,8 +3348,8 @@ def execute_best_candidate_rerun(
     session: PreparedCalibrationSession,
     cfg: ModelCalibrationConfig,
     result: Any,
-    launcher_factory: Any = None,
     project: Any = None,
+    launcher_factory: Any = None,
 ) -> CandidateRunOutcome:
     """Rerun the best candidate without calibration-time output suppression."""
     params = getattr(result, "params_best", None)
@@ -3298,7 +3362,7 @@ def execute_best_candidate_rerun(
             parameter_set.names,
             (float(v) for v in parameter_set.vector_from(params)),
         ))
-        sim_result = project.run(name="best_rerun", **params_named)
+        project.run(name="best_rerun", **params_named)
         return CandidateRunOutcome(
             iteration_id="best_rerun",
             candidate_run_id="best_rerun",
@@ -3307,6 +3371,7 @@ def execute_best_candidate_rerun(
             status="completed",
         )
 
+    # Legacy launcher_factory fallback (used by tests).
     request = actualize_candidate(
         session=session,
         cfg=cfg,
@@ -3324,26 +3389,12 @@ def execute_best_candidate_rerun(
 
 def _launcher_supports_runtime_direct(launcher_factory: Any) -> bool:
     """Return True when one launcher factory can run from the base config path."""
-    if bool(getattr(launcher_factory, "model_calibration_runtime_direct", False)):
-        return True
-    try:
-        from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
-
-        return launcher_factory is HydroModPyLauncher
-    except Exception:
-        return False
+    return bool(getattr(launcher_factory, "model_calibration_runtime_direct", False))
 
 
 def _launcher_supports_runtime_reuse(launcher_factory: Any) -> bool:
     """Return True when one launcher factory supports prepared-runtime reuse."""
-    if bool(getattr(launcher_factory, "model_calibration_runtime_reusable", False)):
-        return True
-    try:
-        from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
-
-        return launcher_factory is HydroModPyLauncher
-    except Exception:
-        return False
+    return bool(getattr(launcher_factory, "model_calibration_runtime_reusable", False))
 
 
 def _launcher_cache_key(launcher_factory: Any) -> str:

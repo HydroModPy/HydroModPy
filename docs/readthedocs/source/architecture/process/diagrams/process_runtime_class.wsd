@@ -1,7 +1,7 @@
 @startuml
 title Process - Runtime Class Diagram
 
-package "hydromodpy.process.prototype" {
+package "hydromodpy.process.base" {
   abstract class "ProcessSpatial<TInitialConditions>" as ProcessSpatialT {
     +parameters: dict[str, object]
     +initial_conditions: TInitialConditions | None

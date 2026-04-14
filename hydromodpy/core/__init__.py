@@ -9,7 +9,7 @@ from hydromodpy.core.backends import (
 from hydromodpy.core.config import HydroModPyConfig
 from hydromodpy.core.state import (
     ExecutionRegistry,
-    LauncherRunState,
+    WorkflowContext,
     LoadedDataContext,
     SetupContext,
 )
@@ -22,7 +22,7 @@ __all__ = [
     "WorkspaceConfig",
     "WorkspacePathRegistry",
     "ExecutionRegistry",
-    "LauncherRunState",
+    "WorkflowContext",
     "LoadedDataContext",
     "SetupContext",
     "ResolvedSimulationTimeWindow",

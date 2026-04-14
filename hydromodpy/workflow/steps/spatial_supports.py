@@ -9,11 +9,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from hydromodpy.core.state.run_state import LauncherRunState
+    from hydromodpy.core.state.run_state import WorkflowContext
 
 
 def step_spatial_supports(
-    ctx: LauncherRunState,
+    ctx: WorkflowContext,
     *,
     phase: str,
     requested_domain_supports: dict[str, object] | None = None,

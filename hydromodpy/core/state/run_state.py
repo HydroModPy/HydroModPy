@@ -1,10 +1,13 @@
-"""Concrete runtime state shared across one launcher session.
+"""Mutable runtime state threaded through workflow steps.
 
-``LauncherRunState`` separates three concerns:
+Three canonical scopes:
 
 - ``setup``: structural objects prepared once (workspace, domain, flow, ...);
 - ``loaded_data``: loaded support data (climatic, oceanic, hydrometry, ...);
 - ``execution``: run outputs and registries (planned runs, produced models).
+
+Plus result-store lifecycle fields (``store``, ``sim_id``,
+``postprocess_runner``) used by the workflow layer.
 
 Canonical access is explicit:
 
@@ -29,11 +32,14 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class LauncherRunState:
-    """Mutable launcher state split into setup/loaded_data/execution scopes.
+class WorkflowContext:
+    """Mutable workflow state split into setup/loaded_data/execution scopes.
 
     ``models_by_run_id`` is the source of truth for produced solver models.
     Concrete solver instances are resolved explicitly from that registry.
+
+    Also carries result-store lifecycle fields needed by the workflow layer:
+    ``store``, ``sim_id``, and ``postprocess_runner``.
     """
 
     cfg: HydroModPyConfig
@@ -43,6 +49,11 @@ class LauncherRunState:
     setup: SetupContext = field(default_factory=SetupContext)
     loaded_data: LoadedDataContext = field(default_factory=LoadedDataContext)
     execution: ExecutionRegistry = field(default_factory=ExecutionRegistry)
+
+    # Result-store lifecycle (formerly in WorkflowContext only).
+    store: Any = field(default=None, repr=False)
+    sim_id: str | None = None
+    postprocess_runner: Any = field(default=None, repr=False)
 
     def get_model(self, run_id: str) -> Any:
         """Return the exact model produced by a concrete process run."""
@@ -65,3 +76,7 @@ class LauncherRunState:
         if run is None:
             return None
         return self.execution.models_by_run_id.get(run.id)
+
+
+# Backward-compatible alias (old name).
+LauncherRunState = WorkflowContext

@@ -3,11 +3,11 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-from hydromodpy.core.state.run_state import LauncherRunState
+from hydromodpy.core.state.run_state import WorkflowContext
 
 
-def _build_state() -> LauncherRunState:
-    return LauncherRunState(
+def _build_state() -> WorkflowContext:
+    return WorkflowContext(
         cfg=SimpleNamespace(),
         config_path=Path("config.toml"),
         raw_toml={},

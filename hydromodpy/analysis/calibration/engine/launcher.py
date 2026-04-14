@@ -13,11 +13,11 @@ from hydromodpy.analysis.calibration.engine.config import ModelCalibrationConfig
 from hydromodpy.analysis.calibration.engine.objective_mapping import run_objective_mapping
 from hydromodpy.analysis.calibration.engine.reporting import persist_calibration_report
 from hydromodpy.analysis.calibration.engine.session import (
+    CandidateRunOutcome,
     ModelCalibrationObjectiveEvaluator,
     actualize_candidate,
     build_model_distribution_payload,
     execute_best_candidate_rerun,
-    execute_candidate_run,
     execute_model_distribution_reruns,
     finalize_calibration_session,
     initialize_calibration_session,
@@ -95,41 +95,68 @@ class ModelCalibrationLauncher:
         params,
         *,
         iteration_index: int,
-        launcher_factory=None,
     ):
         """Execute one candidate simulation and persist the minimal iteration record."""
-        request = self.actualize_candidate(
-            params,
-            iteration_index=iteration_index,
-        )
-        if launcher_factory is None:
-            from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
+        session = self.prepare()
 
-            launcher_factory = HydroModPyLauncher
-        outcome = execute_candidate_run(
-            request=request,
-            launcher_factory=launcher_factory,
-            cfg=self.cfg,
-        )
+        # Build the candidate request (creates folder + overlay TOML).
+        request = self.actualize_candidate(params, iteration_index=iteration_index)
+
+        # Execute via Project.
+        import hydromodpy.project as _project_mod
+
+        project = _project_mod.Project(request.candidate_config_path, headless=True)
+        try:
+            project.run()
+            outcome = CandidateRunOutcome(
+                request=request,
+                status="solver_run_succeeded",
+                run_state=project._ctx,
+            )
+        except Exception as exc:
+            outcome = CandidateRunOutcome(
+                request=request,
+                status="solver_run_failed",
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            )
+        finally:
+            project.close()
+
         record = outcome.to_iteration_record()
-        self._record_iteration(
-            session=request.session,
-            record=record,
-        )
+        self._record_iteration(session=session, record=record)
         return outcome
 
     def calibrate(
         self,
         *,
-        launcher_factory=None,
-        calibration_method=None,
+        project: Any = None,
+        launcher_factory: Any = None,
+        calibration_method: Any = None,
     ) -> dict[str, Any]:
-        """Run the configured optimization loop through CalibrationEngine."""
-        session = self.prepare()
-        if launcher_factory is None:
-            from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
+        """Run the configured optimization loop through CalibrationEngine.
 
-            launcher_factory = HydroModPyLauncher
+        Parameters
+        ----------
+        project:
+            Pre-built :class:`~hydromodpy.project.Project` instance.
+            When *None* (default), one is created automatically from
+            ``simulation_config_path`` in headless mode.
+        launcher_factory:
+            Legacy fallback.  Ignored when *project* is given.
+        calibration_method:
+            Override for the optimization method.
+        """
+        session = self.prepare()
+
+        # Preferred path: use Project (setup-once / run-many).
+        if project is None and launcher_factory is None:
+            import hydromodpy.project as _project_mod
+
+            project = _project_mod.Project(
+                self.cfg.simulation_config_path,
+                headless=True,
+            )
 
         def _record_iteration(record) -> None:
             self._record_iteration(
@@ -140,6 +167,7 @@ class ModelCalibrationLauncher:
         evaluator = ModelCalibrationObjectiveEvaluator(
             session=session,
             cfg=self.cfg,
+            project=project,
             launcher_factory=launcher_factory,
             iteration_start=(
                 int(self.state.session_manifest.get("iteration_count", 0)) + 1
@@ -183,6 +211,7 @@ class ModelCalibrationLauncher:
                 session=session,
                 cfg=self.cfg,
                 result=result,
+                project=project,
                 launcher_factory=launcher_factory,
             )
         model_distribution_rerun_summary = None
@@ -191,6 +220,7 @@ class ModelCalibrationLauncher:
                 session=session,
                 cfg=self.cfg,
                 distribution_payload=model_distribution_payload,
+                project=project,
                 launcher_factory=launcher_factory,
                 max_reruns=self.cfg.model_calibration.model_distribution_max_reruns,
                 selection=(
@@ -233,6 +263,8 @@ class ModelCalibrationLauncher:
                 encoding="utf-8",
             )
             self.state.session_manifest = refreshed_manifest
+        if project is not None:
+            project.close()
         return dict(self.state.session_manifest)
 
     def _open_calibration_result_store(self, session) -> "Any | None":

@@ -17,7 +17,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import 
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.core.state.run_state import LauncherRunState
+    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
 
 logger = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ def resolve_optional_mesh_input(
 def run_mesh_phase(
     config_path: str | Path,
     cfg: object,
-    run_state: LauncherRunState,
+    run_state: WorkflowContext,
     mesh_section_data: MeshCatchmentConfigSchema | None,
     constraints_mode: str | None,
 ) -> None:
@@ -118,7 +118,7 @@ def run_mesh_phase(
 
 
 def run_mesh_input_phase(
-    run_state: LauncherRunState,
+    run_state: WorkflowContext,
     external_mesh_input: dict[str, str] | None,
 ) -> None:
     """Load one pre-existing external mesh declared in ``[mesh_input]``."""
@@ -144,7 +144,7 @@ def run_mesh_input_phase(
 # ---------------------------------------------------------------------------
 
 def load_mesh_artifacts_from_summary(
-    run_state: LauncherRunState,
+    run_state: WorkflowContext,
     *,
     strict: bool,
     preserve_preloaded: bool = False,
@@ -191,7 +191,7 @@ def load_mesh_artifacts_from_summary(
 # ---------------------------------------------------------------------------
 
 def step_mesh(
-    ctx: LauncherRunState,
+    ctx: WorkflowContext,
     *,
     mesh_section_data: MeshCatchmentConfigSchema | None = None,
     constraints_mode: str | None = None,
@@ -207,7 +207,7 @@ def step_mesh(
 
 
 def step_mesh_input(
-    ctx: LauncherRunState,
+    ctx: WorkflowContext,
     *,
     external_mesh_input: dict[str, str] | None = None,
 ) -> None:

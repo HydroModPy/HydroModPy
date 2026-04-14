@@ -1,7 +1,6 @@
 """CLI adapter for ``hmp run <config.toml>`` (batch regional workflow).
 
-Domain logic lives in :mod:`launchers.regional_lab`
-(will migrate to ``analysis/batch/`` in Phase 5).
+Domain logic lives in :mod:`hydromodpy.analysis.batch`.
 """
 
 from __future__ import annotations

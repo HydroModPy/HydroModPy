@@ -14,12 +14,10 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-
 logger = logging.getLogger(__name__)
 
-from hydromodpy.analysis.display.report.overview_config import DataOverviewConfig
 from hydromodpy.analysis.display.report.overview_config import DataOverviewState
+from hydromodpy.core.config import HydroModPyConfig
 
 
 class DataOverviewLauncher:
@@ -27,10 +25,7 @@ class DataOverviewLauncher:
 
     def __init__(self, config_path: str | Path) -> None:
         self.config_path = Path(config_path).resolve()
-        raw_toml = load_toml_with_base_config(self.config_path)
-        self.cfg = DataOverviewConfig.from_toml(
-            raw_toml, base_dir=self.config_path.parent,
-        )
+        self.cfg = HydroModPyConfig.from_toml(self.config_path)
 
     # ------------------------------------------------------------------
     # Public API
@@ -208,7 +203,7 @@ class DataOverviewLauncher:
 # Module-level helpers
 # ======================================================================
 
-def _find_dem_api_source(cfg: DataOverviewConfig) -> str | None:
+def _find_dem_api_source(cfg: HydroModPyConfig) -> str | None:
     """Return the API source name if a DEM API source is configured."""
     _API_SOURCES = {"ign_bdalti"}
     dem_cfg = getattr(cfg.data, "dem", None)

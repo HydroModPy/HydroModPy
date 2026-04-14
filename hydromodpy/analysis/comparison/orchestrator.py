@@ -1,4 +1,9 @@
-"""Launcher orchestrating solver/mesh method comparisons."""
+"""Orchestrator for solver/mesh method comparisons.
+
+Runs or reuses variant simulations via :class:`~hydromodpy.project.Project`,
+then extracts configured observables, computes metrics, and generates
+comparative figures and reports.
+"""
 
 from __future__ import annotations
 
@@ -263,15 +268,17 @@ class MethodComparisonLauncher:
         try:
             config_path = materialize_variant_config(cfg=self.cfg, variant=variant)
             if section.run_variants and config_path is not None:
-                from hydromodpy.workflow.pipelines.process_simulation import HydroModPyLauncher
+                from hydromodpy.project import Project
 
                 start = time.monotonic()
-                run_state = HydroModPyLauncher(config_path).run()
+                project = Project(config_path)
+                project.run()
                 wall_seconds = round(time.monotonic() - start, 2)
                 run_folder = self._resolve_completed_run_folder(
-                    run_state=run_state,
+                    run_state=project._ctx,
                     solver_name=str(variant.solver),
                 )
+                project.close()
                 status = "completed"
             elif run_folder is None and config_path is not None:
                 run_folder = self._infer_run_folder_from_config(

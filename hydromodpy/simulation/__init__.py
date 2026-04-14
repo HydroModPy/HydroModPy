@@ -17,7 +17,7 @@ from hydromodpy.simulation.execution import (
 )
 from hydromodpy.core.state import (
     ExecutionRegistry,
-    LauncherRunState,
+    WorkflowContext,
     LoadedDataContext,
     SetupContext,
 )
@@ -26,7 +26,7 @@ from hydromodpy.core.workspace import Workspace, WorkspaceConfig
 
 __all__ = [
     "ExecutionRegistry",
-    "LauncherRunState",
+    "WorkflowContext",
     "LoadedDataContext",
     "ProcessRun",
     "RunContext",

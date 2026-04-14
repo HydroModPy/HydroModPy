@@ -13,7 +13,7 @@ import pytest
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.analysis.comparison.config import MethodComparisonConfig
 from hydromodpy.analysis.comparison.exports import write_budget_exports
-from hydromodpy.workflow.pipelines.method_comparison import MethodComparisonLauncher
+from hydromodpy.analysis.comparison.orchestrator import MethodComparisonLauncher
 from hydromodpy.analysis.comparison.metrics import (
     build_comparison_metrics,
     build_unmatched_groups,
@@ -1350,12 +1350,10 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
         encoding="utf-8",
     )
 
-    class _FakeHydroModPyLauncher:
-        def __init__(self, config_path: Path) -> None:
+    class _FakeProject:
+        def __init__(self, config_path: Path, **kwargs) -> None:
             self.config_path = config_path
-
-        def run(self):
-            return SimpleNamespace(
+            self._ctx = SimpleNamespace(
                 setup=SimpleNamespace(
                     workspace=SimpleNamespace(
                         simulations_folder=tmp_path / "results_simulations"
@@ -1367,14 +1365,20 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
                 ),
             )
 
-    import hydromodpy.workflow.pipelines.process_simulation as ps_module
+        def run(self, **kwargs):
+            return None
 
-    monkeypatch.setattr(ps_module, "HydroModPyLauncher", _FakeHydroModPyLauncher)
+        def close(self):
+            pass
+
+    import hydromodpy.project as project_module
+
+    monkeypatch.setattr(project_module, "Project", _FakeProject)
     monkeypatch.setattr(
-        "hydromodpy.workflow.pipelines.method_comparison.read_variant_run_metadata",
+        "hydromodpy.analysis.comparison.orchestrator.read_variant_run_metadata",
         lambda _run_folder: {},
     )
-    import hydromodpy.workflow.pipelines.method_comparison as launcher_module
+    import hydromodpy.analysis.comparison.orchestrator as launcher_module
 
     monkeypatch.setattr(
         launcher_module.HydroModPyConfig,

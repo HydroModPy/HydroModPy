@@ -43,8 +43,10 @@ from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.core.workspace.config import WorkspaceConfig
+from hydromodpy.analysis.display.report.overview_config import OverviewSection
 from hydromodpy.core.config.path_resolution import resolve_declared_path
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
 
 
 def _derive_run_id_from_filename(toml_path: Path) -> str:
@@ -161,6 +163,24 @@ class HydroModPyConfig(BaseModel):
         ),
     )
 
+    # Lightweight workflows (without simulation)
+    overview: OverviewSection | None = Field(
+        default=None,
+        description=(
+            "Optional overview report settings loaded from the [overview] "
+            "section.  When present without [simulation], triggers the "
+            "data-overview (watershed identity card) workflow."
+        ),
+    )
+    mesh_catchment: MeshCatchmentConfigSchema | None = Field(
+        default=None,
+        description=(
+            "Optional mesh-only settings loaded from the [mesh_catchment] "
+            "section.  When present without [simulation], triggers the "
+            "mesh-only workflow."
+        ),
+    )
+
     @classmethod
     def from_toml(cls, toml_path: "Path | str") -> "HydroModPyConfig":
         """
@@ -206,12 +226,26 @@ class HydroModPyConfig(BaseModel):
         elif not workspace_section.get("project_root"):
             workspace_section["project_root"] = str(base)
 
+        # DEM bootstrap placeholder for overview workflow.
+        # When [overview] is present without dem_init_path but a DEM API
+        # source is configured in [data], inject a placeholder so
+        # GeographicConfig validation passes.  The overview pipeline
+        # downloads the real DEM later via _bootstrap_dem().
+        geographic_override = raw.get("geographic", {})
+        if "overview" in raw and not geographic_override.get("dem_init_path"):
+            data_section = raw.get("data", {})
+            if "dem" in data_section.get("types", []):
+                geographic_override = {
+                    **geographic_override,
+                    "dem_init_path": "__DEM_API_BOOTSTRAP__",
+                }
+
         section_loaders: dict[str, tuple[Any, Callable[[Any, Path], Any]]] = {
             "workspace": (
                 workspace_section,
                 lambda data, b: _load_standard_section(data, WorkspaceConfig, b),
             ),
-            "geographic": ({}, lambda data, b: _load_standard_section(data, GeographicConfig, b)),
+            "geographic": (geographic_override, lambda data, b: _load_standard_section(data, GeographicConfig, b)),
             "domain": ({}, lambda data, b: _load_standard_section(data, DomainConfig, b)),
             "data": ({}, _load_data_section),
             "flow": ({}, _load_flow_section),
@@ -239,6 +273,8 @@ class HydroModPyConfig(BaseModel):
                     b,
                 ),
             ),
+            "overview": (None, _load_optional_overview_section),
+            "mesh_catchment": (None, _load_optional_mesh_catchment_section),
         }
 
         parsed_sections: dict[str, Any] = {}
@@ -304,5 +340,25 @@ def _load_flow_section(section_data: Any, base: Path) -> FlowConfig:
 def _load_data_section(section_data: Any, base: Path) -> DataManagersConfig:
     """Load the data section with dynamic validation by enabled data types."""
     return DataManagersConfig.from_toml_section(section_data, base_dir=base)
+
+
+def _load_optional_overview_section(
+    section_data: Any, base: Path,
+) -> OverviewSection | None:
+    """Load the optional ``[overview]`` section."""
+    if section_data is None:
+        return None
+    return _load_standard_section(section_data, OverviewSection, base)
+
+
+def _load_optional_mesh_catchment_section(
+    section_data: Any, base: Path,
+) -> MeshCatchmentConfigSchema | None:
+    """Load the optional ``[mesh_catchment]`` section."""
+    if section_data is None:
+        return None
+    from hydromodpy.spatial.mesh.config import parse_mesh_catchment_config_data
+
+    return parse_mesh_catchment_config_data(section_data)
 
 

@@ -1,8 +1,4 @@
-"""Result-ingestion step — ingest solver outputs and save run artifacts.
-
-Code extracted from ``HydroModPyLauncher._on_after_run`` and
-``HydroModPyLauncher._save_run_artifacts``.
-"""
+"""Result-ingestion step — ingest solver outputs and save run artifacts."""
 
 from __future__ import annotations
 
