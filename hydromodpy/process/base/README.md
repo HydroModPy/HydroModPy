@@ -1,4 +1,4 @@
-# Process Prototype Layer
+# Process Base Layer
 
 This folder contains the shared, process-agnostic building blocks used by
 concrete process implementations such as `flow` and `transport`.
@@ -72,7 +72,7 @@ handling small conveniences such as `unit` -> `units`.
 
 ## File Map
 
-- `__init__.py`: public exports for the prototype layer.
+- `__init__.py`: public exports for the base layer.
 - `process_spatial.py`: abstract runtime base class.
 - `process_spatial_config.py`: base config schema.
 - `initial_conditions.py`: generic initial-condition model.
@@ -98,7 +98,7 @@ handling small conveniences such as `unit` -> `units`.
 
 ```python
 from collections.abc import Mapping
-from hydromodpy.process.prototype import ProcessSpatial
+from hydromodpy.process.base import ProcessSpatial
 
 
 class MyInitialConditions:
