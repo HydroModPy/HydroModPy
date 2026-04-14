@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -259,6 +262,25 @@ class Simulation:
             caps.append("pathlines")
 
         return caps
+
+    def plot(self, figure_name: str, *, save: str | Path | None = None) -> None:
+        if figure_name not in self.display_capabilities:
+            raise ValueError(
+                f"Figure '{figure_name}' not available. "
+                f"Capabilities: {self.display_capabilities}"
+            )
+        from hydromodpy.results.display import render_figure
+
+        render_figure(figure_name, self, save=save)
+
+    def plot_all(self, *, save: str | Path | None = None) -> None:
+        from hydromodpy.results.display import render_figure
+
+        for name in self.display_capabilities:
+            try:
+                render_figure(name, self, save=save)
+            except Exception:
+                logger.warning("Failed to render '%s'", name)
 
     # -- Repr ----------------------------------------------------------------
 
