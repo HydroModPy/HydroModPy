@@ -694,6 +694,130 @@ class SimulationCatalog:
             self.delete(str(sid))
         return len(rows)
 
+    # -- Import / export -----------------------------------------------------
+
+    def export_simulation(
+        self, sim_id: str | UUID, output_path: Path | str,
+    ) -> Path:
+        sid = str(sim_id)
+        output = Path(output_path)
+        output.mkdir(parents=True, exist_ok=True)
+
+        row = self._db.execute(
+            "SELECT project, zarr_path FROM simulations WHERE sim_id = ?", [sid],
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"Simulation '{sid}' not found")
+        project, zarr_rel = row
+
+        pkg_db_path = output / "simulation.duckdb"
+        pkg_db = duckdb.connect(str(pkg_db_path))
+        try:
+            sim_df = self._db.execute(
+                "SELECT * FROM simulations WHERE sim_id = ?", [sid],
+            ).fetchdf()
+            pkg_db.execute("CREATE TABLE simulations AS SELECT * FROM sim_df")
+
+            for table in PER_SIM_TABLE_NAMES:
+                df = self._db.execute(
+                    f"SELECT * FROM {table} WHERE sim_id = ?", [sid],
+                ).fetchdf()
+                pkg_db.execute(f"CREATE TABLE {table} AS SELECT * FROM df")
+
+            geo_feat = self._db.execute(
+                "SELECT * FROM geographic_features WHERE project = ?", [project],
+            ).fetchdf()
+            pkg_db.execute(
+                "CREATE TABLE geographic_features AS SELECT * FROM geo_feat"
+            )
+
+            geo_meta = self._db.execute(
+                "SELECT * FROM geographic_metadata WHERE project = ?", [project],
+            ).fetchdf()
+            pkg_db.execute(
+                "CREATE TABLE geographic_metadata AS SELECT * FROM geo_meta"
+            )
+
+            ver_df = self._db.execute("SELECT * FROM _schema_version").fetchdf()
+            pkg_db.execute(
+                "CREATE TABLE _schema_version AS SELECT * FROM ver_df"
+            )
+        finally:
+            pkg_db.close()
+
+        zarr_src = self._workspace / zarr_rel
+        zarr_dst = output / "results.zarr"
+        if zarr_src.exists():
+            shutil.copytree(zarr_src, zarr_dst, dirs_exist_ok=True)
+
+        return output
+
+    def import_simulation(
+        self, package_path: Path | str, *, force: bool = False,
+    ) -> str:
+        pkg = Path(package_path)
+        pkg_db_path = pkg / "simulation.duckdb"
+        if not pkg_db_path.exists():
+            raise FileNotFoundError(f"No simulation.duckdb in {pkg}")
+
+        pkg_db = duckdb.connect(str(pkg_db_path), read_only=True)
+        try:
+            sim_row = pkg_db.execute("SELECT sim_id FROM simulations").fetchone()
+            if sim_row is None:
+                raise ValueError("Package contains no simulation")
+            sid = str(sim_row[0])
+
+            existing = self._db.execute(
+                "SELECT sim_id FROM simulations WHERE sim_id = ?", [sid],
+            ).fetchone()
+            if existing is not None:
+                if not force:
+                    raise ValueError(
+                        f"Simulation '{sid}' already exists. Use force=True to overwrite."
+                    )
+                self.delete(sid)
+
+            pkg_tables = {
+                r[0] for r in pkg_db.execute(
+                    "SELECT table_name FROM information_schema.tables "
+                    "WHERE table_schema = 'main'"
+                ).fetchall()
+            }
+
+            sim_df = pkg_db.execute("SELECT * FROM simulations").fetchdf()
+            self._db.execute("INSERT INTO simulations SELECT * FROM sim_df")
+
+            for table in PER_SIM_TABLE_NAMES:
+                if table in pkg_tables:
+                    df = pkg_db.execute(f"SELECT * FROM {table}").fetchdf()
+                    if not df.empty:
+                        self._db.execute(
+                            f"INSERT INTO {table} SELECT * FROM df"
+                        )
+
+            for geo_table in ("geographic_features", "geographic_metadata"):
+                if geo_table in pkg_tables:
+                    df = pkg_db.execute(f"SELECT * FROM {geo_table}").fetchdf()
+                    if not df.empty:
+                        self._db.execute(
+                            f"INSERT OR REPLACE INTO {geo_table} SELECT * FROM df"
+                        )
+        finally:
+            pkg_db.close()
+
+        zarr_path = f"simulations/{sid}.zarr"
+        self._db.execute(
+            "UPDATE simulations SET zarr_path = ? WHERE sim_id = ?",
+            [zarr_path, sid],
+        )
+
+        pkg_zarr = pkg / "results.zarr"
+        if pkg_zarr.exists():
+            dst = self._workspace / zarr_path
+            shutil.copytree(pkg_zarr, dst, dirs_exist_ok=True)
+
+        return sid
+
     # -- Lifecycle -----------------------------------------------------------
 
     def finalize(
