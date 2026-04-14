@@ -276,9 +276,9 @@ _LAZY_IMPORTS = {
     "Modflow": "hydromodpy.solver.modflow_nwt",
     "Modpath": "hydromodpy.solver.modflow_nwt",
     "Mt3dms": "hydromodpy.solver.modflow_nwt",
-    # project API
-    "Project": "hydromodpy.project",
-    "SimulationResult": "hydromodpy.project",
+    # simulation API
+    "Simulation": "hydromodpy.simulation",
+    "SimulationResult": "hydromodpy.simulation",
     # catalog API
     "SimulationCatalog": "hydromodpy.results.catalog",
 }

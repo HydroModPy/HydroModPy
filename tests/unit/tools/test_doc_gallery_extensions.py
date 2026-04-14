@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from tools.doc_gallery.gallery_manifest import build_gallery_specs
 from tools.doc_gallery.update_gallery import _build_index_page, _generate_case
 
@@ -105,6 +107,16 @@ def test_generate_depth_property_case_smoke(tmp_path: Path) -> None:
 
 def test_generate_method_comparison_case_smoke(tmp_path: Path) -> None:
     spec = _spec_by_slug("example12_map_method_comparison")
+    run_folder = (
+        Path(__file__).resolve().parents[3]
+        / "examples"
+        / "projects"
+        / "launcher_simulation"
+        / "results_simulations"
+        / "example12_fast_mf6_mesh_catchment"
+    )
+    if not run_folder.exists():
+        pytest.skip("method comparison run folder not available on this branch")
 
     summary = _generate_case(spec, tmp_path)
 

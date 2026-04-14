@@ -1,6 +1,6 @@
 """Orchestrator for solver/mesh method comparisons.
 
-Runs or reuses variant simulations via :class:`~hydromodpy.project.Project`,
+Runs or reuses variant simulations via :class:`~hydromodpy.simulation.Simulation`,
 then extracts configured observables, computes metrics, and generates
 comparative figures and reports.
 """
@@ -268,10 +268,10 @@ class MethodComparisonLauncher:
         try:
             config_path = materialize_variant_config(cfg=self.cfg, variant=variant)
             if section.run_variants and config_path is not None:
-                from hydromodpy.project import Project
+                from hydromodpy.simulation import Simulation
 
                 start = time.monotonic()
-                project = Project(config_path)
+                project = Simulation(config_path)
                 project.run()
                 wall_seconds = round(time.monotonic() - start, 2)
                 run_folder = self._resolve_completed_run_folder(

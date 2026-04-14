@@ -2,7 +2,7 @@
 
 This package extracts the business logic from launchers into reusable
 steps and pipelines, so that a single logic path serves TOML-driven,
-programmatic (Project), and calibration usage modes.
+programmatic (Simulation), and calibration usage modes.
 
 Public API
 ----------

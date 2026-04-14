@@ -21,7 +21,9 @@ from hydromodpy.simulation.execution.runner import (
 )
 from hydromodpy.workflow.steps.result_ingestion import (
     step_ingest_run_results,
+    step_persist_forcings,
     step_save_run_artifacts,
+    step_write_provenance,
 )
 from hydromodpy.workflow.steps.store_lifecycle import (
     step_finalize_store,
@@ -47,7 +49,7 @@ def prepare_simulation_runtime(
 ) -> None:
     """Run all preparation steps so *ctx* is ready for execution.
 
-    This is the shared preparation path used by ``Project``
+    This is the shared preparation path used by ``Simulation``
     and any future consumer.
     """
     from hydromodpy.workflow.steps.data_loading import step_data_loading
@@ -102,6 +104,11 @@ def execute_simulation(
     plan = ctx.execution.simulation_plan
     step_open_store(ctx)
 
+    # Write provenance and forcings for loaded data
+    if ctx.store is not None:
+        step_write_provenance(ctx)
+        step_persist_forcings(ctx)
+
     # Wire the postprocess runner's store if present.
     if ctx.postprocess_runner is not None and ctx.store is not None:
         ctx.postprocess_runner.store = ctx.store
@@ -143,8 +150,12 @@ def execute_simulation(
 
         step_finalize_store(ctx, wall_seconds=wall_seconds)
     except BaseException:
-        # Ensure store is closed on failure.
+        wall_seconds = time.monotonic() - wall_start
         if ctx.store is not None:
+            try:
+                ctx.store.finalize(ctx.sim_id, status="failed", duration_s=wall_seconds)
+            except Exception:
+                logger.debug("Could not finalize store on failure")
             ctx.store.close()
             ctx.store = None
         raise

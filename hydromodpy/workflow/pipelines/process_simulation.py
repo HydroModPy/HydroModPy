@@ -1,8 +1,8 @@
 """Shared utilities for TOML → simulation pipeline preparation.
 
-Helper functions used by :class:`~hydromodpy.project.Project` and the
+Helper functions used by :class:`~hydromodpy.simulation.Simulation` and the
 workflow pipeline layer.  The ``HydroModPyLauncher`` class that used to
-live here has been removed — use ``Project`` instead.
+live here has been removed — use ``Simulation`` instead.
 """
 
 from __future__ import annotations

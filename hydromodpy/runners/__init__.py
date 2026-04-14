@@ -2,7 +2,7 @@
 
 Each runner does exactly three things:
 1. Load and validate the TOML
-2. Instantiate the appropriate object (Project, or a dedicated pipeline)
+2. Instantiate the appropriate object (Simulation, or a dedicated pipeline)
 3. Call .run() and surface the result to the CLI
 
 If a runner file exceeds ~150 lines, domain logic has leaked in and should

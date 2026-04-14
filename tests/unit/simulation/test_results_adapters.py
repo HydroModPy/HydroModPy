@@ -61,10 +61,12 @@ class TestGR4JOutputAdapter:
 class TestDerivedVariables:
     def _setup_sim_with_head(self, catalog, n_ts=3, n_layers=2, n_cells=10):
         sid = str(uuid4())
-        catalog.register_simulation(
+        sz = catalog.register_simulation(
             sid, project="test", solver="modflownwt", n_cells=n_cells,
             n_layers=n_layers, n_timesteps=n_ts,
         )
+        if sz is not None:
+            sz.close()
         verts = np.random.default_rng(0).random((n_cells + 2, 2))
         conn = np.column_stack([
             np.arange(n_cells), np.arange(1, n_cells + 1),

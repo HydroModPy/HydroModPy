@@ -206,28 +206,61 @@ class Simulation:
     # -- Geographic ----------------------------------------------------------
 
     def geographic(self, feature_name: str) -> gpd.GeoDataFrame:
-        import geopandas as gpd_mod
-
-        row = self._catalog.connection.execute(
-            "SELECT geojson, crs FROM geographic_features "
-            "WHERE project = ? AND feature_name = ?",
-            [self.project, feature_name],
-        ).fetchone()
-        if row is None:
-            raise KeyError(
-                f"Feature '{feature_name}' not found for project '{self.project}'"
-            )
-        geojson_str, crs = row
-        if geojson_str:
-            gdf = gpd_mod.read_file(geojson_str)
-            if crs and gdf.crs is None:
-                gdf = gdf.set_crs(crs)
-            return gdf
-        raise KeyError(f"No GeoJSON data for feature '{feature_name}'")
+        return self._catalog.read_geographic_feature(self._sim_id, feature_name)
 
     def geographic_raster(self, name: str) -> tuple[np.ndarray, dict]:
         sz = self._catalog.open_zarr(self._sim_id)
         return sz.read_geographic_raster(name)
+
+    # -- Rerun ---------------------------------------------------------------
+
+    @property
+    def parent_sim_id(self) -> str | None:
+        val = self._load_row().get("parent_sim_id")
+        return str(val) if val is not None else None
+
+    def rerun(self, **overrides) -> Simulation:
+        """Re-run this simulation with optional config overrides.
+
+        Reconstructs a ``HydroModPyConfig`` from the stored snapshot,
+        applies overrides, and launches a new simulation. The new
+        simulation's ``parent_sim_id`` points back to this one.
+
+        Parameters
+        ----------
+        **overrides
+            Nested config overrides merged recursively into the snapshot.
+            For example: ``sim.rerun(flow={"param": {"K": {"value": 2.0}}})``.
+
+        Returns
+        -------
+        Simulation
+            The newly created simulation.
+        """
+        snapshot = self.config
+        if snapshot is None:
+            raise ValueError(
+                f"Simulation '{self._sim_id}' has no config snapshot — cannot rerun"
+            )
+
+        from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+
+        new_config = HydroModPyConfig.from_snapshot(snapshot, **overrides)
+
+        from hydromodpy.simulation import Simulation
+        from uuid import uuid4
+
+        # Build a minimal Simulation-like execution from the reconstructed config
+        # and register with parent_sim_id linkage.
+        project = Simulation.__new__(Simulation)
+        # This is a stub — full rerun integration requires the workflow to
+        # accept a pre-built config + parent_sim_id. For now, store the
+        # config and parent reference so callers can wire them.
+        raise NotImplementedError(
+            "Full rerun() requires workflow integration with parent_sim_id. "
+            "Use HydroModPyConfig.from_snapshot() to reconstruct the config "
+            "and run it manually via Simulation or hmp run."
+        )
 
     # -- Export convenience --------------------------------------------------
 

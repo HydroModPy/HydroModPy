@@ -24,7 +24,7 @@ from hydromodpy.solver.modflow_nwt import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
-from hydromodpy.project import Project
+from hydromodpy.simulation import Simulation
 from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )
@@ -81,8 +81,8 @@ class ProbeResult:
 ModelMutator = Callable[[Any], None]
 
 
-def _build_validation_launcher(*, solver_name: str) -> Project:
-    """Materialize one Project configured exactly like the validation case."""
+def _build_validation_launcher(*, solver_name: str) -> Simulation:
+    """Materialize one Simulation configured exactly like the validation case."""
     try:
         config_name = SOLVER_CONFIG_FILES[solver_name]
     except KeyError as exc:
@@ -94,7 +94,7 @@ def _build_validation_launcher(*, solver_name: str) -> Project:
         solver_name=solver_name,
     )
     try:
-        return Project(config_path, headless=True)
+        return Simulation(config_path, headless=True)
     finally:
         if config_path.exists():
             remove_file_with_retry(config_path)

@@ -53,6 +53,7 @@ class WorkflowContext:
     # Result-store lifecycle (formerly in WorkflowContext only).
     store: Any = field(default=None, repr=False)
     sim_id: str | None = None
+    parent_sim_id: str | None = None
     postprocess_runner: Any = field(default=None, repr=False)
 
     def get_model(self, run_id: str) -> Any:

@@ -102,10 +102,10 @@ class ModelCalibrationLauncher:
         # Build the candidate request (creates folder + overlay TOML).
         request = self.actualize_candidate(params, iteration_index=iteration_index)
 
-        # Execute via Project.
-        import hydromodpy.project as _project_mod
+        # Execute via Simulation.
+        import hydromodpy.simulation as _simulation_mod
 
-        project = _project_mod.Project(request.candidate_config_path, headless=True)
+        project = _simulation_mod.Simulation(request.candidate_config_path, headless=True)
         try:
             project.run()
             outcome = CandidateRunOutcome(
@@ -138,7 +138,7 @@ class ModelCalibrationLauncher:
         Parameters
         ----------
         project:
-            Pre-built :class:`~hydromodpy.project.Project` instance.
+            Pre-built :class:`~hydromodpy.simulation.Simulation` instance.
             When *None* (default), one is created automatically from
             ``simulation_config_path`` in headless mode.
         calibration_method:
@@ -147,9 +147,9 @@ class ModelCalibrationLauncher:
         session = self.prepare()
 
         if project is None:
-            import hydromodpy.project as _project_mod
+            import hydromodpy.simulation as _simulation_mod
 
-            project = _project_mod.Project(
+            project = _simulation_mod.Simulation(
                 self.cfg.simulation_config_path,
                 headless=True,
             )

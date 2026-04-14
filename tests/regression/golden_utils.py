@@ -917,7 +917,7 @@ def run_hmp_cli(
     """Run ``hmp run <config>`` as a subprocess.
 
     Uses ``python -m hydromodpy run`` which invokes
-    :class:`Project` — the production entry point.
+    :class:`Simulation` — the production entry point.
     """
     env = os.environ.copy()
     env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)

@@ -522,14 +522,11 @@ def test_modflow6_transport_post_processing_exports_native_unstructured_mesh_out
         native_mesh_vtu=True,
         native_mesh_png=True,
     )
+    flow_model.dict_outflow_drain = {0: np.array([1.0, 2.0], dtype=float)}
     transport_model = _build_unstructured_transport_model(flow_model)
 
     save_dir = Path(flow_model.full_path) / "_postprocess"
     save_dir.mkdir(parents=True, exist_ok=True)
-    np.save(
-        save_dir / "outflow_drain",
-        {0: np.array([1.0, 2.0], dtype=float)},
-    )
 
     written_vtu: list[tuple[Path, object]] = []
 
@@ -596,14 +593,11 @@ def test_modflow6_transport_post_processing_accumulates_unstructured_mass(
         native_mesh_vtu=False,
         native_mesh_png=False,
     )
+    flow_model.dict_outflow_drain = {0: np.array([1.0, 0.0], dtype=float)}
     transport_model = _build_unstructured_transport_model(flow_model)
 
     save_dir = Path(flow_model.full_path) / "_postprocess"
     save_dir.mkdir(parents=True, exist_ok=True)
-    np.save(
-        save_dir / "outflow_drain",
-        {0: np.array([1.0, 0.0], dtype=float)},
-    )
 
     monkeypatch.setattr(
         "hydromodpy.solver.modflow6.modflow6.bf.UcnFile",

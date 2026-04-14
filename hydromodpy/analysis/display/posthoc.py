@@ -84,9 +84,9 @@ class GeographicArtifacts:
         name : str
             Feature name, e.g. ``"watershed"``, ``"river_network"``.
         """
-        if self._store is None or self._project is None:
-            raise KeyError(f"Feature '{name}' unavailable: no catalog/project attached.")
-        return self._store.read_geographic_feature(self._project, name)
+        if self._store is None or self._sim_id is None:
+            raise KeyError(f"Feature '{name}' unavailable: no catalog/sim_id attached.")
+        return self._store.read_geographic_feature(self._sim_id, name)
 
     def feature_path(self, name: str, output_dir: Path | str) -> Path:
         """Materialize a vector feature to a temp shapefile.

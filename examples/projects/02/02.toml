@@ -40,7 +40,7 @@ solvers = ["modpath"]
 # Type: path | REQUIRED
 project_root = "."
 
-# Root directory for all outputs (results_stable/, results_simulations/, results_calibration/).
+# Root directory for all outputs (hydromodpy.duckdb, simulations/<uuid>.zarr/).
 # Defaults to project_root when not set.
 # Use this to redirect heavy outputs to a separate disk.
 # Type: path (optional) | Optional

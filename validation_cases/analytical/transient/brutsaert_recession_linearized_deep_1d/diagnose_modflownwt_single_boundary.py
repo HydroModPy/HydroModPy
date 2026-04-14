@@ -22,7 +22,7 @@ from hydromodpy.solver.modflow_nwt import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
-from hydromodpy.project import Project
+from hydromodpy.simulation import Simulation
 from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )
@@ -56,15 +56,15 @@ class ProbeResult:
     note: str
 
 
-def _build_validation_launcher() -> Project:
-    """Materialize one Project configured exactly like the validation case."""
+def _build_validation_launcher() -> Simulation:
+    """Materialize one Simulation configured exactly like the validation case."""
     config_path = _build_validation_launcher_config(
         case_dir=CASE_DIR,
         config_path=CASE_DIR / "config_modflownwt.toml",
         solver_name="modflownwt",
     )
     try:
-        return Project(config_path, headless=True)
+        return Simulation(config_path, headless=True)
     finally:
         if config_path.exists():
             remove_file_with_retry(config_path)

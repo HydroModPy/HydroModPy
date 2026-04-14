@@ -84,7 +84,7 @@ def test_plot_posthoc_flow_suite_reuses_native_mesh_figures_for_unstructured_out
 
     plot_posthoc_flow_suite(run, geo, options)
 
-    figure_dir = postprocess_dir / "_figures"
+    figure_dir = run_dir / "figures" / "run_a"
     assert (figure_dir / "watertable_depth.png").exists()
     assert (figure_dir / "flow_support_overview.png").exists()
 
@@ -136,7 +136,7 @@ def test_plot_posthoc_flow_suite_renders_solver_agnostic_common_figures(
 
     plot_posthoc_flow_suite(run, geo, options)
 
-    figure_dir = postprocess_dir / "_figures"
+    figure_dir = run_dir / "figures" / "run_a"
     assert (figure_dir / "flow_state_triptych.png").exists()
     assert (figure_dir / "recharge_discharge_cumulative.png").exists()
     assert (figure_dir / "watertable_elevation.png").exists()

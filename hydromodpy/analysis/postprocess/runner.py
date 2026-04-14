@@ -92,6 +92,10 @@ class PostprocessRunner:
         """
         if self.store is None or self.sim_id is None:
             return
+        from hydromodpy.simulation.results.extractors.catchment_aggregation import (
+            VARIABLE_UNITS,
+        )
+
         for col in df.columns:
             if col == "date":
                 continue
@@ -99,8 +103,9 @@ class PostprocessRunner:
             if ts.empty:
                 continue
             try:
+                unit = VARIABLE_UNITS.get(col, "")
                 self.store.write_timeseries(
-                    self.sim_id, _CATCHMENT_STATION, col, ts,
+                    self.sim_id, _CATCHMENT_STATION, col, ts, unit=unit,
                 )
             except Exception:
                 logger.debug("Failed to write %s to store", col, exc_info=True)

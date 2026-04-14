@@ -1,4 +1,4 @@
-"""High-level Project API for interactive Python usage.
+"""High-level Simulation API for interactive Python usage.
 
 Setup-once, run-many interface that wraps the launcher's internal phases
 behind a clean API.  The TOML-driven workflow (``hmp run``) is unchanged;
@@ -10,7 +10,7 @@ Example
 
     import hydromodpy as hmp
 
-    project = hmp.Project("project.toml")
+    project = hmp.Simulation("project.toml")
 
     result = project.run(Sy=0.05, K=5e-5, name="baseline")
     wt = result.field("watertable_depth", timestep=12)
@@ -126,10 +126,10 @@ class SimulationResult:
 
 
 # =====================================================================
-# Project
+# Simulation
 # =====================================================================
 
-class Project:
+class Simulation:
     """Setup-once, run-many interface for HydroModPy simulations.
 
     Loads a project TOML, builds the geographic/domain/data context once,
@@ -152,7 +152,7 @@ class Project:
 
         import hydromodpy as hmp
 
-        project = hmp.Project("project.toml")
+        project = hmp.Simulation("project.toml")
 
         # Simple run
         r = project.run(Sy=0.05)
@@ -180,10 +180,6 @@ class Project:
         )
         from hydromodpy.data import DataManagersPlanner
         from hydromodpy.results.catalog import SimulationCatalog
-        from hydromodpy.spatial.geographic.store_ingestion import (
-            cleanup_stable_folder,
-            persist_geographic_to_store,
-        )
         from hydromodpy.spatial.domain.spatial_support import (
             build_default_spatial_support_provider_registry,
         )
@@ -311,16 +307,8 @@ class Project:
         self._store = SimulationCatalog(workspace_root)
         self._project_name = ws.project_root.name
 
-        # Persist geographic features/metadata once (project-scoped in DuckDB)
-        if self.geographic is not None:
-            persist_geographic_to_store(
-                self.geographic, self._store,
-                project=self._project_name,
-            )
-        cleanup_stable_folder(self.geographic)
-
         self._run_counter = 0
-        logger.info("Project ready: %s", self._config_path.name)
+        logger.info("Simulation ready: %s", self._config_path.name)
 
     # -- Public properties -------------------------------------------------
 
@@ -422,12 +410,73 @@ class Project:
         else:
             self._ctx.setup.flow_runtime_overrides = None
 
-        # Register in catalog
+        # Register in catalog with enriched metadata
         solvers = ",".join(r.solver for r in plan.runs)
+        reg_kwargs: dict = {
+            "flow_regime": self.cfg.flow.flow_regime,
+        }
+        try:
+            reg_kwargs["config"] = self.cfg.model_dump(mode="json")
+        except Exception:
+            pass
+
+        mesh = self._ctx.setup.mesh_planar
+        if mesh is not None:
+            reg_kwargs["n_cells"] = mesh.n_cells
+            reg_kwargs["mesh_type"] = getattr(mesh, "cell_type", None)
+            reg_kwargs["cell_types"] = [getattr(mesh, "cell_type", "unknown")]
+            bbox = getattr(mesh, "bounds", None)
+            if bbox is not None:
+                reg_kwargs["bbox"] = list(bbox)
+            try:
+                import hashlib as _hashlib
+                mesh_bytes = mesh.points_xy.tobytes() + mesh.connectivity.tobytes()
+                reg_kwargs["mesh_hash"] = _hashlib.sha256(mesh_bytes).hexdigest()
+            except Exception:
+                pass
+
+        crs = getattr(self.cfg.geographic, "crs_project", None)
+        if crs is not None:
+            reg_kwargs["crs"] = str(crs)
+
+        tg = self._ctx.setup.time_grid
+        if tg is not None:
+            boundaries = getattr(tg, "boundaries", None)
+            if boundaries and len(boundaries) >= 2:
+                reg_kwargs["period_start"] = str(boundaries[0])
+                reg_kwargs["period_end"] = str(boundaries[-1])
+                reg_kwargs["n_timesteps"] = len(boundaries) - 1
+            time_cfg = getattr(self.cfg.simulation, "time", None)
+            if time_cfg is not None:
+                reg_kwargs["time_unit"] = getattr(time_cfg, "step_unit", None)
+
         self._store.register_simulation(
             sim_id, project=self._project_name, solver=solvers,
             name=name, run_id=name,
+            **reg_kwargs,
         )
+
+        # Write hydraulic parameters
+        from hydromodpy.workflow.steps.store_lifecycle import _write_flow_parameters
+        if self._ctx.setup.flow is not None:
+            _write_flow_parameters(self._store, sim_id, self._ctx.setup.flow)
+
+        # Write mesh topology into Zarr
+        if mesh is not None:
+            z_intf = None
+            domain = self._ctx.setup.domain
+            if domain is not None:
+                z_intf_attr = getattr(domain, "z_interfaces", None)
+                if z_intf_attr is not None:
+                    z_intf = np.asarray(z_intf_attr)
+            if z_intf is None:
+                z_intf = np.array([0.0, -10.0])
+            self._store.write_mesh(
+                sim_id,
+                vertices=mesh.points_xy,
+                face_node_connectivity=mesh.connectivity,
+                z_interfaces=z_intf,
+            )
 
         # Persist geographic rasters into this simulation's Zarr
         if self.geographic is not None:
@@ -436,11 +485,38 @@ class Project:
                 sim_id=sim_id,
             )
 
+        # Persist input forcings for reproducibility
+        from hydromodpy.workflow.steps.result_ingestion import step_persist_forcings
+        _tmp_ctx = type("_Ctx", (), {
+            "store": self._store,
+            "sim_id": sim_id,
+            "loaded_data": self._ctx.loaded_data,
+            "setup": self._ctx.setup,
+        })()
+        step_persist_forcings(_tmp_ctx)
+
+        # Wire store + sim_id into postprocess runner
+        self._postprocess_runner.store = self._store
+        self._postprocess_runner.sim_id = sim_id
+
         # Execute
-        solver_dir = [None]
+        results_cfg = ResultsConfig(
+            keep_solver_files=True,
+            budget=BudgetConfig(spatial_fields=True),
+            derived=DerivedConfig(accumulation_flux=True, outflow_drain=True),
+            export=ExportConfig(csv_timeseries=True, netcdf=False),
+        )
 
         def _after_run(run, result, state):
-            solver_dir[0] = result.solver_output_dir
+            post_run_results(
+                sim_id=sim_id,
+                solver_name=run.solver,
+                solver_output_dir=result.solver_output_dir,
+                results_config=results_cfg,
+                store=self._store,
+                keep_solver_files=True,
+                run_id=name,
+            )
 
         def _after_process(process_type):
             self._postprocess_runner.after_process(process_type, self._ctx)
@@ -453,26 +529,13 @@ class Project:
                     after_process=_after_process,
                 ),
             ).execute(plan, self._ctx)
+        except Exception:
+            self._store.finalize(sim_id, status="failed")
+            raise
         finally:
             self._ctx.setup.domain = original_domain
             self._ctx.setup.flow_runtime_overrides = None
 
-        # Ingest results
-        results_cfg = ResultsConfig(
-            keep_solver_files=True,
-            budget=BudgetConfig(spatial_fields=True),
-            derived=DerivedConfig(accumulation_flux=True, outflow_drain=True),
-            export=ExportConfig(csv_timeseries=True, netcdf=False),
-        )
-        post_run_results(
-            sim_id=sim_id,
-            solver_name=solvers,
-            solver_output_dir=solver_dir[0],
-            results_config=results_cfg,
-            store=self._store,
-            keep_solver_files=True,
-            run_id=name,
-        )
         self._store.finalize(sim_id, status="completed")
 
         logger.info("Run '%s' completed", name)
@@ -543,7 +606,11 @@ class Project:
     # -- Lifecycle ---------------------------------------------------------
 
     def close(self) -> None:
-        """Close the SimulationCatalog."""
+        """Close the SimulationCatalog and clean up preprocessing files."""
+        from hydromodpy.spatial.geographic.store_ingestion import (
+            cleanup_stable_folder,
+        )
+        cleanup_stable_folder(self.geographic)
         if self._store is not None:
             self._store.close()
             self._store = None
@@ -555,7 +622,7 @@ class Project:
         self.close()
 
     def __repr__(self) -> str:
-        return f"Project({self._config_path.name!r})"
+        return f"Simulation({self._config_path.name!r})"
 
     # -- Private -----------------------------------------------------------
 
@@ -592,7 +659,7 @@ class Project:
         end = getattr(recharge_cfg, "date_end", None) if recharge_cfg else None
         if start is None or end is None:
             raise ValueError(
-                "Project requires [simulation.time] or [data.recharge] with "
+                "Simulation requires [simulation.time] or [data.recharge] with "
                 "date_start/date_end to define the simulation window."
             )
 

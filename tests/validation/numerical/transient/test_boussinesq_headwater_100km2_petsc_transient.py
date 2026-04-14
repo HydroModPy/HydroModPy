@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.project import Project
+from hydromodpy.simulation import Simulation
 
 
 def _require_linux_petsc4py() -> None:
@@ -85,7 +85,7 @@ def _run_transient_real_case_summary(
     monkeypatch.setenv("HYDROMODPY_NO_SAVE", "1")
     monkeypatch.setenv("MPLBACKEND", "Agg")
 
-    with Project(config_path) as project:
+    with Simulation(config_path) as project:
         project.run()
     model = project._ctx.get_model_for_solver("boussinesq")
     assert model is not None

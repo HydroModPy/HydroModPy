@@ -51,16 +51,32 @@ def _build_unstructured_solver_mesh() -> SolverMesh:
     )
 
 
+class _FakeFieldStore:
+    """Minimal store mock that serves pre-loaded spatial fields."""
+
+    def __init__(self, fields: dict[str, dict[int, np.ndarray]]) -> None:
+        self._fields = fields
+
+    def list_simulations(self, sim_id: str | None = None) -> pd.DataFrame:
+        return pd.DataFrame({"sim_id": ["fake"], "n_timesteps": [1]})
+
+    def query_field(self, sim_id: str, variable: str, timestep: int) -> np.ndarray:
+        if variable in self._fields and timestep in self._fields[variable]:
+            return self._fields[variable][timestep]
+        raise KeyError(f"{variable} t={timestep}")
+
+
 def test_flow_netcdf_exports_cell_based_outputs_for_unstructured_mesh(
     tmp_path: Path,
 ) -> None:
     solver_mesh = _build_unstructured_solver_mesh()
     save_dir = tmp_path / "models" / "flow_unstructured" / "_postprocess"
     save_dir.mkdir(parents=True, exist_ok=True)
-    np.save(
-        save_dir / "watertable_depth",
-        {0: np.asarray([1.0, 4.0], dtype=float)},
-    )
+
+    fields = {
+        "watertable_depth": {0: np.asarray([1.0, 4.0], dtype=float)},
+    }
+    store = _FakeFieldStore(fields)
 
     geographic = SimpleNamespace(
         watershed_dem=str(tmp_path / "unused_base.tif"),
@@ -78,6 +94,8 @@ def test_flow_netcdf_exports_cell_based_outputs_for_unstructured_mesh(
         geographic=geographic,
         model_modflow=model_modflow,
         datetime_format=False,
+        store=store,
+        sim_id="fake",
     )
 
     out_path = save_dir / "_netcdf" / "watertable_depth.nc"
