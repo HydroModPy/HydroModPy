@@ -76,7 +76,3 @@ class WorkflowContext:
         if run is None:
             return None
         return self.execution.models_by_run_id.get(run.id)
-
-
-# Backward-compatible alias (old name).
-LauncherRunState = WorkflowContext
