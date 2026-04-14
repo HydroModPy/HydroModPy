@@ -23,7 +23,7 @@ from hydromodpy.core.time import resolve_simulation_time_window_dates
 from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR, WorkspacePathRegistry
 
 if TYPE_CHECKING:
-    from hydromodpy.core.state.run_state import LauncherRunState
+    from hydromodpy.core.state.run_state import WorkflowContext
 
 
 class DataManagersRuntimeLoader:
@@ -85,7 +85,7 @@ class DataManagersRuntimeLoader:
     # Types that must be loaded sequentially (have dependencies on earlier loads).
     _SEQUENTIAL_TYPES = {"dem", "geology", "hydrography"}
 
-    def load_all(self, result: "LauncherRunState") -> None:
+    def load_all(self, result: "WorkflowContext") -> None:
         """Load active data-manager families into ``result``.
 
         Sequential types (dem, geology, hydrography) are loaded first in
@@ -129,7 +129,7 @@ class DataManagersRuntimeLoader:
             for type_name, exc in errors:
                 logger.error("Parallel load of '%s' failed: %s", type_name, exc)
 
-    def _load_single(self, result: "LauncherRunState", type_name: str) -> None:
+    def _load_single(self, result: "WorkflowContext", type_name: str) -> None:
         """Load a single data-manager type."""
         method_key = self._LOADER_DISPATCH.get(type_name)
         if method_key is None:
@@ -141,7 +141,7 @@ class DataManagersRuntimeLoader:
             else:
                 getattr(self, method_key)(result)
 
-    def _load_dem_data(self, result: "LauncherRunState") -> None:
+    def _load_dem_data(self, result: "WorkflowContext") -> None:
         """Load DEM data via DemManager."""
         from hydromodpy.data.variables.dem.config import DemConfig
         from hydromodpy.data.variables.dem.manager import DemManager
@@ -171,7 +171,7 @@ class DataManagersRuntimeLoader:
         except Exception as exc:
             self._handle_data_loading_error(result, "dem", exc)
 
-    def _load_geology_data(self, result: "LauncherRunState") -> None:
+    def _load_geology_data(self, result: "WorkflowContext") -> None:
         """Load geology data via GeologyManager, then build GeologyField."""
         from hydromodpy.data.variables.geology.config import GeologyConfig
         from hydromodpy.data.variables.geology.manager import GeologyManager
@@ -293,7 +293,7 @@ class DataManagersRuntimeLoader:
         )
 
     @staticmethod
-    def _resolve_geology_raster_support(result: "LauncherRunState") -> Any:
+    def _resolve_geology_raster_support(result: "WorkflowContext") -> Any:
         """Resolve raster support used by geology loading.
 
         Preferred source is ``setup.domain.surface_topo.support``. If no
@@ -312,7 +312,7 @@ class DataManagersRuntimeLoader:
             return None
         return surface_topo.support
 
-    def _load_oceanic_data(self, result: "LauncherRunState") -> None:
+    def _load_oceanic_data(self, result: "WorkflowContext") -> None:
         """Load oceanic data from ``data.oceanic`` payload."""
         from datetime import datetime as dt
 
@@ -350,7 +350,7 @@ class DataManagersRuntimeLoader:
         except Exception as exc:
             self._handle_data_loading_error(result, "oceanic", exc)
 
-    def _load_hydrography_data(self, result: "LauncherRunState") -> None:
+    def _load_hydrography_data(self, result: "WorkflowContext") -> None:
         """Load hydrography support datasets based on ``data.hydrography`` payload."""
         from hydromodpy.data.variables.hydrography.config import HydrographyConfig
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
@@ -379,7 +379,7 @@ class DataManagersRuntimeLoader:
         except Exception as exc:
             self._handle_data_loading_error(result, "hydrography", exc)
 
-    def _load_intermittency_data(self, result: "LauncherRunState") -> None:
+    def _load_intermittency_data(self, result: "WorkflowContext") -> None:
         """Load ONDE-style intermittency observations via the variable manager."""
         from datetime import datetime as dt
 
@@ -422,7 +422,7 @@ class DataManagersRuntimeLoader:
         except Exception as exc:
             self._handle_data_loading_error(result, "intermittency", exc)
 
-    def _load_hydrometry_data(self, result: "LauncherRunState") -> None:
+    def _load_hydrometry_data(self, result: "WorkflowContext") -> None:
         """Load hydrometry records from ``data.hydrometry`` payload."""
         from datetime import datetime as dt
 
@@ -459,7 +459,7 @@ class DataManagersRuntimeLoader:
         except Exception as exc:
             self._handle_data_loading_error(result, "hydrometry", exc)
 
-    def _load_piezometry_data(self, result: "LauncherRunState") -> None:
+    def _load_piezometry_data(self, result: "WorkflowContext") -> None:
         """Load piezometry records from ``data.piezometry`` payload."""
         from datetime import datetime as dt
 
@@ -496,7 +496,7 @@ class DataManagersRuntimeLoader:
         except Exception as exc:
             self._handle_data_loading_error(result, "piezometry", exc)
 
-    def _load_water_quality_data(self, result: "LauncherRunState") -> None:
+    def _load_water_quality_data(self, result: "WorkflowContext") -> None:
         """Load water quality records from ``data.water_quality`` payload."""
         from datetime import datetime as dt
 
@@ -539,7 +539,7 @@ class DataManagersRuntimeLoader:
         except Exception as exc:
             self._handle_data_loading_error(result, "water_quality", exc)
 
-    def _load_recharge_data(self, result: "LauncherRunState") -> None:
+    def _load_recharge_data(self, result: "WorkflowContext") -> None:
         """Load recharge data from ``data.recharge`` payload."""
         from datetime import datetime as dt
 
@@ -576,7 +576,7 @@ class DataManagersRuntimeLoader:
         except Exception as exc:
             self._handle_data_loading_error(result, "recharge", exc)
 
-    def _load_runoff_data(self, result: "LauncherRunState") -> None:
+    def _load_runoff_data(self, result: "WorkflowContext") -> None:
         """Load runoff data from ``data.runoff`` payload."""
         from datetime import datetime as dt
 
@@ -647,7 +647,7 @@ class DataManagersRuntimeLoader:
     }
 
     def _load_climatic_variable(
-        self, result: "LauncherRunState", variable: str,
+        self, result: "WorkflowContext", variable: str,
     ) -> None:
         """Generic loader for climatic variables (precipitation, etp, etc.).
 
@@ -707,7 +707,7 @@ class DataManagersRuntimeLoader:
 
     def _handle_missing_data_section(
         self,
-        result: "LauncherRunState",
+        result: "WorkflowContext",
         type_name: str,
         detail: str,
     ) -> None:
@@ -718,7 +718,7 @@ class DataManagersRuntimeLoader:
 
     def _handle_data_loading_error(
         self,
-        result: "LauncherRunState",
+        result: "WorkflowContext",
         type_name: str,
         exc: Exception,
     ) -> None:
@@ -731,7 +731,7 @@ class DataManagersRuntimeLoader:
         if existing is not None and hasattr(existing, "warnings"):
             existing.warnings.append(message)
 
-    def _is_required_data_type(self, result: "LauncherRunState", type_name: str) -> bool:
+    def _is_required_data_type(self, result: "WorkflowContext", type_name: str) -> bool:
         inferred_set = set(self.data_plan.inferred_types)
         if type_name in inferred_set and result.cfg.data.inference_mode == "warn":
             return False
@@ -739,7 +739,7 @@ class DataManagersRuntimeLoader:
 
     @staticmethod
     def _get_data_section(
-        result: "LauncherRunState",
+        result: "WorkflowContext",
         type_name: str,
     ) -> dict[str, Any] | None:
         section_value = getattr(result.cfg.data, type_name, None)
@@ -753,13 +753,13 @@ class DataManagersRuntimeLoader:
 
     @staticmethod
     def _resolve_simulation_time_window_dates(
-        result: "LauncherRunState",
+        result: "WorkflowContext",
     ) -> tuple[str, str] | None:
         return resolve_simulation_time_window_dates(result.cfg)
 
     def _require_simulation_time_window_dates(
         self,
-        result: "LauncherRunState",
+        result: "WorkflowContext",
         *,
         option_name: str,
     ) -> tuple[str, str]:
@@ -778,7 +778,7 @@ class DataManagersRuntimeLoader:
     def _apply_simulation_window_dates(
         self,
         section: dict[str, Any],
-        result: "LauncherRunState",
+        result: "WorkflowContext",
         manager_type: str,
     ) -> None:
         """Inject date_start/date_end from [simulation.time] when not explicit.
@@ -813,7 +813,7 @@ class DataManagersRuntimeLoader:
     def _apply_simulation_window_to_station_section(
         self,
         *,
-        result: "LauncherRunState",
+        result: "WorkflowContext",
         payload: dict[str, Any],
         root_key: str,
         manager_type: str,
@@ -843,7 +843,7 @@ class DataManagersRuntimeLoader:
             path = (self.config_path.parent / path).resolve()
         return path
 
-    def _workspace_paths(self, result: "LauncherRunState") -> WorkspacePathRegistry:
+    def _workspace_paths(self, result: "WorkflowContext") -> WorkspacePathRegistry:
         workspace = result.setup.workspace
         if workspace is None:
             raise ValueError("Launcher setup.workspace is required before data loading.")
