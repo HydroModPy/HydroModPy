@@ -48,7 +48,10 @@ def step_open_store(ctx: WorkflowContext) -> None:
     )
 
     if ctx.setup.geographic is not None:
-        persist_geographic_to_store(ctx.setup.geographic, ctx.store)
+        persist_geographic_to_store(
+            ctx.setup.geographic, ctx.store,
+            project=project_name, sim_id=ctx.sim_id,
+        )
 
 
 def step_finalize_store(
