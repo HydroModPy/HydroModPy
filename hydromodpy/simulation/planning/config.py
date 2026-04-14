@@ -244,7 +244,7 @@ class SimulationConfig(BaseModel):
         default_factory=ResultsConfig,
         description=(
             "Results storage and export configuration loaded from "
-            "[simulation.results]. Controls ResultStore, derived variables, "
+            "[simulation.results]. Controls SimulationCatalog, derived variables, "
             "and automated exports."
         ),
     )
