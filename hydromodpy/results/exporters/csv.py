@@ -27,7 +27,7 @@ def export_csv(
     Parameters
     ----------
     conn : duckdb.DuckDBPyConnection
-        Open connection to ``project.duckdb``.
+        Open connection to ``hydromodpy.duckdb``.
     sim_id : str
         Simulation UUID.
     output_path : str or Path

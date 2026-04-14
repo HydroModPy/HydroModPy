@@ -29,7 +29,7 @@ def export_netcdf(
     Parameters
     ----------
     zarr_path : str or Path
-        Path to ``project_results.zarr``.
+        Path to the simulation Zarr store.
     sim_id : str
         Simulation UUID.
     variables : list[str]
@@ -48,7 +48,7 @@ def export_netcdf(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     root = zarr.open_group(str(zarr_path), mode="r")
-    grp = root[sim_id]
+    grp = root
 
     mesh = grp.get("mesh")
     if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
