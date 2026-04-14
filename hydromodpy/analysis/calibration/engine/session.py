@@ -1394,7 +1394,7 @@ def execute_model_distribution_reruns(
             }
 
         try:
-            candidate_project = Project(request.candidate_config_path)
+            candidate_project = Simulation(request.candidate_config_path)
             run_kwargs: dict[str, Any] = {}
             if properties is not None:
                 run_kwargs["properties"] = properties
@@ -1785,12 +1785,12 @@ class ModelCalibrationObjectiveEvaluator:
     """Objective evaluator that lets CalibrationEngine drive launcher candidates.
 
     Uses ``actualize_candidate()`` to create a TOML overlay, then
-    ``Project(candidate_config_path).run()`` for each candidate.
+    ``Simulation(candidate_config_path).run()`` for each candidate.
     """
 
     session: PreparedCalibrationSession
     cfg: ModelCalibrationConfig
-    project: Any = None  # hydromodpy.project.Project (lazy typed to avoid circular import)
+    project: Any = None  # hydromodpy.simulation.Simulation (lazy typed to avoid circular import)
     iteration_start: int = 1
     record_callback: Callable[[IterationRecord], None] | None = None
     _next_iteration_index: int = field(init=False, repr=False)
@@ -1860,7 +1860,7 @@ class ModelCalibrationObjectiveEvaluator:
         key: tuple[float, ...],
         iteration_id: str,
     ) -> CompositeObjectiveEvaluation:
-        """Execute via actualize_candidate() + Project(overlay).run()."""
+        """Execute via actualize_candidate() + Simulation(overlay).run()."""
         from hydromodpy.simulation import Simulation
 
         try:
@@ -1914,7 +1914,7 @@ class ModelCalibrationObjectiveEvaluator:
             }
 
         try:
-            candidate_project = Project(
+            candidate_project = Simulation(
                 request.candidate_config_path,
                 headless=True,
             )
@@ -1923,7 +1923,7 @@ class ModelCalibrationObjectiveEvaluator:
                 run_kwargs["properties"] = properties
             result = candidate_project.run(name=request.candidate_run_id, **run_kwargs)
         except Exception as exc:
-            logger.warning("Project.run failed for %s: %s", iteration_id, exc)
+            logger.warning("Simulation.run failed for %s: %s", iteration_id, exc)
             record = IterationRecord(
                 iteration_id=iteration_id,
                 params_vector=key,
@@ -3300,7 +3300,7 @@ def execute_best_candidate_rerun(
             for pa in request.property_array_set.arrays.values()
         }
 
-    candidate_project = Project(request.candidate_config_path)
+    candidate_project = Simulation(request.candidate_config_path)
     run_kwargs: dict[str, Any] = {}
     if properties is not None:
         run_kwargs["properties"] = properties
