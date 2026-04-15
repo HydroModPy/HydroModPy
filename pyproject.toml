@@ -70,6 +70,7 @@ dependencies = [
     "duckdb",
     "tqdm",
     "zarr>=3.0",
+    "pytest",
 ]
 
 [project.optional-dependencies]
