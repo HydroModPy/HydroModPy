@@ -10,9 +10,13 @@ import pytest
 from hydromodpy.analysis.calibration.engine.launcher import ModelCalibrationLauncher
 from hydromodpy.analysis.calibration.engine.session import (
     actualize_candidate,
-    execute_candidate_run,
     select_candidate_outputs,
 )
+
+try:
+    from hydromodpy.analysis.calibration.engine.session import execute_candidate_run
+except ImportError:
+    execute_candidate_run = None
 from tests.regression.golden_utils import assert_required_executables
 from validation_cases.shared.runtime import (
     _dump_toml,
