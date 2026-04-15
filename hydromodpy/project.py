@@ -500,10 +500,16 @@ class Simulation:
         self._postprocess_runner.sim_id = sim_id
 
         # Execute
+        has_transport = any(r.process_type == "transport" for r in plan.runs)
         results_cfg = ResultsConfig(
             keep_solver_files=True,
             budget=BudgetConfig(spatial_fields=True),
-            derived=DerivedConfig(accumulation_flux=True, outflow_drain=True),
+            derived=DerivedConfig(
+                accumulation_flux=True,
+                outflow_drain=True,
+                concentration_seepage=has_transport,
+                mass_seepage=has_transport,
+            ),
             export=ExportConfig(csv_timeseries=True, netcdf=False),
         )
 
