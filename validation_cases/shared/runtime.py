@@ -384,18 +384,18 @@ def resolve_model_workspace(
 
 
 def _discover_result_store(project_path: Path) -> tuple[Any, str | None]:
-    """Try to open a ResultStore from a project directory and find its sim_id.
+    """Try to open a SimulationCatalog from a project directory and find its sim_id.
 
     Returns ``(store, sim_id)`` on success, ``(None, None)`` on failure.
     The caller is responsible for closing the store when done.
     """
-    db_path = project_path / "project.duckdb"
+    db_path = project_path / "hydromodpy.duckdb"
     if not db_path.exists():
         return None, None
     try:
-        from hydromodpy.results.store import ResultStore
+        from hydromodpy.results.catalog import SimulationCatalog
 
-        store = ResultStore(project_path=project_path)
+        store = SimulationCatalog(project_path)
         sims = store.list_simulations()
         if sims.empty:
             store.close()
@@ -571,13 +571,15 @@ def run_launcher_validation_case(
     timeout: int = 1800,
     solver: str | None = None,
 ) -> ValidationRunResult:
-    """Run one launcher-based validation case and resolve its output workspace."""
+    """Run one launcher-based validation case and resolve its output workspace.
+
+    Uses ``python -m hydromodpy run`` (the production CLI entry point)
+    instead of the removed ``launcher_simulation.py`` script.
+    """
     metadata = load_case_metadata(case_dir)
-    launcher_name = str(metadata.get("launcher", "launcher_simulation"))
     solver_name, config_file = _resolve_validation_solver_config(metadata, solver=solver)
     workspace_cfg = dict(metadata.get("workspace", {}))
 
-    launcher_script = REPO_ROOT / "examples" / "projects" / launcher_name / f"{launcher_name}.py"
     case_id = str(metadata.get("case_id", case_dir.name))
     use_solver_suffix = solver is not None or _case_has_multiple_solver_configs(metadata)
     run_name = f"{case_id}_{solver_name}" if use_solver_suffix else case_id
@@ -589,18 +591,24 @@ def run_launcher_validation_case(
         config_path=config_path,
         solver_name=solver_name,
     )
-    run_args = [str(run_config_path)]
-    extra_env = {
-        "HYDROMODPY_NO_DISPLAY": "1",
-        "HYDROMODPY_NO_SAVE": "1",
-    }
+
+    env = os.environ.copy()
+    env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
+    env["HYDROMODPY_NO_DISPLAY"] = "1"
+    env["HYDROMODPY_NO_SAVE"] = "1"
+    env.setdefault("MPLBACKEND", "Agg")
+
+    command = [
+        sys.executable, "-m", "hydromodpy", "run", str(run_config_path),
+    ]
+
     try:
-        completed = run_example_script(
-            script_path=launcher_script,
-            out_path=out_path,
-            out_env_var="HYDROMODPY_OUT_PATH",
-            extra_env=extra_env,
-            script_args=run_args,
+        completed = subprocess.run(
+            command,
+            cwd=str(REPO_ROOT),
+            env=env,
+            text=True,
+            capture_output=True,
             timeout=timeout,
         )
     finally:
@@ -611,11 +619,6 @@ def run_launcher_validation_case(
                 pass
 
     if completed.returncode != 0:
-        command = (
-            [sys.executable, str(Path(__file__).resolve().parent / "coverage_runner.py"), str(launcher_script), *run_args]
-            if os.environ.get("HYDROMODPY_COVERAGE")
-            else [sys.executable, str(launcher_script), *run_args]
-        )
         workspace_error: AssertionError | None = None
         try:
             resolve_model_workspace(
@@ -628,7 +631,7 @@ def run_launcher_validation_case(
             workspace_error = exc
         raise AssertionError(
             _format_subprocess_failure(
-                script_path=launcher_script,
+                script_path=Path("hydromodpy.__main__"),
                 command=command,
                 completed=completed,
                 workspace_error=workspace_error,
@@ -643,23 +646,15 @@ def run_launcher_validation_case(
             model_name=workspace_cfg.get("model_name"),
         )
     except AssertionError as exc:
-        if completed.returncode != 0:
-            command = (
-                [sys.executable, str(Path(__file__).resolve().parent / "coverage_runner.py"), str(launcher_script), *run_args]
-                if os.environ.get("HYDROMODPY_COVERAGE")
-                else [sys.executable, str(launcher_script), *run_args]
+        raise AssertionError(
+            _format_subprocess_failure(
+                script_path=Path("hydromodpy.__main__"),
+                command=command,
+                completed=completed,
+                workspace_error=exc,
             )
-            raise AssertionError(
-                _format_subprocess_failure(
-                    script_path=launcher_script,
-                    command=command,
-                    completed=completed,
-                    workspace_error=exc,
-                )
-            ) from exc
-        raise
+        ) from exc
 
-    # Try to discover a ResultStore produced by the launcher subprocess.
     store, sim_id = _discover_result_store(out_path)
 
     return ValidationRunResult(
