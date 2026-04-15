@@ -1371,9 +1371,9 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
         def close(self):
             pass
 
-    import hydromodpy.simulation as simulation_module
+    import hydromodpy.project as project_module
 
-    monkeypatch.setattr(simulation_module, "Simulation", _FakeProject)
+    monkeypatch.setattr(project_module, "Simulation", _FakeProject)
     monkeypatch.setattr(
         "hydromodpy.analysis.comparison.orchestrator.read_variant_run_metadata",
         lambda _run_folder: {},

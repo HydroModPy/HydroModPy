@@ -52,7 +52,7 @@ class OverviewDataLoader:
         but has no explicit dates, copy from ``[overview]``.
         """
         overview = state.cfg.overview
-        if not overview.date_start or not overview.date_end:
+        if overview is None or not overview.date_start or not overview.date_end:
             return
 
         data_cfg = state.cfg.data

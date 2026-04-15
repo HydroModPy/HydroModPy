@@ -83,7 +83,7 @@
     "q95_elevation_catchment_m": 69.375,
     "q05_elevation_box_buff_m": 56.599998474121094,
     "q50_elevation_box_buff_m": 63.93000030517578,
-    "q95_elevation_box_buff_m": 69.76500701904297,
+    "q95_elevation_box_buff_m": 69.76499938964844,
     "sum_elevation_catchment_m": 26954.540172576904,
     "sum_elevation_box_buff_m": 79458.360496521,
     "valid_pixel_count_catchment": 426,

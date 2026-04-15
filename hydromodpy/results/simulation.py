@@ -247,7 +247,7 @@ class Simulation:
 
         new_config = HydroModPyConfig.from_snapshot(snapshot, **overrides)
 
-        from hydromodpy.simulation import Simulation
+        from hydromodpy.project import Simulation
         from uuid import uuid4
 
         # Build a minimal Simulation-like execution from the reconstructed config

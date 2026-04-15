@@ -1,6 +1,7 @@
 """Shared pytest configuration for the HydroModPy test suite."""
 
 import os
+import shutil
 from pathlib import Path
 import tempfile
 import pytest
@@ -95,6 +96,20 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.extensive)
         else:
             item.add_marker(pytest.mark.fast)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Clean up the shared scratch root at the end of the test session.
+
+    Only runs on the controller process (not on xdist workers) to avoid
+    races.  Silently ignores missing or locked files.
+    """
+    is_xdist_worker = hasattr(session.config, "workerinput")
+    if is_xdist_worker:
+        return
+    scratch = _TEST_SCRATCH_ROOT
+    if scratch.exists():
+        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def pytest_ignore_collect(collection_path, config):

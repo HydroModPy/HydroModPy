@@ -6,10 +6,13 @@ directory.  Panel rendering is delegated to the generic functions in
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from hydromodpy.analysis.display.report.overview_config import DataOverviewState
@@ -44,6 +47,9 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
     )
     from hydromodpy.analysis.display.report.summary import compute_overview_summary
 
+    if state.cfg.overview is None:
+        logger.info("No [overview] section in config, skipping report generation.")
+        return []
     panels_cfg = state.cfg.overview.panels
     output_dir = _resolve_output_dir(state)
     output_dir.mkdir(parents=True, exist_ok=True)

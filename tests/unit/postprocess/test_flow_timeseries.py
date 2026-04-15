@@ -176,6 +176,7 @@ def test_flow_timeseries_exports_unstructured_weighted_outputs(tmp_path: Path) -
     )
 
     geographic = SimpleNamespace(
+        out_dir_path=str(tmp_path / "stable"),
         stable_folder=str(tmp_path / "stable"),
         simulations_folder=str(tmp_path / "simulations"),
         watershed_dem=str(tmp_path / "unused_base.tif"),

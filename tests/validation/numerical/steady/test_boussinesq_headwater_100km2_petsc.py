@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.simulation import Simulation
+from hydromodpy.project import Simulation
 
 
 def _require_linux_petsc4py() -> None:

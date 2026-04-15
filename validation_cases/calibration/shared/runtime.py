@@ -217,7 +217,6 @@ def _write_regular_objective_grid_payload(
     evaluator = ModelCalibrationObjectiveEvaluator(
         session=session,
         cfg=launcher.cfg,
-        launcher_factory=launcher_factory,
         iteration_start=1,
         record_callback=None,
     )
@@ -464,9 +463,9 @@ def synthesize_truth_observations(
         candidate_label="truth",
         disable_postprocess=False,
     )
-    import hydromodpy.simulation as _simulation_mod
+    from hydromodpy.project import Simulation as _Simulation
 
-    project = _simulation_mod.Simulation(request.candidate_config_path, headless=True)
+    project = _Simulation(request.candidate_config_path, headless=True)
     project.run()
     run_state = project._ctx
     project.close()
@@ -994,9 +993,7 @@ def run_twin_benchmark_case(
             effective_profile,
         )
         _write_toml(calibration_path, payload)
-        summary = ModelCalibrationLauncher(calibration_path).calibrate(
-            launcher_factory=launcher_factory,
-        )
+        summary = ModelCalibrationLauncher(calibration_path).calibrate()
         assessed_result = _assess_method_result(
             definition=definition,
             method_profile=method_profile,

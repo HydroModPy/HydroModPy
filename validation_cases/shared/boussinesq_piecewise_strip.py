@@ -595,14 +595,7 @@ def run_piecewise_strip_boussinesq_launcher_case(
     recharge_rate_m_s: float | None = None,
     runtime_backend: str = "scipy_sparse",
 ) -> ValidationRunResult:
-    """Run one steady Boussinesq piecewise-strip case through the real launcher."""
-    launcher_script = (
-        REPO_ROOT
-        / "examples"
-        / "projects"
-        / "launcher_simulation"
-        / "launcher_simulation.py"
-    )
+    """Run one steady Boussinesq piecewise-strip case through ``hmp run``."""
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
         run_name=f"{case_id}_boussinesq",
@@ -624,17 +617,21 @@ def run_piecewise_strip_boussinesq_launcher_case(
         runtime_backend=runtime_backend,
     )
 
-    completed = run_example_script(
-        script_path=launcher_script,
-        out_path=out_path,
-        out_env_var="HYDROMODPY_OUT_PATH",
-        extra_env={"HYDROMODPY_NO_DISPLAY": "1"},
-        script_args=[str(config_path)],
-        timeout=timeout,
+    import subprocess as _sp
+
+    env = os.environ.copy()
+    env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
+    env["HYDROMODPY_NO_DISPLAY"] = "1"
+    env.setdefault("MPLBACKEND", "Agg")
+    command = [sys.executable, "-m", "hydromodpy", "run", str(config_path)]
+    completed = _sp.run(
+        command, cwd=str(REPO_ROOT), env=env,
+        text=True, capture_output=True, timeout=timeout,
     )
     if completed.returncode != 0:
         raise AssertionError(
-            f"launcher_simulation.py failed for {case_id}.\n"
+            f"hmp run failed for {case_id}.\n"
+            f"Command: {' '.join(command)}\n"
             f"Stdout:\n{completed.stdout}\n"
             f"Stderr:\n{completed.stderr}"
         )

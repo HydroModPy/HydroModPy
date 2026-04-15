@@ -504,7 +504,7 @@ def _prepare_runtime_hydraulic_property_support(
     from hydromodpy.solver.modflow_common.discretization_spatial import (
         build_spatial_discretization,
     )
-    from hydromodpy.simulation import Simulation
+    from hydromodpy.project import Simulation
 
     project = Simulation(simulation_config_path, headless=True)
 
@@ -1339,7 +1339,7 @@ def execute_model_distribution_reruns(
     selection: str,
 ) -> dict[str, Any] | None:
     """Run a selected subset of model-distribution samples with full outputs."""
-    from hydromodpy.simulation import Simulation
+    from hydromodpy.project import Simulation
 
     if distribution_payload is None:
         return {
@@ -1861,7 +1861,7 @@ class ModelCalibrationObjectiveEvaluator:
         iteration_id: str,
     ) -> CompositeObjectiveEvaluation:
         """Execute via actualize_candidate() + Simulation(overlay).run()."""
-        from hydromodpy.simulation import Simulation
+        from hydromodpy.project import Simulation
 
         try:
             actualize_start = time.perf_counter()
@@ -3278,7 +3278,7 @@ def execute_best_candidate_rerun(
     project: Any = None,
 ) -> CandidateRunOutcome:
     """Rerun the best candidate without calibration-time output suppression."""
-    from hydromodpy.simulation import Simulation
+    from hydromodpy.project import Simulation
 
     params = getattr(result, "params_best", None)
     if params is None:

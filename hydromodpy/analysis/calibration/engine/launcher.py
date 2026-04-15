@@ -103,9 +103,9 @@ class ModelCalibrationLauncher:
         request = self.actualize_candidate(params, iteration_index=iteration_index)
 
         # Execute via Simulation.
-        import hydromodpy.simulation as _simulation_mod
+        from hydromodpy.project import Simulation as _Simulation
 
-        project = _simulation_mod.Simulation(request.candidate_config_path, headless=True)
+        project = _Simulation(request.candidate_config_path, headless=True)
         try:
             project.run()
             outcome = CandidateRunOutcome(
@@ -147,9 +147,9 @@ class ModelCalibrationLauncher:
         session = self.prepare()
 
         if project is None:
-            import hydromodpy.simulation as _simulation_mod
+            from hydromodpy.project import Simulation as _Simulation
 
-            project = _simulation_mod.Simulation(
+            project = _Simulation(
                 self.cfg.simulation_config_path,
                 headless=True,
             )
