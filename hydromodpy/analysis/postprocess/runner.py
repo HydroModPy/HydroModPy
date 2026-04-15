@@ -135,7 +135,10 @@ class PostprocessRunner:
                 return
             if cfg.display:
                 display_options = state.cfg.display.to_runtime_options()
-                plot_boussinesq_flow_suite(state, display_options)
+                try:
+                    plot_boussinesq_flow_suite(state, display_options)
+                except Exception:
+                    logger.warning("Boussinesq flow display suite failed", exc_info=True)
             return
 
         if cfg.timeseries.enabled:
@@ -176,20 +179,26 @@ class PostprocessRunner:
                 logger.warning("Flow NetCDF postprocess failed", exc_info=True)
 
         if cfg.matching_streams and state.loaded_data.hydrography is not None:
-            run_matching_streams(
-                geographic=state.setup.geographic,
-                hydrography=state.loaded_data.hydrography,
-                workspace=state.setup.workspace,
-                model_modflow=flow_model,
-                iteration_label=flow_model.model_name,
-            )
+            try:
+                run_matching_streams(
+                    geographic=state.setup.geographic,
+                    hydrography=state.loaded_data.hydrography,
+                    workspace=state.setup.workspace,
+                    model_modflow=flow_model,
+                    iteration_label=flow_model.model_name,
+                )
+            except Exception:
+                logger.warning("Matching streams postprocess failed", exc_info=True)
 
         if cfg.display:
             display_options = state.cfg.display.to_runtime_options()
-            plot_flow_suite(
-                state, display_options,
-                store=self.store, sim_id=self.sim_id,
-            )
+            try:
+                plot_flow_suite(
+                    state, display_options,
+                    store=self.store, sim_id=self.sim_id,
+                )
+            except Exception:
+                logger.warning("Flow display suite failed", exc_info=True)
 
     def _after_transport(self, state: "WorkflowContext") -> None:
         cfg = self.config.transport
@@ -257,6 +266,12 @@ class PostprocessRunner:
 
         display_options = state.cfg.display.to_runtime_options()
         if cfg.display_particles and particle_model is not None:
-            plot_particles_suite(state, display_options)
+            try:
+                plot_particles_suite(state, display_options)
+            except Exception:
+                logger.warning("Particles display suite failed", exc_info=True)
         if cfg.display_transport and transport_model is not None:
-            plot_transport_suite(state, display_options)
+            try:
+                plot_transport_suite(state, display_options)
+            except Exception:
+                logger.warning("Transport display suite failed", exc_info=True)
