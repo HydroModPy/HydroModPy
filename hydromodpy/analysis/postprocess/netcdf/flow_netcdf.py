@@ -109,15 +109,6 @@ class FlowNetcdfPostprocess(NetcdfWriter):
         if data is None:
             return False
 
-        # Store fields are flat 1D — reshape to 2D grid for NetCDF export.
-        import rasterio
-        with rasterio.open(self.base_raster_path) as src:
-            grid_shape = (src.height, src.width)
-        data = {
-            k: v.reshape(grid_shape) if v.size == grid_shape[0] * grid_shape[1] else v
-            for k, v in data.items()
-        }
-
         try:
             out_path = os.path.join(self.netcdf_file, f"{name}.nc")
             if self.is_unstructured:
@@ -133,6 +124,13 @@ class FlowNetcdfPostprocess(NetcdfWriter):
                     times=times,
                 )
             else:
+                import rasterio
+                with rasterio.open(self.base_raster_path) as src:
+                    grid_shape = (src.height, src.width)
+                data = {
+                    k: v.reshape(grid_shape) if v.size == grid_shape[0] * grid_shape[1] else v
+                    for k, v in data.items()
+                }
                 self.export_netcdf(
                     data,
                     base_path=self.base_raster_path,
