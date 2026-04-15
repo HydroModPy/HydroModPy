@@ -142,32 +142,38 @@ class PostprocessRunner:
             from hydromodpy.analysis.postprocess.timeseries import FlowTimeseriesPostprocess
 
             runoff = _extract_runoff_series_m_per_day(state.loaded_data.runoff)
-            ts_pp = FlowTimeseriesPostprocess(
-                state.setup.geographic,
-                model_modflow=flow_model,
-                runoff=runoff,
-                datetime_format=cfg.timeseries.datetime_format,
-                subbasin_results=cfg.timeseries.subbasin_results,
-                intermittency_weekly=cfg.intermittency.weekly,
-                intermittency_monthly=cfg.intermittency.monthly,
-                intermittency_yearly=cfg.intermittency.yearly,
-                intermittency_daily=cfg.intermittency.daily,
-                store=self.store,
-                sim_id=self.sim_id,
-            )
-            if hasattr(ts_pp, "mfdata") and ts_pp.mfdata is not None:
-                self._write_timeseries_to_store(ts_pp.mfdata)
+            try:
+                ts_pp = FlowTimeseriesPostprocess(
+                    state.setup.geographic,
+                    model_modflow=flow_model,
+                    runoff=runoff,
+                    datetime_format=cfg.timeseries.datetime_format,
+                    subbasin_results=cfg.timeseries.subbasin_results,
+                    intermittency_weekly=cfg.intermittency.weekly,
+                    intermittency_monthly=cfg.intermittency.monthly,
+                    intermittency_yearly=cfg.intermittency.yearly,
+                    intermittency_daily=cfg.intermittency.daily,
+                    store=self.store,
+                    sim_id=self.sim_id,
+                )
+                if hasattr(ts_pp, "mfdata") and ts_pp.mfdata is not None:
+                    self._write_timeseries_to_store(ts_pp.mfdata)
+            except Exception:
+                logger.warning("Flow timeseries postprocess failed", exc_info=True)
 
         if cfg.netcdf.enabled:
             from hydromodpy.analysis.postprocess.netcdf import FlowNetcdfPostprocess
 
-            FlowNetcdfPostprocess(
-                state.setup.geographic,
-                model_modflow=flow_model,
-                datetime_format=cfg.netcdf.datetime_format,
-                store=self.store,
-                sim_id=self.sim_id,
-            )
+            try:
+                FlowNetcdfPostprocess(
+                    state.setup.geographic,
+                    model_modflow=flow_model,
+                    datetime_format=cfg.netcdf.datetime_format,
+                    store=self.store,
+                    sim_id=self.sim_id,
+                )
+            except Exception:
+                logger.warning("Flow NetCDF postprocess failed", exc_info=True)
 
         if cfg.matching_streams and state.loaded_data.hydrography is not None:
             run_matching_streams(
@@ -205,43 +211,49 @@ class PostprocessRunner:
             )
 
             runoff = _extract_runoff_series_m_per_day(state.loaded_data.runoff)
-            ts_pp = TransportTimeseriesPostprocess(
-                state.setup.geographic,
-                model_modflow=flow_model,
-                runoff=runoff,
-                model_modpath=particle_model,
-                model_mt3dms=transport_model,
-                suffix_name=cfg.timeseries.suffix_name,
-                datetime_format=cfg.timeseries.datetime_format,
-                subbasin_results=cfg.timeseries.subbasin_results,
-                intermittency_weekly=cfg.intermittency.weekly,
-                intermittency_monthly=cfg.intermittency.monthly,
-                intermittency_yearly=cfg.intermittency.yearly,
-                intermittency_daily=cfg.intermittency.daily,
-                residence_times=cfg.timeseries.residence_times,
-                concentration_seepage=cfg.timeseries.concentration_seepage,
-                mass_accumulated=cfg.timeseries.mass_accumulated,
-                store=self.store,
-                sim_id=self.sim_id,
-            )
-            if hasattr(ts_pp, "mfdata") and ts_pp.mfdata is not None:
-                self._write_timeseries_to_store(ts_pp.mfdata)
+            try:
+                ts_pp = TransportTimeseriesPostprocess(
+                    state.setup.geographic,
+                    model_modflow=flow_model,
+                    runoff=runoff,
+                    model_modpath=particle_model,
+                    model_mt3dms=transport_model,
+                    suffix_name=cfg.timeseries.suffix_name,
+                    datetime_format=cfg.timeseries.datetime_format,
+                    subbasin_results=cfg.timeseries.subbasin_results,
+                    intermittency_weekly=cfg.intermittency.weekly,
+                    intermittency_monthly=cfg.intermittency.monthly,
+                    intermittency_yearly=cfg.intermittency.yearly,
+                    intermittency_daily=cfg.intermittency.daily,
+                    residence_times=cfg.timeseries.residence_times,
+                    concentration_seepage=cfg.timeseries.concentration_seepage,
+                    mass_accumulated=cfg.timeseries.mass_accumulated,
+                    store=self.store,
+                    sim_id=self.sim_id,
+                )
+                if hasattr(ts_pp, "mfdata") and ts_pp.mfdata is not None:
+                    self._write_timeseries_to_store(ts_pp.mfdata)
+            except Exception:
+                logger.warning("Transport timeseries postprocess failed", exc_info=True)
 
         if cfg.netcdf.enabled and (transport_model is not None or particle_model is not None):
             from hydromodpy.analysis.postprocess.netcdf import TransportNetcdfPostprocess
 
-            TransportNetcdfPostprocess(
-                state.setup.geographic,
-                model_modflow=flow_model,
-                model_modpath=particle_model,
-                model_mt3dms=transport_model,
-                datetime_format=cfg.netcdf.datetime_format,
-                residence_times=cfg.netcdf.residence_times,
-                concentration_seepage=cfg.netcdf.concentration_seepage,
-                mass_accumulated=cfg.netcdf.mass_accumulated,
-                store=self.store,
-                sim_id=self.sim_id,
-            )
+            try:
+                TransportNetcdfPostprocess(
+                    state.setup.geographic,
+                    model_modflow=flow_model,
+                    model_modpath=particle_model,
+                    model_mt3dms=transport_model,
+                    datetime_format=cfg.netcdf.datetime_format,
+                    residence_times=cfg.netcdf.residence_times,
+                    concentration_seepage=cfg.netcdf.concentration_seepage,
+                    mass_accumulated=cfg.netcdf.mass_accumulated,
+                    store=self.store,
+                    sim_id=self.sim_id,
+                )
+            except Exception:
+                logger.warning("Transport NetCDF postprocess failed", exc_info=True)
 
         display_options = state.cfg.display.to_runtime_options()
         if cfg.display_particles and particle_model is not None:
