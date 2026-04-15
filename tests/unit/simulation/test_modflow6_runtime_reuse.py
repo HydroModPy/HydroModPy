@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 from hydromodpy.simulation.adapters.flow.modflow6 import Modflow6FlowAdapter
