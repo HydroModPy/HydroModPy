@@ -217,7 +217,6 @@ def _write_regular_objective_grid_payload(
     evaluator = ModelCalibrationObjectiveEvaluator(
         session=session,
         cfg=launcher.cfg,
-        launcher_factory=launcher_factory,
         iteration_start=1,
         record_callback=None,
     )
@@ -994,9 +993,7 @@ def run_twin_benchmark_case(
             effective_profile,
         )
         _write_toml(calibration_path, payload)
-        summary = ModelCalibrationLauncher(calibration_path).calibrate(
-            launcher_factory=launcher_factory,
-        )
+        summary = ModelCalibrationLauncher(calibration_path).calibrate()
         assessed_result = _assess_method_result(
             definition=definition,
             method_profile=method_profile,
