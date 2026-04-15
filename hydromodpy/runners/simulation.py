@@ -16,7 +16,7 @@ def run(config_path: str | Path) -> dict:
     describes a simulation workflow.  It creates a Simulation, runs once
     (no overrides), and closes.
     """
-    from hydromodpy.simulation import Simulation
+    from hydromodpy.project import Simulation
 
     with Simulation(config_path) as project:
         result = project.run()
