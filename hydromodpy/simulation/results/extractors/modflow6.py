@@ -105,7 +105,10 @@ class Modflow6OutputAdapter:
         """Extract cell budget data from MF6 .cbc file."""
         import flopy.utils.binaryfile as bf
 
-        cbb = bf.CellBudgetFile(str(cbc_path))
+        try:
+            cbb = bf.CellBudgetFile(str(cbc_path))
+        except Exception:
+            cbb = bf.CellBudgetFile(str(cbc_path), precision="double")
         record_names = [r.decode().strip() for r in cbb.get_unique_record_names()]
 
         budget_records: list[dict] = []

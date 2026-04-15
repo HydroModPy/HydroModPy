@@ -227,6 +227,7 @@ def run_boussinesq_hillslope_interception_case(
     bundle = load_catchment_mesh_bundle(bundle_dir)
     simulations_folder = out_path / "results_simulations"
     simulations_folder.mkdir(parents=True, exist_ok=True)
+    simulations_folder.mkdir(parents=True, exist_ok=True)
 
     flow = Flow(
         _build_flow_config(
@@ -239,6 +240,7 @@ def run_boussinesq_hillslope_interception_case(
                     "recharge": {
                         "values": mm_day_to_m_s(RECHARGE_MM_DAY),
                         "first_clim": "mean",
+                    "units": "m/s",
                     }
                 },
                 "bc": {

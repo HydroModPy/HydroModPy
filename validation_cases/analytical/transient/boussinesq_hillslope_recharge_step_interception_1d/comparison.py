@@ -11,7 +11,7 @@ from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
     load_case_tolerances,
-    load_npy_time_series_arrays,
+    load_time_series_fields,
     max_abs_error,
     max_std_along_axis,
     rmse,
@@ -68,9 +68,13 @@ class BoussinesqTransientHillslopeInterceptionComparison:
 def _load_outputs(*, result: ValidationRunResult, metadata: dict) -> tuple[str, np.ndarray, np.ndarray]:
     output_cfg = dict(metadata.get("output", {}))
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
-    period_indices, heads = load_npy_time_series_arrays(
-        result.postprocess_dir,
-        observable_name,
+    expected_spatial_shape = tuple(output_cfg.get("expected_spatial_shape", ())) or None
+    period_indices, heads = load_time_series_fields(
+        postprocess_dir=result.postprocess_dir,
+        store=result.store,
+        sim_id=result.sim_id,
+        observable_name=observable_name,
+        expected_spatial_shape=expected_spatial_shape,
     )
 
     expected_periods = int(output_cfg.get("expected_periods", 0))

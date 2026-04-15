@@ -638,6 +638,8 @@ def run_launcher_validation_case(
             )
         )
 
+    store, sim_id = _discover_result_store(out_path)
+
     try:
         model_ws, postprocess_dir, particles_dir = resolve_model_workspace(
             out_path,
@@ -645,17 +647,23 @@ def run_launcher_validation_case(
             results_folder_name=str(workspace_cfg.get("results_folder_name", "results_simulations")),
             model_name=workspace_cfg.get("model_name"),
         )
-    except AssertionError as exc:
-        raise AssertionError(
-            _format_subprocess_failure(
-                script_path=Path("hydromodpy.__main__"),
-                command=command,
-                completed=completed,
-                workspace_error=exc,
+    except AssertionError:
+        if store is not None and sim_id is not None:
+            model_ws = out_path
+            postprocess_dir = out_path
+            particles_dir = out_path
+        else:
+            raise AssertionError(
+                _format_subprocess_failure(
+                    script_path=Path("hydromodpy.__main__"),
+                    command=command,
+                    completed=completed,
+                    workspace_error=AssertionError(
+                        f"Results folder not found and no SimulationCatalog "
+                        f"available at {out_path}"
+                    ),
+                )
             )
-        ) from exc
-
-    store, sim_id = _discover_result_store(out_path)
 
     return ValidationRunResult(
         case_dir=case_dir,

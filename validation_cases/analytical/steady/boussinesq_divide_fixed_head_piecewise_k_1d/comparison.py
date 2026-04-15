@@ -12,7 +12,7 @@ from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
     load_case_tolerances,
-    load_last_npy_array,
+    load_field,
     max_abs_error,
     max_std_along_axis,
     mean_along_axis,
@@ -64,9 +64,24 @@ def _load_heads_for_comparison(
     *,
     result: ValidationRunResult,
     observable_name: str,
+    expected_shape: tuple[int, ...] | None = None,
 ) -> tuple[int, np.ndarray]:
-    """Load postprocessed heads, or fall back to the last MODFLOW head file."""
+    """Load heads from the store, postprocess dir, or MODFLOW head file."""
+    from validation_cases.shared import load_field
+
+    if result.store is not None and result.sim_id is not None:
+        try:
+            return load_field(
+                store=result.store,
+                sim_id=result.sim_id,
+                observable_name=observable_name,
+                expected_shape=expected_shape,
+            )
+        except Exception:
+            pass
+
     try:
+        from validation_cases.shared import load_last_npy_array
         return load_last_npy_array(result.postprocess_dir, observable_name)
     except FileNotFoundError:
         if observable_name != "watertable_elevation":
@@ -100,17 +115,18 @@ def build_boussinesq_divide_fixed_head_piecewise_k_comparison(
     output_cfg = dict(case_metadata.get("output", {}))
     reference_cfg = dict(case_metadata.get("reference", {}))
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
-    timestep, heads = _load_heads_for_comparison(
-        result=result,
-        observable_name=observable_name,
-    )
-
     expected_shape_by_solver = output_cfg.get("expected_shape_by_solver", {})
     expected_shape = ()
     if isinstance(expected_shape_by_solver, dict) and solver_name in expected_shape_by_solver:
         expected_shape = tuple(expected_shape_by_solver[solver_name])
     else:
         expected_shape = tuple(output_cfg.get("expected_shape", ()))
+    timestep, heads = _load_heads_for_comparison(
+        result=result,
+        observable_name=observable_name,
+        expected_shape=expected_shape or None,
+    )
+
     if expected_shape:
         assert tuple(heads.shape) == expected_shape, (
             f"Unexpected shape for {observable_name}: {heads.shape} != {expected_shape}"

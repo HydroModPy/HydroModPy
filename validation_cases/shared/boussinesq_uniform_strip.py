@@ -376,6 +376,7 @@ def aggregate_triangle_history_to_structured_grids(
         watertable_depth[int(time_index)] = np.maximum(top_grid - head_grid, 0.0)
 
     postprocess_dir = Path(model.full_path) / "_postprocess"
+    postprocess_dir.mkdir(parents=True, exist_ok=True)
     np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
     np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
 
@@ -433,6 +434,7 @@ def run_boussinesq_uniform_strip_case(
         storage_coefficient=float(storage_coefficient),
     )
     simulations_folder = out_path / "results_simulations"
+    simulations_folder.mkdir(parents=True, exist_ok=True)
 
     time_grid = None
     if normalized_regime == "transient":
@@ -449,7 +451,7 @@ def run_boussinesq_uniform_strip_case(
             flow=Flow(build_flow_config(flow_section, case_dir=case_dir)),
             domain=None,
             time_grid=time_grid,
-            workspace=SimpleNamespace(simulations_folder=simulations_folder),
+            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
         ),
     )
     run = ProcessRun(

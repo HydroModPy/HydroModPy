@@ -1913,6 +1913,9 @@ class ModelCalibrationObjectiveEvaluator:
                 for pa in request.property_array_set.arrays.values()
             }
 
+        import time as _time
+
+        t_start = _time.perf_counter()
         try:
             candidate_project = Simulation(
                 request.candidate_config_path,
@@ -1921,7 +1924,9 @@ class ModelCalibrationObjectiveEvaluator:
             run_kwargs: dict[str, Any] = {}
             if properties is not None:
                 run_kwargs["properties"] = properties
+            t_sim_start = _time.perf_counter()
             result = candidate_project.run(name=request.candidate_run_id, **run_kwargs)
+            t_sim_end = _time.perf_counter()
         except Exception as exc:
             logger.warning("Simulation.run failed for %s: %s", iteration_id, exc)
             record = IterationRecord(
@@ -1949,7 +1954,9 @@ class ModelCalibrationObjectiveEvaluator:
             self._evaluations_by_key[key] = evaluation
             return evaluation
 
+        simulation_seconds = t_sim_end - t_sim_start
         self.candidate_run_count += 1
+        t_obj_start = _time.perf_counter()
         try:
             obj_eval_run = evaluate_candidate_objective(
                 cfg=self.cfg,
@@ -1966,11 +1973,17 @@ class ModelCalibrationObjectiveEvaluator:
                 params_vector=key,
                 error=exc,
             )
+        t_obj_end = _time.perf_counter()
+        objective_seconds = t_obj_end - t_obj_start
+        total_seconds = _time.perf_counter() - t_start
 
         outcome = CandidateRunOutcome(
             request=request,
             status="objective_evaluated" if evaluation is not None else "solver_run_succeeded",
             objective_evaluation=evaluation,
+            simulation_seconds=simulation_seconds,
+            objective_seconds=objective_seconds,
+            total_seconds=total_seconds,
         )
         self._outcomes_by_key[key] = outcome
         self._evaluations_by_key[key] = evaluation

@@ -52,6 +52,7 @@ def run_boussinesq_dupuit_uniform_recharge_case(
                 "recharge": {
                     "values": mm_day_to_m_s(float(reference_cfg["recharge_mm_day"])),
                     "first_clim": "mean",
+                    "units": "m/s",
                 }
             },
             "bc": {

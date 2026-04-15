@@ -108,6 +108,7 @@ def run_boussinesq_brutsaert_recession_case(
                     "recharge": {
                         "values": _mm_day_to_m_s(steady_recharge_mm_day),
                         "first_clim": "mean",
+                    "units": "m/s",
                     }
                 },
                 "bc": {

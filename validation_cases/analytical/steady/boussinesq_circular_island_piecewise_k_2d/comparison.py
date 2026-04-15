@@ -13,7 +13,7 @@ from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
     load_case_tolerances,
-    load_last_npy_array,
+    load_field,
     max_abs_error,
     rmse,
     run_launcher_validation_case,
@@ -150,14 +150,20 @@ def build_boussinesq_circular_island_piecewise_k_comparison(
     output_cfg = dict(case_metadata.get("output", {}))
     reference_cfg = dict(case_metadata.get("reference", {}))
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
-    timestep, heads = load_last_npy_array(result.postprocess_dir, observable_name)
-
     expected_shape_by_solver = output_cfg.get("expected_shape_by_solver", {})
     expected_shape = ()
     if isinstance(expected_shape_by_solver, dict) and solver_name in expected_shape_by_solver:
         expected_shape = tuple(expected_shape_by_solver[solver_name])
     else:
         expected_shape = tuple(output_cfg.get("expected_shape", ()))
+    timestep, heads = load_field(
+        postprocess_dir=result.postprocess_dir,
+        store=result.store,
+        sim_id=result.sim_id,
+        observable_name=observable_name,
+        expected_shape=expected_shape or None,
+    )
+
     if expected_shape:
         assert tuple(heads.shape) == expected_shape, (
             f"Unexpected shape for {observable_name}: {heads.shape} != {expected_shape}"

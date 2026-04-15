@@ -68,6 +68,7 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
         circular_runtime.N_SECTORS = previous_sectors
         circular_runtime.LAND_SUPPORT_RADII_M = previous_radii
     simulations_folder = out_path / "results_simulations"
+    simulations_folder.mkdir(parents=True, exist_ok=True)
     wells_payload = {
         f"ocean_comp_{index:03d}": {
             "location_mode": "absolute_xy",
@@ -98,6 +99,7 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
                             "recharge": {
                                 "values": recharge_rate_m_s,
                                 "first_clim": "mean",
+                    "units": "m/s",
                             },
                             "wells": wells_payload,
                         },
@@ -112,7 +114,7 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
             ),
             domain=None,
             time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=simulations_folder),
+            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
         ),
     )
     run = ProcessRun(

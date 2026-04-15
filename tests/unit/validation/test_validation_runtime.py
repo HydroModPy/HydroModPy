@@ -110,8 +110,8 @@ def test_run_launcher_validation_case_resolves_solver_name_and_output_run_name(
         _resolve_results_dir,
     )
     monkeypatch.setattr(
-        "validation_cases.shared.runtime.run_example_script",
-        lambda **kwargs: SimpleNamespace(
+        "validation_cases.shared.runtime.subprocess.run",
+        lambda *args, **kwargs: SimpleNamespace(
             returncode=0,
             stdout="ok",
             stderr="",
@@ -215,8 +215,8 @@ def test_run_launcher_validation_case_reports_failure_even_when_outputs_exist(
         lambda **kwargs: tmp_path / "outputs",
     )
     monkeypatch.setattr(
-        "validation_cases.shared.runtime.run_example_script",
-        lambda **kwargs: SimpleNamespace(
+        "validation_cases.shared.runtime.subprocess.run",
+        lambda *args, **kwargs: SimpleNamespace(
             returncode=1,
             stdout="partial run",
             stderr="solver did not converge",
@@ -231,7 +231,7 @@ def test_run_launcher_validation_case_reports_failure_even_when_outputs_exist(
         lambda *args, **kwargs: (model_ws, postprocess_dir, particles_dir),
     )
 
-    with pytest.raises(AssertionError, match="launcher_simulation.py failed") as excinfo:
+    with pytest.raises(AssertionError, match="hydromodpy.__main__ failed") as excinfo:
         run_launcher_validation_case(case_dir=case_dir, test_file=__file__)
 
     message = str(excinfo.value)
@@ -262,8 +262,8 @@ def test_run_launcher_validation_case_reports_subprocess_failure_when_outputs_mi
         lambda **kwargs: tmp_path / "outputs",
     )
     monkeypatch.setattr(
-        "validation_cases.shared.runtime.run_example_script",
-        lambda **kwargs: SimpleNamespace(
+        "validation_cases.shared.runtime.subprocess.run",
+        lambda *args, **kwargs: SimpleNamespace(
             returncode=1,
             stdout="partial run",
             stderr="solver did not converge",
@@ -274,5 +274,5 @@ def test_run_launcher_validation_case_reports_subprocess_failure_when_outputs_mi
         lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("Model folder not found")),
     )
 
-    with pytest.raises(AssertionError, match="launcher_simulation.py failed"):
+    with pytest.raises(AssertionError, match="hydromodpy.__main__ failed"):
         run_launcher_validation_case(case_dir=case_dir, test_file=__file__)
