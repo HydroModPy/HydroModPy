@@ -90,6 +90,7 @@ def run_boussinesq_linearized_unconfined_recharge_periodic_case(
                 "recharge": {
                     "values": recharge_m_s,
                     "first_clim": "first",
+                    "units": "m/s",
                 }
             },
             "bc": {

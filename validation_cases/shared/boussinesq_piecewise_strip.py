@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import csv
 import json
+import os
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -366,6 +368,7 @@ def aggregate_triangle_history_to_structured_grids(
         ny=int(ny),
     )
     postprocess_dir = Path(model.full_path) / "_postprocess"
+    postprocess_dir.mkdir(parents=True, exist_ok=True)
     np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
     np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
 
@@ -636,15 +639,28 @@ def run_piecewise_strip_boussinesq_launcher_case(
             f"Stderr:\n{completed.stderr}"
         )
 
-    model_ws, postprocess_dir, particles_dir = resolve_model_workspace(
-        out_path,
-        results_folder_name="results_simulations",
-        model_name=f"{process_id}__boussinesq",
-    )
-    aggregate_piecewise_strip_postprocess(
-        postprocess_dir,
-        bundle_dir=bundle_dir,
-    )
+    from validation_cases.shared.runtime import _discover_result_store
+
+    store, sim_id = _discover_result_store(out_path)
+
+    try:
+        model_ws, postprocess_dir, particles_dir = resolve_model_workspace(
+            out_path,
+            results_folder_name="results_simulations",
+            model_name=f"{process_id}__boussinesq",
+        )
+        aggregate_piecewise_strip_postprocess(
+            postprocess_dir,
+            bundle_dir=bundle_dir,
+        )
+    except AssertionError:
+        if store is not None and sim_id is not None:
+            model_ws = out_path
+            postprocess_dir = out_path
+            particles_dir = out_path
+        else:
+            raise
+
     return ValidationRunResult(
         case_dir=Path(case_dir),
         solver_name="boussinesq",
@@ -655,6 +671,8 @@ def run_piecewise_strip_boussinesq_launcher_case(
         run_returncode=int(completed.returncode),
         run_stdout=str(completed.stdout),
         run_stderr=str(completed.stderr),
+        store=store,
+        sim_id=sim_id,
     )
 
 

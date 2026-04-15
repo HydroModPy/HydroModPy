@@ -62,6 +62,7 @@ def run_boussinesq_linearized_unconfined_recharge_step_case(
                 "recharge": {
                     "values": recharge_rate_m_s,
                     "first_clim": "mean",
+                    "units": "m/s",
                 }
             },
             "bc": {

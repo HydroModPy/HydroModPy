@@ -53,6 +53,7 @@ _WINDOWS_SURFACE_CONTEXT_OVERRIDES: dict[str, object] = {
     },
     "forcing": {
         "first_clim": "first",
+                    "units": "m/s",
         "recharge_mm_day": [
             0.6, 0.6,
             1.8, 1.8,
@@ -286,6 +287,7 @@ def run_boussinesq_hillslope_overflow_case(
         storage_coefficient=float(geometry_cfg["storage_coefficient"]),
     )
     simulations_folder = out_path / "results_simulations"
+    simulations_folder.mkdir(parents=True, exist_ok=True)
     dt_seconds = 86_400.0 * dt_days
     period_lengths_seconds = tuple(dt_seconds for _ in range(nper))
 
@@ -298,6 +300,7 @@ def run_boussinesq_hillslope_overflow_case(
             "recharge": {
                 "values": [mm_day_to_m_s(float(value)) for value in recharge_mm_day],
                 "first_clim": str(forcing_cfg.get("first_clim", "first")),
+                    "units": "m/s",
             }
         },
         "bc": {
@@ -334,7 +337,7 @@ def run_boussinesq_hillslope_overflow_case(
                 period_lengths_seconds=period_lengths_seconds,
                 window=None,
             ),
-            workspace=SimpleNamespace(simulations_folder=simulations_folder),
+            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
         ),
     )
     run = ProcessRun(

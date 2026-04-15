@@ -12,7 +12,7 @@ from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
     load_case_tolerances,
-    load_npy_time_series_arrays,
+    load_time_series_fields,
     max_abs_error,
     rmse,
 )
@@ -105,7 +105,24 @@ def load_transient_profile_outputs(
     output_cfg = dict(case_metadata.get("output", {}))
     time_cfg = dict(case_metadata.get("time", {}))
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
-    period_indices, heads = load_npy_time_series_arrays(result.postprocess_dir, observable_name)
+
+    expected_spatial_shape_by_solver = output_cfg.get("expected_spatial_shape_by_solver", {})
+    expected_spatial_shape_raw = ()
+    if (
+        isinstance(expected_spatial_shape_by_solver, dict)
+        and solver_name in expected_spatial_shape_by_solver
+    ):
+        expected_spatial_shape_raw = tuple(expected_spatial_shape_by_solver[solver_name])
+    else:
+        expected_spatial_shape_raw = tuple(output_cfg.get("expected_spatial_shape", ()))
+
+    period_indices, heads = load_time_series_fields(
+        postprocess_dir=result.postprocess_dir,
+        store=result.store,
+        sim_id=result.sim_id,
+        observable_name=observable_name,
+        expected_spatial_shape=expected_spatial_shape_raw or None,
+    )
 
     expected_periods_by_solver = output_cfg.get("expected_periods_by_solver", {})
     expected_periods = 0

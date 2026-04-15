@@ -14,7 +14,7 @@ from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
     load_case_tolerances,
-    load_npy_time_series_arrays,
+    load_time_series_fields,
     max_abs_error,
     max_std_along_axis,
     rmse,
@@ -189,9 +189,11 @@ def _load_scalar_series(
     result: ValidationRunResult,
     observable_name: str,
 ) -> tuple[np.ndarray, np.ndarray]:
-    period_indices, raw_values = load_npy_time_series_arrays(
-        result.postprocess_dir,
-        observable_name,
+    period_indices, raw_values = load_time_series_fields(
+        postprocess_dir=result.postprocess_dir,
+        store=result.store,
+        sim_id=result.sim_id,
+        observable_name=observable_name,
     )
     values = np.asarray(raw_values, dtype=float)
     if values.ndim == 1:
@@ -305,7 +307,12 @@ def build_brutsaert_recession_comparison(
     head_observable_name = str(output_cfg.get("head_observable_name", "")).strip()
     row_spread = 0.0
     if head_observable_name:
-        _, heads_all = load_npy_time_series_arrays(result.postprocess_dir, head_observable_name)
+        _, heads_all = load_time_series_fields(
+            postprocess_dir=result.postprocess_dir,
+            store=result.store,
+            sim_id=result.sim_id,
+            observable_name=head_observable_name,
+        )
         heads = np.asarray(heads_all, dtype=float)
         heads = heads[warmup_periods:]
         if heads.shape[0] != period_indices_all.shape[0]:

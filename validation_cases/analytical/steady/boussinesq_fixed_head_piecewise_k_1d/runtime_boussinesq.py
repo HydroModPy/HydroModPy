@@ -88,6 +88,7 @@ def run_boussinesq_fixed_head_piecewise_k_case(
     )
     bundle_dir = _write_piecewise_strip_bundle(out_path / "mesh_bundle")
     simulations_folder = out_path / "results_simulations"
+    simulations_folder.mkdir(parents=True, exist_ok=True)
 
     state = SimpleNamespace(
         setup=SimpleNamespace(
@@ -111,7 +112,7 @@ def run_boussinesq_fixed_head_piecewise_k_case(
             ),
             domain=None,
             time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=simulations_folder),
+            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
         ),
     )
     run = ProcessRun(

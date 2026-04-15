@@ -357,6 +357,7 @@ def _aggregate_triangle_history_to_reference_grid(model, reference_cfg: dict) ->
         watertable_depth[int(time_index)] = np.maximum(np.asarray(dem, dtype=float) - head_grid, 0.0)
 
     postprocess_dir = Path(model.full_path) / "_postprocess"
+    postprocess_dir.mkdir(parents=True, exist_ok=True)
     np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
     np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
 
@@ -380,6 +381,7 @@ def run_boussinesq_circular_island_piecewise_k_case(
         reference_cfg,
     )
     simulations_folder = out_path / "results_simulations"
+    simulations_folder.mkdir(parents=True, exist_ok=True)
     wells_payload = {
         f"ocean_comp_{index:03d}": {
             "location_mode": "absolute_xy",
@@ -410,6 +412,7 @@ def run_boussinesq_circular_island_piecewise_k_case(
                             "recharge": {
                                 "values": recharge_rate_m_s,
                                 "first_clim": "mean",
+                    "units": "m/s",
                             },
                             "wells": wells_payload,
                         },
@@ -424,7 +427,7 @@ def run_boussinesq_circular_island_piecewise_k_case(
             ),
             domain=None,
             time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=simulations_folder),
+            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
         ),
     )
     run = ProcessRun(

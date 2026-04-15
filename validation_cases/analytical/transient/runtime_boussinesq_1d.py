@@ -277,6 +277,7 @@ def aggregate_triangle_history_to_structured_grids(
         watertable_depth[int(time_index)] = np.maximum(top_grid - head_grid, 0.0)
 
     postprocess_dir = Path(model.full_path) / "_postprocess"
+    postprocess_dir.mkdir(parents=True, exist_ok=True)
     np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
     np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
 
@@ -320,6 +321,7 @@ def run_boussinesq_transient_uniform_strip_case(
         storage_coefficient=float(storage_coefficient),
     )
     simulations_folder = out_path / "results_simulations"
+    simulations_folder.mkdir(parents=True, exist_ok=True)
     period_lengths_seconds = tuple(float(dt_seconds) for _ in range(int(nper)))
 
     state = SimpleNamespace(
@@ -332,7 +334,7 @@ def run_boussinesq_transient_uniform_strip_case(
                 period_lengths_seconds=period_lengths_seconds,
                 window=None,
             ),
-            workspace=SimpleNamespace(simulations_folder=simulations_folder),
+            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
         ),
     )
     run = ProcessRun(

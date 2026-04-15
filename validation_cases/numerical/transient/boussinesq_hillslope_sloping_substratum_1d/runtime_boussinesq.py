@@ -119,6 +119,7 @@ def run_boussinesq_hillslope_sloping_substratum_case(
                 "recharge": {
                     "values": recharge_series_m_s,
                     "first_clim": "first",
+                    "units": "m/s",
                 }
             },
             "bc": {

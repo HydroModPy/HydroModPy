@@ -49,6 +49,7 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
     )
     bundle_dir = _write_hillslope_strip_bundle(out_path / "mesh_bundle")
     simulations_folder = out_path / "results_simulations"
+    simulations_folder.mkdir(parents=True, exist_ok=True)
     period_lengths_seconds = tuple(86400.0 * DT_DAYS for _ in range(NPER))
 
     state = SimpleNamespace(
@@ -66,6 +67,7 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
                             "recharge": {
                                 "values": mm_day_to_m_s(RECHARGE_MM_DAY),
                                 "first_clim": "mean",
+                    "units": "m/s",
                             }
                         },
                         "bc": {
@@ -81,7 +83,7 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
                 period_lengths_seconds=period_lengths_seconds,
                 window=None,
             ),
-            workspace=SimpleNamespace(simulations_folder=simulations_folder),
+            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
         ),
     )
     run = ProcessRun(

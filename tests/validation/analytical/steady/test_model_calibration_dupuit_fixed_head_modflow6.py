@@ -13,10 +13,7 @@ from hydromodpy.analysis.calibration.engine.session import (
     select_candidate_outputs,
 )
 
-try:
-    from hydromodpy.analysis.calibration.engine.session import execute_candidate_run
-except ImportError:
-    execute_candidate_run = None
+from hydromodpy.project import Simulation
 from tests.regression.golden_utils import assert_required_executables
 from validation_cases.shared.runtime import (
     _dump_toml,
@@ -248,16 +245,14 @@ def _extract_reference_flux(
         candidate_label="r",
         disable_postprocess=False,
     )
-    outcome = execute_candidate_run(
-        request=request,
-        cfg=None,
-    )
-    assert outcome.status == "solver_run_succeeded"
+    project = Simulation(request.candidate_config_path, headless=True)
+    project.run()
     selected = select_candidate_outputs(
         cfg=launcher.cfg,
-        run_state=outcome.run_state,
+        run_state=project._ctx,
         session=request.session,
     )
+    project.close()
     return float(selected["q_east"][0])
 
 
@@ -281,16 +276,14 @@ def _extract_reference_transient_outputs(
         candidate_label="r",
         disable_postprocess=False,
     )
-    outcome = execute_candidate_run(
-        request=request,
-        cfg=None,
-    )
-    assert outcome.status == "solver_run_succeeded"
+    project = Simulation(request.candidate_config_path, headless=True)
+    project.run()
     selected = select_candidate_outputs(
         cfg=launcher.cfg,
-        run_state=outcome.run_state,
+        run_state=project._ctx,
         session=request.session,
     )
+    project.close()
     return tuple(selected["head_mid"]), tuple(selected["q_east"])
 
 

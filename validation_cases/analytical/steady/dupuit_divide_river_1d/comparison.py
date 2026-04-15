@@ -11,7 +11,7 @@ from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
     load_case_tolerances,
-    load_last_npy_array,
+    load_field,
     max_abs_error,
     max_std_along_axis,
     mean_along_axis,
@@ -64,9 +64,15 @@ def build_dupuit_divide_river_comparison(
     output_cfg = dict(case_metadata.get("output", {}))
     reference_cfg = dict(case_metadata.get("reference", {}))
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
-    timestep, heads = load_last_npy_array(result.postprocess_dir, observable_name)
+    expected_shape = tuple(output_cfg.get("expected_shape", ())) or None
+    timestep, heads = load_field(
+        postprocess_dir=result.postprocess_dir,
+        store=result.store,
+        sim_id=result.sim_id,
+        observable_name=observable_name,
+        expected_shape=expected_shape,
+    )
 
-    expected_shape = tuple(output_cfg.get("expected_shape", ()))
     if expected_shape:
         assert tuple(heads.shape) == expected_shape, (
             f"Unexpected shape for {observable_name}: {heads.shape} != {expected_shape}"
