@@ -29,7 +29,7 @@ keywords = [
     "catchment",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 4 - Beta", 
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",

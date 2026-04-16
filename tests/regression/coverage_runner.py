@@ -20,15 +20,15 @@ cov = coverage.Coverage(
     include=["*/hydromodpy/*"],
 )
 cov.start()
-
-if sys.argv[1] == "-m":
-    module_name = sys.argv[2]
-    sys.argv = [module_name] + sys.argv[3:]
-    runpy.run_module(module_name, run_name="__main__", alter_sys=True)
-else:
-    script = sys.argv[1]
-    sys.argv = sys.argv[1:]  # so the script sees itself as sys.argv[0]
-    runpy.run_path(script, run_name="__main__")
-
-cov.stop()
-cov.save()
+try:
+    if sys.argv[1] == "-m":
+        module_name = sys.argv[2]
+        sys.argv = [module_name] + sys.argv[3:]
+        runpy.run_module(module_name, run_name="__main__", alter_sys=True)
+    else:
+        script = sys.argv[1]
+        sys.argv = sys.argv[1:]  # so the script sees itself as sys.argv[0]
+        runpy.run_path(script, run_name="__main__")
+finally:
+    cov.stop()
+    cov.save()
