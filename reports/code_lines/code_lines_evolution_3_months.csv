@@ -1,9 +1,5 @@
 date,source,commit,short_commit,commit_changed_from_previous_day,source_files,nonblank_source_lines,subject
-2026-01-12,git,0cf8b61dfd2fe02ae74a748bdf4718b6ce657af9,0cf8b61d,true,66,21784,Merge remote-tracking branch 'origin/dev'
-2026-01-13,git,0cf8b61dfd2fe02ae74a748bdf4718b6ce657af9,0cf8b61d,false,66,21784,Merge remote-tracking branch 'origin/dev'
-2026-01-14,git,0cf8b61dfd2fe02ae74a748bdf4718b6ce657af9,0cf8b61d,false,66,21784,Merge remote-tracking branch 'origin/dev'
-2026-01-15,git,0cf8b61dfd2fe02ae74a748bdf4718b6ce657af9,0cf8b61d,false,66,21784,Merge remote-tracking branch 'origin/dev'
-2026-01-16,git,0cf8b61dfd2fe02ae74a748bdf4718b6ce657af9,0cf8b61d,false,66,21784,Merge remote-tracking branch 'origin/dev'
+2026-01-16,git,0cf8b61dfd2fe02ae74a748bdf4718b6ce657af9,0cf8b61d,true,66,21784,Merge remote-tracking branch 'origin/dev'
 2026-01-17,git,0cf8b61dfd2fe02ae74a748bdf4718b6ce657af9,0cf8b61d,false,66,21784,Merge remote-tracking branch 'origin/dev'
 2026-01-18,git,0cf8b61dfd2fe02ae74a748bdf4718b6ce657af9,0cf8b61d,false,66,21784,Merge remote-tracking branch 'origin/dev'
 2026-01-19,git,0cf8b61dfd2fe02ae74a748bdf4718b6ce657af9,0cf8b61d,false,66,21784,Merge remote-tracking branch 'origin/dev'
@@ -90,4 +86,8 @@ date,source,commit,short_commit,commit_changed_from_previous_day,source_files,no
 2026-04-10,git,a8121c1bc8665c161e0b0a58364723b180da5bd6,a8121c1b,true,1164,186888,Add mesh-catchment onboarding and launcher diagrams
 2026-04-11,git,4a18f1952ac3be23f120c3213d0feb34abc056ae,4a18f195,true,1172,190744,Honor calibration iteration history setting
 2026-04-12,git,754bd6abd28c70a870b8df9169f644a5675ab1f5,754bd6ab,true,1244,219408,Add perturbed twin calibration benchmark
-2026-04-12,working_tree,WORKTREE,WORKTREE,n/a,1253,220299,Etat courant incluant modifications non commitees et fichiers non ignores
+2026-04-13,git,64ed9b9f2f4a1c72ae901e4417ddac271f252f4f,64ed9b9f,true,1261,229649,Refresh mesh gallery summaries
+2026-04-14,git,87a6d41d6ad9c1225d309ed6dff6be54e7c0bc7e,87a6d41d,true,1267,233374,Extend workflow tests for CMA-ES
+2026-04-15,git,87a6d41d6ad9c1225d309ed6dff6be54e7c0bc7e,87a6d41d,false,1267,233374,Extend workflow tests for CMA-ES
+2026-04-16,git,d7604c421a44e5662bacf58f22ff337c5ec6de4b,d7604c42,true,1300,242658,Refactor boussinesq solver and trim gallery outputs
+2026-04-16,working_tree,WORKTREE,WORKTREE,n/a,1309,242280,Etat courant incluant modifications non commitees et fichiers non ignores

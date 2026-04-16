@@ -45,6 +45,7 @@ def test_build_index_page_lists_extended_categories_when_populated() -> None:
 
     assert ":link: hydraulic_properties" in page
     assert ":link: method_comparison" in page
+    assert "**Data Overview**" in page
     assert "   hydraulic_properties" in page
     assert "   method_comparison" in page
     assert "   simulation" in page
