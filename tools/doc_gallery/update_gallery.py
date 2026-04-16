@@ -4545,6 +4545,10 @@ def _metric_rows(case: dict[str, Any], *, meaning: str = "Metric displayed on th
 
 def _build_geographic_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
     config_path = _find_first_source_path(case, suffix="project.toml")
+    if not config_path:
+        config_path = _find_first_source_path(case, suffix=".toml", contains="overview")
+    if not config_path:
+        config_path = _find_first_source_path(case, suffix=".toml", contains="hydrography_only")
     config = _load_plain_toml(config_path)
     if not config:
         return {}
@@ -4553,6 +4557,8 @@ def _build_geographic_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
     domain = dict(config.get("domain", {}))
     depth_model = dict(domain.get("depth_model", {}))
     data_cfg = dict(config.get("data", {}))
+    overview_cfg = dict(config.get("overview", {}))
+    overview_panels = dict(overview_cfg.get("panels", {}))
 
     selected_rows: list[dict[str, Any]] = []
     _add_parameter_row(
@@ -4626,6 +4632,115 @@ def _build_geographic_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
         source=config_path or "",
     )
 
+    loaded_rows: list[dict[str, Any]] = []
+    data_types = data_cfg.get("types")
+    _add_parameter_row(
+        loaded_rows,
+        field="[data] types",
+        meaning="Ordered list of data families requested by the overview case.",
+        value=data_types,
+        source=config_path or "",
+    )
+    for family_name in (
+        "dem",
+        "geology",
+        "hydrography",
+        "hydrometry",
+        "intermittency",
+        "oceanic",
+        "piezometry",
+        "precipitation",
+        "etp",
+        "temperature",
+        "recharge",
+        "runoff",
+        "wind",
+        "humidity",
+        "radiation",
+        "soil_moisture",
+        "water_quality",
+    ):
+        section = dict(data_cfg.get(family_name, {}))
+        raw_sources = list(section.get("sources", []))
+        source_names = [
+            str(item.get("source", "")).strip()
+            for item in raw_sources
+            if isinstance(item, dict) and str(item.get("source", "")).strip()
+        ]
+        if not source_names:
+            continue
+        _add_parameter_row(
+            loaded_rows,
+            field=f"[data.{family_name}.sources]",
+            meaning=f"Configured providers used to load the `{family_name}` family in this case.",
+            value=source_names,
+            source=config_path or "",
+        )
+
+    hydrography_rows: list[dict[str, Any]] = []
+    hydrography_cfg = dict(data_cfg.get("hydrography", {}))
+    hydrography_sources = list(hydrography_cfg.get("sources", []))
+    if hydrography_sources:
+        first_source = hydrography_sources[0] if isinstance(hydrography_sources[0], dict) else {}
+        _add_parameter_row(
+            hydrography_rows,
+            field="[[data.hydrography.sources]] source",
+            meaning="Hydrography provider used for the displayed river network.",
+            value=first_source.get("source"),
+            source=config_path or "",
+        )
+        _add_parameter_row(
+            hydrography_rows,
+            field="[[data.hydrography.sources]] typename",
+            meaning="Optional WFS typename used when the hydrography source is BD Topage.",
+            value=first_source.get("typename"),
+            source=config_path or "",
+        )
+        _add_parameter_row(
+            hydrography_rows,
+            field="[[data.hydrography.sources]] page_size",
+            meaning="Pagination size requested from the remote hydrography API when relevant.",
+            value=first_source.get("page_size"),
+            source=config_path or "",
+        )
+        _add_parameter_row(
+            hydrography_rows,
+            field="[[data.hydrography.sources]] rasterize_field",
+            meaning="Attribute used when rasterizing the clipped vector network to the watershed grid.",
+            value=first_source.get("rasterize_field"),
+            source=config_path or "",
+        )
+
+    panel_rows: list[dict[str, Any]] = []
+    _add_parameter_row(
+        panel_rows,
+        field="[overview] name",
+        meaning="Title injected into the generated overview panels.",
+        value=overview_cfg.get("name"),
+        source=config_path or "",
+    )
+    enabled_panels = [
+        key for key, value in overview_panels.items()
+        if bool(value)
+    ]
+    _add_parameter_row(
+        panel_rows,
+        field="[overview.panels] enabled",
+        meaning="Panel toggles enabled for this overview run.",
+        value=enabled_panels,
+        source=config_path or "",
+    )
+    for panel_name in ("map_dem", "map_geology", "map_hydrography", "stats_card"):
+        if panel_name not in overview_panels:
+            continue
+        _add_parameter_row(
+            panel_rows,
+            field=f"[overview.panels] {panel_name}",
+            meaning=f"Whether the `{panel_name}` panel is rendered for this overview case.",
+            value=overview_panels.get(panel_name),
+            source=config_path or "",
+        )
+
     window_rows: list[dict[str, Any]] = []
     for section_name in ("hydrometry", "intermittency", "oceanic"):
         section = dict(data_cfg.get(section_name, {}))
@@ -4647,6 +4762,12 @@ def _build_geographic_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
     sections: list[dict[str, Any]] = []
     if selected_rows:
         sections.append({"title": "Selected Parameters", "rows": selected_rows})
+    if loaded_rows:
+        sections.append({"title": "Loaded Data Families", "rows": loaded_rows})
+    if hydrography_rows:
+        sections.append({"title": "Hydrography Source Options", "rows": hydrography_rows})
+    if panel_rows:
+        sections.append({"title": "Overview Panels", "rows": panel_rows})
     if window_rows:
         sections.append({"title": "Observation Windows", "rows": window_rows})
     return {"sections": sections} if sections else {}

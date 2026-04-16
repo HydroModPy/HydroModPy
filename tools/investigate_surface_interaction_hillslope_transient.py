@@ -607,6 +607,45 @@ def _load_bundle_cell_centroids(bundle_dir: Path) -> tuple[np.ndarray, np.ndarra
     )
 
 
+def _load_boussinesq_east_boundary_edge_mask(bundle_dir: Path) -> np.ndarray:
+    nodes = np.genfromtxt(
+        bundle_dir / "nodes.csv",
+        delimiter=",",
+        names=True,
+        dtype=None,
+        encoding="utf-8",
+    )
+    edges = np.genfromtxt(
+        bundle_dir / "edges.csv",
+        delimiter=",",
+        names=True,
+        dtype=None,
+        encoding="utf-8",
+    )
+
+    node_ids = np.asarray(nodes["node_id"], dtype=int).reshape(-1)
+    node_x = np.asarray(nodes["x"], dtype=float).reshape(-1)
+    edge_node_a = np.asarray(edges["node_a"], dtype=int).reshape(-1)
+    edge_node_b = np.asarray(edges["node_b"], dtype=int).reshape(-1)
+    edge_kind = np.asarray(edges["edge_kind"]).reshape(-1)
+
+    node_x_by_id = {
+        int(node_id): float(x_coord)
+        for node_id, x_coord in zip(node_ids.tolist(), node_x.tolist())
+    }
+    midpoint_x = np.asarray(
+        [
+            0.5 * (node_x_by_id[int(node_a)] + node_x_by_id[int(node_b)])
+            for node_a, node_b in zip(edge_node_a.tolist(), edge_node_b.tolist())
+        ],
+        dtype=float,
+    )
+    east_x = float(np.max(node_x)) if node_x.size else 0.0
+    boundary_mask = np.asarray(edge_kind == "boundary", dtype=bool)
+    east_mask = np.isclose(midpoint_x, east_x, atol=1.0e-9, rtol=0.0)
+    return np.asarray(boundary_mask & east_mask, dtype=bool)
+
+
 def _interpolate_bundle_history_to_structured_grid(
     values: np.ndarray,
     *,

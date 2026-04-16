@@ -1,0 +1,2 @@
+variant_id,variant_label,solver,mesh_mode,runtime_seconds,runtime_minutes,reference_variant,speedup_vs_reference
+mf6_gmsh_existing,MODFLOW 6 on generated Gmsh mesh,modflow6,mesh_catchment,52.05,0.8674999999999999,mf6_gmsh_existing,1.0

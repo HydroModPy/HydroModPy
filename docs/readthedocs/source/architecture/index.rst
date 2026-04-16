@@ -14,4 +14,5 @@ This section groups design-level diagrams for HydroModPy modules.
    mesh/index
    calibration/index
    process/index
+   solver/index
    simulation/index

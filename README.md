@@ -241,6 +241,8 @@ Platform note:
 - Most tests are intended to run on both Windows and Linux.
 - Some validation tests target the PETSc Boussinesq backend and are Linux-only
   by design; on Windows they are skipped, not failed.
+- PETSc-focused validation tests are tagged with `pytest.mark.petsc`, so a
+  provisioned Linux environment can run `python -m pytest -m petsc -q`.
 - The Linux smoke commands used in CI are `bash tools/ci/run_boussinesq_linux_smoke.sh`
   and `bash tools/ci/run_boussinesq_petsc_smoke.sh`.
 

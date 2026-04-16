@@ -331,10 +331,22 @@ def build_hillslope_overflow_diagnostics(
         seconds_per_day=SECONDS_PER_DAY,
         elapsed_days=elapsed_days,
     )
-    recharge_flux_m3_day = budget.recharge_flux_m3_day
-    drainage_flux_m3_day = budget.drainage_flux_m3_day
-    east_boundary_inflow_m3_day = budget.east_boundary_inflow_m3_day
-    east_boundary_outflow_m3_day = budget.east_boundary_outflow_m3_day
+    recharge_flux_m3_day = _align_period_values_to_elapsed_days(
+        budget.recharge_flux_m3_day,
+        elapsed_days=elapsed_days,
+    )
+    drainage_flux_m3_day = _align_period_values_to_elapsed_days(
+        budget.drainage_flux_m3_day,
+        elapsed_days=elapsed_days,
+    )
+    east_boundary_inflow_m3_day = _align_period_values_to_elapsed_days(
+        budget.east_boundary_inflow_m3_day,
+        elapsed_days=elapsed_days,
+    )
+    east_boundary_outflow_m3_day = _align_period_values_to_elapsed_days(
+        budget.east_boundary_outflow_m3_day,
+        elapsed_days=elapsed_days,
+    )
     total_outflow_m3_day = np.asarray(
         drainage_flux_m3_day + east_boundary_outflow_m3_day + surface_excess_flux_m3_day,
         dtype=float,
@@ -343,7 +355,10 @@ def build_hillslope_overflow_diagnostics(
         recharge_flux_m3_day + east_boundary_inflow_m3_day - total_outflow_m3_day,
         dtype=float,
     )
-    storage_change_m3_day = budget.storage_change_m3_day
+    storage_change_m3_day = _align_period_values_to_elapsed_days(
+        budget.storage_change_m3_day,
+        elapsed_days=elapsed_days,
+    )
     residual_m3_day = np.asarray(
         net_inflow_m3_day - storage_change_m3_day,
         dtype=float,

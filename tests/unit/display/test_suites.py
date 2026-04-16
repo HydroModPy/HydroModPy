@@ -524,6 +524,15 @@ def test_plot_boussinesq_flow_suite_emits_diagnostics_when_histories_exist(tmp_p
             ],
             dtype=float,
         ),
+        prescribed_head_flux_m3_s=np.array([2.0e-5, -1.0e-5], dtype=float),
+        prescribed_head_flux_history_m3_s=np.array(
+            [
+                [0.0, 0.0],
+                [1.0e-5, -5.0e-6],
+                [2.0e-5, -1.0e-5],
+            ],
+            dtype=float,
+        ),
         imposed_head_edge_flux_m3_s=np.array([2.0e-5, -1.0e-5, 0.0, 0.0, 0.0], dtype=float),
         imposed_head_edge_flux_history_m3_s=np.array(
             [

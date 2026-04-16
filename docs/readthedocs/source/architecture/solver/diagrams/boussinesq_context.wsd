@@ -1,0 +1,61 @@
+@startuml
+allowmixing
+title Boussinesq Solver - Package Context
+
+package "process" {
+  class Flow
+}
+
+package "hydromodpy.solver.boussinesq" {
+  class Boussinesq
+  class BoussinesqMesh
+  class BoussinesqState
+  class "assembly.py" as AssemblyModule <<module>>
+  class "runtime_selection.py" as RuntimeSelection <<module>>
+  class "runtime_contract.py" as RuntimeContract <<module>>
+  package methods
+  package engines
+  package formulations
+  package discretization
+}
+
+package "runtime engines" {
+  class "local_runtime.py" as LocalRuntime <<module>>
+  class "scipy_runtime.py" as ScipyRuntime <<module>>
+  class "scipy_sparse_runtime.py" as SparseRuntime <<module>>
+  class "petsc_partition_runtime.py" as PetscPartitionRuntime <<module>>
+  class "petsc_runtime.py" as PetscRuntime <<module>>
+}
+
+Flow --> Boussinesq : hydrological definition
+Boussinesq --> BoussinesqMesh : builds and uses
+Boussinesq --> RuntimeSelection : resolves method + engine
+RuntimeSelection --> methods
+RuntimeSelection --> engines
+methods --> formulations
+methods --> discretization
+Boussinesq --> RuntimeContract : packages solve inputs
+LocalRuntime ..> AssemblyModule : assembles residual
+ScipyRuntime ..> AssemblyModule : assembles residual
+SparseRuntime ..> AssemblyModule : assembles residual
+PetscPartitionRuntime ..> AssemblyModule : assembles residual
+PetscRuntime ..> AssemblyModule : assembles residual
+Boussinesq --> BoussinesqState : stores accepted state
+
+note right of Boussinesq
+Main orchestrator.
+Still the largest file in the package.
+Next simplification target:
+split payload resolution,
+transient orchestration
+and export assembly.
+end note
+
+note bottom of AssemblyModule
+Physical core.
+Should keep only one canonical
+boundary language internally:
+prescribed boundary cells.
+end note
+
+@enduml
