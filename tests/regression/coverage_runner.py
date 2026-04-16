@@ -29,6 +29,20 @@ try:
         script = sys.argv[1]
         sys.argv = sys.argv[1:]  # so the script sees itself as sys.argv[0]
         runpy.run_path(script, run_name="__main__")
+except SystemExit as exc:
+    if exc.code != 0:
+        import traceback
+        print(
+            f"\n[coverage_runner] SystemExit(code={exc.code!r}) caught.\n"
+            f"Traceback (origin of sys.exit):",
+            file=sys.stderr,
+        )
+        traceback.print_exc(file=sys.stderr)
+    raise
+except BaseException:
+    import traceback
+    traceback.print_exc(file=sys.stderr)
+    raise
 finally:
     cov.stop()
     cov.save()
