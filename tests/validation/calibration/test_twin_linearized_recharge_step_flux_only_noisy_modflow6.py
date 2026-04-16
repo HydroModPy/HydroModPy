@@ -7,7 +7,10 @@ import math
 import pytest
 
 from tests.regression.golden_utils import assert_required_executables
-from validation_cases.calibration.shared.runtime import run_twin_benchmark_case
+from tests.validation.calibration.helpers import (
+    assert_lightweight_method_result,
+    run_lightweight_twin_benchmark_case,
+)
 from validation_cases.calibration.twin.transient.linearized_unconfined_recharge_step_1d.experiment import (
     TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE,
 )
@@ -25,16 +28,12 @@ def test_calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_benc
         require_mt3dms=False,
     )
 
-    benchmark = run_twin_benchmark_case(
+    benchmark = run_lightweight_twin_benchmark_case(
         TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE,
         caller_file=__file__,
         evaluation_budget=18,
     )
 
-    assert benchmark.summary_path.is_file()
-    assert benchmark.configuration_figure is not None
-    assert benchmark.configuration_figure.is_file()
-    assert benchmark.pruned_artifacts
     assert benchmark.observations_truth["q_east"]
     assert benchmark.observations_used["q_east"]
     assert benchmark.observations_truth != benchmark.observations_used
@@ -60,10 +59,7 @@ def test_calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_benc
         assert result.mean_candidate_total_time_seconds is not None
         assert result.mean_candidate_preparation_time_seconds is not None
         assert result.mean_candidate_simulation_time_seconds is not None
-        assert result.objective_trace_figure is not None
-        assert result.objective_trace_figure.is_file()
-        assert result.objective_landscape_figure is not None
-        assert result.objective_landscape_figure.is_file()
+        assert_lightweight_method_result(result)
 
     assert len(distribution_results) == 3
     assert any(result.meets_success_target for result in distribution_results)

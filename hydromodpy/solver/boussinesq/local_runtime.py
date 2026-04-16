@@ -13,11 +13,10 @@ when validating the physics or debugging convergence problems.
 from __future__ import annotations
 
 import numpy as np
-
-from hydromodpy.solver.boussinesq.assembly import (
-    BoussinesqAssembly,
-    assemble_steady_residual,
-    assemble_transient_residual,
+from hydromodpy.solver.boussinesq.assembly import BoussinesqAssembly
+from hydromodpy.solver.boussinesq.head_only_runtime_common import (
+    build_steady_assembly_callback,
+    build_transient_assembly_callback,
 )
 from hydromodpy.solver.boussinesq.jacobian_fd import build_dense_fd_jacobian
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
@@ -35,66 +34,30 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
     This function only translates the generic runtime inputs into one residual
     callback. The actual Newton loop is shared in ``_solve_nonlinear_system``.
     """
-    if float(inputs.dt_seconds) <= 0.0:
-        raise ValueError("dt_seconds must be strictly positive.")
-
-    head_prev = np.asarray(inputs.head_prev_m, dtype=float)
-    head = (
-        head_prev.copy()
-        if inputs.head_initial_guess_m is None
-        else np.asarray(inputs.head_initial_guess_m, dtype=float).copy()
-    )
-    options = inputs.options
-
-    def _assembly_for(candidate_head: np.ndarray) -> BoussinesqAssembly:
-        return assemble_transient_residual(
-            inputs.mesh,
-            head_m=candidate_head,
-            head_prev_m=head_prev,
-            dt_seconds=float(inputs.dt_seconds),
-            recharge_rate_m_s=inputs.recharge_rate_m_s,
-            well_flux_m3_s=inputs.well_flux_m3_s,
-            imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
-            prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
-            drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-            regularization_radius=float(options.regularization_radius),
-        )
+    solve_setup = build_transient_assembly_callback(inputs)
 
     return _solve_nonlinear_system(
-        assembly_for=_assembly_for,
-        head_initial_guess_m=head,
-        max_iterations=int(options.max_iterations),
-        tol_residual_inf=float(options.tol_residual_inf),
-        fd_rel_step=float(options.fd_rel_step),
-        min_damping=float(options.min_damping),
+        assembly_for=solve_setup.assembly_for,
+        head_initial_guess_m=solve_setup.head_initial_guess_m,
+        max_iterations=int(solve_setup.options.max_iterations),
+        tol_residual_inf=float(solve_setup.options.tol_residual_inf),
+        fd_rel_step=float(solve_setup.options.fd_rel_step),
+        min_damping=float(solve_setup.options.min_damping),
         backend_name="local",
     )
 
 
 def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
     """Solve one steady nonlinear balance from the normalized runtime contract."""
-    head = np.asarray(inputs.head_initial_guess_m, dtype=float).copy()
-    options = inputs.options
-
-    def _assembly_for(candidate_head: np.ndarray) -> BoussinesqAssembly:
-        return assemble_steady_residual(
-            inputs.mesh,
-            head_m=candidate_head,
-            recharge_rate_m_s=inputs.recharge_rate_m_s,
-            well_flux_m3_s=inputs.well_flux_m3_s,
-            imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
-            prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
-            drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-            regularization_radius=float(options.regularization_radius),
-        )
+    solve_setup = build_steady_assembly_callback(inputs)
 
     return _solve_nonlinear_system(
-        assembly_for=_assembly_for,
-        head_initial_guess_m=head,
-        max_iterations=int(options.max_iterations),
-        tol_residual_inf=float(options.tol_residual_inf),
-        fd_rel_step=float(options.fd_rel_step),
-        min_damping=float(options.min_damping),
+        assembly_for=solve_setup.assembly_for,
+        head_initial_guess_m=solve_setup.head_initial_guess_m,
+        max_iterations=int(solve_setup.options.max_iterations),
+        tol_residual_inf=float(solve_setup.options.tol_residual_inf),
+        fd_rel_step=float(solve_setup.options.fd_rel_step),
+        min_damping=float(solve_setup.options.min_damping),
         backend_name="local",
     )
 
@@ -107,7 +70,6 @@ def solve_backward_euler_step(
     head_initial_guess_m: np.ndarray | None = None,
     recharge_rate_m_s: np.ndarray | float | None = None,
     well_flux_m3_s: np.ndarray | float | None = None,
-    imposed_head_m_by_edge: np.ndarray | None = None,
     prescribed_head_m_by_cell: np.ndarray | None = None,
     drainage_conductance_m2_s: np.ndarray | float | None = None,
     regularization_radius: float = 0.05,
@@ -120,6 +82,8 @@ def solve_backward_euler_step(
 
     The explicit argument list is convenient in tests and notebooks, while the
     runtime contract remains the internal interface used by the solver driver.
+    This convenience wrapper now follows the same canonical contract as the
+    main runtime path: Dirichlet data is prescribed on boundary cells.
     """
     return solve_transient_step(
         TransientStepInputs(
@@ -129,7 +93,6 @@ def solve_backward_euler_step(
             head_initial_guess_m=head_initial_guess_m,
             recharge_rate_m_s=recharge_rate_m_s,
             well_flux_m3_s=well_flux_m3_s,
-            imposed_head_m_by_edge=imposed_head_m_by_edge,
             prescribed_head_m_by_cell=prescribed_head_m_by_cell,
             drainage_conductance_m2_s=drainage_conductance_m2_s,
             options=NonlinearRuntimeOptions(
@@ -149,7 +112,6 @@ def solve_steady_state(
     head_initial_guess_m: np.ndarray,
     recharge_rate_m_s: np.ndarray | float | None = None,
     well_flux_m3_s: np.ndarray | float | None = None,
-    imposed_head_m_by_edge: np.ndarray | None = None,
     prescribed_head_m_by_cell: np.ndarray | None = None,
     drainage_conductance_m2_s: np.ndarray | float | None = None,
     regularization_radius: float = 0.05,
@@ -158,14 +120,17 @@ def solve_steady_state(
     fd_rel_step: float = 1.0e-7,
     min_damping: float = 1.0e-4,
 ) -> RuntimeSolveResult:
-    """Compatibility wrapper around :func:`solve_steady_problem`."""
+    """Compatibility wrapper around :func:`solve_steady_problem`.
+
+    This convenience wrapper now follows the same canonical contract as the
+    main runtime path: Dirichlet data is prescribed on boundary cells.
+    """
     return solve_steady_problem(
         SteadySolveInputs(
             mesh=mesh,
             head_initial_guess_m=np.asarray(head_initial_guess_m, dtype=float),
             recharge_rate_m_s=recharge_rate_m_s,
             well_flux_m3_s=well_flux_m3_s,
-            imposed_head_m_by_edge=imposed_head_m_by_edge,
             prescribed_head_m_by_cell=prescribed_head_m_by_cell,
             drainage_conductance_m2_s=drainage_conductance_m2_s,
             options=NonlinearRuntimeOptions(

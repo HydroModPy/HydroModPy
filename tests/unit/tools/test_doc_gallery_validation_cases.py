@@ -21,6 +21,7 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
     assert records["dupuit_fixed_head_1d"].metadata["solver_variants"] == (
         "modflownwt",
         "modflow6",
+        "modflow6_irregular_tri",
         "boussinesq",
     )
     assert records["dupuit_circular_island_ocean_2d"].metadata["solver_variants"] == (
@@ -36,6 +37,13 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
     assert records["boussinesq_fixed_head_piecewise_k_1d"].metadata["solver_variants"] == (
         "modflownwt",
         "modflow6",
+        "modflow6_irregular_tri",
+        "boussinesq",
+    )
+    assert records["boussinesq_uniform_recharge_piecewise_k_1d"].metadata["solver_variants"] == (
+        "modflownwt",
+        "modflow6",
+        "modflow6_irregular_tri",
         "boussinesq",
     )
     assert records["boussinesq_sloping_substratum_constant_thickness_1d"].metadata["solver_variants"] == (
@@ -89,10 +97,19 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
     assert records["boussinesq_sloping_substratum_uniform_recharge_1d"].equations_rst
     assert records["late_time_unconfined_pumping_2d"].equations_rst
     assert records["boussinesq_sloping_substratum_constant_thickness_1d"].metadata["process_family"] == "flow"
-    assert records["boussinesq_sloping_substratum_constant_thickness_1d"].metadata["validation_family"] == "hillslopes"
+    assert (
+        records["boussinesq_sloping_substratum_constant_thickness_1d"].metadata["validation_family"]
+        == "steady_1d_boussinesq_topography_sloping_substratum"
+    )
     assert records["boussinesq_sloping_substratum_fixed_head_1d"].metadata["geometry_family"] == "hillslope_1d"
-    assert records["boussinesq_sloping_substratum_uniform_recharge_1d"].metadata["validation_family"] == "hillslopes"
-    assert records["late_time_unconfined_pumping_2d"].metadata["validation_family"] == "radial_and_island_2d"
+    assert (
+        records["boussinesq_sloping_substratum_uniform_recharge_1d"].metadata["validation_family"]
+        == "steady_1d_boussinesq_topography_sloping_substratum"
+    )
+    assert (
+        records["late_time_unconfined_pumping_2d"].metadata["validation_family"]
+        == "transient_2d_radial_response"
+    )
     assert records["boussinesq_hillslope_interception_1d"].metadata["reference_type"] == "semi_analytical"
 
 

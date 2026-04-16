@@ -1,0 +1,889 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "dupuit_circular_island_ocean_2d",
+  "title": "Dupuit Circular-Island Ocean 2D",
+  "category": "validation",
+  "deck": "Steady synthetic groundwater-flow case used to validate the launcher workflow against the axisymmetric Dupuit-Boussinesq solution for a circular island with:",
+  "summary": "Steady synthetic groundwater-flow case used to validate the launcher workflow against the axisymmetric Dupuit-Boussinesq solution for a circular island with:",
+  "case_setup": [
+    "Circular synthetic island on Cartesian grid, uniform recharge, flat substratum, `ocean` top BC",
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
+  ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
+  "what_it_shows": [
+    "validate the `ocean` boundary condition on a genuinely 2D synthetic geometry,",
+    "verify that the numerical solution preserves radial symmetry on a Cartesian grid,",
+    "keep an analytical benchmark where the water table remains below the island topography.",
+    "Ocean BC activation, radial symmetry preservation, 2D synthetic topography with the water table kept below land surface",
+    "Primary metrics: radial RMSE, radial max abs error, azimuthal spread, ocean head error, minimum land freeboard.",
+    "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
+  ],
+  "reference_highlights": [
+    "compared quantity: annular mean head profile on land",
+    "reference: steady radial Dupuit-Boussinesq solution with fixed coastal head"
+  ],
+  "equations_rst": [
+    "\\frac{1}{r}\\frac{\\mathrm{d}}{\\mathrm{d}r}\\left(r\\,K\\,H\\,\\frac{\\mathrm{d}H}{\\mathrm{d}r}\\right)+R=0",
+    "H(r)^2=H(a)^2+\\frac{R}{2K}\\left(a^2-r^2\\right)",
+    "h(r)=z_b+\\sqrt{\\left(h_{\\mathrm{sea}}-z_b\\right)^2+\\frac{R}{2K}\\left(a^2-r^2\\right)}"
+  ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m validation_cases.analytical.steady.dupuit_circular_island_ocean_2d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/README.md",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/reference.py",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/comparison.py",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/plotting.py",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/run_case.py",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/runtime_boussinesq.py",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/README.md": "c317b5eee0f59d8a11cc2a8c413f5bd113971b52dfa9cca2c295ab5ab1f7aaad",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/reference.py": "29f0e08923a9eee2713dc8ea03b86d5b17404702f811854afa21b3a9058bed25",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/comparison.py": "d28c8dcb6990cdd1de91f60d4cc3cbf54c926740170eabb076cd7466389b2e4b",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/plotting.py": "721a4318bef80f37ddaacdf529cdbe524893ba75816b2abdf16f9473e3b4d719",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/run_case.py": "3aa72bfe009e7c58143fa56d849cae2539d7d48a61cef63196d59ab017fcae64",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml": "f9f39967a471d2ea6722df472b2fd8014bcd18500c9c837628e8b5ca1921f994",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml": "52f1a81a23a5d564059d0e38fcb3a58799a8cdd07c04e3936fdb234e86471766",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/runtime_boussinesq.py": "1595d8d0d21a7980a5f8d6bc8451fb33b448f3e3ec04be15ed9a43ffb91581a9",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml": "3af87f4b4cd664a19ffe06f1d5b5af828915ecfbbadfd16b2870e7a0710ddc63",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml": "f5f49f53c57739fdd607062668195c29d2904b54276706554e698aa6bae58b80",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml": "7b189889ff66c76f55ddcde5f6bf3dc1f650613908cc4e97f2c7472c8d955666",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml": "861f5eef5f90f4482e1018d1d02c41c9bbc32452acb036a155ef57f531b4c1fc",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml": "aaebad7805cda1a24b2ee2a9aefb95270df1b1e498044e123a4ad0e9be5f28e8"
+  },
+  "docname": "cases/dupuit_circular_island_ocean_2d",
+  "images": [
+    {
+      "filename": "dupuit_circular_island_ocean_2d__modflownwt.png",
+      "caption": "Dupuit Circular-Island Ocean 2D rendered with MODFLOW-NWT for the analytical gallery.",
+      "alt_text": "Dupuit Circular-Island Ocean 2D validation figure for MODFLOW-NWT",
+      "doc_path": "/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__modflownwt.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__modflownwt.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d",
+    "default_solver": "modflownwt",
+    "solver_variants": [
+      "modflownwt",
+      "modflow6",
+      "boussinesq"
+    ],
+    "solver_details": {
+      "modflownwt": {
+        "display_name": "MODFLOW-NWT",
+        "config_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml",
+        "expected_output": "Expected shape: 61 x 61",
+        "tolerance_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml"
+      },
+      "modflow6": {
+        "display_name": "MODFLOW 6",
+        "config_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml",
+        "expected_output": "Expected shape: 61 x 61",
+        "tolerance_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml"
+      },
+      "boussinesq": {
+        "display_name": "Boussinesq",
+        "config_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml",
+        "expected_output": "Expected shape: 61 x 61",
+        "tolerance_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml"
+      }
+    },
+    "regime": "steady",
+    "dimension": "2d",
+    "inventory_reference": "",
+    "case_sheet": {
+      "numerical_setup": "Circular synthetic island on Cartesian grid, uniform recharge, flat substratum, `ocean` top BC",
+      "analytical_target": "Radial steady Dupuit-Boussinesq island solution",
+      "primary_metrics": "radial RMSE, radial max abs error, azimuthal spread, ocean head error, minimum land freeboard",
+      "what_it_validates": "Ocean BC activation, radial symmetry preservation, 2D synthetic topography with the water table kept below land surface"
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "island_2d",
+    "geometry_family_label": "Island 2D",
+    "reference_type": "analytical_exact",
+    "reference_type_label": "Analytical Exact",
+    "validation_family": "steady_2d_radial_or_island",
+    "validation_family_label": "Steady 2D Radial or Island Cases",
+    "validation_family_order": 40
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__modflownwt.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__boussinesq.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "modflownwt",
+      "solver_display_name": "MODFLOW-NWT",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml",
+      "tolerance_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml",
+      "expected_output": "Expected shape: 61 x 61",
+      "command": "python -m validation_cases.analytical.steady.dupuit_circular_island_ocean_2d.run_case --no-show --solver modflownwt",
+      "metric_lines": [
+        "Radial head-profile RMSE: 0.0489 m",
+        "Radial head-profile max abs error: 0.0918 m",
+        "Azimuthal spread: 0.1120 m",
+        "Ocean head max abs error: 0.00e+00 m",
+        "Minimum land freeboard: 0.7869 m"
+      ],
+      "image": {
+        "filename": "dupuit_circular_island_ocean_2d__modflownwt.png",
+        "caption": "Dupuit Circular-Island Ocean 2D rendered with MODFLOW-NWT for the analytical gallery.",
+        "alt_text": "Dupuit Circular-Island Ocean 2D validation figure for MODFLOW-NWT",
+        "doc_path": "/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__modflownwt.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__modflownwt.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "dupuit_circular_island_ocean_2d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "2d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              61,
+              61
+            ]
+          },
+          "reference": {
+            "crs": "EPSG:2154",
+            "xmin": 265400.0,
+            "ymin": 6784100.0,
+            "length_x_m": 610.0,
+            "length_y_m": 610.0,
+            "nx": 61,
+            "ny": 61,
+            "center_x_m": 265705.0,
+            "center_y_m": 6784405.0,
+            "sea_level_m": 0.0,
+            "ocean_floor_elevation_m": -1.0,
+            "crest_elevation_m": 12.0,
+            "island_radius_m": 200.0,
+            "comparison_radius_max_m": 190.0,
+            "radial_bin_width_m": 10.0,
+            "substratum_elevation_m": -5.0,
+            "hydraulic_conductivity_m_per_s": 5e-06,
+            "recharge_mm_day": 1.0,
+            "comparison_radius_max_by_solver": {
+              "boussinesq": 170.0
+            }
+          }
+        },
+        "tolerances": {
+          "radial_profile": {
+            "rmse": 0.25,
+            "max_abs_error": 0.5,
+            "azimuthal_spread": 0.25,
+            "ocean_head_max_error": 1e-06,
+            "min_land_clearance": 0.1
+          }
+        },
+        "timestep": 1
+      }
+    },
+    {
+      "solver": "modflow6",
+      "solver_display_name": "MODFLOW 6",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml",
+      "tolerance_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml",
+      "expected_output": "Expected shape: 61 x 61",
+      "command": "python -m validation_cases.analytical.steady.dupuit_circular_island_ocean_2d.run_case --no-show --solver modflow6",
+      "metric_lines": [
+        "Radial head-profile RMSE: 0.1181 m",
+        "Radial head-profile max abs error: 0.1514 m",
+        "Azimuthal spread: 0.1159 m",
+        "Ocean head max abs error: 0.00e+00 m",
+        "Minimum land freeboard: 0.7405 m"
+      ],
+      "image": {
+        "filename": "dupuit_circular_island_ocean_2d__modflow6.png",
+        "caption": "Dupuit Circular-Island Ocean 2D rendered with MODFLOW 6 for the analytical gallery.",
+        "alt_text": "Dupuit Circular-Island Ocean 2D validation figure for MODFLOW 6",
+        "doc_path": "/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__modflow6.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__modflow6.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "dupuit_circular_island_ocean_2d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "2d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              61,
+              61
+            ]
+          },
+          "reference": {
+            "crs": "EPSG:2154",
+            "xmin": 265400.0,
+            "ymin": 6784100.0,
+            "length_x_m": 610.0,
+            "length_y_m": 610.0,
+            "nx": 61,
+            "ny": 61,
+            "center_x_m": 265705.0,
+            "center_y_m": 6784405.0,
+            "sea_level_m": 0.0,
+            "ocean_floor_elevation_m": -1.0,
+            "crest_elevation_m": 12.0,
+            "island_radius_m": 200.0,
+            "comparison_radius_max_m": 190.0,
+            "radial_bin_width_m": 10.0,
+            "substratum_elevation_m": -5.0,
+            "hydraulic_conductivity_m_per_s": 5e-06,
+            "recharge_mm_day": 1.0,
+            "comparison_radius_max_by_solver": {
+              "boussinesq": 170.0
+            }
+          }
+        },
+        "tolerances": {
+          "radial_profile": {
+            "rmse": 0.15,
+            "max_abs_error": 0.18,
+            "azimuthal_spread": 0.15,
+            "ocean_head_max_error": 1e-08,
+            "min_land_clearance": 0.6
+          }
+        },
+        "timestep": 1
+      }
+    },
+    {
+      "solver": "boussinesq",
+      "solver_display_name": "Boussinesq",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml",
+      "tolerance_path": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml",
+      "expected_output": "Expected shape: 61 x 61",
+      "command": "python -m validation_cases.analytical.steady.dupuit_circular_island_ocean_2d.run_case --no-show --solver boussinesq",
+      "metric_lines": [
+        "Radial head-profile RMSE: 0.1326 m",
+        "Radial head-profile max abs error: 0.3216 m",
+        "Azimuthal spread: 0.2059 m",
+        "Ocean head max abs error: 0.00e+00 m",
+        "Minimum land freeboard: 1.0392 m"
+      ],
+      "image": {
+        "filename": "dupuit_circular_island_ocean_2d__boussinesq.png",
+        "caption": "Dupuit Circular-Island Ocean 2D rendered with Boussinesq for the analytical gallery.",
+        "alt_text": "Dupuit Circular-Island Ocean 2D validation figure for Boussinesq",
+        "doc_path": "/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__boussinesq.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__boussinesq.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "dupuit_circular_island_ocean_2d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "2d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              61,
+              61
+            ]
+          },
+          "reference": {
+            "crs": "EPSG:2154",
+            "xmin": 265400.0,
+            "ymin": 6784100.0,
+            "length_x_m": 610.0,
+            "length_y_m": 610.0,
+            "nx": 61,
+            "ny": 61,
+            "center_x_m": 265705.0,
+            "center_y_m": 6784405.0,
+            "sea_level_m": 0.0,
+            "ocean_floor_elevation_m": -1.0,
+            "crest_elevation_m": 12.0,
+            "island_radius_m": 200.0,
+            "comparison_radius_max_m": 190.0,
+            "radial_bin_width_m": 10.0,
+            "substratum_elevation_m": -5.0,
+            "hydraulic_conductivity_m_per_s": 5e-06,
+            "recharge_mm_day": 1.0,
+            "comparison_radius_max_by_solver": {
+              "boussinesq": 170.0
+            }
+          }
+        },
+        "tolerances": {
+          "radial_profile": {
+            "rmse": 0.15,
+            "max_abs_error": 0.35,
+            "azimuthal_spread": 0.25,
+            "ocean_head_max_error": 1e-08,
+            "min_land_clearance": 0.75
+          }
+        },
+        "timestep": 0
+      }
+    }
+  ],
+  "parameter_docs": {
+    "reference_parameters": [
+      {
+        "field": "crs",
+        "meaning": "Coordinate reference system used by the synthetic geometry.",
+        "value": "EPSG:2154",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "xmin",
+        "meaning": "Minimum x coordinate of the analytical reference domain.",
+        "value": "265400",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "ymin",
+        "meaning": "Minimum y coordinate of the analytical reference domain.",
+        "value": "6.7841e+06",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "length_x_m",
+        "meaning": "Reference-domain length along the x axis.",
+        "value": "610 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "length_y_m",
+        "meaning": "Reference-domain length along the y axis.",
+        "value": "610 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "nx",
+        "meaning": "Reference discretization count along the x axis used by the comparison helper.",
+        "value": "61",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "ny",
+        "meaning": "Reference discretization count along the y axis used by the comparison helper.",
+        "value": "61",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "center_x_m",
+        "meaning": "Reference x coordinate of the domain centre or pumping location.",
+        "value": "265705 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "center_y_m",
+        "meaning": "Reference y coordinate of the domain centre or pumping location.",
+        "value": "6.7844e+06 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "sea_level_m",
+        "meaning": "Sea level used by the coastal or island reference.",
+        "value": "0 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "ocean_floor_elevation_m",
+        "meaning": "Ocean-floor elevation used by the coastal reference geometry.",
+        "value": "-1 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "crest_elevation_m",
+        "meaning": "Crest elevation used by the synthetic island topography.",
+        "value": "12 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "island_radius_m",
+        "meaning": "Island radius used by the radial reference domain.",
+        "value": "200 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "comparison_radius_max_m",
+        "meaning": "Maximum radius used when sampling radial comparisons.",
+        "value": "190 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "radial_bin_width_m",
+        "meaning": "Radial bin width used when aggregating the numerical solution.",
+        "value": "10 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "substratum_elevation_m",
+        "meaning": "Substratum elevation used to build the analytical aquifer geometry.",
+        "value": "-5 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "hydraulic_conductivity_m_per_s",
+        "meaning": "Hydraulic conductivity used by the analytical or benchmark reference.",
+        "value": "5e-06 m/s",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "recharge_mm_day",
+        "meaning": "Recharge rate used by the reference solution.",
+        "value": "1 mm/day",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      },
+      {
+        "field": "comparison_radius_max_by_solver.boussinesq",
+        "meaning": "Maximum comparison radius retained for `boussinesq`.",
+        "value": "170",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+      }
+    ],
+    "common_setup": [
+      {
+        "field": "simulation.time.start_datetime",
+        "meaning": "Simulation start time used by the benchmark.",
+        "value": "2003-01-01 00:00:00",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "simulation.time.end_datetime",
+        "meaning": "Simulation end time used by the benchmark.",
+        "value": "2003-01-02 00:00:00",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "simulation.time.step_value",
+        "meaning": "Nominal time step used by the benchmark.",
+        "value": "1 day",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_x",
+        "meaning": "Synthetic-domain length along the x axis.",
+        "value": "610.0 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_y",
+        "meaning": "Synthetic-domain length along the y axis.",
+        "value": "610.0 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.nx",
+        "meaning": "Grid cell count along the x axis.",
+        "value": "61",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.ny",
+        "meaning": "Grid cell count along the y axis.",
+        "value": "61",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.kind",
+        "meaning": "Synthetic topography shape used by the benchmark.",
+        "value": "radial_island",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.base_elevation",
+        "meaning": "Base land-surface elevation of the synthetic topography.",
+        "value": "-1 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.crest_elevation",
+        "meaning": "Crest elevation used by the synthetic topography.",
+        "value": "12 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.island_radius",
+        "meaning": "Island radius used by the synthetic topography.",
+        "value": "200.0 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.depth_model.type",
+        "meaning": "Depth model used to build the aquifer support.",
+        "value": "flat_substratum",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.depth_model.substratum_elevation",
+        "meaning": "Substratum elevation used to build the synthetic support.",
+        "value": "-5 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.types",
+        "meaning": "External data families loaded by the benchmark.",
+        "value": "[oceanic, recharge]",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.oceanic.sources[0].source",
+        "meaning": "Oceanic data source mode used by the benchmark.",
+        "value": "constant",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.oceanic.sources[0].value",
+        "meaning": "Ocean level value supplied to the benchmark.",
+        "value": "0 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].source",
+        "meaning": "Recharge data source mode used by the benchmark.",
+        "value": "synthetic",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].values",
+        "meaning": "Recharge values used by the benchmark forcing.",
+        "value": "[1 mm/day]",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].runoff_ratio",
+        "meaning": "Runoff ratio applied when converting recharge forcing to effective infiltration.",
+        "value": "0",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.flow_regime",
+        "meaning": "Steady or transient flow regime used by the benchmark.",
+        "value": "steady",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.active_sinks_sources",
+        "meaning": "Sink and source families activated in the benchmark.",
+        "value": "[recharge]",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.active_bc",
+        "meaning": "Boundary-condition families activated in the benchmark.",
+        "value": "[ocean]",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param_list",
+        "meaning": "Hydraulic parameter families explicitly configured by the benchmark.",
+        "value": "[K]",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field.kind",
+        "meaning": "Parameterization mode used for `K`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field_homogeneous.value",
+        "meaning": "Homogeneous `K` value used by the benchmark.",
+        "value": "5e-6 m/s",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.ic.value",
+        "meaning": "Initial hydraulic head used to start the benchmark.",
+        "value": "1.0 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.ocean.value",
+        "meaning": "Fixed head applied on the ocean boundary.",
+        "value": "0.0 m",
+        "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+      }
+    ],
+    "solver_overrides": {
+      "modflownwt": [
+        {
+          "field": "modflownwt.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW-NWT.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW-NWT.",
+          "value": "61",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW-NWT.",
+          "value": "61",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW-NWT.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW-NWT.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
+        }
+      ],
+      "modflow6": [
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW 6.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW 6.",
+          "value": "61",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW 6.",
+          "value": "61",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW 6.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml"
+        }
+      ],
+      "boussinesq": [
+        {
+          "field": "flow.runtime_backend",
+          "meaning": "Runtime backend selected for the in-house solver.",
+          "value": "scipy_sparse",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml"
+        }
+      ]
+    },
+    "acceptance_criteria": {
+      "common": [
+        {
+          "field": "output.observable_name",
+          "meaning": "Simulated observable compared against the reference solution.",
+          "value": "watertable_elevation",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+        },
+        {
+          "field": "output.expected_shape",
+          "meaning": "Expected spatial output shape checked by the validation helper.",
+          "value": "[61, 61]",
+          "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+        }
+      ],
+      "solver_specific": {
+        "modflownwt": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 61 x 61",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+          },
+          {
+            "field": "radial_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for radial profile.",
+            "value": "0.25",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml"
+          },
+          {
+            "field": "radial_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for radial profile.",
+            "value": "0.5",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml"
+          },
+          {
+            "field": "radial_profile.azimuthal_spread",
+            "meaning": "Acceptance threshold for `radial_profile.azimuthal_spread`.",
+            "value": "0.25",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml"
+          },
+          {
+            "field": "radial_profile.ocean_head_max_error",
+            "meaning": "Acceptance threshold for `radial_profile.ocean_head_max_error`.",
+            "value": "1e-06",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml"
+          },
+          {
+            "field": "radial_profile.min_land_clearance",
+            "meaning": "Acceptance threshold for `radial_profile.min_land_clearance`.",
+            "value": "0.1",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml"
+          }
+        ],
+        "modflow6": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 61 x 61",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+          },
+          {
+            "field": "radial_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for radial profile.",
+            "value": "0.15",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "radial_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for radial profile.",
+            "value": "0.18",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "radial_profile.azimuthal_spread",
+            "meaning": "Acceptance threshold for `radial_profile.azimuthal_spread`.",
+            "value": "0.15",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "radial_profile.ocean_head_max_error",
+            "meaning": "Acceptance threshold for `radial_profile.ocean_head_max_error`.",
+            "value": "1e-08",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "radial_profile.min_land_clearance",
+            "meaning": "Acceptance threshold for `radial_profile.min_land_clearance`.",
+            "value": "0.6",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml"
+          }
+        ],
+        "boussinesq": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 61 x 61",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml"
+          },
+          {
+            "field": "radial_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for radial profile.",
+            "value": "0.15",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "radial_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for radial profile.",
+            "value": "0.35",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "radial_profile.azimuthal_spread",
+            "meaning": "Acceptance threshold for `radial_profile.azimuthal_spread`.",
+            "value": "0.25",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "radial_profile.ocean_head_max_error",
+            "meaning": "Acceptance threshold for `radial_profile.ocean_head_max_error`.",
+            "value": "1e-08",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "radial_profile.min_land_clearance",
+            "meaning": "Acceptance threshold for `radial_profile.min_land_clearance`.",
+            "value": "0.75",
+            "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml"
+          }
+        ]
+      }
+    }
+  }
+}

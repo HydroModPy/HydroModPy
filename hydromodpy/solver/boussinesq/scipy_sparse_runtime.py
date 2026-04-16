@@ -24,8 +24,10 @@ import numpy as np
 
 from hydromodpy.solver.boussinesq.assembly import (
     BoussinesqAssembly,
-    assemble_steady_residual,
-    assemble_transient_residual,
+)
+from hydromodpy.solver.boussinesq.head_only_runtime_common import (
+    build_steady_assembly_callback,
+    build_transient_assembly_callback,
 )
 from hydromodpy.solver.boussinesq.jacobian_fd import (
     build_cell_coupling_rows_by_column,
@@ -62,16 +64,7 @@ def _require_scipy_sparse():
 
 def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
     """Solve one transient implicit step with sparse Newton iterations."""
-    if float(inputs.dt_seconds) <= 0.0:
-        raise ValueError("dt_seconds must be strictly positive.")
-
-    head_prev = np.asarray(inputs.head_prev_m, dtype=float)
-    head = (
-        head_prev.copy()
-        if inputs.head_initial_guess_m is None
-        else np.asarray(inputs.head_initial_guess_m, dtype=float).copy()
-    )
-    options = inputs.options
+    solve_setup = build_transient_assembly_callback(inputs)
     jacobian_rows_by_col = build_cell_coupling_rows_by_column(
         n_cells=inputs.mesh.n_cells,
         edge_cell_a=inputs.mesh.edge_cell_a,
@@ -79,52 +72,39 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
     )
     jacobian_column_groups = color_columns_by_row_overlap(jacobian_rows_by_col)
 
-    def _assembly_for(candidate_head: np.ndarray) -> BoussinesqAssembly:
-        return assemble_transient_residual(
-            inputs.mesh,
-            head_m=candidate_head,
-            head_prev_m=head_prev,
-            dt_seconds=float(inputs.dt_seconds),
-            recharge_rate_m_s=inputs.recharge_rate_m_s,
-            well_flux_m3_s=inputs.well_flux_m3_s,
-            imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
-            prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
-            drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-            regularization_radius=float(options.regularization_radius),
-        )
-
     def _saturation_correction_for(candidate_head: np.ndarray) -> np.ndarray:
         return inputs.mesh.cell_area_m2 * np.asarray(
-            _assembly_for(candidate_head).saturation_excess_rate_m_s,
+            solve_setup.assembly_for(candidate_head).saturation_excess_rate_m_s,
             dtype=float,
         )
 
     return _solve_nonlinear_system(
-        assembly_for=_assembly_for,
+        assembly_for=solve_setup.assembly_for,
         saturation_correction_for=_saturation_correction_for,
         jacobian_rows_by_col=jacobian_rows_by_col,
         jacobian_column_groups=jacobian_column_groups,
-        head_initial_guess_m=head,
+        head_initial_guess_m=solve_setup.head_initial_guess_m,
         mesh=inputs.mesh,
         dt_seconds=float(inputs.dt_seconds),
-        imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
-        prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
+        prescribed_head_m_by_cell=solve_setup.prescribed_head_m_by_cell,
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-        max_iterations=int(options.max_iterations),
-        tol_residual_inf=float(options.tol_residual_inf),
-        fd_rel_step=float(options.fd_rel_step),
-        min_damping=float(options.min_damping),
+        max_iterations=int(solve_setup.options.max_iterations),
+        tol_residual_inf=float(solve_setup.options.tol_residual_inf),
+        fd_rel_step=float(solve_setup.options.fd_rel_step),
+        min_damping=float(solve_setup.options.min_damping),
         backend_name="scipy_sparse",
     )
 
 
 def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
     """Solve one steady nonlinear balance with sparse Newton iterations."""
-    head = interiorize_regularized_partition_initial_guess(
-        inputs.mesh,
-        np.asarray(inputs.head_initial_guess_m, dtype=float),
+    solve_setup = build_steady_assembly_callback(
+        inputs,
+        head_transform=lambda values: interiorize_regularized_partition_initial_guess(
+            inputs.mesh,
+            np.asarray(values, dtype=float),
+        ),
     )
-    options = inputs.options
     jacobian_rows_by_col = build_cell_coupling_rows_by_column(
         n_cells=inputs.mesh.n_cells,
         edge_cell_a=inputs.mesh.edge_cell_a,
@@ -132,39 +112,26 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
     )
     jacobian_column_groups = color_columns_by_row_overlap(jacobian_rows_by_col)
 
-    def _assembly_for(candidate_head: np.ndarray) -> BoussinesqAssembly:
-        return assemble_steady_residual(
-            inputs.mesh,
-            head_m=candidate_head,
-            recharge_rate_m_s=inputs.recharge_rate_m_s,
-            well_flux_m3_s=inputs.well_flux_m3_s,
-            imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
-            prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
-            drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-            regularization_radius=float(options.regularization_radius),
-        )
-
     def _saturation_correction_for(candidate_head: np.ndarray) -> np.ndarray:
         return inputs.mesh.cell_area_m2 * np.asarray(
-            _assembly_for(candidate_head).saturation_excess_rate_m_s,
+            solve_setup.assembly_for(candidate_head).saturation_excess_rate_m_s,
             dtype=float,
         )
 
     return _solve_nonlinear_system(
-        assembly_for=_assembly_for,
+        assembly_for=solve_setup.assembly_for,
         saturation_correction_for=_saturation_correction_for,
         jacobian_rows_by_col=jacobian_rows_by_col,
         jacobian_column_groups=jacobian_column_groups,
-        head_initial_guess_m=head,
+        head_initial_guess_m=solve_setup.head_initial_guess_m,
         mesh=inputs.mesh,
         dt_seconds=None,
-        imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
-        prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
+        prescribed_head_m_by_cell=solve_setup.prescribed_head_m_by_cell,
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-        max_iterations=int(options.max_iterations),
-        tol_residual_inf=float(options.tol_residual_inf),
-        fd_rel_step=float(options.fd_rel_step),
-        min_damping=float(options.min_damping),
+        max_iterations=int(solve_setup.options.max_iterations),
+        tol_residual_inf=float(solve_setup.options.tol_residual_inf),
+        fd_rel_step=float(solve_setup.options.fd_rel_step),
+        min_damping=float(solve_setup.options.min_damping),
         backend_name="scipy_sparse",
     )
 
@@ -178,7 +145,6 @@ def _solve_nonlinear_system(
     head_initial_guess_m: np.ndarray,
     mesh: BoussinesqMesh,
     dt_seconds: float | None,
-    imposed_head_m_by_edge: np.ndarray | None,
     prescribed_head_m_by_cell: np.ndarray | None,
     drainage_conductance_m2_s: np.ndarray | float | None,
     max_iterations: int,
@@ -224,7 +190,6 @@ def _solve_nonlinear_system(
             jacobian_rows_by_col=jacobian_rows_by_col,
             jacobian_column_groups=jacobian_column_groups,
             dt_seconds=dt_seconds,
-            imposed_head_m_by_edge=imposed_head_m_by_edge,
             prescribed_head_m_by_cell=prescribed_head_m_by_cell,
             drainage_conductance_m2_s=drainage_conductance_m2_s,
             fd_rel_step=float(fd_rel_step),
@@ -352,7 +317,6 @@ def _build_sparse_jacobian(
     jacobian_rows_by_col: tuple[np.ndarray, ...],
     jacobian_column_groups: tuple[np.ndarray, ...],
     dt_seconds: float | None,
-    imposed_head_m_by_edge: np.ndarray | None,
     prescribed_head_m_by_cell: np.ndarray | None,
     drainage_conductance_m2_s: np.ndarray | float | None,
     fd_rel_step: float,
@@ -362,7 +326,6 @@ def _build_sparse_jacobian(
         mesh,
         head_m,
         dt_seconds=dt_seconds,
-        imposed_head_m_by_edge=imposed_head_m_by_edge,
         prescribed_head_m_by_cell=prescribed_head_m_by_cell,
         drainage_conductance_m2_s=drainage_conductance_m2_s,
     )

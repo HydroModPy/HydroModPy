@@ -1,0 +1,968 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "boussinesq_circular_island_piecewise_k_2d",
+  "title": "Boussinesq Circular-Island Piecewise-K 2D",
+  "category": "validation",
+  "deck": "Steady synthetic groundwater-flow case used to validate the launcher workflow against the axisymmetric Dupuit-Boussinesq solution for a circular island with:",
+  "summary": "Steady synthetic groundwater-flow case used to validate the launcher workflow against the axisymmetric Dupuit-Boussinesq solution for a circular island with:",
+  "case_setup": [
+    "Circular island with concentric piecewise-constant `K`, uniform recharge, `ocean` top BC",
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
+  ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
+  "what_it_shows": [
+    "validate heterogeneous `K` mapping on a genuinely 2D synthetic geometry,",
+    "verify that the numerical solution preserves radial symmetry on a Cartesian grid,",
+    "keep an analytical benchmark where the water table remains below the island topography.",
+    "2D heterogeneous `K` mapping, ocean BC, radial symmetry and land/sea partitioning",
+    "Primary metrics: radial RMSE, radial max abs error, azimuthal spread, ocean head error, minimum land freeboard.",
+    "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
+  ],
+  "reference_highlights": [
+    "compared quantity: annular mean head profile on land",
+    "reference: steady radial Boussinesq solution with concentric piecewise `K`"
+  ],
+  "equations_rst": [
+    "\\frac{1}{r}\\frac{\\mathrm{d}}{\\mathrm{d}r}\\left(r\\,K(r)\\,H\\,\\frac{\\mathrm{d}H}{\\mathrm{d}r}\\right)+R=0",
+    "U=H^2,\\qquad U(r)=U(a)+R\\int_r^a \\frac{s}{K(s)}\\,\\mathrm{d}s"
+  ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/README.md",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/reference.py",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/comparison.py",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/plotting.py",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/run_case.py",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/runtime_boussinesq.py",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_boussinesq.toml",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_modflow6.toml",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6.toml",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_boussinesq.toml",
+    "validation_cases/analytical/steady/boussinesq_piecewise.py"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/README.md": "31a2cc87e55be5223785d73d34e4f49a9e486bb0fbfb6ce345c1609d39082d47",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/reference.py": "9831b112ef1728d2c24948765d4ac9d9fc85e6dbedc829bb5fc5f63ce9916833",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/comparison.py": "66109d3de316ee8cf2094d805e520f3b927dbe5e62cab81016ef142387a0c0ec",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/plotting.py": "187245a2a92d74afe923ec6025dfc16da2f51896e720634cfb3926125c4da601",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/run_case.py": "2fa16c6234c914e5d97509b36a000975b7d093100f4f52d10a54f5a5a51c90a5",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml": "4bdfd3c439c17eff54e42b30e6a7ec8acf15997fe9d4ffec9478d417f7ca45cc",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml": "a1d08a7812645e1332d69e1917e2d61b3ae36f8fa860bb1b77d9729f16d5db69",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/runtime_boussinesq.py": "2871cbaeef5599d06a035b74ad5694577b65a198068f9ea111e6dde6c87a6079",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml": "fb1703b0bef904ef51a2bab371cb343f38c1063f28d4e94e03565a7709ca4642",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_boussinesq.toml": "aa523c345d006fdc22d31d421cc7c1caaeebfb0f7bedffd61b43b36d5b2a2a8b",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_modflow6.toml": "0eba8a46c17338a761b2485618510b8d7d20243af6443a15d79e45e77785c176",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6.toml": "861f5eef5f90f4482e1018d1d02c41c9bbc32452acb036a155ef57f531b4c1fc",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_boussinesq.toml": "aaebad7805cda1a24b2ee2a9aefb95270df1b1e498044e123a4ad0e9be5f28e8",
+    "validation_cases/analytical/steady/boussinesq_piecewise.py": "27d1932778c87f2e71920b00f583eee731a29734e95e56e2ec3674008379a857"
+  },
+  "docname": "cases/boussinesq_circular_island_piecewise_k_2d",
+  "images": [
+    {
+      "filename": "boussinesq_circular_island_piecewise_k_2d__modflownwt.png",
+      "caption": "Boussinesq Circular-Island Piecewise-K 2D rendered with MODFLOW-NWT for the analytical gallery.",
+      "alt_text": "Boussinesq Circular-Island Piecewise-K 2D validation figure for MODFLOW-NWT",
+      "doc_path": "/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflownwt.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflownwt.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d",
+    "default_solver": "modflownwt",
+    "solver_variants": [
+      "modflownwt",
+      "modflow6",
+      "boussinesq"
+    ],
+    "solver_details": {
+      "modflownwt": {
+        "display_name": "MODFLOW-NWT",
+        "config_path": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml",
+        "expected_output": "Expected shape: 61 x 61",
+        "tolerance_path": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml"
+      },
+      "modflow6": {
+        "display_name": "MODFLOW 6",
+        "config_path": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6.toml",
+        "expected_output": "Expected shape: 61 x 61",
+        "tolerance_path": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_modflow6.toml"
+      },
+      "boussinesq": {
+        "display_name": "Boussinesq",
+        "config_path": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_boussinesq.toml",
+        "expected_output": "Expected shape: 61 x 61",
+        "tolerance_path": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_boussinesq.toml"
+      }
+    },
+    "regime": "steady",
+    "dimension": "2d",
+    "inventory_reference": "",
+    "case_sheet": {
+      "numerical_setup": "Circular island with concentric piecewise-constant `K`, uniform recharge, `ocean` top BC",
+      "analytical_target": "Radial steady Boussinesq island solution with concentric `K` zones",
+      "primary_metrics": "radial RMSE, radial max abs error, azimuthal spread, ocean head error, minimum land freeboard",
+      "what_it_validates": "2D heterogeneous `K` mapping, ocean BC, radial symmetry and land/sea partitioning"
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "island_2d",
+    "geometry_family_label": "Island 2D",
+    "reference_type": "analytical_exact",
+    "reference_type_label": "Analytical Exact",
+    "validation_family": "steady_2d_radial_or_island",
+    "validation_family_label": "Steady 2D Radial or Island Cases",
+    "validation_family_order": 40
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflownwt.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__boussinesq.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "modflownwt",
+      "solver_display_name": "MODFLOW-NWT",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml",
+      "tolerance_path": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml",
+      "expected_output": "Expected shape: 61 x 61",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.run_case --no-show --solver modflownwt",
+      "metric_lines": [
+        "Radial head-profile RMSE: 0.0286 m",
+        "Radial head-profile max abs error: 0.0544 m",
+        "Azimuthal spread: 0.0816 m",
+        "Ocean head max abs error: 0.00e+00 m",
+        "Minimum land freeboard: 0.9097 m"
+      ],
+      "image": {
+        "filename": "boussinesq_circular_island_piecewise_k_2d__modflownwt.png",
+        "caption": "Boussinesq Circular-Island Piecewise-K 2D rendered with MODFLOW-NWT for the analytical gallery.",
+        "alt_text": "Boussinesq Circular-Island Piecewise-K 2D validation figure for MODFLOW-NWT",
+        "doc_path": "/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflownwt.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflownwt.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "boussinesq_circular_island_piecewise_k_2d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "2d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              61,
+              61
+            ]
+          },
+          "reference": {
+            "crs": "EPSG:2154",
+            "xmin": 265400.0,
+            "ymin": 6784100.0,
+            "length_x_m": 610.0,
+            "length_y_m": 610.0,
+            "nx": 61,
+            "ny": 61,
+            "center_x_m": 265705.0,
+            "center_y_m": 6784405.0,
+            "sea_level_m": 0.0,
+            "ocean_floor_elevation_m": -1.0,
+            "crest_elevation_m": 12.0,
+            "island_radius_m": 200.0,
+            "comparison_radius_max_m": 190.0,
+            "radial_bin_width_m": 10.0,
+            "substratum_elevation_m": -5.0,
+            "ring_radius_breaks_m": [
+              70.0,
+              140.0
+            ],
+            "hydraulic_conductivity_m_per_s_by_ring": [
+              8e-06,
+              4e-06,
+              1e-05
+            ],
+            "recharge_mm_day": 1.0,
+            "comparison_radius_max_by_solver": {
+              "boussinesq": 180.0
+            }
+          }
+        },
+        "tolerances": {
+          "radial_profile": {
+            "rmse": 0.35,
+            "max_abs_error": 0.7,
+            "azimuthal_spread": 0.35,
+            "ocean_head_max_error": 1e-06,
+            "min_land_clearance": 0.1
+          }
+        },
+        "timestep": 1
+      }
+    },
+    {
+      "solver": "modflow6",
+      "solver_display_name": "MODFLOW 6",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6.toml",
+      "tolerance_path": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_modflow6.toml",
+      "expected_output": "Expected shape: 61 x 61",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.run_case --no-show --solver modflow6",
+      "metric_lines": [
+        "Radial head-profile RMSE: 0.0481 m",
+        "Radial head-profile max abs error: 0.0802 m",
+        "Azimuthal spread: 0.0825 m",
+        "Ocean head max abs error: 0.00e+00 m",
+        "Minimum land freeboard: 0.8882 m"
+      ],
+      "image": {
+        "filename": "boussinesq_circular_island_piecewise_k_2d__modflow6.png",
+        "caption": "Boussinesq Circular-Island Piecewise-K 2D rendered with MODFLOW 6 for the analytical gallery.",
+        "alt_text": "Boussinesq Circular-Island Piecewise-K 2D validation figure for MODFLOW 6",
+        "doc_path": "/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflow6.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflow6.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "boussinesq_circular_island_piecewise_k_2d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "2d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              61,
+              61
+            ]
+          },
+          "reference": {
+            "crs": "EPSG:2154",
+            "xmin": 265400.0,
+            "ymin": 6784100.0,
+            "length_x_m": 610.0,
+            "length_y_m": 610.0,
+            "nx": 61,
+            "ny": 61,
+            "center_x_m": 265705.0,
+            "center_y_m": 6784405.0,
+            "sea_level_m": 0.0,
+            "ocean_floor_elevation_m": -1.0,
+            "crest_elevation_m": 12.0,
+            "island_radius_m": 200.0,
+            "comparison_radius_max_m": 190.0,
+            "radial_bin_width_m": 10.0,
+            "substratum_elevation_m": -5.0,
+            "ring_radius_breaks_m": [
+              70.0,
+              140.0
+            ],
+            "hydraulic_conductivity_m_per_s_by_ring": [
+              8e-06,
+              4e-06,
+              1e-05
+            ],
+            "recharge_mm_day": 1.0,
+            "comparison_radius_max_by_solver": {
+              "boussinesq": 180.0
+            }
+          }
+        },
+        "tolerances": {
+          "radial_profile": {
+            "rmse": 0.06,
+            "max_abs_error": 0.1,
+            "azimuthal_spread": 0.1,
+            "ocean_head_max_error": 1e-08,
+            "min_land_clearance": 0.75
+          }
+        },
+        "timestep": 1
+      }
+    },
+    {
+      "solver": "boussinesq",
+      "solver_display_name": "Boussinesq",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_boussinesq.toml",
+      "tolerance_path": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_boussinesq.toml",
+      "expected_output": "Expected shape: 61 x 61",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.run_case --no-show --solver boussinesq",
+      "metric_lines": [
+        "Radial head-profile RMSE: 0.1752 m",
+        "Radial head-profile max abs error: 0.3282 m",
+        "Azimuthal spread: 0.2272 m",
+        "Ocean head max abs error: 0.00e+00 m",
+        "Minimum land freeboard: 1.0392 m"
+      ],
+      "image": {
+        "filename": "boussinesq_circular_island_piecewise_k_2d__boussinesq.png",
+        "caption": "Boussinesq Circular-Island Piecewise-K 2D rendered with Boussinesq for the analytical gallery.",
+        "alt_text": "Boussinesq Circular-Island Piecewise-K 2D validation figure for Boussinesq",
+        "doc_path": "/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__boussinesq.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__boussinesq.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "boussinesq_circular_island_piecewise_k_2d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "2d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              61,
+              61
+            ]
+          },
+          "reference": {
+            "crs": "EPSG:2154",
+            "xmin": 265400.0,
+            "ymin": 6784100.0,
+            "length_x_m": 610.0,
+            "length_y_m": 610.0,
+            "nx": 61,
+            "ny": 61,
+            "center_x_m": 265705.0,
+            "center_y_m": 6784405.0,
+            "sea_level_m": 0.0,
+            "ocean_floor_elevation_m": -1.0,
+            "crest_elevation_m": 12.0,
+            "island_radius_m": 200.0,
+            "comparison_radius_max_m": 190.0,
+            "radial_bin_width_m": 10.0,
+            "substratum_elevation_m": -5.0,
+            "ring_radius_breaks_m": [
+              70.0,
+              140.0
+            ],
+            "hydraulic_conductivity_m_per_s_by_ring": [
+              8e-06,
+              4e-06,
+              1e-05
+            ],
+            "recharge_mm_day": 1.0,
+            "comparison_radius_max_by_solver": {
+              "boussinesq": 180.0
+            }
+          }
+        },
+        "tolerances": {
+          "radial_profile": {
+            "rmse": 0.2,
+            "max_abs_error": 0.35,
+            "azimuthal_spread": 0.25,
+            "ocean_head_max_error": 1e-08,
+            "min_land_clearance": 0.75
+          }
+        },
+        "timestep": 0
+      }
+    }
+  ],
+  "parameter_docs": {
+    "reference_parameters": [
+      {
+        "field": "crs",
+        "meaning": "Coordinate reference system used by the synthetic geometry.",
+        "value": "EPSG:2154",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "xmin",
+        "meaning": "Minimum x coordinate of the analytical reference domain.",
+        "value": "265400",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "ymin",
+        "meaning": "Minimum y coordinate of the analytical reference domain.",
+        "value": "6.7841e+06",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "length_x_m",
+        "meaning": "Reference-domain length along the x axis.",
+        "value": "610 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "length_y_m",
+        "meaning": "Reference-domain length along the y axis.",
+        "value": "610 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "nx",
+        "meaning": "Reference discretization count along the x axis used by the comparison helper.",
+        "value": "61",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "ny",
+        "meaning": "Reference discretization count along the y axis used by the comparison helper.",
+        "value": "61",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "center_x_m",
+        "meaning": "Reference x coordinate of the domain centre or pumping location.",
+        "value": "265705 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "center_y_m",
+        "meaning": "Reference y coordinate of the domain centre or pumping location.",
+        "value": "6.7844e+06 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "sea_level_m",
+        "meaning": "Sea level used by the coastal or island reference.",
+        "value": "0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "ocean_floor_elevation_m",
+        "meaning": "Ocean-floor elevation used by the coastal reference geometry.",
+        "value": "-1 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "crest_elevation_m",
+        "meaning": "Crest elevation used by the synthetic island topography.",
+        "value": "12 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "island_radius_m",
+        "meaning": "Island radius used by the radial reference domain.",
+        "value": "200 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "comparison_radius_max_m",
+        "meaning": "Maximum radius used when sampling radial comparisons.",
+        "value": "190 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "radial_bin_width_m",
+        "meaning": "Radial bin width used when aggregating the numerical solution.",
+        "value": "10 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "substratum_elevation_m",
+        "meaning": "Substratum elevation used to build the analytical aquifer geometry.",
+        "value": "-5 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "ring_radius_breaks_m",
+        "meaning": "Ring-radius breaks used to define heterogeneous conductivity in the radial reference.",
+        "value": "[70 m, 140 m]",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "hydraulic_conductivity_m_per_s_by_ring",
+        "meaning": "Reference parameter `hydraulic_conductivity_m_per_s_by_ring` used by the analytical or benchmark solution.",
+        "value": "[8e-06, 4e-06, 1e-05]",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "recharge_mm_day",
+        "meaning": "Recharge rate used by the reference solution.",
+        "value": "1 mm/day",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      },
+      {
+        "field": "comparison_radius_max_by_solver.boussinesq",
+        "meaning": "Maximum comparison radius retained for `boussinesq`.",
+        "value": "180",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+      }
+    ],
+    "common_setup": [
+      {
+        "field": "simulation.time.start_datetime",
+        "meaning": "Simulation start time used by the benchmark.",
+        "value": "2003-01-01 00:00:00",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "simulation.time.end_datetime",
+        "meaning": "Simulation end time used by the benchmark.",
+        "value": "2003-01-02 00:00:00",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "simulation.time.step_value",
+        "meaning": "Nominal time step used by the benchmark.",
+        "value": "1 day",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_x",
+        "meaning": "Synthetic-domain length along the x axis.",
+        "value": "610.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_y",
+        "meaning": "Synthetic-domain length along the y axis.",
+        "value": "610.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.nx",
+        "meaning": "Grid cell count along the x axis.",
+        "value": "61",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.ny",
+        "meaning": "Grid cell count along the y axis.",
+        "value": "61",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.kind",
+        "meaning": "Synthetic topography shape used by the benchmark.",
+        "value": "radial_island",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.base_elevation",
+        "meaning": "Base land-surface elevation of the synthetic topography.",
+        "value": "-1 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.crest_elevation",
+        "meaning": "Crest elevation used by the synthetic topography.",
+        "value": "12 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.island_radius",
+        "meaning": "Island radius used by the synthetic topography.",
+        "value": "200.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.supports.k_rings.provider",
+        "meaning": "How the support `k_rings` is generated.",
+        "value": "generated_rings",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.supports.k_rings.coordinate_mode",
+        "meaning": "Coordinate interpretation used to define support `k_rings`.",
+        "value": "absolute",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.supports.k_rings.radii",
+        "meaning": "Case-specific configuration field `domain.supports.k_rings.radii` used by the validation benchmark.",
+        "value": "[70.0 m, 140.0 m]",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.supports.k_rings.labels",
+        "meaning": "Labels assigned to the zones of support `k_rings`.",
+        "value": "[inner_ring, middle_ring, outer_ring]",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.depth_model.type",
+        "meaning": "Depth model used to build the aquifer support.",
+        "value": "flat_substratum",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.depth_model.substratum_elevation",
+        "meaning": "Substratum elevation used to build the synthetic support.",
+        "value": "-5 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.types",
+        "meaning": "External data families loaded by the benchmark.",
+        "value": "[oceanic, recharge]",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.oceanic.sources[0].source",
+        "meaning": "Oceanic data source mode used by the benchmark.",
+        "value": "constant",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.oceanic.sources[0].value",
+        "meaning": "Ocean level value supplied to the benchmark.",
+        "value": "0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].source",
+        "meaning": "Recharge data source mode used by the benchmark.",
+        "value": "synthetic",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].values",
+        "meaning": "Recharge values used by the benchmark forcing.",
+        "value": "[1 mm/day]",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].runoff_ratio",
+        "meaning": "Runoff ratio applied when converting recharge forcing to effective infiltration.",
+        "value": "0",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.flow_regime",
+        "meaning": "Steady or transient flow regime used by the benchmark.",
+        "value": "steady",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.active_sinks_sources",
+        "meaning": "Sink and source families activated in the benchmark.",
+        "value": "[recharge]",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.active_bc",
+        "meaning": "Boundary-condition families activated in the benchmark.",
+        "value": "[ocean]",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param_list",
+        "meaning": "Hydraulic parameter families explicitly configured by the benchmark.",
+        "value": "[K]",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field.kind",
+        "meaning": "Parameterization mode used for `K`.",
+        "value": "heterogeneous",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field_heterogeneous.values_source",
+        "meaning": "Value source used for the heterogeneous `K` field.",
+        "value": "inline",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field_heterogeneous.values.inner_ring",
+        "meaning": "Heterogeneous `K` value applied on support zone `inner_ring`.",
+        "value": "8e-6 m/s",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field_heterogeneous.values.middle_ring",
+        "meaning": "Heterogeneous `K` value applied on support zone `middle_ring`.",
+        "value": "4e-6 m/s",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field_heterogeneous.values.outer_ring",
+        "meaning": "Heterogeneous `K` value applied on support zone `outer_ring`.",
+        "value": "1e-5 m/s",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field_heterogeneous.field_spatial_id",
+        "meaning": "Support identifier used to distribute the heterogeneous `K` field.",
+        "value": "k_rings",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.ic.value",
+        "meaning": "Initial hydraulic head used to start the benchmark.",
+        "value": "1.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.ocean.value",
+        "meaning": "Fixed head applied on the ocean boundary.",
+        "value": "0.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+      }
+    ],
+    "solver_overrides": {
+      "modflownwt": [
+        {
+          "field": "modflownwt.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW-NWT.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW-NWT.",
+          "value": "61",
+          "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW-NWT.",
+          "value": "61",
+          "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW-NWT.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW-NWT.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml"
+        }
+      ],
+      "modflow6": [
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW 6.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW 6.",
+          "value": "61",
+          "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW 6.",
+          "value": "61",
+          "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW 6.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6.toml"
+        }
+      ],
+      "boussinesq": [
+        {
+          "field": "flow.runtime_backend",
+          "meaning": "Runtime backend selected for the in-house solver.",
+          "value": "scipy_sparse",
+          "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_boussinesq.toml"
+        }
+      ]
+    },
+    "acceptance_criteria": {
+      "common": [
+        {
+          "field": "output.observable_name",
+          "meaning": "Simulated observable compared against the reference solution.",
+          "value": "watertable_elevation",
+          "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+        },
+        {
+          "field": "output.expected_shape",
+          "meaning": "Expected spatial output shape checked by the validation helper.",
+          "value": "[61, 61]",
+          "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+        }
+      ],
+      "solver_specific": {
+        "modflownwt": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 61 x 61",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+          },
+          {
+            "field": "radial_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for radial profile.",
+            "value": "0.35",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml"
+          },
+          {
+            "field": "radial_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for radial profile.",
+            "value": "0.7",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml"
+          },
+          {
+            "field": "radial_profile.azimuthal_spread",
+            "meaning": "Acceptance threshold for `radial_profile.azimuthal_spread`.",
+            "value": "0.35",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml"
+          },
+          {
+            "field": "radial_profile.ocean_head_max_error",
+            "meaning": "Acceptance threshold for `radial_profile.ocean_head_max_error`.",
+            "value": "1e-06",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml"
+          },
+          {
+            "field": "radial_profile.min_land_clearance",
+            "meaning": "Acceptance threshold for `radial_profile.min_land_clearance`.",
+            "value": "0.1",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml"
+          }
+        ],
+        "modflow6": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 61 x 61",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+          },
+          {
+            "field": "radial_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for radial profile.",
+            "value": "0.06",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "radial_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for radial profile.",
+            "value": "0.1",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "radial_profile.azimuthal_spread",
+            "meaning": "Acceptance threshold for `radial_profile.azimuthal_spread`.",
+            "value": "0.1",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "radial_profile.ocean_head_max_error",
+            "meaning": "Acceptance threshold for `radial_profile.ocean_head_max_error`.",
+            "value": "1e-08",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "radial_profile.min_land_clearance",
+            "meaning": "Acceptance threshold for `radial_profile.min_land_clearance`.",
+            "value": "0.75",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_modflow6.toml"
+          }
+        ],
+        "boussinesq": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 61 x 61",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml"
+          },
+          {
+            "field": "radial_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for radial profile.",
+            "value": "0.2",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "radial_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for radial profile.",
+            "value": "0.35",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "radial_profile.azimuthal_spread",
+            "meaning": "Acceptance threshold for `radial_profile.azimuthal_spread`.",
+            "value": "0.25",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "radial_profile.ocean_head_max_error",
+            "meaning": "Acceptance threshold for `radial_profile.ocean_head_max_error`.",
+            "value": "1e-08",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_boussinesq.toml"
+          },
+          {
+            "field": "radial_profile.min_land_clearance",
+            "meaning": "Acceptance threshold for `radial_profile.min_land_clearance`.",
+            "value": "0.75",
+            "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_boussinesq.toml"
+          }
+        ]
+      }
+    }
+  }
+}

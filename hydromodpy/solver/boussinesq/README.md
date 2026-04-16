@@ -46,9 +46,27 @@ The package has a deliberately narrow goal:
 - `forcing_resolution.py`
   The process-to-array adapter for recharge, wells, Dirichlet supports and
   drainage payloads.
+- `ResolvedDirichletSupport`
+  The explicit support record used to resolve one Dirichlet condition once,
+  then project it either to the canonical cell-based runtime view or to the
+  edge-based support view used by diagnostics.
 - `export_payload.py`
-  The compatibility export layer for `_postprocess` arrays and state-history
+  The export layer for `_postprocess` arrays and state-history
   payloads.
+- `history_contract.py`
+  The explicit transient time contract. It defines the canonical distinction
+  between snapshot histories (`t0..tN`) and step histories (`dt1..dtN`), plus
+  the helper used to write `.npy` time-series sidecars carrying explicit
+  `elapsed_seconds`.
+- `driver_state.py`
+  The helper layer that accumulates transient histories and builds canonical
+  `BoussinesqState` objects from steady and transient runs.
+- `boundary_flux_reconstruction.py`
+  The helper that rebuilds edge-based boundary-flux diagnostics from the
+  canonical cell-prescribed runtime state.
+- `head_only_runtime_common.py`
+  Shared callback builders for the head-only runtime family
+  (`local`, `scipy`, `scipy_sparse`, `petsc_partition`).
 - `local_runtime.py`
   A dense, damped Newton solver implemented in-house.
 - `scipy_runtime.py`
@@ -124,87 +142,84 @@ So the readable split is:
 
 ## Current Simplification Status
 
-The package is now clearer than it used to be on three structural points:
+The package is now much clearer than it used to be on the structural points
+that mattered most:
 
-- the canonical Dirichlet representation is now
-  `prescribed_head_m_by_cell`;
+- the canonical Dirichlet representation is `prescribed_head_m_by_cell`;
+- the active driver/runtime path solves only through that prescribed-cell
+  representation;
+- Dirichlet supports are resolved once as `ResolvedDirichletSupport` records,
+  then projected either to cells for the solve or to supported edges for
+  diagnostics;
+- edge-based boundary diagnostics are rebuilt explicitly in
+  `boundary_flux_reconstruction.py` instead of leaking into the active solve
+  contract;
 - method selection and engine selection are explicit through `methods/`,
   `engines/` and `runtime_selection.py`;
 - `BoussinesqState` construction is centralized instead of being repeated in
   several runtime paths.
 
-The main readability debt that still remains is no longer conceptual
-confusion. It is now mostly a matter of module size and compatibility layers.
+The main remaining readability debt is no longer semantic confusion around the
+boundary conditions. It is mostly a matter of file size and repeated runtime
+bookkeeping patterns.
 
-### What Is Canonical Today
+### Canonical Internal Vocabulary
 
 These concepts should now be considered the stable internal vocabulary of the
 solver:
 
 - boundary-prescribed head on cells: `prescribed_head_m_by_cell`;
+- boundary-head support on edges: `boundary_head_m_by_edge`;
+- reconstructed boundary diagnostic: `boundary_edge_flux_m3_s`;
 - physical nonlinear state: `BoussinesqAssembly`;
 - accepted runtime state: `BoussinesqState`;
 - process-to-solver resolution: `BoussinesqSolverContract`;
 - method taxonomy: `formulations/` + `methods/`;
 - execution-engine taxonomy: `engines/`.
 
-### What Is Still Legacy
+### Remaining Structural Debt
 
-These names still exist mainly for compatibility with historical exports,
-plots and tests:
+The remaining debt is now mostly organizational:
 
-- `imposed_head_m_by_edge`;
-- `imposed_head_edge_flux_m3_s`;
-- `active_imposed_head_bc`.
+- `boussinesq.py`, `assembly.py`, `forcing_resolution.py` and
+  `jacobian_semianalytic.py` are still large files;
+- runtime modules still share more bookkeeping than they share helper code;
+- the low-level assembly/Jacobian layers still accept both the canonical
+  cell-prescribed representation and the optional edge-supported boundary view.
 
-They should not drive new design decisions anymore. The intended end state is:
-
-- runtime internals work from prescribed boundary cells;
-- diagnostics reconstruct the boundary exchange they need from the canonical
-  state;
-- legacy `imposed_head_*` remains, if needed, only as a compatibility export
-  adapter.
+That last point is no longer a semantic bug. It is a conscious low-level
+design choice used by diagnostics and a small number of focused tests.
 
 ## Simplification Review
 
-The full module review points to four meaningful simplification targets.
+The current review points to four meaningful simplification targets.
 
-### 1. Split Orchestration From Payload Resolution
+### 1. Keep The Driver As A Coordinator
 
-`boussinesq.py` is still too large because it does several jobs at once:
+The biggest structural split targets are now mostly in place:
 
-- process-to-array resolution;
-- steady/transient orchestration;
-- runtime-summary bookkeeping;
-- state export assembly;
-- legacy compatibility export.
+- `forcing_resolution.py` carries process-to-array resolution;
+- `driver_state.py` carries accepted-state assembly;
+- `export_payload.py` carries NPZ/export payload generation;
+- `boundary_flux_reconstruction.py` isolates the edge-flux reconstruction
+  used by diagnostics and regression.
 
-The next safe split is:
+`boussinesq.py` remains the top-level entry point, but it should stay a
+coordinator, not grow back into the place where every transformation lives.
+The next safe rule is therefore simple: any new helper that is not pure
+orchestration should land outside `boussinesq.py`.
 
-- `forcing_resolution.py` for recharge, wells and boundary chronicle
-  resolution;
-- `driver_transient.py` for the transient period loop;
-- `driver_steady.py` for the steady solve path;
-- `export_payload.py` for NPZ/JSON compatibility payload generation.
+### 2. Keep Boundary Semantics One-Way
 
-The current file is still acceptable as the top-level entry point, but it
-should become a coordinator, not the place where every transformation lives.
+The driver path is already one-way:
 
-### 2. Shrink The Assembly/Jacobian Compatibility Surface
+- resolve supports;
+- project to `prescribed_head_m_by_cell` for the solve;
+- rebuild `boundary_edge_flux_*` only for diagnostics.
 
-`assembly.py` is now clearer, but it still carries two boundary languages:
-
-- canonical prescribed boundary cells;
-- legacy imposed boundary edges.
-
-The long-term simplification target is:
-
-- keep assembly and Jacobian focused on the canonical prescribed-cell path;
-- isolate legacy imposed-edge conversion at the API boundary;
-- reconstruct edge-based diagnostics only where a real edge quantity is still
-  needed for plotting or regression.
-
-This is the main remaining conceptual cleanup.
+The remaining simplification target is to keep low-level additions aligned with
+that direction. New work should strengthen the canonical prescribed-cell path,
+not reintroduce a second active boundary language.
 
 ### 3. Factor Common Runtime Loop Patterns
 
@@ -247,6 +262,8 @@ The recommended documentation set for this package is intentionally small:
 2. `boussinesq_math_notes.tex`
 3. RTD architecture page
    `docs/readthedocs/source/architecture/solver/boussinesq-uml-diagrams.rst`
+4. architecture audit
+   `reporting/boussinesq_module_audit_2026-04-17.md`
 
 The UML set is also intentionally limited to four diagrams:
 
@@ -256,6 +273,25 @@ The UML set is also intentionally limited to four diagrams:
   handoff;
 - `boussinesq_transient_step_activity.wsd` for one transient step and export
   flow.
+
+## Transient Export Contract
+
+For transient runs, the canonical rule is now:
+
+- state-like histories are snapshot histories on `t0..tN`;
+- flux-like histories are step histories on `dt1..dtN`;
+- `_postprocess/*.npy` time-series written by Boussinesq helpers may carry one
+  sibling sidecar named `__time_axis.npy` storing explicit
+  `{time_keys, elapsed_seconds}`.
+
+The sidecar exists to prevent downstream code from silently reconstructing the
+time axis from dictionary keys alone, especially when one workflow hides the
+initial snapshot for plotting convenience.
+
+The canonical disk payload now always keeps the full snapshot history,
+including `t0`. Step-based comparisons that need `N` rows instead of `N+1`
+must trim the leading snapshot at load time, using the explicit elapsed-time
+axis rather than inferring semantics from integer dictionary keys.
 
 ## Extra Mathematical Documentation
 
@@ -279,7 +315,7 @@ the solver reconstructs:
 - the saturated thickness `b(h)`,
 - the transmissivity `T(h) = K b(h)`,
 - lateral fluxes between cells,
-- imposed-head exchanges,
+- boundary-head exchanges,
 - surface drainage,
 - the selected surface-interaction term.
 
@@ -305,7 +341,7 @@ Today this package supports:
 
 - 2D triangular meshes,
 - head as the primary unknown,
-- homogeneous recharge,
+- scalar recharge and heterogeneous recharge discretized on the planar mesh,
 - XY-located wells,
 - side, stream and ocean Dirichlet supports,
 - simplified top drainage,
@@ -328,7 +364,6 @@ Today this package supports:
 
 It does not yet provide:
 
-- heterogeneous recharge in this first slice,
 - the full historical MODFLOW boundary-condition catalog,
 - distributed MPI PETSc execution,
 - a full coupled overland-flow model,
@@ -342,13 +377,19 @@ If you want to understand the code quickly, read the files in this order:
 2. `mesh.py`
 3. `assembly.py`
 4. `runtime_contract.py`
-5. `local_runtime.py`
-6. `boussinesq.py`
+5. `forcing_resolution.py`
+6. `runtime_selection.py`
+7. `local_runtime.py`
+8. `driver_state.py`
+9. `export_payload.py`
+10. `boussinesq.py`
 
 This separates the problem nicely into:
 
 - geometry,
 - physics assembly,
 - explicit formulation / discretization / engine taxonomy,
+- process-to-array resolution,
 - nonlinear numerics,
+- accepted-state/export shaping,
 - application orchestration.

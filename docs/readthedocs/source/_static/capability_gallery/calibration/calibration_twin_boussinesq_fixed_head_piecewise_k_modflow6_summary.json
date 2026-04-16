@@ -1,0 +1,902 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6",
+  "title": "Calibration Twin: Piecewise-K 1D",
+  "category": "calibration",
+  "deck": "Steady modflow6 twin calibration benchmark with K_west, K_middle, K_east.",
+  "summary": "Same-solver twin benchmark on boussinesq_fixed_head_piecewise_k_1d with three zoned hydraulic-conductivity parameters and head/flux observables.",
+  "case_setup": [
+    "Solver: `modflow6` in `steady` regime.",
+    "Benchmark family: No-Uncertainty, Data-Rich Benchmarks.",
+    "Truth parameters: K_west, K_middle, K_east.",
+    "Observed outputs: head_west, head_middle, head_east, q_east.",
+    "Benchmarked methods: random_search, cma_es, simplex.",
+    "Initial bounds widened to: K_west=[7.5e-05, 0.00035], K_middle=[1.5e-05, 0.00012], K_east=[3.5e-05, 0.000175]."
+  ],
+  "key_parameters": [
+    "Calibrated parameters: K_west, K_middle, K_east.",
+    "Outputs used in the composite objective: head_west, head_middle, head_east, q_east.",
+    "Observation noise: none.",
+    "Perturbation: none."
+  ],
+  "how_to_read": [
+    "Open `case_configuration.png` first to understand the parameter block, outputs, and weighting before reading the optimization figures.",
+    "Use `objective_trace` to judge convergence speed and `objective_landscape` to see where the evaluated candidates concentrate relative to the truth and the selected solution(s).",
+    "Read timing metrics as benchmark diagnostics, not as universal solver performance numbers: they depend on the chosen method, case size, and evaluation budget."
+  ],
+  "next_steps": [
+    "Compare this case with the other calibration gallery pages to see how deterministic and distribution-valued methods behave under different inverse problems.",
+    "Use the full benchmark suite in `validation_cases/calibration` when you need multi-seed comparisons or noisy variants beyond the curated gallery subset."
+  ],
+  "what_it_shows": [
+    "A same-solver twin experiment where synthetic observations are generated first, then recovered through calibration on the same physics stack.",
+    "A case-level configuration figure, an objective trace, and an objective landscape or pairwise projection for the selected display method.",
+    "Per-method timing diagnostics with total calibration time plus average per-model preparation, simulation, and objective-evaluation costs."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m validation_cases.calibration.twin.steady.boussinesq_fixed_head_piecewise_k_1d.run_case",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/calibration/README.md",
+    "validation_cases/calibration/run_benchmarks.py",
+    "validation_cases/calibration/plotting.py",
+    "validation_cases/calibration/shared/definitions.py",
+    "validation_cases/calibration/shared/runtime.py",
+    "validation_cases/calibration/twin/steady/boussinesq_fixed_head_piecewise_k_1d/run_case.py",
+    "validation_cases/calibration/twin/steady/boussinesq_fixed_head_piecewise_k_1d/experiment.py",
+    "launchers/model_calibration/launcher.py",
+    "launchers/model_calibration/runtime.py"
+  ],
+  "source_hashes": {
+    "validation_cases/calibration/README.md": "c1505a35ce03f992dee89720ccf1594240b23d6b6515be252ff2cc2f1ab95f83",
+    "validation_cases/calibration/run_benchmarks.py": "b101bdfcedf5636d71b91aa4278d3ab272aee980c3fd26c1cc9817195540a8a3",
+    "validation_cases/calibration/plotting.py": "0c5b1d3687c2d266a1b7b6b91b336a8ab36c55ec21c6c9601ccf124b5097ca1d",
+    "validation_cases/calibration/shared/definitions.py": "c44c1e012f2fa6c84ea74ef0021950eacdae316576b9275ce077b5f25dc5a5ff",
+    "validation_cases/calibration/shared/runtime.py": "f406d788450d45c9a6dcc60d2145dfca3c86c0f5098ed84f223906ebb2598c64",
+    "validation_cases/calibration/twin/steady/boussinesq_fixed_head_piecewise_k_1d/run_case.py": "d76f0389abb1b4341f9702d4f605a78146348e4a5f18d63c383ebf54263a880b",
+    "validation_cases/calibration/twin/steady/boussinesq_fixed_head_piecewise_k_1d/experiment.py": "b8bb8b46fa3b260ddb604288d99e40d6ea9604b7268d13e19e6d5c439c003314",
+    "launchers/model_calibration/launcher.py": "fd8399af0cc77024ae6039e73bc56c73b9861c8c069cc181fcef29a6e2dbee8e",
+    "launchers/model_calibration/runtime.py": "ebc1c650ce1cbf1710ed52b6e10d68b746c87f6cdb71c3f2bcfb83bd61752be3"
+  },
+  "docname": "cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6",
+  "images": [
+    {
+      "filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__configuration.png",
+      "caption": "Calibration Twin: Piecewise-K 1D configuration summary used by the calibration gallery.",
+      "alt_text": "Calibration Twin: Piecewise-K 1D configuration figure",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__configuration.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__configuration.png"
+    },
+    {
+      "filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_landscape.png",
+      "caption": "Objective landscape or pairwise projection for `random_search_seed017` on Calibration Twin: Piecewise-K 1D.",
+      "alt_text": "Calibration Twin: Piecewise-K 1D objective landscape for random_search_seed017",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_landscape.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_landscape.png"
+    },
+    {
+      "filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png",
+      "caption": "Objective trace for `random_search_seed017` on Calibration Twin: Piecewise-K 1D, showing the evaluated models in order.",
+      "alt_text": "Calibration Twin: Piecewise-K 1D objective trace for random_search_seed017",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png"
+    },
+    {
+      "filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png",
+      "caption": "Parameter distribution for `random_search_seed017` on Calibration Twin: Piecewise-K 1D.",
+      "alt_text": "Calibration Twin: Piecewise-K 1D posterior distribution for random_search_seed017",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png"
+    },
+    {
+      "filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_landscape.png",
+      "caption": "Objective landscape or pairwise projection for `random_search_seed029` on Calibration Twin: Piecewise-K 1D.",
+      "alt_text": "Calibration Twin: Piecewise-K 1D objective landscape for random_search_seed029",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_landscape.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_landscape.png"
+    },
+    {
+      "filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png",
+      "caption": "Objective trace for `random_search_seed029` on Calibration Twin: Piecewise-K 1D, showing the evaluated models in order.",
+      "alt_text": "Calibration Twin: Piecewise-K 1D objective trace for random_search_seed029",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png"
+    },
+    {
+      "filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png",
+      "caption": "Parameter distribution for `random_search_seed029` on Calibration Twin: Piecewise-K 1D.",
+      "alt_text": "Calibration Twin: Piecewise-K 1D posterior distribution for random_search_seed029",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png"
+    },
+    {
+      "filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_landscape.png",
+      "caption": "Objective landscape or pairwise projection for `cma_es` on Calibration Twin: Piecewise-K 1D.",
+      "alt_text": "Calibration Twin: Piecewise-K 1D objective landscape for cma_es",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_landscape.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_landscape.png"
+    },
+    {
+      "filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_trace.png",
+      "caption": "Objective trace for `cma_es` on Calibration Twin: Piecewise-K 1D, showing the evaluated models in order.",
+      "alt_text": "Calibration Twin: Piecewise-K 1D objective trace for cma_es",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_trace.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_trace.png"
+    },
+    {
+      "filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_landscape.png",
+      "caption": "Objective landscape or pairwise projection for `simplex` on Calibration Twin: Piecewise-K 1D.",
+      "alt_text": "Calibration Twin: Piecewise-K 1D objective landscape for simplex",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_landscape.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_landscape.png"
+    },
+    {
+      "filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_trace.png",
+      "caption": "Objective trace for `simplex` on Calibration Twin: Piecewise-K 1D, showing the evaluated models in order.",
+      "alt_text": "Calibration Twin: Piecewise-K 1D objective trace for simplex",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_trace.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_trace.png"
+    }
+  ],
+  "metrics": [
+    {
+      "label": "Methods",
+      "key": "method_count",
+      "value": 4,
+      "display": "4"
+    },
+    {
+      "label": "Display method",
+      "key": "display_method_name",
+      "value": "random_search",
+      "display": "random_search"
+    },
+    {
+      "label": "Distribution samples",
+      "key": "model_distribution_sample_count",
+      "value": 48,
+      "display": "48"
+    },
+    {
+      "label": "Calibration total",
+      "key": "calibration_time_seconds",
+      "value": 12.201117699994938,
+      "display": "12.2 s"
+    },
+    {
+      "label": "Session prep",
+      "key": "session_prepare_time_seconds",
+      "value": 1.1441648000036366,
+      "display": "1.144 s"
+    },
+    {
+      "label": "Candidate runtime",
+      "key": "estimated_candidate_runtime_seconds",
+      "value": 10.105865199962864,
+      "display": "10.11 s"
+    },
+    {
+      "label": "Algorithm overhead",
+      "key": "algorithm_overhead_time_seconds",
+      "value": 2.0952525000320747,
+      "display": "2.095 s"
+    },
+    {
+      "label": "Model total",
+      "key": "mean_candidate_total_time_seconds",
+      "value": 0.21053885833255967,
+      "display": "0.2105 s"
+    },
+    {
+      "label": "Actualize",
+      "key": "mean_candidate_actualize_time_seconds",
+      "value": 0.009809339583929008,
+      "display": "0.009809 s"
+    },
+    {
+      "label": "Launcher prep",
+      "key": "mean_candidate_launcher_prepare_time_seconds",
+      "value": 0.024272083335138934,
+      "display": "0.02427 s"
+    },
+    {
+      "label": "Runtime patch",
+      "key": "mean_candidate_runtime_patch_time_seconds",
+      "value": 0.00015520416915630145,
+      "display": "0.0001552 s"
+    },
+    {
+      "label": "Model prep",
+      "key": "mean_candidate_preparation_time_seconds",
+      "value": 0.034236627088224246,
+      "display": "0.03424 s"
+    },
+    {
+      "label": "Model sim",
+      "key": "mean_candidate_simulation_time_seconds",
+      "value": 0.15087042500211587,
+      "display": "0.1509 s"
+    },
+    {
+      "label": "Output select",
+      "key": "mean_candidate_output_selection_time_seconds",
+      "value": 0.03439530417017522,
+      "display": "0.0344 s"
+    },
+    {
+      "label": "Objective score",
+      "key": "mean_candidate_objective_compute_time_seconds",
+      "value": 0.0006226520854397677,
+      "display": "0.0006227 s"
+    }
+  ],
+  "metadata": {
+    "definition_import_path": "validation_cases.calibration.twin.steady.boussinesq_fixed_head_piecewise_k_1d.experiment:PIECEWISE_K_TWIN_CASE",
+    "run_case_module": "validation_cases.calibration.twin.steady.boussinesq_fixed_head_piecewise_k_1d.run_case",
+    "run_case_file": "validation_cases/calibration/twin/steady/boussinesq_fixed_head_piecewise_k_1d/run_case.py",
+    "display_method_name": "random_search",
+    "evaluation_budget": 48,
+    "gallery_method_names": null,
+    "solver_name": "modflow6",
+    "regime": "steady",
+    "truth_params": {
+      "K_west": 0.0002,
+      "K_middle": 5e-05,
+      "K_east": 0.0001
+    },
+    "bounds": {
+      "K_west": [
+        7.5e-05,
+        0.00035
+      ],
+      "K_middle": [
+        1.5e-05,
+        0.00012
+      ],
+      "K_east": [
+        3.5e-05,
+        0.000175
+      ]
+    },
+    "parameter_abs_tolerances": {
+      "K_west": 2.5e-05,
+      "K_middle": 1.5e-05,
+      "K_east": 1.5e-05
+    },
+    "output_names": [
+      "head_west",
+      "head_middle",
+      "head_east",
+      "q_east"
+    ],
+    "method_names": [
+      "random_search",
+      "cma_es",
+      "simplex"
+    ],
+    "observation_noise": "none",
+    "perturbation_description": null,
+    "fast": false,
+    "benchmark_family_key": "data_rich_no_uncertainty",
+    "benchmark_family_title": "No-Uncertainty, Data-Rich Benchmarks",
+    "benchmark_family_deck": "Benchmarks with multiple observables, no observation noise, and enough data to constrain the inverse problem more strongly.",
+    "benchmark_family_page_slug": "calibration_data_rich_no_uncertainty",
+    "benchmark_family_page_title": "Calibration Benchmarks: No Uncertainty, More Data",
+    "benchmark_family_page_intro": "These calibration benchmarks keep observation noise off and rely on richer data sets, typically multiple observable blocks, so the objective surface is better constrained.",
+    "benchmark_family_order": 10,
+    "benchmark_family_primary": true,
+    "benchmark_root": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_d35f7292db_ce6205b6",
+    "benchmark_summary_path": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_d35f7292db_ce6205b6\\benchmark_summary.json",
+    "artifact_retention": "minimal",
+    "method_runs": [
+      {
+        "method_name": "random_search",
+        "method_instance_name": "random_search_seed017",
+        "success_metric": "distribution",
+        "meets_success_target": true,
+        "recovered_truth": false,
+        "cost_best": 383826.31933952094,
+        "n_evaluations": 48,
+        "model_distribution_sample_count": 48,
+        "calibration_time_seconds": 12.201117699994938,
+        "session_prepare_time_seconds": 1.1441648000036366,
+        "estimated_candidate_runtime_seconds": 10.105865199962864,
+        "algorithm_overhead_time_seconds": 2.0952525000320747,
+        "mean_candidate_total_time_seconds": 0.21053885833255967,
+        "mean_candidate_preparation_time_seconds": 0.034236627088224246,
+        "mean_candidate_actualize_time_seconds": 0.009809339583929008,
+        "mean_candidate_launcher_prepare_time_seconds": 0.024272083335138934,
+        "mean_candidate_runtime_patch_time_seconds": 0.00015520416915630145,
+        "mean_candidate_simulation_time_seconds": 0.15087042500211587,
+        "mean_candidate_output_selection_time_seconds": 0.03439530417017522,
+        "mean_candidate_objective_build_time_seconds": 7.928750043599091e-05,
+        "mean_candidate_objective_compute_time_seconds": 0.0006226520854397677,
+        "mean_candidate_objective_time_seconds": 0.035135129167125946,
+        "param_abs_error": {
+          "K_west": 5.656229049629915e-05,
+          "K_middle": 2.402757730690928e-05,
+          "K_east": 5.052334745991589e-05
+        },
+        "params_best": {
+          "K_west": 0.00025656229049629916,
+          "K_middle": 7.402757730690928e-05,
+          "K_east": 4.947665254008411e-05
+        },
+        "objective_landscape_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_landscape.png",
+        "objective_trace_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png",
+        "posterior_distribution_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png"
+      },
+      {
+        "method_name": "random_search",
+        "method_instance_name": "random_search_seed029",
+        "success_metric": "distribution",
+        "meets_success_target": true,
+        "recovered_truth": false,
+        "cost_best": 319873.7144037535,
+        "n_evaluations": 48,
+        "model_distribution_sample_count": 48,
+        "calibration_time_seconds": 12.52195640001446,
+        "session_prepare_time_seconds": 0.9684734999900684,
+        "estimated_candidate_runtime_seconds": 10.43647569991299,
+        "algorithm_overhead_time_seconds": 2.0854807001014706,
+        "mean_candidate_total_time_seconds": 0.2174265770815206,
+        "mean_candidate_preparation_time_seconds": 0.03178882916957567,
+        "mean_candidate_actualize_time_seconds": 0.010000214585791886,
+        "mean_candidate_launcher_prepare_time_seconds": 0.021629443751104798,
+        "mean_candidate_runtime_patch_time_seconds": 0.0001591708326789861,
+        "mean_candidate_simulation_time_seconds": 0.15248353333481646,
+        "mean_candidate_output_selection_time_seconds": 0.04231334999773632,
+        "mean_candidate_objective_build_time_seconds": 8.357083182393883e-05,
+        "mean_candidate_objective_compute_time_seconds": 0.0006286020822396191,
+        "mean_candidate_objective_time_seconds": 0.04306349791780425,
+        "param_abs_error": {
+          "K_west": 4.483873000315865e-05,
+          "K_middle": 3.1616545237797176e-06,
+          "K_east": 1.1567074996624978e-05
+        },
+        "params_best": {
+          "K_west": 0.00024483873000315866,
+          "K_middle": 4.6838345476220285e-05,
+          "K_east": 0.00011156707499662498
+        },
+        "objective_landscape_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_landscape.png",
+        "objective_trace_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png",
+        "posterior_distribution_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png"
+      },
+      {
+        "method_name": "cma_es",
+        "method_instance_name": "cma_es",
+        "success_metric": "best_fit",
+        "meets_success_target": false,
+        "recovered_truth": false,
+        "cost_best": 347279.29652794567,
+        "n_evaluations": 56,
+        "model_distribution_sample_count": 0,
+        "calibration_time_seconds": 13.606751400016947,
+        "session_prepare_time_seconds": 0.9875637000077404,
+        "estimated_candidate_runtime_seconds": 11.109557100047823,
+        "algorithm_overhead_time_seconds": 2.4971942999691237,
+        "mean_candidate_total_time_seconds": 0.1983849482151397,
+        "mean_candidate_preparation_time_seconds": 0.026097033925907454,
+        "mean_candidate_actualize_time_seconds": 0.009851332144275407,
+        "mean_candidate_launcher_prepare_time_seconds": 0.01605632857224139,
+        "mean_candidate_runtime_patch_time_seconds": 0.0001893732093906562,
+        "mean_candidate_simulation_time_seconds": 0.14705560714147786,
+        "mean_candidate_output_selection_time_seconds": 0.03422037321277977,
+        "mean_candidate_objective_build_time_seconds": 8.08964297383292e-05,
+        "mean_candidate_objective_compute_time_seconds": 0.0006527999971045315,
+        "mean_candidate_objective_time_seconds": 0.034992949997623715,
+        "param_abs_error": {
+          "K_west": 5.3579908993994736e-05,
+          "K_middle": 1.1724269834490708e-05,
+          "K_east": 2.52556730559633e-05
+        },
+        "params_best": {
+          "K_west": 0.00014642009100600527,
+          "K_middle": 6.172426983449071e-05,
+          "K_east": 7.47443269440367e-05
+        },
+        "objective_landscape_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_landscape.png",
+        "objective_trace_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_trace.png",
+        "posterior_distribution_filename": null
+      },
+      {
+        "method_name": "simplex",
+        "method_instance_name": "simplex",
+        "success_metric": "best_fit",
+        "meets_success_target": false,
+        "recovered_truth": false,
+        "cost_best": 109811.11870803795,
+        "n_evaluations": 48,
+        "model_distribution_sample_count": 0,
+        "calibration_time_seconds": 11.685457300016424,
+        "session_prepare_time_seconds": 1.2015326999826357,
+        "estimated_candidate_runtime_seconds": 9.528238700004295,
+        "algorithm_overhead_time_seconds": 2.157218600012129,
+        "mean_candidate_total_time_seconds": 0.19850497291675614,
+        "mean_candidate_preparation_time_seconds": 0.028414193758483936,
+        "mean_candidate_actualize_time_seconds": 0.010216464586240667,
+        "mean_candidate_launcher_prepare_time_seconds": 0.018034312503004912,
+        "mean_candidate_runtime_patch_time_seconds": 0.00016341666923835874,
+        "mean_candidate_simulation_time_seconds": 0.14704081875121724,
+        "mean_candidate_output_selection_time_seconds": 0.03244874791319793,
+        "mean_candidate_objective_build_time_seconds": 8.307083347366036e-05,
+        "mean_candidate_objective_compute_time_seconds": 0.0006031041630194522,
+        "mean_candidate_objective_time_seconds": 0.03317173541533217,
+        "param_abs_error": {
+          "K_west": 3.105457803177859e-05,
+          "K_middle": 3.1474571191730555e-06,
+          "K_east": 1.3949980520866742e-05
+        },
+        "params_best": {
+          "K_west": 0.0002310545780317786,
+          "K_middle": 4.685254288082695e-05,
+          "K_east": 0.00011394998052086675
+        },
+        "objective_landscape_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_landscape.png",
+        "objective_trace_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_trace.png",
+        "posterior_distribution_filename": null
+      }
+    ],
+    "lead_image_filenames": [
+      "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__configuration.png"
+    ],
+    "tab_specs": [
+      {
+        "title": "random_search_seed017",
+        "filenames": [
+          "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_landscape.png",
+          "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png",
+          "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png"
+        ],
+        "body_lines": [
+          "metric=distribution",
+          "target=True",
+          "best_fit=False",
+          "cost=383826",
+          "n_eval=48",
+          "distribution_samples=48",
+          "calibration=12.2 s",
+          "candidate runtime=10.11 s",
+          "algorithm overhead=2.095 s",
+          "actualize=0.009809 s",
+          "launcher prep=0.02427 s",
+          "runtime patch=0.0001552 s",
+          "simulate=0.1509 s",
+          "output select=0.0344 s",
+          "objective score=0.0006227 s"
+        ]
+      },
+      {
+        "title": "random_search_seed029",
+        "filenames": [
+          "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_landscape.png",
+          "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png",
+          "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png"
+        ],
+        "body_lines": [
+          "metric=distribution",
+          "target=True",
+          "best_fit=False",
+          "cost=319874",
+          "n_eval=48",
+          "distribution_samples=48",
+          "calibration=12.52 s",
+          "candidate runtime=10.44 s",
+          "algorithm overhead=2.085 s",
+          "actualize=0.01 s",
+          "launcher prep=0.02163 s",
+          "runtime patch=0.0001592 s",
+          "simulate=0.1525 s",
+          "output select=0.04231 s",
+          "objective score=0.0006286 s"
+        ]
+      },
+      {
+        "title": "cma_es",
+        "filenames": [
+          "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_landscape.png",
+          "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_trace.png"
+        ],
+        "body_lines": [
+          "metric=best_fit",
+          "target=False",
+          "best_fit=False",
+          "cost=347279",
+          "n_eval=56",
+          "distribution_samples=0",
+          "calibration=13.61 s",
+          "candidate runtime=11.11 s",
+          "algorithm overhead=2.497 s",
+          "actualize=0.009851 s",
+          "launcher prep=0.01606 s",
+          "runtime patch=0.0001894 s",
+          "simulate=0.1471 s",
+          "output select=0.03422 s",
+          "objective score=0.0006528 s"
+        ]
+      },
+      {
+        "title": "simplex",
+        "filenames": [
+          "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_landscape.png",
+          "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_trace.png"
+        ],
+        "body_lines": [
+          "metric=best_fit",
+          "target=False",
+          "best_fit=False",
+          "cost=109811",
+          "n_eval=48",
+          "distribution_samples=0",
+          "calibration=11.69 s",
+          "candidate runtime=9.528 s",
+          "algorithm overhead=2.157 s",
+          "actualize=0.01022 s",
+          "launcher prep=0.01803 s",
+          "runtime patch=0.0001634 s",
+          "simulate=0.147 s",
+          "output select=0.03245 s",
+          "objective score=0.0006031 s"
+        ]
+      }
+    ],
+    "configuration_figure": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_d35f7292db_ce6205b6\\figures\\case_configuration.png"
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__configuration.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_landscape.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_landscape.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_landscape.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_trace.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_landscape.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_trace.png"
+    ]
+  },
+  "method_runs": [
+    {
+      "method_name": "random_search",
+      "method_instance_name": "random_search_seed017",
+      "success_metric": "distribution",
+      "meets_success_target": true,
+      "recovered_truth": false,
+      "cost_best": 383826.31933952094,
+      "n_evaluations": 48,
+      "model_distribution_sample_count": 48,
+      "calibration_time_seconds": 12.201117699994938,
+      "session_prepare_time_seconds": 1.1441648000036366,
+      "estimated_candidate_runtime_seconds": 10.105865199962864,
+      "algorithm_overhead_time_seconds": 2.0952525000320747,
+      "mean_candidate_total_time_seconds": 0.21053885833255967,
+      "mean_candidate_preparation_time_seconds": 0.034236627088224246,
+      "mean_candidate_actualize_time_seconds": 0.009809339583929008,
+      "mean_candidate_launcher_prepare_time_seconds": 0.024272083335138934,
+      "mean_candidate_runtime_patch_time_seconds": 0.00015520416915630145,
+      "mean_candidate_simulation_time_seconds": 0.15087042500211587,
+      "mean_candidate_output_selection_time_seconds": 0.03439530417017522,
+      "mean_candidate_objective_build_time_seconds": 7.928750043599091e-05,
+      "mean_candidate_objective_compute_time_seconds": 0.0006226520854397677,
+      "mean_candidate_objective_time_seconds": 0.035135129167125946,
+      "param_abs_error": {
+        "K_west": 5.656229049629915e-05,
+        "K_middle": 2.402757730690928e-05,
+        "K_east": 5.052334745991589e-05
+      },
+      "params_best": {
+        "K_west": 0.00025656229049629916,
+        "K_middle": 7.402757730690928e-05,
+        "K_east": 4.947665254008411e-05
+      },
+      "objective_landscape_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_landscape.png",
+      "objective_trace_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_trace.png",
+      "posterior_distribution_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed017_posterior.png"
+    },
+    {
+      "method_name": "random_search",
+      "method_instance_name": "random_search_seed029",
+      "success_metric": "distribution",
+      "meets_success_target": true,
+      "recovered_truth": false,
+      "cost_best": 319873.7144037535,
+      "n_evaluations": 48,
+      "model_distribution_sample_count": 48,
+      "calibration_time_seconds": 12.52195640001446,
+      "session_prepare_time_seconds": 0.9684734999900684,
+      "estimated_candidate_runtime_seconds": 10.43647569991299,
+      "algorithm_overhead_time_seconds": 2.0854807001014706,
+      "mean_candidate_total_time_seconds": 0.2174265770815206,
+      "mean_candidate_preparation_time_seconds": 0.03178882916957567,
+      "mean_candidate_actualize_time_seconds": 0.010000214585791886,
+      "mean_candidate_launcher_prepare_time_seconds": 0.021629443751104798,
+      "mean_candidate_runtime_patch_time_seconds": 0.0001591708326789861,
+      "mean_candidate_simulation_time_seconds": 0.15248353333481646,
+      "mean_candidate_output_selection_time_seconds": 0.04231334999773632,
+      "mean_candidate_objective_build_time_seconds": 8.357083182393883e-05,
+      "mean_candidate_objective_compute_time_seconds": 0.0006286020822396191,
+      "mean_candidate_objective_time_seconds": 0.04306349791780425,
+      "param_abs_error": {
+        "K_west": 4.483873000315865e-05,
+        "K_middle": 3.1616545237797176e-06,
+        "K_east": 1.1567074996624978e-05
+      },
+      "params_best": {
+        "K_west": 0.00024483873000315866,
+        "K_middle": 4.6838345476220285e-05,
+        "K_east": 0.00011156707499662498
+      },
+      "objective_landscape_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_landscape.png",
+      "objective_trace_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_trace.png",
+      "posterior_distribution_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__random_search_seed029_posterior.png"
+    },
+    {
+      "method_name": "cma_es",
+      "method_instance_name": "cma_es",
+      "success_metric": "best_fit",
+      "meets_success_target": false,
+      "recovered_truth": false,
+      "cost_best": 347279.29652794567,
+      "n_evaluations": 56,
+      "model_distribution_sample_count": 0,
+      "calibration_time_seconds": 13.606751400016947,
+      "session_prepare_time_seconds": 0.9875637000077404,
+      "estimated_candidate_runtime_seconds": 11.109557100047823,
+      "algorithm_overhead_time_seconds": 2.4971942999691237,
+      "mean_candidate_total_time_seconds": 0.1983849482151397,
+      "mean_candidate_preparation_time_seconds": 0.026097033925907454,
+      "mean_candidate_actualize_time_seconds": 0.009851332144275407,
+      "mean_candidate_launcher_prepare_time_seconds": 0.01605632857224139,
+      "mean_candidate_runtime_patch_time_seconds": 0.0001893732093906562,
+      "mean_candidate_simulation_time_seconds": 0.14705560714147786,
+      "mean_candidate_output_selection_time_seconds": 0.03422037321277977,
+      "mean_candidate_objective_build_time_seconds": 8.08964297383292e-05,
+      "mean_candidate_objective_compute_time_seconds": 0.0006527999971045315,
+      "mean_candidate_objective_time_seconds": 0.034992949997623715,
+      "param_abs_error": {
+        "K_west": 5.3579908993994736e-05,
+        "K_middle": 1.1724269834490708e-05,
+        "K_east": 2.52556730559633e-05
+      },
+      "params_best": {
+        "K_west": 0.00014642009100600527,
+        "K_middle": 6.172426983449071e-05,
+        "K_east": 7.47443269440367e-05
+      },
+      "objective_landscape_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_landscape.png",
+      "objective_trace_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_trace.png",
+      "posterior_distribution_filename": null
+    },
+    {
+      "method_name": "simplex",
+      "method_instance_name": "simplex",
+      "success_metric": "best_fit",
+      "meets_success_target": false,
+      "recovered_truth": false,
+      "cost_best": 109811.11870803795,
+      "n_evaluations": 48,
+      "model_distribution_sample_count": 0,
+      "calibration_time_seconds": 11.685457300016424,
+      "session_prepare_time_seconds": 1.2015326999826357,
+      "estimated_candidate_runtime_seconds": 9.528238700004295,
+      "algorithm_overhead_time_seconds": 2.157218600012129,
+      "mean_candidate_total_time_seconds": 0.19850497291675614,
+      "mean_candidate_preparation_time_seconds": 0.028414193758483936,
+      "mean_candidate_actualize_time_seconds": 0.010216464586240667,
+      "mean_candidate_launcher_prepare_time_seconds": 0.018034312503004912,
+      "mean_candidate_runtime_patch_time_seconds": 0.00016341666923835874,
+      "mean_candidate_simulation_time_seconds": 0.14704081875121724,
+      "mean_candidate_output_selection_time_seconds": 0.03244874791319793,
+      "mean_candidate_objective_build_time_seconds": 8.307083347366036e-05,
+      "mean_candidate_objective_compute_time_seconds": 0.0006031041630194522,
+      "mean_candidate_objective_time_seconds": 0.03317173541533217,
+      "param_abs_error": {
+        "K_west": 3.105457803177859e-05,
+        "K_middle": 3.1474571191730555e-06,
+        "K_east": 1.3949980520866742e-05
+      },
+      "params_best": {
+        "K_west": 0.0002310545780317786,
+        "K_middle": 4.685254288082695e-05,
+        "K_east": 0.00011394998052086675
+      },
+      "objective_landscape_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_landscape.png",
+      "objective_trace_filename": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__simplex_trace.png",
+      "posterior_distribution_filename": null
+    }
+  ],
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Benchmark Setup",
+        "rows": [
+          {
+            "field": "solver_name",
+            "meaning": "Solver family used both to generate synthetic observations and to calibrate candidates.",
+            "value": "modflow6",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "regime",
+            "meaning": "Flow regime exercised by the inverse benchmark.",
+            "value": "steady",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "output_names",
+            "meaning": "Observables extracted from each candidate simulation and used in the composite objective.",
+            "value": "head_west, head_middle, head_east, q_east",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "observation_noise",
+            "meaning": "Synthetic noise injected after the truth run, if any.",
+            "value": "none",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "evaluation_budget",
+            "meaning": "Approximate per-method evaluation budget used by the gallery generator when set.",
+            "value": "48",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          }
+        ]
+      },
+      {
+        "title": "Calibrated Parameters",
+        "rows": [
+          {
+            "field": "K_west",
+            "meaning": "Truth value, initial search interval, and acceptance tolerance for this calibrated parameter.",
+            "value": "truth=0.0002, bounds=7.5e-05, 0.00035, tolerance=2.5e-05",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "K_middle",
+            "meaning": "Truth value, initial search interval, and acceptance tolerance for this calibrated parameter.",
+            "value": "truth=5e-05, bounds=1.5e-05, 0.00012, tolerance=1.5e-05",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "K_east",
+            "meaning": "Truth value, initial search interval, and acceptance tolerance for this calibrated parameter.",
+            "value": "truth=0.0001, bounds=3.5e-05, 0.000175, tolerance=1.5e-05",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          }
+        ]
+      },
+      {
+        "title": "Methods And Timing",
+        "rows": [
+          {
+            "field": "random_search_seed017",
+            "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
+            "value": "target=true, cost=383826, n_eval=48, distribution_samples=48, calib_s=12.2011, candidate_runtime_s=10.1059, algorithm_overhead_s=2.09525, actualize_s=0.00980934, launcher_prep_s=0.0242721, runtime_patch_s=0.000155204, model_sim_s=0.15087, output_select_s=0.0343953, objective_score_s=0.000622652",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "random_search_seed029",
+            "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
+            "value": "target=true, cost=319874, n_eval=48, distribution_samples=48, calib_s=12.522, candidate_runtime_s=10.4365, algorithm_overhead_s=2.08548, actualize_s=0.0100002, launcher_prep_s=0.0216294, runtime_patch_s=0.000159171, model_sim_s=0.152484, output_select_s=0.0423133, objective_score_s=0.000628602",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "cma_es",
+            "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
+            "value": "target=false, cost=347279, n_eval=56, distribution_samples=0, calib_s=13.6068, candidate_runtime_s=11.1096, algorithm_overhead_s=2.49719, actualize_s=0.00985133, launcher_prep_s=0.0160563, runtime_patch_s=0.000189373, model_sim_s=0.147056, output_select_s=0.0342204, objective_score_s=0.0006528",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "simplex",
+            "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
+            "value": "target=false, cost=109811, n_eval=48, distribution_samples=0, calib_s=11.6855, candidate_runtime_s=9.52824, algorithm_overhead_s=2.15722, actualize_s=0.0102165, launcher_prep_s=0.0180343, runtime_patch_s=0.000163417, model_sim_s=0.147041, output_select_s=0.0324487, objective_score_s=0.000603104",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          }
+        ]
+      },
+      {
+        "title": "Displayed Metrics",
+        "rows": [
+          {
+            "field": "method_count",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "4",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "display_method_name",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "random_search",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "model_distribution_sample_count",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "48",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "calibration_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "12.2 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "session_prepare_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "1.144 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "estimated_candidate_runtime_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "10.11 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "algorithm_overhead_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "2.095 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_total_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.2105 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_actualize_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.009809 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_launcher_prepare_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.02427 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_runtime_patch_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.0001552 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_preparation_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.03424 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_simulation_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.1509 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_output_selection_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.0344 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          },
+          {
+            "field": "mean_candidate_objective_compute_time_seconds",
+            "meaning": "Metric surfaced on the gallery page for the selected display method.",
+            "value": "0.0006227 s",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_summary.json"
+          }
+        ]
+      }
+    ]
+  }
+}

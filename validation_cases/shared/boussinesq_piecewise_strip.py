@@ -8,6 +8,12 @@ from pathlib import Path
 
 import numpy as np
 
+from hydromodpy.solver.boussinesq.history_contract import (
+    build_transient_time_axes,
+    elapsed_seconds_for_time_keys,
+    write_time_series_npy,
+)
+from validation_cases.shared.loaders import load_npy_time_series_arrays_with_elapsed_seconds
 from validation_cases.shared.runtime import (
     REPO_ROOT,
     ValidationRunResult,
@@ -340,21 +346,17 @@ def aggregate_triangle_history_to_structured_grids(
     *,
     nx: int = PIECEWISE_STRIP_NX,
     ny: int = PIECEWISE_STRIP_NY,
-    export_initial_state: bool = True,
 ) -> None:
     """Overwrite vector postprocess outputs with one regular structured grid."""
     if model.state is None or model.mesh is None:
         raise RuntimeError("Boussinesq validation case requires a solved model state.")
 
     head_history = np.asarray(model.state.head_history_m, dtype=float)
-    if head_history.ndim == 1:
-        head_history = head_history.reshape(1, -1)
-    if not bool(export_initial_state) and head_history.shape[0] > 1:
-        head_history = head_history[1:, :]
+    time_keys = np.arange(head_history.shape[0], dtype=int)
 
     watertable_elevation, watertable_depth = _aggregate_triangle_history(
         head_history=head_history,
-        time_keys=list(range(head_history.shape[0])),
+        time_keys=time_keys.tolist(),
         cell_centroid_x_m=np.asarray(model.mesh.cell_centroid_x_m, dtype=float),
         cell_centroid_y_m=np.asarray(model.mesh.cell_centroid_y_m, dtype=float),
         z_top_m=np.asarray(model.mesh.z_top_m, dtype=float),
@@ -365,9 +367,32 @@ def aggregate_triangle_history_to_structured_grids(
         nx=int(nx),
         ny=int(ny),
     )
+    elapsed_seconds = elapsed_seconds_for_time_keys(
+        build_transient_time_axes(model.state.period_lengths_seconds).snapshot_elapsed_seconds,
+        time_keys,
+        name="head_history_m",
+    )
+    ordered_elevation = np.stack(
+        [np.asarray(watertable_elevation[int(key)], dtype=float) for key in time_keys.tolist()],
+        axis=0,
+    )
+    ordered_depth = np.stack(
+        [np.asarray(watertable_depth[int(key)], dtype=float) for key in time_keys.tolist()],
+        axis=0,
+    )
     postprocess_dir = Path(model.full_path) / "_postprocess"
-    np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
-    np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
+    write_time_series_npy(
+        postprocess_dir / "watertable_elevation.npy",
+        ordered_elevation,
+        time_keys=time_keys,
+        elapsed_seconds=elapsed_seconds,
+    )
+    write_time_series_npy(
+        postprocess_dir / "watertable_depth.npy",
+        ordered_depth,
+        time_keys=time_keys,
+        elapsed_seconds=elapsed_seconds,
+    )
 
 
 def _load_piecewise_strip_bundle_geometry(
@@ -408,17 +433,14 @@ def aggregate_piecewise_strip_postprocess(
     ny: int = PIECEWISE_STRIP_NY,
 ) -> None:
     """Rewrite launcher-produced vector `.npy` outputs to `(ny, nx)` grids."""
-    head_payload = np.load(
-        Path(postprocess_dir) / "watertable_elevation.npy",
-        allow_pickle=True,
-    ).item()
-    if not head_payload:
-        raise AssertionError("watertable_elevation.npy is empty.")
-
-    ordered_items = sorted(
-        (int(key), np.asarray(value, dtype=float))
-        for key, value in dict(head_payload).items()
+    time_keys, heads, elapsed_seconds = load_npy_time_series_arrays_with_elapsed_seconds(
+        Path(postprocess_dir),
+        "watertable_elevation",
     )
+    ordered_items = [
+        (int(time_key), np.asarray(heads[index], dtype=float))
+        for index, time_key in enumerate(time_keys.tolist())
+    ]
     if all(
         array.ndim == 2 and tuple(array.shape) == (int(ny), int(nx))
         for _, array in ordered_items
@@ -459,8 +481,27 @@ def aggregate_piecewise_strip_postprocess(
         nx=int(nx),
         ny=int(ny),
     )
-    np.save(Path(postprocess_dir) / "watertable_elevation.npy", watertable_elevation)
-    np.save(Path(postprocess_dir) / "watertable_depth.npy", watertable_depth)
+    ordered_time_keys = np.asarray([key for key, _ in ordered_items], dtype=int)
+    ordered_elevation = np.stack(
+        [np.asarray(watertable_elevation[int(key)], dtype=float) for key in ordered_time_keys.tolist()],
+        axis=0,
+    )
+    ordered_depth = np.stack(
+        [np.asarray(watertable_depth[int(key)], dtype=float) for key in ordered_time_keys.tolist()],
+        axis=0,
+    )
+    write_time_series_npy(
+        Path(postprocess_dir) / "watertable_elevation.npy",
+        ordered_elevation,
+        time_keys=ordered_time_keys,
+        elapsed_seconds=elapsed_seconds,
+    )
+    write_time_series_npy(
+        Path(postprocess_dir) / "watertable_depth.npy",
+        ordered_depth,
+        time_keys=ordered_time_keys,
+        elapsed_seconds=elapsed_seconds,
+    )
 
 
 def write_piecewise_strip_launcher_config(

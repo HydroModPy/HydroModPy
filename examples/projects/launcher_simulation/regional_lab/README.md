@@ -7,6 +7,17 @@ Run the dry-plan expansion with:
 
 `python -m launchers regional-lab run examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml`
 
+Three focused overlays are also versioned when you want to inspect one recipe in
+isolation without changing the shared catalog or cluster rules:
+
+- `python -m launchers regional-lab run examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml`
+- `python -m launchers regional-lab run examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_backend_compare.toml`
+- `python -m launchers regional-lab run examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_transient_backend_compare.toml`
+
+Those overlays keep only one `[[regional_lab.recipe]]` enabled and write into
+their own output folders, which makes them easier to use as reproducible
+documentation or recipe-specific smoke examples.
+
 The example intentionally starts with `execute = false` so the launcher writes:
 
 - `outputs/headwater_100km2_lab/regional_lab_plan.json`

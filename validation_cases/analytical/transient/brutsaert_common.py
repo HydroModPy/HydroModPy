@@ -12,9 +12,11 @@ import numpy as np
 
 from validation_cases.shared import (
     ValidationRunResult,
+    align_snapshot_series_to_expected_count,
     load_case_metadata,
     load_case_tolerances,
     load_npy_time_series_arrays,
+    load_npy_time_series_arrays_with_elapsed_seconds,
     max_abs_error,
     max_std_along_axis,
     rmse,
@@ -188,16 +190,24 @@ def _load_scalar_series(
     *,
     result: ValidationRunResult,
     observable_name: str,
-) -> tuple[np.ndarray, np.ndarray]:
-    period_indices, raw_values = load_npy_time_series_arrays(
+) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+    period_indices, raw_values, elapsed_seconds = load_npy_time_series_arrays_with_elapsed_seconds(
         result.postprocess_dir,
         observable_name,
     )
     values = np.asarray(raw_values, dtype=float)
     if values.ndim == 1:
-        return np.asarray(period_indices, dtype=int), values
+        return (
+            np.asarray(period_indices, dtype=int),
+            values,
+            None if elapsed_seconds is None else np.asarray(elapsed_seconds, dtype=float),
+        )
     if values.ndim == 2 and values.shape[1] == 1:
-        return np.asarray(period_indices, dtype=int), values[:, 0]
+        return (
+            np.asarray(period_indices, dtype=int),
+            values[:, 0],
+            None if elapsed_seconds is None else np.asarray(elapsed_seconds, dtype=float),
+        )
     raise ValueError(
         f"Observable '{observable_name}' must contain one scalar per time step, "
         f"got shape {values.shape}."
@@ -224,7 +234,7 @@ def build_brutsaert_recession_comparison(
     time_cfg = dict(case_metadata.get("time", {}))
     reference_cfg = dict(case_metadata.get("reference", {}))
     observable_name = str(output_cfg.get("observable_name", "outlet_discharge_m3_s"))
-    _, raw_numerical_discharge = _load_scalar_series(
+    raw_period_indices, raw_numerical_discharge, raw_elapsed_seconds = _load_scalar_series(
         result=result,
         observable_name=observable_name,
     )
@@ -255,7 +265,13 @@ def build_brutsaert_recession_comparison(
         raw_numerical_discharge[warmup_periods:],
         dtype=float,
     )
-    period_indices_all = np.arange(numerical_discharge_all.shape[0], dtype=int)
+    dt_seconds = float(time_cfg["dt_seconds"])
+    if raw_elapsed_seconds is None:
+        period_indices_all = np.arange(numerical_discharge_all.shape[0], dtype=int)
+        elapsed_seconds_all = (period_indices_all.astype(float) + 1.0) * float(dt_seconds)
+    else:
+        period_indices_all = np.asarray(raw_period_indices[warmup_periods:], dtype=int)
+        elapsed_seconds_all = np.asarray(raw_elapsed_seconds[warmup_periods:], dtype=float)
 
     expected_periods = int(output_cfg.get("expected_periods", 0))
     if expected_periods > 0:
@@ -264,8 +280,6 @@ def build_brutsaert_recession_comparison(
             f"{numerical_discharge_all.shape[0]} != {expected_periods}"
         )
 
-    dt_seconds = float(time_cfg["dt_seconds"])
-    elapsed_seconds_all = (period_indices_all.astype(float) + 1.0) * dt_seconds
     elapsed_days_all = elapsed_seconds_all / SECONDS_PER_DAY
     compare_start_day = float(reference_cfg.get("compare_start_day", 0.0))
     compare_mask = elapsed_days_all >= compare_start_day
@@ -305,8 +319,17 @@ def build_brutsaert_recession_comparison(
     head_observable_name = str(output_cfg.get("head_observable_name", "")).strip()
     row_spread = 0.0
     if head_observable_name:
-        _, heads_all = load_npy_time_series_arrays(result.postprocess_dir, head_observable_name)
-        heads = np.asarray(heads_all, dtype=float)
+        head_time_keys, heads_all, head_elapsed_seconds = load_npy_time_series_arrays_with_elapsed_seconds(
+            result.postprocess_dir,
+            head_observable_name,
+        )
+        _, heads, _ = align_snapshot_series_to_expected_count(
+            head_time_keys,
+            np.asarray(heads_all, dtype=float),
+            head_elapsed_seconds,
+            expected_count=raw_numerical_discharge.shape[0],
+            name=head_observable_name,
+        )
         heads = heads[warmup_periods:]
         if heads.shape[0] != period_indices_all.shape[0]:
             raise ValueError(

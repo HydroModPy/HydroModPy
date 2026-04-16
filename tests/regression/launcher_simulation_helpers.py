@@ -59,8 +59,8 @@ BOUSSINESQ_OUTPUT_NAMES = [
 
 BOUSSINESQ_SUMMARY_KEYS = [
     "active_drainage",
-    "active_imposed_head_bc",
     "active_ocean",
+    "active_prescribed_head_bc",
     "active_recharge",
     "active_wells",
     "converged_by_period",
@@ -93,7 +93,7 @@ BOUSSINESQ_STATE_HISTORY_NAMES = [
     "final_saturation_excess_rate_m_s",
     "final_well_flux_m3_s",
     "head_history_m",
-    "imposed_head_edge_flux_m3_s",
+    "boundary_edge_flux_m3_s",
     "internal_edge_flux_m3_s",
     "period_lengths_seconds",
     "saturated_thickness_history_m",

@@ -106,7 +106,6 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
         model,
         nx=NX,
         ny=NY,
-        export_initial_state=True,
     )
 
     model_ws = Path(model.full_path)

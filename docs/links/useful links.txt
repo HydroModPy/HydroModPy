@@ -4,6 +4,12 @@ https://github.com/HydroModPy/HydroModPy
 Read the Docs
 https://hydromodpy-docs.readthedocs.io/en/latest/
 
+Technical documentation and UMLs
+https://hydromodpy-docs.readthedocs.io/en/latest/architecture/
+
+Scientific documentation
+https://hydromodpy-docs.readthedocs.io/en/latest/scientific/
+
 Google Drive
 https://docs.google.com/document/d/11BA4ufhYWbydBvfjQufohoPIc0SaF9pKcyj_KNJ2VQM/edit?usp=sharing
 

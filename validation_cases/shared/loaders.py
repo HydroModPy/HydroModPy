@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config, merge_toml_payloads
+from hydromodpy.solver.boussinesq.history_contract import time_axis_sidecar_path
 
 
 def _load_toml(path: Path) -> dict:
@@ -183,11 +184,115 @@ def load_npy_time_series_arrays(
     postprocess_dir: Path,
     observable_name: str,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Load one full HydroModPy ``.npy`` time series as sorted stacked arrays."""
+    """Load one full HydroModPy ``.npy`` time series as sorted stacked arrays.
+
+    This compatibility helper ignores any optional elapsed-time sidecar and
+    returns only `(time_keys, values)`.
+    """
+    indices, arrays, _elapsed_seconds = load_npy_time_series_arrays_with_elapsed_seconds(
+        postprocess_dir,
+        observable_name,
+    )
+    return indices, arrays
+
+
+def load_npy_time_series_arrays_with_elapsed_seconds(
+    postprocess_dir: Path,
+    observable_name: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+    """Load one full HydroModPy ``.npy`` time series plus its explicit elapsed axis when present."""
     payload = load_npy_dict(postprocess_dir / f"{observable_name}.npy")
     assert payload, f"{observable_name}.npy is empty."
 
     ordered_items = sorted((int(key), np.asarray(value, dtype=float)) for key, value in payload.items())
     indices = np.asarray([key for key, _ in ordered_items], dtype=int)
     arrays = np.stack([value for _, value in ordered_items], axis=0)
-    return indices, arrays
+    elapsed_seconds = _load_npy_time_axis_sidecar(
+        postprocess_dir / f"{observable_name}.npy",
+        indices=indices,
+    )
+    return indices, arrays, elapsed_seconds
+
+
+def align_snapshot_series_to_expected_count(
+    time_keys: np.ndarray,
+    values: np.ndarray,
+    elapsed_seconds: np.ndarray | None,
+    *,
+    expected_count: int,
+    name: str = "series",
+) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+    """Align one snapshot series to an expected step count.
+
+    If the payload already has ``expected_count`` rows, it is returned unchanged.
+    If it has ``expected_count + 1`` rows and starts at one explicit ``t0`` snapshot,
+    the leading snapshot is dropped. Any other mismatch raises.
+    """
+    indices = np.asarray(time_keys, dtype=int).reshape(-1)
+    array = np.asarray(values, dtype=float)
+    explicit_elapsed = None if elapsed_seconds is None else np.asarray(elapsed_seconds, dtype=float).reshape(-1)
+    target = int(expected_count)
+    n_rows = int(array.shape[0])
+
+    if n_rows == target:
+        return indices, array, explicit_elapsed
+    if n_rows != target + 1:
+        raise AssertionError(
+            f"Unexpected number of rows for {name}: {n_rows} != {target} or {target + 1}"
+        )
+
+    has_explicit_initial_snapshot = False
+    if explicit_elapsed is not None and explicit_elapsed.size == n_rows:
+        has_explicit_initial_snapshot = bool(np.isclose(float(explicit_elapsed[0]), 0.0))
+    elif indices.size == n_rows:
+        has_explicit_initial_snapshot = bool(int(indices[0]) == 0)
+
+    if not has_explicit_initial_snapshot:
+        raise AssertionError(
+            f"{name} has {n_rows} rows but does not expose one identifiable initial snapshot."
+        )
+
+    trimmed_elapsed = None if explicit_elapsed is None else np.asarray(explicit_elapsed[1:], dtype=float)
+    return (
+        np.asarray(indices[1:], dtype=int),
+        np.asarray(array[1:], dtype=float),
+        trimmed_elapsed,
+    )
+
+
+def _load_npy_time_axis_sidecar(
+    payload_path: Path,
+    *,
+    indices: np.ndarray,
+) -> np.ndarray | None:
+    sidecar_path = time_axis_sidecar_path(payload_path)
+    if not sidecar_path.exists():
+        return None
+
+    raw_sidecar = np.load(sidecar_path, allow_pickle=True).item()
+    if not isinstance(raw_sidecar, Mapping):
+        raise AssertionError(f"Invalid time-axis sidecar payload: {sidecar_path}")
+
+    raw_keys = np.asarray(raw_sidecar.get("time_keys", ()), dtype=int).reshape(-1)
+    raw_elapsed_seconds = np.asarray(
+        raw_sidecar.get("elapsed_seconds", ()),
+        dtype=float,
+    ).reshape(-1)
+    if raw_keys.size != raw_elapsed_seconds.size:
+        raise AssertionError(
+            f"Time-axis sidecar '{sidecar_path}' must align keys and elapsed seconds."
+        )
+
+    elapsed_by_key = {
+        int(raw_keys[idx]): float(raw_elapsed_seconds[idx])
+        for idx in range(raw_keys.size)
+    }
+    missing_keys = [int(item) for item in indices.tolist() if int(item) not in elapsed_by_key]
+    if missing_keys:
+        raise AssertionError(
+            f"Time-axis sidecar '{sidecar_path}' is missing time keys: {missing_keys}"
+        )
+    return np.asarray(
+        [elapsed_by_key[int(item)] for item in indices.tolist()],
+        dtype=float,
+    )

@@ -1,0 +1,212 @@
+{
+  "schema_version": "method_comparison_manifest_v1",
+  "comparison_id": "ex12_mf6_nwt_moderate_same_s60",
+  "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml",
+  "run_variants": true,
+  "continue_on_error": false,
+  "reference_variant": "mf6_mod_s60",
+  "n_observable_rows": 21696,
+  "n_metric_rows": 7,
+  "n_difference_rows": 7670,
+  "variants": [
+    {
+      "id": "mf6_mod_s60",
+      "label": "MF6 annual moderate on 60x60 structured grid",
+      "status": "completed",
+      "enabled": true,
+      "solver": "modflow6",
+      "mesh_label": "sgrid_60x60",
+      "mesh_mode": "structured",
+      "run_folder": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_reused_real_meshes\\ex12_demo_mod_mf6_s60\\results_simulations\\ex12_demo_mod_mf6_s60",
+      "wall_time_seconds": 51.44,
+      "metrics": {
+        "wall_time_seconds": 178.92,
+        "solvers": [
+          "modflow6"
+        ],
+        "success": true
+      },
+      "run_metadata": {
+        "metrics": {
+          "wall_time_seconds": 178.92,
+          "solvers": [
+            "modflow6"
+          ],
+          "success": true
+        },
+        "wall_time_seconds": 178.92,
+        "solvers": [
+          "modflow6"
+        ]
+      },
+      "n_observable_rows": 10848
+    },
+    {
+      "id": "nwt_mod_s60",
+      "label": "NWT annual moderate on 60x60 structured grid",
+      "status": "completed",
+      "enabled": true,
+      "solver": "modflownwt",
+      "mesh_label": "sgrid_60x60",
+      "mesh_mode": "structured",
+      "run_folder": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_reused_real_meshes\\ex12_demo_mod_nwt\\results_simulations\\ex12_demo_mod_nwt_s60",
+      "wall_time_seconds": 37.08,
+      "metrics": {
+        "wall_time_seconds": 60.33,
+        "solvers": [
+          "modflownwt"
+        ],
+        "success": true
+      },
+      "run_metadata": {
+        "metrics": {
+          "wall_time_seconds": 60.33,
+          "solvers": [
+            "modflownwt"
+          ],
+          "success": true
+        },
+        "wall_time_seconds": 60.33,
+        "solvers": [
+          "modflownwt"
+        ]
+      },
+      "n_observable_rows": 10848
+    }
+  ],
+  "observables": [
+    {
+      "name": "head_outlet_lowland",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "variants": null,
+      "support": "point",
+      "anchor_id": "example12.outlet_lowland",
+      "x": 266875.0,
+      "y": 6785675.0,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "all",
+      "time_window": null,
+      "reducer": "nearest_cell",
+      "time_reducer": null,
+      "unit": "m"
+    },
+    {
+      "name": "head_mid_basin_response",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "variants": null,
+      "support": "point",
+      "anchor_id": "example12.mid_basin_response",
+      "x": 265875.0,
+      "y": 6784625.0,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "all",
+      "time_window": null,
+      "reducer": "nearest_cell",
+      "time_reducer": null,
+      "unit": "m"
+    },
+    {
+      "name": "head_upstream_ridge",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "variants": null,
+      "support": "point",
+      "anchor_id": "example12.upstream_ridge",
+      "x": 265450.0,
+      "y": 6784200.0,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "all",
+      "time_window": null,
+      "reducer": "nearest_cell",
+      "time_reducer": null,
+      "unit": "m"
+    },
+    {
+      "name": "outlet_flux_series",
+      "variable": "outlet_flux",
+      "source": "disk",
+      "variants": null,
+      "support": "outlet",
+      "anchor_id": "example12.outlet",
+      "x": 266887.0154945171,
+      "y": 6785678.67277686,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "all",
+      "time_window": null,
+      "reducer": "sum",
+      "time_reducer": null,
+      "unit": "m3/s"
+    },
+    {
+      "name": "head_map_last",
+      "variable": "watertable_elevation",
+      "source": "disk",
+      "variants": null,
+      "support": "map",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "last",
+      "time_window": null,
+      "reducer": "identity",
+      "time_reducer": null,
+      "unit": "m"
+    },
+    {
+      "name": "depth_map_last",
+      "variable": "watertable_depth",
+      "source": "disk",
+      "variants": null,
+      "support": "map",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "last",
+      "time_window": null,
+      "reducer": "identity",
+      "time_reducer": null,
+      "unit": "m"
+    },
+    {
+      "name": "outflow_drain_map_last",
+      "variable": "outflow_drain",
+      "source": "disk",
+      "variants": null,
+      "support": "map",
+      "anchor_id": null,
+      "x": null,
+      "y": null,
+      "cell_index": null,
+      "cell_indices": null,
+      "boundary_id": null,
+      "allow_domain_proxy": false,
+      "time": "last",
+      "time_window": null,
+      "reducer": "identity",
+      "time_reducer": null,
+      "unit": "m/day"
+    }
+  ]
+}

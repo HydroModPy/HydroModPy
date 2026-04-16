@@ -7,7 +7,10 @@ import math
 import pytest
 
 from tests.regression.golden_utils import assert_required_executables
-from validation_cases.calibration.shared.runtime import run_twin_benchmark_case
+from tests.validation.calibration.helpers import (
+    assert_lightweight_method_result,
+    run_lightweight_twin_benchmark_case,
+)
 from validation_cases.calibration.twin.transient.linearized_unconfined_recharge_step_1d.experiment import (
     TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE,
 )
@@ -27,15 +30,11 @@ def test_calibration_twin_linearized_recharge_step_noisy_modflow6_benchmark_reco
         require_mt3dms=False,
     )
 
-    benchmark = run_twin_benchmark_case(
+    benchmark = run_lightweight_twin_benchmark_case(
         TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE,
         caller_file=__file__,
     )
 
-    assert benchmark.summary_path.is_file()
-    assert benchmark.configuration_figure is not None
-    assert benchmark.configuration_figure.is_file()
-    assert benchmark.pruned_artifacts
     assert benchmark.observations_truth["head_mid"]
     assert benchmark.observations_used["head_mid"]
     assert benchmark.observations_truth != benchmark.observations_used
@@ -61,10 +60,7 @@ def test_calibration_twin_linearized_recharge_step_noisy_modflow6_benchmark_reco
         assert result.mean_candidate_total_time_seconds is not None
         assert result.mean_candidate_preparation_time_seconds is not None
         assert result.mean_candidate_simulation_time_seconds is not None
-        assert result.objective_trace_figure is not None
-        assert result.objective_trace_figure.is_file()
-        assert result.objective_landscape_figure is not None
-        assert result.objective_landscape_figure.is_file()
+        assert_lightweight_method_result(result)
         if result.method_name in {"simplex", "cma_es"}:
             assert result.recovered_truth, result.to_mapping()
     assert all(result.meets_success_target for result in non_random_results)

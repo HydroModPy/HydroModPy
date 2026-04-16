@@ -17,6 +17,8 @@ from pathlib import Path
 
 import numpy as np
 
+from hydromodpy.solver.boussinesq.history_contract import step_history_from_history
+
 
 @dataclass(frozen=True, slots=True)
 class BoussinesqFreeControlVolumeBudget:
@@ -170,6 +172,17 @@ def compute_free_control_volume_budget(
     cells = load_bundle_cell_table(bundle_dir)
     cell_area_m2 = np.asarray(cells["area_m2"], dtype=float).reshape(-1)
     cell_storage = np.asarray(cells["storage_coefficient"], dtype=float).reshape(-1)
+    head_history = np.asarray(state_history["head_history_m"], dtype=float)
+    if head_history.ndim != 2:
+        raise ValueError("head_history_m must be a 2D time-cell array.")
+    period_lengths_seconds = np.asarray(
+        state_history.get("period_lengths_seconds", ()),
+        dtype=float,
+    ).reshape(-1)
+    n_steps = int(period_lengths_seconds.size)
+    if n_steps <= 0:
+        n_steps = max(int(head_history.shape[0]) - 1, 0)
+
     prescribed_head_history = np.asarray(
         state_history["prescribed_head_history_m_by_cell"],
         dtype=float,
@@ -177,11 +190,20 @@ def compute_free_control_volume_budget(
     prescribed_mask = prescribed_cell_mask_from_history(prescribed_head_history)
     free_mask = ~prescribed_mask
 
-    recharge_history = np.asarray(state_history["recharge_rate_history_m_s"], dtype=float)
-    drainage_history = np.asarray(state_history["drainage_flux_history_m3_s"], dtype=float)
-    saturation_excess_history = np.asarray(
+    recharge_history = step_history_from_history(
+        state_history["recharge_rate_history_m_s"],
+        n_steps=n_steps,
+        name="recharge_rate_history_m_s",
+    )
+    drainage_history = step_history_from_history(
+        state_history["drainage_flux_history_m3_s"],
+        n_steps=n_steps,
+        name="drainage_flux_history_m3_s",
+    )
+    saturation_excess_history = step_history_from_history(
         state_history["saturation_excess_history_m_s"],
-        dtype=float,
+        n_steps=n_steps,
+        name="saturation_excess_history_m_s",
     )
     recharge_flux_m3_day = (
         np.sum(
@@ -206,13 +228,21 @@ def compute_free_control_volume_budget(
     east_boundary_inflow_m3_day, east_boundary_outflow_m3_day = (
         compute_east_interface_flux_m3_day(
             bundle_dir=bundle_dir,
-            internal_edge_flux_history_m3_s=state_history["internal_edge_flux_history_m3_s"],
-            prescribed_head_history_m_by_cell=prescribed_head_history,
+            internal_edge_flux_history_m3_s=step_history_from_history(
+                state_history["internal_edge_flux_history_m3_s"],
+                n_steps=n_steps,
+                name="internal_edge_flux_history_m3_s",
+            ),
+            prescribed_head_history_m_by_cell=step_history_from_history(
+                prescribed_head_history,
+                n_steps=n_steps,
+                name="prescribed_head_history_m_by_cell",
+            ),
             seconds_per_day=seconds_per_day,
         )
     )
     storage_change_m3_day = compute_storage_change_flux_m3_day(
-        head_history_m=state_history["head_history_m"],
+        head_history_m=head_history,
         cell_area_m2=cell_area_m2,
         cell_storage_coefficient=cell_storage,
         dt_days=dt_days,

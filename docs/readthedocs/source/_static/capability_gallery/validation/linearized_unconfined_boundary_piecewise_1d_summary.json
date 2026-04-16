@@ -1,0 +1,947 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "linearized_unconfined_boundary_piecewise_1d",
+  "title": "Linearized Unconfined Boundary Piecewise 1D",
+  "category": "validation",
+  "deck": "Transient synthetic groundwater-flow case used to validate the launcher workflow against the linearized unconfined analytical response for:",
+  "summary": "Transient synthetic groundwater-flow case used to validate the launcher workflow against the linearized unconfined analytical response for:",
+  "case_setup": [
+    "Homogeneous strip, fixed east head, piecewise west-head series from CSV, no recharge",
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
+  ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
+  "what_it_shows": [
+    "validate multi-step lateral boundary forcing through the launcher-managed CSV forcing path,",
+    "exercise analytical superposition beyond the single-step benchmark,",
+    "keep one compact transient 1D case where the reference remains closed-form.",
+    "Multi-step boundary forcing and superposition behavior beyond the single-step case",
+    "Primary metrics: space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread.",
+    "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
+  ],
+  "reference_highlights": [
+    "compared quantity: full transient head profile matrix along `x`",
+    "reference: linearized 1D unconfined response to a piecewise west-boundary series"
+  ],
+  "equations_rst": [
+    "S_y\\frac{\\partial \\eta}{\\partial t}=T_0\\frac{\\partial^2 \\eta}{\\partial x^2},\\qquad \\eta(L,t)=0",
+    "\\eta(x,t)=\\sum_k \\Delta h_k\\,\\eta_{\\mathrm{step}}(x,t-t_k)\\,H(t-t_k)"
+  ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m validation_cases.analytical.transient.linearized_unconfined_boundary_piecewise_1d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/README.md",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/reference.py",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/comparison.py",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/plotting.py",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/run_case.py",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/runtime_boussinesq.py",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_boussinesq.toml",
+    "validation_cases/shared/boussinesq_uniform_strip.py",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/README.md": "831999737d3e20e252187fb4305420248f719f0a8b64c9ba54197142ae541dad",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/reference.py": "97f0786c76684977d2e605e313669bf7b2c8acdbe22de756dfdd11675e7b9bad",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/comparison.py": "c817230683c785d165afcd23d6848534cb6b79d960d50839ee72d42ff729e5cd",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/plotting.py": "d9b07e6c36eb6ce893e25d03066a536191dcc5f0cbbc09f6cb435c1d4a47ac9c",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/run_case.py": "4de654a2ed5dbeadc84a0ff17039bc003036ba6d978383a5497ceffa87745c27",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml": "a16f9191adf820203e94017569bd9cbfbd21f36c111a5f9527bf1fb533c62996",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml": "9259ba93bb360aa3ae05b954be791c845b64a62829c1d626a159caba23bfda89",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/runtime_boussinesq.py": "a8314af5e2aee299463b1ad12d2f5200dced2185df97b8736e5da86e02c38cb8",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml": "85bfcd4993adb583eeb90d26ebebb4cdd9808162dacdcc699d873146e7ce78fe",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6.toml": "557f12784b1d694159daa5e05cf774ed466d8a01639d4a177f7e802673576771",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml": "e39bd40d3d962745dc1d30349d41115a95f59f27f6bf2f907395e15a689fb526",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "30c6e0c6cec9aaece01246cc109d47043eed032725b0a496874d6f744c04901f",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "87bd0c802ef3b86b88f5791b1ece5a70095f146920ffb3ad44aab32115921b00"
+  },
+  "docname": "cases/linearized_unconfined_boundary_piecewise_1d",
+  "images": [
+    {
+      "filename": "linearized_unconfined_boundary_piecewise_1d__modflownwt.png",
+      "caption": "Linearized Unconfined Boundary Piecewise 1D rendered with MODFLOW-NWT for the analytical gallery.",
+      "alt_text": "Linearized Unconfined Boundary Piecewise 1D validation figure for MODFLOW-NWT",
+      "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_boundary_piecewise_1d__modflownwt.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_boundary_piecewise_1d__modflownwt.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d",
+    "default_solver": "modflownwt",
+    "solver_variants": [
+      "modflownwt",
+      "modflow6",
+      "boussinesq"
+    ],
+    "solver_details": {
+      "modflownwt": {
+        "display_name": "MODFLOW-NWT",
+        "config_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml",
+        "expected_output": "Expected output: 24 periods, spatial shape 5 x 50",
+        "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+      },
+      "modflow6": {
+        "display_name": "MODFLOW 6",
+        "config_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml",
+        "expected_output": "Expected output: 24 periods, spatial shape 5 x 50",
+        "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6.toml"
+      },
+      "boussinesq": {
+        "display_name": "Boussinesq",
+        "config_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_boussinesq.toml",
+        "expected_output": "Expected output: 24 periods, spatial shape 5 x 50",
+        "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+      }
+    },
+    "regime": "transient",
+    "dimension": "1d",
+    "inventory_reference": "",
+    "case_sheet": {
+      "numerical_setup": "Homogeneous strip, fixed east head, piecewise west-head series from CSV, no recharge",
+      "analytical_target": "Linearized transient response to a multi-step west-boundary forcing",
+      "primary_metrics": "space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread",
+      "what_it_validates": "Multi-step boundary forcing and superposition behavior beyond the single-step case"
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "strip_1d",
+    "geometry_family_label": "Strip 1D",
+    "reference_type": "analytical_series",
+    "reference_type_label": "Analytical Series",
+    "validation_family": "transient_1d_boundary_or_recharge_forcing",
+    "validation_family_label": "Transient 1D Boundary or Recharge Forcing",
+    "validation_family_order": 50
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/linearized_unconfined_boundary_piecewise_1d_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_boundary_piecewise_1d_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_boundary_piecewise_1d__modflownwt.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_boundary_piecewise_1d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_boundary_piecewise_1d__boussinesq.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "modflownwt",
+      "solver_display_name": "MODFLOW-NWT",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml",
+      "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml",
+      "expected_output": "Expected output: 24 periods, spatial shape 5 x 50",
+      "command": "python -m validation_cases.analytical.transient.linearized_unconfined_boundary_piecewise_1d.run_case --no-show --solver modflownwt",
+      "metric_lines": [
+        "Space-time RMSE: 0.0055 m",
+        "Space-time max abs error: 0.0318 m",
+        "Final-profile RMSE: 0.0022 m",
+        "Cross-row head spread: 4.67e-07 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_boundary_piecewise_1d__modflownwt.png",
+        "caption": "Linearized Unconfined Boundary Piecewise 1D rendered with MODFLOW-NWT for the analytical gallery.",
+        "alt_text": "Linearized Unconfined Boundary Piecewise 1D validation figure for MODFLOW-NWT",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_boundary_piecewise_1d__modflownwt.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_boundary_piecewise_1d__modflownwt.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "lu_boundary_piecewise_1d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_periods": 24,
+            "expected_spatial_shape": [
+              5,
+              50
+            ]
+          },
+          "time": {
+            "dt_seconds": 43200.0
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "base_head_m": 10.0,
+            "west_head_levels_m": [
+              10.05,
+              10.05,
+              10.05,
+              10.05,
+              10.15,
+              10.15,
+              10.15,
+              10.15,
+              9.95,
+              9.95,
+              9.95,
+              9.95,
+              10.25,
+              10.25,
+              10.25,
+              10.25,
+              10.05,
+              10.05,
+              10.05,
+              10.05,
+              10.0,
+              10.0,
+              10.0,
+              10.0
+            ],
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 10.0,
+            "specific_yield": 0.1,
+            "profile_axis": 0,
+            "n_terms": 400
+          },
+          "plot": {
+            "profile_times_days": [
+              1.0,
+              3.0,
+              5.0,
+              7.0,
+              9.0,
+              12.0
+            ],
+            "monitor_positions_m": [
+              25.0,
+              50.0,
+              75.0
+            ]
+          }
+        },
+        "tolerances": {
+          "space_time": {
+            "rmse": 0.05,
+            "max_abs_error": 0.12,
+            "row_spread": 2e-05
+          },
+          "final_profile": {
+            "rmse": 0.05,
+            "max_abs_error": 0.1
+          }
+        },
+        "final_elapsed_days": 12.0
+      }
+    },
+    {
+      "solver": "modflow6",
+      "solver_display_name": "MODFLOW 6",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml",
+      "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6.toml",
+      "expected_output": "Expected output: 24 periods, spatial shape 5 x 50",
+      "command": "python -m validation_cases.analytical.transient.linearized_unconfined_boundary_piecewise_1d.run_case --no-show --solver modflow6",
+      "metric_lines": [
+        "Space-time RMSE: 0.0055 m",
+        "Space-time max abs error: 0.0319 m",
+        "Final-profile RMSE: 0.0022 m",
+        "Cross-row head spread: 1.69e-06 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_boundary_piecewise_1d__modflow6.png",
+        "caption": "Linearized Unconfined Boundary Piecewise 1D rendered with MODFLOW 6 for the analytical gallery.",
+        "alt_text": "Linearized Unconfined Boundary Piecewise 1D validation figure for MODFLOW 6",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_boundary_piecewise_1d__modflow6.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_boundary_piecewise_1d__modflow6.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "lu_boundary_piecewise_1d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_periods": 24,
+            "expected_spatial_shape": [
+              5,
+              50
+            ]
+          },
+          "time": {
+            "dt_seconds": 43200.0
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "base_head_m": 10.0,
+            "west_head_levels_m": [
+              10.05,
+              10.05,
+              10.05,
+              10.05,
+              10.15,
+              10.15,
+              10.15,
+              10.15,
+              9.95,
+              9.95,
+              9.95,
+              9.95,
+              10.25,
+              10.25,
+              10.25,
+              10.25,
+              10.05,
+              10.05,
+              10.05,
+              10.05,
+              10.0,
+              10.0,
+              10.0,
+              10.0
+            ],
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 10.0,
+            "specific_yield": 0.1,
+            "profile_axis": 0,
+            "n_terms": 400
+          },
+          "plot": {
+            "profile_times_days": [
+              1.0,
+              3.0,
+              5.0,
+              7.0,
+              9.0,
+              12.0
+            ],
+            "monitor_positions_m": [
+              25.0,
+              50.0,
+              75.0
+            ]
+          }
+        },
+        "tolerances": {
+          "space_time": {
+            "rmse": 0.008,
+            "max_abs_error": 0.04,
+            "row_spread": 1e-05
+          },
+          "final_profile": {
+            "rmse": 0.003,
+            "max_abs_error": 0.005
+          }
+        },
+        "final_elapsed_days": 12.0
+      }
+    },
+    {
+      "solver": "boussinesq",
+      "solver_display_name": "Boussinesq",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_boussinesq.toml",
+      "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml",
+      "expected_output": "Expected output: 24 periods, spatial shape 5 x 50",
+      "command": "python -m validation_cases.analytical.transient.linearized_unconfined_boundary_piecewise_1d.run_case --no-show --solver boussinesq",
+      "metric_lines": [
+        "Space-time RMSE: 0.0059 m",
+        "Space-time max abs error: 0.0340 m",
+        "Final-profile RMSE: 0.0024 m",
+        "Cross-row head spread: 3.22e-08 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_boundary_piecewise_1d__boussinesq.png",
+        "caption": "Linearized Unconfined Boundary Piecewise 1D rendered with Boussinesq for the analytical gallery.",
+        "alt_text": "Linearized Unconfined Boundary Piecewise 1D validation figure for Boussinesq",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_boundary_piecewise_1d__boussinesq.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_boundary_piecewise_1d__boussinesq.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "lu_boundary_piecewise_1d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_periods": 24,
+            "expected_spatial_shape": [
+              5,
+              50
+            ]
+          },
+          "time": {
+            "dt_seconds": 43200.0
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "base_head_m": 10.0,
+            "west_head_levels_m": [
+              10.05,
+              10.05,
+              10.05,
+              10.05,
+              10.15,
+              10.15,
+              10.15,
+              10.15,
+              9.95,
+              9.95,
+              9.95,
+              9.95,
+              10.25,
+              10.25,
+              10.25,
+              10.25,
+              10.05,
+              10.05,
+              10.05,
+              10.05,
+              10.0,
+              10.0,
+              10.0,
+              10.0
+            ],
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 10.0,
+            "specific_yield": 0.1,
+            "profile_axis": 0,
+            "n_terms": 400
+          },
+          "plot": {
+            "profile_times_days": [
+              1.0,
+              3.0,
+              5.0,
+              7.0,
+              9.0,
+              12.0
+            ],
+            "monitor_positions_m": [
+              25.0,
+              50.0,
+              75.0
+            ]
+          }
+        },
+        "tolerances": {
+          "space_time": {
+            "rmse": 0.05,
+            "max_abs_error": 0.12,
+            "row_spread": 2e-05
+          },
+          "final_profile": {
+            "rmse": 0.05,
+            "max_abs_error": 0.1
+          }
+        },
+        "final_elapsed_days": 12.0
+      }
+    }
+  ],
+  "parameter_docs": {
+    "reference_parameters": [
+      {
+        "field": "xmin",
+        "meaning": "Minimum x coordinate of the analytical reference domain.",
+        "value": "0",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+      },
+      {
+        "field": "xmax",
+        "meaning": "Maximum x coordinate of the analytical reference domain.",
+        "value": "100",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+      },
+      {
+        "field": "base_head_m",
+        "meaning": "Baseline hydraulic head around which the linearized reference is expressed.",
+        "value": "10 m",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+      },
+      {
+        "field": "west_head_levels_m",
+        "meaning": "Sequence of west-boundary head levels used by the transient boundary forcing.",
+        "value": "[10.05 m, 10.05 m, 10.05 m, 10.05 m, 10.15 m, 10.15 m, 10.15 m, 10.15 m, 9.95 m, 9.95 m, 9.95 m, 9.95 m, 10.25 m, 10.25 m, 10.25 m, 10.25 m, 10.05 m, 10.05 m, 10.05 m, 10.05 m, 10 m, 10 m, 10 m, 10 m]",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+      },
+      {
+        "field": "hydraulic_conductivity_m_per_s",
+        "meaning": "Hydraulic conductivity used by the analytical or benchmark reference.",
+        "value": "0.0001 m/s",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+      },
+      {
+        "field": "reference_saturated_thickness_m",
+        "meaning": "Reference saturated thickness used by the linearized formulation.",
+        "value": "10 m",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+      },
+      {
+        "field": "specific_yield",
+        "meaning": "Specific yield used by the transient reference formulation.",
+        "value": "0.1 -",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+      },
+      {
+        "field": "profile_axis",
+        "meaning": "Axis along which the validation profile is extracted.",
+        "value": "0",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+      },
+      {
+        "field": "n_terms",
+        "meaning": "Number of terms retained in the analytical series expansion.",
+        "value": "400",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+      },
+      {
+        "field": "dt_seconds",
+        "meaning": "Reference time step used by the analytical evaluator.",
+        "value": "43200 s",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+      }
+    ],
+    "common_setup": [
+      {
+        "field": "simulation.time.start_datetime",
+        "meaning": "Simulation start time used by the benchmark.",
+        "value": "2003-01-01 00:00:00",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "simulation.time.end_datetime",
+        "meaning": "Simulation end time used by the benchmark.",
+        "value": "2003-01-12 23:00:00",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "simulation.time.step_value",
+        "meaning": "Nominal time step used by the benchmark.",
+        "value": "12 hour",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_x",
+        "meaning": "Synthetic-domain length along the x axis.",
+        "value": "100.0 m",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_y",
+        "meaning": "Synthetic-domain length along the y axis.",
+        "value": "10.0 m",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.nx",
+        "meaning": "Grid cell count along the x axis.",
+        "value": "50",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.ny",
+        "meaning": "Grid cell count along the y axis.",
+        "value": "5",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.kind",
+        "meaning": "Synthetic topography shape used by the benchmark.",
+        "value": "flat",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.base_elevation",
+        "meaning": "Base land-surface elevation of the synthetic topography.",
+        "value": "20 m",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.depth_model.type",
+        "meaning": "Depth model used to build the aquifer support.",
+        "value": "constant_thickness",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.depth_model.thickness",
+        "meaning": "Aquifer or support thickness used by the benchmark.",
+        "value": "20.0 m",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.flow_regime",
+        "meaning": "Steady or transient flow regime used by the benchmark.",
+        "value": "transient",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.active_sinks_sources",
+        "meaning": "Sink and source families activated in the benchmark.",
+        "value": "[]",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.active_bc",
+        "meaning": "Boundary-condition families activated in the benchmark.",
+        "value": "[west_side, east_side]",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param_list",
+        "meaning": "Hydraulic parameter families explicitly configured by the benchmark.",
+        "value": "[K, Ss, Sy]",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field.kind",
+        "meaning": "Parameterization mode used for `K`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field_homogeneous.value",
+        "meaning": "Homogeneous `K` value used by the benchmark.",
+        "value": "1e-4 m/s",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.Ss.field.kind",
+        "meaning": "Parameterization mode used for `Ss`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.Ss.field_homogeneous.value",
+        "meaning": "Homogeneous `Ss` value used by the benchmark.",
+        "value": "1e-10 m-1",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.Sy.field.kind",
+        "meaning": "Parameterization mode used for `Sy`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.Sy.field_homogeneous.value",
+        "meaning": "Homogeneous `Sy` value used by the benchmark.",
+        "value": "0.10 -",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.ic.value",
+        "meaning": "Initial hydraulic head used to start the benchmark.",
+        "value": "10.0 m",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.west_side.forcing.mode",
+        "meaning": "Case-specific configuration field `flow.bc.dirichlet.west_side.forcing.mode` used by the validation benchmark.",
+        "value": "csv",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.west_side.forcing.path_file",
+        "meaning": "Case-specific configuration field `flow.bc.dirichlet.west_side.forcing.path_file` used by the validation benchmark.",
+        "value": "west_head_piecewise.csv",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.west_side.forcing.aggregate",
+        "meaning": "Case-specific configuration field `flow.bc.dirichlet.west_side.forcing.aggregate` used by the validation benchmark.",
+        "value": "last",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.east_side.value",
+        "meaning": "Fixed head applied on the east side boundary.",
+        "value": "10.0 m",
+        "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+      }
+    ],
+    "solver_overrides": {
+      "modflownwt": [
+        {
+          "field": "modflownwt.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW-NWT.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW-NWT.",
+          "value": "50",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW-NWT.",
+          "value": "5",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW-NWT.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW-NWT.",
+          "value": "1",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.tgrid.firstpersteady",
+          "meaning": "Whether the first time period is treated as steady by MODFLOW-NWT.",
+          "value": "false",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml"
+        }
+      ],
+      "modflow6": [
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW 6.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW 6.",
+          "value": "50",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW 6.",
+          "value": "5",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW 6.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.tgrid.firstpersteady",
+          "meaning": "Whether the first time period is treated as steady by MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml"
+        }
+      ],
+      "boussinesq": [
+        {
+          "field": "flow.runtime_backend",
+          "meaning": "Runtime backend selected for the in-house solver.",
+          "value": "scipy_sparse",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_boussinesq.toml"
+        }
+      ]
+    },
+    "acceptance_criteria": {
+      "common": [
+        {
+          "field": "output.observable_name",
+          "meaning": "Simulated observable compared against the reference solution.",
+          "value": "watertable_elevation",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+        },
+        {
+          "field": "output.expected_periods",
+          "meaning": "Expected number of stored time periods checked by the validation helper.",
+          "value": "24",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+        },
+        {
+          "field": "output.expected_spatial_shape",
+          "meaning": "Expected spatial shape for each stored time step.",
+          "value": "[5, 50]",
+          "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+        }
+      ],
+      "solver_specific": {
+        "modflownwt": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected output: 24 periods, spatial shape 5 x 50",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+          },
+          {
+            "field": "space_time.rmse",
+            "meaning": "Maximum accepted root-mean-square error for space time.",
+            "value": "0.05",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+          },
+          {
+            "field": "space_time.max_abs_error",
+            "meaning": "Maximum accepted absolute error for space time.",
+            "value": "0.12",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+          },
+          {
+            "field": "space_time.row_spread",
+            "meaning": "Maximum accepted cross-row spread for space time.",
+            "value": "2e-05",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+          },
+          {
+            "field": "final_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for final profile.",
+            "value": "0.05",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+          },
+          {
+            "field": "final_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for final profile.",
+            "value": "0.1",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+          }
+        ],
+        "modflow6": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected output: 24 periods, spatial shape 5 x 50",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+          },
+          {
+            "field": "space_time.rmse",
+            "meaning": "Maximum accepted root-mean-square error for space time.",
+            "value": "0.008",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "space_time.max_abs_error",
+            "meaning": "Maximum accepted absolute error for space time.",
+            "value": "0.04",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "space_time.row_spread",
+            "meaning": "Maximum accepted cross-row spread for space time.",
+            "value": "1e-05",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "final_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for final profile.",
+            "value": "0.003",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "final_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for final profile.",
+            "value": "0.005",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6.toml"
+          }
+        ],
+        "boussinesq": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected output: 24 periods, spatial shape 5 x 50",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml"
+          },
+          {
+            "field": "space_time.rmse",
+            "meaning": "Maximum accepted root-mean-square error for space time.",
+            "value": "0.05",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+          },
+          {
+            "field": "space_time.max_abs_error",
+            "meaning": "Maximum accepted absolute error for space time.",
+            "value": "0.12",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+          },
+          {
+            "field": "space_time.row_spread",
+            "meaning": "Maximum accepted cross-row spread for space time.",
+            "value": "2e-05",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+          },
+          {
+            "field": "final_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for final profile.",
+            "value": "0.05",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+          },
+          {
+            "field": "final_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for final profile.",
+            "value": "0.1",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+          }
+        ]
+      }
+    }
+  }
+}

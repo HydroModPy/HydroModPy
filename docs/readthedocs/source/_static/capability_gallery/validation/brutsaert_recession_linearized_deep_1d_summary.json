@@ -1,0 +1,821 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "brutsaert_recession_linearized_deep_1d",
+  "title": "Brutsaert Recession Validation: Deep Linearized Aquifer",
+  "category": "validation",
+  "deck": "This transient validation case checks that the available `modflownwt`, `modflow6`, and local `boussinesq` backends reproduce the linearized Brutsaert recession law on a deep aquifer.",
+  "summary": "This transient validation case checks that the available `modflownwt`, `modflow6`, and local `boussinesq` backends reproduce the linearized Brutsaert recession law on a deep aquifer.",
+  "case_setup": [
+    "homogeneous 1D strip with west divide and east imposed head,",
+    "steady uniform recharge used only to build the initial saturated state,",
+    "transient recession started by switching recharge off,",
+    "comparison performed on outlet discharge `Q(t)`.",
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
+  ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
+  "what_it_shows": [
+    "Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq runtime in the near-linear regime",
+    "Primary metrics: relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check.",
+    "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
+  ],
+  "reference_highlights": [
+    "Exponential Brutsaert recession law for a deep aquifer"
+  ],
+  "equations_rst": [],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m validation_cases.analytical.transient.brutsaert_recession_linearized_deep_1d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/README.md",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/reference.py",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/comparison.py",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/plotting.py",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/run_case.py",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/runtime_boussinesq.py",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflownwt.toml",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_boussinesq.toml",
+    "validation_cases/analytical/transient/brutsaert_common.py",
+    "validation_cases/analytical/transient/brutsaert_reference.py",
+    "validation_cases/analytical/transient/runtime_boussinesq_brutsaert_1d.py"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/README.md": "41459e202bb85055051f9ac49e333bf8164eea2df755df9451e28fac4cbe64c6",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/reference.py": "63011c122300937b1ae47c5eafdd1b4e1c0a03fc0e434f7255f0b48d2ba0d58b",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/comparison.py": "162dc0ee5df81679bd0697358cf0e02035632ad5b4da48b4e421f4bc63b5d297",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/plotting.py": "c2c92c3189f72bf276eee5f3df8f56a889c76fbf11930f741e23bf93f68a7d31",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/run_case.py": "2a8fc0d93e96709f8536b8a404da178e212daf052bf3e75ec74270c70b64e39d",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml": "8e74af0c1b4b398116a5521acc01f163b6248414b225c200d3c176e3531d9dee",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml": "daf6812ad34aa0a080c39cef162a13b79531ba2464bfce1999ff1d070f88e5e8",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/runtime_boussinesq.py": "57798af261f4c07e325f5c905aeeb8ba53a110f715b87363d81160e401be6580",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml": "6b4a663c3b3021a3c05ff6a2d72da1e23cefe53028cb279ec24d8e2de87a05bd",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflownwt.toml": "0d01ff9ea63f58ad8b3d679052c8cb28e47c7faf7359fc4f4d4f1a17b2eeeed4",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml": "c587ec52f341201e87753719b3a2aabddedc57df3fd4d747f5a868ea752dd5a3",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml": "b0ace93b0771f31991493e0bf31bb61a434646a86b3d258e2d14e3b710cf91d7",
+    "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_boussinesq.toml": "6f68bf8bb4da181014cdc8fc3d802958f0c056f4675490e309cfaa280b586156",
+    "validation_cases/analytical/transient/brutsaert_common.py": "1f1ca9eb324fa2959b490125b251956f9521a649ff9ac4a9bf78a04351f34dfb",
+    "validation_cases/analytical/transient/brutsaert_reference.py": "a8ddea6161cc9330a269bc54aa85daafa39b8cbf26c54c4613ee8f9909613749",
+    "validation_cases/analytical/transient/runtime_boussinesq_brutsaert_1d.py": "0664eb0040aba16f43b0cfbae267c3f4a7a4fdd1acdd665dff43e0f2d9c1ba0e"
+  },
+  "docname": "cases/brutsaert_recession_linearized_deep_1d",
+  "images": [
+    {
+      "filename": "brutsaert_recession_linearized_deep_1d__modflownwt.png",
+      "caption": "Brutsaert Recession Validation: Deep Linearized Aquifer rendered with MODFLOW-NWT for the analytical gallery.",
+      "alt_text": "Brutsaert Recession Validation: Deep Linearized Aquifer validation figure for MODFLOW-NWT",
+      "doc_path": "/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflownwt.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflownwt.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d",
+    "default_solver": "modflownwt",
+    "solver_variants": [
+      "modflownwt",
+      "modflow6",
+      "boussinesq"
+    ],
+    "solver_details": {
+      "modflownwt": {
+        "display_name": "MODFLOW-NWT",
+        "config_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml",
+        "expected_output": null,
+        "tolerance_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflownwt.toml"
+      },
+      "modflow6": {
+        "display_name": "MODFLOW 6",
+        "config_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml",
+        "expected_output": null,
+        "tolerance_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml"
+      },
+      "boussinesq": {
+        "display_name": "Boussinesq",
+        "config_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_boussinesq.toml",
+        "expected_output": null,
+        "tolerance_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml"
+      }
+    },
+    "regime": "transient",
+    "dimension": "1d",
+    "inventory_reference": "",
+    "case_sheet": {
+      "numerical_setup": "Homogeneous strip, west divide, east fixed head, steady recharge pre-run followed by recession",
+      "analytical_target": "Exponential Brutsaert recession law for a deep aquifer",
+      "primary_metrics": "relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check",
+      "what_it_validates": "Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq runtime in the near-linear regime"
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "strip_1d",
+    "geometry_family_label": "Strip 1D",
+    "reference_type": "analytical_series",
+    "reference_type_label": "Analytical Series",
+    "validation_family": "transient_1d_recession_or_interception_dynamics",
+    "validation_family_label": "Transient 1D Recession or Interception Dynamics",
+    "validation_family_order": 60
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflownwt.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflow6.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "modflownwt",
+      "solver_display_name": "MODFLOW-NWT",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml",
+      "tolerance_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflownwt.toml",
+      "expected_output": null,
+      "command": "python -m validation_cases.analytical.transient.brutsaert_recession_linearized_deep_1d.run_case --no-show --solver modflownwt",
+      "metric_lines": [
+        "Solution: exponential",
+        "Initial discharge: 2.707439e-04 m3/s",
+        "Characteristic time: 15.01 d",
+        "Relative RMSE: 0.7527",
+        "Relative max abs error: 0.8255",
+        "Cross-row head spread: 4.97e-05 m",
+        "MODFLOW-NWT rate budget max abs discrepancy: 200.00% (first bad stress period: 2)"
+      ],
+      "image": {
+        "filename": "brutsaert_recession_linearized_deep_1d__modflownwt.png",
+        "caption": "Brutsaert Recession Validation: Deep Linearized Aquifer rendered with MODFLOW-NWT for the analytical gallery.",
+        "alt_text": "Brutsaert Recession Validation: Deep Linearized Aquifer validation figure for MODFLOW-NWT",
+        "doc_path": "/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflownwt.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflownwt.png"
+      },
+      "metadata": {
+        "observable_name": "outlet_discharge_east_side_m3_s",
+        "case_metadata": {
+          "case_id": "brutsaert_recession_linearized_deep_1d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_common.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "outlet_discharge_east_side_m3_s",
+            "expected_periods": 12,
+            "head_observable_name": "watertable_elevation",
+            "warmup_periods_by_solver": {
+              "modflownwt": 1,
+              "modflow6": 1,
+              "boussinesq": 0
+            }
+          },
+          "time": {
+            "nper": 12,
+            "dt_seconds": 864000.0
+          },
+          "geometry": {
+            "nx": 40,
+            "ny": 3,
+            "length_x_m": 400.0,
+            "width_y_m": 30.0,
+            "z_top_m": 100.0,
+            "z_bottom_m": 0.0
+          },
+          "runtime": {
+            "east_head_m": 50.0,
+            "steady_recharge_mm_day": 2.0,
+            "acceptable_steady_residual_inf": 1e-06
+          },
+          "reference": {
+            "solution": "exponential",
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "specific_yield": 0.1,
+            "aquifer_thickness_m": 50.0,
+            "watershed_area_m2": 12000.0,
+            "channel_length_m": 30.0,
+            "active_drainage_fraction": 1.0,
+            "linearization_constant": 0.25,
+            "compare_start_day": 0.0
+          }
+        },
+        "tolerances": {
+          "discharge": {
+            "relative_rmse": 1.0,
+            "relative_max_error": 1.0
+          },
+          "uniformity": {
+            "row_spread": 0.0001
+          },
+          "monotonicity": {
+            "max_positive_increment_m3_s": 1e-06
+          }
+        },
+        "final_elapsed_days": 120.0
+      }
+    },
+    {
+      "solver": "modflow6",
+      "solver_display_name": "MODFLOW 6",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml",
+      "tolerance_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml",
+      "expected_output": null,
+      "command": "python -m validation_cases.analytical.transient.brutsaert_recession_linearized_deep_1d.run_case --no-show --solver modflow6",
+      "metric_lines": [
+        "Solution: exponential",
+        "Initial discharge: 2.709876e-04 m3/s",
+        "Characteristic time: 15.01 d",
+        "Relative RMSE: 0.0191",
+        "Relative max abs error: 0.0361",
+        "Cross-row head spread: 2.08e-07 m"
+      ],
+      "image": {
+        "filename": "brutsaert_recession_linearized_deep_1d__modflow6.png",
+        "caption": "Brutsaert Recession Validation: Deep Linearized Aquifer rendered with MODFLOW 6 for the analytical gallery.",
+        "alt_text": "Brutsaert Recession Validation: Deep Linearized Aquifer validation figure for MODFLOW 6",
+        "doc_path": "/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflow6.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflow6.png"
+      },
+      "metadata": {
+        "observable_name": "outlet_discharge_east_side_m3_s",
+        "case_metadata": {
+          "case_id": "brutsaert_recession_linearized_deep_1d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_common.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "outlet_discharge_east_side_m3_s",
+            "expected_periods": 12,
+            "head_observable_name": "watertable_elevation",
+            "warmup_periods_by_solver": {
+              "modflownwt": 1,
+              "modflow6": 1,
+              "boussinesq": 0
+            }
+          },
+          "time": {
+            "nper": 12,
+            "dt_seconds": 864000.0
+          },
+          "geometry": {
+            "nx": 40,
+            "ny": 3,
+            "length_x_m": 400.0,
+            "width_y_m": 30.0,
+            "z_top_m": 100.0,
+            "z_bottom_m": 0.0
+          },
+          "runtime": {
+            "east_head_m": 50.0,
+            "steady_recharge_mm_day": 2.0,
+            "acceptable_steady_residual_inf": 1e-06
+          },
+          "reference": {
+            "solution": "exponential",
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "specific_yield": 0.1,
+            "aquifer_thickness_m": 50.0,
+            "watershed_area_m2": 12000.0,
+            "channel_length_m": 30.0,
+            "active_drainage_fraction": 1.0,
+            "linearization_constant": 0.25,
+            "compare_start_day": 0.0
+          }
+        },
+        "tolerances": {
+          "discharge": {
+            "relative_rmse": 0.03,
+            "relative_max_error": 0.05
+          },
+          "uniformity": {
+            "row_spread": 1e-06
+          },
+          "monotonicity": {
+            "max_positive_increment_m3_s": 1e-12
+          }
+        },
+        "final_elapsed_days": 120.0
+      }
+    },
+    {
+      "solver": "boussinesq",
+      "solver_display_name": "Boussinesq",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_boussinesq.toml",
+      "tolerance_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml",
+      "expected_output": null,
+      "command": "python -m validation_cases.analytical.transient.brutsaert_recession_linearized_deep_1d.run_case --no-show --solver boussinesq",
+      "metric_lines": [
+        "Gallery generation failed for this solver: NameError: name 'period_lengths_seconds' is not defined"
+      ],
+      "image": null,
+      "metadata": {
+        "observable_name": null,
+        "case_metadata": {},
+        "tolerances": {},
+        "generation_error": {
+          "type": "NameError",
+          "message": "name 'period_lengths_seconds' is not defined"
+        }
+      }
+    }
+  ],
+  "parameter_docs": {
+    "reference_parameters": [
+      {
+        "field": "solution",
+        "meaning": "Named analytical solution variant used by the comparison helper.",
+        "value": "exponential",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+      },
+      {
+        "field": "hydraulic_conductivity_m_per_s",
+        "meaning": "Hydraulic conductivity used by the analytical or benchmark reference.",
+        "value": "0.0001 m/s",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+      },
+      {
+        "field": "specific_yield",
+        "meaning": "Specific yield used by the transient reference formulation.",
+        "value": "0.1 -",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+      },
+      {
+        "field": "aquifer_thickness_m",
+        "meaning": "Aquifer thickness used by the reference formulation.",
+        "value": "50 m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+      },
+      {
+        "field": "watershed_area_m2",
+        "meaning": "Watershed area used by the recession reference.",
+        "value": "12000 m2",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+      },
+      {
+        "field": "channel_length_m",
+        "meaning": "Characteristic channel length used by the recession reference.",
+        "value": "30 m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+      },
+      {
+        "field": "active_drainage_fraction",
+        "meaning": "Fraction of the domain where the analytical drainage condition is active.",
+        "value": "1",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+      },
+      {
+        "field": "linearization_constant",
+        "meaning": "Constant used by the linearized analytical formulation.",
+        "value": "0.25",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+      },
+      {
+        "field": "compare_start_day",
+        "meaning": "Start day retained when comparing the numerical and reference time series.",
+        "value": "0",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+      },
+      {
+        "field": "nper",
+        "meaning": "Number of time periods used by the analytical or benchmark helper.",
+        "value": "12",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+      },
+      {
+        "field": "dt_seconds",
+        "meaning": "Reference time step used by the analytical evaluator.",
+        "value": "864000 s",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+      }
+    ],
+    "common_setup": [
+      {
+        "field": "simulation.time.start_datetime",
+        "meaning": "Simulation start time used by the benchmark.",
+        "value": "2003-01-01 00:00:00",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "simulation.time.end_datetime",
+        "meaning": "Simulation end time used by the benchmark.",
+        "value": "2003-05-10 00:00:00",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "simulation.time.step_value",
+        "meaning": "Nominal time step used by the benchmark.",
+        "value": "10 day",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_x",
+        "meaning": "Synthetic-domain length along the x axis.",
+        "value": "400.0 m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_y",
+        "meaning": "Synthetic-domain length along the y axis.",
+        "value": "30.0 m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.nx",
+        "meaning": "Grid cell count along the x axis.",
+        "value": "40",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.ny",
+        "meaning": "Grid cell count along the y axis.",
+        "value": "3",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.kind",
+        "meaning": "Synthetic topography shape used by the benchmark.",
+        "value": "flat",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.base_elevation",
+        "meaning": "Base land-surface elevation of the synthetic topography.",
+        "value": "100 m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "domain.depth_model.type",
+        "meaning": "Depth model used to build the aquifer support.",
+        "value": "constant_thickness",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "domain.depth_model.thickness",
+        "meaning": "Aquifer or support thickness used by the benchmark.",
+        "value": "100.0 m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "flow.flow_regime",
+        "meaning": "Steady or transient flow regime used by the benchmark.",
+        "value": "transient",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "flow.active_sinks_sources",
+        "meaning": "Sink and source families activated in the benchmark.",
+        "value": "[recharge]",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "flow.active_bc",
+        "meaning": "Boundary-condition families activated in the benchmark.",
+        "value": "[east_side]",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param_list",
+        "meaning": "Hydraulic parameter families explicitly configured by the benchmark.",
+        "value": "[K, Ss, Sy]",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.K.field.kind",
+        "meaning": "Parameterization mode used for `K`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.K.field_homogeneous.value",
+        "meaning": "Homogeneous `K` value used by the benchmark.",
+        "value": "1e-4 m/s",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.Ss.field.kind",
+        "meaning": "Parameterization mode used for `Ss`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.Ss.field_homogeneous.value",
+        "meaning": "Homogeneous `Ss` value used by the benchmark.",
+        "value": "1e-10 m-1",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.Sy.field.kind",
+        "meaning": "Parameterization mode used for `Sy`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.Sy.field_homogeneous.value",
+        "meaning": "Homogeneous `Sy` value used by the benchmark.",
+        "value": "0.10 -",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "flow.ic.value",
+        "meaning": "Initial hydraulic head used to start the benchmark.",
+        "value": "50.0 m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.east_side.forcing.mode",
+        "meaning": "Case-specific configuration field `flow.bc.dirichlet.east_side.forcing.mode` used by the validation benchmark.",
+        "value": "constant",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.east_side.forcing.value",
+        "meaning": "Fixed head applied on the east side boundary.",
+        "value": "50 m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.east_side.forcing.units",
+        "meaning": "Case-specific configuration field `flow.bc.dirichlet.east_side.forcing.units` used by the validation benchmark.",
+        "value": "m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "data.types",
+        "meaning": "External data families loaded by the benchmark.",
+        "value": "[recharge]",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].source",
+        "meaning": "Recharge data source mode used by the benchmark.",
+        "value": "synthetic",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].values",
+        "meaning": "Recharge values used by the benchmark forcing.",
+        "value": "[2 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day, 0 mm/day]",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].freq",
+        "meaning": "Sampling frequency used for the recharge forcing.",
+        "value": "10D",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      },
+      {
+        "field": "data.recharge.sources[0].runoff_ratio",
+        "meaning": "Runoff ratio applied when converting recharge forcing to effective infiltration.",
+        "value": "0",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml"
+      }
+    ],
+    "solver_overrides": {
+      "modflownwt": [
+        {
+          "field": "modflownwt.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW-NWT.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW-NWT.",
+          "value": "40",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW-NWT.",
+          "value": "3",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW-NWT.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW-NWT.",
+          "value": "1",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.tgrid.firstpersteady",
+          "meaning": "Whether the first time period is treated as steady by MODFLOW-NWT.",
+          "value": "true",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml"
+        }
+      ],
+      "modflow6": [
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.process_specific.vka",
+          "meaning": "Vertical anisotropy ratio passed to MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW 6.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW 6.",
+          "value": "40",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW 6.",
+          "value": "3",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW 6.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.tgrid.firstpersteady",
+          "meaning": "Whether the first time period is treated as steady by MODFLOW 6.",
+          "value": "true",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml"
+        }
+      ],
+      "boussinesq": []
+    },
+    "acceptance_criteria": {
+      "common": [
+        {
+          "field": "output.observable_name",
+          "meaning": "Simulated observable compared against the reference solution.",
+          "value": "outlet_discharge_east_side_m3_s",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+        },
+        {
+          "field": "output.expected_periods",
+          "meaning": "Expected number of stored time periods checked by the validation helper.",
+          "value": "12",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+        },
+        {
+          "field": "output.head_observable_name",
+          "meaning": "Head-like observable used when the case exposes more than one comparison target.",
+          "value": "watertable_elevation",
+          "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+        }
+      ],
+      "solver_specific": {
+        "modflownwt": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "None",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+          },
+          {
+            "field": "discharge.relative_rmse",
+            "meaning": "Acceptance threshold for `discharge.relative_rmse`.",
+            "value": "1",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflownwt.toml"
+          },
+          {
+            "field": "discharge.relative_max_error",
+            "meaning": "Acceptance threshold for `discharge.relative_max_error`.",
+            "value": "1",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflownwt.toml"
+          },
+          {
+            "field": "uniformity.row_spread",
+            "meaning": "Maximum accepted cross-row spread for uniformity.",
+            "value": "0.0001",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflownwt.toml"
+          },
+          {
+            "field": "monotonicity.max_positive_increment_m3_s",
+            "meaning": "Acceptance threshold for `monotonicity.max_positive_increment_m3_s`.",
+            "value": "1e-06",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflownwt.toml"
+          }
+        ],
+        "modflow6": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "None",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+          },
+          {
+            "field": "discharge.relative_rmse",
+            "meaning": "Acceptance threshold for `discharge.relative_rmse`.",
+            "value": "0.03",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml"
+          },
+          {
+            "field": "discharge.relative_max_error",
+            "meaning": "Acceptance threshold for `discharge.relative_max_error`.",
+            "value": "0.05",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml"
+          },
+          {
+            "field": "uniformity.row_spread",
+            "meaning": "Maximum accepted cross-row spread for uniformity.",
+            "value": "1e-06",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml"
+          },
+          {
+            "field": "monotonicity.max_positive_increment_m3_s",
+            "meaning": "Acceptance threshold for `monotonicity.max_positive_increment_m3_s`.",
+            "value": "1e-12",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml"
+          }
+        ],
+        "boussinesq": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "None",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/metadata.toml"
+          },
+          {
+            "field": "discharge.relative_rmse",
+            "meaning": "Acceptance threshold for `discharge.relative_rmse`.",
+            "value": "0.03",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml"
+          },
+          {
+            "field": "discharge.relative_max_error",
+            "meaning": "Acceptance threshold for `discharge.relative_max_error`.",
+            "value": "0.05",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml"
+          },
+          {
+            "field": "uniformity.row_spread",
+            "meaning": "Maximum accepted cross-row spread for uniformity.",
+            "value": "1e-06",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml"
+          },
+          {
+            "field": "monotonicity.max_positive_increment_m3_s",
+            "meaning": "Acceptance threshold for `monotonicity.max_positive_increment_m3_s`.",
+            "value": "1e-12",
+            "source": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,705 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "linearized_unconfined_drainage_1d",
+  "title": "Linearized Unconfined Drainage 1D",
+  "category": "validation",
+  "deck": "Steady synthetic groundwater-flow case used to validate HydroModPy's top drainage boundary condition against a closed-form linearized 1D reference with:",
+  "summary": "Steady synthetic groundwater-flow case used to validate HydroModPy's top drainage boundary condition against a closed-form linearized 1D reference with:",
+  "case_setup": [
+    "Homogeneous strip, fixed west/east heads, distributed top drainage everywhere, flat drainage level",
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles."
+  ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
+  "what_it_shows": [
+    "validate the `drainage` boundary-condition path with an analytical benchmark,",
+    "keep drainage active everywhere so the reference stays closed-form,",
+    "isolate one lightweight 1D equilibrium before tackling more complex seepage-face cases.",
+    "`drainage` boundary-condition path in a controlled analytical setting",
+    "Primary metrics: head-profile RMSE, max abs error, cross-row spread.",
+    "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
+  ],
+  "reference_highlights": [
+    "compared quantity: domain-averaged head profile along `x`",
+    "reference: steady linearized unconfined profile with distributed top drainage"
+  ],
+  "equations_rst": [
+    "T_0\\,\\frac{\\mathrm{d}^2u}{\\mathrm{d}x^2}-\\lambda_d\\,u=0,\\qquad u=h-z_d,\\qquad \\lambda_d=\\frac{C_d}{A}",
+    "u(x)=u_w\\frac{\\sinh\\left(\\beta(L-x)\\right)}{\\sinh\\left(\\beta L\\right)}+u_e\\frac{\\sinh\\left(\\beta x\\right)}{\\sinh\\left(\\beta L\\right)},\\qquad \\beta=\\sqrt{\\frac{\\lambda_d}{T_0}}"
+  ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m validation_cases.analytical.steady.linearized_unconfined_drainage_1d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/README.md",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/reference.py",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/comparison.py",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/plotting.py",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/run_case.py",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances_modflow6.toml",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6_irregular_tri.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/README.md": "706fcacf05bb9498b4ad83e0a62a3aebaf821a2b90245dbea7b1b2d8648327d8",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/reference.py": "e8e33ca2c545632f5768410853fd582d3588cdacf5ae1e473dc517128d9e417c",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/comparison.py": "b948f878e5f86dbb16afbc4b36bd32be4e00c6ec853407d28e50c50046aede5f",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/plotting.py": "f466df2fec5c05d49b60b6a0ddd3413e711b642459c499de4fcd86046f91328b",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/run_case.py": "38a620d23d5395b85bea400a02f37f204b38b90ce499d8d7beb6715b2cfa9026",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml": "6872321c688d8b4c190f1b7754d947eaddde9118b3b513ed19b34ebaebf79087",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml": "8266c8cfa29d940c0438909814c86000fd6dc42342a78821ae5b56ef8685eace",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances_modflow6.toml": "ce0c971ead1206504eb87b87624b3dcb1ce88d4a5dfb1d2a7391c8fd8bc14588",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml": "4ab7535546b2a0fc5c5389fee0095b7f83bd23bc3440b2f0717d04ba663b0f2a",
+    "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6_irregular_tri.toml": "b9fec05171b510f62c9a5a0720646303f3a0dad4c9d75eaee60db0943d581b68",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "87bd0c802ef3b86b88f5791b1ece5a70095f146920ffb3ad44aab32115921b00"
+  },
+  "docname": "cases/linearized_unconfined_drainage_1d",
+  "images": [
+    {
+      "filename": "linearized_unconfined_drainage_1d__modflownwt.png",
+      "caption": "Linearized Unconfined Drainage 1D rendered with MODFLOW-NWT for the analytical gallery.",
+      "alt_text": "Linearized Unconfined Drainage 1D validation figure for MODFLOW-NWT",
+      "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflownwt.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflownwt.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d",
+    "default_solver": "modflownwt",
+    "solver_variants": [
+      "modflownwt",
+      "modflow6",
+      "modflow6_irregular_tri"
+    ],
+    "solver_details": {
+      "modflownwt": {
+        "display_name": "MODFLOW-NWT",
+        "config_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml",
+        "expected_output": "Expected shape: 5 x 50",
+        "tolerance_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml"
+      },
+      "modflow6": {
+        "display_name": "MODFLOW 6",
+        "config_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml",
+        "expected_output": "Expected shape: 5 x 50",
+        "tolerance_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances_modflow6.toml"
+      },
+      "modflow6_irregular_tri": {
+        "display_name": "MODFLOW 6 irregular triangles",
+        "config_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6_irregular_tri.toml",
+        "expected_output": "Expected shape: 5 x 50",
+        "tolerance_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml"
+      }
+    },
+    "regime": "steady",
+    "dimension": "1d",
+    "inventory_reference": "",
+    "case_sheet": {
+      "numerical_setup": "Homogeneous strip, fixed west/east heads, distributed top drainage everywhere, flat drainage level",
+      "analytical_target": "Steady linearized unconfined solution with distributed drainage",
+      "primary_metrics": "head-profile RMSE, max abs error, cross-row spread",
+      "what_it_validates": "`drainage` boundary-condition path in a controlled analytical setting"
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "strip_1d",
+    "geometry_family_label": "Strip 1D",
+    "reference_type": "analytical_exact",
+    "reference_type_label": "Analytical Exact",
+    "validation_family": "steady_1d_boussinesq_topography_sloping_substratum",
+    "validation_family_label": "Steady 1D Boussinesq with Topography or Sloping Substratum",
+    "validation_family_order": 30
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/linearized_unconfined_drainage_1d_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_drainage_1d_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflownwt.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflow6_irregular_tri.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "modflownwt",
+      "solver_display_name": "MODFLOW-NWT",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml",
+      "tolerance_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml",
+      "expected_output": "Expected shape: 5 x 50",
+      "command": "python -m validation_cases.analytical.steady.linearized_unconfined_drainage_1d.run_case --no-show --solver modflownwt",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0127 m",
+        "Head-profile max abs error: 0.0175 m",
+        "Cross-row head spread: 1.91e-07 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_drainage_1d__modflownwt.png",
+        "caption": "Linearized Unconfined Drainage 1D rendered with MODFLOW-NWT for the analytical gallery.",
+        "alt_text": "Linearized Unconfined Drainage 1D validation figure for MODFLOW-NWT",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflownwt.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflownwt.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "linearized_unconfined_drainage_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              50
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "length_y_m": 10.0,
+            "west_head_m": 6.2,
+            "east_head_m": 5.8,
+            "drainage_elevation_m": 0.0,
+            "drainage_conductance_m2_per_s": 1e-07,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 26.0,
+            "aquifer_thickness_m": 20.0,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.05,
+            "max_abs_error": 0.1,
+            "row_spread": 2e-05
+          }
+        },
+        "timestep": 0
+      }
+    },
+    {
+      "solver": "modflow6",
+      "solver_display_name": "MODFLOW 6",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml",
+      "tolerance_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances_modflow6.toml",
+      "expected_output": "Expected shape: 5 x 50",
+      "command": "python -m validation_cases.analytical.steady.linearized_unconfined_drainage_1d.run_case --no-show --solver modflow6",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0127 m",
+        "Head-profile max abs error: 0.0175 m",
+        "Cross-row head spread: 1.59e-07 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_drainage_1d__modflow6.png",
+        "caption": "Linearized Unconfined Drainage 1D rendered with MODFLOW 6 for the analytical gallery.",
+        "alt_text": "Linearized Unconfined Drainage 1D validation figure for MODFLOW 6",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflow6.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflow6.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "linearized_unconfined_drainage_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              50
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "length_y_m": 10.0,
+            "west_head_m": 6.2,
+            "east_head_m": 5.8,
+            "drainage_elevation_m": 0.0,
+            "drainage_conductance_m2_per_s": 1e-07,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 26.0,
+            "aquifer_thickness_m": 20.0,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.015,
+            "max_abs_error": 0.02,
+            "row_spread": 5e-06
+          }
+        },
+        "timestep": 0
+      }
+    },
+    {
+      "solver": "modflow6_irregular_tri",
+      "solver_display_name": "MODFLOW 6 irregular triangles",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6_irregular_tri.toml",
+      "tolerance_path": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml",
+      "expected_output": "Expected shape: 5 x 50",
+      "command": "python -m validation_cases.analytical.steady.linearized_unconfined_drainage_1d.run_case --no-show --solver modflow6_irregular_tri",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0148 m",
+        "Head-profile max abs error: 0.0233 m",
+        "Cross-row head spread: 0.00e+00 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_drainage_1d__modflow6_irregular_tri.png",
+        "caption": "Linearized Unconfined Drainage 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.",
+        "alt_text": "Linearized Unconfined Drainage 1D validation figure for MODFLOW 6 irregular triangles",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflow6_irregular_tri.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_drainage_1d__modflow6_irregular_tri.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "linearized_unconfined_drainage_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              50
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "length_y_m": 10.0,
+            "west_head_m": 6.2,
+            "east_head_m": 5.8,
+            "drainage_elevation_m": 0.0,
+            "drainage_conductance_m2_per_s": 1e-07,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 26.0,
+            "aquifer_thickness_m": 20.0,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.05,
+            "max_abs_error": 0.1,
+            "row_spread": 2e-05
+          }
+        },
+        "timestep": 0
+      }
+    }
+  ],
+  "parameter_docs": {
+    "reference_parameters": [
+      {
+        "field": "xmin",
+        "meaning": "Minimum x coordinate of the analytical reference domain.",
+        "value": "0",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+      },
+      {
+        "field": "xmax",
+        "meaning": "Maximum x coordinate of the analytical reference domain.",
+        "value": "100",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+      },
+      {
+        "field": "length_y_m",
+        "meaning": "Reference-domain length along the y axis.",
+        "value": "10 m",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+      },
+      {
+        "field": "west_head_m",
+        "meaning": "Fixed west-boundary hydraulic head used by the reference solution.",
+        "value": "6.2 m",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+      },
+      {
+        "field": "east_head_m",
+        "meaning": "Fixed east-boundary hydraulic head used by the reference solution.",
+        "value": "5.8 m",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+      },
+      {
+        "field": "drainage_elevation_m",
+        "meaning": "Drainage elevation used by the analytical drainage reference.",
+        "value": "0 m",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+      },
+      {
+        "field": "drainage_conductance_m2_per_s",
+        "meaning": "Drainage conductance used by the analytical drainage boundary.",
+        "value": "1e-07 m2/s",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+      },
+      {
+        "field": "hydraulic_conductivity_m_per_s",
+        "meaning": "Hydraulic conductivity used by the analytical or benchmark reference.",
+        "value": "0.0001 m/s",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+      },
+      {
+        "field": "reference_saturated_thickness_m",
+        "meaning": "Reference saturated thickness used by the linearized formulation.",
+        "value": "26 m",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+      },
+      {
+        "field": "aquifer_thickness_m",
+        "meaning": "Aquifer thickness used by the reference formulation.",
+        "value": "20 m",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+      },
+      {
+        "field": "profile_axis",
+        "meaning": "Axis along which the validation profile is extracted.",
+        "value": "0",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+      }
+    ],
+    "common_setup": [
+      {
+        "field": "geographic.synthetic.grid.length_x",
+        "meaning": "Synthetic-domain length along the x axis.",
+        "value": "100.0 m",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_y",
+        "meaning": "Synthetic-domain length along the y axis.",
+        "value": "10.0 m",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.nx",
+        "meaning": "Grid cell count along the x axis.",
+        "value": "50",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.ny",
+        "meaning": "Grid cell count along the y axis.",
+        "value": "5",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.kind",
+        "meaning": "Synthetic topography shape used by the benchmark.",
+        "value": "flat",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.base_elevation",
+        "meaning": "Base land-surface elevation of the synthetic topography.",
+        "value": "0 m",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.depth_model.type",
+        "meaning": "Depth model used to build the aquifer support.",
+        "value": "constant_thickness",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "domain.depth_model.thickness",
+        "meaning": "Aquifer or support thickness used by the benchmark.",
+        "value": "20.0 m",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.flow_regime",
+        "meaning": "Steady or transient flow regime used by the benchmark.",
+        "value": "steady",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.active_sinks_sources",
+        "meaning": "Sink and source families activated in the benchmark.",
+        "value": "[]",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.active_bc",
+        "meaning": "Boundary-condition families activated in the benchmark.",
+        "value": "[west_side, east_side, drainage]",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param_list",
+        "meaning": "Hydraulic parameter families explicitly configured by the benchmark.",
+        "value": "[K]",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field.kind",
+        "meaning": "Parameterization mode used for `K`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.param.K.field_homogeneous.value",
+        "meaning": "Homogeneous `K` value used by the benchmark.",
+        "value": "1e-4 m/s",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.ic.value",
+        "meaning": "Initial hydraulic head used to start the benchmark.",
+        "value": "6.0 m",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.west_side.value",
+        "meaning": "Fixed head applied on the west side boundary.",
+        "value": "6.2 m",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.east_side.value",
+        "meaning": "Fixed head applied on the east side boundary.",
+        "value": "5.8 m",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.bc.cauchy.drainage.application_domain",
+        "meaning": "Part of the domain where the drainage Cauchy boundary is applied.",
+        "value": "top",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      },
+      {
+        "field": "flow.bc.cauchy.drainage.value",
+        "meaning": "Cauchy coefficient or conductance applied on the drainage boundary.",
+        "value": "1e-7 m2/s",
+        "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+      }
+    ],
+    "solver_overrides": {
+      "modflownwt": [
+        {
+          "field": "modflownwt.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW-NWT.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW-NWT.",
+          "value": "50",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW-NWT.",
+          "value": "5",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW-NWT.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW-NWT.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflownwt.toml"
+        }
+      ],
+      "modflow6": [
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW 6.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW 6.",
+          "value": "50",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW 6.",
+          "value": "5",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW 6.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/config_modflow6.toml"
+        }
+      ],
+      "modflow6_irregular_tri": []
+    },
+    "acceptance_criteria": {
+      "common": [
+        {
+          "field": "output.observable_name",
+          "meaning": "Simulated observable compared against the reference solution.",
+          "value": "watertable_elevation",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+        },
+        {
+          "field": "output.expected_shape",
+          "meaning": "Expected spatial output shape checked by the validation helper.",
+          "value": "[5, 50]",
+          "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+        }
+      ],
+      "solver_specific": {
+        "modflownwt": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 50",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.05",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.1",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "2e-05",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml"
+          }
+        ],
+        "modflow6": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 50",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.015",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.02",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "5e-06",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances_modflow6.toml"
+          }
+        ],
+        "modflow6_irregular_tri": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 50",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.05",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.1",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "2e-05",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_drainage_1d/tolerances.toml"
+          }
+        ]
+      }
+    }
+  }
+}

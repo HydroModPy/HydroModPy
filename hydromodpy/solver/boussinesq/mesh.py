@@ -26,6 +26,10 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import 
     CatchmentMeshBundleNode,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
+from hydromodpy.solver.utils.mesh.gmsh_grid.runtime_support import (
+    GmshSupportMetadata,
+    build_gmsh_support_metadata,
+)
 
 
 def _normalize_geom_type(raw_value: object) -> str:
@@ -129,6 +133,7 @@ class BoussinesqMesh:
     cell_index_by_id: dict[int, int]
     node_index_by_id: dict[int, int]
     planar_mesh: GmshPlanarMesh2D | None = None
+    support_metadata: GmshSupportMetadata | None = None
 
     @property
     def n_cells(self) -> int:
@@ -452,6 +457,7 @@ class BoussinesqMesh:
             cell_index_by_id=base_mesh.cell_index_by_id,
             node_index_by_id=base_mesh.node_index_by_id,
             planar_mesh=mesh,
+            support_metadata=base_mesh.support_metadata,
         )
 
     @classmethod
@@ -650,6 +656,7 @@ class BoussinesqMesh:
             cell_index_by_id=cell_index_by_id,
             node_index_by_id=node_index_by_id,
             planar_mesh=None,
+            support_metadata=build_gmsh_support_metadata(bundle),
         )
 
 

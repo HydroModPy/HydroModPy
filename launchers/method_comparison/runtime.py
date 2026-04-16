@@ -16,6 +16,10 @@ from hydromodpy.core.config.toml_loader import (
     load_toml_with_base_config,
     merge_toml_payloads,
 )
+from hydromodpy.solver.boussinesq.history_contract import (
+    snapshot_elapsed_seconds_from_payload,
+    step_end_elapsed_seconds_from_payload,
+)
 
 from launchers.method_comparison.config import (
     MethodComparisonConfig,
@@ -1011,22 +1015,28 @@ def _load_boussinesq_npz_series(
             ),
         )
     else:
-        elapsed_by_index: list[float | None]
-        if period_lengths.size == values.shape[0] - 1:
-            elapsed_by_index = [0.0]
-            elapsed_by_index.extend(float(value) for value in np.cumsum(period_lengths))
-        elif period_lengths.size == values.shape[0]:
-            elapsed_by_index = [float(value) for value in np.cumsum(period_lengths)]
-        else:
+        elapsed_seconds = snapshot_elapsed_seconds_from_payload(
+            payload,
+            n_snapshots=int(values.shape[0]),
+        )
+        is_snapshot_series = elapsed_seconds is not None
+        if elapsed_seconds is None:
+            elapsed_seconds = step_end_elapsed_seconds_from_payload(
+                payload,
+                n_steps=int(values.shape[0]),
+            )
+            is_snapshot_series = False
+        if elapsed_seconds is None:
             elapsed_by_index = [None for _ in range(values.shape[0])]
+        else:
+            elapsed_by_index = [float(value) for value in np.asarray(elapsed_seconds, dtype=float).tolist()]
         slices = tuple(
             TimeSlice(
                 time_key=index,
                 time_index=index,
                 values=values[index].ravel(),
                 elapsed_seconds=elapsed_by_index[index],
-                is_initial_state=period_lengths.size == values.shape[0] - 1
-                and index == 0,
+                is_initial_state=is_snapshot_series and index == 0,
             )
             for index in range(values.shape[0])
         )
@@ -1088,17 +1098,31 @@ def _load_boussinesq_surface_excess_total_series(
         if "period_lengths_seconds" in payload
         else np.asarray([], dtype=float)
     )
-    elapsed_by_index = _elapsed_seconds_from_period_lengths(
+    elapsed_seconds = snapshot_elapsed_seconds_from_payload(
+        payload,
         n_snapshots=int(totals_m3_s.size),
-        period_lengths=period_lengths,
     )
+    if elapsed_seconds is None:
+        elapsed_seconds = step_end_elapsed_seconds_from_payload(
+            payload,
+            n_steps=int(totals_m3_s.size),
+        )
+    if elapsed_seconds is None:
+        elapsed_by_index = [None for _ in range(totals_m3_s.size)]
+        has_initial_state = False
+    else:
+        elapsed_by_index = [float(value) for value in np.asarray(elapsed_seconds, dtype=float).tolist()]
+        has_initial_state = int(len(elapsed_by_index)) == int(totals_m3_s.size) and (
+            bool(period_lengths.size)
+            and int(totals_m3_s.size) == int(period_lengths.size) + 1
+        )
     slices = tuple(
         TimeSlice(
             time_key=index,
             time_index=index,
             values=np.asarray([float(total)], dtype=float),
             elapsed_seconds=elapsed_by_index[index],
-            is_initial_state=period_lengths.size == totals_m3_s.size - 1 and index == 0,
+            is_initial_state=has_initial_state and index == 0,
         )
         for index, total in enumerate(totals_m3_s.tolist())
     )

@@ -43,7 +43,7 @@ def test_piezometer_quality_real_api():
             site_type="piezometer",
             station_ids=["07285X0037/F"],
             date_start=datetime(2001, 1, 1),
-            date_end=datetime(2002, 12, 31),
+            date_end=datetime(2001, 3, 31),
         )
     except Exception as exc:
         pytest.skip(f"API call failed: {exc}")

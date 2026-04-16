@@ -11,7 +11,7 @@ from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
     load_case_tolerances,
-    load_npy_time_series_arrays,
+    load_npy_time_series_arrays_with_elapsed_seconds,
     max_abs_error,
     max_std_along_axis,
     rmse,
@@ -65,10 +65,14 @@ class BoussinesqTransientHillslopeInterceptionComparison:
         return float(self.elapsed_days[-1])
 
 
-def _load_outputs(*, result: ValidationRunResult, metadata: dict) -> tuple[str, np.ndarray, np.ndarray]:
+def _load_outputs(
+    *,
+    result: ValidationRunResult,
+    metadata: dict,
+) -> tuple[str, np.ndarray, np.ndarray, np.ndarray | None]:
     output_cfg = dict(metadata.get("output", {}))
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
-    period_indices, heads = load_npy_time_series_arrays(
+    period_indices, heads, elapsed_seconds = load_npy_time_series_arrays_with_elapsed_seconds(
         result.postprocess_dir,
         observable_name,
     )
@@ -86,7 +90,12 @@ def _load_outputs(*, result: ValidationRunResult, metadata: dict) -> tuple[str, 
             f"Unexpected spatial shape for {observable_name}: "
             f"{tuple(heads.shape[1:])} != {expected_spatial_shape}"
         )
-    return observable_name, period_indices, np.asarray(heads, dtype=float)
+    return (
+        observable_name,
+        np.asarray(period_indices, dtype=int),
+        np.asarray(heads, dtype=float),
+        None if elapsed_seconds is None else np.asarray(elapsed_seconds, dtype=float),
+    )
 
 
 def build_boussinesq_hillslope_recharge_step_interception_comparison(
@@ -103,7 +112,7 @@ def build_boussinesq_hillslope_recharge_step_interception_comparison(
         if tolerances is None
         else tolerances
     )
-    observable_name, period_indices, heads = _load_outputs(
+    observable_name, period_indices, heads, explicit_elapsed_seconds = _load_outputs(
         result=result,
         metadata=case_metadata,
     )
@@ -111,7 +120,11 @@ def build_boussinesq_hillslope_recharge_step_interception_comparison(
     reference_cfg = dict(case_metadata.get("reference", {}))
     time_cfg = dict(case_metadata.get("time", {}))
     dt_seconds = float(time_cfg["dt_seconds"])
-    elapsed_seconds = period_indices.astype(float) * dt_seconds
+    elapsed_seconds = (
+        np.asarray(explicit_elapsed_seconds, dtype=float)
+        if explicit_elapsed_seconds is not None
+        else period_indices.astype(float) * dt_seconds
+    )
     elapsed_days = elapsed_seconds / SECONDS_PER_DAY
 
     ncol = int(heads.shape[-1])

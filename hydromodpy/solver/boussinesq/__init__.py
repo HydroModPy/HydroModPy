@@ -15,7 +15,8 @@ The detailed implementation is intentionally split across several modules:
   ``engines/``: explicit taxonomy for state, schemes, formulations and
   execution engines;
 - ``local_runtime.py``, ``scipy_runtime.py``, ``scipy_sparse_runtime.py`` and
-  ``petsc_runtime.py``: runtime implementations kept for compatibility;
+  ``petsc_partition_runtime.py`` / ``petsc_runtime.py``: runtime
+  implementations for the supported execution engines;
 - ``boussinesq.py``: orchestration around the HydroModPy launcher contract.
 """
 

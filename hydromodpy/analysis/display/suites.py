@@ -12,6 +12,10 @@ import shutil
 import numpy as np
 import pandas as pd
 
+from hydromodpy.solver.boussinesq.history_contract import (
+    step_end_elapsed_seconds_from_payload,
+    step_history_from_history,
+)
 from hydromodpy.analysis.display.common import (
     _extract_recharge_series_m_per_day,
     resolve_flow_base_raster,
@@ -132,8 +136,8 @@ def _load_boussinesq_state_payload(model) -> dict[str, np.ndarray]:
         "prescribed_head_flux_history_m3_s": "prescribed_head_flux_history_m3_s",
         "prescribed_head_m_by_cell": "prescribed_head_m_by_cell",
         "prescribed_head_history_m_by_cell": "prescribed_head_history_m_by_cell",
-        "imposed_head_edge_flux_m3_s": "imposed_head_edge_flux_m3_s",
-        "imposed_head_edge_flux_history_m3_s": "imposed_head_edge_flux_history_m3_s",
+        "boundary_edge_flux_m3_s": "boundary_edge_flux_m3_s",
+        "boundary_edge_flux_history_m3_s": "boundary_edge_flux_history_m3_s",
         "drainage_flux_m3_s": "drainage_flux_m3_s",
         "drainage_flux_history_m3_s": "drainage_flux_history_m3_s",
         "period_lengths_seconds": "period_lengths_seconds",
@@ -192,10 +196,11 @@ def _resolve_boussinesq_edge_node_indices(mesh) -> tuple[np.ndarray, np.ndarray]
 
 def _boussinesq_time_axis_days(period_lengths_seconds: np.ndarray) -> np.ndarray:
     """Return the cumulative time at the end of each stress period in days."""
-    periods = np.asarray(period_lengths_seconds, dtype=float).reshape(-1)
-    if periods.size == 0:
+    payload = {"period_lengths_seconds": np.asarray(period_lengths_seconds, dtype=float)}
+    elapsed_seconds = step_end_elapsed_seconds_from_payload(payload)
+    if elapsed_seconds is None:
         return np.asarray([], dtype=float)
-    return np.cumsum(periods) / 86_400.0
+    return np.asarray(elapsed_seconds / 86_400.0, dtype=float)
 
 
 def _align_boussinesq_step_history(values: np.ndarray | None, *, n_steps: int) -> np.ndarray | None:
@@ -205,15 +210,18 @@ def _align_boussinesq_step_history(values: np.ndarray | None, *, n_steps: int) -
     array = np.asarray(values, dtype=float)
     if array.size == 0:
         return None
-    if array.ndim == 1:
-        array = array.reshape(1, -1)
-    if array.shape[0] == int(n_steps) + 1:
-        return array[1:]
-    if array.shape[0] == int(n_steps):
-        return array
-    if array.shape[0] > int(n_steps):
-        return array[-int(n_steps):]
-    return None
+    try:
+        return step_history_from_history(
+            array,
+            n_steps=int(n_steps),
+            name="boussinesq_step_history",
+        )
+    except ValueError:
+        if array.ndim == 1:
+            array = array.reshape(1, -1)
+        if array.shape[0] > int(n_steps):
+            return np.asarray(array[-int(n_steps) :], dtype=float)
+        return None
 
 
 def _select_boussinesq_probe_indices(mesh, *, max_probes: int = 5) -> np.ndarray:
@@ -282,7 +290,7 @@ def _build_boussinesq_mass_balance(mesh, payload: dict[str, np.ndarray]):
         return None
     if (
         "prescribed_head_flux_history_m3_s" not in payload
-        and "imposed_head_edge_flux_history_m3_s" not in payload
+        and "boundary_edge_flux_history_m3_s" not in payload
     ):
         return None
 
@@ -310,7 +318,7 @@ def _build_boussinesq_mass_balance(mesh, payload: dict[str, np.ndarray]):
     )
     if boundary_head_history is None:
         boundary_head_history = _align_boussinesq_step_history(
-            payload.get("imposed_head_edge_flux_history_m3_s"),
+            payload.get("boundary_edge_flux_history_m3_s"),
             n_steps=n_steps,
         )
     drainage_history = _align_boussinesq_step_history(
@@ -682,7 +690,7 @@ def plot_boussinesq_flow_suite(result, options: DisplayOptions) -> None:
                 edge_node_b_indices=edge_node_b,
                 boundary_edge_mask=np.asarray(mesh.boundary_edge_mask, dtype=bool),
                 internal_edge_flux_m3_s=internal_flux,
-                imposed_head_edge_flux_m3_s=payload.get("imposed_head_edge_flux_m3_s"),
+                boundary_edge_flux_m3_s=payload.get("boundary_edge_flux_m3_s"),
                 options=options,
                 save_path=output_dir / "boussinesq_edge_flux.png",
             )

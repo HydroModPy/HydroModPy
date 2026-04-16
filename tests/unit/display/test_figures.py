@@ -89,7 +89,7 @@ class TestBoussinesqState:
             edge_node_b_indices=np.array([1, 3, 3, 2, 2]),
             boundary_edge_mask=np.array([True, True, True, True, False]),
             internal_edge_flux_m3_s=np.array([0.0, 0.0, 0.0, 0.0, 3.0e-4]),
-            imposed_head_edge_flux_m3_s=np.array([1.0e-4, -2.0e-4, 0.0, 3.0e-4, 0.0]),
+            boundary_edge_flux_m3_s=np.array([1.0e-4, -2.0e-4, 0.0, 3.0e-4, 0.0]),
         )
         assert len(ax.collections) > 0
         plt.close(fig)

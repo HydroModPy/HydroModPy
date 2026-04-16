@@ -23,6 +23,25 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.planar_forcing_discretization import
     discretize_fields_on_planar_mesh,
     discretize_points_on_planar_mesh,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid.runtime_support import (
+    GmshSupportMetadata,
+    build_gmsh_support_metadata,
+)
+
+
+@dataclass(frozen=True)
+class ResolvedDirichletSupport:
+    """One resolved Dirichlet support over cells and/or edges.
+
+    The canonical semantics is cell-based because that is the active solve
+    representation. The edge support is retained because diagnostics and
+    regression helpers still need an edge-oriented projection.
+    """
+
+    label: str
+    edge_indices: np.ndarray
+    cell_indices: np.ndarray
+    head_value_m: float
 
 
 @dataclass(frozen=True)
@@ -34,6 +53,7 @@ class BoussinesqForcingResolver:
     time_grid: object
     mesh_bundle: CatchmentMeshBundle | None = None
     planar_mesh_loader: Callable[[Any], object] = load_planar_mesh
+    support_metadata: GmshSupportMetadata | None = None
 
     def resolve_initial_head_field(self) -> np.ndarray:
         """Resolve the canonical `Flow` initial condition into cell heads."""
@@ -202,64 +222,151 @@ class BoussinesqForcingResolver:
             by_period[:, cell_index] += flux_series
         return by_period
 
-    def resolve_imposed_head_by_period(
-        self,
-        nper: int,
-        *,
-        ocean_series_m: np.ndarray | None = None,
-    ) -> tuple[np.ndarray, ...]:
-        """Return one imposed-head edge vector per stress period for compatibility."""
-        period_vectors = [
-            np.full(self.mesh.n_edges, np.nan, dtype=float) for _ in range(nper)
-        ]
-        for kper, supports in enumerate(
-            self.resolved_dirichlet_supports_by_period(
-                nper,
-                ocean_series_m=ocean_series_m,
-            )
-        ):
-            for label, edge_indices, _, head_value in supports:
-                self.assign_imposed_head_edges(
-                    period_vectors[kper],
-                    edge_indices=edge_indices,
-                    head_value_m=head_value,
-                    label=label,
-                )
-        return tuple(period_vectors)
+    def runtime_mesh_support(self) -> GmshSupportMetadata | None:
+        """Return runtime support metadata when available."""
+        if self.support_metadata is not None:
+            return self.support_metadata
+        if self.mesh_bundle is not None:
+            return build_gmsh_support_metadata(self.mesh_bundle)
+        return None
 
-    def resolve_prescribed_head_by_period(
-        self,
-        nper: int,
-        *,
-        ocean_series_m: np.ndarray | None = None,
-    ) -> tuple[np.ndarray, ...]:
-        """Return one prescribed-head cell vector per stress period."""
-        period_vectors = [
-            np.full(self.mesh.n_cells, np.nan, dtype=float) for _ in range(nper)
-        ]
-        for kper, supports in enumerate(
-            self.resolved_dirichlet_supports_by_period(
-                nper,
-                ocean_series_m=ocean_series_m,
+    def require_runtime_mesh_support(self, *, label: str) -> GmshSupportMetadata:
+        """Return runtime support metadata or raise a clear support-resolution error."""
+        support = self.runtime_mesh_support()
+        if support is None:
+            raise ValueError(
+                f"{label} requires runtime gmsh support metadata but mesh support is unavailable."
             )
-        ):
-            for label, _, cell_indices, head_value in supports:
-                self.assign_prescribed_head_cells(
-                    period_vectors[kper],
-                    cell_indices=cell_indices,
-                    head_value_m=head_value,
-                    label=label,
-                )
-        return tuple(period_vectors)
+        return support
+
+    @staticmethod
+    def boundary_attr(boundary: object, field_name: str, default=None):
+        """Read one field from either a mapping payload or a typed BC object."""
+        if isinstance(boundary, Mapping):
+            return boundary.get(field_name, default)
+        return getattr(boundary, field_name, default)
+
+    def boundary_support_label(self, boundary: object) -> str | None:
+        """Return one normalized explicit support label when configured."""
+        raw_value = self.boundary_attr(boundary, "support_label", None)
+        if raw_value is None:
+            return None
+        label = str(raw_value).strip()
+        return None if label == "" else label
+
+    def resolve_labelled_support(
+        self,
+        *,
+        boundary: object,
+        bc_id: str,
+    ) -> tuple[str, np.ndarray, np.ndarray] | None:
+        """Resolve one explicit support label to edge and cell indices."""
+        support_label = self.boundary_support_label(boundary)
+        if support_label is None:
+            return None
+        support = self.require_runtime_mesh_support(label=f"flow.bc.{bc_id}")
+        edge_indices = np.asarray(
+            support.edge_indices_for_label(support_label),
+            dtype=int,
+        ).reshape(-1)
+        cell_indices = np.asarray(
+            support.cell_indices_for_label(support_label),
+            dtype=int,
+        ).reshape(-1)
+        if edge_indices.size == 0 or cell_indices.size == 0:
+            raise ValueError(
+                f"flow.bc.{bc_id}.support_label='{support_label}' did not match any runtime mesh support."
+            )
+        return (f"flow.bc.{bc_id} [{support_label}]", edge_indices, cell_indices)
+
+    def resolve_side_dirichlet_support(
+        self,
+        *,
+        boundary: object,
+        bc_id: str,
+    ) -> tuple[str, np.ndarray, np.ndarray]:
+        """Resolve one side-Dirichlet support with optional explicit label."""
+        labelled_support = self.resolve_labelled_support(boundary=boundary, bc_id=bc_id)
+        if labelled_support is not None:
+            return labelled_support
+
+        edge_indices = self.mesh.boundary_edge_indices_for_side(bc_id)
+        if edge_indices.size == 0:
+            raise ValueError(
+                f"Boundary '{bc_id}' is active but no matching boundary edge was found."
+            )
+        cell_indices = self.mesh.boundary_cell_indices_for_side(bc_id)
+        if cell_indices.size == 0:
+            raise ValueError(
+                f"Boundary '{bc_id}' is active but no matching boundary cell was found."
+            )
+        return (f"flow.bc.{bc_id}", edge_indices, cell_indices)
+
+    def resolve_stream_dirichlet_support(
+        self,
+        *,
+        boundary: object,
+    ) -> tuple[str, np.ndarray, np.ndarray]:
+        """Resolve the stream support with optional explicit support label."""
+        labelled_support = self.resolve_labelled_support(boundary=boundary, bc_id="stream")
+        if labelled_support is not None:
+            return labelled_support
+
+        support = self.runtime_mesh_support()
+        if support is not None:
+            edge_indices = np.asarray(support.river_edge_indices(), dtype=int).reshape(-1)
+            cell_indices = np.asarray(support.river_cell_indices(), dtype=int).reshape(-1)
+        else:
+            edge_indices = self.mesh.river_edge_indices()
+            cell_indices = self.mesh.river_cell_indices()
+        if edge_indices.size == 0:
+            raise ValueError(
+                "Boundary 'stream' is active but no edge is tagged is_river in the mesh bundle."
+            )
+        if cell_indices.size == 0:
+            raise ValueError(
+                "Boundary 'stream' is active but no cell is tagged by river support in the mesh bundle."
+            )
+        return ("flow.bc.stream", edge_indices, cell_indices)
+
+    def project_dirichlet_supports_to_edges(
+        self,
+        supports: tuple[ResolvedDirichletSupport, ...] | list[ResolvedDirichletSupport],
+    ) -> np.ndarray:
+        """Project one resolved support set to the edge-aligned support view."""
+        edge_values = np.full(self.mesh.n_edges, np.nan, dtype=float)
+        for support in supports:
+            self.assign_boundary_head_edges(
+                edge_values,
+                edge_indices=support.edge_indices,
+                head_value_m=support.head_value_m,
+                label=support.label,
+            )
+        return edge_values
+
+    def project_dirichlet_supports_to_cells(
+        self,
+        supports: tuple[ResolvedDirichletSupport, ...] | list[ResolvedDirichletSupport],
+    ) -> np.ndarray:
+        """Project one resolved support set to the canonical cell-aligned view."""
+        cell_values = np.full(self.mesh.n_cells, np.nan, dtype=float)
+        for support in supports:
+            self.assign_prescribed_head_cells(
+                cell_values,
+                cell_indices=support.cell_indices,
+                head_value_m=support.head_value_m,
+                label=support.label,
+            )
+        return cell_values
 
     def resolved_dirichlet_supports_by_period(
         self,
         nper: int,
         *,
         ocean_series_m: np.ndarray | None = None,
-    ) -> tuple[tuple[tuple[str, np.ndarray, np.ndarray, float], ...], ...]:
+    ) -> tuple[tuple[ResolvedDirichletSupport, ...], ...]:
         """Resolve all Dirichlet supports once, then reuse them across projections."""
-        supports_by_period: list[list[tuple[str, np.ndarray, np.ndarray, float]]] = [
+        supports_by_period: list[list[ResolvedDirichletSupport]] = [
             [] for _ in range(int(nper))
         ]
         boundary_conditions = self.boundary_conditions_mapping()
@@ -273,7 +380,7 @@ class BoussinesqForcingResolver:
         ) -> None:
             for kper, head_value in enumerate(np.asarray(series, dtype=float).tolist()):
                 supports_by_period[kper].append(
-                    (
+                    ResolvedDirichletSupport(
                         label,
                         np.asarray(edge_indices, dtype=int).copy(),
                         np.asarray(cell_indices, dtype=int).copy(),
@@ -288,18 +395,12 @@ class BoussinesqForcingResolver:
                 boundary_conditions=boundary_conditions,
                 bc_id=bc_id,
             )
-            edge_indices = self.mesh.boundary_edge_indices_for_side(bc_id)
-            if edge_indices.size == 0:
-                raise ValueError(
-                    f"Boundary '{bc_id}' is active but no matching boundary edge was found."
-                )
-            cell_indices = self.mesh.boundary_cell_indices_for_side(bc_id)
-            if cell_indices.size == 0:
-                raise ValueError(
-                    f"Boundary '{bc_id}' is active but no matching boundary cell was found."
-                )
+            label, edge_indices, cell_indices = self.resolve_side_dirichlet_support(
+                boundary=boundary,
+                bc_id=bc_id,
+            )
             append_support(
-                label=f"flow.bc.{bc_id}",
+                label=label,
                 edge_indices=edge_indices,
                 cell_indices=cell_indices,
                 series=self.boundary_value_series(
@@ -314,18 +415,11 @@ class BoussinesqForcingResolver:
                 boundary_conditions=boundary_conditions,
                 bc_id="stream",
             )
-            edge_indices = self.mesh.river_edge_indices()
-            if edge_indices.size == 0:
-                raise ValueError(
-                    "Boundary 'stream' is active but no edge is tagged is_river in the mesh bundle."
-                )
-            cell_indices = self.mesh.river_cell_indices()
-            if cell_indices.size == 0:
-                raise ValueError(
-                    "Boundary 'stream' is active but no cell is tagged by river support in the mesh bundle."
-                )
+            label, edge_indices, cell_indices = self.resolve_stream_dirichlet_support(
+                boundary=boundary,
+            )
             append_support(
-                label="flow.bc.stream",
+                label=label,
                 edge_indices=edge_indices,
                 cell_indices=cell_indices,
                 series=self.boundary_value_series(
@@ -338,7 +432,7 @@ class BoussinesqForcingResolver:
         if ocean_series_m is not None and np.asarray(ocean_series_m, dtype=float).size > 0:
             for kper, head_value in enumerate(np.asarray(ocean_series_m, dtype=float).tolist()):
                 supports_by_period[kper].append(
-                    (
+                    ResolvedDirichletSupport(
                         "flow.bc.ocean",
                         self.ocean_support_edge_indices(float(head_value)),
                         np.flatnonzero(
@@ -539,20 +633,20 @@ class BoussinesqForcingResolver:
             cell_values_m[cell_index] = candidate
 
     @staticmethod
-    def assign_imposed_head_edges(
+    def assign_boundary_head_edges(
         edge_values_m: np.ndarray,
         *,
         edge_indices: np.ndarray,
         head_value_m: float,
         label: str,
     ) -> None:
-        """Assign one imposed head to a set of edges with overlap checks."""
+        """Assign one boundary head to a set of supported edges with overlap checks."""
         candidate = float(head_value_m)
         for edge_index in np.asarray(edge_indices, dtype=int).tolist():
             previous = float(edge_values_m[edge_index])
             if np.isfinite(previous) and not np.isclose(previous, candidate, rtol=0.0, atol=1.0e-12):
                 raise ValueError(
-                    f"{label} overlaps another imposed-head BC on edge {edge_index} "
+                    f"{label} overlaps another boundary-head support on edge {edge_index} "
                     f"with conflicting values ({previous} vs {candidate})."
                 )
             edge_values_m[edge_index] = candidate
@@ -721,4 +815,4 @@ class BoussinesqForcingResolver:
         return bc_id in active
 
 
-__all__ = ["BoussinesqForcingResolver"]
+__all__ = ["BoussinesqForcingResolver", "ResolvedDirichletSupport"]

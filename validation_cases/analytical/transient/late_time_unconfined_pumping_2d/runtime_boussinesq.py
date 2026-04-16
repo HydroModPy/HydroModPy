@@ -10,6 +10,11 @@ import numpy as np
 
 from hydromodpy.process.flow import Flow
 from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.solver.boussinesq.history_contract import (
+    build_transient_time_axes,
+    elapsed_seconds_for_time_keys,
+    write_time_series_npy,
+)
 from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
@@ -216,17 +221,16 @@ def _project_head_history_to_reference_grid(
     ny: int,
     z_top_m: float,
 ) -> None:
-    """Overwrite the default cell-vector outputs with regular 2D head rasters."""
+    """Overwrite the default cell-vector outputs with regular 2D head rasters.
+
+    The persisted transient series always keeps the full snapshot history,
+    including `t0`.
+    """
     if model.state is None or model.mesh is None:
         raise RuntimeError("Boussinesq validation case requires a solved model state.")
 
-    raw_head_history = np.asarray(model.state.head_history_m, dtype=float)
-    if raw_head_history.ndim == 1:
-        head_history = raw_head_history.reshape(1, -1)
-    else:
-        head_history = raw_head_history
-    if head_history.shape[0] > 1:
-        head_history = head_history[1:, :]
+    head_history = np.asarray(model.state.head_history_m, dtype=float)
+    time_keys = np.arange(head_history.shape[0], dtype=int)
 
     x_centers = float(xmin) + (np.arange(int(nx), dtype=float) + 0.5) * (
         (float(xmax) - float(xmin)) / float(nx)
@@ -245,16 +249,31 @@ def _project_head_history_to_reference_grid(
                 allow_nearest=True,
             )
 
-    watertable_elevation: dict[int, np.ndarray] = {}
-    watertable_depth: dict[int, np.ndarray] = {}
-    for time_index, head_values in enumerate(head_history):
+    elapsed_seconds = elapsed_seconds_for_time_keys(
+        build_transient_time_axes(model.state.period_lengths_seconds).snapshot_elapsed_seconds,
+        time_keys,
+        name="head_history_m",
+    )
+    elevation_grids: list[np.ndarray] = []
+    depth_grids: list[np.ndarray] = []
+    for time_index, head_values in zip(time_keys.tolist(), head_history, strict=False):
         head_grid = np.asarray(head_values, dtype=float)[projection_indices]
-        watertable_elevation[int(time_index)] = head_grid
-        watertable_depth[int(time_index)] = np.maximum(float(z_top_m) - head_grid, 0.0)
+        elevation_grids.append(np.asarray(head_grid, dtype=float))
+        depth_grids.append(np.maximum(float(z_top_m) - head_grid, 0.0))
 
     postprocess_dir = Path(model.full_path) / "_postprocess"
-    np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
-    np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
+    write_time_series_npy(
+        postprocess_dir / "watertable_elevation.npy",
+        np.stack(elevation_grids, axis=0),
+        time_keys=time_keys,
+        elapsed_seconds=elapsed_seconds,
+    )
+    write_time_series_npy(
+        postprocess_dir / "watertable_depth.npy",
+        np.stack(depth_grids, axis=0),
+        time_keys=time_keys,
+        elapsed_seconds=elapsed_seconds,
+    )
 
 
 def run_boussinesq_late_time_unconfined_pumping_case(

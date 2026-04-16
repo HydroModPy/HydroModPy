@@ -10,6 +10,9 @@ from typing import Any, Iterable, Mapping
 
 import numpy as np
 
+from hydromodpy.solver.boussinesq.history_contract import (
+    snapshot_elapsed_seconds_from_payload,
+)
 from launchers.method_comparison.runtime import resolve_bundle_cells
 
 
@@ -567,10 +570,17 @@ def _load_boussinesq_budget_rows(summary: Mapping[str, Any]) -> list[dict[str, A
         if "period_lengths_seconds" in payload
         else np.asarray([], dtype=float)
     )
-    elapsed_seconds = _elapsed_seconds_axis(
-        period_lengths,
+    snapshot_elapsed_seconds = snapshot_elapsed_seconds_from_payload(
+        payload,
         n_snapshots=n_snapshots,
     )
+    if snapshot_elapsed_seconds is None:
+        elapsed_seconds = _elapsed_seconds_axis(
+            period_lengths,
+            n_snapshots=n_snapshots,
+        )
+    else:
+        elapsed_seconds = np.asarray(snapshot_elapsed_seconds, dtype=float)
 
     component_series: dict[str, np.ndarray] = {}
     if recharge_history is not None and area_m2 is not None and recharge_history.shape[1] == area_m2.size:

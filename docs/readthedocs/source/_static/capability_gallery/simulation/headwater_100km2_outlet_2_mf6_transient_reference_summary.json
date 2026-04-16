@@ -1,0 +1,221 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "headwater_100km2_outlet_2_mf6_transient_reference",
+  "title": "Headwater 100 km2 MF6 Transient Reference",
+  "category": "simulation",
+  "deck": "Committed-mesh MODFLOW 6 replay on the 100 km2 outlet-2 basin, published as stable transient postprocess figures.",
+  "summary": "This case reuses the committed 100 km2 outlet-2 triangular mesh instead of meshing at runtime. It exposes the reference three-year MODFLOW 6 replay used as the baseline for the newer realistic-scenario family, with a compact set of flow-state, support, and cumulative budget figures copied into the gallery.",
+  "case_setup": [
+    "Base config: `config_headwater_100km2_mf6_transient_common.toml` keeps the committed triangular mesh, the flow-only process chain, and the common postprocess/display switches.",
+    "Overlay config: `run_headwater_100km2_outlet_2_mf6_transient_reference.toml` injects the three-year monthly recharge chronology and homogeneous K/Sy/Ss values.",
+    "Execution chain: committed `mesh_input` bundle -> MODFLOW 6 transient flow -> postprocess rasters and synthesis figures -> gallery publication."
+  ],
+  "key_parameters": [
+    "`[mesh_input] mesh_path` and `bundle_dir` lock the support to the versioned 100 km2 outlet-2 mesh, which makes this page a support-reuse workflow rather than a meshing example.",
+    "`[simulation.time] start_datetime`, `end_datetime`, and `step_value` define the three-year monthly replay window shown in the cumulative curves.",
+    "`[[data.recharge.sources]] values`, `freq`, and `runoff_ratio` define the synthetic forcing chronology that drives the transient response.",
+    "`[flow.param.K.field_homogeneous]`, `[flow.param.Sy.field_homogeneous]`, and `[flow.param.Ss.field_homogeneous]` are the main parameters to perturb when comparing this reference run against the more complex scenario overlays."
+  ],
+  "how_to_read": [
+    "Open the support overview first to verify that the run reused the committed mesh bundle and sampled the structural surfaces as expected.",
+    "Read the flow-state triptych next for the compact basin-wide synthesis, then use the direct water-table maps when you need one variable isolated.",
+    "Use the cumulative recharge/discharge panel last to judge whether the imposed forcing and the integrated basin response remain coherent over the three-year window."
+  ],
+  "next_steps": [
+    "Read :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` for the general mapping between config sections and displayed figures.",
+    "Use the committed-mesh comparison pages in :doc:`the method-comparison section </capability_gallery/method_comparison>` when you want to compare this style of replay against other supports or solver families."
+  ],
+  "what_it_shows": [
+    "How a committed mesh-input workflow differs from the runtime-meshed simulation pages.",
+    "How monthly synthetic recharge drives three years of cumulative recharge and discharge on a real basin support.",
+    "How the same run can surface both global synthesis figures and direct water-table maps without shipping the full solver workspace."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": "getting_started/simulation-walkthrough",
+  "walkthrough_title": "the Simulation walkthrough",
+  "reproduction_command": "python -m hydromodpy run examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
+    "examples/projects/launcher_simulation/config_headwater_100km2_mf6_transient_common.toml",
+    "examples/projects/launcher_simulation/README.md",
+    "examples/capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json",
+    "hydromodpy/analysis/display/figures/flow_synthesis.py",
+    "hydromodpy/analysis/capability_gallery.py"
+  ],
+  "source_hashes": {
+    "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml": "9492c3463a5483bc42928525b0e47ede158c8f8a1ecc75d83cbb3f3163a60d19",
+    "examples/projects/launcher_simulation/config_headwater_100km2_mf6_transient_common.toml": "45ddf52b46123ed9f9c17a03fb79aa2a87731bfcb5e80e21555f3a7c93c957fb",
+    "examples/projects/launcher_simulation/README.md": "867929bc9ebfa6b05035494e289e57b4d33c405ddc01fbb2312a4ead3e96f375",
+    "examples/capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json": "28973a8ab229544c30019cdd759d1ee27534673159ea1aa77c3d8aeb5d960499",
+    "hydromodpy/analysis/display/figures/flow_synthesis.py": "96aae5243fdb0051ab385a8ec129515e70931e27a2556b092c33ff6b27c48891",
+    "hydromodpy/analysis/capability_gallery.py": "eaf28e15cadf039b5e7e78bc62e9257b254507c43855607f5247a5473885a704"
+  },
+  "docname": "cases/headwater_100km2_outlet_2_mf6_transient_reference",
+  "images": [
+    {
+      "filename": "headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png",
+      "caption": "Topography, hydraulic head, and water-table depth on the committed 100 km2 outlet-2 support.",
+      "alt_text": "Flow-state triptych for the committed 100 km2 outlet-2 mesh",
+      "doc_path": "/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png"
+    },
+    {
+      "filename": "headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png",
+      "caption": "Three-year cumulative recharge and discharge curves for the committed-mesh MF6 replay.",
+      "alt_text": "Cumulative recharge and discharge on the committed 100 km2 outlet-2 replay",
+      "doc_path": "/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png"
+    },
+    {
+      "filename": "headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png",
+      "caption": "Water-table elevation map from the reference transient replay.",
+      "alt_text": "Water-table elevation map for the committed 100 km2 outlet-2 replay",
+      "doc_path": "/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png"
+    },
+    {
+      "filename": "headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png",
+      "caption": "Water-table depth map from the reference transient replay.",
+      "alt_text": "Water-table depth map for the committed 100 km2 outlet-2 replay",
+      "doc_path": "/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png"
+    },
+    {
+      "filename": "headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png",
+      "caption": "Support overview confirming the committed mesh bundle, top/bottom sampling, and active support labels used by the transient replay.",
+      "alt_text": "Support overview for the committed 100 km2 outlet-2 replay",
+      "doc_path": "/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "study_area": "Headwater 100 km2 outlet 2",
+    "process_families": [
+      "flow",
+      "postprocess",
+      "display"
+    ],
+    "mesh_supports": [
+      "committed_triangular_mesh_input"
+    ],
+    "flow_solvers": [
+      "MODFLOW 6"
+    ],
+    "workflow_family_key": "committed_mesh_replays",
+    "workflow_family_label": "Committed Mesh Replays",
+    "workflow_family_deck": "These cases keep the spatial support fixed and focus on how forcing, hydraulic parameters, and solver settings shape the replay on an already versioned basin mesh.",
+    "workflow_family_order": 20,
+    "workflow_case_order": 10,
+    "postprocess_outputs": [
+      "flow_state_triptych",
+      "recharge_discharge_cumulative",
+      "watertable_elevation_map",
+      "watertable_depth_map",
+      "support_overview"
+    ],
+    "copied_assets": [
+      {
+        "source_path": "examples/capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/flow_state_triptych.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png"
+      },
+      {
+        "source_path": "examples/capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/recharge_discharge_cumulative.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png"
+      },
+      {
+        "source_path": "examples/capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/watertable_elevation.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png"
+      },
+      {
+        "source_path": "examples/capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/watertable_depth.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png"
+      },
+      {
+        "source_path": "examples/capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/flow_support_overview.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png"
+      }
+    ]
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png",
+      "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png",
+      "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png",
+      "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png",
+      "docs/readthedocs/source/_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png"
+    ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Selected Parameters",
+        "rows": [
+          {
+            "field": "[simulation.time] start_datetime",
+            "meaning": "Start of the simulated period used by the flow and transport run.",
+            "value": "2003-01-01 00:00:00",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          },
+          {
+            "field": "[simulation.time] end_datetime",
+            "meaning": "End of the simulated period used by the flow and transport run.",
+            "value": "2005-12-31 00:00:00",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          },
+          {
+            "field": "[simulation.time] step_value",
+            "meaning": "Nominal time step used to discretize the simulation period.",
+            "value": "1 month",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          },
+          {
+            "field": "[data.recharge.sources] values",
+            "meaning": "Synthetic recharge sequence injected into the run over the configured time support.",
+            "value": "2.4, 2.2, 1.8, 1.2, 0.7, 0.2, -0.3, -0.5, 0.1, 0.9, 1.8, 2.3, 2.1, 1.9, 1.5, 1, 0.4, 0, -0.6, -0.8, -0.1, 0.7, 1.6, 2, 2.7, 2.4, 1.9, 1.3, 0.8, 0.3, -0.2, -0.4, 0.2, 1.1, 2, 2.6",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          },
+          {
+            "field": "[data.recharge.sources] freq",
+            "meaning": "Temporal frequency used to interpret the synthetic recharge sequence.",
+            "value": "MS",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          },
+          {
+            "field": "[data.recharge.sources] runoff_ratio",
+            "meaning": "Fraction of recharge redirected to runoff rather than infiltration.",
+            "value": "0.12",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          },
+          {
+            "field": "[flow.param.K.field_homogeneous] value",
+            "meaning": "Homogeneous hydraulic conductivity used by the flow model in this tutorial run.",
+            "value": "2.5e-05",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          },
+          {
+            "field": "[flow.param.Sy.field_homogeneous] value",
+            "meaning": "Specific yield used to control the free-surface response of the aquifer.",
+            "value": "0.1",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          }
+        ]
+      },
+      {
+        "title": "Mesh and Output Selection",
+        "rows": [
+          {
+            "field": "[capability_gallery] assets",
+            "meaning": "Subset of run outputs copied into the static documentation gallery.",
+            "value": "flow_state_triptych.png, recharge_discharge_cumulative.png, watertable_elevation.png, watertable_depth.png, flow_support_overview.png",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          }
+        ]
+      }
+    ]
+  }
+}

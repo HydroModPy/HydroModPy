@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -10,16 +12,20 @@ import xarray as xr
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.process.flow import Flow
+from hydromodpy.process.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.process.flow.flow_config import FlowConfig
-from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig, FlowWellConfig
 from hydromodpy.solver.boussinesq import Boussinesq, BoussinesqMesh
+from hydromodpy.solver.boussinesq.boussinesq import BoussinesqSolverContract
 from hydromodpy.solver.boussinesq.assembly import (
     assemble_steady_residual,
     assemble_steady_residual_with_saturation_excess,
     assemble_transient_residual,
+    resolve_boundary_head_inputs,
     saturated_thickness_from_head,
 )
 from hydromodpy.solver.boussinesq.core.state import BoussinesqState
+from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
 from hydromodpy.solver.boussinesq.jacobian_fd import (
     build_cell_coupling_rows_by_column,
     build_colored_sparse_fd_jacobian_triplets,
@@ -44,7 +50,11 @@ from hydromodpy.solver.boussinesq.partition_runtime_utils import (
     interiorize_regularized_partition_initial_guess,
     regularized_partition_jacobian_shift,
 )
-from hydromodpy.solver.boussinesq.runtime_contract import SteadySolveInputs
+from hydromodpy.solver.boussinesq.runtime_contract import (
+    RuntimeSolveResult,
+    SteadySolveInputs,
+    TransientStepInputs,
+)
 from hydromodpy.solver.boussinesq.runtime_selection import resolve_runtime_backend
 from hydromodpy.solver.boussinesq.scipy_runtime import (
     solve_steady_problem as solve_steady_problem_scipy,
@@ -52,12 +62,15 @@ from hydromodpy.solver.boussinesq.scipy_runtime import (
 from hydromodpy.solver.boussinesq.scipy_sparse_runtime import (
     solve_steady_problem as solve_steady_problem_scipy_sparse,
 )
+from hydromodpy.solver.modflow6 import Modflow6
+from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.solver.prototype.solver_config import SolverConfig
 from hydromodpy.solver.prototype.solver_engine import SolverEngine
 from hydromodpy.solver.utils.mesh.gmsh_grid import GmshPlanarMesh2D
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
+from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 
 
 def _write_csv(path: Path, header: str, rows: list[str]) -> None:
@@ -158,6 +171,53 @@ def _build_planar_mesh() -> GmshPlanarMesh2D:
         ),
         cell_type="triangle",
     )
+
+
+class _DummyGeographic:
+    def __init__(self, dem: np.ndarray) -> None:
+        self.dem_res = 1.0
+        self.xmin = 0.0
+        self.ymax = float(dem.shape[0])
+        self.dem_box_buff_data = np.asarray(dem, dtype=float)
+        self.dem_data = np.asarray(dem, dtype=float)
+        self.watershed_box_buff_dem = "dummy_box.tif"
+        self.watershed_buff_dem = "dummy_buff.tif"
+
+
+def _build_modflow6_unstructured_model(*, support_metadata) -> Modflow6:
+    planar_mesh = HydroMesh(
+        vertices=np.asarray(
+            [
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [1.0, 1.0],
+                [0.0, 1.0],
+            ],
+            dtype=float,
+        ),
+        cell_blocks=(
+            CellBlock(
+                CellType.TRIANGLE,
+                np.asarray([[0, 1, 2], [0, 2, 3]], dtype=int),
+            ),
+        ),
+    )
+    solver_mesh = SolverMesh(
+        planar_mesh=planar_mesh,
+        top=np.asarray([10.0, 10.0], dtype=float),
+        botm=np.asarray([[1.0, 1.0]], dtype=float),
+        inactive_mask=np.zeros((1, 2), dtype=bool),
+    )
+    model = Modflow6(
+        geographic=_DummyGeographic(np.full((2, 2), 10.0, dtype=float)),
+        model_folder=".",
+    )
+    model.solver_mesh = solver_mesh
+    model.runtime_mesh_support = support_metadata
+    model.nlay = 1
+    model.ncpl = 2
+    model.dem_mask = np.zeros(2, dtype=bool)
+    return model
 
 
 def _make_static_recharge_field_record() -> FieldRecord:
@@ -365,7 +425,6 @@ def test_transient_mixed_petsc_q_ex_initial_guess_starts_dry_without_positive_so
         dt_seconds=3600.0,
         recharge_rate_m_s=0.0,
         well_flux_m3_s=0.0,
-        imposed_head_m_by_edge=None,
         drainage_conductance_m2_s=0.0,
         regularization_radius=0.05,
     )
@@ -388,7 +447,6 @@ def test_transient_mixed_petsc_q_ex_initial_guess_uses_partition_predictor_with_
         dt_seconds=3600.0,
         recharge_rate_m_s=2.0e-7,
         well_flux_m3_s=0.0,
-        imposed_head_m_by_edge=None,
         drainage_conductance_m2_s=0.0,
         regularization_radius=0.05,
     )
@@ -401,7 +459,6 @@ def test_transient_mixed_petsc_q_ex_initial_guess_uses_partition_predictor_with_
                 dt_seconds=3600.0,
                 recharge_rate_m_s=2.0e-7,
                 well_flux_m3_s=0.0,
-                imposed_head_m_by_edge=None,
                 drainage_conductance_m2_s=0.0,
                 regularization_radius=0.05,
             ).saturation_excess_rate_m_s,
@@ -461,6 +518,13 @@ def test_petsc_runtime_rejects_non_linux_platform(
                 head_initial_guess_m=np.full(mesh.n_cells, 7.0, dtype=float),
             )
         )
+
+
+def test_runtime_contract_inputs_are_prescribed_head_only() -> None:
+    assert "prescribed_head_m_by_cell" in TransientStepInputs.__dataclass_fields__
+    assert "prescribed_head_m_by_cell" in SteadySolveInputs.__dataclass_fields__
+    assert "imposed_head_m_by_edge" not in TransientStepInputs.__dataclass_fields__
+    assert "imposed_head_m_by_edge" not in SteadySolveInputs.__dataclass_fields__
 
 
 def test_sparse_fd_coloring_groups_only_disjoint_columns() -> None:
@@ -546,15 +610,15 @@ def test_semianalytic_steady_base_jacobian_matches_dense_fd_without_saturation_e
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
     mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
     head = np.asarray([8.2, 8.9], dtype=float)
-    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
-    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
-    imposed_heads[mesh.boundary_edge_indices_for_side("east_side")] = 6.0
+    prescribed_heads = np.full(mesh.n_cells, np.nan, dtype=float)
+    prescribed_heads[mesh.boundary_cell_indices_for_side("west_side")] = 10.0
+    prescribed_heads[mesh.boundary_cell_indices_for_side("east_side")] = 6.0
 
     def residual_fn(candidate_head: np.ndarray) -> np.ndarray:
         return assemble_steady_residual(
             mesh,
             head_m=candidate_head,
-            imposed_head_m_by_edge=imposed_heads,
+            prescribed_head_m_by_cell=prescribed_heads,
             regularization_radius=1.0e-6,
         ).residual_m3_s
 
@@ -562,7 +626,7 @@ def test_semianalytic_steady_base_jacobian_matches_dense_fd_without_saturation_e
     assembly0 = assemble_steady_residual(
         mesh,
         head_m=head,
-        imposed_head_m_by_edge=imposed_heads,
+        prescribed_head_m_by_cell=prescribed_heads,
         regularization_radius=1.0e-6,
     )
     dense_jacobian = build_dense_fd_jacobian(
@@ -574,7 +638,7 @@ def test_semianalytic_steady_base_jacobian_matches_dense_fd_without_saturation_e
     data, row_indices, col_indices = build_sparse_semianalytic_base_jacobian_triplets(
         mesh,
         head,
-        imposed_head_m_by_edge=imposed_heads,
+        prescribed_head_m_by_cell=prescribed_heads,
     )
     semianalytic_jacobian = _triplets_to_dense(
         data,
@@ -594,9 +658,9 @@ def test_semianalytic_transient_base_jacobian_matches_dense_fd_without_saturatio
     mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
     head_prev = np.asarray([8.0, 8.5], dtype=float)
     head = np.asarray([8.2, 8.9], dtype=float)
-    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
-    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
-    imposed_heads[mesh.boundary_edge_indices_for_side("east_side")] = 6.0
+    prescribed_heads = np.full(mesh.n_cells, np.nan, dtype=float)
+    prescribed_heads[mesh.boundary_cell_indices_for_side("west_side")] = 10.0
+    prescribed_heads[mesh.boundary_cell_indices_for_side("east_side")] = 6.0
 
     def residual_fn(candidate_head: np.ndarray) -> np.ndarray:
         return assemble_transient_residual(
@@ -604,7 +668,7 @@ def test_semianalytic_transient_base_jacobian_matches_dense_fd_without_saturatio
             head_m=candidate_head,
             head_prev_m=head_prev,
             dt_seconds=3600.0,
-            imposed_head_m_by_edge=imposed_heads,
+            prescribed_head_m_by_cell=prescribed_heads,
             regularization_radius=1.0e-6,
         ).residual_m3_s
 
@@ -614,7 +678,7 @@ def test_semianalytic_transient_base_jacobian_matches_dense_fd_without_saturatio
         head_m=head,
         head_prev_m=head_prev,
         dt_seconds=3600.0,
-        imposed_head_m_by_edge=imposed_heads,
+        prescribed_head_m_by_cell=prescribed_heads,
         regularization_radius=1.0e-6,
     )
     dense_jacobian = build_dense_fd_jacobian(
@@ -627,7 +691,7 @@ def test_semianalytic_transient_base_jacobian_matches_dense_fd_without_saturatio
         mesh,
         head,
         dt_seconds=3600.0,
-        imposed_head_m_by_edge=imposed_heads,
+        prescribed_head_m_by_cell=prescribed_heads,
     )
     semianalytic_jacobian = _triplets_to_dense(
         data,
@@ -693,9 +757,9 @@ def test_semianalytic_regularized_partition_jacobian_matches_dense_fd_transient(
     head_prev = np.asarray([9.85, 10.80], dtype=float)
     head = np.asarray([9.95, 10.95], dtype=float)
     recharge_rate = 2.0e-7
-    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
-    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
-    imposed_heads[mesh.boundary_edge_indices_for_side("east_side")] = 10.8
+    prescribed_heads = np.full(mesh.n_cells, np.nan, dtype=float)
+    prescribed_heads[mesh.boundary_cell_indices_for_side("west_side")] = 10.0
+    prescribed_heads[mesh.boundary_cell_indices_for_side("east_side")] = 10.8
 
     def full_residual_fn(candidate_head: np.ndarray) -> np.ndarray:
         return assemble_transient_residual(
@@ -704,7 +768,7 @@ def test_semianalytic_regularized_partition_jacobian_matches_dense_fd_transient(
             head_prev_m=head_prev,
             dt_seconds=1800.0,
             recharge_rate_m_s=recharge_rate,
-            imposed_head_m_by_edge=imposed_heads,
+            prescribed_head_m_by_cell=prescribed_heads,
         ).residual_m3_s
 
     assembly0 = assemble_transient_residual(
@@ -713,7 +777,7 @@ def test_semianalytic_regularized_partition_jacobian_matches_dense_fd_transient(
         head_prev_m=head_prev,
         dt_seconds=1800.0,
         recharge_rate_m_s=recharge_rate,
-        imposed_head_m_by_edge=imposed_heads,
+        prescribed_head_m_by_cell=prescribed_heads,
     )
     dense_jacobian = build_dense_fd_jacobian(
         full_residual_fn,
@@ -728,7 +792,7 @@ def test_semianalytic_regularized_partition_jacobian_matches_dense_fd_transient(
             dt_seconds=1800.0,
             regularization_radius=0.05,
             surface_input_rate_m_s=recharge_rate,
-            imposed_head_m_by_edge=imposed_heads,
+            prescribed_head_m_by_cell=prescribed_heads,
         )
     )
     semianalytic_jacobian = _triplets_to_dense(
@@ -781,6 +845,99 @@ def test_boussinesq_mesh_exposes_river_edge_indices(tmp_path: Path) -> None:
     mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
 
     assert mesh.river_edge_indices().tolist() == [2]
+
+
+def test_boussinesq_mesh_exposes_runtime_support_metadata(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle", river_internal_edge=True)
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+
+    assert mesh.support_metadata is not None
+    assert mesh.support_metadata.boundary_cell_indices_for_side("west_side").tolist() == [1]
+    assert mesh.support_metadata.river_cell_indices().tolist() == [0, 1]
+
+
+def test_boussinesq_resolver_uses_support_label_for_side_boundary(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    assert mesh.support_metadata is not None
+    labeled_mesh = replace(
+        mesh,
+        support_metadata=replace(
+            mesh.support_metadata,
+            boundary_labels_by_edge_id={1: "east_custom"},
+        ),
+    )
+    flow = Flow(
+        _build_flow_config(
+            {
+                "ic": {"type": "custom", "value": 8.0},
+                "active_bc": ["east_side"],
+                "bc": {
+                    "dirichlet": {
+                        "east_side": {
+                            "value": 6.0,
+                            "support_label": "east_custom",
+                        }
+                    }
+                },
+            }
+        )
+    )
+
+    supports_by_period = BoussinesqForcingResolver(
+        mesh=labeled_mesh,
+        flow=flow,
+        time_grid=None,
+        support_metadata=labeled_mesh.support_metadata,
+    ).resolved_dirichlet_supports_by_period(1)
+
+    assert len(supports_by_period) == 1
+    assert len(supports_by_period[0]) == 1
+    assert supports_by_period[0][0].label == "flow.bc.east_side [east_custom]"
+    assert supports_by_period[0][0].edge_indices.tolist() == [1]
+    assert supports_by_period[0][0].cell_indices.tolist() == [0]
+
+
+def test_boussinesq_resolver_uses_support_label_for_stream_boundary(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle", river_internal_edge=True)
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    assert mesh.support_metadata is not None
+    labeled_mesh = replace(
+        mesh,
+        support_metadata=replace(
+            mesh.support_metadata,
+            boundary_labels_by_edge_id={2: "ditch_custom"},
+        ),
+    )
+    flow = Flow(
+        _build_flow_config(
+            {
+                "ic": {"type": "custom", "value": 8.0},
+                "active_bc": ["stream"],
+                "bc": {
+                    "dirichlet": {
+                        "stream": {
+                            "value": 7.0,
+                            "support_label": "ditch_custom",
+                        }
+                    }
+                },
+            }
+        )
+    )
+
+    supports_by_period = BoussinesqForcingResolver(
+        mesh=labeled_mesh,
+        flow=flow,
+        time_grid=None,
+        support_metadata=labeled_mesh.support_metadata,
+    ).resolved_dirichlet_supports_by_period(1)
+
+    assert len(supports_by_period) == 1
+    assert len(supports_by_period[0]) == 1
+    assert supports_by_period[0][0].label == "flow.bc.stream [ditch_custom]"
+    assert supports_by_period[0][0].edge_indices.tolist() == [2]
+    assert supports_by_period[0][0].cell_indices.tolist() == [0, 1]
 
 
 def test_boussinesq_mesh_rejects_missing_storage_field(tmp_path: Path) -> None:
@@ -906,18 +1063,20 @@ def test_local_backward_euler_step_with_side_dirichlet_boundary_injects_water(
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
     mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
     head_prev = np.asarray([7.0, 7.0], dtype=float)
-    boundary_heads = np.full(mesh.n_edges, np.nan, dtype=float)
-    boundary_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
+    prescribed_heads = np.full(mesh.n_cells, np.nan, dtype=float)
+    prescribed_heads[mesh.boundary_cell_indices_for_side("west_side")] = 10.0
 
     step = solve_backward_euler_step(
         mesh,
         head_prev_m=head_prev,
         dt_seconds=3600.0,
-        imposed_head_m_by_edge=boundary_heads,
+        prescribed_head_m_by_cell=prescribed_heads,
     )
 
     assert step.converged is True
-    assert step.assembly.imposed_head_edge_flux_m3_s[4] < 0.0
+    west_cells = mesh.boundary_cell_indices_for_side("west_side")
+    assert np.allclose(step.assembly.prescribed_head_m_by_cell[west_cells], 10.0)
+    assert np.allclose(step.head_m[west_cells], 10.0)
     assert step.head_m[1] > head_prev[1]
     assert step.head_m[1] > step.head_m[0]
 
@@ -928,18 +1087,29 @@ def test_local_backward_euler_step_with_stream_stage_on_internal_river_edge(
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle", river_internal_edge=True)
     mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
     head_prev = np.asarray([8.0, 8.0], dtype=float)
-    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
-    imposed_heads[mesh.river_edge_indices()] = 7.0
+    prescribed_heads = np.full(mesh.n_cells, np.nan, dtype=float)
+    river_edges = mesh.river_edge_indices()
+    river_cells = {int(mesh.edge_cell_a[edge_index]) for edge_index in river_edges.tolist()}
+    river_cells.update(
+        int(mesh.edge_cell_b[edge_index])
+        for edge_index in river_edges.tolist()
+        if int(mesh.edge_cell_b[edge_index]) >= 0
+    )
+    for cell_index in sorted(river_cells):
+        prescribed_heads[cell_index] = 7.0
 
     step = solve_backward_euler_step(
         mesh,
         head_prev_m=head_prev,
         dt_seconds=3600.0,
-        imposed_head_m_by_edge=imposed_heads,
+        prescribed_head_m_by_cell=prescribed_heads,
     )
 
     assert step.converged is True
-    assert step.assembly.imposed_head_edge_flux_m3_s[2] > 0.0
+    assert np.allclose(
+        step.assembly.prescribed_head_m_by_cell[np.asarray(sorted(river_cells), dtype=int)],
+        7.0,
+    )
     assert np.all(step.head_m < head_prev)
 
 
@@ -989,37 +1159,38 @@ def test_assembly_steady_state_balances_uniform_fixed_head(tmp_path: Path) -> No
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
     mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
     head = np.full(mesh.n_cells, 8.0, dtype=float)
-    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
-    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 8.0
-    imposed_heads[mesh.boundary_edge_indices_for_side("east_side")] = 8.0
+    prescribed_heads = np.full(mesh.n_cells, np.nan, dtype=float)
+    prescribed_heads[mesh.boundary_cell_indices_for_side("west_side")] = 8.0
+    prescribed_heads[mesh.boundary_cell_indices_for_side("east_side")] = 8.0
 
     assembly = assemble_steady_residual(
         mesh,
         head_m=head,
-        imposed_head_m_by_edge=imposed_heads,
+        prescribed_head_m_by_cell=prescribed_heads,
     )
 
     # Smooth saturation-excess adds O(eps_qex²) residual at balance_rate = 0.
     assert np.allclose(assembly.residual_m3_s, 0.0, atol=1.0e-11)
 
 
-def test_assembly_rejects_mixing_imposed_head_edges_and_prescribed_head_cells(
+def test_resolve_boundary_head_inputs_applies_prescribed_head_cells(
     tmp_path: Path,
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
     mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
-    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
-    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
     prescribed_heads = np.full(mesh.n_cells, np.nan, dtype=float)
     prescribed_heads[0] = 10.0
 
-    with pytest.raises(ValueError, match="mutually exclusive"):
-        assemble_steady_residual(
-            mesh,
-            head_m=np.full(mesh.n_cells, 7.0, dtype=float),
-            imposed_head_m_by_edge=imposed_heads,
-            prescribed_head_m_by_cell=prescribed_heads,
-        )
+    resolved = resolve_boundary_head_inputs(
+        mesh,
+        head_m=np.full(mesh.n_cells, 7.0, dtype=float),
+        boundary_head_m_by_edge=None,
+        prescribed_head_m_by_cell=prescribed_heads,
+    )
+
+    assert resolved.prescribed_mask[0]
+    assert np.isclose(resolved.head_m[0], 10.0)
+    assert np.isclose(resolved.prescribed_head_m_by_cell[0], 10.0)
 
 
 def test_local_steady_state_with_side_dirichlet_relaxes_between_boundary_heads(
@@ -1027,36 +1198,38 @@ def test_local_steady_state_with_side_dirichlet_relaxes_between_boundary_heads(
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
     mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
-    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
-    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
-    imposed_heads[mesh.boundary_edge_indices_for_side("east_side")] = 6.0
+    prescribed_heads = np.full(mesh.n_cells, np.nan, dtype=float)
+    prescribed_heads[mesh.boundary_cell_indices_for_side("west_side")] = 10.0
+    prescribed_heads[mesh.boundary_cell_indices_for_side("east_side")] = 6.0
 
     steady = solve_steady_state(
         mesh,
         head_initial_guess_m=np.full(mesh.n_cells, 7.0, dtype=float),
-        imposed_head_m_by_edge=imposed_heads,
+        prescribed_head_m_by_cell=prescribed_heads,
     )
 
     assert steady.converged is True
     assert steady.iterations >= 1
     assert steady.residual_norm_inf <= 1.0e-9
     assert steady.head_m[1] > steady.head_m[0]
-    assert steady.assembly.imposed_head_edge_flux_m3_s[4] < 0.0
-    assert steady.assembly.imposed_head_edge_flux_m3_s[1] > 0.0
+    west_cells = mesh.boundary_cell_indices_for_side("west_side")
+    east_cells = mesh.boundary_cell_indices_for_side("east_side")
+    assert np.allclose(steady.assembly.prescribed_head_m_by_cell[west_cells], 10.0)
+    assert np.allclose(steady.assembly.prescribed_head_m_by_cell[east_cells], 6.0)
 
 
 def test_scipy_steady_result_reassembles_outputs_on_final_head(tmp_path: Path) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
     mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
-    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
-    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
-    imposed_heads[mesh.boundary_edge_indices_for_side("east_side")] = 6.0
+    prescribed_heads = np.full(mesh.n_cells, np.nan, dtype=float)
+    prescribed_heads[mesh.boundary_cell_indices_for_side("west_side")] = 10.0
+    prescribed_heads[mesh.boundary_cell_indices_for_side("east_side")] = 6.0
 
     steady = solve_steady_problem_scipy(
         SteadySolveInputs(
             mesh=mesh,
             head_initial_guess_m=np.full(mesh.n_cells, 7.0, dtype=float),
-            imposed_head_m_by_edge=imposed_heads,
+            prescribed_head_m_by_cell=prescribed_heads,
         )
     )
 
@@ -1064,12 +1237,12 @@ def test_scipy_steady_result_reassembles_outputs_on_final_head(tmp_path: Path) -
     rebuilt = assemble_steady_residual(
         mesh,
         head_m=steady.head_m,
-        imposed_head_m_by_edge=imposed_heads,
+        prescribed_head_m_by_cell=prescribed_heads,
     )
     assert np.allclose(steady.assembly.residual_m3_s, rebuilt.residual_m3_s)
     assert np.allclose(
-        steady.assembly.imposed_head_edge_flux_m3_s,
-        rebuilt.imposed_head_edge_flux_m3_s,
+        steady.assembly.boundary_edge_flux_m3_s,
+        rebuilt.boundary_edge_flux_m3_s,
     )
 
 
@@ -1078,15 +1251,15 @@ def test_scipy_sparse_steady_result_reassembles_outputs_on_final_head(
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
     mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
-    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
-    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
-    imposed_heads[mesh.boundary_edge_indices_for_side("east_side")] = 6.0
+    prescribed_heads = np.full(mesh.n_cells, np.nan, dtype=float)
+    prescribed_heads[mesh.boundary_cell_indices_for_side("west_side")] = 10.0
+    prescribed_heads[mesh.boundary_cell_indices_for_side("east_side")] = 6.0
 
     steady = solve_steady_problem_scipy_sparse(
         SteadySolveInputs(
             mesh=mesh,
             head_initial_guess_m=np.full(mesh.n_cells, 7.0, dtype=float),
-            imposed_head_m_by_edge=imposed_heads,
+            prescribed_head_m_by_cell=prescribed_heads,
         )
     )
 
@@ -1094,12 +1267,12 @@ def test_scipy_sparse_steady_result_reassembles_outputs_on_final_head(
     rebuilt = assemble_steady_residual(
         mesh,
         head_m=steady.head_m,
-        imposed_head_m_by_edge=imposed_heads,
+        prescribed_head_m_by_cell=prescribed_heads,
     )
     assert np.allclose(steady.assembly.residual_m3_s, rebuilt.residual_m3_s)
     assert np.allclose(
-        steady.assembly.imposed_head_edge_flux_m3_s,
-        rebuilt.imposed_head_edge_flux_m3_s,
+        steady.assembly.boundary_edge_flux_m3_s,
+        rebuilt.boundary_edge_flux_m3_s,
     )
 
 
@@ -1203,6 +1376,129 @@ def test_boussinesq_runs_one_transient_period_with_scipy_sparse_backend(
     assert model.state.converged_by_period == (True,)
 
 
+def test_boussinesq_driver_uses_prescribed_head_cells_for_transient_runtime(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "ic": {"type": "custom", "value": 7.0},
+                "active_bc": ["west_side"],
+                "bc": {
+                    "dirichlet": {
+                        "west_side": {"value": 10.0},
+                    }
+                },
+            }
+        )
+    )
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=type("TimeGrid", (), {"period_lengths_seconds": (3600.0,)})(),
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_driver_prescribed_transient",
+    )
+    model.pre_processing()
+
+    class _DummyBackend:
+        name = "dummy"
+        engine_id = "dummy_engine"
+        linear_system_layout = "dense"
+        nonlinear_solver_kind = "dummy_nonlinear_solver"
+        jacobian_strategy = "dummy_jacobian"
+        linear_solver_kind = "dummy_linear_solver"
+        convergence_policy = "residual_inf <= tol_residual_inf"
+        iteration_counter = "dummy_iterations"
+        iteration_counter_label = "dummy_iterations"
+        class _Method:
+            id = "dummy_method"
+            unknown_layout = "head_only"
+            space_scheme_id = "fv_tri_cell_centered"
+            description = "dummy"
+
+            @staticmethod
+            def time_scheme_for_regime(flow_regime: str):
+                return type(
+                    "_TimeScheme",
+                    (),
+                    {
+                        "id": "backward_euler",
+                        "problem_kind": str(flow_regime),
+                    },
+                )()
+
+        method = _Method()
+        engine = type(
+            "_Engine",
+            (),
+            {
+                "id": "dummy_engine",
+                "description": "dummy",
+                "linear_system_layout": "dense",
+                "convergence_policy": "residual_inf <= tol_residual_inf",
+                "iteration_counter": "dummy_iterations",
+                "requires_linux": False,
+            },
+        )()
+
+        @staticmethod
+        def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
+            assert inputs.prescribed_head_m_by_cell is not None
+            prescribed = np.asarray(inputs.prescribed_head_m_by_cell, dtype=float)
+            assert np.isfinite(prescribed).any()
+            head = np.asarray(inputs.head_prev_m, dtype=float).copy()
+            mask = np.isfinite(prescribed)
+            head[mask] = prescribed[mask]
+            assembly = assemble_transient_residual(
+                inputs.mesh,
+                head_m=head,
+                head_prev_m=np.asarray(inputs.head_prev_m, dtype=float),
+                dt_seconds=float(inputs.dt_seconds),
+                recharge_rate_m_s=inputs.recharge_rate_m_s,
+                well_flux_m3_s=inputs.well_flux_m3_s,
+                prescribed_head_m_by_cell=prescribed,
+                drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
+                regularization_radius=float(inputs.options.regularization_radius),
+            )
+            return RuntimeSolveResult(
+                head_m=head,
+                assembly=assembly,
+                converged=True,
+                iterations=1,
+                residual_norm_inf=float(
+                    np.linalg.norm(
+                        np.asarray(assembly.residual_m3_s, dtype=float),
+                        ord=np.inf,
+                    )
+                ),
+                backend_name="dummy",
+                termination_reason="dummy",
+            )
+
+    monkeypatch.setattr(
+        Boussinesq,
+        "_resolve_solver_contract",
+        lambda self: BoussinesqSolverContract(
+            flow_regime="transient",
+            runtime_backend_requested="dummy",
+            surface_interaction_model_requested="regularized_partition",
+            surface_interaction_model_resolved="regularized_partition",
+            runtime_backend=_DummyBackend(),
+        ),
+    )
+
+    assert model.processing(run_model=True) is True
+    assert model.state is not None
+    assert model.state.prescribed_head_m_by_cell is not None
+    assert np.isfinite(model.state.prescribed_head_m_by_cell).any()
+
+
 def test_boussinesq_runs_steady_local_runtime_without_time_grid(tmp_path: Path) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
     bundle = load_catchment_mesh_bundle(bundle_dir)
@@ -1242,11 +1538,134 @@ def test_boussinesq_runs_steady_local_runtime_without_time_grid(tmp_path: Path) 
     assert model.state.head_history_m is not None
     assert model.state.head_history_m.shape == (1, 2)
     assert model.state.head_m[1] > model.state.head_m[0]
-    assert model.state.imposed_head_edge_flux_m3_s is not None
-    assert model.state.imposed_head_edge_flux_m3_s[4] < 0.0
+    assert model.state.boundary_edge_flux_m3_s is not None
+    assert model.state.boundary_edge_flux_m3_s[4] < 0.0
 
 
-def test_boussinesq_post_processing_exports_legacy_and_current_boundary_flux_fields(
+def test_boussinesq_driver_uses_prescribed_head_cells_for_steady_runtime(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "flow_regime": "steady",
+                "ic": {"type": "custom", "value": 7.0},
+                "active_bc": ["west_side", "east_side"],
+                "bc": {
+                    "dirichlet": {
+                        "west_side": {"value": 10.0},
+                        "east_side": {"value": 6.0},
+                    }
+                },
+            }
+        )
+    )
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=None,
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_driver_prescribed_steady",
+    )
+    model.pre_processing()
+
+    class _DummyBackend:
+        name = "dummy"
+        engine_id = "dummy_engine"
+        linear_system_layout = "dense"
+        nonlinear_solver_kind = "dummy_nonlinear_solver"
+        jacobian_strategy = "dummy_jacobian"
+        linear_solver_kind = "dummy_linear_solver"
+        convergence_policy = "residual_inf <= tol_residual_inf"
+        iteration_counter = "dummy_iterations"
+        iteration_counter_label = "dummy_iterations"
+        class _Method:
+            id = "dummy_method"
+            unknown_layout = "head_only"
+            space_scheme_id = "fv_tri_cell_centered"
+            description = "dummy"
+
+            @staticmethod
+            def time_scheme_for_regime(flow_regime: str):
+                return type(
+                    "_TimeScheme",
+                    (),
+                    {
+                        "id": "backward_euler",
+                        "problem_kind": str(flow_regime),
+                    },
+                )()
+
+        method = _Method()
+        engine = type(
+            "_Engine",
+            (),
+            {
+                "id": "dummy_engine",
+                "description": "dummy",
+                "linear_system_layout": "dense",
+                "convergence_policy": "residual_inf <= tol_residual_inf",
+                "iteration_counter": "dummy_iterations",
+                "requires_linux": False,
+            },
+        )()
+
+        @staticmethod
+        def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
+            assert inputs.prescribed_head_m_by_cell is not None
+            prescribed = np.asarray(inputs.prescribed_head_m_by_cell, dtype=float)
+            assert np.isfinite(prescribed).any()
+            head = np.asarray(inputs.head_initial_guess_m, dtype=float).copy()
+            mask = np.isfinite(prescribed)
+            head[mask] = prescribed[mask]
+            assembly = assemble_steady_residual(
+                inputs.mesh,
+                head_m=head,
+                recharge_rate_m_s=inputs.recharge_rate_m_s,
+                well_flux_m3_s=inputs.well_flux_m3_s,
+                prescribed_head_m_by_cell=prescribed,
+                drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
+                regularization_radius=float(inputs.options.regularization_radius),
+            )
+            return RuntimeSolveResult(
+                head_m=head,
+                assembly=assembly,
+                converged=True,
+                iterations=1,
+                residual_norm_inf=float(
+                    np.linalg.norm(
+                        np.asarray(assembly.residual_m3_s, dtype=float),
+                        ord=np.inf,
+                    )
+                ),
+                backend_name="dummy",
+                termination_reason="dummy",
+            )
+
+    monkeypatch.setattr(
+        Boussinesq,
+        "_resolve_solver_contract",
+        lambda self: BoussinesqSolverContract(
+            flow_regime="steady",
+            runtime_backend_requested="dummy",
+            surface_interaction_model_requested="regularized_partition",
+            surface_interaction_model_resolved="regularized_partition",
+            runtime_backend=_DummyBackend(),
+        ),
+    )
+
+    assert model.processing(run_model=True) is True
+    assert model.state is not None
+    assert model.state.prescribed_head_m_by_cell is not None
+    assert np.isfinite(model.state.prescribed_head_m_by_cell).any()
+
+
+def test_boussinesq_post_processing_exports_boundary_flux_fields(
     tmp_path: Path,
 ) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
@@ -1282,15 +1701,15 @@ def test_boussinesq_post_processing_exports_legacy_and_current_boundary_flux_fie
 
     payload = np.load(model.full_path / "_boussinesq_state_history.npz")
 
-    assert "imposed_head_edge_flux_m3_s" in payload.files
-    assert "imposed_head_edge_flux_history_m3_s" in payload.files
+    assert "boundary_edge_flux_m3_s" in payload.files
+    assert "boundary_edge_flux_history_m3_s" in payload.files
     assert "prescribed_head_flux_m3_s" in payload.files
     assert "prescribed_head_flux_history_m3_s" in payload.files
     assert np.allclose(
-        payload["imposed_head_edge_flux_m3_s"],
-        model.state.imposed_head_edge_flux_m3_s,
+        payload["boundary_edge_flux_m3_s"],
+        model.state.boundary_edge_flux_m3_s,
     )
-    assert payload["imposed_head_edge_flux_history_m3_s"].shape[1] == model.mesh.n_edges
+    assert payload["boundary_edge_flux_history_m3_s"].shape[1] == model.mesh.n_edges
 
 
 def test_boussinesq_runs_steady_scipy_runtime_without_time_grid(tmp_path: Path) -> None:
@@ -1606,6 +2025,37 @@ def test_boussinesq_runs_absolute_xy_well_runtime(tmp_path: Path) -> None:
     assert model.state.head_m[0] < 8.0
 
 
+def test_boussinesq_absolute_xy_well_matches_modflow6_unstructured_runtime_mesh(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    assert mesh.support_metadata is not None
+    mf6_model = _build_modflow6_unstructured_model(support_metadata=mesh.support_metadata)
+    well_cfg = FlowWellConfig(
+        location_mode="absolute_xy",
+        x=0.75,
+        y=0.25,
+        flux=-1.0e-5,
+    )
+
+    bouss_cell_index = BoussinesqForcingResolver(
+        mesh=mesh,
+        flow=SimpleNamespace(active_sinks_sources=["wells"]),
+        time_grid=None,
+        support_metadata=mesh.support_metadata,
+    ).resolve_well_cell_index("W1", well_cfg)
+    mf6_lay, mf6_cell_id = mf6_model._resolve_well_disv_cell(
+        well_id="W1",
+        well_cfg=well_cfg,
+        grid=None,
+    )
+
+    assert mf6_lay == 0
+    assert bouss_cell_index == mf6_cell_id
+    assert bouss_cell_index == 0
+
+
 def test_boussinesq_runs_stream_boundary_on_river_edges(tmp_path: Path) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle", river_internal_edge=True)
     bundle = load_catchment_mesh_bundle(bundle_dir)
@@ -1637,9 +2087,108 @@ def test_boussinesq_runs_stream_boundary_on_river_edges(tmp_path: Path) -> None:
 
     assert success is True
     assert model.state is not None
-    assert model.state.imposed_head_edge_flux_m3_s is not None
-    assert model.state.imposed_head_edge_flux_m3_s[2] > 0.0
+    assert model.state.boundary_edge_flux_m3_s is not None
+    assert model.state.boundary_edge_flux_m3_s[2] > 0.0
     assert np.all(model.state.head_m < 8.0)
+
+
+def test_boussinesq_stream_support_label_matches_modflow6_runtime_support(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle", river_internal_edge=True)
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    assert mesh.support_metadata is not None
+    support_metadata = replace(
+        mesh.support_metadata,
+        boundary_labels_by_edge_id={2: "ditch_custom"},
+    )
+    labeled_mesh = replace(mesh, support_metadata=support_metadata)
+    boundary = FlowBoundaryConditionConfig(
+        id="stream",
+        value=7.0,
+        units="m",
+        type="dirichlet",
+        application_domain="top",
+        support_label="ditch_custom",
+    )
+    flow = Flow(
+        _build_flow_config(
+            {
+                "ic": {"type": "custom", "value": 8.0},
+                "active_bc": ["stream"],
+                "bc": {"dirichlet": {"stream": {"value": 7.0}}},
+            }
+        )
+    )
+    flow.boundary_conditions["stream"] = boundary
+    mf6_model = _build_modflow6_unstructured_model(support_metadata=support_metadata)
+    mf6_model.flow = SimpleNamespace(
+        boundary_conditions={"stream": boundary},
+        active_bc=["stream"],
+    )
+
+    bouss_supports = BoussinesqForcingResolver(
+        mesh=labeled_mesh,
+        flow=flow,
+        time_grid=None,
+        support_metadata=support_metadata,
+    ).resolved_dirichlet_supports_by_period(1)
+    mf6_mask = mf6_model._stream_chd_support_mask(np.asarray([7.0], dtype=float))
+
+    assert bouss_supports[0][0].cell_indices.tolist() == np.flatnonzero(mf6_mask).tolist()
+    assert bouss_supports[0][0].edge_indices.tolist() == [2]
+    assert np.flatnonzero(mf6_mask).tolist() == [0, 1]
+
+
+def test_boussinesq_side_support_label_matches_modflow6_runtime_support(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    assert mesh.support_metadata is not None
+    support_metadata = replace(
+        mesh.support_metadata,
+        boundary_labels_by_edge_id={1: "east_custom"},
+    )
+    labeled_mesh = replace(mesh, support_metadata=support_metadata)
+    boundary = FlowBoundaryConditionConfig(
+        id="east_side",
+        value=6.0,
+        units="m",
+        type="dirichlet",
+        application_domain="east side",
+        support_label="east_custom",
+    )
+    flow = Flow(
+        _build_flow_config(
+            {
+                "ic": {"type": "custom", "value": 8.0},
+                "active_bc": ["east_side"],
+                "bc": {"dirichlet": {"east_side": {"value": 6.0}}},
+            }
+        )
+    )
+    flow.boundary_conditions["east_side"] = boundary
+    mf6_model = _build_modflow6_unstructured_model(support_metadata=support_metadata)
+    mf6_model.flow = SimpleNamespace(
+        boundary_conditions={"east_side": boundary},
+        active_bc=["east_side"],
+    )
+
+    bouss_supports = BoussinesqForcingResolver(
+        mesh=labeled_mesh,
+        flow=flow,
+        time_grid=None,
+        support_metadata=support_metadata,
+    ).resolved_dirichlet_supports_by_period(1)
+    mf6_cells = mf6_model._boundary_support_cell_ids(
+        boundary=boundary,
+        bc_id="east_side",
+    )
+
+    assert bouss_supports[0][0].cell_indices.tolist() == mf6_cells
+    assert bouss_supports[0][0].edge_indices.tolist() == [1]
+    assert mf6_cells == [0]
 
 
 def test_boussinesq_runs_ocean_boundary_with_period_dependent_support(
@@ -1683,8 +2232,8 @@ def test_boussinesq_runs_ocean_boundary_with_period_dependent_support(
     assert model.runtime_summary["active_ocean"] is True
     assert model.state.head_history_m.shape == (3, 2)
     assert model.state.head_history_m[1, 0] > 8.0
-    assert np.allclose(model.state.imposed_head_edge_flux_m3_s[[0, 1]], 0.0, atol=1.0e-12)
-    assert np.allclose(model.state.imposed_head_edge_flux_m3_s[[3, 4]], 0.0, atol=1.0e-12)
+    assert np.allclose(model.state.boundary_edge_flux_m3_s[[0, 1]], 0.0, atol=1.0e-12)
+    assert np.allclose(model.state.boundary_edge_flux_m3_s[[3, 4]], 0.0, atol=1.0e-12)
 
 
 def test_boussinesq_supports_heterogeneous_recharge(

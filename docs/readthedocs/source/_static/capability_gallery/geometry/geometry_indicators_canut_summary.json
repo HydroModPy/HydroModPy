@@ -1,0 +1,152 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "geometry_indicators_canut",
+  "title": "Catchment Geometry Indicators",
+  "category": "geometry",
+  "deck": "Hypsometry and slope diagnostics derived from the regional DEM and catchment mask.",
+  "summary": "This case focuses on geometry metrics that do not require meshing: elevation distribution, slope statistics, and a hypsometric curve computed on the masked DEM.",
+  "case_setup": [
+    "Regional DEM masked by the Canut boundary.",
+    "Slope estimated from DEM gradients.",
+    "Hypsometric curve derived from masked elevations."
+  ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
+  "what_it_shows": [
+    "How elevation is distributed inside the catchment boundary.",
+    "How slope metrics provide a geometry-only proxy for terrain complexity.",
+    "A compact hypsometric curve suitable for documentation pages."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m tools.doc_gallery",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "examples/data/masks/canut.shp",
+    "examples/data/dem/regional_dem_naizin.tif",
+    "tools/doc_gallery/update_gallery.py"
+  ],
+  "source_hashes": {
+    "examples/data/masks/canut.shp": "31931653587ad6b644b86e43138ce9a648ed98c4787cddf8262bf2cec42f2efd",
+    "examples/data/dem/regional_dem_naizin.tif": "826a5fcfeafced373c228cb26cd177f0b2879bfc4e773aa04da57aba01f081ae",
+    "tools/doc_gallery/update_gallery.py": "fc40959862cae1cf051d7272ad718942804308d79ae71c54adedd61062b396d2"
+  },
+  "docname": "cases/geometry_indicators_canut",
+  "images": [
+    {
+      "filename": "geometry_indicators_canut.png",
+      "caption": "Hypsometric curve and slope diagnostics for the Canut mask.",
+      "alt_text": "Geometry indicators based on DEM and catchment mask",
+      "doc_path": "/_static/capability_gallery/geometry/geometry_indicators_canut.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut.png"
+    }
+  ],
+  "metrics": [
+    {
+      "label": "Boundary area",
+      "key": "boundary_area_km2",
+      "value": 24.91875,
+      "display": "24.9 km2"
+    },
+    {
+      "label": "Mean slope",
+      "key": "slope_mean_deg",
+      "value": NaN,
+      "display": "nan deg"
+    },
+    {
+      "label": "Slope p90",
+      "key": "slope_p90_deg",
+      "value": NaN,
+      "display": "nan deg"
+    },
+    {
+      "label": "DEM range",
+      "key": "dem_range_m",
+      "value": 51.999999999999986,
+      "display": "52 m"
+    }
+  ],
+  "metadata": {
+    "geometry_case_kind": "hypsometry_indicators",
+    "boundary_path": "examples/data/masks/canut.shp",
+    "dem_path": "examples/data/dem/regional_dem_naizin.tif",
+    "boundary_area_km2": 24.91875,
+    "river_length_km": 0.0,
+    "geology_unit_count": 0,
+    "dem_min_m": 86.7,
+    "dem_max_m": 138.7
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut.png"
+    ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Geometry Inputs",
+        "rows": [
+          {
+            "field": "geometry_case_kind",
+            "meaning": "Geometry-focused rendering mode used to build this gallery page.",
+            "value": "hypsometry_indicators",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
+          },
+          {
+            "field": "boundary_path",
+            "meaning": "Boundary polygon used to clip and frame the catchment domain.",
+            "value": "canut.shp",
+            "source": "examples/data/masks/canut.shp"
+          },
+          {
+            "field": "dem_path",
+            "meaning": "DEM raster used for regional relief and slope context.",
+            "value": "regional_dem_naizin.tif",
+            "source": "examples/data/dem/regional_dem_naizin.tif"
+          }
+        ]
+      },
+      {
+        "title": "Derived Geometry Values",
+        "rows": [
+          {
+            "field": "boundary_area_km2",
+            "meaning": "Catchment area represented on the geometry page.",
+            "value": "24.9187 km2",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
+          },
+          {
+            "field": "river_length_km",
+            "meaning": "Total clipped river length visible inside the boundary.",
+            "value": "0 km",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
+          },
+          {
+            "field": "geology_unit_count",
+            "meaning": "Number of distinct geology units intersecting the catchment.",
+            "value": "0",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
+          },
+          {
+            "field": "dem_min_m",
+            "meaning": "Minimum DEM elevation represented by the rendered extent.",
+            "value": "86.7 m",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
+          },
+          {
+            "field": "dem_max_m",
+            "meaning": "Maximum DEM elevation represented by the rendered extent.",
+            "value": "138.7 m",
+            "source": "docs/readthedocs/source/_static/capability_gallery/geometry/geometry_indicators_canut_summary.json"
+          }
+        ]
+      }
+    ]
+  }
+}

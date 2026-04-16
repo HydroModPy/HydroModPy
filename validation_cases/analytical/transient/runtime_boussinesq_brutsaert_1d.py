@@ -10,6 +10,10 @@ import numpy as np
 
 from hydromodpy.process.flow import Flow
 from hydromodpy.solver.boussinesq import Boussinesq, BoussinesqState
+from hydromodpy.solver.boussinesq.history_contract import (
+    build_transient_time_axes,
+    write_time_series_npy,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
@@ -65,12 +69,20 @@ def _save_scalar_series_npy(
     postprocess_dir: Path,
     observable_name: str,
     values: np.ndarray,
+    start_index: int = 0,
+    elapsed_seconds: np.ndarray | None = None,
 ) -> None:
-    payload = {
-        int(index): np.asarray([float(value)], dtype=float)
-        for index, value in enumerate(np.asarray(values, dtype=float).tolist())
-    }
-    np.save(postprocess_dir / f"{observable_name}.npy", payload)
+    time_keys = np.arange(
+        int(start_index),
+        int(start_index) + int(np.asarray(values, dtype=float).size),
+        dtype=int,
+    )
+    write_time_series_npy(
+        postprocess_dir / f"{observable_name}.npy",
+        np.asarray(values, dtype=float),
+        time_keys=time_keys,
+        elapsed_seconds=elapsed_seconds,
+    )
 
 
 def run_boussinesq_brutsaert_recession_case(
@@ -180,12 +192,13 @@ def run_boussinesq_brutsaert_recession_case(
             case_dir=case_dir,
         )
     )
+    period_lengths_seconds = tuple(float(dt_seconds) for _ in range(int(nper)))
     transient_model = Boussinesq(
         mesh_bundle=bundle,
         flow=transient_flow,
         domain=None,
         time_grid=SimpleNamespace(
-            period_lengths_seconds=tuple(float(dt_seconds) for _ in range(int(nper))),
+            period_lengths_seconds=period_lengths_seconds,
             window=None,
         ),
         model_folder=simulations_folder,
@@ -212,7 +225,6 @@ def run_boussinesq_brutsaert_recession_case(
         transient_model,
         nx=int(nx),
         ny=int(ny),
-        export_initial_state=False,
     )
 
     initial_outlet_discharge_m3_s = _east_outlet_discharge_m3_s(
@@ -233,15 +245,22 @@ def run_boussinesq_brutsaert_recession_case(
 
     model_ws = Path(transient_model.full_path)
     postprocess_dir = model_ws / "_postprocess"
+    step_elapsed_seconds = build_transient_time_axes(
+        period_lengths_seconds
+    ).step_end_elapsed_seconds
     _save_scalar_series_npy(
         postprocess_dir=postprocess_dir,
         observable_name="outlet_discharge_m3_s",
         values=outlet_history_m3_s[1:],
+        start_index=1,
+        elapsed_seconds=step_elapsed_seconds,
     )
     _save_scalar_series_npy(
         postprocess_dir=postprocess_dir,
         observable_name="outlet_discharge_east_side_m3_s",
         values=outlet_history_m3_s[1:],
+        start_index=1,
+        elapsed_seconds=step_elapsed_seconds,
     )
     context_payload = {
         "initial_outlet_discharge_m3_s": float(initial_outlet_discharge_m3_s),

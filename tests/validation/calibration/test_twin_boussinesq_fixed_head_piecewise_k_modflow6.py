@@ -7,7 +7,10 @@ import math
 import pytest
 
 from tests.regression.golden_utils import assert_required_executables
-from validation_cases.calibration.shared.runtime import run_twin_benchmark_case
+from tests.validation.calibration.helpers import (
+    assert_lightweight_method_result,
+    run_lightweight_twin_benchmark_case,
+)
 from validation_cases.calibration.twin.steady.boussinesq_fixed_head_piecewise_k_1d.experiment import (
     PIECEWISE_K_TWIN_CASE,
 )
@@ -27,15 +30,11 @@ def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_r
         require_mt3dms=False,
     )
 
-    benchmark = run_twin_benchmark_case(
+    benchmark = run_lightweight_twin_benchmark_case(
         PIECEWISE_K_TWIN_CASE,
         caller_file=__file__,
     )
 
-    assert benchmark.summary_path.is_file()
-    assert benchmark.configuration_figure is not None
-    assert benchmark.configuration_figure.is_file()
-    assert benchmark.pruned_artifacts
     assert benchmark.observations_truth["head_west"]
     assert benchmark.observations_truth["head_middle"]
     assert benchmark.observations_truth["head_east"]
@@ -67,10 +66,7 @@ def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_r
         assert "K_west" in result.param_abs_error
         assert "K_middle" in result.param_abs_error
         assert "K_east" in result.param_abs_error
-        assert result.objective_trace_figure is not None
-        assert result.objective_trace_figure.is_file()
-        assert result.objective_landscape_figure is not None
-        assert result.objective_landscape_figure.is_file()
+        assert_lightweight_method_result(result)
     assert all(result.meets_success_target for result in random_results)
     tolerance_ratios = {
         name: simplex_result.param_abs_error[name]

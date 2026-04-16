@@ -27,6 +27,11 @@ from hydromodpy.solver.modflow_common import (
 from hydromodpy.solver.modflow_nwt import Modflow
 from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
+from hydromodpy.solver.boussinesq.history_contract import (
+    build_transient_time_axes,
+    elapsed_seconds_for_time_keys,
+    write_time_series_npy,
+)
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
 from validation_cases.shared import ValidationRunResult, load_case_metadata
 from validation_cases.shared.boussinesq_uniform_strip import (
@@ -296,10 +301,7 @@ def _write_irregular_bundle(bundle_dir: Path) -> Path:
 
 def _export_boussinesq_irregular_postprocess(*, model, bundle_dir: Path) -> None:
     head_history = np.asarray(model.state.head_history_m, dtype=float)
-    if head_history.ndim == 1:
-        head_history = head_history.reshape(1, -1)
-    if head_history.shape[0] > 1:
-        head_history = head_history[1:, :]
+    time_keys = np.arange(head_history.shape[0], dtype=int)
 
     cells = np.genfromtxt(
         bundle_dir / "cells.csv",
@@ -322,15 +324,30 @@ def _export_boussinesq_irregular_postprocess(*, model, bundle_dir: Path) -> None
         ny=NY,
     )
 
-    watertable_elevation: dict[int, np.ndarray] = {}
-    watertable_depth: dict[int, np.ndarray] = {}
-    for time_index, head_grid in enumerate(head_grids):
-        watertable_elevation[int(time_index)] = np.asarray(head_grid, dtype=float)
-        watertable_depth[int(time_index)] = np.maximum(top_grid - head_grid, 0.0)
+    elapsed_seconds = elapsed_seconds_for_time_keys(
+        build_transient_time_axes(model.state.period_lengths_seconds).snapshot_elapsed_seconds,
+        time_keys,
+        name="head_history_m",
+    )
+    elevation_grids: list[np.ndarray] = []
+    depth_grids: list[np.ndarray] = []
+    for time_index, head_grid in zip(time_keys.tolist(), head_grids, strict=False):
+        elevation_grids.append(np.asarray(head_grid, dtype=float))
+        depth_grids.append(np.maximum(top_grid - head_grid, 0.0))
 
     postprocess_dir = Path(model.full_path) / "_postprocess"
-    np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
-    np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
+    write_time_series_npy(
+        postprocess_dir / "watertable_elevation.npy",
+        np.stack(elevation_grids, axis=0),
+        time_keys=time_keys,
+        elapsed_seconds=elapsed_seconds,
+    )
+    write_time_series_npy(
+        postprocess_dir / "watertable_depth.npy",
+        np.stack(depth_grids, axis=0),
+        time_keys=time_keys,
+        elapsed_seconds=elapsed_seconds,
+    )
 
 
 def _run_structured_modflow(
