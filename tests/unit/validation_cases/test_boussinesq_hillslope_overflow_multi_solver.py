@@ -139,7 +139,7 @@ def test_linux_nwt_bouss_ramp_context_preset_has_expected_schedule() -> None:
         "time": {},
         "forcing": {},
     }
-    _, time_cfg, forcing_cfg, _, _ = _resolve_case_settings(
+    geometry_cfg, time_cfg, forcing_cfg, _, _ = _resolve_case_settings(
         metadata,
         variant=resolve_solver_variant("petsc_partition"),
         context_preset=LINUX_NWT_BOUSS_RAMP_CONTEXT_PRESET,
@@ -153,7 +153,11 @@ def test_linux_nwt_bouss_ramp_context_preset_has_expected_schedule() -> None:
     )
 
     recharge = forcing_cfg["recharge_mm_day"]
-    assert time_cfg["dt_days"] == 10.0
+    assert geometry_cfg["nx"] == 80
+    assert geometry_cfg["ny"] == 6
+    assert geometry_cfg["hydraulic_conductivity_m_per_s"] == 1.0e-5
+    assert geometry_cfg["drainage_conductance_m2_s"] == 2.0e-4
+    assert time_cfg["dt_days"] == 2.0
     assert len(recharge) == 42
     assert recharge[:12] == [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0]
     assert recharge[12:24] == [5.5, 5.0, 4.5, 4.0, 3.5, 3.0, 2.5, 2.0, 1.5, 1.0, 0.5, 0.25]

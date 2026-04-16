@@ -3,11 +3,11 @@
   "slug": "dupuit_uniform_recharge_1d",
   "title": "Dupuit Uniform Recharge 1D",
   "category": "validation",
-  "deck": "1D recharge benchmark with fixed heads on both sides.",
+  "deck": "Steady synthetic groundwater-flow case used to validate the launcher workflow against the Dupuit analytical profile for a homogeneous unconfined aquifer with uniform recharge and fixed heads at both ends.",
   "summary": "Steady synthetic groundwater-flow case used to validate the launcher workflow against the Dupuit analytical profile for a homogeneous unconfined aquifer with uniform recharge and fixed heads at both ends.",
   "case_setup": [
     "Homogeneous strip, fixed west/east heads, uniform recharge",
-    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq."
   ],
   "key_parameters": [],
   "how_to_read": [],
@@ -43,23 +43,27 @@
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/runtime_boussinesq.py",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances.toml",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6.toml",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6_irregular_tri.toml",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6.toml",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6_irregular_tri.toml",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml",
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/README.md": "6ac185d60659f416b0ad2c685f7166ab04b9a22880f591a1b1d93d49b95349b4",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/reference.py": "43319f308d4fe6f48d436a4c50eff12d0e44e40b0b7af5e14b1852c2811905a3",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/comparison.py": "cf3da68a25b70ca0e3784f39ba009dfbb33202f8bf7742b9ff2521d6d483bcfa",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/comparison.py": "92f6f2f04bcc25fafc892db6c1eeb4e35f8d6e0284ed6c8c4e0974c93d0ceb1e",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/plotting.py": "3c589e57b141c5aec2a64830cf3a9b56778532aa8607b6f16091863a1ab8321d",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/run_case.py": "63be1093ad42c5e48da81da8b3b335079a8c39f2759976f7208252e596235db1",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/metadata.toml": "02174e0e1844c96f1f0752c20a907b79555713bad1389f8a053a3b0fff636ad5",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/metadata.toml": "5e2dccf841c5a47fb10c5b9cad6e8e7b827029c5c800531b2dfe281952efba73",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflownwt.toml": "dd4e3068294fc8d19d1ca4b14b5a580c7f4ebfa1f49c476c91faa6d175def824",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/runtime_boussinesq.py": "2c559f9c7fd15b37718784a4079453ff413ea126ce485184c2b8b125a52705be",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6.toml": "0edc932a6d863e79dfa07815f8fd8a04cf0734cbccf716bd8db22a27c7c0ebd5",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6_irregular_tri.toml": "0f6cd57e911acf8fc3f512df1b7df704e60bbfdd4d034e7e9b1590a0633c7b44",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6.toml": "e668647e68535e36fad07cfad44315d3cdf951c3667fbd299c05faadb166252d",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6_irregular_tri.toml": "8dcf19eb3ada2f9cecb3812a48eaa6b3fca34581e170d5b058daa3be75cec248",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
     "validation_cases/shared/boussinesq_uniform_strip.py": "a30de1464b42072886201ce1a46b12a0cb486e357b757b5bc69a9e2add48729e"
   },
@@ -80,6 +84,7 @@
     "solver_variants": [
       "modflownwt",
       "modflow6",
+      "modflow6_irregular_tri",
       "boussinesq"
     ],
     "solver_details": {
@@ -95,6 +100,12 @@
         "expected_output": "Expected shape: 5 x 40",
         "tolerance_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6.toml"
       },
+      "modflow6_irregular_tri": {
+        "display_name": "MODFLOW 6 irregular triangles",
+        "config_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6_irregular_tri.toml",
+        "expected_output": "Expected shape: 5 x 40",
+        "tolerance_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6_irregular_tri.toml"
+      },
       "boussinesq": {
         "display_name": "Boussinesq",
         "config_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml",
@@ -104,13 +115,22 @@
     },
     "regime": "steady",
     "dimension": "1d",
-    "inventory_reference": "Dupuit, uniform recharge",
+    "inventory_reference": "",
     "case_sheet": {
       "numerical_setup": "Homogeneous strip, fixed west/east heads, uniform recharge",
       "analytical_target": "Steady 1D Dupuit recharge solution",
       "primary_metrics": "head-profile RMSE, max abs error, cross-row spread",
       "what_it_validates": "Uniform recharge handling together with side Dirichlet boundaries"
-    }
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "strip_1d",
+    "geometry_family_label": "Strip 1D",
+    "reference_type": "analytical_series",
+    "reference_type_label": "Analytical Series",
+    "validation_family": "core_1d_dupuit_baselines",
+    "validation_family_label": "Core 1D Dupuit Baselines",
+    "validation_family_order": 10
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/dupuit_uniform_recharge_1d_summary.json",
@@ -118,6 +138,7 @@
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__modflownwt.png",
       "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__modflow6_irregular_tri.png",
       "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__boussinesq.png"
     ]
   },
@@ -156,6 +177,7 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -223,6 +245,7 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -251,6 +274,74 @@
             "rmse": 0.045,
             "max_abs_error": 0.06,
             "row_spread": 1e-05
+          }
+        },
+        "timestep": 0
+      }
+    },
+    {
+      "solver": "modflow6_irregular_tri",
+      "solver_display_name": "MODFLOW 6 irregular triangles",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6_irregular_tri.toml",
+      "tolerance_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6_irregular_tri.toml",
+      "expected_output": "Expected shape: 5 x 40",
+      "command": "python -m validation_cases.analytical.steady.dupuit_uniform_recharge_1d.run_case --no-show --solver modflow6_irregular_tri",
+      "metric_lines": [
+        "Head-profile RMSE: 0.2334 m",
+        "Head-profile max abs error: 0.3252 m",
+        "Cross-row head spread: 0.00e+00 m"
+      ],
+      "image": {
+        "filename": "dupuit_uniform_recharge_1d__modflow6_irregular_tri.png",
+        "caption": "Dupuit Uniform Recharge 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.",
+        "alt_text": "Dupuit Uniform Recharge 1D validation figure for MODFLOW 6 irregular triangles",
+        "doc_path": "/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__modflow6_irregular_tri.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__modflow6_irregular_tri.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "dupuit_uniform_recharge_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              40
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "west_head": 5.0,
+            "east_head": 5.0,
+            "recharge_mm_day": 3.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "aquifer_thickness_m": 20.0,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.24,
+            "max_abs_error": 0.34,
+            "row_spread": 1e-09
           }
         },
         "timestep": 0
@@ -290,6 +381,7 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -580,6 +672,7 @@
           "source": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6.toml"
         }
       ],
+      "modflow6_irregular_tri": [],
       "boussinesq": [
         {
           "field": "flow.runtime_backend",
@@ -655,6 +748,32 @@
             "meaning": "Maximum accepted cross-row spread for head profile.",
             "value": "1e-05",
             "source": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6.toml"
+          }
+        ],
+        "modflow6_irregular_tri": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 40",
+            "source": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.24",
+            "source": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6_irregular_tri.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.34",
+            "source": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6_irregular_tri.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "1e-09",
+            "source": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6_irregular_tri.toml"
           }
         ],
         "boussinesq": [

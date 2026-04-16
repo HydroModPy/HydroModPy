@@ -1,4 +1,4 @@
-"""Linux benchmark comparing MODFLOW-NWT with three Boussinesq methods."""
+"""Linux benchmark comparing MODFLOW-NWT with selected Boussinesq methods."""
 
 from __future__ import annotations
 
@@ -28,16 +28,14 @@ from validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_ov
 )
 
 
-SOLVER_ORDER = ("modflownwt", "boussinesq", "petsc_partition", "petsc")
+SOLVER_ORDER = ("modflownwt", "petsc_partition", "petsc")
 SOLVER_LABELS = {
     "modflownwt": "MODFLOW-NWT",
-    "boussinesq": "Boussinesq local",
     "petsc_partition": "Boussinesq PETSc partition",
     "petsc": "Boussinesq PETSc complementarity",
 }
 SOLVER_COLORS = {
     "modflownwt": "#1f77b4",
-    "boussinesq": "#2ca02c",
     "petsc_partition": "#9467bd",
     "petsc": "#d62728",
 }
@@ -48,9 +46,28 @@ RECHARGE_SERIES_MM_DAY = (
     0.0, 0.0, 0.0, 0.0,
 )
 SNAPSHOT_DAYS = (10.0, 60.0, 120.0, 240.0, 330.0, 420.0)
-OUTPUT_ROOT_DEFAULT = REPO_ROOT / "out" / "linux_nwt_bouss_4m4m6m_20260414"
+OUTPUT_ROOT_DEFAULT = (
+    REPO_ROOT / "out" / "linux_nwt_bouss_4m4m6m_r005_dt2_refined_20260414"
+)
 BOUSS_RUNTIME_MAX_ITERATIONS = 400
 BOUSS_RUNTIME_TOL_RESIDUAL_INF = 5.0e-6
+PARTITION_REGULARIZATION_RADIUS = 0.005
+HYDRAULIC_CONDUCTIVITY_SCALE = 0.1
+DRAINAGE_CONDUCTANCE_M2_S = 2.0e-4
+BOUSS_NX = 80
+BOUSS_NY = 6
+_ORIGINAL_COMPARISON_PLOT_STYLE = base._comparison_plot_style
+
+
+def _linux_comparison_plot_style(solver: str) -> dict[str, Any]:
+    if solver == "modflownwt":
+        return {
+            "color": SOLVER_COLORS[solver],
+            "linewidth": 2.1,
+            "linestyle": "-",
+            "zorder": 5,
+        }
+    return _ORIGINAL_COMPARISON_PLOT_STYLE(solver)
 
 
 def _configure_base_module() -> None:
@@ -59,7 +76,16 @@ def _configure_base_module() -> None:
     base.SOLVER_COLORS = SOLVER_COLORS
     base.RECHARGE_SERIES_MM_DAY = RECHARGE_SERIES_MM_DAY
     base.SNAPSHOT_DAYS = SNAPSHOT_DAYS
-    base.DT_DAYS = 10.0
+    base.DT_DAYS = 2.0
+    base.HYDRAULIC_CONDUCTIVITY_SCALE = HYDRAULIC_CONDUCTIVITY_SCALE
+    base.DRAINAGE_CONDUCTANCE_M2_S = DRAINAGE_CONDUCTANCE_M2_S
+    base.BOUSS_NX = BOUSS_NX
+    base.BOUSS_NY = BOUSS_NY
+    base.EAST_HEAD_M = base.TOPOGRAPHY_BASE_ELEVATION_M + (
+        base.TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M / (2.0 * BOUSS_NX)
+    )
+    base.INITIAL_HEAD_M = base.EAST_HEAD_M
+    base._comparison_plot_style = _linux_comparison_plot_style
 
 
 def _bouss_diagnostics_to_result(
@@ -72,6 +98,17 @@ def _bouss_diagnostics_to_result(
     east_boundary = np.asarray(diagnostics.east_boundary_outflow_m3_day, dtype=float)
     surface_excess = np.asarray(diagnostics.surface_excess_flux_m3_day, dtype=float)
     drainage_flux = np.asarray(diagnostics.drainage_flux_m3_day, dtype=float)
+    recharge_flux = np.asarray(diagnostics.recharge_flux_m3_day, dtype=float)
+    east_boundary_inflow = np.zeros_like(total_outflow, dtype=float)
+    total_inflow = np.asarray(recharge_flux + east_boundary_inflow, dtype=float)
+    storage_change = np.asarray(
+        getattr(
+            diagnostics,
+            "storage_change_m3_day",
+            getattr(diagnostics, "storage_balance_m3_day"),
+        ),
+        dtype=float,
+    )
     peak_drainage_idx = int(np.argmax(drainage_flux))
     peak_total_idx = int(np.argmax(total_outflow))
     return base.TransientResult(
@@ -84,10 +121,20 @@ def _bouss_diagnostics_to_result(
         head_profiles=np.asarray(diagnostics.mean_head_profiles_m, dtype=float),
         clearance_profiles=np.asarray(diagnostics.mean_head_clearance_m, dtype=float),
         drainage_flux_m3_day=drainage_flux,
+        east_boundary_inflow_m3_day=east_boundary_inflow,
         east_boundary_outflow_m3_day=east_boundary,
+        total_inflow_m3_day=total_inflow,
         total_outflow_m3_day=total_outflow,
-        recharge_flux_m3_day=np.asarray(diagnostics.recharge_flux_m3_day, dtype=float),
-        storage_balance_m3_day=np.asarray(diagnostics.storage_balance_m3_day, dtype=float),
+        recharge_flux_m3_day=recharge_flux,
+        net_inflow_m3_day=np.asarray(
+            total_inflow - total_outflow,
+            dtype=float,
+        ),
+        storage_change_m3_day=storage_change,
+        residual_m3_day=np.asarray(
+            total_inflow - total_outflow - storage_change,
+            dtype=float,
+        ),
         max_clearance_m=float(np.max(np.asarray(diagnostics.mean_head_clearance_m, dtype=float))),
         onset_day=float(diagnostics.onset_day),
         peak_drainage_flux_m3_day=float(drainage_flux[peak_drainage_idx]),
@@ -120,14 +167,14 @@ def _write_flux_dashboard(results: list[base.TransientResult], output_png: Path)
     output_png.parent.mkdir(parents=True, exist_ok=True)
     output_png.unlink(missing_ok=True)
 
-    fig, axes = base.plt.subplots(2, 1, figsize=(11.2, 8.4), sharex=True, constrained_layout=True)
+    fig, axis = base.plt.subplots(1, 1, figsize=(11.2, 4.8), constrained_layout=True)
 
     elapsed_days = np.asarray(ordered[0].elapsed_days, dtype=float)
     recharge_mm_day = _align_recharge_to_elapsed(elapsed_days)
-    recharge_ax = axes[0].twinx()
+    recharge_ax = axis.twinx()
 
     for item in ordered:
-        axes[0].plot(
+        axis.plot(
             item.elapsed_days,
             item.total_outflow_m3_day,
             label=SOLVER_LABELS[item.solver],
@@ -142,14 +189,15 @@ def _write_flux_dashboard(results: list[base.TransientResult], output_png: Path)
         alpha=0.85,
         label="Recharge",
     )
-    axes[0].set_ylabel("Total outflow [m3/day]")
+    axis.set_ylabel("Total outflow [m3/day]")
     recharge_ax.set_ylabel("Recharge [mm/day]")
-    axes[0].set_title("Recharge and total outflow", fontsize=10.6)
-    axes[0].grid(alpha=0.25, linewidth=0.6)
+    axis.set_xlabel("Time [days]")
+    axis.set_title("Recharge and total outflow", fontsize=10.6)
+    axis.grid(alpha=0.25, linewidth=0.6)
 
-    handles_left, labels_left = axes[0].get_legend_handles_labels()
+    handles_left, labels_left = axis.get_legend_handles_labels()
     handles_right, labels_right = recharge_ax.get_legend_handles_labels()
-    axes[0].legend(
+    axis.legend(
         handles_left + handles_right,
         labels_left + labels_right,
         loc="upper left",
@@ -158,36 +206,6 @@ def _write_flux_dashboard(results: list[base.TransientResult], output_png: Path)
         ncols=3,
     )
 
-    for item in ordered:
-        axes[1].plot(
-            item.elapsed_days,
-            item.drainage_flux_m3_day,
-            label=f"{SOLVER_LABELS[item.solver]} drainage",
-            color=SOLVER_COLORS[item.solver],
-            linewidth=1.8,
-            linestyle="--",
-            alpha=0.95,
-        )
-        surface_excess = (
-            np.zeros_like(item.elapsed_days, dtype=float)
-            if item.bouss_surface_flux_m3_day is None
-            else np.asarray(item.bouss_surface_flux_m3_day, dtype=float)
-        )
-        axes[1].plot(
-            item.elapsed_days,
-            surface_excess,
-            label=f"{SOLVER_LABELS[item.solver]} surface excess",
-            color=SOLVER_COLORS[item.solver],
-            linewidth=2.0,
-            linestyle="-",
-            alpha=0.95,
-        )
-    axes[1].set_xlabel("Time [days]")
-    axes[1].set_ylabel("Flux [m3/day]")
-    axes[1].set_title("Drainage and surface excess outflow", fontsize=10.6)
-    axes[1].grid(alpha=0.25, linewidth=0.6)
-    axes[1].legend(loc="upper left", fontsize=7.8, frameon=False, ncols=2)
-
     fig.savefig(output_png, dpi=180, bbox_inches="tight")
     base.plt.close(fig)
 
@@ -195,7 +213,7 @@ def _write_flux_dashboard(results: list[base.TransientResult], output_png: Path)
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Linux benchmark comparing MODFLOW-NWT and three Boussinesq methods "
+            "Linux benchmark comparing MODFLOW-NWT and selected Boussinesq methods "
             "on a 4-month rise, 4-month fall, 6-month dry transient."
         )
     )
@@ -226,6 +244,7 @@ def _write_summary(output_md: Path, *, results: list[base.TransientResult], figu
         "- top drainage / surface response",
         "- recharge ramp up during 4 months, ramp down during 4 months, then 6 months with zero recharge",
         f"- time step: `{base.DT_DAYS:.1f} day`",
+        f"- regularized partition radius: `{PARTITION_REGULARIZATION_RADIUS}`",
         f"- recharge series [mm/day]: `{list(RECHARGE_SERIES_MM_DAY)}`",
         "",
         "| Solver | Onset day [d] | Peak total outflow [m3/day] | Max clearance [m] | Wall time [s] | Results dir |",
@@ -280,7 +299,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     results.append(base._build_result(nwt_result, wall_time_seconds=time.perf_counter() - t0))
 
-    for solver_name in ("boussinesq", "petsc_partition", "petsc"):
+    for solver_name in ("petsc_partition", "petsc"):
         t0 = time.perf_counter()
         run_result = run_boussinesq_hillslope_overflow_case(
             caller_file=__file__,
@@ -289,6 +308,11 @@ def main(argv: list[str] | None = None) -> int:
             context_preset=LINUX_NWT_BOUSS_RAMP_CONTEXT_PRESET,
             runtime_max_iterations=BOUSS_RUNTIME_MAX_ITERATIONS,
             runtime_tol_residual_inf=BOUSS_RUNTIME_TOL_RESIDUAL_INF,
+            saturation_excess_regularization_radius=(
+                PARTITION_REGULARIZATION_RADIUS
+                if solver_name == "petsc_partition"
+                else None
+            ),
         )
         wall_time_seconds = time.perf_counter() - t0
         diagnostics = build_hillslope_overflow_diagnostics(result=run_result)

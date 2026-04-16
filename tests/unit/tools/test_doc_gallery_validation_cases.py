@@ -6,11 +6,12 @@ from types import SimpleNamespace
 
 from tools.doc_gallery.gallery_manifest import GalleryCaseSpec
 from tools.doc_gallery.gallery_manifest import build_gallery_specs
+from tools.doc_gallery.update_gallery import _build_category_page
 from tools.doc_gallery.update_gallery import _build_case_page, _generate_validation_case
 from tools.doc_gallery.validation_case_registry import build_validation_case_records
 
 
-EXPECTED_VALIDATION_CASE_COUNT = 20
+EXPECTED_VALIDATION_CASE_COUNT = 23
 
 
 def test_build_validation_case_records_discovers_solver_coverage() -> None:
@@ -37,6 +38,34 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
         "modflow6",
         "boussinesq",
     )
+    assert records["boussinesq_sloping_substratum_constant_thickness_1d"].metadata["solver_variants"] == (
+        "modflownwt",
+        "modflow6",
+        "modflow6_irregular_tri",
+        "boussinesq",
+    )
+    assert records["boussinesq_sloping_substratum_fixed_head_1d"].metadata["solver_variants"] == (
+        "modflownwt",
+        "modflow6",
+        "modflow6_irregular_tri",
+        "boussinesq",
+    )
+    assert records["boussinesq_sloping_substratum_uniform_recharge_1d"].metadata["solver_variants"] == (
+        "modflownwt",
+        "modflow6",
+        "modflow6_irregular_tri",
+        "boussinesq",
+    )
+    assert records["linearized_unconfined_drainage_1d"].metadata["solver_variants"] == (
+        "modflownwt",
+        "modflow6",
+        "modflow6_irregular_tri",
+    )
+    assert records["linearized_unconfined_hillslope_drainage_1d"].metadata["solver_variants"] == (
+        "modflownwt",
+        "modflow6",
+        "modflow6_irregular_tri",
+    )
     assert records["boussinesq_hillslope_interception_1d"].metadata["solver_variants"] == (
         "boussinesq",
     )
@@ -55,7 +84,16 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
         "modflow6",
         "boussinesq",
     )
+    assert records["boussinesq_sloping_substratum_constant_thickness_1d"].equations_rst
+    assert records["boussinesq_sloping_substratum_fixed_head_1d"].equations_rst
+    assert records["boussinesq_sloping_substratum_uniform_recharge_1d"].equations_rst
     assert records["late_time_unconfined_pumping_2d"].equations_rst
+    assert records["boussinesq_sloping_substratum_constant_thickness_1d"].metadata["process_family"] == "flow"
+    assert records["boussinesq_sloping_substratum_constant_thickness_1d"].metadata["validation_family"] == "hillslopes"
+    assert records["boussinesq_sloping_substratum_fixed_head_1d"].metadata["geometry_family"] == "hillslope_1d"
+    assert records["boussinesq_sloping_substratum_uniform_recharge_1d"].metadata["validation_family"] == "hillslopes"
+    assert records["late_time_unconfined_pumping_2d"].metadata["validation_family"] == "radial_and_island_2d"
+    assert records["boussinesq_hillslope_interception_1d"].metadata["reference_type"] == "semi_analytical"
 
 
 def test_build_gallery_specs_exposes_validation_inventory() -> None:
@@ -129,6 +167,58 @@ def test_build_case_page_renders_solver_tabs_when_multiple_variants_exist() -> N
     assert ".. tab-item:: MODFLOW-NWT" in page
     assert ".. tab-item:: Boussinesq" in page
     assert "Config file: ``validation_cases/synthetic/config_modflownwt.toml``" in page
+
+
+def test_build_validation_category_page_groups_cases_by_family() -> None:
+    page = _build_category_page(
+        "validation",
+        [
+            {
+                "slug": "synthetic_core_case",
+                "title": "Synthetic Core Case",
+                "deck": "One core-flow benchmark.",
+                "docname": "cases/synthetic_core_case",
+                "metadata": {
+                    "solver_variants": ("modflownwt", "modflow6"),
+                    "process_family": "flow",
+                    "process_family_label": "Flow",
+                    "validation_family": "core_1d_steady",
+                    "validation_family_label": "Core 1D Steady",
+                    "validation_family_order": 10,
+                    "reference_type": "analytical_exact",
+                    "reference_type_label": "Analytical Exact",
+                    "regime": "steady",
+                    "dimension": "1d",
+                },
+            },
+            {
+                "slug": "synthetic_hillslope_case",
+                "title": "Synthetic Hillslope Case",
+                "deck": "One hillslope benchmark.",
+                "docname": "cases/synthetic_hillslope_case",
+                "metadata": {
+                    "solver_variants": ("boussinesq",),
+                    "process_family": "flow",
+                    "process_family_label": "Flow",
+                    "validation_family": "hillslopes",
+                    "validation_family_label": "Hillslopes",
+                    "validation_family_order": 20,
+                    "reference_type": "semi_analytical",
+                    "reference_type_label": "Semi-Analytical / Diagnostic",
+                    "regime": "steady",
+                    "dimension": "1d",
+                },
+            },
+        ],
+    )
+
+    assert "Grouped Benchmarks" in page
+    assert "\nFlow\n~~~~\n" in page
+    assert "\nCore 1D Steady\n^^^^^^^^^^^^^^\n" in page
+    assert "\nHillslopes\n^^^^^^^^^^\n" in page
+    assert "Process families populated today: Flow (2)." in page
+    assert "Synthetic Core Case" in page
+    assert "Synthetic Hillslope Case" in page
 
 
 def test_generate_validation_case_skips_missing_solver_figures(

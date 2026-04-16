@@ -1,0 +1,34 @@
+case_id = "boussinesq_sloping_substratum_uniform_recharge_1d"
+category = "analytical"
+regime = "steady"
+dimension = "1d"
+launcher = "launcher_simulation"
+default_solver = "modflownwt"
+base_config = "config_common.toml"
+
+[config_files]
+modflownwt = "config_modflownwt.toml"
+modflow6 = "config_modflow6.toml"
+modflow6_irregular_tri = "config_modflow6_irregular_tri.toml"
+boussinesq = "config_boussinesq.toml"
+
+[workspace]
+results_folder_name = "results_simulations"
+
+[output]
+observable_name = "watertable_elevation"
+expected_shape = [5, 40]
+
+[reference]
+xmin = 0.0
+xmax = 400.0
+west_head = 15.0
+east_head = 5.0
+recharge_mm_day = 1.0
+topography_base_elevation_m = 20.0
+topography_right_to_left_amplitude_m = 5.0
+bottom_base_elevation_m = 0.0
+bottom_right_to_left_amplitude_m = 5.0
+aquifer_thickness_m = 20.0
+hydraulic_conductivity_m_per_s = 1e-4
+profile_axis = 0

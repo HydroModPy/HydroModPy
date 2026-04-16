@@ -3,7 +3,7 @@
   "slug": "linearized_unconfined_boundary_step_1d",
   "title": "Linearized Unconfined 1D Boundary Step",
   "category": "validation",
-  "deck": "1D west-boundary step benchmark with fixed east head.",
+  "deck": "This case validates the transient linearized Boussinesq-Dupuit response of an unconfined 1D aquifer submitted to a west-boundary head step at `t = 0`.",
   "summary": "This case validates the transient linearized Boussinesq-Dupuit response of an unconfined 1D aquifer submitted to a west-boundary head step at `t = 0`.",
   "case_setup": [
     "geometry: quasi-1D Cartesian grid (`50 x 5`, single layer),",
@@ -51,7 +51,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/README.md": "15c657cdc584771c104f829ef63ae45a57f3850293ae66a03f2bf3381ab93fff",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/reference.py": "3de7bb250be3cbf5cc9617079933641b9bfc8cb6f54534fd4ea647c9b966402d",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/comparison.py": "ca1455fa5db47be69f47ecc7266d35c422c9d6b3e3079cfe86c462e093317003",
@@ -108,13 +108,22 @@
     },
     "regime": "transient",
     "dimension": "1d",
-    "inventory_reference": "linearized boundary step",
+    "inventory_reference": "",
     "case_sheet": {
       "numerical_setup": "Homogeneous strip, fixed east head, west-head step applied through CSV forcing",
       "analytical_target": "Linearized transient response to a west-boundary step",
       "primary_metrics": "space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread",
       "what_it_validates": "Launcher-managed transient side-Dirichlet forcing using one simple head step"
-    }
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "strip_1d",
+    "geometry_family_label": "Strip 1D",
+    "reference_type": "analytical_series",
+    "reference_type_label": "Analytical Series",
+    "validation_family": "transient_1d_boundary_or_recharge_forcing",
+    "validation_family_label": "Transient 1D Boundary or Recharge Forcing",
+    "validation_family_order": 50
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/linearized_unconfined_boundary_step_1d_summary.json",

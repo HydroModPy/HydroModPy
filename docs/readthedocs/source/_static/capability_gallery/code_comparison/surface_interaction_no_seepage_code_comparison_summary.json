@@ -1,0 +1,125 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "surface_interaction_no_seepage_code_comparison",
+  "title": "No-Seepage Surface-Interaction Comparison",
+  "category": "code_comparison",
+  "deck": "Cross-code benchmark on the same hillslope after lifting the ground surface above the imposed east head to suppress seepage.",
+  "summary": "This page isolates the same synthetic hillslope after moving the surface well above the imposed east boundary head. The goal is to test whether the methods converge once seepage and surface overflow are intentionally removed from the physical picture.",
+  "case_setup": [
+    "Same strip geometry and time stepping as the ramp benchmark, but the topography is lifted uniformly by 10 m while the imposed east head stays unchanged.",
+    "This keeps the groundwater system below the ground surface throughout the run and removes seepage/overflow from the intended physical regime.",
+    "The comparison therefore targets the subsurface transient response rather than the surface-partition closure."
+  ],
+  "key_parameters": [
+    "Topography offset = +10 m relative to the ramp benchmark.",
+    "Reference hydraulic conductivity scale = 0.2x the baseline strip conductivity.",
+    "Time step = 15 days, east imposed head unchanged, same recharge ramp and dry recovery chronology."
+  ],
+  "how_to_read": [
+    "If the top panel aligns much better than in the ramp case, the previous disagreement mainly came from seepage or surface-interaction closure.",
+    "Use the storage panel to check whether one method still keeps more water even after seepage is removed.",
+    "Use the conductivity tabs to check whether the agreement is robust when transmissivity is increased while the no-seepage geometry is kept unchanged."
+  ],
+  "next_steps": [
+    "Compare this page with the ramp benchmark to isolate which disagreements are specifically tied to surface interaction.",
+    "Use the transient investigation outputs when you need the full solver budget and the decomposed outflow components."
+  ],
+  "what_it_shows": [
+    "How total outflow collapses toward the east boundary when seepage is suppressed by construction.",
+    "How storage change compares once the surface-interaction mechanism is no longer the dominant difference.",
+    "How the same no-seepage setup behaves at reference and high hydraulic conductivity."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python tools/doc_gallery/generate_code_comparison_assets.py",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "tools/investigate_surface_interaction_hillslope_transient.py",
+    "tools/doc_gallery/generate_code_comparison_assets.py",
+    "validation_cases/shared/boussinesq_budget.py",
+    "out/sih_tx_4cmp_linux_no_seepage_20260415/timeseries.csv",
+    "out/sih_tx_4cmp_linux_no_seepage_kx8_20260416/timeseries.csv",
+    "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png",
+    "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.json",
+    "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.png",
+    "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.json"
+  ],
+  "source_hashes": {
+    "tools/investigate_surface_interaction_hillslope_transient.py": "a5a8b1f89ca2514082adbf9aa612e9f94e9f61630c88d7c820a8d6cfc1170f83",
+    "tools/doc_gallery/generate_code_comparison_assets.py": "a1b7a154119c32fae7f83805dc9c0d0902624f009a7cb5e5d3dbbfa4881cd5f3",
+    "validation_cases/shared/boussinesq_budget.py": "a894ff98e881ac6bf8672c750efe7c0d22590c036e06270a06cec6f40cadb561",
+    "out/sih_tx_4cmp_linux_no_seepage_20260415/timeseries.csv": "719d64036518f2d5230829677d5cd4401b90e1accc2b5ea72b83f23b48dc88e5",
+    "out/sih_tx_4cmp_linux_no_seepage_kx8_20260416/timeseries.csv": "3e6e370a6b6b95acfeca40af99a68695f5539156cb3db608c9a68b53e53d7bf1",
+    "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png": "cc5b0c4a9c3646c93b891191d2a8db08b93669a018d46ee8a2e1e502ec2fb56e",
+    "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.json": "7f96afafb6457a38ece2e80ca5153a866286ba60a7e10eca130b883d1dd0da41",
+    "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.png": "6fdc619074af73da2d307ce77d750571f47497b4efed78bf5b21b5a9df22263d",
+    "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.json": "40bdc705ff9ff83a0a6dc9d2624de35f098cc8ee982a4f0a487a9416f120186d"
+  },
+  "docname": "cases/surface_interaction_no_seepage_code_comparison",
+  "images": [
+    {
+      "filename": "no_seepage_reference_k.png",
+      "caption": "No-seepage benchmark on the four committed cross-code methods.",
+      "alt_text": "No seepage code comparison on the four-method benchmark",
+      "doc_path": "/_static/capability_gallery/code_comparison/no_seepage_reference_k.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/code_comparison/no_seepage_reference_k.png"
+    },
+    {
+      "filename": "no_seepage_high_k.png",
+      "caption": "High-conductivity no-seepage benchmark on the same four committed methods.",
+      "alt_text": "No seepage code comparison at high hydraulic conductivity",
+      "doc_path": "/_static/capability_gallery/code_comparison/no_seepage_high_k.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/code_comparison/no_seepage_high_k.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "benchmark_case": "no_seepage_offset_topography",
+    "conductivity_levels": [
+      "reference_k",
+      "high_k"
+    ],
+    "solver_families": [
+      "MODFLOW",
+      "Boussinesq"
+    ],
+    "tab_specs": [
+      {
+        "title": "Reference K",
+        "filename": "no_seepage_reference_k.png",
+        "body_lines": [
+          "Run source: ``out/sih_tx_4cmp_linux_no_seepage_20260415``",
+          "Methods: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition"
+        ]
+      },
+      {
+        "title": "High K",
+        "filename": "no_seepage_high_k.png",
+        "body_lines": [
+          "Run source: ``out/sih_tx_4cmp_linux_no_seepage_kx8_20260416``",
+          "Methods: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition"
+        ]
+      }
+    ],
+    "copied_assets": [
+      {
+        "source_path": "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/code_comparison/no_seepage_reference_k.png"
+      },
+      {
+        "source_path": "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/code_comparison/no_seepage_high_k.png"
+      }
+    ]
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/code_comparison/surface_interaction_no_seepage_code_comparison_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/code_comparison/surface_interaction_no_seepage_code_comparison_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/code_comparison/no_seepage_reference_k.png",
+      "docs/readthedocs/source/_static/capability_gallery/code_comparison/no_seepage_high_k.png"
+    ]
+  }
+}

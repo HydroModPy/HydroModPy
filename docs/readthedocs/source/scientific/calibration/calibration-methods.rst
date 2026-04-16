@@ -149,7 +149,7 @@ What HydroModPy Does
 ^^^^^^^^^^^^^^^^^^^^
 
 ``cma_es`` runs a Covariance Matrix Adaptation Evolution Strategy through the
-`cma <https://cma-es.github.io/apidocs-pycma/>`_ library.
+`pycma API <https://cma-es.github.io/apidocs-pycma/>`_ library.
 
 In HydroModPy:
 
@@ -376,7 +376,7 @@ Implementation Provenance And References
   <https://www.jmlr.org/papers/v13/bergstra12a.html>`_.
 - ``cma_es`` is implemented in
   ``hydromodpy.analysis.calibration.core.methods.cma_es`` and delegates the
-  covariance-update logic to the `cma <https://cma-es.github.io/>`_ package,
+  covariance-update logic to the `CMA-ES package <https://cma-es.github.io/>`_,
   while HydroModPy keeps bound normalization and result packaging consistent
   with the other methods. Reference: `Hansen (2016)
   <https://arxiv.org/abs/1604.00772>`_.

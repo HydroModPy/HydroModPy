@@ -5,6 +5,7 @@ import sys
 
 from validation_cases.run_cases import (
     ValidationCaseExecution,
+    build_parser,
     build_run_command,
     build_execution_report,
     discover_validation_cases,
@@ -32,7 +33,7 @@ def test_discover_and_filter_validation_cases(tmp_path: Path) -> None:
     _write_case(
         analytical_root / "steady" / "case_steady_dual",
         regime="steady",
-        solvers=("modflownwt", "modflow6", "boussinesq"),
+        solvers=("modflownwt", "modflow6", "modflow6_irregular_tri", "boussinesq"),
     )
     _write_case(
         analytical_root / "transient" / "case_transient_nwt",
@@ -52,6 +53,15 @@ def test_discover_and_filter_validation_cases(tmp_path: Path) -> None:
         "validation_cases.analytical.steady.case_steady_dual.run_case",
     ]
 
+    modflow6_irregular_cases = filter_validation_cases(
+        discovered,
+        solver="modflow6_irregular_tri",
+        regime="both",
+    )
+    assert [case.module_name for case in modflow6_irregular_cases] == [
+        "validation_cases.analytical.steady.case_steady_dual.run_case",
+    ]
+
     boussinesq_cases = filter_validation_cases(discovered, solver="boussinesq", regime="both")
     assert [case.module_name for case in boussinesq_cases] == [
         "validation_cases.analytical.steady.case_steady_dual.run_case",
@@ -65,7 +75,11 @@ def test_discover_and_filter_validation_cases(tmp_path: Path) -> None:
 
 def test_build_run_command_includes_solver_timeout_and_show_flag(tmp_path: Path) -> None:
     case_dir = tmp_path / "validation_cases" / "analytical" / "steady" / "case_demo"
-    _write_case(case_dir, regime="steady", solvers=("modflownwt", "modflow6"))
+    _write_case(
+        case_dir,
+        regime="steady",
+        solvers=("modflownwt", "modflow6", "modflow6_irregular_tri"),
+    )
     case = discover_validation_cases(package_root=tmp_path / "validation_cases")[0]
 
     command = build_run_command(
@@ -84,6 +98,34 @@ def test_build_run_command_includes_solver_timeout_and_show_flag(tmp_path: Path)
         "--timeout",
         "321",
         "--show",
+    ]
+
+
+def test_build_run_command_supports_modflow6_irregular_tri(tmp_path: Path) -> None:
+    case_dir = tmp_path / "validation_cases" / "analytical" / "steady" / "case_demo"
+    _write_case(
+        case_dir,
+        regime="steady",
+        solvers=("modflownwt", "modflow6", "modflow6_irregular_tri"),
+    )
+    case = discover_validation_cases(package_root=tmp_path / "validation_cases")[0]
+
+    command = build_run_command(
+        case,
+        python_executable=Path(sys.executable),
+        solver="modflow6_irregular_tri",
+        timeout=654,
+        show_plot=False,
+    )
+
+    assert command == [
+        str(Path(sys.executable)),
+        str(case.run_case_path),
+        "--solver",
+        "modflow6_irregular_tri",
+        "--timeout",
+        "654",
+        "--no-show",
     ]
 
 
@@ -114,3 +156,11 @@ def test_build_execution_report_summarizes_case_runs(tmp_path: Path) -> None:
     assert report["failed_case_count"] == 0
     assert report["cases"][0]["module_name"] == case.module_name
     assert report["cases"][0]["duration_seconds"] == 1.25
+
+
+def test_build_parser_accepts_modflow6_irregular_tri_solver() -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(["--solver", "modflow6_irregular_tri", "--list"])
+
+    assert args.solver == "modflow6_irregular_tri"

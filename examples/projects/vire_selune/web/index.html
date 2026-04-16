@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vire / Selune - Simulations permanentes</title>
+  <style>
+    :root {
+      --bg: #f3efe6;
+      --panel: #fffdf8;
+      --ink: #1f2a2c;
+      --muted: #5e6b6d;
+      --line: #d8d1c3;
+      --accent: #0a5f99;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background:
+        radial-gradient(circle at top left, rgba(10,95,153,0.12), transparent 28%),
+        radial-gradient(circle at top right, rgba(198,95,45,0.12), transparent 30%),
+        var(--bg);
+      color: var(--ink);
+    }
+    .page {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+    h1, h2, h3 {
+      margin: 0 0 12px;
+      font-weight: 600;
+      line-height: 1.05;
+    }
+    h1 { font-size: 2.5rem; letter-spacing: -0.03em; }
+    h2 { font-size: 1.8rem; }
+    h3 { font-size: 1.05rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); }
+    p { margin: 0 0 12px; color: var(--muted); }
+    .lead {
+      max-width: 940px;
+      font-size: 1.04rem;
+      line-height: 1.55;
+      margin-bottom: 28px;
+    }
+    .hero, .card {
+      background: rgba(255,253,248,0.92);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 10px 24px rgba(31,42,44,0.07);
+    }
+    .hero { padding: 28px; margin-bottom: 28px; }
+    .grid {
+      display: grid;
+      gap: 18px;
+    }
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .card {
+      padding: 18px;
+      overflow: hidden;
+    }
+    .case-block {
+      margin-top: 34px;
+    }
+    .case-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    .meta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .meta span {
+      border: 1px solid var(--line);
+      background: #f8f4eb;
+      border-radius: 999px;
+      padding: 7px 12px;
+      color: var(--ink);
+      font-size: 0.92rem;
+    }
+    .kv {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    .kv th, .kv td {
+      text-align: left;
+      padding: 8px 0;
+      border-bottom: 1px solid #ece5d8;
+      vertical-align: top;
+    }
+    .kv th {
+      width: 48%;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .flat {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    figure { margin: 0; }
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 10px;
+      border: 1px solid #e6dfd2;
+      background: white;
+    }
+    figcaption {
+      margin-top: 10px;
+      font-size: 0.92rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.9em;
+      color: var(--accent);
+    }
+    .note {
+      margin-top: 12px;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+    @media (max-width: 980px) {
+      .grid.two {
+        grid-template-columns: 1fr;
+      }
+      .case-header {
+        flex-direction: column;
+      }
+      .meta {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <h1>Vire / Selune</h1>
+      <p class="lead">
+        Cette page assemble le contexte des simulations permanentes de premier test, les parametres retenus,
+        les figures de resultats sur MODFLOW-NWT, et les figures de maillage conforme
+        <code>geology_rivers</code> construites pour les deux bassins. La recharge est affichee en
+        <code>mm/an</code> pour la lecture hydrologique, meme si l'entree interne reste un equivalent
+        annuel moyen en <code>mm/j</code>. La conductivite hydraulique est heterogene, avec une valeur
+        par geologie lue dans le tableau local du repo associe a la geologie BRGM.
+      </p>
+      <p class="note">
+        Etat au 15 avril 2026: les runs <code>NWT steady</code> avec <code>K</code> heterogene par geologie ne sont pas encore
+        numeriquement stabilises sur ces grands bassins. Les cartes de resultats affichees ici doivent donc etre lues
+        comme des sorties exploratoires de premier test, tandis que les maillages conformes <code>MF6 irregular steady</code>
+        restent le support geometrique de reference.
+      </p>
+      <p class="note">
+        Note de reference K: le tableau <code>examples/data/geology/geology_K_dummy_demo.csv</code> est le fichier local
+        de correspondance par geologie disponible dans ce repo. Il est explicitement marque
+        <code>dummy_demo_not_for_scientific_use</code> dans sa documentation source.
+      </p>
+    </section>
+    
+    <section class="case-block" id="vire">
+      <div class="case-header">
+        <div>
+          <h2>Vire</h2>
+          <p class="deck">Simulation permanente de premier test: maillage conforme geology+rivers pour la lecture geometrique, et resultat NWT structure au statut <code>exploratoire</code>.</p>
+        </div>
+        <div class="meta">
+          <span>1258.2 km2</span>
+          <span>Outlet (400866.2, 6923974.7)</span>
+        </div>
+      </div>
+
+      <div class="grid two">
+        <article class="card">
+          <h3>Parametres</h3>
+          <table class="kv">
+            <tr><th>Regime</th><td>permanent</td></tr>
+            <tr><th>Recharge affichee</th><td>220 mm/an</td></tr>
+            <tr><th>Recharge interne</th><td>0.6023 mm/j</td></tr>
+            <tr><th>Runoff ratio</th><td>0.05</td></tr>
+            <tr><th>K</th><td>heterogeneous par geologie</td></tr>
+            <tr><th>Table K</th><td><code>../../data/geology/geology_K_dummy_demo.csv</code></td></tr>
+            <tr><th>Plage K table</th><td>1.0e-06 a 1.6e-04 m/s</td></tr>
+            <tr><th>Ss homogene</th><td>1e-5 m-1</td></tr>
+            <tr><th>Sy homogene</th><td>0.02 -</td></tr>
+            <tr><th>Epaisseur aquifere</th><td>50.0 m</td></tr>
+            <tr><th>Grille NWT</th><td>resample_to_shape (60 x 60)</td></tr>
+            <tr><th>Couches NWT</th><td>2</td></tr>
+            <tr><th>Couches MF6 irregular</th><td>1</td></tr>
+            <tr><th>BC active</th><td>drainage top</td></tr>
+            <tr><th>Statut run</th><td>exploratoire</td></tr>
+            <tr><th>Discrepance bilan</th><td>38.7100 %</td></tr>
+          </table>
+        </article>
+
+        <article class="card">
+          <h3>Contexte</h3>
+          <ul class="flat">
+            <li>DEM regional: <code>examples/data/dem/DEM_armorican_massif.tif</code></li>
+            <li>Geologie: BRGM 1M, zonation effective projetee sur le maillage</li>
+            <li>Conductivite heterogene: une valeur K par zone geologique via <code>../../data/geology/geology_K_dummy_demo.csv</code></li>
+            <li>Document associe: <code>examples/data/geology/geology_K_dummy_demo_sources.md</code></li>
+            <li>Statut du tableau K: <code>dummy_demo_not_for_scientific_use</code></li>
+            <li>Couverture de la table K: 161 entrees</li>
+            <li>Reseau hydrographique: derive du pretraitement geographic local</li>
+            <li>Maillage conforme: <code>geology_rivers</code></li>
+            <li>Maillage exporte: 15616 noeuds, 31182 cellules</li>
+            <li>Note solveur: solution indicative issue du dernier etat ecrit par le solveur</li>
+            <li>Run resultats: <code>outputs/vire_nwt_steady/results_simulations/vire_nwt_steady</code></li>
+            <li>Run maillage: <code>outputs/vire_mf6_irregular_steady/results_stable/mesh</code></li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="grid two figures">
+        <figure class="card">
+          <img src="assets/vire_mesh_overview.png" alt="Vire mesh overview">
+          <figcaption>Maillage conforme geology+rivers sur geologie effective, au format galerie d'exemple.</figcaption>
+        </figure>
+        <figure class="card">
+          <img src="assets/vire_mesh_regional.png" alt="Vire mesh regional">
+          <figcaption>Contexte regional avec superposition du maillage et de la geologie effective.</figcaption>
+        </figure>
+        <figure class="card">
+          <img src="assets/vire_resurgence_geology.png" alt="Vire resurgence">
+          <figcaption>Zones de resurgence superposees a la geologie effective. Lecture indicative sous les parametres courants. Pixels positifs: 46466.</figcaption>
+        </figure>
+        <figure class="card">
+          <img src="assets/vire_dem_overview.png" alt="Vire dem overview">
+          <figcaption>Vue du bassin et de son support topographique dans le contexte regional.</figcaption>
+        </figure>
+        <figure class="card">
+          <img src="assets/vire_hydrography.png" alt="Vire hydrography">
+          <figcaption>Hydrographie extraite sur le bassin et support de simulation.</figcaption>
+        </figure>
+        <figure class="card">
+          <img src="assets/vire_seepage_areas.png" alt="Vire seepage">
+          <figcaption>Carte de seepage/resurgence issue du post-traitement du run NWT steady.</figcaption>
+        </figure>
+        <figure class="card">
+          <img src="assets/vire_watertable_depth.png" alt="Vire watertable depth">
+          <figcaption>Profondeur de nappe calculee sur le run permanent en l'etat.</figcaption>
+        </figure>
+      </div>
+    </section>
+    
+
+    <section class="case-block" id="selune">
+      <div class="case-header">
+        <div>
+          <h2>Selune</h2>
+          <p class="deck">Simulation permanente de premier test: maillage conforme geology+rivers pour la lecture geometrique, et resultat NWT structure au statut <code>a verifier</code>.</p>
+        </div>
+        <div class="meta">
+          <span>366.9 km2</span>
+          <span>Outlet (379541.4, 6845659.9)</span>
+        </div>
+      </div>
+
+      <div class="grid two">
+        <article class="card">
+          <h3>Parametres</h3>
+          <table class="kv">
+            <tr><th>Regime</th><td>permanent</td></tr>
+            <tr><th>Recharge affichee</th><td>220 mm/an</td></tr>
+            <tr><th>Recharge interne</th><td>0.6023 mm/j</td></tr>
+            <tr><th>Runoff ratio</th><td>0.05</td></tr>
+            <tr><th>K</th><td>heterogeneous par geologie</td></tr>
+            <tr><th>Table K</th><td><code>../../data/geology/geology_K_dummy_demo.csv</code></td></tr>
+            <tr><th>Plage K table</th><td>1.0e-06 a 1.6e-04 m/s</td></tr>
+            <tr><th>Ss homogene</th><td>1e-5 m-1</td></tr>
+            <tr><th>Sy homogene</th><td>0.02 -</td></tr>
+            <tr><th>Epaisseur aquifere</th><td>50.0 m</td></tr>
+            <tr><th>Grille NWT</th><td>keep_native</td></tr>
+            <tr><th>Couches NWT</th><td>5</td></tr>
+            <tr><th>Couches MF6 irregular</th><td>1</td></tr>
+            <tr><th>BC active</th><td>drainage top</td></tr>
+            <tr><th>Statut run</th><td>a verifier</td></tr>
+            <tr><th>Discrepance bilan</th><td>52.1000 %</td></tr>
+          </table>
+        </article>
+
+        <article class="card">
+          <h3>Contexte</h3>
+          <ul class="flat">
+            <li>DEM regional: <code>examples/data/dem/DEM_armorican_massif.tif</code></li>
+            <li>Geologie: BRGM 1M, zonation effective projetee sur le maillage</li>
+            <li>Conductivite heterogene: une valeur K par zone geologique via <code>../../data/geology/geology_K_dummy_demo.csv</code></li>
+            <li>Document associe: <code>examples/data/geology/geology_K_dummy_demo_sources.md</code></li>
+            <li>Statut du tableau K: <code>dummy_demo_not_for_scientific_use</code></li>
+            <li>Couverture de la table K: 161 entrees</li>
+            <li>Reseau hydrographique: derive du pretraitement geographic local</li>
+            <li>Maillage conforme: <code>geology_rivers</code></li>
+            <li>Maillage exporte: 4616 noeuds, 9198 cellules</li>
+            <li>Note solveur: pas d'echec explicite dans le list file, mais bilan a verifier</li>
+            <li>Run resultats: <code>outputs/selune_nwt_steady/results_simulations/selune_nwt_steady</code></li>
+            <li>Run maillage: <code>outputs/selune_mf6_irregular_steady/results_stable/mesh</code></li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="grid two figures">
+        <figure class="card">
+          <img src="assets/selune_mesh_overview.png" alt="Selune mesh overview">
+          <figcaption>Maillage conforme geology+rivers sur geologie effective, au format galerie d'exemple.</figcaption>
+        </figure>
+        <figure class="card">
+          <img src="assets/selune_mesh_regional.png" alt="Selune mesh regional">
+          <figcaption>Contexte regional avec superposition du maillage et de la geologie effective.</figcaption>
+        </figure>
+        <figure class="card">
+          <img src="assets/selune_resurgence_geology.png" alt="Selune resurgence">
+          <figcaption>Zones de resurgence superposees a la geologie effective. Lecture indicative sous les parametres courants. Pixels positifs: 6868.</figcaption>
+        </figure>
+        <figure class="card">
+          <img src="assets/selune_dem_overview.png" alt="Selune dem overview">
+          <figcaption>Vue du bassin et de son support topographique dans le contexte regional.</figcaption>
+        </figure>
+        <figure class="card">
+          <img src="assets/selune_hydrography.png" alt="Selune hydrography">
+          <figcaption>Hydrographie extraite sur le bassin et support de simulation.</figcaption>
+        </figure>
+        <figure class="card">
+          <img src="assets/selune_seepage_areas.png" alt="Selune seepage">
+          <figcaption>Carte de seepage/resurgence issue du post-traitement du run NWT steady.</figcaption>
+        </figure>
+        <figure class="card">
+          <img src="assets/selune_watertable_depth.png" alt="Selune watertable depth">
+          <figcaption>Profondeur de nappe calculee sur le run permanent en l'etat.</figcaption>
+        </figure>
+      </div>
+    </section>
+    
+  </main>
+</body>
+</html>

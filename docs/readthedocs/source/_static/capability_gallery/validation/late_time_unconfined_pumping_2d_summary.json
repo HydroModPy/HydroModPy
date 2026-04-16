@@ -3,7 +3,7 @@
   "slug": "late_time_unconfined_pumping_2d",
   "title": "Late-Time Unconfined Pumping 2D",
   "category": "validation",
-  "deck": "2D radial pumping benchmark in the late-time unconfined regime.",
+  "deck": "This `v1` case validates one transient non-confined pumping response in a pragmatic way.",
   "summary": "This `v1` case validates one transient non-confined pumping response in a pragmatic way.",
   "case_setup": [
     "geometry: square Cartesian grid (`101 x 101`, single layer),",
@@ -54,7 +54,7 @@
     "validation_cases/analytical/transient/common.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/README.md": "cdba73415cb6cdf40efb64533e69557f1dbb22925a19eb1a958b0cdb0bc2f6be",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/reference.py": "5c3d1bea642b740f45d14f1ceea796b1fd623b0e7f5ac9378ebd76b72e6ac250",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/comparison.py": "e2404ce54213f66e6a183bfc2fe0f1e3e5b331908adce54d6cf3dcdb6fe8ef7f",
@@ -111,13 +111,22 @@
     },
     "regime": "transient",
     "dimension": "2d",
-    "inventory_reference": "late-time Theis proxy",
+    "inventory_reference": "",
     "case_sheet": {
       "numerical_setup": "Square unconfined domain, fixed heads on outer boundary, central pumping well, transient run",
       "analytical_target": "Late-time radial Theis proxy using `T = K * href` and `S = Sy`",
       "primary_metrics": "space-time RMSE, space-time max abs error, final-time RMSE, final-time max abs error, azimuthal spread",
       "what_it_validates": "Transient well forcing, late-time radial drawdown scaling, and numerical radial symmetry around the well"
-    }
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "radial_2d",
+    "geometry_family_label": "Radial 2D",
+    "reference_type": "analytical_series",
+    "reference_type_label": "Analytical Series",
+    "validation_family": "transient_2d_radial_response",
+    "validation_family_label": "Transient 2D Radial Response",
+    "validation_family_order": 70
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/late_time_unconfined_pumping_2d_summary.json",

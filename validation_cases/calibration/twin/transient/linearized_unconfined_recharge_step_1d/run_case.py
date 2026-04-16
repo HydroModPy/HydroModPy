@@ -7,6 +7,8 @@ from pathlib import Path
 
 from validation_cases.calibration.shared.runtime import run_twin_benchmark_case
 from validation_cases.calibration.twin.transient.linearized_unconfined_recharge_step_1d.experiment import (
+    TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE,
+    TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE,
     TRANSIENT_RECHARGE_STEP_TWIN_CASE,
 )
 
@@ -16,14 +18,25 @@ def main(argv: list[str] | None = None) -> None:
         description="Run the transient recharge-step calibration twin benchmark.",
     )
     parser.add_argument(
+        "--case",
+        choices=("standard", "noisy", "flux_only_noisy"),
+        default="standard",
+        help="Twin-benchmark variant to run.",
+    )
+    parser.add_argument(
         "--method",
         action="append",
         default=None,
         help="Optional method name filter. Repeat to select multiple methods.",
     )
     args = parser.parse_args(argv)
+    definition = {
+        "standard": TRANSIENT_RECHARGE_STEP_TWIN_CASE,
+        "noisy": TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE,
+        "flux_only_noisy": TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE,
+    }[str(args.case)]
     benchmark = run_twin_benchmark_case(
-        TRANSIENT_RECHARGE_STEP_TWIN_CASE,
+        definition,
         caller_file=Path(__file__),
         method_names=None if args.method is None else tuple(args.method),
     )

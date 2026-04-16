@@ -34,7 +34,7 @@
     "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/nodes.csv": "96bc1a46afe8b73273c62b7a028d9fb5a2d7acebcd18c8e2455da1cae1274a44",
     "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv": "457898898ba2dc35b1dba0e0cda5941ad6e8d903d96e4a86f0d6a6be7da810b1",
     "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/mesh_summary.json": "fa0775c2c4fe4211f7e066b0c895bd1b8b45c04c42a3731a18b2854437ea6102",
-    "tools/doc_gallery/update_gallery.py": "5d86e3a2dd48619ccbffba51095f2f8dc46f54acb0b9e28377e8e35c216be6fd"
+    "tools/doc_gallery/update_gallery.py": "b2401f77384d6e5536302a1c291d9282a0c652354c2e3f0dc12dbd4707adaea6"
   },
   "docname": "cases/mesh_quality_diagnostics_naizin_10km2",
   "images": [

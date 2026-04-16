@@ -75,21 +75,21 @@ _WINDOWS_SURFACE_CONTEXT_OVERRIDES: dict[str, object] = {
 
 _LINUX_NWT_BOUSS_RAMP_CONTEXT_OVERRIDES: dict[str, object] = {
     "geometry": {
-        "nx": 40,
-        "ny": 3,
+        "nx": 80,
+        "ny": 6,
         "length_x_m": 400.0,
         "width_y_m": 30.0,
         "bottom_elevation_m": -15.0,
         "toe_elevation_m": 5.0,
         "topography_slope_m_per_m": 5.0 / 400.0,
-        "east_head_m": 5.0625,
-        "initial_head_m": 5.0625,
-        "hydraulic_conductivity_m_per_s": 2.0e-5,
+        "east_head_m": 5.03125,
+        "initial_head_m": 5.03125,
+        "hydraulic_conductivity_m_per_s": 1.0e-5,
         "storage_coefficient": 0.10,
-        "drainage_conductance_m2_s": 1.0e-4,
+        "drainage_conductance_m2_s": 2.0e-4,
     },
     "time": {
-        "dt_days": 10.0,
+        "dt_days": 2.0,
     },
     "forcing": {
         "first_clim": "first",
@@ -167,7 +167,7 @@ def _resolve_case_settings(
     metadata: dict[str, object],
     *,
     variant: SolverVariant,
-    context_preset: str | None,
+    context_preset: str | None = None,
     forcing_preset: str | None,
     forcing_scale: float,
     east_head_m: float | None,
@@ -268,6 +268,7 @@ def run_boussinesq_hillslope_overflow_case(
     dt_days: float | None = None,
     runtime_max_iterations: int | None = None,
     runtime_tol_residual_inf: float | None = None,
+    saturation_excess_regularization_radius: float | None = None,
 ) -> ValidationRunResult:
     """Run the transient hillslope pulse-overflow scenario for one solver flavor."""
     del timeout
@@ -357,11 +358,17 @@ def run_boussinesq_hillslope_overflow_case(
     if resolved_runtime_tol_residual_inf is not None:
         flow_section["runtime_tol_residual_inf"] = float(resolved_runtime_tol_residual_inf)
 
+    flow = Flow(build_flow_config(flow_section, case_dir=CASE_DIR))
+    if saturation_excess_regularization_radius is not None:
+        flow.saturation_excess_regularization_radius = float(
+            saturation_excess_regularization_radius
+        )
+
     state = SimpleNamespace(
         setup=SimpleNamespace(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(build_flow_config(flow_section, case_dir=CASE_DIR)),
+            flow=flow,
             domain=None,
             time_grid=SimpleNamespace(
                 period_lengths_seconds=period_lengths_seconds,

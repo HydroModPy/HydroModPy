@@ -31,6 +31,7 @@ Comparison:
 Solver variants:
 
 - `modflownwt` and `modflow6` use the historical launcher-backed structured grid.
+- `modflow6_irregular_tri` runs the same benchmark on one shared irregular-triangle strip.
 
 This case is not exposed yet for the local `boussinesq` backend. In that
 backend, the current saturation-excess regularization turns the problem into a
@@ -43,4 +44,5 @@ Direct execution:
 ```bash
 python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.run_case
 python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.run_case --solver modflow6 --show
+python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.run_case --solver modflow6_irregular_tri --show
 ```

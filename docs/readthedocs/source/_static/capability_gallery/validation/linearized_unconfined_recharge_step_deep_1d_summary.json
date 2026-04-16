@@ -3,7 +3,7 @@
   "slug": "linearized_unconfined_recharge_step_deep_1d",
   "title": "Linearized Unconfined 1D Recharge Step (Deep Aquifer)",
   "category": "validation",
-  "deck": "1D recharge-step benchmark with a much deeper reference thickness to reduce linearization error.",
+  "deck": "Variant of the recharge-step transient benchmark with a deeper aquifer, so the linearization error remains smaller for the same recharge forcing.",
   "summary": "Variant of the recharge-step transient benchmark with a deeper aquifer, so the linearization error remains smaller for the same recharge forcing.",
   "case_setup": [
     "geometry: quasi-1D Cartesian grid (`50 x 5`, single layer),",
@@ -51,7 +51,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/README.md": "adeaa173463eb58e1749263b276cfa3389a04cfae00179e090606513716cd00b",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/reference.py": "2bfc7dfaac0936e654631604d659ec794f719827d9efc3e23c11866d5cd652d2",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/comparison.py": "5a80144de4787d532f0af84f4b9779ed69b856479ef22fe0ef154ce15fcdcfac",
@@ -107,13 +107,22 @@
     },
     "regime": "transient",
     "dimension": "1d",
-    "inventory_reference": "linearized recharge step, deep aquifer",
+    "inventory_reference": "",
     "case_sheet": {
       "numerical_setup": "Homogeneous strip, fixed west/east heads, recharge step from the first transient period, deep reference thickness",
       "analytical_target": "Linearized transient response to a recharge step in the near-linear regime",
       "primary_metrics": "space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread",
       "what_it_validates": "Separation between true transient-code issues and expected nonlinear deviation from the linearized theory"
-    }
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "strip_1d",
+    "geometry_family_label": "Strip 1D",
+    "reference_type": "analytical_series",
+    "reference_type_label": "Analytical Series",
+    "validation_family": "transient_1d_boundary_or_recharge_forcing",
+    "validation_family_label": "Transient 1D Boundary or Recharge Forcing",
+    "validation_family_order": 50
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d_summary.json",

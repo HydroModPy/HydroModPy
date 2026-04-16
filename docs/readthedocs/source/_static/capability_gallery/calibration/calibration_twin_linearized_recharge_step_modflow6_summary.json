@@ -7,9 +7,10 @@
   "summary": "Same-solver twin benchmark on linearized_unconfined_recharge_step_1d with K+Sy and multiobservable head/flux blocks.",
   "case_setup": [
     "Solver: `modflow6` in `transient` regime.",
+    "Benchmark family: No-Uncertainty, Data-Rich Benchmarks.",
     "Truth parameters: K_global, Sy_global.",
     "Observed outputs: head_mid, q_east.",
-    "Benchmarked methods: random_search, simplex, gp_mapping, da_mh_gp.",
+    "Benchmarked methods: random_search, cma_es, simplex, gp_mapping, da_mh_gp.",
     "Initial bounds widened to: K_global=[5e-05, 0.0003], Sy_global=[0.04, 0.18]."
   ],
   "key_parameters": [
@@ -50,13 +51,13 @@
     "launchers/model_calibration/runtime.py"
   ],
   "source_hashes": {
-    "validation_cases/calibration/README.md": "16aa6dcf2b0dbdd1fe57e0ec703e29374e6ed0679a743d059558b604882bad0b",
-    "validation_cases/calibration/run_benchmarks.py": "e870902c6f3a5196e728e0ab54348125022771538f3ee6c1b8b64620a3bd660c",
-    "validation_cases/calibration/plotting.py": "fcd8dd62eeb5eb97a4163fceb19953109b360ce01effca405cb40ed8c0b5a007",
-    "validation_cases/calibration/shared/definitions.py": "257a44fb213c7db06885ccd1dd6f0069ba5bdae6149c266728abce8fb3c6d201",
-    "validation_cases/calibration/shared/runtime.py": "8aebf0af78babcc879daf042a12b5eb1bd4dd147dbc4463c9beb0631db9c29f1",
-    "validation_cases/calibration/twin/transient/linearized_unconfined_recharge_step_1d/run_case.py": "ecb72db33f0cde6000edf993afda8ce66d764e911e39bb683ca8b6085270d9fc",
-    "validation_cases/calibration/twin/transient/linearized_unconfined_recharge_step_1d/experiment.py": "02bb2bd7f0db82503f51f266f921cabddddac9a90af1dae99fe86f4a645f80cc",
+    "validation_cases/calibration/README.md": "c1505a35ce03f992dee89720ccf1594240b23d6b6515be252ff2cc2f1ab95f83",
+    "validation_cases/calibration/run_benchmarks.py": "b101bdfcedf5636d71b91aa4278d3ab272aee980c3fd26c1cc9817195540a8a3",
+    "validation_cases/calibration/plotting.py": "0c5b1d3687c2d266a1b7b6b91b336a8ab36c55ec21c6c9601ccf124b5097ca1d",
+    "validation_cases/calibration/shared/definitions.py": "c44c1e012f2fa6c84ea74ef0021950eacdae316576b9275ce077b5f25dc5a5ff",
+    "validation_cases/calibration/shared/runtime.py": "f406d788450d45c9a6dcc60d2145dfca3c86c0f5098ed84f223906ebb2598c64",
+    "validation_cases/calibration/twin/transient/linearized_unconfined_recharge_step_1d/run_case.py": "17f2fd47c6f91b8c5afa4f313edf6204a2811e0ca4ac1ef8395f38e7fe94ebd8",
+    "validation_cases/calibration/twin/transient/linearized_unconfined_recharge_step_1d/experiment.py": "fa514f00bf58507d78b4131355a1eaed64133a135f04730a8df95bf26e39ee68",
     "launchers/model_calibration/launcher.py": "fd8399af0cc77024ae6039e73bc56c73b9861c8c069cc181fcef29a6e2dbee8e",
     "launchers/model_calibration/runtime.py": "ebc1c650ce1cbf1710ed52b6e10d68b746c87f6cdb71c3f2bcfb83bd61752be3"
   },
@@ -89,6 +90,20 @@
       "alt_text": "Calibration Twin: Recharge-Step K+Sy 1D posterior distribution for random_search",
       "doc_path": "/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_posterior.png",
       "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_posterior.png"
+    },
+    {
+      "filename": "calibration_twin_linearized_recharge_step_modflow6__cma_es_landscape.png",
+      "caption": "Objective landscape or pairwise projection for `cma_es` on Calibration Twin: Recharge-Step K+Sy 1D.",
+      "alt_text": "Calibration Twin: Recharge-Step K+Sy 1D objective landscape for cma_es",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_landscape.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_landscape.png"
+    },
+    {
+      "filename": "calibration_twin_linearized_recharge_step_modflow6__cma_es_trace.png",
+      "caption": "Objective trace for `cma_es` on Calibration Twin: Recharge-Step K+Sy 1D, showing the evaluated models in order.",
+      "alt_text": "Calibration Twin: Recharge-Step K+Sy 1D objective trace for cma_es",
+      "doc_path": "/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_trace.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_trace.png"
     },
     {
       "filename": "calibration_twin_linearized_recharge_step_modflow6__simplex_landscape.png",
@@ -151,8 +166,8 @@
     {
       "label": "Methods",
       "key": "method_count",
-      "value": 4,
-      "display": "4"
+      "value": 5,
+      "display": "5"
     },
     {
       "label": "Display method",
@@ -169,74 +184,74 @@
     {
       "label": "Calibration total",
       "key": "calibration_time_seconds",
-      "value": 27.387688399998297,
-      "display": "27.39 s"
+      "value": 11.078306999988854,
+      "display": "11.08 s"
     },
     {
       "label": "Session prep",
       "key": "session_prepare_time_seconds",
-      "value": 1.1363793999989866,
-      "display": "1.136 s"
+      "value": 1.5629677999968408,
+      "display": "1.563 s"
     },
     {
       "label": "Candidate runtime",
       "key": "estimated_candidate_runtime_seconds",
-      "value": 26.475278299996717,
-      "display": "26.48 s"
+      "value": 10.134954600012861,
+      "display": "10.13 s"
     },
     {
       "label": "Algorithm overhead",
       "key": "algorithm_overhead_time_seconds",
-      "value": 0.9124101000015798,
-      "display": "0.9124 s"
+      "value": 0.9433523999759927,
+      "display": "0.9434 s"
     },
     {
       "label": "Model total",
       "key": "mean_candidate_total_time_seconds",
-      "value": 1.6547048937497948,
-      "display": "1.655 s"
+      "value": 0.6334346625008038,
+      "display": "0.6334 s"
     },
     {
       "label": "Actualize",
       "key": "mean_candidate_actualize_time_seconds",
-      "value": 0.015581424999936644,
-      "display": "0.01558 s"
+      "value": 0.016941124998993473,
+      "display": "0.01694 s"
     },
     {
       "label": "Launcher prep",
       "key": "mean_candidate_launcher_prepare_time_seconds",
-      "value": 0.07692897500032814,
-      "display": "0.07693 s"
+      "value": 0.10752368749945163,
+      "display": "0.1075 s"
     },
     {
       "label": "Runtime patch",
       "key": "mean_candidate_runtime_patch_time_seconds",
-      "value": 0.0008060812501753389,
-      "display": "0.0008061 s"
+      "value": 0.0002621312496557948,
+      "display": "0.0002621 s"
     },
     {
       "label": "Model prep",
       "key": "mean_candidate_preparation_time_seconds",
-      "value": 0.09331648125044012,
-      "display": "0.09332 s"
+      "value": 0.1247269437481009,
+      "display": "0.1247 s"
     },
     {
       "label": "Model sim",
       "key": "mean_candidate_simulation_time_seconds",
-      "value": 1.119760568749598,
-      "display": "1.12 s"
+      "value": 0.32215440624986513,
+      "display": "0.3222 s"
     },
     {
       "label": "Output select",
       "key": "mean_candidate_output_selection_time_seconds",
-      "value": 0.4559831562498857,
-      "display": "0.456 s"
+      "value": 0.33828867500051274,
+      "display": "0.3383 s"
     },
     {
       "label": "Objective score",
       "key": "mean_candidate_objective_compute_time_seconds",
-      "value": 0.000938274999953137,
-      "display": "0.0009383 s"
+      "value": 0.0005421000023488887,
+      "display": "0.0005421 s"
     }
   ],
   "metadata": {
@@ -264,7 +279,7 @@
     },
     "parameter_abs_tolerances": {
       "K_global": 1.5e-05,
-      "Sy_global": 0.03
+      "Sy_global": 0.04
     },
     "output_names": [
       "head_mid",
@@ -272,6 +287,7 @@
     ],
     "method_names": [
       "random_search",
+      "cma_es",
       "simplex",
       "gp_mapping",
       "da_mh_gp"
@@ -279,8 +295,16 @@
     "observation_noise": "none",
     "perturbation_description": null,
     "fast": false,
-    "benchmark_root": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_6157bfb793_ef6d5ebb",
-    "benchmark_summary_path": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_6157bfb793_ef6d5ebb\\benchmark_summary.json",
+    "benchmark_family_key": "data_rich_no_uncertainty",
+    "benchmark_family_title": "No-Uncertainty, Data-Rich Benchmarks",
+    "benchmark_family_deck": "Benchmarks with multiple observables, no observation noise, and enough data to constrain the inverse problem more strongly.",
+    "benchmark_family_page_slug": "calibration_data_rich_no_uncertainty",
+    "benchmark_family_page_title": "Calibration Benchmarks: No Uncertainty, More Data",
+    "benchmark_family_page_intro": "These calibration benchmarks keep observation noise off and rely on richer data sets, typically multiple observable blocks, so the objective surface is better constrained.",
+    "benchmark_family_order": 10,
+    "benchmark_family_primary": true,
+    "benchmark_root": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_6157bfb793_ac1c47c1",
+    "benchmark_summary_path": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_6157bfb793_ac1c47c1\\benchmark_summary.json",
     "artifact_retention": "minimal",
     "method_runs": [
       {
@@ -289,34 +313,69 @@
         "success_metric": "best_fit",
         "meets_success_target": false,
         "recovered_truth": false,
-        "cost_best": 36.658510290843864,
+        "cost_best": 40.64780965253867,
         "n_evaluations": 16,
         "model_distribution_sample_count": 16,
-        "calibration_time_seconds": 32.067749199999525,
-        "session_prepare_time_seconds": 1.2298660999986168,
-        "estimated_candidate_runtime_seconds": 30.55965859999924,
-        "algorithm_overhead_time_seconds": 1.508090600000287,
-        "mean_candidate_total_time_seconds": 1.9099786624999524,
-        "mean_candidate_preparation_time_seconds": 0.0919863875003557,
-        "mean_candidate_actualize_time_seconds": 0.0179769562500951,
-        "mean_candidate_launcher_prepare_time_seconds": 0.07374926250008684,
-        "mean_candidate_runtime_patch_time_seconds": 0.0002601687501737615,
-        "mean_candidate_simulation_time_seconds": 1.3120096437496613,
-        "mean_candidate_output_selection_time_seconds": 0.5195173312501993,
-        "mean_candidate_objective_build_time_seconds": 0.00017730000035953708,
-        "mean_candidate_objective_compute_time_seconds": 0.004110574999003802,
-        "mean_candidate_objective_time_seconds": 0.5238600874997701,
+        "calibration_time_seconds": 18.016044399992097,
+        "session_prepare_time_seconds": 2.0044419999903766,
+        "estimated_candidate_runtime_seconds": 16.77993800000695,
+        "algorithm_overhead_time_seconds": 1.2361063999851467,
+        "mean_candidate_total_time_seconds": 1.0487461250004344,
+        "mean_candidate_preparation_time_seconds": 0.14372007500242034,
+        "mean_candidate_actualize_time_seconds": 0.018223362500066287,
+        "mean_candidate_launcher_prepare_time_seconds": 0.12484010000116541,
+        "mean_candidate_runtime_patch_time_seconds": 0.000656612501188647,
+        "mean_candidate_simulation_time_seconds": 0.5583550749997812,
+        "mean_candidate_output_selection_time_seconds": 0.6730638750013895,
+        "mean_candidate_objective_build_time_seconds": 0.0002580250038590748,
+        "mean_candidate_objective_compute_time_seconds": 0.0014407250018848572,
+        "mean_candidate_objective_time_seconds": 0.6748342500031868,
         "param_abs_error": {
-          "K_global": 1.5507981783261174e-05,
-          "Sy_global": 0.005390248943357934
+          "K_global": 1.3018478855636028e-05,
+          "Sy_global": 0.07732790950162274
         },
         "params_best": {
-          "K_global": 8.449201821673883e-05,
-          "Sy_global": 0.10539024894335794
+          "K_global": 8.698152114436398e-05,
+          "Sy_global": 0.17732790950162275
         },
         "objective_landscape_filename": "calibration_twin_linearized_recharge_step_modflow6__random_search_landscape.png",
         "objective_trace_filename": "calibration_twin_linearized_recharge_step_modflow6__random_search_trace.png",
         "posterior_distribution_filename": "calibration_twin_linearized_recharge_step_modflow6__random_search_posterior.png"
+      },
+      {
+        "method_name": "cma_es",
+        "method_instance_name": "cma_es",
+        "success_metric": "best_fit",
+        "meets_success_target": false,
+        "recovered_truth": false,
+        "cost_best": 49.14675100082784,
+        "n_evaluations": 50,
+        "model_distribution_sample_count": 0,
+        "calibration_time_seconds": 48.23742780000612,
+        "session_prepare_time_seconds": 2.0601797999988776,
+        "estimated_candidate_runtime_seconds": 44.50362359995779,
+        "algorithm_overhead_time_seconds": 3.7338042000483256,
+        "mean_candidate_total_time_seconds": 0.8900724719991558,
+        "mean_candidate_preparation_time_seconds": 0.05682498400332406,
+        "mean_candidate_actualize_time_seconds": 0.017418900000629945,
+        "mean_candidate_launcher_prepare_time_seconds": 0.03894299800187582,
+        "mean_candidate_runtime_patch_time_seconds": 0.00046308600081829354,
+        "mean_candidate_simulation_time_seconds": 0.46419417399942176,
+        "mean_candidate_output_selection_time_seconds": 0.630943728573454,
+        "mean_candidate_objective_build_time_seconds": 0.00020293571599592854,
+        "mean_candidate_objective_compute_time_seconds": 0.0011836071477903584,
+        "mean_candidate_objective_time_seconds": 0.6323918142879847,
+        "param_abs_error": {
+          "K_global": 3.581851358721765e-05,
+          "Sy_global": 0.03321658487008547
+        },
+        "params_best": {
+          "K_global": 0.00013581851358721766,
+          "Sy_global": 0.13321658487008547
+        },
+        "objective_landscape_filename": "calibration_twin_linearized_recharge_step_modflow6__cma_es_landscape.png",
+        "objective_trace_filename": "calibration_twin_linearized_recharge_step_modflow6__cma_es_trace.png",
+        "posterior_distribution_filename": null
       },
       {
         "method_name": "simplex",
@@ -324,30 +383,30 @@
         "success_metric": "best_fit",
         "meets_success_target": false,
         "recovered_truth": false,
-        "cost_best": 14.969307489889637,
-        "n_evaluations": 24,
+        "cost_best": 88.79803201117222,
+        "n_evaluations": 43,
         "model_distribution_sample_count": 0,
-        "calibration_time_seconds": 38.531679100000474,
-        "session_prepare_time_seconds": 1.365429999998014,
-        "estimated_candidate_runtime_seconds": 37.369406000023446,
-        "algorithm_overhead_time_seconds": 1.1622730999770283,
-        "mean_candidate_total_time_seconds": 1.5570585833343102,
-        "mean_candidate_preparation_time_seconds": 0.09211741666846744,
-        "mean_candidate_actualize_time_seconds": 0.010324800000489631,
-        "mean_candidate_launcher_prepare_time_seconds": 0.08153145833390833,
-        "mean_candidate_runtime_patch_time_seconds": 0.00026115833406947786,
-        "mean_candidate_simulation_time_seconds": 1.0933030166662927,
-        "mean_candidate_output_selection_time_seconds": 0.38098026666633206,
-        "mean_candidate_objective_build_time_seconds": 0.00010689166659479572,
-        "mean_candidate_objective_compute_time_seconds": 0.0007224416664636616,
-        "mean_candidate_objective_time_seconds": 0.38185965833296603,
+        "calibration_time_seconds": 25.39537709999422,
+        "session_prepare_time_seconds": 1.6564382999931695,
+        "estimated_candidate_runtime_seconds": 22.86601770001289,
+        "algorithm_overhead_time_seconds": 2.529359399981331,
+        "mean_candidate_total_time_seconds": 0.5317678534886718,
+        "mean_candidate_preparation_time_seconds": 0.05149636744334752,
+        "mean_candidate_actualize_time_seconds": 0.0133541139532395,
+        "mean_candidate_launcher_prepare_time_seconds": 0.037865630233237996,
+        "mean_candidate_runtime_patch_time_seconds": 0.0002766232568700256,
+        "mean_candidate_simulation_time_seconds": 0.2160942418606367,
+        "mean_candidate_output_selection_time_seconds": 0.3357051727269374,
+        "mean_candidate_objective_build_time_seconds": 0.00011479091269641437,
+        "mean_candidate_objective_compute_time_seconds": 0.0007079090864863247,
+        "mean_candidate_objective_time_seconds": 0.33657088181511924,
         "param_abs_error": {
-          "K_global": 2.1948242187499724e-06,
-          "Sy_global": 0.04501147460937496
+          "K_global": 7.9375e-05,
+          "Sy_global": 0.0072499999999999926
         },
         "params_best": {
-          "K_global": 9.780517578125003e-05,
-          "Sy_global": 0.14501147460937497
+          "K_global": 0.000179375,
+          "Sy_global": 0.10725
         },
         "objective_landscape_filename": "calibration_twin_linearized_recharge_step_modflow6__simplex_landscape.png",
         "objective_trace_filename": "calibration_twin_linearized_recharge_step_modflow6__simplex_trace.png",
@@ -357,32 +416,32 @@
         "method_name": "gp_mapping",
         "method_instance_name": "gp_mapping",
         "success_metric": "best_fit_or_distribution",
-        "meets_success_target": true,
-        "recovered_truth": true,
-        "cost_best": 8.53469399025697,
+        "meets_success_target": false,
+        "recovered_truth": false,
+        "cost_best": 42.33438413463906,
         "n_evaluations": 16,
         "model_distribution_sample_count": 64,
-        "calibration_time_seconds": 27.387688399998297,
-        "session_prepare_time_seconds": 1.1363793999989866,
-        "estimated_candidate_runtime_seconds": 26.475278299996717,
-        "algorithm_overhead_time_seconds": 0.9124101000015798,
-        "mean_candidate_total_time_seconds": 1.6547048937497948,
-        "mean_candidate_preparation_time_seconds": 0.09331648125044012,
-        "mean_candidate_actualize_time_seconds": 0.015581424999936644,
-        "mean_candidate_launcher_prepare_time_seconds": 0.07692897500032814,
-        "mean_candidate_runtime_patch_time_seconds": 0.0008060812501753389,
-        "mean_candidate_simulation_time_seconds": 1.119760568749598,
-        "mean_candidate_output_selection_time_seconds": 0.4559831562498857,
-        "mean_candidate_objective_build_time_seconds": 0.00011295624995000253,
-        "mean_candidate_objective_compute_time_seconds": 0.000938274999953137,
-        "mean_candidate_objective_time_seconds": 0.45708713125031863,
+        "calibration_time_seconds": 11.078306999988854,
+        "session_prepare_time_seconds": 1.5629677999968408,
+        "estimated_candidate_runtime_seconds": 10.134954600012861,
+        "algorithm_overhead_time_seconds": 0.9433523999759927,
+        "mean_candidate_total_time_seconds": 0.6334346625008038,
+        "mean_candidate_preparation_time_seconds": 0.1247269437481009,
+        "mean_candidate_actualize_time_seconds": 0.016941124998993473,
+        "mean_candidate_launcher_prepare_time_seconds": 0.10752368749945163,
+        "mean_candidate_runtime_patch_time_seconds": 0.0002621312496557948,
+        "mean_candidate_simulation_time_seconds": 0.32215440624986513,
+        "mean_candidate_output_selection_time_seconds": 0.33828867500051274,
+        "mean_candidate_objective_build_time_seconds": 8.132499715429731e-05,
+        "mean_candidate_objective_compute_time_seconds": 0.0005421000023488887,
+        "mean_candidate_objective_time_seconds": 0.33894950000103563,
         "param_abs_error": {
-          "K_global": 2.7701835654249613e-06,
-          "Sy_global": 0.016652011632620617
+          "K_global": 2.792599708687666e-05,
+          "Sy_global": 0.038721543612641046
         },
         "params_best": {
-          "K_global": 9.722981643457504e-05,
-          "Sy_global": 0.11665201163262062
+          "K_global": 0.00012792599708687667,
+          "Sy_global": 0.13872154361264105
         },
         "objective_landscape_filename": "calibration_twin_linearized_recharge_step_modflow6__gp_mapping_landscape.png",
         "objective_trace_filename": "calibration_twin_linearized_recharge_step_modflow6__gp_mapping_trace.png",
@@ -394,30 +453,30 @@
         "success_metric": "best_fit_or_distribution",
         "meets_success_target": false,
         "recovered_truth": false,
-        "cost_best": 34.55684047095955,
+        "cost_best": 102.90751300605692,
         "n_evaluations": 10,
         "model_distribution_sample_count": 36,
-        "calibration_time_seconds": 18.085227000003215,
-        "session_prepare_time_seconds": 1.1485575000006065,
-        "estimated_candidate_runtime_seconds": 17.609131199995318,
-        "algorithm_overhead_time_seconds": 0.4760958000078972,
-        "mean_candidate_total_time_seconds": 1.7609131199995318,
-        "mean_candidate_preparation_time_seconds": 0.14050941000132297,
-        "mean_candidate_actualize_time_seconds": 0.011061370000606984,
-        "mean_candidate_launcher_prepare_time_seconds": 0.12920902000114437,
-        "mean_candidate_runtime_patch_time_seconds": 0.00023901999957161025,
-        "mean_candidate_simulation_time_seconds": 1.2010265799995978,
-        "mean_candidate_output_selection_time_seconds": 0.42938818000038736,
-        "mean_candidate_objective_build_time_seconds": 0.00010240000083285849,
-        "mean_candidate_objective_compute_time_seconds": 0.0007882899997639469,
-        "mean_candidate_objective_time_seconds": 0.4303251299996191,
+        "calibration_time_seconds": 9.860173500012024,
+        "session_prepare_time_seconds": 1.4884082000062335,
+        "estimated_candidate_runtime_seconds": 9.222507099999348,
+        "algorithm_overhead_time_seconds": 0.6376664000126766,
+        "mean_candidate_total_time_seconds": 0.9222507099999347,
+        "mean_candidate_preparation_time_seconds": 0.20796528999926522,
+        "mean_candidate_actualize_time_seconds": 0.01585066999978153,
+        "mean_candidate_launcher_prepare_time_seconds": 0.19182793999934802,
+        "mean_candidate_runtime_patch_time_seconds": 0.0002866800001356751,
+        "mean_candidate_simulation_time_seconds": 0.4293157299995073,
+        "mean_candidate_output_selection_time_seconds": 0.5352326666664643,
+        "mean_candidate_objective_build_time_seconds": 9.486666143250962e-05,
+        "mean_candidate_objective_compute_time_seconds": 0.0005338666669558734,
+        "mean_candidate_objective_time_seconds": 0.5358998000010615,
         "param_abs_error": {
-          "K_global": 1.5101399784907697e-05,
-          "Sy_global": 0.047114230692386634
+          "K_global": 9.690377912484106e-05,
+          "Sy_global": 0.026276335511356608
         },
         "params_best": {
-          "K_global": 0.0001151013997849077,
-          "Sy_global": 0.05288576930761337
+          "K_global": 0.00019690377912484107,
+          "Sy_global": 0.0737236644886434
         },
         "objective_landscape_filename": "calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_landscape.png",
         "objective_trace_filename": "calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_trace.png",
@@ -439,18 +498,42 @@
           "metric=best_fit",
           "target=False",
           "best_fit=False",
-          "cost=36.6585",
+          "cost=40.6478",
           "n_eval=16",
           "distribution_samples=16",
-          "calibration=32.07 s",
-          "candidate runtime=30.56 s",
-          "algorithm overhead=1.508 s",
-          "actualize=0.01798 s",
-          "launcher prep=0.07375 s",
-          "runtime patch=0.0002602 s",
-          "simulate=1.312 s",
-          "output select=0.5195 s",
-          "objective score=0.004111 s"
+          "calibration=18.02 s",
+          "candidate runtime=16.78 s",
+          "algorithm overhead=1.236 s",
+          "actualize=0.01822 s",
+          "launcher prep=0.1248 s",
+          "runtime patch=0.0006566 s",
+          "simulate=0.5584 s",
+          "output select=0.6731 s",
+          "objective score=0.001441 s"
+        ]
+      },
+      {
+        "title": "cma_es",
+        "filenames": [
+          "calibration_twin_linearized_recharge_step_modflow6__cma_es_landscape.png",
+          "calibration_twin_linearized_recharge_step_modflow6__cma_es_trace.png"
+        ],
+        "body_lines": [
+          "metric=best_fit",
+          "target=False",
+          "best_fit=False",
+          "cost=49.1468",
+          "n_eval=50",
+          "distribution_samples=0",
+          "calibration=48.24 s",
+          "candidate runtime=44.5 s",
+          "algorithm overhead=3.734 s",
+          "actualize=0.01742 s",
+          "launcher prep=0.03894 s",
+          "runtime patch=0.0004631 s",
+          "simulate=0.4642 s",
+          "output select=0.6309 s",
+          "objective score=0.001184 s"
         ]
       },
       {
@@ -463,18 +546,18 @@
           "metric=best_fit",
           "target=False",
           "best_fit=False",
-          "cost=14.9693",
-          "n_eval=24",
+          "cost=88.798",
+          "n_eval=43",
           "distribution_samples=0",
-          "calibration=38.53 s",
-          "candidate runtime=37.37 s",
-          "algorithm overhead=1.162 s",
-          "actualize=0.01032 s",
-          "launcher prep=0.08153 s",
-          "runtime patch=0.0002612 s",
-          "simulate=1.093 s",
-          "output select=0.381 s",
-          "objective score=0.0007224 s"
+          "calibration=25.4 s",
+          "candidate runtime=22.87 s",
+          "algorithm overhead=2.529 s",
+          "actualize=0.01335 s",
+          "launcher prep=0.03787 s",
+          "runtime patch=0.0002766 s",
+          "simulate=0.2161 s",
+          "output select=0.3357 s",
+          "objective score=0.0007079 s"
         ]
       },
       {
@@ -486,20 +569,20 @@
         ],
         "body_lines": [
           "metric=best_fit_or_distribution",
-          "target=True",
-          "best_fit=True",
-          "cost=8.53469",
+          "target=False",
+          "best_fit=False",
+          "cost=42.3344",
           "n_eval=16",
           "distribution_samples=64",
-          "calibration=27.39 s",
-          "candidate runtime=26.48 s",
-          "algorithm overhead=0.9124 s",
-          "actualize=0.01558 s",
-          "launcher prep=0.07693 s",
-          "runtime patch=0.0008061 s",
-          "simulate=1.12 s",
-          "output select=0.456 s",
-          "objective score=0.0009383 s"
+          "calibration=11.08 s",
+          "candidate runtime=10.13 s",
+          "algorithm overhead=0.9434 s",
+          "actualize=0.01694 s",
+          "launcher prep=0.1075 s",
+          "runtime patch=0.0002621 s",
+          "simulate=0.3222 s",
+          "output select=0.3383 s",
+          "objective score=0.0005421 s"
         ]
       },
       {
@@ -513,22 +596,22 @@
           "metric=best_fit_or_distribution",
           "target=False",
           "best_fit=False",
-          "cost=34.5568",
+          "cost=102.908",
           "n_eval=10",
           "distribution_samples=36",
-          "calibration=18.09 s",
-          "candidate runtime=17.61 s",
-          "algorithm overhead=0.4761 s",
-          "actualize=0.01106 s",
-          "launcher prep=0.1292 s",
-          "runtime patch=0.000239 s",
-          "simulate=1.201 s",
-          "output select=0.4294 s",
-          "objective score=0.0007883 s"
+          "calibration=9.86 s",
+          "candidate runtime=9.223 s",
+          "algorithm overhead=0.6377 s",
+          "actualize=0.01585 s",
+          "launcher prep=0.1918 s",
+          "runtime patch=0.0002867 s",
+          "simulate=0.4293 s",
+          "output select=0.5352 s",
+          "objective score=0.0005339 s"
         ]
       }
     ],
-    "configuration_figure": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_6157bfb793_ef6d5ebb\\figures\\case_configuration.png"
+    "configuration_figure": "C:\\results\\HydromodPy\\validation\\validation_calibration_twin\\ct_6157bfb793_ac1c47c1\\figures\\case_configuration.png"
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json",
@@ -538,6 +621,8 @@
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_landscape.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_trace.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_posterior.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_landscape.png",
+      "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_trace.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__simplex_landscape.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__simplex_trace.png",
       "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__gp_mapping_landscape.png",
@@ -555,34 +640,69 @@
       "success_metric": "best_fit",
       "meets_success_target": false,
       "recovered_truth": false,
-      "cost_best": 36.658510290843864,
+      "cost_best": 40.64780965253867,
       "n_evaluations": 16,
       "model_distribution_sample_count": 16,
-      "calibration_time_seconds": 32.067749199999525,
-      "session_prepare_time_seconds": 1.2298660999986168,
-      "estimated_candidate_runtime_seconds": 30.55965859999924,
-      "algorithm_overhead_time_seconds": 1.508090600000287,
-      "mean_candidate_total_time_seconds": 1.9099786624999524,
-      "mean_candidate_preparation_time_seconds": 0.0919863875003557,
-      "mean_candidate_actualize_time_seconds": 0.0179769562500951,
-      "mean_candidate_launcher_prepare_time_seconds": 0.07374926250008684,
-      "mean_candidate_runtime_patch_time_seconds": 0.0002601687501737615,
-      "mean_candidate_simulation_time_seconds": 1.3120096437496613,
-      "mean_candidate_output_selection_time_seconds": 0.5195173312501993,
-      "mean_candidate_objective_build_time_seconds": 0.00017730000035953708,
-      "mean_candidate_objective_compute_time_seconds": 0.004110574999003802,
-      "mean_candidate_objective_time_seconds": 0.5238600874997701,
+      "calibration_time_seconds": 18.016044399992097,
+      "session_prepare_time_seconds": 2.0044419999903766,
+      "estimated_candidate_runtime_seconds": 16.77993800000695,
+      "algorithm_overhead_time_seconds": 1.2361063999851467,
+      "mean_candidate_total_time_seconds": 1.0487461250004344,
+      "mean_candidate_preparation_time_seconds": 0.14372007500242034,
+      "mean_candidate_actualize_time_seconds": 0.018223362500066287,
+      "mean_candidate_launcher_prepare_time_seconds": 0.12484010000116541,
+      "mean_candidate_runtime_patch_time_seconds": 0.000656612501188647,
+      "mean_candidate_simulation_time_seconds": 0.5583550749997812,
+      "mean_candidate_output_selection_time_seconds": 0.6730638750013895,
+      "mean_candidate_objective_build_time_seconds": 0.0002580250038590748,
+      "mean_candidate_objective_compute_time_seconds": 0.0014407250018848572,
+      "mean_candidate_objective_time_seconds": 0.6748342500031868,
       "param_abs_error": {
-        "K_global": 1.5507981783261174e-05,
-        "Sy_global": 0.005390248943357934
+        "K_global": 1.3018478855636028e-05,
+        "Sy_global": 0.07732790950162274
       },
       "params_best": {
-        "K_global": 8.449201821673883e-05,
-        "Sy_global": 0.10539024894335794
+        "K_global": 8.698152114436398e-05,
+        "Sy_global": 0.17732790950162275
       },
       "objective_landscape_filename": "calibration_twin_linearized_recharge_step_modflow6__random_search_landscape.png",
       "objective_trace_filename": "calibration_twin_linearized_recharge_step_modflow6__random_search_trace.png",
       "posterior_distribution_filename": "calibration_twin_linearized_recharge_step_modflow6__random_search_posterior.png"
+    },
+    {
+      "method_name": "cma_es",
+      "method_instance_name": "cma_es",
+      "success_metric": "best_fit",
+      "meets_success_target": false,
+      "recovered_truth": false,
+      "cost_best": 49.14675100082784,
+      "n_evaluations": 50,
+      "model_distribution_sample_count": 0,
+      "calibration_time_seconds": 48.23742780000612,
+      "session_prepare_time_seconds": 2.0601797999988776,
+      "estimated_candidate_runtime_seconds": 44.50362359995779,
+      "algorithm_overhead_time_seconds": 3.7338042000483256,
+      "mean_candidate_total_time_seconds": 0.8900724719991558,
+      "mean_candidate_preparation_time_seconds": 0.05682498400332406,
+      "mean_candidate_actualize_time_seconds": 0.017418900000629945,
+      "mean_candidate_launcher_prepare_time_seconds": 0.03894299800187582,
+      "mean_candidate_runtime_patch_time_seconds": 0.00046308600081829354,
+      "mean_candidate_simulation_time_seconds": 0.46419417399942176,
+      "mean_candidate_output_selection_time_seconds": 0.630943728573454,
+      "mean_candidate_objective_build_time_seconds": 0.00020293571599592854,
+      "mean_candidate_objective_compute_time_seconds": 0.0011836071477903584,
+      "mean_candidate_objective_time_seconds": 0.6323918142879847,
+      "param_abs_error": {
+        "K_global": 3.581851358721765e-05,
+        "Sy_global": 0.03321658487008547
+      },
+      "params_best": {
+        "K_global": 0.00013581851358721766,
+        "Sy_global": 0.13321658487008547
+      },
+      "objective_landscape_filename": "calibration_twin_linearized_recharge_step_modflow6__cma_es_landscape.png",
+      "objective_trace_filename": "calibration_twin_linearized_recharge_step_modflow6__cma_es_trace.png",
+      "posterior_distribution_filename": null
     },
     {
       "method_name": "simplex",
@@ -590,30 +710,30 @@
       "success_metric": "best_fit",
       "meets_success_target": false,
       "recovered_truth": false,
-      "cost_best": 14.969307489889637,
-      "n_evaluations": 24,
+      "cost_best": 88.79803201117222,
+      "n_evaluations": 43,
       "model_distribution_sample_count": 0,
-      "calibration_time_seconds": 38.531679100000474,
-      "session_prepare_time_seconds": 1.365429999998014,
-      "estimated_candidate_runtime_seconds": 37.369406000023446,
-      "algorithm_overhead_time_seconds": 1.1622730999770283,
-      "mean_candidate_total_time_seconds": 1.5570585833343102,
-      "mean_candidate_preparation_time_seconds": 0.09211741666846744,
-      "mean_candidate_actualize_time_seconds": 0.010324800000489631,
-      "mean_candidate_launcher_prepare_time_seconds": 0.08153145833390833,
-      "mean_candidate_runtime_patch_time_seconds": 0.00026115833406947786,
-      "mean_candidate_simulation_time_seconds": 1.0933030166662927,
-      "mean_candidate_output_selection_time_seconds": 0.38098026666633206,
-      "mean_candidate_objective_build_time_seconds": 0.00010689166659479572,
-      "mean_candidate_objective_compute_time_seconds": 0.0007224416664636616,
-      "mean_candidate_objective_time_seconds": 0.38185965833296603,
+      "calibration_time_seconds": 25.39537709999422,
+      "session_prepare_time_seconds": 1.6564382999931695,
+      "estimated_candidate_runtime_seconds": 22.86601770001289,
+      "algorithm_overhead_time_seconds": 2.529359399981331,
+      "mean_candidate_total_time_seconds": 0.5317678534886718,
+      "mean_candidate_preparation_time_seconds": 0.05149636744334752,
+      "mean_candidate_actualize_time_seconds": 0.0133541139532395,
+      "mean_candidate_launcher_prepare_time_seconds": 0.037865630233237996,
+      "mean_candidate_runtime_patch_time_seconds": 0.0002766232568700256,
+      "mean_candidate_simulation_time_seconds": 0.2160942418606367,
+      "mean_candidate_output_selection_time_seconds": 0.3357051727269374,
+      "mean_candidate_objective_build_time_seconds": 0.00011479091269641437,
+      "mean_candidate_objective_compute_time_seconds": 0.0007079090864863247,
+      "mean_candidate_objective_time_seconds": 0.33657088181511924,
       "param_abs_error": {
-        "K_global": 2.1948242187499724e-06,
-        "Sy_global": 0.04501147460937496
+        "K_global": 7.9375e-05,
+        "Sy_global": 0.0072499999999999926
       },
       "params_best": {
-        "K_global": 9.780517578125003e-05,
-        "Sy_global": 0.14501147460937497
+        "K_global": 0.000179375,
+        "Sy_global": 0.10725
       },
       "objective_landscape_filename": "calibration_twin_linearized_recharge_step_modflow6__simplex_landscape.png",
       "objective_trace_filename": "calibration_twin_linearized_recharge_step_modflow6__simplex_trace.png",
@@ -623,32 +743,32 @@
       "method_name": "gp_mapping",
       "method_instance_name": "gp_mapping",
       "success_metric": "best_fit_or_distribution",
-      "meets_success_target": true,
-      "recovered_truth": true,
-      "cost_best": 8.53469399025697,
+      "meets_success_target": false,
+      "recovered_truth": false,
+      "cost_best": 42.33438413463906,
       "n_evaluations": 16,
       "model_distribution_sample_count": 64,
-      "calibration_time_seconds": 27.387688399998297,
-      "session_prepare_time_seconds": 1.1363793999989866,
-      "estimated_candidate_runtime_seconds": 26.475278299996717,
-      "algorithm_overhead_time_seconds": 0.9124101000015798,
-      "mean_candidate_total_time_seconds": 1.6547048937497948,
-      "mean_candidate_preparation_time_seconds": 0.09331648125044012,
-      "mean_candidate_actualize_time_seconds": 0.015581424999936644,
-      "mean_candidate_launcher_prepare_time_seconds": 0.07692897500032814,
-      "mean_candidate_runtime_patch_time_seconds": 0.0008060812501753389,
-      "mean_candidate_simulation_time_seconds": 1.119760568749598,
-      "mean_candidate_output_selection_time_seconds": 0.4559831562498857,
-      "mean_candidate_objective_build_time_seconds": 0.00011295624995000253,
-      "mean_candidate_objective_compute_time_seconds": 0.000938274999953137,
-      "mean_candidate_objective_time_seconds": 0.45708713125031863,
+      "calibration_time_seconds": 11.078306999988854,
+      "session_prepare_time_seconds": 1.5629677999968408,
+      "estimated_candidate_runtime_seconds": 10.134954600012861,
+      "algorithm_overhead_time_seconds": 0.9433523999759927,
+      "mean_candidate_total_time_seconds": 0.6334346625008038,
+      "mean_candidate_preparation_time_seconds": 0.1247269437481009,
+      "mean_candidate_actualize_time_seconds": 0.016941124998993473,
+      "mean_candidate_launcher_prepare_time_seconds": 0.10752368749945163,
+      "mean_candidate_runtime_patch_time_seconds": 0.0002621312496557948,
+      "mean_candidate_simulation_time_seconds": 0.32215440624986513,
+      "mean_candidate_output_selection_time_seconds": 0.33828867500051274,
+      "mean_candidate_objective_build_time_seconds": 8.132499715429731e-05,
+      "mean_candidate_objective_compute_time_seconds": 0.0005421000023488887,
+      "mean_candidate_objective_time_seconds": 0.33894950000103563,
       "param_abs_error": {
-        "K_global": 2.7701835654249613e-06,
-        "Sy_global": 0.016652011632620617
+        "K_global": 2.792599708687666e-05,
+        "Sy_global": 0.038721543612641046
       },
       "params_best": {
-        "K_global": 9.722981643457504e-05,
-        "Sy_global": 0.11665201163262062
+        "K_global": 0.00012792599708687667,
+        "Sy_global": 0.13872154361264105
       },
       "objective_landscape_filename": "calibration_twin_linearized_recharge_step_modflow6__gp_mapping_landscape.png",
       "objective_trace_filename": "calibration_twin_linearized_recharge_step_modflow6__gp_mapping_trace.png",
@@ -660,30 +780,30 @@
       "success_metric": "best_fit_or_distribution",
       "meets_success_target": false,
       "recovered_truth": false,
-      "cost_best": 34.55684047095955,
+      "cost_best": 102.90751300605692,
       "n_evaluations": 10,
       "model_distribution_sample_count": 36,
-      "calibration_time_seconds": 18.085227000003215,
-      "session_prepare_time_seconds": 1.1485575000006065,
-      "estimated_candidate_runtime_seconds": 17.609131199995318,
-      "algorithm_overhead_time_seconds": 0.4760958000078972,
-      "mean_candidate_total_time_seconds": 1.7609131199995318,
-      "mean_candidate_preparation_time_seconds": 0.14050941000132297,
-      "mean_candidate_actualize_time_seconds": 0.011061370000606984,
-      "mean_candidate_launcher_prepare_time_seconds": 0.12920902000114437,
-      "mean_candidate_runtime_patch_time_seconds": 0.00023901999957161025,
-      "mean_candidate_simulation_time_seconds": 1.2010265799995978,
-      "mean_candidate_output_selection_time_seconds": 0.42938818000038736,
-      "mean_candidate_objective_build_time_seconds": 0.00010240000083285849,
-      "mean_candidate_objective_compute_time_seconds": 0.0007882899997639469,
-      "mean_candidate_objective_time_seconds": 0.4303251299996191,
+      "calibration_time_seconds": 9.860173500012024,
+      "session_prepare_time_seconds": 1.4884082000062335,
+      "estimated_candidate_runtime_seconds": 9.222507099999348,
+      "algorithm_overhead_time_seconds": 0.6376664000126766,
+      "mean_candidate_total_time_seconds": 0.9222507099999347,
+      "mean_candidate_preparation_time_seconds": 0.20796528999926522,
+      "mean_candidate_actualize_time_seconds": 0.01585066999978153,
+      "mean_candidate_launcher_prepare_time_seconds": 0.19182793999934802,
+      "mean_candidate_runtime_patch_time_seconds": 0.0002866800001356751,
+      "mean_candidate_simulation_time_seconds": 0.4293157299995073,
+      "mean_candidate_output_selection_time_seconds": 0.5352326666664643,
+      "mean_candidate_objective_build_time_seconds": 9.486666143250962e-05,
+      "mean_candidate_objective_compute_time_seconds": 0.0005338666669558734,
+      "mean_candidate_objective_time_seconds": 0.5358998000010615,
       "param_abs_error": {
-        "K_global": 1.5101399784907697e-05,
-        "Sy_global": 0.047114230692386634
+        "K_global": 9.690377912484106e-05,
+        "Sy_global": 0.026276335511356608
       },
       "params_best": {
-        "K_global": 0.0001151013997849077,
-        "Sy_global": 0.05288576930761337
+        "K_global": 0.00019690377912484107,
+        "Sy_global": 0.0737236644886434
       },
       "objective_landscape_filename": "calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_landscape.png",
       "objective_trace_filename": "calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_trace.png",
@@ -733,7 +853,7 @@
           {
             "field": "Sy_global",
             "meaning": "Truth value, initial search interval, and acceptance tolerance for this calibrated parameter.",
-            "value": "truth=0.1, bounds=0.04, 0.18, tolerance=0.03",
+            "value": "truth=0.1, bounds=0.04, 0.18, tolerance=0.04",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           }
         ]
@@ -744,25 +864,31 @@
           {
             "field": "random_search",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=false, cost=36.6585, n_eval=16, distribution_samples=16, calib_s=32.0677, candidate_runtime_s=30.5597, algorithm_overhead_s=1.50809, actualize_s=0.017977, launcher_prep_s=0.0737493, runtime_patch_s=0.000260169, model_sim_s=1.31201, output_select_s=0.519517, objective_score_s=0.00411057",
+            "value": "target=false, cost=40.6478, n_eval=16, distribution_samples=16, calib_s=18.016, candidate_runtime_s=16.7799, algorithm_overhead_s=1.23611, actualize_s=0.0182234, launcher_prep_s=0.12484, runtime_patch_s=0.000656613, model_sim_s=0.558355, output_select_s=0.673064, objective_score_s=0.00144073",
+            "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
+          },
+          {
+            "field": "cma_es",
+            "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
+            "value": "target=false, cost=49.1468, n_eval=50, distribution_samples=0, calib_s=48.2374, candidate_runtime_s=44.5036, algorithm_overhead_s=3.7338, actualize_s=0.0174189, launcher_prep_s=0.038943, runtime_patch_s=0.000463086, model_sim_s=0.464194, output_select_s=0.630944, objective_score_s=0.00118361",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           },
           {
             "field": "simplex",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=false, cost=14.9693, n_eval=24, distribution_samples=0, calib_s=38.5317, candidate_runtime_s=37.3694, algorithm_overhead_s=1.16227, actualize_s=0.0103248, launcher_prep_s=0.0815315, runtime_patch_s=0.000261158, model_sim_s=1.0933, output_select_s=0.38098, objective_score_s=0.000722442",
+            "value": "target=false, cost=88.798, n_eval=43, distribution_samples=0, calib_s=25.3954, candidate_runtime_s=22.866, algorithm_overhead_s=2.52936, actualize_s=0.0133541, launcher_prep_s=0.0378656, runtime_patch_s=0.000276623, model_sim_s=0.216094, output_select_s=0.335705, objective_score_s=0.000707909",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           },
           {
             "field": "gp_mapping",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=true, cost=8.53469, n_eval=16, distribution_samples=64, calib_s=27.3877, candidate_runtime_s=26.4753, algorithm_overhead_s=0.91241, actualize_s=0.0155814, launcher_prep_s=0.076929, runtime_patch_s=0.000806081, model_sim_s=1.11976, output_select_s=0.455983, objective_score_s=0.000938275",
+            "value": "target=false, cost=42.3344, n_eval=16, distribution_samples=64, calib_s=11.0783, candidate_runtime_s=10.135, algorithm_overhead_s=0.943352, actualize_s=0.0169411, launcher_prep_s=0.107524, runtime_patch_s=0.000262131, model_sim_s=0.322154, output_select_s=0.338289, objective_score_s=0.0005421",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           },
           {
             "field": "da_mh_gp",
             "meaning": "Method result summary including target status, evaluation count, total time, and mean per-model actualize / launcher / simulation / objective timings.",
-            "value": "target=false, cost=34.5568, n_eval=10, distribution_samples=36, calib_s=18.0852, candidate_runtime_s=17.6091, algorithm_overhead_s=0.476096, actualize_s=0.0110614, launcher_prep_s=0.129209, runtime_patch_s=0.00023902, model_sim_s=1.20103, output_select_s=0.429388, objective_score_s=0.00078829",
+            "value": "target=false, cost=102.908, n_eval=10, distribution_samples=36, calib_s=9.86017, candidate_runtime_s=9.22251, algorithm_overhead_s=0.637666, actualize_s=0.0158507, launcher_prep_s=0.191828, runtime_patch_s=0.00028668, model_sim_s=0.429316, output_select_s=0.535233, objective_score_s=0.000533867",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           }
         ]
@@ -773,7 +899,7 @@
           {
             "field": "method_count",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "4",
+            "value": "5",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           },
           {
@@ -791,73 +917,73 @@
           {
             "field": "calibration_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "27.39 s",
+            "value": "11.08 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           },
           {
             "field": "session_prepare_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "1.136 s",
+            "value": "1.563 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           },
           {
             "field": "estimated_candidate_runtime_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "26.48 s",
+            "value": "10.13 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           },
           {
             "field": "algorithm_overhead_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "0.9124 s",
+            "value": "0.9434 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           },
           {
             "field": "mean_candidate_total_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "1.655 s",
+            "value": "0.6334 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           },
           {
             "field": "mean_candidate_actualize_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "0.01558 s",
+            "value": "0.01694 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           },
           {
             "field": "mean_candidate_launcher_prepare_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "0.07693 s",
+            "value": "0.1075 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           },
           {
             "field": "mean_candidate_runtime_patch_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "0.0008061 s",
+            "value": "0.0002621 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           },
           {
             "field": "mean_candidate_preparation_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "0.09332 s",
+            "value": "0.1247 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           },
           {
             "field": "mean_candidate_simulation_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "1.12 s",
+            "value": "0.3222 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           },
           {
             "field": "mean_candidate_output_selection_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "0.456 s",
+            "value": "0.3383 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           },
           {
             "field": "mean_candidate_objective_compute_time_seconds",
             "meaning": "Metric surfaced on the gallery page for the selected display method.",
-            "value": "0.0009383 s",
+            "value": "0.0005421 s",
             "source": "docs/readthedocs/source/_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6_summary.json"
           }
         ]

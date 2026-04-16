@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from validation_cases.calibration.plotting import (
+    _idw_grid,
+    _normalize_xy_for_interpolation,
     write_case_configuration_figure,
     write_case_method_figures,
     write_suite_figures,
@@ -535,3 +538,44 @@ def test_case_method_figures_use_reference_objective_samples_for_two_parameters(
     assert "objective_landscape" in figure_paths
     assert figure_paths["objective_trace"].is_file()
     assert figure_paths["objective_landscape"].is_file()
+
+
+def test_objective_landscape_interpolation_normalizes_anisotropic_parameter_axes() -> None:
+    xy = np.asarray(
+        [
+            [5.0e-5, 0.04],
+            [3.0e-4, 0.04],
+            [5.0e-5, 0.18],
+            [3.0e-4, 0.18],
+        ],
+        dtype=float,
+    )
+    values = np.asarray([0.0, 1.0, 0.0, 1.0], dtype=float)
+    grid_x = np.asarray([[1.0e-4, 2.5e-4]], dtype=float)
+    grid_y = np.asarray([[0.10, 0.10]], dtype=float)
+
+    raw_grid = _idw_grid(
+        xy=xy,
+        values=values,
+        grid_x=grid_x,
+        grid_y=grid_y,
+    )
+    normalized_xy, normalized_grid_x, normalized_grid_y = _normalize_xy_for_interpolation(
+        xy=xy,
+        grid_x=grid_x,
+        grid_y=grid_y,
+        bounds_x=(5.0e-5, 3.0e-4),
+        bounds_y=(0.04, 0.18),
+    )
+    normalized_grid = _idw_grid(
+        xy=normalized_xy,
+        values=values,
+        grid_x=normalized_grid_x,
+        grid_y=normalized_grid_y,
+    )
+
+    raw_contrast = float(abs(raw_grid[0, 1] - raw_grid[0, 0]))
+    normalized_contrast = float(abs(normalized_grid[0, 1] - normalized_grid[0, 0]))
+
+    assert raw_contrast < 1.0e-3
+    assert normalized_contrast > 0.4

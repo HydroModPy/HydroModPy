@@ -3,7 +3,7 @@
   "slug": "linearized_unconfined_hillslope_drainage_1d",
   "title": "Linearized Unconfined Hillslope Drainage 1D",
   "category": "validation",
-  "deck": "1D sloping-topography proxy benchmark for distributed drainage above land surface.",
+  "deck": "Steady synthetic groundwater-flow case used to validate one sloping-topography setup with distributed top drainage under the linearized unconfined model.",
   "summary": "Steady synthetic groundwater-flow case used to validate one sloping-topography setup with distributed top drainage under the linearized unconfined model.",
   "case_setup": [
     "geometry: quasi-1D strip (`50 x 5`, single layer for launcher-backed runs),",
@@ -12,7 +12,7 @@
     "west/east heads: `7.25 m` / `5.25 m`,",
     "drainage conductance: `1e-5 m2/s`,",
     "simulated observable: `watertable_elevation`.",
-    "Available solver variants: MODFLOW-NWT, MODFLOW 6."
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles."
   ],
   "key_parameters": [],
   "how_to_read": [],
@@ -46,20 +46,22 @@
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml",
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances_boussinesq.toml",
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6.toml",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6_irregular_tri.toml",
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
-    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/README.md": "35473049b1976c3829f69dd4e81ad29b07a637f95892bce024d781f60e726f72",
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/README.md": "97169685d282b92fcccca48057876832ace6937e99ba06fd63998b2902f5efe3",
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/reference.py": "84854fe667710e4353f0fc821315df0b21723dbef1fabffd4705bd1944676c20",
-    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/comparison.py": "102920a24e662c991835de4de09618bef93fc5a11a6a17b86d99621f9afc04fc",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/comparison.py": "064345fb8e1ab0afad2ed37037b60287e2f1e7fa4cdad3293319619c55966ebd",
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/plotting.py": "cd7e4793bb5ad4b945d6d61ac17484e3375c257b0af4a46ab1e46cb478d0871f",
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/run_case.py": "c2fafb34fc3862c481fb30e2a91082e38467a182242a552de31cee634f3901f3",
-    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml": "1da6a795246052d30e49f0535d0616d05304a54d266bf257fff1bf6900acb5ac",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml": "80dbf58e34eae8175d25d295e73a4b630a2549aa0d0ceb9e1b2212ffb93d5395",
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml": "c3c533d046117daff1c77706ad2acfcfdac0259a36cc54976fe17d855891738a",
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml": "5334f059c4c0d9d1ed244823d76249271a5366384aa57c557583de1c99ce0a13",
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances_boussinesq.toml": "9cb3b87fe76777b042e99d0da3b8d7e68d16033e08aa29603da9a24210494023",
     "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6.toml": "91d349932bd150784a0a7ab35ba7ce5a5a3d2ba4b763a39c1e06463bf40c7526",
+    "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6_irregular_tri.toml": "92960a0e6a8231c606f225951594a40f1ce3d11be43a28b360d4b7be7a9d229b",
     "validation_cases/analytical/transient/linearized_unconfined_1d.py": "87bd0c802ef3b86b88f5791b1ece5a70095f146920ffb3ad44aab32115921b00"
   },
   "docname": "cases/linearized_unconfined_hillslope_drainage_1d",
@@ -78,7 +80,8 @@
     "default_solver": "modflownwt",
     "solver_variants": [
       "modflownwt",
-      "modflow6"
+      "modflow6",
+      "modflow6_irregular_tri"
     ],
     "solver_details": {
       "modflownwt": {
@@ -92,24 +95,40 @@
         "config_path": "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6.toml",
         "expected_output": "Expected shape: 5 x 50",
         "tolerance_path": "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml"
+      },
+      "modflow6_irregular_tri": {
+        "display_name": "MODFLOW 6 irregular triangles",
+        "config_path": "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6_irregular_tri.toml",
+        "expected_output": "Expected shape: 5 x 50",
+        "tolerance_path": "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml"
       }
     },
     "regime": "steady",
     "dimension": "1d",
-    "inventory_reference": "linearized unconfined hillslope drainage",
+    "inventory_reference": "",
     "case_sheet": {
       "numerical_setup": "Homogeneous strip, fixed west/east heads, linear topography, distributed top drainage everywhere",
       "analytical_target": "Steady linearized unconfined solution with linear drainage elevation",
       "primary_metrics": "head-profile RMSE, max abs error, cross-row spread, minimum clearance above topography",
       "what_it_validates": "Sloping-topography drainage behavior without introducing a free seepage-face problem"
-    }
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "hillslope_1d",
+    "geometry_family_label": "Hillslope 1D",
+    "reference_type": "analytical_exact",
+    "reference_type_label": "Analytical Exact",
+    "validation_family": "steady_1d_boussinesq_topography_sloping_substratum",
+    "validation_family_label": "Steady 1D Boussinesq with Topography or Sloping Substratum",
+    "validation_family_order": 30
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d_summary.json",
     "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d_summary.json",
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflownwt.png",
-      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6.png"
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6_irregular_tri.png"
     ]
   },
   "solver_runs": [
@@ -147,7 +166,8 @@
           "base_config": "config_modflownwt.toml",
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
-            "modflow6": "config_modflow6.toml"
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml"
           },
           "workspace": {
             "results_folder_name": "results_simulations"
@@ -219,7 +239,8 @@
           "base_config": "config_modflownwt.toml",
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
-            "modflow6": "config_modflow6.toml"
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml"
           },
           "workspace": {
             "results_folder_name": "results_simulations"
@@ -254,6 +275,79 @@
           }
         },
         "comparison_solver": "modflow6",
+        "timestep": 0
+      }
+    },
+    {
+      "solver": "modflow6_irregular_tri",
+      "solver_display_name": "MODFLOW 6 irregular triangles",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6_irregular_tri.toml",
+      "tolerance_path": "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml",
+      "expected_output": "Expected shape: 5 x 50",
+      "command": "python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.run_case --no-show --solver modflow6_irregular_tri",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0125 m",
+        "Head-profile max abs error: 0.0350 m",
+        "Cross-row head spread: 8.88e-16 m",
+        "Min numerical clearance above topography: 0.0990 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_hillslope_drainage_1d__modflow6_irregular_tri.png",
+        "caption": "Linearized Unconfined Hillslope Drainage 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.",
+        "alt_text": "Linearized Unconfined Hillslope Drainage 1D validation figure for MODFLOW 6 irregular triangles",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6_irregular_tri.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6_irregular_tri.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "lu_hillslope_drainage_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              50
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "length_y_m": 10.0,
+            "west_head_m": 7.25,
+            "east_head_m": 5.25,
+            "topography_base_elevation_m": 5.0,
+            "topography_right_to_left_amplitude_m": 2.0,
+            "drainage_conductance_m2_per_s": 1e-05,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 30.0,
+            "aquifer_thickness_m": 30.0,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.08,
+            "max_abs_error": 0.12,
+            "row_spread": 2e-05
+          }
+        },
+        "comparison_solver": "modflow6_irregular_tri",
         "timestep": 0
       }
     }
@@ -531,7 +625,8 @@
           "value": "1",
           "source": "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6.toml"
         }
-      ]
+      ],
+      "modflow6_irregular_tri": []
     },
     "acceptance_criteria": {
       "common": [
@@ -576,6 +671,32 @@
           }
         ],
         "modflow6": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 50",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.08",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.12",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "2e-05",
+            "source": "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml"
+          }
+        ],
+        "modflow6_irregular_tri": [
           {
             "field": "expected_output",
             "meaning": "Expected output shape or time-space layout checked for this solver.",

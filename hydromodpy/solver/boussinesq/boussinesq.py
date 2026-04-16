@@ -102,6 +102,15 @@ class Boussinesq(Solver):
         self.saturation_excess_regularization_radius = (
             _DEFAULT_SATURATION_EXCESS_REGULARIZATION
         )
+        configured_regularization_radius = getattr(
+            flow,
+            "saturation_excess_regularization_radius",
+            None,
+        )
+        if configured_regularization_radius is not None:
+            self.saturation_excess_regularization_radius = float(
+                configured_regularization_radius
+            )
 
     def pre_processing(self):
         """Build the compact solver mesh and initialize static run metadata."""
@@ -213,6 +222,18 @@ class Boussinesq(Solver):
                 ),
                 imposed_head_edge_flux_history_m3_s=self._as_export_array(
                     self.state.imposed_head_edge_flux_history_m3_s
+                ),
+                prescribed_head_flux_m3_s=self._as_export_array(
+                    self.state.prescribed_head_flux_m3_s
+                ),
+                prescribed_head_flux_history_m3_s=self._as_export_array(
+                    self.state.prescribed_head_flux_history_m3_s
+                ),
+                prescribed_head_m_by_cell=self._as_export_array(
+                    self.state.prescribed_head_m_by_cell
+                ),
+                prescribed_head_history_m_by_cell=self._as_export_array(
+                    self.state.prescribed_head_history_m_by_cell
                 ),
                 drainage_flux_m3_s=self._as_export_array(self.state.drainage_flux_m3_s),
                 drainage_flux_history_m3_s=self._as_export_array(
@@ -663,6 +684,10 @@ class Boussinesq(Solver):
             nper,
             ocean_series_m=ocean_series_m,
         )
+        prescribed_heads_by_period = self._resolve_prescribed_head_by_period(
+            nper,
+            ocean_series_m=ocean_series_m,
+        )
         ocean_supported_cell_masks = self._ocean_supported_cell_masks_by_period(
             ocean_series_m,
             nper=nper,
@@ -691,13 +716,21 @@ class Boussinesq(Solver):
         imposed_head_edge_flux_history = [
             np.zeros(self.mesh.n_edges, dtype=float)
         ]
+        prescribed_head_flux_history = [
+            np.zeros(self.mesh.n_cells, dtype=float)
+        ]
+        prescribed_head_history = [
+            np.full(self.mesh.n_cells, np.nan, dtype=float)
+        ]
         drainage_flux_history = [
             np.zeros(self.mesh.n_cells, dtype=float)
         ]
         nonlinear_iterations: list[int] = []
         converged_by_period: list[bool] = []
         final_internal_flux = internal_edge_flux_from_head(self.mesh, head_prev)
-        final_imposed_head_flux = np.zeros(self.mesh.n_edges, dtype=float)
+        final_imposed_head_edge_flux = np.zeros(self.mesh.n_edges, dtype=float)
+        final_prescribed_head_flux = np.zeros(self.mesh.n_cells, dtype=float)
+        final_prescribed_head = np.full(self.mesh.n_cells, np.nan, dtype=float)
         final_drainage_flux = np.zeros(self.mesh.n_cells, dtype=float)
         final_recharge_rate = np.zeros(self.mesh.n_cells, dtype=float)
         final_well_flux = np.zeros(self.mesh.n_cells, dtype=float)
@@ -745,8 +778,16 @@ class Boussinesq(Solver):
                 step.assembly.internal_edge_flux_m3_s,
                 dtype=float,
             )
-            final_imposed_head_flux = np.asarray(
+            final_imposed_head_edge_flux = np.asarray(
                 step.assembly.imposed_head_edge_flux_m3_s,
+                dtype=float,
+            )
+            final_prescribed_head_flux = np.asarray(
+                step.assembly.prescribed_head_flux_m3_s,
+                dtype=float,
+            )
+            final_prescribed_head = np.asarray(
+                prescribed_heads_by_period[kper],
                 dtype=float,
             )
             final_drainage_flux = np.asarray(
@@ -772,7 +813,9 @@ class Boussinesq(Solver):
             recharge_rate_history.append(final_recharge_rate.copy())
             well_flux_history.append(final_well_flux.copy())
             internal_edge_flux_history.append(final_internal_flux.copy())
-            imposed_head_edge_flux_history.append(final_imposed_head_flux.copy())
+            imposed_head_edge_flux_history.append(final_imposed_head_edge_flux.copy())
+            prescribed_head_flux_history.append(final_prescribed_head_flux.copy())
+            prescribed_head_history.append(final_prescribed_head.copy())
             drainage_flux_history.append(final_drainage_flux.copy())
             if not step.converged:
                 # Keep the partial state on failure so the caller can inspect
@@ -794,9 +837,17 @@ class Boussinesq(Solver):
                     internal_edge_flux_history_m3_s=np.vstack(
                         internal_edge_flux_history
                     ),
-                    imposed_head_edge_flux_m3_s=final_imposed_head_flux.copy(),
+                    imposed_head_edge_flux_m3_s=final_imposed_head_edge_flux.copy(),
                     imposed_head_edge_flux_history_m3_s=np.vstack(
                         imposed_head_edge_flux_history
+                    ),
+                    prescribed_head_flux_m3_s=final_prescribed_head_flux.copy(),
+                    prescribed_head_flux_history_m3_s=np.vstack(
+                        prescribed_head_flux_history
+                    ),
+                    prescribed_head_m_by_cell=final_prescribed_head.copy(),
+                    prescribed_head_history_m_by_cell=np.vstack(
+                        prescribed_head_history
                     ),
                     drainage_flux_m3_s=final_drainage_flux.copy(),
                     drainage_flux_history_m3_s=np.vstack(drainage_flux_history),
@@ -837,9 +888,17 @@ class Boussinesq(Solver):
             saturation_excess_history_m_s=np.vstack(saturation_excess_history),
             internal_edge_flux_m3_s=final_internal_flux.copy(),
             internal_edge_flux_history_m3_s=np.vstack(internal_edge_flux_history),
-            imposed_head_edge_flux_m3_s=final_imposed_head_flux.copy(),
+            imposed_head_edge_flux_m3_s=final_imposed_head_edge_flux.copy(),
             imposed_head_edge_flux_history_m3_s=np.vstack(
                 imposed_head_edge_flux_history
+            ),
+            prescribed_head_flux_m3_s=final_prescribed_head_flux.copy(),
+            prescribed_head_flux_history_m3_s=np.vstack(
+                prescribed_head_flux_history
+            ),
+            prescribed_head_m_by_cell=final_prescribed_head.copy(),
+            prescribed_head_history_m_by_cell=np.vstack(
+                prescribed_head_history
             ),
             drainage_flux_m3_s=final_drainage_flux.copy(),
             drainage_flux_history_m3_s=np.vstack(drainage_flux_history),
@@ -889,6 +948,13 @@ class Boussinesq(Solver):
             )[0],
             dtype=float,
         )
+        prescribed_head_m_by_cell = np.asarray(
+            self._resolve_prescribed_head_by_period(
+                1,
+                ocean_series_m=ocean_series_m,
+            )[0],
+            dtype=float,
+        )
         ocean_supported_cell_mask = np.asarray(
             self._ocean_supported_cell_masks_by_period(ocean_series_m, nper=1)[0],
             dtype=bool,
@@ -916,6 +982,10 @@ class Boussinesq(Solver):
                 drainage_conductance_m2_s=drainage_conductance,
                 options=self._runtime_options(),
             )
+        )
+        imposed_head_edge_flux = np.asarray(
+            steady.assembly.imposed_head_edge_flux_m3_s,
+            dtype=float,
         )
         self.state = BoussinesqState(
             head_m=np.asarray(steady.head_m, dtype=float).copy(),
@@ -961,11 +1031,27 @@ class Boussinesq(Solver):
                 dtype=float,
             ),
             imposed_head_edge_flux_m3_s=np.asarray(
-                steady.assembly.imposed_head_edge_flux_m3_s,
+                imposed_head_edge_flux,
                 dtype=float,
             ).copy(),
             imposed_head_edge_flux_history_m3_s=np.asarray(
-                [steady.assembly.imposed_head_edge_flux_m3_s],
+                [imposed_head_edge_flux],
+                dtype=float,
+            ),
+            prescribed_head_flux_m3_s=np.asarray(
+                steady.assembly.prescribed_head_flux_m3_s,
+                dtype=float,
+            ).copy(),
+            prescribed_head_flux_history_m3_s=np.asarray(
+                [steady.assembly.prescribed_head_flux_m3_s],
+                dtype=float,
+            ),
+            prescribed_head_m_by_cell=np.asarray(
+                prescribed_head_m_by_cell,
+                dtype=float,
+            ).copy(),
+            prescribed_head_history_m_by_cell=np.asarray(
+                [prescribed_head_m_by_cell],
                 dtype=float,
             ),
             drainage_flux_m3_s=np.asarray(
@@ -1232,88 +1318,178 @@ class Boussinesq(Solver):
         *,
         ocean_series_m: np.ndarray | None = None,
     ) -> tuple[np.ndarray, ...]:
-        """Return one imposed-head edge vector per stress period.
-
-        The result is a tuple of edge-aligned arrays. Each array contains
-        ``NaN`` on edges without imposed head and a stage value on the edges
-        controlled by side, stream or ocean boundary conditions.
-        """
+        """Return one imposed-head edge vector per stress period for compatibility."""
         if self.mesh is None:
             raise RuntimeError("Mesh must be built before resolving imposed-head BCs.")
 
         period_vectors = [
             np.full(self.mesh.n_edges, np.nan, dtype=float) for _ in range(nper)
         ]
+        for kper, supports in enumerate(
+            self._resolved_dirichlet_supports_by_period(
+                nper,
+                ocean_series_m=ocean_series_m,
+            )
+        ):
+            for label, edge_indices, _, head_value in supports:
+                self._assign_imposed_head_edges(
+                    period_vectors[kper],
+                    edge_indices=edge_indices,
+                    head_value_m=head_value,
+                    label=label,
+                )
+        return tuple(period_vectors)
+
+    def _resolve_prescribed_head_by_period(
+        self,
+        nper: int,
+        *,
+        ocean_series_m: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, ...]:
+        """Return one prescribed-head cell vector per stress period."""
+        if self.mesh is None:
+            raise RuntimeError("Mesh must be built before resolving prescribed-head BCs.")
+
+        period_vectors = [
+            np.full(self.mesh.n_cells, np.nan, dtype=float) for _ in range(nper)
+        ]
+        for kper, supports in enumerate(
+            self._resolved_dirichlet_supports_by_period(
+                nper,
+                ocean_series_m=ocean_series_m,
+            )
+        ):
+            for label, _, cell_indices, head_value in supports:
+                self._assign_prescribed_head_cells(
+                    period_vectors[kper],
+                    cell_indices=cell_indices,
+                    head_value_m=head_value,
+                    label=label,
+                )
+        return tuple(period_vectors)
+
+    def _resolved_dirichlet_supports_by_period(
+        self,
+        nper: int,
+        *,
+        ocean_series_m: np.ndarray | None = None,
+    ) -> tuple[tuple[tuple[str, np.ndarray, np.ndarray, float], ...], ...]:
+        """Resolve all Dirichlet supports once, then reuse them across projections.
+
+        Each returned item is one stress period payload made of tuples:
+        ``(label, edge_indices, cell_indices, head_value_m)``.
+        """
+        if self.mesh is None:
+            raise RuntimeError("Mesh must be built before resolving Dirichlet BCs.")
+
+        supports_by_period: list[list[tuple[str, np.ndarray, np.ndarray, float]]] = [
+            [] for _ in range(int(nper))
+        ]
         boundary_conditions = self._boundary_conditions_mapping()
+
+        def append_support(
+            *,
+            label: str,
+            edge_indices: np.ndarray,
+            cell_indices: np.ndarray,
+            series: np.ndarray,
+        ) -> None:
+            for kper, head_value in enumerate(np.asarray(series, dtype=float).tolist()):
+                supports_by_period[kper].append(
+                    (
+                        label,
+                        np.asarray(edge_indices, dtype=int).copy(),
+                        np.asarray(cell_indices, dtype=int).copy(),
+                        float(head_value),
+                    )
+                )
+
         for bc_id in ("west_side", "east_side", "south_side", "north_side"):
             if not self._is_bc_active(bc_id):
                 continue
-            boundary = boundary_conditions.get(bc_id)
-            if boundary is None:
-                raise ValueError(f"Active boundary '{bc_id}' is missing from flow.bc.")
-            boundary_type = str(getattr(boundary, "type", "dirichlet")).strip().lower()
-            if boundary_type != "dirichlet":
-                raise ValueError(
-                    f"Boundary '{bc_id}' must be Dirichlet for the current "
-                    "boussinesq backend slice."
-                )
+            boundary = self._require_active_dirichlet_boundary(
+                boundary_conditions=boundary_conditions,
+                bc_id=bc_id,
+            )
             edge_indices = self.mesh.boundary_edge_indices_for_side(bc_id)
             if edge_indices.size == 0:
                 raise ValueError(
                     f"Boundary '{bc_id}' is active but no matching boundary edge was found."
                 )
-            series = self._boundary_value_series(
-                boundary=boundary,
-                bc_id=bc_id,
-                nper=nper,
-            )
-            for kper, head_value in enumerate(series.tolist()):
-                self._assign_imposed_head_edges(
-                    period_vectors[kper],
-                    edge_indices=edge_indices,
-                    head_value_m=float(head_value),
-                    label=f"flow.bc.{bc_id}",
+            cell_indices = self.mesh.boundary_cell_indices_for_side(bc_id)
+            if cell_indices.size == 0:
+                raise ValueError(
+                    f"Boundary '{bc_id}' is active but no matching boundary cell was found."
                 )
+            append_support(
+                label=f"flow.bc.{bc_id}",
+                edge_indices=edge_indices,
+                cell_indices=cell_indices,
+                series=self._boundary_value_series(
+                    boundary=boundary,
+                    bc_id=bc_id,
+                    nper=nper,
+                ),
+            )
 
         if self._is_bc_active("stream"):
-            boundary = boundary_conditions.get("stream")
-            if boundary is None:
-                raise ValueError("Active boundary 'stream' is missing from flow.bc.")
-            boundary_type = str(getattr(boundary, "type", "dirichlet")).strip().lower()
-            if boundary_type != "dirichlet":
-                raise ValueError(
-                    "Boundary 'stream' must be Dirichlet for the current "
-                    "boussinesq backend slice."
-                )
+            boundary = self._require_active_dirichlet_boundary(
+                boundary_conditions=boundary_conditions,
+                bc_id="stream",
+            )
             edge_indices = self.mesh.river_edge_indices()
             if edge_indices.size == 0:
                 raise ValueError(
                     "Boundary 'stream' is active but no edge is tagged is_river in the mesh bundle."
                 )
-            series = self._boundary_value_series(
-                boundary=boundary,
-                bc_id="stream",
-                nper=nper,
+            cell_indices = self.mesh.river_cell_indices()
+            if cell_indices.size == 0:
+                raise ValueError(
+                    "Boundary 'stream' is active but no cell is tagged by river support in the mesh bundle."
+                )
+            append_support(
+                label="flow.bc.stream",
+                edge_indices=edge_indices,
+                cell_indices=cell_indices,
+                series=self._boundary_value_series(
+                    boundary=boundary,
+                    bc_id="stream",
+                    nper=nper,
+                ),
             )
-            for kper, head_value in enumerate(series.tolist()):
-                self._assign_imposed_head_edges(
-                    period_vectors[kper],
-                    edge_indices=edge_indices,
-                    head_value_m=float(head_value),
-                    label="flow.bc.stream",
-                )
-        if ocean_series_m is not None and ocean_series_m.size > 0:
-            # Ocean support depends on the stage itself because only coastal
-            # cells below the stage are considered active.
+
+        if ocean_series_m is not None and np.asarray(ocean_series_m, dtype=float).size > 0:
             for kper, head_value in enumerate(np.asarray(ocean_series_m, dtype=float).tolist()):
-                edge_indices = self._ocean_support_edge_indices(float(head_value))
-                self._assign_imposed_head_edges(
-                    period_vectors[kper],
-                    edge_indices=edge_indices,
-                    head_value_m=float(head_value),
-                    label="flow.bc.ocean",
+                supports_by_period[kper].append(
+                    (
+                        "flow.bc.ocean",
+                        self._ocean_support_edge_indices(float(head_value)),
+                        np.flatnonzero(
+                            self._ocean_supported_cell_mask(float(head_value))
+                        ).astype(int, copy=False),
+                        float(head_value),
+                    )
                 )
-        return tuple(period_vectors)
+
+        return tuple(tuple(period_supports) for period_supports in supports_by_period)
+
+    @staticmethod
+    def _require_active_dirichlet_boundary(
+        *,
+        boundary_conditions: Mapping[str, object],
+        bc_id: str,
+    ) -> object:
+        """Return one active boundary object after validating Dirichlet semantics."""
+        boundary = boundary_conditions.get(bc_id)
+        if boundary is None:
+            raise ValueError(f"Active boundary '{bc_id}' is missing from flow.bc.")
+        boundary_type = str(getattr(boundary, "type", "dirichlet")).strip().lower()
+        if boundary_type != "dirichlet":
+            raise ValueError(
+                f"Boundary '{bc_id}' must be Dirichlet for the current "
+                "boussinesq backend slice."
+            )
+        return boundary
 
     def _resolve_ocean_series(self, nper: int) -> np.ndarray | None:
         """Resolve the ocean stage series when the ocean boundary is active."""
@@ -1488,6 +1664,34 @@ class Boussinesq(Solver):
         )
 
     @staticmethod
+    def _assign_prescribed_head_cells(
+        cell_values_m: np.ndarray,
+        *,
+        cell_indices: np.ndarray,
+        head_value_m: float,
+        label: str,
+    ) -> None:
+        """Assign one prescribed head to a set of cells with overlap checks.
+
+        Overlap is allowed only when the overlapping conditions prescribe the
+        same value, which keeps corner cases deterministic.
+        """
+        candidate = float(head_value_m)
+        for cell_index in np.asarray(cell_indices, dtype=int).tolist():
+            previous = float(cell_values_m[cell_index])
+            if np.isfinite(previous) and not np.isclose(
+                previous,
+                candidate,
+                rtol=0.0,
+                atol=1.0e-12,
+            ):
+                raise ValueError(
+                    f"{label} overlaps another prescribed-head BC on cell {cell_index} "
+                    f"with conflicting values ({previous} vs {candidate})."
+                )
+            cell_values_m[cell_index] = candidate
+
+    @staticmethod
     def _assign_imposed_head_edges(
         edge_values_m: np.ndarray,
         *,
@@ -1495,11 +1699,7 @@ class Boussinesq(Solver):
         head_value_m: float,
         label: str,
     ) -> None:
-        """Assign one imposed head to a set of edges with overlap checks.
-
-        Overlap is allowed only when the overlapping conditions prescribe the
-        same value, which keeps corner cases deterministic.
-        """
+        """Assign one imposed head to a set of edges with overlap checks."""
         candidate = float(head_value_m)
         for edge_index in np.asarray(edge_indices, dtype=int).tolist():
             previous = float(edge_values_m[edge_index])

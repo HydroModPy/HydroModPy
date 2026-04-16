@@ -22,6 +22,38 @@ def _write_csv(path: Path, header: str, rows: list[str]) -> None:
     path.write_text(header + "\n" + "\n".join(rows) + "\n", encoding="utf-8")
 
 
+def _load_bundle_cell_centroids(bundle_dir: Path) -> tuple[np.ndarray, np.ndarray]:
+    cells = np.genfromtxt(
+        bundle_dir / "cells.csv",
+        delimiter=",",
+        names=True,
+        dtype=None,
+        encoding="utf-8",
+    )
+    return (
+        np.asarray(cells["centroid_x"], dtype=float).reshape(-1),
+        np.asarray(cells["centroid_y"], dtype=float).reshape(-1),
+    )
+
+
+def _load_bundle_xy_extents(bundle_dir: Path) -> tuple[float, float, float, float]:
+    nodes = np.genfromtxt(
+        bundle_dir / "nodes.csv",
+        delimiter=",",
+        names=True,
+        dtype=None,
+        encoding="utf-8",
+    )
+    x_values = np.asarray(nodes["x"], dtype=float).reshape(-1)
+    y_values = np.asarray(nodes["y"], dtype=float).reshape(-1)
+    return (
+        float(np.min(x_values)),
+        float(np.max(x_values)),
+        float(np.min(y_values)),
+        float(np.max(y_values)),
+    )
+
+
 def _polygon_area(vertices: np.ndarray) -> float:
     coords = np.asarray(vertices, dtype=float)
     x_values = coords[:, 0]
@@ -297,4 +329,62 @@ def write_irregular_strip_bundle(
     return bundle_dir
 
 
-__all__ = ["write_irregular_strip_bundle"]
+def interpolate_bundle_history_to_structured_grids(
+    values: np.ndarray,
+    *,
+    bundle_dir: Path,
+    nx: int,
+    ny: int,
+    x_min_m: float | None = None,
+    x_max_m: float | None = None,
+    y_min_m: float | None = None,
+    y_max_m: float | None = None,
+) -> np.ndarray:
+    """Project one time-cell history onto a regular ``ny x nx`` validation grid.
+
+    The projection uses nearest-cell assignment from the irregular triangle
+    centroids onto the structured cell centers. This is intentionally the same
+    light-touch reduction used by the transient sloping-hillslope investigation
+    utilities.
+    """
+
+    history = np.asarray(values, dtype=float)
+    if history.ndim == 1:
+        history = history.reshape(1, -1)
+    if history.ndim != 2:
+        raise ValueError("Bundle interpolation expects a time-cell history array.")
+
+    centroid_x, centroid_y = _load_bundle_cell_centroids(Path(bundle_dir))
+    if history.shape[1] != centroid_x.size:
+        raise ValueError(
+            f"History cell count {history.shape[1]} does not match bundle cell count {centroid_x.size}."
+        )
+
+    inferred_x_min_m, inferred_x_max_m, inferred_y_min_m, inferred_y_max_m = _load_bundle_xy_extents(
+        Path(bundle_dir)
+    )
+    x_min = inferred_x_min_m if x_min_m is None else float(x_min_m)
+    x_max = inferred_x_max_m if x_max_m is None else float(x_max_m)
+    y_min = inferred_y_min_m if y_min_m is None else float(y_min_m)
+    y_max = inferred_y_max_m if y_max_m is None else float(y_max_m)
+
+    dx = (x_max - x_min) / float(nx)
+    dy = (y_max - y_min) / float(ny)
+    x_centers = x_min + (np.arange(int(nx), dtype=float) + 0.5) * dx
+    y_centers = y_min + (np.arange(int(ny), dtype=float) + 0.5) * dy
+
+    nearest_indices = np.zeros((int(ny), int(nx)), dtype=int)
+    for row_idx, y_center in enumerate(y_centers):
+        for col_idx, x_center in enumerate(x_centers):
+            squared_distance = (centroid_x - float(x_center)) ** 2 + (
+                centroid_y - float(y_center)
+            ) ** 2
+            nearest_indices[row_idx, col_idx] = int(np.argmin(squared_distance))
+
+    return history[:, nearest_indices].reshape(history.shape[0], int(ny), int(nx))
+
+
+__all__ = [
+    "interpolate_bundle_history_to_structured_grids",
+    "write_irregular_strip_bundle",
+]

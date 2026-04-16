@@ -132,7 +132,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--solver",
-        choices=("modflownwt", "modflow6", "boussinesq"),
+        choices=("modflownwt", "modflow6", "modflow6_irregular_tri", "boussinesq"),
         required=True,
         help="Solver variant to pass to each compatible validation case.",
     )

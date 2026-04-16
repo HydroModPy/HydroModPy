@@ -14,14 +14,67 @@ These cases show how HydroModPy validates numerical behaviour against lightweigh
 Current Coverage
 ----------------
 
-- Solver variants discovered: MODFLOW-NWT (18), MODFLOW 6 (18), Boussinesq (18).
+- Process families populated today: Flow (23).
+- Benchmark families: Core 1D Dupuit Baselines (3), Steady 1D Boussinesq with Heterogeneous Conductivity (3), Steady 1D Boussinesq with Topography or Sloping Substratum (6), Steady 2D Radial or Island Cases (2), Transient 1D Boundary or Recharge Forcing (5), Transient 1D Recession or Interception Dynamics (3), Transient 2D Radial Response (1).
+- Reference styles: Analytical Exact (10), Analytical Series (11), Semi-Analytical / Diagnostic (2).
+- Solver variants discovered: MODFLOW-NWT (21), MODFLOW 6 (21), MODFLOW 6 irregular triangles (11), Boussinesq (21).
 
 Latest Batch Reports
 --------------------
 
-- MODFLOW-NWT: 16/16 cases passed on 2026-03-25T01:08:23.198947+00:00 (201.5 s), report ``validation_cases/reports/latest/modflownwt_both.json``.
-- MODFLOW 6: 16/16 cases passed on 2026-03-25T01:12:15.031190+00:00 (227.2 s), report ``validation_cases/reports/latest/modflow6_both.json``.
-- Boussinesq: 16/16 cases passed on 2026-03-25T01:15:21.022580+00:00 (181.1 s), report ``validation_cases/reports/latest/boussinesq_both.json``.
+- MODFLOW-NWT: 21/21 cases passed on 2026-04-16T08:54:11.565685+00:00 (432.6 s), report ``validation_cases/reports/latest/modflownwt_both.json``.
+- MODFLOW 6: 8/21 cases failed on 2026-04-16T09:01:01.585660+00:00 (401.6 s), report ``validation_cases/reports/latest/modflow6_both.json``.
+- MODFLOW 6 irregular triangles: 0/5 cases failed on 2026-04-16T09:02:40.473714+00:00 (92.3 s), report ``validation_cases/reports/latest/modflow6_irregular_tri_both.json``.
+- Boussinesq: 0/21 cases failed on 2026-04-16T09:08:13.759388+00:00 (327.5 s), report ``validation_cases/reports/latest/boussinesq_both.json``.
+
+Grouped Benchmarks
+------------------
+
+The landing page is grouped by process family first, then by benchmark family.
+This keeps the current flow benchmarks readable and leaves room for future transport and particle-tracking validations.
+
+Flow
+~~~~
+
+Core 1D Dupuit Baselines
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+3 cases in this family.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/dupuit_divide_river_1d
+      :link-type: doc
+
+      **Dupuit Divide-River 1D**
+      ^^^
+      Steady synthetic groundwater-flow case used to validate the launcher workflow against the Dupuit analytical profile for a homogeneous unconfined aquifer with:
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/dupuit_fixed_head_1d
+      :link-type: doc
+
+      **Dupuit Fixed-Head 1D**
+      ^^^
+      Steady synthetic groundwater-flow case used to validate the launcher workflow against the Dupuit analytical profile for an unconfined aquifer with fixed heads at both ends.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/dupuit_uniform_recharge_1d
+      :link-type: doc
+
+      **Dupuit Uniform Recharge 1D**
+      ^^^
+      Steady synthetic groundwater-flow case used to validate the launcher workflow against the Dupuit analytical profile for a homogeneous unconfined aquifer with uniform recharge and fixed heads at both ends.
+
+Steady 1D Boussinesq with Heterogeneous Conductivity
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+3 cases in this family.
 
 .. grid:: 1 1 2 2
    :gutter: 2 2 3 3
@@ -33,7 +86,7 @@ Latest Batch Reports
 
       **Boussinesq Divide-Fixed-Head Piecewise-K 1D**
       ^^^
-      1D west-divide benchmark without geology dependencies.
+      Steady synthetic groundwater-flow case used to validate the launcher workflow against the exact 1D Boussinesq solution written on `U = h^2` for an unconfined aquifer with:
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -42,16 +95,7 @@ Latest Batch Reports
 
       **Boussinesq Fixed-Head Piecewise-K 1D**
       ^^^
-      1D heterogeneous benchmark with exact `h^2` profile and conductivity jumps.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: cases/boussinesq_hillslope_interception_1d
-      :link-type: doc
-
-      **Boussinesq Hillslope Interception 1D**
-      ^^^
-      1D sloping-topography benchmark for emergence position and dry-zone profile on the dense in-house runtime.
+      Steady synthetic groundwater-flow case used to validate the launcher workflow against the exact 1D Boussinesq solution written on `U = h^2` for an unconfined aquifer with:
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -60,34 +104,51 @@ Latest Batch Reports
 
       **Boussinesq Uniform-Recharge Piecewise-K 1D**
       ^^^
-      1D recharge benchmark with exact piecewise-constant `K` reference.
+      Steady synthetic groundwater-flow case used to validate the launcher workflow against the exact 1D Boussinesq solution written on `U = h^2` for an unconfined aquifer with:
+
+Steady 1D Boussinesq with Topography or Sloping Substratum
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+6 cases in this family.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: cases/dupuit_divide_river_1d
+      :link: cases/boussinesq_hillslope_interception_1d
       :link-type: doc
 
-      **Dupuit Divide-River 1D**
+      **Boussinesq Hillslope Interception 1D**
       ^^^
-      1D recharge benchmark with west divide and east river head.
+      Steady synthetic groundwater-flow case used to validate the dense local `flow/boussinesq` runtime on a sloping hillslope where the water table reaches the land surface near the outlet.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: cases/dupuit_fixed_head_1d
+      :link: cases/boussinesq_sloping_substratum_constant_thickness_1d
       :link-type: doc
 
-      **Dupuit Fixed-Head 1D**
+      **Boussinesq Sloping-Substratum Constant-Thickness 1D**
       ^^^
-      Baseline 1D unconfined profile between two imposed heads.
+      Steady synthetic groundwater-flow case used to validate the handling of one sloping impermeable bottom on the simplest exact Boussinesq profile.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: cases/dupuit_uniform_recharge_1d
+      :link: cases/boussinesq_sloping_substratum_fixed_head_1d
       :link-type: doc
 
-      **Dupuit Uniform Recharge 1D**
+      **Boussinesq Sloping-Substratum Fixed-Head 1D**
       ^^^
-      1D recharge benchmark with fixed heads on both sides.
+      Steady synthetic groundwater-flow case used to validate one sloping substratum profile beyond the trivial constant-thickness solution.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/boussinesq_sloping_substratum_uniform_recharge_1d
+      :link-type: doc
+
+      **Boussinesq Sloping-Substratum Uniform-Recharge 1D**
+      ^^^
+      Steady synthetic groundwater-flow case used to validate one sloping substratum profile under uniform recharge.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -96,7 +157,7 @@ Latest Batch Reports
 
       **Linearized Unconfined Drainage 1D**
       ^^^
-      1D equilibrium benchmark for the top-drainage boundary condition.
+      Steady synthetic groundwater-flow case used to validate HydroModPy's top drainage boundary condition against a closed-form linearized 1D reference with:
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -105,7 +166,15 @@ Latest Batch Reports
 
       **Linearized Unconfined Hillslope Drainage 1D**
       ^^^
-      1D sloping-topography proxy benchmark for distributed drainage above land surface.
+      Steady synthetic groundwater-flow case used to validate one sloping-topography setup with distributed top drainage under the linearized unconfined model.
+
+Steady 2D Radial or Island Cases
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+2 cases in this family.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -114,7 +183,7 @@ Latest Batch Reports
 
       **Boussinesq Circular-Island Piecewise-K 2D**
       ^^^
-      2D circular-island benchmark with concentric heterogeneous conductivity.
+      Steady synthetic groundwater-flow case used to validate the launcher workflow against the axisymmetric Dupuit-Boussinesq solution for a circular island with:
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -123,34 +192,15 @@ Latest Batch Reports
 
       **Dupuit Circular-Island Ocean 2D**
       ^^^
-      2D circular-island benchmark using the `ocean` boundary condition.
+      Steady synthetic groundwater-flow case used to validate the launcher workflow against the axisymmetric Dupuit-Boussinesq solution for a circular island with:
 
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: cases/boussinesq_hillslope_recharge_step_interception_1d
-      :link-type: doc
+Transient 1D Boundary or Recharge Forcing
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-      **Boussinesq Hillslope Recharge-Step Interception 1D**
-      ^^^
-      1D sloping-topography benchmark for transient interception onset on the dense in-house Boussinesq runtime.
+5 cases in this family.
 
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: cases/brutsaert_recession_boussinesq_thin_1d
-      :link-type: doc
-
-      **Brutsaert Recession Validation: Thin Nonlinear Aquifer**
-      ^^^
-      1D outlet-discharge benchmark for thin-aquifer nonlinear recession across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq backend.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: cases/brutsaert_recession_linearized_deep_1d
-      :link-type: doc
-
-      **Brutsaert Recession Validation: Deep Linearized Aquifer**
-      ^^^
-      1D outlet-discharge benchmark for deep-aquifer recession across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq backend.
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -159,7 +209,7 @@ Latest Batch Reports
 
       **Linearized Unconfined Boundary Piecewise 1D**
       ^^^
-      1D multi-step west-boundary benchmark using CSV forcing.
+      Transient synthetic groundwater-flow case used to validate the launcher workflow against the linearized unconfined analytical response for:
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -168,7 +218,7 @@ Latest Batch Reports
 
       **Linearized Unconfined 1D Boundary Step**
       ^^^
-      1D west-boundary step benchmark with fixed east head.
+      This case validates the transient linearized Boussinesq-Dupuit response of an unconfined 1D aquifer submitted to a west-boundary head step at `t = 0`.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -177,7 +227,7 @@ Latest Batch Reports
 
       **Linearized Unconfined 1D Periodic Recharge**
       ^^^
-      1D sinusoidal recharge benchmark.
+      This case validates the transient linearized Boussinesq-Dupuit response of an unconfined 1D aquifer submitted to a sinusoidal recharge forcing.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -186,7 +236,7 @@ Latest Batch Reports
 
       **Linearized Unconfined 1D Recharge Step**
       ^^^
-      1D recharge-step benchmark under equal fixed heads.
+      This case validates the transient linearized Boussinesq-Dupuit response of an unconfined 1D aquifer submitted to a recharge step at `t = 0`.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -195,7 +245,50 @@ Latest Batch Reports
 
       **Linearized Unconfined 1D Recharge Step (Deep Aquifer)**
       ^^^
-      1D recharge-step benchmark with a much deeper reference thickness to reduce linearization error.
+      Variant of the recharge-step transient benchmark with a deeper aquifer, so the linearization error remains smaller for the same recharge forcing.
+
+Transient 1D Recession or Interception Dynamics
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+3 cases in this family.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/boussinesq_hillslope_recharge_step_interception_1d
+      :link-type: doc
+
+      **Boussinesq Hillslope Recharge-Step Interception 1D**
+      ^^^
+      Transient synthetic groundwater-flow case used to validate the dense in-house `flow/boussinesq` runtime on a sloping hillslope where a recharge step causes an interception zone to appear progressively from the outlet toward the divide.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/brutsaert_recession_boussinesq_thin_1d
+      :link-type: doc
+
+      **Brutsaert Recession Validation: Thin Nonlinear Aquifer**
+      ^^^
+      This transient validation case checks that the available `modflownwt`, `modflow6`, and local `boussinesq` backends reproduce the nonlinear Brutsaert recession law on a thin aquifer.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/brutsaert_recession_linearized_deep_1d
+      :link-type: doc
+
+      **Brutsaert Recession Validation: Deep Linearized Aquifer**
+      ^^^
+      This transient validation case checks that the available `modflownwt`, `modflow6`, and local `boussinesq` backends reproduce the linearized Brutsaert recession law on a deep aquifer.
+
+Transient 2D Radial Response
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+1 case in this family.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -204,7 +297,7 @@ Latest Batch Reports
 
       **Late-Time Unconfined Pumping 2D**
       ^^^
-      2D radial pumping benchmark in the late-time unconfined regime.
+      This `v1` case validates one transient non-confined pumping response in a pragmatic way.
 
 .. toctree::
    :hidden:
@@ -213,6 +306,9 @@ Latest Batch Reports
    cases/boussinesq_divide_fixed_head_piecewise_k_1d
    cases/boussinesq_fixed_head_piecewise_k_1d
    cases/boussinesq_hillslope_interception_1d
+   cases/boussinesq_sloping_substratum_constant_thickness_1d
+   cases/boussinesq_sloping_substratum_fixed_head_1d
+   cases/boussinesq_sloping_substratum_uniform_recharge_1d
    cases/boussinesq_uniform_recharge_piecewise_k_1d
    cases/dupuit_divide_river_1d
    cases/dupuit_fixed_head_1d

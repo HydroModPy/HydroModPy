@@ -236,6 +236,14 @@ hmp test regression --fast
 hmp test validation --fast
 ```
 
+Platform note:
+
+- Most tests are intended to run on both Windows and Linux.
+- Some validation tests target the PETSc Boussinesq backend and are Linux-only
+  by design; on Windows they are skipped, not failed.
+- The Linux smoke commands used in CI are `bash tools/ci/run_boussinesq_linux_smoke.sh`
+  and `bash tools/ci/run_boussinesq_petsc_smoke.sh`.
+
 For the detailed validation workflow, available analytical cases, and guidance
 to add a new benchmark, see:
 

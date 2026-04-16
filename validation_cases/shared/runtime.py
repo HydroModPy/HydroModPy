@@ -95,6 +95,9 @@ _VALIDATION_PROFILES_BY_SOLVER_AND_CASE: dict[str, dict[str, str]] = {
     "modflownwt": {
         "boussinesq_fixed_head_piecewise_k_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
         "boussinesq_uniform_recharge_piecewise_k_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
+        "boussinesq_sloping_substratum_constant_thickness_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
+        "boussinesq_sloping_substratum_fixed_head_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
+        "boussinesq_sloping_substratum_uniform_recharge_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
         "brutsaert_recession_linearized_deep_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
         "brutsaert_recession_boussinesq_thin_1d": _NWT_VALIDATION_PROFILE_COMPLEX,
         "dupuit_divide_river_1d": _NWT_VALIDATION_PROFILE_COMPLEX,
@@ -474,7 +477,7 @@ def _build_validation_launcher_config(
     # Inject a stable run_id so the model folder name is predictable
     # (derived from case_dir name + solver) instead of the temp TOML filename.
     case_id = str(metadata.get("case_id", case_dir.name))
-    stable_run_id = f"{case_id}_{solver_name}"
+    stable_run_id = _short_validation_name(f"{case_id}_{solver_name}", max_length=48)
     sim_section = merged_payload.setdefault("simulation", {})
     if not sim_section.get("run_id"):
         sim_section["run_id"] = stable_run_id

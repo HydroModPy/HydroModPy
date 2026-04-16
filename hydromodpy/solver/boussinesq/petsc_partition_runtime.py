@@ -63,6 +63,7 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
             recharge_rate_m_s=inputs.recharge_rate_m_s,
             well_flux_m3_s=inputs.well_flux_m3_s,
             imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+            prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
             drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
             regularization_radius=float(options.regularization_radius),
         )
@@ -75,6 +76,7 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
         surface_input_rate_m_s=inputs.recharge_rate_m_s,
         regularization_radius=float(options.regularization_radius),
         imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
         max_iterations=int(options.max_iterations),
         tol_residual_inf=float(options.tol_residual_inf),
@@ -97,6 +99,7 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
             recharge_rate_m_s=inputs.recharge_rate_m_s,
             well_flux_m3_s=inputs.well_flux_m3_s,
             imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+            prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
             drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
             regularization_radius=float(options.regularization_radius),
         )
@@ -109,6 +112,7 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
         surface_input_rate_m_s=inputs.recharge_rate_m_s,
         regularization_radius=float(options.regularization_radius),
         imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
         max_iterations=int(options.max_iterations),
         tol_residual_inf=float(options.tol_residual_inf),
@@ -125,6 +129,7 @@ def _solve_nonlinear_system(
     surface_input_rate_m_s: np.ndarray | float | None,
     regularization_radius: float,
     imposed_head_m_by_edge: np.ndarray | None,
+    prescribed_head_m_by_cell: np.ndarray | None,
     drainage_conductance_m2_s: np.ndarray | float | None,
     max_iterations: int,
     tol_residual_inf: float,
@@ -170,6 +175,7 @@ def _solve_nonlinear_system(
             surface_input_rate_m_s=surface_input_rate_m_s,
             regularization_radius=regularization_radius,
             imposed_head_m_by_edge=imposed_head_m_by_edge,
+            prescribed_head_m_by_cell=prescribed_head_m_by_cell,
             drainage_conductance_m2_s=drainage_conductance_m2_s,
         )
         indptr, indices, values = _coo_to_csr(
@@ -251,6 +257,7 @@ def _build_sparse_jacobian_triplets(
     surface_input_rate_m_s: np.ndarray | float | None,
     regularization_radius: float,
     imposed_head_m_by_edge: np.ndarray | None,
+    prescribed_head_m_by_cell: np.ndarray | None,
     drainage_conductance_m2_s: np.ndarray | float | None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Build the sparse Jacobian used by the PETSc partition runtime."""
@@ -261,6 +268,7 @@ def _build_sparse_jacobian_triplets(
         regularization_radius=regularization_radius,
         surface_input_rate_m_s=surface_input_rate_m_s,
         imposed_head_m_by_edge=imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
         drainage_conductance_m2_s=drainage_conductance_m2_s,
     )
 

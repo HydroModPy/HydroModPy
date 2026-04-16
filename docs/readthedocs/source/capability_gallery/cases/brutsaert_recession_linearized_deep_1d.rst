@@ -94,10 +94,10 @@ Solver Coverage
 
       **Metrics**
       - Solution: exponential
-      - Initial discharge: 2.778198e-04 m3/s
+      - Initial discharge: 2.743475e-04 m3/s
       - Characteristic time: 15.01 d
-      - Relative RMSE: 0.0211
-      - Relative max abs error: 0.0399
+      - Relative RMSE: 0.0220
+      - Relative max abs error: 0.0421
       - Cross-row head spread: 6.88e-09 m
 
       - Config file: ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_boussinesq.toml``

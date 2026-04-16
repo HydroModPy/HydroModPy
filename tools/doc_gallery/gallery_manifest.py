@@ -11,8 +11,6 @@ from .mesh_case_registry import (
     iter_mesh_case_json_paths,
     load_mesh_case_metadata,
 )
-from .calibration_case_registry import build_calibration_case_records
-from .validation_case_registry import build_validation_case_records
 
 
 Formatter = Callable[[Any], str]
@@ -162,6 +160,18 @@ CATEGORY_SPECS: dict[str, GalleryCategorySpec] = {
         intro=(
             "These cases compare multiple modelling methods on the same saved support. "
             "The figures stay lightweight enough for the docs while still exposing map-wide errors."
+        ),
+        guide_doc="getting_started/reading-results-pages",
+        guide_title="How to read gallery, comparison, and validation pages",
+    ),
+    "code_comparison": GalleryCategorySpec(
+        slug="code_comparison",
+        title="Code Comparison",
+        deck="Synthetic solver-to-solver benchmarks with no analytical truth claim.",
+        intro=(
+            "These pages compare code families on the same controlled synthetic setups. "
+            "They focus on flux partitioning, storage response, and boundary-condition behaviour "
+            "when the goal is cross-code diagnosis rather than validation against an analytical reference."
         ),
         guide_doc="getting_started/reading-results-pages",
         guide_title="How to read gallery, comparison, and validation pages",
@@ -418,6 +428,8 @@ def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSp
 
 def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
     """Return the v1 illustrated-gallery inventory."""
+    from .calibration_case_registry import build_calibration_case_records
+    from .validation_case_registry import build_validation_case_records
 
     static_specs = (
         GalleryCaseSpec(
@@ -1297,6 +1309,175 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
                 "comparison_config_path": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
                 "study_area": "Naizin catchment",
                 "focus_variant_id": "boussinesq_reused_gmsh",
+            },
+        ),
+        GalleryCaseSpec(
+            slug="surface_interaction_ramp_code_comparison",
+            title="Surface-Interaction Ramp Code Comparison",
+            category="code_comparison",
+            deck="Cross-code benchmark on one sloping strip with recharge ramp, dry recovery, drainage, and one fixed east head.",
+            summary=(
+                "This page compares MODFLOW and Boussinesq families on the same synthetic hillslope under a progressive recharge ramp, "
+                "followed by dry recovery. The committed variants emphasize how total outflow and storage change evolve when conductivity "
+                "stays at the reference level or is increased by a factor of eight."
+            ),
+            what_it_shows=(
+                "How total outflow aligns or diverges across solver families on the same transient forcing.",
+                "How storage change reacts when conductivity increases while the geometry and forcing stay fixed.",
+                "How Boussinesq partition and complementarity compare with MODFLOW-style drainage responses on the ramp benchmark.",
+            ),
+            reproduction_command="python tools/doc_gallery/generate_code_comparison_assets.py",
+            source_paths=(
+                "tools/investigate_surface_interaction_hillslope_transient.py",
+                "tools/doc_gallery/generate_code_comparison_assets.py",
+                "validation_cases/shared/boussinesq_budget.py",
+                "out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/timeseries.csv",
+                "out/sih_tx_4cmp_linux_kx8_20260415/timeseries.csv",
+                "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.png",
+                "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.json",
+                "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.png",
+                "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.json",
+            ),
+            generator="copy_assets",
+            image_assets=(
+                GalleryImageAsset(
+                    filename="ramp_reference_k.png",
+                    caption="Reference-conductivity ramp benchmark: total outflow and storage change across the six committed methods.",
+                    alt_text="Reference conductivity recharge-ramp code comparison",
+                    source_path="examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.png",
+                ),
+                GalleryImageAsset(
+                    filename="ramp_high_k.png",
+                    caption="High-conductivity ramp benchmark: same forcing with hydraulic conductivity multiplied by eight.",
+                    alt_text="High conductivity recharge-ramp code comparison",
+                    source_path="examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.png",
+                ),
+            ),
+            case_setup=(
+                "Synthetic strip aquifer, 400 m long and 30 m wide, with one linear topographic slope toward the east outlet.",
+                "One fixed head on the east side, west divide, top drainage, and recharge prescribed as a yearly ramp then one dry year.",
+                "Budget terms are reconstructed on one free-cell control volume for the Boussinesq runs, so east-boundary exchange is measured on the interior interface to prescribed cells.",
+            ),
+            key_parameters=(
+                "Reference case: hydraulic conductivity scale = 0.2x the baseline strip conductivity.",
+                "High-K case: hydraulic conductivity scale = 1.6x, i.e. eight times the reference benchmark.",
+                "Time step = 15 days, specific yield = 0.10, east imposed head = 5.0625 m, drainage conductance = 1e-4 m2/s.",
+            ),
+            how_to_read=(
+                "Read the top panel first: when total outflow separates, the methods disagree on how quickly water leaves the system.",
+                "Then compare storage change: if one curve stays higher, that method keeps more water in transient storage instead of exporting it.",
+                "Use the two tabs to decide whether the disagreement is regime-dependent or persists when conductivity is increased strongly.",
+            ),
+            next_steps=(
+                "Go back to the transient investigation tool if you want the full flux decomposition and the head snapshots behind these compact views.",
+                "Use the no-seepage companion page when you want to isolate the same comparison without emergent surface drainage.",
+            ),
+            metadata={
+                "benchmark_case": "recharge_ramp_with_drainage",
+                "conductivity_levels": ["reference_k", "high_k"],
+                "solver_families": ["MODFLOW", "Boussinesq"],
+                "tab_specs": [
+                    {
+                        "title": "Reference K",
+                        "filename": "ramp_reference_k.png",
+                        "body_lines": [
+                            "Run source: ``out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416``",
+                            "Methods: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition, PETSc partition, PETSc complementarity",
+                        ],
+                    },
+                    {
+                        "title": "High K",
+                        "filename": "ramp_high_k.png",
+                        "body_lines": [
+                            "Run source: ``out/sih_tx_4cmp_linux_kx8_20260415``",
+                            "Methods: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition",
+                        ],
+                    },
+                ],
+            },
+        ),
+        GalleryCaseSpec(
+            slug="surface_interaction_no_seepage_code_comparison",
+            title="No-Seepage Surface-Interaction Comparison",
+            category="code_comparison",
+            deck="Cross-code benchmark on the same hillslope after lifting the ground surface above the imposed east head to suppress seepage.",
+            summary=(
+                "This page isolates the same synthetic hillslope after moving the surface well above the imposed east boundary head. "
+                "The goal is to test whether the methods converge once seepage and surface overflow are intentionally removed from the physical picture."
+            ),
+            what_it_shows=(
+                "How total outflow collapses toward the east boundary when seepage is suppressed by construction.",
+                "How storage change compares once the surface-interaction mechanism is no longer the dominant difference.",
+                "How the same no-seepage setup behaves at reference and high hydraulic conductivity.",
+            ),
+            reproduction_command="python tools/doc_gallery/generate_code_comparison_assets.py",
+            source_paths=(
+                "tools/investigate_surface_interaction_hillslope_transient.py",
+                "tools/doc_gallery/generate_code_comparison_assets.py",
+                "validation_cases/shared/boussinesq_budget.py",
+                "out/sih_tx_4cmp_linux_no_seepage_20260415/timeseries.csv",
+                "out/sih_tx_4cmp_linux_no_seepage_kx8_20260416/timeseries.csv",
+                "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png",
+                "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.json",
+                "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.png",
+                "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.json",
+            ),
+            generator="copy_assets",
+            image_assets=(
+                GalleryImageAsset(
+                    filename="no_seepage_reference_k.png",
+                    caption="No-seepage benchmark on the four committed cross-code methods.",
+                    alt_text="No seepage code comparison on the four-method benchmark",
+                    source_path="examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png",
+                ),
+                GalleryImageAsset(
+                    filename="no_seepage_high_k.png",
+                    caption="High-conductivity no-seepage benchmark on the same four committed methods.",
+                    alt_text="No seepage code comparison at high hydraulic conductivity",
+                    source_path="examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.png",
+                ),
+            ),
+            case_setup=(
+                "Same strip geometry and time stepping as the ramp benchmark, but the topography is lifted uniformly by 10 m while the imposed east head stays unchanged.",
+                "This keeps the groundwater system below the ground surface throughout the run and removes seepage/overflow from the intended physical regime.",
+                "The comparison therefore targets the subsurface transient response rather than the surface-partition closure.",
+            ),
+            key_parameters=(
+                "Topography offset = +10 m relative to the ramp benchmark.",
+                "Reference hydraulic conductivity scale = 0.2x the baseline strip conductivity.",
+                "Time step = 15 days, east imposed head unchanged, same recharge ramp and dry recovery chronology.",
+            ),
+            how_to_read=(
+                "If the top panel aligns much better than in the ramp case, the previous disagreement mainly came from seepage or surface-interaction closure.",
+                "Use the storage panel to check whether one method still keeps more water even after seepage is removed.",
+                "Use the conductivity tabs to check whether the agreement is robust when transmissivity is increased while the no-seepage geometry is kept unchanged.",
+            ),
+            next_steps=(
+                "Compare this page with the ramp benchmark to isolate which disagreements are specifically tied to surface interaction.",
+                "Use the transient investigation outputs when you need the full solver budget and the decomposed outflow components.",
+            ),
+            metadata={
+                "benchmark_case": "no_seepage_offset_topography",
+                "conductivity_levels": ["reference_k", "high_k"],
+                "solver_families": ["MODFLOW", "Boussinesq"],
+                "tab_specs": [
+                    {
+                        "title": "Reference K",
+                        "filename": "no_seepage_reference_k.png",
+                        "body_lines": [
+                            "Run source: ``out/sih_tx_4cmp_linux_no_seepage_20260415``",
+                            "Methods: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition",
+                        ],
+                    },
+                    {
+                        "title": "High K",
+                        "filename": "no_seepage_high_k.png",
+                        "body_lines": [
+                            "Run source: ``out/sih_tx_4cmp_linux_no_seepage_kx8_20260416``",
+                            "Methods: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition",
+                        ],
+                    },
+                ],
             },
         ),
     )

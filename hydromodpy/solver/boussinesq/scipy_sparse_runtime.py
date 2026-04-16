@@ -88,6 +88,7 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
             recharge_rate_m_s=inputs.recharge_rate_m_s,
             well_flux_m3_s=inputs.well_flux_m3_s,
             imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+            prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
             drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
             regularization_radius=float(options.regularization_radius),
         )
@@ -107,6 +108,7 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
         mesh=inputs.mesh,
         dt_seconds=float(inputs.dt_seconds),
         imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
         max_iterations=int(options.max_iterations),
         tol_residual_inf=float(options.tol_residual_inf),
@@ -137,6 +139,7 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
             recharge_rate_m_s=inputs.recharge_rate_m_s,
             well_flux_m3_s=inputs.well_flux_m3_s,
             imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+            prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
             drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
             regularization_radius=float(options.regularization_radius),
         )
@@ -156,6 +159,7 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
         mesh=inputs.mesh,
         dt_seconds=None,
         imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
         max_iterations=int(options.max_iterations),
         tol_residual_inf=float(options.tol_residual_inf),
@@ -175,6 +179,7 @@ def _solve_nonlinear_system(
     mesh: BoussinesqMesh,
     dt_seconds: float | None,
     imposed_head_m_by_edge: np.ndarray | None,
+    prescribed_head_m_by_cell: np.ndarray | None,
     drainage_conductance_m2_s: np.ndarray | float | None,
     max_iterations: int,
     tol_residual_inf: float,
@@ -220,6 +225,7 @@ def _solve_nonlinear_system(
             jacobian_column_groups=jacobian_column_groups,
             dt_seconds=dt_seconds,
             imposed_head_m_by_edge=imposed_head_m_by_edge,
+            prescribed_head_m_by_cell=prescribed_head_m_by_cell,
             drainage_conductance_m2_s=drainage_conductance_m2_s,
             fd_rel_step=float(fd_rel_step),
         )
@@ -347,6 +353,7 @@ def _build_sparse_jacobian(
     jacobian_column_groups: tuple[np.ndarray, ...],
     dt_seconds: float | None,
     imposed_head_m_by_edge: np.ndarray | None,
+    prescribed_head_m_by_cell: np.ndarray | None,
     drainage_conductance_m2_s: np.ndarray | float | None,
     fd_rel_step: float,
 ):
@@ -356,6 +363,7 @@ def _build_sparse_jacobian(
         head_m,
         dt_seconds=dt_seconds,
         imposed_head_m_by_edge=imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
         drainage_conductance_m2_s=drainage_conductance_m2_s,
     )
     saturation_residual = np.asarray(

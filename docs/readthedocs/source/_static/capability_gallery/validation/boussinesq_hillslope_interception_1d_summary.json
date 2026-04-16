@@ -3,7 +3,7 @@
   "slug": "boussinesq_hillslope_interception_1d",
   "title": "Boussinesq Hillslope Interception 1D",
   "category": "validation",
-  "deck": "1D sloping-topography benchmark for emergence position and dry-zone profile on the dense in-house runtime.",
+  "deck": "Steady synthetic groundwater-flow case used to validate the dense local `flow/boussinesq` runtime on a sloping hillslope where the water table reaches the land surface near the outlet.",
   "summary": "Steady synthetic groundwater-flow case used to validate the dense local `flow/boussinesq` runtime on a sloping hillslope where the water table reaches the land surface near the outlet.",
   "case_setup": [
     "quasi-1D strip (`40 x 3`) with alternating triangle diagonals,",
@@ -49,7 +49,7 @@
     "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/config_boussinesq.toml"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
     "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/README.md": "43ee14e9d296e8257f30adcdab2c087f3c04999c50947958e73a29929da61407",
     "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/reference.py": "efb54edf826b20f9e99209a991e8a04943db888040893a92c5b343742e018aac",
     "validation_cases/analytical/steady/boussinesq_hillslope_interception_1d/comparison.py": "277099514246dcc66530c23b0e2d55d9814e972869fc5fb464e244145ab8d0d4",
@@ -87,13 +87,22 @@
     },
     "regime": "steady",
     "dimension": "1d",
-    "inventory_reference": "Boussinesq hillslope interception",
+    "inventory_reference": "",
     "case_sheet": {
       "numerical_setup": "Strip with west divide, east fixed head, uniform recharge, and linear topography",
       "analytical_target": "Approximate inland interception point from the dry no-drain Boussinesq profile",
       "primary_metrics": "interception-position error, topography-overshoot check, cross-row spread",
       "what_it_validates": "Steady seepage/interception onset on a sloping hillslope with the dense in-house Boussinesq runtime"
-    }
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "hillslope_1d",
+    "geometry_family_label": "Hillslope 1D",
+    "reference_type": "semi_analytical",
+    "reference_type_label": "Semi-Analytical / Diagnostic",
+    "validation_family": "steady_1d_boussinesq_topography_sloping_substratum",
+    "validation_family_label": "Steady 1D Boussinesq with Topography or Sloping Substratum",
+    "validation_family_order": 30
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/boussinesq_hillslope_interception_1d_summary.json",

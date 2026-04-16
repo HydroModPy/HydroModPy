@@ -17,7 +17,7 @@ Case Setup
 - west/east heads: `7.25 m` / `5.25 m`,
 - drainage conductance: `1e-5 m2/s`,
 - simulated observable: `watertable_elevation`.
-- Available solver variants: MODFLOW-NWT, MODFLOW 6.
+- Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles.
 
 What It Shows
 -------------
@@ -44,7 +44,7 @@ Solver Coverage
 ---------------
 
 - Default solver: MODFLOW-NWT
-- Available variants: MODFLOW-NWT, MODFLOW 6
+- Available variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles
 
 .. tab-set::
 
@@ -91,6 +91,28 @@ Solver Coverage
       .. code-block:: bash
 
          python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.run_case --no-show --solver modflow6
+
+   .. tab-item:: MODFLOW 6 irregular triangles
+
+      .. figure:: /_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6_irregular_tri.png
+         :alt: Linearized Unconfined Hillslope Drainage 1D validation figure for MODFLOW 6 irregular triangles
+         :width: 100%
+
+         Linearized Unconfined Hillslope Drainage 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.
+
+      **Metrics**
+      - Head-profile RMSE: 0.0125 m
+      - Head-profile max abs error: 0.0350 m
+      - Cross-row head spread: 8.88e-16 m
+      - Min numerical clearance above topography: 0.0990 m
+
+      - Config file: ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6_irregular_tri.toml``
+      - Tolerances: ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml``
+      - Expected shape: 5 x 50
+
+      .. code-block:: bash
+
+         python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.run_case --no-show --solver modflow6_irregular_tri
 
 Reproduce
 ---------
@@ -337,6 +359,10 @@ Solver-Specific Overrides
            - 1
            - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6.toml``
 
+   .. tab-item:: MODFLOW 6 irregular triangles
+
+      - No additional override beyond the common validation setup.
+
 Acceptance Criteria
 ^^^^^^^^^^^^^^^^^^^
 
@@ -416,6 +442,33 @@ Acceptance Criteria by Solver
            - 2e-05
            - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml``
 
+   .. tab-item:: MODFLOW 6 irregular triangles
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected shape: 5 x 50
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/metadata.toml``
+         * - ``head_profile.rmse``
+           - Maximum accepted root-mean-square error for head profile.
+           - 0.08
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml``
+         * - ``head_profile.max_abs_error``
+           - Maximum accepted absolute error for head profile.
+           - 0.12
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml``
+         * - ``head_profile.row_spread``
+           - Maximum accepted cross-row spread for head profile.
+           - 2e-05
+           - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml``
+
 Source Pointers
 ---------------
 
@@ -430,6 +483,7 @@ Source Pointers
 - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances.toml``
 - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/tolerances_boussinesq.toml``
 - ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6.toml``
+- ``validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflow6_irregular_tri.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_1d.py``
 
 Artifacts
@@ -437,4 +491,5 @@ Artifacts
 
 - ``docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflownwt.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6.png``
+- ``docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6_irregular_tri.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

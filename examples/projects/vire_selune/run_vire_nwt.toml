@@ -1,0 +1,61 @@
+base_config = "project_simulation.toml"
+
+[workspace]
+project_root = "outputs/vire_nwt"
+
+[simulation]
+name = "vire_nwt_demo"
+
+[simulation.time]
+start_datetime = "2020-01-01 00:00:00"
+end_datetime = "2020-12-31 00:00:00"
+step_value = "1 month"
+coverage_policy = "warn"
+
+[geographic]
+x_outlet = 400866.1983
+y_outlet = 6923974.693
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflownwt"]
+
+[modflownwt.runtime]
+mf_version = "mfnwt"
+mf_listunit = 2
+mf_verbose = false
+nwt_headtol = 1e-6
+nwt_fluxtol = 1e-4
+nwt_maxiterout = 500
+nwt_thickfact = 1e-5
+nwt_linmeth = 1
+nwt_iprnwt = 0
+nwt_ibotav = 1
+nwt_options = "SIMPLE"
+nwt_continue = false
+nwt_backflag = 0
+nwt_stoptol = 1e-10
+dis_itmuni = 1
+bas_hnoflo = -9999.0
+upw_iphdry = 1
+upw_hdry = -100.0
+upw_layvka = 1
+evt_nevtop = 3
+evt_ievt = 1
+evt_ipakcb = 1
+oc_compact = true
+wel_ipakcb = 1
+lmt_output_file_name = "mt3d_link.ftl"
+lmt_extension = "lmt8"
+lmt_output_format = "unformatted"
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 80
+ny = 80
+
+[modflownwt.sgrid.vertical]
+genmtd_lay = "decay"
+nlay = 2
+lay_decay = 1.2

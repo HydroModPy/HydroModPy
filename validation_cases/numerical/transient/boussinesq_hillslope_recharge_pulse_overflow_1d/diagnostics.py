@@ -13,6 +13,9 @@ from validation_cases.shared import (
     load_case_metadata,
     load_npy_time_series_arrays,
 )
+from validation_cases.shared.boussinesq_budget import (
+    compute_free_control_volume_budget,
+)
 
 from .runtime_boussinesq import CASE_DIR, resolve_solver_variant
 
@@ -43,7 +46,9 @@ class SolverOverflowDiagnostics:
     surface_excess_flux_m3_day: np.ndarray
     east_boundary_outflow_m3_day: np.ndarray
     total_outflow_m3_day: np.ndarray
-    storage_balance_m3_day: np.ndarray
+    net_inflow_m3_day: np.ndarray
+    storage_change_m3_day: np.ndarray
+    residual_m3_day: np.ndarray
     total_overflow_m3_day: np.ndarray
     active_overflow_length_m: np.ndarray
     overflow_front_x_m: np.ndarray
@@ -83,31 +88,15 @@ def _load_cell_geometry(bundle_dir: Path) -> tuple[np.ndarray, np.ndarray, np.nd
     )
 
 
-def _load_east_boundary_edge_mask(bundle_dir: Path) -> np.ndarray:
-    nodes = np.genfromtxt(
-        bundle_dir / "nodes.csv",
+def _load_cell_storage(bundle_dir: Path) -> np.ndarray:
+    cells = np.genfromtxt(
+        bundle_dir / "cells.csv",
         delimiter=",",
         names=True,
         dtype=None,
         encoding="utf-8",
     )
-    edges = np.genfromtxt(
-        bundle_dir / "edges.csv",
-        delimiter=",",
-        names=True,
-        dtype=None,
-        encoding="utf-8",
-    )
-    node_x = np.asarray(nodes["x"], dtype=float)
-    edge_kind = np.asarray(edges["edge_kind"])
-    node_a = np.asarray(edges["node_a"], dtype=int)
-    node_b = np.asarray(edges["node_b"], dtype=int)
-    max_x = float(np.max(node_x))
-    return (
-        np.asarray(edge_kind == "boundary", dtype=bool)
-        & np.isclose(node_x[node_a], max_x)
-        & np.isclose(node_x[node_b], max_x)
-    )
+    return np.asarray(cells["storage_coefficient"], dtype=float).reshape(-1)
 
 
 def aggregate_cell_history_to_grid(
@@ -185,6 +174,23 @@ def _topography_profile(x_m: np.ndarray, *, geometry_cfg: dict[str, object]) -> 
     )
 
 
+def _infer_structured_shape(
+    *,
+    mean_head_profiles_m: np.ndarray,
+    cell_y_m: np.ndarray,
+    geometry_cfg: dict[str, object],
+) -> tuple[int, int]:
+    """Infer the effective structured aggregation shape from the run outputs."""
+    nx = int(np.asarray(mean_head_profiles_m, dtype=float).shape[1])
+    unique_y = np.unique(np.round(np.asarray(cell_y_m, dtype=float), decimals=9))
+    ny = int(unique_y.size)
+    if nx <= 0:
+        nx = int(geometry_cfg["nx"])
+    if ny <= 0:
+        ny = int(geometry_cfg["ny"])
+    return nx, ny
+
+
 def _resolve_recharge_series_mm_day(
     *,
     state_history: dict[str, np.ndarray],
@@ -254,15 +260,19 @@ def build_hillslope_overflow_diagnostics(
     _, heads = load_npy_time_series_arrays(result.postprocess_dir, "watertable_elevation")
     mean_head_profiles_m = np.mean(np.asarray(heads, dtype=float), axis=1)
 
-    nx = int(geometry_cfg["nx"])
-    ny = int(geometry_cfg["ny"])
+    bundle_dir = result.out_path / "mesh_bundle"
+    cell_x_m, cell_y_m, cell_area_m2 = _load_cell_geometry(bundle_dir)
+    nx, ny = _infer_structured_shape(
+        mean_head_profiles_m=mean_head_profiles_m,
+        cell_y_m=cell_y_m,
+        geometry_cfg=geometry_cfg,
+    )
     length_x_m = float(geometry_cfg["length_x_m"])
     width_y_m = float(geometry_cfg["width_y_m"])
     x_m = (np.arange(nx, dtype=float) + 0.5) * (length_x_m / float(nx))
     topography_profile_m = _topography_profile(x_m, geometry_cfg=geometry_cfg)
     mean_head_clearance_m = mean_head_profiles_m - topography_profile_m[None, :]
 
-    cell_x_m, cell_y_m, cell_area_m2 = _load_cell_geometry(result.out_path / "mesh_bundle")
     saturation_excess_history_m_s = np.asarray(
         state_history["saturation_excess_history_m_s"],
         dtype=float,
@@ -315,33 +325,27 @@ def build_hillslope_overflow_diagnostics(
         recharge_mm_day,
         elapsed_days=elapsed_days,
     )
-    recharge_flux_m3_day = (
-        np.asarray(recharge_mm_day, dtype=float)
-        / 1000.0
-        * float(length_x_m)
-        * float(width_y_m)
+    budget = compute_free_control_volume_budget(
+        bundle_dir=bundle_dir,
+        state_history=state_history,
+        seconds_per_day=SECONDS_PER_DAY,
+        elapsed_days=elapsed_days,
     )
-
-    imposed_head_history = np.asarray(
-        state_history["imposed_head_edge_flux_history_m3_s"],
-        dtype=float,
-    )
-    east_edge_mask = _load_east_boundary_edge_mask(result.out_path / "mesh_bundle")
-    drainage_history = np.asarray(
-        state_history["drainage_flux_history_m3_s"],
-        dtype=float,
-    )
-    drainage_flux_m3_day = np.sum(drainage_history, axis=1, dtype=float) * SECONDS_PER_DAY
-    east_boundary_outflow_m3_day = (
-        -np.sum(np.minimum(imposed_head_history[:, east_edge_mask], 0.0), axis=1, dtype=float)
-        * SECONDS_PER_DAY
-    )
+    recharge_flux_m3_day = budget.recharge_flux_m3_day
+    drainage_flux_m3_day = budget.drainage_flux_m3_day
+    east_boundary_inflow_m3_day = budget.east_boundary_inflow_m3_day
+    east_boundary_outflow_m3_day = budget.east_boundary_outflow_m3_day
     total_outflow_m3_day = np.asarray(
         drainage_flux_m3_day + east_boundary_outflow_m3_day + surface_excess_flux_m3_day,
         dtype=float,
     )
-    storage_balance_m3_day = np.asarray(
-        recharge_flux_m3_day - total_outflow_m3_day,
+    net_inflow_m3_day = np.asarray(
+        recharge_flux_m3_day + east_boundary_inflow_m3_day - total_outflow_m3_day,
+        dtype=float,
+    )
+    storage_change_m3_day = budget.storage_change_m3_day
+    residual_m3_day = np.asarray(
+        net_inflow_m3_day - storage_change_m3_day,
         dtype=float,
     )
 
@@ -374,7 +378,9 @@ def build_hillslope_overflow_diagnostics(
         surface_excess_flux_m3_day=np.asarray(surface_excess_flux_m3_day, dtype=float),
         east_boundary_outflow_m3_day=np.asarray(east_boundary_outflow_m3_day, dtype=float),
         total_outflow_m3_day=np.asarray(total_outflow_m3_day, dtype=float),
-        storage_balance_m3_day=np.asarray(storage_balance_m3_day, dtype=float),
+        net_inflow_m3_day=np.asarray(net_inflow_m3_day, dtype=float),
+        storage_change_m3_day=np.asarray(storage_change_m3_day, dtype=float),
+        residual_m3_day=np.asarray(residual_m3_day, dtype=float),
         total_overflow_m3_day=np.asarray(surface_excess_flux_m3_day, dtype=float),
         active_overflow_length_m=np.asarray(active_overflow_length_m, dtype=float),
         overflow_front_x_m=np.asarray(overflow_front_x_m, dtype=float),

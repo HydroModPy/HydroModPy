@@ -79,6 +79,15 @@ This section groups a small set of static, versioned illustrations that explain 
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: code_comparison
+      :link-type: doc
+
+      **Code Comparison**
+      ^^^
+      Synthetic solver-to-solver benchmarks with no analytical truth claim.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: simulation
       :link-type: doc
 
@@ -97,4 +106,5 @@ This section groups a small set of static, versioned illustrations that explain 
    geometry
    hydraulic_properties
    method_comparison
+   code_comparison
    simulation

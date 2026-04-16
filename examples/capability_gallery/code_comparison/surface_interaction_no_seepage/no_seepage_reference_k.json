@@ -1,0 +1,34 @@
+{
+  "title": "Reference K (4 methods)",
+  "run_dir": "out/sih_tx_4cmp_linux_no_seepage_20260415",
+  "notes": [
+    "Surface lifted well above the imposed east head to suppress seepage.",
+    "Four cross-family methods on the same transient forcing."
+  ],
+  "solvers": [
+    {
+      "solver": "modflownwt",
+      "solver_label": "MODFLOW-NWT",
+      "peak_total_outflow_m3_day": 35.07051235064864,
+      "final_storage_change_m3_day": -6.147515614827474
+    },
+    {
+      "solver": "modflow6",
+      "solver_label": "MODFLOW 6",
+      "peak_total_outflow_m3_day": 34.86148029029283,
+      "final_storage_change_m3_day": -6.180487472327176
+    },
+    {
+      "solver": "modflow6_irregular_tri",
+      "solver_label": "MODFLOW 6 irregular triangles",
+      "peak_total_outflow_m3_day": 41.85901450409335,
+      "final_storage_change_m3_day": -4.466420216511694
+    },
+    {
+      "solver": "boussinesq",
+      "solver_label": "Boussinesq",
+      "peak_total_outflow_m3_day": 35.66654478507665,
+      "final_storage_change_m3_day": -6.355630603465078
+    }
+  ]
+}
