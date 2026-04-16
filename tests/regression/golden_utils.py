@@ -947,7 +947,7 @@ def run_hmp_cli(
     )
 
     assert completed.returncode == 0, (
-        f"hmp run {config_path.name} failed.\n"
+        f"hmp run {config_path.name} failed (returncode={completed.returncode}).\n"
         f"Command: {' '.join(command)}\n"
         f"Stdout:\n{completed.stdout}\n"
         f"Stderr:\n{completed.stderr}"
