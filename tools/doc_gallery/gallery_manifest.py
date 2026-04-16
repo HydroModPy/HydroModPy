@@ -126,11 +126,11 @@ CATEGORY_SPECS: dict[str, GalleryCategorySpec] = {
     ),
     "geographic": GalleryCategorySpec(
         slug="geographic",
-        title="Geographic Diagnostics",
-        deck="Pre-solver watershed and data-overview figures that explain how one domain is assembled.",
+        title="Data Overview",
+        deck="Pre-solver watershed and hydrography figures that explain how one domain is assembled before solving.",
         intro=(
-            "These cases highlight the geographic side of the workflow: watershed context, "
-            "DEM-based views, and the local data overlays that feed later modelling steps."
+            "These cases group the `data-overview` workflow: watershed context, DEM-based "
+            "views, and the local data overlays that feed later modelling steps."
         ),
         guide_doc="getting_started/data-overview-walkthrough",
         guide_title="Data Overview walkthrough",

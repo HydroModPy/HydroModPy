@@ -43,6 +43,12 @@ The package has a deliberately narrow goal:
 - `runtime_selection.py`
   The lightweight layer that resolves a method plus one execution engine, then
   exposes the corresponding solve callables.
+- `forcing_resolution.py`
+  The process-to-array adapter for recharge, wells, Dirichlet supports and
+  drainage payloads.
+- `export_payload.py`
+  The compatibility export layer for `_postprocess` arrays and state-history
+  payloads.
 - `local_runtime.py`
   A dense, damped Newton solver implemented in-house.
 - `scipy_runtime.py`
