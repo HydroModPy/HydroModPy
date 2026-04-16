@@ -19,6 +19,8 @@ from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment im
 @pytest.mark.mf6
 def test_calibration_twin_dupuit_fixed_head_modflow6_benchmark_recovers_truth() -> None:
     """Run the steady twin benchmark and verify standardized methods recover the truth."""
+    pytest.importorskip("cma")
+
     assert_required_executables(
         require_modflow=False,
         require_modflow6=True,
@@ -36,7 +38,7 @@ def test_calibration_twin_dupuit_fixed_head_modflow6_benchmark_recovers_truth() 
     assert benchmark.configuration_figure.is_file()
     assert benchmark.pruned_artifacts
     assert benchmark.observations_truth["q_east"]
-    assert len(benchmark.method_results) == 4
+    assert len(benchmark.method_results) == 5
     for result in benchmark.method_results:
         assert result.meets_success_target, result.to_mapping()
         assert result.recovered_truth, result.to_mapping()

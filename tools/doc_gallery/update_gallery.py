@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import gc
 import hashlib
 import importlib
@@ -48,9 +49,18 @@ AUTO_GENERATED_NOTE = (
 VALIDATION_SOLVER_LABELS = {
     "modflownwt": "MODFLOW-NWT",
     "modflow6": "MODFLOW 6",
+    "modflow6_irregular_tri": "MODFLOW 6 irregular triangles",
     "boussinesq": "Boussinesq",
 }
-VALIDATION_SOLVER_ORDER = ("modflownwt", "modflow6", "boussinesq")
+VALIDATION_SOLVER_ORDER = ("modflownwt", "modflow6", "modflow6_irregular_tri", "boussinesq")
+
+
+def _load_calibration_benchmark_families() -> dict[str, dict[str, Any]]:
+    try:
+        from .calibration_case_registry import CALIBRATION_BENCHMARK_FAMILIES
+    except Exception:
+        return {}
+    return CALIBRATION_BENCHMARK_FAMILIES
 
 
 def _absolute_docname(docname: str) -> str:
@@ -597,6 +607,15 @@ def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[
             "dimension": spec.metadata.get("dimension"),
             "inventory_reference": spec.metadata.get("inventory_reference"),
             "case_sheet": spec.metadata.get("case_sheet", {}),
+            "process_family": spec.metadata.get("process_family"),
+            "process_family_label": spec.metadata.get("process_family_label"),
+            "geometry_family": spec.metadata.get("geometry_family"),
+            "geometry_family_label": spec.metadata.get("geometry_family_label"),
+            "reference_type": spec.metadata.get("reference_type"),
+            "reference_type_label": spec.metadata.get("reference_type_label"),
+            "validation_family": spec.metadata.get("validation_family"),
+            "validation_family_label": spec.metadata.get("validation_family_label"),
+            "validation_family_order": spec.metadata.get("validation_family_order"),
         },
         images_override=default_images,
         metrics_override=[],
@@ -2945,6 +2964,105 @@ def _render_grid_card(*, link: str, title: str, deck: str) -> list[str]:
     ]
 
 
+_VALIDATION_PROCESS_ORDER = {
+    "flow": 0,
+    "transport": 1,
+    "particle_tracking": 2,
+}
+
+
+def _append_case_grid(lines: list[str], cases: list[dict[str, Any]]) -> None:
+    if not cases:
+        return
+    lines.extend(
+        [
+            ".. grid:: 1 1 2 2",
+            "   :gutter: 2 2 3 3",
+            "",
+        ]
+    )
+    for case in cases:
+        lines.extend(
+            _render_grid_card(
+                link=case["docname"],
+                title=case["title"],
+                deck=case["deck"],
+            )
+        )
+
+
+def _format_counted_labels(counts: Counter[tuple[str, str]]) -> str:
+    ordered_items = sorted(
+        counts.items(),
+        key=lambda item: (
+            _VALIDATION_PROCESS_ORDER.get(item[0][0], 999),
+            str(item[0][1]),
+        ),
+    )
+    return ", ".join(f"{label} ({count})" for (_, label), count in ordered_items)
+
+
+def _build_validation_grouped_sections(cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for case in cases:
+        metadata = dict(case.get("metadata", {}))
+        process_key = str(metadata.get("process_family", "flow")).strip() or "flow"
+        process_label = str(
+            metadata.get("process_family_label", process_key.replace("_", " ").title())
+        ).strip()
+        process_entry = grouped.setdefault(
+            process_key,
+            {
+                "key": process_key,
+                "label": process_label,
+                "order": _VALIDATION_PROCESS_ORDER.get(process_key, 999),
+                "families": {},
+            },
+        )
+
+        family_key = str(metadata.get("validation_family", "other")).strip() or "other"
+        family_label = str(
+            metadata.get("validation_family_label", family_key.replace("_", " ").title())
+        ).strip()
+        family_entry = process_entry["families"].setdefault(
+            family_key,
+            {
+                "key": family_key,
+                "label": family_label,
+                "order": int(metadata.get("validation_family_order", 999)),
+                "cases": [],
+            },
+        )
+        family_entry["cases"].append(case)
+
+    sections: list[dict[str, Any]] = []
+    for process_entry in sorted(
+        grouped.values(),
+        key=lambda item: (int(item["order"]), str(item["label"])),
+    ):
+        families = sorted(
+            process_entry["families"].values(),
+            key=lambda item: (int(item["order"]), str(item["label"])),
+        )
+        for family in families:
+            family["cases"] = sorted(
+                family["cases"],
+                key=lambda case: (
+                    str(case.get("metadata", {}).get("regime", "")),
+                    str(case.get("metadata", {}).get("dimension", "")),
+                    str(case.get("slug", "")),
+                ),
+            )
+        sections.append(
+            {
+                "process_key": process_entry["key"],
+                "process_label": process_entry["label"],
+                "families": families,
+            }
+        )
+    return sections
+
+
 def _build_calibration_intercomparison_rows(
     calibration_cases: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -3030,19 +3148,85 @@ def _build_calibration_intercomparison_rows(
     return rows
 
 
+def _group_calibration_cases_by_benchmark_family(
+    calibration_cases: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return curated calibration cases grouped by published benchmark family."""
+    calibration_benchmark_families = _load_calibration_benchmark_families()
+    grouped: dict[str, dict[str, Any]] = {}
+    for case in calibration_cases:
+        metadata = dict(case.get("metadata", {}))
+        family_key = str(metadata.get("benchmark_family_key", "")).strip()
+        if family_key == "":
+            family_key = "ungrouped"
+        family_spec = calibration_benchmark_families.get(
+            family_key,
+            {
+                "key": family_key,
+                "title": family_key.replace("_", " ").title(),
+                "deck": "",
+                "page_slug": None,
+                "page_title": None,
+                "page_intro": None,
+                "order": 999,
+                "primary": False,
+            },
+        )
+        entry = grouped.setdefault(
+            family_key,
+            {
+                "key": family_key,
+                "title": str(metadata.get("benchmark_family_title", family_spec["title"])),
+                "deck": str(metadata.get("benchmark_family_deck", family_spec["deck"])),
+                "page_slug": metadata.get(
+                    "benchmark_family_page_slug",
+                    family_spec["page_slug"],
+                ),
+                "page_title": metadata.get(
+                    "benchmark_family_page_title",
+                    family_spec["page_title"],
+                ),
+                "page_intro": metadata.get(
+                    "benchmark_family_page_intro",
+                    family_spec["page_intro"],
+                ),
+                "order": int(
+                    metadata.get(
+                        "benchmark_family_order",
+                        family_spec["order"],
+                    )
+                ),
+                "primary": bool(
+                    metadata.get(
+                        "benchmark_family_primary",
+                        family_spec["primary"],
+                    )
+                ),
+                "cases": [],
+            },
+        )
+        entry["cases"].append(case)
+    return sorted(
+        grouped.values(),
+        key=lambda item: (int(item["order"]), str(item["title"])),
+    )
+
+
 def _generate_calibration_intercomparison_summary(
     *,
     source_root: Path,
     calibration_cases: list[dict[str, Any]],
+    output_subdir: Path | None = None,
 ) -> dict[str, Any]:
     """Generate one cross-case calibration summary and the associated figures."""
     rows = _build_calibration_intercomparison_rows(calibration_cases)
+    if output_subdir is None:
+        output_subdir = Path("calibration") / "intercomparison"
     output_root = (
         source_root
         / "_static"
         / "capability_gallery"
-        / "calibration"
-        / "intercomparison"
+        / output_subdir
     )
     figures: list[dict[str, Any]] = []
     if rows:
@@ -3065,10 +3249,15 @@ def _generate_calibration_intercomparison_summary(
                 )
             )
 
+    summary_relative_path = (
+        output_root
+        / "calibration_intercomparison_summary.json"
+    ).relative_to(source_root / "_static" / "capability_gallery")
     summary_payload = {
         "summary_schema_version": "capability_gallery_calibration_intercomparison_v1",
         "case_count": int(len(calibration_cases)),
         "method_row_count": int(len(rows)),
+        "summary_repo_path": _repo_docs_artifact_path(*summary_relative_path.parts),
         "cases": [
             {
                 "slug": str(case.get("slug", "")),
@@ -3089,23 +3278,33 @@ def _build_calibration_intercomparison_page(
     *,
     calibration_cases: list[dict[str, Any]],
     comparison_summary: dict[str, Any],
+    title: str = "Calibration Intercomparison",
+    intro: str | None = None,
+    seealso_doc: str = "calibration",
+    seealso_title: str = "the calibration benchmark category",
 ) -> str:
     """Render one gallery page dedicated to cross-case calibration comparison."""
-    lines = [
-        AUTO_GENERATED_COMMENT,
-        "",
-        "Calibration Intercomparison",
-        "===========================",
-        "",
-        *_render_note_block(),
-        (
+    rendered_title = str(title)
+    rendered_intro = (
+        str(intro)
+        if intro is not None
+        else (
             "This page compares the curated calibration gallery cases across methods, "
             "success targets, and timing breakdowns. It is meant to complement the "
             "individual case pages, not replace them."
-        ),
+        )
+    )
+    lines = [
+        AUTO_GENERATED_COMMENT,
+        "",
+        rendered_title,
+        "=" * len(rendered_title),
+        "",
+        *_render_note_block(),
+        rendered_intro,
         "",
         ".. seealso::",
-        "   Open :doc:`the calibration benchmark category <calibration>` for the case-by-case pages and their configuration figures.",
+        f"   Open :doc:`{seealso_title} <{seealso_doc}>` for the case-by-case pages and their configuration figures.",
         "",
         "Coverage",
         "--------",
@@ -3282,7 +3481,12 @@ def _build_calibration_intercomparison_page(
             "Artifacts",
             "---------",
             "",
-            "- ``docs/readthedocs/source/_static/capability_gallery/calibration/intercomparison/calibration_intercomparison_summary.json``",
+            "- ``{}``".format(
+                comparison_summary.get(
+                    "summary_repo_path",
+                    "docs/readthedocs/source/_static/capability_gallery/calibration/intercomparison/calibration_intercomparison_summary.json",
+                )
+            ),
         ]
     )
     for figure in figures:
@@ -3452,6 +3656,7 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
 def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str:
     category = CATEGORY_SPECS[category_slug]
     all_cases = list(cases)
+    render_default_case_grid = True
     lines = [
         AUTO_GENERATED_COMMENT,
         "",
@@ -3676,12 +3881,38 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
             )
             for solver in VALIDATION_SOLVER_ORDER
         }
+        process_counts: Counter[tuple[str, str]] = Counter()
+        family_counts: Counter[tuple[str, str]] = Counter()
+        reference_counts: Counter[tuple[str, str]] = Counter()
+        for case in cases:
+            metadata = dict(case.get("metadata", {}))
+            process_counts[
+                (
+                    str(metadata.get("process_family", "flow")).strip() or "flow",
+                    str(metadata.get("process_family_label", "Flow")).strip() or "Flow",
+                )
+            ] += 1
+            family_counts[
+                (
+                    str(metadata.get("validation_family", "other")).strip() or "other",
+                    str(metadata.get("validation_family_label", "Other")).strip() or "Other",
+                )
+            ] += 1
+            reference_counts[
+                (
+                    str(metadata.get("reference_type", "other")).strip() or "other",
+                    str(metadata.get("reference_type_label", "Other")).strip() or "Other",
+                )
+            ] += 1
         batch_reports = _load_validation_batch_reports()
         lines.extend(
             [
                 "Current Coverage",
                 "----------------",
                 "",
+                "- Process families populated today: " + _format_counted_labels(process_counts) + ".",
+                "- Benchmark families: " + _format_counted_labels(family_counts) + ".",
+                "- Reference styles: " + _format_counted_labels(reference_counts) + ".",
                 "- Solver variants discovered: "
                 + ", ".join(
                     f"{VALIDATION_SOLVER_LABELS.get(solver, solver)} ({solver_counts[solver]})"
@@ -3713,6 +3944,41 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
         else:
             lines.append("- No committed validation batch reports yet.")
         lines.append("")
+        validation_sections = _build_validation_grouped_sections(cases)
+        if validation_sections:
+            lines.extend(
+                [
+                    "Grouped Benchmarks",
+                    "------------------",
+                    "",
+                    "The landing page is grouped by process family first, then by benchmark family.",
+                    "This keeps the current flow benchmarks readable and leaves room for future transport and particle-tracking validations.",
+                    "",
+                ]
+            )
+            for process_section in validation_sections:
+                process_label = str(process_section["process_label"])
+                lines.extend(
+                    [
+                        process_label,
+                        "~" * len(process_label),
+                        "",
+                    ]
+                )
+                for family in process_section["families"]:
+                    family_label = str(family["label"])
+                    case_count = len(list(family["cases"]))
+                    lines.extend(
+                        [
+                            family_label,
+                            "^" * len(family_label),
+                            "",
+                            f"{case_count} case{'s' if case_count != 1 else ''} in this family.",
+                            "",
+                        ]
+                    )
+                    _append_case_grid(lines, list(family["cases"]))
+            render_default_case_grid = False
     elif category_slug == "geometry":
         layers = sorted(
             {
@@ -3802,7 +4068,60 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 "",
             ]
         )
+    elif category_slug == "code_comparison":
+        benchmark_cases = sorted(
+            {
+                str(case.get("metadata", {}).get("benchmark_case", "")).strip()
+                for case in cases
+                if str(case.get("metadata", {}).get("benchmark_case", "")).strip()
+            }
+        )
+        conductivity_levels = sorted(
+            {
+                str(level)
+                for case in cases
+                for level in case.get("metadata", {}).get("conductivity_levels", [])
+                if str(level).strip()
+            }
+        )
+        solver_families = sorted(
+            {
+                str(label)
+                for case in cases
+                for label in case.get("metadata", {}).get("solver_families", [])
+                if str(label).strip()
+            }
+        )
+        lines.extend(
+            [
+                "Current Coverage",
+                "----------------",
+                "",
+                "- Benchmarks: " + (", ".join(benchmark_cases) if benchmark_cases else "none yet") + ".",
+                "- Conductivity variants: "
+                + (", ".join(conductivity_levels) if conductivity_levels else "none yet")
+                + ".",
+                "- Solver families: " + (", ".join(solver_families) if solver_families else "none yet") + ".",
+                "- These pages are intentionally separate from analytical validation: they compare codes on the same numerical scenario and document where behaviours converge or diverge.",
+                "",
+            ]
+        )
     elif category_slug == "calibration":
+        render_default_case_grid = False
+        family_groups = _group_calibration_cases_by_benchmark_family(cases)
+        primary_families = [
+            group
+            for group in family_groups
+            if bool(group.get("primary")) and str(group.get("page_slug") or "").strip()
+        ]
+        supplementary_families = [
+            group
+            for group in family_groups
+            if not (
+                bool(group.get("primary"))
+                and str(group.get("page_slug") or "").strip()
+            )
+        ]
         regimes = sorted(
             {
                 str(case.get("metadata", {}).get("regime", "")).strip()
@@ -3835,43 +4154,67 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 + (", ".join(method_names) if method_names else "none yet")
                 + ".",
                 "- Each page combines one configuration figure, one tab set per method, and explicit timing diagnostics.",
-                "",
-                "Intercomparison",
-                "---------------",
-                "",
-                ".. grid:: 1 1 2 2",
-                "   :gutter: 2 2 3 3",
-                "",
-            ]
-        )
-        lines.extend(
-            _render_grid_card(
-                link="calibration_intercomparison",
-                title="Calibration Intercomparison",
-                deck=(
-                    "Cross-case view of method behaviour, target success, and the "
-                    "detailed timing breakdown used by the curated calibration pages."
-                ),
-            )
-        )
-        lines.append("")
-
-    if cases:
-        lines.extend(
-            [
-            ".. grid:: 1 1 2 2",
-            "   :gutter: 2 2 3 3",
-            "",
-            ]
-        )
-        for case in cases:
-            lines.extend(
-                _render_grid_card(
-                    link=case["docname"],
-                    title=case["title"],
-                    deck=case["deck"],
+                "- Primary benchmark families: "
+                + (
+                    ", ".join(str(group["title"]) for group in primary_families)
+                    if primary_families
+                    else "none yet"
                 )
+                + ".",
+                "",
+            ]
+        )
+        if primary_families:
+            lines.extend(
+                [
+                    "Benchmark Families",
+                    "------------------",
+                    "",
+                    ".. grid:: 1 1 2 2",
+                    "   :gutter: 2 2 3 3",
+                    "",
+                ]
             )
+            for group in primary_families:
+                lines.extend(
+                    _render_grid_card(
+                        link=str(group["page_slug"]),
+                        title=str(group["page_title"] or group["title"]),
+                        deck=str(group["deck"]),
+                    )
+                )
+            lines.append("")
+
+        for group in primary_families:
+            group_title = str(group["title"])
+            lines.extend(
+                [
+                    group_title,
+                    "-" * len(group_title),
+                    "",
+                    str(group["deck"]),
+                    "",
+                ]
+            )
+            _append_case_grid(lines, list(group["cases"]))
+            lines.append("")
+
+        for group in supplementary_families:
+            group_title = str(group["title"])
+            lines.extend(
+                [
+                    group_title,
+                    "-" * len(group_title),
+                    "",
+                    str(group["deck"]),
+                    "",
+                ]
+            )
+            _append_case_grid(lines, list(group["cases"]))
+            lines.append("")
+
+    if cases and render_default_case_grid:
+        _append_case_grid(lines, cases)
     lines.extend(
         [
             ".. toctree::",
@@ -3883,7 +4226,10 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
     for case in all_cases:
             lines.append(f"   {case['docname']}")
     if category_slug == "calibration":
-        lines.append("   calibration_intercomparison")
+        for group in _group_calibration_cases_by_benchmark_family(cases):
+            page_slug = str(group.get("page_slug") or "").strip()
+            if page_slug != "":
+                lines.append(f"   {page_slug}")
     return "\n".join(lines)
 
 
@@ -5446,17 +5792,26 @@ def generate_gallery(*, source_root: Path) -> None:
     _write_text(docs_dir / "index.rst", _build_index_page(summaries_by_category))
     calibration_cases = list(summaries_by_category.get("calibration", []))
     if calibration_cases:
-        comparison_summary = _generate_calibration_intercomparison_summary(
-            source_root=source_root,
-            calibration_cases=calibration_cases,
-        )
-        _write_text(
-            docs_dir / "calibration_intercomparison.rst",
-            _build_calibration_intercomparison_page(
-                calibration_cases=calibration_cases,
-                comparison_summary=comparison_summary,
-            ),
-        )
+        for family_group in _group_calibration_cases_by_benchmark_family(calibration_cases):
+            page_slug = str(family_group.get("page_slug") or "").strip()
+            if page_slug == "":
+                continue
+            comparison_summary = _generate_calibration_intercomparison_summary(
+                source_root=source_root,
+                calibration_cases=list(family_group["cases"]),
+                output_subdir=Path("calibration") / "intercomparison" / page_slug,
+            )
+            _write_text(
+                docs_dir / f"{page_slug}.rst",
+                _build_calibration_intercomparison_page(
+                    calibration_cases=list(family_group["cases"]),
+                    comparison_summary=comparison_summary,
+                    title=str(family_group.get("page_title") or family_group["title"]),
+                    intro=str(family_group.get("page_intro") or family_group["deck"]),
+                    seealso_doc="calibration",
+                    seealso_title="the calibration benchmark category",
+                ),
+            )
     for category_slug, cases in summaries_by_category.items():
         if cases:
             _write_text(docs_dir / f"{category_slug}.rst", _build_category_page(category_slug, cases))

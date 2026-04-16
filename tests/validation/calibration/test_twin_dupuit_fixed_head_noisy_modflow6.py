@@ -18,6 +18,8 @@ from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment im
 @pytest.mark.mf6
 def test_calibration_twin_dupuit_fixed_head_noisy_modflow6_benchmark_recovers_truth() -> None:
     """Run the noisy steady twin benchmark and verify repeated methods stay usable."""
+    pytest.importorskip("cma")
+
     assert_required_executables(
         require_modflow=False,
         require_modflow6=True,
@@ -37,7 +39,7 @@ def test_calibration_twin_dupuit_fixed_head_noisy_modflow6_benchmark_recovers_tr
     assert benchmark.observations_truth["q_east"]
     assert benchmark.observations_used["q_east"]
     assert benchmark.observations_truth != benchmark.observations_used
-    assert len(benchmark.method_results) == 5
+    assert len(benchmark.method_results) == 6
 
     random_results = [
         result
@@ -58,7 +60,7 @@ def test_calibration_twin_dupuit_fixed_head_noisy_modflow6_benchmark_recovers_tr
         assert result.objective_trace_figure.is_file()
         assert result.objective_landscape_figure is not None
         assert result.objective_landscape_figure.is_file()
-        if result.method_name in {"grid_search", "simplex"}:
+        if result.method_name in {"grid_search", "simplex", "cma_es"}:
             assert result.meets_success_target, result.to_mapping()
             assert result.recovered_truth, result.to_mapping()
     assert sum(1 for result in random_results if result.meets_success_target) >= 2

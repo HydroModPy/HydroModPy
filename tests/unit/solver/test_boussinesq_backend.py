@@ -946,6 +946,25 @@ def test_assembly_steady_state_balances_uniform_fixed_head(tmp_path: Path) -> No
     assert np.allclose(assembly.residual_m3_s, 0.0, atol=1.0e-11)
 
 
+def test_assembly_rejects_mixing_imposed_head_edges_and_prescribed_head_cells(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
+    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
+    prescribed_heads = np.full(mesh.n_cells, np.nan, dtype=float)
+    prescribed_heads[0] = 10.0
+
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        assemble_steady_residual(
+            mesh,
+            head_m=np.full(mesh.n_cells, 7.0, dtype=float),
+            imposed_head_m_by_edge=imposed_heads,
+            prescribed_head_m_by_cell=prescribed_heads,
+        )
+
+
 def test_local_steady_state_with_side_dirichlet_relaxes_between_boundary_heads(
     tmp_path: Path,
 ) -> None:
@@ -1168,6 +1187,53 @@ def test_boussinesq_runs_steady_local_runtime_without_time_grid(tmp_path: Path) 
     assert model.state.head_m[1] > model.state.head_m[0]
     assert model.state.imposed_head_edge_flux_m3_s is not None
     assert model.state.imposed_head_edge_flux_m3_s[4] < 0.0
+
+
+def test_boussinesq_post_processing_exports_legacy_and_current_boundary_flux_fields(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "flow_regime": "steady",
+                "ic": {"type": "custom", "value": 7.0},
+                "active_bc": ["west_side", "east_side"],
+                "bc": {
+                    "dirichlet": {
+                        "west_side": {"value": 10.0},
+                        "east_side": {"value": 6.0},
+                    }
+                },
+            }
+        )
+    )
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=None,
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_export_contract",
+    )
+
+    model.pre_processing()
+    assert model.processing(run_model=True) is True
+    model.post_processing()
+
+    payload = np.load(model.full_path / "_boussinesq_state_history.npz")
+
+    assert "imposed_head_edge_flux_m3_s" in payload.files
+    assert "imposed_head_edge_flux_history_m3_s" in payload.files
+    assert "prescribed_head_flux_m3_s" in payload.files
+    assert "prescribed_head_flux_history_m3_s" in payload.files
+    assert np.allclose(
+        payload["imposed_head_edge_flux_m3_s"],
+        model.state.imposed_head_edge_flux_m3_s,
+    )
+    assert payload["imposed_head_edge_flux_history_m3_s"].shape[1] == model.mesh.n_edges
 
 
 def test_boussinesq_runs_steady_scipy_runtime_without_time_grid(tmp_path: Path) -> None:

@@ -29,6 +29,10 @@ class BoussinesqState:
     internal_edge_flux_history_m3_s: np.ndarray | None = None
     imposed_head_edge_flux_m3_s: np.ndarray | None = None
     imposed_head_edge_flux_history_m3_s: np.ndarray | None = None
+    prescribed_head_flux_m3_s: np.ndarray | None = None
+    prescribed_head_flux_history_m3_s: np.ndarray | None = None
+    prescribed_head_m_by_cell: np.ndarray | None = None
+    prescribed_head_history_m_by_cell: np.ndarray | None = None
     drainage_flux_m3_s: np.ndarray | None = None
     drainage_flux_history_m3_s: np.ndarray | None = None
     period_lengths_seconds: tuple[float, ...] = ()

@@ -11,7 +11,7 @@ from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
     load_case_tolerances,
-    load_last_npy_array,
+    load_last_npy_array_on_expected_grid,
     max_abs_error,
     max_std_along_axis,
     mean_along_axis,
@@ -63,13 +63,18 @@ def build_linearized_unconfined_drainage_comparison(
     output_cfg = dict(case_metadata.get("output", {}))
     reference_cfg = dict(case_metadata.get("reference", {}))
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
-    timestep, heads = load_last_npy_array(result.postprocess_dir, observable_name)
-
     expected_shape = tuple(output_cfg.get("expected_shape", ()))
-    if expected_shape:
-        assert tuple(heads.shape) == expected_shape, (
-            f"Unexpected shape for {observable_name}: {heads.shape} != {expected_shape}"
-        )
+    timestep, heads = load_last_npy_array_on_expected_grid(
+        result.postprocess_dir,
+        observable_name,
+        case_dir=CASE_DIR,
+        metadata=case_metadata,
+        solver=solver_name,
+        expected_shape=expected_shape,
+        x_min_m=float(reference_cfg["xmin"]),
+        x_max_m=float(reference_cfg["xmax"]),
+        collapse_y_to_x_profile=True,
+    )
 
     profile_axis = int(reference_cfg.get("profile_axis", 0))
     numerical_profile = mean_along_axis(heads, axis=profile_axis)

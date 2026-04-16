@@ -158,11 +158,12 @@ def _cma_es_profile(*, seed: int = 17) -> CalibrationMethodProfile:
     return CalibrationMethodProfile(
         name="cma_es",
         method_kwargs={
-            "sigma0": 0.20,
-            "popsize": 12,
-            "max_evaluations": 72,
+            "sigma0": 0.22,
+            "popsize": 14,
+            "max_evaluations": 126,
             "seed": int(seed),
             "normalize": True,
+            "restarts": 1,
         },
         persist_model_distribution=False,
     )

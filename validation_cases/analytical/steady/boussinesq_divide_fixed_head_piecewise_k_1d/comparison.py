@@ -13,6 +13,7 @@ from validation_cases.shared import (
     load_case_metadata,
     load_case_tolerances,
     load_last_npy_array,
+    load_last_npy_array_on_expected_grid,
     max_abs_error,
     max_std_along_axis,
     mean_along_axis,
@@ -63,11 +64,26 @@ def _compute_watertable_elevation(head: np.ndarray) -> np.ndarray:
 def _load_heads_for_comparison(
     *,
     result: ValidationRunResult,
+    case_metadata: dict,
+    solver_name: str | None,
     observable_name: str,
+    expected_shape: tuple[int, ...],
+    x_min_m: float,
+    x_max_m: float,
 ) -> tuple[int, np.ndarray]:
     """Load postprocessed heads, or fall back to the last MODFLOW head file."""
     try:
-        return load_last_npy_array(result.postprocess_dir, observable_name)
+        return load_last_npy_array_on_expected_grid(
+            result.postprocess_dir,
+            observable_name,
+            case_dir=CASE_DIR,
+            metadata=case_metadata,
+            solver=solver_name,
+            expected_shape=expected_shape,
+            x_min_m=x_min_m,
+            x_max_m=x_max_m,
+            collapse_y_to_x_profile=True,
+        )
     except FileNotFoundError:
         if observable_name != "watertable_elevation":
             raise
@@ -102,19 +118,15 @@ def build_boussinesq_divide_fixed_head_piecewise_k_comparison(
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
     timestep, heads = _load_heads_for_comparison(
         result=result,
+        case_metadata=case_metadata,
+        solver_name=solver_name,
         observable_name=observable_name,
+        expected_shape=tuple(
+            output_cfg.get("expected_shape_by_solver", {}).get(solver_name, output_cfg.get("expected_shape", ()))
+        ),
+        x_min_m=float(reference_cfg["xmin"]),
+        x_max_m=float(reference_cfg["xmax"]),
     )
-
-    expected_shape_by_solver = output_cfg.get("expected_shape_by_solver", {})
-    expected_shape = ()
-    if isinstance(expected_shape_by_solver, dict) and solver_name in expected_shape_by_solver:
-        expected_shape = tuple(expected_shape_by_solver[solver_name])
-    else:
-        expected_shape = tuple(output_cfg.get("expected_shape", ()))
-    if expected_shape:
-        assert tuple(heads.shape) == expected_shape, (
-            f"Unexpected shape for {observable_name}: {heads.shape} != {expected_shape}"
-        )
 
     profile_axis = int(reference_cfg.get("profile_axis", 0))
     numerical_profile = mean_along_axis(heads, axis=profile_axis)

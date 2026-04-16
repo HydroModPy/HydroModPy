@@ -1,0 +1,48 @@
+<svg viewBox="0 0 920 336" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="fig-trisolver-title fig-trisolver-desc">
+  <title id="fig-trisolver-title">Schema de lecture des campagnes tri-solveur</title>
+  <desc id="fig-trisolver-desc">Schema montrant une reference analytique, trois solveurs executes, puis la comparaison solver-reference et solver-solver.</desc>
+  <defs>
+    <marker id="arrow-d" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#60707d"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="920" height="336" rx="18" fill="#fffdf9"/>
+  <text x="32" y="38" fill="#173242" font-size="24" font-family="Segoe UI, Aptos, sans-serif" font-weight="700">Structure logique des campagnes analytiques tri-solveur</text>
+  <text x="32" y="60" fill="#5a6874" font-size="14" font-family="Segoe UI, Aptos, sans-serif">Le coeur de lecture est double : chaque solveur est compare a la reference, puis les solveurs sont compares entre eux.</text>
+
+  <rect x="42" y="108" width="180" height="100" rx="18" fill="#f8ebcf" stroke="#eed8ab"/>
+  <text x="132" y="142" text-anchor="middle" fill="#7d5512" font-size="19" font-family="Segoe UI, Aptos, sans-serif" font-weight="700">Reference analytique</text>
+  <text x="132" y="170" text-anchor="middle" fill="#274350" font-size="14" font-family="Segoe UI, Aptos, sans-serif">profil attendu</text>
+  <text x="132" y="190" text-anchor="middle" fill="#274350" font-size="14" font-family="Segoe UI, Aptos, sans-serif">ou chroniques cibles</text>
+
+  <rect x="274" y="82" width="242" height="152" rx="18" fill="#eef5fb" stroke="#d5e6f3"/>
+  <text x="395" y="112" text-anchor="middle" fill="#1f4660" font-size="18" font-family="Segoe UI, Aptos, sans-serif" font-weight="700">Solveurs lances sur le meme cas</text>
+  <rect x="300" y="138" width="64" height="44" rx="10" fill="#3b7ea1"/>
+  <text x="332" y="164" text-anchor="middle" fill="#ffffff" font-size="12" font-family="Segoe UI, Aptos, sans-serif" font-weight="700">NWT</text>
+  <rect x="382" y="138" width="64" height="44" rx="10" fill="#2f6685"/>
+  <text x="414" y="164" text-anchor="middle" fill="#ffffff" font-size="12" font-family="Segoe UI, Aptos, sans-serif" font-weight="700">MF6</text>
+  <rect x="464" y="138" width="72" height="44" rx="10" fill="#2c7a67"/>
+  <text x="500" y="164" text-anchor="middle" fill="#ffffff" font-size="12" font-family="Segoe UI, Aptos, sans-serif" font-weight="700">Boussinesq</text>
+  <text x="395" y="210" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">meme cas simple, pas meme implementation</text>
+
+  <rect x="568" y="82" width="146" height="152" rx="18" fill="#eef7f2" stroke="#d6e8df"/>
+  <text x="641" y="112" text-anchor="middle" fill="#114b48" font-size="17" font-family="Segoe UI, Aptos, sans-serif" font-weight="700">Vs reference</text>
+  <text x="641" y="140" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">RMSE</text>
+  <text x="641" y="158" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">max abs error</text>
+  <text x="641" y="176" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">spread</text>
+  <text x="641" y="194" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">profils / chroniques</text>
+
+  <rect x="742" y="82" width="138" height="152" rx="18" fill="#f4efe7" stroke="#e2d9ca"/>
+  <text x="811" y="112" text-anchor="middle" fill="#173242" font-size="17" font-family="Segoe UI, Aptos, sans-serif" font-weight="700">Pairwise</text>
+  <text x="811" y="140" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">NWT vs MF6</text>
+  <text x="811" y="158" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">NWT vs Boussinesq</text>
+  <text x="811" y="176" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">MF6 vs Boussinesq</text>
+  <text x="811" y="194" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">ecarts directs</text>
+
+  <path d="M222 158 L274 158" stroke="#60707d" stroke-width="3" marker-end="url(#arrow-d)"/>
+  <path d="M516 158 L568 158" stroke="#60707d" stroke-width="3" marker-end="url(#arrow-d)"/>
+  <path d="M516 190 L742 190" stroke="#60707d" stroke-width="3" marker-end="url(#arrow-d)"/>
+
+  <rect x="148" y="270" width="624" height="42" rx="12" fill="#dcefea" stroke="#c7dfd8"/>
+  <text x="460" y="296" text-anchor="middle" fill="#114b48" font-size="17" font-family="Segoe UI, Aptos, sans-serif" font-weight="700">Rapport final : figures, tableaux d'erreurs, differences solveur-a-solveur, conclusions de proximite ou d'ecart</text>
+</svg>

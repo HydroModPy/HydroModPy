@@ -42,6 +42,12 @@ def _make_diagnostics() -> SimpleNamespace:
 
 def test_recharge_schedule_has_expected_shape() -> None:
     assert len(case.RECHARGE_SERIES_MM_DAY) == 42
+    assert case.SOLVER_ORDER == ("modflownwt", "petsc_partition", "petsc")
+    assert case.PARTITION_REGULARIZATION_RADIUS == 0.005
+    assert case.HYDRAULIC_CONDUCTIVITY_SCALE == 0.1
+    assert case.DRAINAGE_CONDUCTANCE_M2_S == 2.0e-4
+    assert case.BOUSS_NX == 80
+    assert case.BOUSS_NY == 6
     assert case.RECHARGE_SERIES_MM_DAY[:12] == (0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0)
     assert case.RECHARGE_SERIES_MM_DAY[12:24] == (5.5, 5.0, 4.5, 4.0, 3.5, 3.0, 2.5, 2.0, 1.5, 1.0, 0.5, 0.25)
     assert case.RECHARGE_SERIES_MM_DAY[24:] == (0.0,) * 18

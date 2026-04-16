@@ -12,7 +12,7 @@ Case Setup
 ----------
 
 - Strip with piecewise-constant `K`, fixed west/east heads, uniform recharge
-- Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq.
+- Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq.
 
 What It Shows
 -------------
@@ -42,7 +42,7 @@ Solver Coverage
 ---------------
 
 - Default solver: MODFLOW-NWT
-- Available variants: MODFLOW-NWT, MODFLOW 6, Boussinesq
+- Available variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq
 
 .. tab-set::
 
@@ -87,6 +87,27 @@ Solver Coverage
       .. code-block:: bash
 
          python -m validation_cases.analytical.steady.boussinesq_uniform_recharge_piecewise_k_1d.run_case --no-show --solver modflow6
+
+   .. tab-item:: MODFLOW 6 irregular triangles
+
+      .. figure:: /_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__modflow6_irregular_tri.png
+         :alt: Boussinesq Uniform-Recharge Piecewise-K 1D validation figure for MODFLOW 6 irregular triangles
+         :width: 100%
+
+         Boussinesq Uniform-Recharge Piecewise-K 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.
+
+      **Metrics**
+      - Head-profile RMSE: 0.2038 m
+      - Head-profile max abs error: 0.3167 m
+      - Cross-row head spread: 0.00e+00 m
+
+      - Config file: ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflow6_irregular_tri.toml``
+      - Tolerances: ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6_irregular_tri.toml``
+      - Expected shape: 5 x 40
+
+      .. code-block:: bash
+
+         python -m validation_cases.analytical.steady.boussinesq_uniform_recharge_piecewise_k_1d.run_case --no-show --solver modflow6_irregular_tri
 
    .. tab-item:: Boussinesq
 
@@ -382,6 +403,10 @@ Solver-Specific Overrides
            - 1
            - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflow6.toml``
 
+   .. tab-item:: MODFLOW 6 irregular triangles
+
+      - No additional override beyond the common validation setup.
+
    .. tab-item:: Boussinesq
 
       .. list-table::
@@ -476,6 +501,33 @@ Acceptance Criteria by Solver
            - 1e-05
            - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6.toml``
 
+   .. tab-item:: MODFLOW 6 irregular triangles
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected shape: 5 x 40
+           - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/metadata.toml``
+         * - ``head_profile.rmse``
+           - Maximum accepted root-mean-square error for head profile.
+           - 0.21
+           - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6_irregular_tri.toml``
+         * - ``head_profile.max_abs_error``
+           - Maximum accepted absolute error for head profile.
+           - 0.33
+           - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6_irregular_tri.toml``
+         * - ``head_profile.row_spread``
+           - Maximum accepted cross-row spread for head profile.
+           - 1e-09
+           - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6_irregular_tri.toml``
+
    .. tab-item:: Boussinesq
 
       .. list-table::
@@ -518,7 +570,9 @@ Source Pointers
 - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances.toml``
 - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_boussinesq.toml``
 - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6.toml``
+- ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6_irregular_tri.toml``
 - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflow6.toml``
+- ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflow6_irregular_tri.toml``
 - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_boussinesq.toml``
 - ``validation_cases/analytical/steady/boussinesq_piecewise.py``
 
@@ -527,5 +581,6 @@ Artifacts
 
 - ``docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__modflownwt.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__modflow6.png``
+- ``docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__modflow6_irregular_tri.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d__boussinesq.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_uniform_recharge_piecewise_k_1d_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

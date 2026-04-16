@@ -18,6 +18,8 @@ from validation_cases.calibration.twin.transient.linearized_unconfined_recharge_
 @pytest.mark.mf6
 def test_calibration_twin_linearized_recharge_step_noisy_modflow6_benchmark_recovers_truth() -> None:
     """Run the noisy transient twin benchmark and verify repeated methods remain stable."""
+    pytest.importorskip("cma")
+
     assert_required_executables(
         require_modflow=False,
         require_modflow6=True,
@@ -37,7 +39,7 @@ def test_calibration_twin_linearized_recharge_step_noisy_modflow6_benchmark_reco
     assert benchmark.observations_truth["head_mid"]
     assert benchmark.observations_used["head_mid"]
     assert benchmark.observations_truth != benchmark.observations_used
-    assert len(benchmark.method_results) == 5
+    assert len(benchmark.method_results) == 6
 
     random_results = [
         result
@@ -63,7 +65,7 @@ def test_calibration_twin_linearized_recharge_step_noisy_modflow6_benchmark_reco
         assert result.objective_trace_figure.is_file()
         assert result.objective_landscape_figure is not None
         assert result.objective_landscape_figure.is_file()
-        if result.method_name == "simplex":
+        if result.method_name in {"simplex", "cma_es"}:
             assert result.recovered_truth, result.to_mapping()
     assert all(result.meets_success_target for result in non_random_results)
     assert sum(1 for result in random_results if result.meets_success_target) >= 2

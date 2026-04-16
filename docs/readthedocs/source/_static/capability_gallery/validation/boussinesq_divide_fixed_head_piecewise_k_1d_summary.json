@@ -3,11 +3,11 @@
   "slug": "boussinesq_divide_fixed_head_piecewise_k_1d",
   "title": "Boussinesq Divide-Fixed-Head Piecewise-K 1D",
   "category": "validation",
-  "deck": "1D west-divide benchmark without geology dependencies.",
+  "deck": "Steady synthetic groundwater-flow case used to validate the launcher workflow against the exact 1D Boussinesq solution written on `U = h^2` for an unconfined aquifer with:",
   "summary": "Steady synthetic groundwater-flow case used to validate the launcher workflow against the exact 1D Boussinesq solution written on `U = h^2` for an unconfined aquifer with:",
   "case_setup": [
     "Strip with piecewise-constant `K`, west divide, east fixed head, uniform recharge",
-    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq."
   ],
   "key_parameters": [],
   "how_to_read": [],
@@ -45,24 +45,28 @@
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances.toml",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_boussinesq.toml",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_modflow6.toml",
+    "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_modflow6_irregular_tri.toml",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflow6.toml",
+    "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflow6_irregular_tri.toml",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_boussinesq.toml",
     "validation_cases/analytical/steady/boussinesq_piecewise.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/README.md": "2886a6b3056d7c3ba9e6dfdb42a506a3ebe56793f0ca6d42c14ebd81672550a8",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/reference.py": "25546751e0cbfa160feafa3b48639bfc18fe0584d1799c8e675cc65b9f1bab81",
-    "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/comparison.py": "2065fb6bc87f424f49419100e8257bf0325c15a97327ae7b4f531255b7fcefe9",
+    "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/comparison.py": "849971dc67fd3c71e1a213d81610d805cfd5da8aad2314ce6c9ca4a7292d7d1a",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/plotting.py": "62f88c990122b74ce5792ddd0040ae51fac833e7363b391cb58156702c999592",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/run_case.py": "a3ed21c57b37587f99ff0d48046059c5f4679ce67467bc37b996820c2f764d83",
-    "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml": "ed1d8f0e40765ab39503effd9c8022a012ee2f0b1d140188504fdca7694bee95",
+    "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml": "cc1a5d7abe177f7da452da00efaa7e5126c9af50aa1ed03a425c38886ca79330",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflownwt.toml": "aae9eecbb62cb15ce2aa427f66b96890c42a3114eeda8af597aee16256b1930b",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/runtime_boussinesq.py": "4ad2923e23f1262e14257bef5e653ffd452431b80af13a0684904652f0c055fd",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances.toml": "2f85d94211dc87c0d92dbb5a90f7e3767ec0eb9133876392ddda55c1c80294d5",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_boussinesq.toml": "abf82c1fbec860dab87a2e5321109f520426727b1940cbd5145f7464e88c7542",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_modflow6.toml": "a481477a553ca4b474a9a1a6c849ff17549ce757cba4f8ea69c5d3cd749eb4bc",
+    "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_modflow6_irregular_tri.toml": "6523a9d473fea6fdf62d4dd1670674507764f5083f612df46b6b3c172a9337fa",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflow6.toml": "e668647e68535e36fad07cfad44315d3cdf951c3667fbd299c05faadb166252d",
+    "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflow6_irregular_tri.toml": "8dcf19eb3ada2f9cecb3812a48eaa6b3fca34581e170d5b058daa3be75cec248",
     "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_boussinesq.toml": "aaebad7805cda1a24b2ee2a9aefb95270df1b1e498044e123a4ad0e9be5f28e8",
     "validation_cases/analytical/steady/boussinesq_piecewise.py": "27d1932778c87f2e71920b00f583eee731a29734e95e56e2ec3674008379a857"
   },
@@ -83,6 +87,7 @@
     "solver_variants": [
       "modflownwt",
       "modflow6",
+      "modflow6_irregular_tri",
       "boussinesq"
     ],
     "solver_details": {
@@ -98,6 +103,12 @@
         "expected_output": "Expected shape: 5 x 40",
         "tolerance_path": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_modflow6.toml"
       },
+      "modflow6_irregular_tri": {
+        "display_name": "MODFLOW 6 irregular triangles",
+        "config_path": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflow6_irregular_tri.toml",
+        "expected_output": "Expected shape: 5 x 40",
+        "tolerance_path": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_modflow6_irregular_tri.toml"
+      },
       "boussinesq": {
         "display_name": "Boussinesq",
         "config_path": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_boussinesq.toml",
@@ -107,13 +118,22 @@
     },
     "regime": "steady",
     "dimension": "1d",
-    "inventory_reference": "Boussinesq, divide, piecewise `K`",
+    "inventory_reference": "",
     "case_sheet": {
       "numerical_setup": "Strip with piecewise-constant `K`, west divide, east fixed head, uniform recharge",
       "analytical_target": "Exact steady piecewise-`K` Boussinesq divide-fixed-head solution",
       "primary_metrics": "head-profile RMSE, max abs error, cross-row spread",
       "what_it_validates": "One no-flow side boundary combined with heterogeneity"
-    }
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "strip_1d",
+    "geometry_family_label": "Strip 1D",
+    "reference_type": "analytical_exact",
+    "reference_type_label": "Analytical Exact",
+    "validation_family": "steady_1d_boussinesq_heterogeneous_conductivity",
+    "validation_family_label": "Steady 1D Boussinesq with Heterogeneous Conductivity",
+    "validation_family_order": 20
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/boussinesq_divide_fixed_head_piecewise_k_1d_summary.json",
@@ -121,6 +141,7 @@
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_divide_fixed_head_piecewise_k_1d__modflownwt.png",
       "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_divide_fixed_head_piecewise_k_1d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_divide_fixed_head_piecewise_k_1d__modflow6_irregular_tri.png",
       "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_divide_fixed_head_piecewise_k_1d__boussinesq.png"
     ]
   },
@@ -159,6 +180,7 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -240,6 +262,7 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -288,6 +311,88 @@
       }
     },
     {
+      "solver": "modflow6_irregular_tri",
+      "solver_display_name": "MODFLOW 6 irregular triangles",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflow6_irregular_tri.toml",
+      "tolerance_path": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_modflow6_irregular_tri.toml",
+      "expected_output": "Expected shape: 5 x 40",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_divide_fixed_head_piecewise_k_1d.run_case --no-show --solver modflow6_irregular_tri",
+      "metric_lines": [
+        "Head-profile RMSE: 0.3764 m",
+        "Head-profile max abs error: 0.5040 m",
+        "Cross-row head spread: 8.88e-16 m"
+      ],
+      "image": {
+        "filename": "boussinesq_divide_fixed_head_piecewise_k_1d__modflow6_irregular_tri.png",
+        "caption": "Boussinesq Divide-Fixed-Head Piecewise-K 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.",
+        "alt_text": "Boussinesq Divide-Fixed-Head Piecewise-K 1D validation figure for MODFLOW 6 irregular triangles",
+        "doc_path": "/_static/capability_gallery/validation/boussinesq_divide_fixed_head_piecewise_k_1d__modflow6_irregular_tri.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_divide_fixed_head_piecewise_k_1d__modflow6_irregular_tri.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "boussinesq_divide_fixed_head_piecewise_k_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              40
+            ],
+            "expected_shape_by_solver": {
+              "boussinesq": [
+                3,
+                40
+              ]
+            }
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "east_head": 5.0,
+            "recharge_mm_day": 1.0,
+            "x_zone_breaks_m": [
+              120.0,
+              280.0
+            ],
+            "hydraulic_conductivity_m_per_s_by_zone": [
+              0.0002,
+              5e-05,
+              0.0001
+            ],
+            "aquifer_thickness_m": 20.0,
+            "profile_axis": 0,
+            "divide_side": "west"
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.39,
+            "max_abs_error": 0.52,
+            "row_spread": 1e-09
+          }
+        },
+        "timestep": 0
+      }
+    },
+    {
       "solver": "boussinesq",
       "solver_display_name": "Boussinesq",
       "is_default": false,
@@ -321,6 +426,7 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -679,6 +785,7 @@
           "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_modflow6.toml"
         }
       ],
+      "modflow6_irregular_tri": [],
       "boussinesq": [
         {
           "field": "flow.runtime_backend",
@@ -754,6 +861,32 @@
             "meaning": "Maximum accepted cross-row spread for head profile.",
             "value": "1e-05",
             "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_modflow6.toml"
+          }
+        ],
+        "modflow6_irregular_tri": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 40",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.39",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_modflow6_irregular_tri.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.52",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_modflow6_irregular_tri.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "1e-09",
+            "source": "validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/tolerances_modflow6_irregular_tri.toml"
           }
         ],
         "boussinesq": [

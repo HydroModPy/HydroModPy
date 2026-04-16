@@ -37,6 +37,8 @@ class BoussinesqAssembly:
     well_flux_m3_s: np.ndarray
     saturation_excess_rate_m_s: np.ndarray
     internal_edge_flux_m3_s: np.ndarray
+    prescribed_head_flux_m3_s: np.ndarray
+    prescribed_head_m_by_cell: np.ndarray
     imposed_head_edge_flux_m3_s: np.ndarray
     drainage_flux_m3_s: np.ndarray
     residual_m3_s: np.ndarray
@@ -63,6 +65,16 @@ class _BoussinesqSpatialTerms:
     drainage_flux_m3_s: np.ndarray
 
 
+@dataclass(frozen=True)
+class _BoundaryHeadInputs:
+    """Normalized boundary-head inputs used internally by assembly/Jacobian code."""
+
+    head_m: np.ndarray
+    imposed_head_m_by_edge: np.ndarray
+    prescribed_head_m_by_cell: np.ndarray
+    prescribed_mask: np.ndarray
+
+
 def _as_cell_vector(
     values: np.ndarray | float | None,
     *,
@@ -84,6 +96,23 @@ def _as_cell_vector(
     return array.astype(float, copy=False)
 
 
+def _as_prescribed_head_cell_vector(
+    values: np.ndarray | None,
+    *,
+    n_cells: int,
+    label: str,
+) -> np.ndarray:
+    """Return one cell-aligned prescribed-head vector with NaN on free cells."""
+    if values is None:
+        return np.full(n_cells, np.nan, dtype=float)
+    array = np.asarray(values, dtype=float).reshape(-1)
+    if array.size != int(n_cells):
+        raise ValueError(
+            f"{label} must have length {int(n_cells)}; got {int(array.size)}."
+        )
+    return array.astype(float, copy=False)
+
+
 def _as_edge_vector(
     values: np.ndarray | None,
     *,
@@ -101,48 +130,96 @@ def _as_edge_vector(
     return array.astype(float, copy=False)
 
 
-def saturated_thickness_from_head(
-    mesh: BoussinesqMesh,
+def apply_prescribed_head_to_cells(
     head_m: np.ndarray,
-) -> np.ndarray:
-    """Return the saturated thickness ``b(h)`` in each cell.
+    *,
+    prescribed_head_m_by_cell: np.ndarray | None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Overwrite prescribed cells with their Dirichlet value."""
+    head = np.asarray(head_m, dtype=float).reshape(-1).copy()
+    prescribed = _as_prescribed_head_cell_vector(
+        prescribed_head_m_by_cell,
+        n_cells=head.size,
+        label="prescribed_head_m_by_cell",
+    )
+    mask = np.isfinite(prescribed)
+    if np.any(mask):
+        head[mask] = prescribed[mask]
+    return head, prescribed
 
-    The thickness is clipped between zero and the full aquifer thickness. This
-    ensures that later operators always work with physically admissible values
-    even if a nonlinear iterate temporarily overshoots.
-    """
-    max_thickness = np.maximum(mesh.z_top_m - mesh.z_bottom_m, 0.0)
-    return np.clip(np.asarray(head_m, dtype=float) - mesh.z_bottom_m, 0.0, max_thickness)
 
-
-def transmissivity_from_head(
+def _resolve_boundary_head_inputs(
     mesh: BoussinesqMesh,
+    *,
     head_m: np.ndarray,
-) -> np.ndarray:
-    """Return the cell transmissivity ``T(h) = K b(h)``."""
-    saturated_thickness_m = saturated_thickness_from_head(mesh, head_m)
-    return mesh.hydraulic_conductivity_m_s * saturated_thickness_m
+    imposed_head_m_by_edge: np.ndarray | None,
+    prescribed_head_m_by_cell: np.ndarray | None,
+) -> _BoundaryHeadInputs:
+    """Normalize the two supported Dirichlet representations to one internal view."""
+    head = np.asarray(head_m, dtype=float).reshape(-1)
+    if head.size != int(mesh.n_cells):
+        raise ValueError(
+            f"head_m length must match mesh.n_cells ({head.size} != {int(mesh.n_cells)})."
+        )
+    imposed_head = _as_edge_vector(
+        imposed_head_m_by_edge,
+        n_edges=mesh.n_edges,
+        label="imposed_head_m_by_edge",
+    )
+    prescribed_head = _as_prescribed_head_cell_vector(
+        prescribed_head_m_by_cell,
+        n_cells=mesh.n_cells,
+        label="prescribed_head_m_by_cell",
+    )
+    if np.any(np.isfinite(imposed_head)) and np.any(np.isfinite(prescribed_head)):
+        raise ValueError(
+            "imposed_head_m_by_edge and prescribed_head_m_by_cell are mutually exclusive."
+        )
+    if np.any(np.isfinite(prescribed_head)):
+        head, prescribed_head = apply_prescribed_head_to_cells(
+            head,
+            prescribed_head_m_by_cell=prescribed_head,
+        )
+    prescribed_mask = np.isfinite(prescribed_head)
+    return _BoundaryHeadInputs(
+        head_m=head,
+        imposed_head_m_by_edge=imposed_head,
+        prescribed_head_m_by_cell=prescribed_head,
+        prescribed_mask=prescribed_mask,
+    )
 
 
-def _harmonic_conductivity(
-    conductivity_a_m_s: float,
-    conductivity_b_m_s: float,
-) -> float:
-    """Return the harmonic mean conductivity used on one interior edge."""
-    if conductivity_a_m_s <= 0.0 or conductivity_b_m_s <= 0.0:
-        return 0.0
-    return 2.0 / ((1.0 / conductivity_a_m_s) + (1.0 / conductivity_b_m_s))
+def _finalize_boundary_constrained_residual(
+    *,
+    head_m: np.ndarray,
+    raw_residual_m3_s: np.ndarray,
+    prescribed_head_m_by_cell: np.ndarray,
+    imposed_head_flux_residual_m3_s: np.ndarray,
+    imposed_head_edge_flux_m3_s: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return residual plus diagnostic prescribed-head flux after constraint enforcement."""
+    prescribed_mask = np.isfinite(np.asarray(prescribed_head_m_by_cell, dtype=float))
+    prescribed_head_flux = np.zeros_like(np.asarray(raw_residual_m3_s, dtype=float))
+    residual = np.asarray(raw_residual_m3_s, dtype=float).copy()
+    if np.any(prescribed_mask):
+        prescribed_head_flux[prescribed_mask] = -residual[prescribed_mask]
+        residual[prescribed_mask] = (
+            np.asarray(head_m, dtype=float)[prescribed_mask]
+            - np.asarray(prescribed_head_m_by_cell, dtype=float)[prescribed_mask]
+        )
+    elif np.any(np.asarray(imposed_head_edge_flux_m3_s, dtype=float) != 0.0):
+        prescribed_head_flux = np.asarray(
+            imposed_head_flux_residual_m3_s,
+            dtype=float,
+        ).copy()
+    return residual, prescribed_head_flux
 
 
 def _edge_to_stage_tau_from_head(
     mesh: BoussinesqMesh,
     head_m: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Return transmissive factors used for imposed-head edge exchanges.
-
-    ``tau`` is the coefficient that turns a head difference into a flux between
-    a cell center and a boundary stage located on the edge.
-    """
+    """Return transmissive factors used for imposed-head edge exchanges."""
     head = np.asarray(head_m, dtype=float)
     saturated_thickness = saturated_thickness_from_head(mesh, head)
     tau_a = np.zeros(mesh.n_edges, dtype=float)
@@ -178,6 +255,75 @@ def _edge_to_stage_tau_from_head(
     return tau_a, tau_b
 
 
+def imposed_head_edge_flux_from_head(
+    mesh: BoussinesqMesh,
+    head_m: np.ndarray,
+    *,
+    imposed_head_m_by_edge: np.ndarray | None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return fluxes created by imposed-head boundary conditions."""
+    imposed_heads = _as_edge_vector(
+        imposed_head_m_by_edge,
+        n_edges=mesh.n_edges,
+        label="imposed_head_m_by_edge",
+    )
+    tau_a, tau_b = _edge_to_stage_tau_from_head(mesh, head_m)
+    head = np.asarray(head_m, dtype=float)
+    edge_flux = np.zeros(mesh.n_edges, dtype=float)
+    residual = np.zeros(mesh.n_cells, dtype=float)
+    for edge_index in range(mesh.n_edges):
+        imposed_head = float(imposed_heads[edge_index])
+        if not np.isfinite(imposed_head):
+            continue
+        cell_a = int(mesh.edge_cell_a[edge_index])
+        flux_a = -float(tau_a[edge_index]) * (
+            imposed_head - float(head[cell_a])
+        )
+        residual[cell_a] += flux_a
+        edge_flux[edge_index] += flux_a
+        cell_b = int(mesh.edge_cell_b[edge_index])
+        if cell_b >= 0 and float(tau_b[edge_index]) > 0.0:
+            flux_b = -float(tau_b[edge_index]) * (
+                imposed_head - float(head[cell_b])
+            )
+            residual[cell_b] += flux_b
+            edge_flux[edge_index] += flux_b
+    return edge_flux, residual
+
+
+def saturated_thickness_from_head(
+    mesh: BoussinesqMesh,
+    head_m: np.ndarray,
+) -> np.ndarray:
+    """Return the saturated thickness ``b(h)`` in each cell.
+
+    The thickness is clipped between zero and the full aquifer thickness. This
+    ensures that later operators always work with physically admissible values
+    even if a nonlinear iterate temporarily overshoots.
+    """
+    max_thickness = np.maximum(mesh.z_top_m - mesh.z_bottom_m, 0.0)
+    return np.clip(np.asarray(head_m, dtype=float) - mesh.z_bottom_m, 0.0, max_thickness)
+
+
+def transmissivity_from_head(
+    mesh: BoussinesqMesh,
+    head_m: np.ndarray,
+) -> np.ndarray:
+    """Return the cell transmissivity ``T(h) = K b(h)``."""
+    saturated_thickness_m = saturated_thickness_from_head(mesh, head_m)
+    return mesh.hydraulic_conductivity_m_s * saturated_thickness_m
+
+
+def _harmonic_conductivity(
+    conductivity_a_m_s: float,
+    conductivity_b_m_s: float,
+) -> float:
+    """Return the harmonic mean conductivity used on one interior edge."""
+    if conductivity_a_m_s <= 0.0 or conductivity_b_m_s <= 0.0:
+        return 0.0
+    return 2.0 / ((1.0 / conductivity_a_m_s) + (1.0 / conductivity_b_m_s))
+
+
 def internal_edge_flux_from_head(
     mesh: BoussinesqMesh,
     head_m: np.ndarray,
@@ -211,48 +357,6 @@ def internal_edge_flux_from_head(
         tau = transmissivity_edge * float(mesh.edge_length_m[edge_index]) / distance_m
         internal_flux[edge_index] = -tau * (float(head[cell_b]) - float(head[cell_a]))
     return internal_flux
-
-
-def imposed_head_edge_flux_from_head(
-    mesh: BoussinesqMesh,
-    head_m: np.ndarray,
-    *,
-    imposed_head_m_by_edge: np.ndarray | None,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Return fluxes created by imposed-head boundary conditions.
-
-    The function returns both:
-
-    - the total oriented flux stored per edge for diagnostics;
-    - the residual contribution accumulated per cell for assembly.
-    """
-    imposed_heads = _as_edge_vector(
-        imposed_head_m_by_edge,
-        n_edges=mesh.n_edges,
-        label="imposed_head_m_by_edge",
-    )
-    tau_a, tau_b = _edge_to_stage_tau_from_head(mesh, head_m)
-    head = np.asarray(head_m, dtype=float)
-    edge_flux = np.zeros(mesh.n_edges, dtype=float)
-    residual = np.zeros(mesh.n_cells, dtype=float)
-    for edge_index in range(mesh.n_edges):
-        imposed_head = float(imposed_heads[edge_index])
-        if not np.isfinite(imposed_head):
-            continue
-        cell_a = int(mesh.edge_cell_a[edge_index])
-        flux_a = -float(tau_a[edge_index]) * (
-            imposed_head - float(head[cell_a])
-        )
-        residual[cell_a] += flux_a
-        edge_flux[edge_index] += flux_a
-        cell_b = int(mesh.edge_cell_b[edge_index])
-        if cell_b >= 0 and float(tau_b[edge_index]) > 0.0:
-            flux_b = -float(tau_b[edge_index]) * (
-                imposed_head - float(head[cell_b])
-            )
-            residual[cell_b] += flux_b
-            edge_flux[edge_index] += flux_b
-    return edge_flux, residual
 
 
 def accumulate_internal_flux_residual(
@@ -424,6 +528,7 @@ def assemble_transient_residual(
     recharge_rate_m_s: np.ndarray | float | None = None,
     well_flux_m3_s: np.ndarray | float | None = None,
     imposed_head_m_by_edge: np.ndarray | None = None,
+    prescribed_head_m_by_cell: np.ndarray | None = None,
     drainage_conductance_m2_s: np.ndarray | float | None = None,
     regularization_radius: float = 0.05,
 ) -> BoussinesqAssembly:
@@ -442,6 +547,7 @@ def assemble_transient_residual(
         recharge_rate_m_s=recharge_rate_m_s,
         well_flux_m3_s=well_flux_m3_s,
         imposed_head_m_by_edge=imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
         drainage_conductance_m2_s=drainage_conductance_m2_s,
         regularization_radius=float(regularization_radius),
     )
@@ -456,7 +562,7 @@ def assemble_transient_residual(
     # - positive flux residual terms remove water from the cell,
     # - recharge and positive well injection add water and are therefore
     #   subtracted from the residual.
-    residual = (
+    raw_residual = (
         temporal_term
         + spatial_terms.internal_flux_residual_m3_s
         + spatial_terms.imposed_head_flux_residual_m3_s
@@ -464,6 +570,19 @@ def assemble_transient_residual(
         + mesh.cell_area_m2 * spatial_terms.saturation_excess_rate_m_s
         - mesh.cell_area_m2 * spatial_terms.recharge_rate_m_s
         - spatial_terms.well_flux_m3_s
+    )
+    boundary_inputs = _resolve_boundary_head_inputs(
+        mesh,
+        head_m=np.asarray(head_m, dtype=float),
+        imposed_head_m_by_edge=imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
+    )
+    residual, prescribed_head_flux = _finalize_boundary_constrained_residual(
+        head_m=np.asarray(head_m, dtype=float),
+        raw_residual_m3_s=raw_residual,
+        prescribed_head_m_by_cell=boundary_inputs.prescribed_head_m_by_cell,
+        imposed_head_flux_residual_m3_s=spatial_terms.imposed_head_flux_residual_m3_s,
+        imposed_head_edge_flux_m3_s=spatial_terms.imposed_head_edge_flux_m3_s,
     )
     return BoussinesqAssembly(
         head_m=spatial_terms.head_m,
@@ -473,6 +592,8 @@ def assemble_transient_residual(
         well_flux_m3_s=spatial_terms.well_flux_m3_s,
         saturation_excess_rate_m_s=spatial_terms.saturation_excess_rate_m_s,
         internal_edge_flux_m3_s=spatial_terms.internal_edge_flux_m3_s,
+        prescribed_head_flux_m3_s=prescribed_head_flux,
+        prescribed_head_m_by_cell=boundary_inputs.prescribed_head_m_by_cell,
         imposed_head_edge_flux_m3_s=spatial_terms.imposed_head_edge_flux_m3_s,
         drainage_flux_m3_s=spatial_terms.drainage_flux_m3_s,
         residual_m3_s=residual,
@@ -489,6 +610,7 @@ def assemble_transient_residual_with_saturation_excess(
     recharge_rate_m_s: np.ndarray | float | None = None,
     well_flux_m3_s: np.ndarray | float | None = None,
     imposed_head_m_by_edge: np.ndarray | None = None,
+    prescribed_head_m_by_cell: np.ndarray | None = None,
     drainage_conductance_m2_s: np.ndarray | float | None = None,
     regularization_radius: float = 0.05,
 ) -> BoussinesqAssembly:
@@ -507,6 +629,7 @@ def assemble_transient_residual_with_saturation_excess(
         recharge_rate_m_s=recharge_rate_m_s,
         well_flux_m3_s=well_flux_m3_s,
         imposed_head_m_by_edge=imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
         drainage_conductance_m2_s=drainage_conductance_m2_s,
         regularization_radius=float(regularization_radius),
         saturation_excess_rate_m_s=saturation_excess_rate_m_s,
@@ -518,7 +641,7 @@ def assemble_transient_residual_with_saturation_excess(
         * (spatial_terms.head_m - head_prev)
         / float(dt_seconds)
     )
-    residual = (
+    raw_residual = (
         temporal_term
         + spatial_terms.internal_flux_residual_m3_s
         + spatial_terms.imposed_head_flux_residual_m3_s
@@ -526,6 +649,19 @@ def assemble_transient_residual_with_saturation_excess(
         + mesh.cell_area_m2 * spatial_terms.saturation_excess_rate_m_s
         - mesh.cell_area_m2 * spatial_terms.recharge_rate_m_s
         - spatial_terms.well_flux_m3_s
+    )
+    boundary_inputs = _resolve_boundary_head_inputs(
+        mesh,
+        head_m=np.asarray(head_m, dtype=float),
+        imposed_head_m_by_edge=imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
+    )
+    residual, prescribed_head_flux = _finalize_boundary_constrained_residual(
+        head_m=np.asarray(head_m, dtype=float),
+        raw_residual_m3_s=raw_residual,
+        prescribed_head_m_by_cell=boundary_inputs.prescribed_head_m_by_cell,
+        imposed_head_flux_residual_m3_s=spatial_terms.imposed_head_flux_residual_m3_s,
+        imposed_head_edge_flux_m3_s=spatial_terms.imposed_head_edge_flux_m3_s,
     )
     return BoussinesqAssembly(
         head_m=spatial_terms.head_m,
@@ -535,6 +671,8 @@ def assemble_transient_residual_with_saturation_excess(
         well_flux_m3_s=spatial_terms.well_flux_m3_s,
         saturation_excess_rate_m_s=spatial_terms.saturation_excess_rate_m_s,
         internal_edge_flux_m3_s=spatial_terms.internal_edge_flux_m3_s,
+        prescribed_head_flux_m3_s=prescribed_head_flux,
+        prescribed_head_m_by_cell=boundary_inputs.prescribed_head_m_by_cell,
         imposed_head_edge_flux_m3_s=spatial_terms.imposed_head_edge_flux_m3_s,
         drainage_flux_m3_s=spatial_terms.drainage_flux_m3_s,
         residual_m3_s=residual,
@@ -548,6 +686,7 @@ def assemble_steady_residual(
     recharge_rate_m_s: np.ndarray | float | None = None,
     well_flux_m3_s: np.ndarray | float | None = None,
     imposed_head_m_by_edge: np.ndarray | None = None,
+    prescribed_head_m_by_cell: np.ndarray | None = None,
     drainage_conductance_m2_s: np.ndarray | float | None = None,
     regularization_radius: float = 0.05,
 ) -> BoussinesqAssembly:
@@ -558,16 +697,30 @@ def assemble_steady_residual(
         recharge_rate_m_s=recharge_rate_m_s,
         well_flux_m3_s=well_flux_m3_s,
         imposed_head_m_by_edge=imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
         drainage_conductance_m2_s=drainage_conductance_m2_s,
         regularization_radius=float(regularization_radius),
     )
-    residual = (
+    raw_residual = (
         spatial_terms.internal_flux_residual_m3_s
         + spatial_terms.imposed_head_flux_residual_m3_s
         + spatial_terms.drainage_flux_m3_s
         + mesh.cell_area_m2 * spatial_terms.saturation_excess_rate_m_s
         - mesh.cell_area_m2 * spatial_terms.recharge_rate_m_s
         - spatial_terms.well_flux_m3_s
+    )
+    boundary_inputs = _resolve_boundary_head_inputs(
+        mesh,
+        head_m=np.asarray(head_m, dtype=float),
+        imposed_head_m_by_edge=imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
+    )
+    residual, prescribed_head_flux = _finalize_boundary_constrained_residual(
+        head_m=np.asarray(head_m, dtype=float),
+        raw_residual_m3_s=raw_residual,
+        prescribed_head_m_by_cell=boundary_inputs.prescribed_head_m_by_cell,
+        imposed_head_flux_residual_m3_s=spatial_terms.imposed_head_flux_residual_m3_s,
+        imposed_head_edge_flux_m3_s=spatial_terms.imposed_head_edge_flux_m3_s,
     )
     return BoussinesqAssembly(
         head_m=spatial_terms.head_m,
@@ -577,6 +730,8 @@ def assemble_steady_residual(
         well_flux_m3_s=spatial_terms.well_flux_m3_s,
         saturation_excess_rate_m_s=spatial_terms.saturation_excess_rate_m_s,
         internal_edge_flux_m3_s=spatial_terms.internal_edge_flux_m3_s,
+        prescribed_head_flux_m3_s=prescribed_head_flux,
+        prescribed_head_m_by_cell=boundary_inputs.prescribed_head_m_by_cell,
         imposed_head_edge_flux_m3_s=spatial_terms.imposed_head_edge_flux_m3_s,
         drainage_flux_m3_s=spatial_terms.drainage_flux_m3_s,
         residual_m3_s=residual,
@@ -591,6 +746,7 @@ def assemble_steady_residual_with_saturation_excess(
     recharge_rate_m_s: np.ndarray | float | None = None,
     well_flux_m3_s: np.ndarray | float | None = None,
     imposed_head_m_by_edge: np.ndarray | None = None,
+    prescribed_head_m_by_cell: np.ndarray | None = None,
     drainage_conductance_m2_s: np.ndarray | float | None = None,
     regularization_radius: float = 0.05,
 ) -> BoussinesqAssembly:
@@ -601,17 +757,31 @@ def assemble_steady_residual_with_saturation_excess(
         recharge_rate_m_s=recharge_rate_m_s,
         well_flux_m3_s=well_flux_m3_s,
         imposed_head_m_by_edge=imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
         drainage_conductance_m2_s=drainage_conductance_m2_s,
         regularization_radius=float(regularization_radius),
         saturation_excess_rate_m_s=saturation_excess_rate_m_s,
     )
-    residual = (
+    raw_residual = (
         spatial_terms.internal_flux_residual_m3_s
         + spatial_terms.imposed_head_flux_residual_m3_s
         + spatial_terms.drainage_flux_m3_s
         + mesh.cell_area_m2 * spatial_terms.saturation_excess_rate_m_s
         - mesh.cell_area_m2 * spatial_terms.recharge_rate_m_s
         - spatial_terms.well_flux_m3_s
+    )
+    boundary_inputs = _resolve_boundary_head_inputs(
+        mesh,
+        head_m=np.asarray(head_m, dtype=float),
+        imposed_head_m_by_edge=imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
+    )
+    residual, prescribed_head_flux = _finalize_boundary_constrained_residual(
+        head_m=np.asarray(head_m, dtype=float),
+        raw_residual_m3_s=raw_residual,
+        prescribed_head_m_by_cell=boundary_inputs.prescribed_head_m_by_cell,
+        imposed_head_flux_residual_m3_s=spatial_terms.imposed_head_flux_residual_m3_s,
+        imposed_head_edge_flux_m3_s=spatial_terms.imposed_head_edge_flux_m3_s,
     )
     return BoussinesqAssembly(
         head_m=spatial_terms.head_m,
@@ -621,6 +791,8 @@ def assemble_steady_residual_with_saturation_excess(
         well_flux_m3_s=spatial_terms.well_flux_m3_s,
         saturation_excess_rate_m_s=spatial_terms.saturation_excess_rate_m_s,
         internal_edge_flux_m3_s=spatial_terms.internal_edge_flux_m3_s,
+        prescribed_head_flux_m3_s=prescribed_head_flux,
+        prescribed_head_m_by_cell=boundary_inputs.prescribed_head_m_by_cell,
         imposed_head_edge_flux_m3_s=spatial_terms.imposed_head_edge_flux_m3_s,
         drainage_flux_m3_s=spatial_terms.drainage_flux_m3_s,
         residual_m3_s=residual,
@@ -634,6 +806,7 @@ def _assemble_spatial_terms(
     recharge_rate_m_s: np.ndarray | float | None,
     well_flux_m3_s: np.ndarray | float | None,
     imposed_head_m_by_edge: np.ndarray | None,
+    prescribed_head_m_by_cell: np.ndarray | None,
     drainage_conductance_m2_s: np.ndarray | float | None,
     regularization_radius: float,
     saturation_excess_rate_m_s: np.ndarray | float | None = None,
@@ -643,16 +816,29 @@ def _assemble_spatial_terms(
     This helper keeps the steady and transient assemblies in sync by computing
     all non-storage terms in one place.
     """
-    head = np.asarray(head_m, dtype=float)
+    boundary_inputs = _resolve_boundary_head_inputs(
+        mesh,
+        head_m=np.asarray(head_m, dtype=float),
+        imposed_head_m_by_edge=imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
+    )
+    if np.any(np.isfinite(boundary_inputs.imposed_head_m_by_edge)):
+        head = boundary_inputs.head_m
+        imposed_head_edge_flux, imposed_head_flux_residual = (
+            imposed_head_edge_flux_from_head(
+                mesh,
+                head,
+                imposed_head_m_by_edge=boundary_inputs.imposed_head_m_by_edge,
+            )
+        )
+    else:
+        head = boundary_inputs.head_m
+        imposed_head_edge_flux = np.zeros(mesh.n_edges, dtype=float)
+        imposed_head_flux_residual = np.zeros(mesh.n_cells, dtype=float)
     saturated_thickness = saturated_thickness_from_head(mesh, head)
     transmissivity = mesh.hydraulic_conductivity_m_s * saturated_thickness
     internal_edge_flux = internal_edge_flux_from_head(mesh, head)
     internal_flux_residual = accumulate_internal_flux_residual(mesh, internal_edge_flux)
-    imposed_head_edge_flux, imposed_head_flux_residual = imposed_head_edge_flux_from_head(
-        mesh,
-        head,
-        imposed_head_m_by_edge=imposed_head_m_by_edge,
-    )
     recharge_rate = _as_cell_vector(
         recharge_rate_m_s,
         n_cells=mesh.n_cells,
@@ -663,13 +849,15 @@ def _assemble_spatial_terms(
         n_cells=mesh.n_cells,
         label="well_flux_m3_s",
     )
-    # Saturation excess is evaluated after lateral and imposed-head exchanges,
-    # because it is meant to regularize whatever water would still overfill the
-    # near-surface storage after those exchanges have taken place.
+    # Saturation excess is evaluated after the lateral exchanges between cells.
+    # Prescribed-head cells are enforced outside this physical assembly, while
+    # edge-based imposed-head exchanges contribute directly to the balance.
     saturation_excess_rate = _resolve_saturation_excess_rate(
         mesh,
         head_m=head,
-        lateral_flux_residual_m3_s=internal_flux_residual + imposed_head_flux_residual,
+        lateral_flux_residual_m3_s=(
+            internal_flux_residual + imposed_head_flux_residual
+        ),
         recharge_rate_m_s=recharge_rate,
         regularization_radius=float(regularization_radius),
         saturation_excess_rate_m_s=saturation_excess_rate_m_s,
@@ -696,6 +884,7 @@ def _assemble_spatial_terms(
 
 __all__ = [
     "BoussinesqAssembly",
+    "apply_prescribed_head_to_cells",
     "accumulate_boundary_flux_residual",
     "accumulate_internal_flux_residual",
     "assemble_steady_residual",
@@ -703,10 +892,14 @@ __all__ = [
     "assemble_transient_residual",
     "assemble_transient_residual_with_saturation_excess",
     "drainage_outflow_from_head",
-    "internal_edge_flux_from_head",
     "imposed_head_edge_flux_from_head",
+    "internal_edge_flux_from_head",
+    "resolve_boundary_head_inputs",
     "regularized_partition_surface_rate_from_balance",
     "saturated_thickness_from_head",
     "saturation_excess_rate_from_balance",
     "transmissivity_from_head",
 ]
+
+
+resolve_boundary_head_inputs = _resolve_boundary_head_inputs

@@ -216,6 +216,23 @@ class BoussinesqMesh:
             raise ValueError(f"Unsupported side boundary id: {bc_id}.")
         return np.flatnonzero(boundary_mask & side_mask).astype(int, copy=False)
 
+    def boundary_cell_indices_for_side(
+        self,
+        bc_id: str,
+        *,
+        tolerance_m: float | None = None,
+    ) -> np.ndarray:
+        """Return owner-cell indices for one outer side of the domain."""
+        edge_indices = self.boundary_edge_indices_for_side(
+            bc_id,
+            tolerance_m=tolerance_m,
+        )
+        if edge_indices.size == 0:
+            return np.asarray([], dtype=int)
+        return np.unique(
+            np.asarray(self.edge_cell_a[edge_indices], dtype=int)
+        ).astype(int, copy=False)
+
     def locate_cell_index_for_point(
         self,
         x_m: float,
@@ -256,6 +273,15 @@ class BoussinesqMesh:
             int,
             copy=False,
         )
+
+    def river_cell_indices(self) -> np.ndarray:
+        """Return owner-cell indices for edges tagged as river support."""
+        edge_indices = self.river_edge_indices()
+        if edge_indices.size == 0:
+            return np.asarray([], dtype=int)
+        return np.unique(
+            np.asarray(self.edge_cell_a[edge_indices], dtype=int)
+        ).astype(int, copy=False)
 
     @classmethod
     def from_planar_mesh(

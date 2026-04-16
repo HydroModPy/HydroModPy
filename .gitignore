@@ -96,6 +96,7 @@ dmypy.json
 # Documentation builds
 # ──────────────────────────────────────────────
 doc/
+docs/_build*/
 docs/**/_build/
 docs/readthedocs/_build*/
 docs/**/_autosummary/
@@ -112,6 +113,7 @@ docs/readthedocs/source/_generated/
 # ──────────────────────────────────────────────
 # HydroModPy workspace outputs
 # ──────────────────────────────────────────────
+out/
 **/results_stable/
 **/results_simulations/
 **/results_calibration/

@@ -52,6 +52,7 @@ class TransientStepInputs:
     recharge_rate_m_s: np.ndarray | float | None = None
     well_flux_m3_s: np.ndarray | float | None = None
     imposed_head_m_by_edge: np.ndarray | None = None
+    prescribed_head_m_by_cell: np.ndarray | None = None
     drainage_conductance_m2_s: np.ndarray | float | None = None
     options: NonlinearRuntimeOptions = field(
         default_factory=NonlinearRuntimeOptions
@@ -72,6 +73,7 @@ class SteadySolveInputs:
     recharge_rate_m_s: np.ndarray | float | None = None
     well_flux_m3_s: np.ndarray | float | None = None
     imposed_head_m_by_edge: np.ndarray | None = None
+    prescribed_head_m_by_cell: np.ndarray | None = None
     drainage_conductance_m2_s: np.ndarray | float | None = None
     options: NonlinearRuntimeOptions = field(
         default_factory=NonlinearRuntimeOptions

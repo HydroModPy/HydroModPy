@@ -54,6 +54,196 @@ def _to_physical(
     return np.clip(arr, lower, upper)
 
 
+def _scalar_cma_es_fallback(
+    objective_cost,
+    *,
+    lower: np.ndarray,
+    upper: np.ndarray,
+    initial: np.ndarray,
+    sigma0_value: float,
+    popsize,
+    max_iter,
+    max_evaluations,
+    seed,
+    restarts,
+    tolx,
+    tolfun,
+    normalize: bool,
+):
+    """
+    Robust 1D evolutionary fallback.
+
+    `pycma` is known to be fragile in dimension 1. The calibration gallery
+    contains several 1-parameter benchmarks, so the public `cma_es` method
+    needs a stable scalar path instead of relying on undefined upstream
+    behaviour.
+    """
+    rng = np.random.default_rng(int(seed))
+    population_size = max(4, int(popsize or 8))
+    mu = max(2, population_size // 2)
+    raw_weights = np.log(mu + 0.5) - np.log(np.arange(1, mu + 1, dtype=float))
+    weights = raw_weights / np.sum(raw_weights)
+    mu_eff = 1.0 / float(np.sum(weights**2))
+    chi_n = math.sqrt(2.0 / math.pi)
+    c_sigma = (mu_eff + 2.0) / (mu_eff + 3.0)
+    d_sigma = 1.0 + 2.0 * max(0.0, math.sqrt((mu_eff - 1.0) / 2.0) - 1.0) + c_sigma
+    min_sigma = 1.0e-6 if normalize else max(1.0e-12, 1.0e-8 * float(upper[0] - lower[0]))
+    max_sigma = 0.5 if normalize else float(upper[0] - lower[0])
+
+    remaining_evaluations = None if max_evaluations is None else int(max_evaluations)
+    remaining_iterations = None if max_iter is None else int(max_iter)
+    n_evaluations = 0
+    best_cost = math.inf
+    best_candidate = np.asarray(initial, dtype=float).reshape(1)
+    stop_reasons: list[str] = []
+
+    def _wrapped_scalar(candidate_value: float) -> float:
+        nonlocal n_evaluations
+        physical = _to_physical(
+            np.array([candidate_value], dtype=float),
+            lower=lower,
+            upper=upper,
+            normalize=bool(normalize),
+        )
+        raw_cost = float(objective_cost(physical))
+        n_evaluations += 1
+        if math.isfinite(raw_cost):
+            return raw_cost
+        return 1.0e12
+
+    for restart_index in range(int(restarts or 0) + 1):
+        if remaining_evaluations is not None and remaining_evaluations <= 0:
+            stop_reasons.append("max_evaluations")
+            break
+        if remaining_iterations is not None and remaining_iterations <= 0:
+            stop_reasons.append("max_iter")
+            break
+
+        if restart_index == 0:
+            mean = float(initial[0])
+        elif best_candidate is not None:
+            jitter = 0.15 * (2.0 * rng.random() - 1.0)
+            mean = float(best_candidate[0] + jitter * max(sigma0_value, min_sigma))
+        elif normalize:
+            mean = float(rng.uniform(0.0, 1.0))
+        else:
+            mean = float(rng.uniform(float(lower[0]), float(upper[0])))
+        if normalize:
+            mean = float(np.clip(mean, 0.0, 1.0))
+        else:
+            mean = float(np.clip(mean, float(lower[0]), float(upper[0])))
+
+        sigma = float(np.clip(sigma0_value, min_sigma, max_sigma))
+        path_sigma = 0.0
+        iteration_budget = (
+            math.inf if remaining_iterations is None else int(remaining_iterations)
+        )
+        no_improve_count = 0
+        local_best_cost = math.inf
+
+        for _ in range(int(iteration_budget) if math.isfinite(iteration_budget) else 10**9):
+            if remaining_evaluations is not None and remaining_evaluations <= 0:
+                stop_reasons.append("max_evaluations")
+                break
+
+            local_population_size = population_size
+            if remaining_evaluations is not None:
+                local_population_size = min(local_population_size, remaining_evaluations)
+            if local_population_size <= 0:
+                stop_reasons.append("max_evaluations")
+                break
+
+            z_values = rng.normal(loc=0.0, scale=1.0, size=local_population_size)
+            candidates = mean + sigma * z_values
+            if normalize:
+                candidates = np.clip(candidates, 0.0, 1.0)
+            else:
+                candidates = np.clip(candidates, float(lower[0]), float(upper[0]))
+            candidates[0] = mean
+
+            costs = np.array(
+                [_wrapped_scalar(float(candidate)) for candidate in candidates],
+                dtype=float,
+            )
+            if remaining_evaluations is not None:
+                remaining_evaluations = max(0, remaining_evaluations - int(local_population_size))
+            if remaining_iterations is not None:
+                remaining_iterations = max(0, remaining_iterations - 1)
+
+            order = np.argsort(costs)
+            elite_count = min(mu, int(local_population_size))
+            elite_candidates = candidates[order[:elite_count]]
+            elite_z = np.divide(
+                elite_candidates - mean,
+                sigma if sigma > 0.0 else 1.0,
+            )
+            local_weights = weights[:elite_count]
+            local_weights = local_weights / np.sum(local_weights)
+            mean_shift = float(np.sum(local_weights * elite_z))
+            new_mean = float(np.sum(local_weights * elite_candidates))
+            path_sigma = (1.0 - c_sigma) * path_sigma + math.sqrt(
+                c_sigma * (2.0 - c_sigma) * mu_eff
+            ) * mean_shift
+            sigma *= math.exp((abs(path_sigma) / chi_n - 1.0) * c_sigma / d_sigma)
+            sigma = float(np.clip(sigma, min_sigma, max_sigma))
+            mean = new_mean
+
+            iteration_best_cost = float(costs[order[0]])
+            if iteration_best_cost + 1.0e-15 < best_cost:
+                best_cost = iteration_best_cost
+                best_candidate = np.array([float(candidates[order[0]])], dtype=float)
+            if iteration_best_cost + 1.0e-15 < local_best_cost:
+                local_best_cost = iteration_best_cost
+                no_improve_count = 0
+            else:
+                no_improve_count += 1
+
+            if tolx is not None and sigma <= float(tolx):
+                stop_reasons.append("tolx")
+                break
+            if (
+                tolfun is not None
+                and elite_count >= 2
+                and float(np.max(costs[order[:elite_count]]) - np.min(costs[order[:elite_count]]))
+                <= float(tolfun)
+            ):
+                stop_reasons.append("tolfun")
+                break
+            if no_improve_count >= 10:
+                stop_reasons.append("stalled")
+                break
+
+        else:
+            stop_reasons.append("max_iter")
+
+    x_best = _to_physical(
+        best_candidate,
+        lower=lower,
+        upper=upper,
+        normalize=bool(normalize),
+    )
+    return CalibrationResults(
+        method="cma_es",
+        x_best=x_best,
+        params_best=None,
+        cost_best=float(best_cost),
+        score_best=None,
+        n_evaluations=int(n_evaluations),
+        metadata={
+            "sigma0": float(sigma0_value),
+            "normalize": bool(normalize),
+            "popsize": None if popsize is None else int(popsize),
+            "max_iter": None if max_iter is None else int(max_iter),
+            "max_evaluations": (
+                None if max_evaluations is None else int(max_evaluations)
+            ),
+            "restarts": int(restarts),
+            "backend": "scalar_es_fallback",
+            "stop_reasons": stop_reasons,
+        },
+    )
+
+
 def cma_es_calibrate(
     objective_cost,
     bounds,
@@ -138,6 +328,23 @@ def cma_es_calibrate(
             "The 'cma' package is required for cma_es calibration. "
             "Install it with `pip install cma`."
         ) from exc
+
+    if lower.size == 1:
+        return _scalar_cma_es_fallback(
+            objective_cost,
+            lower=lower,
+            upper=upper,
+            initial=initial,
+            sigma0_value=sigma0_value,
+            popsize=popsize,
+            max_iter=max_iter,
+            max_evaluations=max_evaluations,
+            seed=seed,
+            restarts=restarts,
+            tolx=tolx,
+            tolfun=tolfun,
+            normalize=bool(normalize),
+        )
 
     n_evaluations = 0
 

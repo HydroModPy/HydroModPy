@@ -11,6 +11,7 @@ from validation_cases.shared.loaders import (
     load_case_metadata,
     load_case_tolerances,
     load_last_npy_array,
+    load_last_npy_array_on_expected_grid,
     load_npy_time_series_arrays,
     merge_case_flow_section,
 )
@@ -41,6 +42,7 @@ __all__ = [
     "load_case_metadata",
     "load_case_tolerances",
     "load_last_npy_array",
+    "load_last_npy_array_on_expected_grid",
     "load_npy_time_series_arrays",
     "max_abs_error",
     "max_std_along_axis",

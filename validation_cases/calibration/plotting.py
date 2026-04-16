@@ -1145,6 +1145,55 @@ def _idw_grid(
     return interpolated.reshape(grid_x.shape)
 
 
+def _normalize_axis_values(
+    values: np.ndarray,
+    *,
+    lower: float,
+    upper: float,
+) -> np.ndarray:
+    """Normalize one axis to ``[0, 1]`` while guarding degenerate bounds."""
+    scale = float(upper) - float(lower)
+    if not math.isfinite(scale) or abs(scale) <= 0.0:
+        return np.zeros_like(values, dtype=float)
+    return (np.asarray(values, dtype=float) - float(lower)) / scale
+
+
+def _normalize_xy_for_interpolation(
+    *,
+    xy: np.ndarray,
+    grid_x: np.ndarray,
+    grid_y: np.ndarray,
+    bounds_x: tuple[float, float],
+    bounds_y: tuple[float, float],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Scale interpolation coordinates to unit bounds so all axes contribute fairly."""
+    normalized_xy = np.column_stack(
+        [
+            _normalize_axis_values(
+                xy[:, 0],
+                lower=float(bounds_x[0]),
+                upper=float(bounds_x[1]),
+            ),
+            _normalize_axis_values(
+                xy[:, 1],
+                lower=float(bounds_y[0]),
+                upper=float(bounds_y[1]),
+            ),
+        ]
+    )
+    normalized_grid_x = _normalize_axis_values(
+        grid_x,
+        lower=float(bounds_x[0]),
+        upper=float(bounds_x[1]),
+    )
+    normalized_grid_y = _normalize_axis_values(
+        grid_y,
+        lower=float(bounds_y[0]),
+        upper=float(bounds_y[1]),
+    )
+    return normalized_xy, normalized_grid_x, normalized_grid_y
+
+
 def _write_objective_trace_figure(
     *,
     plt,
@@ -1429,11 +1478,20 @@ def _write_objective_landscape_2d(
             [float(point.objective_total) for point in interpolation_xy_points],
             dtype=float,
         )
+        normalized_xy, normalized_grid_x, normalized_grid_y = (
+            _normalize_xy_for_interpolation(
+                xy=xy,
+                grid_x=grid_x,
+                grid_y=grid_y,
+                bounds_x=bounds_x,
+                bounds_y=bounds_y,
+            )
+        )
         grid = _idw_grid(
-            xy=xy,
+            xy=normalized_xy,
             values=costs,
-            grid_x=grid_x,
-            grid_y=grid_y,
+            grid_x=normalized_grid_x,
+            grid_y=normalized_grid_y,
         )
         if reference_points:
             grid_source_label = f"reference sample n={len(reference_points)}"

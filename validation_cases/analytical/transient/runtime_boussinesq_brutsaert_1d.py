@@ -30,12 +30,34 @@ def _mm_day_to_m_s(mm_day: float) -> float:
     return float(mm_day) * 1.0e-3 / 86400.0
 
 
-def _east_outlet_discharge_m3_s(model, edge_flux_by_edge: np.ndarray) -> float:
+def _east_outlet_discharge_m3_s(model, internal_edge_flux_m3_s: np.ndarray) -> float:
     if model.mesh is None:
         raise RuntimeError("Boussinesq mesh must exist before extracting outlet flux.")
-    east_edges = model.mesh.boundary_edge_indices_for_side("east_side")
-    edge_flux = np.asarray(edge_flux_by_edge, dtype=float)
-    return float(np.sum(np.maximum(edge_flux[east_edges], 0.0)))
+    east_cells = np.asarray(
+        model.mesh.boundary_cell_indices_for_side("east_side"),
+        dtype=int,
+    ).reshape(-1)
+    if east_cells.size == 0:
+        return 0.0
+    prescribed_mask = np.zeros(model.mesh.n_cells, dtype=bool)
+    prescribed_mask[east_cells] = True
+    outward_flux_m3_s = 0.0
+    edge_flux = np.asarray(internal_edge_flux_m3_s, dtype=float).reshape(-1)
+    for edge_index in range(model.mesh.n_edges):
+        cell_a = int(model.mesh.edge_cell_a[edge_index])
+        cell_b = int(model.mesh.edge_cell_b[edge_index])
+        if cell_a < 0 or cell_b < 0:
+            continue
+        a_prescribed = bool(prescribed_mask[cell_a])
+        b_prescribed = bool(prescribed_mask[cell_b])
+        if a_prescribed == b_prescribed:
+            continue
+        flux = float(edge_flux[edge_index])
+        if a_prescribed:
+            outward_flux_m3_s += -flux
+        else:
+            outward_flux_m3_s += flux
+    return float(max(outward_flux_m3_s, 0.0))
 
 
 def _save_scalar_series_npy(
@@ -195,10 +217,10 @@ def run_boussinesq_brutsaert_recession_case(
 
     initial_outlet_discharge_m3_s = _east_outlet_discharge_m3_s(
         steady_model,
-        np.asarray(steady_model.state.imposed_head_edge_flux_m3_s, dtype=float),
+        np.asarray(steady_model.state.internal_edge_flux_m3_s, dtype=float),
     )
     edge_flux_history = np.asarray(
-        transient_model.state.imposed_head_edge_flux_history_m3_s,
+        transient_model.state.internal_edge_flux_history_m3_s,
         dtype=float,
     )
     outlet_history_m3_s = np.asarray(

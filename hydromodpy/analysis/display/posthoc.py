@@ -14,6 +14,7 @@ Typical usage::
 """
 from __future__ import annotations
 
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -192,7 +193,14 @@ class PosthocContext:
     def from_toml(cls, toml_path: str | Path) -> PosthocContext:
         """Build a context from a project TOML file path.
 
-        The project directory is assumed to be the parent of the TOML file.
+        Resolve the effective project directory from ``[workspace].project_root``
+        when present, otherwise fall back to the TOML parent directory.
         """
         toml_path = Path(toml_path).resolve()
+        with open(toml_path, "rb") as handle:
+            raw = tomllib.load(handle)
+        workspace = raw.get("workspace", {})
+        project_root = workspace.get("project_root")
+        if project_root:
+            return cls.from_project_dir((toml_path.parent / project_root).resolve())
         return cls.from_project_dir(toml_path.parent)

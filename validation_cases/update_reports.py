@@ -11,7 +11,7 @@ import sys
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REPORT_DIR = REPO_ROOT / "validation_cases" / "reports" / "latest"
-DEFAULT_SOLVERS = ("modflownwt", "modflow6", "boussinesq")
+DEFAULT_SOLVERS = ("modflownwt", "modflow6", "modflow6_irregular_tri", "boussinesq")
 
 
 @dataclass(frozen=True, slots=True)

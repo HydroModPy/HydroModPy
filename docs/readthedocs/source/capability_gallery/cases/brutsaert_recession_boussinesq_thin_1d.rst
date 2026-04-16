@@ -93,10 +93,10 @@ Solver Coverage
 
       **Metrics**
       - Solution: boussinesq
-      - Initial discharge: 3.472225e-05 m3/s
-      - Characteristic time: 28.91 d
-      - Relative RMSE: 0.2144
-      - Relative max abs error: 0.2298
+      - Initial discharge: 3.428823e-05 m3/s
+      - Characteristic time: 29.09 d
+      - Relative RMSE: 0.2112
+      - Relative max abs error: 0.2280
       - Cross-row head spread: 1.40e-10 m
 
       - Config file: ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_boussinesq.toml``

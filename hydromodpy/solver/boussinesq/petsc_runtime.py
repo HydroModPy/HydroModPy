@@ -166,9 +166,10 @@ def _initial_transient_q_ex_guess(
     dt_seconds: float,
     recharge_rate_m_s: np.ndarray | float | None,
     well_flux_m3_s: np.ndarray | float | None,
-    imposed_head_m_by_edge: np.ndarray | None,
-    drainage_conductance_m2_s: np.ndarray | float | None,
-    regularization_radius: float,
+    imposed_head_m_by_edge: np.ndarray | None = None,
+    prescribed_head_m_by_cell: np.ndarray | None = None,
+    drainage_conductance_m2_s: np.ndarray | float | None = None,
+    regularization_radius: float = 0.05,
 ) -> np.ndarray:
     """Return a robust transient warm start for the algebraic overflow rate.
 
@@ -194,7 +195,7 @@ def _initial_transient_q_ex_guess(
     )
     if not has_positive_surface_loading:
         return np.zeros(mesh.n_cells, dtype=float)
-    return np.maximum(
+    guess = np.maximum(
         np.asarray(
             assemble_transient_residual(
                 mesh,
@@ -204,6 +205,7 @@ def _initial_transient_q_ex_guess(
                 recharge_rate_m_s=recharge_rate_m_s,
                 well_flux_m3_s=well_flux_m3_s,
                 imposed_head_m_by_edge=imposed_head_m_by_edge,
+                prescribed_head_m_by_cell=prescribed_head_m_by_cell,
                 drainage_conductance_m2_s=drainage_conductance_m2_s,
                 regularization_radius=float(regularization_radius),
             ).saturation_excess_rate_m_s,
@@ -211,6 +213,12 @@ def _initial_transient_q_ex_guess(
         ),
         0.0,
     )
+    if prescribed_head_m_by_cell is not None:
+        prescribed_mask = np.isfinite(
+            np.asarray(prescribed_head_m_by_cell, dtype=float).reshape(-1)
+        )
+        guess[np.asarray(prescribed_mask, dtype=bool)] = 0.0
+    return guess
 
 
 def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
@@ -232,6 +240,7 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
         recharge_rate_m_s=inputs.recharge_rate_m_s,
         well_flux_m3_s=inputs.well_flux_m3_s,
         imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
         regularization_radius=float(inputs.options.regularization_radius),
     )
@@ -246,6 +255,7 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
             recharge_rate_m_s=inputs.recharge_rate_m_s,
             well_flux_m3_s=inputs.well_flux_m3_s,
             imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+            prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
             drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
             regularization_radius=float(inputs.options.regularization_radius),
         )
@@ -259,6 +269,7 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
         well_flux_m3_s=inputs.well_flux_m3_s,
         dt_seconds=float(inputs.dt_seconds),
         imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
         max_iterations=int(inputs.options.max_iterations),
         tol_residual_inf=float(inputs.options.tol_residual_inf),
@@ -277,6 +288,7 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
                 recharge_rate_m_s=inputs.recharge_rate_m_s,
                 well_flux_m3_s=inputs.well_flux_m3_s,
                 imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+                prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
                 drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
                 regularization_radius=float(inputs.options.regularization_radius),
             ).saturation_excess_rate_m_s,
@@ -284,6 +296,11 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
         ),
         0.0,
     )
+    if inputs.prescribed_head_m_by_cell is not None:
+        prescribed_mask = np.isfinite(
+            np.asarray(inputs.prescribed_head_m_by_cell, dtype=float).reshape(-1)
+        )
+        q_ex_initial[np.asarray(prescribed_mask, dtype=bool)] = 0.0
 
     def _assembly_for(head_m: np.ndarray, q_ex_rate_m_s: np.ndarray) -> BoussinesqAssembly:
         return assemble_steady_residual_with_saturation_excess(
@@ -293,6 +310,7 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
             recharge_rate_m_s=inputs.recharge_rate_m_s,
             well_flux_m3_s=inputs.well_flux_m3_s,
             imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+            prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
             drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
             regularization_radius=float(inputs.options.regularization_radius),
         )
@@ -306,6 +324,7 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
         well_flux_m3_s=inputs.well_flux_m3_s,
         dt_seconds=None,
         imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
+        prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
         max_iterations=int(inputs.options.max_iterations),
         tol_residual_inf=float(inputs.options.tol_residual_inf),
@@ -323,6 +342,7 @@ def _solve_mixed_problem(
     well_flux_m3_s: np.ndarray | float | None,
     dt_seconds: float | None,
     imposed_head_m_by_edge: np.ndarray | None,
+    prescribed_head_m_by_cell: np.ndarray | None,
     drainage_conductance_m2_s: np.ndarray | float | None,
     max_iterations: int,
     tol_residual_inf: float,
@@ -340,7 +360,18 @@ def _solve_mixed_problem(
         dt_seconds=dt_seconds,
     )
 
-    state0 = _stack_state(head_initial_guess_m, q_ex_initial_rate_m_s)
+    prescribed_head = np.asarray(
+        prescribed_head_m_by_cell
+        if prescribed_head_m_by_cell is not None
+        else np.full(n_cells, np.nan, dtype=float),
+        dtype=float,
+    ).reshape(-1)
+    prescribed_mask = np.isfinite(prescribed_head)
+    head_initial = np.asarray(head_initial_guess_m, dtype=float).reshape(-1).copy()
+    head_initial[prescribed_mask] = prescribed_head[prescribed_mask]
+    q_ex_initial = np.asarray(q_ex_initial_rate_m_s, dtype=float).reshape(-1).copy()
+    q_ex_initial[prescribed_mask] = 0.0
+    state0 = _stack_state(head_initial, q_ex_initial)
     solution = PETSc.Vec().createSeq(n_unknowns, comm=PETSc.COMM_SELF)
     residual_template = PETSc.Vec().createSeq(n_unknowns, comm=PETSc.COMM_SELF)
     jacobian = PETSc.Mat().createAIJ(
@@ -353,10 +384,7 @@ def _solve_mixed_problem(
     solution_array = np.asarray(solution.getArray(), dtype=float)
     solution_array[:] = np.asarray(state0, dtype=float)
 
-    current_assembly = assembly_for(
-        np.asarray(head_initial_guess_m, dtype=float),
-        np.asarray(q_ex_initial_rate_m_s, dtype=float),
-    )
+    current_assembly = assembly_for(head_initial, q_ex_initial)
 
     def _residual(_snes, state_vec, residual_vec) -> None:
         nonlocal current_assembly
@@ -373,6 +401,7 @@ def _solve_mixed_problem(
         residual = np.asarray(residual_vec.getArray(), dtype=float)
         residual[:n_cells] = np.asarray(current_assembly.residual_m3_s, dtype=float)
         residual[n_cells:] = complementarity_residual
+        residual[n_cells:][prescribed_mask] = q_ex_rate_m_s[prescribed_mask]
 
     def _jacobian(_snes, state_vec, jac, preconditioner) -> None:
         state = np.asarray(state_vec.getArray(readonly=True), dtype=float)
@@ -390,17 +419,22 @@ def _solve_mixed_problem(
             head_m,
             dt_seconds=dt_seconds,
             imposed_head_m_by_edge=imposed_head_m_by_edge,
+            prescribed_head_m_by_cell=prescribed_head_m_by_cell,
             drainage_conductance_m2_s=drainage_conductance_m2_s,
         )
-        top_right_rows = np.arange(n_cells, dtype=int)
-        top_right_cols = np.arange(n_cells, dtype=int) + n_cells
-        top_right_data = np.asarray(mesh.cell_area_m2, dtype=float)
-        bottom_left_rows = np.arange(n_cells, dtype=int) + n_cells
-        bottom_left_cols = np.arange(n_cells, dtype=int)
-        bottom_left_data = np.asarray(dphi_dh, dtype=float)
+        free_rows = np.flatnonzero(~prescribed_mask).astype(int, copy=False)
+        top_right_rows = free_rows
+        top_right_cols = free_rows + n_cells
+        top_right_data = np.asarray(mesh.cell_area_m2, dtype=float)[free_rows]
+        bottom_left_rows = free_rows + n_cells
+        bottom_left_cols = free_rows
+        bottom_left_data = np.asarray(dphi_dh, dtype=float)[free_rows]
         bottom_right_rows = np.arange(n_cells, dtype=int) + n_cells
         bottom_right_cols = np.arange(n_cells, dtype=int) + n_cells
         bottom_right_data = np.asarray(dphi_dq, dtype=float)
+        if np.any(prescribed_mask):
+            bottom_right_data = bottom_right_data.copy()
+            bottom_right_data[prescribed_mask] = 1.0
 
         data = np.concatenate(
             (
@@ -452,6 +486,11 @@ def _solve_mixed_problem(
     snes.solve(None, solution)
     state = np.asarray(solution.getArray(readonly=True), dtype=float).copy()
     head_m, q_ex_rate_m_s = _split_state(state, n_cells=n_cells)
+    if np.any(prescribed_mask):
+        head_m = np.asarray(head_m, dtype=float).copy()
+        q_ex_rate_m_s = np.asarray(q_ex_rate_m_s, dtype=float).copy()
+        head_m[prescribed_mask] = prescribed_head[prescribed_mask]
+        q_ex_rate_m_s[prescribed_mask] = 0.0
     current_assembly = assembly_for(head_m, q_ex_rate_m_s)
     surface_gap_m = np.asarray(mesh.z_top_m, dtype=float) - head_m
     complementarity_residual, _, _ = _fischer_burmeister_residual_and_derivatives(
@@ -460,6 +499,9 @@ def _solve_mixed_problem(
         head_scale_m=float(head_scale_m),
         rate_scale_m_s=float(rate_scale_m_s),
     )
+    if np.any(prescribed_mask):
+        complementarity_residual = np.asarray(complementarity_residual, dtype=float)
+        complementarity_residual[prescribed_mask] = 0.0
     full_residual = np.concatenate(
         (
             np.asarray(current_assembly.residual_m3_s, dtype=float),

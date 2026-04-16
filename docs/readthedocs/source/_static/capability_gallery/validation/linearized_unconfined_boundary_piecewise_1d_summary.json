@@ -3,7 +3,7 @@
   "slug": "linearized_unconfined_boundary_piecewise_1d",
   "title": "Linearized Unconfined Boundary Piecewise 1D",
   "category": "validation",
-  "deck": "1D multi-step west-boundary benchmark using CSV forcing.",
+  "deck": "Transient synthetic groundwater-flow case used to validate the launcher workflow against the linearized unconfined analytical response for:",
   "summary": "Transient synthetic groundwater-flow case used to validate the launcher workflow against the linearized unconfined analytical response for:",
   "case_setup": [
     "Homogeneous strip, fixed east head, piecewise west-head series from CSV, no recharge",
@@ -50,7 +50,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/README.md": "831999737d3e20e252187fb4305420248f719f0a8b64c9ba54197142ae541dad",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/reference.py": "97f0786c76684977d2e605e313669bf7b2c8acdbe22de756dfdd11675e7b9bad",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/comparison.py": "a69a77b566f54209b7848dd8c98c5013d56ff4e85f98b8dcd0aa933b3b04d11c",
@@ -107,13 +107,22 @@
     },
     "regime": "transient",
     "dimension": "1d",
-    "inventory_reference": "linearized piecewise boundary forcing",
+    "inventory_reference": "",
     "case_sheet": {
       "numerical_setup": "Homogeneous strip, fixed east head, piecewise west-head series from CSV, no recharge",
       "analytical_target": "Linearized transient response to a multi-step west-boundary forcing",
       "primary_metrics": "space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread",
       "what_it_validates": "Multi-step boundary forcing and superposition behavior beyond the single-step case"
-    }
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "strip_1d",
+    "geometry_family_label": "Strip 1D",
+    "reference_type": "analytical_series",
+    "reference_type_label": "Analytical Series",
+    "validation_family": "transient_1d_boundary_or_recharge_forcing",
+    "validation_family_label": "Transient 1D Boundary or Recharge Forcing",
+    "validation_family_order": 50
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/linearized_unconfined_boundary_piecewise_1d_summary.json",

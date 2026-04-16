@@ -1,0 +1,4 @@
+[head_profile]
+rmse = 0.08
+max_abs_error = 0.14
+row_spread = 2e-5
