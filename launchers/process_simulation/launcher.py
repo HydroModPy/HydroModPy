@@ -322,6 +322,37 @@ class HydroModPyLauncher:
         self._prepared_runtime_ready = True
         return plan
 
+    def prepare_model_calibration_runtime_support(
+        self,
+        *,
+        property_names: tuple[str, ...],
+    ):
+        """Return public hydraulic support consumed by model-calibration.
+
+        The calibration launcher must not orchestrate setup/data/mesh phases by
+        hand through private helpers.  This method is the supported contract for
+        preparing reusable hydraulic property support from a process-simulation
+        config.
+        """
+        from launchers.process_simulation.model_calibration_support import (
+            build_runtime_hydraulic_property_support,
+        )
+
+        self.prepare_runtime()
+        plan = self.run_state.execution.simulation_plan
+        if plan is None:
+            raise RuntimeError(
+                "prepare_runtime() did not populate a simulation plan."
+            )
+        return build_runtime_hydraulic_property_support(
+            launcher=self,
+            raw_simulation_toml=dict(self.run_state.raw_toml),
+            solver_families=tuple(
+                str(run.solver).strip().lower() for run in plan.runs
+            ),
+            property_names=tuple(str(name).strip() for name in property_names),
+        )
+
     def run_prepared(self) -> LauncherRunState:
         """Execute the cached runtime state after resetting only execution outputs."""
         plan = self.prepare_runtime()

@@ -60,7 +60,7 @@ Case Setup
 
 - Launcher family: `data-overview`, so the workflow stops after geographic setup, data loading, and overview rendering.
 - Primary editable file: `examples/projects/Nancon_data_overview/config_overview.toml`.
-- The committed output folder already contains the full set of identity-card figures, which are copied as stable documentation assets.
+- The committed identity-card figures are mirrored under `examples/capability_gallery/geographic/` so the gallery no longer depends on one local `results_stable` tree.
 
 What It Shows
 -------------
@@ -271,15 +271,16 @@ Overview Panels
 Source Pointers
 ---------------
 
+- ``tools/doc_gallery/manifests/geographic_cases.json``
 - ``examples/projects/Nancon_data_overview/README.md``
 - ``examples/projects/Nancon_data_overview/config_overview.toml``
-- ``examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_dem.png``
-- ``examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_geology.png``
-- ``examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_hydrography.png``
-- ``examples/projects/Nancon_data_overview/results_stable/_figures/overview/climatic_summary.png``
-- ``examples/projects/Nancon_data_overview/results_stable/_figures/overview/station_inventory.png``
-- ``examples/projects/Nancon_data_overview/results_stable/_figures/overview/stats_card.png``
-- ``examples/projects/Nancon_data_overview/results_stable/geographic/river_network_summary.json``
+- ``examples/capability_gallery/geographic/README.md``
+- ``examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_dem.png``
+- ``examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_geology.png``
+- ``examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_hydrography.png``
+- ``examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_climatic_summary.png``
+- ``examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_station_inventory.png``
+- ``examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_stats_card.png``
 
 Artifacts
 ---------

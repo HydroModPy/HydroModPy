@@ -28,14 +28,14 @@ What It Shows
 -------------
 
 - How the `data-overview` launcher renders the clipped BD Topage network directly on top of the DEM.
-- Which files are produced for the hydrography manager before any solver or meshing stage.
+- Which files and panels matter for a hydrography-only audit before any solver or meshing stage.
 - How a TOML can be reduced to one single figure when the goal is to audit the river-network input.
 
 How To Read It
 --------------
 
 - Open the figure first to check whether the displayed network visually matches the expected valley bottoms and basin extent.
-- Then inspect `results_stable/hydrography/streams.shp` to decide whether any issue comes from loading/clipping or only from display styling.
+- Then inspect the minimal config and the versioned gallery source asset to separate loading intent from display styling.
 - If channels appear missing, compare this panel with the watershed boundary and review the BD Topage source options before changing downstream algorithms.
 
 Next Steps
@@ -185,11 +185,10 @@ Overview Panels
 Source Pointers
 ---------------
 
+- ``tools/doc_gallery/manifests/geographic_cases.json``
 - ``examples/projects/Nancon_data_overview/config_hydrography_only.toml``
-- ``examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_hydrography.png``
-- ``examples/projects/Nancon_data_overview/results_stable/hydrography/streams.shp``
-- ``examples/projects/Nancon_data_overview/results_stable/hydrography/streams.dbf``
-- ``examples/projects/Nancon_data_overview/results_stable/hydrography/streams.shx``
+- ``examples/capability_gallery/geographic/README.md``
+- ``examples/capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png``
 
 Artifacts
 ---------

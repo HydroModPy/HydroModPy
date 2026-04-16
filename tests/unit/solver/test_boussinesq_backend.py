@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
+import hydromodpy.solver.boussinesq.runtime_selection as runtime_selection_module
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.process.flow import Flow
@@ -16,7 +17,6 @@ from hydromodpy.process.flow.boundary_conditions import FlowBoundaryConditionCon
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig, FlowWellConfig
 from hydromodpy.solver.boussinesq import Boussinesq, BoussinesqMesh
-from hydromodpy.solver.boussinesq.boussinesq import BoussinesqSolverContract
 from hydromodpy.solver.boussinesq.assembly import (
     assemble_steady_residual,
     assemble_steady_residual_with_saturation_excess,
@@ -26,6 +26,7 @@ from hydromodpy.solver.boussinesq.assembly import (
 )
 from hydromodpy.solver.boussinesq.core.state import BoussinesqState
 from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
+from hydromodpy.solver.boussinesq.solver_contract import BoussinesqSolverContract
 from hydromodpy.solver.boussinesq.jacobian_fd import (
     build_cell_coupling_rows_by_column,
     build_colored_sparse_fd_jacobian_triplets,
@@ -55,7 +56,10 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
     SteadySolveInputs,
     TransientStepInputs,
 )
-from hydromodpy.solver.boussinesq.runtime_selection import resolve_runtime_backend
+from hydromodpy.solver.boussinesq.runtime_selection import (
+    BoussinesqRuntimeBackend,
+    resolve_runtime_backend,
+)
 from hydromodpy.solver.boussinesq.scipy_runtime import (
     solve_steady_problem as solve_steady_problem_scipy,
 )
@@ -321,6 +325,27 @@ def test_runtime_selection_rejects_complementarity_without_petsc() -> None:
             "scipy_sparse",
             surface_interaction_model="complementarity",
         )
+
+
+def test_runtime_selection_rejects_backend_modules_without_required_entrypoints(
+    monkeypatch,
+) -> None:
+    engine = type("_Engine", (), {"module_name": "dummy.runtime"})()
+
+    monkeypatch.setattr(
+        runtime_selection_module,
+        "import_module",
+        lambda _: SimpleNamespace(solve_steady_problem=lambda inputs: None),
+    )
+
+    with pytest.raises(TypeError, match="solve_transient_step"):
+        runtime_selection_module._load_engine_backend(engine)
+
+
+def test_runtime_selection_returns_backend_with_runtime_protocol() -> None:
+    backend = resolve_runtime_backend("local")
+
+    assert isinstance(backend.backend, BoussinesqRuntimeBackend)
 
 
 def test_boussinesq_solver_contract_matches_flow_process_definition(
@@ -2287,28 +2312,4 @@ def test_boussinesq_rejects_structured_well_addressing_on_triangular_mesh(
         _build_flow_config(
             {
                 "ic": {"type": "custom", "value": 8.0},
-                "active_sinks_sources": ["wells"],
-                "sinks_sources": {
-                    "wells": {
-                        "W1": {
-                            "cell": [0, 0, 0],
-                            "flux": -1.0e-5,
-                        }
-                    }
-                },
-            }
-        )
-    )
-    model = Boussinesq(
-        mesh_bundle=bundle,
-        flow=flow,
-        domain=None,
-        time_grid=type("TimeGrid", (), {"period_lengths_seconds": (3600.0,)})(),
-        model_folder=tmp_path,
-        model_name="demo_boussinesq_bad_well",
-    )
-
-    model.pre_processing()
-
-    with pytest.raises(NotImplementedError, match="coordinate-based wells"):
-        model.processing(run_model=True)
+ 

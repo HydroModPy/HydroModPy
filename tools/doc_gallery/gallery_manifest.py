@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+import json
+from pathlib import Path
 from typing import Any
 
 from .mesh_case_registry import (
@@ -14,6 +16,7 @@ from .mesh_case_registry import (
 
 
 Formatter = Callable[[Any], str]
+_MANIFESTS_DIR = Path(__file__).resolve().parent / "manifests"
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,6 +191,132 @@ CATEGORY_SPECS: dict[str, GalleryCategorySpec] = {
         guide_title="Simulation walkthrough",
     ),
 }
+
+
+def _coerce_str_tuple(value: Any, *, field_name: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        raise TypeError(f"{field_name} must be a sequence of strings, not one string.")
+    return tuple(str(item) for item in value)
+
+
+def _metric_formatter_from_payload(payload: Any) -> Formatter:
+    if payload == "int":
+        return _format_int
+    if not isinstance(payload, dict):
+        raise TypeError("metric formatter payload must be 'int' or a mapping.")
+
+    kind = str(payload.get("kind", "")).strip().lower()
+    unit = str(payload.get("unit", "")).strip()
+    if kind == "float":
+        return _format_float(unit, precision=int(payload.get("precision", 4)))
+    if kind == "scientific":
+        return _format_scientific(unit, precision=int(payload.get("precision", 2)))
+    raise ValueError(f"Unsupported metric formatter kind: {kind!r}")
+
+
+def _load_json_gallery_case_specs(manifest_name: str) -> tuple[GalleryCaseSpec, ...]:
+    """Load one small declarative gallery inventory from ``tools/doc_gallery/manifests``."""
+
+    manifest_path = _MANIFESTS_DIR / manifest_name
+    manifest_repo_path = (Path("tools") / "doc_gallery" / "manifests" / manifest_name).as_posix()
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    defaults = dict(payload.get("defaults", {}))
+    raw_cases = payload.get("cases", ())
+    if not isinstance(raw_cases, list):
+        raise TypeError(f"{manifest_path.as_posix()} must define a top-level 'cases' list.")
+
+    specs: list[GalleryCaseSpec] = []
+    for raw_case in raw_cases:
+        if not isinstance(raw_case, dict):
+            raise TypeError(f"{manifest_path.as_posix()} case entries must be mappings.")
+        merged_case = {**defaults, **raw_case}
+        default_metadata = dict(defaults.get("metadata", {}))
+        merged_metadata = {**default_metadata, **dict(raw_case.get("metadata", {}))}
+        merged_case["metadata"] = merged_metadata
+
+        image_assets = tuple(
+            GalleryImageAsset(
+                filename=str(asset["filename"]),
+                caption=str(asset["caption"]),
+                alt_text=str(asset["alt_text"]),
+                source_path=(
+                    str(asset["source_path"])
+                    if asset.get("source_path")
+                    else None
+                ),
+            )
+            for asset in merged_case.get("image_assets", ())
+        )
+        metric_specs = tuple(
+            GalleryMetricSpec(
+                label=str(metric["label"]),
+                key=str(metric["key"]),
+                formatter=_metric_formatter_from_payload(metric["formatter"]),
+            )
+            for metric in merged_case.get("metric_specs", ())
+        )
+        specs.append(
+            GalleryCaseSpec(
+                slug=str(merged_case["slug"]),
+                title=str(merged_case["title"]),
+                category=str(merged_case["category"]),
+                deck=str(merged_case["deck"]),
+                summary=str(merged_case["summary"]),
+                what_it_shows=_coerce_str_tuple(
+                    merged_case.get("what_it_shows", ()),
+                    field_name="what_it_shows",
+                ),
+                reproduction_command=str(merged_case["reproduction_command"]),
+                source_paths=(
+                    manifest_repo_path,
+                    *_coerce_str_tuple(
+                        merged_case.get("source_paths", ()),
+                        field_name="source_paths",
+                    ),
+                ),
+                generator=str(merged_case["generator"]),
+                image_assets=image_assets,
+                metric_specs=metric_specs,
+                case_setup=_coerce_str_tuple(
+                    merged_case.get("case_setup", ()),
+                    field_name="case_setup",
+                ),
+                key_parameters=_coerce_str_tuple(
+                    merged_case.get("key_parameters", ()),
+                    field_name="key_parameters",
+                ),
+                how_to_read=_coerce_str_tuple(
+                    merged_case.get("how_to_read", ()),
+                    field_name="how_to_read",
+                ),
+                next_steps=_coerce_str_tuple(
+                    merged_case.get("next_steps", ()),
+                    field_name="next_steps",
+                ),
+                reference_highlights=_coerce_str_tuple(
+                    merged_case.get("reference_highlights", ()),
+                    field_name="reference_highlights",
+                ),
+                equations_rst=_coerce_str_tuple(
+                    merged_case.get("equations_rst", ()),
+                    field_name="equations_rst",
+                ),
+                walkthrough_doc=(
+                    str(merged_case["walkthrough_doc"])
+                    if merged_case.get("walkthrough_doc")
+                    else None
+                ),
+                walkthrough_title=(
+                    str(merged_case["walkthrough_title"])
+                    if merged_case.get("walkthrough_title")
+                    else None
+                ),
+                metadata=merged_metadata,
+            )
+        )
+    return tuple(specs)
 
 
 _MESH_GALLERY_METRIC_SPECS = (
@@ -451,6 +580,24 @@ _DEFAULT_REGIONAL_LAB_NEXT_STEPS = (
 )
 
 
+def _augment_method_comparison_source_paths(
+    comparison_config_path: str,
+    source_paths: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Track the committed comparison artifacts reused by gallery generation."""
+
+    expanded_paths: list[str] = [comparison_config_path, *source_paths]
+    for source_path in source_paths:
+        if not source_path.endswith("/comparison_manifest.json"):
+            continue
+        comparison_root = Path(source_path).parent.as_posix()
+        for extra_name in ("comparison_metrics.json", "observables.csv"):
+            extra_path = f"{comparison_root}/{extra_name}"
+            if extra_path not in expanded_paths:
+                expanded_paths.append(extra_path)
+    return tuple(expanded_paths)
+
+
 def _build_method_comparison_case_spec(
     *,
     slug: str,
@@ -486,7 +633,10 @@ def _build_method_comparison_case_spec(
             "python -m launchers method-comparison run "
             f"{comparison_config_path}"
         ),
-        source_paths=(comparison_config_path, *source_paths),
+        source_paths=_augment_method_comparison_source_paths(
+            comparison_config_path,
+            source_paths,
+        ),
         generator="method_comparison_case",
         image_assets=(
             GalleryImageAsset(
@@ -849,412 +999,7 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
                 "zoom_fraction": 0.22,
             },
         ),
-        GalleryCaseSpec(
-            slug="geographic_watershed_overview",
-            title="Watershed Data Overview",
-            category="geographic",
-            deck="Versioned watershed context figures copied into the documentation as stable teaching assets.",
-            summary=(
-                "This pair of figures documents the pre-solver side of HydroModPy. It shows how one "
-                "watershed is contextualized before any flow run: local framing, DEM, and overlay-ready "
-                "geographic inputs."
-            ),
-            what_it_shows=(
-                "How a watershed can be documented before any groundwater solve, using only setup and data loading.",
-                "How HydroModPy distinguishes a local watershed view from a broader DEM-oriented overview.",
-                "How versioned example outputs can feed static documentation without executing notebooks during the build.",
-            ),
-            reproduction_command="python examples/projects/data_overview/run_data_overview.py",
-            source_paths=(
-                "examples/projects/data_overview/run_data_overview.py",
-                "examples/projects/data_overview/project.toml",
-                "examples/results/example13data/results_stable/_figures/watershed_dem.png",
-                "examples/results/example13data/results_stable/_figures/watershed_local.png",
-            ),
-            generator="copy_assets",
-            image_assets=(
-                GalleryImageAsset(
-                    filename="geographic_watershed_dem.png",
-                    caption="DEM-oriented watershed overview copied from versioned example outputs.",
-                    alt_text="Watershed DEM overview",
-                    source_path="examples/results/example13data/results_stable/_figures/watershed_dem.png",
-                ),
-                GalleryImageAsset(
-                    filename="geographic_watershed_local.png",
-                    caption="Local watershed framing copied from versioned example outputs.",
-                    alt_text="Watershed local overview",
-                    source_path="examples/results/example13data/results_stable/_figures/watershed_local.png",
-                ),
-            ),
-            case_setup=(
-                "Launcher family: `data-overview`, so the workflow stops after setup, domain assembly, and data loading.",
-                "Primary editable file: `examples/projects/data_overview/project.toml`.",
-                "Committed figures are reused as stable teaching assets instead of rerunning the full example during doc builds.",
-            ),
-            key_parameters=(
-                "`[geographic] catch_def`, `x_outlet`, and `y_outlet` decide where the watershed is extracted from.",
-                "`[geographic] buff_area` controls how much regional context stays visible around the basin in the overview figures.",
-                "`[domain] zone_ids` and `[domain.depth_model]` define the spatial support that later workflows would reuse.",
-                "`[data] types` selects which thematic layers are loaded and therefore which overlays can appear on the basin.",
-                "Date windows in `[data.hydrometry]`, `[data.intermittency]`, and `[data.oceanic]` change the queried observation horizon without changing the basin geometry.",
-            ),
-            how_to_read=(
-                "Read the DEM-oriented figure first to understand the broader terrain setting and outlet placement.",
-                "Read the local overview second to inspect which basin-scale overlays are available before any meshing or solving happens.",
-                "If the basin outline looks wrong, check outlet coordinates and snap distance before changing downstream modelling options.",
-            ),
-            next_steps=(
-                "Continue with :doc:`the data-overview walkthrough </getting_started/data-overview-walkthrough>` for a parameter-by-parameter reading strategy.",
-                "When the watershed framing looks correct, move to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` to add meshing and solving.",
-            ),
-            walkthrough_doc="getting_started/data-overview-walkthrough",
-            walkthrough_title="the Data Overview walkthrough",
-            metadata={
-                "workflow_stage": "watershed_context",
-                "workflow_stage_label": "Watershed Context",
-                "workflow_stage_deck": (
-                    "These cases frame the basin first: outlet location, DEM context, and the "
-                    "local support that later workflows will reuse."
-                ),
-                "workflow_stage_order": 10,
-                "panel_families": ["dem_overview", "local_context"],
-                "loaded_data_types": ["hydrography", "hydrometry", "intermittency", "oceanic"],
-                "reading_order": 10,
-            },
-        ),
-        GalleryCaseSpec(
-            slug="geographic_bdtopage_hydrography_overlay",
-            title="BD Topage Hydrography Overlay",
-            category="geographic",
-            deck="Minimal data-overview case showing only the BD Topage river network over the DEM backdrop.",
-            summary=(
-                "This case isolates one question: what HydroModPy actually displays when hydrography "
-                "is loaded from BD Topage and only the hydrography panel is enabled. The figure is meant "
-                "to document the loaded river network itself, without geology, stations, or time-series panels."
-            ),
-            what_it_shows=(
-                "How the `data-overview` launcher renders the clipped BD Topage network directly on top of the DEM.",
-                "Which files are produced for the hydrography manager before any solver or meshing stage.",
-                "How a TOML can be reduced to one single figure when the goal is to audit the river-network input.",
-            ),
-            reproduction_command=(
-                "python -m launchers data-overview run "
-                "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
-            ),
-            source_paths=(
-                "examples/projects/Nancon_data_overview/config_hydrography_only.toml",
-                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_hydrography.png",
-                "examples/projects/Nancon_data_overview/results_stable/hydrography/streams.shp",
-                "examples/projects/Nancon_data_overview/results_stable/hydrography/streams.dbf",
-                "examples/projects/Nancon_data_overview/results_stable/hydrography/streams.shx",
-            ),
-            generator="copy_assets",
-            image_assets=(
-                GalleryImageAsset(
-                    filename="geographic_bdtopage_hydrography_overlay.png",
-                    caption="BD Topage streams clipped to the watershed and displayed over the DEM backdrop.",
-                    alt_text="BD Topage hydrography overlay on topography",
-                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_hydrography.png",
-                ),
-            ),
-            case_setup=(
-                "Launcher family: `data-overview`, stopped after setup, domain assembly, data loading, and figure rendering.",
-                "Primary editable file: `examples/projects/Nancon_data_overview/config_hydrography_only.toml`.",
-                "Only one output figure is enabled: `[overview.panels] map_hydrography = true`.",
-            ),
-            key_parameters=(
-                "`[data] types = [\"hydrography\"]` keeps the example focused on the river network only.",
-                "`[[data.hydrography.sources]] source = \"bdtopage\"` selects the Sandre BD Topage WFS source.",
-                "`typename`, `page_size`, and `rasterize_field` are the main hydrography-source options to inspect when the displayed network looks incomplete or unexpected.",
-                "All other overview panels are disabled so the output folder contains only the hydrography map and the hydrography manager artifacts.",
-            ),
-            how_to_read=(
-                "Open the figure first to check whether the displayed network visually matches the expected valley bottoms and basin extent.",
-                "Then inspect `results_stable/hydrography/streams.shp` to decide whether any issue comes from loading/clipping or only from display styling.",
-                "If channels appear missing, compare this panel with the watershed boundary and review the BD Topage source options before changing downstream algorithms.",
-            ),
-            next_steps=(
-                "Use the broader watershed overview case on the previous page when you want geology, stations, and observation windows documented together.",
-                "Reuse this minimal TOML as the shortest reproducible example for hydrography-display audits.",
-            ),
-            walkthrough_doc="getting_started/data-overview-walkthrough",
-            walkthrough_title="the Data Overview walkthrough",
-            metadata={
-                "workflow_stage": "single_data_audit",
-                "workflow_stage_label": "Single Data Audit",
-                "workflow_stage_deck": (
-                    "These cases isolate one data family or one panel so the reader can audit "
-                    "one input without the noise of a full watershed identity card."
-                ),
-                "workflow_stage_order": 30,
-                "panel_families": ["hydrography_overlay"],
-                "loaded_data_types": ["hydrography"],
-                "source_families": ["BD Topage"],
-                "reading_order": 30,
-            },
-        ),
-        GalleryCaseSpec(
-            slug="geographic_nancon_identity_card",
-            title="Nancon Observation Identity Card",
-            category="geographic",
-            deck="Committed data-overview synthesis combining basin maps, climate summary, station inventory, and compact observation stats.",
-            summary=(
-                "This case reuses the broader Nancon `data-overview` output set as a stable identity "
-                "card for one observed basin. It keeps the workflow strictly pre-mesh and pre-solver, "
-                "but shows more than framing alone: terrain, geology, hydrography, climate synthesis, "
-                "station inventory, and one compact stats card for the loaded observations."
-            ),
-            what_it_shows=(
-                "How one basin can be summarized as an observation identity card before any mesh or solver is involved.",
-                "How DEM, geology, hydrography, climate synthesis, and station inventory can live on one page without rerunning notebooks.",
-                "How committed `data-overview` outputs can document which observations are available, not only where the watershed sits.",
-            ),
-            reproduction_command=(
-                "python -m launchers data-overview run "
-                "examples/projects/Nancon_data_overview/config_overview.toml"
-            ),
-            source_paths=(
-                "examples/projects/Nancon_data_overview/README.md",
-                "examples/projects/Nancon_data_overview/config_overview.toml",
-                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_dem.png",
-                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_geology.png",
-                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_hydrography.png",
-                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/climatic_summary.png",
-                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/station_inventory.png",
-                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/stats_card.png",
-                "examples/projects/Nancon_data_overview/results_stable/geographic/river_network_summary.json",
-            ),
-            generator="copy_assets",
-            image_assets=(
-                GalleryImageAsset(
-                    filename="geographic_nancon_identity_card_map_dem.png",
-                    caption="DEM-based overview for the Nancon watershed.",
-                    alt_text="Nancon DEM overview",
-                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_dem.png",
-                ),
-                GalleryImageAsset(
-                    filename="geographic_nancon_identity_card_map_hydrography.png",
-                    caption="Hydrography rendered on the Nancon basin support.",
-                    alt_text="Nancon hydrography overview",
-                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_hydrography.png",
-                ),
-                GalleryImageAsset(
-                    filename="geographic_nancon_identity_card_map_geology.png",
-                    caption="Geology overlay for the same Nancon support.",
-                    alt_text="Nancon geology overview",
-                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_geology.png",
-                ),
-                GalleryImageAsset(
-                    filename="geographic_nancon_identity_card_station_inventory.png",
-                    caption="Station inventory extracted by the Nancon data-overview workflow.",
-                    alt_text="Nancon station inventory",
-                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/station_inventory.png",
-                ),
-                GalleryImageAsset(
-                    filename="geographic_nancon_identity_card_stats_card.png",
-                    caption="Compact statistics card for the loaded Nancon observations.",
-                    alt_text="Nancon observation stats card",
-                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/stats_card.png",
-                ),
-                GalleryImageAsset(
-                    filename="geographic_nancon_identity_card_climatic_summary.png",
-                    caption="Climatic synthesis panel from the Nancon identity-card run.",
-                    alt_text="Nancon climatic summary",
-                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/climatic_summary.png",
-                ),
-            ),
-            case_setup=(
-                "Launcher family: `data-overview`, so the workflow stops after geographic setup, data loading, and overview rendering.",
-                "Primary editable file: `examples/projects/Nancon_data_overview/config_overview.toml`.",
-                "The committed output folder already contains the full set of identity-card figures, which are copied as stable documentation assets.",
-            ),
-            key_parameters=(
-                "`[data] types` drives the identity card more strongly here than the geographic section alone because it determines which observation families appear in the stats, inventory, climate, and map panels.",
-                "`[overview.panels]` is the page-layout switchboard: it decides whether geology, hydrography, station inventory, climate, and the different chronicle panels are rendered.",
-                "The date windows in the hydrometry, piezometry, intermittency, and water-quality sections change the temporal scope of the observations without changing the basin support.",
-                "Keep this case in `geographic` because it still documents data availability and basin context only; no mesh or simulation state is involved.",
-            ),
-            how_to_read=(
-                "Start with the DEM and hydrography panels to understand the basin support and the main drainage backbone.",
-                "Use the station inventory and stats card next to judge whether the observation families are rich enough for later simulation or calibration work.",
-                "Read the climate synthesis last as a forcing-context panel rather than as a solver result.",
-            ),
-            next_steps=(
-                "Open the observed-series companion page next when you want to inspect the actual hydrometry, piezometry, intermittency, and water-quality chronologies.",
-                "Move to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` only once the observation inventory and basin support look coherent.",
-            ),
-            walkthrough_doc="getting_started/data-overview-walkthrough",
-            walkthrough_title="the Data Overview walkthrough",
-            metadata={
-                "workflow_stage": "observation_identity_card",
-                "workflow_stage_label": "Observation Identity Card",
-                "workflow_stage_deck": (
-                    "These cases combine support context with observation availability so the reader "
-                    "can decide whether a basin is well instrumented before meshing or solving."
-                ),
-                "workflow_stage_order": 20,
-                "panel_families": [
-                    "dem_overview",
-                    "geology_overlay",
-                    "hydrography_overlay",
-                    "station_inventory",
-                    "stats_card",
-                    "climatic_summary",
-                ],
-                "loaded_data_types": [
-                    "geology",
-                    "hydrography",
-                    "hydrometry",
-                    "piezometry",
-                    "intermittency",
-                    "precipitation",
-                    "etp",
-                    "temperature",
-                    "recharge",
-                    "runoff",
-                    "wind",
-                ],
-                "source_families": ["Committed Nancon overview outputs"],
-                "reading_order": 20,
-                "lead_image_filenames": [
-                    "geographic_nancon_identity_card_map_dem.png",
-                    "geographic_nancon_identity_card_map_hydrography.png",
-                ],
-                "tab_specs": [
-                    {
-                        "title": "Geology",
-                        "filename": "geographic_nancon_identity_card_map_geology.png",
-                    },
-                    {
-                        "title": "Inventory And Stats",
-                        "filenames": [
-                            "geographic_nancon_identity_card_station_inventory.png",
-                            "geographic_nancon_identity_card_stats_card.png",
-                        ],
-                    },
-                    {
-                        "title": "Climate Summary",
-                        "filename": "geographic_nancon_identity_card_climatic_summary.png",
-                    },
-                ],
-            },
-        ),
-        GalleryCaseSpec(
-            slug="geographic_nancon_observed_timeseries",
-            title="Nancon Observed Series Overview",
-            category="geographic",
-            deck="Committed observation chronologies for discharge, piezometry, intermittency, and water quality on one watershed.",
-            summary=(
-                "This companion case focuses on the observed time-series side of `data-overview`. "
-                "It reuses the committed Nancon chronicle figures so the docs can show which temporal "
-                "signals are actually available before any forward or inverse modelling is attempted."
-            ),
-            what_it_shows=(
-                "How four observation families are rendered consistently in the same `data-overview` workflow.",
-                "How a data-overview page can move from basin framing to real temporal signals without touching any solver output.",
-                "Which observation families are available for later validation, calibration, or qualitative scenario reading.",
-            ),
-            reproduction_command=(
-                "python -m launchers data-overview run "
-                "examples/projects/Nancon_data_overview/config_overview.toml"
-            ),
-            source_paths=(
-                "examples/projects/Nancon_data_overview/config_overview.toml",
-                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_discharge.png",
-                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_piezometry.png",
-                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_intermittency.png",
-                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_water_quality.png",
-            ),
-            generator="copy_assets",
-            image_assets=(
-                GalleryImageAsset(
-                    filename="geographic_nancon_timeseries_discharge.png",
-                    caption="Observed discharge chronicle extracted by the Nancon data-overview workflow.",
-                    alt_text="Nancon discharge time series",
-                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_discharge.png",
-                ),
-                GalleryImageAsset(
-                    filename="geographic_nancon_timeseries_piezometry.png",
-                    caption="Observed piezometric chronicle extracted by the Nancon data-overview workflow.",
-                    alt_text="Nancon piezometry time series",
-                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_piezometry.png",
-                ),
-                GalleryImageAsset(
-                    filename="geographic_nancon_timeseries_intermittency.png",
-                    caption="Observed intermittency timeline extracted by the Nancon data-overview workflow.",
-                    alt_text="Nancon intermittency time series",
-                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_intermittency.png",
-                ),
-                GalleryImageAsset(
-                    filename="geographic_nancon_timeseries_water_quality.png",
-                    caption="Observed water-quality chronicle extracted by the Nancon data-overview workflow.",
-                    alt_text="Nancon water quality time series",
-                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_water_quality.png",
-                ),
-            ),
-            case_setup=(
-                "Same launcher family and base config as the Nancon identity-card case, but read here through the observation chronicle panels only.",
-                "All figures come from the committed `results_stable/_figures/overview/` output set.",
-                "The page remains pre-solver: it documents observed signals, not simulated response.",
-            ),
-            key_parameters=(
-                "`[overview.panels] timeseries_discharge`, `timeseries_piezometry`, `timeseries_intermittency`, and `timeseries_water_quality` decide which chronicle figures exist.",
-                "The period selectors in each data-family section are the main levers for changing these figures without touching the basin geometry.",
-                "If one expected chronicle is missing, inspect `[data] types` first, then the corresponding source declarations and time windows.",
-            ),
-            how_to_read=(
-                "Use the discharge and piezometry tabs first when judging whether the site is promising for later simulation or calibration use.",
-                "Read intermittency and water quality as complementary observation families that extend the hydro-identity card rather than replace it.",
-                "This page is best used after the basin identity-card page, because it assumes the support and station inventory are already understood.",
-            ),
-            next_steps=(
-                "Go back to the Nancon identity-card page if you need the station inventory and climate context behind these chronologies.",
-                "Use these chronologies as a pre-check before deciding whether a later workflow should stay descriptive, move to simulation, or move to calibration.",
-            ),
-            walkthrough_doc="getting_started/data-overview-walkthrough",
-            walkthrough_title="the Data Overview walkthrough",
-            metadata={
-                "workflow_stage": "observed_time_series",
-                "workflow_stage_label": "Observed Time Series",
-                "workflow_stage_deck": (
-                    "These cases focus on the observation chronologies themselves, once the basin "
-                    "support and station inventory are already understood."
-                ),
-                "workflow_stage_order": 40,
-                "panel_families": [
-                    "timeseries_discharge",
-                    "timeseries_piezometry",
-                    "timeseries_intermittency",
-                    "timeseries_water_quality",
-                ],
-                "loaded_data_types": [
-                    "hydrometry",
-                    "piezometry",
-                    "intermittency",
-                    "water_quality",
-                ],
-                "source_families": ["Committed Nancon overview outputs"],
-                "reading_order": 40,
-                "tab_specs": [
-                    {
-                        "title": "Discharge",
-                        "filename": "geographic_nancon_timeseries_discharge.png",
-                    },
-                    {
-                        "title": "Piezometry",
-                        "filename": "geographic_nancon_timeseries_piezometry.png",
-                    },
-                    {
-                        "title": "Intermittency",
-                        "filename": "geographic_nancon_timeseries_intermittency.png",
-                    },
-                    {
-                        "title": "Water Quality",
-                        "filename": "geographic_nancon_timeseries_water_quality.png",
-                    },
-                ],
-            },
-        ),
+        *_load_json_gallery_case_specs("geographic_cases.json"),
         GalleryCaseSpec(
             slug="geometry_constraints_canut",
             title="Catchment Geometry Constraints",
@@ -2169,16 +1914,13 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
                 "python -m launchers method-comparison run "
                 "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml"
             ),
-            source_paths=(
+            source_paths=_augment_method_comparison_source_paths(
                 "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
-                "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
-                "examples/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml",
-                "examples/projects/launcher_simulation/results_simulations/example12_fast_mf6_mesh_catchment/_metrics.json",
-                "examples/projects/launcher_simulation/results_simulations/example12_fast_mf6_mesh_catchment/_postprocess/watertable_elevation.npy",
-                "examples/projects/launcher_simulation/results_simulations/example12_fast_mf6_mesh_catchment/_postprocess/watertable_depth.npy",
-                "examples/projects/launcher_simulation/results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq/_boussinesq_summary.json",
-                "examples/projects/launcher_simulation/results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq/_postprocess/watertable_elevation.npy",
-                "examples/projects/launcher_simulation/results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq/_postprocess/watertable_depth.npy",
+                (
+                    "examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml",
+                    "examples/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml",
+                    "examples/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_manifest.json",
+                ),
             ),
             generator="method_comparison_case",
             image_assets=(
@@ -2474,186 +2216,7 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
             comparison_family_order=30,
             comparison_case_order=20,
         ),
-        GalleryCaseSpec(
-            slug="surface_interaction_ramp_code_comparison",
-            title="Surface-Interaction Ramp Code Comparison",
-            category="code_comparison",
-            deck="Cross-code benchmark on one sloping strip with recharge ramp, dry recovery, drainage, and one fixed east head.",
-            summary=(
-                "This page compares MODFLOW and Boussinesq families on the same synthetic hillslope under a progressive recharge ramp, "
-                "followed by dry recovery. The compact figure is restricted to comparable bulk diagnostics across codes: total outflow "
-                "and storage change, shown at the reference conductivity and after an eightfold increase."
-            ),
-            what_it_shows=(
-                "How total outflow aligns or diverges across solver families on the same transient forcing.",
-                "How storage change reacts when conductivity increases while the geometry and forcing stay fixed.",
-                "How the same bulk diagnostics behave across the reference-K and high-K ramp regimes without relying on solver-specific flux partitions.",
-            ),
-            reproduction_command="python tools/doc_gallery/generate_code_comparison_assets.py",
-            source_paths=(
-                "tools/investigate_surface_interaction_hillslope_transient.py",
-                "tools/investigate_surface_interaction_highk_linux.py",
-                "tools/doc_gallery/generate_code_comparison_assets.py",
-                "validation_cases/shared/boussinesq_budget.py",
-                "out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/timeseries.csv",
-                "out/sih_tx_highk_linux_mf6_petsc_comp_20260416/timeseries.csv",
-                "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.png",
-                "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.json",
-                "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.png",
-                "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.json",
-            ),
-            generator="copy_assets",
-            image_assets=(
-                GalleryImageAsset(
-                    filename="surface_interaction_ramp_configuration.png",
-                    caption="Configuration schematic for the recharge-ramp surface-interaction benchmark.",
-                    alt_text="Configuration schematic for the surface-interaction ramp benchmark",
-                    source_path="examples/capability_gallery/code_comparison/surface_interaction_ramp/surface_interaction_ramp_configuration.png",
-                ),
-                GalleryImageAsset(
-                    filename="ramp_reference_k.png",
-                    caption="Reference-conductivity ramp benchmark: total outflow and storage change across the six committed methods.",
-                    alt_text="Reference conductivity recharge-ramp code comparison",
-                    source_path="examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.png",
-                ),
-                GalleryImageAsset(
-                    filename="ramp_high_k.png",
-                    caption="High-conductivity ramp benchmark on Linux: MODFLOW 6 compared against Boussinesq PETSc complementarity.",
-                    alt_text="High conductivity recharge-ramp code comparison",
-                    source_path="examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.png",
-                ),
-            ),
-            case_setup=(
-                "Synthetic strip aquifer, 400 m long and 30 m wide, with one linear topographic slope toward the east outlet.",
-                "One fixed head on the east side, west divide, top drainage, and recharge prescribed as a yearly ramp then one dry year.",
-                "Budget terms are reconstructed on one free-cell control volume for the Boussinesq runs, so east-boundary exchange is measured on the interior interface to prescribed cells.",
-            ),
-            key_parameters=(
-                "Reference case: hydraulic conductivity scale = 0.2x the baseline strip conductivity.",
-                "High-K case: hydraulic conductivity scale = 1.6x, i.e. eight times the reference benchmark.",
-                "Time step = 15 days, specific yield = 0.10, east imposed head = 5.0625 m, drainage conductance = 1e-4 m2/s.",
-            ),
-            how_to_read=(
-                "Read the top panel first: when total outflow separates, the methods disagree on how quickly water leaves the system.",
-                "Then compare storage change: if one curve stays higher, that method keeps more water in transient storage instead of exporting it.",
-                "Interpret this page as a bulk-budget comparison only; it intentionally avoids solver-specific outflow partitions that are not directly comparable term by term.",
-                "Use the two tabs to decide whether the disagreement is regime-dependent or persists when conductivity is increased strongly.",
-            ),
-            next_steps=(
-                "Go back to the transient investigation tool if you want the full flux decomposition and the head snapshots behind these compact views.",
-                "Use the no-seepage companion page when you want to isolate the same comparison without emergent surface drainage.",
-            ),
-            metadata={
-                "benchmark_case": "recharge_ramp_with_drainage",
-                "conductivity_levels": ["reference_k", "high_k"],
-                "solver_families": ["MODFLOW", "Boussinesq"],
-                "tab_specs": [
-                    {
-                        "title": "Reference K",
-                        "filename": "ramp_reference_k.png",
-                        "body_lines": [
-                            "Run source: ``out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416``",
-                            "Methods: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition, PETSc partition, PETSc complementarity",
-                        ],
-                    },
-                    {
-                        "title": "High K",
-                        "filename": "ramp_high_k.png",
-                        "body_lines": [
-                            "Run source: ``out/sih_tx_highk_linux_mf6_petsc_comp_20260416``",
-                            "Methods: MODFLOW 6, Boussinesq PETSc complementarity",
-                            "Generation path: Linux PETSc environment via ``tools/investigate_surface_interaction_highk_linux.py``.",
-                            "The previous high-K ``MODFLOW-NWT`` and local-partition comparison was removed because it was poorly balanced and not physically reliable.",
-                        ],
-                    },
-                ],
-                "lead_image_filenames": ["surface_interaction_ramp_configuration.png"],
-            },
-        ),
-        GalleryCaseSpec(
-            slug="surface_interaction_no_seepage_code_comparison",
-            title="No-Seepage Surface-Interaction Comparison",
-            category="code_comparison",
-            deck="Cross-code benchmark on the same hillslope after lifting the ground surface above the imposed east head to suppress seepage.",
-            summary=(
-                "This page isolates the same synthetic hillslope after moving the surface well above the imposed east boundary head. "
-                "The goal is to test whether the methods converge once seepage and surface overflow are intentionally removed from the physical picture."
-            ),
-            what_it_shows=(
-                "How total outflow collapses toward the east boundary when seepage is suppressed by construction.",
-                "How storage change compares once the surface-interaction mechanism is no longer the dominant difference.",
-                "How the same no-seepage setup behaves at reference and high hydraulic conductivity.",
-            ),
-            reproduction_command="python tools/doc_gallery/generate_code_comparison_assets.py",
-            source_paths=(
-                "tools/investigate_surface_interaction_hillslope_transient.py",
-                "tools/doc_gallery/generate_code_comparison_assets.py",
-                "validation_cases/shared/boussinesq_budget.py",
-                "out/sih_tx_4cmp_linux_no_seepage_20260415/timeseries.csv",
-                "out/sih_tx_4cmp_linux_no_seepage_kx8_20260416/timeseries.csv",
-                "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png",
-                "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.json",
-                "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.png",
-                "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.json",
-            ),
-            generator="copy_assets",
-            image_assets=(
-                GalleryImageAsset(
-                    filename="no_seepage_reference_k.png",
-                    caption="No-seepage benchmark on the four committed cross-code methods.",
-                    alt_text="No seepage code comparison on the four-method benchmark",
-                    source_path="examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png",
-                ),
-                GalleryImageAsset(
-                    filename="no_seepage_high_k.png",
-                    caption="High-conductivity no-seepage benchmark on the same four committed methods.",
-                    alt_text="No seepage code comparison at high hydraulic conductivity",
-                    source_path="examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.png",
-                ),
-            ),
-            case_setup=(
-                "Same strip geometry and time stepping as the ramp benchmark, but the topography is lifted uniformly by 10 m while the imposed east head stays unchanged.",
-                "This keeps the groundwater system below the ground surface throughout the run and removes seepage/overflow from the intended physical regime.",
-                "The comparison therefore targets the subsurface transient response rather than the surface-partition closure.",
-            ),
-            key_parameters=(
-                "Topography offset = +10 m relative to the ramp benchmark.",
-                "Reference hydraulic conductivity scale = 0.2x the baseline strip conductivity.",
-                "Time step = 15 days, east imposed head unchanged, same recharge ramp and dry recovery chronology.",
-            ),
-            how_to_read=(
-                "If the top panel aligns much better than in the ramp case, the previous disagreement mainly came from seepage or surface-interaction closure.",
-                "Use the storage panel to check whether one method still keeps more water even after seepage is removed.",
-                "Use the conductivity tabs to check whether the agreement is robust when transmissivity is increased while the no-seepage geometry is kept unchanged.",
-            ),
-            next_steps=(
-                "Compare this page with the ramp benchmark to isolate which disagreements are specifically tied to surface interaction.",
-                "Use the transient investigation outputs when you need the full solver budget and the decomposed outflow components.",
-            ),
-            metadata={
-                "benchmark_case": "no_seepage_offset_topography",
-                "conductivity_levels": ["reference_k", "high_k"],
-                "solver_families": ["MODFLOW", "Boussinesq"],
-                "tab_specs": [
-                    {
-                        "title": "Reference K",
-                        "filename": "no_seepage_reference_k.png",
-                        "body_lines": [
-                            "Run source: ``out/sih_tx_4cmp_linux_no_seepage_20260415``",
-                            "Methods: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition",
-                        ],
-                    },
-                    {
-                        "title": "High K",
-                        "filename": "no_seepage_high_k.png",
-                        "body_lines": [
-                            "Run source: ``out/sih_tx_4cmp_linux_no_seepage_kx8_20260416``",
-                            "Methods: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition",
-                        ],
-                    },
-                ],
-            },
-        ),
+        *_load_json_gallery_case_specs("code_comparison_cases.json"),
     )
     validation_specs = tuple(
         GalleryCaseSpec(

@@ -25,18 +25,34 @@ The current Boussinesq package is already much clearer than before:
 
 - the canonical Dirichlet concept is now prescribed boundary cells;
 - the active driver/runtime path now uses that prescribed-cell representation;
-- legacy edge-based boundary diagnostics are rebuilt explicitly in one adapter
-  layer instead of driving the solve path;
+- edge-based boundary diagnostics are rebuilt explicitly in
+  ``boundary_flux_reconstruction.py`` instead of driving the solve path;
 - the method and engine taxonomy is explicit;
 - runtime state construction is centralized;
+- steady and transient orchestration have been extracted out of the main
+  driver;
+- process-to-runtime normalization is extracted into ``solver_contract.py``;
+- forcing resolution is now split into a stable facade plus specialized
+  submodules;
+- shared boundary/ocean/drainage preparation is isolated in
+  ``driver_forcing.py``;
+- the public assembly layer is now one facade over dedicated internal modules
+  for inputs, fluxes, surface closures and residual builders;
+- the public semianalytic Jacobian layer is now one facade over dedicated
+  internal modules for common helpers and sparse triplet builders;
+- runtime summary shaping and common runtime-result packaging are extracted
+  into dedicated helpers;
 - the process-to-solver contract is explicit.
 
 The main remaining simplification targets are:
 
-- continue shrinking the legacy ``imposed_head_*`` compatibility surface
-  toward an export-only adapter;
-- factor common runtime bookkeeping now repeated across local, SciPy and PETSc
-  backends.
+- keep the driver thin and avoid regrowing orchestration logic in
+  ``boussinesq.py``;
+- keep future cleanups focused on ``assembly_residuals.py``,
+  ``assembly_fluxes.py``, ``jacobian_operator_triplets.py`` and
+  ``jacobian_partition_triplets.py``, which are now the main size hotspots;
+- continue factoring small pieces of common runtime bookkeeping only when the
+  resulting helper stays clearer than the duplicated code.
 
 Diagram 1: Package Context
 --------------------------
@@ -78,8 +94,16 @@ Notes
 -----
 
 - The canonical runtime path is now based on ``prescribed_head_m_by_cell``.
-- ``imposed_head_*`` still appears in the package only because a legacy
-  compatibility layer still exists for exports, plots and regression tests.
+- The main orchestration split is now:
+
+  - ``boussinesq.py`` for top-level coordination;
+  - ``driver_steady.py`` and ``driver_transient.py`` for solve execution;
+  - ``solver_contract.py`` for process-to-runtime normalization;
+  - ``runtime_summary.py`` for runtime-summary shaping;
+  - ``forcing_resolution.py`` plus ``forcing/`` for process-to-array mapping;
+  - ``driver_forcing.py`` for shared boundary and drainage preparation;
+  - ``jacobian_semianalytic.py`` plus its internal triplet modules for the
+    semianalytic linearization layer.
 - The diagrams deliberately separate:
 
   - hydrological problem definition;

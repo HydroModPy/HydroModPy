@@ -37,6 +37,7 @@
   "reproduction_command": "python tools/doc_gallery/generate_code_comparison_assets.py",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
+    "tools/doc_gallery/manifests/code_comparison_cases.json",
     "tools/investigate_surface_interaction_hillslope_transient.py",
     "tools/investigate_surface_interaction_highk_linux.py",
     "tools/doc_gallery/generate_code_comparison_assets.py",
@@ -49,10 +50,11 @@
     "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.json"
   ],
   "source_hashes": {
-    "tools/investigate_surface_interaction_hillslope_transient.py": "f3b247a0a5e6dfbdc6975555b78e44d8dba60a96d58a171ed5d420a087cc76ef",
-    "tools/investigate_surface_interaction_highk_linux.py": "b5d59dcfe17886acc5a91c47279af551daca117abaa01be6f88fed903391c967",
-    "tools/doc_gallery/generate_code_comparison_assets.py": "37529f141def95177197cb74a75cf38e769fb66dba9f31e0c40b332f89c540f7",
-    "validation_cases/shared/boussinesq_budget.py": "fb00ed7ca783f5c5bf62f103cedcb20f697c378be7e3aa241550d5a846170878",
+    "tools/doc_gallery/manifests/code_comparison_cases.json": "a1fb91cf3ac3f143611d963b245cfc5256464c517947ada3c17476ef762e7921",
+    "tools/investigate_surface_interaction_hillslope_transient.py": "8279c5449c1a162771f0d81690ca2e49a6d5d2ad2977cab22d8acb6684fdaacc",
+    "tools/investigate_surface_interaction_highk_linux.py": "d47a50866963102651a67e4ef4c672b77c2f5cd4d361bdcab38bbee837e31eda",
+    "tools/doc_gallery/generate_code_comparison_assets.py": "087328607cba95e725fa23afd63adede31579d816c68a9c952a28d71219b771d",
+    "validation_cases/shared/boussinesq_budget.py": "86caad790d2afb323901313bb1dfbe145b44596e9a85a985608ccd06440c4948",
     "out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/timeseries.csv": "874a28e8fe5859358f6950a8394ac2c7562109b751ef35346b2a3db93c7f6a49",
     "out/sih_tx_highk_linux_mf6_petsc_comp_20260416/timeseries.csv": "f59e6b81deea01aa0c0d3e792d27c4c00e7f679f2b377cef33dc0dcd4d102631",
     "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.png": "521d98ee37ea3970f99a6cfc1b7f3e15c3bcd3d1b6fa96b330a56e282a159f35",

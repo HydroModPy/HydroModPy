@@ -1570,6 +1570,24 @@ def _add_horizontal_colorbar(fig, mappable, *, axes, label: str):
     return cbar
 
 
+def _load_committed_method_comparison_payload(
+    comparison_root: Path,
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]] | None:
+    """Reuse committed method-comparison artifacts when they already exist."""
+
+    manifest_path = comparison_root / "comparison_manifest.json"
+    metrics_path = comparison_root / "comparison_metrics.json"
+    observables_path = comparison_root / "observables.csv"
+    if not (manifest_path.exists() and metrics_path.exists() and observables_path.exists()):
+        return None
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    metrics_payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+    with observables_path.open("r", encoding="utf-8", newline="") as handle:
+        all_rows = list(csv.DictReader(handle))
+    return manifest, metrics_payload, all_rows
+
+
 def _build_method_comparison_payload(config_path: Path) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     from hydromodpy.core.config.toml_loader import load_toml_with_base_config
     from launchers.method_comparison.config import MethodComparisonConfig
@@ -1584,6 +1602,10 @@ def _build_method_comparison_payload(config_path: Path) -> tuple[dict[str, Any],
     raw_toml = load_toml_with_base_config(config_path)
     cfg = MethodComparisonConfig.from_toml(raw_toml, config_path=config_path)
     section = cfg.method_comparison
+    committed_payload = _load_committed_method_comparison_payload(cfg.comparison_root)
+    if committed_payload is not None:
+        return committed_payload
+
     committed_variant_rows: dict[str, dict[str, Any]] = {}
     committed_manifest_path = cfg.comparison_root / "comparison_manifest.json"
     if section.run_variants and not committed_manifest_path.exists():
@@ -5163,7 +5185,23 @@ def _render_validation_solver_block(run: dict[str, Any], *, indent: str = "") ->
     if run.get("metric_lines"):
         lines.append(f"{indent}**Metrics**")
         for metric_line in run["metric_lines"]:
-            lines.append(f"{indent}- {metric_line}")
+            metric_parts = str(metric_line).splitlines()
+            if not metric_parts:
+                continue
+            lines.append(f"{indent}- {metric_parts[0]}")
+            if len(metric_parts) > 1:
+                lines.extend(
+                    [
+                        "",
+                        f"{indent}  .. code-block:: text",
+                        "",
+                    ]
+                )
+                for metric_part in metric_parts[1:]:
+                    lines.append(
+                        f"{indent}     {metric_part}" if metric_part else f"{indent}     "
+                    )
+                lines.append("")
         lines.append("")
 
     details: list[str] = []

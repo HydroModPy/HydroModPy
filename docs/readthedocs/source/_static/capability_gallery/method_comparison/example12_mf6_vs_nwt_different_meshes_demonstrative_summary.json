@@ -39,13 +39,17 @@
     "examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml",
     "examples/projects/launcher_simulation/run_demonstrative_annual_mf6_precomputed_mesh_input.toml",
     "examples/projects/launcher_simulation/run_demonstrative_annual_nwt.toml",
-    "examples/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_manifest.json"
+    "examples/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_manifest.json",
+    "examples/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_metrics.json",
+    "examples/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/observables.csv"
   ],
   "source_hashes": {
-    "examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml": "5cb42b32761b0e4d95a23eb90ad2227cb396cfd21ceef811840a9cee2f55461c",
-    "examples/projects/launcher_simulation/run_demonstrative_annual_mf6_precomputed_mesh_input.toml": "53faa5f4515b49fade7aa3b111f0e97ddb8f254c3314a4eb017f469d76603003",
-    "examples/projects/launcher_simulation/run_demonstrative_annual_nwt.toml": "d6b4be80329453fcb9de1fcbbcb654f3d62d86e8eae1bf7ca53f7ffdce1fadd0",
-    "examples/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_manifest.json": "9bc1c9467d43df74e41e2e9d14a6df969bbc0d5cbde8f9302d4af6657983eace"
+    "examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml": "d1b1cd0cf3fc279742e9501d74960c0fa6610333e59e73f2030fe283f2a6be0a",
+    "examples/projects/launcher_simulation/run_demonstrative_annual_mf6_precomputed_mesh_input.toml": "f97d9bbb8f5e78040215ceea5fce8b8b9d816e65aeee3448443bf1a6d06f3a02",
+    "examples/projects/launcher_simulation/run_demonstrative_annual_nwt.toml": "da7a283ef5913ae53ebac49ba3cab4f97a4a141a886bcb21277aa7abd1e004e3",
+    "examples/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_manifest.json": "9bc1c9467d43df74e41e2e9d14a6df969bbc0d5cbde8f9302d4af6657983eace",
+    "examples/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_metrics.json": "55e5ec2c718b805b57dfff4f36f2f6dbc19c1fdd3403a00d2743e716c7d89a71",
+    "examples/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/observables.csv": "5d4f349cca46f1f25387ae21280a74c65b4abeedfd7bd36287c2af20c46f74fb"
   },
   "docname": "cases/example12_mf6_vs_nwt_different_meshes_demonstrative",
   "images": [

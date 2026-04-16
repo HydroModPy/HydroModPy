@@ -1,13 +1,211 @@
 {
-  "schema_version": "method_comparison_manifest_v1",
+  "schema_version": "method_comparison_manifest_v2",
   "comparison_id": "ex12_mf6_nwt_moderate",
   "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml",
+  "comparison_root": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate",
+  "base_simulation_config": null,
   "run_variants": true,
   "continue_on_error": false,
   "reference_variant": "mf6_mod_tri",
+  "observables_csv": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\observables.csv",
+  "comparison_metrics_csv": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_metrics.csv",
+  "comparison_differences_csv": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_differences.csv",
+  "comparison_metrics_json": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_metrics.json",
+  "comparison_report_md": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_report.md",
+  "comparison_figures_dir": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures",
+  "comparison_figures": [
+    {
+      "kind": "map_comparison",
+      "observable": "head_map_last",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\head_map_last__map_comparison.png"
+    },
+    {
+      "kind": "fine_raster_geotiff",
+      "observable": "head_map_last",
+      "variant_id": "mf6_mod_tri",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\head_map_last__fine_raster__mf6_mod_tri.tif"
+    },
+    {
+      "kind": "fine_raster_geotiff",
+      "observable": "head_map_last",
+      "variant_id": "nwt_mod_s60",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\head_map_last__fine_raster__nwt_mod_s60.tif"
+    },
+    {
+      "kind": "fine_raster_map_comparison",
+      "observable": "head_map_last",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\head_map_last__fine_raster_map_comparison.png"
+    },
+    {
+      "kind": "fine_raster_difference_map",
+      "observable": "head_map_last",
+      "reference_variant": "mf6_mod_tri",
+      "candidate_variant": "nwt_mod_s60",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\head_map_last__fine_raster_difference__mf6_mod_tri__vs__nwt_mod_s60.png"
+    },
+    {
+      "kind": "fine_raster_difference_geotiff",
+      "observable": "head_map_last",
+      "reference_variant": "mf6_mod_tri",
+      "candidate_variant": "nwt_mod_s60",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\head_map_last__fine_raster_difference__mf6_mod_tri__vs__nwt_mod_s60.tif"
+    },
+    {
+      "kind": "map_comparison",
+      "observable": "depth_map_last",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\depth_map_last__map_comparison.png"
+    },
+    {
+      "kind": "fine_raster_geotiff",
+      "observable": "depth_map_last",
+      "variant_id": "mf6_mod_tri",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\depth_map_last__fine_raster__mf6_mod_tri.tif"
+    },
+    {
+      "kind": "fine_raster_geotiff",
+      "observable": "depth_map_last",
+      "variant_id": "nwt_mod_s60",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\depth_map_last__fine_raster__nwt_mod_s60.tif"
+    },
+    {
+      "kind": "fine_raster_map_comparison",
+      "observable": "depth_map_last",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\depth_map_last__fine_raster_map_comparison.png"
+    },
+    {
+      "kind": "fine_raster_difference_map",
+      "observable": "depth_map_last",
+      "reference_variant": "mf6_mod_tri",
+      "candidate_variant": "nwt_mod_s60",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\depth_map_last__fine_raster_difference__mf6_mod_tri__vs__nwt_mod_s60.png"
+    },
+    {
+      "kind": "fine_raster_difference_geotiff",
+      "observable": "depth_map_last",
+      "reference_variant": "mf6_mod_tri",
+      "candidate_variant": "nwt_mod_s60",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\depth_map_last__fine_raster_difference__mf6_mod_tri__vs__nwt_mod_s60.tif"
+    },
+    {
+      "kind": "map_comparison",
+      "observable": "outflow_drain_map_last",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\outflow_drain_map_last__map_comparison.png"
+    },
+    {
+      "kind": "fine_raster_geotiff",
+      "observable": "outflow_drain_map_last",
+      "variant_id": "mf6_mod_tri",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\outflow_drain_map_last__fine_raster__mf6_mod_tri.tif"
+    },
+    {
+      "kind": "fine_raster_geotiff",
+      "observable": "outflow_drain_map_last",
+      "variant_id": "nwt_mod_s60",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\outflow_drain_map_last__fine_raster__nwt_mod_s60.tif"
+    },
+    {
+      "kind": "fine_raster_map_comparison",
+      "observable": "outflow_drain_map_last",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\outflow_drain_map_last__fine_raster_map_comparison.png"
+    },
+    {
+      "kind": "fine_raster_difference_map",
+      "observable": "outflow_drain_map_last",
+      "reference_variant": "mf6_mod_tri",
+      "candidate_variant": "nwt_mod_s60",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\outflow_drain_map_last__fine_raster_difference__mf6_mod_tri__vs__nwt_mod_s60.png"
+    },
+    {
+      "kind": "fine_raster_difference_geotiff",
+      "observable": "outflow_drain_map_last",
+      "reference_variant": "mf6_mod_tri",
+      "candidate_variant": "nwt_mod_s60",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\outflow_drain_map_last__fine_raster_difference__mf6_mod_tri__vs__nwt_mod_s60.tif"
+    },
+    {
+      "kind": "timeseries",
+      "observable": "head_mid_basin_response",
+      "unit": "m",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\head_mid_basin_response__timeseries.png"
+    },
+    {
+      "kind": "timeseries",
+      "observable": "head_outlet_lowland",
+      "unit": "m",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\head_outlet_lowland__timeseries.png"
+    },
+    {
+      "kind": "timeseries",
+      "observable": "head_upstream_ridge",
+      "unit": "m",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\head_upstream_ridge__timeseries.png"
+    },
+    {
+      "kind": "timeseries",
+      "observable": "outlet_flux_series",
+      "unit": "m3/s",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\outlet_flux_series__timeseries.png"
+    },
+    {
+      "kind": "point_dashboard",
+      "observable": "head_points",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\head_points_dashboard.png"
+    },
+    {
+      "kind": "native_flux_panel",
+      "observable": "accumulation_flux",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\native_accumulation_flux__hydrograph.png"
+    },
+    {
+      "kind": "native_flux_panel",
+      "observable": "outflow_drain",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\native_outflow_drain__hydrograph.png"
+    },
+    {
+      "kind": "flux_dashboard",
+      "observable": "flux_overview",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\flux_overview.png"
+    },
+    {
+      "kind": "execution_time_bars",
+      "observable": "execution_time",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\comparison_figures\\execution_time_comparison.png"
+    }
+  ],
+  "comparison_data_artifacts": [
+    {
+      "kind": "timeseries_long_csv",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\timeseries_long.csv"
+    },
+    {
+      "kind": "timeseries_wide_csv",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\timeseries_wide.csv"
+    },
+    {
+      "kind": "timeseries_delta_csv",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\timeseries_delta.csv"
+    },
+    {
+      "kind": "native_timeseries_long_csv",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\native_timeseries_long.csv"
+    },
+    {
+      "kind": "native_timeseries_wide_csv",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\native_timeseries_wide.csv"
+    },
+    {
+      "kind": "native_timeseries_delta_csv",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\native_timeseries_delta.csv"
+    },
+    {
+      "kind": "execution_times_csv",
+      "path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\method_comparison\\ex12_mf6_nwt_moderate\\execution_times.csv"
+    }
+  ],
   "n_observable_rows": 12903,
   "n_metric_rows": 7,
   "n_difference_rows": 1584,
+  "wall_time_seconds": 222.3,
   "variants": [
     {
       "id": "mf6_mod_tri",
@@ -17,10 +215,11 @@
       "solver": "modflow6",
       "mesh_label": "gmsh_precomputed",
       "mesh_mode": "mesh_input",
+      "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml",
       "run_folder": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_reused_real_meshes\\ex12_demo_mod_mf6\\results_simulations\\ex12_demo_mod_mf6_tri",
       "wall_time_seconds": 95.19,
       "metrics": {
-        "wall_time_seconds": 52.45,
+        "wall_time_seconds": 91.25,
         "solvers": [
           "modflow6"
         ],
@@ -32,7 +231,7 @@
       },
       "run_metadata": {
         "metrics": {
-          "wall_time_seconds": 52.45,
+          "wall_time_seconds": 91.25,
           "solvers": [
             "modflow6"
           ],
@@ -42,7 +241,7 @@
           "mesh_output_summary_json": null,
           "mesh_output_exchange_bundle_dir": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_stable\\mesh\\mesh_catchment_bundle"
         },
-        "wall_time_seconds": 52.45,
+        "wall_time_seconds": 91.25,
         "solvers": [
           "modflow6"
         ],
@@ -68,10 +267,11 @@
       "solver": "modflownwt",
       "mesh_label": "sgrid_60x60",
       "mesh_mode": "structured",
+      "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_demonstrative_annual_moderate_nwt.toml",
       "run_folder": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_reused_real_meshes\\ex12_demo_mod_nwt\\results_simulations\\ex12_demo_mod_nwt_s60",
       "wall_time_seconds": 44.12,
       "metrics": {
-        "wall_time_seconds": 60.33,
+        "wall_time_seconds": 42.86,
         "solvers": [
           "modflownwt"
         ],
@@ -79,13 +279,13 @@
       },
       "run_metadata": {
         "metrics": {
-          "wall_time_seconds": 60.33,
+          "wall_time_seconds": 42.86,
           "solvers": [
             "modflownwt"
           ],
           "success": true
         },
-        "wall_time_seconds": 60.33,
+        "wall_time_seconds": 42.86,
         "solvers": [
           "modflownwt"
         ]
@@ -98,7 +298,6 @@
       "name": "head_outlet_lowland",
       "variable": "watertable_elevation",
       "source": "disk",
-      "variants": null,
       "support": "point",
       "anchor_id": "example12.outlet_lowland",
       "x": 266875.0,
@@ -117,7 +316,6 @@
       "name": "head_mid_basin_response",
       "variable": "watertable_elevation",
       "source": "disk",
-      "variants": null,
       "support": "point",
       "anchor_id": "example12.mid_basin_response",
       "x": 265875.0,
@@ -136,7 +334,6 @@
       "name": "head_upstream_ridge",
       "variable": "watertable_elevation",
       "source": "disk",
-      "variants": null,
       "support": "point",
       "anchor_id": "example12.upstream_ridge",
       "x": 265450.0,
@@ -155,7 +352,6 @@
       "name": "outlet_flux_series",
       "variable": "outlet_flux",
       "source": "disk",
-      "variants": null,
       "support": "outlet",
       "anchor_id": "example12.outlet",
       "x": 266887.0154945171,
@@ -174,7 +370,6 @@
       "name": "head_map_last",
       "variable": "watertable_elevation",
       "source": "disk",
-      "variants": null,
       "support": "map",
       "anchor_id": null,
       "x": null,
@@ -193,7 +388,6 @@
       "name": "depth_map_last",
       "variable": "watertable_depth",
       "source": "disk",
-      "variants": null,
       "support": "map",
       "anchor_id": null,
       "x": null,
@@ -212,7 +406,6 @@
       "name": "outflow_drain_map_last",
       "variable": "outflow_drain",
       "source": "disk",
-      "variants": null,
       "support": "map",
       "anchor_id": null,
       "x": null,

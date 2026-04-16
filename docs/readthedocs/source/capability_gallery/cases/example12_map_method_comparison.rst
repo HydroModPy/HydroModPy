@@ -165,12 +165,9 @@ Source Pointers
 - ``examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml``
 - ``examples/projects/launcher_simulation/run_fast_mf6_mesh_catchment.toml``
 - ``examples/projects/launcher_simulation/run_fast_boussinesq_precomputed_mesh_input.toml``
-- ``examples/projects/launcher_simulation/results_simulations/example12_fast_mf6_mesh_catchment/_metrics.json``
-- ``examples/projects/launcher_simulation/results_simulations/example12_fast_mf6_mesh_catchment/_postprocess/watertable_elevation.npy``
-- ``examples/projects/launcher_simulation/results_simulations/example12_fast_mf6_mesh_catchment/_postprocess/watertable_depth.npy``
-- ``examples/projects/launcher_simulation/results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq/_boussinesq_summary.json``
-- ``examples/projects/launcher_simulation/results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq/_postprocess/watertable_elevation.npy``
-- ``examples/projects/launcher_simulation/results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq/_postprocess/watertable_depth.npy``
+- ``examples/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_manifest.json``
+- ``examples/projects/launcher_simulation/method_comparison/example12_map_method_comparison/comparison_metrics.json``
+- ``examples/projects/launcher_simulation/method_comparison/example12_map_method_comparison/observables.csv``
 
 Artifacts
 ---------

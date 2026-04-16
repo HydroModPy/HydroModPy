@@ -13,7 +13,13 @@ from validation_cases.analytical.transient.common import (
     extract_radial_monitor_series,
     load_transient_profile_outputs,
 )
-from validation_cases.shared import max_abs_error, rmse, run_launcher_validation_case
+from validation_cases.shared import (
+    load_case_metadata,
+    load_case_tolerances,
+    max_abs_error,
+    rmse,
+    run_launcher_validation_case,
+)
 
 from .reference import expected_late_time_unconfined_pumping_drawdown
 from .runtime_boussinesq import run_boussinesq_late_time_unconfined_pumping_case
@@ -26,9 +32,17 @@ def build_late_time_unconfined_pumping_comparison(
     *,
     result,
     solver: str | None = None,
+    metadata: dict | None = None,
+    tolerances: dict | None = None,
 ) -> TransientRadialDrawdownComparison:
     """Load one completed run and compare the late-time drawdown to the reference."""
-    loaded = load_transient_profile_outputs(case_dir=CASE_DIR, result=result, solver=solver)
+    loaded = load_transient_profile_outputs(
+        case_dir=CASE_DIR,
+        result=result,
+        metadata=metadata,
+        tolerances=tolerances,
+        solver=solver,
+    )
     metadata = loaded.metadata
     tolerances = loaded.tolerances
     observable_name = loaded.observable_name
@@ -122,7 +136,11 @@ def run_late_time_unconfined_pumping_comparison(
 ) -> TransientRadialDrawdownComparison:
     """Run the launcher case and return the full radial-drawdown comparison payload."""
     normalized_solver = None if solver is None else str(solver).strip().lower()
+    preloaded_metadata = None
+    preloaded_tolerances = None
     if normalized_solver == "boussinesq":
+        preloaded_metadata = load_case_metadata(CASE_DIR)
+        preloaded_tolerances = load_case_tolerances(CASE_DIR, solver=solver)
         result = run_boussinesq_late_time_unconfined_pumping_case(
             caller_file=caller_file,
             timeout=timeout,
@@ -134,7 +152,12 @@ def run_late_time_unconfined_pumping_comparison(
             timeout=timeout,
             solver=solver,
         )
-    return build_late_time_unconfined_pumping_comparison(result=result, solver=solver)
+    return build_late_time_unconfined_pumping_comparison(
+        result=result,
+        solver=solver,
+        metadata=preloaded_metadata,
+        tolerances=preloaded_tolerances,
+    )
 
 
 

@@ -54,7 +54,13 @@ committed `.rst`, `.png`, and `.json` artifacts generated ahead of time.
 
 ## How Cases Are Declared
 
-Case inventory lives in `tools/doc_gallery/gallery_manifest.py`.
+Case inventory now lives in two places:
+
+- `tools/doc_gallery/gallery_manifest.py` for generator-backed cases whose
+  metadata still benefits from Python helpers or discovery code,
+- `tools/doc_gallery/manifests/*.json` for small declarative inventories,
+  especially stable `copy_assets` cases where adding one page should mostly be
+  data entry rather than Python editing.
 
 Each `GalleryCaseSpec` declares:
 
@@ -74,6 +80,15 @@ For future mesh-gallery cases, the canonical repository input tree lives under
 - `tools/doc_gallery/mesh_case_registry.py` defines the shared case schema and naming
 - `tools/doc_gallery/gallery_manifest.py` auto-discovers `examples/mesh_gallery/**/case.json`
 
+Simple committed asset-copy cases can also be declared through JSON manifests
+under `tools/doc_gallery/manifests/`.
+
+- the current `code_comparison` pages use this path,
+- JSON manifests are a good fit when the generator is already known and the work
+  is mostly title/summary/assets/metadata declaration,
+- Python stays the right place for cases that need helper builders, discovery,
+  metric formatter functions, or richer derived defaults.
+
 Analytical validation cases are discovered automatically from
 `validation_cases/analytical/`.
 
@@ -88,12 +103,13 @@ Analytical validation cases are discovered automatically from
 
 ## How To Add One Case
 
-1. Add a new `GalleryCaseSpec` in `tools/doc_gallery/gallery_manifest.py`.
-2. Make sure the case is reproducible from versioned repository inputs.
-3. Run `python -m tools.doc_gallery`.
-4. Inspect the generated page under `docs/readthedocs/source/capability_gallery/cases/`.
-5. Run `python -m tools.doc_gallery --check`.
-6. Rebuild Sphinx with `python -m sphinx -E -a -W -b html source _build/html` from `docs/readthedocs/`.
+1. For a simple `copy_assets` page, prefer adding one entry under `tools/doc_gallery/manifests/*.json`.
+2. For a generated or discovered case, add the corresponding `GalleryCaseSpec` or helper builder in `tools/doc_gallery/gallery_manifest.py`.
+3. Make sure the case is reproducible from versioned repository inputs.
+4. Run `python -m tools.doc_gallery`.
+5. Inspect the generated page under `docs/readthedocs/source/capability_gallery/cases/`.
+6. Run `python -m tools.doc_gallery --check`.
+7. Rebuild Sphinx with `python -m sphinx -E -a -W -b html source _build/html` from `docs/readthedocs/`.
 
 ## How To Add One Mesh Bundle Case
 
@@ -112,3 +128,20 @@ Analytical validation cases are discovered automatically from
    `tools/doc_gallery/validation_case_registry.py`.
 4. Run `python -m tools.doc_gallery`.
 5. Rebuild Sphinx and inspect the page under `capability_gallery/validation`.
+
+## CI Regeneration Check
+
+The repository now carries a dedicated GitHub Actions workflow:
+
+- `.github/workflows/docs-gallery-check.yml`
+
+Its job is intentionally narrow:
+
+- install the lightweight Python environment required by the gallery tooling,
+- run `python -m tools.doc_gallery --check`,
+- fail the PR if committed gallery artifacts drift away from the declarative
+  inventory or tracked source hashes.
+
+This does not regenerate validation batch reports in CI. Those reports still
+depend on heavier scientific runtimes and are refreshed explicitly when the
+validation report content itself changes.

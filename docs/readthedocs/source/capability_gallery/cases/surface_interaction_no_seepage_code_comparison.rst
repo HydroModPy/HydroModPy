@@ -84,6 +84,7 @@ Refresh the committed gallery artifacts with:
 Source Pointers
 ---------------
 
+- ``tools/doc_gallery/manifests/code_comparison_cases.json``
 - ``tools/investigate_surface_interaction_hillslope_transient.py``
 - ``tools/doc_gallery/generate_code_comparison_assets.py``
 - ``validation_cases/shared/boussinesq_budget.py``

@@ -1,0 +1,380 @@
+{
+  "defaults": {
+    "category": "geographic",
+    "generator": "copy_assets",
+    "walkthrough_doc": "getting_started/data-overview-walkthrough",
+    "walkthrough_title": "the Data Overview walkthrough"
+  },
+  "cases": [
+    {
+      "slug": "geographic_watershed_overview",
+      "title": "Watershed Data Overview",
+      "deck": "Versioned watershed context figures copied into the documentation as stable teaching assets.",
+      "summary": "This pair of figures documents the pre-solver side of HydroModPy. It shows how one watershed is contextualized before any flow run: local framing, DEM, and overlay-ready geographic inputs.",
+      "what_it_shows": [
+        "How a watershed can be documented before any groundwater solve, using only setup and data loading.",
+        "How HydroModPy distinguishes a local watershed view from a broader DEM-oriented overview.",
+        "How versioned example outputs can feed static documentation without executing notebooks during the build."
+      ],
+      "reproduction_command": "python examples/projects/data_overview/run_data_overview.py",
+      "source_paths": [
+        "examples/projects/data_overview/run_data_overview.py",
+        "examples/projects/data_overview/project.toml",
+        "examples/capability_gallery/geographic/README.md",
+        "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png",
+        "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_local.png"
+      ],
+      "image_assets": [
+        {
+          "filename": "geographic_watershed_dem.png",
+          "caption": "DEM-oriented watershed overview copied from versioned example outputs.",
+          "alt_text": "Watershed DEM overview",
+          "source_path": "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png"
+        },
+        {
+          "filename": "geographic_watershed_local.png",
+          "caption": "Local watershed framing copied from versioned example outputs.",
+          "alt_text": "Watershed local overview",
+          "source_path": "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_local.png"
+        }
+      ],
+      "case_setup": [
+        "Launcher family: `data-overview`, so the workflow stops after setup, domain assembly, and data loading.",
+        "Primary editable file: `examples/projects/data_overview/project.toml`.",
+        "Committed figures are mirrored under `examples/capability_gallery/geographic/` so the doc build stays reproducible without a local `results_stable` checkout."
+      ],
+      "key_parameters": [
+        "`[geographic] catch_def`, `x_outlet`, and `y_outlet` decide where the watershed is extracted from.",
+        "`[geographic] buff_area` controls how much regional context stays visible around the basin in the overview figures.",
+        "`[domain] zone_ids` and `[domain.depth_model]` define the spatial support that later workflows would reuse.",
+        "`[data] types` selects which thematic layers are loaded and therefore which overlays can appear on the basin.",
+        "Date windows in `[data.hydrometry]`, `[data.intermittency]`, and `[data.oceanic]` change the queried observation horizon without changing the basin geometry."
+      ],
+      "how_to_read": [
+        "Read the DEM-oriented figure first to understand the broader terrain setting and outlet placement.",
+        "Read the local overview second to inspect which basin-scale overlays are available before any meshing or solving happens.",
+        "If the basin outline looks wrong, check outlet coordinates and snap distance before changing downstream modelling options."
+      ],
+      "next_steps": [
+        "Continue with :doc:`the data-overview walkthrough </getting_started/data-overview-walkthrough>` for a parameter-by-parameter reading strategy.",
+        "When the watershed framing looks correct, move to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` to add meshing and solving."
+      ],
+      "metadata": {
+        "workflow_stage": "watershed_context",
+        "workflow_stage_label": "Watershed Context",
+        "workflow_stage_deck": "These cases frame the basin first: outlet location, DEM context, and the local support that later workflows will reuse.",
+        "workflow_stage_order": 10,
+        "panel_families": [
+          "dem_overview",
+          "local_context"
+        ],
+        "loaded_data_types": [
+          "hydrography",
+          "hydrometry",
+          "intermittency",
+          "oceanic"
+        ],
+        "reading_order": 10
+      }
+    },
+    {
+      "slug": "geographic_bdtopage_hydrography_overlay",
+      "title": "BD Topage Hydrography Overlay",
+      "deck": "Minimal data-overview case showing only the BD Topage river network over the DEM backdrop.",
+      "summary": "This case isolates one question: what HydroModPy actually displays when hydrography is loaded from BD Topage and only the hydrography panel is enabled. The figure is meant to document the loaded river network itself, without geology, stations, or time-series panels.",
+      "what_it_shows": [
+        "How the `data-overview` launcher renders the clipped BD Topage network directly on top of the DEM.",
+        "Which files and panels matter for a hydrography-only audit before any solver or meshing stage.",
+        "How a TOML can be reduced to one single figure when the goal is to audit the river-network input."
+      ],
+      "reproduction_command": "python -m launchers data-overview run examples/projects/Nancon_data_overview/config_hydrography_only.toml",
+      "source_paths": [
+        "examples/projects/Nancon_data_overview/config_hydrography_only.toml",
+        "examples/capability_gallery/geographic/README.md",
+        "examples/capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png"
+      ],
+      "image_assets": [
+        {
+          "filename": "geographic_bdtopage_hydrography_overlay.png",
+          "caption": "BD Topage streams clipped to the watershed and displayed over the DEM backdrop.",
+          "alt_text": "BD Topage hydrography overlay on topography",
+          "source_path": "examples/capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png"
+        }
+      ],
+      "case_setup": [
+        "Launcher family: `data-overview`, stopped after setup, domain assembly, data loading, and figure rendering.",
+        "Primary editable file: `examples/projects/Nancon_data_overview/config_hydrography_only.toml`.",
+        "Only one output figure is enabled: `[overview.panels] map_hydrography = true`."
+      ],
+      "key_parameters": [
+        "`[data] types = [\"hydrography\"]` keeps the example focused on the river network only.",
+        "`[[data.hydrography.sources]] source = \"bdtopage\"` selects the Sandre BD Topage WFS source.",
+        "`typename`, `page_size`, and `rasterize_field` are the main hydrography-source options to inspect when the displayed network looks incomplete or unexpected.",
+        "All other overview panels are disabled so the case remains a single-data audit."
+      ],
+      "how_to_read": [
+        "Open the figure first to check whether the displayed network visually matches the expected valley bottoms and basin extent.",
+        "Then inspect the minimal config and the versioned gallery source asset to separate loading intent from display styling.",
+        "If channels appear missing, compare this panel with the watershed boundary and review the BD Topage source options before changing downstream algorithms."
+      ],
+      "next_steps": [
+        "Use the broader watershed overview case on the previous page when you want geology, stations, and observation windows documented together.",
+        "Reuse this minimal TOML as the shortest reproducible example for hydrography-display audits."
+      ],
+      "metadata": {
+        "workflow_stage": "single_data_audit",
+        "workflow_stage_label": "Single Data Audit",
+        "workflow_stage_deck": "These cases isolate one data family or one panel so the reader can audit one input without the noise of a full watershed identity card.",
+        "workflow_stage_order": 30,
+        "panel_families": [
+          "hydrography_overlay"
+        ],
+        "loaded_data_types": [
+          "hydrography"
+        ],
+        "source_families": [
+          "BD Topage"
+        ],
+        "reading_order": 30
+      }
+    },
+    {
+      "slug": "geographic_nancon_identity_card",
+      "title": "Nancon Observation Identity Card",
+      "deck": "Committed data-overview synthesis combining basin maps, climate summary, station inventory, and compact observation stats.",
+      "summary": "This case reuses the broader Nancon `data-overview` output set as a stable identity card for one observed basin. It keeps the workflow strictly pre-mesh and pre-solver, but shows more than framing alone: terrain, geology, hydrography, climate synthesis, station inventory, and one compact stats card for the loaded observations.",
+      "what_it_shows": [
+        "How one basin can be summarized as an observation identity card before any mesh or solver is involved.",
+        "How DEM, geology, hydrography, climate synthesis, and station inventory can live on one page without rerunning notebooks.",
+        "How committed `data-overview` outputs can document which observations are available, not only where the watershed sits."
+      ],
+      "reproduction_command": "python -m launchers data-overview run examples/projects/Nancon_data_overview/config_overview.toml",
+      "source_paths": [
+        "examples/projects/Nancon_data_overview/README.md",
+        "examples/projects/Nancon_data_overview/config_overview.toml",
+        "examples/capability_gallery/geographic/README.md",
+        "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_dem.png",
+        "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_geology.png",
+        "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_hydrography.png",
+        "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_climatic_summary.png",
+        "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_station_inventory.png",
+        "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_stats_card.png"
+      ],
+      "image_assets": [
+        {
+          "filename": "geographic_nancon_identity_card_map_dem.png",
+          "caption": "DEM-based overview for the Nancon watershed.",
+          "alt_text": "Nancon DEM overview",
+          "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_dem.png"
+        },
+        {
+          "filename": "geographic_nancon_identity_card_map_hydrography.png",
+          "caption": "Hydrography rendered on the Nancon basin support.",
+          "alt_text": "Nancon hydrography overview",
+          "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_hydrography.png"
+        },
+        {
+          "filename": "geographic_nancon_identity_card_map_geology.png",
+          "caption": "Geology overlay for the same Nancon support.",
+          "alt_text": "Nancon geology overview",
+          "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_geology.png"
+        },
+        {
+          "filename": "geographic_nancon_identity_card_station_inventory.png",
+          "caption": "Station inventory extracted by the Nancon data-overview workflow.",
+          "alt_text": "Nancon station inventory",
+          "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_station_inventory.png"
+        },
+        {
+          "filename": "geographic_nancon_identity_card_stats_card.png",
+          "caption": "Compact statistics card for the loaded Nancon observations.",
+          "alt_text": "Nancon observation stats card",
+          "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_stats_card.png"
+        },
+        {
+          "filename": "geographic_nancon_identity_card_climatic_summary.png",
+          "caption": "Climatic synthesis panel from the Nancon identity-card run.",
+          "alt_text": "Nancon climatic summary",
+          "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_climatic_summary.png"
+        }
+      ],
+      "case_setup": [
+        "Launcher family: `data-overview`, so the workflow stops after geographic setup, data loading, and overview rendering.",
+        "Primary editable file: `examples/projects/Nancon_data_overview/config_overview.toml`.",
+        "The committed identity-card figures are mirrored under `examples/capability_gallery/geographic/` so the gallery no longer depends on one local `results_stable` tree."
+      ],
+      "key_parameters": [
+        "`[data] types` drives the identity card more strongly here than the geographic section alone because it determines which observation families appear in the stats, inventory, climate, and map panels.",
+        "`[overview.panels]` is the page-layout switchboard: it decides whether geology, hydrography, station inventory, climate, and the different chronicle panels are rendered.",
+        "The date windows in the hydrometry, piezometry, intermittency, and water-quality sections change the temporal scope of the observations without changing the basin support.",
+        "Keep this case in `geographic` because it still documents data availability and basin context only; no mesh or simulation state is involved."
+      ],
+      "how_to_read": [
+        "Start with the DEM and hydrography panels to understand the basin support and the main drainage backbone.",
+        "Use the station inventory and stats card next to judge whether the observation families are rich enough for later simulation or calibration work.",
+        "Read the climate synthesis last as a forcing-context panel rather than as a solver result."
+      ],
+      "next_steps": [
+        "Open the observed-series companion page next when you want to inspect the actual hydrometry, piezometry, intermittency, and water-quality chronologies.",
+        "Move to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` only once the observation inventory and basin support look coherent."
+      ],
+      "metadata": {
+        "workflow_stage": "observation_identity_card",
+        "workflow_stage_label": "Observation Identity Card",
+        "workflow_stage_deck": "These cases combine support context with observation availability so the reader can decide whether a basin is well instrumented before meshing or solving.",
+        "workflow_stage_order": 20,
+        "panel_families": [
+          "dem_overview",
+          "geology_overlay",
+          "hydrography_overlay",
+          "station_inventory",
+          "stats_card",
+          "climatic_summary"
+        ],
+        "loaded_data_types": [
+          "geology",
+          "hydrography",
+          "hydrometry",
+          "piezometry",
+          "intermittency",
+          "precipitation",
+          "etp",
+          "temperature",
+          "recharge",
+          "runoff",
+          "wind"
+        ],
+        "source_families": [
+          "Committed Nancon overview outputs"
+        ],
+        "reading_order": 20,
+        "lead_image_filenames": [
+          "geographic_nancon_identity_card_map_dem.png",
+          "geographic_nancon_identity_card_map_hydrography.png"
+        ],
+        "tab_specs": [
+          {
+            "title": "Geology",
+            "filename": "geographic_nancon_identity_card_map_geology.png"
+          },
+          {
+            "title": "Inventory And Stats",
+            "filenames": [
+              "geographic_nancon_identity_card_station_inventory.png",
+              "geographic_nancon_identity_card_stats_card.png"
+            ]
+          },
+          {
+            "title": "Climate Summary",
+            "filename": "geographic_nancon_identity_card_climatic_summary.png"
+          }
+        ]
+      }
+    },
+    {
+      "slug": "geographic_nancon_observed_timeseries",
+      "title": "Nancon Observed Series Overview",
+      "deck": "Committed observation chronologies for discharge, piezometry, intermittency, and water quality on one watershed.",
+      "summary": "This companion case focuses on the observed time-series side of `data-overview`. It reuses the committed Nancon chronicle figures so the docs can show which temporal signals are actually available before any forward or inverse modelling is attempted.",
+      "what_it_shows": [
+        "How four observation families are rendered consistently in the same `data-overview` workflow.",
+        "How a data-overview page can move from basin framing to real temporal signals without touching any solver output.",
+        "Which observation families are available for later validation, calibration, or qualitative scenario reading."
+      ],
+      "reproduction_command": "python -m launchers data-overview run examples/projects/Nancon_data_overview/config_overview.toml",
+      "source_paths": [
+        "examples/projects/Nancon_data_overview/config_overview.toml",
+        "examples/capability_gallery/geographic/README.md",
+        "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_discharge.png",
+        "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_piezometry.png",
+        "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_intermittency.png",
+        "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_water_quality.png"
+      ],
+      "image_assets": [
+        {
+          "filename": "geographic_nancon_timeseries_discharge.png",
+          "caption": "Observed discharge chronicle extracted by the Nancon data-overview workflow.",
+          "alt_text": "Nancon discharge time series",
+          "source_path": "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_discharge.png"
+        },
+        {
+          "filename": "geographic_nancon_timeseries_piezometry.png",
+          "caption": "Observed piezometric chronicle extracted by the Nancon data-overview workflow.",
+          "alt_text": "Nancon piezometry time series",
+          "source_path": "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_piezometry.png"
+        },
+        {
+          "filename": "geographic_nancon_timeseries_intermittency.png",
+          "caption": "Observed intermittency timeline extracted by the Nancon data-overview workflow.",
+          "alt_text": "Nancon intermittency time series",
+          "source_path": "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_intermittency.png"
+        },
+        {
+          "filename": "geographic_nancon_timeseries_water_quality.png",
+          "caption": "Observed water-quality chronicle extracted by the Nancon data-overview workflow.",
+          "alt_text": "Nancon water quality time series",
+          "source_path": "examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_water_quality.png"
+        }
+      ],
+      "case_setup": [
+        "Same launcher family and base config as the Nancon identity-card case, but read here through the observation chronicle panels only.",
+        "The committed chronicle figures are mirrored under `examples/capability_gallery/geographic/` to keep the gallery self-contained.",
+        "The page remains pre-solver: it documents observed signals, not simulated response."
+      ],
+      "key_parameters": [
+        "`[overview.panels] timeseries_discharge`, `timeseries_piezometry`, `timeseries_intermittency`, and `timeseries_water_quality` decide which chronicle figures exist.",
+        "The period selectors in each data-family section are the main levers for changing these figures without touching the basin geometry.",
+        "If one expected chronicle is missing, inspect `[data] types` first, then the corresponding source declarations and time windows."
+      ],
+      "how_to_read": [
+        "Use the discharge and piezometry tabs first when judging whether the site is promising for later simulation or calibration use.",
+        "Read intermittency and water quality as complementary observation families that extend the hydro-identity card rather than replace it.",
+        "This page is best used after the basin identity-card page, because it assumes the support and station inventory are already understood."
+      ],
+      "next_steps": [
+        "Go back to the Nancon identity-card page if you need the station inventory and climate context behind these chronologies.",
+        "Use these chronologies as a pre-check before deciding whether a later workflow should stay descriptive, move to simulation, or move to calibration."
+      ],
+      "metadata": {
+        "workflow_stage": "observed_time_series",
+        "workflow_stage_label": "Observed Time Series",
+        "workflow_stage_deck": "These cases focus on the observation chronologies themselves, once the basin support and station inventory are already understood.",
+        "workflow_stage_order": 40,
+        "panel_families": [
+          "timeseries_discharge",
+          "timeseries_piezometry",
+          "timeseries_intermittency",
+          "timeseries_water_quality"
+        ],
+        "loaded_data_types": [
+          "hydrometry",
+          "piezometry",
+          "intermittency",
+          "water_quality"
+        ],
+        "source_families": [
+          "Committed Nancon overview outputs"
+        ],
+        "reading_order": 40,
+        "tab_specs": [
+          {
+            "title": "Discharge",
+            "filename": "geographic_nancon_timeseries_discharge.png"
+          },
+          {
+            "title": "Piezometry",
+            "filename": "geographic_nancon_timeseries_piezometry.png"
+          },
+          {
+            "title": "Intermittency",
+            "filename": "geographic_nancon_timeseries_intermittency.png"
+          },
+          {
+            "title": "Water Quality",
+            "filename": "geographic_nancon_timeseries_water_quality.png"
+          }
+        ]
+      }
+    }
+  ]
+}

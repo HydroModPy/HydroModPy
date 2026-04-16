@@ -193,6 +193,8 @@ Source Pointers
 - ``examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml``
 - ``examples/projects/launcher_simulation/run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml``
 - ``examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_manifest.json``
+- ``examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_metrics.json``
+- ``examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/observables.csv``
 
 Artifacts
 ---------

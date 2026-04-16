@@ -1,0 +1,59 @@
+name: Coverage
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - dev
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  HYDROMODPY_NO_DISPLAY: "1"
+  HYDROMODPY_NO_SAVE: "1"
+  MPLBACKEND: Agg
+
+jobs:
+  unit-coverage:
+    name: Unit tests with coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            install/requirements-docker-light.txt
+            pyproject.toml
+
+      - name: Install runtime and test dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r install/requirements-docker-light.txt
+          python -m pip install "coverage[toml]>=7.0"
+          python -m pip install -e . --no-deps
+
+      - name: Run unit tests under coverage
+        run: |
+          python tools/ci/run_pytest_with_coverage.py tests/unit -q
+          python -m coverage combine
+          python -m coverage report
+          python -m coverage xml
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            .coverage
+            coverage.xml

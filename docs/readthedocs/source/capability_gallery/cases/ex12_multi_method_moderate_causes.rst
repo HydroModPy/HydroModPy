@@ -191,6 +191,8 @@ Source Pointers
 - ``examples/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml``
 - ``examples/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml``
 - ``examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate_causes/comparison_manifest.json``
+- ``examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate_causes/comparison_metrics.json``
+- ``examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate_causes/observables.csv``
 
 Artifacts
 ---------

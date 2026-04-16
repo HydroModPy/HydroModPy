@@ -175,6 +175,8 @@ Source Pointers
 - ``examples/projects/launcher_simulation/run_demonstrative_annual_mf6_precomputed_mesh_input.toml``
 - ``examples/projects/launcher_simulation/run_demonstrative_annual_nwt.toml``
 - ``examples/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_manifest.json``
+- ``examples/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_metrics.json``
+- ``examples/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/observables.csv``
 
 Artifacts
 ---------

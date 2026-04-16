@@ -175,6 +175,8 @@ Source Pointers
 - ``examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml``
 - ``examples/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml``
 - ``examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_manifest.json``
+- ``examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_metrics.json``
+- ``examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/observables.csv``
 
 Artifacts
 ---------
