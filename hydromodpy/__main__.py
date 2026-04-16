@@ -408,7 +408,7 @@ def _derive_run_id_from_filename(toml_path: Path) -> str:
 def _cmd_run(args: argparse.Namespace) -> None:
     """Run a simulation from a TOML configuration file."""
     from hydromodpy.core.tools.toolbox import print_hydromodpy
-    from launchers import HydroModPyLauncher
+    from hydromodpy.launchers import HydroModPyLauncher
 
     print_hydromodpy()
     config_path = Path(args.config).expanduser().resolve()
@@ -428,7 +428,7 @@ def _cmd_run(args: argparse.Namespace) -> None:
 def _cmd_compare(args: argparse.Namespace) -> None:
     """Run a method-comparison launcher from a TOML configuration file."""
     from hydromodpy.core.tools.toolbox import print_hydromodpy
-    from launchers import MethodComparisonLauncher
+    from hydromodpy.launchers import MethodComparisonLauncher
 
     print_hydromodpy()
     config_path = Path(args.config).expanduser().resolve()
@@ -580,7 +580,7 @@ def _cmd_test(args: argparse.Namespace) -> None:
 
 def _cmd_overview(args: argparse.Namespace) -> None:
     """Generate a watershed identity card from a TOML configuration file."""
-    from launchers import DataOverviewLauncher
+    from hydromodpy.launchers import DataOverviewLauncher
 
     config_path = Path(args.config).expanduser().resolve()
     if not config_path.is_file():

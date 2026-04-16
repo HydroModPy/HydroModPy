@@ -36,8 +36,12 @@ from hydromodpy.solver.boussinesq.petsc_common import (
     _require_petsc,
     _snes_reason_label,
 )
+from hydromodpy.solver.boussinesq.runtime_execution_common import (
+    apply_residual_tolerance,
+    build_runtime_result,
+    residual_norm_inf,
+)
 from hydromodpy.solver.boussinesq.runtime_contract import (
-    RuntimeSolveResult,
     SteadySolveInputs,
     TransientStepInputs,
 )
@@ -119,8 +123,8 @@ def _solve_nonlinear_system(
     np.asarray(solution.getArray(), dtype=float)[:] = head0
 
     current_assembly = assembly_for(head0)
-    initial_residual_norm_inf = float(
-        np.linalg.norm(np.asarray(current_assembly.residual_m3_s, dtype=float), ord=np.inf)
+    initial_residual_norm_inf = residual_norm_inf(
+        np.asarray(current_assembly.residual_m3_s, dtype=float)
     )
 
     def _residual(_snes, state_vec, residual_vec) -> None:
@@ -164,9 +168,8 @@ def _solve_nonlinear_system(
                     n_rows=n_cells,
                 ),
                 residual_norm_inf=float(
-                    np.linalg.norm(
-                        np.asarray(current_assembly.residual_m3_s, dtype=float),
-                        ord=np.inf,
+                    residual_norm_inf(
+                        np.asarray(current_assembly.residual_m3_s, dtype=float)
                     )
                 ),
                 initial_residual_norm_inf=initial_residual_norm_inf,
@@ -187,28 +190,28 @@ def _solve_nonlinear_system(
     snes.solve(None, solution)
     head = np.asarray(solution.getArray(readonly=True), dtype=float).copy()
     current_assembly = assembly_for(head)
-    residual_norm_inf = float(
-        np.linalg.norm(np.asarray(current_assembly.residual_m3_s, dtype=float), ord=np.inf)
+    residual_norm = residual_norm_inf(
+        np.asarray(current_assembly.residual_m3_s, dtype=float)
     )
     converged_reason = int(snes.getConvergedReason())
-    converged = converged_reason > 0 and residual_norm_inf <= float(tol_residual_inf)
     reason_label = _snes_reason_label(converged_reason)
-    termination_reason = (
+    termination_reason_base = (
         f"petsc SNES converged reason {converged_reason} ({reason_label})"
         if converged_reason > 0
         else f"petsc SNES failed reason {converged_reason} ({reason_label})"
     )
-    if residual_norm_inf > float(tol_residual_inf):
-        termination_reason = (
-            f"{termination_reason}; residual_inf={residual_norm_inf:.3e} "
-            f"exceeds tol_residual_inf={float(tol_residual_inf):.3e}"
-        )
-    return RuntimeSolveResult(
+    converged, termination_reason = apply_residual_tolerance(
+        success=converged_reason > 0,
+        residual_norm_inf_value=residual_norm,
+        tol_residual_inf=float(tol_residual_inf),
+        termination_reason=termination_reason_base,
+    )
+    return build_runtime_result(
         head_m=head,
         assembly=current_assembly,
         converged=bool(converged),
         iterations=int(snes.getIterationNumber()),
-        residual_norm_inf=residual_norm_inf,
+        residual_norm_inf_value=residual_norm,
         backend_name=str(backend_name),
         termination_reason=termination_reason,
     )

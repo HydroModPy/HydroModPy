@@ -1,0 +1,82 @@
+name: Docs Gallery Check
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/docs-gallery-check.yml"
+      - "tools/doc_gallery/**"
+      - "examples/mesh_gallery/**"
+      - "examples/capability_gallery/**"
+      - "validation_cases/README.md"
+      - "validation_cases/analytical/**"
+      - "validation_cases/numerical/**"
+      - "validation_cases/reports/latest/**"
+      - "docs/readthedocs/source/capability_gallery/**"
+      - "docs/readthedocs/source/_static/capability_gallery/**"
+  push:
+    branches:
+      - main
+      - dev
+      - develop
+    paths:
+      - ".github/workflows/docs-gallery-check.yml"
+      - "tools/doc_gallery/**"
+      - "examples/mesh_gallery/**"
+      - "examples/capability_gallery/**"
+      - "validation_cases/README.md"
+      - "validation_cases/analytical/**"
+      - "validation_cases/numerical/**"
+      - "validation_cases/reports/latest/**"
+      - "docs/readthedocs/source/capability_gallery/**"
+      - "docs/readthedocs/source/_static/capability_gallery/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  HYDROMODPY_NO_DISPLAY: "1"
+  HYDROMODPY_NO_SAVE: "1"
+  MPLBACKEND: Agg
+
+jobs:
+  docs-gallery-check:
+    name: Gallery artifacts stay in sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            install/requirements-docker-light.txt
+            docs/readthedocs/readthedocs_requirements.txt
+            pyproject.toml
+
+      - name: Install gallery and docs dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r install/requirements-docker-light.txt
+          python -m pip install -r docs/readthedocs/readthedocs_requirements.txt
+          python -m pip install \
+            "pydantic>=2.0" \
+            dask \
+            imageio \
+            matplotlib \
+            meshio \
+            pint \
+            plotly \
+            scipy \
+            sqlalchemy \
+            tomli-w \
+            tqdm
+          python -m pip install -e . --no-deps
+
+      - name: Verify committed gallery artifacts
+        run: python -m tools.doc_gallery --check

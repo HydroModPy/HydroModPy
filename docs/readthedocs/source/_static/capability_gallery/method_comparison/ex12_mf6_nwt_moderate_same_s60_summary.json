@@ -39,13 +39,17 @@
     "examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml",
     "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml",
     "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
-    "examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_manifest.json"
+    "examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_manifest.json",
+    "examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_metrics.json",
+    "examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/observables.csv"
   ],
   "source_hashes": {
-    "examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml": "69ec336f3b9fd21ff75e52f14dc8e90a35664ee9196c99ef007b1878ce1cde3f",
-    "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml": "74ffeb5afdfd7af8dde5e37f5822f65c389370161babce9d125e2c4dd953c508",
-    "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml": "cb845a1166f03d7a882012a939e843877ab70d51ba17577bea3cb816e2a29752",
-    "examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_manifest.json": "20dcda3e73c68fbcb4c8a751eafb660fe5b63444a3ed464a55b3aae891ecedc7"
+    "examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml": "12dd6a447279abff502cc0309a79f9cffe9e52756680fb6be76ed0c2251aa9a5",
+    "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml": "1b32ff22a6ecb8d3929a0ccdf787724636b8aff851c1c7727d2a59b71788555c",
+    "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml": "357038383df72c6c2f5d8626f895fdda600741879c7fefc045dc25cffcdf7d21",
+    "examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_manifest.json": "20dcda3e73c68fbcb4c8a751eafb660fe5b63444a3ed464a55b3aae891ecedc7",
+    "examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_metrics.json": "4718a3c34e3fa2d5a544bb26089ea35d0ec4042ada21df640da3403a7c511d0d",
+    "examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/observables.csv": "942a6925e8b8ff237243827d8f4eb5714b94b785d089e83d6d788b2c846a1748"
   },
   "docname": "cases/ex12_mf6_nwt_moderate_same_s60",
   "images": [
@@ -133,13 +137,13 @@
     {
       "label": "Outlet Flux Series RMSE",
       "key": "outlet_flux_series_rmse",
-      "value": 3.0470638601264118e-05,
+      "value": 3.0470631946642684e-05,
       "display": "3.047e-05 m3/s"
     },
     {
       "label": "Outlet Flux Series MAE",
       "key": "outlet_flux_series_mae",
-      "value": 1.6342243382911688e-05,
+      "value": 1.634224010470727e-05,
       "display": "1.634e-05 m3/s"
     }
   ],

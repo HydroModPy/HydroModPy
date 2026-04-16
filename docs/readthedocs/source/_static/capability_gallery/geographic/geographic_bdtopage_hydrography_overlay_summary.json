@@ -14,11 +14,11 @@
     "`[data] types = [\"hydrography\"]` keeps the example focused on the river network only.",
     "`[[data.hydrography.sources]] source = \"bdtopage\"` selects the Sandre BD Topage WFS source.",
     "`typename`, `page_size`, and `rasterize_field` are the main hydrography-source options to inspect when the displayed network looks incomplete or unexpected.",
-    "All other overview panels are disabled so the output folder contains only the hydrography map and the hydrography manager artifacts."
+    "All other overview panels are disabled so the case remains a single-data audit."
   ],
   "how_to_read": [
     "Open the figure first to check whether the displayed network visually matches the expected valley bottoms and basin extent.",
-    "Then inspect `results_stable/hydrography/streams.shp` to decide whether any issue comes from loading/clipping or only from display styling.",
+    "Then inspect the minimal config and the versioned gallery source asset to separate loading intent from display styling.",
     "If channels appear missing, compare this panel with the watershed boundary and review the BD Topage source options before changing downstream algorithms."
   ],
   "next_steps": [
@@ -27,7 +27,7 @@
   ],
   "what_it_shows": [
     "How the `data-overview` launcher renders the clipped BD Topage network directly on top of the DEM.",
-    "Which files are produced for the hydrography manager before any solver or meshing stage.",
+    "Which files and panels matter for a hydrography-only audit before any solver or meshing stage.",
     "How a TOML can be reduced to one single figure when the goal is to audit the river-network input."
   ],
   "reference_highlights": [],
@@ -37,18 +37,16 @@
   "reproduction_command": "python -m launchers data-overview run examples/projects/Nancon_data_overview/config_hydrography_only.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
+    "tools/doc_gallery/manifests/geographic_cases.json",
     "examples/projects/Nancon_data_overview/config_hydrography_only.toml",
-    "examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_hydrography.png",
-    "examples/projects/Nancon_data_overview/results_stable/hydrography/streams.shp",
-    "examples/projects/Nancon_data_overview/results_stable/hydrography/streams.dbf",
-    "examples/projects/Nancon_data_overview/results_stable/hydrography/streams.shx"
+    "examples/capability_gallery/geographic/README.md",
+    "examples/capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png"
   ],
   "source_hashes": {
-    "examples/projects/Nancon_data_overview/config_hydrography_only.toml": "5c3cca98e5b1b8b32ee1ca98fa4d4ec1c21b6778cb1508374edbad42a4623488",
-    "examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_hydrography.png": "32f1ad36cb0879224f9288c7110e5a8efe4390a9eb74e7deb16d7a2115175b99",
-    "examples/projects/Nancon_data_overview/results_stable/hydrography/streams.shp": "7f761f0254d86eb762ff2414be31fa7f18578cafcdc00a13953d91055138896f",
-    "examples/projects/Nancon_data_overview/results_stable/hydrography/streams.dbf": "d139a170d025bf94094dd2ebd41c320f82ffd33730ca7e37dc9bdab7b642c3a1",
-    "examples/projects/Nancon_data_overview/results_stable/hydrography/streams.shx": "a12c126eb76e0f5439ee2b338d09b68d7f4c56d5f430cfe861c6f02dae8b0f5b"
+    "tools/doc_gallery/manifests/geographic_cases.json": "bfa1457d98a6fd3a0b9fdeb7a93f6583273cd919168d5fb1d6261922680ee160",
+    "examples/projects/Nancon_data_overview/config_hydrography_only.toml": "9ec84b6d904b9d5e2bd2b6556ef07098ce2fd9439c589d96bcbe5677cdda320b",
+    "examples/capability_gallery/geographic/README.md": "fe6bc2eca9984e4b58baa744210d733ff348585fe5e499aa146a02b2f61a4dad",
+    "examples/capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png": "32f1ad36cb0879224f9288c7110e5a8efe4390a9eb74e7deb16d7a2115175b99"
   },
   "docname": "cases/geographic_bdtopage_hydrography_overlay",
   "images": [
@@ -78,7 +76,7 @@
     "reading_order": 30,
     "copied_assets": [
       {
-        "source_path": "examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_hydrography.png",
+        "source_path": "examples/capability_gallery/geographic/bdtopage_hydrography_overlay/geographic_bdtopage_hydrography_overlay.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_bdtopage_hydrography_overlay.png"
       }
     ]

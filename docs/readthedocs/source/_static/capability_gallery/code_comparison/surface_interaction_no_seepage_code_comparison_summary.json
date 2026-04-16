@@ -36,6 +36,7 @@
   "reproduction_command": "python tools/doc_gallery/generate_code_comparison_assets.py",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
+    "tools/doc_gallery/manifests/code_comparison_cases.json",
     "tools/investigate_surface_interaction_hillslope_transient.py",
     "tools/doc_gallery/generate_code_comparison_assets.py",
     "validation_cases/shared/boussinesq_budget.py",
@@ -47,9 +48,10 @@
     "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.json"
   ],
   "source_hashes": {
-    "tools/investigate_surface_interaction_hillslope_transient.py": "f3b247a0a5e6dfbdc6975555b78e44d8dba60a96d58a171ed5d420a087cc76ef",
-    "tools/doc_gallery/generate_code_comparison_assets.py": "37529f141def95177197cb74a75cf38e769fb66dba9f31e0c40b332f89c540f7",
-    "validation_cases/shared/boussinesq_budget.py": "fb00ed7ca783f5c5bf62f103cedcb20f697c378be7e3aa241550d5a846170878",
+    "tools/doc_gallery/manifests/code_comparison_cases.json": "a1fb91cf3ac3f143611d963b245cfc5256464c517947ada3c17476ef762e7921",
+    "tools/investigate_surface_interaction_hillslope_transient.py": "8279c5449c1a162771f0d81690ca2e49a6d5d2ad2977cab22d8acb6684fdaacc",
+    "tools/doc_gallery/generate_code_comparison_assets.py": "087328607cba95e725fa23afd63adede31579d816c68a9c952a28d71219b771d",
+    "validation_cases/shared/boussinesq_budget.py": "86caad790d2afb323901313bb1dfbe145b44596e9a85a985608ccd06440c4948",
     "out/sih_tx_4cmp_linux_no_seepage_20260415/timeseries.csv": "719d64036518f2d5230829677d5cd4401b90e1accc2b5ea72b83f23b48dc88e5",
     "out/sih_tx_4cmp_linux_no_seepage_kx8_20260416/timeseries.csv": "3e6e370a6b6b95acfeca40af99a68695f5539156cb3db608c9a68b53e53d7bf1",
     "examples/capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png": "cd469b3563825670f13ecd0145c4b535917cfd47b6e25a2ce344f0f349df00b1",

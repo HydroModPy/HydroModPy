@@ -9,12 +9,12 @@ import math
 import os
 import re
 import time
-from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable
 
 import numpy as np
+from pydantic import ValidationError
 
 from hydromodpy.analysis.calibration.core.composite_objective import (
     CompositeBlockEvaluation,
@@ -24,15 +24,27 @@ from hydromodpy.analysis.calibration.core.composite_objective import (
 )
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
-from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle import (
-    resolve_default_catchment_mesh_bundle_dir,
+from hydromodpy.simulation.model_calibration_support import (
+    ModelCalibrationRuntimeSupportUnavailable,
+    bundle_zone_fractions as _bundle_zone_fractions,
+    discover_hydraulic_support_paths as _discover_hydraulic_support_paths,
+    parse_optional_numeric_value as _parse_optional_numeric_value,
+    parse_property_values_by_key as _parse_property_values_by_key,
+    resolve_flow_property_config as _resolve_flow_property_config,
+    select_runtime_preparation_flow_solver as _select_runtime_preparation_flow_solver,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
-
 from launchers.model_calibration.config import ModelCalibrationConfig
+from launchers.model_calibration.config_overrides import (
+    apply_parameter_override as _apply_parameter_override,
+    assign_nested_value as _assign_nested_value,
+    lookup_nested_value as _lookup_nested_value,
+    resolve_target_path_alias as _resolve_target_path_alias,
+    split_target_path as _split_target_path,
+    write_override_toml as _write_override_toml,
+)
 from launchers.model_calibration.output_selection import (
     PreparedOutputSelector,
     prepare_output_selectors,
@@ -42,10 +54,6 @@ from launchers.model_calibration.output_selection import (
 from launchers.model_calibration.property_arrays import build_property_array_set
 from launchers.model_calibration.property_arrays import PropertyArraySet
 
-
-_NUMERIC_WITH_SUFFIX_RE = re.compile(
-    r"^\s*(?P<number>[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*(?P<suffix>.*\S)?\s*$"
-)
 _POSTERIOR_DISTRIBUTION_METHODS = frozenset({"gp_mapping", "da_mh_gp"})
 _EMPIRICAL_ENSEMBLE_METHODS = frozenset({"random_search"})
 
@@ -100,18 +108,6 @@ def detect_solver_families(raw_simulation_toml: dict[str, Any]) -> tuple[str, ..
             if token and token not in solvers:
                 solvers.append(token)
     return tuple(solvers)
-
-
-def _select_runtime_preparation_flow_solver(
-    *,
-    solver_families: tuple[str, ...],
-) -> str | None:
-    """Choose the preferred flow solver used to prepare runtime hydraulic support."""
-    normalized = [str(name).strip().lower() for name in solver_families if str(name).strip()]
-    for candidate in ("modflow6", "modflownwt"):
-        if candidate in normalized:
-            return candidate
-    return None
 
 
 def _prepared_numeric_array_summary(values: tuple[float, ...]) -> dict[str, Any]:
@@ -269,220 +265,6 @@ class PreparedHydraulicPropertySupport:
         }
 
 
-@dataclass(frozen=True, slots=True)
-class _ResolvedHydraulicSupportPaths:
-    """Resolved file-system anchors used to prepare hydraulic support."""
-
-    source: str = "config_scalar"
-    bundle_dir: Path | None = None
-    mesh_path: Path | None = None
-    mesh_summary_path: Path | None = None
-
-
-def _surface_property_vector(values: object, *, solver_mesh: object) -> tuple[float, ...]:
-    """Normalize one surface diagnostic payload to the 1D cell support used by calibration."""
-    arr = np.asarray(values, dtype=float)
-    flattened = np.asarray(
-        solver_mesh.flatten_from_grid(arr),
-        dtype=float,
-    ).reshape(-1)
-    return tuple(float(value) for value in flattened)
-
-
-def _setup_mesh_paths_from_runtime(setup_state: object) -> tuple[Path | None, Path | None, Path | None]:
-    """Resolve bundle, mesh and summary paths from one prepared process-simulation setup."""
-    bundle_dir: Path | None = None
-    mesh_path: Path | None = None
-    mesh_summary_path: Path | None = None
-
-    mesh_summary = getattr(setup_state, "mesh_summary", None)
-    if isinstance(mesh_summary, Mapping):
-        raw_bundle_dir = str(mesh_summary.get("output_exchange_bundle_dir", "")).strip()
-        if raw_bundle_dir != "":
-            bundle_dir = Path(raw_bundle_dir).expanduser().resolve()
-        raw_mesh_path = str(mesh_summary.get("output_mesh", "")).strip()
-        if raw_mesh_path != "":
-            mesh_path = Path(raw_mesh_path).expanduser().resolve()
-        raw_summary_path = str(mesh_summary.get("output_summary_json", "")).strip()
-        if raw_summary_path != "":
-            mesh_summary_path = Path(raw_summary_path).expanduser().resolve()
-
-    mesh_bundle = getattr(setup_state, "mesh_bundle", None)
-    if mesh_bundle is not None:
-        runtime_bundle_dir = getattr(mesh_bundle, "bundle_dir", None)
-        if bundle_dir is None and runtime_bundle_dir is not None:
-            bundle_dir = Path(runtime_bundle_dir).resolve()
-        runtime_mesh_path = getattr(mesh_bundle, "mesh_path", None)
-        if mesh_path is None and runtime_mesh_path is not None:
-            mesh_path = Path(runtime_mesh_path).resolve()
-        if mesh_summary_path is None and bundle_dir is not None:
-            candidate_summary = bundle_dir / "mesh_summary.json"
-            if candidate_summary.is_file():
-                mesh_summary_path = candidate_summary.resolve()
-
-    if mesh_path is None:
-        mesh_planar = getattr(setup_state, "mesh_planar", None)
-        mesh_planar_path = getattr(mesh_planar, "path", None)
-        if mesh_planar_path is not None:
-            mesh_path = Path(mesh_planar_path).expanduser().resolve()
-
-    return bundle_dir, mesh_path, mesh_summary_path
-
-
-def _path_exists(mapping: dict[str, Any], path: tuple[str, ...]) -> bool:
-    """Return True when one nested path exists in a mapping payload."""
-    current: Any = mapping
-    for key in path:
-        if not isinstance(current, dict) or key not in current:
-            return False
-        current = current[key]
-    return True
-
-
-def _resolve_target_path_alias(
-    mapping: dict[str, Any],
-    path: tuple[str, ...],
-) -> tuple[str, ...]:
-    """Resolve one user-facing calibration target path to the raw TOML payload path."""
-    if len(path) < 4 or path[0] != "flow" or path[1] != "param":
-        return path
-
-    property_name = path[2]
-    property_cfg = _resolve_flow_property_config(
-        raw_simulation_toml=mapping,
-        property_name=property_name,
-    )
-    if property_cfg is None:
-        return path
-
-    leaf = path[3]
-    if leaf == "value":
-        candidate = ("flow", "param", property_name, "field_homogeneous", "value", *path[4:])
-        if _path_exists(mapping, candidate):
-            return candidate
-    if leaf == "values_by_key":
-        candidate = (
-            "flow",
-            "param",
-            property_name,
-            "field_heterogeneous",
-            "values",
-            *path[4:],
-        )
-        if _path_exists(mapping, candidate):
-            return candidate
-    if leaf == "field_spatial_id":
-        candidate = (
-            "flow",
-            "param",
-            property_name,
-            "field_heterogeneous",
-            "field_spatial_id",
-            *path[4:],
-        )
-        if _path_exists(mapping, candidate):
-            return candidate
-    return path
-
-
-def _parse_property_values_by_key(
-    property_cfg: dict[str, Any] | None,
-) -> dict[str, float]:
-    """Parse one heterogeneous values-by-key mapping from a raw flow property block."""
-    if property_cfg is None:
-        return {}
-    candidate_mappings: list[object] = []
-    field_heterogeneous = property_cfg.get("field_heterogeneous")
-    if isinstance(field_heterogeneous, dict):
-        candidate_mappings.append(field_heterogeneous.get("values"))
-    candidate_mappings.append(property_cfg.get("values_by_key"))
-
-    for raw_mapping in candidate_mappings:
-        if not isinstance(raw_mapping, dict):
-            continue
-        parsed: dict[str, float] = {}
-        for key, raw_value in raw_mapping.items():
-            numeric = _parse_optional_numeric_value(raw_value)
-            if numeric is None:
-                continue
-            parsed[str(key).strip()] = float(numeric)
-        if parsed:
-            return parsed
-    return {}
-
-
-def _parse_property_support_id(
-    property_cfg: dict[str, Any] | None,
-) -> str | None:
-    """Return the spatial-support id declared for one heterogeneous property."""
-    if property_cfg is None:
-        return None
-    field_heterogeneous = property_cfg.get("field_heterogeneous")
-    if not isinstance(field_heterogeneous, dict):
-        return None
-    support_id = str(field_heterogeneous.get("field_spatial_id", "")).strip()
-    return None if support_id == "" else support_id
-
-
-def _bundle_zone_fractions(
-    bundle: object,
-    *,
-    n_cells: int,
-) -> dict[str, tuple[float, ...]]:
-    """Return per-zone fractions from one bundle, falling back to one-hot cell labels."""
-    fractions: dict[str, np.ndarray] = {}
-    for record in getattr(bundle, "geology_fractions", ()):
-        key = str(getattr(record, "geology_key", "")).strip()
-        cell_id = int(getattr(record, "cell_id"))
-        fraction = float(getattr(record, "fraction"))
-        if key == "" or not 0 <= cell_id < int(n_cells):
-            continue
-        fractions.setdefault(key, np.zeros(int(n_cells), dtype=float))[cell_id] = fraction
-
-    if fractions:
-        return {
-            key: tuple(float(value) for value in values.reshape(-1))
-            for key, values in sorted(fractions.items())
-        }
-
-    labels = tuple(str(getattr(cell, "geology_key", "") or "").strip() for cell in getattr(bundle, "cells", ()))
-    if not any(labels):
-        return {}
-    fallback: dict[str, np.ndarray] = {}
-    for index, key in enumerate(labels):
-        if key == "":
-            continue
-        fallback.setdefault(key, np.zeros(int(n_cells), dtype=float))[index] = 1.0
-    return {
-        key: tuple(float(value) for value in values.reshape(-1))
-        for key, values in sorted(fallback.items())
-    }
-
-
-def _labels_from_zone_fractions(
-    zone_fractions_by_key: dict[str, tuple[float, ...]],
-) -> tuple[str, ...] | None:
-    """Return dominant per-cell labels from one per-zone fraction mapping."""
-    if not zone_fractions_by_key:
-        return None
-    zone_keys = tuple(zone_fractions_by_key.keys())
-    stacked = np.vstack(
-        [
-            np.asarray(zone_fractions_by_key[key], dtype=float).reshape(-1)
-            for key in zone_keys
-        ]
-    )
-    if stacked.size == 0:
-        return None
-    dominant_idx = np.argmax(stacked, axis=0)
-    dominant_values = np.max(stacked, axis=0)
-    labels = tuple(
-        zone_keys[int(index)] if float(value) > 0.0 else ""
-        for index, value in zip(dominant_idx, dominant_values, strict=True)
-    )
-    return labels if any(label != "" for label in labels) else None
-
-
 def _prepare_runtime_hydraulic_property_support(
     *,
     simulation_config_path: Path,
@@ -490,222 +272,42 @@ def _prepare_runtime_hydraulic_property_support(
     solver_families: tuple[str, ...],
     property_names: tuple[str, ...],
 ) -> PreparedHydraulicPropertySupport | None:
-    """Prepare hydraulic support directly from the process-simulation runtime when possible."""
-    selected_solver = _select_runtime_preparation_flow_solver(
-        solver_families=solver_families,
-    )
-    if selected_solver is None:
+    """Prepare hydraulic support through the public process-simulation API."""
+    if _select_runtime_preparation_flow_solver(solver_families=solver_families) is None:
+        return None
+    if not isinstance(raw_simulation_toml.get("geographic"), dict):
+        return None
+    if not isinstance(raw_simulation_toml.get("domain"), dict):
         return None
 
-    from hydromodpy.solver.modflow_common.discretization_spatial import (
-        build_spatial_discretization,
-    )
-    from launchers.process_simulation.launcher import HydroModPyLauncher
+    from hydromodpy.launchers import HydroModPyLauncher
 
-    launcher = HydroModPyLauncher(simulation_config_path)
-    plan = launcher._create_simulation_plan()
-    launcher._validate_runtime_mesh_solver_compatibility(plan)
-    launcher.run_state.execution.simulation_plan = plan
-    launcher.run_state.execution.process_runs_by_id = {
-        run.id: run for run in plan.runs
-    }
-
-    launcher._run_setup()
-    launcher._build_domain_spatial_supports(phase="setup")
-    launcher._run_data()
-    launcher._build_domain_spatial_supports(phase="data")
-    launcher._run_mesh_phase()
-    launcher._run_mesh_input_phase()
-
-    setup_state = launcher.run_state.setup
-    if setup_state.flow is None or setup_state.domain is None:
+    try:
+        launcher = HydroModPyLauncher(simulation_config_path)
+        runtime_support = launcher.prepare_model_calibration_runtime_support(
+            property_names=property_names,
+        )
+    except (ModelCalibrationRuntimeSupportUnavailable, ValidationError):
         return None
 
-    if selected_solver == "modflow6":
-        from hydromodpy.solver.modflow6.property_mapping import (
-            resolve_flow_property_arrays as resolve_runtime_property_arrays,
-        )
-
-        sgrid_config = launcher.cfg.modflow6.sgrid
-    elif selected_solver == "modflownwt":
-        from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
-            resolve_flow_property_arrays as resolve_runtime_property_arrays,
-        )
-
-        sgrid_config = launcher.cfg.modflownwt.sgrid
-    else:
-        return None
-
-    grid_ctx = build_spatial_discretization(
-        domain=setup_state.domain,
-        sgrid_config=sgrid_config,
-        runtime_planar_mesh=getattr(setup_state, "mesh_planar", None),
-        runtime_mesh_support=getattr(setup_state, "mesh_support", None),
-    )
-    solver_mesh = grid_ctx.solver_mesh
-    required_properties = {
-        name
-        for name in property_names
-        if str(name).strip() in {"K", "Sy"}
-    }
-    if not required_properties:
-        required_properties = {"K"}
-
-    runtime_arrays = resolve_runtime_property_arrays(
-        flow=setup_state.flow,
-        domain=setup_state.domain,
-        solver_mesh=solver_mesh,
-        planar_mesh=getattr(setup_state, "mesh_planar", None),
-        required_properties=required_properties,
-        optional_fill_values={"Sy": 0.0},
-    )
-
-    base_property_arrays: dict[str, tuple[float, ...]] = {}
-    if "hk_value" in runtime_arrays:
-        base_property_arrays["K"] = _surface_property_vector(
-            runtime_arrays["hk_value"],
-            solver_mesh=solver_mesh,
-        )
-    if "sy_value" in runtime_arrays:
-        base_property_arrays["Sy"] = _surface_property_vector(
-            runtime_arrays["sy_value"],
-            solver_mesh=solver_mesh,
-        )
-
-    lithology_labels: tuple[str, ...] | None = None
-    bundle_has_labels = False
-    zone_fractions_by_property: dict[str, dict[str, tuple[float, ...]]] = {}
-    zone_fractions_by_key: dict[str, tuple[float, ...]] = {}
-    base_property_values_by_key: dict[str, dict[str, float]] = {}
-    support_id_by_property: dict[str, str] = {}
-    mesh_bundle = getattr(setup_state, "mesh_bundle", None)
-    if mesh_bundle is not None:
-        bundle_labels = tuple(
-            str(getattr(cell, "geology_key", "") or "").strip()
-            for cell in getattr(mesh_bundle, "cells", ())
-        )
-        if any(bundle_labels):
-            lithology_labels = bundle_labels
-            bundle_has_labels = True
-        zone_fractions_by_key = _bundle_zone_fractions(
-            mesh_bundle,
-            n_cells=max(1, int(getattr(solver_mesh, "n_cells", 1))),
-        )
-        if zone_fractions_by_key:
-            for property_name in sorted(required_properties):
-                zone_fractions_by_property[str(property_name)] = dict(
-                    zone_fractions_by_key
-                )
-
-    domain = setup_state.domain
-    mesh_for_support = getattr(setup_state, "mesh_planar", None)
-    if mesh_for_support is None and bool(getattr(solver_mesh, "is_structured", False)):
-        try:
-            from hydromodpy.solver.utils import build_field_mesh_from_sgrid
-
-            mesh_for_support = build_field_mesh_from_sgrid(solver_mesh)
-        except Exception:
-            mesh_for_support = None
-    if mesh_for_support is None:
-        solver_planar_mesh = getattr(solver_mesh, "planar_mesh", None)
-        if hasattr(solver_planar_mesh, "cells"):
-            mesh_for_support = solver_planar_mesh
-    if mesh_for_support is None and hasattr(solver_mesh, "cells"):
-        mesh_for_support = solver_mesh
-    support_id_used: str | None = None
-    mixed_support_ids = False
-    if domain is not None and mesh_for_support is not None:
-        for property_name in sorted(required_properties):
-            property_name = str(property_name)
-            property_cfg = _resolve_flow_property_config(
-                raw_simulation_toml=raw_simulation_toml,
-                property_name=property_name,
-            )
-            zone_values = _parse_property_values_by_key(property_cfg)
-            if zone_values:
-                base_property_values_by_key[property_name] = zone_values
-
-            support_id = _parse_property_support_id(property_cfg)
-            if support_id is None:
-                continue
-            resolver = getattr(domain, "resolve_spatial_support", None)
-            if not callable(resolver):
-                continue
-            try:
-                support_field = resolver(support_id)
-            except Exception:
-                continue
-            if support_field is None or not hasattr(support_field, "on_mesh"):
-                continue
-            try:
-                discretization = support_field.on_mesh(mesh_for_support)
-                zone_keys, fractions_by_zone = discretization.weighted_components()
-            except Exception:
-                continue
-            normalized_fractions = {
-                str(zone_key).strip(): tuple(
-                    float(value)
-                    for value in np.asarray(
-                        fractions_by_zone[zone_key],
-                        dtype=float,
-                    ).reshape(-1)
-                )
-                for zone_key in zone_keys
-                if str(zone_key).strip() != ""
-            }
-            if not normalized_fractions:
-                continue
-
-            support_id_by_property[property_name] = str(support_id)
-            zone_fractions_by_property[property_name] = normalized_fractions
-
-            if support_id_used is None:
-                support_id_used = str(support_id)
-                if not zone_fractions_by_key:
-                    zone_fractions_by_key = normalized_fractions
-            elif str(support_id) != support_id_used:
-                mixed_support_ids = True
-                if not bundle_has_labels:
-                    zone_fractions_by_key = {}
-
-            if property_name in base_property_arrays:
-                continue
-            if not zone_values:
-                continue
-            if not all(zone_key in zone_values for zone_key in normalized_fractions):
-                continue
-            weighted = np.zeros(max(1, int(getattr(solver_mesh, "n_cells", 1))), dtype=float)
-            for zone_key, fractions in normalized_fractions.items():
-                weighted += np.asarray(fractions, dtype=float) * float(zone_values[zone_key])
-            base_property_arrays[str(property_name)] = tuple(float(value) for value in weighted)
-
-    if zone_fractions_by_key and not mixed_support_ids and lithology_labels is None:
-        lithology_labels = _labels_from_zone_fractions(zone_fractions_by_key)
-
-    source = f"runtime_prepared_{selected_solver}"
-    if bundle_has_labels:
-        source += "_geology"
-    elif (
-        zone_fractions_by_property
-        or zone_fractions_by_key
-        or lithology_labels is not None
-    ):
-        source += "_zones"
-    mesh_bundle_dir, mesh_path, mesh_summary_path = _setup_mesh_paths_from_runtime(
-        setup_state
-    )
     return PreparedHydraulicPropertySupport(
-        n_cells=max(1, int(getattr(solver_mesh, "n_cells", 1))),
-        lithology_labels=lithology_labels,
-        base_property_arrays=base_property_arrays,
-        zone_fractions_by_property=zone_fractions_by_property,
-        zone_fractions_by_key=zone_fractions_by_key,
-        base_property_values_by_key=base_property_values_by_key,
-        support_id_by_property=support_id_by_property,
-        source=source,
-        mesh_bundle_dir=mesh_bundle_dir,
-        mesh_path=mesh_path,
-        mesh_summary_path=mesh_summary_path,
+        n_cells=int(runtime_support.n_cells),
+        lithology_labels=runtime_support.lithology_labels,
+        base_property_arrays=dict(runtime_support.base_property_arrays),
+        zone_fractions_by_property={
+            str(name): dict(values)
+            for name, values in runtime_support.zone_fractions_by_property.items()
+        },
+        zone_fractions_by_key=dict(runtime_support.zone_fractions_by_key),
+        base_property_values_by_key={
+            str(name): dict(values)
+            for name, values in runtime_support.base_property_values_by_key.items()
+        },
+        support_id_by_property=dict(runtime_support.support_id_by_property),
+        source=str(runtime_support.source),
+        mesh_bundle_dir=runtime_support.mesh_bundle_dir,
+        mesh_path=runtime_support.mesh_path,
+        mesh_summary_path=runtime_support.mesh_summary_path,
     )
 
 
@@ -2008,422 +1610,6 @@ def _summarize_candidate_run_timings(
     }
 
 
-def _split_target_path(target: str) -> tuple[str, ...]:
-    """Split one dotted target path into validated segments."""
-    parts = tuple(str(token).strip() for token in str(target).split("."))
-    if not parts or any(not part for part in parts):
-        raise ValueError(f"Invalid empty target path segment in '{target}'")
-    return parts
-
-
-def _lookup_nested_value(mapping: dict[str, Any], path: tuple[str, ...]) -> Any:
-    """Resolve one dotted target path inside a nested mapping."""
-    current: Any = mapping
-    current_path: list[str] = []
-    for key in path:
-        current_path.append(key)
-        if not isinstance(current, dict):
-            raise KeyError(
-                "Cannot descend into non-mapping value at "
-                f"{'.'.join(current_path[:-1]) or '<root>'}"
-            )
-        if key not in current:
-            raise KeyError(f"Missing target path '{'.'.join(current_path)}'")
-        current = current[key]
-    return current
-
-
-def _assign_nested_value(mapping: dict[str, Any], path: tuple[str, ...], value: Any) -> None:
-    """Assign one value inside a nested mapping, creating intermediate dicts."""
-    current = mapping
-    for key in path[:-1]:
-        existing = current.get(key)
-        if existing is None:
-            current[key] = {}
-            existing = current[key]
-        elif not isinstance(existing, dict):
-            raise ValueError(
-                f"Cannot create nested path under non-mapping key '{key}'"
-            )
-        current = existing
-    current[path[-1]] = value
-
-
-def _parse_numeric_with_optional_suffix(value: Any) -> tuple[float, str | None] | None:
-    """Return `(number, suffix)` for scalars or numeric-with-unit strings."""
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, (int, float)):
-        return float(value), None
-    if not isinstance(value, str):
-        return None
-    match = _NUMERIC_WITH_SUFFIX_RE.match(value)
-    if match is None:
-        return None
-    number = float(match.group("number"))
-    suffix = match.group("suffix")
-    return number, (None if suffix is None else str(suffix).strip())
-
-
-def _format_numeric_like(value: float, *, suffix: str | None) -> Any:
-    """Format one numeric value, optionally preserving a unit suffix."""
-    number_text = format(float(value), ".12g")
-    if suffix is None or suffix == "":
-        return float(number_text)
-    return f"{number_text} {suffix}"
-
-
-def _apply_parameter_override(
-    *,
-    base_value: Any,
-    candidate_value: float,
-    mode: str,
-) -> Any:
-    """Apply one calibrated candidate value onto the current target payload."""
-    parsed = _parse_numeric_with_optional_suffix(base_value)
-    if parsed is None:
-        raise TypeError(
-            "Path-based parameter injection currently supports only numeric "
-            "targets or numeric strings with optional unit suffixes"
-        )
-    base_number, suffix = parsed
-    candidate_number = float(candidate_value)
-
-    if mode == "replace":
-        return _format_numeric_like(candidate_number, suffix=suffix)
-    if mode == "scale":
-        return _format_numeric_like(base_number * candidate_number, suffix=suffix)
-    raise ValueError(f"Unsupported parameter injection mode '{mode}'")
-
-
-def _format_toml_scalar(value: Any) -> str:
-    """Format one supported scalar as a TOML literal."""
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, int) and not isinstance(value, bool):
-        return str(value)
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise ValueError("TOML writer does not support NaN/Inf values")
-        return format(value, ".12g")
-    if isinstance(value, Path):
-        return json.dumps(str(value), ensure_ascii=True)
-    if isinstance(value, str):
-        return json.dumps(value, ensure_ascii=True)
-    if isinstance(value, (list, tuple)):
-        return "[" + ", ".join(_format_toml_scalar(item) for item in value) + "]"
-    raise TypeError(f"Unsupported TOML scalar value: {type(value)!r}")
-
-
-def _render_toml_mapping(mapping: dict[str, Any], *, prefix: tuple[str, ...] = ()) -> list[str]:
-    """Render a nested mapping into a minimal TOML document."""
-    lines: list[str] = []
-    scalars: list[tuple[str, Any]] = []
-    subtables: list[tuple[str, dict[str, Any]]] = []
-
-    for key, value in mapping.items():
-        if isinstance(value, dict):
-            subtables.append((str(key), value))
-        else:
-            scalars.append((str(key), value))
-
-    if prefix:
-        lines.append(f"[{'.'.join(prefix)}]")
-    for key, value in scalars:
-        lines.append(f"{key} = {_format_toml_scalar(value)}")
-    if prefix and (scalars or subtables):
-        lines.append("")
-
-    for key, value in subtables:
-        lines.extend(_render_toml_mapping(value, prefix=(*prefix, key)))
-
-    return lines
-
-
-def _write_override_toml(path: Path, payload: dict[str, Any]) -> None:
-    """Write one minimal override TOML payload to disk."""
-    lines = _render_toml_mapping(payload)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
-
-
-def _resolve_optional_config_path(
-    raw_value: object,
-    *,
-    simulation_config_path: Path,
-) -> Path | None:
-    """Resolve one optional path relative to the simulation config when needed."""
-    if raw_value is None:
-        return None
-    text = str(raw_value).strip()
-    if text == "":
-        return None
-    path = Path(text).expanduser()
-    if not path.is_absolute():
-        path = (simulation_config_path.parent / path).resolve()
-    return path
-
-
-def _resolve_mesh_input_bundle_dir(
-    *,
-    raw_simulation_toml: dict[str, Any],
-    simulation_config_path: Path,
-) -> Path | None:
-    """Resolve an optional external mesh bundle declared in the simulation config."""
-    section = raw_simulation_toml.get("mesh_input")
-    if not isinstance(section, dict):
-        return None
-    return _resolve_optional_config_path(
-        section.get("bundle_dir"),
-        simulation_config_path=simulation_config_path,
-    )
-
-
-def _resolve_mesh_input_mesh_path(
-    *,
-    raw_simulation_toml: dict[str, Any],
-    simulation_config_path: Path,
-) -> Path | None:
-    """Resolve an optional external mesh path declared in the simulation config."""
-    section = raw_simulation_toml.get("mesh_input")
-    if not isinstance(section, dict):
-        return None
-    return _resolve_optional_config_path(
-        section.get("mesh_path"),
-        simulation_config_path=simulation_config_path,
-    )
-
-
-def _resolve_summary_relative_path(
-    raw_value: object,
-    *,
-    summary_path: Path,
-) -> Path | None:
-    """Resolve one optional path stored inside one mesh summary payload."""
-    if raw_value is None:
-        return None
-    text = str(raw_value).strip()
-    if text == "":
-        return None
-    path = Path(text).expanduser()
-    if not path.is_absolute():
-        path = (summary_path.parent / path).resolve()
-    return path
-
-
-def _load_mesh_summary_payload(summary_path: Path) -> dict[str, Any] | None:
-    """Load one mesh summary JSON payload when it exists and is valid."""
-    if not summary_path.is_file():
-        return None
-    try:
-        payload = json.loads(summary_path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    return payload if isinstance(payload, dict) else None
-
-
-def _resolve_bundle_paths_from_mesh_summary(
-    summary_path: Path,
-) -> tuple[Path | None, Path | None]:
-    """Resolve bundle and mesh paths declared inside one mesh summary JSON."""
-    payload = _load_mesh_summary_payload(summary_path)
-    if payload is None:
-        return None, None
-    return (
-        _resolve_summary_relative_path(
-            payload.get("output_exchange_bundle_dir"),
-            summary_path=summary_path,
-        ),
-        _resolve_summary_relative_path(
-            payload.get("output_mesh"),
-            summary_path=summary_path,
-        ),
-    )
-
-
-def _mesh_catchment_output_dir(
-    *,
-    raw_simulation_toml: dict[str, Any],
-    simulation_workspace: WorkspaceConfig,
-) -> Path | None:
-    """Return the expected mesh-catchment final output directory."""
-    section = raw_simulation_toml.get("mesh_catchment")
-    if not isinstance(section, dict):
-        return None
-    output_layout = str(section.get("output_layout", "standard")).strip().lower()
-    workspace_paths = WorkspacePathRegistry.from_config(simulation_workspace)
-    if output_layout == "flat":
-        return workspace_paths.project_root
-    return workspace_paths.stable_folder / "mesh"
-
-
-def _candidate_mesh_catchment_summary_paths(
-    *,
-    raw_simulation_toml: dict[str, Any],
-    simulation_config_path: Path,
-    simulation_workspace: WorkspaceConfig,
-) -> tuple[tuple[str, Path], ...]:
-    """Return configured and default mesh-catchment summary candidates."""
-    section = raw_simulation_toml.get("mesh_catchment")
-    if not isinstance(section, dict):
-        return ()
-    candidates: list[tuple[str, Path]] = []
-    explicit_path = _resolve_optional_config_path(
-        section.get("output_summary_json"),
-        simulation_config_path=simulation_config_path,
-    )
-    if explicit_path is not None:
-        candidates.append(("mesh_catchment_output_summary_json_bundle", explicit_path))
-    output_dir = _mesh_catchment_output_dir(
-        raw_simulation_toml=raw_simulation_toml,
-        simulation_workspace=simulation_workspace,
-    )
-    if output_dir is not None:
-        candidates.append(
-            (
-                "mesh_catchment_default_summary_bundle",
-                output_dir / "mesh_catchment_summary.json",
-            )
-        )
-    deduped: list[tuple[str, Path]] = []
-    seen: set[Path] = set()
-    for source, path in candidates:
-        resolved = Path(path).resolve()
-        if resolved in seen:
-            continue
-        seen.add(resolved)
-        deduped.append((source, resolved))
-    return tuple(deduped)
-
-
-def _candidate_mesh_catchment_mesh_paths(
-    *,
-    raw_simulation_toml: dict[str, Any],
-    simulation_config_path: Path,
-    simulation_workspace: WorkspaceConfig,
-) -> tuple[tuple[str, Path], ...]:
-    """Return configured and default mesh-catchment mesh candidates."""
-    section = raw_simulation_toml.get("mesh_catchment")
-    if not isinstance(section, dict):
-        return ()
-    candidates: list[tuple[str, Path]] = []
-    explicit_path = _resolve_optional_config_path(
-        section.get("output_mesh"),
-        simulation_config_path=simulation_config_path,
-    )
-    if explicit_path is not None:
-        candidates.append(("mesh_catchment_output_mesh_default_bundle", explicit_path))
-    output_dir = _mesh_catchment_output_dir(
-        raw_simulation_toml=raw_simulation_toml,
-        simulation_workspace=simulation_workspace,
-    )
-    if output_dir is not None:
-        candidates.append(
-            (
-                "mesh_catchment_default_mesh_default_bundle",
-                output_dir / "mesh_catchment.msh",
-            )
-        )
-    deduped: list[tuple[str, Path]] = []
-    seen: set[Path] = set()
-    for source, path in candidates:
-        resolved = Path(path).resolve()
-        if resolved in seen:
-            continue
-        seen.add(resolved)
-        deduped.append((source, resolved))
-    return tuple(deduped)
-
-
-def _discover_hydraulic_support_paths(
-    *,
-    raw_simulation_toml: dict[str, Any],
-    simulation_config_path: Path,
-    simulation_workspace: WorkspaceConfig,
-) -> _ResolvedHydraulicSupportPaths:
-    """Discover the best reusable mesh/bundle support already materialized on disk."""
-    bundle_dir = _resolve_mesh_input_bundle_dir(
-        raw_simulation_toml=raw_simulation_toml,
-        simulation_config_path=simulation_config_path,
-    )
-    if bundle_dir is not None:
-        return _ResolvedHydraulicSupportPaths(
-            source="mesh_input_bundle_dir",
-            bundle_dir=bundle_dir,
-        )
-
-    mesh_path = _resolve_mesh_input_mesh_path(
-        raw_simulation_toml=raw_simulation_toml,
-        simulation_config_path=simulation_config_path,
-    )
-    if mesh_path is not None:
-        return _ResolvedHydraulicSupportPaths(
-            source="mesh_input_mesh_path_default_bundle",
-            bundle_dir=resolve_default_catchment_mesh_bundle_dir(mesh_path),
-            mesh_path=mesh_path,
-        )
-
-    for source, summary_path in _candidate_mesh_catchment_summary_paths(
-        raw_simulation_toml=raw_simulation_toml,
-        simulation_config_path=simulation_config_path,
-        simulation_workspace=simulation_workspace,
-    ):
-        bundle_dir, mesh_path_from_summary = _resolve_bundle_paths_from_mesh_summary(
-            summary_path
-        )
-        if bundle_dir is None:
-            continue
-        return _ResolvedHydraulicSupportPaths(
-            source=source,
-            bundle_dir=bundle_dir,
-            mesh_path=mesh_path_from_summary,
-            mesh_summary_path=summary_path,
-        )
-
-    for source, candidate_mesh_path in _candidate_mesh_catchment_mesh_paths(
-        raw_simulation_toml=raw_simulation_toml,
-        simulation_config_path=simulation_config_path,
-        simulation_workspace=simulation_workspace,
-    ):
-        bundle_dir = resolve_default_catchment_mesh_bundle_dir(candidate_mesh_path)
-        if candidate_mesh_path.exists() or bundle_dir.exists():
-            return _ResolvedHydraulicSupportPaths(
-                source=source,
-                bundle_dir=bundle_dir,
-                mesh_path=candidate_mesh_path,
-            )
-
-    return _ResolvedHydraulicSupportPaths()
-
-
-
-def _resolve_flow_property_config(
-    *,
-    raw_simulation_toml: dict[str, Any],
-    property_name: str,
-) -> dict[str, Any] | None:
-    """Return the raw flow-parameter config block for one hydraulic property."""
-    flow_section = raw_simulation_toml.get("flow")
-    if not isinstance(flow_section, dict):
-        return None
-    param_section = flow_section.get("param")
-    if not isinstance(param_section, dict):
-        return None
-    for alias in (property_name, property_name.lower(), property_name.upper()):
-        payload = param_section.get(alias)
-        if isinstance(payload, dict):
-            return dict(payload)
-    return None
-
-
-def _parse_optional_numeric_value(raw_value: object) -> float | None:
-    parsed = _parse_numeric_with_optional_suffix(raw_value)
-    if parsed is None:
-        return None
-    value, _suffix = parsed
-    return float(value)
-
-
 def _build_property_array_from_config(
     *,
     raw_simulation_toml: dict[str, Any],
@@ -2495,20 +1681,16 @@ def prepare_hydraulic_property_support(
         for parameter_cfg in cfg.model_calibration.parameter
         if parameter_cfg.property is not None
     }
-    runtime_prepared: PreparedHydraulicPropertySupport | None = None
-    try:
-        runtime_prepared = _prepare_runtime_hydraulic_property_support(
-            simulation_config_path=simulation_config_path,
-            raw_simulation_toml=raw_simulation_toml,
-            solver_families=detect_solver_families(raw_simulation_toml),
-            property_names=tuple(
-                str(parameter_cfg.property).strip()
-                for parameter_cfg in cfg.model_calibration.parameter
-                if parameter_cfg.property is not None
-            ),
-        )
-    except Exception:
-        runtime_prepared = None
+    runtime_prepared = _prepare_runtime_hydraulic_property_support(
+        simulation_config_path=simulation_config_path,
+        raw_simulation_toml=raw_simulation_toml,
+        solver_families=detect_solver_families(raw_simulation_toml),
+        property_names=tuple(
+            str(parameter_cfg.property).strip()
+            for parameter_cfg in cfg.model_calibration.parameter
+            if parameter_cfg.property is not None
+        ),
+    )
 
     if runtime_prepared is not None:
         n_cells = int(runtime_prepared.n_cells)

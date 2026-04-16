@@ -40,6 +40,32 @@ def test_build_gallery_specs_exposes_extended_categories() -> None:
     assert "comparison_config_path" in specs["example12_map_method_comparison"].metadata
     assert specs["ex12_multi_method_moderate"].metadata["comparison_family_key"] == "multi_method_suites"
     assert specs["regional_lab_headwater_100km2_backend_compare_recipe"].metadata["regional_lab_recipe_id"] == "backend_compare"
+    assert specs["surface_interaction_ramp_code_comparison"].category == "code_comparison"
+    assert specs["surface_interaction_no_seepage_code_comparison"].category == "code_comparison"
+
+
+def test_build_gallery_specs_has_unique_slugs() -> None:
+    slugs = [spec.slug for spec in build_gallery_specs()]
+
+    assert len(slugs) == len(set(slugs))
+
+
+def test_build_gallery_specs_loads_code_comparison_cases_from_json_manifest() -> None:
+    specs = {spec.slug: spec for spec in build_gallery_specs()}
+    ramp = specs["surface_interaction_ramp_code_comparison"]
+    no_seepage = specs["surface_interaction_no_seepage_code_comparison"]
+
+    assert ramp.generator == "copy_assets"
+    assert ramp.image_assets[0].filename == "surface_interaction_ramp_configuration.png"
+    assert ramp.image_assets[0].source_path == (
+        "examples/capability_gallery/code_comparison/surface_interaction_ramp/"
+        "surface_interaction_ramp_configuration.png"
+    )
+    assert ramp.source_paths[0] == "tools/doc_gallery/manifests/code_comparison_cases.json"
+    assert ramp.metadata["lead_image_filenames"] == ["surface_interaction_ramp_configuration.png"]
+    assert ramp.metadata["tab_specs"][0]["title"] == "Reference K"
+    assert no_seepage.generator == "copy_assets"
+    assert no_seepage.metadata["tab_specs"][1]["filename"] == "no_seepage_high_k.png"
 
 
 def test_build_index_page_lists_extended_categories_when_populated() -> None:

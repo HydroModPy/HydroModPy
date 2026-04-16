@@ -35,9 +35,12 @@ The important cleanup objective has been reached:
 
 The remaining debt is no longer conceptual. It is mostly:
 
-- file size;
-- repeated runtime bookkeeping;
-- a few low-level places where both cell and edge support views remain useful.
+- the size of the physical core (`assembly_fluxes.py`,
+  `assembly_residuals.py`);
+- the size of the semianalytic Jacobian layer
+  (`jacobian_operator_triplets.py`, `jacobian_partition_triplets.py`);
+- ordinary numerical-backend glue that cannot be fully collapsed without
+  harming readability.
 
 ## Module Map
 
@@ -46,16 +49,47 @@ The current structure is readable and largely coherent.
 - `mesh.py`
   Solver-owned mesh view and geometric lookups.
 - `assembly.py`
-  Residual assembly and physical flux operators.
+  Public assembly facade.
+- `assembly_types.py`
+  Assembly dataclasses.
+- `assembly_inputs.py`
+  Boundary/input normalization helpers.
+- `assembly_fluxes.py`
+  Transmissivity and flux operators.
+- `assembly_surface.py`
+  Surface-closure helpers.
+- `assembly_residuals.py`
+  Steady/transient residual builders.
 - `jacobian_semianalytic.py`
-  Analytic/sparse Jacobian builders for the head-only formulations.
+  Public semianalytic Jacobian facade.
+- `jacobian_common.py`
+  Shared constraint, sparsity and regularization helpers for Jacobian builds.
+- `jacobian_operator_triplets.py`
+  Base head-only Jacobian triplets.
+- `jacobian_partition_triplets.py`
+  Regularized-partition Jacobian triplets.
 - `runtime_contract.py`
   Small, clear runtime input/output contract.
 - `runtime_selection.py`
   Method/engine resolution.
+- `solver_contract.py`
+  Process-to-runtime normalization for regime, closure and nonlinear options.
+- `driver_steady.py`
+  Steady solve orchestration.
+- `driver_transient.py`
+  Transient solve orchestration and history accumulation loop.
+- `driver_forcing.py`
+  Shared boundary/ocean/drainage preparation reused by the drivers.
+- `runtime_summary.py`
+  Runtime-summary bookkeeping and surface-threshold diagnostics.
+- `runtime_execution_common.py`
+  Shared residual norm and `RuntimeSolveResult` packaging helpers.
 - `forcing_resolution.py`
-  Process-to-array translation for recharge, wells, Dirichlet supports and
-  drainage.
+  Thin public facade over the forcing-resolution package.
+- `forcing/`
+  Specialized forcing mixins split by responsibility:
+  initial conditions, recharge, wells, Dirichlet supports, drainage and
+  generic payload/support helpers.
 - `driver_state.py`
   Accepted-state and history accumulation.
 - `export_payload.py`
@@ -74,22 +108,39 @@ The current structure is readable and largely coherent.
 The main maintainability issue is still concentration of logic in a few large
 files.
 
-Approximate line counts:
+Approximate line counts after the latest extraction pass:
 
-- `boussinesq.py`: 1014
-- `assembly.py`: 1004
-- `forcing_resolution.py`: 848
-- `jacobian_semianalytic.py`: 682
-- `driver_state.py`: 276
-- `runtime_contract.py`: 108
-- `runtime_selection.py`: 126
+- `boussinesq.py`: 441
+- `solver_contract.py`: 154
+- `assembly.py`: 163
+- `assembly_types.py`: 45
+- `assembly_inputs.py`: 134
+- `assembly_fluxes.py`: 208
+- `assembly_surface.py`: 82
+- `assembly_residuals.py`: 348
+- `forcing_resolution.py`: 38
+- `jacobian_semianalytic.py`: 185
+- `jacobian_common.py`: 119
+- `jacobian_operator_triplets.py`: 267
+- `jacobian_partition_triplets.py`: 145
+- `driver_transient.py`: 147
+- `driver_steady.py`: 86
+- `driver_forcing.py`: 98
+- `runtime_summary.py`: 279
+- `runtime_execution_common.py`: 56
+- `forcing/common.py`: 247
+- `forcing/dirichlet_support_resolution.py`: 219
+- `forcing/recharge_resolution.py`: 120
+- `forcing/well_resolution.py`: 96
+- `forcing/drainage_resolution.py`: 82
+- `forcing/initial_conditions.py`: 28
 
 Interpretation:
 
-- the architectural skeleton is clean;
-- the orchestration and algebra files remain large enough to deserve ongoing
-  discipline;
-- the small contract/selection modules are already at a good size.
+- the architectural skeleton is now cleaner than before;
+- the big remaining hotspots are concentrated where expected:
+  physical assembly and semianalytic Jacobian triplets;
+- the driver and forcing facade are now at healthy sizes.
 
 ## Assessment
 
@@ -109,7 +160,9 @@ Strengths:
 
 Remaining weakness:
 
-- `assembly.py` and `jacobian_semianalytic.py` still require careful reading
+- `assembly_residuals.py`, `assembly_fluxes.py`,
+  `jacobian_operator_triplets.py` and `jacobian_partition_triplets.py`
+  still require careful reading
   because they mix physics and low-level linearization details.
 
 ### 2. Accessibility
@@ -122,11 +175,12 @@ The module is now easy enough to enter in this order:
 2. `mesh.py`
 3. `assembly.py`
 4. `runtime_contract.py`
-5. `forcing_resolution.py`
-6. `runtime_selection.py`
-7. one runtime backend
-8. `driver_state.py` / `export_payload.py`
-9. `boussinesq.py`
+5. `solver_contract.py`
+6. `forcing_resolution.py`
+7. `runtime_selection.py`
+8. one runtime backend
+9. `driver_state.py` / `export_payload.py`
+10. `boussinesq.py`
 
 That is a major improvement over the earlier state where the boundary
 semantics were spread across the driver, the runtime and the exports.
@@ -194,29 +248,25 @@ The following debt has effectively been retired from the active code path:
 
 This is what remains and still matters:
 
-1. `boussinesq.py` is still large.
-   The file is now better layered, but it still mixes:
-   - steady orchestration,
-   - transient orchestration,
-   - runtime summary shaping,
-   - launcher-facing glue.
+1. `assembly_residuals.py` is still large.
+   This is now the main residual hotspot.
 
-2. `forcing_resolution.py` is also large.
-   It may eventually deserve internal sub-splits such as:
-   - recharge resolution,
-   - well resolution,
-   - Dirichlet support resolution,
-   - drainage resolution.
+2. `jacobian_operator_triplets.py` and
+   `jacobian_partition_triplets.py` still carry dense low-level details.
+   The public `jacobian_semianalytic.py` facade is now small, but the
+   underlying sparse operator layer remains substantial.
 
-3. Runtime backends still duplicate some glue.
+3. `assembly_fluxes.py` still gathers many low-level operators.
+   It is clearer than before, but remains dense.
+
+4. Runtime backends still duplicate some glue.
    A thin shared helper for:
    - residual norm tracking,
    - termination packaging,
-   - accepted-step packaging,
-   - steady/transient solve scaffolding
-   would reduce repetition.
+   - accepted-step packaging
+   has now been introduced, but only part of the repetition has been removed.
 
-4. `assembly.py` and `jacobian_semianalytic.py` still expose both:
+5. `assembly.py` and `jacobian_semianalytic.py` still expose both:
    - cell-prescribed boundary heads,
    - edge-supported boundary heads.
 
@@ -229,10 +279,13 @@ Priority order:
 
 1. keep the canonical vocabulary stable;
 2. avoid reintroducing any `imposed_*` naming in new code;
-3. factor runtime bookkeeping shared by `local/scipy/scipy_sparse/petsc*`;
-4. consider a future internal split of `forcing_resolution.py`;
-5. split `boussinesq.py` only if a new responsibility would otherwise make it
-   grow again.
+3. keep runtime mutualization incremental and only where wording/result
+   packaging is truly shared;
+4. if a future cleanup is needed, continue splitting
+   `assembly_residuals.py` / `assembly_fluxes.py` and
+   `jacobian_semianalytic.py` by sub-operators rather than regrowing the
+   driver or forcing facade;
+5. keep `forcing_resolution.py` as a stable facade over `forcing/`.
 
 ## Verdict
 
@@ -245,5 +298,5 @@ The Boussinesq module is now:
 - extensible without architectural contortions.
 
 The major conceptual debt is gone. What remains is ordinary engineering debt:
-file size, repeated scaffolding and a few natural low-level dual views kept for
-diagnostics.
+the size of the physical core, some backend scaffolding, and a few natural
+low-level dual views kept for diagnostics.

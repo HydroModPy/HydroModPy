@@ -39,12 +39,16 @@
     "examples/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml",
     "examples/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml",
     "examples/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml",
-    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate_causes/comparison_manifest.json"
+    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate_causes/comparison_manifest.json",
+    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate_causes/comparison_metrics.json",
+    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate_causes/observables.csv"
   ],
   "source_hashes": {
-    "examples/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml": "ae34134a9bed64fd3856739af8a400e37120d4d7430800853c9f03f10d186fb5",
-    "examples/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml": "701202ecfe956d28453ff5aafed09905f44be36fa41451dddbf590013be7289c",
-    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate_causes/comparison_manifest.json": "78bbba3abd0d60753fbcbd798fc7b923393bb96bbc5f7bbe539584a9579e5ac3"
+    "examples/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml": "59ae95cc060ef28168f5ffeea4a4bde36cbeeab1a59325ae1e23aba1aee1f789",
+    "examples/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml": "1b33039a83b3300b6f3ae8494b1bb3e9fcf34a29a6cd36efe8ef955bcbdbeea1",
+    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate_causes/comparison_manifest.json": "78bbba3abd0d60753fbcbd798fc7b923393bb96bbc5f7bbe539584a9579e5ac3",
+    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate_causes/comparison_metrics.json": "162e4290759a098fe1df0cfbcb0c9db40d46ff217ab0fbb169b2e38df0ad1f5f",
+    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate_causes/observables.csv": "f6da35051cf17cbc2ca79ea38adb05351721a2c5bbb1abe8b7e8b0c1d1e1a501"
   },
   "docname": "cases/ex12_multi_method_moderate_causes",
   "images": [

@@ -28,24 +28,50 @@ The package has a deliberately narrow goal:
 - `engines/`
   Execution-engine catalog describing how one method is solved numerically.
 - `boussinesq.py`
-  The orchestrator. It translates launcher objects (`flow`, `time_grid`,
-  `domain`) into numeric arrays, calls the nonlinear runtime and exports the
-  results.
+  The top-level orchestrator. It now delegates steady/transient execution,
+  runtime-summary shaping and forcing translation to dedicated helpers instead
+  of carrying all of that logic inline.
 - `mesh.py`
   The solver mesh view. It stores cell geometry, edge connectivity, hydraulic
   properties and a few spatial lookup helpers.
 - `assembly.py`
-  The physical core. This module computes saturated thickness, transmissivity,
-  edge fluxes and the final residual that must vanish.
+  The public physical-assembly facade. It now delegates internally to:
+  - `assembly_types.py` for assembly dataclasses;
+  - `assembly_inputs.py` for boundary/input normalization;
+  - `assembly_fluxes.py` for transmissivity and flux operators;
+  - `assembly_surface.py` for regularized surface closures;
+  - `assembly_residuals.py` for steady/transient residual builders.
 - `runtime_contract.py`
   The shared data contract between the `Boussinesq` driver and the runtime
   backends.
 - `runtime_selection.py`
   The lightweight layer that resolves a method plus one execution engine, then
   exposes the corresponding solve callables.
+- `driver_steady.py`
+  Steady driver helper that prepares one stationary solve and updates the
+  accepted state/runtime summary.
+- `driver_transient.py`
+  Transient driver helper that loops over periods and accumulates the accepted
+  runtime history.
+- `runtime_summary.py`
+  Shared summary builders for backend selection, elapsed-time axes and
+  surface-threshold diagnostics.
+- `runtime_execution_common.py`
+  Small shared helpers for residual norms, runtime-result packaging and common
+  convergence wording.
+- `solver_contract.py`
+  The explicit process-to-runtime normalization layer for flow regime,
+  surface-interaction closure and nonlinear options.
 - `forcing_resolution.py`
-  The process-to-array adapter for recharge, wells, Dirichlet supports and
-  drainage payloads.
+  The thin public façade for process-to-array translation.
+- `forcing/`
+  The specialized forcing-resolution package:
+  - `common.py` for generic payload/series/support helpers;
+  - `initial_conditions.py` for initial head resolution;
+  - `recharge_resolution.py` for homogeneous/heterogeneous recharge;
+  - `well_resolution.py` for localized wells;
+  - `dirichlet_support_resolution.py` for side/stream/ocean Dirichlet supports;
+  - `drainage_resolution.py` for ocean support masks and drainage conductance.
 - `ResolvedDirichletSupport`
   The explicit support record used to resolve one Dirichlet condition once,
   then project it either to the canonical cell-based runtime view or to the
@@ -64,6 +90,9 @@ The package has a deliberately narrow goal:
 - `boundary_flux_reconstruction.py`
   The helper that rebuilds edge-based boundary-flux diagnostics from the
   canonical cell-prescribed runtime state.
+- `driver_forcing.py`
+  Shared boundary/ocean/drainage preparation reused by the steady and
+  transient driver helpers.
 - `head_only_runtime_common.py`
   Shared callback builders for the head-only runtime family
   (`local`, `scipy`, `scipy_sparse`, `petsc_partition`).
@@ -88,6 +117,11 @@ The package has a deliberately narrow goal:
 - `jacobian_fd.py`
   Shared dense and sparse-oriented finite-difference Jacobian helpers,
   including the sparse column-coloring utilities.
+- `jacobian_semianalytic.py`
+  The public semianalytic Jacobian façade. It now delegates internally to:
+  - `jacobian_common.py` for shared constraint and sparsity helpers;
+  - `jacobian_operator_triplets.py` for the base head-only operator triplets;
+  - `jacobian_partition_triplets.py` for the regularized-partition extensions.
 
 ## Process To Solver Contract
 
@@ -160,8 +194,14 @@ that mattered most:
   several runtime paths.
 
 The main remaining readability debt is no longer semantic confusion around the
-boundary conditions. It is mostly a matter of file size and repeated runtime
-bookkeeping patterns.
+boundary conditions. It is now mostly concentrated in:
+
+- `assembly_residuals.py`, which is now the main physical hotspot;
+- `assembly_fluxes.py`, which still carries a dense set of operators;
+- `jacobian_operator_triplets.py` and `jacobian_partition_triplets.py`, which
+  now carry most of the sparse linearization details;
+- the coexistence of several numerical engines, which naturally keeps some
+  duplicated backend glue even after extraction.
 
 ### Canonical Internal Vocabulary
 
@@ -181,9 +221,11 @@ solver:
 
 The remaining debt is now mostly organizational:
 
-- `boussinesq.py`, `assembly.py`, `forcing_resolution.py` and
-  `jacobian_semianalytic.py` are still large files;
-- runtime modules still share more bookkeeping than they share helper code;
+- `assembly_residuals.py`, `assembly_fluxes.py`,
+  `jacobian_operator_triplets.py` and `jacobian_partition_triplets.py`
+  are still the larger files in the physical core;
+- runtime modules still share more bookkeeping than they share helper code,
+  even after `runtime_execution_common.py`;
 - the low-level assembly/Jacobian layers still accept both the canonical
   cell-prescribed representation and the optional edge-supported boundary view.
 
@@ -194,20 +236,20 @@ design choice used by diagnostics and a small number of focused tests.
 
 The current review points to four meaningful simplification targets.
 
-### 1. Keep The Driver As A Coordinator
+### 1. Keep The Driver Thin
 
-The biggest structural split targets are now mostly in place:
+The large driver split targets are now in place:
 
-- `forcing_resolution.py` carries process-to-array resolution;
+- `driver_steady.py` and `driver_transient.py` carry solve orchestration;
+- `runtime_summary.py` carries runtime summary shaping;
+- `forcing_resolution.py` is now only the facade over `forcing/`;
 - `driver_state.py` carries accepted-state assembly;
 - `export_payload.py` carries NPZ/export payload generation;
 - `boundary_flux_reconstruction.py` isolates the edge-flux reconstruction
   used by diagnostics and regression.
 
-`boussinesq.py` remains the top-level entry point, but it should stay a
-coordinator, not grow back into the place where every transformation lives.
-The next safe rule is therefore simple: any new helper that is not pure
-orchestration should land outside `boussinesq.py`.
+`boussinesq.py` is now back within a reasonable size and should stay a
+coordinator, not regrow into the place where every transformation lives.
 
 ### 2. Keep Boundary Semantics One-Way
 
@@ -221,26 +263,17 @@ The remaining simplification target is to keep low-level additions aligned with
 that direction. New work should strengthen the canonical prescribed-cell path,
 not reintroduce a second active boundary language.
 
-### 3. Factor Common Runtime Loop Patterns
+### 3. Continue Runtime Mutualization Gradually
 
-The runtime modules still repeat the same high-level pattern:
+One meaningful runtime mutualization layer now exists:
 
-- build residual/Jacobian callbacks;
-- run one nonlinear solve loop or delegate to SciPy/PETSc;
-- assemble one `RuntimeSolveResult`.
+- `runtime_execution_common.py` for residual norms and result packaging;
+- `head_only_runtime_common.py` for callback wiring;
+- `runtime_summary.py` for backend/diagnostic summaries.
 
-The different numerical engines are real, but the surrounding glue is still
-more duplicated than necessary. The next extraction target is a thin shared
-runtime helper layer for:
-
-- termination bookkeeping;
-- residual-norm tracking;
-- accepted-step packaging;
-- steady vs transient callback wiring.
-
-That would reduce the maintenance cost of `local_runtime.py`,
-`scipy_runtime.py`, `scipy_sparse_runtime.py`, `petsc_partition_runtime.py`
-and `petsc_runtime.py`.
+This removed a real amount of repetition. The remaining duplication is mostly
+the numerical heart of each backend, which should not be forced into one
+generic helper too early.
 
 ### 4. Make The Documentation Mirror The Code Layers
 
@@ -377,12 +410,13 @@ If you want to understand the code quickly, read the files in this order:
 2. `mesh.py`
 3. `assembly.py`
 4. `runtime_contract.py`
-5. `forcing_resolution.py`
-6. `runtime_selection.py`
-7. `local_runtime.py`
-8. `driver_state.py`
-9. `export_payload.py`
-10. `boussinesq.py`
+5. `solver_contract.py`
+6. `forcing_resolution.py`
+7. `runtime_selection.py`
+8. `local_runtime.py`
+9. `driver_state.py`
+10. `export_payload.py`
+11. `boussinesq.py`
 
 This separates the problem nicely into:
 

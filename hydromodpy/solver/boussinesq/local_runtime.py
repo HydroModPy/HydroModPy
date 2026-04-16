@@ -13,13 +13,15 @@ when validating the physics or debugging convergence problems.
 from __future__ import annotations
 
 import numpy as np
-from hydromodpy.solver.boussinesq.assembly import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.head_only_runtime_common import (
     build_steady_assembly_callback,
     build_transient_assembly_callback,
 )
 from hydromodpy.solver.boussinesq.jacobian_fd import build_dense_fd_jacobian
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from hydromodpy.solver.boussinesq.newton_runtime_common import (
+    _newton_loop_template,
+)
 from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,
     RuntimeSolveResult,
@@ -154,86 +156,46 @@ def _solve_nonlinear_system(
     min_damping: float,
     backend_name: str,
 ) -> RuntimeSolveResult:
-    """Run the shared dense Newton loop for one head-only nonlinear system.
+    """Run the dense Newton loop by plugging dense callbacks into the template."""
 
-    Every Newton iteration follows the same sequence:
-
-    1. assemble the nonlinear residual at the current iterate,
-    2. build a dense finite-difference Jacobian,
-    3. solve the linearized system for the Newton increment,
-    4. damp that increment until the residual decreases.
-    """
-    head = np.asarray(head_initial_guess_m, dtype=float).copy()
-    assembly = assembly_for(head)
-    residual = assembly.residual_m3_s
-    residual_norm = float(np.linalg.norm(residual, ord=np.inf))
-    if residual_norm <= float(tol_residual_inf):
-        return RuntimeSolveResult(
-            head_m=head,
-            assembly=assembly,
-            converged=True,
-            iterations=0,
-            residual_norm_inf=residual_norm,
-            backend_name=str(backend_name),
-            termination_reason="initial residual already satisfies tol_residual_inf",
-        )
-
-    termination_reason = "dense Newton max_iterations reached before tol_residual_inf"
-    for iteration in range(1, int(max_iterations) + 1):
+    def _build_dense_jacobian(
+        head_m: np.ndarray,
+        _assembly,
+        residual_m3_s: np.ndarray,
+        _residual_norm_inf: float,
+        _initial_residual_norm_inf: float,
+        _iteration: int,
+    ) -> np.ndarray:
         # Rebuild the Jacobian at each iterate so the linearization stays
         # consistent with the current nonlinear state.
-        jacobian = build_dense_fd_jacobian(
+        return build_dense_fd_jacobian(
             lambda candidate: assembly_for(candidate).residual_m3_s,
-            head,
-            residual,
+            head_m,
+            residual_m3_s,
             rel_step=float(fd_rel_step),
         )
+
+    def _solve_dense_linear_system(
+        jacobian: np.ndarray,
+        residual_m3_s: np.ndarray,
+        _residual_norm_inf: float,
+        _initial_residual_norm_inf: float,
+    ) -> np.ndarray:
         try:
-            delta = np.linalg.solve(jacobian, -residual)
-        except np.linalg.LinAlgError:
-            termination_reason = "dense Newton Jacobian solve failed"
-            break
+            return np.linalg.solve(jacobian, -residual_m3_s)
+        except np.linalg.LinAlgError as exc:
+            raise RuntimeError("Dense Newton Jacobian solve failed.") from exc
 
-        damping = 1.0
-        accepted = False
-        while damping >= float(min_damping):
-            candidate_head = head + damping * delta
-            candidate_assembly = assembly_for(candidate_head)
-            candidate_residual = candidate_assembly.residual_m3_s
-            candidate_norm = float(np.linalg.norm(candidate_residual, ord=np.inf))
-            # Accept the step as soon as it decreases the residual; otherwise
-            # backtrack by halving the damping factor.
-            if candidate_norm < residual_norm or damping <= float(min_damping):
-                head = candidate_head
-                assembly = candidate_assembly
-                residual = candidate_residual
-                residual_norm = candidate_norm
-                accepted = True
-                break
-            damping *= 0.5
-
-        if not accepted:
-            termination_reason = "dense Newton line search failed to reduce the residual"
-            break
-        if residual_norm <= float(tol_residual_inf):
-            return RuntimeSolveResult(
-                head_m=head,
-                assembly=assembly,
-                converged=True,
-                iterations=iteration,
-                residual_norm_inf=residual_norm,
-                backend_name=str(backend_name),
-                termination_reason="dense Newton residual tolerance reached",
-            )
-
-    return RuntimeSolveResult(
-        head_m=head,
-        assembly=assembly,
-        converged=False,
-        iterations=int(max_iterations),
-        residual_norm_inf=residual_norm,
-        backend_name=str(backend_name),
-        termination_reason=termination_reason,
+    return _newton_loop_template(
+        assembly_for=assembly_for,
+        head_initial_guess_m=head_initial_guess_m,
+        max_iterations=max_iterations,
+        tol_residual_inf=tol_residual_inf,
+        min_damping=min_damping,
+        backend_name=backend_name,
+        newton_label="dense",
+        build_jacobian=_build_dense_jacobian,
+        solve_linear_system=_solve_dense_linear_system,
     )
 
 LocalStepSolveResult = RuntimeSolveResult

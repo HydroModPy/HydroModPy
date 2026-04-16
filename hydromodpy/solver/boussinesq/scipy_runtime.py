@@ -19,8 +19,12 @@ from hydromodpy.solver.boussinesq.head_only_runtime_common import (
 from hydromodpy.solver.boussinesq.jacobian_semianalytic import (
     build_dense_semianalytic_regularized_partition_jacobian,
 )
+from hydromodpy.solver.boussinesq.runtime_execution_common import (
+    apply_residual_tolerance,
+    build_runtime_result,
+    residual_norm_inf,
+)
 from hydromodpy.solver.boussinesq.runtime_contract import (
-    RuntimeSolveResult,
     SteadySolveInputs,
     TransientStepInputs,
 )
@@ -127,20 +131,19 @@ def _solve_nonlinear_system(
     # Reassemble once at the accepted state so the returned fluxes and residual
     # are fully consistent with the final head vector.
     assembly = assembly_for(head)
-    residual_norm_inf = float(np.linalg.norm(assembly.residual_m3_s, ord=np.inf))
-    converged = bool(result.success) and residual_norm_inf <= float(tol_residual_inf)
-    termination_reason = str(getattr(result, "message", "") or "").strip()
-    if bool(result.success) and not converged:
-        termination_reason = (
-            f"{termination_reason}; residual_inf={residual_norm_inf:.3e} still exceeds "
-            f"tol_residual_inf={float(tol_residual_inf):.3e}"
-        ).strip("; ")
-    return RuntimeSolveResult(
+    residual_norm = residual_norm_inf(assembly.residual_m3_s)
+    converged, termination_reason = apply_residual_tolerance(
+        success=bool(result.success),
+        residual_norm_inf_value=residual_norm,
+        tol_residual_inf=float(tol_residual_inf),
+        termination_reason=str(getattr(result, "message", "") or "").strip(),
+    )
+    return build_runtime_result(
         head_m=head,
         assembly=assembly,
         converged=converged,
         iterations=int(getattr(result, "nfev", 0)),
-        residual_norm_inf=residual_norm_inf,
+        residual_norm_inf_value=residual_norm,
         backend_name="scipy",
         termination_reason=termination_reason,
     )

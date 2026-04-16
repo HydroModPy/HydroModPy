@@ -28,7 +28,7 @@ Case Setup
 
 - Launcher family: `data-overview`, so the workflow stops after setup, domain assembly, and data loading.
 - Primary editable file: `examples/projects/data_overview/project.toml`.
-- Committed figures are reused as stable teaching assets instead of rerunning the full example during doc builds.
+- Committed figures are mirrored under `examples/capability_gallery/geographic/` so the doc build stays reproducible without a local `results_stable` checkout.
 
 What It Shows
 -------------
@@ -215,10 +215,12 @@ Observation Windows
 Source Pointers
 ---------------
 
+- ``tools/doc_gallery/manifests/geographic_cases.json``
 - ``examples/projects/data_overview/run_data_overview.py``
 - ``examples/projects/data_overview/project.toml``
-- ``examples/results/example13data/results_stable/_figures/watershed_dem.png``
-- ``examples/results/example13data/results_stable/_figures/watershed_local.png``
+- ``examples/capability_gallery/geographic/README.md``
+- ``examples/capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png``
+- ``examples/capability_gallery/geographic/watershed_overview/geographic_watershed_local.png``
 
 Artifacts
 ---------

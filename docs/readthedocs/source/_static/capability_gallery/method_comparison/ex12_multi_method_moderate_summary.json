@@ -41,15 +41,19 @@
     "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
     "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml",
     "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml",
-    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_manifest.json"
+    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_manifest.json",
+    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_metrics.json",
+    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/observables.csv"
   ],
   "source_hashes": {
-    "examples/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml": "701202ecfe956d28453ff5aafed09905f44be36fa41451dddbf590013be7289c",
-    "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml": "74ffeb5afdfd7af8dde5e37f5822f65c389370161babce9d125e2c4dd953c508",
-    "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml": "cb845a1166f03d7a882012a939e843877ab70d51ba17577bea3cb816e2a29752",
-    "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml": "a815a0aa859214feb5c6eb9258cdc998d9092be795c3b857d4c9d3142a87593b",
-    "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml": "b4f2416633250e9f94f3ea31dc9573e0c51040617cf341ee2fe7077b64de9c62",
-    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_manifest.json": "2c3a54f282a8ce05b3f041dff05ef95bcc19ef567d9448278b4f5840250d197d"
+    "examples/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml": "1b33039a83b3300b6f3ae8494b1bb3e9fcf34a29a6cd36efe8ef955bcbdbeea1",
+    "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml": "1b32ff22a6ecb8d3929a0ccdf787724636b8aff851c1c7727d2a59b71788555c",
+    "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml": "357038383df72c6c2f5d8626f895fdda600741879c7fefc045dc25cffcdf7d21",
+    "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml": "762da3753873903b0e5aea7c2bae10054232824db7d42db16a13974b9fd8052b",
+    "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml": "efd4bc09f1763bafd3a83eb8633a5898b03a3cd397a64201644cdcf1a4993927",
+    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_manifest.json": "2c3a54f282a8ce05b3f041dff05ef95bcc19ef567d9448278b4f5840250d197d",
+    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_metrics.json": "162e4290759a098fe1df0cfbcb0c9db40d46ff217ab0fbb169b2e38df0ad1f5f",
+    "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/observables.csv": "29dac462298fa9fa275c388a7d3562041fd1283e05dad939d939ed6cc898425f"
   },
   "docname": "cases/ex12_multi_method_moderate",
   "images": [
@@ -173,11 +177,9 @@
       "outlet_flux_series",
       "head_map_last",
       "depth_map_last",
-      "outflow_drain_map_last",
-      "surface_excess_flux_series",
-      "surface_excess_map_last"
+      "outflow_drain_map_last"
     ],
-    "n_observable_rows": 26492,
+    "n_observable_rows": 25810,
     "n_difference_rows": 9931
   },
   "artifacts": {

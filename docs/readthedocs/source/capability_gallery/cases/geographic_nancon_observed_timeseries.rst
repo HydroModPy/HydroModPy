@@ -49,7 +49,7 @@ Case Setup
 ----------
 
 - Same launcher family and base config as the Nancon identity-card case, but read here through the observation chronicle panels only.
-- All figures come from the committed `results_stable/_figures/overview/` output set.
+- The committed chronicle figures are mirrored under `examples/capability_gallery/geographic/` to keep the gallery self-contained.
 - The page remains pre-solver: it documents observed signals, not simulated response.
 
 What It Shows
@@ -261,11 +261,13 @@ Overview Panels
 Source Pointers
 ---------------
 
+- ``tools/doc_gallery/manifests/geographic_cases.json``
 - ``examples/projects/Nancon_data_overview/config_overview.toml``
-- ``examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_discharge.png``
-- ``examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_piezometry.png``
-- ``examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_intermittency.png``
-- ``examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_water_quality.png``
+- ``examples/capability_gallery/geographic/README.md``
+- ``examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_discharge.png``
+- ``examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_piezometry.png``
+- ``examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_intermittency.png``
+- ``examples/capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_water_quality.png``
 
 Artifacts
 ---------

@@ -38,6 +38,9 @@ from hydromodpy.solver.boussinesq.jacobian_semianalytic import (
     build_sparse_semianalytic_base_jacobian_triplets,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from hydromodpy.solver.boussinesq.newton_runtime_common import (
+    _newton_loop_template,
+)
 from hydromodpy.solver.boussinesq.partition_runtime_utils import (
     interiorize_regularized_partition_initial_guess,
     regularized_partition_jacobian_shift,
@@ -156,36 +159,20 @@ def _solve_nonlinear_system(
     """Run the shared sparse Newton loop for one head-only nonlinear system."""
     scipy_sparse, scipy_sparse_linalg, matrix_rank_warning = _require_scipy_sparse()
 
-    head = np.asarray(head_initial_guess_m, dtype=float).copy()
-    assembly = assembly_for(head)
-    residual = np.asarray(assembly.residual_m3_s, dtype=float)
-    residual_norm = float(np.linalg.norm(residual, ord=np.inf))
-    initial_residual_norm = residual_norm
-    if residual_norm <= float(tol_residual_inf):
-        return RuntimeSolveResult(
-            head_m=head,
-            assembly=assembly,
-            converged=True,
-            iterations=0,
-            residual_norm_inf=residual_norm,
-            backend_name=str(backend_name),
-            termination_reason="initial residual already satisfies tol_residual_inf",
-        )
-
-    _log.debug(
-        "sparse Newton start: residual_norm=%.4e tol=%.4e max_iter=%d",
-        residual_norm, float(tol_residual_inf), int(max_iterations),
-    )
-    termination_reason = (
-        "sparse Newton max_iterations reached before tol_residual_inf"
-    )
-    for iteration in range(1, int(max_iterations) + 1):
-        jacobian = _build_sparse_jacobian(
+    def _build_sparse_newton_jacobian(
+        head_m: np.ndarray,
+        assembly: BoussinesqAssembly,
+        _residual_m3_s: np.ndarray,
+        _residual_norm_inf: float,
+        _initial_residual_norm_inf: float,
+        _iteration: int,
+    ):
+        return _build_sparse_jacobian(
             scipy_sparse=scipy_sparse,
             assembly_for=assembly_for,
             saturation_correction_for=saturation_correction_for,
             mesh=mesh,
-            head_m=head,
+            head_m=head_m,
             assembly=assembly,
             jacobian_rows_by_col=jacobian_rows_by_col,
             jacobian_column_groups=jacobian_column_groups,
@@ -194,91 +181,88 @@ def _solve_nonlinear_system(
             drainage_conductance_m2_s=drainage_conductance_m2_s,
             fd_rel_step=float(fd_rel_step),
         )
+
+    def _solve_sparse_linear_system(
+        jacobian,
+        residual_m3_s: np.ndarray,
+        residual_norm_inf_value: float,
+        initial_residual_norm_inf_value: float,
+    ) -> np.ndarray:
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("error", matrix_rank_warning)
-                delta = scipy_sparse_linalg.spsolve(jacobian, -residual)
+                delta = scipy_sparse_linalg.spsolve(jacobian, -residual_m3_s)
         except matrix_rank_warning:
             try:
                 delta = _solve_shifted_sparse_system(
                     scipy_sparse_linalg=scipy_sparse_linalg,
                     scipy_sparse=scipy_sparse,
                     jacobian=jacobian,
-                    rhs=-residual,
+                    rhs=-residual_m3_s,
                     diagonal_shift=regularized_partition_jacobian_shift(
                         jacobian.diagonal(),
-                        residual_norm_inf=residual_norm,
-                        initial_residual_norm_inf=initial_residual_norm,
+                        residual_norm_inf=residual_norm_inf_value,
+                        initial_residual_norm_inf=initial_residual_norm_inf_value,
                     ),
                 )
-            except (RuntimeError, ValueError, TypeError):
-                termination_reason = "sparse Newton Jacobian solve failed"
-                break
+            except (RuntimeError, ValueError, TypeError) as exc:
+                raise RuntimeError("Sparse Newton Jacobian solve failed.") from exc
         except (RuntimeError, ValueError, TypeError):
             try:
                 delta = _solve_shifted_sparse_system(
                     scipy_sparse_linalg=scipy_sparse_linalg,
                     scipy_sparse=scipy_sparse,
                     jacobian=jacobian,
-                    rhs=-residual,
+                    rhs=-residual_m3_s,
                     diagonal_shift=regularized_partition_jacobian_shift(
                         jacobian.diagonal(),
-                        residual_norm_inf=residual_norm,
-                        initial_residual_norm_inf=initial_residual_norm,
+                        residual_norm_inf=residual_norm_inf_value,
+                        initial_residual_norm_inf=initial_residual_norm_inf_value,
                     ),
                 )
-            except (RuntimeError, ValueError, TypeError):
-                termination_reason = "sparse Newton Jacobian solve failed"
-                break
-        if not np.all(np.isfinite(delta)):
-            termination_reason = "sparse Newton Jacobian solve failed"
-            break
-
+            except (RuntimeError, ValueError, TypeError) as exc:
+                raise RuntimeError("Sparse Newton Jacobian solve failed.") from exc
         delta = np.asarray(delta, dtype=float).reshape(-1)
-        damping = 1.0
-        accepted = False
-        while damping >= float(min_damping):
-            candidate_head = head + damping * delta
-            candidate_assembly = assembly_for(candidate_head)
-            candidate_residual = np.asarray(candidate_assembly.residual_m3_s, dtype=float)
-            candidate_norm = float(np.linalg.norm(candidate_residual, ord=np.inf))
-            if candidate_norm < residual_norm or damping <= float(min_damping):
-                head = candidate_head
-                assembly = candidate_assembly
-                residual = candidate_residual
-                residual_norm = candidate_norm
-                accepted = True
-                break
-            damping *= 0.5
+        if not np.all(np.isfinite(delta)):
+            raise RuntimeError("Sparse Newton Jacobian solve failed.")
+        return delta
 
+    def _log_start(
+        residual_norm_inf_value: float,
+        tol_residual_inf_value: float,
+        max_iterations_value: int,
+    ) -> None:
+        _log.debug(
+            "sparse Newton start: residual_norm=%.4e tol=%.4e max_iter=%d",
+            residual_norm_inf_value,
+            tol_residual_inf_value,
+            max_iterations_value,
+        )
+
+    def _log_iteration(
+        iteration: int,
+        residual_norm_inf_value: float,
+        damping: float,
+    ) -> None:
         _log.debug(
             "  iter %3d: residual_norm=%.4e damping=%.2e",
-            iteration, residual_norm, damping,
+            iteration,
+            residual_norm_inf_value,
+            damping,
         )
-        if not accepted:
-            termination_reason = (
-                "sparse Newton line search failed to reduce the residual"
-            )
-            break
-        if residual_norm <= float(tol_residual_inf):
-            return RuntimeSolveResult(
-                head_m=head,
-                assembly=assembly,
-                converged=True,
-                iterations=iteration,
-                residual_norm_inf=residual_norm,
-                backend_name=str(backend_name),
-                termination_reason="sparse Newton residual tolerance reached",
-            )
 
-    return RuntimeSolveResult(
-        head_m=head,
-        assembly=assembly,
-        converged=False,
-        iterations=int(max_iterations),
-        residual_norm_inf=residual_norm,
-        backend_name=str(backend_name),
-        termination_reason=termination_reason,
+    return _newton_loop_template(
+        assembly_for=assembly_for,
+        head_initial_guess_m=head_initial_guess_m,
+        max_iterations=max_iterations,
+        tol_residual_inf=tol_residual_inf,
+        min_damping=min_damping,
+        backend_name=backend_name,
+        newton_label="sparse",
+        build_jacobian=_build_sparse_newton_jacobian,
+        solve_linear_system=_solve_sparse_linear_system,
+        log_start=_log_start,
+        log_iteration=_log_iteration,
     )
 
 

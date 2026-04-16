@@ -2,8 +2,8 @@
 
 HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater models.
 
-[![CI](https://github.com/HydroModPy/HydroModPy/actions/workflows/coverage.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/coverage.yml)
-[![Coverage](https://codecov.io/gh/HydroModPy/HydroModPy/branch/dev-refact/graph/badge.svg)](https://codecov.io/gh/HydroModPy/HydroModPy/tree/dev-refact)
+[![Coverage](https://github.com/HydroModPy/HydroModPy/actions/workflows/coverage.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/coverage.yml)
+[![Boussinesq Linux](https://github.com/HydroModPy/HydroModPy/actions/workflows/linux-boussinesq.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/linux-boussinesq.yml)
 [![Documentation](https://readthedocs.org/projects/hydromodpy-docs/badge/?version=latest)](https://hydromodpy-docs.readthedocs.io/en/latest/)
 [![Python 3.11 | 3.12 | 3.13](https://img.shields.io/badge/python-3.11_|_3.12_|_3.13-blue.svg)](https://www.python.org/)
 [![License: EPL-2.0](https://img.shields.io/badge/license-EPL--2.0-green.svg)](https://opensource.org/licenses/EPL-2.0)
@@ -56,9 +56,14 @@ Install HydroModPy directly from PyPI:
 
 ```bash
 pip install hydromodpy
-# or include Spyder + JupyterLab
+# optional extras
 pip install "hydromodpy[ide]"
+pip install "hydromodpy[test]"
+pip install "hydromodpy[viewer3d]"
 ```
+
+The base runtime no longer pulls IDE, test, or 3D viewer dependencies by
+default. Add extras only when you need those workflows.
 
 For development mode (editable installation):
 
@@ -68,6 +73,8 @@ cd HydroModPy
 
 # Install in editable mode
 pip install -e .
+# or add local test tooling
+pip install -e ".[test]"
 
 # PyHELP binaries are automatically downloaded on first import
 ```

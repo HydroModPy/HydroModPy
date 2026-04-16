@@ -31,6 +31,7 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config.param_level import PROFILES, ParamLevel
+from hydromodpy.launchers.config_registry import launcher_config_registry
 
 # Registry of available config modules.
 # Each entry maps a TOML section name to its Pydantic model class.
@@ -50,11 +51,6 @@ def _get_registry() -> dict[str, type[BaseModel]]:
         from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
         from hydromodpy.solver.prototype.solver_config import SolverConfig
         from hydromodpy.core.workspace.config import WorkspaceConfig
-        from launchers.data_overview.config import OverviewSection
-        from launchers.mesh_catchment.config import (
-            MeshCatchmentBatchSectionSchema,
-            MeshCatchmentConfigSchema,
-        )
         _MODULE_REGISTRY = {
             "workspace": WorkspaceConfig,
             "geographic": GeographicConfig,
@@ -65,9 +61,7 @@ def _get_registry() -> dict[str, type[BaseModel]]:
             "solver": SolverConfig,
             "modflownwt": ModflowConfig,
             "modflow6": Modflow6Config,
-            "mesh_catchment": MeshCatchmentConfigSchema,
-            "mesh_catchment_batch": MeshCatchmentBatchSectionSchema,
-            "overview": OverviewSection,
+            **launcher_config_registry(),
         }
     return _MODULE_REGISTRY
 
