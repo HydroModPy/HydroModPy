@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -22,7 +23,13 @@ from hydromodpy.simulation.planning.plan import (
     RunContext,
     SimulationPlan,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid import GmshPlanarMesh2D
+from hydromodpy.solver.utils.mesh.gmsh_grid import (
+    GmshPlanarMesh2D,
+    build_gmsh_support_metadata,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+    load_catchment_mesh_bundle,
+)
 from validation_cases.shared.loaders import load_last_npy_array
 
 
@@ -647,8 +654,8 @@ def test_boussinesq_flow_adapter_uses_geographic_features_for_stream_runtime_mes
     river_edges = model.mesh.river_edge_indices()
     assert river_edges.shape == (1,)
     assert model.state is not None
-    assert model.state.imposed_head_edge_flux_m3_s is not None
-    assert model.state.imposed_head_edge_flux_m3_s[int(river_edges[0])] > 0.0
+    assert model.state.boundary_edge_flux_m3_s is not None
+    assert model.state.boundary_edge_flux_m3_s[int(river_edges[0])] > 0.0
 
 
 def test_boussinesq_flow_adapter_loads_bundle_from_mesh_summary(tmp_path: Path) -> None:
@@ -851,8 +858,65 @@ def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(
     assert model.state is not None
     assert model.state.recharge_rate_m_s is not None
     assert np.allclose(model.state.recharge_rate_m_s, 1.0e-7)
-    assert model.state.imposed_head_edge_flux_m3_s is not None
-    assert model.state.imposed_head_edge_flux_m3_s[4] < 0.0
+    assert model.state.boundary_edge_flux_m3_s is not None
+    assert model.state.boundary_edge_flux_m3_s[4] < 0.0
+
+
+def test_boussinesq_flow_adapter_uses_setup_mesh_support_for_side_label(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle_side_label")
+    support = build_gmsh_support_metadata(load_catchment_mesh_bundle(bundle_dir))
+    assert support is not None
+    state = SimpleNamespace(
+        setup=SimpleNamespace(
+            mesh_bundle=None,
+            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+            mesh_support=replace(
+                support,
+                boundary_labels_by_edge_id={4: "east_custom"},
+            ),
+            flow=Flow(
+                _build_flow_config(
+                    {
+                        "ic": {"type": "custom", "value": 7.0},
+                        "active_bc": ["east_side"],
+                        "bc": {
+                            "dirichlet": {
+                                "east_side": {
+                                    "value": 10.0,
+                                    "support_label": "east_custom",
+                                }
+                            }
+                        },
+                    }
+                )
+            ),
+            domain=None,
+            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
+            workspace=SimpleNamespace(simulations_folder=tmp_path),
+        ),
+    )
+    run = ProcessRun(
+        id="flow_main::boussinesq_side_label",
+        process_id="flow_main",
+        process_type="flow",
+        solver="boussinesq",
+    )
+    ctx = RunContext(
+        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
+        run=run,
+        state=state,
+    )
+
+    result = BoussinesqFlowAdapter().execute(ctx)
+    model = result.primary_model
+
+    assert model.has_numerical_solution is True
+    assert model.state is not None
+    assert model.state.boundary_edge_flux_m3_s is not None
+    assert model.state.boundary_edge_flux_m3_s[4] < 0.0
+    assert np.allclose(model.state.boundary_edge_flux_m3_s[1], 0.0, atol=1.0e-12)
 
 
 def test_boussinesq_flow_adapter_supports_absolute_xy_well(
@@ -951,8 +1015,8 @@ def test_boussinesq_flow_adapter_supports_stream_on_river_edges(
 
     assert model.has_numerical_solution is True
     assert model.state is not None
-    assert model.state.imposed_head_edge_flux_m3_s is not None
-    assert model.state.imposed_head_edge_flux_m3_s[2] > 0.0
+    assert model.state.boundary_edge_flux_m3_s is not None
+    assert model.state.boundary_edge_flux_m3_s[2] > 0.0
 
 
 def test_boussinesq_flow_adapter_supports_ocean_on_coastal_edges(
@@ -998,9 +1062,9 @@ def test_boussinesq_flow_adapter_supports_ocean_on_coastal_edges(
 
     assert model.has_numerical_solution is True
     assert model.state is not None
-    assert model.state.imposed_head_edge_flux_m3_s is not None
+    assert model.state.boundary_edge_flux_m3_s is not None
     assert model.runtime_summary["active_ocean"] is True
-    assert model.state.imposed_head_edge_flux_m3_s[0] < 0.0
-    assert model.state.imposed_head_edge_flux_m3_s[1] < 0.0
-    assert np.allclose(model.state.imposed_head_edge_flux_m3_s[[3, 4]], 0.0, atol=1.0e-12)
+    assert model.state.boundary_edge_flux_m3_s[0] < 0.0
+    assert model.state.boundary_edge_flux_m3_s[1] < 0.0
+    assert np.allclose(model.state.boundary_edge_flux_m3_s[[3, 4]], 0.0, atol=1.0e-12)
     assert model.state.head_m[0] > 8.0

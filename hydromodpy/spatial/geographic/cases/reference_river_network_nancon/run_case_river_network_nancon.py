@@ -125,6 +125,7 @@ def run_reference_river_network_nancon_from_toml(
     *,
     output_dir: str | Path | None = None,
     show_plot: bool = True,
+    write_plot: bool = True,
 ) -> dict[str, object]:
     """Run one Nançon geographic preprocessing case with river-network outputs."""
     config_path = Path(config_toml).expanduser().resolve()
@@ -144,26 +145,28 @@ def run_reference_river_network_nancon_from_toml(
         )
 
     summary = _read_json(summary_json)
-    out_dir = (
-        Path(output_dir).expanduser().resolve()
-        if output_dir is not None
-        else Path(__file__).resolve().parent / "outputs"
-    )
-    out_dir.mkdir(parents=True, exist_ok=True)
-    fig_path = out_dir / "nancon_river_network_overview.png"
+    fig_path = None
+    if write_plot:
+        out_dir = (
+            Path(output_dir).expanduser().resolve()
+            if output_dir is not None
+            else Path(__file__).resolve().parent / "outputs"
+        )
+        out_dir.mkdir(parents=True, exist_ok=True)
+        fig_path = out_dir / "nancon_river_network_overview.png"
 
-    if show_plot:
-        ensure_interactive_backend_for_show()
-    else:
-        try:
-            plt.switch_backend("Agg")
-        except Exception:
-            pass
-    fig = _build_reference_figure(geographic=geographic, summary=summary)
-    fig.savefig(fig_path, bbox_inches="tight", pad_inches=0.05)
-    if show_plot:
-        show_figures_blocking(fig)
-    plt.close(fig)
+        if show_plot:
+            ensure_interactive_backend_for_show()
+        else:
+            try:
+                plt.switch_backend("Agg")
+            except Exception:
+                pass
+        fig = _build_reference_figure(geographic=geographic, summary=summary)
+        fig.savefig(fig_path, bbox_inches="tight", pad_inches=0.05)
+        if show_plot:
+            show_figures_blocking(fig)
+        plt.close(fig)
 
     return {
         "catch_folder": str(workspace.catch_folder),
@@ -173,7 +176,7 @@ def run_reference_river_network_nancon_from_toml(
         "river_network_summary_json": str(summary_json),
         "segment_count": int(summary["segment_count"]),
         "network_total_length_m": float(summary["network_total_length_m"]),
-        "figure": str(fig_path),
+        "figure": None if fig_path is None else str(fig_path),
     }
 
 

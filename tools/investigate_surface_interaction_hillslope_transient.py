@@ -31,9 +31,11 @@ from validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage
 )
 from validation_cases.shared import (
     ValidationRunResult,
+    align_snapshot_series_to_expected_count,
     load_case_config,
     load_case_metadata,
     load_npy_time_series_arrays,
+    load_npy_time_series_arrays_with_elapsed_seconds,
 )
 from validation_cases.shared.boussinesq_budget import (
     compute_free_control_volume_budget,
@@ -243,8 +245,14 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 def _align_series_lengths(reference: np.ndarray, *series: np.ndarray) -> tuple[np.ndarray, ...]:
     arrays = [np.asarray(reference, dtype=float).reshape(-1)]
     arrays.extend(np.asarray(item, dtype=float).reshape(-1) for item in series)
-    target = min(array.size for array in arrays)
-    return tuple(array[:target] for array in arrays)
+    expected = int(arrays[0].size)
+    mismatches = [array.size for array in arrays[1:] if int(array.size) != expected]
+    if mismatches:
+        raise ValueError(
+            "Transient comparison series must already be aligned before plotting. "
+            f"Expected {expected} rows for every series, got {mismatches}."
+        )
+    return tuple(np.asarray(array, dtype=float) for array in arrays)
 
 
 def _load_case_payload_for_solver(metadata: dict[str, Any], solver: str) -> dict[str, Any]:
@@ -574,7 +582,6 @@ def _run_boussinesq(
         plan_name="Transient hillslope surface interaction",
         plan_description="Progressive recharge ramp on a sloping strip with top drainage.",
         flow_regime="transient",
-        export_initial_state=False,
     )
     return ValidationRunResult(
         case_dir=result.case_dir,
@@ -747,11 +754,16 @@ def _select_snapshot_indices(elapsed_days: np.ndarray, snapshot_days: tuple[floa
     return sorted(selected)
 
 
-def _first_contact_day(clearance_profiles: np.ndarray) -> float:
+def _first_contact_day(clearance_profiles: np.ndarray, *, elapsed_days: np.ndarray) -> float:
     mask = np.any(np.asarray(clearance_profiles, dtype=float) >= -CONTACT_TOLERANCE_M, axis=1)
     if not np.any(mask):
         return float("nan")
-    return float(_elapsed_days_from_steps(mask.size)[int(np.argmax(mask))])
+    elapsed = np.asarray(elapsed_days, dtype=float).reshape(-1)
+    if elapsed.size != mask.size:
+        raise ValueError(
+            "clearance_profiles and elapsed_days must share the same time length."
+        )
+    return float(elapsed[int(np.argmax(mask))])
 
 
 def _build_result(
@@ -761,7 +773,10 @@ def _build_result(
     topography_base_elevation_m: float,
     wall_time_seconds: float | None = None,
 ) -> TransientResult:
-    period_indices, heads = load_npy_time_series_arrays(result.postprocess_dir, "watertable_elevation")
+    period_indices, heads, explicit_elapsed_seconds = load_npy_time_series_arrays_with_elapsed_seconds(
+        result.postprocess_dir,
+        "watertable_elevation",
+    )
     del period_indices
     heads = np.asarray(heads, dtype=float)
     if heads.ndim == 3:
@@ -776,7 +791,10 @@ def _build_result(
     else:
         raise ValueError("Expected watertable_elevation to be a time-y-x or time-cell array.")
     head_profiles = np.mean(head_grids, axis=1)
-    elapsed_days = _elapsed_days_from_steps(head_profiles.shape[0])
+    if explicit_elapsed_seconds is None:
+        elapsed_days = _elapsed_days_from_steps(head_profiles.shape[0])
+    else:
+        elapsed_days = np.asarray(explicit_elapsed_seconds, dtype=float) / SECONDS_PER_DAY
     dx = LENGTH_X_M / float(head_profiles.shape[1])
     x = (np.arange(head_profiles.shape[1], dtype=float) + 0.5) * dx
     topography_profile = build_linear_topography_values(
@@ -809,6 +827,20 @@ def _build_result(
         east_boundary_inflow_m3_day = budget.east_boundary_inflow_m3_day
         east_boundary_outflow_m3_day = budget.east_boundary_outflow_m3_day
         storage_change_m3_day = budget.storage_change_m3_day
+        _time_keys, head_grids, explicit_elapsed_seconds = align_snapshot_series_to_expected_count(
+            np.arange(head_grids.shape[0], dtype=int),
+            head_grids,
+            explicit_elapsed_seconds,
+            expected_count=int(storage_change_m3_day.size),
+            name="watertable_elevation",
+        )
+        head_profiles = np.mean(np.asarray(head_grids, dtype=float), axis=1)
+        elapsed_days = (
+            _elapsed_days_from_steps(head_profiles.shape[0])
+            if explicit_elapsed_seconds is None
+            else np.asarray(explicit_elapsed_seconds, dtype=float) / SECONDS_PER_DAY
+        )
+        clearance_profiles = head_profiles - topography_profile[None, :]
     else:
         _, outflow_drain = load_npy_time_series_arrays(result.postprocess_dir, "outflow_drain")
         outflow_drain = np.asarray(outflow_drain, dtype=float)
@@ -922,7 +954,7 @@ def _build_result(
         storage_change_m3_day=np.asarray(storage_change_m3_day, dtype=float),
         residual_m3_day=residual_m3_day,
         max_clearance_m=float(np.max(clearance_profiles)),
-        onset_day=_first_contact_day(clearance_profiles),
+        onset_day=_first_contact_day(clearance_profiles, elapsed_days=elapsed_days),
         peak_drainage_flux_m3_day=float(drainage_flux_m3_day[peak_idx]),
         peak_drainage_day=float(elapsed_days[peak_idx]),
         peak_total_outflow_m3_day=float(total_outflow_m3_day[peak_total_idx]),

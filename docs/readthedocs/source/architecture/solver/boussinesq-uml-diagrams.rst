@@ -24,14 +24,15 @@ Simplification Review
 The current Boussinesq package is already much clearer than before:
 
 - the canonical Dirichlet concept is now prescribed boundary cells;
+- the active driver/runtime path now uses that prescribed-cell representation;
+- legacy edge-based boundary diagnostics are rebuilt explicitly in one adapter
+  layer instead of driving the solve path;
 - the method and engine taxonomy is explicit;
 - runtime state construction is centralized;
 - the process-to-solver contract is explicit.
 
 The main remaining simplification targets are:
 
-- reduce the size of ``boussinesq.py`` by splitting forcing and boundary
-  resolution, transient orchestration and export payload assembly;
 - continue shrinking the legacy ``imposed_head_*`` compatibility surface
   toward an export-only adapter;
 - factor common runtime bookkeeping now repeated across local, SciPy and PETSc

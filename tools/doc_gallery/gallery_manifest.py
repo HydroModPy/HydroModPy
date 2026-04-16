@@ -272,6 +272,20 @@ _GEOMETRY_INDICATOR_METRIC_SPECS = (
     GalleryMetricSpec("DEM range", "dem_range_m", _format_float("m", precision=0)),
 )
 
+_REGIONAL_LAB_METRIC_SPECS = (
+    GalleryMetricSpec("Selected sites", "selected_site_count", _format_int),
+    GalleryMetricSpec("Planned cases", "planned_case_count", _format_int),
+    GalleryMetricSpec("Skipped cases", "skipped_case_count", _format_int),
+    GalleryMetricSpec("Pending cases", "pending_case_count", _format_int),
+)
+
+_REGIONAL_LAB_RECIPE_METRIC_SPECS = (
+    GalleryMetricSpec("Candidate sites", "candidate_site_count", _format_int),
+    GalleryMetricSpec("Planned cases", "planned_case_count", _format_int),
+    GalleryMetricSpec("Coverage gaps", "skipped_case_count", _format_int),
+    GalleryMetricSpec("Pending cases", "pending_case_count", _format_int),
+)
+
 
 def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSpec, ...]:
     """Discover versioned mesh-gallery cases imported under ``examples/mesh_gallery``."""
@@ -424,6 +438,153 @@ def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSp
             )
         )
     return tuple(spec for _, spec in sorted(discovered_specs, key=lambda item: item[0]))
+
+
+_DEFAULT_METHOD_COMPARISON_NEXT_STEPS = (
+    "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, method-comparison pages, and validation pages.",
+    "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.",
+)
+
+_DEFAULT_REGIONAL_LAB_NEXT_STEPS = (
+    "Switch `execute = true` in the focused overlay config when the dry plan looks correct and you want to launch the child workflow.",
+    "Use these orchestration pages as the planning complement to the individual simulation and method-comparison cases already exposed elsewhere in the gallery.",
+)
+
+
+def _build_method_comparison_case_spec(
+    *,
+    slug: str,
+    title: str,
+    deck: str,
+    summary: str,
+    what_it_shows: tuple[str, ...],
+    comparison_config_path: str,
+    source_paths: tuple[str, ...],
+    case_setup: tuple[str, ...],
+    key_parameters: tuple[str, ...],
+    how_to_read: tuple[str, ...],
+    study_area: str,
+    focus_variant_id: str,
+    comparison_family_key: str,
+    comparison_family_label: str,
+    comparison_family_deck: str,
+    comparison_family_order: int,
+    comparison_case_order: int,
+    next_steps: tuple[str, ...] = _DEFAULT_METHOD_COMPARISON_NEXT_STEPS,
+    metadata: dict[str, Any] | None = None,
+) -> GalleryCaseSpec:
+    """Build one method-comparison gallery spec with shared defaults."""
+
+    return GalleryCaseSpec(
+        slug=slug,
+        title=title,
+        category="method_comparison",
+        deck=deck,
+        summary=summary,
+        what_it_shows=what_it_shows,
+        reproduction_command=(
+            "python -m launchers method-comparison run "
+            f"{comparison_config_path}"
+        ),
+        source_paths=(comparison_config_path, *source_paths),
+        generator="method_comparison_case",
+        image_assets=(
+            GalleryImageAsset(
+                filename=f"{slug}.png",
+                caption=f"Summary comparison figure for {title.lower()}.",
+                alt_text=f"Method comparison summary for {title}",
+            ),
+        ),
+        case_setup=case_setup,
+        key_parameters=key_parameters,
+        how_to_read=how_to_read,
+        next_steps=next_steps,
+        walkthrough_doc="getting_started/reading-results-pages",
+        walkthrough_title="the gallery and validation reading guide",
+        metadata={
+            "comparison_config_path": comparison_config_path,
+            "study_area": study_area,
+            "focus_variant_id": focus_variant_id,
+            "comparison_family_key": comparison_family_key,
+            "comparison_family_label": comparison_family_label,
+            "comparison_family_deck": comparison_family_deck,
+            "comparison_family_order": comparison_family_order,
+            "comparison_case_order": comparison_case_order,
+            **dict(metadata or {}),
+        },
+    )
+
+
+def _build_regional_lab_case_spec(
+    *,
+    slug: str,
+    title: str,
+    deck: str,
+    summary: str,
+    what_it_shows: tuple[str, ...],
+    regional_lab_config_path: str,
+    source_paths: tuple[str, ...],
+    case_setup: tuple[str, ...],
+    key_parameters: tuple[str, ...],
+    how_to_read: tuple[str, ...],
+    process_families: tuple[str, ...],
+    workflow_case_order: int,
+    metric_specs: tuple[GalleryMetricSpec, ...] = _REGIONAL_LAB_METRIC_SPECS,
+    next_steps: tuple[str, ...] = _DEFAULT_REGIONAL_LAB_NEXT_STEPS,
+    metadata: dict[str, Any] | None = None,
+) -> GalleryCaseSpec:
+    """Build one regional-lab gallery spec with shared defaults."""
+
+    return GalleryCaseSpec(
+        slug=slug,
+        title=title,
+        category="simulation",
+        deck=deck,
+        summary=summary,
+        what_it_shows=what_it_shows,
+        reproduction_command=(
+            "python -m launchers regional-lab run "
+            f"{regional_lab_config_path}"
+        ),
+        source_paths=(regional_lab_config_path, *source_paths),
+        generator="regional_lab_case",
+        image_assets=(
+            GalleryImageAsset(
+                filename=f"{slug}.png",
+                caption=(
+                    f"Dry-plan synthesis for {title.lower()}: site or candidate coverage, "
+                    "recipe summary, and planning metrics."
+                ),
+                alt_text=f"Regional lab dry-plan synthesis for {title}",
+            ),
+        ),
+        metric_specs=metric_specs,
+        case_setup=case_setup,
+        key_parameters=key_parameters,
+        how_to_read=how_to_read,
+        next_steps=next_steps,
+        walkthrough_doc="getting_started/simulation-walkthrough",
+        walkthrough_title="the Simulation walkthrough",
+        metadata={
+            "regional_lab_config_path": regional_lab_config_path,
+            "study_area": "Brittany regional laboratory",
+            "process_families": list(process_families),
+            "workflow_family_key": "regional_orchestration",
+            "workflow_family_label": "Regional Orchestration",
+            "workflow_family_deck": (
+                "These cases do not focus on one child solver run. They document how one "
+                "population of sites and reusable recipes expands into a coordinated study plan."
+            ),
+            "workflow_family_order": 30,
+            "workflow_case_order": workflow_case_order,
+            "postprocess_outputs": [
+                "site_recipe_matrix",
+                "recipe_coverage_summary",
+                "coverage_gap_summary",
+            ],
+            **dict(metadata or {}),
+        },
+    )
 
 
 def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
@@ -748,6 +909,18 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             walkthrough_doc="getting_started/data-overview-walkthrough",
             walkthrough_title="the Data Overview walkthrough",
+            metadata={
+                "workflow_stage": "watershed_context",
+                "workflow_stage_label": "Watershed Context",
+                "workflow_stage_deck": (
+                    "These cases frame the basin first: outlet location, DEM context, and the "
+                    "local support that later workflows will reuse."
+                ),
+                "workflow_stage_order": 10,
+                "panel_families": ["dem_overview", "local_context"],
+                "loaded_data_types": ["hydrography", "hydrometry", "intermittency", "oceanic"],
+                "reading_order": 10,
+            },
         ),
         GalleryCaseSpec(
             slug="geographic_bdtopage_hydrography_overlay",
@@ -806,6 +979,281 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             walkthrough_doc="getting_started/data-overview-walkthrough",
             walkthrough_title="the Data Overview walkthrough",
+            metadata={
+                "workflow_stage": "single_data_audit",
+                "workflow_stage_label": "Single Data Audit",
+                "workflow_stage_deck": (
+                    "These cases isolate one data family or one panel so the reader can audit "
+                    "one input without the noise of a full watershed identity card."
+                ),
+                "workflow_stage_order": 30,
+                "panel_families": ["hydrography_overlay"],
+                "loaded_data_types": ["hydrography"],
+                "source_families": ["BD Topage"],
+                "reading_order": 30,
+            },
+        ),
+        GalleryCaseSpec(
+            slug="geographic_nancon_identity_card",
+            title="Nancon Observation Identity Card",
+            category="geographic",
+            deck="Committed data-overview synthesis combining basin maps, climate summary, station inventory, and compact observation stats.",
+            summary=(
+                "This case reuses the broader Nancon `data-overview` output set as a stable identity "
+                "card for one observed basin. It keeps the workflow strictly pre-mesh and pre-solver, "
+                "but shows more than framing alone: terrain, geology, hydrography, climate synthesis, "
+                "station inventory, and one compact stats card for the loaded observations."
+            ),
+            what_it_shows=(
+                "How one basin can be summarized as an observation identity card before any mesh or solver is involved.",
+                "How DEM, geology, hydrography, climate synthesis, and station inventory can live on one page without rerunning notebooks.",
+                "How committed `data-overview` outputs can document which observations are available, not only where the watershed sits.",
+            ),
+            reproduction_command=(
+                "python -m launchers data-overview run "
+                "examples/projects/Nancon_data_overview/config_overview.toml"
+            ),
+            source_paths=(
+                "examples/projects/Nancon_data_overview/README.md",
+                "examples/projects/Nancon_data_overview/config_overview.toml",
+                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_dem.png",
+                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_geology.png",
+                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_hydrography.png",
+                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/climatic_summary.png",
+                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/station_inventory.png",
+                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/stats_card.png",
+                "examples/projects/Nancon_data_overview/results_stable/geographic/river_network_summary.json",
+            ),
+            generator="copy_assets",
+            image_assets=(
+                GalleryImageAsset(
+                    filename="geographic_nancon_identity_card_map_dem.png",
+                    caption="DEM-based overview for the Nancon watershed.",
+                    alt_text="Nancon DEM overview",
+                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_dem.png",
+                ),
+                GalleryImageAsset(
+                    filename="geographic_nancon_identity_card_map_hydrography.png",
+                    caption="Hydrography rendered on the Nancon basin support.",
+                    alt_text="Nancon hydrography overview",
+                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_hydrography.png",
+                ),
+                GalleryImageAsset(
+                    filename="geographic_nancon_identity_card_map_geology.png",
+                    caption="Geology overlay for the same Nancon support.",
+                    alt_text="Nancon geology overview",
+                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_geology.png",
+                ),
+                GalleryImageAsset(
+                    filename="geographic_nancon_identity_card_station_inventory.png",
+                    caption="Station inventory extracted by the Nancon data-overview workflow.",
+                    alt_text="Nancon station inventory",
+                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/station_inventory.png",
+                ),
+                GalleryImageAsset(
+                    filename="geographic_nancon_identity_card_stats_card.png",
+                    caption="Compact statistics card for the loaded Nancon observations.",
+                    alt_text="Nancon observation stats card",
+                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/stats_card.png",
+                ),
+                GalleryImageAsset(
+                    filename="geographic_nancon_identity_card_climatic_summary.png",
+                    caption="Climatic synthesis panel from the Nancon identity-card run.",
+                    alt_text="Nancon climatic summary",
+                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/climatic_summary.png",
+                ),
+            ),
+            case_setup=(
+                "Launcher family: `data-overview`, so the workflow stops after geographic setup, data loading, and overview rendering.",
+                "Primary editable file: `examples/projects/Nancon_data_overview/config_overview.toml`.",
+                "The committed output folder already contains the full set of identity-card figures, which are copied as stable documentation assets.",
+            ),
+            key_parameters=(
+                "`[data] types` drives the identity card more strongly here than the geographic section alone because it determines which observation families appear in the stats, inventory, climate, and map panels.",
+                "`[overview.panels]` is the page-layout switchboard: it decides whether geology, hydrography, station inventory, climate, and the different chronicle panels are rendered.",
+                "The date windows in the hydrometry, piezometry, intermittency, and water-quality sections change the temporal scope of the observations without changing the basin support.",
+                "Keep this case in `geographic` because it still documents data availability and basin context only; no mesh or simulation state is involved.",
+            ),
+            how_to_read=(
+                "Start with the DEM and hydrography panels to understand the basin support and the main drainage backbone.",
+                "Use the station inventory and stats card next to judge whether the observation families are rich enough for later simulation or calibration work.",
+                "Read the climate synthesis last as a forcing-context panel rather than as a solver result.",
+            ),
+            next_steps=(
+                "Open the observed-series companion page next when you want to inspect the actual hydrometry, piezometry, intermittency, and water-quality chronologies.",
+                "Move to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` only once the observation inventory and basin support look coherent.",
+            ),
+            walkthrough_doc="getting_started/data-overview-walkthrough",
+            walkthrough_title="the Data Overview walkthrough",
+            metadata={
+                "workflow_stage": "observation_identity_card",
+                "workflow_stage_label": "Observation Identity Card",
+                "workflow_stage_deck": (
+                    "These cases combine support context with observation availability so the reader "
+                    "can decide whether a basin is well instrumented before meshing or solving."
+                ),
+                "workflow_stage_order": 20,
+                "panel_families": [
+                    "dem_overview",
+                    "geology_overlay",
+                    "hydrography_overlay",
+                    "station_inventory",
+                    "stats_card",
+                    "climatic_summary",
+                ],
+                "loaded_data_types": [
+                    "geology",
+                    "hydrography",
+                    "hydrometry",
+                    "piezometry",
+                    "intermittency",
+                    "precipitation",
+                    "etp",
+                    "temperature",
+                    "recharge",
+                    "runoff",
+                    "wind",
+                ],
+                "source_families": ["Committed Nancon overview outputs"],
+                "reading_order": 20,
+                "lead_image_filenames": [
+                    "geographic_nancon_identity_card_map_dem.png",
+                    "geographic_nancon_identity_card_map_hydrography.png",
+                ],
+                "tab_specs": [
+                    {
+                        "title": "Geology",
+                        "filename": "geographic_nancon_identity_card_map_geology.png",
+                    },
+                    {
+                        "title": "Inventory And Stats",
+                        "filenames": [
+                            "geographic_nancon_identity_card_station_inventory.png",
+                            "geographic_nancon_identity_card_stats_card.png",
+                        ],
+                    },
+                    {
+                        "title": "Climate Summary",
+                        "filename": "geographic_nancon_identity_card_climatic_summary.png",
+                    },
+                ],
+            },
+        ),
+        GalleryCaseSpec(
+            slug="geographic_nancon_observed_timeseries",
+            title="Nancon Observed Series Overview",
+            category="geographic",
+            deck="Committed observation chronologies for discharge, piezometry, intermittency, and water quality on one watershed.",
+            summary=(
+                "This companion case focuses on the observed time-series side of `data-overview`. "
+                "It reuses the committed Nancon chronicle figures so the docs can show which temporal "
+                "signals are actually available before any forward or inverse modelling is attempted."
+            ),
+            what_it_shows=(
+                "How four observation families are rendered consistently in the same `data-overview` workflow.",
+                "How a data-overview page can move from basin framing to real temporal signals without touching any solver output.",
+                "Which observation families are available for later validation, calibration, or qualitative scenario reading.",
+            ),
+            reproduction_command=(
+                "python -m launchers data-overview run "
+                "examples/projects/Nancon_data_overview/config_overview.toml"
+            ),
+            source_paths=(
+                "examples/projects/Nancon_data_overview/config_overview.toml",
+                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_discharge.png",
+                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_piezometry.png",
+                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_intermittency.png",
+                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_water_quality.png",
+            ),
+            generator="copy_assets",
+            image_assets=(
+                GalleryImageAsset(
+                    filename="geographic_nancon_timeseries_discharge.png",
+                    caption="Observed discharge chronicle extracted by the Nancon data-overview workflow.",
+                    alt_text="Nancon discharge time series",
+                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_discharge.png",
+                ),
+                GalleryImageAsset(
+                    filename="geographic_nancon_timeseries_piezometry.png",
+                    caption="Observed piezometric chronicle extracted by the Nancon data-overview workflow.",
+                    alt_text="Nancon piezometry time series",
+                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_piezometry.png",
+                ),
+                GalleryImageAsset(
+                    filename="geographic_nancon_timeseries_intermittency.png",
+                    caption="Observed intermittency timeline extracted by the Nancon data-overview workflow.",
+                    alt_text="Nancon intermittency time series",
+                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_intermittency.png",
+                ),
+                GalleryImageAsset(
+                    filename="geographic_nancon_timeseries_water_quality.png",
+                    caption="Observed water-quality chronicle extracted by the Nancon data-overview workflow.",
+                    alt_text="Nancon water quality time series",
+                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/timeseries_water_quality.png",
+                ),
+            ),
+            case_setup=(
+                "Same launcher family and base config as the Nancon identity-card case, but read here through the observation chronicle panels only.",
+                "All figures come from the committed `results_stable/_figures/overview/` output set.",
+                "The page remains pre-solver: it documents observed signals, not simulated response.",
+            ),
+            key_parameters=(
+                "`[overview.panels] timeseries_discharge`, `timeseries_piezometry`, `timeseries_intermittency`, and `timeseries_water_quality` decide which chronicle figures exist.",
+                "The period selectors in each data-family section are the main levers for changing these figures without touching the basin geometry.",
+                "If one expected chronicle is missing, inspect `[data] types` first, then the corresponding source declarations and time windows.",
+            ),
+            how_to_read=(
+                "Use the discharge and piezometry tabs first when judging whether the site is promising for later simulation or calibration use.",
+                "Read intermittency and water quality as complementary observation families that extend the hydro-identity card rather than replace it.",
+                "This page is best used after the basin identity-card page, because it assumes the support and station inventory are already understood.",
+            ),
+            next_steps=(
+                "Go back to the Nancon identity-card page if you need the station inventory and climate context behind these chronologies.",
+                "Use these chronologies as a pre-check before deciding whether a later workflow should stay descriptive, move to simulation, or move to calibration.",
+            ),
+            walkthrough_doc="getting_started/data-overview-walkthrough",
+            walkthrough_title="the Data Overview walkthrough",
+            metadata={
+                "workflow_stage": "observed_time_series",
+                "workflow_stage_label": "Observed Time Series",
+                "workflow_stage_deck": (
+                    "These cases focus on the observation chronologies themselves, once the basin "
+                    "support and station inventory are already understood."
+                ),
+                "workflow_stage_order": 40,
+                "panel_families": [
+                    "timeseries_discharge",
+                    "timeseries_piezometry",
+                    "timeseries_intermittency",
+                    "timeseries_water_quality",
+                ],
+                "loaded_data_types": [
+                    "hydrometry",
+                    "piezometry",
+                    "intermittency",
+                    "water_quality",
+                ],
+                "source_families": ["Committed Nancon overview outputs"],
+                "reading_order": 40,
+                "tab_specs": [
+                    {
+                        "title": "Discharge",
+                        "filename": "geographic_nancon_timeseries_discharge.png",
+                    },
+                    {
+                        "title": "Piezometry",
+                        "filename": "geographic_nancon_timeseries_piezometry.png",
+                    },
+                    {
+                        "title": "Intermittency",
+                        "filename": "geographic_nancon_timeseries_intermittency.png",
+                    },
+                    {
+                        "title": "Water Quality",
+                        "filename": "geographic_nancon_timeseries_water_quality.png",
+                    },
+                ],
+            },
         ),
         GalleryCaseSpec(
             slug="geometry_constraints_canut",
@@ -1022,6 +1470,408 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             walkthrough_doc="getting_started/simulation-walkthrough",
             walkthrough_title="the Simulation walkthrough",
+            metadata={
+                "study_area": "Naizin catchment",
+                "process_families": ["flow", "transport", "postprocess", "display"],
+                "mesh_supports": ["runtime_gmsh_triangular_mesh"],
+                "flow_solvers": ["MODFLOW 6"],
+                "transport_solvers": ["MODFLOW 6 GWT"],
+                "workflow_family_key": "runtime_mesh_build",
+                "workflow_family_label": "Runtime Mesh Build",
+                "workflow_family_deck": (
+                    "These cases build the spatial support during the run, then surface the "
+                    "minimum set of solver and postprocess figures needed to understand what "
+                    "the runtime pipeline produced."
+                ),
+                "workflow_family_order": 10,
+                "workflow_case_order": 10,
+                "postprocess_outputs": [
+                    "flow_state_triptych",
+                    "recharge_discharge_cumulative",
+                    "support_overview",
+                ],
+            },
+        ),
+        GalleryCaseSpec(
+            slug="headwater_100km2_outlet_2_mf6_transient_reference",
+            title="Headwater 100 km2 MF6 Transient Reference",
+            category="simulation",
+            deck="Committed-mesh MODFLOW 6 replay on the 100 km2 outlet-2 basin, published as stable transient postprocess figures.",
+            summary=(
+                "This case reuses the committed 100 km2 outlet-2 triangular mesh instead of "
+                "meshing at runtime. It exposes the reference three-year MODFLOW 6 replay used "
+                "as the baseline for the newer realistic-scenario family, with a compact set of "
+                "flow-state, support, and cumulative budget figures copied into the gallery."
+            ),
+            what_it_shows=(
+                "How a committed mesh-input workflow differs from the runtime-meshed simulation pages.",
+                "How monthly synthetic recharge drives three years of cumulative recharge and discharge on a real basin support.",
+                "How the same run can surface both global synthesis figures and direct water-table maps without shipping the full solver workspace.",
+            ),
+            reproduction_command=(
+                "python -m hydromodpy run examples/projects/launcher_simulation/"
+                "run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+            ),
+            source_paths=(
+                "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
+                "examples/projects/launcher_simulation/config_headwater_100km2_mf6_transient_common.toml",
+                "examples/projects/launcher_simulation/README.md",
+                "examples/capability_gallery/launcher_simulation/headwater_100km2_outlet_2_mf6_transient_reference/manifest.json",
+                "hydromodpy/analysis/display/figures/flow_synthesis.py",
+                "hydromodpy/analysis/capability_gallery.py",
+            ),
+            generator="copy_assets",
+            image_assets=(
+                GalleryImageAsset(
+                    filename="headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png",
+                    caption=(
+                        "Topography, hydraulic head, and water-table depth on the committed "
+                        "100 km2 outlet-2 support."
+                    ),
+                    alt_text="Flow-state triptych for the committed 100 km2 outlet-2 mesh",
+                    source_path=(
+                        "examples/capability_gallery/launcher_simulation/"
+                        "headwater_100km2_outlet_2_mf6_transient_reference/flow_state_triptych.png"
+                    ),
+                ),
+                GalleryImageAsset(
+                    filename="headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png",
+                    caption="Three-year cumulative recharge and discharge curves for the committed-mesh MF6 replay.",
+                    alt_text="Cumulative recharge and discharge on the committed 100 km2 outlet-2 replay",
+                    source_path=(
+                        "examples/capability_gallery/launcher_simulation/"
+                        "headwater_100km2_outlet_2_mf6_transient_reference/recharge_discharge_cumulative.png"
+                    ),
+                ),
+                GalleryImageAsset(
+                    filename="headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png",
+                    caption="Water-table elevation map from the reference transient replay.",
+                    alt_text="Water-table elevation map for the committed 100 km2 outlet-2 replay",
+                    source_path=(
+                        "examples/capability_gallery/launcher_simulation/"
+                        "headwater_100km2_outlet_2_mf6_transient_reference/watertable_elevation.png"
+                    ),
+                ),
+                GalleryImageAsset(
+                    filename="headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png",
+                    caption="Water-table depth map from the reference transient replay.",
+                    alt_text="Water-table depth map for the committed 100 km2 outlet-2 replay",
+                    source_path=(
+                        "examples/capability_gallery/launcher_simulation/"
+                        "headwater_100km2_outlet_2_mf6_transient_reference/watertable_depth.png"
+                    ),
+                ),
+                GalleryImageAsset(
+                    filename="headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png",
+                    caption=(
+                        "Support overview confirming the committed mesh bundle, top/bottom sampling, "
+                        "and active support labels used by the transient replay."
+                    ),
+                    alt_text="Support overview for the committed 100 km2 outlet-2 replay",
+                    source_path=(
+                        "examples/capability_gallery/launcher_simulation/"
+                        "headwater_100km2_outlet_2_mf6_transient_reference/flow_support_overview.png"
+                    ),
+                ),
+            ),
+            case_setup=(
+                "Base config: `config_headwater_100km2_mf6_transient_common.toml` keeps the committed triangular mesh, the flow-only process chain, and the common postprocess/display switches.",
+                "Overlay config: `run_headwater_100km2_outlet_2_mf6_transient_reference.toml` injects the three-year monthly recharge chronology and homogeneous K/Sy/Ss values.",
+                "Execution chain: committed `mesh_input` bundle -> MODFLOW 6 transient flow -> postprocess rasters and synthesis figures -> gallery publication.",
+            ),
+            key_parameters=(
+                "`[mesh_input] mesh_path` and `bundle_dir` lock the support to the versioned 100 km2 outlet-2 mesh, which makes this page a support-reuse workflow rather than a meshing example.",
+                "`[simulation.time] start_datetime`, `end_datetime`, and `step_value` define the three-year monthly replay window shown in the cumulative curves.",
+                "`[[data.recharge.sources]] values`, `freq`, and `runoff_ratio` define the synthetic forcing chronology that drives the transient response.",
+                "`[flow.param.K.field_homogeneous]`, `[flow.param.Sy.field_homogeneous]`, and `[flow.param.Ss.field_homogeneous]` are the main parameters to perturb when comparing this reference run against the more complex scenario overlays.",
+            ),
+            how_to_read=(
+                "Open the support overview first to verify that the run reused the committed mesh bundle and sampled the structural surfaces as expected.",
+                "Read the flow-state triptych next for the compact basin-wide synthesis, then use the direct water-table maps when you need one variable isolated.",
+                "Use the cumulative recharge/discharge panel last to judge whether the imposed forcing and the integrated basin response remain coherent over the three-year window.",
+            ),
+            next_steps=(
+                "Read :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` for the general mapping between config sections and displayed figures.",
+                "Use the committed-mesh comparison pages in :doc:`the method-comparison section </capability_gallery/method_comparison>` when you want to compare this style of replay against other supports or solver families.",
+            ),
+            walkthrough_doc="getting_started/simulation-walkthrough",
+            walkthrough_title="the Simulation walkthrough",
+            metadata={
+                "study_area": "Headwater 100 km2 outlet 2",
+                "process_families": ["flow", "postprocess", "display"],
+                "mesh_supports": ["committed_triangular_mesh_input"],
+                "flow_solvers": ["MODFLOW 6"],
+                "workflow_family_key": "committed_mesh_replays",
+                "workflow_family_label": "Committed Mesh Replays",
+                "workflow_family_deck": (
+                    "These cases keep the spatial support fixed and focus on how forcing, "
+                    "hydraulic parameters, and solver settings shape the replay on an already "
+                    "versioned basin mesh."
+                ),
+                "workflow_family_order": 20,
+                "workflow_case_order": 10,
+                "postprocess_outputs": [
+                    "flow_state_triptych",
+                    "recharge_discharge_cumulative",
+                    "watertable_elevation_map",
+                    "watertable_depth_map",
+                    "support_overview",
+                ],
+            },
+        ),
+        GalleryCaseSpec(
+            slug="regional_lab_headwater_100km2_dry_plan",
+            title="Regional Lab Dry Plan on Headwater 100 km2",
+            category="simulation",
+            deck="Dry-run orchestration example showing how one regional site catalog expands into simulation and method-comparison recipes.",
+            summary=(
+                "This case documents the orchestration layer rather than one child run. It uses the "
+                "first committed `regional_lab` example in dry-plan mode to show how a small site "
+                "catalog is filtered, clustered, expanded into recipes, and reported as runnable cases "
+                "or explicit coverage gaps."
+            ),
+            what_it_shows=(
+                "How `regional_lab` separates site inventory, recipe definitions, and execution/reporting layers.",
+                "How one selected site population expands into planned child runs plus explicit coverage gaps when required configs are missing.",
+                "How a dry-run can be used as a planning and coverage-audit tool before any child simulation is actually launched.",
+            ),
+            reproduction_command=(
+                "python -m launchers regional-lab run "
+                "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml"
+            ),
+            source_paths=(
+                "launchers/regional_lab/README.md",
+                "launchers/regional_lab/config.py",
+                "launchers/regional_lab/launcher.py",
+                "examples/projects/launcher_simulation/regional_lab/README.md",
+                "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
+                "examples/projects/launcher_simulation/regional_lab/site_catalog.csv",
+            ),
+            generator="regional_lab_case",
+            image_assets=(
+                GalleryImageAsset(
+                    filename="regional_lab_headwater_100km2_dry_plan.png",
+                    caption=(
+                        "Dry-plan synthesis for the committed regional-lab example: site/recipe "
+                        "matrix, recipe coverage, and planning summary."
+                    ),
+                    alt_text="Regional lab dry-plan synthesis for the headwater 100 km2 example",
+                ),
+            ),
+            metric_specs=_REGIONAL_LAB_METRIC_SPECS,
+            case_setup=(
+                "Launcher family: `regional_lab`, sitting above child `simulation` and `method-comparison` launchers.",
+                "Example scope: one small Brittany site catalog with one fully runnable headwater site and several inventory-only or screening sites.",
+                "The committed example starts with `execute = false`, so the page documents planning, selection, and reporting rather than child-run results.",
+            ),
+            key_parameters=(
+                "`[regional_lab.catalog]` defines how site metadata and path-like config references are loaded from the catalog.",
+                "`[regional_lab.selection] tags = [\"mesh_ready\"]` filters the population before any recipe expansion happens.",
+                "`[[regional_lab.cluster_rule]]` enriches catalog rows into reusable clusters/families/scales instead of relying only on static columns.",
+                "`[[regional_lab.recipe]]` turns one selected site population into concrete child launcher plans, with `required_fields` making coverage gaps explicit.",
+                "`execute = false` keeps the example in dry-plan mode, which is exactly what this page documents.",
+            ),
+            how_to_read=(
+                "Start with the site-by-recipe matrix to see which sites are runnable and which ones remain coverage gaps.",
+                "Use the recipe bars next to understand how much of the selected population each recipe actually covers.",
+                "Read the text summary last: it explains why the example is valuable even with zero executed child runs.",
+            ),
+            next_steps=(
+                "Switch `execute = true` in the example config when the dry plan looks correct and you want to launch the child workflows.",
+                "Use this page as the orchestration complement to the individual simulation and method-comparison cases already exposed elsewhere in the gallery.",
+            ),
+            walkthrough_doc="getting_started/simulation-walkthrough",
+            walkthrough_title="the Simulation walkthrough",
+            metadata={
+                "regional_lab_config_path": "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
+                "study_area": "Brittany regional laboratory",
+                "process_families": ["planning", "simulation", "method_comparison", "reporting"],
+                "workflow_family_key": "regional_orchestration",
+                "workflow_family_label": "Regional Orchestration",
+                "workflow_family_deck": (
+                    "These cases do not focus on one child solver run. They document how one "
+                    "population of sites and reusable recipes expands into a coordinated study plan."
+                ),
+                "workflow_family_order": 30,
+                "workflow_case_order": 10,
+                "postprocess_outputs": [
+                    "site_recipe_matrix",
+                    "recipe_coverage_summary",
+                    "coverage_gap_summary",
+                ],
+            },
+        ),
+        _build_regional_lab_case_spec(
+            slug="regional_lab_headwater_100km2_mf6_reference_recipe",
+            title="Regional Lab MF6 Reference Recipe on Headwater 100 km2",
+            deck=(
+                "Recipe-focused orchestration view isolating the committed MF6 replay workflow "
+                "across the selected headwater population."
+            ),
+            summary=(
+                "This page narrows the committed `regional_lab` example to the `mf6_reference` "
+                "recipe. It shows how one simulation recipe consumes one catalog field, expands "
+                "only across the compatible headwater sites, and keeps missing child configs visible "
+                "as explicit coverage gaps."
+            ),
+            what_it_shows=(
+                "How one reusable simulation recipe is expanded from the regional site catalog instead of hard-coding one child config path per case page.",
+                "How `required_fields = [\"simulation_reference_config\"]` turns missing references into explicit recipe-level gaps.",
+                "How recipe-specific overlay configs keep the reproduction command precise without duplicating the whole laboratory definition.",
+            ),
+            regional_lab_config_path=(
+                "examples/projects/launcher_simulation/regional_lab/"
+                "config_headwater_100km2_lab_mf6_reference.toml"
+            ),
+            source_paths=(
+                "launchers/regional_lab/README.md",
+                "launchers/regional_lab/config.py",
+                "launchers/regional_lab/launcher.py",
+                "examples/projects/launcher_simulation/regional_lab/README.md",
+                "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
+                "examples/projects/launcher_simulation/regional_lab/site_catalog.csv",
+                "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
+            ),
+            metric_specs=_REGIONAL_LAB_RECIPE_METRIC_SPECS,
+            case_setup=(
+                "Base lab config: `config_headwater_100km2_lab.toml` selects `mesh_ready` sites, enriches the headwater cluster through rules, and defines three reusable recipes.",
+                "Overlay config: `config_headwater_100km2_lab_mf6_reference.toml` keeps only the `mf6_reference` recipe enabled and writes to a dedicated output directory.",
+                "Child-run contract: the recipe reads `simulation_reference_config` from each candidate site row rather than deriving one path from naming conventions alone.",
+            ),
+            key_parameters=(
+                "`[[regional_lab.recipe]] id = \"mf6_reference\"` plus the overlay `enabled` flags define the focused orchestration slice documented by this page.",
+                "`families = [\"headwater\"]` and `scales = [\"100km2\"]` scope the recipe before any child config path is resolved.",
+                "`required_fields = [\"simulation_reference_config\"]` is the gate that separates the one runnable outlet from the two inventory-only headwater sites.",
+                "`config_path_template = \"{simulation_reference_config}\"` delegates the concrete simulation config choice to the catalog row.",
+            ),
+            how_to_read=(
+                "Read the matrix first: it shows one runnable headwater outlet and two recipe-level gaps on the same selected population.",
+                "Use the coverage bar next to judge how far the committed catalog already goes for this replay workflow before adding more child configs.",
+                "Finish with the planning summary to connect the remaining gaps to site maturity and cluster scope.",
+            ),
+            process_families=("planning", "simulation", "reporting"),
+            workflow_case_order=20,
+            metadata={
+                "regional_lab_view_kind": "recipe",
+                "regional_lab_recipe_id": "mf6_reference",
+                "regional_lab_recipe_label": "MF6 reference replay",
+                "mesh_supports": ["committed_triangular_mesh_input"],
+                "flow_solvers": ["MODFLOW 6"],
+            },
+        ),
+        _build_regional_lab_case_spec(
+            slug="regional_lab_headwater_100km2_backend_compare_recipe",
+            title="Regional Lab Backend Comparison Recipe on Headwater 100 km2",
+            deck=(
+                "Recipe-focused orchestration view isolating the committed backend-comparison "
+                "workflow across the headwater screening population."
+            ),
+            summary=(
+                "This page narrows the committed `regional_lab` example to the `backend_compare` "
+                "recipe. It shows how one method-comparison workflow is carried as a reusable recipe, "
+                "planned only where the catalog exposes one backend-comparison config, and reported "
+                "with explicit gaps on the remaining headwater sites."
+            ),
+            what_it_shows=(
+                "How `regional_lab` can orchestrate `method-comparison` launchers, not only single-run simulations.",
+                "How one comparison recipe reuses the same headwater site selection while depending on a different catalog field than the MF6 replay recipe.",
+                "How the dry plan remains useful even when only one site is currently comparison-ready.",
+            ),
+            regional_lab_config_path=(
+                "examples/projects/launcher_simulation/regional_lab/"
+                "config_headwater_100km2_lab_backend_compare.toml"
+            ),
+            source_paths=(
+                "launchers/regional_lab/README.md",
+                "launchers/regional_lab/config.py",
+                "launchers/regional_lab/launcher.py",
+                "examples/projects/launcher_simulation/regional_lab/README.md",
+                "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
+                "examples/projects/launcher_simulation/regional_lab/site_catalog.csv",
+                "examples/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_backends.toml",
+            ),
+            metric_specs=_REGIONAL_LAB_RECIPE_METRIC_SPECS,
+            case_setup=(
+                "Base lab config: the same selected headwater population is reused, so the page isolates recipe logic rather than changing the site inventory.",
+                "Overlay config: `config_headwater_100km2_lab_backend_compare.toml` keeps only the `backend_compare` recipe enabled and writes to its own output root.",
+                "Child-run contract: the recipe reads `backend_comparison_config` from each site row and expands into `method-comparison` child runs.",
+            ),
+            key_parameters=(
+                "`launcher = \"method-comparison\"` shows that `regional_lab` can plan solver-comparison suites as first-class child workflows.",
+                "`required_fields = [\"backend_comparison_config\"]` is what turns the two inventory-only headwater sites into visible comparison gaps.",
+                "`config_path_template = \"{backend_comparison_config}\"` keeps the recipe generic while the site catalog remains the source of truth for child inputs.",
+                "The overlay keeps the other recipes disabled so the page documents one comparison workflow rather than the full laboratory at once.",
+            ),
+            how_to_read=(
+                "Start with the matrix to confirm that the backend-comparison recipe currently lands on one validated outlet only.",
+                "Use the coverage summary to separate recipe reach from recipe quality: one planned case can still be valuable if the gaps stay explicit.",
+                "Read the text panel last to connect those gaps to catalog maturity rather than to launcher failure.",
+            ),
+            process_families=("planning", "method_comparison", "reporting"),
+            workflow_case_order=30,
+            metadata={
+                "regional_lab_view_kind": "recipe",
+                "regional_lab_recipe_id": "backend_compare",
+                "regional_lab_recipe_label": "Backend comparison",
+                "mesh_supports": ["committed_triangular_mesh_input"],
+            },
+        ),
+        _build_regional_lab_case_spec(
+            slug="regional_lab_headwater_100km2_transient_backend_compare_recipe",
+            title="Regional Lab Transient Backend Comparison Recipe on Headwater 100 km2",
+            deck=(
+                "Recipe-focused orchestration view isolating the transient pulsed-recharge "
+                "backend-comparison workflow across the committed headwater population."
+            ),
+            summary=(
+                "This page narrows the committed `regional_lab` example to the "
+                "`transient_backend_compare` recipe. It documents the same site population as the "
+                "steady backend comparison, but with a transient comparison contract that depends on "
+                "its own child config field and remains explicit about current coverage gaps."
+            ),
+            what_it_shows=(
+                "How two method-comparison recipes can coexist in one laboratory while pointing to different child configs and modelling questions.",
+                "How the transient backend-comparison recipe stays separate from the simpler backend-comparison recipe instead of overloading one flat page.",
+                "How recipe overlays can document a more specific transient workflow without cloning the site catalog or cluster rules.",
+            ),
+            regional_lab_config_path=(
+                "examples/projects/launcher_simulation/regional_lab/"
+                "config_headwater_100km2_lab_transient_backend_compare.toml"
+            ),
+            source_paths=(
+                "launchers/regional_lab/README.md",
+                "launchers/regional_lab/config.py",
+                "launchers/regional_lab/launcher.py",
+                "examples/projects/launcher_simulation/regional_lab/README.md",
+                "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
+                "examples/projects/launcher_simulation/regional_lab/site_catalog.csv",
+                "examples/projects/launcher_simulation/run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml",
+            ),
+            metric_specs=_REGIONAL_LAB_RECIPE_METRIC_SPECS,
+            case_setup=(
+                "Base lab config: the selected headwater sites and cluster rules are unchanged so the page isolates the transient recipe, not the site population.",
+                "Overlay config: `config_headwater_100km2_lab_transient_backend_compare.toml` keeps only the `transient_backend_compare` recipe enabled.",
+                "Child-run contract: the recipe reads `transient_backend_comparison_config` from each site row and expands into the transient pulsed-recharge comparison suite.",
+            ),
+            key_parameters=(
+                "`id = \"transient_backend_compare\"` keeps the transient question separate from the simpler backend-comparison recipe instead of collapsing both into one card.",
+                "`required_fields = [\"transient_backend_comparison_config\"]` makes the missing transient child configs visible as coverage gaps rather than silent filtering.",
+                "`launcher = \"method-comparison\"` plus the recipe-specific config path field is what lets one lab coordinate several comparison families in parallel.",
+                "The overlay config gives this page one exact reproduction command while preserving the shared base laboratory definition.",
+            ),
+            how_to_read=(
+                "Read the matrix first to see that the transient comparison recipe currently has the same one runnable outlet and two explicit gaps.",
+                "Use the coverage bar next to compare this transient slice with the simpler backend-comparison slice: same population, different child contract.",
+                "Use the planning summary last to keep the interpretation at the orchestration level before diving into the child comparison page itself.",
+            ),
+            process_families=("planning", "method_comparison", "reporting"),
+            workflow_case_order=40,
+            metadata={
+                "regional_lab_view_kind": "recipe",
+                "regional_lab_recipe_id": "transient_backend_compare",
+                "regional_lab_recipe_label": "Transient backend comparison",
+                "mesh_supports": ["committed_triangular_mesh_input"],
+            },
         ),
         GalleryCaseSpec(
             slug="hydraulic_conductivity_square_parameterizations",
@@ -1370,7 +2220,259 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
                 "comparison_config_path": "examples/projects/launcher_simulation/run_method_comparison_example12_map_existing.toml",
                 "study_area": "Naizin catchment",
                 "focus_variant_id": "boussinesq_reused_gmsh",
+                "comparison_family_key": "shared_support_cross_solver",
+                "comparison_family_label": "Same Support, Different Solvers",
+                "comparison_family_deck": (
+                    "These cases keep the spatial support fixed so the main signal comes from "
+                    "solver-family differences rather than from a support change."
+                ),
+                "comparison_family_order": 10,
+                "comparison_case_order": 10,
+                "observable_names": ["watertable_elevation", "watertable_depth", "head_timeseries"],
+                "variant_labels": {
+                    "mf6_reference_gmsh": "MODFLOW 6 on committed Gmsh mesh",
+                    "boussinesq_reused_gmsh": "Boussinesq reusing the same mesh",
+                },
             },
+        ),
+        _build_method_comparison_case_spec(
+            slug="ex12_mf6_nwt_moderate_same_s60",
+            title="MF6 vs NWT on the Same 60x60 Grid",
+            deck="Annual moderate comparison on one shared structured grid, isolating MODFLOW-family differences from mesh effects.",
+            summary=(
+                "This case compares MODFLOW 6 and MODFLOW-NWT on the exact same 60x60 structured "
+                "support. It keeps the more readable annual moderate forcing while removing the mesh "
+                "family difference, so the page focuses on solver behaviour, native flux diagnostics, "
+                "and execution-time spread."
+            ),
+            what_it_shows=(
+                "How MODFLOW 6 and MODFLOW-NWT diverge when the spatial support is held strictly constant.",
+                "How point chronicles, outlet flux, map snapshots, and native flux panels complement one another on the same benchmark.",
+                "How execution-time bars look when the comparison does not mix structured and triangular supports.",
+            ),
+            comparison_config_path="examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml",
+            source_paths=(
+                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml",
+                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
+                "examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate_same_s60/comparison_manifest.json",
+            ),
+            case_setup=(
+                "Reference variant: MODFLOW 6 on the 60x60 structured grid.",
+                "Candidate variant: MODFLOW-NWT on the same 60x60 structured grid.",
+                "Compared observables mix full maps (`head`, `depth`, `outflow_drain`), three head probes, one outlet-flux chronicle, native flux panels, and execution-time bars.",
+            ),
+            key_parameters=(
+                "Support equality is the main control knob here: both variants use the same `mesh_label = \"sgrid_60x60\"`, so disagreements are not attributable to a mesh-family change.",
+                "`run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml` selects the observables that stay comparable across the two MODFLOW families.",
+                "Use the outlet-flux and native-flux observables together: the outlet curve shows integrated export, while the native panels reveal how each code reports internal drainage/accumulation terms.",
+            ),
+            how_to_read=(
+                "Start with the map and point metrics because this is the cleanest solver-only comparison in the section.",
+                "Then inspect the flux and execution-time observables to see whether numerical agreement and runtime cost move together or not.",
+                "If a discrepancy looks large, do not blame the mesh first: this page is intentionally built to remove that degree of freedom.",
+            ),
+            study_area="Example12 / Naizin",
+            focus_variant_id="nwt_mod_s60",
+            comparison_family_key="shared_support_cross_solver",
+            comparison_family_label="Same Support, Different Solvers",
+            comparison_family_deck=(
+                "These cases keep the spatial support fixed so the main signal comes from "
+                "solver-family differences rather than from a support change."
+            ),
+            comparison_family_order=10,
+            comparison_case_order=20,
+        ),
+        _build_method_comparison_case_spec(
+            slug="ex12_mf6_nwt_moderate",
+            title="MF6 Triangular vs NWT Structured on Moderate Forcing",
+            deck="Annual moderate comparison where both solver family and mesh family change, with a common fine raster used for map alignment.",
+            summary=(
+                "This case compares a MODFLOW 6 run on the committed triangular support against a "
+                "MODFLOW-NWT run on the historical 60x60 structured grid. It keeps the same moderate "
+                "annual forcing as the shared-grid comparison but now mixes support families, so the "
+                "page documents the combined effect of solver choice and spatial discretization."
+            ),
+            what_it_shows=(
+                "How solver and support differences accumulate when the comparison no longer uses one identical mesh.",
+                "How a fine common raster and an intersection extent make map comparisons possible across incompatible supports.",
+                "How point chronicles and outlet flux help decide whether disagreement is local, diffuse, or tied to basin export.",
+            ),
+            comparison_config_path="examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_moderate.toml",
+            source_paths=(
+                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml",
+                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
+                "examples/projects/launcher_simulation/method_comparison/ex12_mf6_nwt_moderate/comparison_manifest.json",
+            ),
+            case_setup=(
+                "Reference variant: MODFLOW 6 on the committed triangular mesh.",
+                "Candidate variant: MODFLOW-NWT on the 60x60 structured grid.",
+                "Map observables are resampled on a shared fine raster over the support intersection before parity metrics are computed.",
+            ),
+            key_parameters=(
+                "`[method_comparison.fine_raster] enabled = true` is essential here because the compared meshes are not natively aligned cell by cell.",
+                "`extent_mode = \"intersection\"` keeps the comparison on the spatial footprint both supports actually share.",
+                "Read outlet-flux differences with more caution than in the same-grid case: they now reflect both solver behaviour and support discretization.",
+            ),
+            how_to_read=(
+                "Treat this page as a mixed solver-and-support comparison, not as a pure solver benchmark.",
+                "Read the parity metrics after checking the support mismatch described in the case setup; otherwise the numbers look more absolute than they really are.",
+                "Use this page to understand what changes when you leave the shared-support regime used by the tighter comparison cases.",
+            ),
+            study_area="Example12 / Naizin",
+            focus_variant_id="nwt_mod_s60",
+            comparison_family_key="mixed_support_regime",
+            comparison_family_label="Different Supports, Same Regime",
+            comparison_family_deck=(
+                "These cases keep the forcing regime fixed but intentionally change the mesh family, "
+                "so the page captures both solver differences and support-transfer effects."
+            ),
+            comparison_family_order=20,
+            comparison_case_order=10,
+        ),
+        _build_method_comparison_case_spec(
+            slug="example12_mf6_vs_nwt_different_meshes_demonstrative",
+            title="MF6 Triangular vs NWT Structured on Demonstrative Forcing",
+            deck="Different-support comparison on the more expressive demonstrative annual setup, including flux and timing diagnostics.",
+            summary=(
+                "This case reuses the demonstrative annual forcing chosen to make temporal head changes "
+                "and drainage signatures easier to read. It compares the committed triangular MODFLOW 6 "
+                "run against the structured MODFLOW-NWT baseline, again through a shared fine raster, but "
+                "with a forcing regime designed for stronger visual contrast than the moderate case."
+            ),
+            what_it_shows=(
+                "How the different-support MF6/NWT comparison behaves when the forcing regime is tuned for stronger visible contrast.",
+                "How the same observable set can be reused across moderate and demonstrative regimes to separate regime effects from support effects.",
+                "How execution-time bars and flux panels behave on a more showcase-oriented scenario.",
+            ),
+            comparison_config_path="examples/projects/launcher_simulation/run_method_comparison_mf6_vs_nwt_different_meshes_demonstrative.toml",
+            source_paths=(
+                "examples/projects/launcher_simulation/run_demonstrative_annual_mf6_precomputed_mesh_input.toml",
+                "examples/projects/launcher_simulation/run_demonstrative_annual_nwt.toml",
+                "examples/projects/launcher_simulation/method_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative/comparison_manifest.json",
+            ),
+            case_setup=(
+                "Reference variant: MODFLOW 6 on the committed triangular support.",
+                "Candidate variant: MODFLOW-NWT on the 60x60 structured support.",
+                "Compared observables mirror the moderate different-support case so the main reading change is the forcing regime, not the observable list.",
+            ),
+            key_parameters=(
+                "The demonstrative forcing/hydraulic setup is chosen to make temporal and drainage signatures easier to read than in the softened moderate case.",
+                "The fine-raster comparison remains active, so map metrics are still computed after resampling onto a common grid.",
+                "Use this page alongside the moderate different-support case to separate regime sensitivity from mesh-family sensitivity.",
+            ),
+            how_to_read=(
+                "Compare this page to the moderate different-support case before drawing conclusions about the mesh effect alone.",
+                "If a mismatch grows mainly here, the forcing regime is amplifying it; if it stays similar, the support transfer is probably the dominant cause.",
+                "Do not read the demonstrative label as ‘more correct’; it is a more expressive scenario, not a stronger validation claim.",
+            ),
+            study_area="Example12 / Naizin",
+            focus_variant_id="nwt_demo_structured",
+            comparison_family_key="mixed_support_regime",
+            comparison_family_label="Different Supports, Same Regime",
+            comparison_family_deck=(
+                "These cases keep the forcing regime fixed but intentionally change the mesh family, "
+                "so the page captures both solver differences and support-transfer effects."
+            ),
+            comparison_family_order=20,
+            comparison_case_order=20,
+        ),
+        _build_method_comparison_case_spec(
+            slug="ex12_multi_method_moderate",
+            title="Four-Method Moderate Suite on Example12",
+            deck="One annual moderate suite spanning MF6 and NWT on structured support plus MF6 and Boussinesq on committed triangles.",
+            summary=(
+                "This case expands the comparison from two variants to four. It combines one same-grid "
+                "solver comparison (MF6 vs NWT on 60x60) with one same-solver support comparison "
+                "(MF6 structured vs MF6 triangular), then adds Boussinesq on the committed triangular "
+                "mesh to expose a broader method family spread under the same moderate forcing."
+            ),
+            what_it_shows=(
+                "How one page can separate solver-family effects, support-family effects, and a broader method-family spread.",
+                "How multi-variant map comparisons and point chronicles stay interpretable when one reference variant is kept explicit.",
+                "How outlet flux, native flux panels, and execution times complement the map-based metrics in a four-variant suite.",
+            ),
+            comparison_config_path="examples/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml",
+            source_paths=(
+                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_structured.toml",
+                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_nwt.toml",
+                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_mf6_precomputed_mesh_input.toml",
+                "examples/projects/launcher_simulation/run_demonstrative_annual_moderate_boussinesq_precomputed_mesh_input.toml",
+                "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate/comparison_manifest.json",
+            ),
+            case_setup=(
+                "Reference variant: MODFLOW 6 on the 60x60 structured grid.",
+                "Additional variants: MODFLOW-NWT on the same grid, MODFLOW 6 on committed triangles, and Boussinesq on the same committed triangles.",
+                "The case keeps one observable family across all variants so the page can separate solver and support effects without changing the reading frame.",
+            ),
+            key_parameters=(
+                "The chosen reference variant matters more here than in the two-variant pages because every metric is read relative to `mf6_mod_s60`.",
+                "The two triangular variants share the same committed support, which helps isolate the solver-family jump from MF6 to Boussinesq once you are already off the structured grid.",
+                "Use the execution-time bars as a complement, not a ranking by itself: the suite mixes different support families and solver implementations on purpose.",
+            ),
+            how_to_read=(
+                "Start with the same-grid MF6/NWT interpretation, then move to the same-solver MF6 structured-vs-triangular shift, then read the Boussinesq triangular variant last.",
+                "This page is not meant to collapse everything into one scalar ranking; it is meant to show which comparison axis explains each mismatch.",
+                "If the suite feels dense, use the dedicated two-variant cases first and come back here for synthesis.",
+            ),
+            study_area="Example12 / Naizin",
+            focus_variant_id="bouss_mod_tri",
+            comparison_family_key="multi_method_suites",
+            comparison_family_label="Multi-Method Suites",
+            comparison_family_deck=(
+                "These cases keep more than two variants on one page so the reader can separate "
+                "solver-family, support-family, and runtime-family effects without opening several "
+                "independent comparisons."
+            ),
+            comparison_family_order=30,
+            comparison_case_order=10,
+        ),
+        _build_method_comparison_case_spec(
+            slug="ex12_multi_method_moderate_causes",
+            title="Four-Method Moderate Suite with Surface-Excess Diagnostics",
+            deck="Diagnostic extension of the four-method moderate suite, adding surface-excess observables and Boussinesq budget diagnostics.",
+            summary=(
+                "This case keeps the same four variants as the moderate suite but adds observables "
+                "that only make sense for the triangular/Boussinesq side of the comparison: surface-"
+                "excess time series, a surface-excess map, and an explicit budget-diagnostics figure. "
+                "It is the diagnostic companion page for understanding where the multi-method spread comes from."
+            ),
+            what_it_shows=(
+                "How a multi-method suite can be extended with targeted diagnostic observables instead of only repeating the same state metrics.",
+                "How Boussinesq-specific surface-excess and budget views help explain disagreements seen in the more generic four-method page.",
+                "How the same comparison backbone can support both a compact synthesis page and a more causal diagnostic page.",
+            ),
+            comparison_config_path="examples/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml",
+            source_paths=(
+                "examples/projects/launcher_simulation/run_method_comparison_example12_multi_method_moderate.toml",
+                "examples/projects/launcher_simulation/.__runtime_method_comparison_example12_multi_method_moderate_causes.toml",
+                "examples/projects/launcher_simulation/method_comparison/ex12_multi_method_moderate_causes/comparison_manifest.json",
+            ),
+            case_setup=(
+                "Base variants are identical to the four-method moderate suite: MF6 structured, NWT structured, MF6 triangular, and Boussinesq triangular.",
+                "Additional observables expose surface-excess response and Boussinesq budget structure rather than only the shared state variables.",
+                "The page is intentionally denser because it is meant for diagnosis after reading the simpler synthesis page.",
+            ),
+            key_parameters=(
+                "This config keeps the multi-method backbone but adds observables that are diagnostic rather than universally shared across all methods.",
+                "Use the surface-excess series and map to explain why the Boussinesq triangular variant departs from the MODFLOW variants under moderate forcing.",
+                "The budget diagnostics are explanatory aids, not a replacement for the comparable cross-variant metrics shown on the simpler suite page.",
+            ),
+            how_to_read=(
+                "Read this page after the simpler four-method suite, not before it.",
+                "Use it when you need a causal explanation for one mismatch, especially on the Boussinesq triangular branch, rather than a first-pass comparison overview.",
+                "Keep in mind that not every diagnostic observable exists for every method, so this page is partly asymmetric by design.",
+            ),
+            study_area="Example12 / Naizin",
+            focus_variant_id="bouss_mod_tri",
+            comparison_family_key="multi_method_suites",
+            comparison_family_label="Multi-Method Suites",
+            comparison_family_deck=(
+                "These cases keep more than two variants on one page so the reader can separate "
+                "solver-family, support-family, and runtime-family effects without opening several "
+                "independent comparisons."
+            ),
+            comparison_family_order=30,
+            comparison_case_order=20,
         ),
         GalleryCaseSpec(
             slug="surface_interaction_ramp_code_comparison",

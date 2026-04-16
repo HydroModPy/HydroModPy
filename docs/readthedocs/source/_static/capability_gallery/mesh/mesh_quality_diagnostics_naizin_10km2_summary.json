@@ -1,0 +1,133 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "mesh_quality_diagnostics_naizin_10km2",
+  "title": "Mesh Quality Diagnostics (10 km2)",
+  "category": "mesh",
+  "deck": "Aspect ratio and minimum-angle diagnostics computed directly from one mesh bundle.",
+  "summary": "This case computes basic triangle-shape diagnostics from the versioned bundle and renders compact maps plus histograms. It targets mesh-quality checks that can be shared in documentation without re-running a mesh generation pipeline.",
+  "case_setup": [
+    "Bundle: 10 km2 Strahler-3 outlet 1 with geology + river constraints.",
+    "Triangle-based quality diagnostics computed directly from nodes/cells CSVs.",
+    "Percentiles summarized to keep the figure readable in docs."
+  ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
+  "what_it_shows": [
+    "Where the smallest angles and largest aspect ratios concentrate on the mesh.",
+    "How triangle areas distribute across one catchment-scale mesh.",
+    "What percentile-based quality summaries look like for documentation use."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m tools.doc_gallery",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/nodes.csv",
+    "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv",
+    "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/mesh_summary.json",
+    "tools/doc_gallery/update_gallery.py"
+  ],
+  "source_hashes": {
+    "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/nodes.csv": "96bc1a46afe8b73273c62b7a028d9fb5a2d7acebcd18c8e2455da1cae1274a44",
+    "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/cells.csv": "457898898ba2dc35b1dba0e0cda5941ad6e8d903d96e4a86f0d6a6be7da810b1",
+    "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/mesh_summary.json": "fa0775c2c4fe4211f7e066b0c895bd1b8b45c04c42a3731a18b2854437ea6102",
+    "tools/doc_gallery/update_gallery.py": "fc40959862cae1cf051d7272ad718942804308d79ae71c54adedd61062b396d2"
+  },
+  "docname": "cases/mesh_quality_diagnostics_naizin_10km2",
+  "images": [
+    {
+      "filename": "mesh_quality_diagnostics_naizin_10km2.png",
+      "caption": "Triangle quality diagnostics for the 10 km2 Naizin mesh bundle.",
+      "alt_text": "Mesh quality diagnostics for the 10 km2 catchment mesh",
+      "doc_path": "/_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2.png"
+    }
+  ],
+  "metrics": [
+    {
+      "label": "Triangle cells",
+      "key": "triangle_cell_count",
+      "value": 547,
+      "display": "547"
+    },
+    {
+      "label": "Min angle (p05)",
+      "key": "min_angle_p05_deg",
+      "value": 23.84051275314065,
+      "display": "23.8 deg"
+    },
+    {
+      "label": "Aspect ratio (p95)",
+      "key": "aspect_ratio_p95",
+      "value": 2.36796895898493,
+      "display": "2.37"
+    },
+    {
+      "label": "Area (p05)",
+      "key": "area_p05_m2",
+      "value": 3632.45654296875,
+      "display": "3.63e+03 m2"
+    }
+  ],
+  "metadata": {
+    "bundle_path": "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle",
+    "area_log_range": [
+      3.560184097622237,
+      5.565208870797816
+    ]
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2.png"
+    ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Bundle Inputs",
+        "rows": [
+          {
+            "field": "bundle_path",
+            "meaning": "Versioned bundle used to compute or display the mesh-focused figure.",
+            "value": "bundle",
+            "source": "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle"
+          }
+        ]
+      },
+      {
+        "title": "Mesh Summary",
+        "rows": [
+          {
+            "field": "triangle_cell_count",
+            "meaning": "Metric displayed on this page.",
+            "value": "547",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2_summary.json"
+          },
+          {
+            "field": "min_angle_p05_deg",
+            "meaning": "Metric displayed on this page.",
+            "value": "23.8 deg",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2_summary.json"
+          },
+          {
+            "field": "aspect_ratio_p95",
+            "meaning": "Metric displayed on this page.",
+            "value": "2.37",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2_summary.json"
+          },
+          {
+            "field": "area_p05_m2",
+            "meaning": "Metric displayed on this page.",
+            "value": "3.63e+03 m2",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2_summary.json"
+          }
+        ]
+      }
+    ]
+  }
+}

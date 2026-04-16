@@ -17,8 +17,10 @@ import numpy as np
 
 from hydromodpy.solver.boussinesq.assembly import (
     BoussinesqAssembly,
-    assemble_steady_residual,
-    assemble_transient_residual,
+)
+from hydromodpy.solver.boussinesq.head_only_runtime_common import (
+    build_steady_assembly_callback,
+    build_transient_assembly_callback,
 )
 from hydromodpy.solver.boussinesq.jacobian_semianalytic import (
     build_sparse_semianalytic_regularized_partition_jacobian_triplets,
@@ -43,79 +45,44 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
 
 def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
     """Solve one transient implicit step with PETSc on the head-only system."""
-    if float(inputs.dt_seconds) <= 0.0:
-        raise ValueError("dt_seconds must be strictly positive.")
-
-    head_prev = np.asarray(inputs.head_prev_m, dtype=float)
-    head_initial = (
-        head_prev.copy()
-        if inputs.head_initial_guess_m is None
-        else np.asarray(inputs.head_initial_guess_m, dtype=float).copy()
-    )
-    options = inputs.options
-
-    def _assembly_for(candidate_head: np.ndarray) -> BoussinesqAssembly:
-        return assemble_transient_residual(
-            inputs.mesh,
-            head_m=candidate_head,
-            head_prev_m=head_prev,
-            dt_seconds=float(inputs.dt_seconds),
-            recharge_rate_m_s=inputs.recharge_rate_m_s,
-            well_flux_m3_s=inputs.well_flux_m3_s,
-            imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
-            prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
-            drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-            regularization_radius=float(options.regularization_radius),
-        )
+    solve_setup = build_transient_assembly_callback(inputs)
 
     return _solve_nonlinear_system(
-        assembly_for=_assembly_for,
-        head_initial_guess_m=head_initial,
+        assembly_for=solve_setup.assembly_for,
+        head_initial_guess_m=solve_setup.head_initial_guess_m,
         mesh=inputs.mesh,
         dt_seconds=float(inputs.dt_seconds),
         surface_input_rate_m_s=inputs.recharge_rate_m_s,
-        regularization_radius=float(options.regularization_radius),
-        imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
-        prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
+        regularization_radius=float(solve_setup.options.regularization_radius),
+        prescribed_head_m_by_cell=solve_setup.prescribed_head_m_by_cell,
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-        max_iterations=int(options.max_iterations),
-        tol_residual_inf=float(options.tol_residual_inf),
+        max_iterations=int(solve_setup.options.max_iterations),
+        tol_residual_inf=float(solve_setup.options.tol_residual_inf),
         backend_name="petsc",
     )
 
 
 def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
     """Solve one steady nonlinear balance with PETSc on the head-only system."""
-    head_initial = interiorize_regularized_partition_initial_guess(
-        inputs.mesh,
-        np.asarray(inputs.head_initial_guess_m, dtype=float),
-    )
-    options = inputs.options
-
-    def _assembly_for(candidate_head: np.ndarray) -> BoussinesqAssembly:
-        return assemble_steady_residual(
+    solve_setup = build_steady_assembly_callback(
+        inputs,
+        head_transform=lambda values: interiorize_regularized_partition_initial_guess(
             inputs.mesh,
-            head_m=candidate_head,
-            recharge_rate_m_s=inputs.recharge_rate_m_s,
-            well_flux_m3_s=inputs.well_flux_m3_s,
-            imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
-            prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
-            drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-            regularization_radius=float(options.regularization_radius),
-        )
+            np.asarray(values, dtype=float),
+        ),
+    )
 
     return _solve_nonlinear_system(
-        assembly_for=_assembly_for,
-        head_initial_guess_m=head_initial,
+        assembly_for=solve_setup.assembly_for,
+        head_initial_guess_m=solve_setup.head_initial_guess_m,
         mesh=inputs.mesh,
         dt_seconds=None,
         surface_input_rate_m_s=inputs.recharge_rate_m_s,
-        regularization_radius=float(options.regularization_radius),
-        imposed_head_m_by_edge=inputs.imposed_head_m_by_edge,
-        prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
+        regularization_radius=float(solve_setup.options.regularization_radius),
+        prescribed_head_m_by_cell=solve_setup.prescribed_head_m_by_cell,
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-        max_iterations=int(options.max_iterations),
-        tol_residual_inf=float(options.tol_residual_inf),
+        max_iterations=int(solve_setup.options.max_iterations),
+        tol_residual_inf=float(solve_setup.options.tol_residual_inf),
         backend_name="petsc",
     )
 
@@ -128,7 +95,6 @@ def _solve_nonlinear_system(
     dt_seconds: float | None,
     surface_input_rate_m_s: np.ndarray | float | None,
     regularization_radius: float,
-    imposed_head_m_by_edge: np.ndarray | None,
     prescribed_head_m_by_cell: np.ndarray | None,
     drainage_conductance_m2_s: np.ndarray | float | None,
     max_iterations: int,
@@ -174,7 +140,6 @@ def _solve_nonlinear_system(
             dt_seconds=dt_seconds,
             surface_input_rate_m_s=surface_input_rate_m_s,
             regularization_radius=regularization_radius,
-            imposed_head_m_by_edge=imposed_head_m_by_edge,
             prescribed_head_m_by_cell=prescribed_head_m_by_cell,
             drainage_conductance_m2_s=drainage_conductance_m2_s,
         )
@@ -256,7 +221,6 @@ def _build_sparse_jacobian_triplets(
     dt_seconds: float | None,
     surface_input_rate_m_s: np.ndarray | float | None,
     regularization_radius: float,
-    imposed_head_m_by_edge: np.ndarray | None,
     prescribed_head_m_by_cell: np.ndarray | None,
     drainage_conductance_m2_s: np.ndarray | float | None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -267,7 +231,6 @@ def _build_sparse_jacobian_triplets(
         dt_seconds=dt_seconds,
         regularization_radius=regularization_radius,
         surface_input_rate_m_s=surface_input_rate_m_s,
-        imposed_head_m_by_edge=imposed_head_m_by_edge,
         prescribed_head_m_by_cell=prescribed_head_m_by_cell,
         drainage_conductance_m2_s=drainage_conductance_m2_s,
     )

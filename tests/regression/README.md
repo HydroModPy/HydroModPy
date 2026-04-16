@@ -23,7 +23,7 @@ Current non-regression tests:
 - `extensive/test_launcher_simulation_extensive_mf6_regression.py`
 - `extensive/test_launcher_simulation_extensive_nwt_regression.py`
 - `extensive/test_launcher_data_overview_regression.py`
-- `extensive/test_run_geographic_case_metrics_regression.py`
+- `extensive/test_run_geographic_case_regression.py`
 
 Notes:
 

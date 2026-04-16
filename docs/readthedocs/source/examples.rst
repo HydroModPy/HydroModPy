@@ -49,8 +49,8 @@ inventory, start with the guided entry points below.
 
       **Capability gallery**
       ^^^
-      Mesh illustrations, geographic diagnostics, and analytical validation
-      figures curated for teaching and code demonstration.
+      Curated static pages covering support building, workflow execution,
+      solver comparison, validation, and calibration.
 
 Choose the right entry point
 ----------------------------
@@ -80,7 +80,8 @@ Illustrated capability gallery
 ------------------------------
 
 The capability gallery complements the notebooks with a curated set of static,
-versioned figures generated from reproducible examples and validation cases.
+versioned figures generated from reproducible examples, comparisons,
+validation cases, and calibration benchmarks.
 The documentation build does not execute these cases; it only reads the
 committed PNG and JSON artifacts produced by ``python -m tools.doc_gallery``.
 

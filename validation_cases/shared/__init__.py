@@ -7,12 +7,14 @@ imported and executed without depending on the test package layout.
 """
 
 from validation_cases.shared.loaders import (
+    align_snapshot_series_to_expected_count,
     load_case_config,
     load_case_metadata,
     load_case_tolerances,
     load_last_npy_array,
     load_last_npy_array_on_expected_grid,
     load_npy_time_series_arrays,
+    load_npy_time_series_arrays_with_elapsed_seconds,
     merge_case_flow_section,
 )
 from validation_cases.shared.cli import (
@@ -36,6 +38,7 @@ from validation_cases.shared.runtime import (
 
 __all__ = [
     "ValidationRunResult",
+    "align_snapshot_series_to_expected_count",
     "apply_output_root_override",
     "build_run_case_parser",
     "load_case_config",
@@ -44,6 +47,7 @@ __all__ = [
     "load_last_npy_array",
     "load_last_npy_array_on_expected_grid",
     "load_npy_time_series_arrays",
+    "load_npy_time_series_arrays_with_elapsed_seconds",
     "max_abs_error",
     "max_std_along_axis",
     "mean_along_axis",

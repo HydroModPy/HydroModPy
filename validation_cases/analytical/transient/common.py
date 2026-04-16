@@ -10,9 +10,10 @@ import numpy as np
 
 from validation_cases.shared import (
     ValidationRunResult,
+    align_snapshot_series_to_expected_count,
     load_case_metadata,
     load_case_tolerances,
-    load_npy_time_series_arrays,
+    load_npy_time_series_arrays_with_elapsed_seconds,
     max_abs_error,
     rmse,
 )
@@ -52,6 +53,19 @@ class TransientHead1DComparison:
     @property
     def final_elapsed_days(self) -> float:
         return float(self.elapsed_days[-1])
+
+
+@dataclass(frozen=True, slots=True)
+class LoadedTransientProfileOutputs:
+    """Loaded transient profile rasters plus their temporal axis metadata."""
+
+    metadata: dict
+    tolerances: dict
+    observable_name: str
+    period_indices: np.ndarray
+    heads: np.ndarray
+    elapsed_seconds: np.ndarray | None
+    dt_seconds: float
 
 
 def select_nearest_indices(values, targets) -> np.ndarray:
@@ -94,8 +108,13 @@ def load_transient_profile_outputs(
     metadata: dict | None = None,
     tolerances: dict | None = None,
     solver: str | None = None,
-) -> tuple[dict, dict, str, np.ndarray, np.ndarray, float]:
-    """Load one transient `watertable_elevation` dictionary and validate its shape."""
+) -> LoadedTransientProfileOutputs:
+    """Load one transient `watertable_elevation` dictionary and validate its shape.
+
+    When the disk payload contains one canonical initial snapshot `t0` in
+    addition to the expected step-end rasters, the leading snapshot is dropped
+    automatically so downstream analytical comparisons remain step-based.
+    """
     case_metadata = load_case_metadata(case_dir) if metadata is None else metadata
     solver_name = str(getattr(result, "solver_name", "")).strip().lower() or solver
     case_tolerances = (
@@ -105,7 +124,10 @@ def load_transient_profile_outputs(
     output_cfg = dict(case_metadata.get("output", {}))
     time_cfg = dict(case_metadata.get("time", {}))
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
-    period_indices, heads = load_npy_time_series_arrays(result.postprocess_dir, observable_name)
+    period_indices, heads, explicit_elapsed_seconds = load_npy_time_series_arrays_with_elapsed_seconds(
+        result.postprocess_dir,
+        observable_name,
+    )
 
     expected_periods_by_solver = output_cfg.get("expected_periods_by_solver", {})
     expected_periods = 0
@@ -114,8 +136,12 @@ def load_transient_profile_outputs(
     else:
         expected_periods = int(output_cfg.get("expected_periods", 0))
     if expected_periods > 0:
-        assert heads.shape[0] == expected_periods, (
-            f"Unexpected number of periods for {observable_name}: {heads.shape[0]} != {expected_periods}"
+        period_indices, heads, explicit_elapsed_seconds = align_snapshot_series_to_expected_count(
+            period_indices,
+            heads,
+            explicit_elapsed_seconds,
+            expected_count=expected_periods,
+            name=observable_name,
         )
 
     expected_spatial_shape_by_solver = output_cfg.get("expected_spatial_shape_by_solver", {})
@@ -134,7 +160,19 @@ def load_transient_profile_outputs(
         )
 
     dt_seconds = float(time_cfg["dt_seconds"])
-    return case_metadata, case_tolerances, observable_name, period_indices, np.asarray(heads, dtype=float), dt_seconds
+    return LoadedTransientProfileOutputs(
+        metadata=case_metadata,
+        tolerances=case_tolerances,
+        observable_name=observable_name,
+        period_indices=np.asarray(period_indices, dtype=int),
+        heads=np.asarray(heads, dtype=float),
+        elapsed_seconds=(
+            None
+            if explicit_elapsed_seconds is None
+            else np.asarray(explicit_elapsed_seconds, dtype=float)
+        ),
+        dt_seconds=dt_seconds,
+    )
 
 
 def build_transient_head_comparison(
@@ -142,34 +180,25 @@ def build_transient_head_comparison(
     result: ValidationRunResult,
     case_dir: Path,
     analytical_profiles: np.ndarray,
-    loaded_outputs: tuple[dict, dict, str, np.ndarray, np.ndarray, float] | None = None,
+    loaded_outputs: LoadedTransientProfileOutputs | None = None,
     metadata: dict | None = None,
     tolerances: dict | None = None,
 ) -> TransientHead1DComparison:
     """Build one transient comparison payload from already computed analytical profiles."""
     if loaded_outputs is None:
-        (
-            case_metadata,
-            case_tolerances,
-            observable_name,
-            period_indices,
-            heads,
-            dt_seconds,
-        ) = load_transient_profile_outputs(
+        loaded_outputs = load_transient_profile_outputs(
             case_dir=case_dir,
             result=result,
             metadata=metadata,
             tolerances=tolerances,
         )
-    else:
-        (
-            case_metadata,
-            case_tolerances,
-            observable_name,
-            period_indices,
-            heads,
-            dt_seconds,
-        ) = loaded_outputs
+
+    case_metadata = loaded_outputs.metadata
+    case_tolerances = loaded_outputs.tolerances
+    observable_name = loaded_outputs.observable_name
+    period_indices = np.asarray(loaded_outputs.period_indices, dtype=int)
+    heads = np.asarray(loaded_outputs.heads, dtype=float)
+    dt_seconds = float(loaded_outputs.dt_seconds)
 
     reference_cfg = dict(case_metadata.get("reference", {}))
     plot_cfg = dict(case_metadata.get("plot", {}))
@@ -182,8 +211,11 @@ def build_transient_head_comparison(
             f"does not match numerical profile shape {numerical_profiles.shape}."
         )
 
-    elapsed_seconds = (period_indices.astype(float) + 1.0) * float(dt_seconds)
-    period_start_seconds = period_indices.astype(float) * float(dt_seconds)
+    if loaded_outputs.elapsed_seconds is None:
+        elapsed_seconds = (period_indices.astype(float) + 1.0) * float(dt_seconds)
+    else:
+        elapsed_seconds = np.asarray(loaded_outputs.elapsed_seconds, dtype=float)
+    period_start_seconds = np.maximum(elapsed_seconds - float(dt_seconds), 0.0)
     x = np.linspace(
         float(reference_cfg["xmin"]),
         float(reference_cfg["xmax"]),

@@ -104,6 +104,7 @@ def test_run_geographic_case_metrics_golden(update_goldens, tmp_path, monkeypatc
         case_ids=CASE_IDS,
         show_plot=False,
         outputs_root=tmp_path / "figures",
+        write_plot=False,
     )
 
     actual = {

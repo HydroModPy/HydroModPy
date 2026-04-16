@@ -18,6 +18,7 @@
       "mesh_label": "Naizin shared mesh",
       "mesh_mode": "mesh_catchment",
       "run_folder": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_simulations\\example12_fast_mf6_mesh_catchment",
+      "wall_time_seconds": null,
       "metrics": {
         "wall_time_seconds": 52.05,
         "solvers": [
@@ -71,6 +72,7 @@
       "mesh_label": "Naizin shared mesh",
       "mesh_mode": "mesh_input",
       "run_folder": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\results_reused_real_meshes\\example12_fast\\results_simulations\\flow_main__boussinesq",
+      "wall_time_seconds": null,
       "metrics": {},
       "run_metadata": {
         "boussinesq_summary": {

@@ -47,6 +47,10 @@ Use :doc:`getting_started/index` when you want a guided first workflow. Use
 script inventory. Use :doc:`capability_gallery/index` when you want stable,
 curated result pages before running anything locally.
 
+If you are looking for the technical documentation, module diagrams, or UML
+pages, use :doc:`architecture/index`. If you are looking for equations,
+modelling assumptions, or method notes, use :doc:`scientific/index`.
+
 Documentation map
 -----------------
 
@@ -110,6 +114,16 @@ Documentation map
       ^^^
       Browse the package tree exactly as in ``hydromodpy/`` (spatial, modeling,
       display, pyhelp, and tooling APIs).
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: architecture/index
+      :link-type: doc
+
+      **Architecture & UML**
+      ^^^
+      Technical documentation, component diagrams, class diagrams, activity
+      diagrams, and runtime handoff views for the main HydroModPy modules.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4

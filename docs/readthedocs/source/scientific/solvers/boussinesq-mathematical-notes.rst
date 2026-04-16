@@ -444,7 +444,7 @@ Mapping Between Equations And Code
    * - :math:`q^{\text{int}}_e`
      - ``internal_edge_flux_from_head()``
    * - :math:`q^{D}_e`
-     - ``imposed_head_edge_flux_from_head()``
+     - ``boundary_head_edge_flux_from_head()``
    * - :math:`q_i^{\text{drain}}`
      - ``drainage_outflow_from_head()``
    * - :math:`s_i(h)`

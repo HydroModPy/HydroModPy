@@ -29,11 +29,20 @@ def build_late_time_unconfined_pumping_comparison(
 ) -> TransientRadialDrawdownComparison:
     """Load one completed run and compare the late-time drawdown to the reference."""
     loaded = load_transient_profile_outputs(case_dir=CASE_DIR, result=result, solver=solver)
-    metadata, tolerances, observable_name, period_indices_all, heads_all, dt_seconds = loaded
+    metadata = loaded.metadata
+    tolerances = loaded.tolerances
+    observable_name = loaded.observable_name
+    period_indices_all = np.asarray(loaded.period_indices, dtype=int)
+    heads_all = np.asarray(loaded.heads, dtype=float)
+    dt_seconds = float(loaded.dt_seconds)
     reference_cfg = dict(metadata.get("reference", {}))
     plot_cfg = dict(metadata.get("plot", {}))
 
-    elapsed_seconds_all = (period_indices_all.astype(float) + 1.0) * float(dt_seconds)
+    elapsed_seconds_all = (
+        np.asarray(loaded.elapsed_seconds, dtype=float)
+        if loaded.elapsed_seconds is not None
+        else (period_indices_all.astype(float) + 1.0) * float(dt_seconds)
+    )
     elapsed_days_all = elapsed_seconds_all / SECONDS_PER_DAY
     compare_start_day = float(reference_cfg.get("compare_start_day", 0.0))
     compare_mask = elapsed_days_all >= compare_start_day

@@ -399,7 +399,6 @@ def run_boussinesq_hillslope_overflow_case(
         model,
         nx=nx,
         ny=ny,
-        export_initial_state=True,
     )
 
     model_ws = Path(model.full_path)

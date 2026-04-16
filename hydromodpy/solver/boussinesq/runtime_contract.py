@@ -43,6 +43,8 @@ class TransientStepInputs:
     ``head_prev_m`` is the accepted state from the previous period. The runtime
     solves for the new head field ``head^{n+1}`` that drives the transient
     residual to zero over ``dt_seconds``.
+
+    ``prescribed_head_m_by_cell`` is the canonical runtime Dirichlet view.
     """
 
     mesh: BoussinesqMesh
@@ -51,7 +53,6 @@ class TransientStepInputs:
     head_initial_guess_m: np.ndarray | None = None
     recharge_rate_m_s: np.ndarray | float | None = None
     well_flux_m3_s: np.ndarray | float | None = None
-    imposed_head_m_by_edge: np.ndarray | None = None
     prescribed_head_m_by_cell: np.ndarray | None = None
     drainage_conductance_m2_s: np.ndarray | float | None = None
     options: NonlinearRuntimeOptions = field(
@@ -66,13 +67,14 @@ class SteadySolveInputs:
     In the steady case there is no storage term, so the runtime only needs an
     initial head guess plus the forcing and boundary data for the current
     stationary problem.
+
+    ``prescribed_head_m_by_cell`` is the canonical runtime Dirichlet view.
     """
 
     mesh: BoussinesqMesh
     head_initial_guess_m: np.ndarray
     recharge_rate_m_s: np.ndarray | float | None = None
     well_flux_m3_s: np.ndarray | float | None = None
-    imposed_head_m_by_edge: np.ndarray | None = None
     prescribed_head_m_by_cell: np.ndarray | None = None
     drainage_conductance_m2_s: np.ndarray | float | None = None
     options: NonlinearRuntimeOptions = field(

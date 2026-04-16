@@ -11,6 +11,11 @@ import numpy as np
 
 from hydromodpy.process.flow import Flow
 from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.solver.boussinesq.history_contract import (
+    build_transient_time_axes,
+    elapsed_seconds_for_time_keys,
+    write_time_series_npy,
+)
 from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
@@ -212,17 +217,13 @@ def aggregate_triangle_history_to_structured_grids(
     *,
     nx: int,
     ny: int,
-    export_initial_state: bool = False,
 ) -> None:
     """Overwrite the default cell-vector postprocess with a regular profile grid."""
     if model.state is None or model.mesh is None:
         raise RuntimeError("Boussinesq validation case requires a solved model state.")
 
     head_history = np.asarray(model.state.head_history_m, dtype=float)
-    if head_history.ndim == 1:
-        head_history = head_history.reshape(1, -1)
-    if not bool(export_initial_state) and head_history.shape[0] > 1:
-        head_history = head_history[1:, :]
+    time_keys = np.arange(head_history.shape[0], dtype=int)
 
     dx = (float(model.mesh.x_max_m) - float(model.mesh.x_min_m)) / float(nx)
     dy = (float(model.mesh.y_max_m) - float(model.mesh.y_min_m)) / float(ny)
@@ -260,9 +261,14 @@ def aggregate_triangle_history_to_structured_grids(
         raise AssertionError("Every structured validation bin must receive at least one triangle.")
     top_grid = top_sum / counts
 
-    watertable_elevation: dict[int, np.ndarray] = {}
-    watertable_depth: dict[int, np.ndarray] = {}
-    for time_index, head_values in enumerate(head_history):
+    elapsed_seconds = elapsed_seconds_for_time_keys(
+        build_transient_time_axes(model.state.period_lengths_seconds).snapshot_elapsed_seconds,
+        time_keys,
+        name="head_history_m",
+    )
+    elevation_grids: list[np.ndarray] = []
+    depth_grids: list[np.ndarray] = []
+    for time_index, head_values in zip(time_keys.tolist(), head_history, strict=False):
         head_sum = np.zeros((int(ny), int(nx)), dtype=float)
         head_count = np.zeros((int(ny), int(nx)), dtype=int)
         for cell_idx in range(model.mesh.n_cells):
@@ -273,12 +279,22 @@ def aggregate_triangle_history_to_structured_grids(
         if np.any(head_count == 0):
             raise AssertionError("Every structured validation bin must receive at least one triangle.")
         head_grid = head_sum / head_count
-        watertable_elevation[int(time_index)] = head_grid
-        watertable_depth[int(time_index)] = np.maximum(top_grid - head_grid, 0.0)
+        elevation_grids.append(np.asarray(head_grid, dtype=float))
+        depth_grids.append(np.maximum(top_grid - head_grid, 0.0))
 
     postprocess_dir = Path(model.full_path) / "_postprocess"
-    np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
-    np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
+    write_time_series_npy(
+        postprocess_dir / "watertable_elevation.npy",
+        np.stack(elevation_grids, axis=0),
+        time_keys=time_keys,
+        elapsed_seconds=elapsed_seconds,
+    )
+    write_time_series_npy(
+        postprocess_dir / "watertable_depth.npy",
+        np.stack(depth_grids, axis=0),
+        time_keys=time_keys,
+        elapsed_seconds=elapsed_seconds,
+    )
 
 
 def run_boussinesq_transient_uniform_strip_case(
@@ -357,7 +373,6 @@ def run_boussinesq_transient_uniform_strip_case(
         model,
         nx=int(nx),
         ny=int(ny),
-        export_initial_state=False,
     )
 
     model_ws = Path(model.full_path)

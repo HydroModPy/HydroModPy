@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+import csv
 import gc
 import hashlib
 import importlib
@@ -53,6 +54,32 @@ VALIDATION_SOLVER_LABELS = {
     "boussinesq": "Boussinesq",
 }
 VALIDATION_SOLVER_ORDER = ("modflownwt", "modflow6", "modflow6_irregular_tri", "boussinesq")
+CATEGORY_GROUP_SPECS = (
+    {
+        "title": "Build The Support",
+        "deck": (
+            "Start here when the question is still about the basin, the geometry, the "
+            "properties, or the mesh rather than about solver behaviour."
+        ),
+        "categories": ("geographic", "geometry", "hydraulic_properties", "mesh"),
+    },
+    {
+        "title": "Run And Compare",
+        "deck": (
+            "Move here once the spatial support is understood and you want to inspect one "
+            "full workflow or compare solver families on shared supports."
+        ),
+        "categories": ("simulation", "method_comparison", "code_comparison"),
+    },
+    {
+        "title": "Validate And Calibrate",
+        "deck": (
+            "Use these pages when the goal is not demonstration only, but numerical trust "
+            "or inverse-problem behaviour."
+        ),
+        "categories": ("validation", "calibration"),
+    },
+)
 
 
 def _load_calibration_benchmark_families() -> dict[str, dict[str, Any]]:
@@ -481,6 +508,401 @@ def _generate_copy_assets_case(spec: GalleryCaseSpec, source_root: Path) -> dict
     )
 
 
+def _read_csv_rows(path: Path) -> list[dict[str, str]]:
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _regional_lab_status_style(status: str) -> tuple[str, str, str]:
+    mapping = {
+        "planned": ("#4C78A8", "PL", "Planned"),
+        "ok": ("#54A24B", "OK", "Executed successfully"),
+        "skipped_existing_ok": ("#72B7B2", "RE", "Reused from previous report"),
+        "failed": ("#E45756", "FL", "Failed"),
+        "skipped_missing_required_fields": ("#F58518", "GAP", "Coverage gap"),
+        "unsupported_platform": ("#B279A2", "PLT", "Unsupported platform"),
+    }
+    normalized = str(status).strip().lower()
+    return mapping.get(
+        normalized,
+        ("#BAB0AC", _humanize_case_token(normalized)[:3].upper() or "NA", _humanize_case_token(normalized)),
+    )
+
+
+def _safe_int(value: Any) -> int:
+    text = str(value).strip()
+    if text == "":
+        return 0
+    return int(float(text))
+
+
+def _render_regional_lab_figure(
+    *,
+    figure_path: Path,
+    case_title: str,
+    plan_payload: dict[str, Any],
+    report_payload: dict[str, Any],
+    recipe_rows: list[dict[str, str]],
+    cluster_rows: list[dict[str, str]],
+    case_matrix_rows: list[dict[str, str]],
+) -> None:
+    plt = _import_pyplot()
+
+    site_order: list[str] = []
+    site_labels: dict[str, str] = {}
+    recipe_order: list[str] = []
+    recipe_labels: dict[str, str] = {}
+    status_by_pair: dict[tuple[str, str], str] = {}
+    for row in case_matrix_rows:
+        site_id = str(row.get("site_id", "")).strip()
+        recipe_id = str(row.get("recipe_id", "")).strip()
+        if site_id and site_id not in site_order:
+            site_order.append(site_id)
+            site_labels[site_id] = str(row.get("site_label", site_id)).strip() or site_id
+        if recipe_id and recipe_id not in recipe_order:
+            recipe_order.append(recipe_id)
+            recipe_labels[recipe_id] = str(row.get("recipe_label", recipe_id)).strip() or recipe_id
+        if site_id and recipe_id:
+            status_by_pair[(recipe_id, site_id)] = str(row.get("status", "")).strip()
+
+    fig = plt.figure(figsize=(15.2, 9.2), dpi=160)
+    gs = fig.add_gridspec(2, 2, width_ratios=[1.7, 1.0], height_ratios=[1.0, 0.9], wspace=0.30, hspace=0.34)
+    ax_matrix = fig.add_subplot(gs[:, 0])
+    ax_recipe = fig.add_subplot(gs[0, 1])
+    ax_text = fig.add_subplot(gs[1, 1])
+
+    if site_order and recipe_order:
+        for row_index, recipe_id in enumerate(recipe_order):
+            for col_index, site_id in enumerate(site_order):
+                status = status_by_pair.get((recipe_id, site_id), "not_applicable")
+                color, short_label, _legend_label = _regional_lab_status_style(status)
+                rect = plt.Rectangle(
+                    (col_index, row_index),
+                    1.0,
+                    1.0,
+                    facecolor=color,
+                    edgecolor="white",
+                    linewidth=1.4,
+                )
+                ax_matrix.add_patch(rect)
+                ax_matrix.text(
+                    col_index + 0.5,
+                    row_index + 0.5,
+                    short_label,
+                    ha="center",
+                    va="center",
+                    fontsize=9,
+                    color="white" if color not in {"#BAB0AC", "#F2F2F2"} else "#222222",
+                    fontweight="bold",
+                )
+        ax_matrix.set_xlim(0, len(site_order))
+        ax_matrix.set_ylim(len(recipe_order), 0)
+        ax_matrix.set_xticks(np.arange(len(site_order)) + 0.5)
+        ax_matrix.set_xticklabels(
+            [site_labels[site_id] for site_id in site_order],
+            rotation=30,
+            ha="right",
+        )
+        ax_matrix.set_yticks(np.arange(len(recipe_order)) + 0.5)
+        ax_matrix.set_yticklabels([recipe_labels[recipe_id] for recipe_id in recipe_order])
+        ax_matrix.set_title("Site x Recipe Matrix", loc="left", fontsize=12, fontweight="bold")
+        ax_matrix.set_xlabel("Selected sites")
+        ax_matrix.set_ylabel("Recipes")
+        ax_matrix.tick_params(length=0)
+        for spine in ax_matrix.spines.values():
+            spine.set_visible(False)
+    else:
+        ax_matrix.axis("off")
+        ax_matrix.text(0.02, 0.98, "No case-matrix rows found.", transform=ax_matrix.transAxes, va="top")
+
+    legend_handles = []
+    seen_statuses: set[str] = set()
+    for row in case_matrix_rows:
+        status = str(row.get("status", "")).strip()
+        if status in seen_statuses:
+            continue
+        seen_statuses.add(status)
+        color, _short, label = _regional_lab_status_style(status)
+        legend_handles.append(plt.matplotlib.patches.Patch(color=color, label=label))
+    if legend_handles:
+        ax_matrix.legend(
+            handles=legend_handles,
+            loc="upper left",
+            bbox_to_anchor=(0.0, -0.12),
+            ncol=2,
+            frameon=False,
+            fontsize=9,
+        )
+
+    recipe_labels_ordered = [str(row.get("recipe_label", row.get("recipe_id", ""))).strip() for row in recipe_rows]
+    recipe_candidate = np.array([_safe_int(row.get("candidate_site_count")) for row in recipe_rows], dtype=float)
+    recipe_planned = np.array([_safe_int(row.get("planned_case_count")) for row in recipe_rows], dtype=float)
+    recipe_skipped = np.array([_safe_int(row.get("skipped_case_count")) for row in recipe_rows], dtype=float)
+    y_positions = np.arange(len(recipe_rows))
+    if len(recipe_rows) > 0:
+        ax_recipe.barh(y_positions, recipe_candidate, color="#E6E6E6", label="Candidate sites")
+        ax_recipe.barh(y_positions, recipe_planned, color="#4C78A8", label="Planned")
+        ax_recipe.barh(y_positions, recipe_skipped, left=recipe_planned, color="#F58518", label="Skipped")
+        for index, row in enumerate(recipe_rows):
+            pending = _safe_int(row.get("pending_case_count"))
+            ax_recipe.text(
+                recipe_candidate[index] + 0.06,
+                index,
+                f"pending {pending}",
+                va="center",
+                fontsize=8.5,
+                color="#444444",
+            )
+        ax_recipe.set_yticks(y_positions)
+        ax_recipe.set_yticklabels(recipe_labels_ordered)
+        ax_recipe.invert_yaxis()
+        ax_recipe.set_xlabel("Cases or candidate sites")
+        ax_recipe.set_title("Recipe Coverage", loc="left", fontsize=12, fontweight="bold")
+        ax_recipe.grid(axis="x", alpha=0.22)
+        ax_recipe.legend(frameon=False, fontsize=8, loc="lower right")
+        for spine in ax_recipe.spines.values():
+            spine.set_visible(False)
+    else:
+        ax_recipe.axis("off")
+        ax_recipe.text(0.02, 0.98, "No recipe summary found.", transform=ax_recipe.transAxes, va="top")
+
+    ax_text.axis("off")
+    selected_sites = list(plan_payload.get("selected_sites", []))
+    candidate_site_ids = {
+        str(row.get("site_id", "")).strip()
+        for row in case_matrix_rows
+        if str(row.get("site_id", "")).strip()
+    }
+    candidate_site_count = len(candidate_site_ids)
+    displayed_recipe_count = len(
+        {
+            str(row.get("recipe_id", "")).strip()
+            for row in recipe_rows
+            if str(row.get("recipe_id", "")).strip()
+        }
+    )
+    summary_sites = [
+        site
+        for site in selected_sites
+        if str(site.get("site_id", "")).strip() in candidate_site_ids
+    ] or selected_sites
+    runnable_site_count = len(
+        {
+            str(row.get("site_id", "")).strip()
+            for row in case_matrix_rows
+            if str(row.get("status", "")).strip().lower() == "planned"
+        }
+    )
+    status_counts: Counter[str] = Counter(
+        str(site.get("site_status", "")).strip()
+        for site in summary_sites
+        if str(site.get("site_status", "")).strip()
+    )
+    maturity_counts: Counter[str] = Counter(
+        str(site.get("maturity", "")).strip()
+        for site in summary_sites
+        if str(site.get("maturity", "")).strip()
+    )
+    gap_counts: Counter[str] = Counter(
+        str(row.get("reason", "")).strip() or str(row.get("status", "")).strip()
+        for row in case_matrix_rows
+        if str(row.get("status", "")).strip().lower().startswith("skipped")
+    )
+    cluster_lines = [
+        (
+            f"- {str(row.get('cluster_id', '')).strip()}: {_safe_int(row.get('site_count'))} site(s), "
+            f"{_safe_int(row.get('planned_case_count'))} planned, {_safe_int(row.get('skipped_case_count'))} gaps"
+        )
+        for row in cluster_rows
+        if any(
+            _safe_int(row.get(key)) > 0
+            for key in (
+                "planned_case_count",
+                "skipped_case_count",
+                "executed_case_count",
+                "reused_case_count",
+                "failed_case_count",
+                "pending_case_count",
+            )
+        )
+    ]
+    summary_lines = [
+        f"Execute flag: {'true' if bool(report_payload.get('execute', False)) else 'false'}",
+        f"Selected sites: {_safe_int(report_payload.get('selected_site_count'))}",
+        f"Candidate sites for displayed recipe(s): {candidate_site_count}",
+        f"Displayed recipes: {displayed_recipe_count}",
+        f"Planned cases: {_safe_int(report_payload.get('planned_case_count'))}",
+        f"Skipped cases: {_safe_int(report_payload.get('skipped_case_count'))}",
+        f"Pending cases: {_safe_int(report_payload.get('pending_case_count'))}",
+        f"Runnable sites in this dry plan: {runnable_site_count}",
+        "",
+        "Candidate site status mix:",
+        ", ".join(f"{label} ({count})" for label, count in sorted(status_counts.items())) or "none",
+        "",
+        "Candidate site maturity mix:",
+        ", ".join(f"{label} ({count})" for label, count in sorted(maturity_counts.items())) or "none",
+        "",
+        "Gap reasons:",
+        ", ".join(f"{label} ({count})" for label, count in sorted(gap_counts.items())) or "none",
+    ]
+    if cluster_lines:
+        summary_lines.extend(["", "Clusters:"])
+        summary_lines.extend(cluster_lines[:4])
+    ax_text.text(
+        0.0,
+        1.0,
+        "\n".join(summary_lines),
+        va="top",
+        ha="left",
+        fontsize=9.4,
+        family="monospace",
+    )
+    ax_text.set_title("Planning Summary", loc="left", fontsize=12, fontweight="bold")
+
+    fig.suptitle(case_title, fontsize=15, fontweight="bold", x=0.055, ha="left", y=0.98)
+    subtitle = (
+        "Recipe-focused dry-plan view of one regional laboratory: one reusable recipe is expanded over its candidate sites, while missing child inputs stay visible as explicit coverage gaps."
+        if displayed_recipe_count == 1
+        else "Dry-plan view of one regional laboratory: committed configs create planned child runs, while missing recipe inputs stay visible as explicit coverage gaps."
+    )
+    fig.text(
+        0.055,
+        0.945,
+        subtitle,
+        fontsize=10.2,
+        color="#444444",
+    )
+    fig.subplots_adjust(left=0.06, right=0.98, top=0.90, bottom=0.10, wspace=0.30, hspace=0.34)
+    figure_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(figure_path, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _generate_regional_lab_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
+    from launchers.regional_lab.launcher import RegionalLabLauncher
+
+    config_path = _repo_path(str(spec.metadata["regional_lab_config_path"]))
+    with tempfile.TemporaryDirectory(prefix="hydromodpy_doc_gallery_regional_lab_") as temp_dir:
+        output_root = Path(temp_dir) / "regional_lab_outputs"
+        launcher = RegionalLabLauncher(config_path)
+        launcher.cfg = replace(
+            launcher.cfg,
+            output_root=output_root,
+            execute=False,
+            resume_from_report=False,
+            skip_completed_cases=False,
+        )
+        launcher.run()
+
+        plan_path = output_root / "regional_lab_plan.json"
+        report_path = output_root / "regional_lab_report.json"
+        summary_markdown_path = output_root / "regional_lab_summary.md"
+        site_inventory_path = output_root / "regional_lab_site_inventory.csv"
+        recipe_summary_path = output_root / "regional_lab_recipe_summary.csv"
+        cluster_summary_path = output_root / "regional_lab_cluster_summary.csv"
+        case_matrix_path = output_root / "regional_lab_case_matrix.csv"
+
+        plan_payload = json.loads(plan_path.read_text(encoding="utf-8"))
+        report_payload = json.loads(report_path.read_text(encoding="utf-8"))
+        recipe_rows = _read_csv_rows(recipe_summary_path)
+        cluster_rows = _read_csv_rows(cluster_summary_path)
+        case_matrix_rows = _read_csv_rows(case_matrix_path)
+
+        figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+        _render_regional_lab_figure(
+            figure_path=figure_path,
+            case_title=spec.title,
+            plan_payload=plan_payload,
+            report_payload=report_payload,
+            recipe_rows=recipe_rows,
+            cluster_rows=cluster_rows,
+            case_matrix_rows=case_matrix_rows,
+        )
+
+        static_dir = source_root / Path("_static") / "capability_gallery" / spec.category
+        static_dir.mkdir(parents=True, exist_ok=True)
+        copied_artifact_names: list[str] = []
+        for source_artifact, dest_name in (
+            (plan_path, f"{spec.slug}_plan.json"),
+            (report_path, f"{spec.slug}_report.json"),
+            (summary_markdown_path, f"{spec.slug}_summary.md"),
+            (site_inventory_path, f"{spec.slug}_site_inventory.csv"),
+            (recipe_summary_path, f"{spec.slug}_recipe_summary.csv"),
+            (cluster_summary_path, f"{spec.slug}_cluster_summary.csv"),
+            (case_matrix_path, f"{spec.slug}_case_matrix.csv"),
+        ):
+            destination = static_dir / dest_name
+            shutil.copy2(source_artifact, destination)
+            copied_artifact_names.append(dest_name)
+
+    candidate_site_ids = sorted(
+        {
+            str(row.get("site_id", "")).strip()
+            for row in case_matrix_rows
+            if str(row.get("site_id", "")).strip()
+        }
+    )
+    runnable_site_count = len(
+        {
+            str(row.get("site_id", "")).strip()
+            for row in case_matrix_rows
+            if str(row.get("status", "")).strip().lower() == "planned"
+        }
+    )
+    metrics_source = {
+        "selected_site_count": int(report_payload.get("selected_site_count", 0)),
+        "candidate_site_count": len(candidate_site_ids),
+        "planned_case_count": int(report_payload.get("planned_case_count", 0)),
+        "skipped_case_count": int(report_payload.get("skipped_case_count", 0)),
+        "pending_case_count": int(report_payload.get("pending_case_count", 0)),
+    }
+    metadata = {
+        **dict(spec.metadata),
+        "execute": bool(report_payload.get("execute", False)),
+        "selected_site_ids": [
+            str(site.get("site_id", "")).strip()
+            for site in list(plan_payload.get("selected_sites", []))
+            if str(site.get("site_id", "")).strip()
+        ],
+        "candidate_site_ids": candidate_site_ids,
+        "recipe_ids": [
+            str(row.get("recipe_id", "")).strip()
+            for row in recipe_rows
+            if str(row.get("recipe_id", "")).strip()
+        ],
+        "recipe_labels": {
+            str(row.get("recipe_id", "")).strip(): str(row.get("recipe_label", "")).strip()
+            for row in recipe_rows
+            if str(row.get("recipe_id", "")).strip()
+        },
+        "candidate_site_count": len(candidate_site_ids),
+        "runnable_site_count": runnable_site_count,
+        "gap_reasons": dict(
+            Counter(
+                str(row.get("reason", "")).strip() or str(row.get("status", "")).strip()
+                for row in case_matrix_rows
+                if str(row.get("status", "")).strip().lower().startswith("skipped")
+            )
+        ),
+    }
+    return _build_case_summary(
+        spec,
+        metrics_source=metrics_source,
+        metadata=metadata,
+        extra_summary={
+            "artifacts": {
+                "summary_json_doc_path": "/" + _docs_relative_static_path(spec.category, f"{spec.slug}_summary.json"),
+                "summary_json_repo_path": _repo_docs_artifact_path(spec.category, f"{spec.slug}_summary.json"),
+                "image_repo_paths": [_repo_docs_artifact_path(spec.category, spec.image_assets[0].filename)],
+                "extra_repo_paths": [
+                    _repo_docs_artifact_path(spec.category, artifact_name)
+                    for artifact_name in copied_artifact_names
+                ],
+            },
+        },
+    )
+
+
 def _build_validation_image_summary(
     *,
     category: str,
@@ -536,37 +958,53 @@ def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[
         detail = dict(solver_details.get(solver, {}))
         filename = f"{spec.slug}__{solver}.png"
         figure_path = source_root / _docs_relative_static_path(spec.category, filename)
-        comparison = comparison_runner(
-            caller_file=caller_file,
-            timeout=int(spec.metadata.get("timeout", 1800)),
-            solver=solver,
-        )
-        plotting_function(comparison, output_png=figure_path, show_plot=False)
         image_summary = None
-        if figure_path.is_file():
-            image_summary = _build_validation_image_summary(
-                category=spec.category,
-                filename=filename,
-                caption=(
-                    f"{spec.title} rendered with {detail.get('display_name', solver)} for the analytical gallery."
-                ),
-                alt_text=f"{spec.title} validation figure for {detail.get('display_name', solver)}",
-            )
-            all_image_repo_paths.append(image_summary["repo_path"])
-            if solver == default_solver:
-                default_images = [image_summary]
-
+        metric_lines: list[str] = []
         solver_metadata = {
-            "observable_name": getattr(comparison, "observable_name", None),
-            "case_metadata": getattr(comparison, "metadata", {}),
-            "tolerances": getattr(comparison, "tolerances", {}),
+            "observable_name": None,
+            "case_metadata": {},
+            "tolerances": {},
         }
-        if hasattr(comparison, "solver"):
-            solver_metadata["comparison_solver"] = getattr(comparison, "solver")
-        if hasattr(comparison, "timestep"):
-            solver_metadata["timestep"] = getattr(comparison, "timestep")
-        if hasattr(comparison, "final_elapsed_days"):
-            solver_metadata["final_elapsed_days"] = getattr(comparison, "final_elapsed_days")
+        try:
+            comparison = comparison_runner(
+                caller_file=caller_file,
+                timeout=int(spec.metadata.get("timeout", 1800)),
+                solver=solver,
+            )
+            plotting_function(comparison, output_png=figure_path, show_plot=False)
+            if figure_path.is_file():
+                image_summary = _build_validation_image_summary(
+                    category=spec.category,
+                    filename=filename,
+                    caption=(
+                        f"{spec.title} rendered with {detail.get('display_name', solver)} for the analytical gallery."
+                    ),
+                    alt_text=f"{spec.title} validation figure for {detail.get('display_name', solver)}",
+                )
+                all_image_repo_paths.append(image_summary["repo_path"])
+                if solver == default_solver:
+                    default_images = [image_summary]
+
+            solver_metadata = {
+                "observable_name": getattr(comparison, "observable_name", None),
+                "case_metadata": getattr(comparison, "metadata", {}),
+                "tolerances": getattr(comparison, "tolerances", {}),
+            }
+            if hasattr(comparison, "solver"):
+                solver_metadata["comparison_solver"] = getattr(comparison, "solver")
+            if hasattr(comparison, "timestep"):
+                solver_metadata["timestep"] = getattr(comparison, "timestep")
+            if hasattr(comparison, "final_elapsed_days"):
+                solver_metadata["final_elapsed_days"] = getattr(comparison, "final_elapsed_days")
+            metric_lines = list(metric_builder(comparison))
+        except Exception as exc:
+            solver_metadata["generation_error"] = {
+                "type": type(exc).__name__,
+                "message": str(exc),
+            }
+            metric_lines = [
+                f"Gallery generation failed for this solver: {type(exc).__name__}: {exc}"
+            ]
 
         solver_runs.append(
             {
@@ -581,7 +1019,7 @@ def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[
                     solver=solver,
                     include_solver_flag=include_solver_flag,
                 ),
-                "metric_lines": list(metric_builder(comparison)),
+                "metric_lines": metric_lines,
                 "image": image_summary,
                 "metadata": solver_metadata,
             }
@@ -1146,11 +1584,21 @@ def _build_method_comparison_payload(config_path: Path) -> tuple[dict[str, Any],
     raw_toml = load_toml_with_base_config(config_path)
     cfg = MethodComparisonConfig.from_toml(raw_toml, config_path=config_path)
     section = cfg.method_comparison
-    if section.run_variants:
+    committed_variant_rows: dict[str, dict[str, Any]] = {}
+    committed_manifest_path = cfg.comparison_root / "comparison_manifest.json"
+    if section.run_variants and not committed_manifest_path.exists():
         raise ValueError(
-            "Capability-gallery method comparison cases must reuse committed run folders "
-            "(run_variants=false)."
+            "Capability-gallery method comparison cases with run_variants=true "
+            "must reuse one committed comparison_manifest.json."
         )
+    if committed_manifest_path.exists():
+        committed_manifest = read_json_file(committed_manifest_path)
+        for row in list(committed_manifest.get("variants", [])):
+            if not isinstance(row, dict):
+                continue
+            variant_id = str(row.get("id", "")).strip()
+            if variant_id != "":
+                committed_variant_rows[variant_id] = row
 
     all_rows: list[dict[str, Any]] = []
     variant_summaries: list[dict[str, Any]] = []
@@ -1167,6 +1615,13 @@ def _build_method_comparison_payload(config_path: Path) -> tuple[dict[str, Any],
             continue
 
         run_folder = cfg.resolve_variant_run_folder(variant)
+        committed_variant = committed_variant_rows.get(str(variant.id), {})
+        if run_folder is None:
+            committed_run_folder = str(committed_variant.get("run_folder", "")).strip()
+            if committed_run_folder != "":
+                run_folder = Path(committed_run_folder).expanduser()
+                if not run_folder.is_absolute():
+                    run_folder = (cfg.base_dir / run_folder).resolve()
         if run_folder is None:
             raise ValueError(
                 f"Capability-gallery method comparison case '{config_path}' requires "
@@ -1188,12 +1643,13 @@ def _build_method_comparison_payload(config_path: Path) -> tuple[dict[str, Any],
             {
                 "id": variant.id,
                 "label": variant.label or variant.id,
-                "status": "reused",
+                "status": str(committed_variant.get("status", "reused")),
                 "enabled": True,
                 "solver": variant.solver,
                 "mesh_label": variant.mesh_label,
                 "mesh_mode": variant.mesh_mode,
                 "run_folder": str(run_folder),
+                "wall_time_seconds": committed_variant.get("wall_time_seconds"),
                 "metrics": compact_run_metrics(read_json_file(run_folder / "_metrics.json")),
                 "run_metadata": read_variant_run_metadata(run_folder),
                 "n_observable_rows": len(rows),
@@ -2921,6 +3377,8 @@ def _generate_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
         return _generate_mesh_viewer_case(spec, source_root)
     if spec.generator == "copy_assets":
         return _generate_copy_assets_case(spec, source_root)
+    if spec.generator == "regional_lab_case":
+        return _generate_regional_lab_case(spec, source_root)
     if spec.generator == "validation_case":
         return _generate_validation_case(spec, source_root)
     if spec.generator == "calibration_case":
@@ -2962,6 +3420,10 @@ def _render_grid_card(*, link: str, title: str, deck: str) -> list[str]:
         f"      {deck}",
         "",
     ]
+
+
+def _render_case_count(value: int) -> str:
+    return f"{value} case{'s' if value != 1 else ''}"
 
 
 _VALIDATION_PROCESS_ORDER = {
@@ -3059,6 +3521,57 @@ def _build_validation_grouped_sections(cases: list[dict[str, Any]]) -> list[dict
                 "process_label": process_entry["label"],
                 "families": families,
             }
+        )
+    return sections
+
+
+def _metadata_order_token(value: Any) -> int | str:
+    token = str(value).strip()
+    return int(token) if token.isdigit() else token
+
+
+def _group_cases_by_family_metadata(
+    cases: list[dict[str, Any]],
+    *,
+    key_name: str,
+    label_name: str,
+    deck_name: str,
+    order_name: str,
+    case_order_name: str,
+) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for case in cases:
+        metadata = dict(case.get("metadata", {}))
+        family_key = str(metadata.get(key_name, "")).strip() or "other"
+        family_label = str(
+            metadata.get(label_name, _humanize_case_token(family_key))
+        ).strip() or _humanize_case_token(family_key)
+        family_deck = str(metadata.get(deck_name, "")).strip()
+        family_entry = grouped.setdefault(
+            family_key,
+            {
+                "key": family_key,
+                "label": family_label,
+                "deck": family_deck,
+                "order": int(metadata.get(order_name, 999)),
+                "cases": [],
+            },
+        )
+        family_entry["cases"].append(case)
+
+    sections = sorted(
+        grouped.values(),
+        key=lambda item: (int(item["order"]), str(item["label"])),
+    )
+    for section in sections:
+        section["cases"] = sorted(
+            section["cases"],
+            key=lambda case: (
+                _metadata_order_token(
+                    case.get("metadata", {}).get(case_order_name, 999)
+                ),
+                str(case.get("title", "")),
+            ),
         )
     return sections
 
@@ -3607,6 +4120,16 @@ def _group_mesh_cases_for_tabs(
 
 
 def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str:
+    populated_counts = {
+        category_slug: len(cases_by_category.get(category_slug, []))
+        for category_slug in CATEGORY_SPECS
+        if cases_by_category.get(category_slug)
+    }
+    total_case_count = sum(populated_counts.values())
+    ordered_counts = sorted(
+        populated_counts.items(),
+        key=lambda item: (-int(item[1]), CATEGORY_SPECS[item[0]].title),
+    )
     lines = [
         AUTO_GENERATED_COMMENT,
         "",
@@ -3624,21 +4147,71 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
         "if you need help choosing a first workflow, reading the key parameters, or navigating the "
         "different example families.",
         "",
-        ".. grid:: 1 1 2 3",
-        "   :gutter: 2 2 3 3",
+        "Coverage Snapshot",
+        "-----------------",
         "",
     ]
-    for category_slug, category in CATEGORY_SPECS.items():
-        if not cases_by_category.get(category_slug):
-            continue
-        category = CATEGORY_SPECS[category_slug]
+    if populated_counts:
         lines.extend(
-            _render_grid_card(
-                link=category.slug,
-                title=category.title,
-                deck=category.deck,
-            )
+            [
+                f"- Category pages available today: {len(populated_counts)}.",
+                f"- Curated gallery cases available today: {total_case_count}.",
+                "- Most populated sections: "
+                + ", ".join(
+                    f"{CATEGORY_SPECS[category_slug].title} ({count})"
+                    for category_slug, count in ordered_counts[:3]
+                )
+                + ".",
+                "",
+            ]
         )
+    else:
+        lines.extend(
+            [
+                "- No populated category yet.",
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "Browse By Intent",
+            "----------------",
+            "",
+            "The gallery is intentionally grouped by workflow intent first, then by case page.",
+            "",
+        ]
+    )
+    for group_spec in CATEGORY_GROUP_SPECS:
+        available_categories = [
+            CATEGORY_SPECS[category_slug]
+            for category_slug in group_spec["categories"]
+            if cases_by_category.get(category_slug)
+        ]
+        if not available_categories:
+            continue
+        title = str(group_spec["title"])
+        lines.extend(
+            [
+                title,
+                "~" * len(title),
+                "",
+                str(group_spec["deck"]),
+                "",
+                ".. grid:: 1 1 2 2",
+                "   :gutter: 2 2 3 3",
+                "",
+            ]
+        )
+        for category in available_categories:
+            case_count = len(cases_by_category.get(category.slug, []))
+            lines.extend(
+                _render_grid_card(
+                    link=category.slug,
+                    title=category.title,
+                    deck=f"{category.deck} {_render_case_count(case_count)}.",
+                )
+            )
     lines.extend(
         [
             ".. toctree::",
@@ -3979,6 +4552,116 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                     )
                     _append_case_grid(lines, list(family["cases"]))
             render_default_case_grid = False
+    elif category_slug == "geographic":
+        workflow_stages = sorted(
+            {
+                str(
+                    case.get("metadata", {}).get(
+                        "workflow_stage_label",
+                        case.get("metadata", {}).get("workflow_stage", ""),
+                    )
+                ).strip()
+                for case in cases
+                if str(case.get("metadata", {}).get("workflow_stage", "")).strip()
+            }
+        )
+        panel_families = sorted(
+            {
+                _humanize_case_token(str(panel))
+                for case in cases
+                for panel in case.get("metadata", {}).get("panel_families", [])
+                if str(panel).strip()
+            }
+        )
+        loaded_data_types = sorted(
+            {
+                _humanize_case_token(str(data_type))
+                for case in cases
+                for data_type in case.get("metadata", {}).get("loaded_data_types", [])
+                if str(data_type).strip()
+            }
+        )
+        source_families = sorted(
+            {
+                str(source_family)
+                for case in cases
+                for source_family in case.get("metadata", {}).get("source_families", [])
+                if str(source_family).strip()
+            }
+        )
+        ordered_cases = sorted(
+            cases,
+            key=lambda case: (
+                int(case.get("metadata", {}).get("reading_order", 999)),
+                str(case.get("title", "")),
+            ),
+        )
+        stage_groups = _group_cases_by_family_metadata(
+            cases,
+            key_name="workflow_stage",
+            label_name="workflow_stage_label",
+            deck_name="workflow_stage_deck",
+            order_name="workflow_stage_order",
+            case_order_name="reading_order",
+        )
+        lines.extend(
+            [
+                "Current Coverage",
+                "----------------",
+                "",
+                "- Workflow stages: " + (", ".join(workflow_stages) if workflow_stages else "none yet") + ".",
+                "- Panel families: " + (", ".join(panel_families) if panel_families else "none yet") + ".",
+                "- Loaded data families: "
+                + (", ".join(loaded_data_types) if loaded_data_types else "none yet")
+                + ".",
+            ]
+        )
+        if source_families:
+            lines.append("- Explicit source families: " + ", ".join(source_families) + ".")
+        lines.extend(
+            [
+                "- Keep this category focused on pre-mesh, pre-solver reading aids; once a case needs a mesh or solver state, move it to another category.",
+                "",
+            ]
+        )
+        if stage_groups:
+            render_default_case_grid = False
+            lines.extend(
+                [
+                    "Workflow Stages",
+                    "---------------",
+                    "",
+                    "The section is grouped from basin framing to observation detail so new `data-overview` cases can be added without flattening everything into one gallery wall.",
+                    "",
+                ]
+            )
+            for group in stage_groups:
+                title = str(group["label"])
+                lines.extend(
+                    [
+                        title,
+                        "~" * len(title),
+                        "",
+                    ]
+                )
+                deck = str(group.get("deck", "")).strip()
+                if deck:
+                    lines.extend([deck, ""])
+                _append_case_grid(lines, list(group["cases"]))
+                lines.append("")
+        if ordered_cases:
+            lines.extend(
+                [
+                    "Suggested Reading Order",
+                    "-----------------------",
+                    "",
+                    "Open these pages in order if you want to move from raw watershed framing to one targeted data audit.",
+                    "",
+                ]
+            )
+            for index, case in enumerate(ordered_cases, start=1):
+                lines.append(f"{index}. :doc:`{case['title']} <{case['docname']}>`")
+            lines.append("")
     elif category_slug == "geometry":
         layers = sorted(
             {
@@ -4032,6 +4715,121 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 "",
             ]
         )
+    elif category_slug == "simulation":
+        study_areas = sorted(
+            {
+                str(case.get("metadata", {}).get("study_area", "")).strip()
+                for case in cases
+                if str(case.get("metadata", {}).get("study_area", "")).strip()
+            }
+        )
+        process_families = sorted(
+            {
+                _humanize_case_token(str(process_family))
+                for case in cases
+                for process_family in case.get("metadata", {}).get("process_families", [])
+                if str(process_family).strip()
+            }
+        )
+        mesh_supports = sorted(
+            {
+                _humanize_case_token(str(mesh_support))
+                for case in cases
+                for mesh_support in case.get("metadata", {}).get("mesh_supports", [])
+                if str(mesh_support).strip()
+            }
+        )
+        flow_solvers = sorted(
+            {
+                str(flow_solver)
+                for case in cases
+                for flow_solver in case.get("metadata", {}).get("flow_solvers", [])
+                if str(flow_solver).strip()
+            }
+        )
+        transport_solvers = sorted(
+            {
+                str(transport_solver)
+                for case in cases
+                for transport_solver in case.get("metadata", {}).get("transport_solvers", [])
+                if str(transport_solver).strip()
+            }
+        )
+        postprocess_outputs = sorted(
+            {
+                _humanize_case_token(str(output_name))
+                for case in cases
+                for output_name in case.get("metadata", {}).get("postprocess_outputs", [])
+                if str(output_name).strip()
+            }
+        )
+        workflow_groups = _group_cases_by_family_metadata(
+            cases,
+            key_name="workflow_family_key",
+            label_name="workflow_family_label",
+            deck_name="workflow_family_deck",
+            order_name="workflow_family_order",
+            case_order_name="workflow_case_order",
+        )
+        lines.extend(
+            [
+                "Current Coverage",
+                "----------------",
+                "",
+                "- Study areas: " + (", ".join(study_areas) if study_areas else "none yet") + ".",
+                "- Process families shown: "
+                + (", ".join(process_families) if process_families else "none yet")
+                + ".",
+                "- Mesh supports: " + (", ".join(mesh_supports) if mesh_supports else "none yet") + ".",
+                "- Flow solvers: " + (", ".join(flow_solvers) if flow_solvers else "none yet") + ".",
+                "- Transport solvers: "
+                + (", ".join(transport_solvers) if transport_solvers else "none yet")
+                + ".",
+            ]
+        )
+        if postprocess_outputs:
+            lines.append("- Postprocess outputs surfaced: " + ", ".join(postprocess_outputs) + ".")
+        lines.extend(
+            [
+                "- Workflow families: "
+                + (
+                    ", ".join(
+                        f"{group['label']} ({len(list(group['cases']))})"
+                        for group in workflow_groups
+                    )
+                    if workflow_groups
+                    else "none yet"
+                )
+                + ".",
+                "- Grow this category by workflow family rather than by one flat list of runs; add new pages where the reading objective really changes.",
+                "",
+            ]
+        )
+        if workflow_groups:
+            render_default_case_grid = False
+            lines.extend(
+                [
+                    "Workflow Families",
+                    "-----------------",
+                    "",
+                    "The cases below are grouped by workflow role so the simulation section can grow without turning into one long undifferentiated card wall.",
+                    "",
+                ]
+            )
+            for group in workflow_groups:
+                title = str(group["label"])
+                lines.extend(
+                    [
+                        title,
+                        "~" * len(title),
+                        "",
+                    ]
+                )
+                deck = str(group.get("deck", "")).strip()
+                if deck:
+                    lines.extend([deck, ""])
+                _append_case_grid(lines, list(group["cases"]))
+                lines.append("")
     elif category_slug == "method_comparison":
         study_areas = sorted(
             {
@@ -4054,6 +4852,14 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 for label in case.get("metadata", {}).get("variant_labels", {}).values()
             }
         )
+        comparison_groups = _group_cases_by_family_metadata(
+            cases,
+            key_name="comparison_family_key",
+            label_name="comparison_family_label",
+            deck_name="comparison_family_deck",
+            order_name="comparison_family_order",
+            case_order_name="comparison_case_order",
+        )
         lines.extend(
             [
                 "Current Coverage",
@@ -4064,10 +4870,45 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 "- Compared observables: "
                 + (", ".join(observable_names) if observable_names else "none yet")
                 + ".",
-                "- Add one committed comparison TOML per basin to extend this section without changing the page generator.",
+                "- Comparison families: "
+                + (
+                    ", ".join(
+                        f"{group['label']} ({len(list(group['cases']))})"
+                        for group in comparison_groups
+                    )
+                    if comparison_groups
+                    else "none yet"
+                )
+                + ".",
+                "- Extend this section by adding committed comparison TOMLs to an existing family, or by declaring a new family when the comparison axis really changes.",
                 "",
             ]
         )
+        if comparison_groups:
+            render_default_case_grid = False
+            lines.extend(
+                [
+                    "Comparison Families",
+                    "-------------------",
+                    "",
+                    "The section is grouped by comparison intent first, so similar pages stay together even when the inventory grows.",
+                    "",
+                ]
+            )
+            for group in comparison_groups:
+                title = str(group["label"])
+                lines.extend(
+                    [
+                        title,
+                        "~" * len(title),
+                        "",
+                    ]
+                )
+                deck = str(group.get("deck", "")).strip()
+                if deck:
+                    lines.extend([deck, ""])
+                _append_case_grid(lines, list(group["cases"]))
+                lines.append("")
     elif category_slug == "code_comparison":
         benchmark_cases = sorted(
             {

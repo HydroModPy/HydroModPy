@@ -28,8 +28,8 @@ class BoussinesqState:
     saturation_excess_history_m_s: np.ndarray | None = None
     internal_edge_flux_m3_s: np.ndarray | None = None
     internal_edge_flux_history_m3_s: np.ndarray | None = None
-    imposed_head_edge_flux_m3_s: np.ndarray | None = None
-    imposed_head_edge_flux_history_m3_s: np.ndarray | None = None
+    boundary_edge_flux_m3_s: np.ndarray | None = None
+    boundary_edge_flux_history_m3_s: np.ndarray | None = None
     prescribed_head_flux_m3_s: np.ndarray | None = None
     prescribed_head_flux_history_m3_s: np.ndarray | None = None
     prescribed_head_m_by_cell: np.ndarray | None = None
@@ -59,6 +59,7 @@ class BoussinesqState:
         **kwargs: Any,
     ) -> BoussinesqState:
         """Create one normalized runtime state with consistent array coercion."""
+        normalized = dict(kwargs)
         array_fields = {
             "head_m",
             "saturated_thickness_m",
@@ -72,8 +73,8 @@ class BoussinesqState:
             "saturation_excess_history_m_s",
             "internal_edge_flux_m3_s",
             "internal_edge_flux_history_m3_s",
-            "imposed_head_edge_flux_m3_s",
-            "imposed_head_edge_flux_history_m3_s",
+            "boundary_edge_flux_m3_s",
+            "boundary_edge_flux_history_m3_s",
             "prescribed_head_flux_m3_s",
             "prescribed_head_flux_history_m3_s",
             "prescribed_head_m_by_cell",
@@ -81,7 +82,6 @@ class BoussinesqState:
             "drainage_flux_m3_s",
             "drainage_flux_history_m3_s",
         }
-        normalized = dict(kwargs)
         for field_name in array_fields:
             value = normalized.get(field_name)
             if value is not None:

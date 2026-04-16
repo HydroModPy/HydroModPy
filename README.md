@@ -35,7 +35,9 @@ Alexandre Gauvain [1,2], Ronan Abhervé [1,3,9],  Alexandre Coche [1], Martin Le
 ## Links
 
 - GitHub Project: https://github.com/HydroModPy/HydroModPy
-- Read the Docs: https://hydromodpy-docs.readthedocs.io/en/latest/
+- Documentation: https://hydromodpy-docs.readthedocs.io/en/latest/
+- Technical documentation and UMLs (`Architecture` tab): https://hydromodpy-docs.readthedocs.io/en/latest/architecture/
+- Scientific documentation (`Scientific documentation` tab): https://hydromodpy-docs.readthedocs.io/en/latest/scientific/
 - Google Drive: https://docs.google.com/document/d/11BA4ufhYWbydBvfjQufohoPIc0SaF9pKcyj_KNJ2VQM/edit?usp=sharing
 - Forum Group: https://groups.google.com/g/hydromodpy
 

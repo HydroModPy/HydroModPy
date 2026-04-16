@@ -1,0 +1,171 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "mesh_constraint_balance_scale_ladder",
+  "title": "Constraint Balance Across Scales",
+  "category": "mesh",
+  "deck": "Relative contributions of river, geology, and boundary constraints across three scales.",
+  "summary": "This case compares how linear constraints contribute to mesh structure across the 10, 100, and 1000 km2 bundles. It uses the committed bundle summaries to compute the breakdown without regenerating any mesh.",
+  "case_setup": [
+    "Three committed bundles (10, 100, 1000 km2) with geology + rivers constraints.",
+    "Counts extracted from mesh_summary.json for consistency.",
+    "Focus on linear-constraint balance rather than solver outputs."
+  ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
+  "what_it_shows": [
+    "How river-edge density compares to geology-interface edges at different scales.",
+    "How boundary edges contribute to the overall constraint mix.",
+    "How a compact bar chart can summarize constraints across multiple bundles."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m tools.doc_gallery",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/mesh_summary.json",
+    "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle/mesh_summary.json",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/mesh_summary.json",
+    "tools/doc_gallery/update_gallery.py"
+  ],
+  "source_hashes": {
+    "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/mesh_summary.json": "fa0775c2c4fe4211f7e066b0c895bd1b8b45c04c42a3731a18b2854437ea6102",
+    "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle/mesh_summary.json": "b074985ad16a7bd5a3dca5f218095cddd3edca0f5846d8bdb9686635067e4295",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/mesh_summary.json": "8c8a077601df56683f213ee10baa8419d698745672b9754cdf2f364b1b027f57",
+    "tools/doc_gallery/update_gallery.py": "fc40959862cae1cf051d7272ad718942804308d79ae71c54adedd61062b396d2"
+  },
+  "docname": "cases/mesh_constraint_balance_scale_ladder",
+  "images": [
+    {
+      "filename": "mesh_constraint_balance_scale_ladder.png",
+      "caption": "Constraint-edge balance across 10, 100, and 1000 km2 mesh bundles.",
+      "alt_text": "Constraint balance across mesh scales",
+      "doc_path": "/_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder.png"
+    }
+  ],
+  "metrics": [
+    {
+      "label": "River edges",
+      "key": "river_edge_count",
+      "value": 65,
+      "display": "65"
+    },
+    {
+      "label": "Geology interfaces",
+      "key": "geology_interface_edge_count",
+      "value": 80,
+      "display": "80"
+    },
+    {
+      "label": "Boundary edges",
+      "key": "boundary_edge_count",
+      "value": 17,
+      "display": "17"
+    },
+    {
+      "label": "Cells",
+      "key": "cell_count",
+      "value": 547,
+      "display": "547"
+    }
+  ],
+  "metadata": {
+    "bundle_entries": [
+      {
+        "label": "10 km2 outlet 1",
+        "bundle_path": "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle"
+      },
+      {
+        "label": "100 km2 outlet 1",
+        "bundle_path": "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle"
+      },
+      {
+        "label": "1000 km2 outlet 2",
+        "bundle_path": "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle"
+      }
+    ],
+    "bundle_metrics": [
+      {
+        "label": "10 km2 outlet 1",
+        "river_edge_count": 65,
+        "boundary_edge_count": 17,
+        "geology_interface_edge_count": 80,
+        "cell_count": 547
+      },
+      {
+        "label": "100 km2 outlet 1",
+        "river_edge_count": 697,
+        "boundary_edge_count": 46,
+        "geology_interface_edge_count": 207,
+        "cell_count": 4218
+      },
+      {
+        "label": "1000 km2 outlet 2",
+        "river_edge_count": 6739,
+        "boundary_edge_count": 124,
+        "geology_interface_edge_count": 1744,
+        "cell_count": 38030
+      }
+    ]
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder.png"
+    ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Bundle Inputs",
+        "rows": [
+          {
+            "field": "bundle.10 km2 outlet 1",
+            "meaning": "Committed bundle included in the cross-case mesh comparison.",
+            "value": "bundle",
+            "source": "examples/mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle"
+          },
+          {
+            "field": "bundle.100 km2 outlet 1",
+            "meaning": "Committed bundle included in the cross-case mesh comparison.",
+            "value": "bundle",
+            "source": "examples/mesh_gallery/100km2/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30/bundle"
+          },
+          {
+            "field": "bundle.1000 km2 outlet 2",
+            "meaning": "Committed bundle included in the cross-case mesh comparison.",
+            "value": "bundle",
+            "source": "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle"
+          }
+        ]
+      },
+      {
+        "title": "Compared Bundle Values",
+        "rows": [
+          {
+            "field": "metrics.10 km2 outlet 1",
+            "meaning": "Constraint and cell counts carried by one compared mesh bundle.",
+            "value": "river_edges=65, geology_interfaces=80, boundary_edges=17, cells=547",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder_summary.json"
+          },
+          {
+            "field": "metrics.100 km2 outlet 1",
+            "meaning": "Constraint and cell counts carried by one compared mesh bundle.",
+            "value": "river_edges=697, geology_interfaces=207, boundary_edges=46, cells=4218",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder_summary.json"
+          },
+          {
+            "field": "metrics.1000 km2 outlet 2",
+            "meaning": "Constraint and cell counts carried by one compared mesh bundle.",
+            "value": "river_edges=6739, geology_interfaces=1744, boundary_edges=124, cells=38030",
+            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder_summary.json"
+          }
+        ]
+      }
+    ]
+  }
+}

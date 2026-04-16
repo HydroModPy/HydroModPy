@@ -16,8 +16,8 @@
     {
       "solver": "petsc",
       "solver_label": "Boussinesq PETSc complementarity",
-      "peak_total_outflow_m3_day": 76.41528657079918,
-      "final_storage_change_m3_day": -0.0001305317336634341
+      "peak_total_outflow_m3_day": 76.61230324734197,
+      "final_storage_change_m3_day": 0.0
     }
   ]
 }

@@ -80,13 +80,13 @@ def test_run_reference_river_network_nancon_case(
         config_path,
         output_dir=work_root / "figures",
         show_plot=False,
+        write_plot=False,
     )
 
-    figure_path = Path(str(payload["figure"]))
     river_network_shp = Path(str(payload["river_network_shp"]))
     summary_path = Path(str(payload["river_network_summary_json"]))
 
-    assert figure_path.exists()
+    assert payload["figure"] is None
     assert river_network_shp.exists()
     assert summary_path.exists()
     assert int(payload["segment_count"]) > 0

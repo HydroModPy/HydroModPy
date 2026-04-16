@@ -8,6 +8,10 @@ from pathlib import Path
 
 import numpy as np
 
+from hydromodpy.solver.boussinesq.history_contract import (
+    snapshot_elapsed_seconds_from_payload,
+    step_history_from_history,
+)
 from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
@@ -208,10 +212,11 @@ def _resolve_recharge_series_mm_day(
         state_history.get("recharge_rate_history_m_s", ()),
         dtype=float,
     )
-    if recharge_history.ndim == 2 and recharge_history.shape[0] >= int(n_periods) + 1:
-        period_rates_m_s = np.asarray(
-            recharge_history[1 : int(n_periods) + 1],
-            dtype=float,
+    if recharge_history.ndim == 2 and int(n_periods) > 0:
+        period_rates_m_s = step_history_from_history(
+            recharge_history,
+            n_steps=int(n_periods),
+            name="recharge_rate_history_m_s",
         )
         if period_rates_m_s.size != 0:
             weights = np.asarray(cell_area_m2, dtype=float).reshape(1, -1)
@@ -304,16 +309,13 @@ def build_hillslope_overflow_diagnostics(
         )
     )
 
-    period_lengths_seconds = np.asarray(
-        state_history["period_lengths_seconds"],
-        dtype=float,
-    ).reshape(-1)
-    elapsed_days = np.concatenate(
-        (
-            np.asarray([0.0], dtype=float),
-            np.cumsum(period_lengths_seconds, dtype=float) / SECONDS_PER_DAY,
-        )
+    elapsed_seconds = snapshot_elapsed_seconds_from_payload(
+        state_history,
+        n_snapshots=int(np.asarray(state_history["head_history_m"], dtype=float).shape[0]),
     )
+    if elapsed_seconds is None:
+        raise ValueError("Transient Boussinesq diagnostics require explicit or derivable snapshot times.")
+    elapsed_days = np.asarray(elapsed_seconds / SECONDS_PER_DAY, dtype=float)
     n_periods = max(int(elapsed_days.size) - 1, 0)
     recharge_mm_day = _resolve_recharge_series_mm_day(
         state_history=state_history,
