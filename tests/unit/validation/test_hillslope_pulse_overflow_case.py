@@ -9,6 +9,7 @@ from validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_ov
     comparison as comparison_module,
 )
 from validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.diagnostics import (
+    _align_period_values_to_elapsed_days,
     _resolve_recharge_series_mm_day,
     compute_overflow_footprint_metrics,
 )
@@ -199,6 +200,15 @@ def test_align_step_series_trims_to_common_length() -> None:
 
     assert np.allclose(x, [0.0, 1.0])
     assert np.allclose(y, [10.0, 20.0])
+
+
+def test_align_period_values_to_elapsed_days_pads_initial_state() -> None:
+    aligned = _align_period_values_to_elapsed_days(
+        np.asarray([3.0, 7.0], dtype=float),
+        elapsed_days=np.asarray([0.0, 2.0, 4.0], dtype=float),
+    )
+
+    assert np.allclose(aligned, [3.0, 3.0, 7.0])
 
 
 def test_real_strong_and_extreme_presets_cover_40_days() -> None:

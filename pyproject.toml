@@ -139,6 +139,7 @@ markers = [
     "transient: transient validation or regression case",
     "fast: quick-running validation, integration, or fast-tier regression cases",
     "slow: long-running validation, integration, or regression tests",
+    "petsc: tests that exercise the Linux PETSc-backed Boussinesq runtime",
     "nwt: MODFLOW-NWT / MODPATH / MT3DMS test case",
     "mf6: MODFLOW 6 / GWT test case",
     "integration: tests that call external services or systems",

@@ -131,6 +131,19 @@ Generated outputs:
 /mnt/c/codes/HydroModPy-GH/out/sih_tx_4cmp_linux_20260414
 ```
 
+High-conductivity gallery benchmark on Linux using `MODFLOW 6` and
+`Boussinesq PETSc complementarity`:
+
+```powershell
+wsl.exe /home/dreuzy/miniforge3/bin/conda run -n hydromodpy-petsc python /mnt/c/codes/HydroModPy-GH/tools/investigate_surface_interaction_highk_linux.py
+```
+
+Generated outputs:
+
+```text
+/mnt/c/codes/HydroModPy-GH/out/sih_tx_highk_linux_mf6_petsc_comp_20260416
+```
+
 Linux benchmark comparing `MODFLOW-NWT` with the three Boussinesq variants on
 one common `4 months up / 4 months down / 6 months dry` forcing:
 

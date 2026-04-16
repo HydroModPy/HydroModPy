@@ -65,6 +65,192 @@ The package has a deliberately narrow goal:
   Shared dense and sparse-oriented finite-difference Jacobian helpers,
   including the sparse column-coloring utilities.
 
+## Process To Solver Contract
+
+The Boussinesq backend now follows one explicit resolution chain that mirrors
+what the MODFLOW adapters already do with their `_resolve_*` helpers.
+
+Starting from one validated `Flow` process object:
+
+1. `flow.flow_regime`
+   selects the temporal problem kind (`steady` or `transient`);
+2. `flow.runtime_backend`
+   selects the requested execution family (`local`, `scipy`,
+   `scipy_sparse`, `petsc`);
+3. `flow.surface_interaction_model`
+   selects or requests the groundwater/surface closure
+   (`auto`, `regularized_partition`, `complementarity`);
+4. `methods/`
+   resolves the physical method family
+   (formulation + space/time discretization);
+5. `engines/`
+   resolves the numerical execution engine
+   (Newton/SNES flavor, matrix layout, Jacobian strategy, linear solver);
+6. `runtime_selection.py`
+   combines both axes into one concrete backend descriptor;
+7. `boussinesq.py`
+   turns launcher/process objects into arrays and delegates the nonlinear solve.
+
+This is the intended hierarchy:
+
+- `process.flow`
+  defines the hydrological problem and user-facing solver choices;
+- `formulations/`
+  defines the algebraic unknowns and surface closure;
+- `discretization/`
+  defines the spatial and temporal schemes;
+- `methods/`
+  names physically coherent combinations of formulation + discretization;
+- `engines/`
+  names numerical solve implementations for a given method;
+- `runtime_selection.py`
+  resolves the final `(method, engine)` pair;
+- `boussinesq.py`
+  executes that resolved contract.
+
+So the readable split is:
+
+- hydrological definition: `process.flow`
+- physical method: `formulations/` + `methods/`
+- numerical scheme descriptors: `discretization/`
+- solver engine: `engines/`
+- orchestration: `boussinesq.py`
+
+## Current Simplification Status
+
+The package is now clearer than it used to be on three structural points:
+
+- the canonical Dirichlet representation is now
+  `prescribed_head_m_by_cell`;
+- method selection and engine selection are explicit through `methods/`,
+  `engines/` and `runtime_selection.py`;
+- `BoussinesqState` construction is centralized instead of being repeated in
+  several runtime paths.
+
+The main readability debt that still remains is no longer conceptual
+confusion. It is now mostly a matter of module size and compatibility layers.
+
+### What Is Canonical Today
+
+These concepts should now be considered the stable internal vocabulary of the
+solver:
+
+- boundary-prescribed head on cells: `prescribed_head_m_by_cell`;
+- physical nonlinear state: `BoussinesqAssembly`;
+- accepted runtime state: `BoussinesqState`;
+- process-to-solver resolution: `BoussinesqSolverContract`;
+- method taxonomy: `formulations/` + `methods/`;
+- execution-engine taxonomy: `engines/`.
+
+### What Is Still Legacy
+
+These names still exist mainly for compatibility with historical exports,
+plots and tests:
+
+- `imposed_head_m_by_edge`;
+- `imposed_head_edge_flux_m3_s`;
+- `active_imposed_head_bc`.
+
+They should not drive new design decisions anymore. The intended end state is:
+
+- runtime internals work from prescribed boundary cells;
+- diagnostics reconstruct the boundary exchange they need from the canonical
+  state;
+- legacy `imposed_head_*` remains, if needed, only as a compatibility export
+  adapter.
+
+## Simplification Review
+
+The full module review points to four meaningful simplification targets.
+
+### 1. Split Orchestration From Payload Resolution
+
+`boussinesq.py` is still too large because it does several jobs at once:
+
+- process-to-array resolution;
+- steady/transient orchestration;
+- runtime-summary bookkeeping;
+- state export assembly;
+- legacy compatibility export.
+
+The next safe split is:
+
+- `forcing_resolution.py` for recharge, wells and boundary chronicle
+  resolution;
+- `driver_transient.py` for the transient period loop;
+- `driver_steady.py` for the steady solve path;
+- `export_payload.py` for NPZ/JSON compatibility payload generation.
+
+The current file is still acceptable as the top-level entry point, but it
+should become a coordinator, not the place where every transformation lives.
+
+### 2. Shrink The Assembly/Jacobian Compatibility Surface
+
+`assembly.py` is now clearer, but it still carries two boundary languages:
+
+- canonical prescribed boundary cells;
+- legacy imposed boundary edges.
+
+The long-term simplification target is:
+
+- keep assembly and Jacobian focused on the canonical prescribed-cell path;
+- isolate legacy imposed-edge conversion at the API boundary;
+- reconstruct edge-based diagnostics only where a real edge quantity is still
+  needed for plotting or regression.
+
+This is the main remaining conceptual cleanup.
+
+### 3. Factor Common Runtime Loop Patterns
+
+The runtime modules still repeat the same high-level pattern:
+
+- build residual/Jacobian callbacks;
+- run one nonlinear solve loop or delegate to SciPy/PETSc;
+- assemble one `RuntimeSolveResult`.
+
+The different numerical engines are real, but the surrounding glue is still
+more duplicated than necessary. The next extraction target is a thin shared
+runtime helper layer for:
+
+- termination bookkeeping;
+- residual-norm tracking;
+- accepted-step packaging;
+- steady vs transient callback wiring.
+
+That would reduce the maintenance cost of `local_runtime.py`,
+`scipy_runtime.py`, `scipy_sparse_runtime.py`, `petsc_partition_runtime.py`
+and `petsc_runtime.py`.
+
+### 4. Make The Documentation Mirror The Code Layers
+
+The package structure is now explicit enough that the documentation should not
+be a single mathematical narrative anymore. The useful documentation split is:
+
+- README for local code navigation;
+- scientific notes for equations;
+- architecture UML for module boundaries and runtime handoffs.
+
+That split is now reflected in the RTD architecture page
+`architecture/solver/boussinesq-uml-diagrams`.
+
+## Documentation Map
+
+The recommended documentation set for this package is intentionally small:
+
+1. this `README.md`
+2. `boussinesq_math_notes.tex`
+3. RTD architecture page
+   `docs/readthedocs/source/architecture/solver/boussinesq-uml-diagrams.rst`
+
+The UML set is also intentionally limited to four diagrams:
+
+- `boussinesq_context.wsd` for the package/context view;
+- `boussinesq_core_classes.wsd` for the stable runtime objects;
+- `boussinesq_process_to_backend_sequence.wsd` for the process-to-backend
+  handoff;
+- `boussinesq_transient_step_activity.wsd` for one transient step and export
+  flow.
+
 ## Extra Mathematical Documentation
 
 If you want a more equation-driven explanation, the same directory now contains

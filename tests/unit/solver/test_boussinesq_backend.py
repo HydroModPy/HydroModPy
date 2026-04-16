@@ -263,6 +263,63 @@ def test_runtime_selection_rejects_complementarity_without_petsc() -> None:
         )
 
 
+def test_boussinesq_solver_contract_matches_flow_process_definition(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "flow_regime": "transient",
+                "runtime_backend": "petsc",
+                "surface_interaction_model": "regularized_partition",
+                "active_bc": ["east_side"],
+                "bc": {"east_side": {"type": "dirichlet", "value": 8.0}},
+            }
+        )
+    )
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=None,
+        model_folder=tmp_path,
+        model_name="contract_check",
+    )
+
+    contract = model._resolve_solver_contract()
+
+    assert contract.flow_regime == "transient"
+    assert contract.runtime_backend_requested == "petsc"
+    assert contract.surface_interaction_model_requested == "regularized_partition"
+    assert contract.surface_interaction_model_resolved == "regularized_partition"
+    assert contract.runtime_backend.engine_id == "petsc_partition_snes"
+    assert contract.runtime_backend.method.id == "head_only_regularized_partition"
+
+
+def test_boussinesq_solver_contract_rejects_invalid_flow_regime(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(FlowConfig.model_validate({}))
+    flow.flow_regime = "invalid"
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=None,
+        model_folder=tmp_path,
+        model_name="contract_invalid_regime",
+    )
+
+    with pytest.raises(ValueError, match="flow.flow_regime must be 'steady' or 'transient'"):
+        _ = model._resolve_solver_contract()
+
+
 def test_flow_config_accepts_boussinesq_runtime_overrides() -> None:
     cfg = FlowConfig.model_validate(
         {

@@ -128,6 +128,10 @@ def _load_boussinesq_state_payload(model) -> dict[str, np.ndarray]:
         "well_flux_history_m3_s": "well_flux_history_m3_s",
         "internal_edge_flux_m3_s": "internal_edge_flux_m3_s",
         "internal_edge_flux_history_m3_s": "internal_edge_flux_history_m3_s",
+        "prescribed_head_flux_m3_s": "prescribed_head_flux_m3_s",
+        "prescribed_head_flux_history_m3_s": "prescribed_head_flux_history_m3_s",
+        "prescribed_head_m_by_cell": "prescribed_head_m_by_cell",
+        "prescribed_head_history_m_by_cell": "prescribed_head_history_m_by_cell",
         "imposed_head_edge_flux_m3_s": "imposed_head_edge_flux_m3_s",
         "imposed_head_edge_flux_history_m3_s": "imposed_head_edge_flux_history_m3_s",
         "drainage_flux_m3_s": "drainage_flux_m3_s",
@@ -272,10 +276,14 @@ def _build_boussinesq_mass_balance(mesh, payload: dict[str, np.ndarray]):
         "head_history_m",
         "recharge_rate_history_m_s",
         "saturation_excess_history_m_s",
-        "imposed_head_edge_flux_history_m3_s",
         "drainage_flux_history_m3_s",
     )
     if any(key not in payload for key in required_keys):
+        return None
+    if (
+        "prescribed_head_flux_history_m3_s" not in payload
+        and "imposed_head_edge_flux_history_m3_s" not in payload
+    ):
         return None
 
     head_history = np.asarray(payload["head_history_m"], dtype=float)
@@ -296,10 +304,15 @@ def _build_boussinesq_mass_balance(mesh, payload: dict[str, np.ndarray]):
         payload.get("well_flux_history_m3_s"),
         n_steps=n_steps,
     )
-    imposed_head_history = _align_boussinesq_step_history(
-        payload.get("imposed_head_edge_flux_history_m3_s"),
+    boundary_head_history = _align_boussinesq_step_history(
+        payload.get("prescribed_head_flux_history_m3_s"),
         n_steps=n_steps,
     )
+    if boundary_head_history is None:
+        boundary_head_history = _align_boussinesq_step_history(
+            payload.get("imposed_head_edge_flux_history_m3_s"),
+            n_steps=n_steps,
+        )
     drainage_history = _align_boussinesq_step_history(
         payload.get("drainage_flux_history_m3_s"),
         n_steps=n_steps,
@@ -307,7 +320,7 @@ def _build_boussinesq_mass_balance(mesh, payload: dict[str, np.ndarray]):
     if (
         recharge_history is None
         or saturation_excess_history is None
-        or imposed_head_history is None
+        or boundary_head_history is None
         or drainage_history is None
     ):
         return None
@@ -322,11 +335,11 @@ def _build_boussinesq_mass_balance(mesh, payload: dict[str, np.ndarray]):
     recharge = (recharge_history * cell_area).sum(axis=1)
     saturation_excess = -(saturation_excess_history * cell_area).sum(axis=1)
     drainage = -np.asarray(drainage_history, dtype=float).sum(axis=1)
-    imposed_head = -np.asarray(imposed_head_history, dtype=float).sum(axis=1)
+    boundary_head = -np.asarray(boundary_head_history, dtype=float).sum(axis=1)
 
     components = {
         "Recharge": recharge,
-        "Head BC": imposed_head,
+        "Head BC": boundary_head,
         "Drainage": drainage,
         "Sat. excess": saturation_excess,
         "Storage": -storage,

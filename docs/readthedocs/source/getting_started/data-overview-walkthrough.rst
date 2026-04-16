@@ -42,6 +42,10 @@ How the files relate
 - The gallery page
   :doc:`../capability_gallery/cases/geographic_watershed_overview` republishes
   stable figures generated from this workflow.
+- The focused hydrography page
+  :doc:`../capability_gallery/cases/geographic_bdtopage_hydrography_overlay`
+  republishes the minimal `BD Topage only` variant when you want to inspect the
+  river network overlay in isolation.
 
 Read the config in this order
 -----------------------------
@@ -102,5 +106,8 @@ Where to go next
 
 - Open :doc:`../capability_gallery/cases/geographic_watershed_overview` to read
   the stable documentation version of this case.
+- Open :doc:`../capability_gallery/cases/geographic_bdtopage_hydrography_overlay`
+  if you want the hydrography-only variant with the loaded BD Topage network
+  documented panel by panel.
 - Continue with :doc:`simulation-walkthrough` once the basin framing and data
   loading logic are clear.

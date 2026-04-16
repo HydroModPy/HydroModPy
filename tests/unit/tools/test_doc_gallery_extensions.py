@@ -15,6 +15,7 @@ def _spec_by_slug(slug: str):
 def test_build_gallery_specs_exposes_extended_categories() -> None:
     specs = {spec.slug: spec for spec in build_gallery_specs()}
 
+    assert specs["geographic_bdtopage_hydrography_overlay"].category == "geographic"
     assert specs["geometry_constraints_canut"].category == "geometry"
     assert specs["geometry_topography_canut"].category == "geometry"
     assert specs["geometry_indicators_canut"].category == "geometry"
@@ -118,4 +119,20 @@ def test_generate_method_comparison_case_smoke(tmp_path: Path) -> None:
         / "capability_gallery"
         / "method_comparison"
         / "example12_map_method_comparison.png"
+    ).exists()
+
+
+def test_generate_bdtopage_hydrography_overlay_case_smoke(tmp_path: Path) -> None:
+    spec = _spec_by_slug("geographic_bdtopage_hydrography_overlay")
+
+    summary = _generate_case(spec, tmp_path)
+
+    assert summary["category"] == "geographic"
+    assert summary["images"][0]["filename"] == "geographic_bdtopage_hydrography_overlay.png"
+    assert (
+        tmp_path
+        / "_static"
+        / "capability_gallery"
+        / "geographic"
+        / "geographic_bdtopage_hydrography_overlay.png"
     ).exists()

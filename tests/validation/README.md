@@ -198,8 +198,15 @@ python -m pytest \
   -q
 ```
 
-There is no global `petsc` or `linux` pytest marker yet, so the current
-recommended approach is either:
+The PETSc-focused tests are now tagged with `@pytest.mark.petsc`, so on a
+fully provisioned Linux environment you can also use:
+
+```bash
+python -m pytest -m petsc -q
+```
+
+If you are working in a partial environment and want the narrowest possible
+selection, the current recommended approach is still either:
 
 - run the explicit file list above, or
 - reuse the `tools/ci/*.sh` smoke scripts.
@@ -316,12 +323,14 @@ Validation tests use the marker set declared in `pyproject.toml`:
 - `transient`: transient case,
 - `fast`: quick validation case,
 - `slow`: longer-running validation case.
+- `petsc`: Linux PETSc-backed Boussinesq runtime test.
 
 Examples:
 
 ```powershell
 python -m pytest -m "validation and analytical and steady" -q
 python -m pytest -m "validation and slow" -q
+python -m pytest -m petsc -q
 ```
 
 ## Anatomy of One Validation Case

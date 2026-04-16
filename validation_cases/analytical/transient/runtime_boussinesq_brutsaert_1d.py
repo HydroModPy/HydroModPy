@@ -192,7 +192,7 @@ def run_boussinesq_brutsaert_recession_case(
         model_name="flow_validation__boussinesq",
     )
     transient_model.pre_processing()
-    transient_model.state = BoussinesqState(
+    transient_model.state = BoussinesqState.initial(
         head_m=np.asarray(steady_model.state.head_m, dtype=float).copy(),
         saturated_thickness_m=np.asarray(
             steady_model.state.saturated_thickness_m,

@@ -1,11 +1,14 @@
-:orphan:
+Solver Architecture
+===================
 
-Solver Notes Moved
-==================
+This section documents software architecture for solver wrappers and backend
+orchestration.
 
-Scientific solver notes now live under
+Scientific derivations and mathematical solver notes live under
 :doc:`../../scientific/solvers/index`.
 
-For runtime handoffs from process objects to solver wrappers, keep using the
-architecture pages such as
-:doc:`../process/process-runtime-to-solver-sequence-diagram`.
+.. toctree::
+   :maxdepth: 2
+
+   boussinesq-uml-diagrams
+   boussinesq-mathematical-notes

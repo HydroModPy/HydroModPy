@@ -750,6 +750,64 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
             walkthrough_title="the Data Overview walkthrough",
         ),
         GalleryCaseSpec(
+            slug="geographic_bdtopage_hydrography_overlay",
+            title="BD Topage Hydrography Overlay",
+            category="geographic",
+            deck="Minimal data-overview case showing only the BD Topage river network over the DEM backdrop.",
+            summary=(
+                "This case isolates one question: what HydroModPy actually displays when hydrography "
+                "is loaded from BD Topage and only the hydrography panel is enabled. The figure is meant "
+                "to document the loaded river network itself, without geology, stations, or time-series panels."
+            ),
+            what_it_shows=(
+                "How the `data-overview` launcher renders the clipped BD Topage network directly on top of the DEM.",
+                "Which files are produced for the hydrography manager before any solver or meshing stage.",
+                "How a TOML can be reduced to one single figure when the goal is to audit the river-network input.",
+            ),
+            reproduction_command=(
+                "python -m launchers data-overview run "
+                "examples/projects/Nancon_data_overview/config_hydrography_only.toml"
+            ),
+            source_paths=(
+                "examples/projects/Nancon_data_overview/config_hydrography_only.toml",
+                "examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_hydrography.png",
+                "examples/projects/Nancon_data_overview/results_stable/hydrography/streams.shp",
+                "examples/projects/Nancon_data_overview/results_stable/hydrography/streams.dbf",
+                "examples/projects/Nancon_data_overview/results_stable/hydrography/streams.shx",
+            ),
+            generator="copy_assets",
+            image_assets=(
+                GalleryImageAsset(
+                    filename="geographic_bdtopage_hydrography_overlay.png",
+                    caption="BD Topage streams clipped to the watershed and displayed over the DEM backdrop.",
+                    alt_text="BD Topage hydrography overlay on topography",
+                    source_path="examples/projects/Nancon_data_overview/results_stable/_figures/overview/map_hydrography.png",
+                ),
+            ),
+            case_setup=(
+                "Launcher family: `data-overview`, stopped after setup, domain assembly, data loading, and figure rendering.",
+                "Primary editable file: `examples/projects/Nancon_data_overview/config_hydrography_only.toml`.",
+                "Only one output figure is enabled: `[overview.panels] map_hydrography = true`.",
+            ),
+            key_parameters=(
+                "`[data] types = [\"hydrography\"]` keeps the example focused on the river network only.",
+                "`[[data.hydrography.sources]] source = \"bdtopage\"` selects the Sandre BD Topage WFS source.",
+                "`typename`, `page_size`, and `rasterize_field` are the main hydrography-source options to inspect when the displayed network looks incomplete or unexpected.",
+                "All other overview panels are disabled so the output folder contains only the hydrography map and the hydrography manager artifacts.",
+            ),
+            how_to_read=(
+                "Open the figure first to check whether the displayed network visually matches the expected valley bottoms and basin extent.",
+                "Then inspect `results_stable/hydrography/streams.shp` to decide whether any issue comes from loading/clipping or only from display styling.",
+                "If channels appear missing, compare this panel with the watershed boundary and review the BD Topage source options before changing downstream algorithms.",
+            ),
+            next_steps=(
+                "Use the broader watershed overview case on the previous page when you want geology, stations, and observation windows documented together.",
+                "Reuse this minimal TOML as the shortest reproducible example for hydrography-display audits.",
+            ),
+            walkthrough_doc="getting_started/data-overview-walkthrough",
+            walkthrough_title="the Data Overview walkthrough",
+        ),
+        GalleryCaseSpec(
             slug="geometry_constraints_canut",
             title="Catchment Geometry Constraints",
             category="geometry",
@@ -1245,15 +1303,16 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
             slug="example12_map_method_comparison",
             title="Shared-Mesh Solver Comparison on Naizin",
             category="method_comparison",
-            deck="Map-wide comparison of MODFLOW 6 and Boussinesq on the same committed triangular catchment mesh.",
+            deck="Shared-mesh comparison of MODFLOW 6 and Boussinesq on Naizin, combining map snapshots and three head chronicle probes.",
             summary=(
                 "This case reuses two committed run folders for the same Naizin catchment mesh. It compares full "
-                "water-table elevation and water-table depth maps at the last saved time step, then renders parity "
-                "plots and compact error bars."
+                "water-table elevation and water-table depth maps at the last saved time step, plus head chronicle "
+                "comparisons at three contrasted probe locations, then renders parity plots and compact error bars."
             ),
             what_it_shows=(
                 "How two solver families can be compared on exactly the same triangular support.",
                 "How map-wide parity plots complement scalar metrics such as MAE and RMSE.",
+                "How three point chronicle comparisons expose outlet, mid-basin, and upstream response differences.",
                 "How comparison figures can be regenerated from committed run folders without rerunning the solvers.",
             ),
             reproduction_command=(
@@ -1286,11 +1345,13 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
                 "Reference variant: MODFLOW 6 on the committed Gmsh catchment mesh.",
                 "Candidate variant: Boussinesq reusing the exact same mesh bundle.",
                 "Compared observables: full `watertable_elevation` and `watertable_depth` maps at the last saved time step.",
+                "Three head probes sample contrasted response zones: outlet lowland, mid-basin storage, and upstream ridge.",
             ),
             key_parameters=(
                 "The most important modelling choice is not a scalar parameter but support equality: both runs must use the same saved mesh if you want a fair map-wide comparison.",
                 "`run_method_comparison_example12_map_existing.toml` defines which run folders are compared and which observables are sampled from them.",
                 "The compared observables (`watertable_elevation`, `watertable_depth`) determine whether the figure emphasizes absolute state mismatch or near-surface response mismatch.",
+                "The three point observables reuse anchors from `method_comparison_points.toml` so the same physical locations are compared across methods.",
                 "Interpret RMSE and MAE together: RMSE highlights stronger local mismatches while MAE gives the typical cell-wise discrepancy.",
             ),
             how_to_read=(
@@ -1318,21 +1379,22 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
             deck="Cross-code benchmark on one sloping strip with recharge ramp, dry recovery, drainage, and one fixed east head.",
             summary=(
                 "This page compares MODFLOW and Boussinesq families on the same synthetic hillslope under a progressive recharge ramp, "
-                "followed by dry recovery. The committed variants emphasize how total outflow and storage change evolve when conductivity "
-                "stays at the reference level or is increased by a factor of eight."
+                "followed by dry recovery. The compact figure is restricted to comparable bulk diagnostics across codes: total outflow "
+                "and storage change, shown at the reference conductivity and after an eightfold increase."
             ),
             what_it_shows=(
                 "How total outflow aligns or diverges across solver families on the same transient forcing.",
                 "How storage change reacts when conductivity increases while the geometry and forcing stay fixed.",
-                "How Boussinesq partition and complementarity compare with MODFLOW-style drainage responses on the ramp benchmark.",
+                "How the same bulk diagnostics behave across the reference-K and high-K ramp regimes without relying on solver-specific flux partitions.",
             ),
             reproduction_command="python tools/doc_gallery/generate_code_comparison_assets.py",
             source_paths=(
                 "tools/investigate_surface_interaction_hillslope_transient.py",
+                "tools/investigate_surface_interaction_highk_linux.py",
                 "tools/doc_gallery/generate_code_comparison_assets.py",
                 "validation_cases/shared/boussinesq_budget.py",
                 "out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/timeseries.csv",
-                "out/sih_tx_4cmp_linux_kx8_20260415/timeseries.csv",
+                "out/sih_tx_highk_linux_mf6_petsc_comp_20260416/timeseries.csv",
                 "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.png",
                 "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.json",
                 "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.png",
@@ -1341,6 +1403,12 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
             generator="copy_assets",
             image_assets=(
                 GalleryImageAsset(
+                    filename="surface_interaction_ramp_configuration.png",
+                    caption="Configuration schematic for the recharge-ramp surface-interaction benchmark.",
+                    alt_text="Configuration schematic for the surface-interaction ramp benchmark",
+                    source_path="examples/capability_gallery/code_comparison/surface_interaction_ramp/surface_interaction_ramp_configuration.png",
+                ),
+                GalleryImageAsset(
                     filename="ramp_reference_k.png",
                     caption="Reference-conductivity ramp benchmark: total outflow and storage change across the six committed methods.",
                     alt_text="Reference conductivity recharge-ramp code comparison",
@@ -1348,7 +1416,7 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
                 ),
                 GalleryImageAsset(
                     filename="ramp_high_k.png",
-                    caption="High-conductivity ramp benchmark: same forcing with hydraulic conductivity multiplied by eight.",
+                    caption="High-conductivity ramp benchmark on Linux: MODFLOW 6 compared against Boussinesq PETSc complementarity.",
                     alt_text="High conductivity recharge-ramp code comparison",
                     source_path="examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.png",
                 ),
@@ -1366,6 +1434,7 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
             how_to_read=(
                 "Read the top panel first: when total outflow separates, the methods disagree on how quickly water leaves the system.",
                 "Then compare storage change: if one curve stays higher, that method keeps more water in transient storage instead of exporting it.",
+                "Interpret this page as a bulk-budget comparison only; it intentionally avoids solver-specific outflow partitions that are not directly comparable term by term.",
                 "Use the two tabs to decide whether the disagreement is regime-dependent or persists when conductivity is increased strongly.",
             ),
             next_steps=(
@@ -1389,11 +1458,14 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
                         "title": "High K",
                         "filename": "ramp_high_k.png",
                         "body_lines": [
-                            "Run source: ``out/sih_tx_4cmp_linux_kx8_20260415``",
-                            "Methods: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition",
+                            "Run source: ``out/sih_tx_highk_linux_mf6_petsc_comp_20260416``",
+                            "Methods: MODFLOW 6, Boussinesq PETSc complementarity",
+                            "Generation path: Linux PETSc environment via ``tools/investigate_surface_interaction_highk_linux.py``.",
+                            "The previous high-K ``MODFLOW-NWT`` and local-partition comparison was removed because it was poorly balanced and not physically reliable.",
                         ],
                     },
                 ],
+                "lead_image_filenames": ["surface_interaction_ramp_configuration.png"],
             },
         ),
         GalleryCaseSpec(

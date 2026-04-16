@@ -1,17 +1,12 @@
 {
-  "title": "High K (4 methods)",
-  "run_dir": "out/sih_tx_4cmp_linux_kx8_20260415",
+  "title": "High K (Linux MF6 vs PETSc complementarity)",
+  "run_dir": "out/sih_tx_highk_linux_mf6_petsc_comp_20260416",
   "notes": [
     "Same ramp forcing with hydraulic conductivity multiplied by 8.",
-    "Four cross-family methods kept in the committed benchmark."
+    "Linux PETSc benchmark: MODFLOW 6 compared against Boussinesq PETSc complementarity.",
+    "The previous high-K MODFLOW-NWT and local-partition comparison was dropped because it was poorly balanced."
   ],
   "solvers": [
-    {
-      "solver": "modflownwt",
-      "solver_label": "MODFLOW-NWT",
-      "peak_total_outflow_m3_day": 34.954086458310485,
-      "final_storage_change_m3_day": 0.0
-    },
     {
       "solver": "modflow6",
       "solver_label": "MODFLOW 6",
@@ -19,16 +14,10 @@
       "final_storage_change_m3_day": -0.0022521940950515074
     },
     {
-      "solver": "modflow6_irregular_tri",
-      "solver_label": "MODFLOW 6 irregular triangles",
-      "peak_total_outflow_m3_day": 78.77293544871874,
-      "final_storage_change_m3_day": -0.000394557631738716
-    },
-    {
-      "solver": "boussinesq",
-      "solver_label": "Boussinesq",
-      "peak_total_outflow_m3_day": 123.97883755762463,
-      "final_storage_change_m3_day": 0.0
+      "solver": "petsc",
+      "solver_label": "Boussinesq PETSc complementarity",
+      "peak_total_outflow_m3_day": 76.41528657079918,
+      "final_storage_change_m3_day": -0.0001305317336634341
     }
   ]
 }
