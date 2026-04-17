@@ -3,18 +3,26 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import Protocol
 
 import numpy as np
 
-if TYPE_CHECKING:
-    from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
+from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
+
+
+class BoussinesqForcingSolver(Protocol):
+    """Minimal solver contract required to build one forcing resolver."""
+
+    def _forcing_resolver(self) -> BoussinesqForcingResolver: ...
 
 
 @dataclass(frozen=True)
-class ResolvedBoundaryForcing:
-    """Boundary-support series reused by steady and transient driver helpers."""
+class ResolvedRuntimeForcing:
+    """Runtime-ready forcing bundle reused by steady and transient helpers."""
 
+    recharge_series_m_s: tuple[float | np.ndarray, ...]
+    active_recharge: bool
+    well_flux_by_period_m3_s: np.ndarray
     ocean_series_m: np.ndarray | None
     dirichlet_supports_by_period: tuple[tuple[object, ...], ...]
     prescribed_heads_by_period: tuple[np.ndarray, ...]
@@ -23,43 +31,58 @@ class ResolvedBoundaryForcing:
     drainage_conductance_series_m2_s: np.ndarray
 
 
-def resolve_boundary_forcing_by_period(
-    solver: "Boussinesq",
+def _forcing_resolver_for(solver: BoussinesqForcingSolver) -> BoussinesqForcingResolver:
+    """Build one forcing resolver from the current solver state."""
+    return solver._forcing_resolver()
+
+
+def resolve_runtime_forcing_by_period(
+    solver: BoussinesqForcingSolver,
     *,
     nper: int,
-) -> ResolvedBoundaryForcing:
-    """Resolve one reusable boundary-forcing bundle over all periods."""
-    ocean_series_m = solver._resolve_ocean_series(nper)
-    dirichlet_supports_by_period = solver._resolved_dirichlet_supports_by_period(
+) -> ResolvedRuntimeForcing:
+    """Resolve one reusable forcing bundle over all periods."""
+    resolver = _forcing_resolver_for(solver)
+    recharge_series_m_s = resolver.resolve_recharge_series(nper)
+    active_recharge = resolver.has_active_recharge_payload(recharge_series_m_s)
+    well_flux_by_period_m3_s = np.asarray(
+        resolver.resolve_well_flux_by_period(nper),
+        dtype=float,
+    )
+    ocean_series_m = resolver.resolve_ocean_series(nper)
+    dirichlet_supports_by_period = resolver.resolved_dirichlet_supports_by_period(
         nper,
         ocean_series_m=ocean_series_m,
     )
     prescribed_heads_by_period = tuple(
         np.asarray(
-            solver._project_dirichlet_supports_to_cells(period_supports),
+            resolver.project_dirichlet_supports_to_cells(period_supports),
             dtype=float,
         )
         for period_supports in dirichlet_supports_by_period
     )
     boundary_heads_by_period = tuple(
         np.asarray(
-            solver._project_dirichlet_supports_to_edges(period_supports),
+            resolver.project_dirichlet_supports_to_edges(period_supports),
             dtype=float,
         )
         for period_supports in dirichlet_supports_by_period
     )
     ocean_supported_cell_masks = tuple(
         np.asarray(mask, dtype=bool)
-        for mask in solver._ocean_supported_cell_masks_by_period(
+        for mask in resolver.ocean_supported_cell_masks_by_period(
             ocean_series_m,
             nper=nper,
         )
     )
     drainage_conductance_series_m2_s = np.asarray(
-        solver._resolve_drainage_conductance_series(nper),
+        resolver.resolve_drainage_conductance_series(nper),
         dtype=float,
     )
-    return ResolvedBoundaryForcing(
+    return ResolvedRuntimeForcing(
+        recharge_series_m_s=recharge_series_m_s,
+        active_recharge=bool(active_recharge),
+        well_flux_by_period_m3_s=well_flux_by_period_m3_s,
         ocean_series_m=ocean_series_m,
         dirichlet_supports_by_period=tuple(
             tuple(period_supports) for period_supports in dirichlet_supports_by_period
@@ -69,6 +92,18 @@ def resolve_boundary_forcing_by_period(
         ocean_supported_cell_masks=ocean_supported_cell_masks,
         drainage_conductance_series_m2_s=drainage_conductance_series_m2_s,
     )
+
+
+def resolve_boundary_forcing_by_period(
+    solver: BoussinesqForcingSolver,
+    *,
+    nper: int,
+) -> ResolvedRuntimeForcing:
+    """Backward-compatible alias kept for pre-refactor callers."""
+    return resolve_runtime_forcing_by_period(solver, nper=nper)
+
+
+ResolvedBoundaryForcing = ResolvedRuntimeForcing
 
 
 def apply_ocean_drainage_mask(
@@ -93,6 +128,8 @@ def apply_ocean_drainage_mask(
 
 __all__ = [
     "ResolvedBoundaryForcing",
+    "ResolvedRuntimeForcing",
     "apply_ocean_drainage_mask",
     "resolve_boundary_forcing_by_period",
+    "resolve_runtime_forcing_by_period",
 ]

@@ -11,6 +11,10 @@ from .discretization_temporal import (
     build_temporal_discretization_from_time_grid,
 )
 from .executables import ensure_platform_executable
+from .forcing_discretization import (
+    discretize_spatially_distributed_source,
+    has_spatially_distributed_source,
+)
 from .grid_context import GridReference, SolverGridContext
 from .masstransfer import Masstransfer
 from .options import (
@@ -42,6 +46,8 @@ __all__ = [
     "build_temporal_discretization",
     "build_temporal_discretization_from_time_grid",
     "ensure_platform_executable",
+    "discretize_spatially_distributed_source",
+    "has_spatially_distributed_source",
     "Masstransfer",
     "write_grid_array_to_raster",
     "build_solver_routing_context",

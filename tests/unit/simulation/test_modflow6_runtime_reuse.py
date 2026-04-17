@@ -84,7 +84,7 @@ def test_modflow6_flow_adapter_reuses_solver_instance(monkeypatch) -> None:
         _FakeModel,
     )
     monkeypatch.setattr(
-        "hydromodpy.simulation.adapters.flow.modflow_common._persist_pre_run_payload",
+        "hydromodpy.simulation.adapters.flow.legacy_compat.write_legacy_pre_run_pickle",
         lambda workspace, model_name, model_modflow: None,
     )
 

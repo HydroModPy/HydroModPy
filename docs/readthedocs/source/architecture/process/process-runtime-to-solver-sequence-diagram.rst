@@ -14,6 +14,27 @@ It focuses on:
 - adapter-level transformation into solver payloads,
 - backend-specific execution path (MODFLOW-NWT or MODFLOW 6).
 
+Code map
+--------
+
+- ``hydromodpy/process/flow/flow.py``:
+  runtime object assembled before solver dispatch.
+- ``hydromodpy/process/flow/time_forcing.py``:
+  forcing preparation before solver assembly.
+- ``hydromodpy/simulation/adapters/flow/``:
+  adapter layer that translates process objects into backend payloads.
+- ``hydromodpy/solver/modflow_common/`` and backend packages:
+  concrete solver consumers.
+
+Recommended reading path
+------------------------
+
+1. ``hydromodpy/process/flow/flow.py``
+2. ``hydromodpy/process/flow/time_forcing.py``
+3. ``hydromodpy/simulation/adapters/flow/modflow_common.py``
+4. one backend adapter such as ``modflow6.py`` or ``modflownwt.py``
+5. the matching solver package under ``hydromodpy/solver/``
+
 Diagram source
 --------------
 
@@ -33,3 +54,10 @@ Notes
 - Solver wrappers remain consumers of already-normalized process data.
 - For detailed DIS payload semantics, see
   ``docs/developers/modflow_discretization_contract.md``.
+
+Related diagrams
+----------------
+
+- :doc:`process-runtime-class-diagram`
+- :doc:`../simulation/launcher-simulation-class-diagram`
+- :doc:`../solver/index`

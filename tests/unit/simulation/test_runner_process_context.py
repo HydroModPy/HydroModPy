@@ -134,7 +134,7 @@ def test_run_flow_model_raises_when_solver_fails(monkeypatch) -> None:
     )
 
     monkeypatch.setattr(
-        "hydromodpy.simulation.adapters.flow.modflow_common._persist_pre_run_payload",
+        "hydromodpy.simulation.adapters.flow.legacy_compat.write_legacy_pre_run_pickle",
         lambda workspace, model_name, model_modflow: None,
     )
 
@@ -207,7 +207,7 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
     )
 
     monkeypatch.setattr(
-        "hydromodpy.simulation.adapters.flow.modflow_common._persist_pre_run_payload",
+        "hydromodpy.simulation.adapters.flow.legacy_compat.write_legacy_pre_run_pickle",
         lambda workspace, model_name, model_modflow: None,
     )
 
@@ -283,7 +283,7 @@ def test_run_flow_model_skips_solver_postprocess_when_requested(monkeypatch) -> 
     )
 
     monkeypatch.setattr(
-        "hydromodpy.simulation.adapters.flow.modflow_common._persist_pre_run_payload",
+        "hydromodpy.simulation.adapters.flow.legacy_compat.write_legacy_pre_run_pickle",
         lambda workspace, model_name, model_modflow: None,
     )
 
@@ -314,7 +314,7 @@ def test_run_flow_model_skips_solver_postprocess_when_requested(monkeypatch) -> 
     assert model.calls == ["pre", "processing"]
 
 
-def test_run_flow_model_skips_pre_run_pickle_when_requested(monkeypatch) -> None:
+def test_run_flow_model_does_not_write_legacy_pre_run_pickle_by_default(monkeypatch) -> None:
     plan = SimulationPlan(
         name="demo",
         description="demo",
@@ -352,14 +352,13 @@ def test_run_flow_model_skips_pre_run_pickle_when_requested(monkeypatch) -> None
             flow_runtime_overrides={
                 "source": "model_calibration",
                 "skip_solver_postprocess": True,
-                "skip_pre_run_pickle": True,
             },
         ),
         execution=SimpleNamespace(models_by_run_id={}),
     )
 
     monkeypatch.setattr(
-        "hydromodpy.simulation.adapters.flow.modflow_common._persist_pre_run_payload",
+        "hydromodpy.simulation.adapters.flow.legacy_compat.write_legacy_pre_run_pickle",
         lambda workspace, model_name, model_modflow: persist_calls.append(
             str(model_name)
         ),
@@ -384,3 +383,75 @@ def test_run_flow_model_skips_pre_run_pickle_when_requested(monkeypatch) -> None
     )
 
     assert persist_calls == []
+
+
+def test_run_flow_model_writes_legacy_pre_run_pickle_when_requested(monkeypatch) -> None:
+    plan = SimulationPlan(
+        name="demo",
+        description="demo",
+        runs=(
+            ProcessRun(
+                id="flow_main::modflow6",
+                process_id="flow_main",
+                process_type="flow",
+                solver="modflow6",
+            ),
+        ),
+    )
+    persist_calls: list[str] = []
+    state = SimpleNamespace(
+        cfg=SimpleNamespace(
+            postprocess=SimpleNamespace(
+                flow=SimpleNamespace(
+                    intermittency=SimpleNamespace(
+                        yearly=False,
+                        monthly=False,
+                        weekly=False,
+                        daily=False,
+                    ),
+                    native_mesh_npz=False,
+                    native_mesh_csv=False,
+                    native_mesh_vtu=False,
+                    native_mesh_png=False,
+                )
+            )
+        ),
+        setup=SimpleNamespace(
+            flow=SimpleNamespace(active_bc=[]),
+            domain=SimpleNamespace(),
+            workspace=SimpleNamespace(simulations_folder="unused"),
+            flow_runtime_overrides={
+                "source": "legacy_compat",
+                "skip_solver_postprocess": True,
+                "write_legacy_pre_run_pickle": True,
+            },
+        ),
+        execution=SimpleNamespace(models_by_run_id={}),
+    )
+
+    monkeypatch.setattr(
+        "hydromodpy.simulation.adapters.flow.legacy_compat.write_legacy_pre_run_pickle",
+        lambda workspace, model_name, model_modflow: persist_calls.append(
+            str(model_name)
+        ),
+    )
+
+    class _SuccessfulFlowModel:
+        model_name = "demo_model"
+
+        def pre_processing(self, **kwargs) -> None:
+            return None
+
+        def processing(self, options) -> bool:
+            return True
+
+        def post_processing(self, options) -> None:
+            return None
+
+    run_flow_model(
+        RunContext(plan=plan, run=plan.runs[0], state=state),
+        _SuccessfulFlowModel(),
+        ModflowPreprocessOptions(),
+    )
+
+    assert persist_calls == ["demo_model"]

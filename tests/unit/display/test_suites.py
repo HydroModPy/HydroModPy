@@ -23,7 +23,7 @@ from hydromodpy.analysis.display.suites import (
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 
 
-def _build_spatial_payload(run_id: str = "flow_main") -> FlowSpatialFigurePayload:
+def _build_spatial_payload(artifact_id: str = "flow_main") -> FlowSpatialFigurePayload:
     hydro_mesh = HydroMesh(
         vertices=np.asarray(
             [
@@ -42,7 +42,7 @@ def _build_spatial_payload(run_id: str = "flow_main") -> FlowSpatialFigurePayloa
         ),
     )
     return FlowSpatialFigurePayload(
-        run_id=run_id,
+        artifact_id=artifact_id,
         hydro_mesh=hydro_mesh,
         top_elevation_m=np.asarray([10.0, 9.0], dtype=float),
         watertable_elevation_m=np.asarray([8.5, 8.0], dtype=float),
@@ -53,9 +53,9 @@ def _build_spatial_payload(run_id: str = "flow_main") -> FlowSpatialFigurePayloa
     )
 
 
-def _build_cumulative_payload(run_id: str = "flow_main") -> FlowCumulativeSeriesPayload:
+def _build_cumulative_payload(artifact_id: str = "flow_main") -> FlowCumulativeSeriesPayload:
     return FlowCumulativeSeriesPayload(
-        run_id=run_id,
+        artifact_id=artifact_id,
         time_days=np.asarray([0.0, 30.0, 60.0], dtype=float),
         recharge_cumulative_mm=np.asarray([10.0, 30.0, 45.0], dtype=float),
         discharge_components_cumulative_mm={
@@ -300,7 +300,9 @@ def test_plot_flow_suite_renders_solver_agnostic_common_flow_figures(
     )
     monkeypatch.setattr(
         "hydromodpy.analysis.display.suites.build_flow_cumulative_payload",
-        lambda simulated_timeseries, *, run_id: _build_cumulative_payload(run_id),
+        lambda simulated_timeseries, *, artifact_id=None, run_id=None: _build_cumulative_payload(
+            artifact_id or run_id
+        ),
     )
 
     options = DisplayOptions(

@@ -39,7 +39,7 @@ from hydromodpy.process.transport.transport_config import TransportConfig
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
-from hydromodpy.solver.prototype.solver_config import SolverConfig
+from hydromodpy.solver.contracts import SolverConfig
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.core.config.path_resolution import resolve_declared_path
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config

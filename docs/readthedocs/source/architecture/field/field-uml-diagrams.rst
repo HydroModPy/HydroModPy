@@ -7,6 +7,28 @@ Scope
 These diagrams document class structure and typical runtime flows for
 ``hydromodpy.spatial.field``.
 
+Code map
+--------
+
+- ``hydromodpy/spatial/field/core/field_spatial.py``:
+  reusable field-side zone/value carrier.
+- ``hydromodpy/spatial/field/core/field_param.py`` and
+  ``field_param_config.py``:
+  heterogeneous parameter contract consumed downstream by solvers.
+- ``hydromodpy/spatial/field/meshes/``:
+  concrete structured and triangular mesh implementations.
+- ``hydromodpy/spatial/field/geology/``:
+  geology-backed specializations built on the same field contract.
+
+Recommended reading path
+------------------------
+
+1. ``hydromodpy/spatial/field/README.md``
+2. ``hydromodpy/spatial/field/core/field_spatial.py``
+3. ``hydromodpy/spatial/field/core/field_param.py``
+4. one mesh implementation under ``hydromodpy/spatial/field/meshes/``
+5. ``hydromodpy/spatial/field/cases/square/`` for a concrete runnable example
+
 Core Class Diagram
 ------------------
 
@@ -48,3 +70,9 @@ Sequence Diagram
 .. literalinclude:: diagrams/field_sequence.wsd
    :language: text
    :caption: PlantUML (.wsd) source - field sequence diagram
+
+Related diagrams
+----------------
+
+- :doc:`../spatial_support/spatial-support-uml-diagrams`
+- :doc:`../mesh/sgrid-fieldparam-discretization-diagrams`

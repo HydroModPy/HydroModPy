@@ -1,8 +1,31 @@
 Compatibility Facades
 =====================
 
+Scope
+-----
+
 HydroModPy keeps a small number of compatibility layers so public import paths
 do not break every time internals are reorganized.
+
+Code map
+--------
+
+- ``hydromodpy/modeling/__init__.py``:
+  legacy import facade for historical modeling entry points.
+- ``hydromodpy/spatial/geographic/__init__.py``:
+  compatibility surface over the current geographic runtime package.
+- ``hydromodpy/analysis/display/orchestration.py``:
+  stable plotting facade over reorganized display suites.
+- ``hydromodpy/solver/compatibility.py``:
+  planner-facing capability compatibility matrix rather than an import shim.
+
+Recommended reading path
+------------------------
+
+1. ``hydromodpy/modeling/__init__.py``
+2. ``hydromodpy/spatial/geographic/__init__.py``
+3. ``hydromodpy/analysis/display/orchestration.py``
+4. ``hydromodpy/solver/compatibility.py``
 
 These facades are not meant to become permanent abstraction layers. Their job
 is narrower:

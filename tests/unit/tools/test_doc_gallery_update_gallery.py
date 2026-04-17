@@ -102,19 +102,67 @@ def test_select_gallery_specs_rejects_unknown_filters() -> None:
         update_gallery._select_gallery_specs(specs, categories=("missing_category",))
 
 
+def test_merge_case_summaries_by_category_keeps_committed_omitted_categories(
+    tmp_path: Path,
+) -> None:
+    baseline_root = tmp_path / "baseline"
+    validation_dir = baseline_root / "_static" / "capability_gallery" / "validation"
+    validation_dir.mkdir(parents=True)
+    (validation_dir / "validation_alpha_summary.json").write_text(
+        (
+            '{\n'
+            '  "slug": "validation_alpha",\n'
+            '  "category": "validation",\n'
+            '  "title": "Validation Alpha"\n'
+            '}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    geo_spec = _build_spec(slug="geo_alpha", category="geographic")
+    geo_summary = {"slug": "geo_alpha", "category": "geographic", "title": "Geo Alpha"}
+
+    merged = update_gallery._merge_case_summaries_by_category(
+        (geo_spec,),
+        selected_summaries_by_slug={"geo_alpha": geo_summary},
+        baseline_source_root=baseline_root,
+    )
+
+    assert [summary["slug"] for summary in merged["geographic"]] == ["geo_alpha"]
+    assert [summary["slug"] for summary in merged["validation"]] == ["validation_alpha"]
+
+
 def test_main_list_respects_selection_filters(monkeypatch, capsys) -> None:
     specs = (
         _build_spec(slug="geo_alpha", category="geographic"),
         _build_spec(slug="sim_alpha", category="simulation"),
     )
-    monkeypatch.setattr(update_gallery, "build_gallery_specs", lambda: specs)
+    calls: dict[str, tuple[str, ...]] = {}
+
+    def fake_build_gallery_specs(*, only_slugs=(), categories=()):
+        calls["only_slugs"] = tuple(only_slugs)
+        calls["categories"] = tuple(categories)
+        return specs
+
+    monkeypatch.setattr(update_gallery, "build_gallery_specs", fake_build_gallery_specs)
 
     exit_code = update_gallery.main(["--list", "--category", "geographic"])
 
     captured = capsys.readouterr()
     assert exit_code == 0
+    assert calls == {"only_slugs": (), "categories": ("geographic",)}
     assert "[geographic] geo_alpha" in captured.out
     assert "sim_alpha" not in captured.out
+
+
+def test_gallery_temp_root_respects_override(monkeypatch, tmp_path: Path) -> None:
+    override = tmp_path / "gallery-temp-root"
+    monkeypatch.setenv("HYDROMODPY_DOC_GALLERY_TMPDIR", str(override))
+
+    resolved = update_gallery._gallery_temp_root()
+
+    assert resolved == override
+    assert resolved.exists()
 
 
 def test_reset_generated_dirs_retries_when_onerror_hits_locked_file(

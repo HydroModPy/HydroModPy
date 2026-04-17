@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from tools.doc_gallery.calibration_case_registry import build_calibration_case_records
 from tools.doc_gallery.gallery_manifest import build_gallery_specs
 from tools.doc_gallery.update_gallery import (
@@ -11,6 +13,9 @@ from tools.doc_gallery.update_gallery import (
     _build_calibration_intercomparison_rows,
     _with_parameter_docs,
 )
+
+
+pytestmark = pytest.mark.slow
 
 
 EXPECTED_CALIBRATION_CASE_COUNT = 5

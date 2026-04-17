@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -23,11 +24,16 @@ _NODATA_THRESHOLD = -9_999.0
 _SECONDS_PER_DAY = 86_400.0
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class FlowSpatialFigurePayload:
-    """Generic cell-centered state payload for 2D flow figures."""
+    """Generic cell-centered state payload for 2D flow figures.
 
-    run_id: str
+    ``artifact_id`` is the canonical display identifier. ``run_id`` remains a
+    deprecated compatibility alias for callers that still use the historical
+    vocabulary.
+    """
+
+    artifact_id: str
     hydro_mesh: HydroMesh
     top_elevation_m: np.ndarray | None = None
     watertable_elevation_m: np.ndarray | None = None
@@ -36,16 +42,130 @@ class FlowSpatialFigurePayload:
     outflow_drain_m_per_day: np.ndarray | None = None
     accumulation_flux_m_per_day: np.ndarray | None = None
 
+    @property
+    def run_id(self) -> str:
+        """Deprecated compatibility alias for :attr:`artifact_id`."""
+        warnings.warn(
+            "'FlowSpatialFigurePayload.run_id' is deprecated. "
+            "Use 'artifact_id' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.artifact_id
 
-@dataclass(frozen=True)
+    def __init__(
+        self,
+        artifact_id: str | None = None,
+        hydro_mesh: HydroMesh | None = None,
+        top_elevation_m: np.ndarray | None = None,
+        watertable_elevation_m: np.ndarray | None = None,
+        watertable_depth_m: np.ndarray | None = None,
+        seepage_areas_m_per_day: np.ndarray | None = None,
+        outflow_drain_m_per_day: np.ndarray | None = None,
+        accumulation_flux_m_per_day: np.ndarray | None = None,
+        *,
+        run_id: str | None = None,
+    ) -> None:
+        resolved_artifact_id = _resolve_deprecated_run_id_alias(
+            artifact_id=artifact_id,
+            run_id=run_id,
+            target_name="FlowSpatialFigurePayload",
+        )
+        object.__setattr__(self, "artifact_id", resolved_artifact_id)
+        object.__setattr__(self, "hydro_mesh", hydro_mesh)
+        object.__setattr__(self, "top_elevation_m", top_elevation_m)
+        object.__setattr__(self, "watertable_elevation_m", watertable_elevation_m)
+        object.__setattr__(self, "watertable_depth_m", watertable_depth_m)
+        object.__setattr__(self, "seepage_areas_m_per_day", seepage_areas_m_per_day)
+        object.__setattr__(self, "outflow_drain_m_per_day", outflow_drain_m_per_day)
+        object.__setattr__(self, "accumulation_flux_m_per_day", accumulation_flux_m_per_day)
+
+
+@dataclass(frozen=True, init=False)
 class FlowCumulativeSeriesPayload:
-    """Generic cumulative recharge/discharge payload for 1D figures."""
+    """Generic cumulative recharge/discharge payload for 1D figures.
 
-    run_id: str
+    ``artifact_id`` is the canonical display identifier. ``run_id`` remains a
+    deprecated compatibility alias for callers that still use the historical
+    vocabulary.
+    """
+
+    artifact_id: str
     time_days: np.ndarray
     recharge_cumulative_mm: np.ndarray | None = None
     discharge_components_cumulative_mm: dict[str, np.ndarray] | None = None
     discharge_total_cumulative_mm: np.ndarray | None = None
+
+    @property
+    def run_id(self) -> str:
+        """Deprecated compatibility alias for :attr:`artifact_id`."""
+        warnings.warn(
+            "'FlowCumulativeSeriesPayload.run_id' is deprecated. "
+            "Use 'artifact_id' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.artifact_id
+
+    def __init__(
+        self,
+        artifact_id: str | None = None,
+        time_days: np.ndarray | None = None,
+        recharge_cumulative_mm: np.ndarray | None = None,
+        discharge_components_cumulative_mm: dict[str, np.ndarray] | None = None,
+        discharge_total_cumulative_mm: np.ndarray | None = None,
+        *,
+        run_id: str | None = None,
+    ) -> None:
+        resolved_artifact_id = _resolve_deprecated_run_id_alias(
+            artifact_id=artifact_id,
+            run_id=run_id,
+            target_name="FlowCumulativeSeriesPayload",
+        )
+        object.__setattr__(self, "artifact_id", resolved_artifact_id)
+        object.__setattr__(self, "time_days", time_days)
+        object.__setattr__(self, "recharge_cumulative_mm", recharge_cumulative_mm)
+        object.__setattr__(
+            self,
+            "discharge_components_cumulative_mm",
+            discharge_components_cumulative_mm,
+        )
+        object.__setattr__(self, "discharge_total_cumulative_mm", discharge_total_cumulative_mm)
+
+
+def _resolve_deprecated_run_id_alias(
+    *,
+    artifact_id: str | None,
+    run_id: str | None,
+    target_name: str,
+) -> str:
+    """Resolve one canonical artifact identifier from modern and legacy names."""
+    normalized_artifact_id = str(artifact_id or "").strip()
+    normalized_run_id = str(run_id or "").strip()
+    if normalized_artifact_id and normalized_run_id and normalized_artifact_id != normalized_run_id:
+        raise ValueError(
+            f"{target_name} received both artifact_id={normalized_artifact_id!r} "
+            f"and run_id={normalized_run_id!r}; use only one identifier."
+        )
+    if normalized_artifact_id:
+        return normalized_artifact_id
+    if normalized_run_id:
+        warnings.warn(
+            f"'{target_name}(run_id=...)' is deprecated. Use 'artifact_id=' instead.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return normalized_run_id
+    raise TypeError(f"{target_name} requires 'artifact_id' (or deprecated 'run_id').")
+
+
+def resolve_flow_artifact_id(model) -> str:
+    """Resolve the display/artifact identifier from one live flow model."""
+    return (
+        str(getattr(model, "model_name", "")).strip()
+        or str(getattr(model, "model_name_mf6", "")).strip()
+        or "flow"
+    )
 
 
 def _sanitize_cell_values(values: np.ndarray | None) -> np.ndarray | None:
@@ -129,11 +249,7 @@ def build_flow_spatial_payload_from_model(model) -> FlowSpatialFigurePayload | N
     if model is None:
         return None
 
-    run_id = (
-        str(getattr(model, "model_name", "")).strip()
-        or str(getattr(model, "model_name_mf6", "")).strip()
-        or "flow"
-    )
+    artifact_id = resolve_flow_artifact_id(model)
 
     solver_mesh = getattr(model, "solver_mesh", None)
     if solver_mesh is not None:
@@ -147,7 +263,7 @@ def build_flow_spatial_payload_from_model(model) -> FlowSpatialFigurePayload | N
             else Path(".").resolve() / "_postprocess"
         )
         return FlowSpatialFigurePayload(
-            run_id=run_id,
+            artifact_id=artifact_id,
             hydro_mesh=hydro_mesh,
             top_elevation_m=_sanitize_cell_values(np.asarray(solver_mesh.top, dtype=float)),
             watertable_elevation_m=_flatten_solver_output(
@@ -188,7 +304,7 @@ def build_flow_spatial_payload_from_model(model) -> FlowSpatialFigurePayload | N
         wt_depth = np.asarray(top - head, dtype=float)
 
     return FlowSpatialFigurePayload(
-        run_id=run_id,
+        artifact_id=artifact_id,
         hydro_mesh=hydro_mesh,
         top_elevation_m=top,
         watertable_elevation_m=head,
@@ -224,7 +340,7 @@ def build_flow_spatial_payload_from_run(run: "RunArtifacts") -> FlowSpatialFigur
         return None
     cell_data = getattr(hydro_mesh, "cell_data", {})
     return FlowSpatialFigurePayload(
-        run_id=run.run_id,
+        artifact_id=run.artifact_id,
         hydro_mesh=hydro_mesh,
         top_elevation_m=_sanitize_cell_values(cell_data.get("top_elevation")),
         watertable_elevation_m=_sanitize_cell_values(cell_data.get("watertable_elevation")),
@@ -280,7 +396,8 @@ def _has_at_least_one_finite_value(values: np.ndarray) -> bool:
 def build_flow_cumulative_payload(
     simulated_timeseries: pd.DataFrame | None,
     *,
-    run_id: str,
+    artifact_id: str | None = None,
+    run_id: str | None = None,
 ) -> FlowCumulativeSeriesPayload | None:
     """Build cumulative recharge/discharge curves from the common timeseries CSV.
 
@@ -290,6 +407,12 @@ def build_flow_cumulative_payload(
     """
     if simulated_timeseries is None or simulated_timeseries.empty:
         return None
+
+    resolved_artifact_id = _resolve_deprecated_run_id_alias(
+        artifact_id=artifact_id,
+        run_id=run_id,
+        target_name="build_flow_cumulative_payload",
+    )
 
     time_days, step_days = _resolve_time_axis_days(simulated_timeseries.index)
     if time_days.size == 0:
@@ -326,7 +449,7 @@ def build_flow_cumulative_payload(
         return None
 
     return FlowCumulativeSeriesPayload(
-        run_id=run_id,
+        artifact_id=resolved_artifact_id,
         time_days=time_days,
         recharge_cumulative_mm=recharge_cumulative_mm,
         discharge_components_cumulative_mm=(
@@ -343,4 +466,5 @@ __all__ = [
     "build_flow_spatial_payload_from_model",
     "build_flow_spatial_payload_from_run",
     "discover_latest_native_mesh_vtu",
+    "resolve_flow_artifact_id",
 ]

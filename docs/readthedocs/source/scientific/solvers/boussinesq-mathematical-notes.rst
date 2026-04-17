@@ -246,7 +246,7 @@ which reads:
 - if :math:`q_i^{\text{ex}} > 0`, then :math:`h_i = z_i^{\text{top}}`.
 
 The implementation enforces this relation with a Fischer-Burmeister residual
-on scaled variables in ``petsc_runtime.py``. In that formulation the surface
+on scaled variables in ``runtimes/petsc_mixed.py``. In that formulation the surface
 flux is not prescribed by a local partition law; it is solved together with
 the head field so that the finite-volume balance and the unilateral surface
 constraint are satisfied simultaneously.
@@ -457,11 +457,11 @@ Mapping Between Equations And Code
      - ``assemble_steady_residual_with_saturation_excess()`` /
        ``assemble_transient_residual_with_saturation_excess()``
    * - Fischer-Burmeister complementarity residual
-     - ``_fischer_burmeister_residual_and_derivatives()`` in ``petsc_runtime.py``
+     - ``_fischer_burmeister_residual_and_derivatives()`` in ``runtimes/petsc_mixed.py``
    * - runtime solve
-     - ``local_runtime.py`` / ``scipy_runtime.py`` /
-       ``scipy_sparse_runtime.py`` / ``petsc_partition_runtime.py`` /
-       ``petsc_runtime.py``
+     - ``runtimes/local.py`` / ``runtimes/scipy_dense.py`` /
+       ``runtimes/scipy_sparse.py`` / ``runtimes/petsc_partition.py`` /
+       ``runtimes/petsc_mixed.py``
    * - problem orchestration
      - ``boussinesq.py``
 

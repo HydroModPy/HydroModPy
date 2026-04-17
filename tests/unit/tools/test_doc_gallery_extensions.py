@@ -12,6 +12,9 @@ from tools.doc_gallery.gallery_manifest import build_gallery_specs
 from tools.doc_gallery.update_gallery import _build_category_page, _build_index_page, _generate_case
 
 
+pytestmark = pytest.mark.slow
+
+
 def _spec_by_slug(slug: str):
     return next(spec for spec in build_gallery_specs() if spec.slug == slug)
 
@@ -70,6 +73,26 @@ def test_build_gallery_specs_loads_code_comparison_cases_from_json_manifest() ->
     assert ramp.metadata["tab_specs"][0]["title"] == "Reference K"
     assert no_seepage.generator == "copy_assets"
     assert no_seepage.metadata["tab_specs"][1]["filename"] == "no_seepage_high_k.png"
+
+
+def test_build_gallery_specs_skips_optional_registries_for_static_only_slug(monkeypatch) -> None:
+    def fail_validation():
+        raise AssertionError("validation registry should not be loaded")
+
+    def fail_calibration():
+        raise AssertionError("calibration registry should not be loaded")
+
+    monkeypatch.setattr(gallery_manifest_module, "_build_validation_gallery_specs", fail_validation)
+    monkeypatch.setattr(gallery_manifest_module, "_build_calibration_gallery_specs", fail_calibration)
+
+    specs = {
+        spec.slug: spec
+        for spec in build_gallery_specs(
+            only_slugs=("regional_lab_headwater_100km2_dry_plan",),
+        )
+    }
+
+    assert "regional_lab_headwater_100km2_dry_plan" in specs
 
 
 def test_load_json_gallery_case_specs_rejects_results_stable_copy_assets_paths(
@@ -277,6 +300,37 @@ def test_generate_regional_lab_simulation_case_smoke(tmp_path: Path) -> None:
         / "simulation"
         / "regional_lab_headwater_100km2_dry_plan.png"
     ).exists()
+    plan_payload = json.loads(
+        (
+            tmp_path
+            / "_static"
+            / "capability_gallery"
+            / "simulation"
+            / "regional_lab_headwater_100km2_dry_plan_plan.json"
+        ).read_text(encoding="utf-8")
+    )
+    report_payload = json.loads(
+        (
+            tmp_path
+            / "_static"
+            / "capability_gallery"
+            / "simulation"
+            / "regional_lab_headwater_100km2_dry_plan_report.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert plan_payload["generated_at_utc"] == "<generated_at_utc>"
+    assert report_payload["generated_at_utc"] == "<generated_at_utc>"
+    assert plan_payload["output_root"] == "<regional_lab_output_root>"
+    assert report_payload["output_root"] == "<regional_lab_output_root>"
+    assert plan_payload["config_path"].startswith(
+        "examples/projects/launcher_simulation/regional_lab/"
+    )
+    assert report_payload["selected_sites"][0]["resolved_paths"][
+        "simulation_reference_config"
+    ].startswith("examples/projects/launcher_simulation/")
+    assert report_payload["synthesis_paths"]["site_inventory_csv"] == (
+        "regional_lab_outputs/regional_lab_site_inventory.csv"
+    )
 
 
 def test_generate_regional_lab_recipe_simulation_case_smoke(tmp_path: Path) -> None:

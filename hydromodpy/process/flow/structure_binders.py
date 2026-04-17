@@ -22,7 +22,7 @@ from hydromodpy.core.time import (
 
 if TYPE_CHECKING:
     from hydromodpy.data.contracts.load_result import LoadResult
-    from hydromodpy.process import Flow
+    from hydromodpy.process.flow import Flow
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
 
 

@@ -10,13 +10,14 @@ Typical usage::
 
     ctx = PosthocContext.from_toml("path/to/project.toml")
     for run in ctx.runs:
-        print(run.run_id, run.watertable_depth_rasters)
+        print(run.artifact_id, run.watertable_depth_rasters)
 """
 from __future__ import annotations
 
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+import warnings
 
 
 @dataclass(frozen=True)
@@ -67,11 +68,11 @@ class GeographicArtifacts:
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class RunArtifacts:
-    """Paths to simulation output artifacts for one run."""
+    """Paths to simulation output artifacts for one solver artifact folder."""
 
-    run_id: str
+    artifact_id: str
     run_dir: Path
     postprocess_dir: Path
 
@@ -103,6 +104,85 @@ class RunArtifacts:
     simulated_timeseries_csv: Path | None = None
     native_mesh_figure_dir: Path | None = None
 
+    @property
+    def run_id(self) -> str:
+        """Deprecated compatibility alias for :attr:`artifact_id`."""
+        warnings.warn(
+            "'RunArtifacts.run_id' is deprecated. Use 'artifact_id' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.artifact_id
+
+    @property
+    def figure_dir(self) -> Path:
+        """Return the standard figure directory for this artifact."""
+        return self.postprocess_dir / "_figures"
+
+    def __init__(
+        self,
+        artifact_id: str | None = None,
+        run_dir: Path | None = None,
+        postprocess_dir: Path | None = None,
+        solver_grid_template: Path | None = None,
+        watertable_elevation_npy: Path | None = None,
+        watertable_depth_npy: Path | None = None,
+        outflow_drain_npy: Path | None = None,
+        seepage_areas_npy: Path | None = None,
+        groundwater_flux_npy: Path | None = None,
+        groundwater_storage_npy: Path | None = None,
+        accumulation_flux_npy: Path | None = None,
+        watertable_elevation_rasters: list[Path] | None = None,
+        watertable_depth_rasters: list[Path] | None = None,
+        seepage_areas_rasters: list[Path] | None = None,
+        outflow_drain_rasters: list[Path] | None = None,
+        pathlines_weighted_shp: Path | None = None,
+        starting_weighted_shp: Path | None = None,
+        simulated_timeseries_csv: Path | None = None,
+        native_mesh_figure_dir: Path | None = None,
+        *,
+        run_id: str | None = None,
+    ) -> None:
+        resolved_artifact_id = _resolve_deprecated_run_id_alias(
+            artifact_id=artifact_id,
+            run_id=run_id,
+        )
+        object.__setattr__(self, "artifact_id", resolved_artifact_id)
+        object.__setattr__(self, "run_dir", run_dir)
+        object.__setattr__(self, "postprocess_dir", postprocess_dir)
+        object.__setattr__(self, "solver_grid_template", solver_grid_template)
+        object.__setattr__(self, "watertable_elevation_npy", watertable_elevation_npy)
+        object.__setattr__(self, "watertable_depth_npy", watertable_depth_npy)
+        object.__setattr__(self, "outflow_drain_npy", outflow_drain_npy)
+        object.__setattr__(self, "seepage_areas_npy", seepage_areas_npy)
+        object.__setattr__(self, "groundwater_flux_npy", groundwater_flux_npy)
+        object.__setattr__(self, "groundwater_storage_npy", groundwater_storage_npy)
+        object.__setattr__(self, "accumulation_flux_npy", accumulation_flux_npy)
+        object.__setattr__(
+            self,
+            "watertable_elevation_rasters",
+            [] if watertable_elevation_rasters is None else list(watertable_elevation_rasters),
+        )
+        object.__setattr__(
+            self,
+            "watertable_depth_rasters",
+            [] if watertable_depth_rasters is None else list(watertable_depth_rasters),
+        )
+        object.__setattr__(
+            self,
+            "seepage_areas_rasters",
+            [] if seepage_areas_rasters is None else list(seepage_areas_rasters),
+        )
+        object.__setattr__(
+            self,
+            "outflow_drain_rasters",
+            [] if outflow_drain_rasters is None else list(outflow_drain_rasters),
+        )
+        object.__setattr__(self, "pathlines_weighted_shp", pathlines_weighted_shp)
+        object.__setattr__(self, "starting_weighted_shp", starting_weighted_shp)
+        object.__setattr__(self, "simulated_timeseries_csv", simulated_timeseries_csv)
+        object.__setattr__(self, "native_mesh_figure_dir", native_mesh_figure_dir)
+
     @classmethod
     def discover(cls, run_dir: Path) -> RunArtifacts:
         """Scan a run directory and return found artifacts."""
@@ -128,7 +208,7 @@ class RunArtifacts:
         native_mesh_figure_dir = pp / "_figures" / "native_mesh"
 
         return cls(
-            run_id=run_id,
+            artifact_id=run_id,
             run_dir=run_dir,
             postprocess_dir=pp,
             solver_grid_template=solver_tpl if solver_tpl.exists() else None,
@@ -156,6 +236,31 @@ class RunArtifacts:
         if self.solver_grid_template is not None:
             return self.solver_grid_template
         return geographic.watershed_dem
+
+
+def _resolve_deprecated_run_id_alias(
+    *,
+    artifact_id: str | None,
+    run_id: str | None,
+) -> str:
+    """Resolve one canonical artifact identifier from modern and legacy names."""
+    normalized_artifact_id = str(artifact_id or "").strip()
+    normalized_run_id = str(run_id or "").strip()
+    if normalized_artifact_id and normalized_run_id and normalized_artifact_id != normalized_run_id:
+        raise ValueError(
+            f"RunArtifacts received both artifact_id={normalized_artifact_id!r} "
+            f"and run_id={normalized_run_id!r}; use only one identifier."
+        )
+    if normalized_artifact_id:
+        return normalized_artifact_id
+    if normalized_run_id:
+        warnings.warn(
+            "'RunArtifacts(run_id=...)' is deprecated. Use 'artifact_id=' instead.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return normalized_run_id
+    raise TypeError("RunArtifacts requires 'artifact_id' (or deprecated 'run_id').")
 
 
 @dataclass(frozen=True)

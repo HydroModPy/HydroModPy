@@ -9,10 +9,10 @@ This module does not assemble the nonlinear equations itself. Instead it:
 The easiest way to read the package is:
 
 1. ``mesh.py`` for geometry and properties,
-2. ``assembly.py`` for the residual,
-3. ``local_runtime.py``, ``scipy_runtime.py`` or ``scipy_sparse_runtime.py``
-   for the nonlinear solve,
-4. this module for orchestration.
+2. ``assembly/`` for the residual,
+3. ``drivers/`` for orchestration entry points and forcing preparation,
+4. ``runtimes/`` for the nonlinear solve implementations,
+5. this module for the HydroModPy-facing solver wrapper.
 """
 
 from __future__ import annotations
@@ -47,20 +47,14 @@ from hydromodpy.solver.boussinesq.solver_contract import (
     BoussinesqSolverContract,
     assert_supported_runtime_subset,
     build_runtime_options,
-    resolve_flow_regime,
     resolve_solver_contract,
     resolve_surface_interaction_model,
-    runtime_backend_name,
 )
 from hydromodpy.solver.boussinesq.runtime_summary import (
-    elapsed_days_for_snapshots,
-    history_or_current,
     record_runtime_backend_summary,
     record_surface_threshold_summary,
 )
-from hydromodpy.solver.prototype.solver import Solver
-# Test hook kept here while forcing resolution is delegated to the dedicated
-# helper module.
+from hydromodpy.solver.contracts import Solver
 from hydromodpy.solver.utils.mesh.gmsh_grid import load_planar_mesh
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
@@ -102,6 +96,7 @@ class Boussinesq(Solver):
         self.runtime_summary: dict[str, Any] = {}
         self.has_numerical_solution = False
         self.solve_stage = "created"
+        self.planar_mesh_loader = load_planar_mesh
         self.saturation_excess_regularization_radius = (
             _DEFAULT_SATURATION_EXCESS_REGULARIZATION
         )
@@ -188,7 +183,7 @@ class Boussinesq(Solver):
             self._write_standard_postprocess_outputs()
             state_history_path = self.full_path / "_boussinesq_state_history.npz"
             np.savez(state_history_path, **self._build_state_history_export_payload())
-            self._record_surface_threshold_summary()
+            record_surface_threshold_summary(self)
 
         summary_payload = dict(self.runtime_summary)
         summary_payload["model_name"] = self.model_name
@@ -223,30 +218,6 @@ class Boussinesq(Solver):
             state=self.state,
         )
 
-    def _record_surface_threshold_summary(self) -> None:
-        """Record compact diagnostics about surface-threshold activation."""
-        record_surface_threshold_summary(self)
-
-    def _elapsed_days_for_snapshots(self, *, n_snapshots: int) -> np.ndarray:
-        """Return one elapsed-time axis aligned with exported state snapshots."""
-        return elapsed_days_for_snapshots(self.state, n_snapshots=n_snapshots)
-
-    @staticmethod
-    def _history_or_current(
-        history_values: np.ndarray | None,
-        current_values: np.ndarray | None,
-        *,
-        n_columns: int,
-        default_value: float,
-    ) -> np.ndarray:
-        """Return one 2D history array from an optional history/current pair."""
-        return history_or_current(
-            history_values,
-            current_values,
-            n_columns=n_columns,
-            default_value=default_value,
-        )
-
     def _assert_supported_runtime_subset(self) -> None:
         """Fail fast when the requested problem exceeds the implemented slice.
 
@@ -256,21 +227,9 @@ class Boussinesq(Solver):
         """
         assert_supported_runtime_subset(self.flow)
 
-    def _runtime_backend_name(self) -> str:
-        """Return the selected nonlinear runtime backend name."""
-        return runtime_backend_name(self.flow)
-
-    def _resolve_flow_regime(self) -> str:
-        """Return the normalized flow regime expected by the Boussinesq driver."""
-        return resolve_flow_regime(self.flow)
-
     def _surface_interaction_model(self) -> str:
         """Return the selected groundwater/surface interaction closure."""
         return resolve_surface_interaction_model(self.flow)
-
-    def _runtime_backend(self) -> ResolvedBoussinesqRuntimeBackend:
-        """Resolve the selected nonlinear runtime backend implementation."""
-        return self._resolve_solver_contract().runtime_backend
 
     def _resolve_solver_contract(self) -> BoussinesqSolverContract:
         """Return the explicit solver contract derived from the current `Flow`.
@@ -300,6 +259,19 @@ class Boussinesq(Solver):
         """Record which nonlinear strategy was used for this solve."""
         record_runtime_backend_summary(self, contract)
 
+    def _forcing_resolver(self) -> BoussinesqForcingResolver:
+        """Build the canonical forcing resolver for the current runtime state."""
+        if self.mesh is None:
+            raise RuntimeError("Mesh must be built before resolving forcings.")
+        return BoussinesqForcingResolver(
+            mesh=self.mesh,
+            mesh_bundle=self.mesh_bundle,
+            flow=self.flow,
+            time_grid=self.time_grid,
+            planar_mesh_loader=self.planar_mesh_loader,
+            support_metadata=getattr(self.mesh, "support_metadata", None),
+        )
+
     def _run_transient_runtime(self) -> bool:
         """Advance the head state over all launcher stress periods."""
         return run_transient_runtime(self)
@@ -312,7 +284,7 @@ class Boussinesq(Solver):
         """Create the initial state from the ``Flow`` initial-condition contract."""
         if self.mesh is None:
             raise RuntimeError("Mesh must be built before initializing the state.")
-        head_m = self._resolve_initial_head_field()
+        head_m = self._forcing_resolver().resolve_initial_head_field()
         saturated_thickness_m = saturated_thickness_from_head(self.mesh, head_m)
         return BoussinesqState.initial(
             head_m=head_m,
@@ -352,93 +324,6 @@ class Boussinesq(Solver):
                 "Use a reduced test mesh for now. A future sparse Jacobian path "
                 "should lift this limitation without changing the runtime contract."
             )
-
-    def _forcing_resolver(self) -> BoussinesqForcingResolver:
-        """Return the shared forcing/boundary resolver for this solver instance."""
-        if self.mesh is None:
-            raise RuntimeError("Mesh must be built before resolving forcings.")
-        return BoussinesqForcingResolver(
-            mesh=self.mesh,
-            mesh_bundle=self.mesh_bundle,
-            flow=self.flow,
-            time_grid=self.time_grid,
-            planar_mesh_loader=load_planar_mesh,
-            support_metadata=getattr(self.mesh, "support_metadata", None),
-        )
-
-    def _resolve_initial_head_field(self) -> np.ndarray:
-        """Resolve the canonical ``Flow`` initial condition into cell heads."""
-        return self._forcing_resolver().resolve_initial_head_field()
-
-    def _resolve_recharge_series(
-        self,
-        nper: int,
-    ) -> tuple[float | np.ndarray, ...]:
-        """Resolve one recharge payload per stress period.
-
-        The returned per-period payload can be either:
-        - one scalar homogeneous recharge rate, or
-        - one cell-aligned array produced from a heterogeneous forcing source.
-        """
-        return self._forcing_resolver().resolve_recharge_series(nper)
-
-    def _resolve_well_flux_by_period(self, nper: int) -> np.ndarray:
-        """Resolve all localized well fluxes to one cell vector per period."""
-        return self._forcing_resolver().resolve_well_flux_by_period(nper)
-
-    def _resolved_dirichlet_supports_by_period(
-        self,
-        nper: int,
-        *,
-        ocean_series_m: np.ndarray | None = None,
-    ):
-        """Resolve all Dirichlet supports once, then reuse them across projections.
-
-        Each returned item is one stress period payload made of
-        ``ResolvedDirichletSupport`` records.
-        """
-        return self._forcing_resolver().resolved_dirichlet_supports_by_period(
-            nper,
-            ocean_series_m=ocean_series_m,
-        )
-
-    def _project_dirichlet_supports_to_edges(self, supports) -> np.ndarray:
-        """Project resolved Dirichlet supports to the edge-support view."""
-        return self._forcing_resolver().project_dirichlet_supports_to_edges(supports)
-
-    def _project_dirichlet_supports_to_cells(self, supports) -> np.ndarray:
-        """Project resolved Dirichlet supports to the canonical cell view."""
-        return self._forcing_resolver().project_dirichlet_supports_to_cells(supports)
-
-    def _resolve_ocean_series(self, nper: int) -> np.ndarray | None:
-        """Resolve the ocean stage series when the ocean boundary is active."""
-        return self._forcing_resolver().resolve_ocean_series(nper)
-
-    def _ocean_supported_cell_masks_by_period(
-        self,
-        ocean_series_m: np.ndarray | None,
-        *,
-        nper: int,
-    ) -> tuple[np.ndarray, ...]:
-        """Return one ocean support mask per stress period."""
-        return self._forcing_resolver().ocean_supported_cell_masks_by_period(
-            ocean_series_m,
-            nper=nper,
-        )
-
-    def _resolve_drainage_conductance_series(self, nper: int) -> np.ndarray:
-        """Return one drainage conductance value per period."""
-        return self._forcing_resolver().resolve_drainage_conductance_series(nper)
-
-    @staticmethod
-    def _has_active_recharge_payload(
-        payloads_by_period: tuple[float | np.ndarray, ...],
-    ) -> bool:
-        """Return whether at least one recharge payload contains a non-zero value."""
-        return BoussinesqForcingResolver.has_active_recharge_payload(
-            payloads_by_period
-        )
-
 
 __all__ = ["Boussinesq", "BoussinesqState"]
 

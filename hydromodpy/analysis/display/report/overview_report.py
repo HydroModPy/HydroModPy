@@ -247,7 +247,7 @@ def _render_intermittency_panel(
     import matplotlib.pyplot as plt
     import numpy as np
 
-    from hydromodpy.analysis.display.common import make_figure
+    from hydromodpy.analysis.display.common import add_figure_legend, make_figure
     from hydromodpy.analysis.display.figures.timeseries import (
         _intermittency_legend_handles,
         render_intermittency,
@@ -274,9 +274,10 @@ def _render_intermittency_panel(
             for ax, sid in zip(axes_flat, stations):
                 render_intermittency(ax, records_df=records_df, station_id=sid)
 
-        fig.legend(
+        add_figure_legend(
+            fig,
             handles=_intermittency_legend_handles(),
-            loc="bottom", ncol=5, fontsize=7,
+            loc="lower center", ncol=5, fontsize=7,
             frameon=False, handletextpad=0.3, columnspacing=1.0,
         )
         fig.savefig(str(save_path), dpi=300, bbox_inches="tight", transparent=False)

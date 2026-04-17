@@ -55,7 +55,7 @@ from hydromodpy.solver.modflow_common.discretization_spatial import (
 from hydromodpy.solver.modflow_common.discretization_temporal import (
     build_temporal_discretization_from_time_grid,
 )
-from hydromodpy.solver import Solver
+from hydromodpy.solver.contracts import Solver
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 from .diagnostics import check_water_flow_connectivity
 from .flow_to_modflow_adapter import FlowToModflowAdapter

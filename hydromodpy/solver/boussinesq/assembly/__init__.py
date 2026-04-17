@@ -3,10 +3,10 @@
 This module remains the public faÃ§ade of the Boussinesq physical assembly.
 The implementation is now split internally into:
 
-- `assembly_inputs.py` for runtime input normalization and constraint handling,
-- `assembly_fluxes.py` for transmissivity and flux operators,
-- `assembly_surface.py` for surface-interaction closures,
-- `assembly_residuals.py` for steady/transient residual assembly.
+- `inputs.py` for runtime input normalization and constraint handling,
+- `fluxes.py` for transmissivity and flux operators,
+- `surface.py` for surface-interaction closures,
+- `residuals.py` for steady/transient residual assembly.
 """
 
 from __future__ import annotations

@@ -15,6 +15,26 @@ It focuses on:
 - setup-time transfer for geology (`GeologyField` -> `Domain.set_zone`),
 - data-phase transfer for hydrometry (`StationSet` -> `LauncherRunState.loaded_data.hydrometry`).
 
+Code map
+--------
+
+- ``hydromodpy/data/planner.py`` and ``plan.py``:
+  activation inference and immutable plan creation.
+- ``hydromodpy/data/runtime_loader.py``:
+  data-family dispatch during launcher execution.
+- ``hydromodpy/data/data_managers.py``:
+  loaded-data container published to runtime state.
+- ``launchers/process_simulation/launcher.py``:
+  setup and data phases where transfers are triggered.
+
+Recommended reading path
+------------------------
+
+1. ``hydromodpy/data/data_managers_config.py``
+2. ``hydromodpy/data/planner.py``
+3. ``hydromodpy/data/runtime_loader.py``
+4. ``launchers/process_simulation/launcher.py``
+
 Diagram source
 --------------
 
@@ -32,3 +52,9 @@ Notes
   corresponding objects are stored.
 - Geology is transferred into `Domain` as a zone used by process solvers.
 - Hydrometry is transferred into launcher loaded-data state for diagnostics and downstream use.
+
+Related diagrams
+----------------
+
+- :doc:`data-definition-transfer-activity-diagram`
+- :doc:`../overview/data-managers-and-external-dependencies`

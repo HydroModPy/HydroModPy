@@ -3,9 +3,9 @@
 This module remains the public faÃ§ade for semianalytic Jacobian assembly.
 Its implementation is now split internally into:
 
-- `jacobian_common.py` for derivative and COO helper utilities,
-- `jacobian_operator_triplets.py` for the base residual operators,
-- `jacobian_partition_triplets.py` for the regularized-partition saturation term.
+- `common.py` for derivative and COO helper utilities,
+- `operator_triplets.py` for the base residual operators,
+- `partition_triplets.py` for the regularized-partition saturation term.
 """
 
 from __future__ import annotations

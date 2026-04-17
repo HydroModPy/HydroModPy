@@ -169,7 +169,7 @@ def _plot_dem_overview(
     plot_dem_map(
         dem_path=dem_path,
         watershed_shp=geo.watershed_shp,
-        title=run.run_id,
+        title=run.artifact_id,
         options=options,
         save_path=output_dir / "dem_overview.png",
     )
@@ -233,7 +233,10 @@ def _plot_watertable_maps(
                 cmap=cmap,
                 colorbar_label=cb_label,
             )
-            ax.set_title(f"{label.replace('_', ' ').title()} — {run.run_id}", fontsize=10)
+            ax.set_title(
+                f"{label.replace('_', ' ').title()} — {run.artifact_id}",
+                fontsize=10,
+            )
             fig.tight_layout()
             finalize_figure(fig, options=options, save_path=output_dir / f"{label}.png")
             continue
@@ -259,7 +262,10 @@ def _plot_watertable_maps(
             cmap=cmap,
             colorbar_label=cb_label,
         )
-        ax.set_title(f"{label.replace('_', ' ').title()} — {run.run_id}", fontsize=10)
+        ax.set_title(
+            f"{label.replace('_', ' ').title()} — {run.artifact_id}",
+            fontsize=10,
+        )
         fig.tight_layout()
         finalize_figure(fig, options=options, save_path=output_dir / f"{label}.png")
 
@@ -340,7 +346,7 @@ def _plot_hydrography(
         dem_path=dem_path,
         watershed_shp=geo.watershed_shp,
         streams_gdf=streams_gdf,
-        title=run.run_id,
+        title=run.artifact_id,
         options=options,
         save_path=output_dir / "hydrography.png",
     )
@@ -507,7 +513,7 @@ def _plot_budget(
     ax = _single_axes(axs)
     bars = ax.bar(labels, values, color=colors, edgecolor="k", alpha=0.8)
     ax.set_ylabel("Volume [m³/d]")
-    ax.set_title(f"Groundwater budget — {run.run_id}", fontsize=10)
+    ax.set_title(f"Groundwater budget — {run.artifact_id}", fontsize=10)
     ax.grid(True, alpha=0.3, axis="y")
 
     for bar, val in zip(bars, values):
@@ -533,11 +539,11 @@ def plot_posthoc_flow_suite(
     if not options.should_render():
         return
 
-    output_dir = run.postprocess_dir / "_figures"
+    output_dir = run.figure_dir
     spatial_payload = build_flow_spatial_payload_from_run(run)
     cumulative_payload = build_flow_cumulative_payload(
         _load_simulated_timeseries(run),
-        run_id=run.run_id,
+        artifact_id=run.artifact_id,
     )
     rendered_common_spatial = _plot_common_flow_spatial_outputs(
         spatial_payload,
@@ -575,23 +581,23 @@ def plot_posthoc_flow_suite(
         )
 
     if options.flow.is_enabled("dem_map", default=True):
-        logger.info("Generating DEM overview: %s", run.run_id)
+        logger.info("Generating DEM overview: %s", run.artifact_id)
         _plot_dem_overview(run, geo, options, output_dir)
 
     if options.flow.is_enabled("watertable_map", default=True):
-        logger.info("Generating watertable maps: %s", run.run_id)
+        logger.info("Generating watertable maps: %s", run.artifact_id)
         _plot_watertable_maps(run, geo, options, output_dir)
 
     if options.flow.is_enabled("cross_section", default=True):
-        logger.info("Generating cross section: %s", run.run_id)
+        logger.info("Generating cross section: %s", run.artifact_id)
         _plot_cross_section(run, geo, options, output_dir)
 
     if options.flow.is_enabled("budget", default=False):
-        logger.info("Generating budget chart: %s", run.run_id)
+        logger.info("Generating budget chart: %s", run.artifact_id)
         _plot_budget(run, geo, options, output_dir)
 
     if options.flow.is_enabled("hydrography", default=True):
-        logger.info("Generating hydrography map: %s", run.run_id)
+        logger.info("Generating hydrography map: %s", run.artifact_id)
         _plot_hydrography(run, geo, options, output_dir)
 
 
@@ -607,8 +613,8 @@ def plot_posthoc_particles_suite(
     if not options.particles.is_enabled("pathlines", default=False):
         return
 
-    output_dir = run.postprocess_dir / "_figures"
-    logger.info("Generating pathlines map: %s", run.run_id)
+    output_dir = run.figure_dir
+    logger.info("Generating pathlines map: %s", run.artifact_id)
     _plot_pathlines(run, geo, options, output_dir)
 
 
@@ -625,7 +631,7 @@ def plot_posthoc_all(
 
     figure_dirs: list[Path] = []
     for run in ctx.runs:
-        output_dir = run.postprocess_dir / "_figures"
+        output_dir = run.figure_dir
         plot_posthoc_flow_suite(run, ctx.geographic, options)
         plot_posthoc_particles_suite(run, ctx.geographic, options)
         if output_dir.is_dir():

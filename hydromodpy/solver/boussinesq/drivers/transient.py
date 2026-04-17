@@ -8,7 +8,7 @@ import numpy as np
 
 from hydromodpy.solver.boussinesq.drivers.forcing import (
     apply_ocean_drainage_mask,
-    resolve_boundary_forcing_by_period,
+    resolve_runtime_forcing_by_period,
 )
 from hydromodpy.solver.boussinesq.drivers.state import (
     TransientRuntimeHistory,
@@ -39,9 +39,10 @@ def run_transient_runtime(solver: "Boussinesq") -> bool:
         return True
 
     nper = len(period_lengths)
-    recharge_series_m_s = solver._resolve_recharge_series(nper)
-    well_flux_by_period_m3_s = solver._resolve_well_flux_by_period(nper)
-    boundary_forcing = resolve_boundary_forcing_by_period(solver, nper=nper)
+    runtime_forcing = resolve_runtime_forcing_by_period(solver, nper=nper)
+    recharge_series_m_s = runtime_forcing.recharge_series_m_s
+    well_flux_by_period_m3_s = runtime_forcing.well_flux_by_period_m3_s
+    boundary_forcing = runtime_forcing
     dirichlet_supports_by_period = boundary_forcing.dirichlet_supports_by_period
     prescribed_heads_by_period = boundary_forcing.prescribed_heads_by_period
     boundary_heads_by_period = boundary_forcing.boundary_heads_by_period

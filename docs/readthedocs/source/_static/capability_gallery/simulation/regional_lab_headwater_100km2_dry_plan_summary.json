@@ -46,12 +46,12 @@
     "examples/projects/launcher_simulation/regional_lab/site_catalog.csv"
   ],
   "source_hashes": {
-    "launchers/regional_lab/README.md": "c427523c87c758da692749791c29956d9f6824230e114e6265f56ffa97fc7d2c",
-    "launchers/regional_lab/config.py": "6cbdfebc6631177713adf46d19222d897c4851b26bc71316436ce887a2be523c",
-    "launchers/regional_lab/launcher.py": "3acafabc723cef54c826d783ea92965ea054dbd04c83766c71009e72afbfb391",
-    "examples/projects/launcher_simulation/regional_lab/README.md": "a1910134f58cd8c49abe41d4e1f51adfd502266eba56dfb7b055c0dd72255b25",
-    "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml": "7832458061e2960886a245c39b4dab3fc05b47a5b45a79159736f1cd90f7a572",
-    "examples/projects/launcher_simulation/regional_lab/site_catalog.csv": "ea2ad802cf1325c4ddf0250fc415ef30252bab9f5afdb26f2a025fb9283375f8"
+    "launchers/regional_lab/README.md": "ea3b1c694e890801aa4352c58bfeea6dc50ca61783cf23dd9133b6a2e089107c",
+    "launchers/regional_lab/config.py": "824b88b0e094d12730fcc91cf1b19ac4d71444dad765922d7c4a9a2243b03de0",
+    "launchers/regional_lab/launcher.py": "f9ea9b8fbe7210433ef3ca019bcd7bab63c40048784e19a646f41b43cf94b520",
+    "examples/projects/launcher_simulation/regional_lab/README.md": "2597c1c9ff2ec3924c6675b1c811749075bf669c9770c6a7b8fedb294100167a",
+    "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml": "22ce1b90ad02fbc8693b3a1fed287a64ef649f0fdd7a6172db5f912cbae8c63d",
+    "examples/projects/launcher_simulation/regional_lab/site_catalog.csv": "6c0676f1e4f94cfc950a774f73eb863dd81ffb250eb1312c6379badfe4e3dda5"
   },
   "docname": "cases/regional_lab_headwater_100km2_dry_plan",
   "images": [

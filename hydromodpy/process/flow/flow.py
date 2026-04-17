@@ -85,7 +85,7 @@ from hydromodpy.process.flow.initial_conditions_config import (
     normalize_flow_initial_conditions,
 )
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig, FlowSinksSourcesConfig
-from hydromodpy.process.prototype import BoundaryCondition, ProcessSpatial, SinkSource
+from hydromodpy.process.contracts import BoundaryCondition, ProcessSpatial, SinkSource
 from hydromodpy.core.units import convert_payload_to_m_per_s, normalize_m_per_s_unit
 from hydromodpy.core.units.volumetric_flow import (
     convert_to_m3_per_s,
