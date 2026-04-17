@@ -1,0 +1,75 @@
+[simulation]
+name = "Bsq sloping substratum uniform recharge 1D"
+description = "Synthetic steady-state unconfined flow on a sloping substratum with uniform recharge and fixed heads."
+
+[[simulation.process]]
+id = "flow_validation"
+type = "flow"
+solvers = ["modflownwt"]
+
+[workspace]
+project_root = "."
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "validation_boussinesq_sloping_substratum_uniform_recharge"
+
+[geographic.synthetic.grid]
+length_x = "400.0 m"
+length_y = "50.0 m"
+nx = 40
+ny = 5
+
+[geographic.synthetic.topography]
+kind = "linear"
+base_elevation = 20.0
+right_to_left_amplitude = 5.0
+
+[domain]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "20.0 m"
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["west_side", "east_side"]
+param_list = ["K"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+
+[flow.param.K.field_homogeneous]
+value = "1e-4 m/s"
+
+[flow.ic]
+type = "custom"
+value = "10.0 m"
+
+[flow.bc.dirichlet.west_side]
+type = "dirichlet"
+value = "15.0 m"
+
+[flow.bc.dirichlet.east_side]
+type = "dirichlet"
+value = "5.0 m"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+[data]
+types = ["recharge"]
+inference_mode = "warn"
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [1.0]
+runoff_ratio = 0.0
+
+[display]
+enabled = false
+

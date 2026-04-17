@@ -62,24 +62,31 @@ dependencies = [
     "rioxarray",
     "scikit-learn",
     "scipy",
+    "cma",
+    "selenium",
     "ultraplot",
     "vedo",
     "whitebox-workflows",
     "xarray",
     "pydantic>=2.0",
     "duckdb",
+    "dask",
+    "sqlalchemy>=2.0",
     "tqdm",
     "zarr>=3.0",
     "pytest",
 ]
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-xdist", "pytest-timeout"]
+test = ["pytest", "pytest-xdist", "pytest-timeout", "coverage[toml]>=7.0"]
 docs = [
     "sphinx>=7.0",
     "sphinx-rtd-theme",
     "myst-parser",
     "nbsphinx",
+    "nbconvert",
+    "nbformat",
+    "jupyter-client",
     "sphinx-gallery",
     "sphinx-autobuild",
     "readthedocs-sphinx-ext",
@@ -89,9 +96,17 @@ docs = [
     "sphinx-togglebutton",
     "sphinx-tabs",
     "sphinx-multiversion",
+    "sphinxcontrib-plantuml",
     "autodoc-pydantic>=2.0",
 ]
-ide = ["spyder>=6.0", "jupyterlab>=4.0"]
+ide = [
+    "ipykernel",
+    "ipython",
+    "jupyterlab>=4.0",
+    "pyside6",
+    "spyder>=6.0",
+    "spyder-kernels",
+]
 ugrid = ["xugrid"]
 viewer3d = ["pyvista"]
 
@@ -132,6 +147,7 @@ markers = [
     "transient: transient validation or regression case",
     "fast: quick-running validation, integration, or fast-tier regression cases",
     "slow: long-running validation, integration, or regression tests",
+    "petsc: tests that exercise the Linux PETSc-backed Boussinesq runtime",
     "nwt: MODFLOW-NWT / MODPATH / MT3DMS test case",
     "mf6: MODFLOW 6 / GWT test case",
     "integration: tests that call external services or systems",

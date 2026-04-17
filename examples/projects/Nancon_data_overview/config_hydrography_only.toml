@@ -1,0 +1,41 @@
+# Minimal data-overview example focused on BD Topage hydrography.
+# Usage:
+#   python -m launchers data-overview run config_hydrography_only.toml
+
+[workspace]
+project_root = "hydrography_only"
+
+[geographic]
+source_mode = "standard"
+catch_def = "from_outlet_coord"
+dem_init_path = "../../../examples_legacy/04_streamflow_intermittence_in_transient/data/regional dem.tif"
+x_outlet = 389285.910
+y_outlet = 6816518.749
+snap_dist = "150 m"
+buff_area = "20%"
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[data]
+types = ["hydrography"]
+
+[[data.hydrography.sources]]
+source = "bdtopage"
+typename = "sa:CoursEau_FXX_Topage2025"
+page_size = 1000
+rasterize_field = "FID"
+
+[overview]
+name = "Canut"
+
+[overview.panels]
+map_dem = false
+map_geology = false
+map_hydrography = true
+stats_card = false
+timeseries_discharge = false
+timeseries_piezometry = false
+climatic_summary = false
+timeseries_intermittency = false
+timeseries_water_quality = false
+station_inventory = false

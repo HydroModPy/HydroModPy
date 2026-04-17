@@ -306,6 +306,12 @@ class BoussinesqFlowAdapter:
         if solver_mesh is None:
             mesh_bundle = _resolve_mesh_bundle(state.setup)
             solver_mesh = _resolve_bundle_solver_mesh(state.setup, bundle=mesh_bundle)
+        runtime_mesh_support = getattr(state.setup, "mesh_support", None)
+        if runtime_mesh_support is not None:
+            solver_mesh = replace(
+                solver_mesh,
+                support_metadata=runtime_mesh_support,
+            )
         workspace = getattr(state.setup, "workspace", None)
         model_folder = (
             Path(getattr(workspace, "solver_scratch_folder"))

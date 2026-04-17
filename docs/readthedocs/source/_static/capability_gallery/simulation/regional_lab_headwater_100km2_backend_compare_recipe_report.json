@@ -1,0 +1,356 @@
+{
+  "schema_version": "regional_lab_report_v2",
+  "generated_at_utc": "2026-04-16T19:01:36.286099+00:00",
+  "lab_id": "headwater_100km2_lab_backend_compare",
+  "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\regional_lab\\config_headwater_100km2_lab_backend_compare.toml",
+  "site_catalog_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\regional_lab\\site_catalog.csv",
+  "output_root": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs",
+  "execute": false,
+  "continue_on_error": true,
+  "resume_from_report": false,
+  "skip_completed_cases": false,
+  "selected_site_count": 5,
+  "planned_case_count": 1,
+  "skipped_case_count": 2,
+  "executed_case_count": 0,
+  "reused_case_count": 0,
+  "successful_case_count": 0,
+  "failed_case_count": 0,
+  "pending_case_count": 1,
+  "all_passed": false,
+  "selected_sites": [
+    {
+      "site_id": "headwater_100km2_outlet_2",
+      "site_label": "Headwater 100 km2 outlet 2",
+      "cluster_id": "headwater_100km2",
+      "cluster_label": "Headwater 100 km2",
+      "cluster_family": "headwater",
+      "cluster_scale": "100km2",
+      "region_id": "brittany",
+      "source_selection_id": "scan_headwater_100km2",
+      "site_status": "ready",
+      "maturity": "validated",
+      "x": null,
+      "y": null,
+      "area_km2": null,
+      "site_tags": [
+        "mesh_ready"
+      ],
+      "cluster_tags": [
+        "regional_headwater"
+      ],
+      "tags": [
+        "mesh_ready",
+        "regional_headwater"
+      ],
+      "enabled": true,
+      "resolved_paths": {
+        "simulation_reference_config": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
+        "backend_comparison_config": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_backends.toml",
+        "transient_backend_comparison_config": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml"
+      },
+      "raw": {
+        "site_id": "headwater_100km2_outlet_2",
+        "site_label": "Headwater 100 km2 outlet 2",
+        "cluster_id": "",
+        "cluster_label": "",
+        "cluster_family": "",
+        "cluster_scale": "",
+        "region_id": "brittany",
+        "source_selection_id": "scan_headwater_100km2",
+        "site_status": "ready",
+        "maturity": "validated",
+        "tags": "mesh_ready",
+        "enabled": "true",
+        "simulation_reference_config": "../run_headwater_100km2_outlet_2_mf6_transient_reference.toml",
+        "backend_comparison_config": "../run_method_comparison_headwater_100km2_outlet_2_backends.toml",
+        "transient_backend_comparison_config": "../run_method_comparison_headwater_100km2_outlet_2_transient_pulsed_recharge_backends.toml",
+        "notes": "real committed 100 km2 outlet 2"
+      }
+    },
+    {
+      "site_id": "headwater_100km2_outlet_27",
+      "site_label": "Headwater 100 km2 outlet 27",
+      "cluster_id": "headwater_100km2",
+      "cluster_label": "Headwater 100 km2",
+      "cluster_family": "headwater",
+      "cluster_scale": "100km2",
+      "region_id": "brittany",
+      "source_selection_id": "scan_headwater_100km2",
+      "site_status": "prototype",
+      "maturity": "screening",
+      "x": null,
+      "y": null,
+      "area_km2": null,
+      "site_tags": [
+        "mesh_ready"
+      ],
+      "cluster_tags": [
+        "regional_headwater"
+      ],
+      "tags": [
+        "mesh_ready",
+        "regional_headwater"
+      ],
+      "enabled": true,
+      "resolved_paths": {},
+      "raw": {
+        "site_id": "headwater_100km2_outlet_27",
+        "site_label": "Headwater 100 km2 outlet 27",
+        "cluster_id": "",
+        "cluster_label": "",
+        "cluster_family": "",
+        "cluster_scale": "",
+        "region_id": "brittany",
+        "source_selection_id": "scan_headwater_100km2",
+        "site_status": "prototype",
+        "maturity": "screening",
+        "tags": "mesh_ready",
+        "enabled": "true",
+        "simulation_reference_config": "",
+        "backend_comparison_config": "",
+        "transient_backend_comparison_config": "",
+        "notes": "inventory-only headwater site"
+      }
+    },
+    {
+      "site_id": "headwater_100km2_outlet_34",
+      "site_label": "Headwater 100 km2 outlet 34",
+      "cluster_id": "headwater_100km2",
+      "cluster_label": "Headwater 100 km2",
+      "cluster_family": "headwater",
+      "cluster_scale": "100km2",
+      "region_id": "brittany",
+      "source_selection_id": "scan_headwater_100km2",
+      "site_status": "prototype",
+      "maturity": "screening",
+      "x": null,
+      "y": null,
+      "area_km2": null,
+      "site_tags": [
+        "mesh_ready"
+      ],
+      "cluster_tags": [
+        "regional_headwater"
+      ],
+      "tags": [
+        "mesh_ready",
+        "regional_headwater"
+      ],
+      "enabled": true,
+      "resolved_paths": {},
+      "raw": {
+        "site_id": "headwater_100km2_outlet_34",
+        "site_label": "Headwater 100 km2 outlet 34",
+        "cluster_id": "",
+        "cluster_label": "",
+        "cluster_family": "",
+        "cluster_scale": "",
+        "region_id": "brittany",
+        "source_selection_id": "scan_headwater_100km2",
+        "site_status": "prototype",
+        "maturity": "screening",
+        "tags": "mesh_ready",
+        "enabled": "true",
+        "simulation_reference_config": "",
+        "backend_comparison_config": "",
+        "transient_backend_comparison_config": "",
+        "notes": "inventory-only headwater site"
+      }
+    },
+    {
+      "site_id": "s3_100km2_outlet_8",
+      "site_label": "Strahler 3 100 km2 outlet 8",
+      "cluster_id": "s3_100km2",
+      "cluster_label": "Strahler 3 100 km2",
+      "cluster_family": "s3",
+      "cluster_scale": "100km2",
+      "region_id": "brittany",
+      "source_selection_id": "scan_s3_100km2",
+      "site_status": "inventory",
+      "maturity": "screening",
+      "x": null,
+      "y": null,
+      "area_km2": null,
+      "site_tags": [
+        "mesh_ready"
+      ],
+      "cluster_tags": [
+        "regional_screening"
+      ],
+      "tags": [
+        "mesh_ready",
+        "regional_screening"
+      ],
+      "enabled": true,
+      "resolved_paths": {},
+      "raw": {
+        "site_id": "s3_100km2_outlet_8",
+        "site_label": "Strahler 3 100 km2 outlet 8",
+        "cluster_id": "",
+        "cluster_label": "",
+        "cluster_family": "",
+        "cluster_scale": "",
+        "region_id": "brittany",
+        "source_selection_id": "scan_s3_100km2",
+        "site_status": "inventory",
+        "maturity": "screening",
+        "tags": "mesh_ready",
+        "enabled": "true",
+        "simulation_reference_config": "",
+        "backend_comparison_config": "",
+        "transient_backend_comparison_config": "",
+        "notes": "regional screening site"
+      }
+    },
+    {
+      "site_id": "s3_10km2_outlet_3",
+      "site_label": "Strahler 3 10 km2 outlet 3",
+      "cluster_id": "s3_10km2",
+      "cluster_label": "Strahler 3 10 km2",
+      "cluster_family": "s3",
+      "cluster_scale": "10km2",
+      "region_id": "brittany",
+      "source_selection_id": "scan_s3_10km2",
+      "site_status": "inventory",
+      "maturity": "screening",
+      "x": null,
+      "y": null,
+      "area_km2": null,
+      "site_tags": [
+        "mesh_ready"
+      ],
+      "cluster_tags": [
+        "regional_screening"
+      ],
+      "tags": [
+        "mesh_ready",
+        "regional_screening"
+      ],
+      "enabled": true,
+      "resolved_paths": {},
+      "raw": {
+        "site_id": "s3_10km2_outlet_3",
+        "site_label": "Strahler 3 10 km2 outlet 3",
+        "cluster_id": "",
+        "cluster_label": "",
+        "cluster_family": "",
+        "cluster_scale": "",
+        "region_id": "brittany",
+        "source_selection_id": "scan_s3_10km2",
+        "site_status": "inventory",
+        "maturity": "screening",
+        "tags": "mesh_ready",
+        "enabled": "true",
+        "simulation_reference_config": "",
+        "backend_comparison_config": "",
+        "transient_backend_comparison_config": "",
+        "notes": "regional screening site"
+      }
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "backend_compare::headwater_100km2_outlet_2",
+      "site_id": "headwater_100km2_outlet_2",
+      "site_label": "Headwater 100 km2 outlet 2",
+      "cluster_id": "headwater_100km2",
+      "cluster_label": "Headwater 100 km2",
+      "cluster_family": "headwater",
+      "cluster_scale": "100km2",
+      "region_id": "brittany",
+      "site_status": "ready",
+      "maturity": "validated",
+      "site_tags": [
+        "mesh_ready"
+      ],
+      "cluster_tags": [
+        "regional_headwater"
+      ],
+      "tags": [
+        "mesh_ready",
+        "regional_headwater"
+      ],
+      "recipe_id": "backend_compare",
+      "recipe_label": "Backend comparison",
+      "launcher": "method-comparison",
+      "config_path": "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_backends.toml",
+      "command": [
+        "C:\\Users\\dreuzy\\.conda\\envs\\hydromodpy\\python.exe",
+        "-m",
+        "launchers",
+        "method-comparison",
+        "run",
+        "C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\run_method_comparison_headwater_100km2_outlet_2_backends.toml"
+      ],
+      "status": "planned",
+      "returncode": null,
+      "duration_seconds": null,
+      "reused_from_report": false,
+      "child_artifacts": {}
+    }
+  ],
+  "skipped_cases": [
+    {
+      "case_id": "backend_compare::headwater_100km2_outlet_27",
+      "site_id": "headwater_100km2_outlet_27",
+      "site_label": "Headwater 100 km2 outlet 27",
+      "cluster_id": "headwater_100km2",
+      "cluster_label": "Headwater 100 km2",
+      "cluster_family": "headwater",
+      "cluster_scale": "100km2",
+      "region_id": "brittany",
+      "site_status": "prototype",
+      "maturity": "screening",
+      "tags": [
+        "mesh_ready",
+        "regional_headwater"
+      ],
+      "recipe_id": "backend_compare",
+      "recipe_label": "Backend comparison",
+      "launcher": "method-comparison",
+      "reason": "missing_required_fields",
+      "detail": "Missing required field(s): backend_comparison_config",
+      "missing_fields": [
+        "backend_comparison_config"
+      ],
+      "config_path": null
+    },
+    {
+      "case_id": "backend_compare::headwater_100km2_outlet_34",
+      "site_id": "headwater_100km2_outlet_34",
+      "site_label": "Headwater 100 km2 outlet 34",
+      "cluster_id": "headwater_100km2",
+      "cluster_label": "Headwater 100 km2",
+      "cluster_family": "headwater",
+      "cluster_scale": "100km2",
+      "region_id": "brittany",
+      "site_status": "prototype",
+      "maturity": "screening",
+      "tags": [
+        "mesh_ready",
+        "regional_headwater"
+      ],
+      "recipe_id": "backend_compare",
+      "recipe_label": "Backend comparison",
+      "launcher": "method-comparison",
+      "reason": "missing_required_fields",
+      "detail": "Missing required field(s): backend_comparison_config",
+      "missing_fields": [
+        "backend_comparison_config"
+      ],
+      "config_path": null
+    }
+  ],
+  "synthesis_paths": {
+    "site_inventory_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_site_inventory.csv",
+    "case_matrix_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_case_matrix.csv",
+    "execution_metrics_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_execution_metrics.csv",
+    "recipe_summary_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_recipe_summary.csv",
+    "cluster_summary_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_cluster_summary.csv",
+    "region_summary_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_region_summary.csv",
+    "family_summary_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_family_summary.csv",
+    "scale_summary_csv": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_scale_summary.csv",
+    "summary_markdown": "C:\\Users\\dreuzy\\AppData\\Local\\Temp\\hydromodpy_doc_gallery_regional_lab_p6u2u04o\\regional_lab_outputs\\regional_lab_summary.md"
+  }
+}

@@ -6,8 +6,8 @@ This note compares the current HydroModPy PETSc backend for the Boussinesq solve
 
 - `docs/developers/numerical_methods_references/Marcais_2017_dynamic_coupling_subsurface_and_seepage_flows.pdf`
 - the current implementation in:
-  - `hydromodpy/solver/boussinesq/petsc_runtime.py`
-  - `hydromodpy/solver/boussinesq/assembly.py`
+  - `hydromodpy/solver/boussinesq/runtimes/petsc_mixed.py`
+  - `hydromodpy/solver/boussinesq/assembly/`
 
 The focus is the treatment of the interaction between groundwater and the land surface, especially the onset of seepage and saturation-excess outflow.
 
@@ -81,7 +81,7 @@ The current PETSc backend works with the pair `(h, q_ex)` on the cell mesh:
 - `h`: hydraulic head,
 - `q_ex`: cellwise saturation-excess or exfiltration rate.
 
-The flow balance is assembled in `assembly.py`, and PETSc solves the mixed nonlinear system in `petsc_runtime.py`.
+The flow balance is assembled in `assembly/`, and PETSc solves the mixed nonlinear system in `runtimes/petsc_mixed.py`.
 
 In transient form, the current solve is:
 

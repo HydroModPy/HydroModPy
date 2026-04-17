@@ -10,6 +10,26 @@ This diagram shows runtime inheritance and composition for process objects:
 - ``Flow`` and ``Transport`` as concrete process implementations.
 - Runtime initial conditions, boundary conditions, and sink/source containers.
 
+Code map
+--------
+
+- ``hydromodpy/process/prototype/process_spatial.py``:
+  abstract runtime base.
+- ``hydromodpy/process/flow/flow.py``:
+  concrete flow runtime object.
+- ``hydromodpy/process/transport/transport.py``:
+  concrete transport runtime object.
+- ``hydromodpy/process/prototype/*``:
+  shared initial-condition, boundary-condition, and sink/source contracts.
+
+Recommended reading path
+------------------------
+
+1. ``hydromodpy/process/prototype/process_spatial.py``
+2. ``hydromodpy/process/flow/flow.py``
+3. ``hydromodpy/process/transport/transport.py``
+4. one prototype payload file under ``hydromodpy/process/prototype/``
+
 Diagram source
 --------------
 
@@ -29,3 +49,10 @@ Notes
   injected by child classes.
 - Recharge chronicle preparation stays outside this inheritance tree and is
   handled by simulation forcing services before solver assembly.
+
+Related diagrams
+----------------
+
+- :doc:`process-config-class-diagram`
+- :doc:`process-runtime-to-solver-sequence-diagram`
+- :doc:`process-package-map`

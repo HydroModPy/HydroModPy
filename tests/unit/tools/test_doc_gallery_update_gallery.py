@@ -5,6 +5,9 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+import pytest
+
+from tools.doc_gallery.gallery_manifest import GalleryCaseSpec, GalleryImageAsset
 from tools.doc_gallery import update_gallery
 
 
@@ -45,6 +48,121 @@ def test_reset_generated_dirs_retries_transient_permission_error(
     assert list(static_dir.iterdir()) == []
     assert calls["count"] == 1
     assert sleeps == [update_gallery._remove_tree_with_retry.__kwdefaults__["base_delay_s"]]
+
+
+def _build_spec(*, slug: str, category: str) -> GalleryCaseSpec:
+    return GalleryCaseSpec(
+        slug=slug,
+        title=f"Title {slug}",
+        category=category,
+        deck=f"Deck {slug}",
+        summary=f"Summary {slug}",
+        what_it_shows=("Point",),
+        reproduction_command=f"python -m {slug}",
+        source_paths=(f"examples/{slug}.toml",),
+        generator="copy_assets",
+        image_assets=(
+            GalleryImageAsset(
+                filename=f"{slug}.png",
+                caption=f"Caption {slug}",
+                alt_text=f"Alt {slug}",
+                source_path=f"examples/{slug}.png",
+            ),
+        ),
+    )
+
+
+def test_normalize_filter_values_supports_repeat_and_csv() -> None:
+    assert update_gallery._normalize_filter_values(["a,b", "b", " c "]) == ("a", "b", "c")
+
+
+def test_select_gallery_specs_filters_by_slug_and_category() -> None:
+    specs = (
+        _build_spec(slug="geo_alpha", category="geographic"),
+        _build_spec(slug="geo_beta", category="geographic"),
+        _build_spec(slug="sim_alpha", category="simulation"),
+    )
+
+    selected = update_gallery._select_gallery_specs(
+        specs,
+        only_slugs=("sim_alpha",),
+        categories=("geographic",),
+    )
+
+    assert [spec.slug for spec in selected] == ["geo_alpha", "geo_beta", "sim_alpha"]
+
+
+def test_select_gallery_specs_rejects_unknown_filters() -> None:
+    specs = (_build_spec(slug="geo_alpha", category="geographic"),)
+
+    with pytest.raises(ValueError, match="Unknown gallery slugs"):
+        update_gallery._select_gallery_specs(specs, only_slugs=("missing_slug",))
+
+    with pytest.raises(ValueError, match="Unknown gallery categories"):
+        update_gallery._select_gallery_specs(specs, categories=("missing_category",))
+
+
+def test_merge_case_summaries_by_category_keeps_committed_omitted_categories(
+    tmp_path: Path,
+) -> None:
+    baseline_root = tmp_path / "baseline"
+    validation_dir = baseline_root / "_static" / "capability_gallery" / "validation"
+    validation_dir.mkdir(parents=True)
+    (validation_dir / "validation_alpha_summary.json").write_text(
+        (
+            '{\n'
+            '  "slug": "validation_alpha",\n'
+            '  "category": "validation",\n'
+            '  "title": "Validation Alpha"\n'
+            '}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    geo_spec = _build_spec(slug="geo_alpha", category="geographic")
+    geo_summary = {"slug": "geo_alpha", "category": "geographic", "title": "Geo Alpha"}
+
+    merged = update_gallery._merge_case_summaries_by_category(
+        (geo_spec,),
+        selected_summaries_by_slug={"geo_alpha": geo_summary},
+        baseline_source_root=baseline_root,
+    )
+
+    assert [summary["slug"] for summary in merged["geographic"]] == ["geo_alpha"]
+    assert [summary["slug"] for summary in merged["validation"]] == ["validation_alpha"]
+
+
+def test_main_list_respects_selection_filters(monkeypatch, capsys) -> None:
+    specs = (
+        _build_spec(slug="geo_alpha", category="geographic"),
+        _build_spec(slug="sim_alpha", category="simulation"),
+    )
+    calls: dict[str, tuple[str, ...]] = {}
+
+    def fake_build_gallery_specs(*, only_slugs=(), categories=()):
+        calls["only_slugs"] = tuple(only_slugs)
+        calls["categories"] = tuple(categories)
+        return specs
+
+    monkeypatch.setattr(update_gallery, "build_gallery_specs", fake_build_gallery_specs)
+
+    exit_code = update_gallery.main(["--list", "--category", "geographic"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert calls == {"only_slugs": (), "categories": ("geographic",)}
+    assert "[geographic] geo_alpha" in captured.out
+    assert "sim_alpha" not in captured.out
+
+
+def test_gallery_temp_root_respects_override(monkeypatch, tmp_path: Path) -> None:
+    override = tmp_path / "gallery-temp-root"
+    monkeypatch.setenv("HYDROMODPY_DOC_GALLERY_TMPDIR", str(override))
+
+    resolved = update_gallery._gallery_temp_root()
+
+    assert resolved == override
+    assert resolved.exists()
 
 
 def test_reset_generated_dirs_retries_when_onerror_hits_locked_file(

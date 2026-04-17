@@ -15,6 +15,26 @@ It focuses on:
 - the flow-versus-transport execution branches,
 - publication of produced models back into the launcher state.
 
+Code map
+--------
+
+- ``launchers/process_simulation/launcher.py``:
+  session lifecycle around setup, data, and execution.
+- ``hydromodpy/simulation/planning/plan.py``:
+  immutable run schedule consumed at execution time.
+- ``hydromodpy/simulation/execution/runner.py``:
+  ordered runtime dispatch and callback lifecycle.
+- ``hydromodpy/simulation/adapters/registry.py``:
+  backend-resolution boundary.
+
+Recommended reading path
+------------------------
+
+1. ``launchers/process_simulation/launcher.py``
+2. ``hydromodpy/simulation/planning/plan.py``
+3. ``hydromodpy/simulation/execution/runner.py``
+4. ``hydromodpy/simulation/adapters/registry.py``
+
 Diagram source
 --------------
 
@@ -35,3 +55,10 @@ Notes
   and later transport runs.
 - Process callbacks are opened and closed per contiguous process-family block,
   not per individual solver call.
+
+Related diagrams
+----------------
+
+- :doc:`launcher-simulation-sequence-diagram`
+- :doc:`../simulation/launcher-simulation-class-diagram`
+- :doc:`../process/process-runtime-to-solver-sequence-diagram`

@@ -1,0 +1,46 @@
+{
+  "title": "Reference K (6 methods)",
+  "run_dir": "out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416",
+  "notes": [
+    "Progressive recharge ramp followed by dry recovery.",
+    "Six methods: three MODFLOW variants plus three Boussinesq formulations."
+  ],
+  "solvers": [
+    {
+      "solver": "modflownwt",
+      "solver_label": "MODFLOW-NWT",
+      "peak_total_outflow_m3_day": 81.69943243028683,
+      "final_storage_change_m3_day": -2.0326407750447593
+    },
+    {
+      "solver": "modflow6",
+      "solver_label": "MODFLOW 6",
+      "peak_total_outflow_m3_day": 81.70936904155977,
+      "final_storage_change_m3_day": -2.016822929916704
+    },
+    {
+      "solver": "modflow6_irregular_tri",
+      "solver_label": "MODFLOW 6 irregular triangles",
+      "peak_total_outflow_m3_day": 78.5219034477474,
+      "final_storage_change_m3_day": -1.0383323573151462
+    },
+    {
+      "solver": "boussinesq",
+      "solver_label": "Boussinesq",
+      "peak_total_outflow_m3_day": 78.33696880460478,
+      "final_storage_change_m3_day": -2.037627229557901
+    },
+    {
+      "solver": "petsc_partition",
+      "solver_label": "Boussinesq PETSc partition",
+      "peak_total_outflow_m3_day": 76.36139605835281,
+      "final_storage_change_m3_day": -1.8527270023997162
+    },
+    {
+      "solver": "petsc",
+      "solver_label": "Boussinesq PETSc complementarity",
+      "peak_total_outflow_m3_day": 84.14797406063106,
+      "final_storage_change_m3_day": -2.048989296460246
+    }
+  ]
+}

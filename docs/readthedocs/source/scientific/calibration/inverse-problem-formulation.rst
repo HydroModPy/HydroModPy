@@ -4,271 +4,223 @@ Calibration Inverse Problem Formulation
 Scope
 -----
 
-HydroModPy calibration solves a bounded inverse problem. A parameter vector
-:math:`\theta` is mapped by a forward model to simulated observables, and the
-calibration machinery searches for parameter values that minimize a scalar cost.
+This page explains how HydroModPy turns a calibration problem into one scalar
+objective that its optimizers can minimize. The goal here is practical rather
+than textbook-like: what enters the calibration engine, how several
+observations are combined, and what a returned result should mean to a modeller.
 
-Two closely related modes exist in the current code base:
+A Practical Reading Of The Inverse Problem
+------------------------------------------
 
-- a generic single-series mode driven by ``CalibrationEngine`` with
-  ``observed`` and ``simulator``;
-- a multi-observable mode driven by a composite objective, notably used by
-  ``ModelCalibrationLauncher``.
+HydroModPy calibration always starts from the same three ingredients:
 
-The mathematical conventions below are shared by both.
+- a parameter vector to test;
+- a forward model that turns those parameters into simulated outputs;
+- observed data used to score the simulation.
 
-Parameter Vector And Bounds
----------------------------
+In plain language, calibration is a repeated question:
 
-The calibration parameter set is an ordered collection of parameters
+  "If the model used these parameter values, would it reproduce the observed
+  behavior better or worse than the previous try?"
 
-.. math::
+For example, suppose a user calibrates hydraulic conductivity ``K`` and
+specific yield ``Sy`` against:
 
-   \theta = (\theta_1, \theta_2, \dots, \theta_d)
+- a piezometric time series,
+- and an outlet discharge time series.
 
-with finite box bounds
+One candidate parameter vector is first sent to the simulator. The simulator
+returns raw model outputs. HydroModPy then extracts the observation blocks of
+interest, compares each block to observations with a chosen metric, combines
+those scores into one scalar cost, and gives that cost to the calibration
+method.
 
-.. math::
-
-   \theta_i \in [l_i, u_i], \qquad l_i < u_i.
-
-HydroModPy treats parameter order as a first-class contract. Optimizers work on
-unnamed vectors, whereas the simulator works on named parameters. The
-``CalibrationParameterSet`` object therefore provides a deterministic mapping
-between the vector space and the named model parameter dictionary.
-
-Forward Map
------------
-
-In the generic single-series setting, the forward model is
-
-.. math::
-
-   y^{\mathrm{sim}}(\theta) = \mathcal{M}(\theta)
-
-and must return one simulated series compatible with the observed series
-:math:`y^{\mathrm{obs}}`.
-
-In the multi-observable setting, the forward model returns a richer raw payload
-from which several observable blocks are selected:
-
-.. math::
-
-   \mathcal{P}(\theta) = \text{raw model payload},
-
-followed by one selector per block
-
-.. math::
-
-   y_b^{\mathrm{sim}}(\theta) = \mathcal{S}_b(\mathcal{P}(\theta)).
-
-Single-Series Metrics
----------------------
-
-The built-in scalar metrics are:
-
-- RMSE,
-- MAE,
-- NSE,
-- NSElog,
-- KGE.
-
-For one block or one single-series problem with :math:`n` valid data pairs:
-
-.. math::
-
-   \mathrm{RMSE}
-   =
-   \sqrt{\frac{1}{n}\sum_{t=1}^{n}
-   \left(y_t^{\mathrm{sim}} - y_t^{\mathrm{obs}}\right)^2}
-
-.. math::
-
-   \mathrm{MAE}
-   =
-   \frac{1}{n}\sum_{t=1}^{n}
-   \left|y_t^{\mathrm{sim}} - y_t^{\mathrm{obs}}\right|
-
-.. math::
-
-   \mathrm{NSE}
-   =
-   1
-   -
-   \frac{\sum_{t=1}^{n}
-   \left(y_t^{\mathrm{sim}} - y_t^{\mathrm{obs}}\right)^2}
-   {\sum_{t=1}^{n}
-   \left(y_t^{\mathrm{obs}} - \bar y^{\mathrm{obs}}\right)^2}
-
-.. math::
-
-   \mathrm{NSE}_{\log}
-   =
-   \mathrm{NSE}\!\left(\log y^{\mathrm{obs}}, \log y^{\mathrm{sim}}\right)
-
-provided both series are strictly positive.
-
-The implemented Kling-Gupta efficiency is the 2009 form:
-
-.. math::
-
-   \mathrm{KGE}
-   =
-   1 - \sqrt{(r-1)^2 + (\alpha-1)^2 + (\beta-1)^2}
-
-with:
-
-.. math::
-
-   r = \mathrm{corr}(y^{\mathrm{obs}}, y^{\mathrm{sim}}), \qquad
-   \alpha = \frac{\sigma_{\mathrm{sim}}}{\sigma_{\mathrm{obs}}}, \qquad
-   \beta = \frac{\mu_{\mathrm{sim}}}{\mu_{\mathrm{obs}}}.
-
-Metric-To-Cost Conversion
--------------------------
-
-Optimizers minimize a cost. HydroModPy therefore converts the chosen metric into
-one scalar minimization target.
-
-For metrics where lower is better:
-
-- RMSE,
-- MAE,
-
-the cost is the metric itself:
-
-.. math::
-
-   J(\theta) = \mathrm{metric}(\theta).
-
-For metrics where higher is better:
-
-- NSE,
-- NSElog,
-- KGE,
-
-the cost is
-
-.. math::
-
-   J(\theta) = 1 - \mathrm{metric}(\theta).
-
-This means that all built-in methods ultimately minimize one scalar quantity,
-regardless of whether the reported score is an error metric or an efficiency
-metric.
-
-Composite Multi-Observable Objective
+Parameter Vector And Feasible Domain
 ------------------------------------
 
-The launcher-based calibration path can combine several observable blocks into
-one weighted composite objective. Each block :math:`b` has:
+Internally, optimizers work on an ordered numeric vector. The simulator, on the
+other hand, usually expects named parameters. ``CalibrationParameterSet`` is
+the object that keeps those two views aligned.
 
-- one observed vector :math:`y_b^{\mathrm{obs}}`,
-- one selector :math:`\mathcal{S}_b`,
-- one metric,
-- one raw weight :math:`w_b > 0`.
+This detail matters scientifically because parameter order is not cosmetic. The
+same vector value means something different if the parameter order changes.
 
-The block score is first converted to one raw cost:
+Each parameter is also bounded. Those bounds define the physically admissible
+search box:
+
+- they prevent obviously impossible values from being explored;
+- they encode prior expert knowledge;
+- they strongly influence which calibration methods are efficient.
+
+Wide bounds describe an exploratory problem. Narrow bounds describe a more
+local refinement problem.
+
+From Simulation To One Cost
+---------------------------
+
+HydroModPy supports two close variants of the same idea.
+
+Single-series calibration
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The simulator returns one series, for example one discharge or one head
+chronicle. That series is compared directly to the observed series.
+
+Multi-observable calibration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The simulator returns a richer payload. HydroModPy then extracts several
+observable blocks from it, for example:
+
+- heads at a monitoring location,
+- outlet discharge,
+- seepage along a support,
+- or any other block selected by the launcher workflow.
+
+Each block gets its own metric and weight before everything is merged into one
+final scalar objective.
+
+Built-In Metrics And When They Help
+-----------------------------------
+
+HydroModPy currently exposes five main metrics. The important point is not the
+formula itself, but what kind of mismatch each metric emphasizes.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 14 28 30 28
+
+   * - Metric
+     - What it emphasizes
+     - Typical good fit
+     - Cost minimized by the engine
+   * - ``RMSE``
+     - Large deviations are penalized strongly.
+     - Use when big misses matter more than many small ones.
+     - The engine minimizes ``RMSE`` directly.
+   * - ``MAE``
+     - Typical absolute mismatch, less dominated by outliers.
+     - Use when observations are noisy or spikes should not dominate.
+     - The engine minimizes ``MAE`` directly.
+   * - ``NSE``
+     - Reproduction of time-series dynamics relative to the observed mean.
+     - Use for hydrograph or head-series shape matching.
+     - The engine minimizes ``1 - NSE``.
+   * - ``NSElog``
+     - Same idea as ``NSE``, but with more sensitivity to lower values.
+     - Use for low-flow or recession behavior when data stay positive.
+     - The engine minimizes ``1 - NSElog``.
+   * - ``KGE``
+     - Balance between correlation, variability, and bias.
+     - Use when overall behavior matters more than one single error mode.
+     - The engine minimizes ``1 - KGE``.
+
+Two practical reminders are worth keeping in mind:
+
+- ``NSElog`` only makes sense when the compared values are strictly positive;
+- an apparently "good" score can still hide parameter non-identifiability if
+  several parameter sets obtain similar values.
+
+Combining Several Observation Blocks
+------------------------------------
+
+In the launcher-based calibration path, HydroModPy can combine several
+observation blocks into one weighted objective:
 
 .. math::
 
-   J_b(\theta).
+   J(\theta) = \sum_{b=1}^{B} \tilde{w}_b \, \tilde{J}_b(\theta)
 
-When cost normalization is enabled, HydroModPy computes
+The operational reading is simple:
 
-.. math::
+- each block produces its own raw mismatch;
+- that mismatch can be normalized so blocks with different units are
+  comparable;
+- the normalized blocks are weighted and summed.
 
-   \tilde J_b(\theta) = \frac{J_b(\theta)}{s_b}
+This is useful when one calibration should satisfy several kinds of evidence at
+once.
 
-where :math:`s_b` is the reference scale of the block.
+Illustrative example
+^^^^^^^^^^^^^^^^^^^^
 
-The default reference-scale rule is:
+Suppose a calibration uses:
 
-- for metrics already expressed as efficiencies (`NSE`, `NSElog`, `KGE`):
-  :math:`s_b = 1`;
-- for error metrics (`RMSE`, `MAE`):
-  use the interquartile range of the observed block when available,
-  otherwise its standard deviation,
-  otherwise a small positive fallback scale.
+- heads with weight ``0.7``,
+- outlet discharge with weight ``0.3``.
 
-When weight normalization is enabled, the effective weights are
+If cost normalization is enabled, HydroModPy first rescales the two blocks so
+that one block is not dominant only because it is measured in larger numerical
+units. The final objective then expresses a scientific compromise:
 
-.. math::
+  "Find parameter values that explain heads well, while still preserving a
+  reasonable match to outlet discharge."
 
-   \tilde w_b = \frac{w_b}{\sum_k w_k}.
+For error metrics such as ``RMSE`` and ``MAE``, HydroModPy uses an observed-data
+scale for normalization when possible. For efficiency metrics such as ``NSE``,
+``NSElog`` and ``KGE``, the natural scale is already of order one, so no extra
+rescaling is needed.
 
-The total composite objective is then
+What Bounds Mean In Practice
+----------------------------
 
-.. math::
+At the engine level, any candidate outside the allowed bounds is rejected with
+an infinite cost. This is the generic safety rule.
 
-   J(\theta)
-   =
-   \sum_{b=1}^{B} \tilde w_b\,\tilde J_b(\theta).
+The two local simplex-based methods behave slightly differently internally:
 
-This is the current scientific contract behind multi-observable calibration in
-``launchers/model_calibration``.
+- they clip the candidate back into the feasible box before calling the model;
+- they add a quadratic penalty when the optimizer tries to move outside bounds.
 
-Bound Handling
---------------
+This distinction is numerical rather than scientific. In both cases, the model
+is evaluated only for admissible parameter values.
 
-At engine level, any candidate outside bounds is immediately assigned
-
-.. math::
-
-   J(\theta) = +\infty.
-
-This is the generic rule used by the calibration engine.
-
-The two local direct-search methods, ``simplex`` and ``nelder_mead``, go one
-step further internally. They evaluate a penalized cost:
-
-.. math::
-
-   J_{\mathrm{pen}}(\theta)
-   =
-   J\!\left(\Pi_{[l,u]}(\theta)\right)
-   + \lambda \sum_i
-   \left[
-     \max(l_i - \theta_i, 0)^2
-     +
-     \max(\theta_i - u_i, 0)^2
-   \right]
-
-with:
-
-- :math:`\Pi_{[l,u]}` the clipping operator back to the feasible box,
-- :math:`\lambda = 10^4` in the current implementation.
-
-So the optimizer can move outside the box numerically, but the scientific model
-is always evaluated on clipped, physically admissible parameter values.
-
-Best-Fit Versus Distribution-Valued Results
+Best Fit Versus Distribution-Valued Results
 -------------------------------------------
 
-All methods return a best parameter vector :math:`\theta^\star`, a best cost,
-and a number of expensive model evaluations.
+All calibration methods return at least:
 
-Some methods also return a sample cloud in parameter space:
+- a best parameter vector;
+- a best objective value;
+- a number of expensive model evaluations.
 
-- ``gp_mapping`` returns an approximate posterior-like sample produced by
-  surrogate importance resampling;
-- ``da_mh_gp`` returns MCMC samples and therefore a genuine distribution-valued
-  result relative to its chosen likelihood and prior.
+Some methods return more than a single optimum.
 
-This distinction matters scientifically:
+Best-fit methods
+^^^^^^^^^^^^^^^^
 
-- a best-fit result summarizes one optimum;
-- a sample distribution encodes uncertainty, multimodality, and
-  practical identifiability.
+- ``grid_search``
+- ``random_search``
+- ``cma_es``
+- ``nelder_mead``
+- ``simplex``
 
-Interpretation Notes
---------------------
+These methods answer:
 
-- The generic single-series path and the launcher composite path share the same
-  minimization philosophy, but not the same payload shape.
-- The scientific meaning of a distribution depends on the method:
-  ``gp_mapping`` is approximate and surrogate-based,
-  whereas ``da_mh_gp`` is a delayed-acceptance MCMC scheme with an explicit
-  posterior target.
-- For stochastic methods, one calibrated optimum is often less informative than
-  the geometry of the retained sample cloud.
+  "Which tested parameter set looked best under the chosen objective?"
+
+Distribution-valued methods
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- ``gp_mapping`` returns an approximate posterior-like cloud built from a
+  surrogate model;
+- ``da_mh_gp`` returns MCMC samples from an explicit posterior target defined
+  by its prior and RMSE-based likelihood.
+
+These methods answer a richer question:
+
+  "Which ranges of parameter values remain plausible, and how strongly are
+  they constrained?"
+
+Interpretation Checklist
+------------------------
+
+- A low cost is not enough on its own; always ask whether several different
+  parameter combinations achieve similar scores.
+- The chosen weights in a multi-observable objective define the scientific
+  question being asked. Changing them changes the meaning of the "best" model.
+- A sample cloud is often more informative than a single optimum when the goal
+  is uncertainty analysis or identifiability assessment.
+- ``da_mh_gp`` should only be interpreted as a Bayesian posterior sampler when
+  its RMSE likelihood and ``sigma_noise`` setting are scientifically coherent
+  for the data at hand.

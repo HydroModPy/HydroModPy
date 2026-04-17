@@ -42,6 +42,7 @@ RESERVOIR_METHODS_GOLDEN_FILE = GOLDEN_DIR / "calibration_reservoir_methods_gold
 METHOD_ABS_TOL = {
     "grid_search": 1e-10,
     "random_search": 1e-10,
+    "cma_es": 8e-3,
     "nelder_mead": 2e-4,
     "simplex": 2e-4,
     "gp_mapping": 3e-2,
@@ -153,6 +154,12 @@ def _brutsaert_base_config(*, method):
                 "n_samples": 80,
                 "seed": 7,
                 "log_scale_indices": [0],
+            },
+            "cma_es": {
+                "sigma0": 0.2,
+                "max_evaluations": 36,
+                "seed": 7,
+                "normalize": True,
             },
             "nelder_mead": {
                 "max_iter": 60,
@@ -538,12 +545,14 @@ def test_reservoir_workflow_methods_golden(model_name, method, update_goldens):
 
 @pytest.mark.parametrize(
     "method",
-    ("grid_search", "random_search", "nelder_mead", "simplex", "gp_mapping", "da_mh_gp"),
+    ("grid_search", "random_search", "cma_es", "nelder_mead", "simplex", "gp_mapping", "da_mh_gp"),
 )
 def test_brutsaert_workflow_multiple_methods_smoke(method):
     """Brutsaert workflow should run with multiple calibration methods."""
     if method in ("nelder_mead", "simplex"):
         pytest.importorskip("scipy")
+    if method == "cma_es":
+        pytest.importorskip("cma")
     if method == "gp_mapping":
         pytest.importorskip("sklearn")
 
@@ -563,12 +572,14 @@ def test_brutsaert_workflow_multiple_methods_smoke(method):
 
 @pytest.mark.parametrize(
     "method",
-    ("grid_search", "random_search", "nelder_mead", "simplex", "gp_mapping", "da_mh_gp"),
+    ("grid_search", "random_search", "cma_es", "nelder_mead", "simplex", "gp_mapping", "da_mh_gp"),
 )
 def test_brutsaert_workflow_methods_golden(method, update_goldens):
     """Non-regression check for Brutsaert calibration methods using golden values."""
     if method in ("nelder_mead", "simplex"):
         pytest.importorskip("scipy")
+    if method == "cma_es":
+        pytest.importorskip("cma")
     if method == "gp_mapping":
         pytest.importorskip("sklearn")
 

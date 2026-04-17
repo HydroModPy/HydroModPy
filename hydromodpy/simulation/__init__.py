@@ -23,14 +23,20 @@ from hydromodpy.core.state import (
 )
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.core.workspace import Workspace, WorkspaceConfig
+from hydromodpy.simulation.model_calibration_support import (
+    ModelCalibrationRuntimeSupportUnavailable,
+    RuntimeHydraulicPropertySupport,
+)
 
 __all__ = [
     "ExecutionRegistry",
     "WorkflowContext",
     "LoadedDataContext",
+    "ModelCalibrationRuntimeSupportUnavailable",
     "ProcessRun",
     "RunContext",
     "RunExecutionResult",
+    "RuntimeHydraulicPropertySupport",
     "SetupContext",
     "ResolvedSimulationTimeWindow",
     "SimulationConfig",

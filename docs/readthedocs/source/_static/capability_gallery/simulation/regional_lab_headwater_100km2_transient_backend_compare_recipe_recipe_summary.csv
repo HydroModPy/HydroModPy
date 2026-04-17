@@ -1,0 +1,2 @@
+recipe_id,recipe_label,launcher,candidate_site_count,planned_case_count,skipped_case_count,executed_case_count,reused_case_count,successful_case_count,failed_case_count,pending_case_count,execution_duration_seconds_total,execution_duration_seconds_mean,child_wall_time_seconds_total,coverage_ratio
+transient_backend_compare,Transient backend comparison,method-comparison,3,1,2,0,0,0,0,1,,,,0.333333

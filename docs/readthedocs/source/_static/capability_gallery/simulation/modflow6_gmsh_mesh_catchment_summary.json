@@ -79,6 +79,32 @@
   ],
   "metrics": [],
   "metadata": {
+    "study_area": "Naizin catchment",
+    "process_families": [
+      "flow",
+      "transport",
+      "postprocess",
+      "display"
+    ],
+    "mesh_supports": [
+      "runtime_gmsh_triangular_mesh"
+    ],
+    "flow_solvers": [
+      "MODFLOW 6"
+    ],
+    "transport_solvers": [
+      "MODFLOW 6 GWT"
+    ],
+    "workflow_family_key": "runtime_mesh_build",
+    "workflow_family_label": "Runtime Mesh Build",
+    "workflow_family_deck": "These cases build the spatial support during the run, then surface the minimum set of solver and postprocess figures needed to understand what the runtime pipeline produced.",
+    "workflow_family_order": 10,
+    "workflow_case_order": 10,
+    "postprocess_outputs": [
+      "flow_state_triptych",
+      "recharge_discharge_cumulative",
+      "support_overview"
+    ],
     "copied_assets": [
       {
         "source_path": "examples/capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment/flow_state_triptych.png",

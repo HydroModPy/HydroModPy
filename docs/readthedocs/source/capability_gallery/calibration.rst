@@ -16,24 +16,84 @@ Current Coverage
 
 - Solvers: modflow6.
 - Regimes: steady, transient.
-- Benchmarked methods: da_mh_gp, gp_mapping, grid_search, nelder_mead, random_search, simplex.
+- Benchmarked methods: cma_es, da_mh_gp, gp_mapping, grid_search, nelder_mead, random_search, simplex.
 - Each page combines one configuration figure, one tab set per method, and explicit timing diagnostics.
+- Primary benchmark families: No-Uncertainty, Data-Rich Benchmarks, Uncertain, Sparse-Data Benchmarks.
 
-Intercomparison
----------------
+Benchmark Families
+------------------
 
 .. grid:: 1 1 2 2
    :gutter: 2 2 3 3
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: calibration_intercomparison
+      :link: calibration_data_rich_no_uncertainty
       :link-type: doc
 
-      **Calibration Intercomparison**
+      **Calibration Benchmarks: No Uncertainty, More Data**
       ^^^
-      Cross-case view of method behaviour, target success, and the detailed timing breakdown used by the curated calibration pages.
+      Benchmarks with multiple observables, no observation noise, and enough data to constrain the inverse problem more strongly.
 
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: calibration_uncertain_less_data
+      :link-type: doc
+
+      **Calibration Benchmarks: Uncertainty And Less Data**
+      ^^^
+      Benchmarks with noisier or sparser observations, meant to expose weak identifiability and more ambiguous objective landscapes.
+
+
+No-Uncertainty, Data-Rich Benchmarks
+------------------------------------
+
+Benchmarks with multiple observables, no observation noise, and enough data to constrain the inverse problem more strongly.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/calibration_twin_linearized_recharge_step_modflow6
+      :link-type: doc
+
+      **Calibration Twin: Recharge-Step K+Sy 1D**
+      ^^^
+      Transient modflow6 twin calibration benchmark with K_global, Sy_global.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6
+      :link-type: doc
+
+      **Calibration Twin: Piecewise-K 1D**
+      ^^^
+      Steady modflow6 twin calibration benchmark with K_west, K_middle, K_east.
+
+
+Uncertain, Sparse-Data Benchmarks
+---------------------------------
+
+Benchmarks with noisier or sparser observations, meant to expose weak identifiability and more ambiguous objective landscapes.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6
+      :link-type: doc
+
+      **Calibration Twin: Recharge-Step Flux-Only K+Sy 1D**
+      ^^^
+      Transient modflow6 twin calibration benchmark with K_global, Sy_global.
+
+
+Supplementary Scalar Reference Cases
+------------------------------------
+
+Compact scalar reference problems kept in the gallery for quick reading of single-parameter and posterior-oriented calibration behaviour.
 
 .. grid:: 1 1 2 2
    :gutter: 2 2 3 3
@@ -45,7 +105,7 @@ Intercomparison
 
       **Calibration Twin: Dupuit Fixed-Head 1D**
       ^^^
-      Steady modflow6 twin calibration benchmark with K_global_factor.
+      Steady modflow6 twin calibration benchmark with K_global.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -54,25 +114,8 @@ Intercomparison
 
       **Calibration Twin: Dupuit Posterior 1D**
       ^^^
-      Steady modflow6 twin calibration benchmark with K_global_factor.
+      Steady modflow6 twin calibration benchmark with K_global.
 
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: cases/calibration_twin_linearized_recharge_step_modflow6
-      :link-type: doc
-
-      **Calibration Twin: Recharge-Step K+Sy 1D**
-      ^^^
-      Transient modflow6 twin calibration benchmark with K_global_factor, Sy_global.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6
-      :link-type: doc
-
-      **Calibration Twin: Piecewise-K 1D**
-      ^^^
-      Steady modflow6 twin calibration benchmark with K_west, K_middle, K_east.
 
 .. toctree::
    :hidden:
@@ -81,5 +124,7 @@ Intercomparison
    cases/calibration_twin_dupuit_fixed_head_modflow6
    cases/calibration_twin_dupuit_fixed_head_posterior_modflow6
    cases/calibration_twin_linearized_recharge_step_modflow6
+   cases/calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6
    cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6
-   calibration_intercomparison
+   calibration_data_rich_no_uncertainty
+   calibration_uncertain_less_data

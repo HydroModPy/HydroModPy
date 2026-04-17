@@ -7,9 +7,16 @@ This section documents the process runtime layer implemented in
 For solver-side meshing and structured-grid documentation, see
 :doc:`../mesh/index`.
 
+Use it when you want:
+
+- the package map behind ``Flow`` / ``Transport`` / forcing builders,
+- the split between generic contracts and process-specific business objects,
+- the runtime handoff from process objects to solver adapters.
+
 .. toctree::
    :maxdepth: 2
 
+   process-package-map
    process-runtime-class-diagram
    process-config-class-diagram
    process-runtime-to-solver-sequence-diagram

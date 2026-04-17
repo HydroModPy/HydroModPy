@@ -115,6 +115,56 @@ class RandomSearchKwargs(_MethodKwargsBase):
         return [int(v) for v in values]
 
 
+class CmaEsKwargs(_MethodKwargsBase):
+    """Schema for `[calibration_method.cma_es]`."""
+
+    x0: list[float] | None = None
+    sigma0: float | None = None
+    popsize: int | None = None
+    max_iter: int | None = None
+    max_evaluations: int | None = None
+    seed: int | None = None
+    restarts: int | None = None
+    tolx: float | None = None
+    tolfun: float | None = None
+    normalize: bool = True
+    verbose: bool = False
+
+    @field_validator("sigma0", "tolx", "tolfun")
+    @classmethod
+    def _validate_positive_float_or_none(cls, value):
+        if value is None:
+            return None
+        if float(value) <= 0.0:
+            raise ValueError("value must be > 0")
+        return float(value)
+
+    @field_validator("popsize", "max_iter", "max_evaluations")
+    @classmethod
+    def _validate_positive_int_or_none(cls, value):
+        if value is None:
+            return None
+        if int(value) <= 0:
+            raise ValueError("value must be > 0")
+        return int(value)
+
+    @field_validator("seed")
+    @classmethod
+    def _validate_seed_or_none(cls, value):
+        if value is None:
+            return None
+        return int(value)
+
+    @field_validator("restarts")
+    @classmethod
+    def _validate_non_negative_int_or_none(cls, value):
+        if value is None:
+            return None
+        if int(value) < 0:
+            raise ValueError("restarts must be >= 0")
+        return int(value)
+
+
 class NelderMeadKwargs(_MethodKwargsBase):
     """Schema for `[calibration_method.nelder_mead]`."""
 
@@ -333,6 +383,7 @@ class DaMhGpKwargs(_MethodKwargsBase):
 METHOD_KWARGS_MODELS = {
     "grid_search": GridSearchKwargs,
     "random_search": RandomSearchKwargs,
+    "cma_es": CmaEsKwargs,
     "nelder_mead": NelderMeadKwargs,
     "simplex": SimplexKwargs,
     "gp_mapping": GpMappingKwargs,

@@ -2,8 +2,8 @@
 
 HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater models.
 
-[![CI](https://github.com/HydroModPy/HydroModPy/actions/workflows/coverage.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/coverage.yml)
-[![Coverage](https://codecov.io/gh/HydroModPy/HydroModPy/branch/dev-refact/graph/badge.svg)](https://codecov.io/gh/HydroModPy/HydroModPy/tree/dev-refact)
+[![Coverage](https://github.com/HydroModPy/HydroModPy/actions/workflows/coverage.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/coverage.yml)
+[![Boussinesq Linux](https://github.com/HydroModPy/HydroModPy/actions/workflows/linux-boussinesq.yml/badge.svg)](https://github.com/HydroModPy/HydroModPy/actions/workflows/linux-boussinesq.yml)
 [![Documentation](https://readthedocs.org/projects/hydromodpy-docs/badge/?version=latest)](https://hydromodpy-docs.readthedocs.io/en/latest/)
 [![Python 3.11 | 3.12 | 3.13](https://img.shields.io/badge/python-3.11_|_3.12_|_3.13-blue.svg)](https://www.python.org/)
 [![License: EPL-2.0](https://img.shields.io/badge/license-EPL--2.0-green.svg)](https://opensource.org/licenses/EPL-2.0)
@@ -35,7 +35,9 @@ Alexandre Gauvain [1,2], Ronan Abhervé [1,3,9],  Alexandre Coche [1], Martin Le
 ## Links
 
 - GitHub Project: https://github.com/HydroModPy/HydroModPy
-- Read the Docs: https://hydromodpy-docs.readthedocs.io/en/latest/
+- Documentation: https://hydromodpy-docs.readthedocs.io/en/latest/
+- Technical documentation and UMLs (`Architecture` tab): https://hydromodpy-docs.readthedocs.io/en/latest/architecture/
+- Scientific documentation (`Scientific documentation` tab): https://hydromodpy-docs.readthedocs.io/en/latest/scientific/
 - Google Drive: https://docs.google.com/document/d/11BA4ufhYWbydBvfjQufohoPIc0SaF9pKcyj_KNJ2VQM/edit?usp=sharing
 - Forum Group: https://groups.google.com/g/hydromodpy
 
@@ -54,9 +56,14 @@ Install HydroModPy directly from PyPI:
 
 ```bash
 pip install hydromodpy
-# or include Spyder + JupyterLab
+# optional extras
 pip install "hydromodpy[ide]"
+pip install "hydromodpy[test]"
+pip install "hydromodpy[viewer3d]"
 ```
+
+The base runtime no longer pulls IDE, test, or 3D viewer dependencies by
+default. Add extras only when you need those workflows.
 
 For development mode (editable installation):
 
@@ -66,6 +73,8 @@ cd HydroModPy
 
 # Install in editable mode
 pip install -e .
+# or add local test tooling
+pip install -e ".[test]"
 
 # PyHELP binaries are automatically downloaded on first import
 ```
@@ -235,6 +244,16 @@ hmp test unit
 hmp test regression --fast
 hmp test validation --fast
 ```
+
+Platform note:
+
+- Most tests are intended to run on both Windows and Linux.
+- Some validation tests target the PETSc Boussinesq backend and are Linux-only
+  by design; on Windows they are skipped, not failed.
+- PETSc-focused validation tests are tagged with `pytest.mark.petsc`, so a
+  provisioned Linux environment can run `python -m pytest -m petsc -q`.
+- The Linux smoke commands used in CI are `bash tools/ci/run_boussinesq_linux_smoke.sh`
+  and `bash tools/ci/run_boussinesq_petsc_smoke.sh`.
 
 For the detailed validation workflow, available analytical cases, and guidance
 to add a new benchmark, see:

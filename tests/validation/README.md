@@ -95,6 +95,34 @@ conda activate hydromodpy
 python -m pytest tests/validation -q
 ```
 
+## Platform-Specific Behavior
+
+The validation suite is intentionally cross-platform where possible, but not
+every solver backend is available on every operating system.
+
+- Most validation tests are expected to run on both Windows and Linux when the
+  required scientific Python stack and external solver executables are present.
+- The PETSc Boussinesq runtime is Linux-only by design. The corresponding
+  pytest files explicitly skip on non-Linux platforms instead of failing.
+- A Windows run that reports many `passed` tests plus a few PETSc-related
+  `skipped` tests is therefore a valid outcome, not a degraded run.
+
+Today, the Linux-only PETSc coverage is concentrated in:
+
+- `tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py`
+- `tests/validation/numerical/steady/test_boussinesq_headwater_100km2_petsc.py`
+- `tests/validation/numerical/transient/test_boussinesq_headwater_100km2_petsc_transient.py`
+- `tests/validation/numerical/transient/test_boussinesq_hillslope_recharge_pulse_overflow_petsc.py`
+
+In practice:
+
+- On Windows, run the full validation suite normally with `pytest`; PETSc-only
+  tests will be skipped automatically.
+- On Linux, the same `pytest` commands also run the Linux-only PETSc tests if
+  `petsc4py` and the PETSc runtime are installed in the active environment.
+- If those Linux dependencies are missing, the PETSc tests will skip or fail at
+  import/runtime setup rather than indicate a scientific regression.
+
 During pytest execution, validation runs are launched with:
 
 - `HYDROMODPY_NO_DISPLAY=1`
@@ -131,6 +159,57 @@ Run a single case:
 python -m pytest tests/validation/analytical/steady/test_dupuit_fixed_head_1d.py -q
 python -m pytest tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py -q
 ```
+
+### Linux Smoke Commands Used by CI
+
+The repository already exposes the Linux smoke subsets used in CI:
+
+```bash
+bash tools/ci/run_boussinesq_linux_smoke.sh
+bash tools/ci/run_boussinesq_petsc_smoke.sh
+```
+
+These scripts are thin wrappers around `python -m pytest ...` and can be used
+locally on Linux as-is.
+
+The PETSc smoke subset can also be launched directly with pytest:
+
+```bash
+python -m pytest \
+  tests/unit/solver/test_boussinesq_method_catalog.py \
+  tests/unit/validation/test_dupuit_fixed_head_petsc_alias.py \
+  tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py \
+  tests/validation/numerical/transient/test_boussinesq_hillslope_recharge_pulse_overflow_petsc.py \
+  tests/validation/numerical/transient/test_boussinesq_headwater_100km2_petsc_transient.py \
+  -q
+```
+
+The broader non-PETSc Linux smoke subset is:
+
+```bash
+python -m pytest \
+  tests/unit/solver/test_boussinesq_method_catalog.py \
+  tests/unit/solver/test_boussinesq_smoothing.py \
+  tests/unit/solver/test_boussinesq_backend.py \
+  tests/unit/simulation/test_boussinesq_flow_adapter.py \
+  tests/unit/validation/test_dupuit_fixed_head_petsc_alias.py \
+  tests/unit/validation/test_hillslope_pulse_overflow_case.py \
+  "tests/validation/analytical/steady/test_dupuit_fixed_head_1d.py::test_dupuit_fixed_head_1d_matches_reference_profile[boussinesq]" \
+  -q
+```
+
+The PETSc-focused tests are now tagged with `@pytest.mark.petsc`, so on a
+fully provisioned Linux environment you can also use:
+
+```bash
+python -m pytest -m petsc -q
+```
+
+If you are working in a partial environment and want the narrowest possible
+selection, the current recommended approach is still either:
+
+- run the explicit file list above, or
+- reuse the `tools/ci/*.sh` smoke scripts.
 
 ## Running All Cases Outside Pytest
 
@@ -244,12 +323,14 @@ Validation tests use the marker set declared in `pyproject.toml`:
 - `transient`: transient case,
 - `fast`: quick validation case,
 - `slow`: longer-running validation case.
+- `petsc`: Linux PETSc-backed Boussinesq runtime test.
 
 Examples:
 
 ```powershell
 python -m pytest -m "validation and analytical and steady" -q
 python -m pytest -m "validation and slow" -q
+python -m pytest -m petsc -q
 ```
 
 ## Anatomy of One Validation Case

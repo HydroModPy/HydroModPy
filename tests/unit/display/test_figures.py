@@ -89,7 +89,7 @@ class TestBoussinesqState:
             edge_node_b_indices=np.array([1, 3, 3, 2, 2]),
             boundary_edge_mask=np.array([True, True, True, True, False]),
             internal_edge_flux_m3_s=np.array([0.0, 0.0, 0.0, 0.0, 3.0e-4]),
-            imposed_head_edge_flux_m3_s=np.array([1.0e-4, -2.0e-4, 0.0, 3.0e-4, 0.0]),
+            boundary_edge_flux_m3_s=np.array([1.0e-4, -2.0e-4, 0.0, 3.0e-4, 0.0]),
         )
         assert len(ax.collections) > 0
         plt.close(fig)
@@ -328,3 +328,32 @@ class TestMakeFigure:
         fig, axs = make_figure(nrows=2, ncols=1, figsize=(4, 6), dpi=72)
         assert fig is not None
         plt.close(fig)
+
+    def test_add_figure_legend_falls_back_for_ultraplot_panel_locations(self):
+        from hydromodpy.analysis.display.common import add_figure_legend
+
+        class DummyFigure:
+            def __init__(self) -> None:
+                self.calls: list[str] = []
+
+            def legend(self, *args, **kwargs):
+                loc = kwargs["loc"]
+                self.calls.append(loc)
+                if loc == "lower center":
+                    raise KeyError(
+                        "Invalid panel location 'lower center'. Options are: "
+                        "'l', 'r', 'b', 't', 'left', 'right', 'bottom', 'top'."
+                    )
+                return "legend"
+
+        fig = DummyFigure()
+
+        legend = add_figure_legend(
+            fig,
+            handles=["demo"],
+            loc="lower center",
+            ncol=5,
+        )
+
+        assert legend == "legend"
+        assert fig.calls == ["lower center", "bottom"]

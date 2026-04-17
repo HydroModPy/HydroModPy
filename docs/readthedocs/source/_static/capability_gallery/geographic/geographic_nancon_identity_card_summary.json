@@ -1,0 +1,403 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "geographic_nancon_identity_card",
+  "title": "Nancon Observation Identity Card",
+  "category": "geographic",
+  "deck": "Committed data-overview synthesis combining basin maps, climate summary, station inventory, and compact observation stats.",
+  "summary": "This case reuses the broader Nancon `data-overview` output set as a stable identity card for one observed basin. It keeps the workflow strictly pre-mesh and pre-solver, but shows more than framing alone: terrain, geology, hydrography, climate synthesis, station inventory, and one compact stats card for the loaded observations.",
+  "case_setup": [
+    "Launcher family: `data-overview`, so the workflow stops after geographic setup, data loading, and overview rendering.",
+    "Primary editable file: `examples/projects/Nancon_data_overview/config_overview.toml`.",
+    "The committed identity-card figures are mirrored under `examples/capability_gallery/geographic/` so the gallery no longer depends on one local `results_stable` tree."
+  ],
+  "key_parameters": [
+    "`[data] types` drives the identity card more strongly here than the geographic section alone because it determines which observation families appear in the stats, inventory, climate, and map panels.",
+    "`[overview.panels]` is the page-layout switchboard: it decides whether geology, hydrography, station inventory, climate, and the different chronicle panels are rendered.",
+    "The date windows in the hydrometry, piezometry, intermittency, and water-quality sections change the temporal scope of the observations without changing the basin support.",
+    "Keep this case in `geographic` because it still documents data availability and basin context only; no mesh or simulation state is involved."
+  ],
+  "how_to_read": [
+    "Start with the DEM and hydrography panels to understand the basin support and the main drainage backbone.",
+    "Use the station inventory and stats card next to judge whether the observation families are rich enough for later simulation or calibration work.",
+    "Read the climate synthesis last as a forcing-context panel rather than as a solver result."
+  ],
+  "next_steps": [
+    "Open the observed-series companion page next when you want to inspect the actual hydrometry, piezometry, intermittency, and water-quality chronologies.",
+    "Move to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` only once the observation inventory and basin support look coherent."
+  ],
+  "what_it_shows": [
+    "How one basin can be summarized as an observation identity card before any mesh or solver is involved.",
+    "How DEM, geology, hydrography, climate synthesis, and station inventory can live on one page without rerunning notebooks.",
+    "How committed `data-overview` outputs can document which observations are available, not only where the watershed sits."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": "getting_started/data-overview-walkthrough",
+  "walkthrough_title": "the Data Overview walkthrough",
+  "reproduction_command": "python -m launchers data-overview run examples/projects/Nancon_data_overview/config_overview.toml",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "tools/doc_gallery/manifests/geographic_cases.json",
+    "examples/projects/Nancon_data_overview/README.md",
+    "examples/projects/Nancon_data_overview/config_overview.toml",
+    "examples/capability_gallery/geographic/README.md",
+    "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_dem.png",
+    "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_geology.png",
+    "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_hydrography.png",
+    "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_climatic_summary.png",
+    "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_station_inventory.png",
+    "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_stats_card.png"
+  ],
+  "source_hashes": {
+    "tools/doc_gallery/manifests/geographic_cases.json": "bfa1457d98a6fd3a0b9fdeb7a93f6583273cd919168d5fb1d6261922680ee160",
+    "examples/projects/Nancon_data_overview/README.md": "78e13cf3e4fb617669e1655b026f789421306d5b4f8e813d77f45cb4387d045c",
+    "examples/projects/Nancon_data_overview/config_overview.toml": "35db13840d316e6eb8a8a3c63f9d82003d7e47d9940fbb34d2d130ee9b8c3bde",
+    "examples/capability_gallery/geographic/README.md": "fe6bc2eca9984e4b58baa744210d733ff348585fe5e499aa146a02b2f61a4dad",
+    "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_dem.png": "ec51960426ffc4ffeea30afc31ed99844b48a08e05bcdf0308ddc2c3b2e0653d",
+    "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_geology.png": "98bde05904473e5c59011ce8a107c9fcc350aa5b2d2617b9931d3f938e702ae5",
+    "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_hydrography.png": "32f1ad36cb0879224f9288c7110e5a8efe4390a9eb74e7deb16d7a2115175b99",
+    "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_climatic_summary.png": "0d3b9a299b6a66ac7b2fec409c5f14ba3ad66cf8ef914970c8d498d520aaf97c",
+    "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_station_inventory.png": "e649a60fe391c4ac4cf25fc83c703e51d234a62763e37255c39b0008fc507a1b",
+    "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_stats_card.png": "8bc7eb6cff2f20ed5fadd1540cbcd8ebbfdf45a9fe4c5837d4a82aaa94efc644"
+  },
+  "docname": "cases/geographic_nancon_identity_card",
+  "images": [
+    {
+      "filename": "geographic_nancon_identity_card_map_dem.png",
+      "caption": "DEM-based overview for the Nancon watershed.",
+      "alt_text": "Nancon DEM overview",
+      "doc_path": "/_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png"
+    },
+    {
+      "filename": "geographic_nancon_identity_card_map_hydrography.png",
+      "caption": "Hydrography rendered on the Nancon basin support.",
+      "alt_text": "Nancon hydrography overview",
+      "doc_path": "/_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png"
+    },
+    {
+      "filename": "geographic_nancon_identity_card_map_geology.png",
+      "caption": "Geology overlay for the same Nancon support.",
+      "alt_text": "Nancon geology overview",
+      "doc_path": "/_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png"
+    },
+    {
+      "filename": "geographic_nancon_identity_card_station_inventory.png",
+      "caption": "Station inventory extracted by the Nancon data-overview workflow.",
+      "alt_text": "Nancon station inventory",
+      "doc_path": "/_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png"
+    },
+    {
+      "filename": "geographic_nancon_identity_card_stats_card.png",
+      "caption": "Compact statistics card for the loaded Nancon observations.",
+      "alt_text": "Nancon observation stats card",
+      "doc_path": "/_static/capability_gallery/geographic/geographic_nancon_identity_card_stats_card.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_stats_card.png"
+    },
+    {
+      "filename": "geographic_nancon_identity_card_climatic_summary.png",
+      "caption": "Climatic synthesis panel from the Nancon identity-card run.",
+      "alt_text": "Nancon climatic summary",
+      "doc_path": "/_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "workflow_stage": "observation_identity_card",
+    "workflow_stage_label": "Observation Identity Card",
+    "workflow_stage_deck": "These cases combine support context with observation availability so the reader can decide whether a basin is well instrumented before meshing or solving.",
+    "workflow_stage_order": 20,
+    "panel_families": [
+      "dem_overview",
+      "geology_overlay",
+      "hydrography_overlay",
+      "station_inventory",
+      "stats_card",
+      "climatic_summary"
+    ],
+    "loaded_data_types": [
+      "geology",
+      "hydrography",
+      "hydrometry",
+      "piezometry",
+      "intermittency",
+      "precipitation",
+      "etp",
+      "temperature",
+      "recharge",
+      "runoff",
+      "wind"
+    ],
+    "source_families": [
+      "Committed Nancon overview outputs"
+    ],
+    "reading_order": 20,
+    "lead_image_filenames": [
+      "geographic_nancon_identity_card_map_dem.png",
+      "geographic_nancon_identity_card_map_hydrography.png"
+    ],
+    "tab_specs": [
+      {
+        "title": "Geology",
+        "filename": "geographic_nancon_identity_card_map_geology.png"
+      },
+      {
+        "title": "Inventory And Stats",
+        "filenames": [
+          "geographic_nancon_identity_card_station_inventory.png",
+          "geographic_nancon_identity_card_stats_card.png"
+        ]
+      },
+      {
+        "title": "Climate Summary",
+        "filename": "geographic_nancon_identity_card_climatic_summary.png"
+      }
+    ],
+    "copied_assets": [
+      {
+        "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_dem.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png"
+      },
+      {
+        "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_hydrography.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png"
+      },
+      {
+        "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_map_geology.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png"
+      },
+      {
+        "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_station_inventory.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png"
+      },
+      {
+        "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_stats_card.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_stats_card.png"
+      },
+      {
+        "source_path": "examples/capability_gallery/geographic/nancon_identity_card/geographic_nancon_identity_card_climatic_summary.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png"
+      }
+    ]
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/geographic/geographic_nancon_identity_card_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png",
+      "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png",
+      "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png",
+      "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png",
+      "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_stats_card.png",
+      "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png"
+    ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Selected Parameters",
+        "rows": [
+          {
+            "field": "[geographic] catch_def",
+            "meaning": "Watershed extraction mode used to derive the basin from the outlet definition.",
+            "value": "from_outlet_coord",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[geographic] x_outlet",
+            "meaning": "Projected x coordinate of the outlet used by watershed extraction.",
+            "value": "389286",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[geographic] y_outlet",
+            "meaning": "Projected y coordinate of the outlet used by watershed extraction.",
+            "value": "6.81652e+06",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[geographic] snap_dist",
+            "meaning": "Maximum snapping distance used to align the requested outlet with the drainage network.",
+            "value": "150",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[geographic] buff_area",
+            "meaning": "Extra area kept around the watershed to preserve regional context in overview figures.",
+            "value": "20",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data] types",
+            "meaning": "Families of data loaded during the data-overview workflow.",
+            "value": "geology, hydrography, hydrometry, piezometry, intermittency, precipitation, etp, temperature, recharge, runoff, wind, humidity, radiation, soil_moisture, water_quality",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          }
+        ]
+      },
+      {
+        "title": "Loaded Data Families",
+        "rows": [
+          {
+            "field": "[data] types",
+            "meaning": "Ordered list of data families requested by the overview case.",
+            "value": "geology, hydrography, hydrometry, piezometry, intermittency, precipitation, etp, temperature, recharge, runoff, wind, humidity, radiation, soil_moisture, water_quality",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.dem.sources]",
+            "meaning": "Configured providers used to load the `dem` family in this case.",
+            "value": "ign_bdalti",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.geology.sources]",
+            "meaning": "Configured providers used to load the `geology` family in this case.",
+            "value": "brgm_1m",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.hydrography.sources]",
+            "meaning": "Configured providers used to load the `hydrography` family in this case.",
+            "value": "bdtopage",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.hydrometry.sources]",
+            "meaning": "Configured providers used to load the `hydrometry` family in this case.",
+            "value": "hubeau",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.intermittency.sources]",
+            "meaning": "Configured providers used to load the `intermittency` family in this case.",
+            "value": "hubeau",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.piezometry.sources]",
+            "meaning": "Configured providers used to load the `piezometry` family in this case.",
+            "value": "hubeau",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.precipitation.sources]",
+            "meaning": "Configured providers used to load the `precipitation` family in this case.",
+            "value": "sim2",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.etp.sources]",
+            "meaning": "Configured providers used to load the `etp` family in this case.",
+            "value": "sim2",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.temperature.sources]",
+            "meaning": "Configured providers used to load the `temperature` family in this case.",
+            "value": "sim2",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.recharge.sources]",
+            "meaning": "Configured providers used to load the `recharge` family in this case.",
+            "value": "sim2",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.runoff.sources]",
+            "meaning": "Configured providers used to load the `runoff` family in this case.",
+            "value": "sim2",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.wind.sources]",
+            "meaning": "Configured providers used to load the `wind` family in this case.",
+            "value": "sim2",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.humidity.sources]",
+            "meaning": "Configured providers used to load the `humidity` family in this case.",
+            "value": "sim2",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.radiation.sources]",
+            "meaning": "Configured providers used to load the `radiation` family in this case.",
+            "value": "sim2",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.soil_moisture.sources]",
+            "meaning": "Configured providers used to load the `soil_moisture` family in this case.",
+            "value": "sim2",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[data.water_quality.sources]",
+            "meaning": "Configured providers used to load the `water_quality` family in this case.",
+            "value": "hubeau",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          }
+        ]
+      },
+      {
+        "title": "Hydrography Source Options",
+        "rows": [
+          {
+            "field": "[[data.hydrography.sources]] source",
+            "meaning": "Hydrography provider used for the displayed river network.",
+            "value": "bdtopage",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          }
+        ]
+      },
+      {
+        "title": "Overview Panels",
+        "rows": [
+          {
+            "field": "[overview] name",
+            "meaning": "Title injected into the generated overview panels.",
+            "value": "Canut",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[overview.panels] enabled",
+            "meaning": "Panel toggles enabled for this overview run.",
+            "value": "map_dem, map_geology, map_hydrography, stats_card, timeseries_discharge, timeseries_piezometry, climatic_summary, station_inventory",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[overview.panels] map_dem",
+            "meaning": "Whether the `map_dem` panel is rendered for this overview case.",
+            "value": "true",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[overview.panels] map_geology",
+            "meaning": "Whether the `map_geology` panel is rendered for this overview case.",
+            "value": "true",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[overview.panels] map_hydrography",
+            "meaning": "Whether the `map_hydrography` panel is rendered for this overview case.",
+            "value": "true",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          },
+          {
+            "field": "[overview.panels] stats_card",
+            "meaning": "Whether the `stats_card` panel is rendered for this overview case.",
+            "value": "true",
+            "source": "examples/projects/Nancon_data_overview/config_overview.toml"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -86,19 +86,8 @@ Solver Coverage
 
    .. tab-item:: Boussinesq
 
-      .. figure:: /_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__boussinesq.png
-         :alt: Brutsaert Recession Validation: Deep Linearized Aquifer validation figure for Boussinesq
-         :width: 100%
-
-         Brutsaert Recession Validation: Deep Linearized Aquifer rendered with Boussinesq for the analytical gallery.
-
       **Metrics**
-      - Solution: exponential
-      - Initial discharge: 2.778198e-04 m3/s
-      - Characteristic time: 15.01 d
-      - Relative RMSE: 0.0211
-      - Relative max abs error: 0.0399
-      - Cross-row head spread: 6.88e-09 m
+      - Gallery generation failed for this solver: NameError: name 'period_lengths_seconds' is not defined
 
       - Config file: ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_boussinesq.toml``
       - Tolerances: ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances.toml``
@@ -552,5 +541,4 @@ Artifacts
 
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflownwt.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflow6.png``
-- ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__boussinesq.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

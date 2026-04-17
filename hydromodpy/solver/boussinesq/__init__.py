@@ -10,12 +10,13 @@ most to callers:
 The detailed implementation is intentionally split across several modules:
 
 - ``mesh.py``: geometry and material properties;
-- ``assembly.py``: residual assembly;
+- ``assembly/``: residual assembly and boundary-flux reconstruction;
+- ``jacobian/``: finite-difference and semianalytic Jacobian builders;
+- ``drivers/``: steady/transient orchestration helpers;
 - ``core/``, ``discretization/``, ``formulations/``, ``methods/`` and
   ``engines/``: explicit taxonomy for state, schemes, formulations and
   execution engines;
-- ``local_runtime.py``, ``scipy_runtime.py``, ``scipy_sparse_runtime.py`` and
-  ``petsc_runtime.py``: runtime implementations kept for compatibility;
+- ``runtimes/``: shared runtime utilities and supported execution backends;
 - ``boussinesq.py``: orchestration around the HydroModPy launcher contract.
 """
 

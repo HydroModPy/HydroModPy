@@ -473,7 +473,6 @@ def _run_boussinesq_scenario(
         model,
         nx=int(nx),
         ny=int(ny),
-        export_initial_state=True,
     )
 
     model_ws = Path(model.full_path)

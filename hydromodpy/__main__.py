@@ -19,6 +19,11 @@ Usage (hmp and hydromodpy are interchangeable):
     [mesh_catchment]         -> mesh-only pipeline
     [calibration]            -> calibration loop (Phase 4)
     [batch]                  -> regional batch  (Phase 4)
+    hmp compare config_method_comparison.toml # compare solver/mesh methods
+
+    hmp test unit
+    hmp test regression [--fast|--extensive|--nwt|--mf6|--list|--update-goldens]
+    hmp test validation [--fast|--steady|--nwt]
 """
 
 from __future__ import annotations
@@ -165,6 +170,23 @@ def _append_marker_filter(
 
     if markers:
         pytest_args.extend(["-m", " and ".join(markers)])
+
+
+def _append_unit_marker_filter(
+    pytest_args: list[str],
+    *,
+    fast: bool,
+    slow: bool,
+) -> None:
+    """Append unit-test marker filters for daily/nightly style runs."""
+    if fast and slow:
+        print("Cannot use --fast and --slow together.", file=sys.stderr)
+        sys.exit(2)
+
+    if fast:
+        pytest_args.extend(["-m", "not slow and not integration"])
+    elif slow:
+        pytest_args.extend(["-m", "slow or integration"])
 
 def _discover_regression_tests(
     regression_dir: Path,
@@ -519,7 +541,35 @@ def _cmd_test(args: argparse.Namespace) -> None:
     tiers = _selected_tiers(args.normal, args.extensive, args.fast)
 
     if args.suite == "unit":
+        if args.list:
+            print("--list is only available for regression tests.", file=sys.stderr)
+            sys.exit(2)
+        if args.name is not None:
+            print("Unit tests do not accept a named regression target.", file=sys.stderr)
+            sys.exit(2)
+        if args.short:
+            print("--short is only available for regression tests.", file=sys.stderr)
+            sys.exit(2)
+        if args.update_goldens:
+            print("--update-goldens is only available for regression tests.", file=sys.stderr)
+            sys.exit(2)
+        if args.extensive:
+            print("--extensive is only available for regression tests.", file=sys.stderr)
+            sys.exit(2)
+        if args.nwt or args.mf6 or args.steady or args.transient or args.analytical:
+            print(
+                "--nwt/--mf6/--steady/--transient/--analytical are only available "
+                "for regression or validation tests.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+
         pytest_args.append(str(root / "tests" / "unit"))
+        _append_unit_marker_filter(
+            pytest_args,
+            fast=bool(args.fast or args.normal),
+            slow=bool(args.slow),
+        )
 
     elif args.suite == "regression":
         regression_dir = root / "tests" / "regression"
@@ -1091,12 +1141,12 @@ def main() -> None:
     test_parser.add_argument(
         "--fast",
         action="store_true",
-        help="Only run fast-tier regression tests",
+        help="Run the fast subset for the selected suite",
     )
     test_parser.add_argument(
         "--slow",
         action="store_true",
-        help="Only run slow regression tests",
+        help="Run the slow subset for the selected suite",
     )
     test_parser.add_argument(
         "--normal",

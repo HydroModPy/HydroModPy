@@ -1,0 +1,231 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "regional_lab_headwater_100km2_mf6_reference_recipe",
+  "title": "Regional Lab MF6 Reference Recipe on Headwater 100 km2",
+  "category": "simulation",
+  "deck": "Recipe-focused orchestration view isolating the committed MF6 replay workflow across the selected headwater population.",
+  "summary": "This page narrows the committed `regional_lab` example to the `mf6_reference` recipe. It shows how one simulation recipe consumes one catalog field, expands only across the compatible headwater sites, and keeps missing child configs visible as explicit coverage gaps.",
+  "case_setup": [
+    "Base lab config: `config_headwater_100km2_lab.toml` selects `mesh_ready` sites, enriches the headwater cluster through rules, and defines three reusable recipes.",
+    "Overlay config: `config_headwater_100km2_lab_mf6_reference.toml` keeps only the `mf6_reference` recipe enabled and writes to a dedicated output directory.",
+    "Child-run contract: the recipe reads `simulation_reference_config` from each candidate site row rather than deriving one path from naming conventions alone."
+  ],
+  "key_parameters": [
+    "`[[regional_lab.recipe]] id = \"mf6_reference\"` plus the overlay `enabled` flags define the focused orchestration slice documented by this page.",
+    "`families = [\"headwater\"]` and `scales = [\"100km2\"]` scope the recipe before any child config path is resolved.",
+    "`required_fields = [\"simulation_reference_config\"]` is the gate that separates the one runnable outlet from the two inventory-only headwater sites.",
+    "`config_path_template = \"{simulation_reference_config}\"` delegates the concrete simulation config choice to the catalog row."
+  ],
+  "how_to_read": [
+    "Read the matrix first: it shows one runnable headwater outlet and two recipe-level gaps on the same selected population.",
+    "Use the coverage bar next to judge how far the committed catalog already goes for this replay workflow before adding more child configs.",
+    "Finish with the planning summary to connect the remaining gaps to site maturity and cluster scope."
+  ],
+  "next_steps": [
+    "Switch `execute = true` in the focused overlay config when the dry plan looks correct and you want to launch the child workflow.",
+    "Use these orchestration pages as the planning complement to the individual simulation and method-comparison cases already exposed elsewhere in the gallery."
+  ],
+  "what_it_shows": [
+    "How one reusable simulation recipe is expanded from the regional site catalog instead of hard-coding one child config path per case page.",
+    "How `required_fields = [\"simulation_reference_config\"]` turns missing references into explicit recipe-level gaps.",
+    "How recipe-specific overlay configs keep the reproduction command precise without duplicating the whole laboratory definition."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": "getting_started/simulation-walkthrough",
+  "walkthrough_title": "the Simulation walkthrough",
+  "reproduction_command": "python -m launchers regional-lab run examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml",
+    "launchers/regional_lab/README.md",
+    "launchers/regional_lab/config.py",
+    "launchers/regional_lab/launcher.py",
+    "examples/projects/launcher_simulation/regional_lab/README.md",
+    "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml",
+    "examples/projects/launcher_simulation/regional_lab/site_catalog.csv",
+    "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+  ],
+  "source_hashes": {
+    "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml": "6f171b8893c3dbd44b3b305173a7b809cf5b6e83dabe0807d943804f7f17103f",
+    "launchers/regional_lab/README.md": "c427523c87c758da692749791c29956d9f6824230e114e6265f56ffa97fc7d2c",
+    "launchers/regional_lab/config.py": "6cbdfebc6631177713adf46d19222d897c4851b26bc71316436ce887a2be523c",
+    "launchers/regional_lab/launcher.py": "3acafabc723cef54c826d783ea92965ea054dbd04c83766c71009e72afbfb391",
+    "examples/projects/launcher_simulation/regional_lab/README.md": "a1910134f58cd8c49abe41d4e1f51adfd502266eba56dfb7b055c0dd72255b25",
+    "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab.toml": "7832458061e2960886a245c39b4dab3fc05b47a5b45a79159736f1cd90f7a572",
+    "examples/projects/launcher_simulation/regional_lab/site_catalog.csv": "ea2ad802cf1325c4ddf0250fc415ef30252bab9f5afdb26f2a025fb9283375f8",
+    "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml": "9492c3463a5483bc42928525b0e47ede158c8f8a1ecc75d83cbb3f3163a60d19"
+  },
+  "docname": "cases/regional_lab_headwater_100km2_mf6_reference_recipe",
+  "images": [
+    {
+      "filename": "regional_lab_headwater_100km2_mf6_reference_recipe.png",
+      "caption": "Dry-plan synthesis for regional lab mf6 reference recipe on headwater 100 km2: site or candidate coverage, recipe summary, and planning metrics.",
+      "alt_text": "Regional lab dry-plan synthesis for Regional Lab MF6 Reference Recipe on Headwater 100 km2",
+      "doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png"
+    }
+  ],
+  "metrics": [
+    {
+      "label": "Candidate sites",
+      "key": "candidate_site_count",
+      "value": 3,
+      "display": "3"
+    },
+    {
+      "label": "Planned cases",
+      "key": "planned_case_count",
+      "value": 1,
+      "display": "1"
+    },
+    {
+      "label": "Coverage gaps",
+      "key": "skipped_case_count",
+      "value": 2,
+      "display": "2"
+    },
+    {
+      "label": "Pending cases",
+      "key": "pending_case_count",
+      "value": 1,
+      "display": "1"
+    }
+  ],
+  "metadata": {
+    "regional_lab_config_path": "examples/projects/launcher_simulation/regional_lab/config_headwater_100km2_lab_mf6_reference.toml",
+    "study_area": "Brittany regional laboratory",
+    "process_families": [
+      "planning",
+      "simulation",
+      "reporting"
+    ],
+    "workflow_family_key": "regional_orchestration",
+    "workflow_family_label": "Regional Orchestration",
+    "workflow_family_deck": "These cases do not focus on one child solver run. They document how one population of sites and reusable recipes expands into a coordinated study plan.",
+    "workflow_family_order": 30,
+    "workflow_case_order": 20,
+    "postprocess_outputs": [
+      "site_recipe_matrix",
+      "recipe_coverage_summary",
+      "coverage_gap_summary"
+    ],
+    "regional_lab_view_kind": "recipe",
+    "regional_lab_recipe_id": "mf6_reference",
+    "regional_lab_recipe_label": "MF6 reference replay",
+    "mesh_supports": [
+      "committed_triangular_mesh_input"
+    ],
+    "flow_solvers": [
+      "MODFLOW 6"
+    ],
+    "execute": false,
+    "selected_site_ids": [
+      "headwater_100km2_outlet_2",
+      "headwater_100km2_outlet_27",
+      "headwater_100km2_outlet_34",
+      "s3_100km2_outlet_8",
+      "s3_10km2_outlet_3"
+    ],
+    "candidate_site_ids": [
+      "headwater_100km2_outlet_2",
+      "headwater_100km2_outlet_27",
+      "headwater_100km2_outlet_34"
+    ],
+    "recipe_ids": [
+      "mf6_reference"
+    ],
+    "recipe_labels": {
+      "mf6_reference": "MF6 reference replay"
+    },
+    "candidate_site_count": 3,
+    "runnable_site_count": 1,
+    "gap_reasons": {
+      "missing_required_fields": 2
+    }
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png"
+    ],
+    "extra_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_plan.json",
+      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_report.json",
+      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.md",
+      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_site_inventory.csv",
+      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_recipe_summary.csv",
+      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_cluster_summary.csv",
+      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_case_matrix.csv"
+    ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Selected Parameters",
+        "rows": [
+          {
+            "field": "[simulation.time] start_datetime",
+            "meaning": "Start of the simulated period used by the flow and transport run.",
+            "value": "2003-01-01 00:00:00",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          },
+          {
+            "field": "[simulation.time] end_datetime",
+            "meaning": "End of the simulated period used by the flow and transport run.",
+            "value": "2005-12-31 00:00:00",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          },
+          {
+            "field": "[simulation.time] step_value",
+            "meaning": "Nominal time step used to discretize the simulation period.",
+            "value": "1 month",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          },
+          {
+            "field": "[data.recharge.sources] values",
+            "meaning": "Synthetic recharge sequence injected into the run over the configured time support.",
+            "value": "2.4, 2.2, 1.8, 1.2, 0.7, 0.2, -0.3, -0.5, 0.1, 0.9, 1.8, 2.3, 2.1, 1.9, 1.5, 1, 0.4, 0, -0.6, -0.8, -0.1, 0.7, 1.6, 2, 2.7, 2.4, 1.9, 1.3, 0.8, 0.3, -0.2, -0.4, 0.2, 1.1, 2, 2.6",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          },
+          {
+            "field": "[data.recharge.sources] freq",
+            "meaning": "Temporal frequency used to interpret the synthetic recharge sequence.",
+            "value": "MS",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          },
+          {
+            "field": "[data.recharge.sources] runoff_ratio",
+            "meaning": "Fraction of recharge redirected to runoff rather than infiltration.",
+            "value": "0.12",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          },
+          {
+            "field": "[flow.param.K.field_homogeneous] value",
+            "meaning": "Homogeneous hydraulic conductivity used by the flow model in this tutorial run.",
+            "value": "2.5e-05",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          },
+          {
+            "field": "[flow.param.Sy.field_homogeneous] value",
+            "meaning": "Specific yield used to control the free-surface response of the aquifer.",
+            "value": "0.1",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          }
+        ]
+      },
+      {
+        "title": "Mesh and Output Selection",
+        "rows": [
+          {
+            "field": "[capability_gallery] assets",
+            "meaning": "Subset of run outputs copied into the static documentation gallery.",
+            "value": "flow_state_triptych.png, recharge_discharge_cumulative.png, watertable_elevation.png, watertable_depth.png, flow_support_overview.png",
+            "source": "examples/projects/launcher_simulation/run_headwater_100km2_outlet_2_mf6_transient_reference.toml"
+          }
+        ]
+      }
+    ]
+  }
+}

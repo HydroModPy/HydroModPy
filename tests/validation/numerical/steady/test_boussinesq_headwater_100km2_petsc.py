@@ -56,6 +56,7 @@ def _write_overlay_config(
 @pytest.mark.validation
 @pytest.mark.steady
 @pytest.mark.slow
+@pytest.mark.petsc
 @pytest.mark.parametrize(
     ("config_name", "expected_surface_model"),
     [

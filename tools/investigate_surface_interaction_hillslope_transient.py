@@ -31,9 +31,14 @@ from validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage
 )
 from validation_cases.shared import (
     ValidationRunResult,
+    align_snapshot_series_to_expected_count,
     load_case_config,
     load_case_metadata,
     load_npy_time_series_arrays,
+    load_npy_time_series_arrays_with_elapsed_seconds,
+)
+from validation_cases.shared.boussinesq_budget import (
+    compute_free_control_volume_budget,
 )
 from validation_cases.shared.boussinesq_uniform_strip import (
     run_boussinesq_uniform_strip_case,
@@ -45,6 +50,17 @@ from validation_cases.shared.runtime import (
     resolve_model_workspace,
     resolve_validation_results_dir,
     run_example_script,
+)
+from tools.surface_interaction_reporting import (
+    write_csv as reporting_write_csv,
+    write_execution_times_figure as reporting_write_execution_times_figure,
+    write_flux_budget_figure as reporting_write_flux_budget_figure,
+    write_flux_figure as reporting_write_flux_figure,
+    write_head_point_figure as reporting_write_head_point_figure,
+    write_head_snapshots as reporting_write_head_snapshots,
+    write_markdown_summary as reporting_write_markdown_summary,
+    write_outflow_components_figure as reporting_write_outflow_components_figure,
+    write_total_outflow_overlay_figure as reporting_write_total_outflow_overlay_figure,
 )
 
 
@@ -62,18 +78,29 @@ LAUNCHER_SCRIPT = (
     / "launcher_simulation"
     / "launcher_simulation.py"
 )
-SOLVER_ORDER = ("modflownwt", "modflow6", "modflow6_irregular_tri", "boussinesq")
+SOLVER_ORDER = (
+    "modflownwt",
+    "modflow6",
+    "modflow6_irregular_tri",
+    "boussinesq",
+    "petsc_partition",
+    "petsc",
+)
 SOLVER_LABELS = {
     "modflownwt": "MODFLOW-NWT",
     "modflow6": "MODFLOW 6",
     "modflow6_irregular_tri": "MODFLOW 6 irregular triangles",
     "boussinesq": "Boussinesq",
+    "petsc_partition": "Boussinesq PETSc partition",
+    "petsc": "Boussinesq PETSc complementarity",
 }
 SOLVER_COLORS = {
     "modflownwt": "#1f77b4",
     "modflow6": "#ff7f0e",
     "modflow6_irregular_tri": "#9467bd",
     "boussinesq": "#2ca02c",
+    "petsc_partition": "#17becf",
+    "petsc": "#d62728",
 }
 BOUSS_NX = 40
 BOUSS_NY = 3
@@ -145,6 +172,13 @@ def _comparison_plot_style(solver: str) -> dict[str, Any]:
             "linewidth": 2.2,
             "zorder": 3,
         }
+    if solver == "petsc":
+        return {
+            "color": SOLVER_COLORS[solver],
+            "linewidth": 2.0,
+            "linestyle": "--",
+            "zorder": 4,
+        }
     return {
         "color": SOLVER_COLORS[solver],
         "linewidth": 2.0,
@@ -158,6 +192,14 @@ def _recharge_total_flux_m3_day() -> np.ndarray:
     return recharge_m_day * area_m2
 
 
+def _hydraulic_conductivity_scale_from_args(args: argparse.Namespace) -> float:
+    return float(getattr(args, "hydraulic_conductivity_scale", HYDRAULIC_CONDUCTIVITY_SCALE))
+
+
+def _topography_base_elevation_from_args(args: argparse.Namespace) -> float:
+    return float(TOPOGRAPHY_BASE_ELEVATION_M) + float(getattr(args, "topography_offset_m", 0.0))
+
+
 @dataclass(frozen=True, slots=True)
 class TransientResult:
     solver: str
@@ -169,10 +211,14 @@ class TransientResult:
     head_profiles: np.ndarray
     clearance_profiles: np.ndarray
     drainage_flux_m3_day: np.ndarray
+    east_boundary_inflow_m3_day: np.ndarray
     east_boundary_outflow_m3_day: np.ndarray
+    total_inflow_m3_day: np.ndarray
     total_outflow_m3_day: np.ndarray
     recharge_flux_m3_day: np.ndarray
-    storage_balance_m3_day: np.ndarray
+    net_inflow_m3_day: np.ndarray
+    storage_change_m3_day: np.ndarray
+    residual_m3_day: np.ndarray
     max_clearance_m: float
     onset_day: float
     peak_drainage_flux_m3_day: float
@@ -183,24 +229,30 @@ class TransientResult:
     accumulation_proxy_m3_day: np.ndarray | None = None
     wall_time_seconds: float | None = None
 
+    @property
+    def storage_balance_m3_day(self) -> np.ndarray:
+        return self.storage_change_m3_day
+
 
 def _slug(value: str) -> str:
     return "".join(ch if ch.isalnum() else "_" for ch in value.lower()).strip("_")
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
-    if not rows:
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames: list[str] = []
-    for row in rows:
-        for key in row.keys():
-            if key not in fieldnames:
-                fieldnames.append(key)
-    with path.open("w", encoding="utf-8", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+    reporting_write_csv(path, rows)
+
+
+def _align_series_lengths(reference: np.ndarray, *series: np.ndarray) -> tuple[np.ndarray, ...]:
+    arrays = [np.asarray(reference, dtype=float).reshape(-1)]
+    arrays.extend(np.asarray(item, dtype=float).reshape(-1) for item in series)
+    expected = int(arrays[0].size)
+    mismatches = [array.size for array in arrays[1:] if int(array.size) != expected]
+    if mismatches:
+        raise ValueError(
+            "Transient comparison series must already be aligned before plotting. "
+            f"Expected {expected} rows for every series, got {mismatches}."
+        )
+    return tuple(np.asarray(array, dtype=float) for array in arrays)
 
 
 def _load_case_payload_for_solver(metadata: dict[str, Any], solver: str) -> dict[str, Any]:
@@ -226,6 +278,7 @@ def _apply_transient_payload(
     *,
     solver: str,
     hydraulic_conductivity_m_s: float,
+    topography_base_elevation_m: float = TOPOGRAPHY_BASE_ELEVATION_M,
     run_variant: str | None = None,
 ) -> dict[str, Any]:
     run_token = solver if run_variant is None else str(run_variant)
@@ -241,7 +294,7 @@ def _apply_transient_payload(
     }
     geographic_synthetic["topography"] = {
         "kind": "linear",
-        "base_elevation": TOPOGRAPHY_BASE_ELEVATION_M,
+        "base_elevation": float(topography_base_elevation_m),
         "right_to_left_amplitude": TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
     }
     geographic["synthetic"] = geographic_synthetic
@@ -347,6 +400,7 @@ def _run_launcher_solver(
     solver: str,
     solver_key: str | None = None,
     hydraulic_conductivity_m_s: float,
+    topography_base_elevation_m: float,
     timeout: int,
     runtime_configs_dir: Path,
 ) -> ValidationRunResult:
@@ -364,6 +418,7 @@ def _run_launcher_solver(
         payload,
         solver=solver,
         hydraulic_conductivity_m_s=hydraulic_conductivity_m_s,
+        topography_base_elevation_m=topography_base_elevation_m,
         run_variant=normalized_solver_key,
     )
     if normalized_solver_key == "modflow6_irregular_tri":
@@ -377,14 +432,14 @@ def _run_launcher_solver(
                 x_m=np.asarray(x_m, dtype=float),
                 xmin=0.0,
                 xmax=LENGTH_X_M,
-                topography_base_elevation_m=TOPOGRAPHY_BASE_ELEVATION_M,
+                topography_base_elevation_m=float(topography_base_elevation_m),
                 topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
             ),
             z_bottom_m=lambda x_m: build_linear_topography_values(
                 x_m=np.asarray(x_m, dtype=float),
                 xmin=0.0,
                 xmax=LENGTH_X_M,
-                topography_base_elevation_m=TOPOGRAPHY_BASE_ELEVATION_M,
+                topography_base_elevation_m=float(topography_base_elevation_m),
                 topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
             )
             - AQUIFER_THICKNESS_M,
@@ -442,13 +497,32 @@ def _run_launcher_solver(
 
 def _run_boussinesq(
     *,
+    solver_key: str = "boussinesq",
     hydraulic_conductivity_m_s: float,
+    topography_base_elevation_m: float,
     timeout: int,
 ) -> ValidationRunResult:
+    normalized_solver_key = str(solver_key).strip().lower()
+    if normalized_solver_key not in {"boussinesq", "petsc_partition", "petsc"}:
+        raise ValueError(f"Unsupported Boussinesq solver '{solver_key}'.")
     recharge_series_m_s = [mm_day_to_m_s(float(value)) for value in RECHARGE_SERIES_MM_DAY]
-    return run_boussinesq_uniform_strip_case(
+    runtime_backend = "local"
+    surface_interaction_model = "regularized_partition"
+    runtime_max_iterations = 80
+    runtime_tol_residual_inf = 1.0e-7
+    if normalized_solver_key == "petsc_partition":
+        runtime_backend = "petsc"
+        runtime_max_iterations = 300
+        runtime_tol_residual_inf = 1.0e-6
+    elif normalized_solver_key == "petsc":
+        runtime_backend = "petsc"
+        surface_interaction_model = "complementarity"
+        runtime_max_iterations = 1000
+        runtime_tol_residual_inf = 1.0e-6
+
+    result = run_boussinesq_uniform_strip_case(
         case_dir=CASE_DIR,
-        case_id="hillslope_surface_transient",
+        case_id=f"hillslope_surface_transient_{normalized_solver_key}",
         caller_file=__file__,
         timeout=timeout,
         nx=BOUSS_NX,
@@ -461,24 +535,25 @@ def _run_boussinesq(
             x_m=np.asarray(x_m, dtype=float),
             xmin=0.0,
             xmax=LENGTH_X_M,
-            topography_base_elevation_m=TOPOGRAPHY_BASE_ELEVATION_M,
+            topography_base_elevation_m=float(topography_base_elevation_m),
             topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
         ),
         z_bottom_m=lambda x_m: build_linear_topography_values(
             x_m=np.asarray(x_m, dtype=float),
             xmin=0.0,
             xmax=LENGTH_X_M,
-            topography_base_elevation_m=TOPOGRAPHY_BASE_ELEVATION_M,
+            topography_base_elevation_m=float(topography_base_elevation_m),
             topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
         )
         - AQUIFER_THICKNESS_M,
         hydraulic_conductivity_m_s=hydraulic_conductivity_m_s,
         storage_coefficient=SPECIFIC_YIELD,
         flow_section={
-            "runtime_backend": "local",
+            "runtime_backend": runtime_backend,
+            "surface_interaction_model": surface_interaction_model,
             "flow_regime": "transient",
-            "runtime_max_iterations": 80,
-            "runtime_tol_residual_inf": 1.0e-7,
+            "runtime_max_iterations": runtime_max_iterations,
+            "runtime_tol_residual_inf": runtime_tol_residual_inf,
             "ic": {"type": "custom", "value": INITIAL_HEAD_M},
             "active_sinks_sources": ["recharge"],
             "active_bc": ["east_side", "drainage"],
@@ -507,7 +582,17 @@ def _run_boussinesq(
         plan_name="Transient hillslope surface interaction",
         plan_description="Progressive recharge ramp on a sloping strip with top drainage.",
         flow_regime="transient",
-        export_initial_state=False,
+    )
+    return ValidationRunResult(
+        case_dir=result.case_dir,
+        solver_name=normalized_solver_key,
+        out_path=result.out_path,
+        model_ws=result.model_ws,
+        postprocess_dir=result.postprocess_dir,
+        particles_dir=result.particles_dir,
+        run_returncode=result.run_returncode,
+        run_stdout=result.run_stdout,
+        run_stderr=result.run_stderr,
     )
 
 
@@ -527,6 +612,45 @@ def _load_bundle_cell_centroids(bundle_dir: Path) -> tuple[np.ndarray, np.ndarra
         np.asarray(cells["centroid_x"], dtype=float).reshape(-1),
         np.asarray(cells["centroid_y"], dtype=float).reshape(-1),
     )
+
+
+def _load_boussinesq_east_boundary_edge_mask(bundle_dir: Path) -> np.ndarray:
+    nodes = np.genfromtxt(
+        bundle_dir / "nodes.csv",
+        delimiter=",",
+        names=True,
+        dtype=None,
+        encoding="utf-8",
+    )
+    edges = np.genfromtxt(
+        bundle_dir / "edges.csv",
+        delimiter=",",
+        names=True,
+        dtype=None,
+        encoding="utf-8",
+    )
+
+    node_ids = np.asarray(nodes["node_id"], dtype=int).reshape(-1)
+    node_x = np.asarray(nodes["x"], dtype=float).reshape(-1)
+    edge_node_a = np.asarray(edges["node_a"], dtype=int).reshape(-1)
+    edge_node_b = np.asarray(edges["node_b"], dtype=int).reshape(-1)
+    edge_kind = np.asarray(edges["edge_kind"]).reshape(-1)
+
+    node_x_by_id = {
+        int(node_id): float(x_coord)
+        for node_id, x_coord in zip(node_ids.tolist(), node_x.tolist())
+    }
+    midpoint_x = np.asarray(
+        [
+            0.5 * (node_x_by_id[int(node_a)] + node_x_by_id[int(node_b)])
+            for node_a, node_b in zip(edge_node_a.tolist(), edge_node_b.tolist())
+        ],
+        dtype=float,
+    )
+    east_x = float(np.max(node_x)) if node_x.size else 0.0
+    boundary_mask = np.asarray(edge_kind == "boundary", dtype=bool)
+    east_mask = np.isclose(midpoint_x, east_x, atol=1.0e-9, rtol=0.0)
+    return np.asarray(boundary_mask & east_mask, dtype=bool)
 
 
 def _interpolate_bundle_history_to_structured_grid(
@@ -598,31 +722,26 @@ def _align_step_history(values: np.ndarray, *, n_steps: int) -> np.ndarray:
     )
 
 
-def _load_boussinesq_east_boundary_edge_mask(bundle_dir: Path) -> np.ndarray:
-    nodes = np.genfromtxt(
-        bundle_dir / "nodes.csv",
-        delimiter=",",
-        names=True,
-        dtype=None,
-        encoding="utf-8",
-    )
-    edges = np.genfromtxt(
-        bundle_dir / "edges.csv",
-        delimiter=",",
-        names=True,
-        dtype=None,
-        encoding="utf-8",
-    )
-    node_x = np.asarray(nodes["x"], dtype=float)
-    edge_kind = np.asarray(edges["edge_kind"])
-    node_a = np.asarray(edges["node_a"], dtype=int)
-    node_b = np.asarray(edges["node_b"], dtype=int)
-    max_x = float(np.max(node_x))
-    return (
-        np.asarray(edge_kind == "boundary", dtype=bool)
-        & np.isclose(node_x[node_a], max_x)
-        & np.isclose(node_x[node_b], max_x)
-    )
+def _compute_structured_storage_change_flux_m3_day(
+    head_grids: np.ndarray,
+    *,
+    initial_head_m: float,
+    storage_coefficient: float,
+    dt_days: float,
+) -> np.ndarray:
+    grids = np.asarray(head_grids, dtype=float)
+    if grids.ndim != 3:
+        raise ValueError("Structured storage change expects a time-y-x head grid.")
+    cell_area_m2 = (float(LENGTH_X_M) * float(WIDTH_Y_M)) / float(grids.shape[1] * grids.shape[2])
+    previous = np.full_like(grids[0], float(initial_head_m), dtype=float)
+    storage_change_flux_m3_day = np.zeros(grids.shape[0], dtype=float)
+    for idx, current in enumerate(grids):
+        delta_storage_m3 = float(
+            np.sum((np.asarray(current, dtype=float) - previous) * cell_area_m2 * float(storage_coefficient))
+        )
+        storage_change_flux_m3_day[idx] = delta_storage_m3 / float(dt_days)
+        previous = np.asarray(current, dtype=float)
+    return storage_change_flux_m3_day
 
 
 def _select_snapshot_indices(elapsed_days: np.ndarray, snapshot_days: tuple[float, ...]) -> list[int]:
@@ -635,19 +754,29 @@ def _select_snapshot_indices(elapsed_days: np.ndarray, snapshot_days: tuple[floa
     return sorted(selected)
 
 
-def _first_contact_day(clearance_profiles: np.ndarray) -> float:
+def _first_contact_day(clearance_profiles: np.ndarray, *, elapsed_days: np.ndarray) -> float:
     mask = np.any(np.asarray(clearance_profiles, dtype=float) >= -CONTACT_TOLERANCE_M, axis=1)
     if not np.any(mask):
         return float("nan")
-    return float(_elapsed_days_from_steps(mask.size)[int(np.argmax(mask))])
+    elapsed = np.asarray(elapsed_days, dtype=float).reshape(-1)
+    if elapsed.size != mask.size:
+        raise ValueError(
+            "clearance_profiles and elapsed_days must share the same time length."
+        )
+    return float(elapsed[int(np.argmax(mask))])
 
 
 def _build_result(
     result: ValidationRunResult,
     *,
+    hydraulic_conductivity_scale: float,
+    topography_base_elevation_m: float,
     wall_time_seconds: float | None = None,
 ) -> TransientResult:
-    period_indices, heads = load_npy_time_series_arrays(result.postprocess_dir, "watertable_elevation")
+    period_indices, heads, explicit_elapsed_seconds = load_npy_time_series_arrays_with_elapsed_seconds(
+        result.postprocess_dir,
+        "watertable_elevation",
+    )
     del period_indices
     heads = np.asarray(heads, dtype=float)
     if heads.ndim == 3:
@@ -662,52 +791,56 @@ def _build_result(
     else:
         raise ValueError("Expected watertable_elevation to be a time-y-x or time-cell array.")
     head_profiles = np.mean(head_grids, axis=1)
-    elapsed_days = _elapsed_days_from_steps(head_profiles.shape[0])
+    if explicit_elapsed_seconds is None:
+        elapsed_days = _elapsed_days_from_steps(head_profiles.shape[0])
+    else:
+        elapsed_days = np.asarray(explicit_elapsed_seconds, dtype=float) / SECONDS_PER_DAY
     dx = LENGTH_X_M / float(head_profiles.shape[1])
     x = (np.arange(head_profiles.shape[1], dtype=float) + 0.5) * dx
     topography_profile = build_linear_topography_values(
         x_m=x,
         xmin=0.0,
         xmax=LENGTH_X_M,
-        topography_base_elevation_m=TOPOGRAPHY_BASE_ELEVATION_M,
+        topography_base_elevation_m=float(topography_base_elevation_m),
         topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
     )
     clearance_profiles = head_profiles - topography_profile[None, :]
 
     bouss_surface_flux_m3_day: np.ndarray | None = None
     accumulation_proxy_m3_day: np.ndarray | None = None
-    if result.solver_name == "boussinesq":
+    storage_change_m3_day: np.ndarray
+    east_boundary_inflow_m3_day: np.ndarray
+    recharge_flux_m3_day: np.ndarray
+    if result.solver_name in {"boussinesq", "petsc_partition", "petsc"}:
+        bundle_dir = result.out_path / "mesh_bundle"
         with np.load(result.model_ws / "_boussinesq_state_history.npz") as payload:
-            drainage_history = _align_step_history(
-                payload["drainage_flux_history_m3_s"],
-                n_steps=head_profiles.shape[0],
-            )
-            saturation_excess_history = _align_step_history(
-                payload["saturation_excess_history_m_s"],
-                n_steps=head_profiles.shape[0],
-            )
-            imposed_head_history = _align_step_history(
-                payload["imposed_head_edge_flux_history_m3_s"],
-                n_steps=head_profiles.shape[0],
-            )
-        drainage_flux_m3_day = np.sum(drainage_history, axis=1, dtype=float) * SECONDS_PER_DAY
-        cells = np.genfromtxt(
-            result.out_path / "mesh_bundle" / "cells.csv",
-            delimiter=",",
-            names=True,
-            dtype=float,
-            encoding="utf-8",
+            state_history = {key: np.asarray(payload[key]) for key in payload.files}
+        budget = compute_free_control_volume_budget(
+            bundle_dir=bundle_dir,
+            state_history=state_history,
+            seconds_per_day=SECONDS_PER_DAY,
+            dt_days=DT_DAYS,
         )
-        cell_area_m2 = np.asarray(cells["area_m2"], dtype=float).reshape(-1)
-        bouss_surface_flux_m3_day = (
-            np.sum(saturation_excess_history * cell_area_m2[None, :], axis=1, dtype=float)
-            * SECONDS_PER_DAY
+        recharge_flux_m3_day = budget.recharge_flux_m3_day
+        drainage_flux_m3_day = budget.drainage_flux_m3_day
+        bouss_surface_flux_m3_day = budget.surface_excess_flux_m3_day
+        east_boundary_inflow_m3_day = budget.east_boundary_inflow_m3_day
+        east_boundary_outflow_m3_day = budget.east_boundary_outflow_m3_day
+        storage_change_m3_day = budget.storage_change_m3_day
+        _time_keys, head_grids, explicit_elapsed_seconds = align_snapshot_series_to_expected_count(
+            np.arange(head_grids.shape[0], dtype=int),
+            head_grids,
+            explicit_elapsed_seconds,
+            expected_count=int(storage_change_m3_day.size),
+            name="watertable_elevation",
         )
-        east_edge_mask = _load_boussinesq_east_boundary_edge_mask(result.out_path / "mesh_bundle")
-        east_boundary_outflow_m3_day = (
-            -np.sum(np.minimum(imposed_head_history[:, east_edge_mask], 0.0), axis=1, dtype=float)
-            * SECONDS_PER_DAY
+        head_profiles = np.mean(np.asarray(head_grids, dtype=float), axis=1)
+        elapsed_days = (
+            _elapsed_days_from_steps(head_profiles.shape[0])
+            if explicit_elapsed_seconds is None
+            else np.asarray(explicit_elapsed_seconds, dtype=float) / SECONDS_PER_DAY
         )
+        clearance_profiles = head_profiles - topography_profile[None, :]
     else:
         _, outflow_drain = load_npy_time_series_arrays(result.postprocess_dir, "outflow_drain")
         outflow_drain = np.asarray(outflow_drain, dtype=float)
@@ -721,6 +854,7 @@ def _build_result(
                 dx_m=LENGTH_X_M / float(BOUSS_NX),
                 dy_m=WIDTH_Y_M / float(BOUSS_NY),
             )
+        east_boundary_inflow_m3_day = np.zeros_like(drainage_flux_m3_day, dtype=float)
         east_boundary_outflow_m3_day = _load_scalar_series_m3_day(
             result.postprocess_dir,
             "outlet_discharge_east_side_m3_s",
@@ -737,7 +871,18 @@ def _build_result(
                 dx_m=LENGTH_X_M / float(BOUSS_NX),
                 dy_m=WIDTH_Y_M / float(BOUSS_NY),
             )
+        storage_change_m3_day = _compute_structured_storage_change_flux_m3_day(
+            head_grids,
+            initial_head_m=INITIAL_HEAD_M,
+            storage_coefficient=SPECIFIC_YIELD,
+            dt_days=DT_DAYS,
+        )
+        recharge_flux_m3_day = _recharge_total_flux_m3_day()
 
+    total_inflow_m3_day = np.asarray(
+        recharge_flux_m3_day + east_boundary_inflow_m3_day,
+        dtype=float,
+    )
     total_outflow_m3_day = np.asarray(
         drainage_flux_m3_day + east_boundary_outflow_m3_day,
         dtype=float,
@@ -747,9 +892,45 @@ def _build_result(
             bouss_surface_flux_m3_day,
             dtype=float,
         )
-    recharge_flux_m3_day = _recharge_total_flux_m3_day()
-    storage_balance_m3_day = np.asarray(
-        recharge_flux_m3_day - total_outflow_m3_day,
+    net_inflow_m3_day = np.asarray(
+        total_inflow_m3_day - total_outflow_m3_day,
+        dtype=float,
+    )
+    (
+        elapsed_days,
+        drainage_flux_m3_day,
+        east_boundary_inflow_m3_day,
+        east_boundary_outflow_m3_day,
+        total_inflow_m3_day,
+        total_outflow_m3_day,
+        recharge_flux_m3_day,
+        net_inflow_m3_day,
+        storage_change_m3_day,
+    ) = _align_series_lengths(
+        elapsed_days,
+        drainage_flux_m3_day,
+        east_boundary_inflow_m3_day,
+        east_boundary_outflow_m3_day,
+        total_inflow_m3_day,
+        total_outflow_m3_day,
+        recharge_flux_m3_day,
+        net_inflow_m3_day,
+        storage_change_m3_day,
+    )
+    head_profiles = np.asarray(head_profiles[: elapsed_days.size], dtype=float)
+    clearance_profiles = np.asarray(clearance_profiles[: elapsed_days.size], dtype=float)
+    if bouss_surface_flux_m3_day is not None:
+        bouss_surface_flux_m3_day = np.asarray(
+            bouss_surface_flux_m3_day[: elapsed_days.size],
+            dtype=float,
+        )
+    if accumulation_proxy_m3_day is not None:
+        accumulation_proxy_m3_day = np.asarray(
+            accumulation_proxy_m3_day[: elapsed_days.size],
+            dtype=float,
+        )
+    residual_m3_day = np.asarray(
+        net_inflow_m3_day - storage_change_m3_day,
         dtype=float,
     )
     peak_idx = int(np.argmax(drainage_flux_m3_day))
@@ -764,12 +945,16 @@ def _build_result(
         head_profiles=head_profiles,
         clearance_profiles=clearance_profiles,
         drainage_flux_m3_day=drainage_flux_m3_day,
+        east_boundary_inflow_m3_day=east_boundary_inflow_m3_day,
         east_boundary_outflow_m3_day=east_boundary_outflow_m3_day,
+        total_inflow_m3_day=total_inflow_m3_day,
         total_outflow_m3_day=total_outflow_m3_day,
         recharge_flux_m3_day=recharge_flux_m3_day,
-        storage_balance_m3_day=storage_balance_m3_day,
+        net_inflow_m3_day=net_inflow_m3_day,
+        storage_change_m3_day=np.asarray(storage_change_m3_day, dtype=float),
+        residual_m3_day=residual_m3_day,
         max_clearance_m=float(np.max(clearance_profiles)),
-        onset_day=_first_contact_day(clearance_profiles),
+        onset_day=_first_contact_day(clearance_profiles, elapsed_days=elapsed_days),
         peak_drainage_flux_m3_day=float(drainage_flux_m3_day[peak_idx]),
         peak_drainage_day=float(elapsed_days[peak_idx]),
         peak_total_outflow_m3_day=float(total_outflow_m3_day[peak_total_idx]),
@@ -781,239 +966,64 @@ def _build_result(
 
 
 def _write_head_snapshots(results: list[TransientResult], output_png: Path) -> None:
-    output_png.parent.mkdir(parents=True, exist_ok=True)
-    output_png.unlink(missing_ok=True)
-    ordered = sorted(results, key=lambda item: SOLVER_ORDER.index(item.solver))
-    snapshot_idx = _select_snapshot_indices(ordered[0].elapsed_days, SNAPSHOT_DAYS)
-    colors = plt.cm.cividis(np.linspace(0.12, 0.88, len(snapshot_idx)))
-
-    fig, axes = plt.subplots(len(ordered), 1, figsize=(10.8, 8.8), sharex=True, constrained_layout=True)
-    if len(ordered) == 1:
-        axes = [axes]
-    for ax, item in zip(axes, ordered, strict=False):
-        ax.plot(
-            item.x,
-            item.topography_profile,
-            color="#222222",
-            linewidth=1.8,
-            linestyle="--",
-            label="Topography",
-        )
-        for color, idx in zip(colors, snapshot_idx, strict=False):
-            ax.plot(
-                item.x,
-                item.head_profiles[idx],
-                color=color,
-                linewidth=1.9,
-                label=f"t={item.elapsed_days[idx]:.0f} d",
-            )
-        ax.set_ylabel("Head [m]")
-        ax.set_title(SOLVER_LABELS[item.solver], fontsize=10.5)
-        ax.grid(alpha=0.25, linewidth=0.6)
-    axes[0].legend(loc="upper right", fontsize=8.8, frameon=False, ncols=3)
-    axes[-1].set_xlabel("x [m]")
-    fig.suptitle("Recharge ramp then dry recovery: head profiles at selected times", fontsize=11.0)
-    fig.savefig(output_png, dpi=180, bbox_inches="tight")
-    plt.close(fig)
+    reporting_write_head_snapshots(
+        results,
+        output_png,
+        solver_order=SOLVER_ORDER,
+        solver_labels=SOLVER_LABELS,
+        snapshot_days=SNAPSHOT_DAYS,
+    )
 
 
 def _write_flux_figure(results: list[TransientResult], output_png: Path) -> None:
-    output_png.parent.mkdir(parents=True, exist_ok=True)
-    output_png.unlink(missing_ok=True)
-    ordered = sorted(results, key=lambda item: SOLVER_ORDER.index(item.solver))
-    fig, axes = plt.subplots(2, 1, figsize=(10.6, 7.8), sharex=True, constrained_layout=True)
-
-    elapsed_days = ordered[0].elapsed_days
-    recharge = np.asarray(RECHARGE_SERIES_MM_DAY, dtype=float)
-    axes[0].step(
-        elapsed_days,
-        recharge,
-        where="mid",
-        color="#444444",
-        linewidth=2.0,
+    reporting_write_flux_figure(
+        results,
+        output_png,
+        solver_order=SOLVER_ORDER,
+        solver_labels=SOLVER_LABELS,
+        recharge_series_mm_day=RECHARGE_SERIES_MM_DAY,
+        style_fn=_comparison_plot_style,
     )
-    axes[0].set_ylabel("Recharge [mm/day]")
-    axes[0].grid(alpha=0.25, linewidth=0.6)
-
-    for item in ordered:
-        axes[1].plot(
-            item.elapsed_days,
-            item.total_outflow_m3_day,
-            label=f"{SOLVER_LABELS[item.solver]} total outflow",
-            **_comparison_plot_style(item.solver),
-        )
-    axes[1].set_xlabel("Time [days]")
-    axes[1].set_ylabel("Flux [m3/day]")
-    axes[1].grid(alpha=0.25, linewidth=0.6)
-    axes[1].legend(loc="upper left", fontsize=8.8, frameon=False)
-
-    fig.suptitle("Recharge ramp then dry recovery: recharge and total outflow", fontsize=11.0)
-    fig.savefig(output_png, dpi=180, bbox_inches="tight")
-    plt.close(fig)
 
 
 def _write_total_outflow_overlay_figure(results: list[TransientResult], output_png: Path) -> None:
-    output_png.parent.mkdir(parents=True, exist_ok=True)
-    output_png.unlink(missing_ok=True)
-    ordered = sorted(results, key=lambda item: SOLVER_ORDER.index(item.solver))
-    fig, ax = plt.subplots(figsize=(10.4, 4.8), constrained_layout=True)
-
-    for item in ordered:
-        ax.plot(
-            item.elapsed_days,
-            item.total_outflow_m3_day,
-            label=SOLVER_LABELS[item.solver],
-            **_comparison_plot_style(item.solver),
-        )
-    ax.set_xlabel("Time [days]")
-    ax.set_ylabel("Total Outflow [m3/day]")
-    ax.set_title("Total Outflow Overlay", fontsize=10.8)
-    ax.grid(alpha=0.25, linewidth=0.6)
-    ax.legend(loc="upper left", fontsize=8.8, frameon=False, ncols=3)
-
-    fig.savefig(output_png, dpi=180, bbox_inches="tight")
-    plt.close(fig)
+    reporting_write_total_outflow_overlay_figure(
+        results,
+        output_png,
+        solver_order=SOLVER_ORDER,
+        solver_labels=SOLVER_LABELS,
+        style_fn=_comparison_plot_style,
+    )
 
 
 def _write_outflow_components_figure(results: list[TransientResult], output_png: Path) -> None:
-    output_png.parent.mkdir(parents=True, exist_ok=True)
-    output_png.unlink(missing_ok=True)
-    ordered = sorted(results, key=lambda item: SOLVER_ORDER.index(item.solver))
-    fig, axes = plt.subplots(len(ordered), 1, figsize=(11.0, 8.8), sharex=True, constrained_layout=True)
-    if len(ordered) == 1:
-        axes = [axes]
-    for ax, item in zip(axes, ordered, strict=False):
-        ax.plot(
-            item.elapsed_days,
-            item.total_outflow_m3_day,
-            color="#111111",
-            linewidth=2.2,
-            label="Total outflow",
-        )
-        ax.plot(
-            item.elapsed_days,
-            item.east_boundary_outflow_m3_day,
-            color="#7f7f7f",
-            linewidth=1.8,
-            linestyle="-.",
-            label="East boundary",
-        )
-        ax.plot(
-            item.elapsed_days,
-            item.drainage_flux_m3_day,
-            color=SOLVER_COLORS[item.solver],
-            linewidth=2.0,
-            label="Drainage",
-        )
-        if item.bouss_surface_flux_m3_day is not None:
-            ax.plot(
-                item.elapsed_days,
-                item.bouss_surface_flux_m3_day,
-                color="#d62728",
-                linewidth=1.8,
-                linestyle="--",
-                label="Surface excess",
-            )
-        ax.set_ylabel("Flux [m3/day]")
-        ax.set_title(SOLVER_LABELS[item.solver], fontsize=10.5)
-        ax.grid(alpha=0.25, linewidth=0.6)
-    axes[0].legend(loc="upper left", fontsize=8.8, frameon=False, ncols=4)
-    axes[-1].set_xlabel("Time [days]")
-    fig.suptitle("Outflow components by solver", fontsize=11.0)
-    fig.savefig(output_png, dpi=180, bbox_inches="tight")
-    plt.close(fig)
+    reporting_write_outflow_components_figure(
+        results,
+        output_png,
+        solver_order=SOLVER_ORDER,
+        solver_labels=SOLVER_LABELS,
+        solver_colors=SOLVER_COLORS,
+    )
 
 
 def _write_flux_budget_figure(results: list[TransientResult], output_png: Path) -> None:
-    output_png.parent.mkdir(parents=True, exist_ok=True)
-    output_png.unlink(missing_ok=True)
-    ordered = sorted(results, key=lambda item: SOLVER_ORDER.index(item.solver))
-    elapsed_days = ordered[0].elapsed_days
-
-    fig, axes = plt.subplots(3, 2, figsize=(12.4, 9.8), sharex=True, constrained_layout=True)
-    flat_axes = list(np.asarray(axes).reshape(-1))
-
-    recharge_ax = flat_axes[0]
-    recharge_ax.step(
-        elapsed_days,
-        ordered[0].recharge_flux_m3_day,
-        where="mid",
-        color="#222222",
-        linewidth=2.0,
+    reporting_write_flux_budget_figure(
+        results,
+        output_png,
+        solver_order=SOLVER_ORDER,
+        solver_labels=SOLVER_LABELS,
+        style_fn=_comparison_plot_style,
     )
-    recharge_ax.set_title("Recharge Input", fontsize=10.2)
-    recharge_ax.set_ylabel("Flux [m3/day]")
-    recharge_ax.grid(alpha=0.25, linewidth=0.6)
-
-    panel_specs: list[tuple[Any, str]] = [
-        (lambda item: item.storage_balance_m3_day, "Storage Balance"),
-        (lambda item: item.drainage_flux_m3_day, "Drainage Outflow"),
-        (lambda item: item.east_boundary_outflow_m3_day, "East Boundary Outflow"),
-        (
-            lambda item: (
-                np.zeros_like(item.elapsed_days, dtype=float)
-                if item.bouss_surface_flux_m3_day is None
-                else np.asarray(item.bouss_surface_flux_m3_day, dtype=float)
-            ),
-            "Surface Excess Outflow",
-        ),
-        (lambda item: item.total_outflow_m3_day, "Total Outflow"),
-    ]
-
-    for ax, (series_getter, title) in zip(flat_axes[1:], panel_specs, strict=False):
-        for item in ordered:
-            ax.plot(
-                item.elapsed_days,
-                np.asarray(series_getter(item), dtype=float),
-                label=SOLVER_LABELS[item.solver],
-                **_comparison_plot_style(item.solver),
-            )
-        if title == "Storage Balance":
-            ax.axhline(0.0, color="#444444", linewidth=1.0, linestyle="--")
-        ax.set_title(title, fontsize=10.2)
-        ax.set_ylabel("Flux [m3/day]")
-        ax.grid(alpha=0.25, linewidth=0.6)
-
-    flat_axes[1].legend(loc="upper right", fontsize=8.4, frameon=False)
-    flat_axes[-2].set_xlabel("Time [days]")
-    flat_axes[-1].set_xlabel("Time [days]")
-    fig.suptitle("Complete Flux Budget Comparison", fontsize=11.0)
-    fig.savefig(output_png, dpi=180, bbox_inches="tight")
-    plt.close(fig)
 
 
 def _write_execution_times_figure(results: list[TransientResult], output_png: Path) -> None:
-    output_png.parent.mkdir(parents=True, exist_ok=True)
-    output_png.unlink(missing_ok=True)
-    ordered = sorted(results, key=lambda item: SOLVER_ORDER.index(item.solver))
-    labels = [SOLVER_LABELS[item.solver] for item in ordered]
-    values = [
-        float(item.wall_time_seconds) if item.wall_time_seconds is not None else float("nan")
-        for item in ordered
-    ]
-    colors = [SOLVER_COLORS[item.solver] for item in ordered]
-    ypos = np.arange(len(ordered), dtype=float)
-
-    fig, ax = plt.subplots(figsize=(8.4, 3.8), constrained_layout=True)
-    bars = ax.barh(ypos, values, color=colors, edgecolor="#222222", linewidth=0.6)
-    ax.set_yticks(ypos, labels)
-    ax.set_xlabel("Wall Time [s]")
-    ax.set_title("Execution Time Comparison", fontsize=10.8)
-    ax.grid(axis="x", alpha=0.25, linewidth=0.6)
-
-    for bar, value in zip(bars, values, strict=False):
-        if not np.isfinite(value):
-            continue
-        ax.text(
-            float(bar.get_width()) + max(values) * 0.015,
-            float(bar.get_y()) + float(bar.get_height()) * 0.5,
-            f"{value:.2f} s",
-            va="center",
-            ha="left",
-            fontsize=8.8,
-        )
-    fig.savefig(output_png, dpi=180, bbox_inches="tight")
-    plt.close(fig)
+    reporting_write_execution_times_figure(
+        results,
+        output_png,
+        solver_order=SOLVER_ORDER,
+        solver_labels=SOLVER_LABELS,
+        solver_colors=SOLVER_COLORS,
+    )
 
 
 def _select_informative_points(results: list[TransientResult]) -> list[tuple[str, str, float]]:
@@ -1041,109 +1051,37 @@ def _select_informative_points(results: list[TransientResult]) -> list[tuple[str
 
 
 def _write_head_point_figure(results: list[TransientResult], output_png: Path) -> list[dict[str, Any]]:
-    output_png.parent.mkdir(parents=True, exist_ok=True)
-    output_png.unlink(missing_ok=True)
-    ordered = sorted(results, key=lambda item: SOLVER_ORDER.index(item.solver))
-    point_specs = _select_informative_points(ordered)
-    fig, axes = plt.subplots(4, 1, figsize=(11.0, 10.4), sharex=True, constrained_layout=True)
-
-    recharge = np.asarray(RECHARGE_SERIES_MM_DAY, dtype=float)
-    elapsed_days = ordered[0].elapsed_days
-    axes[0].step(
-        elapsed_days,
-        recharge,
-        where="mid",
-        color="#444444",
-        linewidth=2.0,
+    return reporting_write_head_point_figure(
+        results,
+        output_png,
+        solver_order=SOLVER_ORDER,
+        solver_labels=SOLVER_LABELS,
+        recharge_series_mm_day=RECHARGE_SERIES_MM_DAY,
+        point_bands=POINT_BANDS,
+        style_fn=_comparison_plot_style,
     )
-    axes[0].set_ylabel("Recharge\n[mm/day]")
-    axes[0].grid(alpha=0.25, linewidth=0.6)
-
-    rows: list[dict[str, Any]] = []
-    for ax, (point_id, point_label, target_x_m) in zip(axes[1:], point_specs, strict=False):
-        topo_value_m: float | None = None
-        for item in ordered:
-            idx = int(np.argmin(np.abs(item.x - float(target_x_m))))
-            x_value = float(item.x[idx])
-            head_series = np.asarray(item.head_profiles[:, idx], dtype=float)
-            clearance_series = np.asarray(item.clearance_profiles[:, idx], dtype=float)
-            ax.plot(
-                item.elapsed_days,
-                head_series,
-                label=SOLVER_LABELS[item.solver],
-                **_comparison_plot_style(item.solver),
-            )
-            for t_day, head_m, clearance_m in zip(item.elapsed_days, head_series, clearance_series, strict=False):
-                rows.append(
-                    {
-                        "point_id": point_id,
-                        "point_label": point_label,
-                        "x_m": x_value,
-                        "solver": item.solver,
-                        "solver_label": SOLVER_LABELS[item.solver],
-                        "elapsed_days": float(t_day),
-                        "head_m": float(head_m),
-                        "clearance_m": float(clearance_m),
-                    }
-                )
-            if topo_value_m is None:
-                topo_value_m = float(item.topography_profile[idx])
-        if topo_value_m is not None:
-            ax.axhline(
-                topo_value_m,
-                color="#222222",
-                linewidth=1.2,
-                linestyle="--",
-                label="Topography" if point_id == point_specs[0][0] else None,
-            )
-        ax.set_ylabel("Head [m]")
-        ax.set_title(f"{point_label} (x ~ {target_x_m:.0f} m)", fontsize=10.0)
-        ax.grid(alpha=0.25, linewidth=0.6)
-
-    axes[1].legend(loc="upper left", fontsize=8.8, frameon=False, ncols=4)
-    axes[-1].set_xlabel("Time [days]")
-    fig.suptitle("Recharge ramp then dry recovery: head time series at selected hillslope points", fontsize=11.0)
-    fig.savefig(output_png, dpi=180, bbox_inches="tight")
-    plt.close(fig)
-    return rows
 
 
-def _write_markdown_summary(results: list[TransientResult], output_md: Path, figures_dir: Path) -> None:
-    ordered = sorted(results, key=lambda item: SOLVER_ORDER.index(item.solver))
-    lines = [
-        "# Transient Hillslope Surface-Interaction Investigation",
-        "",
-        "West no-flow, east fixed head, annual recharge ramp followed by one dry year, and top drainage.",
-        "",
-        f"- hydraulic conductivity scale: `{HYDRAULIC_CONDUCTIVITY_SCALE:.3f}x`",
-        f"- drainage conductance: `{DRAINAGE_CONDUCTANCE_M2_S:.3g} m2/s`",
-        f"- time step: `{DT_DAYS:.1f} day`",
-        f"- recharge series [mm/day]: `{list(RECHARGE_SERIES_MM_DAY)}`",
-        "- forcing shape: increase during first half-year, decrease during second half-year, then one additional year with zero recharge.",
-        "",
-        "| Solver | Onset day [d] | Peak drainage flux [m3/day] | Peak drainage day [d] | Max clearance [m] | Wall time [s] | Results dir |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | --- |",
-    ]
-    for item in ordered:
-        wall_time_text = "n/a" if item.wall_time_seconds is None else f"{item.wall_time_seconds:.2f}"
-        lines.append(
-            f"| {SOLVER_LABELS[item.solver]} | {item.onset_day:.1f} | {item.peak_drainage_flux_m3_day:.4f} | {item.peak_drainage_day:.1f} | {item.max_clearance_m:.4f} | {wall_time_text} | `{item.out_path}` |"
-        )
-    lines.extend(
-        [
-            "",
-            f"Head snapshots: `{figures_dir / 'head_snapshots.png'}`",
-            f"Head point time series: `{figures_dir / 'head_point_timeseries.png'}`",
-            f"Flux chronicle: `{figures_dir / 'flux_timeseries.png'}`",
-            f"Total outflow overlay: `{figures_dir / 'total_outflow_overlay.png'}`",
-            f"Outflow components: `{figures_dir / 'outflow_components.png'}`",
-            f"Complete flux budget: `{figures_dir / 'flux_budget_comparison.png'}`",
-            f"Execution times: `{figures_dir / 'execution_times.png'}`",
-            "",
-        ]
+def _write_markdown_summary(
+    results: list[TransientResult],
+    output_md: Path,
+    figures_dir: Path,
+    *,
+    hydraulic_conductivity_scale: float,
+    topography_base_elevation_m: float,
+) -> None:
+    reporting_write_markdown_summary(
+        results,
+        output_md,
+        figures_dir,
+        solver_order=SOLVER_ORDER,
+        solver_labels=SOLVER_LABELS,
+        recharge_series_mm_day=RECHARGE_SERIES_MM_DAY,
+        hydraulic_conductivity_scale=hydraulic_conductivity_scale,
+        topography_base_elevation_m=topography_base_elevation_m,
+        drainage_conductance_m2_s=DRAINAGE_CONDUCTANCE_M2_S,
+        dt_days=DT_DAYS,
     )
-    output_md.parent.mkdir(parents=True, exist_ok=True)
-    output_md.write_text("\n".join(lines), encoding="utf-8")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -1162,6 +1100,28 @@ def _build_parser() -> argparse.ArgumentParser:
         default=2400,
         help="Per-solver timeout in seconds.",
     )
+    parser.add_argument(
+        "--solvers",
+        type=str,
+        nargs="+",
+        default=list(SOLVER_ORDER),
+        help=(
+            "Subset of solvers to run. Choices: modflownwt modflow6 "
+            "modflow6_irregular_tri boussinesq petsc_partition petsc"
+        ),
+    )
+    parser.add_argument(
+        "--hydraulic-conductivity-scale",
+        type=float,
+        default=HYDRAULIC_CONDUCTIVITY_SCALE,
+        help="Multiplier applied to the reference hydraulic conductivity.",
+    )
+    parser.add_argument(
+        "--topography-offset-m",
+        type=float,
+        default=0.0,
+        help="Vertical offset added to the whole topography, without changing the imposed head.",
+    )
     return parser
 
 
@@ -1174,33 +1134,61 @@ def main(argv: list[str] | None = None) -> int:
 
     metadata = load_case_metadata(CASE_DIR)
     reference_cfg = dict(metadata.get("reference", {}))
+    hydraulic_conductivity_scale = _hydraulic_conductivity_scale_from_args(args)
+    topography_base_elevation_m = _topography_base_elevation_from_args(args)
     hydraulic_conductivity_m_s = (
-        float(reference_cfg["hydraulic_conductivity_m_per_s"]) * HYDRAULIC_CONDUCTIVITY_SCALE
+        float(reference_cfg["hydraulic_conductivity_m_per_s"]) * hydraulic_conductivity_scale
     )
 
     runtime_configs_dir = output_root / "runtime_configs"
     results: list[TransientResult] = []
-    for solver_key, launcher_solver in (
+    requested_solvers = tuple(str(value).strip().lower() for value in args.solvers)
+    launcher_specs = (
         ("modflownwt", "modflownwt"),
         ("modflow6", "modflow6"),
         ("modflow6_irregular_tri", "modflow6"),
-    ):
+    )
+    for solver_key, launcher_solver in launcher_specs:
+        if solver_key not in requested_solvers:
+            continue
         t0 = time.perf_counter()
         run_result = _run_launcher_solver(
             metadata=metadata,
             solver=launcher_solver,
             solver_key=solver_key,
             hydraulic_conductivity_m_s=hydraulic_conductivity_m_s,
+            topography_base_elevation_m=topography_base_elevation_m,
             timeout=int(args.timeout),
             runtime_configs_dir=runtime_configs_dir,
         )
-        results.append(_build_result(run_result, wall_time_seconds=time.perf_counter() - t0))
-    t0 = time.perf_counter()
-    bouss_result = _run_boussinesq(
-        hydraulic_conductivity_m_s=hydraulic_conductivity_m_s,
-        timeout=int(args.timeout),
-    )
-    results.append(_build_result(bouss_result, wall_time_seconds=time.perf_counter() - t0))
+        results.append(
+            _build_result(
+                run_result,
+                hydraulic_conductivity_scale=hydraulic_conductivity_scale,
+                topography_base_elevation_m=topography_base_elevation_m,
+                wall_time_seconds=time.perf_counter() - t0,
+            )
+        )
+    for bouss_solver in ("boussinesq", "petsc_partition", "petsc"):
+        if bouss_solver not in requested_solvers:
+            continue
+        t0 = time.perf_counter()
+        bouss_result = _run_boussinesq(
+            solver_key=bouss_solver,
+            hydraulic_conductivity_m_s=hydraulic_conductivity_m_s,
+            topography_base_elevation_m=topography_base_elevation_m,
+            timeout=int(args.timeout),
+        )
+        results.append(
+            _build_result(
+                bouss_result,
+                hydraulic_conductivity_scale=hydraulic_conductivity_scale,
+                topography_base_elevation_m=topography_base_elevation_m,
+                wall_time_seconds=time.perf_counter() - t0,
+            )
+        )
+    if not results:
+        raise ValueError("No valid solvers were selected.")
 
     timeseries_rows: list[dict[str, Any]] = []
     summary_rows: list[dict[str, Any]] = []
@@ -1213,10 +1201,14 @@ def main(argv: list[str] | None = None) -> int:
                 "elapsed_days": float(day),
                 "recharge_mm_day": float(RECHARGE_SERIES_MM_DAY[idx]),
                 "recharge_flux_m3_day": float(item.recharge_flux_m3_day[idx]),
+                "east_boundary_inflow_m3_day": float(item.east_boundary_inflow_m3_day[idx]),
                 "drainage_flux_m3_day": float(item.drainage_flux_m3_day[idx]),
                 "east_boundary_outflow_m3_day": float(item.east_boundary_outflow_m3_day[idx]),
+                "total_inflow_m3_day": float(item.total_inflow_m3_day[idx]),
                 "total_outflow_m3_day": float(item.total_outflow_m3_day[idx]),
-                "storage_balance_m3_day": float(item.storage_balance_m3_day[idx]),
+                "net_inflow_m3_day": float(item.net_inflow_m3_day[idx]),
+                "storage_change_m3_day": float(item.storage_change_m3_day[idx]),
+                "residual_m3_day": float(item.residual_m3_day[idx]),
                 "max_clearance_m": float(np.max(item.clearance_profiles[idx])),
             }
             if item.bouss_surface_flux_m3_day is not None:
@@ -1261,7 +1253,13 @@ def main(argv: list[str] | None = None) -> int:
     _write_execution_times_figure(results, figures_dir / "execution_times.png")
     head_point_rows = _write_head_point_figure(results, figures_dir / "head_point_timeseries.png")
     _write_csv(output_root / "head_point_timeseries.csv", head_point_rows)
-    _write_markdown_summary(results, output_root / "summary.md", figures_dir)
+    _write_markdown_summary(
+        results,
+        output_root / "summary.md",
+        figures_dir,
+        hydraulic_conductivity_scale=hydraulic_conductivity_scale,
+        topography_base_elevation_m=topography_base_elevation_m,
+    )
     (output_root / "summary.json").write_text(
         json.dumps(
             {

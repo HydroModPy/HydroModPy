@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import nbformat as nbf
+from nbformat.validator import normalize
+
 
 NOTEBOOK_DIR = Path(__file__).resolve().parent
 REPO_ROOT = NOTEBOOK_DIR.parents[3]
@@ -488,27 +491,43 @@ def _build_markdown(notebook_name: str, parameters: dict[str, ParameterValue]) -
     return "\n".join(lines)
 
 
-def _upsert_generated_cell(notebook_path: Path, markdown: str) -> None:
+def _normalize_notebook(data: dict[str, Any]) -> dict[str, Any]:
+    _, normalized = normalize(nbf.from_dict(data))
+    return normalized
+
+
+def _read_notebook(notebook_path: Path) -> dict[str, Any]:
     data = json.loads(notebook_path.read_text(encoding="utf-8"))
-    cell = {
-        "cell_type": "markdown",
-        "metadata": CELL_METADATA,
-        "source": [line + "\n" for line in markdown.rstrip().splitlines()],
-    }
+    return _normalize_notebook(data)
+
+
+def _write_notebook(notebook_path: Path, data: dict[str, Any]) -> None:
+    normalized = _normalize_notebook(data)
+    notebook_path.write_text(json.dumps(normalized, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+
+
+def _upsert_generated_cell(notebook_path: Path, markdown: str) -> None:
+    data = _read_notebook(notebook_path)
+    cell = nbf.v4.new_markdown_cell(markdown)
+    cell["source"] = [line + "\n" for line in markdown.rstrip().splitlines()]
+    cell["metadata"] = dict(CELL_METADATA)
     cells = data.get("cells", [])
     insert_at = 1 if cells and cells[0].get("cell_type") == "markdown" else 0
     if len(cells) > insert_at and cells[insert_at].get("metadata", {}).get("hydromodpy_generated_cell") == "example_parameters":
+        existing_id = cells[insert_at].get("id")
+        if existing_id:
+            cell["id"] = existing_id
         cells[insert_at] = cell
     else:
         cells.insert(insert_at, cell)
     data["cells"] = cells
-    notebook_path.write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    _write_notebook(notebook_path, data)
 
 
 def main() -> None:
     for notebook_stem, relative_source in NOTEBOOK_SOURCE_MAP.items():
         notebook_path = NOTEBOOK_DIR / f"{notebook_stem}.ipynb"
-        notebook_data = json.loads(notebook_path.read_text(encoding="utf-8"))
+        notebook_data = _read_notebook(notebook_path)
         source_text = "\n\n".join(
             "".join(cell.get("source", []))
             for cell in notebook_data.get("cells", [])

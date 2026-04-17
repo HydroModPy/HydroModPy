@@ -357,7 +357,7 @@ def render_boussinesq_edge_flux_map(
     edge_node_b_indices: np.ndarray,
     boundary_edge_mask: np.ndarray,
     internal_edge_flux_m3_s: np.ndarray,
-    imposed_head_edge_flux_m3_s: np.ndarray | None = None,
+    boundary_edge_flux_m3_s: np.ndarray | None = None,
 ) -> None:
     """Render internal-edge flux magnitudes and signed boundary exchanges."""
     from matplotlib.collections import LineCollection
@@ -397,8 +397,8 @@ def render_boussinesq_edge_flux_map(
         cb.ax.tick_params(labelsize=7)
         cb.set_label("Internal |Q| [m3/s]", fontsize=7)
 
-    if imposed_head_edge_flux_m3_s is not None:
-        boundary_flux = np.asarray(imposed_head_edge_flux_m3_s, dtype=float).reshape(-1)
+    if boundary_edge_flux_m3_s is not None:
+        boundary_flux = np.asarray(boundary_edge_flux_m3_s, dtype=float).reshape(-1)
         active_boundary = boundary_mask & np.isfinite(boundary_flux) & (boundary_flux != 0.0)
         if np.any(active_boundary):
             boundary_mid_x = 0.5 * (node_x[node_a[active_boundary]] + node_x[node_b[active_boundary]])
@@ -514,7 +514,7 @@ def plot_boussinesq_edge_flux_map(
     edge_node_b_indices: np.ndarray,
     boundary_edge_mask: np.ndarray,
     internal_edge_flux_m3_s: np.ndarray,
-    imposed_head_edge_flux_m3_s: np.ndarray | None = None,
+    boundary_edge_flux_m3_s: np.ndarray | None = None,
     options: DisplayOptions | None = None,
     save_path: Path | None = None,
     figsize: tuple[float, float] = (14.0, 10.0),
@@ -537,7 +537,7 @@ def plot_boussinesq_edge_flux_map(
         edge_node_b_indices=edge_node_b_indices,
         boundary_edge_mask=boundary_edge_mask,
         internal_edge_flux_m3_s=internal_edge_flux_m3_s,
-        imposed_head_edge_flux_m3_s=imposed_head_edge_flux_m3_s,
+        boundary_edge_flux_m3_s=boundary_edge_flux_m3_s,
     )
     fig.tight_layout(pad=0.4)
     if options is not None:

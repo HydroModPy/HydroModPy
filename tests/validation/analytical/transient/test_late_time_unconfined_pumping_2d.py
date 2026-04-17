@@ -11,20 +11,12 @@ from validation_cases.analytical.transient.late_time_unconfined_pumping_2d.compa
 )
 
 
-@pytest.mark.validation
-@pytest.mark.analytical
-@pytest.mark.transient
-@pytest.mark.slow
-@pytest.mark.parametrize(
-    ("solver", "require_modflow", "require_modflow6"),
-    [
-        pytest.param("modflownwt", True, False, id="modflownwt"),
-        pytest.param("modflow6", False, True, id="modflow6"),
-        pytest.param("boussinesq", False, False, id="boussinesq"),
-    ],
-)
-
-def test_late_time_unconfined_pumping_2d_matches_late_time_reference(solver: str, require_modflow: bool, require_modflow6: bool) -> None:
+def _assert_late_time_unconfined_pumping_case(
+    *,
+    solver: str,
+    require_modflow: bool,
+    require_modflow6: bool,
+) -> None:
     """Run the launcher case and compare late-time radial drawdowns."""
     assert_required_executables(
         require_modflow=require_modflow,
@@ -68,5 +60,41 @@ def test_late_time_unconfined_pumping_2d_matches_late_time_reference(solver: str
         unit="m",
     )
 
+
+@pytest.mark.validation
+@pytest.mark.analytical
+@pytest.mark.transient
+@pytest.mark.fast
+@pytest.mark.parametrize(
+    ("solver", "require_modflow", "require_modflow6"),
+    [
+        pytest.param("modflownwt", True, False, id="modflownwt"),
+        pytest.param("modflow6", False, True, id="modflow6"),
+    ],
+)
+def test_late_time_unconfined_pumping_2d_matches_late_time_reference_fast_solvers(
+    solver: str,
+    require_modflow: bool,
+    require_modflow6: bool,
+) -> None:
+    """Keep the MODFLOW-backed late-time checks in the fast validation tier."""
+    _assert_late_time_unconfined_pumping_case(
+        solver=solver,
+        require_modflow=require_modflow,
+        require_modflow6=require_modflow6,
+    )
+
+
+@pytest.mark.validation
+@pytest.mark.analytical
+@pytest.mark.transient
+@pytest.mark.slow
+def test_late_time_unconfined_pumping_2d_matches_late_time_reference_boussinesq() -> None:
+    """Run the slower Boussinesq late-time radial benchmark in the slow tier."""
+    _assert_late_time_unconfined_pumping_case(
+        solver="boussinesq",
+        require_modflow=False,
+        require_modflow6=False,
+    )
 
 

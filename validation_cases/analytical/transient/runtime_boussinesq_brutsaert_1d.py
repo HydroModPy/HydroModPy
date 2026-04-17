@@ -10,6 +10,10 @@ import numpy as np
 
 from hydromodpy.process.flow import Flow
 from hydromodpy.solver.boussinesq import Boussinesq, BoussinesqState
+from hydromodpy.solver.boussinesq.history_contract import (
+    build_transient_time_axes,
+    write_time_series_npy,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
@@ -30,12 +34,34 @@ def _mm_day_to_m_s(mm_day: float) -> float:
     return float(mm_day) * 1.0e-3 / 86400.0
 
 
-def _east_outlet_discharge_m3_s(model, edge_flux_by_edge: np.ndarray) -> float:
+def _east_outlet_discharge_m3_s(model, internal_edge_flux_m3_s: np.ndarray) -> float:
     if model.mesh is None:
         raise RuntimeError("Boussinesq mesh must exist before extracting outlet flux.")
-    east_edges = model.mesh.boundary_edge_indices_for_side("east_side")
-    edge_flux = np.asarray(edge_flux_by_edge, dtype=float)
-    return float(np.sum(np.maximum(edge_flux[east_edges], 0.0)))
+    east_cells = np.asarray(
+        model.mesh.boundary_cell_indices_for_side("east_side"),
+        dtype=int,
+    ).reshape(-1)
+    if east_cells.size == 0:
+        return 0.0
+    prescribed_mask = np.zeros(model.mesh.n_cells, dtype=bool)
+    prescribed_mask[east_cells] = True
+    outward_flux_m3_s = 0.0
+    edge_flux = np.asarray(internal_edge_flux_m3_s, dtype=float).reshape(-1)
+    for edge_index in range(model.mesh.n_edges):
+        cell_a = int(model.mesh.edge_cell_a[edge_index])
+        cell_b = int(model.mesh.edge_cell_b[edge_index])
+        if cell_a < 0 or cell_b < 0:
+            continue
+        a_prescribed = bool(prescribed_mask[cell_a])
+        b_prescribed = bool(prescribed_mask[cell_b])
+        if a_prescribed == b_prescribed:
+            continue
+        flux = float(edge_flux[edge_index])
+        if a_prescribed:
+            outward_flux_m3_s += -flux
+        else:
+            outward_flux_m3_s += flux
+    return float(max(outward_flux_m3_s, 0.0))
 
 
 def _save_scalar_series_npy(
@@ -43,12 +69,20 @@ def _save_scalar_series_npy(
     postprocess_dir: Path,
     observable_name: str,
     values: np.ndarray,
+    start_index: int = 0,
+    elapsed_seconds: np.ndarray | None = None,
 ) -> None:
-    payload = {
-        int(index): np.asarray([float(value)], dtype=float)
-        for index, value in enumerate(np.asarray(values, dtype=float).tolist())
-    }
-    np.save(postprocess_dir / f"{observable_name}.npy", payload)
+    time_keys = np.arange(
+        int(start_index),
+        int(start_index) + int(np.asarray(values, dtype=float).size),
+        dtype=int,
+    )
+    write_time_series_npy(
+        postprocess_dir / f"{observable_name}.npy",
+        np.asarray(values, dtype=float),
+        time_keys=time_keys,
+        elapsed_seconds=elapsed_seconds,
+    )
 
 
 def run_boussinesq_brutsaert_recession_case(
@@ -159,19 +193,20 @@ def run_boussinesq_brutsaert_recession_case(
             case_dir=case_dir,
         )
     )
+    period_lengths_seconds = tuple(float(dt_seconds) for _ in range(int(nper)))
     transient_model = Boussinesq(
         mesh_bundle=bundle,
         flow=transient_flow,
         domain=None,
         time_grid=SimpleNamespace(
-            period_lengths_seconds=tuple(float(dt_seconds) for _ in range(int(nper))),
+            period_lengths_seconds=period_lengths_seconds,
             window=None,
         ),
         model_folder=simulations_folder,
         model_name="flow_validation__boussinesq",
     )
     transient_model.pre_processing()
-    transient_model.state = BoussinesqState(
+    transient_model.state = BoussinesqState.initial(
         head_m=np.asarray(steady_model.state.head_m, dtype=float).copy(),
         saturated_thickness_m=np.asarray(
             steady_model.state.saturated_thickness_m,
@@ -191,15 +226,14 @@ def run_boussinesq_brutsaert_recession_case(
         transient_model,
         nx=int(nx),
         ny=int(ny),
-        export_initial_state=False,
     )
 
     initial_outlet_discharge_m3_s = _east_outlet_discharge_m3_s(
         steady_model,
-        np.asarray(steady_model.state.imposed_head_edge_flux_m3_s, dtype=float),
+        np.asarray(steady_model.state.internal_edge_flux_m3_s, dtype=float),
     )
     edge_flux_history = np.asarray(
-        transient_model.state.imposed_head_edge_flux_history_m3_s,
+        transient_model.state.internal_edge_flux_history_m3_s,
         dtype=float,
     )
     outlet_history_m3_s = np.asarray(
@@ -212,15 +246,22 @@ def run_boussinesq_brutsaert_recession_case(
 
     model_ws = Path(transient_model.full_path)
     postprocess_dir = model_ws / "_postprocess"
+    step_elapsed_seconds = build_transient_time_axes(
+        period_lengths_seconds
+    ).step_end_elapsed_seconds
     _save_scalar_series_npy(
         postprocess_dir=postprocess_dir,
         observable_name="outlet_discharge_m3_s",
         values=outlet_history_m3_s[1:],
+        start_index=1,
+        elapsed_seconds=step_elapsed_seconds,
     )
     _save_scalar_series_npy(
         postprocess_dir=postprocess_dir,
         observable_name="outlet_discharge_east_side_m3_s",
         values=outlet_history_m3_s[1:],
+        start_index=1,
+        elapsed_seconds=step_elapsed_seconds,
     )
     context_payload = {
         "initial_outlet_discharge_m3_s": float(initial_outlet_discharge_m3_s),

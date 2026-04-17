@@ -21,7 +21,11 @@ import sys
 from typing import Any
 
 # Ensure repository root is importable when the script is launched directly.
-REPO_ROOT = Path(__file__).resolve().parents[3]
+# ``review_cases.py`` lives under ``hydromodpy/spatial/field/cases/``, so the
+# repository root is four levels up. Inserting ``.../hydromodpy`` here would
+# shadow the legacy top-level ``launchers`` package with
+# ``hydromodpy/launchers`` modules during test collection.
+REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 

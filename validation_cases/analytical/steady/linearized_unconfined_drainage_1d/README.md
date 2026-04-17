@@ -20,10 +20,17 @@ Comparison:
 - compared quantity: domain-averaged head profile along `x`
 - reference: steady linearized unconfined profile with distributed top drainage
 
+Solver variants:
+
+- `modflownwt` and `modflow6` use the historical structured strip,
+- `modflow6_irregular_tri` runs the same benchmark on one shared irregular-triangle strip,
+- the local `boussinesq` backend is not exposed here yet because this benchmark keeps the head above the top drainage elevation everywhere, which currently collides with the saturation-excess surface closure instead of staying on the intended linearized distributed-drainage branch.
+
 Direct execution:
 
 ```bash
 python -m validation_cases.analytical.steady.linearized_unconfined_drainage_1d.run_case
+python -m validation_cases.analytical.steady.linearized_unconfined_drainage_1d.run_case --solver modflow6_irregular_tri --show
 ```
 
 The runner saves a PNG figure with:

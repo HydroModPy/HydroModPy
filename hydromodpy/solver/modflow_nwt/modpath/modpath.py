@@ -47,7 +47,7 @@ from hydromodpy.core.tools.display import plot_params
 logger = get_logger(__name__)
 fontprop = plot_params(8,15,18,20) # small, medium, interm, large
 
-from hydromodpy.solver import Solver
+from hydromodpy.solver.contracts import Solver
 
 #%% CLASS
 

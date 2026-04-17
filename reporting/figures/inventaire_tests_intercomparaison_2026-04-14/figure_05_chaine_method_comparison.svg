@@ -1,0 +1,60 @@
+<svg viewBox="0 0 920 342" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="fig-method-title fig-method-desc">
+  <title id="fig-method-title">Chaine de traitement de method_comparison</title>
+  <desc id="fig-method-desc">Schema montrant comment le launcher consomme les sorties postprocess et produit metriques, differences et rapports.</desc>
+  <defs>
+    <marker id="arrow-e" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#60707d"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="920" height="342" rx="18" fill="#fffdf9"/>
+  <text x="32" y="38" fill="#173242" font-size="24" font-family="Segoe UI, Aptos, sans-serif" font-weight="700">Ce que fait exactement <tspan font-family="Cascadia Code, Consolas, monospace">method_comparison</tspan></text>
+  <text x="32" y="60" fill="#5a6874" font-size="14" font-family="Segoe UI, Aptos, sans-serif">Il s'agit d'une infrastructure de comparaison. Elle normalise des sorties heterogenes, mais ne constitue pas a elle seule une preuve physique.</text>
+
+  <rect x="28" y="108" width="156" height="160" rx="18" fill="#eef5fb" stroke="#d5e6f3"/>
+  <text x="106" y="138" text-anchor="middle" fill="#1f4660" font-size="17" font-family="Segoe UI, Aptos, sans-serif" font-weight="700">Bundles d'entree</text>
+  <text x="106" y="166" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">solveur A</text>
+  <text x="106" y="184" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">solveur B</text>
+  <text x="106" y="202" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">solveur C</text>
+  <text x="106" y="228" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">sorties <tspan font-family="Cascadia Code, Consolas, monospace">_postprocess</tspan></text>
+  <text x="106" y="246" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">deja produites</text>
+
+  <rect x="214" y="108" width="170" height="160" rx="18" fill="#eef7f2" stroke="#d6e8df"/>
+  <text x="299" y="138" text-anchor="middle" fill="#114b48" font-size="17" font-family="Segoe UI, Aptos, sans-serif" font-weight="700">Extraction</text>
+  <text x="299" y="166" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">points</text>
+  <text x="299" y="184" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">cartes</text>
+  <text x="299" y="202" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">outlet flux</text>
+  <text x="299" y="220" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">cell_mask / nodata</text>
+  <text x="299" y="238" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">anchors_file</text>
+
+  <rect x="414" y="108" width="170" height="160" rx="18" fill="#f8ebcf" stroke="#eddcb8"/>
+  <text x="499" y="138" text-anchor="middle" fill="#7d5512" font-size="17" font-family="Segoe UI, Aptos, sans-serif" font-weight="700">Alignement</text>
+  <text x="499" y="166" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">time keys</text>
+  <text x="499" y="184" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">fallback last</text>
+  <text x="499" y="202" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">meme observable</text>
+  <text x="499" y="220" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">meme repere</text>
+  <text x="499" y="238" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">graceful fallback</text>
+
+  <rect x="614" y="108" width="140" height="160" rx="18" fill="#f4efe7" stroke="#e2d9ca"/>
+  <text x="684" y="138" text-anchor="middle" fill="#173242" font-size="17" font-family="Segoe UI, Aptos, sans-serif" font-weight="700">Metriques</text>
+  <text x="684" y="166" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">mae</text>
+  <text x="684" y="184" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">rmse</text>
+  <text x="684" y="202" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">differences</text>
+  <text x="684" y="220" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">native flux panel</text>
+  <text x="684" y="238" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">execution time bars</text>
+
+  <rect x="784" y="108" width="108" height="160" rx="18" fill="#dcefea" stroke="#c7dfd8"/>
+  <text x="838" y="138" text-anchor="middle" fill="#114b48" font-size="17" font-family="Segoe UI, Aptos, sans-serif" font-weight="700">Sorties</text>
+  <text x="838" y="166" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">CSV</text>
+  <text x="838" y="184" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">JSON</text>
+  <text x="838" y="202" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">Markdown</text>
+  <text x="838" y="220" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">figures</text>
+  <text x="838" y="238" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">dashboards</text>
+
+  <path d="M184 188 L214 188" stroke="#60707d" stroke-width="3" marker-end="url(#arrow-e)"/>
+  <path d="M384 188 L414 188" stroke="#60707d" stroke-width="3" marker-end="url(#arrow-e)"/>
+  <path d="M584 188 L614 188" stroke="#60707d" stroke-width="3" marker-end="url(#arrow-e)"/>
+  <path d="M754 188 L784 188" stroke="#60707d" stroke-width="3" marker-end="url(#arrow-e)"/>
+
+  <rect x="164" y="290" width="592" height="28" rx="10" fill="#f4efe7" stroke="#e2d9ca"/>
+  <text x="460" y="309" text-anchor="middle" fill="#274350" font-size="13" font-family="Segoe UI, Aptos, sans-serif">Interpretation : ce bloc rend les comparaisons possibles et lisibles ; il ne remplace pas les seuils scientifiques d'un vrai test de validation.</text>
+</svg>

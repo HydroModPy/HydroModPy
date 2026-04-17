@@ -2,6 +2,11 @@
 
 Ce dossier porte le **pivot de maillage unifie** d'HydroModPy.
 
+La documentation technique publique et les UML publies sur Read the Docs
+vivent sous l'onglet `Architecture`, en particulier dans
+`docs/readthedocs/source/architecture/index.rst` et
+`docs/readthedocs/source/architecture/mesh/index.rst`.
+
 L'idee est simple :
 
 - tous les producteurs de maillage convertissent vers `HydroMesh` ;
@@ -314,7 +319,9 @@ Proprietes utiles :
 
 ## Diagrammes UML Recommandes
 
-Les diagrammes UML sont dans [UML.md](./UML.md).
+Les diagrammes UML locaux sont dans [UML.md](./UML.md).
+Pour la documentation technique publique et les diagrammes exposes dans la doc
+web, utiliser la section `Architecture` de Read the Docs.
 
 Je recommande de maintenir au minimum :
 

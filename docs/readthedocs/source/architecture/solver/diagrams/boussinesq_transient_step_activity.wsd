@@ -1,0 +1,37 @@
+@startuml
+title Boussinesq Solver - Transient Step Activity
+
+start
+:Read previous accepted head;
+:Resolve recharge, wells,\nboundary payloads for kper;
+:Resolve solver contract\n(method + engine);
+:Build TransientStepInputs;
+
+if (Prescribed boundary cells?) then (yes)
+  :Overwrite prescribed cells\nin canonical head view;
+else (no)
+  :Keep free-cell state;
+endif
+
+:Assemble spatial terms;
+:Add transient storage term;
+:Run nonlinear backend\n(local / SciPy / PETSc);
+
+if (Converged?) then (yes)
+  :Accept RuntimeSolveResult;
+  :Update BoussinesqState;
+  :Append histories and summaries;
+else (no)
+  :Store failure diagnostics;
+endif
+
+:Build export payload;
+
+if (Legacy consumers still need\nimposed_head_* ?) then (yes)
+  :Emit compatibility view;
+else (no)
+  :Export canonical prescribed_* only;
+endif
+
+stop
+@enduml

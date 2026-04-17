@@ -2,8 +2,9 @@
 
 from types import SimpleNamespace
 
-from hydromodpy.process import Flow, Transport
+from hydromodpy.process.flow import Flow
 from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.process.transport import Transport
 from hydromodpy.process.transport.transport_config import TransportConfig
 from hydromodpy.simulation.execution.runner import (
     ensure_flow,

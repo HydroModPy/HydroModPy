@@ -100,10 +100,10 @@ Solver Coverage
          Linearized Unconfined 1D Periodic Recharge rendered with Boussinesq for the analytical gallery.
 
       **Metrics**
-      - Space-time RMSE: 0.0060 m
-      - Space-time max abs error: 0.0138 m
-      - Final-profile RMSE: 0.0023 m
-      - Cross-row head spread: 4.35e-08 m
+      - Space-time RMSE: 0.0062 m
+      - Space-time max abs error: 0.0158 m
+      - Final-profile RMSE: 0.0013 m
+      - Cross-row head spread: 5.88e-09 m
 
       - Config file: ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_boussinesq.toml``
       - Tolerances: ``validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances.toml``

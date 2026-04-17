@@ -27,6 +27,7 @@ dependencies:
 - python>=3.11,<3.14
 - rasterio
 - rioxarray
+- cma
 - scikit-learn
 - scipy
 - selenium

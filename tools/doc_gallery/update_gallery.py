@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
+import csv
 import gc
 import hashlib
 import importlib
@@ -48,9 +50,64 @@ AUTO_GENERATED_NOTE = (
 VALIDATION_SOLVER_LABELS = {
     "modflownwt": "MODFLOW-NWT",
     "modflow6": "MODFLOW 6",
+    "modflow6_irregular_tri": "MODFLOW 6 irregular triangles",
     "boussinesq": "Boussinesq",
 }
-VALIDATION_SOLVER_ORDER = ("modflownwt", "modflow6", "boussinesq")
+VALIDATION_SOLVER_ORDER = ("modflownwt", "modflow6", "modflow6_irregular_tri", "boussinesq")
+CATEGORY_GROUP_SPECS = (
+    {
+        "title": "Build The Support",
+        "deck": (
+            "Start here when the question is still about the basin, the geometry, the "
+            "properties, or the mesh rather than about solver behaviour."
+        ),
+        "categories": ("geographic", "geometry", "hydraulic_properties", "mesh"),
+    },
+    {
+        "title": "Run And Compare",
+        "deck": (
+            "Move here once the spatial support is understood and you want to inspect one "
+            "full workflow or compare solver families on shared supports."
+        ),
+        "categories": ("simulation", "method_comparison", "code_comparison"),
+    },
+    {
+        "title": "Validate And Calibrate",
+        "deck": (
+            "Use these pages when the goal is not demonstration only, but numerical trust "
+            "or inverse-problem behaviour."
+        ),
+        "categories": ("validation", "calibration"),
+    },
+)
+
+
+def _gallery_temp_root() -> Path:
+    """Return the temp root used by doc-gallery helpers and checks."""
+
+    override = os.environ.get("HYDROMODPY_DOC_GALLERY_TMPDIR", "").strip()
+    if override:
+        temp_root = Path(override)
+        if not temp_root.is_absolute():
+            temp_root = (REPO_ROOT / temp_root).resolve()
+    else:
+        temp_root = REPO_ROOT / ".tmp-doc-gallery"
+    temp_root.mkdir(parents=True, exist_ok=True)
+    return temp_root
+
+
+def _temporary_gallery_dir(*, prefix: str) -> tempfile.TemporaryDirectory[str]:
+    """Create one temporary directory under the gallery temp root."""
+
+    return tempfile.TemporaryDirectory(prefix=prefix, dir=_gallery_temp_root())
+
+
+def _load_calibration_benchmark_families() -> dict[str, dict[str, Any]]:
+    try:
+        from .calibration_case_registry import CALIBRATION_BENCHMARK_FAMILIES
+    except Exception:
+        return {}
+    return CALIBRATION_BENCHMARK_FAMILIES
 
 
 def _absolute_docname(docname: str) -> str:
@@ -201,7 +258,341 @@ def build_parser() -> argparse.ArgumentParser:
             "through source hashes stored in the generated JSON summaries."
         ),
     )
+    parser.add_argument(
+        "--only",
+        action="append",
+        help=(
+            "Limit the operation to one or more case slugs. The option can be repeated "
+            "or passed one comma-separated list."
+        ),
+    )
+    parser.add_argument(
+        "--category",
+        action="append",
+        help=(
+            "Limit the operation to one or more category slugs. The option can be "
+            "repeated or passed one comma-separated list."
+        ),
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help=(
+            "List the selected gallery cases without generating anything. This still "
+            "validates the manifest inventory."
+        ),
+    )
     return parser
+
+
+def _normalize_filter_values(values: list[str] | None) -> tuple[str, ...]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw_value in values or ():
+        for token in str(raw_value).split(","):
+            value = token.strip()
+            if value == "" or value in seen:
+                continue
+            seen.add(value)
+            normalized.append(value)
+    return tuple(normalized)
+
+
+def _select_gallery_specs(
+    specs: tuple[GalleryCaseSpec, ...],
+    *,
+    only_slugs: tuple[str, ...] = (),
+    categories: tuple[str, ...] = (),
+) -> tuple[GalleryCaseSpec, ...]:
+    if categories:
+        unknown_categories = [slug for slug in categories if slug not in CATEGORY_SPECS]
+        if unknown_categories:
+            raise ValueError(
+                "Unknown gallery categories: " + ", ".join(sorted(unknown_categories))
+            )
+
+    specs_by_slug = {spec.slug: spec for spec in specs}
+    unknown_slugs = [slug for slug in only_slugs if slug not in specs_by_slug]
+    if unknown_slugs:
+        raise ValueError("Unknown gallery slugs: " + ", ".join(sorted(unknown_slugs)))
+
+    if not only_slugs and not categories:
+        return specs
+
+    selected: list[GalleryCaseSpec] = []
+    selected_slugs: set[str] = set()
+    category_filter = set(categories)
+    explicit_slugs = set(only_slugs)
+    for spec in specs:
+        include = False
+        if spec.slug in explicit_slugs:
+            include = True
+        if category_filter and spec.category in category_filter:
+            include = True
+        if include and spec.slug not in selected_slugs:
+            selected.append(spec)
+            selected_slugs.add(spec.slug)
+    return tuple(selected)
+
+
+def _source_relative_from_repo_path(repo_path: str) -> str:
+    repo_prefix = DOCS_SOURCE_DIR.relative_to(REPO_ROOT).as_posix()
+    normalized = Path(str(repo_path)).as_posix()
+    if normalized.startswith(repo_prefix + "/"):
+        return normalized[len(repo_prefix) + 1 :]
+    raise ValueError(f"Expected one docs-generated repo path, got: {repo_path}")
+
+
+def _load_existing_case_summary(
+    source_root: Path,
+    *,
+    slug: str,
+    category_hint: str | None = None,
+) -> dict[str, Any] | None:
+    candidate_paths: list[Path] = []
+    if category_hint:
+        candidate_paths.append(
+            source_root
+            / "_static"
+            / "capability_gallery"
+            / category_hint
+            / f"{slug}_summary.json"
+        )
+    candidate_paths.extend(
+        sorted(
+            (
+                source_root / "_static" / "capability_gallery"
+            ).glob(f"*/{slug}_summary.json")
+        )
+    )
+    for candidate_path in candidate_paths:
+        if not candidate_path.exists():
+            continue
+        try:
+            payload = json.loads(candidate_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            return payload
+    return None
+
+
+def _known_case_generated_paths(summary: dict[str, Any]) -> set[str]:
+    generated_paths: set[str] = set()
+    docname = str(summary.get("docname", "")).strip()
+    if docname:
+        generated_paths.add((Path("capability_gallery") / f"{docname}.rst").as_posix())
+    artifacts = dict(summary.get("artifacts", {}))
+    for repo_path in (
+        str(artifacts.get("summary_json_repo_path", "")).strip(),
+        *(str(item).strip() for item in artifacts.get("image_repo_paths", ())),
+        *(str(item).strip() for item in artifacts.get("extra_repo_paths", ())),
+    ):
+        if repo_path == "":
+            continue
+        try:
+            generated_paths.add(_source_relative_from_repo_path(repo_path))
+        except ValueError:
+            continue
+    return generated_paths
+
+
+def _cleanup_stale_case_artifacts(
+    source_root: Path,
+    *,
+    old_summary: dict[str, Any] | None,
+    new_summary: dict[str, Any],
+) -> None:
+    if old_summary is None:
+        return
+    stale_paths = _known_case_generated_paths(old_summary) - _known_case_generated_paths(new_summary)
+    for relative_path in stale_paths:
+        path = source_root / relative_path
+        if path.exists() and path.is_file():
+            path.unlink()
+
+
+def _merge_case_summaries_by_category(
+    all_specs: tuple[GalleryCaseSpec, ...],
+    *,
+    selected_summaries_by_slug: dict[str, dict[str, Any]],
+    baseline_source_root: Path,
+) -> dict[str, list[dict[str, Any]]]:
+    summaries_by_category: dict[str, list[dict[str, Any]]] = {
+        category_slug: []
+        for category_slug in CATEGORY_SPECS
+    }
+    known_slugs = {spec.slug for spec in all_specs}
+    missing_summaries: list[str] = []
+    for spec in all_specs:
+        summary = selected_summaries_by_slug.get(spec.slug)
+        if summary is None:
+            summary = _load_existing_case_summary(
+                baseline_source_root,
+                slug=spec.slug,
+                category_hint=spec.category,
+            )
+        if summary is None:
+            missing_summaries.append(spec.slug)
+            continue
+        summaries_by_category[spec.category].append(summary)
+    if missing_summaries:
+        raise FileNotFoundError(
+            "Missing committed summary JSON for: " + ", ".join(missing_summaries)
+        )
+
+    static_root = baseline_source_root / "_static" / "capability_gallery"
+    if static_root.exists():
+        for summary_path in sorted(static_root.glob("*/*_summary.json")):
+            try:
+                payload = json.loads(summary_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(payload, dict):
+                continue
+            slug = str(payload.get("slug", "")).strip()
+            category = str(payload.get("category", "")).strip()
+            if slug == "" or category not in summaries_by_category:
+                continue
+            if slug in selected_summaries_by_slug or slug in known_slugs:
+                continue
+            summaries_by_category[category].append(payload)
+    return summaries_by_category
+
+
+def _write_gallery_pages_from_summaries(
+    *,
+    source_root: Path,
+    summaries_by_category: dict[str, list[dict[str, Any]]],
+    rewrite_calibration_pages: bool,
+    category_slugs_to_write: set[str] | None = None,
+) -> None:
+    docs_dir = source_root / "capability_gallery"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    _write_text(docs_dir / "index.rst", _build_index_page(summaries_by_category))
+    for category_slug, cases in summaries_by_category.items():
+        if category_slugs_to_write is not None and category_slug not in category_slugs_to_write:
+            continue
+        if cases:
+            _write_text(docs_dir / f"{category_slug}.rst", _build_category_page(category_slug, cases))
+
+    calibration_cases = list(summaries_by_category.get("calibration", []))
+    if not rewrite_calibration_pages or not calibration_cases:
+        return
+    for family_group in _group_calibration_cases_by_benchmark_family(calibration_cases):
+        page_slug = str(family_group.get("page_slug") or "").strip()
+        if page_slug == "":
+            continue
+        comparison_summary = _generate_calibration_intercomparison_summary(
+            source_root=source_root,
+            calibration_cases=list(family_group["cases"]),
+            output_subdir=Path("calibration") / "intercomparison" / page_slug,
+        )
+        _write_text(
+            docs_dir / f"{page_slug}.rst",
+            _build_calibration_intercomparison_page(
+                calibration_cases=list(family_group["cases"]),
+                comparison_summary=comparison_summary,
+                title=str(family_group.get("page_title") or family_group["title"]),
+                intro=str(family_group.get("page_intro") or family_group["deck"]),
+                seealso_doc="calibration",
+                seealso_title="the calibration benchmark category",
+            ),
+        )
+
+
+def _generate_selected_gallery(
+    *,
+    source_root: Path,
+    baseline_source_root: Path,
+    all_specs: tuple[GalleryCaseSpec, ...],
+    selected_specs: tuple[GalleryCaseSpec, ...],
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    docs_dir = source_root / "capability_gallery"
+    static_dir = source_root / "_static" / "capability_gallery"
+    case_dir = docs_dir / "cases"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    static_dir.mkdir(parents=True, exist_ok=True)
+    case_dir.mkdir(parents=True, exist_ok=True)
+
+    old_summaries_by_slug: dict[str, dict[str, Any]] = {}
+    selected_summaries_by_slug: dict[str, dict[str, Any]] = {}
+    for spec in selected_specs:
+        previous_summary = _load_existing_case_summary(
+            baseline_source_root,
+            slug=spec.slug,
+            category_hint=spec.category,
+        )
+        if previous_summary is not None:
+            old_summaries_by_slug[spec.slug] = previous_summary
+
+        case_summary = _with_parameter_docs(_generate_case(spec, source_root))
+        selected_summaries_by_slug[spec.slug] = case_summary
+        summary_path = static_dir / str(case_summary["category"]) / f"{case_summary['slug']}_summary.json"
+        _write_json(summary_path, case_summary)
+        _write_text(case_dir / f"{case_summary['slug']}.rst", _build_case_page(case_summary))
+        _cleanup_stale_case_artifacts(
+            source_root,
+            old_summary=previous_summary,
+            new_summary=case_summary,
+        )
+
+    summaries_by_category = _merge_case_summaries_by_category(
+        all_specs,
+        selected_summaries_by_slug=selected_summaries_by_slug,
+        baseline_source_root=baseline_source_root,
+    )
+    affected_categories = {
+        spec.category
+        for spec in selected_specs
+    }
+    affected_categories.update(
+        str(summary.get("category", "")).strip()
+        for summary in old_summaries_by_slug.values()
+        if str(summary.get("category", "")).strip()
+    )
+    _write_gallery_pages_from_summaries(
+        source_root=source_root,
+        summaries_by_category=summaries_by_category,
+        rewrite_calibration_pages=any(spec.category == "calibration" for spec in selected_specs),
+        category_slugs_to_write=affected_categories,
+    )
+    return selected_summaries_by_slug, old_summaries_by_slug
+
+
+def _compare_selected_generated_tree(
+    *,
+    expected_source_root: Path,
+    committed_source_root: Path,
+    stale_relative_paths: set[str] | None = None,
+) -> list[str]:
+    expected_files = _collect_generated_files(expected_source_root)
+    issues: list[str] = []
+
+    for relative_path, expected_path in expected_files.items():
+        committed_path = committed_source_root / relative_path
+        if not committed_path.exists():
+            issues.append(f"Missing generated file: {relative_path}")
+            continue
+        suffix = Path(relative_path).suffix.lower()
+        if suffix in TEXTUAL_SUFFIXES and expected_path.read_bytes() != committed_path.read_bytes():
+            issues.append(f"Stale generated file: {relative_path}")
+
+    for relative_path in sorted(stale_relative_paths or set()):
+        if (committed_source_root / relative_path).exists():
+            issues.append(f"Unexpected generated file: {relative_path}")
+
+    return issues
+
+
+def _list_gallery_specs(specs: tuple[GalleryCaseSpec, ...]) -> str:
+    lines = [
+        f"Selected {len(specs)} gallery case(s).",
+        "",
+    ]
+    for spec in specs:
+        lines.append(f"- [{spec.category}] {spec.slug}: {spec.title}")
+    return "\n".join(lines)
 
 
 def _repo_path(relative_path: str) -> Path:
@@ -401,7 +792,7 @@ def _build_case_summary(
 def _generate_mesh_viewer_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
     preferred_assets = [asset for asset in spec.image_assets if asset.source_path is not None]
     if preferred_assets:
-        with tempfile.TemporaryDirectory(prefix="hydromodpy_doc_gallery_mesh_viewer_") as temp_dir:
+        with _temporary_gallery_dir(prefix="hydromodpy_doc_gallery_mesh_viewer_") as temp_dir:
             temp_figure_path = Path(temp_dir) / spec.image_assets[0].filename
             config = load_toml_config(_repo_path(str(spec.metadata["config_path"])))
             config = replace(
@@ -471,6 +862,442 @@ def _generate_copy_assets_case(spec: GalleryCaseSpec, source_root: Path) -> dict
     )
 
 
+def _read_csv_rows(path: Path) -> list[dict[str, str]]:
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _regional_lab_status_style(status: str) -> tuple[str, str, str]:
+    mapping = {
+        "planned": ("#4C78A8", "PL", "Planned"),
+        "ok": ("#54A24B", "OK", "Executed successfully"),
+        "skipped_existing_ok": ("#72B7B2", "RE", "Reused from previous report"),
+        "failed": ("#E45756", "FL", "Failed"),
+        "skipped_missing_required_fields": ("#F58518", "GAP", "Coverage gap"),
+        "unsupported_platform": ("#B279A2", "PLT", "Unsupported platform"),
+    }
+    normalized = str(status).strip().lower()
+    return mapping.get(
+        normalized,
+        ("#BAB0AC", _humanize_case_token(normalized)[:3].upper() or "NA", _humanize_case_token(normalized)),
+    )
+
+
+def _safe_int(value: Any) -> int:
+    text = str(value).strip()
+    if text == "":
+        return 0
+    return int(float(text))
+
+
+def _render_regional_lab_figure(
+    *,
+    figure_path: Path,
+    case_title: str,
+    plan_payload: dict[str, Any],
+    report_payload: dict[str, Any],
+    recipe_rows: list[dict[str, str]],
+    cluster_rows: list[dict[str, str]],
+    case_matrix_rows: list[dict[str, str]],
+) -> None:
+    plt = _import_pyplot()
+
+    site_order: list[str] = []
+    site_labels: dict[str, str] = {}
+    recipe_order: list[str] = []
+    recipe_labels: dict[str, str] = {}
+    status_by_pair: dict[tuple[str, str], str] = {}
+    for row in case_matrix_rows:
+        site_id = str(row.get("site_id", "")).strip()
+        recipe_id = str(row.get("recipe_id", "")).strip()
+        if site_id and site_id not in site_order:
+            site_order.append(site_id)
+            site_labels[site_id] = str(row.get("site_label", site_id)).strip() or site_id
+        if recipe_id and recipe_id not in recipe_order:
+            recipe_order.append(recipe_id)
+            recipe_labels[recipe_id] = str(row.get("recipe_label", recipe_id)).strip() or recipe_id
+        if site_id and recipe_id:
+            status_by_pair[(recipe_id, site_id)] = str(row.get("status", "")).strip()
+
+    fig = plt.figure(figsize=(15.2, 9.2), dpi=160)
+    gs = fig.add_gridspec(2, 2, width_ratios=[1.7, 1.0], height_ratios=[1.0, 0.9], wspace=0.30, hspace=0.34)
+    ax_matrix = fig.add_subplot(gs[:, 0])
+    ax_recipe = fig.add_subplot(gs[0, 1])
+    ax_text = fig.add_subplot(gs[1, 1])
+
+    if site_order and recipe_order:
+        for row_index, recipe_id in enumerate(recipe_order):
+            for col_index, site_id in enumerate(site_order):
+                status = status_by_pair.get((recipe_id, site_id), "not_applicable")
+                color, short_label, _legend_label = _regional_lab_status_style(status)
+                rect = plt.Rectangle(
+                    (col_index, row_index),
+                    1.0,
+                    1.0,
+                    facecolor=color,
+                    edgecolor="white",
+                    linewidth=1.4,
+                )
+                ax_matrix.add_patch(rect)
+                ax_matrix.text(
+                    col_index + 0.5,
+                    row_index + 0.5,
+                    short_label,
+                    ha="center",
+                    va="center",
+                    fontsize=9,
+                    color="white" if color not in {"#BAB0AC", "#F2F2F2"} else "#222222",
+                    fontweight="bold",
+                )
+        ax_matrix.set_xlim(0, len(site_order))
+        ax_matrix.set_ylim(len(recipe_order), 0)
+        ax_matrix.set_xticks(np.arange(len(site_order)) + 0.5)
+        ax_matrix.set_xticklabels(
+            [site_labels[site_id] for site_id in site_order],
+            rotation=30,
+            ha="right",
+        )
+        ax_matrix.set_yticks(np.arange(len(recipe_order)) + 0.5)
+        ax_matrix.set_yticklabels([recipe_labels[recipe_id] for recipe_id in recipe_order])
+        ax_matrix.set_title("Site x Recipe Matrix", loc="left", fontsize=12, fontweight="bold")
+        ax_matrix.set_xlabel("Selected sites")
+        ax_matrix.set_ylabel("Recipes")
+        ax_matrix.tick_params(length=0)
+        for spine in ax_matrix.spines.values():
+            spine.set_visible(False)
+    else:
+        ax_matrix.axis("off")
+        ax_matrix.text(0.02, 0.98, "No case-matrix rows found.", transform=ax_matrix.transAxes, va="top")
+
+    legend_handles = []
+    seen_statuses: set[str] = set()
+    for row in case_matrix_rows:
+        status = str(row.get("status", "")).strip()
+        if status in seen_statuses:
+            continue
+        seen_statuses.add(status)
+        color, _short, label = _regional_lab_status_style(status)
+        legend_handles.append(plt.matplotlib.patches.Patch(color=color, label=label))
+    if legend_handles:
+        ax_matrix.legend(
+            handles=legend_handles,
+            loc="upper left",
+            bbox_to_anchor=(0.0, -0.12),
+            ncol=2,
+            frameon=False,
+            fontsize=9,
+        )
+
+    recipe_labels_ordered = [str(row.get("recipe_label", row.get("recipe_id", ""))).strip() for row in recipe_rows]
+    recipe_candidate = np.array([_safe_int(row.get("candidate_site_count")) for row in recipe_rows], dtype=float)
+    recipe_planned = np.array([_safe_int(row.get("planned_case_count")) for row in recipe_rows], dtype=float)
+    recipe_skipped = np.array([_safe_int(row.get("skipped_case_count")) for row in recipe_rows], dtype=float)
+    y_positions = np.arange(len(recipe_rows))
+    if len(recipe_rows) > 0:
+        ax_recipe.barh(y_positions, recipe_candidate, color="#E6E6E6", label="Candidate sites")
+        ax_recipe.barh(y_positions, recipe_planned, color="#4C78A8", label="Planned")
+        ax_recipe.barh(y_positions, recipe_skipped, left=recipe_planned, color="#F58518", label="Skipped")
+        for index, row in enumerate(recipe_rows):
+            pending = _safe_int(row.get("pending_case_count"))
+            ax_recipe.text(
+                recipe_candidate[index] + 0.06,
+                index,
+                f"pending {pending}",
+                va="center",
+                fontsize=8.5,
+                color="#444444",
+            )
+        ax_recipe.set_yticks(y_positions)
+        ax_recipe.set_yticklabels(recipe_labels_ordered)
+        ax_recipe.invert_yaxis()
+        ax_recipe.set_xlabel("Cases or candidate sites")
+        ax_recipe.set_title("Recipe Coverage", loc="left", fontsize=12, fontweight="bold")
+        ax_recipe.grid(axis="x", alpha=0.22)
+        ax_recipe.legend(frameon=False, fontsize=8, loc="lower right")
+        for spine in ax_recipe.spines.values():
+            spine.set_visible(False)
+    else:
+        ax_recipe.axis("off")
+        ax_recipe.text(0.02, 0.98, "No recipe summary found.", transform=ax_recipe.transAxes, va="top")
+
+    ax_text.axis("off")
+    selected_sites = list(plan_payload.get("selected_sites", []))
+    candidate_site_ids = {
+        str(row.get("site_id", "")).strip()
+        for row in case_matrix_rows
+        if str(row.get("site_id", "")).strip()
+    }
+    candidate_site_count = len(candidate_site_ids)
+    displayed_recipe_count = len(
+        {
+            str(row.get("recipe_id", "")).strip()
+            for row in recipe_rows
+            if str(row.get("recipe_id", "")).strip()
+        }
+    )
+    summary_sites = [
+        site
+        for site in selected_sites
+        if str(site.get("site_id", "")).strip() in candidate_site_ids
+    ] or selected_sites
+    runnable_site_count = len(
+        {
+            str(row.get("site_id", "")).strip()
+            for row in case_matrix_rows
+            if str(row.get("status", "")).strip().lower() == "planned"
+        }
+    )
+    status_counts: Counter[str] = Counter(
+        str(site.get("site_status", "")).strip()
+        for site in summary_sites
+        if str(site.get("site_status", "")).strip()
+    )
+    maturity_counts: Counter[str] = Counter(
+        str(site.get("maturity", "")).strip()
+        for site in summary_sites
+        if str(site.get("maturity", "")).strip()
+    )
+    gap_counts: Counter[str] = Counter(
+        str(row.get("reason", "")).strip() or str(row.get("status", "")).strip()
+        for row in case_matrix_rows
+        if str(row.get("status", "")).strip().lower().startswith("skipped")
+    )
+    cluster_lines = [
+        (
+            f"- {str(row.get('cluster_id', '')).strip()}: {_safe_int(row.get('site_count'))} site(s), "
+            f"{_safe_int(row.get('planned_case_count'))} planned, {_safe_int(row.get('skipped_case_count'))} gaps"
+        )
+        for row in cluster_rows
+        if any(
+            _safe_int(row.get(key)) > 0
+            for key in (
+                "planned_case_count",
+                "skipped_case_count",
+                "executed_case_count",
+                "reused_case_count",
+                "failed_case_count",
+                "pending_case_count",
+            )
+        )
+    ]
+    summary_lines = [
+        f"Execute flag: {'true' if bool(report_payload.get('execute', False)) else 'false'}",
+        f"Selected sites: {_safe_int(report_payload.get('selected_site_count'))}",
+        f"Candidate sites for displayed recipe(s): {candidate_site_count}",
+        f"Displayed recipes: {displayed_recipe_count}",
+        f"Planned cases: {_safe_int(report_payload.get('planned_case_count'))}",
+        f"Skipped cases: {_safe_int(report_payload.get('skipped_case_count'))}",
+        f"Pending cases: {_safe_int(report_payload.get('pending_case_count'))}",
+        f"Runnable sites in this dry plan: {runnable_site_count}",
+        "",
+        "Candidate site status mix:",
+        ", ".join(f"{label} ({count})" for label, count in sorted(status_counts.items())) or "none",
+        "",
+        "Candidate site maturity mix:",
+        ", ".join(f"{label} ({count})" for label, count in sorted(maturity_counts.items())) or "none",
+        "",
+        "Gap reasons:",
+        ", ".join(f"{label} ({count})" for label, count in sorted(gap_counts.items())) or "none",
+    ]
+    if cluster_lines:
+        summary_lines.extend(["", "Clusters:"])
+        summary_lines.extend(cluster_lines[:4])
+    ax_text.text(
+        0.0,
+        1.0,
+        "\n".join(summary_lines),
+        va="top",
+        ha="left",
+        fontsize=9.4,
+        family="monospace",
+    )
+    ax_text.set_title("Planning Summary", loc="left", fontsize=12, fontweight="bold")
+
+    fig.suptitle(case_title, fontsize=15, fontweight="bold", x=0.055, ha="left", y=0.98)
+    subtitle = (
+        "Recipe-focused dry-plan view of one regional laboratory: one reusable recipe is expanded over its candidate sites, while missing child inputs stay visible as explicit coverage gaps."
+        if displayed_recipe_count == 1
+        else "Dry-plan view of one regional laboratory: committed configs create planned child runs, while missing recipe inputs stay visible as explicit coverage gaps."
+    )
+    fig.text(
+        0.055,
+        0.945,
+        subtitle,
+        fontsize=10.2,
+        color="#444444",
+    )
+    fig.subplots_adjust(left=0.06, right=0.98, top=0.90, bottom=0.10, wspace=0.30, hspace=0.34)
+    figure_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(figure_path, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _sanitize_regional_lab_artifact_payload(payload: Any) -> Any:
+    if isinstance(payload, dict):
+        sanitized: dict[str, Any] = {}
+        for key, value in payload.items():
+            if key == "generated_at_utc":
+                sanitized[key] = "<generated_at_utc>"
+            elif key == "output_root":
+                sanitized[key] = "<regional_lab_output_root>"
+            elif key == "synthesis_paths" and isinstance(value, dict):
+                sanitized[key] = {
+                    str(path_key): (
+                        (Path("regional_lab_outputs") / Path(path_value).name).as_posix()
+                        if isinstance(path_value, str) and path_value.strip()
+                        else path_value
+                    )
+                    for path_key, path_value in value.items()
+                }
+            elif key.endswith("_path") and isinstance(value, str) and value.strip():
+                sanitized[key] = _repo_relative(value)
+            elif key == "resolved_paths" and isinstance(value, dict):
+                sanitized[key] = {
+                    str(path_key): (
+                        _repo_relative(path_value)
+                        if isinstance(path_value, str) and path_value.strip()
+                        else path_value
+                    )
+                    for path_key, path_value in value.items()
+                }
+            else:
+                sanitized[key] = _sanitize_regional_lab_artifact_payload(value)
+        return sanitized
+    if isinstance(payload, list):
+        return [_sanitize_regional_lab_artifact_payload(item) for item in payload]
+    return payload
+
+
+def _generate_regional_lab_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
+    from launchers.regional_lab.launcher import RegionalLabLauncher
+
+    config_path = _repo_path(str(spec.metadata["regional_lab_config_path"]))
+    with _temporary_gallery_dir(prefix="hydromodpy_doc_gallery_regional_lab_") as temp_dir:
+        output_root = Path(temp_dir) / "regional_lab_outputs"
+        launcher = RegionalLabLauncher(config_path)
+        launcher.cfg = replace(
+            launcher.cfg,
+            output_root=output_root,
+            execute=False,
+            resume_from_report=False,
+            skip_completed_cases=False,
+        )
+        launcher.run()
+
+        plan_path = output_root / "regional_lab_plan.json"
+        report_path = output_root / "regional_lab_report.json"
+        summary_markdown_path = output_root / "regional_lab_summary.md"
+        site_inventory_path = output_root / "regional_lab_site_inventory.csv"
+        recipe_summary_path = output_root / "regional_lab_recipe_summary.csv"
+        cluster_summary_path = output_root / "regional_lab_cluster_summary.csv"
+        case_matrix_path = output_root / "regional_lab_case_matrix.csv"
+
+        plan_payload = json.loads(plan_path.read_text(encoding="utf-8"))
+        report_payload = json.loads(report_path.read_text(encoding="utf-8"))
+        sanitized_plan_payload = _sanitize_regional_lab_artifact_payload(plan_payload)
+        sanitized_report_payload = _sanitize_regional_lab_artifact_payload(report_payload)
+        recipe_rows = _read_csv_rows(recipe_summary_path)
+        cluster_rows = _read_csv_rows(cluster_summary_path)
+        case_matrix_rows = _read_csv_rows(case_matrix_path)
+
+        figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+        _render_regional_lab_figure(
+            figure_path=figure_path,
+            case_title=spec.title,
+            plan_payload=plan_payload,
+            report_payload=report_payload,
+            recipe_rows=recipe_rows,
+            cluster_rows=cluster_rows,
+            case_matrix_rows=case_matrix_rows,
+        )
+
+        static_dir = source_root / Path("_static") / "capability_gallery" / spec.category
+        static_dir.mkdir(parents=True, exist_ok=True)
+        copied_artifact_names: list[str] = []
+        for source_artifact, dest_name, payload in (
+            (plan_path, f"{spec.slug}_plan.json", sanitized_plan_payload),
+            (report_path, f"{spec.slug}_report.json", sanitized_report_payload),
+            (summary_markdown_path, f"{spec.slug}_summary.md", None),
+            (site_inventory_path, f"{spec.slug}_site_inventory.csv", None),
+            (recipe_summary_path, f"{spec.slug}_recipe_summary.csv", None),
+            (cluster_summary_path, f"{spec.slug}_cluster_summary.csv", None),
+            (case_matrix_path, f"{spec.slug}_case_matrix.csv", None),
+        ):
+            destination = static_dir / dest_name
+            if payload is None:
+                shutil.copy2(source_artifact, destination)
+            else:
+                _write_json(destination, payload)
+            copied_artifact_names.append(dest_name)
+
+    candidate_site_ids = sorted(
+        {
+            str(row.get("site_id", "")).strip()
+            for row in case_matrix_rows
+            if str(row.get("site_id", "")).strip()
+        }
+    )
+    runnable_site_count = len(
+        {
+            str(row.get("site_id", "")).strip()
+            for row in case_matrix_rows
+            if str(row.get("status", "")).strip().lower() == "planned"
+        }
+    )
+    metrics_source = {
+        "selected_site_count": int(report_payload.get("selected_site_count", 0)),
+        "candidate_site_count": len(candidate_site_ids),
+        "planned_case_count": int(report_payload.get("planned_case_count", 0)),
+        "skipped_case_count": int(report_payload.get("skipped_case_count", 0)),
+        "pending_case_count": int(report_payload.get("pending_case_count", 0)),
+    }
+    metadata = {
+        **dict(spec.metadata),
+        "execute": bool(report_payload.get("execute", False)),
+        "selected_site_ids": [
+            str(site.get("site_id", "")).strip()
+            for site in list(plan_payload.get("selected_sites", []))
+            if str(site.get("site_id", "")).strip()
+        ],
+        "candidate_site_ids": candidate_site_ids,
+        "recipe_ids": [
+            str(row.get("recipe_id", "")).strip()
+            for row in recipe_rows
+            if str(row.get("recipe_id", "")).strip()
+        ],
+        "recipe_labels": {
+            str(row.get("recipe_id", "")).strip(): str(row.get("recipe_label", "")).strip()
+            for row in recipe_rows
+            if str(row.get("recipe_id", "")).strip()
+        },
+        "candidate_site_count": len(candidate_site_ids),
+        "runnable_site_count": runnable_site_count,
+        "gap_reasons": dict(
+            Counter(
+                str(row.get("reason", "")).strip() or str(row.get("status", "")).strip()
+                for row in case_matrix_rows
+                if str(row.get("status", "")).strip().lower().startswith("skipped")
+            )
+        ),
+    }
+    return _build_case_summary(
+        spec,
+        metrics_source=metrics_source,
+        metadata=metadata,
+        extra_summary={
+            "artifacts": {
+                "summary_json_doc_path": "/" + _docs_relative_static_path(spec.category, f"{spec.slug}_summary.json"),
+                "summary_json_repo_path": _repo_docs_artifact_path(spec.category, f"{spec.slug}_summary.json"),
+                "image_repo_paths": [_repo_docs_artifact_path(spec.category, spec.image_assets[0].filename)],
+                "extra_repo_paths": [
+                    _repo_docs_artifact_path(spec.category, artifact_name)
+                    for artifact_name in copied_artifact_names
+                ],
+            },
+        },
+    )
+
+
 def _build_validation_image_summary(
     *,
     category: str,
@@ -526,37 +1353,53 @@ def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[
         detail = dict(solver_details.get(solver, {}))
         filename = f"{spec.slug}__{solver}.png"
         figure_path = source_root / _docs_relative_static_path(spec.category, filename)
-        comparison = comparison_runner(
-            caller_file=caller_file,
-            timeout=int(spec.metadata.get("timeout", 1800)),
-            solver=solver,
-        )
-        plotting_function(comparison, output_png=figure_path, show_plot=False)
         image_summary = None
-        if figure_path.is_file():
-            image_summary = _build_validation_image_summary(
-                category=spec.category,
-                filename=filename,
-                caption=(
-                    f"{spec.title} rendered with {detail.get('display_name', solver)} for the analytical gallery."
-                ),
-                alt_text=f"{spec.title} validation figure for {detail.get('display_name', solver)}",
-            )
-            all_image_repo_paths.append(image_summary["repo_path"])
-            if solver == default_solver:
-                default_images = [image_summary]
-
+        metric_lines: list[str] = []
         solver_metadata = {
-            "observable_name": getattr(comparison, "observable_name", None),
-            "case_metadata": getattr(comparison, "metadata", {}),
-            "tolerances": getattr(comparison, "tolerances", {}),
+            "observable_name": None,
+            "case_metadata": {},
+            "tolerances": {},
         }
-        if hasattr(comparison, "solver"):
-            solver_metadata["comparison_solver"] = getattr(comparison, "solver")
-        if hasattr(comparison, "timestep"):
-            solver_metadata["timestep"] = getattr(comparison, "timestep")
-        if hasattr(comparison, "final_elapsed_days"):
-            solver_metadata["final_elapsed_days"] = getattr(comparison, "final_elapsed_days")
+        try:
+            comparison = comparison_runner(
+                caller_file=caller_file,
+                timeout=int(spec.metadata.get("timeout", 1800)),
+                solver=solver,
+            )
+            plotting_function(comparison, output_png=figure_path, show_plot=False)
+            if figure_path.is_file():
+                image_summary = _build_validation_image_summary(
+                    category=spec.category,
+                    filename=filename,
+                    caption=(
+                        f"{spec.title} rendered with {detail.get('display_name', solver)} for the analytical gallery."
+                    ),
+                    alt_text=f"{spec.title} validation figure for {detail.get('display_name', solver)}",
+                )
+                all_image_repo_paths.append(image_summary["repo_path"])
+                if solver == default_solver:
+                    default_images = [image_summary]
+
+            solver_metadata = {
+                "observable_name": getattr(comparison, "observable_name", None),
+                "case_metadata": getattr(comparison, "metadata", {}),
+                "tolerances": getattr(comparison, "tolerances", {}),
+            }
+            if hasattr(comparison, "solver"):
+                solver_metadata["comparison_solver"] = getattr(comparison, "solver")
+            if hasattr(comparison, "timestep"):
+                solver_metadata["timestep"] = getattr(comparison, "timestep")
+            if hasattr(comparison, "final_elapsed_days"):
+                solver_metadata["final_elapsed_days"] = getattr(comparison, "final_elapsed_days")
+            metric_lines = list(metric_builder(comparison))
+        except Exception as exc:
+            solver_metadata["generation_error"] = {
+                "type": type(exc).__name__,
+                "message": str(exc),
+            }
+            metric_lines = [
+                f"Gallery generation failed for this solver: {type(exc).__name__}: {exc}"
+            ]
 
         solver_runs.append(
             {
@@ -571,7 +1414,7 @@ def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[
                     solver=solver,
                     include_solver_flag=include_solver_flag,
                 ),
-                "metric_lines": list(metric_builder(comparison)),
+                "metric_lines": metric_lines,
                 "image": image_summary,
                 "metadata": solver_metadata,
             }
@@ -597,6 +1440,15 @@ def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[
             "dimension": spec.metadata.get("dimension"),
             "inventory_reference": spec.metadata.get("inventory_reference"),
             "case_sheet": spec.metadata.get("case_sheet", {}),
+            "process_family": spec.metadata.get("process_family"),
+            "process_family_label": spec.metadata.get("process_family_label"),
+            "geometry_family": spec.metadata.get("geometry_family"),
+            "geometry_family_label": spec.metadata.get("geometry_family_label"),
+            "reference_type": spec.metadata.get("reference_type"),
+            "reference_type_label": spec.metadata.get("reference_type_label"),
+            "validation_family": spec.metadata.get("validation_family"),
+            "validation_family_label": spec.metadata.get("validation_family_label"),
+            "validation_family_order": spec.metadata.get("validation_family_order"),
         },
         images_override=default_images,
         metrics_override=[],
@@ -1113,6 +1965,24 @@ def _add_horizontal_colorbar(fig, mappable, *, axes, label: str):
     return cbar
 
 
+def _load_committed_method_comparison_payload(
+    comparison_root: Path,
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]] | None:
+    """Reuse committed method-comparison artifacts when they already exist."""
+
+    manifest_path = comparison_root / "comparison_manifest.json"
+    metrics_path = comparison_root / "comparison_metrics.json"
+    observables_path = comparison_root / "observables.csv"
+    if not (manifest_path.exists() and metrics_path.exists() and observables_path.exists()):
+        return None
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    metrics_payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+    with observables_path.open("r", encoding="utf-8", newline="") as handle:
+        all_rows = list(csv.DictReader(handle))
+    return manifest, metrics_payload, all_rows
+
+
 def _build_method_comparison_payload(config_path: Path) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     from hydromodpy.core.config.toml_loader import load_toml_with_base_config
     from hydromodpy.analysis.comparison.config import MethodComparisonConfig
@@ -1127,11 +1997,25 @@ def _build_method_comparison_payload(config_path: Path) -> tuple[dict[str, Any],
     raw_toml = load_toml_with_base_config(config_path)
     cfg = MethodComparisonConfig.from_toml(raw_toml, config_path=config_path)
     section = cfg.method_comparison
-    if section.run_variants:
+    committed_payload = _load_committed_method_comparison_payload(cfg.comparison_root)
+    if committed_payload is not None:
+        return committed_payload
+
+    committed_variant_rows: dict[str, dict[str, Any]] = {}
+    committed_manifest_path = cfg.comparison_root / "comparison_manifest.json"
+    if section.run_variants and not committed_manifest_path.exists():
         raise ValueError(
-            "Capability-gallery method comparison cases must reuse committed run folders "
-            "(run_variants=false)."
+            "Capability-gallery method comparison cases with run_variants=true "
+            "must reuse one committed comparison_manifest.json."
         )
+    if committed_manifest_path.exists():
+        committed_manifest = read_json_file(committed_manifest_path)
+        for row in list(committed_manifest.get("variants", [])):
+            if not isinstance(row, dict):
+                continue
+            variant_id = str(row.get("id", "")).strip()
+            if variant_id != "":
+                committed_variant_rows[variant_id] = row
 
     all_rows: list[dict[str, Any]] = []
     variant_summaries: list[dict[str, Any]] = []
@@ -1148,6 +2032,13 @@ def _build_method_comparison_payload(config_path: Path) -> tuple[dict[str, Any],
             continue
 
         run_folder = cfg.resolve_variant_run_folder(variant)
+        committed_variant = committed_variant_rows.get(str(variant.id), {})
+        if run_folder is None:
+            committed_run_folder = str(committed_variant.get("run_folder", "")).strip()
+            if committed_run_folder != "":
+                run_folder = Path(committed_run_folder).expanduser()
+                if not run_folder.is_absolute():
+                    run_folder = (cfg.base_dir / run_folder).resolve()
         if run_folder is None:
             raise ValueError(
                 f"Capability-gallery method comparison case '{config_path}' requires "
@@ -1169,12 +2060,13 @@ def _build_method_comparison_payload(config_path: Path) -> tuple[dict[str, Any],
             {
                 "id": variant.id,
                 "label": variant.label or variant.id,
-                "status": "reused",
+                "status": str(committed_variant.get("status", "reused")),
                 "enabled": True,
                 "solver": variant.solver,
                 "mesh_label": variant.mesh_label,
                 "mesh_mode": variant.mesh_mode,
                 "run_folder": str(run_folder),
+                "wall_time_seconds": committed_variant.get("wall_time_seconds"),
                 "metrics": compact_run_metrics(read_json_file(run_folder / "_metrics.json")),
                 "run_metadata": read_variant_run_metadata(run_folder),
                 "n_observable_rows": len(rows),
@@ -2902,6 +3794,8 @@ def _generate_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
         return _generate_mesh_viewer_case(spec, source_root)
     if spec.generator == "copy_assets":
         return _generate_copy_assets_case(spec, source_root)
+    if spec.generator == "regional_lab_case":
+        return _generate_regional_lab_case(spec, source_root)
     if spec.generator == "validation_case":
         return _generate_validation_case(spec, source_root)
     if spec.generator == "calibration_case":
@@ -2943,6 +3837,160 @@ def _render_grid_card(*, link: str, title: str, deck: str) -> list[str]:
         f"      {deck}",
         "",
     ]
+
+
+def _render_case_count(value: int) -> str:
+    return f"{value} case{'s' if value != 1 else ''}"
+
+
+_VALIDATION_PROCESS_ORDER = {
+    "flow": 0,
+    "transport": 1,
+    "particle_tracking": 2,
+}
+
+
+def _append_case_grid(lines: list[str], cases: list[dict[str, Any]]) -> None:
+    if not cases:
+        return
+    lines.extend(
+        [
+            ".. grid:: 1 1 2 2",
+            "   :gutter: 2 2 3 3",
+            "",
+        ]
+    )
+    for case in cases:
+        lines.extend(
+            _render_grid_card(
+                link=case["docname"],
+                title=case["title"],
+                deck=case["deck"],
+            )
+        )
+
+
+def _format_counted_labels(counts: Counter[tuple[str, str]]) -> str:
+    ordered_items = sorted(
+        counts.items(),
+        key=lambda item: (
+            _VALIDATION_PROCESS_ORDER.get(item[0][0], 999),
+            str(item[0][1]),
+        ),
+    )
+    return ", ".join(f"{label} ({count})" for (_, label), count in ordered_items)
+
+
+def _build_validation_grouped_sections(cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for case in cases:
+        metadata = dict(case.get("metadata", {}))
+        process_key = str(metadata.get("process_family", "flow")).strip() or "flow"
+        process_label = str(
+            metadata.get("process_family_label", process_key.replace("_", " ").title())
+        ).strip()
+        process_entry = grouped.setdefault(
+            process_key,
+            {
+                "key": process_key,
+                "label": process_label,
+                "order": _VALIDATION_PROCESS_ORDER.get(process_key, 999),
+                "families": {},
+            },
+        )
+
+        family_key = str(metadata.get("validation_family", "other")).strip() or "other"
+        family_label = str(
+            metadata.get("validation_family_label", family_key.replace("_", " ").title())
+        ).strip()
+        family_entry = process_entry["families"].setdefault(
+            family_key,
+            {
+                "key": family_key,
+                "label": family_label,
+                "order": int(metadata.get("validation_family_order", 999)),
+                "cases": [],
+            },
+        )
+        family_entry["cases"].append(case)
+
+    sections: list[dict[str, Any]] = []
+    for process_entry in sorted(
+        grouped.values(),
+        key=lambda item: (int(item["order"]), str(item["label"])),
+    ):
+        families = sorted(
+            process_entry["families"].values(),
+            key=lambda item: (int(item["order"]), str(item["label"])),
+        )
+        for family in families:
+            family["cases"] = sorted(
+                family["cases"],
+                key=lambda case: (
+                    str(case.get("metadata", {}).get("regime", "")),
+                    str(case.get("metadata", {}).get("dimension", "")),
+                    str(case.get("slug", "")),
+                ),
+            )
+        sections.append(
+            {
+                "process_key": process_entry["key"],
+                "process_label": process_entry["label"],
+                "families": families,
+            }
+        )
+    return sections
+
+
+def _metadata_order_token(value: Any) -> int | str:
+    token = str(value).strip()
+    return int(token) if token.isdigit() else token
+
+
+def _group_cases_by_family_metadata(
+    cases: list[dict[str, Any]],
+    *,
+    key_name: str,
+    label_name: str,
+    deck_name: str,
+    order_name: str,
+    case_order_name: str,
+) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for case in cases:
+        metadata = dict(case.get("metadata", {}))
+        family_key = str(metadata.get(key_name, "")).strip() or "other"
+        family_label = str(
+            metadata.get(label_name, _humanize_case_token(family_key))
+        ).strip() or _humanize_case_token(family_key)
+        family_deck = str(metadata.get(deck_name, "")).strip()
+        family_entry = grouped.setdefault(
+            family_key,
+            {
+                "key": family_key,
+                "label": family_label,
+                "deck": family_deck,
+                "order": int(metadata.get(order_name, 999)),
+                "cases": [],
+            },
+        )
+        family_entry["cases"].append(case)
+
+    sections = sorted(
+        grouped.values(),
+        key=lambda item: (int(item["order"]), str(item["label"])),
+    )
+    for section in sections:
+        section["cases"] = sorted(
+            section["cases"],
+            key=lambda case: (
+                _metadata_order_token(
+                    case.get("metadata", {}).get(case_order_name, 999)
+                ),
+                str(case.get("title", "")),
+            ),
+        )
+    return sections
 
 
 def _build_calibration_intercomparison_rows(
@@ -3030,19 +4078,85 @@ def _build_calibration_intercomparison_rows(
     return rows
 
 
+def _group_calibration_cases_by_benchmark_family(
+    calibration_cases: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return curated calibration cases grouped by published benchmark family."""
+    calibration_benchmark_families = _load_calibration_benchmark_families()
+    grouped: dict[str, dict[str, Any]] = {}
+    for case in calibration_cases:
+        metadata = dict(case.get("metadata", {}))
+        family_key = str(metadata.get("benchmark_family_key", "")).strip()
+        if family_key == "":
+            family_key = "ungrouped"
+        family_spec = calibration_benchmark_families.get(
+            family_key,
+            {
+                "key": family_key,
+                "title": family_key.replace("_", " ").title(),
+                "deck": "",
+                "page_slug": None,
+                "page_title": None,
+                "page_intro": None,
+                "order": 999,
+                "primary": False,
+            },
+        )
+        entry = grouped.setdefault(
+            family_key,
+            {
+                "key": family_key,
+                "title": str(metadata.get("benchmark_family_title", family_spec["title"])),
+                "deck": str(metadata.get("benchmark_family_deck", family_spec["deck"])),
+                "page_slug": metadata.get(
+                    "benchmark_family_page_slug",
+                    family_spec["page_slug"],
+                ),
+                "page_title": metadata.get(
+                    "benchmark_family_page_title",
+                    family_spec["page_title"],
+                ),
+                "page_intro": metadata.get(
+                    "benchmark_family_page_intro",
+                    family_spec["page_intro"],
+                ),
+                "order": int(
+                    metadata.get(
+                        "benchmark_family_order",
+                        family_spec["order"],
+                    )
+                ),
+                "primary": bool(
+                    metadata.get(
+                        "benchmark_family_primary",
+                        family_spec["primary"],
+                    )
+                ),
+                "cases": [],
+            },
+        )
+        entry["cases"].append(case)
+    return sorted(
+        grouped.values(),
+        key=lambda item: (int(item["order"]), str(item["title"])),
+    )
+
+
 def _generate_calibration_intercomparison_summary(
     *,
     source_root: Path,
     calibration_cases: list[dict[str, Any]],
+    output_subdir: Path | None = None,
 ) -> dict[str, Any]:
     """Generate one cross-case calibration summary and the associated figures."""
     rows = _build_calibration_intercomparison_rows(calibration_cases)
+    if output_subdir is None:
+        output_subdir = Path("calibration") / "intercomparison"
     output_root = (
         source_root
         / "_static"
         / "capability_gallery"
-        / "calibration"
-        / "intercomparison"
+        / output_subdir
     )
     figures: list[dict[str, Any]] = []
     if rows:
@@ -3065,10 +4179,15 @@ def _generate_calibration_intercomparison_summary(
                 )
             )
 
+    summary_relative_path = (
+        output_root
+        / "calibration_intercomparison_summary.json"
+    ).relative_to(source_root / "_static" / "capability_gallery")
     summary_payload = {
         "summary_schema_version": "capability_gallery_calibration_intercomparison_v1",
         "case_count": int(len(calibration_cases)),
         "method_row_count": int(len(rows)),
+        "summary_repo_path": _repo_docs_artifact_path(*summary_relative_path.parts),
         "cases": [
             {
                 "slug": str(case.get("slug", "")),
@@ -3089,23 +4208,33 @@ def _build_calibration_intercomparison_page(
     *,
     calibration_cases: list[dict[str, Any]],
     comparison_summary: dict[str, Any],
+    title: str = "Calibration Intercomparison",
+    intro: str | None = None,
+    seealso_doc: str = "calibration",
+    seealso_title: str = "the calibration benchmark category",
 ) -> str:
     """Render one gallery page dedicated to cross-case calibration comparison."""
-    lines = [
-        AUTO_GENERATED_COMMENT,
-        "",
-        "Calibration Intercomparison",
-        "===========================",
-        "",
-        *_render_note_block(),
-        (
+    rendered_title = str(title)
+    rendered_intro = (
+        str(intro)
+        if intro is not None
+        else (
             "This page compares the curated calibration gallery cases across methods, "
             "success targets, and timing breakdowns. It is meant to complement the "
             "individual case pages, not replace them."
-        ),
+        )
+    )
+    lines = [
+        AUTO_GENERATED_COMMENT,
+        "",
+        rendered_title,
+        "=" * len(rendered_title),
+        "",
+        *_render_note_block(),
+        rendered_intro,
         "",
         ".. seealso::",
-        "   Open :doc:`the calibration benchmark category <calibration>` for the case-by-case pages and their configuration figures.",
+        f"   Open :doc:`{seealso_title} <{seealso_doc}>` for the case-by-case pages and their configuration figures.",
         "",
         "Coverage",
         "--------",
@@ -3282,7 +4411,12 @@ def _build_calibration_intercomparison_page(
             "Artifacts",
             "---------",
             "",
-            "- ``docs/readthedocs/source/_static/capability_gallery/calibration/intercomparison/calibration_intercomparison_summary.json``",
+            "- ``{}``".format(
+                comparison_summary.get(
+                    "summary_repo_path",
+                    "docs/readthedocs/source/_static/capability_gallery/calibration/intercomparison/calibration_intercomparison_summary.json",
+                )
+            ),
         ]
     )
     for figure in figures:
@@ -3403,6 +4537,16 @@ def _group_mesh_cases_for_tabs(
 
 
 def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str:
+    populated_counts = {
+        category_slug: len(cases_by_category.get(category_slug, []))
+        for category_slug in CATEGORY_SPECS
+        if cases_by_category.get(category_slug)
+    }
+    total_case_count = sum(populated_counts.values())
+    ordered_counts = sorted(
+        populated_counts.items(),
+        key=lambda item: (-int(item[1]), CATEGORY_SPECS[item[0]].title),
+    )
     lines = [
         AUTO_GENERATED_COMMENT,
         "",
@@ -3420,21 +4564,71 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
         "if you need help choosing a first workflow, reading the key parameters, or navigating the "
         "different example families.",
         "",
-        ".. grid:: 1 1 2 3",
-        "   :gutter: 2 2 3 3",
+        "Coverage Snapshot",
+        "-----------------",
         "",
     ]
-    for category_slug, category in CATEGORY_SPECS.items():
-        if not cases_by_category.get(category_slug):
-            continue
-        category = CATEGORY_SPECS[category_slug]
+    if populated_counts:
         lines.extend(
-            _render_grid_card(
-                link=category.slug,
-                title=category.title,
-                deck=category.deck,
-            )
+            [
+                f"- Category pages available today: {len(populated_counts)}.",
+                f"- Curated gallery cases available today: {total_case_count}.",
+                "- Most populated sections: "
+                + ", ".join(
+                    f"{CATEGORY_SPECS[category_slug].title} ({count})"
+                    for category_slug, count in ordered_counts[:3]
+                )
+                + ".",
+                "",
+            ]
         )
+    else:
+        lines.extend(
+            [
+                "- No populated category yet.",
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "Browse By Intent",
+            "----------------",
+            "",
+            "The gallery is intentionally grouped by workflow intent first, then by case page.",
+            "",
+        ]
+    )
+    for group_spec in CATEGORY_GROUP_SPECS:
+        available_categories = [
+            CATEGORY_SPECS[category_slug]
+            for category_slug in group_spec["categories"]
+            if cases_by_category.get(category_slug)
+        ]
+        if not available_categories:
+            continue
+        title = str(group_spec["title"])
+        lines.extend(
+            [
+                title,
+                "~" * len(title),
+                "",
+                str(group_spec["deck"]),
+                "",
+                ".. grid:: 1 1 2 2",
+                "   :gutter: 2 2 3 3",
+                "",
+            ]
+        )
+        for category in available_categories:
+            case_count = len(cases_by_category.get(category.slug, []))
+            lines.extend(
+                _render_grid_card(
+                    link=category.slug,
+                    title=category.title,
+                    deck=f"{category.deck} {_render_case_count(case_count)}.",
+                )
+            )
     lines.extend(
         [
             ".. toctree::",
@@ -3452,6 +4646,7 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
 def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str:
     category = CATEGORY_SPECS[category_slug]
     all_cases = list(cases)
+    render_default_case_grid = True
     lines = [
         AUTO_GENERATED_COMMENT,
         "",
@@ -3676,12 +4871,38 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
             )
             for solver in VALIDATION_SOLVER_ORDER
         }
+        process_counts: Counter[tuple[str, str]] = Counter()
+        family_counts: Counter[tuple[str, str]] = Counter()
+        reference_counts: Counter[tuple[str, str]] = Counter()
+        for case in cases:
+            metadata = dict(case.get("metadata", {}))
+            process_counts[
+                (
+                    str(metadata.get("process_family", "flow")).strip() or "flow",
+                    str(metadata.get("process_family_label", "Flow")).strip() or "Flow",
+                )
+            ] += 1
+            family_counts[
+                (
+                    str(metadata.get("validation_family", "other")).strip() or "other",
+                    str(metadata.get("validation_family_label", "Other")).strip() or "Other",
+                )
+            ] += 1
+            reference_counts[
+                (
+                    str(metadata.get("reference_type", "other")).strip() or "other",
+                    str(metadata.get("reference_type_label", "Other")).strip() or "Other",
+                )
+            ] += 1
         batch_reports = _load_validation_batch_reports()
         lines.extend(
             [
                 "Current Coverage",
                 "----------------",
                 "",
+                "- Process families populated today: " + _format_counted_labels(process_counts) + ".",
+                "- Benchmark families: " + _format_counted_labels(family_counts) + ".",
+                "- Reference styles: " + _format_counted_labels(reference_counts) + ".",
                 "- Solver variants discovered: "
                 + ", ".join(
                     f"{VALIDATION_SOLVER_LABELS.get(solver, solver)} ({solver_counts[solver]})"
@@ -3713,6 +4934,151 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
         else:
             lines.append("- No committed validation batch reports yet.")
         lines.append("")
+        validation_sections = _build_validation_grouped_sections(cases)
+        if validation_sections:
+            lines.extend(
+                [
+                    "Grouped Benchmarks",
+                    "------------------",
+                    "",
+                    "The landing page is grouped by process family first, then by benchmark family.",
+                    "This keeps the current flow benchmarks readable and leaves room for future transport and particle-tracking validations.",
+                    "",
+                ]
+            )
+            for process_section in validation_sections:
+                process_label = str(process_section["process_label"])
+                lines.extend(
+                    [
+                        process_label,
+                        "~" * len(process_label),
+                        "",
+                    ]
+                )
+                for family in process_section["families"]:
+                    family_label = str(family["label"])
+                    case_count = len(list(family["cases"]))
+                    lines.extend(
+                        [
+                            family_label,
+                            "^" * len(family_label),
+                            "",
+                            f"{case_count} case{'s' if case_count != 1 else ''} in this family.",
+                            "",
+                        ]
+                    )
+                    _append_case_grid(lines, list(family["cases"]))
+            render_default_case_grid = False
+    elif category_slug == "geographic":
+        workflow_stages = sorted(
+            {
+                str(
+                    case.get("metadata", {}).get(
+                        "workflow_stage_label",
+                        case.get("metadata", {}).get("workflow_stage", ""),
+                    )
+                ).strip()
+                for case in cases
+                if str(case.get("metadata", {}).get("workflow_stage", "")).strip()
+            }
+        )
+        panel_families = sorted(
+            {
+                _humanize_case_token(str(panel))
+                for case in cases
+                for panel in case.get("metadata", {}).get("panel_families", [])
+                if str(panel).strip()
+            }
+        )
+        loaded_data_types = sorted(
+            {
+                _humanize_case_token(str(data_type))
+                for case in cases
+                for data_type in case.get("metadata", {}).get("loaded_data_types", [])
+                if str(data_type).strip()
+            }
+        )
+        source_families = sorted(
+            {
+                str(source_family)
+                for case in cases
+                for source_family in case.get("metadata", {}).get("source_families", [])
+                if str(source_family).strip()
+            }
+        )
+        ordered_cases = sorted(
+            cases,
+            key=lambda case: (
+                int(case.get("metadata", {}).get("reading_order", 999)),
+                str(case.get("title", "")),
+            ),
+        )
+        stage_groups = _group_cases_by_family_metadata(
+            cases,
+            key_name="workflow_stage",
+            label_name="workflow_stage_label",
+            deck_name="workflow_stage_deck",
+            order_name="workflow_stage_order",
+            case_order_name="reading_order",
+        )
+        lines.extend(
+            [
+                "Current Coverage",
+                "----------------",
+                "",
+                "- Workflow stages: " + (", ".join(workflow_stages) if workflow_stages else "none yet") + ".",
+                "- Panel families: " + (", ".join(panel_families) if panel_families else "none yet") + ".",
+                "- Loaded data families: "
+                + (", ".join(loaded_data_types) if loaded_data_types else "none yet")
+                + ".",
+            ]
+        )
+        if source_families:
+            lines.append("- Explicit source families: " + ", ".join(source_families) + ".")
+        lines.extend(
+            [
+                "- Keep this category focused on pre-mesh, pre-solver reading aids; once a case needs a mesh or solver state, move it to another category.",
+                "",
+            ]
+        )
+        if stage_groups:
+            render_default_case_grid = False
+            lines.extend(
+                [
+                    "Workflow Stages",
+                    "---------------",
+                    "",
+                    "The section is grouped from basin framing to observation detail so new `data-overview` cases can be added without flattening everything into one gallery wall.",
+                    "",
+                ]
+            )
+            for group in stage_groups:
+                title = str(group["label"])
+                lines.extend(
+                    [
+                        title,
+                        "~" * len(title),
+                        "",
+                    ]
+                )
+                deck = str(group.get("deck", "")).strip()
+                if deck:
+                    lines.extend([deck, ""])
+                _append_case_grid(lines, list(group["cases"]))
+                lines.append("")
+        if ordered_cases:
+            lines.extend(
+                [
+                    "Suggested Reading Order",
+                    "-----------------------",
+                    "",
+                    "Open these pages in order if you want to move from raw watershed framing to one targeted data audit.",
+                    "",
+                ]
+            )
+            for index, case in enumerate(ordered_cases, start=1):
+                lines.append(f"{index}. :doc:`{case['title']} <{case['docname']}>`")
+            lines.append("")
     elif category_slug == "geometry":
         layers = sorted(
             {
@@ -3766,6 +5132,121 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 "",
             ]
         )
+    elif category_slug == "simulation":
+        study_areas = sorted(
+            {
+                str(case.get("metadata", {}).get("study_area", "")).strip()
+                for case in cases
+                if str(case.get("metadata", {}).get("study_area", "")).strip()
+            }
+        )
+        process_families = sorted(
+            {
+                _humanize_case_token(str(process_family))
+                for case in cases
+                for process_family in case.get("metadata", {}).get("process_families", [])
+                if str(process_family).strip()
+            }
+        )
+        mesh_supports = sorted(
+            {
+                _humanize_case_token(str(mesh_support))
+                for case in cases
+                for mesh_support in case.get("metadata", {}).get("mesh_supports", [])
+                if str(mesh_support).strip()
+            }
+        )
+        flow_solvers = sorted(
+            {
+                str(flow_solver)
+                for case in cases
+                for flow_solver in case.get("metadata", {}).get("flow_solvers", [])
+                if str(flow_solver).strip()
+            }
+        )
+        transport_solvers = sorted(
+            {
+                str(transport_solver)
+                for case in cases
+                for transport_solver in case.get("metadata", {}).get("transport_solvers", [])
+                if str(transport_solver).strip()
+            }
+        )
+        postprocess_outputs = sorted(
+            {
+                _humanize_case_token(str(output_name))
+                for case in cases
+                for output_name in case.get("metadata", {}).get("postprocess_outputs", [])
+                if str(output_name).strip()
+            }
+        )
+        workflow_groups = _group_cases_by_family_metadata(
+            cases,
+            key_name="workflow_family_key",
+            label_name="workflow_family_label",
+            deck_name="workflow_family_deck",
+            order_name="workflow_family_order",
+            case_order_name="workflow_case_order",
+        )
+        lines.extend(
+            [
+                "Current Coverage",
+                "----------------",
+                "",
+                "- Study areas: " + (", ".join(study_areas) if study_areas else "none yet") + ".",
+                "- Process families shown: "
+                + (", ".join(process_families) if process_families else "none yet")
+                + ".",
+                "- Mesh supports: " + (", ".join(mesh_supports) if mesh_supports else "none yet") + ".",
+                "- Flow solvers: " + (", ".join(flow_solvers) if flow_solvers else "none yet") + ".",
+                "- Transport solvers: "
+                + (", ".join(transport_solvers) if transport_solvers else "none yet")
+                + ".",
+            ]
+        )
+        if postprocess_outputs:
+            lines.append("- Postprocess outputs surfaced: " + ", ".join(postprocess_outputs) + ".")
+        lines.extend(
+            [
+                "- Workflow families: "
+                + (
+                    ", ".join(
+                        f"{group['label']} ({len(list(group['cases']))})"
+                        for group in workflow_groups
+                    )
+                    if workflow_groups
+                    else "none yet"
+                )
+                + ".",
+                "- Grow this category by workflow family rather than by one flat list of runs; add new pages where the reading objective really changes.",
+                "",
+            ]
+        )
+        if workflow_groups:
+            render_default_case_grid = False
+            lines.extend(
+                [
+                    "Workflow Families",
+                    "-----------------",
+                    "",
+                    "The cases below are grouped by workflow role so the simulation section can grow without turning into one long undifferentiated card wall.",
+                    "",
+                ]
+            )
+            for group in workflow_groups:
+                title = str(group["label"])
+                lines.extend(
+                    [
+                        title,
+                        "~" * len(title),
+                        "",
+                    ]
+                )
+                deck = str(group.get("deck", "")).strip()
+                if deck:
+                    lines.extend([deck, ""])
+                _append_case_grid(lines, list(group["cases"]))
+                lines.append("")
     elif category_slug == "method_comparison":
         study_areas = sorted(
             {
@@ -3788,6 +5269,14 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 for label in case.get("metadata", {}).get("variant_labels", {}).values()
             }
         )
+        comparison_groups = _group_cases_by_family_metadata(
+            cases,
+            key_name="comparison_family_key",
+            label_name="comparison_family_label",
+            deck_name="comparison_family_deck",
+            order_name="comparison_family_order",
+            case_order_name="comparison_case_order",
+        )
         lines.extend(
             [
                 "Current Coverage",
@@ -3798,11 +5287,99 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 "- Compared observables: "
                 + (", ".join(observable_names) if observable_names else "none yet")
                 + ".",
-                "- Add one committed comparison TOML per basin to extend this section without changing the page generator.",
+                "- Comparison families: "
+                + (
+                    ", ".join(
+                        f"{group['label']} ({len(list(group['cases']))})"
+                        for group in comparison_groups
+                    )
+                    if comparison_groups
+                    else "none yet"
+                )
+                + ".",
+                "- Extend this section by adding committed comparison TOMLs to an existing family, or by declaring a new family when the comparison axis really changes.",
+                "",
+            ]
+        )
+        if comparison_groups:
+            render_default_case_grid = False
+            lines.extend(
+                [
+                    "Comparison Families",
+                    "-------------------",
+                    "",
+                    "The section is grouped by comparison intent first, so similar pages stay together even when the inventory grows.",
+                    "",
+                ]
+            )
+            for group in comparison_groups:
+                title = str(group["label"])
+                lines.extend(
+                    [
+                        title,
+                        "~" * len(title),
+                        "",
+                    ]
+                )
+                deck = str(group.get("deck", "")).strip()
+                if deck:
+                    lines.extend([deck, ""])
+                _append_case_grid(lines, list(group["cases"]))
+                lines.append("")
+    elif category_slug == "code_comparison":
+        benchmark_cases = sorted(
+            {
+                str(case.get("metadata", {}).get("benchmark_case", "")).strip()
+                for case in cases
+                if str(case.get("metadata", {}).get("benchmark_case", "")).strip()
+            }
+        )
+        conductivity_levels = sorted(
+            {
+                str(level)
+                for case in cases
+                for level in case.get("metadata", {}).get("conductivity_levels", [])
+                if str(level).strip()
+            }
+        )
+        solver_families = sorted(
+            {
+                str(label)
+                for case in cases
+                for label in case.get("metadata", {}).get("solver_families", [])
+                if str(label).strip()
+            }
+        )
+        lines.extend(
+            [
+                "Current Coverage",
+                "----------------",
+                "",
+                "- Benchmarks: " + (", ".join(benchmark_cases) if benchmark_cases else "none yet") + ".",
+                "- Conductivity variants: "
+                + (", ".join(conductivity_levels) if conductivity_levels else "none yet")
+                + ".",
+                "- Solver families: " + (", ".join(solver_families) if solver_families else "none yet") + ".",
+                "- These pages are intentionally separate from analytical validation: they compare codes on the same numerical scenario and document where behaviours converge or diverge.",
                 "",
             ]
         )
     elif category_slug == "calibration":
+        render_default_case_grid = False
+        family_groups = _group_calibration_cases_by_benchmark_family(cases)
+        primary_families = [
+            group
+            for group in family_groups
+            if bool(group.get("primary")) and str(group.get("page_slug") or "").strip()
+        ]
+        supplementary_families = [
+            group
+            for group in family_groups
+            if not (
+                bool(group.get("primary"))
+                and str(group.get("page_slug") or "").strip()
+            )
+        ]
         regimes = sorted(
             {
                 str(case.get("metadata", {}).get("regime", "")).strip()
@@ -3835,43 +5412,67 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 + (", ".join(method_names) if method_names else "none yet")
                 + ".",
                 "- Each page combines one configuration figure, one tab set per method, and explicit timing diagnostics.",
-                "",
-                "Intercomparison",
-                "---------------",
-                "",
-                ".. grid:: 1 1 2 2",
-                "   :gutter: 2 2 3 3",
-                "",
-            ]
-        )
-        lines.extend(
-            _render_grid_card(
-                link="calibration_intercomparison",
-                title="Calibration Intercomparison",
-                deck=(
-                    "Cross-case view of method behaviour, target success, and the "
-                    "detailed timing breakdown used by the curated calibration pages."
-                ),
-            )
-        )
-        lines.append("")
-
-    if cases:
-        lines.extend(
-            [
-            ".. grid:: 1 1 2 2",
-            "   :gutter: 2 2 3 3",
-            "",
-            ]
-        )
-        for case in cases:
-            lines.extend(
-                _render_grid_card(
-                    link=case["docname"],
-                    title=case["title"],
-                    deck=case["deck"],
+                "- Primary benchmark families: "
+                + (
+                    ", ".join(str(group["title"]) for group in primary_families)
+                    if primary_families
+                    else "none yet"
                 )
+                + ".",
+                "",
+            ]
+        )
+        if primary_families:
+            lines.extend(
+                [
+                    "Benchmark Families",
+                    "------------------",
+                    "",
+                    ".. grid:: 1 1 2 2",
+                    "   :gutter: 2 2 3 3",
+                    "",
+                ]
             )
+            for group in primary_families:
+                lines.extend(
+                    _render_grid_card(
+                        link=str(group["page_slug"]),
+                        title=str(group["page_title"] or group["title"]),
+                        deck=str(group["deck"]),
+                    )
+                )
+            lines.append("")
+
+        for group in primary_families:
+            group_title = str(group["title"])
+            lines.extend(
+                [
+                    group_title,
+                    "-" * len(group_title),
+                    "",
+                    str(group["deck"]),
+                    "",
+                ]
+            )
+            _append_case_grid(lines, list(group["cases"]))
+            lines.append("")
+
+        for group in supplementary_families:
+            group_title = str(group["title"])
+            lines.extend(
+                [
+                    group_title,
+                    "-" * len(group_title),
+                    "",
+                    str(group["deck"]),
+                    "",
+                ]
+            )
+            _append_case_grid(lines, list(group["cases"]))
+            lines.append("")
+
+    if cases and render_default_case_grid:
+        _append_case_grid(lines, cases)
     lines.extend(
         [
             ".. toctree::",
@@ -3883,7 +5484,10 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
     for case in all_cases:
             lines.append(f"   {case['docname']}")
     if category_slug == "calibration":
-        lines.append("   calibration_intercomparison")
+        for group in _group_calibration_cases_by_benchmark_family(cases):
+            page_slug = str(group.get("page_slug") or "").strip()
+            if page_slug != "":
+                lines.append(f"   {page_slug}")
     return "\n".join(lines)
 
 
@@ -3976,7 +5580,23 @@ def _render_validation_solver_block(run: dict[str, Any], *, indent: str = "") ->
     if run.get("metric_lines"):
         lines.append(f"{indent}**Metrics**")
         for metric_line in run["metric_lines"]:
-            lines.append(f"{indent}- {metric_line}")
+            metric_parts = str(metric_line).splitlines()
+            if not metric_parts:
+                continue
+            lines.append(f"{indent}- {metric_parts[0]}")
+            if len(metric_parts) > 1:
+                lines.extend(
+                    [
+                        "",
+                        f"{indent}  .. code-block:: text",
+                        "",
+                    ]
+                )
+                for metric_part in metric_parts[1:]:
+                    lines.append(
+                        f"{indent}     {metric_part}" if metric_part else f"{indent}     "
+                    )
+                lines.append("")
         lines.append("")
 
     details: list[str] = []
@@ -4199,6 +5819,10 @@ def _metric_rows(case: dict[str, Any], *, meaning: str = "Metric displayed on th
 
 def _build_geographic_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
     config_path = _find_first_source_path(case, suffix="project.toml")
+    if not config_path:
+        config_path = _find_first_source_path(case, suffix=".toml", contains="overview")
+    if not config_path:
+        config_path = _find_first_source_path(case, suffix=".toml", contains="hydrography_only")
     config = _load_plain_toml(config_path)
     if not config:
         return {}
@@ -4207,6 +5831,8 @@ def _build_geographic_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
     domain = dict(config.get("domain", {}))
     depth_model = dict(domain.get("depth_model", {}))
     data_cfg = dict(config.get("data", {}))
+    overview_cfg = dict(config.get("overview", {}))
+    overview_panels = dict(overview_cfg.get("panels", {}))
 
     selected_rows: list[dict[str, Any]] = []
     _add_parameter_row(
@@ -4280,6 +5906,115 @@ def _build_geographic_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
         source=config_path or "",
     )
 
+    loaded_rows: list[dict[str, Any]] = []
+    data_types = data_cfg.get("types")
+    _add_parameter_row(
+        loaded_rows,
+        field="[data] types",
+        meaning="Ordered list of data families requested by the overview case.",
+        value=data_types,
+        source=config_path or "",
+    )
+    for family_name in (
+        "dem",
+        "geology",
+        "hydrography",
+        "hydrometry",
+        "intermittency",
+        "oceanic",
+        "piezometry",
+        "precipitation",
+        "etp",
+        "temperature",
+        "recharge",
+        "runoff",
+        "wind",
+        "humidity",
+        "radiation",
+        "soil_moisture",
+        "water_quality",
+    ):
+        section = dict(data_cfg.get(family_name, {}))
+        raw_sources = list(section.get("sources", []))
+        source_names = [
+            str(item.get("source", "")).strip()
+            for item in raw_sources
+            if isinstance(item, dict) and str(item.get("source", "")).strip()
+        ]
+        if not source_names:
+            continue
+        _add_parameter_row(
+            loaded_rows,
+            field=f"[data.{family_name}.sources]",
+            meaning=f"Configured providers used to load the `{family_name}` family in this case.",
+            value=source_names,
+            source=config_path or "",
+        )
+
+    hydrography_rows: list[dict[str, Any]] = []
+    hydrography_cfg = dict(data_cfg.get("hydrography", {}))
+    hydrography_sources = list(hydrography_cfg.get("sources", []))
+    if hydrography_sources:
+        first_source = hydrography_sources[0] if isinstance(hydrography_sources[0], dict) else {}
+        _add_parameter_row(
+            hydrography_rows,
+            field="[[data.hydrography.sources]] source",
+            meaning="Hydrography provider used for the displayed river network.",
+            value=first_source.get("source"),
+            source=config_path or "",
+        )
+        _add_parameter_row(
+            hydrography_rows,
+            field="[[data.hydrography.sources]] typename",
+            meaning="Optional WFS typename used when the hydrography source is BD Topage.",
+            value=first_source.get("typename"),
+            source=config_path or "",
+        )
+        _add_parameter_row(
+            hydrography_rows,
+            field="[[data.hydrography.sources]] page_size",
+            meaning="Pagination size requested from the remote hydrography API when relevant.",
+            value=first_source.get("page_size"),
+            source=config_path or "",
+        )
+        _add_parameter_row(
+            hydrography_rows,
+            field="[[data.hydrography.sources]] rasterize_field",
+            meaning="Attribute used when rasterizing the clipped vector network to the watershed grid.",
+            value=first_source.get("rasterize_field"),
+            source=config_path or "",
+        )
+
+    panel_rows: list[dict[str, Any]] = []
+    _add_parameter_row(
+        panel_rows,
+        field="[overview] name",
+        meaning="Title injected into the generated overview panels.",
+        value=overview_cfg.get("name"),
+        source=config_path or "",
+    )
+    enabled_panels = [
+        key for key, value in overview_panels.items()
+        if bool(value)
+    ]
+    _add_parameter_row(
+        panel_rows,
+        field="[overview.panels] enabled",
+        meaning="Panel toggles enabled for this overview run.",
+        value=enabled_panels,
+        source=config_path or "",
+    )
+    for panel_name in ("map_dem", "map_geology", "map_hydrography", "stats_card"):
+        if panel_name not in overview_panels:
+            continue
+        _add_parameter_row(
+            panel_rows,
+            field=f"[overview.panels] {panel_name}",
+            meaning=f"Whether the `{panel_name}` panel is rendered for this overview case.",
+            value=overview_panels.get(panel_name),
+            source=config_path or "",
+        )
+
     window_rows: list[dict[str, Any]] = []
     for section_name in ("hydrometry", "intermittency", "oceanic"):
         section = dict(data_cfg.get(section_name, {}))
@@ -4301,6 +6036,12 @@ def _build_geographic_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
     sections: list[dict[str, Any]] = []
     if selected_rows:
         sections.append({"title": "Selected Parameters", "rows": selected_rows})
+    if loaded_rows:
+        sections.append({"title": "Loaded Data Families", "rows": loaded_rows})
+    if hydrography_rows:
+        sections.append({"title": "Hydrography Source Options", "rows": hydrography_rows})
+    if panel_rows:
+        sections.append({"title": "Overview Panels", "rows": panel_rows})
     if window_rows:
         sections.append({"title": "Observation Windows", "rows": window_rows})
     return {"sections": sections} if sections else {}
@@ -5446,17 +7187,26 @@ def generate_gallery(*, source_root: Path) -> None:
     _write_text(docs_dir / "index.rst", _build_index_page(summaries_by_category))
     calibration_cases = list(summaries_by_category.get("calibration", []))
     if calibration_cases:
-        comparison_summary = _generate_calibration_intercomparison_summary(
-            source_root=source_root,
-            calibration_cases=calibration_cases,
-        )
-        _write_text(
-            docs_dir / "calibration_intercomparison.rst",
-            _build_calibration_intercomparison_page(
-                calibration_cases=calibration_cases,
-                comparison_summary=comparison_summary,
-            ),
-        )
+        for family_group in _group_calibration_cases_by_benchmark_family(calibration_cases):
+            page_slug = str(family_group.get("page_slug") or "").strip()
+            if page_slug == "":
+                continue
+            comparison_summary = _generate_calibration_intercomparison_summary(
+                source_root=source_root,
+                calibration_cases=list(family_group["cases"]),
+                output_subdir=Path("calibration") / "intercomparison" / page_slug,
+            )
+            _write_text(
+                docs_dir / f"{page_slug}.rst",
+                _build_calibration_intercomparison_page(
+                    calibration_cases=list(family_group["cases"]),
+                    comparison_summary=comparison_summary,
+                    title=str(family_group.get("page_title") or family_group["title"]),
+                    intro=str(family_group.get("page_intro") or family_group["deck"]),
+                    seealso_doc="calibration",
+                    seealso_title="the calibration benchmark category",
+                ),
+            )
     for category_slug, cases in summaries_by_category.items():
         if cases:
             _write_text(docs_dir / f"{category_slug}.rst", _build_category_page(category_slug, cases))
@@ -5466,8 +7216,59 @@ def main(argv: list[str] | None = None) -> int:
     """Entry point for ``python -m tools.doc_gallery``."""
 
     args = build_parser().parse_args(argv)
+    only_slugs = _normalize_filter_values(args.only)
+    categories = _normalize_filter_values(args.category)
+    specs = build_gallery_specs(only_slugs=only_slugs, categories=categories)
+    selected_specs = _select_gallery_specs(
+        specs,
+        only_slugs=only_slugs,
+        categories=categories,
+    )
+
+    if args.list:
+        print(_list_gallery_specs(selected_specs))
+        return 0
+
     if args.check:
-        with tempfile.TemporaryDirectory(prefix="hydromodpy_doc_gallery_") as temp_dir:
+        if only_slugs or categories:
+            with _temporary_gallery_dir(prefix="hydromodpy_doc_gallery_") as temp_dir:
+                temp_source_root = Path(temp_dir) / "source"
+                temp_source_root.mkdir(parents=True, exist_ok=True)
+                new_summaries_by_slug, old_summaries_by_slug = _generate_selected_gallery(
+                    source_root=temp_source_root,
+                    baseline_source_root=DOCS_SOURCE_DIR,
+                    all_specs=specs,
+                    selected_specs=selected_specs,
+                )
+                stale_relative_paths: set[str] = set()
+                for slug, new_summary in new_summaries_by_slug.items():
+                    stale_relative_paths.update(
+                        _known_case_generated_paths(old_summaries_by_slug.get(slug, {}))
+                        - _known_case_generated_paths(new_summary)
+                    )
+                issues = _compare_selected_generated_tree(
+                    expected_source_root=temp_source_root,
+                    committed_source_root=DOCS_SOURCE_DIR,
+                    stale_relative_paths=stale_relative_paths,
+                )
+                if issues:
+                    print("Capability gallery selection is out of date. Regenerate it with:")
+                    print(
+                        "  python -m tools.doc_gallery "
+                        + " ".join(
+                            [
+                                *(f"--category {category}" for category in categories),
+                                *(f"--only {slug}" for slug in only_slugs),
+                            ]
+                        ).strip()
+                    )
+                    for issue in issues:
+                        print(f"- {issue}")
+                    return 1
+            print("Capability gallery selection is in sync.")
+            return 0
+
+        with _temporary_gallery_dir(prefix="hydromodpy_doc_gallery_") as temp_dir:
             temp_source_root = Path(temp_dir) / "source"
             temp_source_root.mkdir(parents=True, exist_ok=True)
             generate_gallery(source_root=temp_source_root)
@@ -5482,6 +7283,19 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"- {issue}")
                 return 1
         print("Capability gallery is in sync.")
+        return 0
+
+    if only_slugs or categories:
+        _generate_selected_gallery(
+            source_root=DOCS_SOURCE_DIR,
+            baseline_source_root=DOCS_SOURCE_DIR,
+            all_specs=specs,
+            selected_specs=selected_specs,
+        )
+        print(
+            f"Capability gallery refreshed for {len(selected_specs)} selected case(s) "
+            "under docs/readthedocs/source/."
+        )
         return 0
 
     generate_gallery(source_root=DOCS_SOURCE_DIR)

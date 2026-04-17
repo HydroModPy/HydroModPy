@@ -3,18 +3,60 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import importlib
 from typing import Any
 
-from validation_cases.calibration.twin.steady.boussinesq_fixed_head_piecewise_k_1d.experiment import (
-    PIECEWISE_K_TWIN_CASE,
-)
-from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment import (
-    STEADY_DUPUIT_POSTERIOR_TWIN_CASE,
-    STEADY_DUPUIT_TWIN_CASE,
-)
-from validation_cases.calibration.twin.transient.linearized_unconfined_recharge_step_1d.experiment import (
-    TRANSIENT_RECHARGE_STEP_TWIN_CASE,
-)
+
+CALIBRATION_BENCHMARK_FAMILIES: dict[str, dict[str, Any]] = {
+    "data_rich_no_uncertainty": {
+        "key": "data_rich_no_uncertainty",
+        "title": "No-Uncertainty, Data-Rich Benchmarks",
+        "deck": (
+            "Benchmarks with multiple observables, no observation noise, and enough "
+            "data to constrain the inverse problem more strongly."
+        ),
+        "page_slug": "calibration_data_rich_no_uncertainty",
+        "page_title": "Calibration Benchmarks: No Uncertainty, More Data",
+        "page_intro": (
+            "These calibration benchmarks keep observation noise off and rely on richer "
+            "data sets, typically multiple observable blocks, so the objective surface is "
+            "better constrained."
+        ),
+        "order": 10,
+        "primary": True,
+    },
+    "uncertain_less_data": {
+        "key": "uncertain_less_data",
+        "title": "Uncertain, Sparse-Data Benchmarks",
+        "deck": (
+            "Benchmarks with noisier or sparser observations, meant to expose weak "
+            "identifiability and more ambiguous objective landscapes."
+        ),
+        "page_slug": "calibration_uncertain_less_data",
+        "page_title": "Calibration Benchmarks: Uncertainty And Less Data",
+        "page_intro": (
+            "These calibration benchmarks deliberately reduce information content by "
+            "using fewer observations and adding uncertainty, so the methods are tested "
+            "on weaker inverse constraints."
+        ),
+        "order": 20,
+        "primary": True,
+    },
+    "supplementary_scalar_reference": {
+        "key": "supplementary_scalar_reference",
+        "title": "Supplementary Scalar Reference Cases",
+        "deck": (
+            "Compact scalar reference problems kept in the gallery for quick reading of "
+            "single-parameter and posterior-oriented calibration behaviour."
+        ),
+        "page_slug": None,
+        "page_title": None,
+        "page_intro": None,
+        "order": 30,
+        "primary": False,
+    },
+}
+
 
 @dataclass(frozen=True, slots=True)
 class CalibrationCaseRecord:
@@ -92,6 +134,12 @@ def _dedupe(items: list[str]) -> tuple[str, ...]:
     return tuple(ordered)
 
 
+def _load_case_definition(import_path: str) -> Any:
+    module_name, attribute_name = import_path.split(":", maxsplit=1)
+    module = importlib.import_module(module_name)
+    return getattr(module, attribute_name)
+
+
 def _record(
     *,
     definition: Any,
@@ -102,8 +150,10 @@ def _record(
     reproduction_command: str,
     display_method_name: str,
     evaluation_budget: int | None,
+    benchmark_family_key: str,
     gallery_method_names: tuple[str, ...] | None = None,
 ) -> CalibrationCaseRecord:
+    benchmark_family = CALIBRATION_BENCHMARK_FAMILIES[str(benchmark_family_key)]
     source_paths = _dedupe(
         [
             "validation_cases/calibration/README.md",
@@ -129,6 +179,7 @@ def _record(
         source_paths=source_paths,
         case_setup=(
             f"Solver: `{definition.solver_name}` in `{definition.regime}` regime.",
+            f"Benchmark family: {benchmark_family['title']}.",
             f"Truth parameters: {_parameter_labels(definition)}.",
             f"Observed outputs: {_output_labels(definition)}.",
             f"Benchmarked methods: {_method_labels(definition)}.",
@@ -188,15 +239,38 @@ def _record(
             "observation_noise": _noise_summary(definition),
             "perturbation_description": definition.perturbation_description,
             "fast": bool(definition.fast),
+            "benchmark_family_key": str(benchmark_family["key"]),
+            "benchmark_family_title": str(benchmark_family["title"]),
+            "benchmark_family_deck": str(benchmark_family["deck"]),
+            "benchmark_family_page_slug": benchmark_family["page_slug"],
+            "benchmark_family_page_title": benchmark_family["page_title"],
+            "benchmark_family_page_intro": benchmark_family["page_intro"],
+            "benchmark_family_order": int(benchmark_family["order"]),
+            "benchmark_family_primary": bool(benchmark_family["primary"]),
         },
     )
 
 
 def build_calibration_case_records() -> tuple[CalibrationCaseRecord, ...]:
     """Return the curated calibration cases published in the capability gallery."""
+    steady_dupuit_twin_case = _load_case_definition(
+        "validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment:STEADY_DUPUIT_TWIN_CASE"
+    )
+    steady_dupuit_posterior_twin_case = _load_case_definition(
+        "validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment:STEADY_DUPUIT_POSTERIOR_TWIN_CASE"
+    )
+    transient_recharge_step_twin_case = _load_case_definition(
+        "validation_cases.calibration.twin.transient.linearized_unconfined_recharge_step_1d.experiment:TRANSIENT_RECHARGE_STEP_TWIN_CASE"
+    )
+    transient_recharge_step_flux_only_noisy_twin_case = _load_case_definition(
+        "validation_cases.calibration.twin.transient.linearized_unconfined_recharge_step_1d.experiment:TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE"
+    )
+    piecewise_k_twin_case = _load_case_definition(
+        "validation_cases.calibration.twin.steady.boussinesq_fixed_head_piecewise_k_1d.experiment:PIECEWISE_K_TWIN_CASE"
+    )
     return (
         _record(
-            definition=STEADY_DUPUIT_TWIN_CASE,
+            definition=steady_dupuit_twin_case,
             definition_import_path=(
                 "validation_cases.calibration.twin.steady."
                 "dupuit_fixed_head_1d.experiment:STEADY_DUPUIT_TWIN_CASE"
@@ -210,9 +284,10 @@ def build_calibration_case_records() -> tuple[CalibrationCaseRecord, ...]:
             ),
             display_method_name="random_search",
             evaluation_budget=None,
+            benchmark_family_key="supplementary_scalar_reference",
         ),
         _record(
-            definition=STEADY_DUPUIT_POSTERIOR_TWIN_CASE,
+            definition=steady_dupuit_posterior_twin_case,
             definition_import_path=(
                 "validation_cases.calibration.twin.steady."
                 "dupuit_fixed_head_1d.experiment:STEADY_DUPUIT_POSTERIOR_TWIN_CASE"
@@ -226,9 +301,10 @@ def build_calibration_case_records() -> tuple[CalibrationCaseRecord, ...]:
             ),
             display_method_name="da_mh_gp",
             evaluation_budget=18,
+            benchmark_family_key="supplementary_scalar_reference",
         ),
         _record(
-            definition=TRANSIENT_RECHARGE_STEP_TWIN_CASE,
+            definition=transient_recharge_step_twin_case,
             definition_import_path=(
                 "validation_cases.calibration.twin.transient."
                 "linearized_unconfined_recharge_step_1d.experiment:"
@@ -243,9 +319,28 @@ def build_calibration_case_records() -> tuple[CalibrationCaseRecord, ...]:
             ),
             display_method_name="gp_mapping",
             evaluation_budget=None,
+            benchmark_family_key="data_rich_no_uncertainty",
         ),
         _record(
-            definition=PIECEWISE_K_TWIN_CASE,
+            definition=transient_recharge_step_flux_only_noisy_twin_case,
+            definition_import_path=(
+                "validation_cases.calibration.twin.transient."
+                "linearized_unconfined_recharge_step_1d.experiment:"
+                "TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE"
+            ),
+            title="Calibration Twin: Recharge-Step Flux-Only K+Sy 1D",
+            run_case_module="validation_cases.calibration.twin.transient.linearized_unconfined_recharge_step_1d.run_case",
+            run_case_file="validation_cases/calibration/twin/transient/linearized_unconfined_recharge_step_1d/run_case.py",
+            reproduction_command=(
+                "python -m validation_cases.calibration.twin.transient."
+                "linearized_unconfined_recharge_step_1d.run_case --case flux_only_noisy"
+            ),
+            display_method_name="da_mh_gp",
+            evaluation_budget=None,
+            benchmark_family_key="uncertain_less_data",
+        ),
+        _record(
+            definition=piecewise_k_twin_case,
             definition_import_path=(
                 "validation_cases.calibration.twin.steady."
                 "boussinesq_fixed_head_piecewise_k_1d.experiment:"
@@ -260,11 +355,13 @@ def build_calibration_case_records() -> tuple[CalibrationCaseRecord, ...]:
             ),
             display_method_name="random_search",
             evaluation_budget=48,
+            benchmark_family_key="data_rich_no_uncertainty",
         ),
     )
 
 
 __all__ = [
+    "CALIBRATION_BENCHMARK_FAMILIES",
     "CalibrationCaseRecord",
     "build_calibration_case_records",
 ]

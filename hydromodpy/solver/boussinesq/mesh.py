@@ -26,6 +26,10 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import 
     CatchmentMeshBundleNode,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
+from hydromodpy.solver.utils.mesh.gmsh_grid.runtime_support import (
+    GmshSupportMetadata,
+    build_gmsh_support_metadata,
+)
 
 
 def _normalize_geom_type(raw_value: object) -> str:
@@ -129,6 +133,7 @@ class BoussinesqMesh:
     cell_index_by_id: dict[int, int]
     node_index_by_id: dict[int, int]
     planar_mesh: GmshPlanarMesh2D | None = None
+    support_metadata: GmshSupportMetadata | None = None
 
     @property
     def n_cells(self) -> int:
@@ -216,6 +221,23 @@ class BoussinesqMesh:
             raise ValueError(f"Unsupported side boundary id: {bc_id}.")
         return np.flatnonzero(boundary_mask & side_mask).astype(int, copy=False)
 
+    def boundary_cell_indices_for_side(
+        self,
+        bc_id: str,
+        *,
+        tolerance_m: float | None = None,
+    ) -> np.ndarray:
+        """Return owner-cell indices for one outer side of the domain."""
+        edge_indices = self.boundary_edge_indices_for_side(
+            bc_id,
+            tolerance_m=tolerance_m,
+        )
+        if edge_indices.size == 0:
+            return np.asarray([], dtype=int)
+        return np.unique(
+            np.asarray(self.edge_cell_a[edge_indices], dtype=int)
+        ).astype(int, copy=False)
+
     def locate_cell_index_for_point(
         self,
         x_m: float,
@@ -256,6 +278,15 @@ class BoussinesqMesh:
             int,
             copy=False,
         )
+
+    def river_cell_indices(self) -> np.ndarray:
+        """Return owner-cell indices for edges tagged as river support."""
+        edge_indices = self.river_edge_indices()
+        if edge_indices.size == 0:
+            return np.asarray([], dtype=int)
+        return np.unique(
+            np.asarray(self.edge_cell_a[edge_indices], dtype=int)
+        ).astype(int, copy=False)
 
     @classmethod
     def from_planar_mesh(
@@ -426,6 +457,7 @@ class BoussinesqMesh:
             cell_index_by_id=base_mesh.cell_index_by_id,
             node_index_by_id=base_mesh.node_index_by_id,
             planar_mesh=mesh,
+            support_metadata=base_mesh.support_metadata,
         )
 
     @classmethod
@@ -624,6 +656,7 @@ class BoussinesqMesh:
             cell_index_by_id=cell_index_by_id,
             node_index_by_id=node_index_by_id,
             planar_mesh=None,
+            support_metadata=build_gmsh_support_metadata(bundle),
         )
 
 

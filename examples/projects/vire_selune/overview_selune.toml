@@ -1,0 +1,5 @@
+base_config = "overview_common.toml"
+
+[geographic]
+x_outlet = 379541.3716
+y_outlet = 6845659.878

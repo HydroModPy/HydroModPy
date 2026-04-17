@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from datetime import datetime
 from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import pytest
 
+import hydromodpy.solver.modflow6.flow_to_modflow_adapter as mf6_flow_adapter
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.location import StationLocation
+from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.process.flow.initial_conditions import (
     FlowInitialCondition,
     FlowInitialConditions,
@@ -121,6 +126,31 @@ def _build_unstructured_model(
     model.ncpl = 2
     model.dem_mask = np.zeros(2, dtype=bool)
     return model
+
+
+def _make_recharge_point_record(
+    *,
+    station_id: str,
+    x: float,
+    y: float,
+    january_value_mm_day: float,
+    february_value_mm_day: float | None = None,
+) -> PointRecord:
+    dates = pd.date_range("2003-01-01", "2003-02-28", freq="D")
+    values = np.full(len(dates), float(january_value_mm_day), dtype=float)
+    if february_value_mm_day is not None:
+        values[dates.month == 2] = float(february_value_mm_day)
+    return PointRecord(
+        station_id=station_id,
+        variable="recharge",
+        source="test",
+        unit="mm/day",
+        frequency="D",
+        data=pd.DataFrame({"datetime": dates, "value": values}),
+        date_start=datetime(2003, 1, 1),
+        date_end=datetime(2003, 2, 28),
+        location=StationLocation(id=station_id, x=x, y=y, crs="EPSG:2154"),
+    )
 
 
 def test_build_gmsh_support_metadata_from_bundle_like_payload() -> None:
@@ -474,6 +504,89 @@ def test_modflow6_routes_negative_recharge_to_evt_payload() -> None:
     assert model._evt_rate_payload[1] == pytest.approx(0.3e-3 / 86400.0)
 
 
+def test_modflow6_resolves_point_recharge_and_routes_negative_periods_to_evt() -> None:
+    model = _build_model()
+    top = np.full((2, 3), 10.0, dtype=float)
+    botm = np.zeros((1, 2, 3), dtype=float)
+    model.solver_mesh = SolverMesh.from_structured_arrays(
+        nrow=2,
+        ncol=3,
+        top=top,
+        botm=botm,
+    )
+    point = _make_recharge_point_record(
+        station_id="R1",
+        x=0.5,
+        y=0.5,
+        january_value_mm_day=8.0,
+        february_value_mm_day=-4.0,
+    )
+    model.flow = SimpleNamespace(
+        sinks_sources={
+            "recharge": FlowRechargeConfig(
+                values=0.0,
+                heterogeneous_source=LoadResult(points=[point]),
+                interpolation_method="nearest",
+                negative_to_evt=True,
+            )
+        },
+        active_sinks_sources=["recharge"],
+    )
+
+    model._bind_recharge_from_flow()
+    mf6_flow_adapter.resolve_deferred_heterogeneous_recharge(model)
+
+    january_expected = 8.0e-3 / 86400.0
+    february_evt_expected = 4.0e-3 / 86400.0
+    np.testing.assert_allclose(
+        model.recharge[0],
+        np.full((2, 3), january_expected, dtype=float),
+    )
+    np.testing.assert_allclose(model.recharge[1], np.zeros((2, 3), dtype=float))
+    assert model._evt_rate_payload is not None
+    np.testing.assert_allclose(
+        model._evt_rate_payload[0],
+        np.zeros((2, 3), dtype=float),
+    )
+    np.testing.assert_allclose(
+        model._evt_rate_payload[1],
+        np.full((2, 3), february_evt_expected, dtype=float),
+    )
+
+
+def test_modflow6_resolves_point_recharge_on_unstructured_runtime_mesh() -> None:
+    model = _build_unstructured_model()
+    point = _make_recharge_point_record(
+        station_id="R1",
+        x=0.75,
+        y=0.25,
+        january_value_mm_day=8.0,
+    )
+    model.flow = SimpleNamespace(
+        sinks_sources={
+            "recharge": FlowRechargeConfig(
+                values=0.0,
+                heterogeneous_source=LoadResult(points=[point]),
+                interpolation_method="nearest",
+            )
+        },
+        active_sinks_sources=["recharge"],
+    )
+
+    model._bind_recharge_from_flow()
+    mf6_flow_adapter.resolve_deferred_heterogeneous_recharge(model)
+
+    expected = 8.0e-3 / 86400.0
+    np.testing.assert_allclose(
+        model.recharge[0],
+        np.full(2, expected, dtype=float),
+    )
+    np.testing.assert_allclose(
+        model.recharge[1],
+        np.full(2, expected, dtype=float),
+    )
+
+
 def test_modflow6_extracts_evt_payload_from_negative_2d_recharge() -> None:
     model = _build_model()
 
@@ -580,3 +693,41 @@ def test_modflow6_defaults_to_zero_recharge_when_inactive() -> None:
     assert spd[0].shape == (6,)
     assert np.allclose(spd[0], 0.0)
     assert np.allclose(spd[1], 0.0)
+
+
+def test_modflow6_flow_adapter_builds_wells_from_forcing_payload() -> None:
+    model = _build_model()
+    model.grid_ctx = SimpleNamespace(grid=None)
+    model.flow = SimpleNamespace(
+        sinks_sources={
+            "wells": {
+                "W1": FlowWellConfig(
+                    cell=(0, 0, 0),
+                    units="m3/day",
+                    forcing={"mode": "constant", "value": -86400.0},
+                )
+            }
+        },
+        active_sinks_sources=["wells"],
+    )
+
+    wel_spd = mf6_flow_adapter.build_well_stress_period_data(model, 2)
+
+    assert wel_spd[0] == [[0, 0, pytest.approx(-1.0)]]
+    assert wel_spd[1] == [[0, 0, pytest.approx(-1.0)]]
+
+
+def test_modflow6_flow_adapter_extracts_evt_payload_from_negative_2d_recharge() -> None:
+    clipped, evt = mf6_flow_adapter.extract_evt_payload_2d(
+        {
+            0: np.asarray([1.0, -2.0], dtype=float),
+            1: np.asarray([-3.0, 4.0], dtype=float),
+        },
+        True,
+    )
+
+    assert evt is not None
+    np.testing.assert_allclose(clipped[0], np.asarray([1.0, 0.0], dtype=float))
+    np.testing.assert_allclose(clipped[1], np.asarray([0.0, 4.0], dtype=float))
+    np.testing.assert_allclose(evt[0], np.asarray([0.0, 0.0], dtype=float))
+    np.testing.assert_allclose(evt[1], np.asarray([3.0, 0.0], dtype=float))

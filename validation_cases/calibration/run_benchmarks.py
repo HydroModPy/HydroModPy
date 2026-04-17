@@ -20,6 +20,7 @@ from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment im
     STEADY_DUPUIT_TWIN_CASE,
 )
 from validation_cases.calibration.twin.transient.linearized_unconfined_recharge_step_1d.experiment import (
+    TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE,
     TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE,
     TRANSIENT_RECHARGE_STEP_TWIN_CASE,
 )
@@ -32,6 +33,7 @@ _CASE_REGISTRY = {
     STEADY_DUPUIT_NOISY_TWIN_CASE.case_id: STEADY_DUPUIT_NOISY_TWIN_CASE,
     TRANSIENT_RECHARGE_STEP_TWIN_CASE.case_id: TRANSIENT_RECHARGE_STEP_TWIN_CASE,
     TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE.case_id: TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE,
+    TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE.case_id: TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE,
     PIECEWISE_K_TWIN_CASE.case_id: PIECEWISE_K_TWIN_CASE,
 }
 
@@ -180,10 +182,10 @@ def _materialize_suite_rows(benchmarks) -> list[dict[str, object]]:
                     result.model_distribution_sample_count
                 ),
                 "benchmark_root": str(benchmark.benchmark_root),
-                "regular_objective_grid_path": (
+                "reference_objective_path": (
                     None
-                    if benchmark.regular_objective_grid_path is None
-                    else str(benchmark.regular_objective_grid_path)
+                    if benchmark.reference_objective_path is None
+                    else str(benchmark.reference_objective_path)
                 ),
                 "calibration_root": str(result.calibration_root),
                 "objective_trace_figure": (
