@@ -2312,4 +2312,28 @@ def test_boussinesq_rejects_structured_well_addressing_on_triangular_mesh(
         _build_flow_config(
             {
                 "ic": {"type": "custom", "value": 8.0},
- 
+                "active_sinks_sources": ["wells"],
+                "sinks_sources": {
+                    "wells": {
+                        "W1": {
+                            "cell": [0, 0, 0],
+                            "flux": -1.0e-5,
+                        }
+                    }
+                },
+            }
+        )
+    )
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=type("TimeGrid", (), {"period_lengths_seconds": (3600.0,)})(),
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_bad_well",
+    )
+
+    model.pre_processing()
+
+    with pytest.raises(NotImplementedError, match="coordinate-based wells"):
+        model.processing(run_model=True)
