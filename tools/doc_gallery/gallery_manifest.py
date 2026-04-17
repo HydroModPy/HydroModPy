@@ -241,7 +241,7 @@ def _validate_manifest_image_assets(
     image_assets_payload: Any,
     generator: str,
 ) -> tuple[str, ...]:
-    if not isinstance(image_assets_payload, list):
+    if not isinstance(image_assets_payload, (list, tuple)):
         raise _manifest_error(
             manifest_path,
             "'image_assets' must be a list of mappings.",
@@ -301,7 +301,9 @@ def _validate_manifest_metadata_references(
 
     lead_image_filenames = metadata.get("lead_image_filenames", ())
     if lead_image_filenames is not None:
-        if isinstance(lead_image_filenames, str):
+        if isinstance(lead_image_filenames, str) or not isinstance(
+            lead_image_filenames, (list, tuple)
+        ):
             raise _manifest_error(
                 manifest_path,
                 "'metadata.lead_image_filenames' must be a list of filenames.",
@@ -318,7 +320,7 @@ def _validate_manifest_metadata_references(
     tab_specs = metadata.get("tab_specs", ())
     if tab_specs is None:
         return
-    if not isinstance(tab_specs, list):
+    if not isinstance(tab_specs, (list, tuple)):
         raise _manifest_error(
             manifest_path,
             "'metadata.tab_specs' must be a list.",
@@ -337,7 +339,7 @@ def _validate_manifest_metadata_references(
             referenced_filenames.append(filename)
         filenames = tab_spec.get("filenames", ())
         if filenames:
-            if isinstance(filenames, str):
+            if isinstance(filenames, str) or not isinstance(filenames, (list, tuple)):
                 raise _manifest_error(
                     manifest_path,
                     "tab_specs.filenames must be a list of filenames.",
@@ -422,7 +424,7 @@ def _validate_json_gallery_case_entry(
         )
 
     metric_specs = merged_case.get("metric_specs", ())
-    if metric_specs is not None and not isinstance(metric_specs, list):
+    if metric_specs is not None and not isinstance(metric_specs, (list, tuple)):
         raise _manifest_error(
             manifest_path,
             "'metric_specs' must be a list.",
