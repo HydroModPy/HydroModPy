@@ -14,6 +14,7 @@ from __future__ import annotations
 from numbers import Integral
 from pathlib import Path
 from typing import TYPE_CHECKING
+import warnings
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -139,7 +140,13 @@ def resolve_artifact_figure_dir(workspace, artifact_id: str) -> Path:
 
 
 def resolve_model_figure_dir(workspace, run_id: str) -> Path:
-    """Backward-compatible alias for :func:`resolve_artifact_figure_dir`."""
+    """Deprecated alias for :func:`resolve_artifact_figure_dir`."""
+    warnings.warn(
+        "'resolve_model_figure_dir()' is deprecated. "
+        "Use 'resolve_artifact_figure_dir()' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return resolve_artifact_figure_dir(workspace, run_id)
 
 

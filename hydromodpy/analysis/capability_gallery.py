@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import shutil
 from typing import Annotated
+import warnings
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -70,10 +71,11 @@ def _relative_to_cwd(path: Path) -> str:
 
 def publish_run_to_capability_gallery(
     *,
-    run_id: str,
+    artifact_id: str | None = None,
     run_folder: Path,
     config: CapabilityGalleryConfig,
     solvers: tuple[str, ...] = (),
+    run_id: str | None = None,
 ) -> dict[str, object] | None:
     """Copy selected run figures into one stable gallery source folder.
 
@@ -81,6 +83,11 @@ def publish_run_to_capability_gallery(
     `results_simulations`, while a handful of figures and one manifest can be
     committed under `examples/capability_gallery`.
     """
+    resolved_artifact_id = _resolve_deprecated_run_id_alias(
+        artifact_id=artifact_id,
+        run_id=run_id,
+        target_name="publish_run_to_capability_gallery",
+    )
     if not config.enabled:
         return None
     if config.output_dir is None:
@@ -113,7 +120,8 @@ def publish_run_to_capability_gallery(
     manifest: dict[str, object] = {
         "schema_version": "hydromodpy_capability_gallery_publication_v1",
         "case_slug": str(config.case_slug),
-        "run_id": str(run_id),
+        "artifact_id": resolved_artifact_id,
+        "run_id": resolved_artifact_id,
         "published_at_utc": datetime.now(timezone.utc).isoformat(),
         "source_run_folder": _relative_to_cwd(Path(run_folder)),
         "solvers": [str(solver) for solver in solvers],
@@ -125,6 +133,32 @@ def publish_run_to_capability_gallery(
         encoding="utf-8",
     )
     return manifest
+
+
+def _resolve_deprecated_run_id_alias(
+    *,
+    artifact_id: str | None,
+    run_id: str | None,
+    target_name: str,
+) -> str:
+    """Resolve one canonical artifact identifier from modern and legacy names."""
+    normalized_artifact_id = str(artifact_id or "").strip()
+    normalized_run_id = str(run_id or "").strip()
+    if normalized_artifact_id and normalized_run_id and normalized_artifact_id != normalized_run_id:
+        raise ValueError(
+            f"{target_name} received both artifact_id={normalized_artifact_id!r} "
+            f"and run_id={normalized_run_id!r}; use only one identifier."
+        )
+    if normalized_artifact_id:
+        return normalized_artifact_id
+    if normalized_run_id:
+        warnings.warn(
+            f"'{target_name}(run_id=...)' is deprecated. Use 'artifact_id=' instead.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return normalized_run_id
+    raise TypeError(f"{target_name} requires 'artifact_id' (or deprecated 'run_id').")
 
 
 __all__ = [
