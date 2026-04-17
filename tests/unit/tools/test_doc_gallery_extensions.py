@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
+import pytest
+
+from tools.doc_gallery import gallery_manifest as gallery_manifest_module
 from tools.doc_gallery.gallery_manifest import build_gallery_specs
 from tools.doc_gallery.update_gallery import _build_category_page, _build_index_page, _generate_case
 
@@ -66,6 +70,52 @@ def test_build_gallery_specs_loads_code_comparison_cases_from_json_manifest() ->
     assert ramp.metadata["tab_specs"][0]["title"] == "Reference K"
     assert no_seepage.generator == "copy_assets"
     assert no_seepage.metadata["tab_specs"][1]["filename"] == "no_seepage_high_k.png"
+
+
+def test_load_json_gallery_case_specs_rejects_results_stable_copy_assets_paths(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    manifest_path = tmp_path / "bad_copy_assets.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "defaults": {
+                    "category": "geographic",
+                    "generator": "copy_assets",
+                    "reproduction_command": "python -m demo",
+                },
+                "cases": [
+                    {
+                        "slug": "bad_case",
+                        "title": "Bad Case",
+                        "deck": "Deck",
+                        "summary": "Summary",
+                        "what_it_shows": ["Point"],
+                        "source_paths": [
+                            "examples/projects/Nancon_data_overview/results_stable/overview.png"
+                        ],
+                        "image_assets": [
+                            {
+                                "filename": "overview.png",
+                                "caption": "Caption",
+                                "alt_text": "Alt",
+                                "source_path": "examples/projects/Nancon_data_overview/results_stable/overview.png",
+                            }
+                        ],
+                    }
+                ],
+            },
+            indent=2,
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gallery_manifest_module, "_MANIFESTS_DIR", tmp_path)
+
+    with pytest.raises(ValueError, match="results_stable"):
+        gallery_manifest_module._load_json_gallery_case_specs("bad_copy_assets.json")
 
 
 def test_build_index_page_lists_extended_categories_when_populated() -> None:
