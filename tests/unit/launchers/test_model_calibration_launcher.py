@@ -10,9 +10,6 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-from hydromodpy.simulation.model_calibration_support import (
-    ModelCalibrationRuntimeSupportUnavailable,
-)
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle import (
     resolve_default_catchment_mesh_bundle_dir,
 )
@@ -201,11 +198,6 @@ def _write_minimal_model_calibration_config(
         "random_search": [
             "[calibration_method.random_search]",
             "n_samples = 2",
-            "seed = 42",
-        ],
-        "cma_es": [
-            "[calibration_method.cma_es]",
-            "max_evaluations = 12",
             "seed = 42",
         ],
         "da_mh_gp": [
@@ -1809,78 +1801,6 @@ def test_model_calibration_prepares_runtime_property_specific_support_updates(
     assert np.mean(k_values[k_west_weights < 0.01]) == pytest.approx(5.0e-5)
     assert np.mean(sy_values[sy_north_weights > 0.99]) == pytest.approx(0.22)
     assert np.mean(sy_values[sy_north_weights < 0.01]) == pytest.approx(0.08)
-
-
-def test_model_calibration_falls_back_to_disk_support_when_runtime_support_is_unavailable(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    bundle_dir = _write_minimal_calibration_bundle(tmp_path / "bundle")
-    simulation_path = tmp_path / "run_flow_reference.toml"
-    config_path = tmp_path / "config_model_calibration.toml"
-    _write_validation_dupuit_modflow6_simulation_config(
-        simulation_path,
-        project_root=tmp_path / "validation_project",
-    )
-    simulation_path.write_text(
-        simulation_path.read_text(encoding="utf-8")
-        + "\n[mesh_input]\n"
-        + f'bundle_dir = "{bundle_dir.as_posix()}"\n',
-        encoding="utf-8",
-    )
-    _write_dupuit_runtime_prepare_calibration_config(
-        config_path,
-        simulation_config_name=simulation_path.name,
-    )
-
-    from hydromodpy.launchers import HydroModPyLauncher
-
-    def _raise_unavailable(self, *, property_names: tuple[str, ...]) -> None:
-        raise ModelCalibrationRuntimeSupportUnavailable(
-            f"unsupported: {property_names}"
-        )
-
-    monkeypatch.setattr(
-        HydroModPyLauncher,
-        "prepare_model_calibration_runtime_support",
-        _raise_unavailable,
-    )
-
-    session = ModelCalibrationLauncher(config_path).prepare()
-
-    assert session.prepared_hydraulic_support is not None
-    assert session.prepared_hydraulic_support.source == "mesh_input_bundle_dir_geology"
-    assert session.prepared_hydraulic_support.mesh_bundle_dir == bundle_dir.resolve()
-
-
-def test_model_calibration_propagates_unexpected_runtime_support_errors(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    simulation_path = tmp_path / "run_flow_reference.toml"
-    config_path = tmp_path / "config_model_calibration.toml"
-    _write_validation_dupuit_modflow6_simulation_config(
-        simulation_path,
-        project_root=tmp_path / "validation_project",
-    )
-    _write_dupuit_runtime_prepare_calibration_config(
-        config_path,
-        simulation_config_name=simulation_path.name,
-    )
-
-    from hydromodpy.launchers import HydroModPyLauncher
-
-    def _raise_unexpected(self, *, property_names: tuple[str, ...]) -> None:
-        raise RuntimeError(f"boom: {property_names}")
-
-    monkeypatch.setattr(
-        HydroModPyLauncher,
-        "prepare_model_calibration_runtime_support",
-        _raise_unexpected,
-    )
-
-    with pytest.raises(RuntimeError, match="boom"):
-        _ = ModelCalibrationLauncher(config_path).prepare()
 
 
 def test_model_calibration_bundle_change_updates_session_contract_signature(

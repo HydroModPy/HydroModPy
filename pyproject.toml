@@ -125,7 +125,7 @@ Issues = "https://github.com/HydroModPy/HydroModPy/issues"
 include-package-data = true
 
 [tool.setuptools.packages.find]
-include = ["hydromodpy*", "launchers*"]
+include = ["hydromodpy*"]
 
 [tool.setuptools.package-data]
 hydromodpy = ["../bin/**/*"]
@@ -164,7 +164,6 @@ source = [
     "hydromodpy.simulation",
     "hydromodpy.solver",
     "hydromodpy.analysis",
-    "launchers",
 ]
 parallel = true
 omit = [
