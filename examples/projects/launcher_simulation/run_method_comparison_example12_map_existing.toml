@@ -1,5 +1,6 @@
 [method_comparison]
 comparison_id = "example12_map_method_comparison"
+anchors_file = "method_comparison_points.toml"
 run_variants = false
 continue_on_error = false
 reference_variant = "mf6_gmsh_existing"
@@ -19,6 +20,30 @@ solver = "boussinesq"
 mesh_mode = "mesh_input"
 mesh_label = "Naizin shared mesh"
 run_folder = "results_reused_real_meshes/example12_fast/results_simulations/flow_main__boussinesq"
+
+[[method_comparison.observable]]
+name = "head_outlet_lowland"
+variable = "watertable_elevation"
+support = "point"
+anchor_id = "example12.outlet_lowland"
+time = "all"
+unit = "m"
+
+[[method_comparison.observable]]
+name = "head_mid_basin_response"
+variable = "watertable_elevation"
+support = "point"
+anchor_id = "example12.mid_basin_response"
+time = "all"
+unit = "m"
+
+[[method_comparison.observable]]
+name = "head_upstream_ridge"
+variable = "watertable_elevation"
+support = "point"
+anchor_id = "example12.upstream_ridge"
+time = "all"
+unit = "m"
 
 [[method_comparison.observable]]
 name = "watertable_elevation_map"

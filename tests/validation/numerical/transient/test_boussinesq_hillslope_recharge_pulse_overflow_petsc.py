@@ -21,6 +21,7 @@ def _require_linux_petsc4py() -> None:
 @pytest.mark.validation
 @pytest.mark.transient
 @pytest.mark.slow
+@pytest.mark.petsc
 @pytest.mark.parametrize(
     ("solver", "forcing_preset"),
     [

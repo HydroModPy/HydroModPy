@@ -3,7 +3,7 @@
   "slug": "dupuit_circular_island_ocean_2d",
   "title": "Dupuit Circular-Island Ocean 2D",
   "category": "validation",
-  "deck": "2D circular-island benchmark using the `ocean` boundary condition.",
+  "deck": "Steady synthetic groundwater-flow case used to validate the launcher workflow against the axisymmetric Dupuit-Boussinesq solution for a circular island with:",
   "summary": "Steady synthetic groundwater-flow case used to validate the launcher workflow against the axisymmetric Dupuit-Boussinesq solution for a circular island with:",
   "case_setup": [
     "Circular synthetic island on Cartesian grid, uniform recharge, flat substratum, `ocean` top BC",
@@ -50,7 +50,7 @@
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/README.md": "c317b5eee0f59d8a11cc2a8c413f5bd113971b52dfa9cca2c295ab5ab1f7aaad",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/reference.py": "29f0e08923a9eee2713dc8ea03b86d5b17404702f811854afa21b3a9058bed25",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/comparison.py": "d28c8dcb6990cdd1de91f60d4cc3cbf54c926740170eabb076cd7466389b2e4b",
@@ -106,13 +106,22 @@
     },
     "regime": "steady",
     "dimension": "2d",
-    "inventory_reference": "radial Dupuit-Boussinesq",
+    "inventory_reference": "",
     "case_sheet": {
       "numerical_setup": "Circular synthetic island on Cartesian grid, uniform recharge, flat substratum, `ocean` top BC",
       "analytical_target": "Radial steady Dupuit-Boussinesq island solution",
       "primary_metrics": "radial RMSE, radial max abs error, azimuthal spread, ocean head error, minimum land freeboard",
       "what_it_validates": "Ocean BC activation, radial symmetry preservation, 2D synthetic topography with the water table kept below land surface"
-    }
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "island_2d",
+    "geometry_family_label": "Island 2D",
+    "reference_type": "analytical_exact",
+    "reference_type_label": "Analytical Exact",
+    "validation_family": "steady_2d_radial_or_island",
+    "validation_family_label": "Steady 2D Radial or Island Cases",
+    "validation_family_order": 40
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d_summary.json",
@@ -301,11 +310,11 @@
       "expected_output": "Expected shape: 61 x 61",
       "command": "python -m validation_cases.analytical.steady.dupuit_circular_island_ocean_2d.run_case --no-show --solver boussinesq",
       "metric_lines": [
-        "Radial head-profile RMSE: 0.1325 m",
-        "Radial head-profile max abs error: 0.3215 m",
+        "Radial head-profile RMSE: 0.1326 m",
+        "Radial head-profile max abs error: 0.3216 m",
         "Azimuthal spread: 0.2059 m",
         "Ocean head max abs error: 0.00e+00 m",
-        "Minimum land freeboard: 1.5441 m"
+        "Minimum land freeboard: 1.0392 m"
       ],
       "image": {
         "filename": "dupuit_circular_island_ocean_2d__boussinesq.png",

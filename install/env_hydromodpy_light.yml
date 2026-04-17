@@ -24,6 +24,7 @@ dependencies:
   - pyvista
   - rasterio
   - rioxarray
+  - cma
   - scikit-learn
   - scipy
   - selenium

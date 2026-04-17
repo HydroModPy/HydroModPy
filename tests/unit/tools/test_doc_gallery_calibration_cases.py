@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
+import pytest
+
 from tools.doc_gallery.calibration_case_registry import build_calibration_case_records
 from tools.doc_gallery.gallery_manifest import build_gallery_specs
 from tools.doc_gallery.update_gallery import (
     _build_calibration_intercomparison_page,
+    _build_category_page,
     _build_case_page,
     _build_calibration_intercomparison_rows,
     _with_parameter_docs,
 )
 
 
-EXPECTED_CALIBRATION_CASE_COUNT = 4
+pytestmark = pytest.mark.slow
+
+
+EXPECTED_CALIBRATION_CASE_COUNT = 5
 
 
 def test_build_calibration_case_records_discovers_curated_benchmarks() -> None:
@@ -35,6 +41,30 @@ def test_build_calibration_case_records_discovers_curated_benchmarks() -> None:
     assert "da_mh_gp" in records[
         "calibration_twin_linearized_recharge_step_modflow6"
     ].metadata["method_names"]
+    assert (
+        records[
+            "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6"
+        ].metadata["display_method_name"]
+        == "da_mh_gp"
+    )
+    assert records[
+        "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6"
+    ].metadata["output_names"] == ["q_east"]
+    assert "cma_es" in records[
+        "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6"
+    ].metadata["method_names"]
+    assert "cma_es" in records[
+        "calibration_twin_dupuit_fixed_head_modflow6"
+    ].metadata["method_names"]
+    assert records["calibration_twin_linearized_recharge_step_modflow6"].metadata[
+        "benchmark_family_key"
+    ] == "data_rich_no_uncertainty"
+    assert records[
+        "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6"
+    ].metadata["benchmark_family_key"] == "uncertain_less_data"
+    assert records["calibration_twin_dupuit_fixed_head_modflow6"].metadata[
+        "benchmark_family_key"
+    ] == "supplementary_scalar_reference"
     assert records[
         "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6"
     ].metadata["output_names"] == [
@@ -235,3 +265,24 @@ def test_build_calibration_intercomparison_page_renders_rows() -> None:
     assert "random_search" in page
     assert "Output select (s)" in page
     assert "Algorithm overhead (s)" in page
+
+
+def test_build_calibration_category_page_splits_primary_benchmark_families() -> None:
+    cases = [
+        {
+            "slug": record.slug,
+            "title": record.title,
+            "deck": record.deck,
+            "docname": f"cases/{record.slug}",
+            "metadata": dict(record.metadata),
+        }
+        for record in build_calibration_case_records()
+    ]
+
+    page = _build_category_page("calibration", cases)
+
+    assert "Calibration Benchmarks: No Uncertainty, More Data" in page
+    assert "Calibration Benchmarks: Uncertainty And Less Data" in page
+    assert "calibration_data_rich_no_uncertainty" in page
+    assert "calibration_uncertain_less_data" in page
+    assert "Supplementary Scalar Reference Cases" in page

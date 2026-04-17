@@ -14,10 +14,21 @@ These cases compare multiple modelling methods on the same saved support. The fi
 Current Coverage
 ----------------
 
-- Study areas: Naizin catchment.
-- Compared variants: Boussinesq on reused Gmsh mesh, MODFLOW 6 on generated Gmsh mesh.
-- Compared observables: Watertable Depth, Watertable Elevation.
-- Add one committed comparison TOML per basin to extend this section without changing the page generator.
+- Study areas: Example12 / Naizin, Naizin catchment.
+- Compared variants: Boussinesq annual moderate on committed triangular mesh, Boussinesq on reused Gmsh mesh, MF6 annual demonstrative on committed triangular mesh, MF6 annual moderate on 60x60 structured grid, MF6 annual moderate on committed triangular mesh, MODFLOW 6 on generated Gmsh mesh, NWT annual demonstrative on 60x60 structured grid, NWT annual moderate on 60x60 structured grid.
+- Compared observables: Depth Last, Head Last, Head Mid Basin Response, Head Outlet Lowland, Head Upstream Ridge, Outflow Drain Last, Outlet Flux Series, Surface Excess Flux Series, Surface Excess Last, Watertable Depth, Watertable Elevation.
+- Comparison families: Same Support, Different Solvers (2), Different Supports, Same Regime (2), Multi-Method Suites (2).
+- Extend this section by adding committed comparison TOMLs to an existing family, or by declaring a new family when the comparison axis really changes.
+
+Comparison Families
+-------------------
+
+The section is grouped by comparison intent first, so similar pages stay together even when the inventory grows.
+
+Same Support, Different Solvers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These cases keep the spatial support fixed so the main signal comes from solver-family differences rather than from a support change.
 
 .. grid:: 1 1 2 2
    :gutter: 2 2 3 3
@@ -29,10 +40,79 @@ Current Coverage
 
       **Shared-Mesh Solver Comparison on Naizin**
       ^^^
-      Map-wide comparison of MODFLOW 6 and Boussinesq on the same committed triangular catchment mesh.
+      Shared-mesh comparison of MODFLOW 6 and Boussinesq on Naizin, combining map snapshots and three head chronicle probes.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/ex12_mf6_nwt_moderate_same_s60
+      :link-type: doc
+
+      **MF6 vs NWT on the Same 60x60 Grid**
+      ^^^
+      Annual moderate comparison on one shared structured grid, isolating MODFLOW-family differences from mesh effects.
+
+
+Different Supports, Same Regime
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These cases keep the forcing regime fixed but intentionally change the mesh family, so the page captures both solver differences and support-transfer effects.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/ex12_mf6_nwt_moderate
+      :link-type: doc
+
+      **MF6 Triangular vs NWT Structured on Moderate Forcing**
+      ^^^
+      Annual moderate comparison where both solver family and mesh family change, with a common fine raster used for map alignment.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/example12_mf6_vs_nwt_different_meshes_demonstrative
+      :link-type: doc
+
+      **MF6 Triangular vs NWT Structured on Demonstrative Forcing**
+      ^^^
+      Different-support comparison on the more expressive demonstrative annual setup, including flux and timing diagnostics.
+
+
+Multi-Method Suites
+~~~~~~~~~~~~~~~~~~~
+
+These cases keep more than two variants on one page so the reader can separate solver-family, support-family, and runtime-family effects without opening several independent comparisons.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/ex12_multi_method_moderate
+      :link-type: doc
+
+      **Four-Method Moderate Suite on Example12**
+      ^^^
+      One annual moderate suite spanning MF6 and NWT on structured support plus MF6 and Boussinesq on committed triangles.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/ex12_multi_method_moderate_causes
+      :link-type: doc
+
+      **Four-Method Moderate Suite with Surface-Excess Diagnostics**
+      ^^^
+      Diagnostic extension of the four-method moderate suite, adding surface-excess observables and Boussinesq budget diagnostics.
+
 
 .. toctree::
    :hidden:
    :maxdepth: 1
 
    cases/example12_map_method_comparison
+   cases/ex12_mf6_nwt_moderate_same_s60
+   cases/ex12_mf6_nwt_moderate
+   cases/example12_mf6_vs_nwt_different_meshes_demonstrative
+   cases/ex12_multi_method_moderate
+   cases/ex12_multi_method_moderate_causes

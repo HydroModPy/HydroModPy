@@ -32,6 +32,7 @@ CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "boussinesq_hillslope_recharge_pulse_overflow_1d"
 DEFAULT_SOLVER = "petsc_partition"
 WINDOWS_SURFACE_CONTEXT_PRESET = "windows_surface_transient"
+LINUX_NWT_BOUSS_RAMP_CONTEXT_PRESET = "linux_nwt_bouss_ramp_4m4m6m"
 
 _WINDOWS_SURFACE_CONTEXT_OVERRIDES: dict[str, object] = {
     "geometry": {
@@ -71,6 +72,40 @@ _WINDOWS_SURFACE_CONTEXT_OVERRIDES: dict[str, object] = {
             0.0, 0.0,
         ],
     },
+}
+
+_LINUX_NWT_BOUSS_RAMP_CONTEXT_OVERRIDES: dict[str, object] = {
+    "geometry": {
+        "nx": 80,
+        "ny": 6,
+        "length_x_m": 400.0,
+        "width_y_m": 30.0,
+        "bottom_elevation_m": -15.0,
+        "toe_elevation_m": 5.0,
+        "topography_slope_m_per_m": 5.0 / 400.0,
+        "east_head_m": 5.03125,
+        "initial_head_m": 5.03125,
+        "hydraulic_conductivity_m_per_s": 1.0e-5,
+        "storage_coefficient": 0.10,
+        "drainage_conductance_m2_s": 2.0e-4,
+    },
+    "time": {
+        "dt_days": 2.0,
+    },
+    "forcing": {
+        "first_clim": "first",
+        "recharge_mm_day": [
+            0.50, 1.00, 1.50, 2.00, 2.50, 3.00, 3.50, 4.00, 4.50, 5.00, 5.50, 6.00,
+            5.50, 5.00, 4.50, 4.00, 3.50, 3.00, 2.50, 2.00, 1.50, 1.00, 0.50, 0.25,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0,
+        ],
+    },
+}
+
+_CONTEXT_PRESET_OVERRIDES: dict[str, dict[str, object]] = {
+    WINDOWS_SURFACE_CONTEXT_PRESET: _WINDOWS_SURFACE_CONTEXT_OVERRIDES,
+    LINUX_NWT_BOUSS_RAMP_CONTEXT_PRESET: _LINUX_NWT_BOUSS_RAMP_CONTEXT_OVERRIDES,
 }
 
 
@@ -133,7 +168,7 @@ def _resolve_case_settings(
     metadata: dict[str, object],
     *,
     variant: SolverVariant,
-    context_preset: str | None,
+    context_preset: str | None = None,
     forcing_preset: str | None,
     forcing_scale: float,
     east_head_m: float | None,
@@ -148,18 +183,16 @@ def _resolve_case_settings(
     context_name = str(context_preset or "").strip().lower()
 
     if context_name:
-        if context_name != WINDOWS_SURFACE_CONTEXT_PRESET:
+        if context_name not in _CONTEXT_PRESET_OVERRIDES:
+            supported = ", ".join(sorted(_CONTEXT_PRESET_OVERRIDES))
             raise ValueError(
                 "Unsupported context preset "
-                f"'{context_preset}'. Supported values: {WINDOWS_SURFACE_CONTEXT_PRESET}."
+                f"'{context_preset}'. Supported values: {supported}."
             )
-        geometry_cfg.update(
-            dict(_WINDOWS_SURFACE_CONTEXT_OVERRIDES.get("geometry", {}))
-        )
-        time_cfg.update(dict(_WINDOWS_SURFACE_CONTEXT_OVERRIDES.get("time", {})))
-        forcing_cfg.update(
-            dict(_WINDOWS_SURFACE_CONTEXT_OVERRIDES.get("forcing", {}))
-        )
+        preset_overrides = _CONTEXT_PRESET_OVERRIDES[context_name]
+        geometry_cfg.update(dict(preset_overrides.get("geometry", {})))
+        time_cfg.update(dict(preset_overrides.get("time", {})))
+        forcing_cfg.update(dict(preset_overrides.get("forcing", {})))
 
     preset_name = str(forcing_preset or "").strip().lower()
     if preset_name not in {"", "default", "baseline"}:
@@ -236,6 +269,7 @@ def run_boussinesq_hillslope_overflow_case(
     dt_days: float | None = None,
     runtime_max_iterations: int | None = None,
     runtime_tol_residual_inf: float | None = None,
+    saturation_excess_regularization_radius: float | None = None,
 ) -> ValidationRunResult:
     """Run the transient hillslope pulse-overflow scenario for one solver flavor."""
     del timeout
@@ -327,11 +361,17 @@ def run_boussinesq_hillslope_overflow_case(
     if resolved_runtime_tol_residual_inf is not None:
         flow_section["runtime_tol_residual_inf"] = float(resolved_runtime_tol_residual_inf)
 
+    flow = Flow(build_flow_config(flow_section, case_dir=CASE_DIR))
+    if saturation_excess_regularization_radius is not None:
+        flow.saturation_excess_regularization_radius = float(
+            saturation_excess_regularization_radius
+        )
+
     state = SimpleNamespace(
         setup=SimpleNamespace(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(build_flow_config(flow_section, case_dir=CASE_DIR)),
+            flow=flow,
             domain=None,
             time_grid=SimpleNamespace(
                 period_lengths_seconds=period_lengths_seconds,
@@ -362,7 +402,6 @@ def run_boussinesq_hillslope_overflow_case(
         model,
         nx=nx,
         ny=ny,
-        export_initial_state=True,
     )
 
     model_ws = Path(model.full_path)

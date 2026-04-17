@@ -81,25 +81,18 @@ def resolve_run_model_name(ctx) -> str:
         ).strip()
         if override_name:
             return flow_model_name(ctx.plan, override_name, ctx.run)
-    run_id = str(getattr(ctx.state.setup, "run_id", "") or "").strip()
-    if not run_id:
-        run_id = "default"
-    return flow_model_name(ctx.plan, run_id, ctx.run)
+    return flow_model_name(ctx.plan, resolve_base_model_name(ctx.state.setup), ctx.run)
 
 
 def resolve_base_model_name(setup) -> str:
     """Resolve the launcher base model name from runtime setup state.
 
     Canonical source is ``setup.run_id`` in the modern simulation runtime.
-    Falls back to ``setup.model_name`` for compatibility.
     When missing or blank, ``"default"`` is returned.
     """
     run_id = str(getattr(setup, "run_id", "") or "").strip()
     if run_id:
         return run_id
-    setup_name = str(getattr(setup, "model_name", "") or "").strip()
-    if setup_name:
-        return setup_name
     return "default"
 
 

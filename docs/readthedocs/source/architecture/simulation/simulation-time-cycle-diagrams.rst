@@ -19,12 +19,37 @@ They focus on:
 
 The forcing path now separates three responsibilities:
 
-- ``hydromodpy.simulation.forcing.recharge_chronicle_config`` validates modes,
-  generators, and inline rate units.
 - ``hydromodpy.process.hydrology.synthetic.forcing`` generates conceptual hydrological
   signals such as ``seasonal_step``.
-- ``hydromodpy.simulation.forcing.recharge_chronicle`` converts these series to
-  ``m/s`` and aligns them on simulation stress-period boundaries.
+- ``hydromodpy.process.forcing.forcing_bridge`` converts loaded data to
+  homogeneous or heterogeneous solver-ready forcing payloads.
+- ``hydromodpy.process.forcing.time_alignment`` aligns series on simulation
+  stress-period boundaries.
+- ``hydromodpy.simulation.forcing`` remains the stable re-export surface used
+  by orchestration code.
+
+Code map
+--------
+
+- ``hydromodpy/simulation/settings.py``:
+  typed simulation settings and canonical time-window validation.
+- ``hydromodpy/process/hydrology/synthetic/forcing.py``:
+  generator-side synthetic forcing helpers.
+- ``hydromodpy/process/forcing/forcing_bridge.py``:
+  generic forcing conversion and unit handling.
+- ``hydromodpy/process/forcing/time_alignment.py``:
+  stress-period aggregation.
+- ``hydromodpy/process/flow/time_forcing.py``:
+  flow-side forcing preparation before adapter dispatch.
+
+Recommended reading path
+------------------------
+
+1. ``hydromodpy/simulation/settings.py``
+2. ``hydromodpy/process/hydrology/synthetic/forcing.py``
+3. ``hydromodpy/process/forcing/forcing_bridge.py``
+4. ``hydromodpy/process/forcing/time_alignment.py``
+5. ``hydromodpy/process/flow/time_forcing.py``
 
 Class Diagram
 -------------
@@ -52,3 +77,9 @@ Activity Diagram
 .. literalinclude:: diagrams/simulation_time_cycle_activity.wsd
    :language: text
    :caption: PlantUML (.wsd) source - simulation time cycle activity diagram
+
+Related diagrams
+----------------
+
+- :doc:`launcher-simulation-class-diagram`
+- :doc:`toml-to-solver-walkthrough`

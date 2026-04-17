@@ -13,6 +13,29 @@ These diagrams document the architecture around:
 - the way ``FieldParam`` consumes those supports during solver property
   mapping.
 
+Code map
+--------
+
+- ``hydromodpy/spatial/domain/domain_config.py``:
+  high-level domain declaration including support registration.
+- ``hydromodpy/spatial/domain/spatial_support_config.py``:
+  typed support-definition models.
+- ``hydromodpy/spatial/domain/spatial_support.py``:
+  runtime support builders and providers.
+- ``hydromodpy/spatial/field/core/field_param.py``:
+  consumption point through ``field_spatial_id``.
+- ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``:
+  downstream discretization over solver meshes.
+
+Recommended reading path
+------------------------
+
+1. ``hydromodpy/spatial/domain/domain_config.py``
+2. ``hydromodpy/spatial/domain/spatial_support_config.py``
+3. ``hydromodpy/spatial/domain/spatial_support.py``
+4. ``hydromodpy/spatial/field/core/field_param.py``
+5. ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``
+
 Context Diagram
 ---------------
 
@@ -72,3 +95,10 @@ Use this diagram to describe how a support is consumed when a heterogeneous
 .. literalinclude:: diagrams/spatial_support_fieldparam_sequence.wsd
    :language: text
    :caption: PlantUML (.wsd) source - spatial support to FieldParam sequence diagram
+
+Related diagrams
+----------------
+
+- :doc:`support-selection-guide`
+- :doc:`../field/field-uml-diagrams`
+- :doc:`../mesh/sgrid-fieldparam-discretization-diagrams`

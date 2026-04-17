@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">Configuration du versant transitoire avec drainage de surface</title>
+  <desc id="desc">Schema d'un versant synthetique 1D incline avec ligne de partage a l'ouest, charge imposee a l'est, drainage de surface distribue et recharge transitoire croissante puis decroissante suivie d'une annee seche.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#eef6fb"/>
+      <stop offset="100%" stop-color="#fdf9f0"/>
+    </linearGradient>
+    <linearGradient id="soil" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#d8c29b"/>
+      <stop offset="100%" stop-color="#b68f63"/>
+    </linearGradient>
+    <linearGradient id="water" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#87c6ff"/>
+      <stop offset="100%" stop-color="#3b82c4"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#1d6f6b"/>
+    </marker>
+    <marker id="arrowWarm" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#9a6a18"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="520" fill="url(#sky)"/>
+  <rect x="24" y="24" width="1152" height="472" rx="24" fill="#fffdf9" stroke="#d9cfbf" stroke-width="2"/>
+
+  <text x="60" y="74" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700" fill="#173242">
+    Versant transitoire avec drainage de surface
+  </text>
+  <text x="60" y="104" font-family="Segoe UI, Arial, sans-serif" font-size="17" fill="#5a6874">
+    Cas de reference pour les campagnes multi-solveurs SIH et overflow PETSc
+  </text>
+
+  <path d="M130 330 L930 210 L930 410 L130 410 Z" fill="url(#soil)" stroke="#8d6d49" stroke-width="2.5"/>
+  <path d="M130 330 L930 210" fill="none" stroke="#455b66" stroke-width="5"/>
+  <path d="M130 358 Q340 330 520 305 T930 230" fill="none" stroke="url(#water)" stroke-width="6" opacity="0.95"/>
+
+  <line x1="930" y1="210" x2="930" y2="410" stroke="#1d6f6b" stroke-width="5"/>
+  <text x="950" y="260" font-family="Segoe UI, Arial, sans-serif" font-size="18" fill="#114b48">Est : charge imposee</text>
+  <text x="950" y="284" font-family="Segoe UI, Arial, sans-serif" font-size="16" fill="#114b48">exutoire lateral</text>
+
+  <line x1="130" y1="300" x2="130" y2="410" stroke="#9a6a18" stroke-width="4" stroke-dasharray="7 7"/>
+  <text x="60" y="292" font-family="Segoe UI, Arial, sans-serif" font-size="18" fill="#7a5313">Ouest : divide / no-flow</text>
+
+  <g stroke="#1d6f6b" stroke-width="3" marker-end="url(#arrow)">
+    <line x1="240" y1="150" x2="240" y2="270"/>
+    <line x1="360" y1="135" x2="360" y2="252"/>
+    <line x1="480" y1="120" x2="480" y2="236"/>
+    <line x1="600" y1="120" x2="600" y2="220"/>
+    <line x1="720" y1="135" x2="720" y2="205"/>
+  </g>
+  <text x="160" y="146" font-family="Segoe UI, Arial, sans-serif" font-size="19" fill="#114b48">
+    Recharge uniforme transitoire
+  </text>
+
+  <g stroke="#9a6a18" stroke-width="2.5" marker-end="url(#arrowWarm)">
+    <line x1="240" y1="314" x2="270" y2="287"/>
+    <line x1="360" y1="296" x2="390" y2="270"/>
+    <line x1="480" y1="278" x2="510" y2="252"/>
+    <line x1="600" y1="260" x2="630" y2="234"/>
+    <line x1="720" y1="242" x2="750" y2="216"/>
+  </g>
+  <text x="155" y="388" font-family="Segoe UI, Arial, sans-serif" font-size="18" fill="#7a5313">
+    Drainage de surface distribue sur le toit
+  </text>
+
+  <text x="90" y="450" font-family="Consolas, monospace" font-size="16" fill="#33404b">
+    Geometrie type : 400 m x 30 m, grille Boussinesq 40 x 3, triangles seed 10 x 3
+  </text>
+
+  <g transform="translate(760 72)">
+    <rect x="0" y="0" width="360" height="120" rx="16" fill="#f6efe2" stroke="#d9cfbf"/>
+    <text x="22" y="30" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#173242">
+      Forcage transitoire
+    </text>
+    <polyline points="24,90 64,82 104,64 144,46 184,28 224,54 264,72 304,84 336,84"
+      fill="none" stroke="#1d6f6b" stroke-width="4"/>
+    <line x1="24" y1="90" x2="336" y2="90" stroke="#c7bba8" stroke-width="2"/>
+    <text x="24" y="110" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#5a6874">
+      montee puis descente, ensuite annee seche
+    </text>
+  </g>
+</svg>

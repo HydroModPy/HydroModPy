@@ -3,7 +3,7 @@
   "slug": "brutsaert_recession_linearized_deep_1d",
   "title": "Brutsaert Recession Validation: Deep Linearized Aquifer",
   "category": "validation",
-  "deck": "1D outlet-discharge benchmark for deep-aquifer recession across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq backend.",
+  "deck": "This transient validation case checks that the available `modflownwt`, `modflow6`, and local `boussinesq` backends reproduce the linearized Brutsaert recession law on a deep aquifer.",
   "summary": "This transient validation case checks that the available `modflownwt`, `modflow6`, and local `boussinesq` backends reproduce the linearized Brutsaert recession law on a deep aquifer.",
   "case_setup": [
     "homogeneous 1D strip with west divide and east imposed head,",
@@ -48,7 +48,7 @@
     "validation_cases/analytical/transient/runtime_boussinesq_brutsaert_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/README.md": "41459e202bb85055051f9ac49e333bf8164eea2df755df9451e28fac4cbe64c6",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/reference.py": "63011c122300937b1ae47c5eafdd1b4e1c0a03fc0e434f7255f0b48d2ba0d58b",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/comparison.py": "162dc0ee5df81679bd0697358cf0e02035632ad5b4da48b4e421f4bc63b5d297",
@@ -62,9 +62,9 @@
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml": "c587ec52f341201e87753719b3a2aabddedc57df3fd4d747f5a868ea752dd5a3",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflow6.toml": "b0ace93b0771f31991493e0bf31bb61a434646a86b3d258e2d14e3b710cf91d7",
     "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_boussinesq.toml": "6f68bf8bb4da181014cdc8fc3d802958f0c056f4675490e309cfaa280b586156",
-    "validation_cases/analytical/transient/brutsaert_common.py": "7d8579cde367ba1a0c225b964bfa4e3b4563a3d35c7ad3717430047feafb1671",
+    "validation_cases/analytical/transient/brutsaert_common.py": "1f1ca9eb324fa2959b490125b251956f9521a649ff9ac4a9bf78a04351f34dfb",
     "validation_cases/analytical/transient/brutsaert_reference.py": "a8ddea6161cc9330a269bc54aa85daafa39b8cbf26c54c4613ee8f9909613749",
-    "validation_cases/analytical/transient/runtime_boussinesq_brutsaert_1d.py": "96e20646046ccf8b310dfd441528f72ad2fd8ac1c315175362e44710c8f8e114"
+    "validation_cases/analytical/transient/runtime_boussinesq_brutsaert_1d.py": "0664eb0040aba16f43b0cfbae267c3f4a7a4fdd1acdd665dff43e0f2d9c1ba0e"
   },
   "docname": "cases/brutsaert_recession_linearized_deep_1d",
   "images": [
@@ -107,21 +107,29 @@
     },
     "regime": "transient",
     "dimension": "1d",
-    "inventory_reference": "Brutsaert linearized recession",
+    "inventory_reference": "",
     "case_sheet": {
       "numerical_setup": "Homogeneous strip, west divide, east fixed head, steady recharge pre-run followed by recession",
       "analytical_target": "Exponential Brutsaert recession law for a deep aquifer",
       "primary_metrics": "relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check",
       "what_it_validates": "Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq runtime in the near-linear regime"
-    }
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "strip_1d",
+    "geometry_family_label": "Strip 1D",
+    "reference_type": "analytical_series",
+    "reference_type_label": "Analytical Series",
+    "validation_family": "transient_1d_recession_or_interception_dynamics",
+    "validation_family_label": "Transient 1D Recession or Interception Dynamics",
+    "validation_family_order": 60
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d_summary.json",
     "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d_summary.json",
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflownwt.png",
-      "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflow6.png",
-      "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__boussinesq.png"
+      "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__modflow6.png"
     ]
   },
   "solver_runs": [
@@ -327,91 +335,17 @@
       "expected_output": null,
       "command": "python -m validation_cases.analytical.transient.brutsaert_recession_linearized_deep_1d.run_case --no-show --solver boussinesq",
       "metric_lines": [
-        "Solution: exponential",
-        "Initial discharge: 2.778198e-04 m3/s",
-        "Characteristic time: 15.01 d",
-        "Relative RMSE: 0.0211",
-        "Relative max abs error: 0.0399",
-        "Cross-row head spread: 6.88e-09 m"
+        "Gallery generation failed for this solver: NameError: name 'period_lengths_seconds' is not defined"
       ],
-      "image": {
-        "filename": "brutsaert_recession_linearized_deep_1d__boussinesq.png",
-        "caption": "Brutsaert Recession Validation: Deep Linearized Aquifer rendered with Boussinesq for the analytical gallery.",
-        "alt_text": "Brutsaert Recession Validation: Deep Linearized Aquifer validation figure for Boussinesq",
-        "doc_path": "/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__boussinesq.png",
-        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_linearized_deep_1d__boussinesq.png"
-      },
+      "image": null,
       "metadata": {
-        "observable_name": "outlet_discharge_east_side_m3_s",
-        "case_metadata": {
-          "case_id": "brutsaert_recession_linearized_deep_1d",
-          "category": "analytical",
-          "regime": "transient",
-          "dimension": "1d",
-          "launcher": "launcher_simulation",
-          "config_file": "config_modflownwt.toml",
-          "default_solver": "modflownwt",
-          "base_config": "config_common.toml",
-          "config_files": {
-            "modflownwt": "config_modflownwt.toml",
-            "modflow6": "config_modflow6.toml",
-            "boussinesq": "config_boussinesq.toml"
-          },
-          "workspace": {
-            "results_folder_name": "results_simulations"
-          },
-          "output": {
-            "observable_name": "outlet_discharge_east_side_m3_s",
-            "expected_periods": 12,
-            "head_observable_name": "watertable_elevation",
-            "warmup_periods_by_solver": {
-              "modflownwt": 1,
-              "modflow6": 1,
-              "boussinesq": 0
-            }
-          },
-          "time": {
-            "nper": 12,
-            "dt_seconds": 864000.0
-          },
-          "geometry": {
-            "nx": 40,
-            "ny": 3,
-            "length_x_m": 400.0,
-            "width_y_m": 30.0,
-            "z_top_m": 100.0,
-            "z_bottom_m": 0.0
-          },
-          "runtime": {
-            "east_head_m": 50.0,
-            "steady_recharge_mm_day": 2.0,
-            "acceptable_steady_residual_inf": 1e-06
-          },
-          "reference": {
-            "solution": "exponential",
-            "hydraulic_conductivity_m_per_s": 0.0001,
-            "specific_yield": 0.1,
-            "aquifer_thickness_m": 50.0,
-            "watershed_area_m2": 12000.0,
-            "channel_length_m": 30.0,
-            "active_drainage_fraction": 1.0,
-            "linearization_constant": 0.25,
-            "compare_start_day": 0.0
-          }
-        },
-        "tolerances": {
-          "discharge": {
-            "relative_rmse": 0.03,
-            "relative_max_error": 0.05
-          },
-          "uniformity": {
-            "row_spread": 1e-06
-          },
-          "monotonicity": {
-            "max_positive_increment_m3_s": 1e-12
-          }
-        },
-        "final_elapsed_days": 120.0
+        "observable_name": null,
+        "case_metadata": {},
+        "tolerances": {},
+        "generation_error": {
+          "type": "NameError",
+          "message": "name 'period_lengths_seconds' is not defined"
+        }
       }
     }
   ],

@@ -101,10 +101,10 @@ Solver Coverage
          Linearized Unconfined 1D Recharge Step (Deep Aquifer) rendered with Boussinesq for the analytical gallery.
 
       **Metrics**
-      - Space-time RMSE: 0.0014 m
-      - Space-time max abs error: 0.0017 m
-      - Final-profile RMSE: 0.0014 m
-      - Cross-row head spread: 1.12e-09 m
+      - Space-time RMSE: 0.0009 m
+      - Space-time max abs error: 0.0019 m
+      - Final-profile RMSE: 0.0009 m
+      - Cross-row head spread: 1.02e-09 m
 
       - Config file: ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_boussinesq.toml``
       - Tolerances: ``validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances_boussinesq.toml``

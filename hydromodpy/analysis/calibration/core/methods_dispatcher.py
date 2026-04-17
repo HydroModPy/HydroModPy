@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from hydromodpy.analysis.calibration.core.methods.da_mh_gp import delayed_acceptance_gp_mh_calibrate
+from hydromodpy.analysis.calibration.core.methods.cma_es import cma_es_calibrate
 from hydromodpy.analysis.calibration.core.methods.gp_mapping import gp_mapping_calibrate
 from hydromodpy.analysis.calibration.core.methods.grid_search import grid_search_calibrate
 from hydromodpy.analysis.calibration.core.methods.nelder_mead import nelder_mead_calibrate
@@ -33,6 +34,10 @@ _METHOD_DISPLAY_INFO = {
     "random_search": (
         "global_search",
         "Random bounded sampling (stochastic global baseline).",
+    ),
+    "cma_es": (
+        "global_search",
+        "Covariance Matrix Adaptation Evolution Strategy (global, derivative-free).",
     ),
     "nelder_mead": (
         "local_refinement",
@@ -134,6 +139,7 @@ DEFAULT_CALIBRATION_METHOD = CalibrationMethod(
     methods={
         "grid_search": grid_search_calibrate,
         "random_search": random_search_calibrate,
+        "cma_es": cma_es_calibrate,
         "nelder_mead": nelder_mead_calibrate,
         "simplex": simplex_calibrate,
         "gp_mapping": gp_mapping_calibrate,

@@ -100,10 +100,10 @@ Solver Coverage
          Linearized Unconfined 1D Boundary Step rendered with Boussinesq for the analytical gallery.
 
       **Metrics**
-      - Space-time RMSE: 0.0023 m
-      - Space-time max abs error: 0.0167 m
-      - Final-profile RMSE: 0.0008 m
-      - Cross-row head spread: 4.75e-09 m
+      - Space-time RMSE: 0.0018 m
+      - Space-time max abs error: 0.0144 m
+      - Final-profile RMSE: 0.0003 m
+      - Cross-row head spread: 3.65e-09 m
 
       - Config file: ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_boussinesq.toml``
       - Tolerances: ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances_boussinesq.toml``

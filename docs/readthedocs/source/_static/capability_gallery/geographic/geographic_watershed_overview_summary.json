@@ -8,7 +8,7 @@
   "case_setup": [
     "Launcher family: `data-overview`, so the workflow stops after setup, domain assembly, and data loading.",
     "Primary editable file: `examples/projects/data_overview/project.toml`.",
-    "Committed figures are reused as stable teaching assets instead of rerunning the full example during doc builds."
+    "Committed figures are mirrored under `examples/capability_gallery/geographic/` so the doc build stays reproducible without a local `results_stable` checkout."
   ],
   "key_parameters": [
     "`[geographic] catch_def`, `x_outlet`, and `y_outlet` decide where the watershed is extracted from.",
@@ -38,16 +38,20 @@
   "reproduction_command": "python examples/projects/data_overview/run_data_overview.py",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
+    "tools/doc_gallery/manifests/geographic_cases.json",
     "examples/projects/data_overview/run_data_overview.py",
     "examples/projects/data_overview/project.toml",
-    "examples/results/example13data/results_stable/_figures/watershed_dem.png",
-    "examples/results/example13data/results_stable/_figures/watershed_local.png"
+    "examples/capability_gallery/geographic/README.md",
+    "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png",
+    "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_local.png"
   ],
   "source_hashes": {
-    "examples/projects/data_overview/run_data_overview.py": "75820221b4ad8edd314a810cbcf5d2a122ffeda61180a76a2a2b8f4575beef78",
-    "examples/projects/data_overview/project.toml": "b9c305fc766e4c7cd565cbd478901270b0183ec24a394135e26d8afe22d7792e",
-    "examples/results/example13data/results_stable/_figures/watershed_dem.png": "e89a7527ccc0ce66f7c55f5acfcd4fa0c286ad83b78bcb04589a463c6c6d1979",
-    "examples/results/example13data/results_stable/_figures/watershed_local.png": "851a58eea24b3710185702557b5d74e7505f5f656507b5d2236fb537570ae92d"
+    "tools/doc_gallery/manifests/geographic_cases.json": "bfa1457d98a6fd3a0b9fdeb7a93f6583273cd919168d5fb1d6261922680ee160",
+    "examples/projects/data_overview/run_data_overview.py": "1528b7545d24767061bc915fb7c445ef01d83e90c4071f20aa70b082dd428d02",
+    "examples/projects/data_overview/project.toml": "8a3ffdaab7cb5846a6fe6f5dcdac39256759c7a250652385d5c1a9c7e56be550",
+    "examples/capability_gallery/geographic/README.md": "fe6bc2eca9984e4b58baa744210d733ff348585fe5e499aa146a02b2f61a4dad",
+    "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png": "e89a7527ccc0ce66f7c55f5acfcd4fa0c286ad83b78bcb04589a463c6c6d1979",
+    "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_local.png": "851a58eea24b3710185702557b5d74e7505f5f656507b5d2236fb537570ae92d"
   },
   "docname": "cases/geographic_watershed_overview",
   "images": [
@@ -68,13 +72,28 @@
   ],
   "metrics": [],
   "metadata": {
+    "workflow_stage": "watershed_context",
+    "workflow_stage_label": "Watershed Context",
+    "workflow_stage_deck": "These cases frame the basin first: outlet location, DEM context, and the local support that later workflows will reuse.",
+    "workflow_stage_order": 10,
+    "panel_families": [
+      "dem_overview",
+      "local_context"
+    ],
+    "loaded_data_types": [
+      "hydrography",
+      "hydrometry",
+      "intermittency",
+      "oceanic"
+    ],
+    "reading_order": 10,
     "copied_assets": [
       {
-        "source_path": "examples/results/example13data/results_stable/_figures/watershed_dem.png",
+        "source_path": "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_watershed_dem.png"
       },
       {
-        "source_path": "examples/results/example13data/results_stable/_figures/watershed_local.png",
+        "source_path": "examples/capability_gallery/geographic/watershed_overview/geographic_watershed_local.png",
         "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_watershed_local.png"
       }
     ]
@@ -150,6 +169,64 @@
             "field": "[data] inference_mode",
             "meaning": "Policy controlling how strictly the data-loading stage resolves requested layers.",
             "value": "strict",
+            "source": "examples/projects/data_overview/project.toml"
+          }
+        ]
+      },
+      {
+        "title": "Loaded Data Families",
+        "rows": [
+          {
+            "field": "[data] types",
+            "meaning": "Ordered list of data families requested by the overview case.",
+            "value": "geology, hydrography, hydrometry, intermittency, oceanic",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data.geology.sources]",
+            "meaning": "Configured providers used to load the `geology` family in this case.",
+            "value": "brgm_1m",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data.hydrography.sources]",
+            "meaning": "Configured providers used to load the `hydrography` family in this case.",
+            "value": "custom",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data.hydrometry.sources]",
+            "meaning": "Configured providers used to load the `hydrometry` family in this case.",
+            "value": "hubeau",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data.intermittency.sources]",
+            "meaning": "Configured providers used to load the `intermittency` family in this case.",
+            "value": "hubeau",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[data.oceanic.sources]",
+            "meaning": "Configured providers used to load the `oceanic` family in this case.",
+            "value": "shom",
+            "source": "examples/projects/data_overview/project.toml"
+          }
+        ]
+      },
+      {
+        "title": "Hydrography Source Options",
+        "rows": [
+          {
+            "field": "[[data.hydrography.sources]] source",
+            "meaning": "Hydrography provider used for the displayed river network.",
+            "value": "custom",
+            "source": "examples/projects/data_overview/project.toml"
+          },
+          {
+            "field": "[[data.hydrography.sources]] rasterize_field",
+            "meaning": "Attribute used when rasterizing the clipped vector network to the watershed grid.",
+            "value": "FID",
             "source": "examples/projects/data_overview/project.toml"
           }
         ]

@@ -12,10 +12,9 @@ backend without knowing how that backend is implemented internally.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import import_module
-from typing import Literal
+from typing import Literal, Protocol, cast, runtime_checkable
 
 from hydromodpy.solver.boussinesq.engines import (
     BoussinesqEngineSpec,
@@ -36,8 +35,23 @@ LinearSystemLayout = Literal["dense", "sparse", "matrix_free"]
 SurfaceInteractionModel = Literal["auto", "regularized_partition", "complementarity"]
 
 
+@runtime_checkable
+class BoussinesqRuntimeBackend(Protocol):
+    """Minimal execution contract implemented by runtime modules."""
+
+    def solve_transient_step(
+        self,
+        inputs: TransientStepInputs,
+    ) -> RuntimeSolveResult: ...
+
+    def solve_steady_problem(
+        self,
+        inputs: SteadySolveInputs,
+    ) -> RuntimeSolveResult: ...
+
+
 @dataclass(frozen=True)
-class BoussinesqRuntimeBackend:
+class ResolvedBoussinesqRuntimeBackend:
     """Normalized descriptor for one nonlinear runtime backend.
 
     The two solve callables are the only mandatory execution entry points.
@@ -48,8 +62,7 @@ class BoussinesqRuntimeBackend:
     name: RuntimeBackendName
     engine_id: str
     method: BoussinesqMethodSpec
-    solve_transient_step: Callable[[TransientStepInputs], RuntimeSolveResult]
-    solve_steady_problem: Callable[[SteadySolveInputs], RuntimeSolveResult]
+    backend: BoussinesqRuntimeBackend
     nonlinear_solver_kind: str
     linear_system_layout: LinearSystemLayout
     jacobian_strategy: str
@@ -57,12 +70,26 @@ class BoussinesqRuntimeBackend:
     convergence_policy: str
     iteration_counter_label: str
 
+    def solve_transient_step(
+        self,
+        inputs: TransientStepInputs,
+    ) -> RuntimeSolveResult:
+        """Delegate one transient step to the resolved runtime module."""
+        return self.backend.solve_transient_step(inputs)
+
+    def solve_steady_problem(
+        self,
+        inputs: SteadySolveInputs,
+    ) -> RuntimeSolveResult:
+        """Delegate one steady solve to the resolved runtime module."""
+        return self.backend.solve_steady_problem(inputs)
+
 
 def resolve_runtime_backend(
     name: str | None,
     *,
     surface_interaction_model: SurfaceInteractionModel | str = "auto",
-) -> BoussinesqRuntimeBackend:
+) -> ResolvedBoussinesqRuntimeBackend:
     """Return the backend descriptor matching one user-facing backend name.
 
     Parameters
@@ -73,7 +100,7 @@ def resolve_runtime_backend(
 
     Returns
     -------
-    BoussinesqRuntimeBackend
+    ResolvedBoussinesqRuntimeBackend
         One descriptor bundling the solve callables and a short explanation of
         the nonlinear strategy used by that backend.
     """
@@ -86,13 +113,12 @@ def resolve_runtime_backend(
         runtime_backend_name=normalized,
         method_id=method.id,
     )
-    solve_steady_problem, solve_transient_step = _load_engine_solvers(engine)
-    return BoussinesqRuntimeBackend(
+    backend = _load_engine_backend(engine)
+    return ResolvedBoussinesqRuntimeBackend(
         name=engine.name,  # type: ignore[arg-type]
         engine_id=engine.id,
         method=method,
-        solve_transient_step=solve_transient_step,
-        solve_steady_problem=solve_steady_problem,
+        backend=backend,
         nonlinear_solver_kind=engine.nonlinear_solver_kind,
         linear_system_layout=engine.linear_system_layout,  # type: ignore[arg-type]
         jacobian_strategy=engine.jacobian_strategy,
@@ -102,23 +128,29 @@ def resolve_runtime_backend(
     )
 
 
-def _load_engine_solvers(
+def _load_engine_backend(
     engine: BoussinesqEngineSpec,
-) -> tuple[
-    Callable[[SteadySolveInputs], RuntimeSolveResult],
-    Callable[[TransientStepInputs], RuntimeSolveResult],
-]:
-    """Import the solve callables exposed by one runtime engine module."""
+) -> BoussinesqRuntimeBackend:
+    """Import one runtime module and validate the backend execution contract."""
 
     module = import_module(engine.module_name)
-    return (
-        getattr(module, "solve_steady_problem"),
-        getattr(module, "solve_transient_step"),
-    )
+    if not isinstance(module, BoussinesqRuntimeBackend):
+        missing = [
+            name
+            for name in ("solve_steady_problem", "solve_transient_step")
+            if not callable(getattr(module, name, None))
+        ]
+        missing_text = ", ".join(missing) if missing else "required runtime entry points"
+        raise TypeError(
+            f"{engine.module_name} does not implement the Boussinesq runtime "
+            f"backend protocol; missing {missing_text}."
+        )
+    return cast(BoussinesqRuntimeBackend, module)
 
 
 __all__ = [
     "BoussinesqRuntimeBackend",
+    "ResolvedBoussinesqRuntimeBackend",
     "LinearSystemLayout",
     "RuntimeBackendName",
     "SurfaceInteractionModel",

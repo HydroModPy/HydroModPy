@@ -85,19 +85,8 @@ Solver Coverage
 
    .. tab-item:: Boussinesq
 
-      .. figure:: /_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__boussinesq.png
-         :alt: Brutsaert Recession Validation: Thin Nonlinear Aquifer validation figure for Boussinesq
-         :width: 100%
-
-         Brutsaert Recession Validation: Thin Nonlinear Aquifer rendered with Boussinesq for the analytical gallery.
-
       **Metrics**
-      - Solution: boussinesq
-      - Initial discharge: 3.472225e-05 m3/s
-      - Characteristic time: 28.91 d
-      - Relative RMSE: 0.2144
-      - Relative max abs error: 0.2298
-      - Cross-row head spread: 1.40e-10 m
+      - Gallery generation failed for this solver: NameError: name 'period_lengths_seconds' is not defined
 
       - Config file: ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_boussinesq.toml``
       - Tolerances: ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_boussinesq.toml``
@@ -549,5 +538,4 @@ Artifacts
 
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__modflownwt.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__modflow6.png``
-- ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__boussinesq.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

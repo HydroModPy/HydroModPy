@@ -45,6 +45,7 @@ def _compact_method_code(method_name: str) -> str:
         "grid_search": "gs",
         "random_search": "rs",
         "simplex": "sx",
+        "cma_es": "cma",
         "nelder_mead": "nm",
         "gp_mapping": "gpm",
         "da_mh_gp": "damh",
@@ -145,25 +146,18 @@ def _placeholder_observations(
     return {str(name): (0.0,) for name in definition.output_names}
 
 
-def _regular_objective_grid_enabled(
+def _reference_objective_enabled(
     *,
     definition: TwinCalibrationCaseDefinition,
-    evaluation_budget: int | None,
 ) -> bool:
-    """Return True when one case should run a shared regular 2D objective scan."""
-    n_per_dim = definition.regular_objective_grid_n_per_dim
-    if n_per_dim is None or int(n_per_dim) < 2:
-        return False
-    if len(definition.truth_params) != 2:
-        return False
-    if evaluation_budget is not None:
-        return False
-    return True
+    """Return True when one case should run a shared reference-objective scan."""
+    sample_count = definition.reference_objective_sample_count
+    return sample_count is not None and int(sample_count) > 0
 
 
-def _regular_objective_grid_path(benchmark_root: Path) -> Path:
-    """Return the persisted shared regular-grid objective payload path."""
-    return benchmark_root / "objective_regular_grid.json"
+def _reference_objective_path(benchmark_root: Path) -> Path:
+    """Return the persisted non-regular reference-objective payload path."""
+    return benchmark_root / "objective_reference_samples.json"
 
 
 def _block_normalized_cost_mapping(evaluation: Any) -> dict[str, float]:
@@ -182,28 +176,114 @@ def _block_normalized_cost_mapping(evaluation: Any) -> dict[str, float]:
     return costs
 
 
-def _write_regular_objective_grid_payload(
+def _latin_hypercube_nd(
+    *,
+    rng: np.random.Generator,
+    n_points: int,
+    lower: np.ndarray,
+    upper: np.ndarray,
+) -> np.ndarray:
+    """Generate one deterministic Latin-hypercube sample in arbitrary dimension."""
+    n_dim = int(lower.size)
+    unit = np.empty((n_points, n_dim), dtype=float)
+    for index in range(n_dim):
+        base = (np.arange(n_points, dtype=float) + rng.random(n_points)) / n_points
+        rng.shuffle(base)
+        unit[:, index] = base
+    return lower + unit * (upper - lower)
+
+
+def _sobol_nd(
+    *,
+    seed: int,
+    n_points: int,
+    lower: np.ndarray,
+    upper: np.ndarray,
+) -> np.ndarray:
+    """Generate one Sobol sample when SciPy is available, else Latin-hypercube."""
+    try:
+        from scipy.stats import qmc
+
+        n_dim = int(lower.size)
+        engine = qmc.Sobol(d=n_dim, scramble=True, seed=int(seed))
+        n_power = int(math.ceil(math.log2(max(1, n_points))))
+        unit = engine.random_base2(m=n_power)[:n_points]
+        return qmc.scale(unit, lower, upper)
+    except Exception:
+        rng = np.random.default_rng(int(seed))
+        return _latin_hypercube_nd(
+            rng=rng,
+            n_points=n_points,
+            lower=lower,
+            upper=upper,
+        )
+
+
+def _reference_objective_samples(
+    *,
+    definition: TwinCalibrationCaseDefinition,
+) -> tuple[tuple[str, ...], np.ndarray]:
+    """Return non-regular reference-objective samples in full parameter space."""
+    parameter_names = tuple(str(name) for name in definition.truth_params.keys())
+    lower = np.asarray(
+        [float(definition.bounds[name][0]) for name in parameter_names],
+        dtype=float,
+    )
+    upper = np.asarray(
+        [float(definition.bounds[name][1]) for name in parameter_names],
+        dtype=float,
+    )
+    n_points = int(definition.reference_objective_sample_count or 0)
+    sampling = str(definition.reference_objective_sampling).strip().lower()
+    if n_points <= 0:
+        return parameter_names, np.empty((0, len(parameter_names)), dtype=float)
+    if sampling == "latin_hypercube":
+        rng = np.random.default_rng(int(definition.reference_objective_seed))
+        points = _latin_hypercube_nd(
+            rng=rng,
+            n_points=n_points,
+            lower=lower,
+            upper=upper,
+        )
+    elif sampling == "random":
+        rng = np.random.default_rng(int(definition.reference_objective_seed))
+        unit = rng.random((n_points, len(parameter_names)), dtype=float)
+        points = lower + unit * (upper - lower)
+    elif sampling == "sobol":
+        points = _sobol_nd(
+            seed=int(definition.reference_objective_seed),
+            n_points=n_points,
+            lower=lower,
+            upper=upper,
+        )
+    else:
+        raise ValueError(
+            f"Unsupported reference_objective_sampling '{definition.reference_objective_sampling}'."
+        )
+    return parameter_names, np.asarray(points, dtype=float)
+
+
+def _write_reference_objective_payload(
     *,
     benchmark_root: Path,
     definition: TwinCalibrationCaseDefinition,
     observations_used: dict[str, tuple[float, ...]],
     launcher_factory: Any,
 ) -> Path:
-    """Evaluate one regular shared 2D objective grid for a benchmark case."""
-    parameter_names = tuple(str(name) for name in definition.truth_params.keys())
-    n_per_dim = int(definition.regular_objective_grid_n_per_dim or 0)
-    if len(parameter_names) != 2 or n_per_dim < 2:
-        raise ValueError(
-            "regular objective grid requires exactly two calibrated parameters"
-        )
+    """Evaluate one non-regular shared reference-objective sample for a case."""
+    parameter_names, reference_points = _reference_objective_samples(
+        definition=definition,
+    )
+    if reference_points.size == 0:
+        raise ValueError("reference objective sampling requires at least one point")
 
     method_profile = CalibrationMethodProfile(
         name="random_search",
         method_kwargs={"n_samples": 1, "seed": 0},
         persist_model_distribution=False,
     )
-    calibration_id = _compact_calibration_id(definition, "objective_grid")
-    calibration_path = benchmark_root / "objective_regular_grid.toml"
+    calibration_id = _compact_calibration_id(definition, "objective_reference")
+    calibration_path = benchmark_root / "objective_reference.toml"
     payload = definition.build_calibration_payload(
         "simulation.toml",
         calibration_id,
@@ -221,69 +301,54 @@ def _write_regular_objective_grid_payload(
         record_callback=None,
     )
 
-    x_name, y_name = parameter_names
-    x_bounds = tuple(float(value) for value in definition.bounds[x_name])
-    y_bounds = tuple(float(value) for value in definition.bounds[y_name])
-    x_values = np.linspace(x_bounds[0], x_bounds[1], n_per_dim, dtype=float)
-    y_values = np.linspace(y_bounds[0], y_bounds[1], n_per_dim, dtype=float)
-    objective_total: list[list[float | None]] = []
-    block_cost_grids: dict[str, list[list[float | None]]] = {}
+    serialized_points: list[dict[str, Any]] = []
 
     try:
-        for y_value in y_values:
-            row: list[float | None] = []
-            row_block_values: dict[str, list[float | None]] = {}
-            for x_value in x_values:
-                evaluation = evaluator.evaluate(
-                    {
-                        x_name: float(x_value),
-                        y_name: float(y_value),
-                    }
+        for point_index, point_values in enumerate(reference_points, start=1):
+            params_named = {
+                name: float(value)
+                for name, value in zip(parameter_names, point_values, strict=True)
+            }
+            evaluation = evaluator.evaluate(params_named)
+            total_cost = getattr(evaluation, "total_cost", None)
+            try:
+                objective_total = (
+                    None
+                    if total_cost is None or not math.isfinite(float(total_cost))
+                    else float(total_cost)
                 )
-                total_cost = getattr(evaluation, "total_cost", None)
-                try:
-                    total_cost_value = (
-                        None
-                        if total_cost is None or not math.isfinite(float(total_cost))
-                        else float(total_cost)
-                    )
-                except (TypeError, ValueError):
-                    total_cost_value = None
-                row.append(total_cost_value)
-                block_costs = _block_normalized_cost_mapping(evaluation)
-                for block_name in set(block_cost_grids) | set(block_costs) | set(row_block_values):
-                    row_block_values.setdefault(block_name, [])
-                for block_name, values in row_block_values.items():
-                    block_value = block_costs.get(block_name)
-                    values.append(
-                        None
-                        if block_value is None or not math.isfinite(float(block_value))
-                        else float(block_value)
-                    )
-            objective_total.append(row)
-            for block_name, values in row_block_values.items():
-                block_cost_grids.setdefault(block_name, []).append(list(values))
+            except (TypeError, ValueError):
+                objective_total = None
+            serialized_points.append(
+                {
+                    "point_id": f"reference_{point_index:04d}",
+                    "params_named": params_named,
+                    "objective_total": objective_total,
+                    "block_costs": _block_normalized_cost_mapping(evaluation),
+                    "status": str(getattr(evaluation, "status", "objective_evaluated")),
+                    "failure_reason": getattr(evaluation, "failure_reason", None),
+                }
+            )
     finally:
         calibration_root = session.calibration_root
         if calibration_root.is_dir():
             shutil.rmtree(calibration_root, ignore_errors=True)
 
-    grid_path = _regular_objective_grid_path(benchmark_root)
-    grid_path.write_text(
+    reference_path = _reference_objective_path(benchmark_root)
+    reference_path.write_text(
         json.dumps(
             {
-                "role": "calibration_regular_objective_grid",
+                "role": "calibration_reference_objective",
                 "case_id": definition.case_id,
                 "parameter_names": list(parameter_names),
-                "n_per_dim": int(n_per_dim),
-                "x": [float(value) for value in x_values],
-                "y": [float(value) for value in y_values],
-                "objective_total": objective_total,
-                "block_normalized_costs": block_cost_grids,
+                "sampling": str(definition.reference_objective_sampling),
+                "sample_count": int(reference_points.shape[0]),
+                "seed": int(definition.reference_objective_seed),
                 "truth_params": {
                     str(name): float(value)
                     for name, value in definition.truth_params.items()
                 },
+                "points": serialized_points,
             },
             indent=2,
             ensure_ascii=True,
@@ -291,7 +356,7 @@ def _write_regular_objective_grid_payload(
         + "\n",
         encoding="utf-8",
     )
-    return grid_path
+    return reference_path
 
 
 def _apply_observation_noise(
@@ -358,6 +423,10 @@ def _apply_evaluation_budget(
         kwargs["n_per_dim"] = int(n_per_dim)
     elif method == "random_search":
         kwargs["n_samples"] = int(budget)
+    elif method == "cma_es":
+        kwargs["max_evaluations"] = int(budget)
+        if "popsize" in kwargs:
+            kwargs["popsize"] = max(4, min(int(kwargs["popsize"]), int(budget)))
     elif method == "simplex":
         kwargs["max_iter"] = int(budget)
         kwargs["max_fun"] = int(budget)
@@ -935,7 +1004,7 @@ def run_twin_benchmark_case(
         )
 
     configuration_figure = None
-    regular_objective_grid_path = None
+    reference_objective_path = None
     generate_case_figures = (
         definition.generate_case_figures
         if case_figures is None
@@ -959,11 +1028,10 @@ def run_twin_benchmark_case(
             artifact_retention=retained_mode,
             figure_format=figure_format,
         )
-        if _regular_objective_grid_enabled(
+        if _reference_objective_enabled(
             definition=definition,
-            evaluation_budget=evaluation_budget,
         ):
-            regular_objective_grid_path = _write_regular_objective_grid_payload(
+            reference_objective_path = _write_reference_objective_payload(
                 benchmark_root=benchmark_root,
                 definition=definition,
                 observations_used=observations_used,
@@ -1039,7 +1107,7 @@ def run_twin_benchmark_case(
         summary_path=benchmark_root / "benchmark_summary.json",
         artifact_retention=retained_mode,
         configuration_figure=configuration_figure,
-        regular_objective_grid_path=regular_objective_grid_path,
+        reference_objective_path=reference_objective_path,
         pruned_artifacts=pruned_artifacts,
     )
     benchmark.summary_path.write_text(

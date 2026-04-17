@@ -11,6 +11,28 @@ These cases show complete launcher workflows: preprocessing, solver execution, t
 .. seealso::
    Read :doc:`Simulation walkthrough </getting_started/simulation-walkthrough>` if you want a guided entry point before opening the case pages below.
 
+Current Coverage
+----------------
+
+- Study areas: Brittany regional laboratory, Headwater 100 km2 outlet 2, Naizin catchment.
+- Process families shown: Display, Flow, Method Comparison, Planning, Postprocess, Reporting, Simulation, Transport.
+- Mesh supports: Committed Triangular Mesh Input, Runtime Gmsh Triangular Mesh.
+- Flow solvers: MODFLOW 6.
+- Transport solvers: MODFLOW 6 GWT.
+- Postprocess outputs surfaced: Coverage Gap Summary, Flow State Triptych, Recharge Discharge Cumulative, Recipe Coverage Summary, Site Recipe Matrix, Support Overview, Watertable Depth, Watertable Elevation.
+- Workflow families: Runtime Mesh Build (1), Committed Mesh Replays (1), Regional Orchestration (4).
+- Grow this category by workflow family rather than by one flat list of runs; add new pages where the reading objective really changes.
+
+Workflow Families
+-----------------
+
+The cases below are grouped by workflow role so the simulation section can grow without turning into one long undifferentiated card wall.
+
+Runtime Mesh Build
+~~~~~~~~~~~~~~~~~~
+
+These cases build the spatial support during the run, then surface the minimum set of solver and postprocess figures needed to understand what the runtime pipeline produced.
+
 .. grid:: 1 1 2 2
    :gutter: 2 2 3 3
 
@@ -23,8 +45,77 @@ These cases show complete launcher workflows: preprocessing, solver execution, t
       ^^^
       End-to-end launcher run with embedded Gmsh meshing, MODFLOW 6 flow, and GWT transport.
 
+
+Committed Mesh Replays
+~~~~~~~~~~~~~~~~~~~~~~
+
+These cases keep the spatial support fixed and focus on how forcing, hydraulic parameters, and solver settings shape the replay on an already versioned basin mesh.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/headwater_100km2_outlet_2_mf6_transient_reference
+      :link-type: doc
+
+      **Headwater 100 km2 MF6 Transient Reference**
+      ^^^
+      Committed-mesh MODFLOW 6 replay on the 100 km2 outlet-2 basin, published as stable transient postprocess figures.
+
+
+Regional Orchestration
+~~~~~~~~~~~~~~~~~~~~~~
+
+These cases do not focus on one child solver run. They document how one population of sites and reusable recipes expands into a coordinated study plan.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/regional_lab_headwater_100km2_dry_plan
+      :link-type: doc
+
+      **Regional Lab Dry Plan on Headwater 100 km2**
+      ^^^
+      Dry-run orchestration example showing how one regional site catalog expands into simulation and method-comparison recipes.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/regional_lab_headwater_100km2_mf6_reference_recipe
+      :link-type: doc
+
+      **Regional Lab MF6 Reference Recipe on Headwater 100 km2**
+      ^^^
+      Recipe-focused orchestration view isolating the committed MF6 replay workflow across the selected headwater population.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/regional_lab_headwater_100km2_backend_compare_recipe
+      :link-type: doc
+
+      **Regional Lab Backend Comparison Recipe on Headwater 100 km2**
+      ^^^
+      Recipe-focused orchestration view isolating the committed backend-comparison workflow across the headwater screening population.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/regional_lab_headwater_100km2_transient_backend_compare_recipe
+      :link-type: doc
+
+      **Regional Lab Transient Backend Comparison Recipe on Headwater 100 km2**
+      ^^^
+      Recipe-focused orchestration view isolating the transient pulsed-recharge backend-comparison workflow across the committed headwater population.
+
+
 .. toctree::
    :hidden:
    :maxdepth: 1
 
    cases/modflow6_gmsh_mesh_catchment
+   cases/headwater_100km2_outlet_2_mf6_transient_reference
+   cases/regional_lab_headwater_100km2_dry_plan
+   cases/regional_lab_headwater_100km2_mf6_reference_recipe
+   cases/regional_lab_headwater_100km2_backend_compare_recipe
+   cases/regional_lab_headwater_100km2_transient_backend_compare_recipe

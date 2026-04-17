@@ -230,15 +230,15 @@ Main code paths involved:
 - runtime selection:
   `hydromodpy/solver/boussinesq/runtime_selection.py`
 - regularized-partition PETSc runtime:
-  `hydromodpy/solver/boussinesq/petsc_partition_runtime.py`
+  `hydromodpy/solver/boussinesq/runtimes/petsc_partition.py`
 - PETSc solver defaults:
-  `hydromodpy/solver/boussinesq/petsc_common.py`
+  `hydromodpy/solver/boussinesq/runtimes/petsc_common.py`
 - residual assembly:
-  `hydromodpy/solver/boussinesq/assembly.py`
+  `hydromodpy/solver/boussinesq/assembly/`
 - semianalytic Jacobian:
-  `hydromodpy/solver/boussinesq/jacobian_semianalytic.py`
+  `hydromodpy/solver/boussinesq/jacobian/semianalytic.py`
 - steady-guess / Jacobian-shift helpers:
-  `hydromodpy/solver/boussinesq/partition_runtime_utils.py`
+  `hydromodpy/solver/boussinesq/runtimes/partition_utils.py`
 - bundle-to-solver-mesh adapter:
   `hydromodpy/simulation/adapters/flow/boussinesq.py`
 

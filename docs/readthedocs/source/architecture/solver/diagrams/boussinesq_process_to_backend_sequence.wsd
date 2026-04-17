@@ -1,0 +1,48 @@
+@startuml
+title Boussinesq Solver - Process To Backend Sequence
+
+actor Launcher
+participant Flow
+participant "Boussinesq" as Solver
+participant "BoussinesqSolverContract" as Contract
+participant "runtime_selection" as Selection
+participant "Resolved Backend" as Backend
+participant "assembly.py" as Assembly
+participant "BoussinesqState" as State
+
+Launcher -> Solver : processing(run_model=True)
+Solver -> Solver : _build_initial_state()
+Solver -> Contract : _resolve_solver_contract(flow)
+Contract -> Selection : resolve_runtime_backend(...)
+Selection --> Contract : BoussinesqRuntimeBackend
+Contract --> Solver : resolved contract
+
+alt steady
+  Solver -> Backend : solve_steady_problem(SteadySolveInputs)
+else transient
+  loop each stress period
+    Solver -> Backend : solve_transient_step(TransientStepInputs)
+    Backend -> Assembly : assemble residual/Jacobian
+    Assembly --> Backend : BoussinesqAssembly
+    Backend --> Solver : RuntimeSolveResult
+  end
+end
+
+Solver -> State : from_runtime(...)
+Solver -> Solver : post_processing()
+
+note over Flow, Solver
+Flow stays solver-agnostic.
+The Boussinesq driver translates
+that process definition into
+cell-wise arrays and one explicit
+method and engine contract.
+end note
+
+note over Backend, Assembly
+All runtimes consume the same
+physical inputs and return the same
+RuntimeSolveResult shape.
+end note
+
+@enduml

@@ -14,6 +14,27 @@ It focuses on:
 - ordered execution of ``ProcessRun`` entries in ``SimulationRunner``,
 - the handoff from process runtimes to concrete solver wrappers.
 
+Code map
+--------
+
+- ``launchers/process_simulation/launcher.py``:
+  launcher entry point and runtime-phase orchestration.
+- ``hydromodpy/simulation/planning/planner.py``:
+  construction of ``SimulationPlan``.
+- ``hydromodpy/simulation/execution/runner.py``:
+  dispatch over planned runs.
+- ``hydromodpy/simulation/adapters/flow`` and ``transport``:
+  adapter selection before backend execution.
+
+Recommended reading path
+------------------------
+
+1. ``launchers/process_simulation/launcher.py``
+2. ``hydromodpy/simulation/planning/planner.py``
+3. ``hydromodpy/simulation/execution/runner.py``
+4. one adapter under ``hydromodpy/simulation/adapters/flow/`` or
+   ``transport/``
+
 Diagram source
 --------------
 
@@ -34,3 +55,10 @@ Notes
   runs retrieve that exact upstream model through ``depends_on``.
 - The sequence stays backend-agnostic at the orchestration level: solver
   selection changes the wrapper class, not the launcher contract.
+
+Related diagrams
+----------------
+
+- :doc:`launcher-simulation-activity-diagram`
+- :doc:`../simulation/launcher-simulation-class-diagram`
+- :doc:`../simulation/toml-to-solver-walkthrough`

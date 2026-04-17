@@ -70,7 +70,6 @@ def _aggregate_triangle_history_to_structured_grids(model) -> None:
         model,
         nx=NX,
         ny=NY,
-        export_initial_state=True,
     )
 
 

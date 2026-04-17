@@ -274,7 +274,7 @@ def run_boussinesq_hillslope_interception_case(
         recharge_mm_day=RECHARGE_MM_DAY,
         hydraulic_conductivity_m_per_s=HYDRAULIC_CONDUCTIVITY_M_S,
     )
-    model.state = BoussinesqState(
+    model.state = BoussinesqState.initial(
         head_m=np.asarray(head_guess, dtype=float).copy(),
         saturated_thickness_m=saturated_thickness_from_head(model.mesh, head_guess),
     )

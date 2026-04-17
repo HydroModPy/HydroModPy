@@ -5,6 +5,17 @@ import os, sys
 import re
 import subprocess
 import json
+from nbformat.validator import normalize
+
+
+def _normalize_notebook(notebook):
+    _, normalized = normalize(nbf.from_dict(notebook))
+    return normalized
+
+
+def _write_notebook(path, notebook):
+    with open(path, 'w', encoding='utf-8') as file:
+        json.dump(_normalize_notebook(notebook), file, indent=2, ensure_ascii=False)
 
 def py_to_ipynb(py_file_path, ipynb_file_path):
     # Lire le fichier .py
@@ -31,8 +42,7 @@ def py_to_ipynb(py_file_path, ipynb_file_path):
     nb['cells'] = cells
     
     # Écrire dans le fichier .ipynb
-    with open(ipynb_file_path, 'w') as ipynb_file:
-        nbf.write(nb, ipynb_file)
+    _write_notebook(ipynb_file_path, nb)
         
 def find_py_files(directory_path):
     py_files = []
@@ -71,8 +81,7 @@ def replace_code_in_ipynb(file_path, old_code, new_code):
             cell['source'] = [line.replace(old_code, new_code) for line in cell['source']]
 
     # Sauvegarder les modifications dans le fichier .ipynb
-    with open(file_path, 'w', encoding='utf-8') as file:
-        json.dump(notebook_data, file, indent=2)
+    _write_notebook(file_path, notebook_data)
 
 def clear_empty_cells(notebook_path):
     # Open the notebook file
@@ -86,8 +95,7 @@ def clear_empty_cells(notebook_path):
     ]
 
     # Save the modified notebook
-    with open(notebook_path, 'w', encoding='utf-8') as file:
-        json.dump(notebook, file, indent=2)
+    _write_notebook(notebook_path, notebook)
         
 def remove_first_cell(notebook_path, output_path):
     # Open the notebook file
@@ -98,8 +106,7 @@ def remove_first_cell(notebook_path, output_path):
     notebook['cells'] = notebook['cells'][1:]
 
     # Save the modified notebook
-    with open(output_path, 'w', encoding='utf-8') as file:
-        json.dump(notebook, file, indent=2)
+    _write_notebook(output_path, notebook)
 
 def add_markdown_cell_at_start(notebook_path, markdown_text, output_path):
     # Open the notebook file
@@ -107,18 +114,13 @@ def add_markdown_cell_at_start(notebook_path, markdown_text, output_path):
         notebook = json.load(file)
 
     # Create a new markdown cell
-    markdown_cell = {
-        "cell_type": "markdown",
-        "metadata": {},
-        "source": [markdown_text]
-    }
+    markdown_cell = nbf.v4.new_markdown_cell(markdown_text)
 
     # Insert the markdown cell at the beginning (index 0)
     notebook['cells'].insert(0, markdown_cell)
 
     # Save the modified notebook
-    with open(output_path, 'w', encoding='utf-8') as file:
-        json.dump(notebook, file, indent=2)
+    _write_notebook(output_path, notebook)
 
 # Exemple d'utilisation
 HMP_folder = os.path.abspath(os.path.join(os.path.abspath(__file__), os.pardir, os.pardir, os.pardir, os.pardir, os.pardir))

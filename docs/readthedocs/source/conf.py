@@ -13,9 +13,13 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
+import shutil
 import sys
 from pathlib import Path
+
+from docutils import nodes
 from sphinx.builders.html import StandaloneHTMLBuilder
+from sphinx.util.docutils import SphinxDirective
 
 package_path = Path(__file__).resolve().parents[3]
 os.environ['PYTHONPATH'] = ':'.join((str(package_path), os.environ.get('PYTHONPATH', '')))
@@ -27,16 +31,35 @@ def _resolve_vendor_graphviz_dot() -> Path | None:
     return dot_path if dot_path.exists() else None
 
 
-def _resolve_plantuml_command() -> str:
+def _resolve_plantuml_command() -> str | None:
     env_command = os.environ.get("PLANTUML_COMMAND")
     if env_command:
         return env_command
 
     vendor_jar = package_path / "tools" / "vendor" / "plantuml" / "plantuml.jar"
-    if vendor_jar.exists():
+    if vendor_jar.exists() and shutil.which("java"):
         return f'java -jar "{vendor_jar}"'
 
-    return "plantuml"
+    return shutil.which("plantuml")
+
+
+class _MissingPlantUMLDirective(SphinxDirective):
+    optional_arguments = 1
+    has_content = True
+
+    def run(self):
+        diagram_label = self.arguments[0] if self.arguments else "inline UML block"
+        container = nodes.container(classes=["uml-diagram", "uml-diagram-unavailable"])
+        message = nodes.paragraph()
+        message += nodes.Text("PlantUML rendering skipped for ")
+        message += nodes.literal("", diagram_label)
+        message += nodes.Text(". Run ")
+        message += nodes.literal("", "python tools/setup_plantuml.py")
+        message += nodes.Text(" or set ")
+        message += nodes.literal("", "PLANTUML_COMMAND")
+        message += nodes.Text(" to restore rendered UML diagrams.")
+        container += message
+        return [container]
 
 
 _vendor_graphviz_dot = _resolve_vendor_graphviz_dot()
@@ -120,15 +143,17 @@ extensions = [
     "sphinx_togglebutton",
     "sphinx_tabs.tabs",
     "sphinx_multiversion",
-    "sphinxcontrib.plantuml",
     "sphinxcontrib.autodoc_pydantic",
 ]
 autoclass_content = 'both'
 autosummary_generate = True
 nbsphinx_allow_errors = True
 nbsphinx_execute = "never"
-plantuml = _resolve_plantuml_command()
-plantuml_output_format = "svg"
+_PLANTUML_COMMAND = _resolve_plantuml_command()
+if _PLANTUML_COMMAND is not None:
+    extensions.append("sphinxcontrib.plantuml")
+    plantuml = _PLANTUML_COMMAND
+    plantuml_output_format = "svg"
 
 # ---------------------------------------------------------------------------
 # autodoc-pydantic – configuration des modèles de paramètres
@@ -237,6 +262,8 @@ html_theme_options = {
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+html_css_files = ['uml-diagrams.css']
+html_js_files = ['uml-diagrams.js']
 copybutton_prompt_text = r">>> |\$ |In \[\d+\]: | {2,5}\.\.\.:"
 copybutton_prompt_is_regexp = True
 copybutton_only_copy_prompt_lines = False
@@ -349,3 +376,13 @@ autodoc_mock_imports = [
 numfig = True
 smart_quotes = False
 html_use_smartypants = False
+
+
+def setup(app):
+    if _PLANTUML_COMMAND is None:
+        app.add_directive("uml", _MissingPlantUMLDirective, override=True)
+        app.add_directive("plantuml", _MissingPlantUMLDirective, override=True)
+    return {
+        "parallel_read_safe": True,
+        "parallel_write_safe": True,
+    }

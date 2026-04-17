@@ -1,0 +1,34 @@
+{
+  "title": "High K (4 methods)",
+  "run_dir": "out/sih_tx_4cmp_linux_no_seepage_kx8_20260416",
+  "notes": [
+    "Same no-seepage geometry with hydraulic conductivity multiplied by 8.",
+    "Used to check whether the cross-code agreement remains strong when lateral transmissivity is increased."
+  ],
+  "solvers": [
+    {
+      "solver": "modflownwt",
+      "solver_label": "MODFLOW-NWT",
+      "peak_total_outflow_m3_day": 62.017328571528196,
+      "final_storage_change_m3_day": -0.06196784973144531
+    },
+    {
+      "solver": "modflow6",
+      "solver_label": "MODFLOW 6",
+      "peak_total_outflow_m3_day": 67.42683883232449,
+      "final_storage_change_m3_day": -0.04185350452021375
+    },
+    {
+      "solver": "modflow6_irregular_tri",
+      "solver_label": "MODFLOW 6 irregular triangles",
+      "peak_total_outflow_m3_day": 72.69888141825129,
+      "final_storage_change_m3_day": -0.001237464349146104
+    },
+    {
+      "solver": "boussinesq",
+      "solver_label": "Boussinesq",
+      "peak_total_outflow_m3_day": 68.09172359394121,
+      "final_storage_change_m3_day": 0.0
+    }
+  ]
+}

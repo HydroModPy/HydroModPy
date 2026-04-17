@@ -11,7 +11,7 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-VALIDATION_SOLVER_ORDER = ("modflownwt", "modflow6", "boussinesq")
+VALIDATION_SOLVER_ORDER = ("modflownwt", "modflow6", "modflow6_irregular_tri", "boussinesq")
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,9 +74,70 @@ def _normalize_solver_name(solver: str) -> str:
     mapping = {
         "modflownwt": "MODFLOW-NWT",
         "modflow6": "MODFLOW 6",
+        "modflow6_irregular_tri": "MODFLOW 6 irregular triangles",
         "boussinesq": "Boussinesq",
     }
     return mapping.get(solver, solver.replace("_", " ").title())
+
+
+_VALIDATION_PROCESS_LABELS = {
+    "flow": "Flow",
+    "transport": "Transport",
+    "particle_tracking": "Particle Tracking",
+}
+
+_VALIDATION_GEOMETRY_LABELS = {
+    "strip_1d": "Strip 1D",
+    "hillslope_1d": "Hillslope 1D",
+    "island_2d": "Island 2D",
+    "radial_2d": "Radial 2D",
+    "planar_2d": "Planar 2D",
+}
+
+_VALIDATION_REFERENCE_TYPE_LABELS = {
+    "analytical_exact": "Analytical Exact",
+    "analytical_series": "Analytical Series",
+    "semi_analytical": "Semi-Analytical / Diagnostic",
+}
+
+_VALIDATION_FAMILY_LABELS = {
+    "core_1d_dupuit_baselines": "Core 1D Dupuit Baselines",
+    "steady_1d_boussinesq_heterogeneous_conductivity": (
+        "Steady 1D Boussinesq with Heterogeneous Conductivity"
+    ),
+    "steady_1d_boussinesq_topography_sloping_substratum": (
+        "Steady 1D Boussinesq with Topography or Sloping Substratum"
+    ),
+    "steady_2d_radial_or_island": "Steady 2D Radial or Island Cases",
+    "transient_1d_boundary_or_recharge_forcing": (
+        "Transient 1D Boundary or Recharge Forcing"
+    ),
+    "transient_1d_recession_or_interception_dynamics": (
+        "Transient 1D Recession or Interception Dynamics"
+    ),
+    "transient_2d_radial_response": "Transient 2D Radial Response",
+    "transport": "Transport",
+    "particle_tracking": "Particle Tracking",
+}
+
+_VALIDATION_FAMILY_ORDER = {
+    "core_1d_dupuit_baselines": 10,
+    "steady_1d_boussinesq_heterogeneous_conductivity": 20,
+    "steady_1d_boussinesq_topography_sloping_substratum": 30,
+    "steady_2d_radial_or_island": 40,
+    "transient_1d_boundary_or_recharge_forcing": 50,
+    "transient_1d_recession_or_interception_dynamics": 60,
+    "transient_2d_radial_response": 70,
+    "transport": 60,
+    "particle_tracking": 70,
+}
+
+
+def _normalize_taxonomy_token(value: Any) -> str:
+    text = str(value).strip().lower()
+    text = text.replace("-", "_")
+    text = re.sub(r"[^a-z0-9_]+", "_", text)
+    return text.strip("_")
 
 
 def _normalize_section_name(label: str) -> str:
@@ -96,6 +157,135 @@ def _dedupe_preserve_order(items: list[str]) -> tuple[str, ...]:
         seen.add(clean_item)
         ordered.append(clean_item)
     return tuple(ordered)
+
+
+def _infer_validation_process_family(metadata_payload: dict[str, Any]) -> str:
+    process_family = _normalize_taxonomy_token(metadata_payload.get("process_family", "flow"))
+    return process_family or "flow"
+
+
+def _infer_validation_geometry_family(*, slug: str, metadata_payload: dict[str, Any]) -> str:
+    explicit = _normalize_taxonomy_token(metadata_payload.get("geometry_family", ""))
+    if explicit:
+        return explicit
+    if "hillslope" in slug or "sloping_substratum" in slug:
+        return "hillslope_1d"
+    if slug.endswith("_2d"):
+        if "pumping" in slug:
+            return "radial_2d"
+        if "island" in slug:
+            return "island_2d"
+        return "planar_2d"
+    return "strip_1d"
+
+
+def _infer_validation_reference_type(*, slug: str, metadata_payload: dict[str, Any]) -> str:
+    explicit = _normalize_taxonomy_token(metadata_payload.get("reference_type", ""))
+    if explicit:
+        return explicit
+    if "interception" in slug:
+        return "semi_analytical"
+    if (
+        "boundary_" in slug
+        or "recharge_" in slug
+        or "recession" in slug
+        or slug == "late_time_unconfined_pumping_2d"
+    ):
+        return "analytical_series"
+    return "analytical_exact"
+
+
+def _infer_validation_family(
+    *,
+    slug: str,
+    process_family: str,
+    geometry_family: str,
+    regime: str,
+    metadata_payload: dict[str, Any],
+) -> str:
+    explicit = _normalize_taxonomy_token(metadata_payload.get("validation_family", ""))
+    if explicit:
+        return explicit
+    if process_family == "transport":
+        return "transport"
+    if process_family == "particle_tracking":
+        return "particle_tracking"
+
+    if regime == "steady":
+        if geometry_family in {"island_2d", "radial_2d", "planar_2d"}:
+            return "steady_2d_radial_or_island"
+        if slug.startswith("dupuit_") and geometry_family == "strip_1d":
+            return "core_1d_dupuit_baselines"
+        if "piecewise_k" in slug:
+            return "steady_1d_boussinesq_heterogeneous_conductivity"
+        if (
+            "sloping_substratum" in slug
+            or "hillslope" in slug
+            or slug in {
+                "linearized_unconfined_drainage_1d",
+                "linearized_unconfined_hillslope_drainage_1d",
+            }
+        ):
+            return "steady_1d_boussinesq_topography_sloping_substratum"
+        return "core_1d_dupuit_baselines"
+
+    if geometry_family in {"island_2d", "radial_2d", "planar_2d"}:
+        return "transient_2d_radial_response"
+    if "recession" in slug or "interception" in slug:
+        return "transient_1d_recession_or_interception_dynamics"
+    if regime == "transient":
+        return "transient_1d_boundary_or_recharge_forcing"
+    return "core_1d_dupuit_baselines"
+
+
+def _build_validation_taxonomy(*, slug: str, metadata_payload: dict[str, Any]) -> dict[str, Any]:
+    process_family = _infer_validation_process_family(metadata_payload)
+    geometry_family = _infer_validation_geometry_family(slug=slug, metadata_payload=metadata_payload)
+    reference_type = _infer_validation_reference_type(slug=slug, metadata_payload=metadata_payload)
+    regime = str(metadata_payload.get("regime", "")).strip()
+    validation_family = _infer_validation_family(
+        slug=slug,
+        process_family=process_family,
+        geometry_family=geometry_family,
+        regime=regime,
+        metadata_payload=metadata_payload,
+    )
+    return {
+        "process_family": process_family,
+        "process_family_label": str(
+            metadata_payload.get(
+                "process_family_label",
+                _VALIDATION_PROCESS_LABELS.get(process_family, process_family.replace("_", " ").title()),
+            )
+        ),
+        "geometry_family": geometry_family,
+        "geometry_family_label": str(
+            metadata_payload.get(
+                "geometry_family_label",
+                _VALIDATION_GEOMETRY_LABELS.get(geometry_family, geometry_family.replace("_", " ").title()),
+            )
+        ),
+        "reference_type": reference_type,
+        "reference_type_label": str(
+            metadata_payload.get(
+                "reference_type_label",
+                _VALIDATION_REFERENCE_TYPE_LABELS.get(reference_type, reference_type.replace("_", " ").title()),
+            )
+        ),
+        "validation_family": validation_family,
+        "validation_family_label": str(
+            metadata_payload.get(
+                "validation_family_label",
+                _VALIDATION_FAMILY_LABELS.get(validation_family, validation_family.replace("_", " ").title()),
+            )
+        ),
+        "validation_family_order": int(
+            metadata_payload.get(
+                "validation_family_order",
+                _VALIDATION_FAMILY_ORDER.get(validation_family, 999),
+            )
+        ),
+    }
 
 
 def _parse_markdown_table(lines: list[str], start_index: int) -> tuple[list[dict[str, str]], int]:
@@ -279,6 +469,13 @@ def _extra_source_paths_for_case(slug: str) -> tuple[str, ...]:
     extra_paths: list[str] = []
     if "piecewise_k" in slug:
         extra_paths.append("validation_cases/analytical/steady/boussinesq_piecewise.py")
+    if slug.startswith("boussinesq_sloping_substratum_"):
+        extra_paths.extend(
+            [
+                "validation_cases/analytical/steady/boussinesq_sloping_substratum.py",
+                "validation_cases/shared/boussinesq_uniform_strip.py",
+            ]
+        )
     if slug in {
         "dupuit_fixed_head_1d",
         "dupuit_uniform_recharge_1d",
@@ -345,6 +542,8 @@ _REFERENCE_PARAMETER_MEANINGS: dict[str, str] = {
     "amplitude_mm_day": "Amplitude of the periodic recharge forcing used by the reference solution.",
     "aquifer_thickness_m": "Aquifer thickness used by the reference formulation.",
     "base_head_m": "Baseline hydraulic head around which the linearized reference is expressed.",
+    "bottom_base_elevation_m": "Base elevation used by the synthetic reference substratum.",
+    "bottom_right_to_left_amplitude_m": "Right-to-left amplitude used by the synthetic reference substratum.",
     "bottom_elevation_m": "Bottom elevation used by the reference domain.",
     "center_x_m": "Reference x coordinate of the domain centre or pumping location.",
     "center_y_m": "Reference y coordinate of the domain centre or pumping location.",
@@ -383,6 +582,7 @@ _REFERENCE_PARAMETER_MEANINGS: dict[str, str] = {
     "solution": "Named analytical solution variant used by the comparison helper.",
     "specific_yield": "Specific yield used by the transient reference formulation.",
     "substratum_elevation_m": "Substratum elevation used to build the analytical aquifer geometry.",
+    "target_saturated_thickness_m": "Target saturated thickness enforced by the analytical reference profile.",
     "toe_elevation_m": "Toe elevation used by the hillslope reference geometry.",
     "topography_base_elevation_m": "Base elevation used by the synthetic reference topography.",
     "topography_right_to_left_amplitude_m": "Right-to-left topographic amplitude used by the hillslope reference.",
@@ -1019,6 +1219,18 @@ def _equations_for_case(slug: str) -> tuple[str, ...]:
             r"\frac{1}{r}\frac{\mathrm{d}}{\mathrm{d}r}\left(r\,K(r)\,H\,\frac{\mathrm{d}H}{\mathrm{d}r}\right)+R=0",
             r"U=H^2,\qquad U(r)=U(a)+R\int_r^a \frac{s}{K(s)}\,\mathrm{d}s",
         ),
+        "boussinesq_sloping_substratum_constant_thickness_1d": (
+            r"H(x)=z_b(x)+b^\ast,\qquad z_b(x)=z_{b,0}+\Delta z_b\left(1-\frac{x-x_{\min}}{L}\right)",
+            r"q=-K\,b^\ast\,\frac{\mathrm{d}H}{\mathrm{d}x}=K\,b^\ast\,S_0,\qquad S_0=\frac{z_b(x_{\min})-z_b(x_{\max})}{L}",
+        ),
+        "boussinesq_sloping_substratum_fixed_head_1d": (
+            r"q=K\,b\left(S_0-\frac{\mathrm{d}b}{\mathrm{d}x}\right),\qquad S_0=-\frac{\mathrm{d}z_b}{\mathrm{d}x}",
+            r"x-x_{\min}=\int_{b_w}^{b(x)} \frac{K\,\beta\,\eta-q}{K\,\beta^2}\,\mathrm{d}\eta,\qquad \beta=S_0,\qquad H(x)=z_b(x)+b(x)",
+        ),
+        "boussinesq_sloping_substratum_uniform_recharge_1d": (
+            r"\frac{\mathrm{d}q}{\mathrm{d}x}=R,\qquad q(x)=q_w+R\left(x-x_{\min}\right)",
+            r"\frac{\mathrm{d}b}{\mathrm{d}x}=S_0-\frac{q(x)}{K\,b(x)},\qquad S_0=-\frac{\mathrm{d}z_b}{\mathrm{d}x},\qquad H(x)=z_b(x)+b(x)",
+        ),
         "boussinesq_hillslope_interception_1d": (
             r"h(x)^2=h_e^2+\frac{R}{K}\left(L^2-x^2\right)",
             r"z_{\mathrm{top}}(x)=z_{\mathrm{toe}}+S\left(L-x\right),\qquad h(x_{\mathrm{int}})=z_{\mathrm{top}}(x_{\mathrm{int}})",
@@ -1151,6 +1363,7 @@ def build_validation_case_records(*, repo_root: Path | None = None) -> tuple[Val
             solver_details=solver_details,
             repo_root=resolved_repo_root,
         )
+        taxonomy = _build_validation_taxonomy(slug=slug, metadata_payload=metadata_payload)
 
         reproduction_command = (
             f"python -m {_repo_relative(case_dir / 'run_case.py', repo_root=resolved_repo_root).replace('/', '.').removesuffix('.py')} --no-show"
@@ -1197,6 +1410,7 @@ def build_validation_case_records(*, repo_root: Path | None = None) -> tuple[Val
                         "what_it_validates": sheet_entry.what_it_validates if sheet_entry is not None else "",
                     },
                     "parameter_docs": parameter_docs,
+                    **taxonomy,
                 },
             )
         )

@@ -9,7 +9,8 @@ if TYPE_CHECKING:
     from hydromodpy.spatial.domain import Domain
     from hydromodpy.spatial.geographic.core.derived_features import GeographicDerivedFeatures
     from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import DomainGeographicContext
-    from hydromodpy.process import Flow, Transport
+    from hydromodpy.process.flow import Flow
+    from hydromodpy.process.transport import Transport
     from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
         CatchmentMeshBundle,
     )

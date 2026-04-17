@@ -1,0 +1,147 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "surface_interaction_ramp_code_comparison",
+  "title": "Surface-Interaction Ramp Code Comparison",
+  "category": "code_comparison",
+  "deck": "Cross-code benchmark on one sloping strip with recharge ramp, dry recovery, drainage, and one fixed east head.",
+  "summary": "This page compares MODFLOW and Boussinesq families on the same synthetic hillslope under a progressive recharge ramp, followed by dry recovery. The compact figure is restricted to comparable bulk diagnostics across codes: total outflow and storage change, shown at the reference conductivity and after an eightfold increase.",
+  "case_setup": [
+    "Synthetic strip aquifer, 400 m long and 30 m wide, with one linear topographic slope toward the east outlet.",
+    "One fixed head on the east side, west divide, top drainage, and recharge prescribed as a yearly ramp then one dry year.",
+    "Budget terms are reconstructed on one free-cell control volume for the Boussinesq runs, so east-boundary exchange is measured on the interior interface to prescribed cells."
+  ],
+  "key_parameters": [
+    "Reference case: hydraulic conductivity scale = 0.2x the baseline strip conductivity.",
+    "High-K case: hydraulic conductivity scale = 1.6x, i.e. eight times the reference benchmark.",
+    "Time step = 15 days, specific yield = 0.10, east imposed head = 5.0625 m, drainage conductance = 1e-4 m2/s."
+  ],
+  "how_to_read": [
+    "Read the top panel first: when total outflow separates, the methods disagree on how quickly water leaves the system.",
+    "Then compare storage change: if one curve stays higher, that method keeps more water in transient storage instead of exporting it.",
+    "Interpret this page as a bulk-budget comparison only; it intentionally avoids solver-specific outflow partitions that are not directly comparable term by term.",
+    "Use the two tabs to decide whether the disagreement is regime-dependent or persists when conductivity is increased strongly."
+  ],
+  "next_steps": [
+    "Go back to the transient investigation tool if you want the full flux decomposition and the head snapshots behind these compact views.",
+    "Use the no-seepage companion page when you want to isolate the same comparison without emergent surface drainage."
+  ],
+  "what_it_shows": [
+    "How total outflow aligns or diverges across solver families on the same transient forcing.",
+    "How storage change reacts when conductivity increases while the geometry and forcing stay fixed.",
+    "How the same bulk diagnostics behave across the reference-K and high-K ramp regimes without relying on solver-specific flux partitions."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python tools/doc_gallery/generate_code_comparison_assets.py",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "tools/doc_gallery/manifests/code_comparison_cases.json",
+    "tools/investigate_surface_interaction_hillslope_transient.py",
+    "tools/investigate_surface_interaction_highk_linux.py",
+    "tools/doc_gallery/generate_code_comparison_assets.py",
+    "validation_cases/shared/boussinesq_budget.py",
+    "out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/timeseries.csv",
+    "out/sih_tx_highk_linux_mf6_petsc_comp_20260416/timeseries.csv",
+    "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.png",
+    "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.json",
+    "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.png",
+    "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.json"
+  ],
+  "source_hashes": {
+    "tools/doc_gallery/manifests/code_comparison_cases.json": "a1fb91cf3ac3f143611d963b245cfc5256464c517947ada3c17476ef762e7921",
+    "tools/investigate_surface_interaction_hillslope_transient.py": "8279c5449c1a162771f0d81690ca2e49a6d5d2ad2977cab22d8acb6684fdaacc",
+    "tools/investigate_surface_interaction_highk_linux.py": "d47a50866963102651a67e4ef4c672b77c2f5cd4d361bdcab38bbee837e31eda",
+    "tools/doc_gallery/generate_code_comparison_assets.py": "087328607cba95e725fa23afd63adede31579d816c68a9c952a28d71219b771d",
+    "validation_cases/shared/boussinesq_budget.py": "86caad790d2afb323901313bb1dfbe145b44596e9a85a985608ccd06440c4948",
+    "out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416/timeseries.csv": "874a28e8fe5859358f6950a8394ac2c7562109b751ef35346b2a3db93c7f6a49",
+    "out/sih_tx_highk_linux_mf6_petsc_comp_20260416/timeseries.csv": "f59e6b81deea01aa0c0d3e792d27c4c00e7f679f2b377cef33dc0dcd4d102631",
+    "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.png": "521d98ee37ea3970f99a6cfc1b7f3e15c3bcd3d1b6fa96b330a56e282a159f35",
+    "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.json": "79d2fcee4b8bbcbdcb4485652d96d7e3ab594251088a3176c05ec44b4d0767c3",
+    "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.png": "93dd0017b346639bfbf7d9295b449c9c959ab3ae1e60c7576671bd8292c78c16",
+    "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.json": "465ec17c1b802707fe89825e7acdbcc9ee67ce5a869f461224aab7b7014cfe84"
+  },
+  "docname": "cases/surface_interaction_ramp_code_comparison",
+  "images": [
+    {
+      "filename": "surface_interaction_ramp_configuration.png",
+      "caption": "Configuration schematic for the recharge-ramp surface-interaction benchmark.",
+      "alt_text": "Configuration schematic for the surface-interaction ramp benchmark",
+      "doc_path": "/_static/capability_gallery/code_comparison/surface_interaction_ramp_configuration.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/code_comparison/surface_interaction_ramp_configuration.png"
+    },
+    {
+      "filename": "ramp_reference_k.png",
+      "caption": "Reference-conductivity ramp benchmark: total outflow and storage change across the six committed methods.",
+      "alt_text": "Reference conductivity recharge-ramp code comparison",
+      "doc_path": "/_static/capability_gallery/code_comparison/ramp_reference_k.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/code_comparison/ramp_reference_k.png"
+    },
+    {
+      "filename": "ramp_high_k.png",
+      "caption": "High-conductivity ramp benchmark on Linux: MODFLOW 6 compared against Boussinesq PETSc complementarity.",
+      "alt_text": "High conductivity recharge-ramp code comparison",
+      "doc_path": "/_static/capability_gallery/code_comparison/ramp_high_k.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/code_comparison/ramp_high_k.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "benchmark_case": "recharge_ramp_with_drainage",
+    "conductivity_levels": [
+      "reference_k",
+      "high_k"
+    ],
+    "solver_families": [
+      "MODFLOW",
+      "Boussinesq"
+    ],
+    "tab_specs": [
+      {
+        "title": "Reference K",
+        "filename": "ramp_reference_k.png",
+        "body_lines": [
+          "Run source: ``out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416``",
+          "Methods: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq local partition, PETSc partition, PETSc complementarity"
+        ]
+      },
+      {
+        "title": "High K",
+        "filename": "ramp_high_k.png",
+        "body_lines": [
+          "Run source: ``out/sih_tx_highk_linux_mf6_petsc_comp_20260416``",
+          "Methods: MODFLOW 6, Boussinesq PETSc complementarity",
+          "Generation path: Linux PETSc environment via ``tools/investigate_surface_interaction_highk_linux.py``.",
+          "The previous high-K ``MODFLOW-NWT`` and local-partition comparison was removed because it was poorly balanced and not physically reliable."
+        ]
+      }
+    ],
+    "lead_image_filenames": [
+      "surface_interaction_ramp_configuration.png"
+    ],
+    "copied_assets": [
+      {
+        "source_path": "examples/capability_gallery/code_comparison/surface_interaction_ramp/surface_interaction_ramp_configuration.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/code_comparison/surface_interaction_ramp_configuration.png"
+      },
+      {
+        "source_path": "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_reference_k.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/code_comparison/ramp_reference_k.png"
+      },
+      {
+        "source_path": "examples/capability_gallery/code_comparison/surface_interaction_ramp/ramp_high_k.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/code_comparison/ramp_high_k.png"
+      }
+    ]
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/code_comparison/surface_interaction_ramp_code_comparison_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/code_comparison/surface_interaction_ramp_code_comparison_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/code_comparison/surface_interaction_ramp_configuration.png",
+      "docs/readthedocs/source/_static/capability_gallery/code_comparison/ramp_reference_k.png",
+      "docs/readthedocs/source/_static/capability_gallery/code_comparison/ramp_high_k.png"
+    ]
+  }
+}

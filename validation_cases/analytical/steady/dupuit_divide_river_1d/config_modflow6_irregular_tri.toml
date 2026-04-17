@@ -1,0 +1,13 @@
+[[simulation.process]]
+solvers = ["modflow6"]
+
+[modflow6.runtime]
+mf_verbose = false
+mf6_ims_complexity = "COMPLEX"
+
+[modflow6.sgrid.vertical]
+nlay = 1
+
+[mesh_input]
+mesh_path = "../../../shared/mesh_bundles/sloping_substratum_irregular_tri_400x50/mesh_2d.msh"
+bundle_dir = "../../../shared/mesh_bundles/sloping_substratum_irregular_tri_400x50"

@@ -28,11 +28,11 @@ launcher  -->  simulation  -->  objets metier  <--  scripts utilisateur / cases
 `simulation/`, les scripts utilisateur et les `cases/` sont au meme niveau :
 ils composent les memes objets, juste differemment.
 
-### Un seul package, un seul import
+### Package canonique et facade legacy
 
 La difference entre prototypage et production n'est **pas dans l'import,
-c'est dans l'usage**. Un seul `import hydromodpy`, meme bibliotheque,
-memes objets, deux facons de les composer :
+c'est dans l'usage**. Le point d'entree canonique est `import hydromodpy`,
+avec les launchers exposes via `hydromodpy.launchers` :
 
 ```python
 import hydromodpy as hmp
@@ -45,7 +45,7 @@ modflow.pre_processing(...)
 modflow.processing(...)
 
 # ---- Production : acces au launcher ----
-# (ou via CLI : python -m hydromodpy.launchers simulation config.toml)
+# (ou via CLI : hmp run config.toml)
 from hydromodpy.launchers import HydroModPyLauncher
 launcher = HydroModPyLauncher("config.toml")
 launcher.run()
@@ -55,8 +55,14 @@ Pas de `import hydromodpy_dev` ni de package separe pour le prototypage.
 Les objets (`Modflow`, `Geographic`, `Flow`...) sont utilises par les deux
 modes. Creer deux points d'entree pour les memes classes serait de la
 duplication d'API sans valeur ajoutee. C'est le pattern standard des
-bibliotheques scientifiques (scikit-learn, PyTorch, FloPy) : un seul
-package, tout accessible, l'utilisateur choisit son niveau d'orchestration.
+bibliotheques scientifiques (scikit-learn, PyTorch, FloPy) : un package
+canonique, tout accessible, l'utilisateur choisit son niveau
+d'orchestration.
+
+Le package top-level `launchers` reste publie temporairement comme facade de
+compatibilite pour l'existant, mais les nouveaux imports internes doivent
+passer par `hydromodpy.launchers` et ne plus atteindre directement
+`launchers.*` depuis le coeur de la bibliotheque.
 
 ---
 
@@ -125,8 +131,9 @@ hmp test regression --list                # lister les tests disponibles
 hmp test regression --update-goldens      # mettre a jour les references
 
 # Simulation (production)
-hmp simulation config.toml                # lance le pipeline complet
-hmp simulation config.toml --until data   # s'arrete apres le chargement
+hmp run config.toml                       # lance une simulation
+hmp compare config_method_comparison.toml # compare plusieurs solveurs / methodes
+hmp overview config_overview.toml         # genere une carte d'identite de bassin
 
 # Cases (developpement par module)
 hmp case geographic                       # lance geographic/cases/
@@ -136,8 +143,8 @@ hmp case calibration reservoir            # lance calibration/cases/reservoir/
 hmp case --list                           # liste les cases disponibles
 ```
 
-**Etat actuel** : `hmp init`, `hmp config` et `hmp test` sont implementes.
-`hmp simulation` et `hmp case` sont a ajouter.
+**Etat actuel** : `hmp init`, `hmp config`, `hmp run`, `hmp compare`,
+`hmp overview` et `hmp test` sont implementes. `hmp case` reste a ajouter.
 
 ---
 
@@ -342,7 +349,7 @@ Un fichier TOML declare **quoi** executer. Le launcher + `simulation/`
 s'occupent du **comment**.
 
 ```bash
-python -m hydromodpy.launchers simulation config.toml
+hmp run config.toml
 ```
 
 L'utilisateur ne touche pas de Python. Le TOML est la specification

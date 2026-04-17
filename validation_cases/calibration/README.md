@@ -41,9 +41,11 @@ The first V1 inventory focuses on `modflow6` inverse benchmarks:
 - one steady mesh-perturbed scalar `K` case on `dupuit_fixed_head_1d`,
 - one noisy steady scalar `K` variant on `dupuit_fixed_head_1d`,
 - one transient multiobservable `K + Sy` case on
-  `linearized_unconfined_recharge_step_1d`, including `gp_mapping` and
-  `da_mh_gp`,
+  `linearized_unconfined_recharge_step_1d`, including `cma_es`,
+  `gp_mapping` and `da_mh_gp`,
 - one noisy transient `K + Sy` variant with repeated stochastic seeds,
+- one noisy transient flux-only `K + Sy` variant on the same recharge-step
+  physics, used as a deliberately weakly constrained inverse benchmark,
 - one steady zoned `piecewise K` case on
   `boussinesq_fixed_head_piecewise_k_1d`.
 
@@ -59,9 +61,9 @@ Each case produces:
 - one case-level configuration figure summarizing parameters, observables,
   objective blocks, methods, noise and the observation layout,
 - a JSON benchmark summary with recovery metrics per method,
-- for selected two-parameter cases, one shared regular-grid objective scan used
-  to reconstruct the objective surface more faithfully than method-only sample
-  clouds,
+- one shared non-regular reference-objective exploration for published cases,
+  used to reconstruct 1D curves, 2D landscapes, and pairwise projections in
+  higher dimensions more faithfully than method-only sample clouds,
 - method-level timing diagnostics including total calibration time, one-time
   session preparation time, and mean per-model preparation/simulation/objective
   costs,

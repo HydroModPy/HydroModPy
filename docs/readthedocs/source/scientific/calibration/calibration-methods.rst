@@ -9,420 +9,398 @@ This page documents the methods currently registered in
 
 - ``grid_search``
 - ``random_search``
+- ``cma_es``
 - ``nelder_mead``
 - ``simplex``
 - ``gp_mapping``
 - ``da_mh_gp``
 
-The goal is not to present a generic textbook overview of calibration methods.
-It is to describe what the HydroModPy implementations actually do, what they
-return, and how they should be interpreted.
+The intent is deliberately practical. The question is not "what does the
+method look like in an optimization textbook?" but rather:
 
-Method Families
----------------
+- what HydroModPy actually does with it;
+- what kind of result the method returns;
+- and in which calibration situation the method is a reasonable choice.
+
+Method Selection At A Glance
+----------------------------
 
 .. list-table::
    :header-rows: 1
-   :widths: 18 16 14 16 36
+   :widths: 14 34 28 24
 
    * - Method
-     - Family
-     - Nature
-     - Distribution
-     - Main role
+     - What it does in practice
+     - Good fit for
+     - Poor fit for
    * - ``grid_search``
-     - global search
-     - deterministic
-     - no
-     - exhaustive low-dimensional baseline
+     - Evaluates every point on a regular parameter grid.
+     - One or two parameters, teaching cases, objective-landscape mapping.
+     - More than a few parameters or tight evaluation budgets.
    * - ``random_search``
-     - global search
-     - stochastic
-     - no
-     - simple bounded exploration baseline
+     - Draws many independent candidates inside bounds and keeps the best one.
+     - Wide search boxes, rough first pass, simple global baseline.
+     - Fine local refinement or strong uncertainty analysis.
+   * - ``cma_es``
+     - Adapts a multivariate Gaussian search distribution around promising regions.
+     - Expensive non-smooth objectives with moderate parameter dimension.
+     - Exact posterior inference or highly constrained/discrete parameter spaces.
    * - ``nelder_mead``
-     - local search
-     - deterministic
-     - no
-     - local refinement without derivatives
+     - Moves a local simplex from one starting point until improvement stalls.
+     - Fast local refinement once a plausible basin is already known.
+     - Multimodal problems with poor initialization.
    * - ``simplex``
-     - local search
-     - deterministic
-     - no
-     - local refinement through ``scipy.optimize.fmin``
+     - Same local simplex family, through another SciPy entry point.
+     - Compatibility and local refinement in low dimension.
+     - Problems where the start point dominates the outcome.
    * - ``gp_mapping``
-     - surrogate search
-     - stochastic
-     - approximate
-     - best fit plus approximate posterior-like map
+     - Learns a surrogate of the objective and refines promising regions.
+     - Expensive simulators and approximate uncertainty mapping.
+     - Exact posterior inference or non-positive parameter bounds.
    * - ``da_mh_gp``
-     - Bayesian MCMC
-     - stochastic
-     - yes
-     - posterior sampling with delayed-acceptance correction
+     - Runs a delayed-acceptance MCMC chain with exact second-stage correction.
+     - Posterior sampling, uncertainty, identifiability, parameter trade-offs.
+     - Fast point estimation only, or objectives that are not RMSE-based.
 
 Grid Search
 -----------
 
-Principle
-^^^^^^^^^
+What HydroModPy Does
+^^^^^^^^^^^^^^^^^^^^
 
-``grid_search`` evaluates the Cartesian product of one grid per parameter.
+``grid_search`` builds one axis per parameter, then evaluates the full
+Cartesian product of those axes with the true objective.
 
-If parameter :math:`i` uses :math:`n_i` grid nodes, the total number of model
-evaluations is
+In HydroModPy:
 
-.. math::
+- axes are linear by default;
+- axes become logarithmic for indices listed in ``log_scale_indices``;
+- the returned best point is always a point that was truly simulated, not an
+  interpolated estimate.
 
-   N_{\mathrm{eval}} = \prod_{i=1}^{d} n_i.
+When It Fits
+^^^^^^^^^^^^
 
-Each candidate is evaluated with the true objective. The method is therefore
-globally robust but grows exponentially with parameter dimension.
+Use ``grid_search`` when the point is to understand the problem before trying
+to solve it efficiently.
 
-Sampling Rule
-^^^^^^^^^^^^^
+Typical situations:
 
-For parameter :math:`i`, HydroModPy uses:
+- one-parameter or two-parameter synthetic cases;
+- generating objective-surface figures;
+- verifying that a new metric or observation mapping behaves as expected;
+- establishing a deterministic reference baseline.
 
-- a linear grid when the parameter is not flagged as log-scale;
-- a log-spaced grid when ``log_scale_indices`` contains that parameter index.
+What To Expect
+^^^^^^^^^^^^^^
 
-So the method can represent multiplicative uncertainty more naturally for
-strictly positive parameters such as hydraulic conductivity.
+``grid_search`` is slow on purpose. Its value is transparency:
 
-Strengths
-^^^^^^^^^
+- every part of the explored box is visited;
+- repeated runs are identical;
+- parameter trade-offs are easy to visualize in low dimension.
 
-- deterministic and reproducible;
-- useful to map the objective landscape in one or two dimensions;
-- excellent as a reference method for small synthetic inverse problems.
-
-Limitations
-^^^^^^^^^^^
-
-- not scalable beyond a small number of parameters;
-- no uncertainty distribution is returned;
-- no adaptive refinement.
+The main limitation is combinatorial growth. A method that is perfectly
+reasonable in 1D or 2D can become unusable as soon as the parameter count grows.
 
 Random Search
 -------------
 
-Principle
-^^^^^^^^^
+What HydroModPy Does
+^^^^^^^^^^^^^^^^^^^^
 
-``random_search`` draws independent bounded samples and keeps the best one:
+``random_search`` draws independent samples inside the parameter bounds and
+keeps the best one it sees.
 
-.. math::
+In HydroModPy:
 
-   \theta^{(k)} \sim \mathcal{U}([l_1,u_1]\times\dots\times[l_d,u_d]).
+- sampling is uniform by default;
+- it becomes log-uniform for indices listed in ``log_scale_indices``;
+- the method does not adapt to what it has learned so far.
 
-The scientific meaning is simple: it is a global Monte Carlo baseline over the
-parameter box.
+When It Fits
+^^^^^^^^^^^^
 
-Sampling Rule
-^^^^^^^^^^^^^
+Use ``random_search`` when a cheap global baseline is more important than
+algorithmic sophistication.
 
-For each parameter:
+Typical situations:
 
-- uniform sampling in physical space by default;
-- log-uniform sampling when the parameter index is listed in
-  ``log_scale_indices``.
+- you have wide bounds and no trustworthy initial guess;
+- you want a first scan before switching to a local method;
+- you want a stochastic baseline against which more elaborate methods can be
+  judged.
 
-The method returns only the best candidate, not the full sample cloud, even
-though the calibration launcher can later persist empirical distributions from
-evaluated candidates.
+What To Expect
+^^^^^^^^^^^^^^
 
-Strengths
-^^^^^^^^^
+``random_search`` is often more informative than a local method at the
+beginning of a project because it is not tied to one starting point. It is
+still a blunt instrument:
 
-- trivial to configure;
-- insensitive to local minima in the early exploration stage;
-- easy benchmark baseline for synthetic tests.
+- precision improves slowly;
+- samples are spent everywhere, including bad regions;
+- the method does not return a native uncertainty estimate.
 
-Limitations
-^^^^^^^^^^^
+CMA-ES
+------
 
-- statistically inefficient in moderate or high dimension;
-- no local refinement;
-- no native posterior correction.
+What HydroModPy Does
+^^^^^^^^^^^^^^^^^^^^
+
+``cma_es`` runs a Covariance Matrix Adaptation Evolution Strategy through the
+`pycma API <https://cma-es.github.io/apidocs-pycma/>`_ library.
+
+In HydroModPy:
+
+- the method works inside a bounded search box;
+- parameters are normalized to the unit hypercube by default before CMA-ES is
+  launched;
+- ``sigma0`` is therefore interpreted in normalized coordinates unless
+  ``normalize = false`` is requested;
+- the returned best point always comes from true objective evaluations.
+
+When It Fits
+^^^^^^^^^^^^
+
+Use ``cma_es`` when the objective is too irregular for local simplex methods
+but you still want a more adaptive global search than pure random sampling.
+
+Typical situations:
+
+- multimodal or anisotropic inverse problems;
+- two to maybe ten hydraulic parameters with expensive forward runs;
+- cases where parameter scaling matters and a covariance-adapting search is
+  useful.
+
+What To Expect
+^^^^^^^^^^^^^^
+
+Compared with ``random_search``, CMA-ES spends evaluations more intelligently
+because it learns both a center and a covariance structure. Compared with local
+simplex methods, it is less sensitive to one initial point.
+
+Its limits are also clear:
+
+- it remains an optimizer, not a posterior sampler;
+- it can still be expensive when each forward run is costly;
+- good performance depends on sensible bounds and an initial ``sigma0``.
 
 Nelder-Mead And Simplex
 -----------------------
 
-Why Two Methods?
-^^^^^^^^^^^^^^^^
+Why HydroModPy Keeps Two Names
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-HydroModPy exposes two wrappers over the same local derivative-free family:
+HydroModPy exposes two wrappers around the same local derivative-free family:
 
-- ``nelder_mead`` uses ``scipy.optimize.minimize(method="Nelder-Mead")``;
-- ``simplex`` uses ``scipy.optimize.fmin``.
+- ``nelder_mead`` calls ``scipy.optimize.minimize(..., method="Nelder-Mead")``;
+- ``simplex`` calls ``scipy.optimize.fmin``.
 
 Scientifically, both are local simplex methods. They are kept separately mainly
-for compatibility, benchmarking, and control over SciPy entry points.
+for compatibility, benchmarking, and control over the exact SciPy entry point
+used in legacy and current workflows.
 
-Current Objective Handling
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+What HydroModPy Does
+^^^^^^^^^^^^^^^^^^^^
 
-Both implementations optimize a penalized, bound-aware objective. Out-of-bounds
-candidates are clipped back to the feasible box for forward evaluation, and a
-quadratic penalty is added outside bounds.
+Both methods:
 
-This means the methods remain local and unconstrained in their internal simplex
-geometry, while the scientific model is evaluated only on admissible parameter
-sets.
+- start from ``x0`` when provided;
+- otherwise start from the midpoint of each parameter interval;
+- use a bound-aware penalized objective internally.
 
-Initialization
+That last point matters. The optimizer is allowed to move numerically outside
+the admissible box, but HydroModPy clips the candidate back to admissible
+values before running the model and adds a penalty for leaving the box.
+
+When They Fit
+^^^^^^^^^^^^^
+
+Use ``simplex`` or ``nelder_mead`` when the inverse problem has already become
+mostly local.
+
+Typical situations:
+
+- a previous global scan has identified one plausible basin;
+- expert knowledge already narrows the physically reasonable range;
+- the calibration has only a few parameters and the objective is reasonably
+  smooth near the solution.
+
+Illustrative examples:
+
+- refining one or two reservoir parameters after a coarse search;
+- refining ``K`` and ``Sy`` once an earlier method has already bracketed the
+  right order of magnitude.
+
+What To Expect
 ^^^^^^^^^^^^^^
 
-When no starting point ``x0`` is provided, both methods start from the midpoint
-of each parameter interval:
+These methods are often efficient in low dimension, but they do not solve the
+global-search problem for you.
 
-.. math::
+Their main risks are:
 
-   \theta_{0,i} = \frac{l_i + u_i}{2}.
-
-This makes them easy to launch, but it also means they can converge to
-midpoint-dependent local minima when the search domain is wide or multimodal.
-
-Strengths
-^^^^^^^^^
-
-- useful once the parameter region is already narrowed down;
-- no gradient required;
-- often efficient for low-dimensional smooth inverse problems.
-
-Limitations
-^^^^^^^^^^^
-
-- purely local;
-- sensitive to starting point and parameter scaling;
-- no uncertainty quantification;
-- not designed for strongly multimodal objectives.
-
-Practical Interpretation
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-When ``simplex`` or ``nelder_mead`` works well, it is usually because the
-problem has already been made almost local by:
-
-- narrow physical bounds,
-- good initial parameter guesses,
-- an objective surface that is smooth enough near the solution.
+- convergence to a local basin near the start point;
+- sensitivity to parameter scaling;
+- no uncertainty quantification in the returned result.
 
 GP Mapping
 ----------
 
-Scientific Role
-^^^^^^^^^^^^^^^
+What HydroModPy Does
+^^^^^^^^^^^^^^^^^^^^
 
-``gp_mapping`` is an approximate surrogate-based method that combines:
-
-1. an initial design,
-2. one surrogate fit,
-3. adaptive refinement with an upper-confidence-bound criterion,
-4. a posterior-like sample cloud obtained by importance resampling on the
-   surrogate mean.
-
-It should be interpreted as an *approximate posterior mapping* method, not as
-an exact Bayesian posterior sampler.
-
-Current Algorithm
-^^^^^^^^^^^^^^^^^
-
-The implemented sequence is:
+``gp_mapping`` is HydroModPy's approximate surrogate-based method. In practice,
+it follows this sequence:
 
 1. draw an initial Latin-hypercube design;
 2. evaluate the true objective on that design;
-3. fit a surrogate to :math:`-J(\theta)`;
-4. iteratively sample a candidate pool, compute
+3. fit a surrogate to the negative objective;
+4. score candidate pools with an upper-confidence-bound style criterion;
+5. evaluate the most promising candidates with the true model;
+6. build a posterior-like sample cloud by importance resampling on the
+   surrogate.
 
-   .. math::
+The returned best parameters always come from true model evaluations, not from
+the surrogate alone.
 
-      \mathrm{UCB}(\theta) = \mu(\theta) + \kappa\,\sigma(\theta),
+When It Fits
+^^^^^^^^^^^^
 
-   and evaluate the best-scoring candidates under the true model;
-5. build an approximate posterior-like cloud by importance resampling from the
-   surrogate mean.
+Use ``gp_mapping`` when each forward run is expensive and you want more than a
+single point estimate, but you do not need an exact Bayesian posterior.
 
-Returned best parameters always come from true model evaluations, not from the
-surrogate optimum alone.
+Typical situations:
 
-Surrogate Used In Practice
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+- a simulator such as MODFLOW 6 is costly enough that blind sampling is wasteful;
+- the parameter count is still modest;
+- you want both a best-fit model and a quick reading of plausible parameter
+  regions.
 
-The implementation prefers a scikit-learn Gaussian process with an anisotropic
-RBF kernel. However, on Windows or when the native GP optimizer is disabled,
-the current code falls back to a deterministic inverse-distance-weighted
-surrogate.
+What To Expect
+^^^^^^^^^^^^^^
 
-So the method name is stable, but the surrogate backend can differ across
-platforms or runtime settings.
+The method is usually more sample-efficient than brute-force global search when
+the surrogate is informative. It remains approximate:
 
-Parameter-Space Assumptions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+- the sample cloud is posterior-like, not an exact posterior sample;
+- the quality of the answer depends on surrogate quality;
+- the current implementation requires strictly positive parameter bounds.
 
-The current implementation requires strictly positive bounds for all calibrated
-parameters. This is because the method is built around a transformed parameter
-space and is primarily intended for positive hydraulic parameters.
+Platform And Backend Note
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Strengths
-^^^^^^^^^
+HydroModPy prefers a scikit-learn Gaussian process backend with an anisotropic
+RBF kernel. On Windows, or when the native optimizer is explicitly disabled,
+the code falls back to an internal inverse-distance-weighted surrogate.
 
-- useful when each model evaluation is expensive;
-- produces both a best-fit solution and an approximate distribution;
-- adaptive refinement is more efficient than blind global sampling.
-
-Limitations
-^^^^^^^^^^^
-
-- the returned sample cloud is not an exact posterior;
-- surrogate quality controls result quality;
-- currently restricted to strictly positive bounded parameters.
+The method name stays the same, but the surrogate backend can therefore differ
+across environments.
 
 Delayed-Acceptance GP Metropolis-Hastings
-------------------------------------------------
+-----------------------------------------
 
-Scientific Role
-^^^^^^^^^^^^^^^
-
-``da_mh_gp`` is the most explicitly statistical method in the current core. It
-implements a delayed-acceptance Metropolis-Hastings sampler with a Gaussian
-process surrogate.
-
-The delayed-acceptance logic is:
-
-1. use a cheap surrogate for a first acceptance stage;
-2. apply an exact correction with the true model at a second stage;
-3. keep a Markov chain that targets the chosen posterior, up to finite-chain
-   approximation and the negligible cache-rounding used to avoid repeated exact
-   evaluations.
-
-Likelihood And Prior
+What HydroModPy Does
 ^^^^^^^^^^^^^^^^^^^^
 
-This method assumes that the calibrated cost passed to it is an RMSE. The
-implemented likelihood is
+``da_mh_gp`` is the most statistical method in the built-in portfolio. It is a
+two-stage MCMC workflow:
 
-.. math::
+1. build an initial design in the bounded parameter box;
+2. evaluate an exact log-posterior on that design;
+3. fit an internal lightweight Gaussian-process surrogate;
+4. propose new candidates with a random-walk Metropolis-Hastings step;
+5. filter weak proposals with the surrogate;
+6. apply an exact second-stage correction with the true posterior;
+7. retrain the surrogate periodically as new exact evaluations accumulate.
 
-   \log p(y \mid \theta)
-   =
-   -\frac{1}{2}
-   \left(\frac{\mathrm{RMSE}(\theta)}{\sigma_{\mathrm{noise}}}\right)^2.
+This is why the method can be both cheaper than a full exact chain and more
+trustworthy than a purely surrogate-only workflow.
 
-The posterior is then
+When It Fits
+^^^^^^^^^^^^
 
-.. math::
+Use ``da_mh_gp`` when uncertainty quantification is the main scientific output.
 
-   \log p(\theta \mid y)
-   =
-   \log p(y \mid \theta) + \log p(\theta).
+Typical situations:
 
-Current prior options are:
+- you need posterior samples, not only one optimum;
+- you want to inspect parameter correlations or practical identifiability;
+- you want to know whether several parameter regions remain plausible after
+  calibration.
 
-- uniform prior on the bounded domain when no explicit prior is given;
-- diagonal Gaussian prior through ``prior_mean`` and ``prior_std``;
-- custom ``logprior_fn`` when the user supplies one.
+What To Expect
+^^^^^^^^^^^^^^
 
-Because of this likelihood definition, the method currently requires
-``objective_metric = "rmse"`` at configuration level.
+Compared with direct-search methods, ``da_mh_gp`` takes more care to configure
+and interpret:
 
-Current Algorithm
-^^^^^^^^^^^^^^^^^
+- it assumes the objective passed to it is an ``RMSE``;
+- it needs a meaningful ``sigma_noise`` to define its likelihood scale;
+- proposal scale, burn-in, and thinning directly affect chain behavior.
 
-The implemented sequence is:
+The reward for that extra work is that the result is genuinely
+distribution-valued: accepted samples, acceptance rates, and posterior traces
+are part of the scientific output.
 
-1. draw an initial Sobol design in the parameter box;
-2. evaluate the exact log-posterior on that design;
-3. fit an internal lightweight Gaussian process to the log-posterior;
-4. run a random-walk Metropolis-Hastings chain;
-5. at each proposal:
+Choosing A Method As A Workflow
+-------------------------------
 
-   - perform a stage-1 accept/reject test with the surrogate,
-   - if accepted, perform a stage-2 correction with the true posterior;
+In practice, the methods are often most useful as a sequence rather than as
+competing one-shot choices.
 
-6. periodically retrain the surrogate using newly accumulated exact
-   evaluations.
+1. Use ``grid_search`` or ``random_search`` to understand scale, rough
+   parameter ranges, and basic multimodality.
+2. Use ``cma_es`` when the box is still broad but the problem is too irregular
+   for a local simplex to be trusted.
+3. Use ``simplex`` or ``nelder_mead`` when the problem already looks local and
+   a best-fit point estimate is the main target.
+4. Use ``gp_mapping`` when the simulator is expensive and you want a practical,
+   approximate uncertainty picture.
+5. Use ``da_mh_gp`` when the final deliverable is a posterior sample and an
+   uncertainty statement, not only one calibrated optimum.
 
-The implementation also supports:
-
-- a full proposal covariance matrix,
-- scalar or per-parameter proposal scales,
-- an optional probability ``full_mh_prob`` to bypass delayed acceptance and do
-  a full exact MH step.
-
-Returned Outputs
-^^^^^^^^^^^^^^^^
-
-The method returns:
-
-- ``x_best`` equal to the MAP sample found along the chain;
-- ``samples`` equal to the post-burn-in, thinned posterior samples;
-- chain diagnostics such as stage-1 and stage-2 acceptance rates;
-- the full chain and log-posterior trace in metadata.
-
-Strengths
-^^^^^^^^^
-
-- provides a genuine distribution-valued result rather than only one optimum;
-- corrects surrogate bias through the second-stage exact evaluation;
-- naturally exposes posterior uncertainty and identifiability structure.
-
-Limitations
-^^^^^^^^^^^
-
-- slower to configure and interpret than direct-search methods;
-- requires a meaningful ``sigma_noise`` and an RMSE-based observation model;
-- chain quality still depends on proposal scaling, burn-in, and mixing.
-
-Choosing A Method
------------------
-
-Use ``grid_search`` when:
-
-- the dimension is very small,
-- you want an explicit landscape baseline,
-- robustness matters more than efficiency.
-
-Use ``random_search`` when:
-
-- you want a cheap global baseline,
-- you need a stochastic method without strong assumptions,
-- you want a reference against which local methods can be compared.
-
-Use ``simplex`` or ``nelder_mead`` when:
-
-- the feasible region is already narrow,
-- you expect one dominant basin,
-- you want a quick local refinement.
-
-Use ``gp_mapping`` when:
-
-- the forward model is expensive,
-- you want both a best-fit point and an approximate uncertainty cloud,
-- exact Bayesian correction is not required.
-
-Use ``da_mh_gp`` when:
-
-- uncertainty quantification is central,
-- you want a posterior sample rather than only one optimum,
-- the problem can be expressed coherently through an RMSE likelihood.
-
-Current Limits Of The Built-In Portfolio
+Implementation Provenance And References
 ----------------------------------------
 
-The current scientific portfolio does not yet include:
-
-- gradient-based local optimization,
-- Hamiltonian or affine-invariant MCMC samplers,
-- parallel tempering,
-- adaptive ensemble smoothers,
-- exact multi-objective Pareto optimization.
-
-So the present HydroModPy calibration stack is best read as:
-
-- one solid bounded direct-search core,
-- one approximate surrogate-posterior mapper,
-- one delayed-acceptance Bayesian MCMC method,
-- and a launcher layer able to expose multi-observable objectives on top of the
-  same numerical engine.
+- ``grid_search`` is implemented directly in
+  ``hydromodpy.analysis.calibration.core.methods.grid_search`` using NumPy and
+  ``itertools.product``. It does not wrap a dedicated external optimization
+  library.
+- ``random_search`` is implemented directly in
+  ``hydromodpy.analysis.calibration.core.methods.random_search`` using NumPy's
+  random generator. It is intentionally kept as a pragmatic Monte Carlo
+  baseline. For the practical argument that random search is a strong baseline
+  for bounded search spaces, see `Bergstra and Bengio (2012)
+  <https://www.jmlr.org/papers/v13/bergstra12a.html>`_.
+- ``cma_es`` is implemented in
+  ``hydromodpy.analysis.calibration.core.methods.cma_es`` and delegates the
+  covariance-update logic to the `CMA-ES package <https://cma-es.github.io/>`_,
+  while HydroModPy keeps bound normalization and result packaging consistent
+  with the other methods. Reference: `Hansen (2016)
+  <https://arxiv.org/abs/1604.00772>`_.
+- ``simplex`` and ``nelder_mead`` are thin wrappers around SciPy optimizers:
+  ``scipy.optimize.fmin`` and
+  ``scipy.optimize.minimize(..., method="Nelder-Mead")``. References:
+  `Virtanen et al. (2020), SciPy 1.0
+  <https://www.nature.com/articles/s41592-019-0686-2>`_;
+  `Nelder and Mead (1965)
+  <https://doi.org/10.1093/comjnl/7.4.308>`_.
+- ``gp_mapping`` is a HydroModPy-specific orchestration implemented in
+  ``hydromodpy.analysis.calibration.core.methods.gp_mapping``. It uses
+  ``sklearn.gaussian_process.GaussianProcessRegressor`` when available and
+  otherwise falls back to an internal inverse-distance-weighted surrogate.
+  References: `Pedregosa et al. (2011), scikit-learn
+  <https://www.jmlr.org/papers/v12/pedregosa11a.html>`_;
+  `Rasmussen and Williams (2006), Gaussian Processes for Machine Learning
+  <https://gaussianprocess.org/gpml/>`_.
+- ``da_mh_gp`` is reimplemented in HydroModPy in
+  ``hydromodpy.analysis.calibration.core.methods.da_mh_gp`` as a
+  delayed-acceptance random-walk Metropolis-Hastings workflow with an internal
+  lightweight Gaussian-process surrogate. Its initial design uses
+  ``scipy.stats.qmc.Sobol`` when SciPy is available. References:
+  `Christen and Fox (2005)
+  <https://www.tandfonline.com/doi/abs/10.1198/106186005X76983>`_;
+  `SciPy QMC documentation
+  <https://docs.scipy.org/doc/scipy/reference/stats.qmc.html>`_.

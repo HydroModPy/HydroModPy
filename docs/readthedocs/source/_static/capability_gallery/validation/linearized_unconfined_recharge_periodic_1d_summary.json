@@ -3,7 +3,7 @@
   "slug": "linearized_unconfined_recharge_periodic_1d",
   "title": "Linearized Unconfined 1D Periodic Recharge",
   "category": "validation",
-  "deck": "1D sinusoidal recharge benchmark.",
+  "deck": "This case validates the transient linearized Boussinesq-Dupuit response of an unconfined 1D aquifer submitted to a sinusoidal recharge forcing.",
   "summary": "This case validates the transient linearized Boussinesq-Dupuit response of an unconfined 1D aquifer submitted to a sinusoidal recharge forcing.",
   "case_setup": [
     "geometry: quasi-1D Cartesian grid (`50 x 5`, single layer),",
@@ -51,10 +51,10 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/README.md": "6bab3c7b7c3c818637045e93918404018f95954ecc69f511b6946e60d1fe0a1d",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/reference.py": "b93972d2b0b9223efaa86f81bfe5c7f3e353057f8eef8ea429575a2300c1c8c6",
-    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/comparison.py": "28e52e1f78bc815ed5a596e2b2d4989f78bbb3c1cdc4d1a841445ee002cdeaba",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/comparison.py": "f4765a3ab1255faf9e5e365c31dc29049ed403ebc31e54ec7dede70f9bd1e51e",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/plotting.py": "9d29990987a0c9bd4e694cae0a937ce123dbc8c599d32a95a5d0bb447317e6e7",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/run_case.py": "720379ac53d68ea6ed8b30b35b4094ef45c28d2d268c80c306b6464975981b86",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/metadata.toml": "ccceac56375326b34342e11e6d8f933d9ac32730ee9e21202da48ce544737123",
@@ -64,7 +64,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/tolerances_modflow6.toml": "c2c6077d9fb01c6c226efbc96672482b509882109942eb0266be8efa154e1a1f",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_modflow6.toml": "e39bd40d3d962745dc1d30349d41115a95f59f27f6bf2f907395e15a689fb526",
     "validation_cases/analytical/transient/linearized_unconfined_recharge_periodic_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "a30de1464b42072886201ce1a46b12a0cb486e357b757b5bc69a9e2add48729e",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "30c6e0c6cec9aaece01246cc109d47043eed032725b0a496874d6f744c04901f",
     "validation_cases/analytical/transient/linearized_unconfined_1d.py": "87bd0c802ef3b86b88f5791b1ece5a70095f146920ffb3ad44aab32115921b00"
   },
   "docname": "cases/linearized_unconfined_recharge_periodic_1d",
@@ -108,13 +108,22 @@
     },
     "regime": "transient",
     "dimension": "1d",
-    "inventory_reference": "linearized periodic recharge",
+    "inventory_reference": "",
     "case_sheet": {
       "numerical_setup": "Homogeneous strip, fixed west/east heads, periodic recharge chronicle from CSV",
       "analytical_target": "Linearized transient response to sinusoidal recharge",
       "primary_metrics": "space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread",
       "what_it_validates": "Periodic recharge forcing and phase/amplitude propagation in transient flow"
-    }
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "strip_1d",
+    "geometry_family_label": "Strip 1D",
+    "reference_type": "analytical_series",
+    "reference_type_label": "Analytical Series",
+    "validation_family": "transient_1d_boundary_or_recharge_forcing",
+    "validation_family_label": "Transient 1D Boundary or Recharge Forcing",
+    "validation_family_order": 50
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/linearized_unconfined_recharge_periodic_1d_summary.json",
@@ -323,10 +332,10 @@
       "expected_output": "Expected output: 40 periods, spatial shape 5 x 50",
       "command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_periodic_1d.run_case --no-show --solver boussinesq",
       "metric_lines": [
-        "Space-time RMSE: 0.0060 m",
-        "Space-time max abs error: 0.0138 m",
-        "Final-profile RMSE: 0.0023 m",
-        "Cross-row head spread: 4.35e-08 m"
+        "Space-time RMSE: 0.0062 m",
+        "Space-time max abs error: 0.0158 m",
+        "Final-profile RMSE: 0.0013 m",
+        "Cross-row head spread: 5.88e-09 m"
       ],
       "image": {
         "filename": "linearized_unconfined_recharge_periodic_1d__boussinesq.png",

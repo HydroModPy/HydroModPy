@@ -22,6 +22,7 @@ def _require_linux_petsc4py() -> None:
 @pytest.mark.analytical
 @pytest.mark.steady
 @pytest.mark.fast
+@pytest.mark.petsc
 @pytest.mark.parametrize(
     "solver",
     [

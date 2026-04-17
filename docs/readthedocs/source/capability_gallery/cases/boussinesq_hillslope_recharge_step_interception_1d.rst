@@ -48,20 +48,8 @@ Solver Coverage
 - Default solver: Boussinesq
 - Available variants: Boussinesq
 
-.. figure:: /_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png
-   :alt: Boussinesq Hillslope Recharge-Step Interception 1D validation figure for Boussinesq
-   :width: 100%
-
-   Boussinesq Hillslope Recharge-Step Interception 1D rendered with Boussinesq for the analytical gallery.
-
 **Metrics**
-- Analytical onset time: 80.0 d
-- Numerical onset time: 80.0 d
-- Onset-time error: 0.0 d
-- Interception-trajectory RMSE: 2.89 m
-- Interception-trajectory max abs error: 10.00 m
-- Trajectory reversal: 0.00e+00 m
-- Cross-row head spread: 6.41e-09 m
+- Gallery generation failed for this solver: ValueError: The numerical trajectory never reaches inland interception.
 
 - Config file: ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/config_boussinesq.toml``
 - Tolerances: ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/tolerances.toml``
@@ -252,5 +240,4 @@ Source Pointers
 Artifacts
 ---------
 
-- ``docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

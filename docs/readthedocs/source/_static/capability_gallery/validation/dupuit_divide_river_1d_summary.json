@@ -3,11 +3,11 @@
   "slug": "dupuit_divide_river_1d",
   "title": "Dupuit Divide-River 1D",
   "category": "validation",
-  "deck": "1D recharge benchmark with west divide and east river head.",
+  "deck": "Steady synthetic groundwater-flow case used to validate the launcher workflow against the Dupuit analytical profile for a homogeneous unconfined aquifer with:",
   "summary": "Steady synthetic groundwater-flow case used to validate the launcher workflow against the Dupuit analytical profile for a homogeneous unconfined aquifer with:",
   "case_setup": [
     "Homogeneous strip, west divide, east fixed head, uniform recharge",
-    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq."
   ],
   "key_parameters": [],
   "how_to_read": [],
@@ -43,25 +43,29 @@
     "validation_cases/analytical/steady/dupuit_divide_river_1d/runtime_boussinesq.py",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances.toml",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6.toml",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6_irregular_tri.toml",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflow6.toml",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflow6_irregular_tri.toml",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/config_boussinesq.toml",
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/README.md": "8066495c06a2262c0a2ee4335527aaffe471d92a568369d534cc9afeb1f1c45b",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/reference.py": "cc3de5e75e4e9acc0e2b44334060f0479005d405baf309cc6456de80e8e28bce",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/comparison.py": "4d82ce79b6db3b18437a76f489520da50576ceed0a74b9002c482c2db87a2419",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/comparison.py": "4ba2a2b7ebd71d04217946b7ab496e31d6d56b98627f263b4042203650d80e77",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/plotting.py": "863162cce08a88ed5549002ab36c5ae19d885cae0482de4c8da9df1f1996187b",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/run_case.py": "a00214ab05b07fd8d2b8a091c455bdf9d51e9da2c2b2caac136f2eb61b1bc17c",
-    "validation_cases/analytical/steady/dupuit_divide_river_1d/metadata.toml": "60964d24c43903ace91670e9bfbb2797fa78340ef5a16dc9f8bd12da9bbe4b90",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/metadata.toml": "4e11b9b5f16eb535728556a1bb26c56271229771ca464f68ca4b4d7323afb956",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflownwt.toml": "c4dfe3790ddd3522c2f827f8281cb108434b35bd91338ba5db1649f2b50bcd62",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/runtime_boussinesq.py": "1b3b0d0aaea8da04e78c1498f8d0ab000b15f8f0115af7f62791798631a3f24e",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6.toml": "a481477a553ca4b474a9a1a6c849ff17549ce757cba4f8ea69c5d3cd749eb4bc",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6_irregular_tri.toml": "755e85691f1944b0e88e0f36e4b5ec56194fce892abbea31a993dfe63c8f4e76",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflow6.toml": "e668647e68535e36fad07cfad44315d3cdf951c3667fbd299c05faadb166252d",
+    "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflow6_irregular_tri.toml": "8dcf19eb3ada2f9cecb3812a48eaa6b3fca34581e170d5b058daa3be75cec248",
     "validation_cases/analytical/steady/dupuit_divide_river_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "a30de1464b42072886201ce1a46b12a0cb486e357b757b5bc69a9e2add48729e"
+    "validation_cases/shared/boussinesq_uniform_strip.py": "30c6e0c6cec9aaece01246cc109d47043eed032725b0a496874d6f744c04901f"
   },
   "docname": "cases/dupuit_divide_river_1d",
   "images": [
@@ -80,6 +84,7 @@
     "solver_variants": [
       "modflownwt",
       "modflow6",
+      "modflow6_irregular_tri",
       "boussinesq"
     ],
     "solver_details": {
@@ -95,6 +100,12 @@
         "expected_output": "Expected shape: 5 x 40",
         "tolerance_path": "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6.toml"
       },
+      "modflow6_irregular_tri": {
+        "display_name": "MODFLOW 6 irregular triangles",
+        "config_path": "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflow6_irregular_tri.toml",
+        "expected_output": "Expected shape: 5 x 40",
+        "tolerance_path": "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6_irregular_tri.toml"
+      },
       "boussinesq": {
         "display_name": "Boussinesq",
         "config_path": "validation_cases/analytical/steady/dupuit_divide_river_1d/config_boussinesq.toml",
@@ -104,13 +115,22 @@
     },
     "regime": "steady",
     "dimension": "1d",
-    "inventory_reference": "Dupuit, divide-river",
+    "inventory_reference": "",
     "case_sheet": {
       "numerical_setup": "Homogeneous strip, west divide, east fixed head, uniform recharge",
       "analytical_target": "Steady 1D Dupuit divide-river profile",
       "primary_metrics": "head-profile RMSE, max abs error, cross-row spread",
       "what_it_validates": "One-sided no-flow behavior plus recharge and one imposed downstream head"
-    }
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "strip_1d",
+    "geometry_family_label": "Strip 1D",
+    "reference_type": "analytical_exact",
+    "reference_type_label": "Analytical Exact",
+    "validation_family": "core_1d_dupuit_baselines",
+    "validation_family_label": "Core 1D Dupuit Baselines",
+    "validation_family_order": 10
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/dupuit_divide_river_1d_summary.json",
@@ -118,6 +138,7 @@
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_divide_river_1d__modflownwt.png",
       "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_divide_river_1d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_divide_river_1d__modflow6_irregular_tri.png",
       "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_divide_river_1d__boussinesq.png"
     ]
   },
@@ -156,6 +177,7 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -223,6 +245,7 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -257,6 +280,74 @@
       }
     },
     {
+      "solver": "modflow6_irregular_tri",
+      "solver_display_name": "MODFLOW 6 irregular triangles",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflow6_irregular_tri.toml",
+      "tolerance_path": "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6_irregular_tri.toml",
+      "expected_output": "Expected shape: 5 x 40",
+      "command": "python -m validation_cases.analytical.steady.dupuit_divide_river_1d.run_case --no-show --solver modflow6_irregular_tri",
+      "metric_lines": [
+        "Head-profile RMSE: 0.3022 m",
+        "Head-profile max abs error: 0.3971 m",
+        "Cross-row head spread: 0.00e+00 m"
+      ],
+      "image": {
+        "filename": "dupuit_divide_river_1d__modflow6_irregular_tri.png",
+        "caption": "Dupuit Divide-River 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.",
+        "alt_text": "Dupuit Divide-River 1D validation figure for MODFLOW 6 irregular triangles",
+        "doc_path": "/_static/capability_gallery/validation/dupuit_divide_river_1d__modflow6_irregular_tri.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_divide_river_1d__modflow6_irregular_tri.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "dupuit_divide_river_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              40
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "river_head": 5.0,
+            "recharge_mm_day": 1.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "aquifer_thickness_m": 20.0,
+            "profile_axis": 0,
+            "divide_side": "west"
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.31,
+            "max_abs_error": 0.41,
+            "row_spread": 1e-09
+          }
+        },
+        "timestep": 0
+      }
+    },
+    {
       "solver": "boussinesq",
       "solver_display_name": "Boussinesq",
       "is_default": false,
@@ -265,9 +356,9 @@
       "expected_output": "Expected shape: 5 x 40",
       "command": "python -m validation_cases.analytical.steady.dupuit_divide_river_1d.run_case --no-show --solver boussinesq",
       "metric_lines": [
-        "Head-profile RMSE: 0.0181 m",
-        "Head-profile max abs error: 0.0494 m",
-        "Cross-row head spread: 2.36e-11 m"
+        "Head-profile RMSE: 0.0217 m",
+        "Head-profile max abs error: 0.0282 m",
+        "Cross-row head spread: 2.80e-11 m"
       ],
       "image": {
         "filename": "dupuit_divide_river_1d__boussinesq.png",
@@ -290,6 +381,7 @@
           "config_files": {
             "modflownwt": "config_modflownwt.toml",
             "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
             "boussinesq": "config_boussinesq.toml"
           },
           "workspace": {
@@ -580,6 +672,7 @@
           "source": "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflow6.toml"
         }
       ],
+      "modflow6_irregular_tri": [],
       "boussinesq": [
         {
           "field": "flow.runtime_backend",
@@ -655,6 +748,32 @@
             "meaning": "Maximum accepted cross-row spread for head profile.",
             "value": "1e-05",
             "source": "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6.toml"
+          }
+        ],
+        "modflow6_irregular_tri": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 40",
+            "source": "validation_cases/analytical/steady/dupuit_divide_river_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.31",
+            "source": "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6_irregular_tri.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.41",
+            "source": "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6_irregular_tri.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "1e-09",
+            "source": "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances_modflow6_irregular_tri.toml"
           }
         ],
         "boussinesq": [

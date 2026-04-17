@@ -1,0 +1,219 @@
+.bd-article .plantuml {
+  overflow: auto;
+  display: block;
+  max-width: 100%;
+  padding: 1rem;
+  margin: 1.5rem 0;
+  border: 1px solid var(--pst-color-border, #d0d7de);
+  border-radius: 0.9rem;
+  background: var(--pst-color-surface, #ffffff);
+}
+
+.bd-article .plantuml object,
+.bd-article .plantuml img {
+  display: block;
+  max-width: none;
+  margin: 0 auto;
+}
+
+.uml-diagram-unavailable {
+  padding: 1rem 1.1rem;
+  margin: 1.5rem 0;
+  border: 1px dashed var(--pst-color-border, #d0d7de);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--pst-color-surface, #ffffff) 94%, #f8fafc 6%);
+}
+
+.uml-diagram-unavailable p {
+  margin: 0;
+}
+
+.uml-diagram {
+  margin: 1.5rem 0;
+  border: 1px solid var(--pst-color-border, #d0d7de);
+  border-radius: 0.9rem;
+  overflow: hidden;
+  background: var(--pst-color-surface, #ffffff);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.uml-diagram__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--pst-color-border, #d0d7de);
+  background: color-mix(in srgb, var(--pst-color-surface, #ffffff) 92%, #e9eef5 8%);
+}
+
+.uml-diagram__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.8rem;
+  min-width: 0;
+}
+
+.uml-diagram__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #0f172a;
+  background: #dbe7f3;
+}
+
+.uml-diagram__title {
+  font-weight: 600;
+}
+
+.uml-diagram__hint {
+  font-size: 0.9rem;
+  color: var(--pst-color-text-muted, #52606d);
+}
+
+.uml-diagram__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.uml-diagram__link,
+.uml-diagram__button,
+.uml-modal__link,
+.uml-modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.3rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--pst-color-border, #d0d7de);
+  background: #ffffff;
+  color: inherit;
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.uml-diagram__button:hover,
+.uml-diagram__link:hover,
+.uml-modal__link:hover,
+.uml-modal__close:hover {
+  background: #f5f8fb;
+  text-decoration: none;
+}
+
+.uml-diagram__viewport {
+  display: block;
+  width: 100%;
+  padding: 1rem;
+  border: 0;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(255, 255, 255, 1));
+  overflow: auto;
+  cursor: zoom-in;
+  text-align: left;
+}
+
+.uml-diagram__viewport:focus-visible,
+.uml-diagram__button:focus-visible,
+.uml-diagram__link:focus-visible,
+.uml-modal__close:focus-visible,
+.uml-modal__link:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.uml-diagram__image {
+  display: block;
+  width: auto;
+  max-width: none;
+  height: auto;
+  margin: 0 auto;
+  background: #ffffff;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+}
+
+.uml-modal[hidden] {
+  display: none;
+}
+
+.uml-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(3px);
+}
+
+.uml-modal__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  color: #ffffff;
+}
+
+.uml-modal__title {
+  font-weight: 700;
+}
+
+.uml-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.uml-modal__close,
+.uml-modal__link {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.uml-modal__stage {
+  padding: 0 1rem 1rem;
+  overflow: auto;
+}
+
+.uml-modal__figure {
+  margin: 0 auto;
+  padding: 1rem;
+  min-height: 100%;
+  width: max-content;
+  max-width: none;
+}
+
+.uml-modal__image {
+  display: block;
+  width: auto;
+  max-width: none;
+  height: auto;
+  background: #ffffff;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+.uml-modal-open {
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .uml-diagram__toolbar,
+  .uml-modal__header {
+    align-items: flex-start;
+  }
+
+  .uml-diagram__viewport,
+  .uml-modal__stage {
+    padding: 0.75rem;
+  }
+}

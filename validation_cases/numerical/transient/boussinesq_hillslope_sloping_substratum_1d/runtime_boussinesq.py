@@ -141,7 +141,6 @@ def run_boussinesq_hillslope_sloping_substratum_case(
         plan_name="Transient hillslope with sloping substratum",
         plan_description="Transient Boussinesq strip with a 10-degree substratum and independent topographic slope.",
         flow_regime="transient",
-        export_initial_state=False,
     )
 
 

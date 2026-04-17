@@ -205,6 +205,7 @@ def run_geographic_cases_from_toml(
     case_ids: list[str] | None = None,
     show_plot: bool = True,
     outputs_root: Path | None = None,
+    write_plot: bool = True,
 ) -> dict[str, dict[str, Any]]:
     """Run one or multiple geographic cases and return per-case summaries."""
     cfg = HydroModPyConfig.from_toml(config_toml)
@@ -237,13 +238,16 @@ def run_geographic_cases_from_toml(
         workspace = Workspace(config=init_cfg)
         geographic = Geographic(config=geo_cfg, initializing=workspace)
         metrics = compute_catchment_metrics(geographic)
-        fig_path = _plot_geographic_summary(
-            geographic,
-            output_dir=resolved_outputs_root / case_id,
-            case_id=case_id,
-            case_label=case_label,
-            show_plot=show_plot,
-        )
+        fig_path = None
+        if write_plot:
+            fig_path = _plot_geographic_summary(
+                geographic,
+                output_dir=resolved_outputs_root / case_id,
+                case_id=case_id,
+                case_label=case_label,
+                metrics=metrics,
+                show_plot=show_plot,
+            )
 
         summaries[case_id] = {
             "case_label": case_label,
@@ -254,7 +258,7 @@ def run_geographic_cases_from_toml(
                 int(geographic.dem_box_buff_data.shape[0]),
                 int(geographic.dem_box_buff_data.shape[1]),
             ),
-            "figure": str(fig_path),
+            "figure": None if fig_path is None else str(fig_path),
             **metrics,
         }
 
@@ -267,6 +271,7 @@ def _plot_geographic_summary(
     *,
     case_id: str,
     case_label: str,
+    metrics: dict[str, float | int] | None = None,
     show_plot: bool,
 ) -> Path:
     """Save one quick validation figure (DEM + watershed polygon + outlet)."""
@@ -319,7 +324,8 @@ def _plot_geographic_summary(
                 label="Outlet",
             )
 
-    metrics = compute_catchment_metrics(geographic)
+    if metrics is None:
+        metrics = compute_catchment_metrics(geographic)
     area_km2 = metrics["catchment_area_km2"]
     mean_alt_catch = metrics["mean_elevation_catchment_m"]
 
@@ -405,7 +411,8 @@ def main(argv: list[str] | None = None) -> int:
             f"[{case_id}] mean_elevation_catchment_m="
             f"{summary['mean_elevation_catchment_m']:.2f}"
         )
-        print(f"[{case_id}] figure={summary['figure']}")
+        if summary["figure"] is not None:
+            print(f"[{case_id}] figure={summary['figure']}")
 
     return 0
 

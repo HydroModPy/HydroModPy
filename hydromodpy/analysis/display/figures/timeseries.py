@@ -459,7 +459,11 @@ def plot_intermittency(
 
     A single shared legend is placed below the bottom axes.
     """
-    from hydromodpy.analysis.display.common import finalize_figure, make_figure
+    from hydromodpy.analysis.display.common import (
+        add_figure_legend,
+        finalize_figure,
+        make_figure,
+    )
 
     n_stations = (
         records_df["station_id"].nunique()
@@ -486,9 +490,10 @@ def plot_intermittency(
             render_intermittency(ax, records_df=records_df, station_id=sid)
 
     # Shared horizontal legend below all subplots
-    fig.legend(
+    add_figure_legend(
+        fig,
         handles=_intermittency_legend_handles(),
-        loc="bottom", ncol=5, fontsize=7,
+        loc="lower center", ncol=5, fontsize=7,
         frameon=False, handletextpad=0.3, columnspacing=1.0,
     )
 

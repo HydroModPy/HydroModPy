@@ -3,7 +3,7 @@
   "slug": "late_time_unconfined_pumping_2d",
   "title": "Late-Time Unconfined Pumping 2D",
   "category": "validation",
-  "deck": "2D radial pumping benchmark in the late-time unconfined regime.",
+  "deck": "This `v1` case validates one transient non-confined pumping response in a pragmatic way.",
   "summary": "This `v1` case validates one transient non-confined pumping response in a pragmatic way.",
   "case_setup": [
     "geometry: square Cartesian grid (`101 x 101`, single layer),",
@@ -54,21 +54,21 @@
     "validation_cases/analytical/transient/common.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "e0a809c43876bbf81342efa2a19e63b9bbc659c0464e608a0a925645de0a6d72",
+    "validation_cases/README.md": "28ee639cd0c843d89c06a5ff3b8adf655f5725e35392ebb9980f906513c17e6e",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/README.md": "cdba73415cb6cdf40efb64533e69557f1dbb22925a19eb1a958b0cdb0bc2f6be",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/reference.py": "5c3d1bea642b740f45d14f1ceea796b1fd623b0e7f5ac9378ebd76b72e6ac250",
-    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/comparison.py": "e2404ce54213f66e6a183bfc2fe0f1e3e5b331908adce54d6cf3dcdb6fe8ef7f",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/comparison.py": "6deafa68de8c8d9a9378295876f94348dd556668219a16a42a2ff3af7d721866",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/plotting.py": "3efe041c4eee90ab1ea8a745e20abcefcca3372fcbb4c9979f186a7db3de1f73",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/run_case.py": "30edc1834d44344aeffcc55186bba0086307569e9f8e6ea389c3a5b57452193f",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml": "90f09f9727a490b485da488ff56aeb495a4f70acfb8f9187a38a859e251205d7",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml": "2499c5dc3eb3499a032b0e1cb32286cd8bd620b488ea7ff73e1c0591f0e3da63",
-    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/runtime_boussinesq.py": "2d6c117bb8526fd4f2411cee7d3335eb282edc1ad59ef63fb1bf3aee0f87da4d",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/runtime_boussinesq.py": "e4e354eff68ca9580575ab1bd6d1fc121bafdcecc5e645b9925f32c725dba5ea",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml": "c065df515c704e832e6772e79034beec0da01d52eaa91137b210f4acaa95f9df",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml": "75158836e2768446918d346c654e529b687085975a11ab20061637ad70997586",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml": "f95ffc83e8b3904d388b5c6a0bb2d06e7f6ae533a0f7c2948221a9a06a99abc0",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml": "c2c4343a64f46d1f7e049897084e9202c440b1f0069156f2799072b925918758",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml": "aaebad7805cda1a24b2ee2a9aefb95270df1b1e498044e123a4ad0e9be5f28e8",
-    "validation_cases/analytical/transient/common.py": "ad794d0407af9e7dbbd5669bae60ae0c43ecafbad49181b64320421050a3de93"
+    "validation_cases/analytical/transient/common.py": "d726f145b181a5dd858dcb32d0dd231ccc833813599f7c0676a2d22c65fd0318"
   },
   "docname": "cases/late_time_unconfined_pumping_2d",
   "images": [
@@ -111,20 +111,28 @@
     },
     "regime": "transient",
     "dimension": "2d",
-    "inventory_reference": "late-time Theis proxy",
+    "inventory_reference": "",
     "case_sheet": {
       "numerical_setup": "Square unconfined domain, fixed heads on outer boundary, central pumping well, transient run",
       "analytical_target": "Late-time radial Theis proxy using `T = K * href` and `S = Sy`",
       "primary_metrics": "space-time RMSE, space-time max abs error, final-time RMSE, final-time max abs error, azimuthal spread",
       "what_it_validates": "Transient well forcing, late-time radial drawdown scaling, and numerical radial symmetry around the well"
-    }
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "radial_2d",
+    "geometry_family_label": "Radial 2D",
+    "reference_type": "analytical_series",
+    "reference_type_label": "Analytical Series",
+    "validation_family": "transient_2d_radial_response",
+    "validation_family_label": "Transient 2D Radial Response",
+    "validation_family_order": 70
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/validation/late_time_unconfined_pumping_2d_summary.json",
     "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d_summary.json",
     "image_repo_paths": [
       "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png",
-      "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png",
       "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__boussinesq.png"
     ]
   },
@@ -226,83 +234,17 @@
       "expected_output": "Expected output: 30 periods, spatial shape 101 x 101",
       "command": "python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case --no-show --solver modflow6",
       "metric_lines": [
-        "Space-time RMSE: 0.0114 m",
-        "Space-time max abs error: 0.0623 m",
-        "Final-time RMSE: 0.0057 m",
-        "Azimuthal spread: 1.96e-07 m"
+        "Gallery generation failed for this solver: AssertionError: launcher_simulation.py failed.\nCommand: C:\\Users\\dreuzy\\.conda\\envs\\hydromodpy\\python.exe C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\launcher_simulation.py C:\\codes\\HydroModPy-GH\\validation_cases\\analytical\\transient\\late_time_unconfined_pumping_2d\\.__validation_runtime_config_modflow6_modflow6_127480.toml\nReturn code: 1\nStdout:\n\nStderr:\nC:\\Users\\dreuzy\\.conda\\envs\\hydromodpy\\Lib\\site-packages\\xarray\\backends\\scipy_.py:39: UserWarning: A NumPy version >=1.23.5 and <2.3.0 is required for this version of SciPy (detected version 2.4.3)\n  from scipy.io import netcdf_file as netcdf_file_base\nTraceback (most recent call last):\n  File \"C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\launcher_simulation.py\", line 30, in <module>\n    from launchers import HydroModPyLauncher\n  File \"<frozen importlib._bootstrap>\", line 1412, in _handle_fromlist\n  File \"C:\\codes\\HydroModPy-GH\\launchers\\__init__.py\", line 37, in __getattr__\n    from launchers.process_simulation.launcher import HydroModPyLauncher\n  File \"C:\\codes\\HydroModPy-GH\\launchers\\process_simulation\\__init__.py\", line 3, in <module>\n    from launchers.process_simulation.launcher import HydroModPyLauncher\n  File \"C:\\codes\\HydroModPy-GH\\launchers\\process_simulation\\launcher.py\", line 54, in <module>\n    import hydromodpy as hmp\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\__init__.py\", line 242, in <module>\n    from hydromodpy.core.tools.log_manager import LogManager\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\core\\__init__.py\", line 3, in <module>\n    from hydromodpy.core.config import HydroModPyConfig\n  File \"<frozen importlib._bootstrap>\", line 1412, in _handle_fromlist\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\core\\config\\__init__.py\", line 6, in __getattr__\n    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\core\\config\\hydromodpy_config.py\", line 34, in <module>\n    from hydromodpy.analysis.display.options import DisplayConfig\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\analysis\\display\\__init__.py\", line 13, in <module>\n    from hydromodpy.analysis.display.orchestration import (\n    ...<4 lines>...\n    )\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\analysis\\display\\orchestration.py\", line 6, in <module>\n    from hydromodpy.analysis.display.suites import (\n    ...<4 lines>...\n    )\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\analysis\\display\\suites.py\", line 15, in <module>\n    from hydromodpy.solver.boussinesq.history_contract import (\n    ...<2 lines>...\n    )\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\solver\\boussinesq\\__init__.py\", line 22, in <module>\n    from hydromodpy.solver.boussinesq.boussinesq import Boussinesq\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\solver\\boussinesq\\boussinesq.py\", line 28, in <module>\n    from hydromodpy.solver.boussinesq.assembly import (\n        saturated_thickness_from_head,\n    )\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\solver\\boussinesq\\assembly.py\", line 24, in <module>\n    @dataclass(frozen=True)\n     ~~~~~~~~~^^^^^^^^^^^^^\n  File \"C:\\Users\\dreuzy\\.conda\\envs\\hydromodpy\\Lib\\dataclasses.py\", line 1295, in wrap\n    return _process_class(cls, init, repr, eq, order, unsafe_hash,\n                          frozen, match_args, kw_only, slots,\n                          weakref_slot)\n  File \"C:\\Users\\dreuzy\\.conda\\envs\\hydromodpy\\Lib\\dataclasses.py\", line 1078, in _process_class\n    _init_fn(all_init_fields,\n    ~~~~~~~~^^^^^^^^^^^^^^^^^\n             std_init_fields,\n             ^^^^^^^^^^^^^^^^\n    ...<9 lines>...\n             slots,\n             ^^^^^^\n             )\n             ^\n  File \"C:\\Users\\dreuzy\\.conda\\envs\\hydromodpy\\Lib\\dataclasses.py\", line 627, in _init_fn\n    raise TypeError(f'non-default argument {f.name!r} '\n                    f'follows default argument {seen_default.name!r}')\nTypeError: non-default argument 'drainage_flux_m3_s' follows default argument 'boundary_edge_flux_m3_s'\n\nWorkspace resolution failed: Results folder not found: C:\\results\\HydromodPy\\validation\\run_case\\late_time_unconfi_2a1898ea00_4738e042\\results_simulations"
       ],
-      "image": {
-        "filename": "late_time_unconfined_pumping_2d__modflow6.png",
-        "caption": "Late-Time Unconfined Pumping 2D rendered with MODFLOW 6 for the analytical gallery.",
-        "alt_text": "Late-Time Unconfined Pumping 2D validation figure for MODFLOW 6",
-        "doc_path": "/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png",
-        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png"
-      },
+      "image": null,
       "metadata": {
-        "observable_name": "watertable_elevation",
-        "case_metadata": {
-          "case_id": "late_time_unconfined_pumping_2d",
-          "category": "analytical",
-          "regime": "transient",
-          "dimension": "2d",
-          "launcher": "launcher_simulation",
-          "config_file": "config_modflownwt.toml",
-          "default_solver": "modflownwt",
-          "base_config": "config_modflownwt.toml",
-          "config_files": {
-            "modflownwt": "config_modflownwt.toml",
-            "modflow6": "config_modflow6.toml",
-            "boussinesq": "config_boussinesq.toml"
-          },
-          "workspace": {
-            "results_folder_name": "results_simulations"
-          },
-          "output": {
-            "observable_name": "watertable_elevation",
-            "expected_periods": 30,
-            "expected_spatial_shape": [
-              101,
-              101
-            ]
-          },
-          "time": {
-            "dt_seconds": 43200.0
-          },
-          "reference": {
-            "xmin": 0.0,
-            "xmax": 2000.0,
-            "ymin": 0.0,
-            "ymax": 2000.0,
-            "center_x_m": 1000.0,
-            "center_y_m": 1000.0,
-            "base_head_m": 30.0,
-            "hydraulic_conductivity_m_per_s": 0.0001,
-            "reference_saturated_thickness_m": 30.0,
-            "specific_yield": 0.15,
-            "pumping_rate_m3_day": 1000.0,
-            "compare_start_day": 4.0
-          },
-          "plot": {
-            "monitor_offsets_cells": [
-              3,
-              5,
-              8,
-              12
-            ]
-          }
-        },
-        "tolerances": {
-          "space_time": {
-            "rmse": 0.015,
-            "max_abs_error": 0.07,
-            "azimuthal_spread": 1e-05
-          },
-          "final_time": {
-            "rmse": 0.008,
-            "max_abs_error": 0.015
-          }
-        },
-        "final_elapsed_days": 15.0
+        "observable_name": null,
+        "case_metadata": {},
+        "tolerances": {},
+        "generation_error": {
+          "type": "AssertionError",
+          "message": "launcher_simulation.py failed.\nCommand: C:\\Users\\dreuzy\\.conda\\envs\\hydromodpy\\python.exe C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\launcher_simulation.py C:\\codes\\HydroModPy-GH\\validation_cases\\analytical\\transient\\late_time_unconfined_pumping_2d\\.__validation_runtime_config_modflow6_modflow6_127480.toml\nReturn code: 1\nStdout:\n\nStderr:\nC:\\Users\\dreuzy\\.conda\\envs\\hydromodpy\\Lib\\site-packages\\xarray\\backends\\scipy_.py:39: UserWarning: A NumPy version >=1.23.5 and <2.3.0 is required for this version of SciPy (detected version 2.4.3)\n  from scipy.io import netcdf_file as netcdf_file_base\nTraceback (most recent call last):\n  File \"C:\\codes\\HydroModPy-GH\\examples\\projects\\launcher_simulation\\launcher_simulation.py\", line 30, in <module>\n    from launchers import HydroModPyLauncher\n  File \"<frozen importlib._bootstrap>\", line 1412, in _handle_fromlist\n  File \"C:\\codes\\HydroModPy-GH\\launchers\\__init__.py\", line 37, in __getattr__\n    from launchers.process_simulation.launcher import HydroModPyLauncher\n  File \"C:\\codes\\HydroModPy-GH\\launchers\\process_simulation\\__init__.py\", line 3, in <module>\n    from launchers.process_simulation.launcher import HydroModPyLauncher\n  File \"C:\\codes\\HydroModPy-GH\\launchers\\process_simulation\\launcher.py\", line 54, in <module>\n    import hydromodpy as hmp\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\__init__.py\", line 242, in <module>\n    from hydromodpy.core.tools.log_manager import LogManager\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\core\\__init__.py\", line 3, in <module>\n    from hydromodpy.core.config import HydroModPyConfig\n  File \"<frozen importlib._bootstrap>\", line 1412, in _handle_fromlist\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\core\\config\\__init__.py\", line 6, in __getattr__\n    from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\core\\config\\hydromodpy_config.py\", line 34, in <module>\n    from hydromodpy.analysis.display.options import DisplayConfig\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\analysis\\display\\__init__.py\", line 13, in <module>\n    from hydromodpy.analysis.display.orchestration import (\n    ...<4 lines>...\n    )\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\analysis\\display\\orchestration.py\", line 6, in <module>\n    from hydromodpy.analysis.display.suites import (\n    ...<4 lines>...\n    )\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\analysis\\display\\suites.py\", line 15, in <module>\n    from hydromodpy.solver.boussinesq.history_contract import (\n    ...<2 lines>...\n    )\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\solver\\boussinesq\\__init__.py\", line 22, in <module>\n    from hydromodpy.solver.boussinesq.boussinesq import Boussinesq\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\solver\\boussinesq\\boussinesq.py\", line 28, in <module>\n    from hydromodpy.solver.boussinesq.assembly import (\n        saturated_thickness_from_head,\n    )\n  File \"C:\\codes\\HydroModPy-GH\\hydromodpy\\solver\\boussinesq\\assembly.py\", line 24, in <module>\n    @dataclass(frozen=True)\n     ~~~~~~~~~^^^^^^^^^^^^^\n  File \"C:\\Users\\dreuzy\\.conda\\envs\\hydromodpy\\Lib\\dataclasses.py\", line 1295, in wrap\n    return _process_class(cls, init, repr, eq, order, unsafe_hash,\n                          frozen, match_args, kw_only, slots,\n                          weakref_slot)\n  File \"C:\\Users\\dreuzy\\.conda\\envs\\hydromodpy\\Lib\\dataclasses.py\", line 1078, in _process_class\n    _init_fn(all_init_fields,\n    ~~~~~~~~^^^^^^^^^^^^^^^^^\n             std_init_fields,\n             ^^^^^^^^^^^^^^^^\n    ...<9 lines>...\n             slots,\n             ^^^^^^\n             )\n             ^\n  File \"C:\\Users\\dreuzy\\.conda\\envs\\hydromodpy\\Lib\\dataclasses.py\", line 627, in _init_fn\n    raise TypeError(f'non-default argument {f.name!r} '\n                    f'follows default argument {seen_default.name!r}')\nTypeError: non-default argument 'drainage_flux_m3_s' follows default argument 'boundary_edge_flux_m3_s'\n\nWorkspace resolution failed: Results folder not found: C:\\results\\HydromodPy\\validation\\run_case\\late_time_unconfi_2a1898ea00_4738e042\\results_simulations"
+        }
       }
     },
     {

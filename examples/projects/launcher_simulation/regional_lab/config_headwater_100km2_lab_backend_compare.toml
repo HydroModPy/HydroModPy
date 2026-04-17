@@ -1,0 +1,22 @@
+# Regional-lab overlay focusing the committed headwater population on the backend-comparison recipe.
+#
+# Keep the recipe blocks in the same order as the base config so TOML inheritance
+# can override their `enabled` flags item by item.
+
+base_config = "config_headwater_100km2_lab.toml"
+
+[regional_lab]
+lab_id = "headwater_100km2_lab_backend_compare"
+output_root = "outputs/headwater_100km2_lab_backend_compare"
+
+[[regional_lab.recipe]]
+id = "mf6_reference"
+enabled = false
+
+[[regional_lab.recipe]]
+id = "backend_compare"
+enabled = true
+
+[[regional_lab.recipe]]
+id = "transient_backend_compare"
+enabled = false

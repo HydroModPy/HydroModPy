@@ -101,11 +101,11 @@ Solver Coverage
          Boussinesq Circular-Island Piecewise-K 2D rendered with Boussinesq for the analytical gallery.
 
       **Metrics**
-      - Radial head-profile RMSE: 0.1753 m
-      - Radial head-profile max abs error: 0.3284 m
+      - Radial head-profile RMSE: 0.1752 m
+      - Radial head-profile max abs error: 0.3282 m
       - Azimuthal spread: 0.2272 m
       - Ocean head max abs error: 0.00e+00 m
-      - Minimum land freeboard: 1.8324 m
+      - Minimum land freeboard: 1.0392 m
 
       - Config file: ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_boussinesq.toml``
       - Tolerances: ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_boussinesq.toml``

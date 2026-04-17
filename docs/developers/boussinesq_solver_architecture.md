@@ -666,7 +666,7 @@ Recommandation V1 :
 
 - backend local de reference possible pour petits cas et validation ;
 - backend PETSc recommande pour runs cibles et maillages plus grands ;
-- confinement des imports et objets PETSc dans `petsc_runtime.py` ;
+- confinement des imports et objets PETSc dans `runtimes/` ;
 - absence de dependance PETSc dans le contrat `Flow` et dans la theorie du
   schema.
 
@@ -771,18 +771,17 @@ hydromodpy/
   solver/
     boussinesq/
       __init__.py
-      boussinesq_config.py
-      boussinesq_solver.py
+      boussinesq.py
       mesh.py
-      operators.py
-      assembly.py
-      nonlinear.py
-      local_runtime.py
-      petsc_runtime.py
-      boundary_mapping.py
-      source_mapping.py
-      results.py
-      postprocess.py
+      runtime_contract.py
+      runtime_selection.py
+      solver_contract.py
+      assembly/
+      core/
+      drivers/
+      forcing/
+      jacobian/
+      runtimes/
   simulation/
     adapters/
       flow/
@@ -970,7 +969,7 @@ pas le contrat d'entree du solveur `boussinesq`.
 - brancher les binders temporels existants,
 - ajouter `saturation_excess`,
 - auditer strictement le bilan de masse,
-- brancher `petsc_runtime.py` comme backend optionnel.
+- brancher `runtimes/petsc_partition.py` comme backend optionnel.
 
 ### Phase 4
 
@@ -1000,7 +999,7 @@ Les choix structurants de la V1 sont maintenant fixes :
   avec `q_{in}^{surf} = N` dans la base V1 ;
 - residuale discrete unique ecrite en `h` ;
 - coeur solveur independant du backend runtime ;
-- `petsc_runtime.py` prepare des la conception, mais non impose au contrat
+- `runtimes/petsc_partition.py` prepare des la conception, mais non impose au contrat
   theorique du solveur.
 
 En pratique, les cas de reference recommandes pour demarrer sont :

@@ -15,9 +15,9 @@ def test_resolve_base_model_name_prefers_run_id() -> None:
     assert resolve_base_model_name(setup) == "launcher_name"
 
 
-def test_resolve_base_model_name_falls_back_to_model_name() -> None:
+def test_resolve_base_model_name_ignores_legacy_model_name() -> None:
     setup = SimpleNamespace(model_name="legacy_name")
-    assert resolve_base_model_name(setup) == "legacy_name"
+    assert resolve_base_model_name(setup) == "default"
 
 
 def test_resolve_base_model_name_defaults_when_blank() -> None:

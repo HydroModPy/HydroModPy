@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
+
 from validation_cases.analytical.transient.common import (
     TransientHead1DComparison,
     build_transient_head_comparison,
@@ -28,17 +30,22 @@ def build_linearized_unconfined_recharge_step_comparison(
 ) -> TransientHead1DComparison:
     """Load one completed run and compare it against the linearized analytical solution."""
     loaded = load_transient_profile_outputs(case_dir=CASE_DIR, result=result, solver=solver)
-    metadata = loaded[0]
+    metadata = loaded.metadata
     reference_cfg = dict(metadata.get("reference", {}))
-    period_indices = loaded[3]
-    dt_seconds = float(loaded[5])
+    period_indices = np.asarray(loaded.period_indices, dtype=float)
+    dt_seconds = float(loaded.dt_seconds)
+    elapsed_seconds = (
+        np.asarray(loaded.elapsed_seconds, dtype=float)
+        if loaded.elapsed_seconds is not None
+        else (period_indices + 1.0) * dt_seconds
+    )
     x = build_profile_x(
         xmin=float(reference_cfg["xmin"]),
         xmax=float(reference_cfg["xmax"]),
-        ncol=loaded[4].shape[-1],
+        ncol=loaded.heads.shape[-1],
     )
-    period_start_seconds = period_indices.astype(float) * dt_seconds
-    eval_times_seconds = (period_indices.astype(float) + 1.0) * dt_seconds
+    period_start_seconds = np.maximum(elapsed_seconds - dt_seconds, 0.0)
+    eval_times_seconds = elapsed_seconds
     analytical_profiles = expected_linearized_unconfined_recharge_step_profiles(
         x=x,
         eval_times_seconds=eval_times_seconds,

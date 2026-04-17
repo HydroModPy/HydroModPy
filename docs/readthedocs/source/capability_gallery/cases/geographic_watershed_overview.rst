@@ -28,7 +28,7 @@ Case Setup
 
 - Launcher family: `data-overview`, so the workflow stops after setup, domain assembly, and data loading.
 - Primary editable file: `examples/projects/data_overview/project.toml`.
-- Committed figures are reused as stable teaching assets instead of rerunning the full example during doc builds.
+- Committed figures are mirrored under `examples/capability_gallery/geographic/` so the doc build stays reproducible without a local `results_stable` checkout.
 
 What It Shows
 -------------
@@ -120,6 +120,62 @@ Selected Parameters
      - strict
      - ``examples/projects/data_overview/project.toml``
 
+Loaded Data Families
+^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``[data] types``
+     - Ordered list of data families requested by the overview case.
+     - geology, hydrography, hydrometry, intermittency, oceanic
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[data.geology.sources]``
+     - Configured providers used to load the `geology` family in this case.
+     - brgm_1m
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[data.hydrography.sources]``
+     - Configured providers used to load the `hydrography` family in this case.
+     - custom
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[data.hydrometry.sources]``
+     - Configured providers used to load the `hydrometry` family in this case.
+     - hubeau
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[data.intermittency.sources]``
+     - Configured providers used to load the `intermittency` family in this case.
+     - hubeau
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[data.oceanic.sources]``
+     - Configured providers used to load the `oceanic` family in this case.
+     - shom
+     - ``examples/projects/data_overview/project.toml``
+
+Hydrography Source Options
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 42 20 12
+
+   * - Field
+     - Meaning
+     - Value
+     - Source
+   * - ``[[data.hydrography.sources]] source``
+     - Hydrography provider used for the displayed river network.
+     - custom
+     - ``examples/projects/data_overview/project.toml``
+   * - ``[[data.hydrography.sources]] rasterize_field``
+     - Attribute used when rasterizing the clipped vector network to the watershed grid.
+     - FID
+     - ``examples/projects/data_overview/project.toml``
+
 Observation Windows
 ^^^^^^^^^^^^^^^^^^^
 
@@ -159,10 +215,12 @@ Observation Windows
 Source Pointers
 ---------------
 
+- ``tools/doc_gallery/manifests/geographic_cases.json``
 - ``examples/projects/data_overview/run_data_overview.py``
 - ``examples/projects/data_overview/project.toml``
-- ``examples/results/example13data/results_stable/_figures/watershed_dem.png``
-- ``examples/results/example13data/results_stable/_figures/watershed_local.png``
+- ``examples/capability_gallery/geographic/README.md``
+- ``examples/capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png``
+- ``examples/capability_gallery/geographic/watershed_overview/geographic_watershed_local.png``
 
 Artifacts
 ---------

@@ -1,9 +1,27 @@
 Architecture Overview
 =====================
 
-This section is reserved for cross-cutting diagrams that span several
-packages, such as end-to-end runtime flows or package-level dependency maps.
+This section groups architecture notes that cut across several HydroModPy
+packages. Use it when the question is not "how does one package work?" but
+rather "where does one responsibility live?" or "which layer should I change?".
 
-As the architecture documentation is progressively reorganized, global
-orchestration diagrams should land here rather than inside a single
-implementation package section.
+The pages below focus on three recurring maintenance boundaries:
+
+- the split between reusable scientific benchmarks and pytest entrypoints,
+- the compatibility layers that keep legacy or simplified imports alive while
+  internals are reorganized,
+- the root data-manager orchestration layer that decides what is loaded, from
+  where, and under which external constraints,
+- the code-reading map that points developers to the right package README or
+  runtime entry point before diving into implementation details.
+
+They are deliberately complementary to the package-level sections in
+:doc:`../index`.
+
+.. toctree::
+   :maxdepth: 2
+
+   code-reading-guide
+   tests-and-validation
+   compatibility-facades
+   data-managers-and-external-dependencies

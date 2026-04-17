@@ -194,6 +194,55 @@ def _axis_bounds(
     )
 
 
+def _normalize_axis_values(
+    values: np.ndarray,
+    *,
+    lower: float,
+    upper: float,
+) -> np.ndarray:
+    """Normalize one axis to ``[0, 1]`` while guarding degenerate bounds."""
+    scale = float(upper) - float(lower)
+    if not math.isfinite(scale) or abs(scale) <= 0.0:
+        return np.zeros_like(values, dtype=float)
+    return (np.asarray(values, dtype=float) - float(lower)) / scale
+
+
+def _normalize_xy_for_interpolation(
+    *,
+    xy: np.ndarray,
+    grid_x: np.ndarray,
+    grid_y: np.ndarray,
+    bounds_x: tuple[float, float],
+    bounds_y: tuple[float, float],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Scale interpolation coordinates to unit bounds so all axes contribute fairly."""
+    normalized_xy = np.column_stack(
+        [
+            _normalize_axis_values(
+                xy[:, 0],
+                lower=float(bounds_x[0]),
+                upper=float(bounds_x[1]),
+            ),
+            _normalize_axis_values(
+                xy[:, 1],
+                lower=float(bounds_y[0]),
+                upper=float(bounds_y[1]),
+            ),
+        ]
+    )
+    normalized_grid_x = _normalize_axis_values(
+        grid_x,
+        lower=float(bounds_x[0]),
+        upper=float(bounds_x[1]),
+    )
+    normalized_grid_y = _normalize_axis_values(
+        grid_y,
+        lower=float(bounds_y[0]),
+        upper=float(bounds_y[1]),
+    )
+    return normalized_xy, normalized_grid_x, normalized_grid_y
+
+
 def _latin_hypercube_2d(
     *,
     rng: np.random.Generator,
@@ -388,6 +437,17 @@ def interpolate_objective_grid(
     y_values = np.linspace(bounds_y[0], bounds_y[1], int(mapping_cfg.grid_size))
     grid_x, grid_y = np.meshgrid(x_values, y_values)
     xy, costs = _finite_xy_costs(points=points, axes=axes)
+    normalized_xy, normalized_grid_x, normalized_grid_y = (
+        _normalize_xy_for_interpolation(
+            xy=xy,
+            grid_x=grid_x,
+            grid_y=grid_y,
+            bounds_x=bounds_x,
+            bounds_y=bounds_y,
+        )
+        if xy.shape[0] > 0
+        else (xy, grid_x, grid_y)
+    )
 
     interpolator = mapping_cfg.interpolation
     interpolation_used = interpolator
@@ -395,45 +455,45 @@ def interpolate_objective_grid(
         objective_grid = np.full_like(grid_x, np.nan, dtype=float)
     elif interpolator == "nearest":
         objective_grid = _nearest_grid(
-            xy=xy,
+            xy=normalized_xy,
             values=costs,
-            grid_x=grid_x,
-            grid_y=grid_y,
+            grid_x=normalized_grid_x,
+            grid_y=normalized_grid_y,
         )
     elif interpolator == "linear":
         try:
             from scipy.interpolate import griddata
 
             objective_grid = griddata(
-                xy,
+                normalized_xy,
                 costs,
-                (grid_x, grid_y),
+                (normalized_grid_x, normalized_grid_y),
                 method="linear",
             )
             missing = ~np.isfinite(objective_grid)
             if np.any(missing):
                 objective_grid[missing] = _idw_grid(
-                    xy=xy,
+                    xy=normalized_xy,
                     values=costs,
-                    grid_x=grid_x,
-                    grid_y=grid_y,
+                    grid_x=normalized_grid_x,
+                    grid_y=normalized_grid_y,
                     power=mapping_cfg.idw_power,
                 )[missing]
         except Exception:
             interpolation_used = "idw_fallback"
             objective_grid = _idw_grid(
-                xy=xy,
+                xy=normalized_xy,
                 values=costs,
-                grid_x=grid_x,
-                grid_y=grid_y,
+                grid_x=normalized_grid_x,
+                grid_y=normalized_grid_y,
                 power=mapping_cfg.idw_power,
             )
     else:
         objective_grid = _idw_grid(
-            xy=xy,
+            xy=normalized_xy,
             values=costs,
-            grid_x=grid_x,
-            grid_y=grid_y,
+            grid_x=normalized_grid_x,
+            grid_y=normalized_grid_y,
             power=mapping_cfg.idw_power,
         )
 
@@ -452,12 +512,23 @@ def interpolate_objective_grid(
                 axes=axes,
                 block_name=block_name,
             )
-            block_grids[block_name] = _jsonable(
-                _idw_grid(
+            normalized_block_xy, normalized_block_grid_x, normalized_block_grid_y = (
+                _normalize_xy_for_interpolation(
                     xy=block_xy,
-                    values=block_costs,
                     grid_x=grid_x,
                     grid_y=grid_y,
+                    bounds_x=bounds_x,
+                    bounds_y=bounds_y,
+                )
+                if block_xy.shape[0] > 0
+                else (block_xy, grid_x, grid_y)
+            )
+            block_grids[block_name] = _jsonable(
+                _idw_grid(
+                    xy=normalized_block_xy,
+                    values=block_costs,
+                    grid_x=normalized_block_grid_x,
+                    grid_y=normalized_block_grid_y,
                     power=mapping_cfg.idw_power,
                 )
             )

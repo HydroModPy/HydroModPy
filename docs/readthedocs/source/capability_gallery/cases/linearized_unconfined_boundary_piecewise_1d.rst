@@ -99,10 +99,10 @@ Solver Coverage
          Linearized Unconfined Boundary Piecewise 1D rendered with Boussinesq for the analytical gallery.
 
       **Metrics**
-      - Space-time RMSE: 0.0069 m
-      - Space-time max abs error: 0.0390 m
-      - Final-profile RMSE: 0.0029 m
-      - Cross-row head spread: 3.24e-08 m
+      - Space-time RMSE: 0.0059 m
+      - Space-time max abs error: 0.0340 m
+      - Final-profile RMSE: 0.0024 m
+      - Cross-row head spread: 3.22e-08 m
 
       - Config file: ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_boussinesq.toml``
       - Tolerances: ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml``

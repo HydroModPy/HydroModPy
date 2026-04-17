@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import warnings
 
 import matplotlib
 import numpy as np
@@ -17,7 +18,7 @@ from hydromodpy.analysis.display.posthoc_orchestration import plot_posthoc_flow_
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 
 
-def _build_spatial_payload(run_id: str = "run_a") -> FlowSpatialFigurePayload:
+def _build_spatial_payload(artifact_id: str = "run_a") -> FlowSpatialFigurePayload:
     hydro_mesh = HydroMesh(
         vertices=np.asarray(
             [
@@ -36,7 +37,7 @@ def _build_spatial_payload(run_id: str = "run_a") -> FlowSpatialFigurePayload:
         ),
     )
     return FlowSpatialFigurePayload(
-        run_id=run_id,
+        artifact_id=artifact_id,
         hydro_mesh=hydro_mesh,
         top_elevation_m=np.asarray([10.0, 9.0], dtype=float),
         watertable_elevation_m=np.asarray([8.8, 8.3], dtype=float),
@@ -46,9 +47,9 @@ def _build_spatial_payload(run_id: str = "run_a") -> FlowSpatialFigurePayload:
     )
 
 
-def _build_cumulative_payload(run_id: str = "run_a") -> FlowCumulativeSeriesPayload:
+def _build_cumulative_payload(artifact_id: str = "run_a") -> FlowCumulativeSeriesPayload:
     return FlowCumulativeSeriesPayload(
-        run_id=run_id,
+        artifact_id=artifact_id,
         time_days=np.asarray([0.0, 30.0, 60.0], dtype=float),
         recharge_cumulative_mm=np.asarray([5.0, 15.0, 25.0], dtype=float),
         discharge_components_cumulative_mm={
@@ -127,11 +128,13 @@ def test_plot_posthoc_flow_suite_renders_solver_agnostic_common_figures(
 
     monkeypatch.setattr(
         "hydromodpy.analysis.display.posthoc_orchestration.build_flow_spatial_payload_from_run",
-        lambda run: _build_spatial_payload(run.run_id),
+        lambda run: _build_spatial_payload(run.artifact_id),
     )
     monkeypatch.setattr(
         "hydromodpy.analysis.display.posthoc_orchestration.build_flow_cumulative_payload",
-        lambda simulated_timeseries, *, run_id: _build_cumulative_payload(run_id),
+        lambda simulated_timeseries, *, artifact_id=None, run_id=None: _build_cumulative_payload(
+            artifact_id or run_id
+        ),
     )
 
     plot_posthoc_flow_suite(run, geo, options)
@@ -140,3 +143,33 @@ def test_plot_posthoc_flow_suite_renders_solver_agnostic_common_figures(
     assert (figure_dir / "flow_state_triptych.png").exists()
     assert (figure_dir / "recharge_discharge_cumulative.png").exists()
     assert (figure_dir / "watertable_elevation.png").exists()
+
+
+def test_run_artifacts_run_id_alias_is_deprecated(tmp_path: Path) -> None:
+    run_dir = tmp_path / "results_simulations" / "run_a"
+    (run_dir / "_postprocess").mkdir(parents=True, exist_ok=True)
+
+    run = RunArtifacts.discover(run_dir)
+
+    assert run.artifact_id == "run_a"
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", DeprecationWarning)
+        legacy_run_id = run.run_id
+
+    assert legacy_run_id == "run_a"
+    assert len(caught) == 1
+    assert "deprecated" in str(caught[0].message)
+
+
+def test_run_artifacts_constructor_accepts_legacy_run_id_with_deprecation() -> None:
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", DeprecationWarning)
+        run = RunArtifacts(
+            run_id="legacy_run",
+            run_dir=Path("results_simulations/legacy_run"),
+            postprocess_dir=Path("results_simulations/legacy_run/_postprocess"),
+        )
+
+    assert run.artifact_id == "legacy_run"
+    assert len(caught) == 1
+    assert "deprecated" in str(caught[0].message)

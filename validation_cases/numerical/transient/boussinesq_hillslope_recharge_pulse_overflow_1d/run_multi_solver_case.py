@@ -106,6 +106,24 @@ def _build_timeseries_rows(results: list[TimedSolverDiagnostics]) -> list[dict[s
             diagnostics.recharge_mm_day,
             diagnostics.elapsed_days,
         )
+        total_outflow = np.asarray(diagnostics.total_outflow_m3_day, dtype=float)
+        recharge_flux = np.asarray(diagnostics.recharge_flux_m3_day, dtype=float)
+        net_inflow = np.asarray(
+            getattr(diagnostics, "net_inflow_m3_day", recharge_flux - total_outflow),
+            dtype=float,
+        )
+        storage_change = np.asarray(
+            getattr(
+                diagnostics,
+                "storage_change_m3_day",
+                getattr(diagnostics, "storage_balance_m3_day", net_inflow),
+            ),
+            dtype=float,
+        )
+        residual = np.asarray(
+            getattr(diagnostics, "residual_m3_day", net_inflow - storage_change),
+            dtype=float,
+        )
         for idx, day in enumerate(diagnostics.elapsed_days.tolist()):
             rows.append(
                 {
@@ -114,12 +132,14 @@ def _build_timeseries_rows(results: list[TimedSolverDiagnostics]) -> list[dict[s
                     "runtime_backend": diagnostics.runtime_backend,
                     "surface_interaction_model": diagnostics.surface_interaction_model,
                     "elapsed_days": float(day),
-                "recharge_mm_day": float(recharge_mm_day[idx]),
-                    "recharge_flux_m3_day": float(diagnostics.recharge_flux_m3_day[idx]),
+                    "recharge_mm_day": float(recharge_mm_day[idx]),
+                    "recharge_flux_m3_day": float(recharge_flux[idx]),
                     "surface_excess_flux_m3_day": float(diagnostics.surface_excess_flux_m3_day[idx]),
                     "east_boundary_outflow_m3_day": float(diagnostics.east_boundary_outflow_m3_day[idx]),
-                    "total_outflow_m3_day": float(diagnostics.total_outflow_m3_day[idx]),
-                    "storage_balance_m3_day": float(diagnostics.storage_balance_m3_day[idx]),
+                    "total_outflow_m3_day": float(total_outflow[idx]),
+                    "net_inflow_m3_day": float(net_inflow[idx]),
+                    "storage_change_m3_day": float(storage_change[idx]),
+                    "residual_m3_day": float(residual[idx]),
                     "total_overflow_m3_day": float(diagnostics.total_overflow_m3_day[idx]),
                     "active_overflow_length_m": float(diagnostics.active_overflow_length_m[idx]),
                     "overflow_front_x_m": float(diagnostics.overflow_front_x_m[idx]),
@@ -381,7 +401,7 @@ def _write_flux_budget_figure(
     output_png.unlink(missing_ok=True)
     ordered = list(results)
 
-    fig, axes = plt.subplots(3, 2, figsize=(12.4, 9.8), sharex=True, constrained_layout=True)
+    fig, axes = plt.subplots(4, 2, figsize=(12.8, 11.8), sharex=True, constrained_layout=True)
     flat_axes = list(np.asarray(axes).reshape(-1))
 
     recharge_ax = flat_axes[0]
@@ -397,7 +417,9 @@ def _write_flux_budget_figure(
     recharge_ax.grid(alpha=0.25, linewidth=0.6)
 
     panel_specs: list[tuple[Any, str]] = [
-        (lambda item: item.diagnostics.storage_balance_m3_day, "Storage Balance"),
+        (lambda item: item.diagnostics.net_inflow_m3_day, "Net Inflow"),
+        (lambda item: item.diagnostics.storage_change_m3_day, "Storage Change"),
+        (lambda item: item.diagnostics.residual_m3_day, "Residual"),
         (lambda item: item.diagnostics.east_boundary_outflow_m3_day, "East Boundary Outflow"),
         (lambda item: item.diagnostics.surface_excess_flux_m3_day, "Surface Excess Outflow"),
         (lambda item: item.diagnostics.total_outflow_m3_day, "Total Outflow"),
@@ -413,7 +435,7 @@ def _write_flux_budget_figure(
                 label=diagnostics.solver_label,
                 **_solver_plot_style(diagnostics.solver_name),
             )
-        if title == "Storage Balance":
+        if title in {"Net Inflow", "Residual"}:
             ax.axhline(0.0, color="#444444", linewidth=1.0, linestyle="--")
         ax.set_title(title, fontsize=10.2)
         ax.set_ylabel("Flux [m3/day]")

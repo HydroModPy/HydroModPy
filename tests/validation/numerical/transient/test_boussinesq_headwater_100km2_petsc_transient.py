@@ -99,6 +99,7 @@ def _run_transient_real_case_summary(
 @pytest.mark.validation
 @pytest.mark.transient
 @pytest.mark.slow
+@pytest.mark.petsc
 @pytest.mark.parametrize(
     ("config_name", "expected_surface_model"),
     [
@@ -151,6 +152,7 @@ def test_headwater_transient_real_case_petsc_variants_converge_on_committed_mesh
 @pytest.mark.validation
 @pytest.mark.transient
 @pytest.mark.slow
+@pytest.mark.petsc
 def test_headwater_transient_cycling_real_case_distinguishes_surface_closures(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -205,6 +207,7 @@ def test_headwater_transient_cycling_real_case_distinguishes_surface_closures(
 @pytest.mark.validation
 @pytest.mark.transient
 @pytest.mark.slow
+@pytest.mark.petsc
 def test_headwater_transient_cycling_heterogeneous_real_case_distinguishes_surface_closures(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
