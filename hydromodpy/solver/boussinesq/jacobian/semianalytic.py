@@ -1,6 +1,6 @@
-"""Semi-analytic Jacobian helpers for the Boussinesq residual.
+﻿"""Semi-analytic Jacobian helpers for the Boussinesq residual.
 
-This module remains the public façade for semianalytic Jacobian assembly.
+This module remains the public faÃ§ade for semianalytic Jacobian assembly.
 Its implementation is now split internally into:
 
 - `jacobian_common.py` for derivative and COO helper utilities,
@@ -12,14 +12,14 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.jacobian_common import (
+from hydromodpy.solver.boussinesq.jacobian.common import (
     concatenate_triplets,
     saturated_thickness_derivative_from_head,
 )
-from hydromodpy.solver.boussinesq.jacobian_operator_triplets import (
+from hydromodpy.solver.boussinesq.jacobian.operator_triplets import (
     build_sparse_semianalytic_triplets,
 )
-from hydromodpy.solver.boussinesq.jacobian_partition_triplets import (
+from hydromodpy.solver.boussinesq.jacobian.partition_triplets import (
     build_sparse_semianalytic_partition_saturation_triplets,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
@@ -183,3 +183,4 @@ __all__ = [
     "build_sparse_semianalytic_regularized_partition_jacobian_triplets",
     "saturated_thickness_derivative_from_head",
 ]
+

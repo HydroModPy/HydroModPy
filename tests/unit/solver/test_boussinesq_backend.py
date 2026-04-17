@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import replace
 import json
@@ -27,27 +27,27 @@ from hydromodpy.solver.boussinesq.assembly import (
 from hydromodpy.solver.boussinesq.core.state import BoussinesqState
 from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
 from hydromodpy.solver.boussinesq.solver_contract import BoussinesqSolverContract
-from hydromodpy.solver.boussinesq.jacobian_fd import (
+from hydromodpy.solver.boussinesq.jacobian.fd import (
     build_cell_coupling_rows_by_column,
     build_colored_sparse_fd_jacobian_triplets,
     build_dense_fd_jacobian,
     color_columns_by_row_overlap,
 )
-from hydromodpy.solver.boussinesq.jacobian_semianalytic import (
+from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
     build_sparse_semianalytic_base_jacobian_triplets,
     build_sparse_semianalytic_regularized_partition_jacobian_triplets,
 )
-from hydromodpy.solver.boussinesq.local_runtime import (
+from hydromodpy.solver.boussinesq.runtimes.local import (
     solve_backward_euler_step,
     solve_steady_state,
 )
-from hydromodpy.solver.boussinesq.petsc_runtime import (
+from hydromodpy.solver.boussinesq.runtimes.petsc_mixed import (
     _coo_to_csr,
     _fischer_burmeister_residual_and_derivatives,
     _initial_transient_q_ex_guess,
     solve_steady_problem as solve_steady_problem_petsc,
 )
-from hydromodpy.solver.boussinesq.partition_runtime_utils import (
+from hydromodpy.solver.boussinesq.runtimes.partition_utils import (
     interiorize_regularized_partition_initial_guess,
     regularized_partition_jacobian_shift,
 )
@@ -60,10 +60,10 @@ from hydromodpy.solver.boussinesq.runtime_selection import (
     BoussinesqRuntimeBackend,
     resolve_runtime_backend,
 )
-from hydromodpy.solver.boussinesq.scipy_runtime import (
+from hydromodpy.solver.boussinesq.runtimes.scipy_dense import (
     solve_steady_problem as solve_steady_problem_scipy,
 )
-from hydromodpy.solver.boussinesq.scipy_sparse_runtime import (
+from hydromodpy.solver.boussinesq.runtimes.scipy_sparse import (
     solve_steady_problem as solve_steady_problem_scipy_sparse,
 )
 from hydromodpy.solver.modflow6 import Modflow6
@@ -532,7 +532,7 @@ def test_petsc_runtime_rejects_non_linux_platform(
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
     mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
     monkeypatch.setattr(
-        "hydromodpy.solver.boussinesq.petsc_common.platform.system",
+        "hydromodpy.solver.boussinesq.runtimes.petsc_common.platform.system",
         lambda: "Windows",
     )
 
@@ -1027,7 +1027,7 @@ def test_boussinesq_initializes_head_from_flow_initial_conditions(tmp_path: Path
     assert success is True
     assert model.state is not None
     assert np.allclose(model.state.head_m, [10.0, 11.0])
-    # Smooth operators introduce O(eps_thickness/2) ≈ 2.5 mm bias at h = z_top.
+    # Smooth operators introduce O(eps_thickness/2) â‰ˆ 2.5 mm bias at h = z_top.
     assert np.allclose(model.state.saturated_thickness_m, [5.0, 7.0], atol=5.0e-3)
     assert model.has_numerical_solution is False
 
@@ -1194,7 +1194,7 @@ def test_assembly_steady_state_balances_uniform_fixed_head(tmp_path: Path) -> No
         prescribed_head_m_by_cell=prescribed_heads,
     )
 
-    # Smooth saturation-excess adds O(eps_qex²) residual at balance_rate = 0.
+    # Smooth saturation-excess adds O(eps_qexÂ²) residual at balance_rate = 0.
     assert np.allclose(assembly.residual_m3_s, 0.0, atol=1.0e-11)
 
 
@@ -2337,3 +2337,4 @@ def test_boussinesq_rejects_structured_well_addressing_on_triangular_mesh(
 
     with pytest.raises(NotImplementedError, match="coordinate-based wells"):
         model.processing(run_model=True)
+

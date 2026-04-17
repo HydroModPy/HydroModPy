@@ -1,6 +1,6 @@
-"""Finite-volume assembly helpers shared by all current Boussinesq runtimes.
+﻿"""Finite-volume assembly helpers shared by all current Boussinesq runtimes.
 
-This module remains the public façade of the Boussinesq physical assembly.
+This module remains the public faÃ§ade of the Boussinesq physical assembly.
 The implementation is now split internally into:
 
 - `assembly_inputs.py` for runtime input normalization and constraint handling,
@@ -11,7 +11,7 @@ The implementation is now split internally into:
 
 from __future__ import annotations
 
-from hydromodpy.solver.boussinesq.assembly_fluxes import (
+from hydromodpy.solver.boussinesq.assembly.fluxes import (
     accumulate_boundary_flux_residual,
     accumulate_internal_flux_residual,
     boundary_head_edge_flux_from_head,
@@ -20,22 +20,22 @@ from hydromodpy.solver.boussinesq.assembly_fluxes import (
     saturated_thickness_from_head,
     transmissivity_from_head,
 )
-from hydromodpy.solver.boussinesq.assembly_inputs import (
+from hydromodpy.solver.boussinesq.assembly.inputs import (
     apply_prescribed_head_to_cells,
     resolve_boundary_head_inputs,
 )
-from hydromodpy.solver.boussinesq.assembly_residuals import (
+from hydromodpy.solver.boussinesq.assembly.residuals import (
     assemble_steady_residual_generic as _assemble_steady_residual_generic,
     assemble_steady_residual_with_saturation_excess_generic as _assemble_steady_residual_with_saturation_excess_generic,
     assemble_transient_residual_generic as _assemble_transient_residual_generic,
     assemble_transient_residual_with_saturation_excess_generic as _assemble_transient_residual_with_saturation_excess_generic,
     assemble_spatial_terms as _assemble_spatial_terms,
 )
-from hydromodpy.solver.boussinesq.assembly_surface import (
+from hydromodpy.solver.boussinesq.assembly.surface import (
     regularized_partition_surface_rate_from_balance,
     saturation_excess_rate_from_balance,
 )
-from hydromodpy.solver.boussinesq.assembly_types import BoussinesqAssembly
+from hydromodpy.solver.boussinesq.assembly.types import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
 
@@ -161,3 +161,4 @@ __all__ = [
     "saturation_excess_rate_from_balance",
     "transmissivity_from_head",
 ]
+

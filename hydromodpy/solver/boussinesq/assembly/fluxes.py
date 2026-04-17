@@ -1,10 +1,10 @@
-"""Flux and transmissivity operators used by the Boussinesq assembly."""
+﻿"""Flux and transmissivity operators used by the Boussinesq assembly."""
 
 from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly_inputs import (
+from hydromodpy.solver.boussinesq.assembly.inputs import (
     as_cell_vector,
     as_edge_vector,
 )
@@ -206,3 +206,4 @@ __all__ = [
     "saturated_thickness_from_head",
     "transmissivity_from_head",
 ]
+

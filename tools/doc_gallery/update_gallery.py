@@ -238,7 +238,310 @@ def build_parser() -> argparse.ArgumentParser:
             "through source hashes stored in the generated JSON summaries."
         ),
     )
+    parser.add_argument(
+        "--only",
+        action="append",
+        help=(
+            "Limit the operation to one or more case slugs. The option can be repeated "
+            "or passed one comma-separated list."
+        ),
+    )
+    parser.add_argument(
+        "--category",
+        action="append",
+        help=(
+            "Limit the operation to one or more category slugs. The option can be "
+            "repeated or passed one comma-separated list."
+        ),
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help=(
+            "List the selected gallery cases without generating anything. This still "
+            "validates the manifest inventory."
+        ),
+    )
     return parser
+
+
+def _normalize_filter_values(values: list[str] | None) -> tuple[str, ...]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw_value in values or ():
+        for token in str(raw_value).split(","):
+            value = token.strip()
+            if value == "" or value in seen:
+                continue
+            seen.add(value)
+            normalized.append(value)
+    return tuple(normalized)
+
+
+def _select_gallery_specs(
+    specs: tuple[GalleryCaseSpec, ...],
+    *,
+    only_slugs: tuple[str, ...] = (),
+    categories: tuple[str, ...] = (),
+) -> tuple[GalleryCaseSpec, ...]:
+    if categories:
+        unknown_categories = [slug for slug in categories if slug not in CATEGORY_SPECS]
+        if unknown_categories:
+            raise ValueError(
+                "Unknown gallery categories: " + ", ".join(sorted(unknown_categories))
+            )
+
+    specs_by_slug = {spec.slug: spec for spec in specs}
+    unknown_slugs = [slug for slug in only_slugs if slug not in specs_by_slug]
+    if unknown_slugs:
+        raise ValueError("Unknown gallery slugs: " + ", ".join(sorted(unknown_slugs)))
+
+    if not only_slugs and not categories:
+        return specs
+
+    selected: list[GalleryCaseSpec] = []
+    selected_slugs: set[str] = set()
+    category_filter = set(categories)
+    explicit_slugs = set(only_slugs)
+    for spec in specs:
+        include = False
+        if spec.slug in explicit_slugs:
+            include = True
+        if category_filter and spec.category in category_filter:
+            include = True
+        if include and spec.slug not in selected_slugs:
+            selected.append(spec)
+            selected_slugs.add(spec.slug)
+    return tuple(selected)
+
+
+def _source_relative_from_repo_path(repo_path: str) -> str:
+    repo_prefix = DOCS_SOURCE_DIR.relative_to(REPO_ROOT).as_posix()
+    normalized = Path(str(repo_path)).as_posix()
+    if normalized.startswith(repo_prefix + "/"):
+        return normalized[len(repo_prefix) + 1 :]
+    raise ValueError(f"Expected one docs-generated repo path, got: {repo_path}")
+
+
+def _load_existing_case_summary(
+    source_root: Path,
+    *,
+    slug: str,
+    category_hint: str | None = None,
+) -> dict[str, Any] | None:
+    candidate_paths: list[Path] = []
+    if category_hint:
+        candidate_paths.append(
+            source_root
+            / "_static"
+            / "capability_gallery"
+            / category_hint
+            / f"{slug}_summary.json"
+        )
+    candidate_paths.extend(
+        sorted(
+            (
+                source_root / "_static" / "capability_gallery"
+            ).glob(f"*/{slug}_summary.json")
+        )
+    )
+    for candidate_path in candidate_paths:
+        if not candidate_path.exists():
+            continue
+        try:
+            payload = json.loads(candidate_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            return payload
+    return None
+
+
+def _known_case_generated_paths(summary: dict[str, Any]) -> set[str]:
+    generated_paths: set[str] = set()
+    docname = str(summary.get("docname", "")).strip()
+    if docname:
+        generated_paths.add((Path("capability_gallery") / f"{docname}.rst").as_posix())
+    artifacts = dict(summary.get("artifacts", {}))
+    for repo_path in (
+        str(artifacts.get("summary_json_repo_path", "")).strip(),
+        *(str(item).strip() for item in artifacts.get("image_repo_paths", ())),
+        *(str(item).strip() for item in artifacts.get("extra_repo_paths", ())),
+    ):
+        if repo_path == "":
+            continue
+        try:
+            generated_paths.add(_source_relative_from_repo_path(repo_path))
+        except ValueError:
+            continue
+    return generated_paths
+
+
+def _cleanup_stale_case_artifacts(
+    source_root: Path,
+    *,
+    old_summary: dict[str, Any] | None,
+    new_summary: dict[str, Any],
+) -> None:
+    if old_summary is None:
+        return
+    stale_paths = _known_case_generated_paths(old_summary) - _known_case_generated_paths(new_summary)
+    for relative_path in stale_paths:
+        path = source_root / relative_path
+        if path.exists() and path.is_file():
+            path.unlink()
+
+
+def _merge_case_summaries_by_category(
+    all_specs: tuple[GalleryCaseSpec, ...],
+    *,
+    selected_summaries_by_slug: dict[str, dict[str, Any]],
+    baseline_source_root: Path,
+) -> dict[str, list[dict[str, Any]]]:
+    summaries_by_category: dict[str, list[dict[str, Any]]] = {
+        category_slug: []
+        for category_slug in CATEGORY_SPECS
+    }
+    missing_summaries: list[str] = []
+    for spec in all_specs:
+        summary = selected_summaries_by_slug.get(spec.slug)
+        if summary is None:
+            summary = _load_existing_case_summary(
+                baseline_source_root,
+                slug=spec.slug,
+                category_hint=spec.category,
+            )
+        if summary is None:
+            missing_summaries.append(spec.slug)
+            continue
+        summaries_by_category[spec.category].append(summary)
+    if missing_summaries:
+        raise FileNotFoundError(
+            "Missing committed summary JSON for: " + ", ".join(missing_summaries)
+        )
+    return summaries_by_category
+
+
+def _write_gallery_pages_from_summaries(
+    *,
+    source_root: Path,
+    summaries_by_category: dict[str, list[dict[str, Any]]],
+    rewrite_calibration_pages: bool,
+) -> None:
+    docs_dir = source_root / "capability_gallery"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    _write_text(docs_dir / "index.rst", _build_index_page(summaries_by_category))
+    for category_slug, cases in summaries_by_category.items():
+        if cases:
+            _write_text(docs_dir / f"{category_slug}.rst", _build_category_page(category_slug, cases))
+
+    calibration_cases = list(summaries_by_category.get("calibration", []))
+    if not rewrite_calibration_pages or not calibration_cases:
+        return
+    for family_group in _group_calibration_cases_by_benchmark_family(calibration_cases):
+        page_slug = str(family_group.get("page_slug") or "").strip()
+        if page_slug == "":
+            continue
+        comparison_summary = _generate_calibration_intercomparison_summary(
+            source_root=source_root,
+            calibration_cases=list(family_group["cases"]),
+            output_subdir=Path("calibration") / "intercomparison" / page_slug,
+        )
+        _write_text(
+            docs_dir / f"{page_slug}.rst",
+            _build_calibration_intercomparison_page(
+                calibration_cases=list(family_group["cases"]),
+                comparison_summary=comparison_summary,
+                title=str(family_group.get("page_title") or family_group["title"]),
+                intro=str(family_group.get("page_intro") or family_group["deck"]),
+                seealso_doc="calibration",
+                seealso_title="the calibration benchmark category",
+            ),
+        )
+
+
+def _generate_selected_gallery(
+    *,
+    source_root: Path,
+    baseline_source_root: Path,
+    all_specs: tuple[GalleryCaseSpec, ...],
+    selected_specs: tuple[GalleryCaseSpec, ...],
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    docs_dir = source_root / "capability_gallery"
+    static_dir = source_root / "_static" / "capability_gallery"
+    case_dir = docs_dir / "cases"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    static_dir.mkdir(parents=True, exist_ok=True)
+    case_dir.mkdir(parents=True, exist_ok=True)
+
+    old_summaries_by_slug: dict[str, dict[str, Any]] = {}
+    selected_summaries_by_slug: dict[str, dict[str, Any]] = {}
+    for spec in selected_specs:
+        previous_summary = _load_existing_case_summary(
+            baseline_source_root,
+            slug=spec.slug,
+            category_hint=spec.category,
+        )
+        if previous_summary is not None:
+            old_summaries_by_slug[spec.slug] = previous_summary
+
+        case_summary = _with_parameter_docs(_generate_case(spec, source_root))
+        selected_summaries_by_slug[spec.slug] = case_summary
+        summary_path = static_dir / str(case_summary["category"]) / f"{case_summary['slug']}_summary.json"
+        _write_json(summary_path, case_summary)
+        _write_text(case_dir / f"{case_summary['slug']}.rst", _build_case_page(case_summary))
+        _cleanup_stale_case_artifacts(
+            source_root,
+            old_summary=previous_summary,
+            new_summary=case_summary,
+        )
+
+    summaries_by_category = _merge_case_summaries_by_category(
+        all_specs,
+        selected_summaries_by_slug=selected_summaries_by_slug,
+        baseline_source_root=baseline_source_root,
+    )
+    _write_gallery_pages_from_summaries(
+        source_root=source_root,
+        summaries_by_category=summaries_by_category,
+        rewrite_calibration_pages=any(spec.category == "calibration" for spec in selected_specs),
+    )
+    return selected_summaries_by_slug, old_summaries_by_slug
+
+
+def _compare_selected_generated_tree(
+    *,
+    expected_source_root: Path,
+    committed_source_root: Path,
+    stale_relative_paths: set[str] | None = None,
+) -> list[str]:
+    expected_files = _collect_generated_files(expected_source_root)
+    issues: list[str] = []
+
+    for relative_path, expected_path in expected_files.items():
+        committed_path = committed_source_root / relative_path
+        if not committed_path.exists():
+            issues.append(f"Missing generated file: {relative_path}")
+            continue
+        suffix = Path(relative_path).suffix.lower()
+        if suffix in TEXTUAL_SUFFIXES and expected_path.read_bytes() != committed_path.read_bytes():
+            issues.append(f"Stale generated file: {relative_path}")
+
+    for relative_path in sorted(stale_relative_paths or set()):
+        if (committed_source_root / relative_path).exists():
+            issues.append(f"Unexpected generated file: {relative_path}")
+
+    return issues
+
+
+def _list_gallery_specs(specs: tuple[GalleryCaseSpec, ...]) -> str:
+    lines = [
+        f"Selected {len(specs)} gallery case(s).",
+        "",
+    ]
+    for spec in specs:
+        lines.append(f"- [{spec.category}] {spec.slug}: {spec.title}")
+    return "\n".join(lines)
 
 
 def _repo_path(relative_path: str) -> Path:
@@ -6821,7 +7124,58 @@ def main(argv: list[str] | None = None) -> int:
     """Entry point for ``python -m tools.doc_gallery``."""
 
     args = build_parser().parse_args(argv)
+    only_slugs = _normalize_filter_values(args.only)
+    categories = _normalize_filter_values(args.category)
+    specs = build_gallery_specs()
+    selected_specs = _select_gallery_specs(
+        specs,
+        only_slugs=only_slugs,
+        categories=categories,
+    )
+
+    if args.list:
+        print(_list_gallery_specs(selected_specs))
+        return 0
+
     if args.check:
+        if only_slugs or categories:
+            with tempfile.TemporaryDirectory(prefix="hydromodpy_doc_gallery_") as temp_dir:
+                temp_source_root = Path(temp_dir) / "source"
+                temp_source_root.mkdir(parents=True, exist_ok=True)
+                new_summaries_by_slug, old_summaries_by_slug = _generate_selected_gallery(
+                    source_root=temp_source_root,
+                    baseline_source_root=DOCS_SOURCE_DIR,
+                    all_specs=specs,
+                    selected_specs=selected_specs,
+                )
+                stale_relative_paths: set[str] = set()
+                for slug, new_summary in new_summaries_by_slug.items():
+                    stale_relative_paths.update(
+                        _known_case_generated_paths(old_summaries_by_slug.get(slug, {}))
+                        - _known_case_generated_paths(new_summary)
+                    )
+                issues = _compare_selected_generated_tree(
+                    expected_source_root=temp_source_root,
+                    committed_source_root=DOCS_SOURCE_DIR,
+                    stale_relative_paths=stale_relative_paths,
+                )
+                if issues:
+                    print("Capability gallery selection is out of date. Regenerate it with:")
+                    print(
+                        "  python -m tools.doc_gallery "
+                        + " ".join(
+                            [
+                                *(f"--category {category}" for category in categories),
+                                *(f"--only {slug}" for slug in only_slugs),
+                            ]
+                        ).strip()
+                    )
+                    for issue in issues:
+                        print(f"- {issue}")
+                    return 1
+            print("Capability gallery selection is in sync.")
+            return 0
+
         with tempfile.TemporaryDirectory(prefix="hydromodpy_doc_gallery_") as temp_dir:
             temp_source_root = Path(temp_dir) / "source"
             temp_source_root.mkdir(parents=True, exist_ok=True)
@@ -6837,6 +7191,19 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"- {issue}")
                 return 1
         print("Capability gallery is in sync.")
+        return 0
+
+    if only_slugs or categories:
+        _generate_selected_gallery(
+            source_root=DOCS_SOURCE_DIR,
+            baseline_source_root=DOCS_SOURCE_DIR,
+            all_specs=specs,
+            selected_specs=selected_specs,
+        )
+        print(
+            f"Capability gallery refreshed for {len(selected_specs)} selected case(s) "
+            "under docs/readthedocs/source/."
+        )
         return 0
 
     generate_gallery(source_root=DOCS_SOURCE_DIR)

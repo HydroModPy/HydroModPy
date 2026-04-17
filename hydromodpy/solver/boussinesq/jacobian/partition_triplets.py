@@ -1,4 +1,4 @@
-"""Regularized-partition saturation triplets for the Boussinesq Jacobian."""
+﻿"""Regularized-partition saturation triplets for the Boussinesq Jacobian."""
 
 from __future__ import annotations
 
@@ -10,12 +10,12 @@ from hydromodpy.solver.boussinesq.assembly import (
     internal_edge_flux_from_head,
     resolve_boundary_head_inputs,
 )
-from hydromodpy.solver.boussinesq.jacobian_common import (
+from hydromodpy.solver.boussinesq.jacobian.common import (
     as_cell_vector,
     concatenate_triplets,
     saturated_thickness_derivative_from_head,
 )
-from hydromodpy.solver.boussinesq.jacobian_operator_triplets import (
+from hydromodpy.solver.boussinesq.jacobian.operator_triplets import (
     build_sparse_semianalytic_triplets,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
@@ -143,3 +143,4 @@ def build_sparse_semianalytic_partition_saturation_triplets(
 
 
 __all__ = ["build_sparse_semianalytic_partition_saturation_triplets"]
+

@@ -1,4 +1,4 @@
-"""Residual builders shared by Boussinesq runtimes."""
+﻿"""Residual builders shared by Boussinesq runtimes."""
 
 from __future__ import annotations
 
@@ -7,20 +7,20 @@ from functools import partial
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly_fluxes import (
+from hydromodpy.solver.boussinesq.assembly.fluxes import (
     accumulate_internal_flux_residual,
     boundary_head_edge_flux_from_head,
     drainage_outflow_from_head,
     internal_edge_flux_from_head,
     saturated_thickness_from_head,
 )
-from hydromodpy.solver.boussinesq.assembly_inputs import (
+from hydromodpy.solver.boussinesq.assembly.inputs import (
     as_cell_vector,
     finalize_boundary_constrained_residual,
     resolve_boundary_head_inputs,
 )
-from hydromodpy.solver.boussinesq.assembly_surface import resolve_saturation_excess_rate
-from hydromodpy.solver.boussinesq.assembly_types import (
+from hydromodpy.solver.boussinesq.assembly.surface import resolve_saturation_excess_rate
+from hydromodpy.solver.boussinesq.assembly.types import (
     BoussinesqAssembly,
     _BoussinesqSpatialTerms,
 )
@@ -364,3 +364,4 @@ __all__ = [
     "assemble_transient_residual_generic",
     "assemble_transient_residual_with_saturation_excess_generic",
 ]
+
