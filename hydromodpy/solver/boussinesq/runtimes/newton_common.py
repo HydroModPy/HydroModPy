@@ -1,4 +1,4 @@
-"""Shared damped-Newton template for head-only Boussinesq runtimes."""
+﻿"""Shared damped-Newton template for head-only Boussinesq runtimes."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly_types import BoussinesqAssembly
+from hydromodpy.solver.boussinesq.assembly.types import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.runtime_contract import RuntimeSolveResult
-from hydromodpy.solver.boussinesq.runtime_execution_common import (
+from hydromodpy.solver.boussinesq.runtimes.execution_common import (
     build_runtime_result,
     residual_norm_inf,
 )
@@ -149,3 +149,4 @@ def _newton_loop_template(
 
 
 __all__ = ["_newton_loop_template"]
+

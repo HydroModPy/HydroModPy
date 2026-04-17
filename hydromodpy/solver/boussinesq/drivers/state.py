@@ -1,4 +1,4 @@
-"""Helpers to build Boussinesq runtime state from steady/transient solve traces."""
+﻿"""Helpers to build Boussinesq runtime state from steady/transient solve traces."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import numpy as np
 
 from hydromodpy.solver.boussinesq.assembly import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.core.state import BoussinesqState
-from hydromodpy.solver.boussinesq.boundary_flux_reconstruction import (
+from hydromodpy.solver.boussinesq.assembly.boundary_flux_reconstruction import (
     rebuild_boundary_edge_flux,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
@@ -274,3 +274,4 @@ __all__ = [
     "build_steady_runtime_state",
     "build_transient_activity_flags",
 ]
+

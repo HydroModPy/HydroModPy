@@ -1,4 +1,4 @@
-"""Execution-engine catalog for the Boussinesq solver."""
+﻿"""Execution-engine catalog for the Boussinesq solver."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ _ENGINE_SPECS = (
     BoussinesqEngineSpec(
         id="local_dense_newton",
         name="local",
-        module_name="hydromodpy.solver.boussinesq.local_runtime",
+        module_name="hydromodpy.solver.boussinesq.runtimes.local",
         nonlinear_solver_kind="newton_line_search_dense_semianalytic_regularized_partition",
         linear_system_layout="dense",
         jacobian_strategy="fd_dense",
@@ -39,7 +39,7 @@ _ENGINE_SPECS = (
     BoussinesqEngineSpec(
         id="scipy_dense_hybr",
         name="scipy",
-        module_name="hydromodpy.solver.boussinesq.scipy_runtime",
+        module_name="hydromodpy.solver.boussinesq.runtimes.scipy_dense",
         nonlinear_solver_kind="scipy_root_hybr_dense_semianalytic_regularized_partition",
         linear_system_layout="dense",
         jacobian_strategy="semianalytic_dense",
@@ -52,7 +52,7 @@ _ENGINE_SPECS = (
     BoussinesqEngineSpec(
         id="scipy_sparse_newton",
         name="scipy_sparse",
-        module_name="hydromodpy.solver.boussinesq.scipy_sparse_runtime",
+        module_name="hydromodpy.solver.boussinesq.runtimes.scipy_sparse",
         nonlinear_solver_kind="scipy_sparse_newton_line_search_semianalytic_regularized_partition",
         linear_system_layout="sparse",
         jacobian_strategy="hybrid_sparse",
@@ -65,7 +65,7 @@ _ENGINE_SPECS = (
     BoussinesqEngineSpec(
         id="petsc_partition_snes",
         name="petsc",
-        module_name="hydromodpy.solver.boussinesq.petsc_partition_runtime",
+        module_name="hydromodpy.solver.boussinesq.runtimes.petsc_partition",
         nonlinear_solver_kind="petsc_snes_newtonls_sparse_semianalytic_regularized_partition",
         linear_system_layout="sparse",
         jacobian_strategy="semianalytic_sparse",
@@ -78,7 +78,7 @@ _ENGINE_SPECS = (
     BoussinesqEngineSpec(
         id="petsc_mixed_complementarity_snes",
         name="petsc",
-        module_name="hydromodpy.solver.boussinesq.petsc_runtime",
+        module_name="hydromodpy.solver.boussinesq.runtimes.petsc_mixed",
         nonlinear_solver_kind="petsc_snes_newtonls_sparse_semiexplicit_dae_fischer_burmeister",
         linear_system_layout="sparse",
         jacobian_strategy="semianalytic_sparse_block",
@@ -109,3 +109,4 @@ def resolve_engine_spec(
 
 
 __all__ = ["BoussinesqEngineSpec", "resolve_engine_spec"]
+

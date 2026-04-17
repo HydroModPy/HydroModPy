@@ -1,4 +1,4 @@
-"""SciPy sparse-linear-algebra runtime for the Boussinesq backend.
+﻿"""SciPy sparse-linear-algebra runtime for the Boussinesq backend.
 
 This backend keeps the same damped Newton strategy as the historical dense
 runtime, but changes how each Newton system is assembled and solved:
@@ -25,23 +25,23 @@ import numpy as np
 from hydromodpy.solver.boussinesq.assembly import (
     BoussinesqAssembly,
 )
-from hydromodpy.solver.boussinesq.head_only_runtime_common import (
+from hydromodpy.solver.boussinesq.runtimes.head_only_common import (
     build_steady_assembly_callback,
     build_transient_assembly_callback,
 )
-from hydromodpy.solver.boussinesq.jacobian_fd import (
+from hydromodpy.solver.boussinesq.jacobian.fd import (
     build_cell_coupling_rows_by_column,
     build_colored_sparse_fd_jacobian_triplets,
     color_columns_by_row_overlap,
 )
-from hydromodpy.solver.boussinesq.jacobian_semianalytic import (
+from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
     build_sparse_semianalytic_base_jacobian_triplets,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
-from hydromodpy.solver.boussinesq.newton_runtime_common import (
+from hydromodpy.solver.boussinesq.runtimes.newton_common import (
     _newton_loop_template,
 )
-from hydromodpy.solver.boussinesq.partition_runtime_utils import (
+from hydromodpy.solver.boussinesq.runtimes.partition_utils import (
     interiorize_regularized_partition_initial_guess,
     regularized_partition_jacobian_shift,
 )
@@ -366,3 +366,4 @@ def _concatenate_triplets(
 
 
 __all__ = ["solve_steady_problem", "solve_transient_step"]
+

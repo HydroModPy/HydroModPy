@@ -1,10 +1,10 @@
-"""Input-normalization helpers for Boussinesq assembly and Jacobians."""
+﻿"""Input-normalization helpers for Boussinesq assembly and Jacobians."""
 
 from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly_types import _BoundaryHeadInputs
+from hydromodpy.solver.boussinesq.assembly.types import _BoundaryHeadInputs
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
 
@@ -149,3 +149,4 @@ __all__ = [
     "finalize_boundary_constrained_residual",
     "resolve_boundary_head_inputs",
 ]
+

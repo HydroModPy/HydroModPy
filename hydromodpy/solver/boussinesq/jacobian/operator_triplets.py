@@ -1,11 +1,11 @@
-"""Base sparse Jacobian triplets for Boussinesq residual operators."""
+﻿"""Base sparse Jacobian triplets for Boussinesq residual operators."""
 
 from __future__ import annotations
 
 import numpy as np
 
 from hydromodpy.solver.boussinesq.assembly import resolve_boundary_head_inputs
-from hydromodpy.solver.boussinesq.jacobian_common import (
+from hydromodpy.solver.boussinesq.jacobian.common import (
     drainage_diagonal_derivative,
     harmonic_conductivity,
     saturated_thickness_derivative_from_head,
@@ -265,3 +265,4 @@ __all__ = [
     "append_internal_flux_triplets",
     "build_sparse_semianalytic_triplets",
 ]
+

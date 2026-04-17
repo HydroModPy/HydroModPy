@@ -1,4 +1,4 @@
-"""In-process nonlinear runtime for the Boussinesq backend.
+﻿"""In-process nonlinear runtime for the Boussinesq backend.
 
 This backend is intentionally simple and transparent:
 
@@ -13,13 +13,13 @@ when validating the physics or debugging convergence problems.
 from __future__ import annotations
 
 import numpy as np
-from hydromodpy.solver.boussinesq.head_only_runtime_common import (
+from hydromodpy.solver.boussinesq.runtimes.head_only_common import (
     build_steady_assembly_callback,
     build_transient_assembly_callback,
 )
-from hydromodpy.solver.boussinesq.jacobian_fd import build_dense_fd_jacobian
+from hydromodpy.solver.boussinesq.jacobian.fd import build_dense_fd_jacobian
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
-from hydromodpy.solver.boussinesq.newton_runtime_common import (
+from hydromodpy.solver.boussinesq.runtimes.newton_common import (
     _newton_loop_template,
 )
 from hydromodpy.solver.boussinesq.runtime_contract import (
@@ -207,3 +207,4 @@ __all__ = [
     "solve_steady_state",
     "solve_transient_step",
 ]
+

@@ -1,4 +1,4 @@
-"""PETSc runtime for the Boussinesq backend on Linux.
+﻿"""PETSc runtime for the Boussinesq backend on Linux.
 
 This backend switches from the historical head-only regularized overflow law to
 one semi-explicit mixed formulation:
@@ -6,7 +6,7 @@ one semi-explicit mixed formulation:
 - ``h`` remains the differential unknown,
 - ``q_ex`` becomes one algebraic unknown per cell,
 - the surface constraint is enforced through a nonlinear complementarity
-  relation ``0 <= q_ex ⟂ z_top - h >= 0``.
+  relation ``0 <= q_ex âŸ‚ z_top - h >= 0``.
 
 Time integration still uses one backward-Euler step per stress period, but each
 step now solves the coupled nonlinear DAE residual with PETSc SNES.
@@ -25,17 +25,17 @@ from hydromodpy.solver.boussinesq.assembly import (
     assemble_transient_residual,
     assemble_transient_residual_with_saturation_excess,
 )
-from hydromodpy.solver.boussinesq.jacobian_semianalytic import (
+from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
     build_sparse_semianalytic_base_jacobian_triplets,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
-from hydromodpy.solver.boussinesq.petsc_common import (
+from hydromodpy.solver.boussinesq.runtimes.petsc_common import (
     _configure_default_snes,
     _coo_to_csr,
     _require_petsc,
     _snes_reason_label,
 )
-from hydromodpy.solver.boussinesq.runtime_execution_common import (
+from hydromodpy.solver.boussinesq.runtimes.execution_common import (
     apply_residual_tolerance,
     build_runtime_result,
     residual_norm_inf,
@@ -529,3 +529,4 @@ def _solve_mixed_problem(
 
 
 __all__ = ["solve_steady_problem", "solve_transient_step"]
+
