@@ -1,5 +1,6 @@
-.bd-article p.plantuml {
+.bd-article .plantuml {
   overflow: auto;
+  display: block;
   max-width: 100%;
   padding: 1rem;
   margin: 1.5rem 0;
@@ -8,11 +9,23 @@
   background: var(--pst-color-surface, #ffffff);
 }
 
-.bd-article p.plantuml object,
-.bd-article p.plantuml img {
+.bd-article .plantuml object,
+.bd-article .plantuml img {
   display: block;
   max-width: none;
   margin: 0 auto;
+}
+
+.uml-diagram-unavailable {
+  padding: 1rem 1.1rem;
+  margin: 1.5rem 0;
+  border: 1px dashed var(--pst-color-border, #d0d7de);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--pst-color-surface, #ffffff) 94%, #f8fafc 6%);
+}
+
+.uml-diagram-unavailable p {
+  margin: 0;
 }
 
 .uml-diagram {

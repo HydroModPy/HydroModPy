@@ -81,6 +81,9 @@ docs = [
     "sphinx-rtd-theme",
     "myst-parser",
     "nbsphinx",
+    "nbconvert",
+    "nbformat",
+    "jupyter-client",
     "sphinx-gallery",
     "sphinx-autobuild",
     "readthedocs-sphinx-ext",
@@ -90,6 +93,7 @@ docs = [
     "sphinx-togglebutton",
     "sphinx-tabs",
     "sphinx-multiversion",
+    "sphinxcontrib-plantuml",
     "autodoc-pydantic>=2.0",
 ]
 ide = [

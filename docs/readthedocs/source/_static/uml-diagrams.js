@@ -11,7 +11,24 @@
     return null;
   }
 
+  function getDiagramNodes() {
+    return Array.from(document.querySelectorAll(".bd-article .plantuml")).filter(function (node) {
+      return !node.dataset.umlEnhanced && getDiagramSource(node);
+    });
+  }
+
   function getDiagramTitle(node, index) {
+    const figure = node.closest("figure");
+    if (figure) {
+      const caption = figure.querySelector("figcaption");
+      if (caption) {
+        const label = caption.textContent.replace("#", "").trim();
+        if (label) {
+          return label;
+        }
+      }
+    }
+
     const section = node.closest("section");
     if (section) {
       const heading = section.querySelector("h1, h2, h3, h4");
@@ -78,14 +95,16 @@
   }
 
   function enhancePlantUml(node, index, modal) {
+    node.dataset.umlEnhanced = "true";
+
     const source = getDiagramSource(node);
     if (!source) {
       return;
     }
 
     const title = getDiagramTitle(node, index);
-    const figure = document.createElement("figure");
-    figure.className = "uml-diagram";
+    const container = document.createElement("div");
+    container.className = "uml-diagram";
 
     const toolbar = document.createElement("div");
     toolbar.className = "uml-diagram__toolbar";
@@ -106,6 +125,8 @@
     viewport.type = "button";
     viewport.className = "uml-diagram__viewport";
     viewport.setAttribute("aria-label", "Open " + title + " in expanded view");
+    viewport.setAttribute("aria-haspopup", "dialog");
+    viewport.title = "Open full-size UML diagram";
 
     const image = document.createElement("img");
     image.className = "uml-diagram__image";
@@ -121,20 +142,24 @@
       openModal(modal, source, title);
     });
 
-    figure.appendChild(toolbar);
-    figure.appendChild(viewport);
-    node.replaceWith(figure);
+    container.appendChild(toolbar);
+    container.appendChild(viewport);
+    node.replaceWith(container);
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
-    const diagrams = document.querySelectorAll(".bd-article p.plantuml");
+  function enhancePlantUmlDiagrams() {
+    const diagrams = getDiagramNodes();
     if (!diagrams.length) {
       return;
     }
 
-    const modal = createModal();
+    const modal = document.querySelector(".uml-modal") || createModal();
     diagrams.forEach(function (node, index) {
       enhancePlantUml(node, index, modal);
     });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    enhancePlantUmlDiagrams();
   });
 })();
