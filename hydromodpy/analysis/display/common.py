@@ -11,6 +11,7 @@ they can stay focused on data extraction and figure composition.
 """
 from __future__ import annotations
 
+from numbers import Integral
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -36,7 +37,25 @@ def make_figure(*, nrows=1, ncols=1, figsize=None, dpi=300, **kw):
             nrows=nrows, ncols=ncols, figsize=figsize, dpi=dpi, **kw
         )
     except ImportError:
-        fig, axs = plt.subplots(nrows, ncols, figsize=figsize, dpi=dpi, **kw)
+        matplotlib_kw = dict(kw)
+        adjust_kw: dict[str, float] = {}
+        for key in ("hspace", "wspace"):
+            value = matplotlib_kw.pop(key, None)
+            if value is not None:
+                adjust_kw[key] = float(value)
+        for key in ("sharex", "sharey"):
+            value = matplotlib_kw.get(key)
+            if isinstance(value, Integral) and not isinstance(value, bool):
+                matplotlib_kw[key] = bool(value)
+        fig, axs = plt.subplots(
+            nrows,
+            ncols,
+            figsize=figsize,
+            dpi=dpi,
+            **matplotlib_kw,
+        )
+        if adjust_kw:
+            fig.subplots_adjust(**adjust_kw)
     return fig, axs
 
 
@@ -54,6 +73,29 @@ def _single_axes(axs):
         return axs[0]
     except (TypeError, KeyError, IndexError):
         return axs
+
+
+def add_figure_legend(fig, *legend_args, fallback_loc: str | None = "bottom", **legend_kwargs):
+    """Add a figure-level legend with a fallback for ``ultraplot`` panel locs.
+
+    Matplotlib accepts locations such as ``"lower center"`` for figure-level
+    legends. ``ultraplot`` routes figure legends through its panel system and
+    rejects those values, expecting panel-oriented locations such as
+    ``"bottom"``. This helper preserves the Matplotlib-style call and retries
+    with a panel location only when that specific incompatibility is raised.
+    """
+    try:
+        return fig.legend(*legend_args, **legend_kwargs)
+    except KeyError as exc:
+        requested_loc = legend_kwargs.get("loc")
+        if fallback_loc is None or requested_loc is None:
+            raise
+        if "Invalid panel location" not in str(exc):
+            raise
+
+    retry_kwargs = dict(legend_kwargs)
+    retry_kwargs["loc"] = fallback_loc
+    return fig.legend(*legend_args, **retry_kwargs)
 
 
 def _extract_recharge_series_m_per_day(
@@ -85,15 +127,20 @@ def ensure_dir(path: Path) -> Path:
     return path
 
 
-def resolve_model_figure_dir(workspace, run_id: str) -> Path:
-    """Build the standard figure output directory for one run.
+def resolve_artifact_figure_dir(workspace, artifact_id: str) -> Path:
+    """Build the standard figure output directory for one solver artifact.
 
     The returned path points to the run-specific post-processing tree under
     ``workspace.simulations_folder``. Plotting functions use this location as
     their default destination for PNG exports tied to one run execution.
     """
 
-    return workspace.simulations_folder / run_id / "_postprocess" / "_figures"
+    return workspace.simulations_folder / artifact_id / "_postprocess" / "_figures"
+
+
+def resolve_model_figure_dir(workspace, run_id: str) -> Path:
+    """Backward-compatible alias for :func:`resolve_artifact_figure_dir`."""
+    return resolve_artifact_figure_dir(workspace, run_id)
 
 
 def resolve_shared_figure_dir(workspace) -> Path:

@@ -1,8 +1,34 @@
 Tests And Validation Boundaries
 ===============================
 
+Scope
+-----
+
 HydroModPy deliberately separates reusable scientific benchmark logic from the
 pytest files that assert acceptance thresholds.
+
+Code map
+--------
+
+- ``validation_cases/``:
+  reusable benchmark inventory, shared runtime helpers, references, and manual
+  runners.
+- ``validation_cases/shared/``:
+  common execution helpers reused across several validation families.
+- ``tests/validation/``:
+  pytest-facing orchestration, markers, executable checks, and final
+  assertions.
+- local READMEs under both trees:
+  repository-facing contract for maintainers.
+
+Recommended reading path
+------------------------
+
+1. ``validation_cases/README.md``
+2. ``tests/validation/README.md``
+3. one case under ``validation_cases/...`` with its ``comparison.py`` and
+   ``run_case.py``
+4. the matching pytest entrypoint under ``tests/validation/...``
 
 At a high level:
 

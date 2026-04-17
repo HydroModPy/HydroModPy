@@ -6,12 +6,17 @@ now merged into FlowToModflowAdapter (see flow.sinks_sources.recharge).
 """
 from __future__ import annotations
 
+from datetime import datetime
 import types
 
 import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.time import ResolvedSimulationTimeWindow
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.location import StationLocation
+from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.process.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig, FlowWellConfig
 from hydromodpy.solver.modflow_common.grid_context import GridReference
@@ -28,7 +33,14 @@ def _build_solver_mesh(nrow=1, ncol=1, nlay=1, dx=1.0, dy=1.0, xoff=0.0, yoff=0.
     )
 
 
-def _make_adapter(recharge_cfg, flow_regime, nper, active_sinks_sources=None):
+def _make_adapter(
+    recharge_cfg,
+    flow_regime,
+    nper,
+    active_sinks_sources=None,
+    *,
+    simulation_window=None,
+):
     """Build a minimal FlowToModflowAdapter focused on the recharge path."""
     if active_sinks_sources is None:
         active_sinks_sources = ["recharge"]
@@ -43,7 +55,33 @@ def _make_adapter(recharge_cfg, flow_regime, nper, active_sinks_sources=None):
         domain=None,
         solver_mesh=_build_solver_mesh(),
         nper=nper,
+        simulation_window=simulation_window,
         sink_fill=False,
+    )
+
+
+def _make_point_recharge_record(
+    *,
+    station_id: str,
+    x: float,
+    y: float,
+    january_value_mm_day: float,
+    february_value_mm_day: float | None = None,
+) -> PointRecord:
+    dates = pd.date_range("2003-01-01", "2003-02-28", freq="D")
+    values = np.full(len(dates), float(january_value_mm_day), dtype=float)
+    if february_value_mm_day is not None:
+        values[dates.month == 2] = float(february_value_mm_day)
+    return PointRecord(
+        station_id=station_id,
+        variable="recharge",
+        source="test",
+        unit="mm/day",
+        frequency="D",
+        data=pd.DataFrame({"datetime": dates, "value": values}),
+        date_start=datetime(2003, 1, 1),
+        date_end=datetime(2003, 2, 28),
+        location=StationLocation(id=station_id, x=x, y=y, crs="EPSG:2154"),
     )
 
 
@@ -120,6 +158,49 @@ def test_recharge_scalar_broadcast_to_all_periods():
 
     assert evt_spd is None
     assert all(rch_data[k] == pytest.approx(1.0e-6 / 86400.0) for k in range(3))
+
+
+def test_recharge_point_source_builds_period_arrays_and_evt():
+    point = _make_point_recharge_record(
+        station_id="R1",
+        x=0.5,
+        y=0.5,
+        january_value_mm_day=8.0,
+        february_value_mm_day=-4.0,
+    )
+    cfg = FlowRechargeConfig(
+        values=0.0,
+        first_clim="first",
+        negative_to_evt=True,
+        heterogeneous_source=LoadResult(points=[point]),
+        interpolation_method="nearest",
+    )
+    adapter = _make_adapter(
+        cfg,
+        "transient",
+        nper=2,
+        simulation_window=ResolvedSimulationTimeWindow(
+            start=pd.Timestamp("2003-01-01"),
+            end=pd.Timestamp("2003-02-28"),
+            step_value=1,
+            step_unit="month",
+            coverage_policy="error",
+        ),
+    )
+
+    rch_data, evt_spd = adapter._build_recharge_payload()
+
+    assert evt_spd is not None
+    np.testing.assert_allclose(
+        rch_data[0],
+        np.full((1, 1), 8.0e-3 / 86400.0, dtype=float),
+    )
+    np.testing.assert_allclose(rch_data[1], np.zeros((1, 1), dtype=float))
+    np.testing.assert_allclose(evt_spd[0], np.zeros((1, 1), dtype=float))
+    np.testing.assert_allclose(
+        evt_spd[1],
+        np.full((1, 1), 4.0e-3 / 86400.0, dtype=float),
+    )
 
 
 def test_recharge_none_gives_none_payload():

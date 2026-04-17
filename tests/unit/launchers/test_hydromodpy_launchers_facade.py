@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hydromodpy.launchers as hydromodpy_launchers
+import launchers as legacy_launchers
+
 from hydromodpy.launchers import (
     DataOverviewLauncher,
     HydroModPyLauncher,
@@ -56,3 +59,12 @@ def test_launcher_config_registry_exposes_launcher_sections() -> None:
 
     assert set(registry) >= {"mesh_catchment", "mesh_catchment_batch", "overview"}
     assert registry["overview"] is OverviewSection
+
+
+def test_hydromodpy_launchers_facade_honors_legacy_overrides(monkeypatch) -> None:
+    class DummyLauncher:
+        pass
+
+    monkeypatch.setattr(legacy_launchers, "HydroModPyLauncher", DummyLauncher)
+
+    assert hydromodpy_launchers.HydroModPyLauncher is DummyLauncher

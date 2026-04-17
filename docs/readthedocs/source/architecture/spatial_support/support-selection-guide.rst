@@ -1,22 +1,39 @@
 Choosing A Spatial Support
 ==========================
 
+Scope
+-----
+
 This page complements the UML diagrams with a simple question: which support
 type should be used for a given heterogeneous parameterization?
+
+Code map
+--------
+
+- ``hydromodpy/spatial/domain/domain_config.py``:
+  validation of domain support declarations.
+- ``hydromodpy/spatial/domain/spatial_support_config.py``:
+  typed support-definition models.
+- ``hydromodpy/spatial/domain/spatial_support.py``:
+  runtime support builders.
+- ``hydromodpy/spatial/field/core/field_param.py``:
+  consumer side through ``field_spatial_id``.
+- ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``:
+  discretization of heterogeneous field parameters.
+
+Recommended reading path
+------------------------
+
+1. ``hydromodpy/spatial/domain/spatial_support_config.py``
+2. ``hydromodpy/spatial/domain/spatial_support.py``
+3. ``hydromodpy/spatial/field/core/field_param.py``
+4. ``hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``
 
 Core Rule
 ---------
 
 Use a spatial support only when a ``FieldParam`` is heterogeneous. In that
 case, ``field_spatial_id`` must reference a support known by the ``Domain``.
-
-Relevant code paths:
-
-- support declarations are validated in ``hydromodpy.spatial.domain.domain_config``.
-- support definitions are modeled in ``hydromodpy.spatial.domain.spatial_support_config``.
-- runtime support objects are built in ``hydromodpy.spatial.domain.spatial_support``.
-- heterogeneous mapping is consumed through ``FieldParam.field_spatial_id`` and
-  discretized by ``hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization``.
 
 When To Use Each Support
 ------------------------
@@ -144,8 +161,8 @@ must now be declared explicitly under ``domain.supports``.
 Choosing ``generated_bands`` for a truly radial case, or ``generated_rings``
 for a zoning that is really tied to catchment data rather than geometry.
 
-Next Step
----------
+Related diagrams
+----------------
 
 Use the companion UML page for structural details and runtime call sequences:
 

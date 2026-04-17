@@ -3,6 +3,16 @@
 These files are meant for small declarative gallery inventories where adding one
 case should mostly be data entry, not Python editing.
 
+The fastest starting point is:
+
+```bash
+python -m tools.doc_gallery.new_case \
+  --manifest geographic_cases.json \
+  --category geographic \
+  --slug geographic_example_case \
+  --title "Example Geographic Case"
+```
+
 ## Good Fit
 
 - `copy_assets` cases with committed PNG inputs

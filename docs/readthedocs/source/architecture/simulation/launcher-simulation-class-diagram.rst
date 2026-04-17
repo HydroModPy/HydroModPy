@@ -16,6 +16,27 @@ It focuses on:
 - the launcher-owned runtime state exchanged between orchestration phases,
 - process runtimes (``Flow`` / ``Transport``) and the solver wrappers they feed.
 
+Code map
+--------
+
+- ``launchers/process_simulation/launcher.py``:
+  top-level orchestration and mutable runtime state.
+- ``hydromodpy/simulation/planning/planner.py`` and ``plan.py``:
+  planner boundary and immutable planning result.
+- ``hydromodpy/simulation/execution/runner.py``:
+  runtime dispatcher over ``ProcessRun`` entries.
+- ``hydromodpy/process/`` and ``hydromodpy/solver/``:
+  downstream runtime objects and concrete backends.
+
+Recommended reading path
+------------------------
+
+1. ``launchers/process_simulation/launcher.py``
+2. ``hydromodpy/simulation/planning/planner.py``
+3. ``hydromodpy/simulation/planning/plan.py``
+4. ``hydromodpy/simulation/execution/runner.py``
+5. ``hydromodpy/process/flow/flow.py`` or ``transport/transport.py``
+
 Diagram source
 --------------
 
@@ -39,3 +60,10 @@ Notes
 - For dynamic views of the same orchestration path, see
   :doc:`../launchers/launcher-simulation-sequence-diagram` and
   :doc:`../launchers/launcher-simulation-activity-diagram`.
+
+Related diagrams
+----------------
+
+- :doc:`../launchers/launcher-simulation-sequence-diagram`
+- :doc:`../launchers/launcher-simulation-activity-diagram`
+- :doc:`toml-to-solver-walkthrough`

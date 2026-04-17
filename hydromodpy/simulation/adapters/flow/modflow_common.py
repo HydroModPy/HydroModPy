@@ -4,7 +4,7 @@ This module intentionally contains only solver-agnostic flow logic:
 
 - derive stable model names from the resolved simulation plan,
 - build flow pre-processing options for solver backends,
-- persist the legacy pickle payload expected by older utilities,
+- optionally emit one explicit legacy compatibility artifact,
 - run the common pre/process/post sequence once a concrete flow model exists.
 
 Keeping that code here avoids duplicating the same lifecycle in both
@@ -13,10 +13,10 @@ Keeping that code here avoids duplicating the same lifecycle in both
 
 from __future__ import annotations
 
-import pickle
 from collections.abc import Mapping
 from pathlib import Path
 
+from hydromodpy.simulation.adapters.flow import legacy_compat
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.modflow_common.options import (
@@ -81,25 +81,18 @@ def resolve_run_model_name(ctx) -> str:
         ).strip()
         if override_name:
             return flow_model_name(ctx.plan, override_name, ctx.run)
-    run_id = str(getattr(ctx.state.setup, "run_id", "") or "").strip()
-    if not run_id:
-        run_id = "default"
-    return flow_model_name(ctx.plan, run_id, ctx.run)
+    return flow_model_name(ctx.plan, resolve_base_model_name(ctx.state.setup), ctx.run)
 
 
 def resolve_base_model_name(setup) -> str:
     """Resolve the launcher base model name from runtime setup state.
 
     Canonical source is ``setup.run_id`` in the modern simulation runtime.
-    Falls back to ``setup.model_name`` for compatibility.
     When missing or blank, ``"default"`` is returned.
     """
     run_id = str(getattr(setup, "run_id", "") or "").strip()
     if run_id:
         return run_id
-    setup_name = str(getattr(setup, "model_name", "") or "").strip()
-    if setup_name:
-        return setup_name
     return "default"
 
 
@@ -115,27 +108,6 @@ def build_preprocess_options(state) -> ModflowPreprocessOptions:
     return ModflowPreprocessOptions(time_grid=time_grid)
 
 
-def _persist_pre_run_payload(workspace, model_name: str, model_modflow) -> None:
-    """Write the legacy pre-run pickle expected by downstream utilities.
-
-    Several existing post-processing paths still reopen this file using the
-    historical ``results_<model>.pkl`` convention. The adapter therefore keeps
-    emitting the same shape even though execution is now orchestrated through
-    ``SimulationRunner``.
-    """
-
-    pickle_path = Path(workspace.simulations_folder) / model_name / f"results_{model_name}.pkl"
-    pickle_path.parent.mkdir(parents=True, exist_ok=True)
-    with pickle_path.open("wb") as fh:
-        pickle.dump(
-            {
-                "list_model_name": [model_name],
-                "list_model_modflow": [model_modflow],
-            },
-            fh,
-        )
-
-
 def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExecutionResult:
     """Execute the shared lifecycle for one already-instantiated flow model.
 
@@ -143,7 +115,7 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
     backend. Once the model object exists, the execution steps are identical:
 
     1. run preprocessing against the shared ``flow`` and ``domain`` objects,
-    2. persist the compatibility pickle for downstream readers,
+    2. optionally persist one legacy compatibility pickle when explicitly requested,
     3. launch the numerical solve,
     4. run standard post-processing only if the solve succeeds.
     """
@@ -161,15 +133,11 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
         flow_runtime_overrides=flow_runtime_overrides,
     )
 
-    # Keep emitting the legacy payload immediately after preparation so older
-    # post-processing utilities can reopen the prepared model using the
-    # historical file convention.
-    skip_pre_run_pickle = bool(
-        isinstance(flow_runtime_overrides, Mapping)
-        and flow_runtime_overrides.get("skip_pre_run_pickle", False)
-    )
-    if not skip_pre_run_pickle:
-        _persist_pre_run_payload(
+    # The canonical runtime contract stores concrete solver instances in
+    # ``state.execution.models_by_run_id``. The historical pickle artifact is
+    # therefore opt-in compatibility output only.
+    if legacy_compat.should_write_legacy_pre_run_pickle(flow_runtime_overrides):
+        legacy_compat.write_legacy_pre_run_pickle(
             state.setup.workspace,
             model_modflow.model_name,
             model_modflow,

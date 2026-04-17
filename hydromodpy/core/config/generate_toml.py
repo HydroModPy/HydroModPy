@@ -49,7 +49,7 @@ def _get_registry() -> dict[str, type[BaseModel]]:
         from hydromodpy.process.transport.transport_config import TransportConfig
         from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
         from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
-        from hydromodpy.solver.prototype.solver_config import SolverConfig
+        from hydromodpy.solver.contracts import SolverConfig
         from hydromodpy.core.workspace.config import WorkspaceConfig
         _MODULE_REGISTRY = {
             "workspace": WorkspaceConfig,

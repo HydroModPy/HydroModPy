@@ -1,6 +1,9 @@
 Data Managers And External Dependencies
 =======================================
 
+Scope
+-----
+
 The data-manager root layer is HydroModPy's orchestration boundary for data
 loading. It answers three questions before solver work begins:
 
@@ -11,6 +14,29 @@ loading. It answers three questions before solver work begins:
 This architecture is intentionally centralized under ``hydromodpy.data`` so the
 launcher does not need to duplicate activation rules or provider-specific
 loading logic.
+
+Code map
+--------
+
+- ``hydromodpy/data/data_managers_config.py``:
+  typed validation of ``[data]`` sections.
+- ``hydromodpy/data/planner.py`` and ``plan.py``:
+  activation inference and immutable ``DataLoadPlan`` creation.
+- ``hydromodpy/data/runtime_loader.py``:
+  runtime dispatch from activated data types to concrete managers.
+- ``hydromodpy/data/data_managers.py``:
+  lightweight loaded-data container consumed by launchers and binders.
+- ``hydromodpy/data/variables/*``:
+  provider-specific packages that own typed config, manager logic, and IO.
+
+Recommended reading path
+------------------------
+
+1. ``hydromodpy/data/README.md``
+2. ``hydromodpy/data/data_managers_config.py``
+3. ``hydromodpy/data/planner.py``
+4. ``hydromodpy/data/runtime_loader.py``
+5. one family package under ``hydromodpy/data/variables/``
 
 Root-Layer Responsibilities
 ---------------------------

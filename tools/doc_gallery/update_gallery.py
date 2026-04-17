@@ -82,6 +82,26 @@ CATEGORY_GROUP_SPECS = (
 )
 
 
+def _gallery_temp_root() -> Path:
+    """Return the temp root used by doc-gallery helpers and checks."""
+
+    override = os.environ.get("HYDROMODPY_DOC_GALLERY_TMPDIR", "").strip()
+    if override:
+        temp_root = Path(override)
+        if not temp_root.is_absolute():
+            temp_root = (REPO_ROOT / temp_root).resolve()
+    else:
+        temp_root = REPO_ROOT / ".tmp-doc-gallery"
+    temp_root.mkdir(parents=True, exist_ok=True)
+    return temp_root
+
+
+def _temporary_gallery_dir(*, prefix: str) -> tempfile.TemporaryDirectory[str]:
+    """Create one temporary directory under the gallery temp root."""
+
+    return tempfile.TemporaryDirectory(prefix=prefix, dir=_gallery_temp_root())
+
+
 def _load_calibration_benchmark_families() -> dict[str, dict[str, Any]]:
     try:
         from .calibration_case_registry import CALIBRATION_BENCHMARK_FAMILIES
@@ -402,6 +422,7 @@ def _merge_case_summaries_by_category(
         category_slug: []
         for category_slug in CATEGORY_SPECS
     }
+    known_slugs = {spec.slug for spec in all_specs}
     missing_summaries: list[str] = []
     for spec in all_specs:
         summary = selected_summaries_by_slug.get(spec.slug)
@@ -419,6 +440,23 @@ def _merge_case_summaries_by_category(
         raise FileNotFoundError(
             "Missing committed summary JSON for: " + ", ".join(missing_summaries)
         )
+
+    static_root = baseline_source_root / "_static" / "capability_gallery"
+    if static_root.exists():
+        for summary_path in sorted(static_root.glob("*/*_summary.json")):
+            try:
+                payload = json.loads(summary_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(payload, dict):
+                continue
+            slug = str(payload.get("slug", "")).strip()
+            category = str(payload.get("category", "")).strip()
+            if slug == "" or category not in summaries_by_category:
+                continue
+            if slug in selected_summaries_by_slug or slug in known_slugs:
+                continue
+            summaries_by_category[category].append(payload)
     return summaries_by_category
 
 
@@ -427,11 +465,14 @@ def _write_gallery_pages_from_summaries(
     source_root: Path,
     summaries_by_category: dict[str, list[dict[str, Any]]],
     rewrite_calibration_pages: bool,
+    category_slugs_to_write: set[str] | None = None,
 ) -> None:
     docs_dir = source_root / "capability_gallery"
     docs_dir.mkdir(parents=True, exist_ok=True)
     _write_text(docs_dir / "index.rst", _build_index_page(summaries_by_category))
     for category_slug, cases in summaries_by_category.items():
+        if category_slugs_to_write is not None and category_slug not in category_slugs_to_write:
+            continue
         if cases:
             _write_text(docs_dir / f"{category_slug}.rst", _build_category_page(category_slug, cases))
 
@@ -501,10 +542,20 @@ def _generate_selected_gallery(
         selected_summaries_by_slug=selected_summaries_by_slug,
         baseline_source_root=baseline_source_root,
     )
+    affected_categories = {
+        spec.category
+        for spec in selected_specs
+    }
+    affected_categories.update(
+        str(summary.get("category", "")).strip()
+        for summary in old_summaries_by_slug.values()
+        if str(summary.get("category", "")).strip()
+    )
     _write_gallery_pages_from_summaries(
         source_root=source_root,
         summaries_by_category=summaries_by_category,
         rewrite_calibration_pages=any(spec.category == "calibration" for spec in selected_specs),
+        category_slugs_to_write=affected_categories,
     )
     return selected_summaries_by_slug, old_summaries_by_slug
 
@@ -741,7 +792,7 @@ def _build_case_summary(
 def _generate_mesh_viewer_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
     preferred_assets = [asset for asset in spec.image_assets if asset.source_path is not None]
     if preferred_assets:
-        with tempfile.TemporaryDirectory(prefix="hydromodpy_doc_gallery_mesh_viewer_") as temp_dir:
+        with _temporary_gallery_dir(prefix="hydromodpy_doc_gallery_mesh_viewer_") as temp_dir:
             temp_figure_path = Path(temp_dir) / spec.image_assets[0].filename
             config = load_toml_config(_repo_path(str(spec.metadata["config_path"])))
             config = replace(
@@ -1081,11 +1132,47 @@ def _render_regional_lab_figure(
     plt.close(fig)
 
 
+def _sanitize_regional_lab_artifact_payload(payload: Any) -> Any:
+    if isinstance(payload, dict):
+        sanitized: dict[str, Any] = {}
+        for key, value in payload.items():
+            if key == "generated_at_utc":
+                sanitized[key] = "<generated_at_utc>"
+            elif key == "output_root":
+                sanitized[key] = "<regional_lab_output_root>"
+            elif key == "synthesis_paths" and isinstance(value, dict):
+                sanitized[key] = {
+                    str(path_key): (
+                        (Path("regional_lab_outputs") / Path(path_value).name).as_posix()
+                        if isinstance(path_value, str) and path_value.strip()
+                        else path_value
+                    )
+                    for path_key, path_value in value.items()
+                }
+            elif key.endswith("_path") and isinstance(value, str) and value.strip():
+                sanitized[key] = _repo_relative(value)
+            elif key == "resolved_paths" and isinstance(value, dict):
+                sanitized[key] = {
+                    str(path_key): (
+                        _repo_relative(path_value)
+                        if isinstance(path_value, str) and path_value.strip()
+                        else path_value
+                    )
+                    for path_key, path_value in value.items()
+                }
+            else:
+                sanitized[key] = _sanitize_regional_lab_artifact_payload(value)
+        return sanitized
+    if isinstance(payload, list):
+        return [_sanitize_regional_lab_artifact_payload(item) for item in payload]
+    return payload
+
+
 def _generate_regional_lab_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
     from launchers.regional_lab.launcher import RegionalLabLauncher
 
     config_path = _repo_path(str(spec.metadata["regional_lab_config_path"]))
-    with tempfile.TemporaryDirectory(prefix="hydromodpy_doc_gallery_regional_lab_") as temp_dir:
+    with _temporary_gallery_dir(prefix="hydromodpy_doc_gallery_regional_lab_") as temp_dir:
         output_root = Path(temp_dir) / "regional_lab_outputs"
         launcher = RegionalLabLauncher(config_path)
         launcher.cfg = replace(
@@ -1107,6 +1194,8 @@ def _generate_regional_lab_case(spec: GalleryCaseSpec, source_root: Path) -> dic
 
         plan_payload = json.loads(plan_path.read_text(encoding="utf-8"))
         report_payload = json.loads(report_path.read_text(encoding="utf-8"))
+        sanitized_plan_payload = _sanitize_regional_lab_artifact_payload(plan_payload)
+        sanitized_report_payload = _sanitize_regional_lab_artifact_payload(report_payload)
         recipe_rows = _read_csv_rows(recipe_summary_path)
         cluster_rows = _read_csv_rows(cluster_summary_path)
         case_matrix_rows = _read_csv_rows(case_matrix_path)
@@ -1125,17 +1214,20 @@ def _generate_regional_lab_case(spec: GalleryCaseSpec, source_root: Path) -> dic
         static_dir = source_root / Path("_static") / "capability_gallery" / spec.category
         static_dir.mkdir(parents=True, exist_ok=True)
         copied_artifact_names: list[str] = []
-        for source_artifact, dest_name in (
-            (plan_path, f"{spec.slug}_plan.json"),
-            (report_path, f"{spec.slug}_report.json"),
-            (summary_markdown_path, f"{spec.slug}_summary.md"),
-            (site_inventory_path, f"{spec.slug}_site_inventory.csv"),
-            (recipe_summary_path, f"{spec.slug}_recipe_summary.csv"),
-            (cluster_summary_path, f"{spec.slug}_cluster_summary.csv"),
-            (case_matrix_path, f"{spec.slug}_case_matrix.csv"),
+        for source_artifact, dest_name, payload in (
+            (plan_path, f"{spec.slug}_plan.json", sanitized_plan_payload),
+            (report_path, f"{spec.slug}_report.json", sanitized_report_payload),
+            (summary_markdown_path, f"{spec.slug}_summary.md", None),
+            (site_inventory_path, f"{spec.slug}_site_inventory.csv", None),
+            (recipe_summary_path, f"{spec.slug}_recipe_summary.csv", None),
+            (cluster_summary_path, f"{spec.slug}_cluster_summary.csv", None),
+            (case_matrix_path, f"{spec.slug}_case_matrix.csv", None),
         ):
             destination = static_dir / dest_name
-            shutil.copy2(source_artifact, destination)
+            if payload is None:
+                shutil.copy2(source_artifact, destination)
+            else:
+                _write_json(destination, payload)
             copied_artifact_names.append(dest_name)
 
     candidate_site_ids = sorted(
@@ -7126,7 +7218,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     only_slugs = _normalize_filter_values(args.only)
     categories = _normalize_filter_values(args.category)
-    specs = build_gallery_specs()
+    specs = build_gallery_specs(only_slugs=only_slugs, categories=categories)
     selected_specs = _select_gallery_specs(
         specs,
         only_slugs=only_slugs,
@@ -7139,7 +7231,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.check:
         if only_slugs or categories:
-            with tempfile.TemporaryDirectory(prefix="hydromodpy_doc_gallery_") as temp_dir:
+            with _temporary_gallery_dir(prefix="hydromodpy_doc_gallery_") as temp_dir:
                 temp_source_root = Path(temp_dir) / "source"
                 temp_source_root.mkdir(parents=True, exist_ok=True)
                 new_summaries_by_slug, old_summaries_by_slug = _generate_selected_gallery(
@@ -7176,7 +7268,7 @@ def main(argv: list[str] | None = None) -> int:
             print("Capability gallery selection is in sync.")
             return 0
 
-        with tempfile.TemporaryDirectory(prefix="hydromodpy_doc_gallery_") as temp_dir:
+        with _temporary_gallery_dir(prefix="hydromodpy_doc_gallery_") as temp_dir:
             temp_source_root = Path(temp_dir) / "source"
             temp_source_root.mkdir(parents=True, exist_ok=True)
             generate_gallery(source_root=temp_source_root)

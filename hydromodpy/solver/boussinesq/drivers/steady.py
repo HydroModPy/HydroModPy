@@ -8,7 +8,7 @@ import numpy as np
 
 from hydromodpy.solver.boussinesq.drivers.forcing import (
     apply_ocean_drainage_mask,
-    resolve_boundary_forcing_by_period,
+    resolve_runtime_forcing_by_period,
 )
 from hydromodpy.solver.boussinesq.drivers.state import build_steady_runtime_state
 from hydromodpy.solver.boussinesq.runtime_contract import SteadySolveInputs
@@ -28,9 +28,13 @@ def run_steady_runtime(solver: "Boussinesq") -> bool:
     solver._record_runtime_backend_summary(contract)
     solver._assert_runtime_mesh_size_supported(runtime_backend)
 
-    recharge_rate_m_s = solver._resolve_recharge_series(1)[0]
-    well_flux_m3_s = np.asarray(solver._resolve_well_flux_by_period(1)[0], dtype=float)
-    boundary_forcing = resolve_boundary_forcing_by_period(solver, nper=1)
+    runtime_forcing = resolve_runtime_forcing_by_period(solver, nper=1)
+    recharge_rate_m_s = runtime_forcing.recharge_series_m_s[0]
+    well_flux_m3_s = np.asarray(
+        runtime_forcing.well_flux_by_period_m3_s[0],
+        dtype=float,
+    )
+    boundary_forcing = runtime_forcing
     dirichlet_supports = boundary_forcing.dirichlet_supports_by_period[0]
     boundary_heads_by_edge = boundary_forcing.boundary_heads_by_period[0]
     prescribed_head_m_by_cell = boundary_forcing.prescribed_heads_by_period[0]
@@ -70,9 +74,7 @@ def run_steady_runtime(solver: "Boussinesq") -> bool:
     solver.runtime_summary["steady_termination_reason"] = str(
         steady.termination_reason
     )
-    solver.runtime_summary["active_recharge"] = solver._has_active_recharge_payload(
-        (recharge_rate_m_s,)
-    )
+    solver.runtime_summary["active_recharge"] = bool(runtime_forcing.active_recharge)
     solver.runtime_summary["active_wells"] = bool(np.any(well_flux_m3_s != 0.0))
     solver.runtime_summary["active_prescribed_head_bc"] = bool(len(dirichlet_supports) > 0)
     solver.runtime_summary["active_dirichlet_bc"] = bool(

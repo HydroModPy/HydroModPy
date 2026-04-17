@@ -25,6 +25,11 @@ from hydromodpy.solver.boussinesq.assembly import (
     saturated_thickness_from_head,
 )
 from hydromodpy.solver.boussinesq.core.state import BoussinesqState
+from hydromodpy.solver.boussinesq.drivers.forcing import (
+    ResolvedBoundaryForcing,
+    ResolvedRuntimeForcing,
+    resolve_runtime_forcing_by_period,
+)
 from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
 from hydromodpy.solver.boussinesq.solver_contract import BoussinesqSolverContract
 from hydromodpy.solver.boussinesq.jacobian.fd import (
@@ -66,10 +71,9 @@ from hydromodpy.solver.boussinesq.runtimes.scipy_dense import (
 from hydromodpy.solver.boussinesq.runtimes.scipy_sparse import (
     solve_steady_problem as solve_steady_problem_scipy_sparse,
 )
+from hydromodpy.solver.contracts import SolverConfig, SolverEngine
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
-from hydromodpy.solver.prototype.solver_config import SolverConfig
-from hydromodpy.solver.prototype.solver_engine import SolverEngine
 from hydromodpy.solver.utils.mesh.gmsh_grid import GmshPlanarMesh2D
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
@@ -270,6 +274,10 @@ def _triplets_to_dense(
         np.asarray(data, dtype=float),
     )
     return matrix
+
+
+def test_resolved_boundary_forcing_aliases_runtime_forcing() -> None:
+    assert ResolvedBoundaryForcing is ResolvedRuntimeForcing
 
 
 def test_solver_config_accepts_boussinesq() -> None:
@@ -2301,6 +2309,60 @@ def test_boussinesq_supports_heterogeneous_recharge(
     assert model.state is not None
     assert np.allclose(model.state.recharge_rate_m_s, [4.0e-7, 2.0e-7])
     assert model.runtime_summary["active_recharge"] is True
+
+
+def test_boussinesq_runtime_forcing_uses_solver_planar_mesh_loader(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "ic": {"type": "custom", "value": 7.0},
+                "active_sinks_sources": ["recharge"],
+                "sinks_sources": {"recharge": {"values": 1.0e-7}},
+            }
+        )
+    )
+    flow.sinks_sources["recharge"] = FlowRechargeConfig(
+        values=0.0,
+        heterogeneous_source=LoadResult(fields=[_make_static_recharge_field_record()]),
+        interpolation_method="nearest",
+    )
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=type("TimeGrid", (), {"period_lengths_seconds": (3600.0,)})(),
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_runtime_forcing_loader",
+    )
+    model.pre_processing()
+
+    loader_calls: list[Path] = []
+
+    def _fake_loader(path: object) -> GmshPlanarMesh2D:
+        loader_calls.append(Path(path))
+        return _build_planar_mesh()
+
+    model.planar_mesh_loader = _fake_loader
+    monkeypatch.setattr(
+        "hydromodpy.solver.boussinesq.boussinesq.load_planar_mesh",
+        lambda path: (_ for _ in ()).throw(
+            AssertionError("module-level planar loader should not be used")
+        ),
+    )
+
+    runtime_forcing = resolve_runtime_forcing_by_period(model, nper=1)
+
+    assert loader_calls == [Path(bundle.mesh_path)]
+    assert runtime_forcing.active_recharge is True
+    np.testing.assert_allclose(
+        runtime_forcing.recharge_series_m_s[0],
+        np.asarray([4.0e-7, 2.0e-7], dtype=float),
+    )
 
 
 def test_boussinesq_rejects_structured_well_addressing_on_triangular_mesh(

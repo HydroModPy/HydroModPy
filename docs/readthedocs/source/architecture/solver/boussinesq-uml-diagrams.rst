@@ -35,7 +35,7 @@ The current Boussinesq package is already much clearer than before:
 - forcing resolution is now split into a stable facade plus specialized
   submodules;
 - shared boundary/ocean/drainage preparation is isolated in
-  ``driver_forcing.py``;
+  ``drivers/forcing.py``;
 - the public assembly layer is now one facade over dedicated internal modules
   for inputs, fluxes, surface closures and residual builders;
 - the public semianalytic Jacobian layer is now one facade over dedicated
@@ -97,12 +97,12 @@ Notes
 - The main orchestration split is now:
 
   - ``boussinesq.py`` for top-level coordination;
-  - ``driver_steady.py`` and ``driver_transient.py`` for solve execution;
+  - ``drivers/steady.py`` and ``drivers/transient.py`` for solve execution;
   - ``solver_contract.py`` for process-to-runtime normalization;
   - ``runtime_summary.py`` for runtime-summary shaping;
   - ``forcing_resolution.py`` plus ``forcing/`` for process-to-array mapping;
-  - ``driver_forcing.py`` for shared boundary and drainage preparation;
-  - ``jacobian_semianalytic.py`` plus its internal triplet modules for the
+  - ``drivers/forcing.py`` for shared boundary and drainage preparation;
+  - ``jacobian/semianalytic.py`` plus its internal triplet modules for the
     semianalytic linearization layer.
 - The diagrams deliberately separate:
 

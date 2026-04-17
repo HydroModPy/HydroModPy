@@ -38,7 +38,7 @@ from hydromodpy.process.flow.sinks_sources import (
 from hydromodpy.process.flow.sinks_sources_config import (
     normalize_flow_sinks_sources,
 )
-from hydromodpy.process.prototype import ProcessSpatialConfig
+from hydromodpy.process.contracts import ProcessSpatialConfig
 
 __all__ = [
     "FlowBoundaryConditionConfig",

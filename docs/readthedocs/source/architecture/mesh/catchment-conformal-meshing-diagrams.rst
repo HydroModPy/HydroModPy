@@ -16,6 +16,28 @@ They focus on the chain that turns one domain plus optional geology zones and
 river constraints into one planar mesh, one QA sidecar, one optional figure,
 and one optional exchange bundle.
 
+Code map
+--------
+
+- ``launchers/mesh_catchment/runtime.py``:
+  public mono-catchment entry point.
+- ``launchers/mesh_catchment/runtime_single_run.py``:
+  concrete runtime path behind the public facade.
+- ``hydromodpy/spatial/geographic`` and related domain helpers:
+  geographic context preparation before meshing.
+- ``hydromodpy/solver/utils/mesh/gmsh_grid/zone_meshing/``:
+  conformal meshing core and export helpers.
+
+Recommended reading path
+------------------------
+
+1. ``launchers/mesh_catchment/runtime.py``
+2. ``launchers/mesh_catchment/runtime_single_run.py``
+3. ``hydromodpy/solver/utils/mesh/gmsh_grid/runtime_support.py``
+4. ``hydromodpy/solver/utils/mesh/gmsh_grid/zone_meshing/conformal.py``
+5. the surrounding files under ``zone_meshing/`` when a lower-level geometry
+   question appears
+
 Recommended UML Views
 ---------------------
 
@@ -71,3 +93,10 @@ Notes
 - These diagrams stop at the planar catchment mesh plus exchange bundle. 3D
   extrusion and field-parameter discretization remain documented separately in
   the other mesh architecture pages.
+
+Related diagrams
+----------------
+
+- :doc:`mesh-catchment-package-component-diagram`
+- :doc:`mesh-catchment-in-process-simulation-activity-diagram`
+- :doc:`sgrid-fieldparam-discretization-diagrams`

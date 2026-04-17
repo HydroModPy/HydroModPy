@@ -32,6 +32,13 @@ __all__ = [
 
 
 def __getattr__(name: str):
+    import launchers as legacy_launchers
+
+    # Preserve monkeypatched overrides on the historical top-level package so
+    # callers using the newer ``hydromodpy.launchers`` facade still see them.
+    if name in legacy_launchers.__dict__:
+        return legacy_launchers.__dict__[name]
+
     if name == "DataOverviewLauncher":
         from launchers.data_overview.launcher import DataOverviewLauncher
 

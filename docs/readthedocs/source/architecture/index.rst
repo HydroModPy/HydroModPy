@@ -1,16 +1,17 @@
-Architecture
-============
+Architecture & Code Reading
+===========================
 
 This section is the main entry point for HydroModPy technical documentation.
-It groups design-level diagrams for HydroModPy modules, including the public
-UML pages published on Read the Docs.
+It groups both design-level diagrams and code-oriented reading guides for the
+main HydroModPy modules.
 
 Use this tab when you want:
 
 - module and package boundaries,
 - class, component, activity, and sequence diagrams,
 - runtime orchestration and handoff views,
-- software-facing design notes separated from scientific method notes.
+- software-facing design notes separated from scientific method notes,
+- guided entry points for reading the codebase package by package.
 
 For equations, modelling assumptions, and method documentation, see
 :doc:`../scientific/index`.

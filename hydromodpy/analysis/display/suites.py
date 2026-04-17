@@ -18,13 +18,14 @@ from hydromodpy.solver.boussinesq.history_contract import (
 )
 from hydromodpy.analysis.display.common import (
     _extract_recharge_series_m_per_day,
+    resolve_artifact_figure_dir,
     resolve_flow_base_raster,
-    resolve_model_figure_dir,
 )
 from hydromodpy.analysis.display.flow_payloads import (
     FlowSpatialFigurePayload,
     build_flow_cumulative_payload,
     build_flow_spatial_payload_from_model,
+    resolve_flow_artifact_id,
 )
 from hydromodpy.analysis.display.figures.animation import build_gif, build_plotly_slider
 from hydromodpy.analysis.display.figures.boussinesq import (
@@ -386,10 +387,10 @@ def _load_observed_streamflow(result) -> pd.DataFrame | None:
 
 def _load_flow_timeseries(result) -> pd.DataFrame | None:
     """Load the simulated flow time series exported by post-processing."""
-    run_id = _resolve_flow_model(result).model_name
+    artifact_id = resolve_flow_artifact_id(_resolve_flow_model(result))
     smod_path = (
         result.setup.workspace.simulations_folder
-        / run_id
+        / artifact_id
         / "_postprocess"
         / "_timeseries"
         / "_simulated_timeseries.csv"
@@ -496,8 +497,8 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
         return
 
     flow_model = _resolve_flow_model(result)
-    run_id = flow_model.model_name
-    output_dir = resolve_model_figure_dir(result.setup.workspace, run_id)
+    artifact_id = resolve_flow_artifact_id(flow_model)
+    output_dir = resolve_artifact_figure_dir(result.setup.workspace, artifact_id)
     is_unstructured = _is_unstructured_flow_model(flow_model)
     need_simulated_timeseries = any(
         [
@@ -516,7 +517,7 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
     )
     spatial_payload = build_flow_spatial_payload_from_model(flow_model)
     cumulative_payload = (
-        build_flow_cumulative_payload(simulated_timeseries, run_id=run_id)
+        build_flow_cumulative_payload(simulated_timeseries, artifact_id=artifact_id)
         if simulated_timeseries is not None
         else None
     )
@@ -562,7 +563,7 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
         base_raster = resolve_flow_base_raster(flow_model, result.setup.geographic)
         wt_path = (
             result.setup.workspace.simulations_folder
-            / run_id
+            / artifact_id
             / "_postprocess"
             / "watertable_elevation.npy"
         )
@@ -587,7 +588,7 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
             observed_df=observed_streamflow,
             simulated_series=outflow,
             recharge_series=recharge,
-            model_label=run_id.upper(),
+            model_label=artifact_id.upper(),
             ylabel="Q / A [mm/month]",
             options=options,
             save_path=output_dir / "streamflow.png",
@@ -607,7 +608,7 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
             observed_df=obs_piezo,
             simulated_series=wt_depth,
             recharge_series=recharge,
-            model_label=run_id.upper(),
+            model_label=artifact_id.upper(),
             options=options,
             save_path=output_dir / "piezometry.png",
         )
@@ -628,8 +629,8 @@ def plot_boussinesq_flow_suite(result, options: DisplayOptions) -> None:
     if mesh is None or head_m is None:
         return
 
-    run_id = str(getattr(model, "model_name", "")).strip() or "boussinesq"
-    output_dir = resolve_model_figure_dir(result.setup.workspace, run_id)
+    artifact_id = str(getattr(model, "model_name", "")).strip() or "boussinesq"
+    output_dir = resolve_artifact_figure_dir(result.setup.workspace, artifact_id)
     triangles = _resolve_boussinesq_triangles(mesh)
     node_x = np.asarray(mesh.node_x_m, dtype=float)
     node_y = np.asarray(mesh.node_y_m, dtype=float)
@@ -728,11 +729,11 @@ def plot_particles_suite(result, options: DisplayOptions) -> None:
         return
 
     flow_model = _resolve_flow_model(result)
-    run_id = flow_model.model_name
-    output_dir = resolve_model_figure_dir(result.setup.workspace, run_id)
+    artifact_id = resolve_flow_artifact_id(flow_model)
+    output_dir = resolve_artifact_figure_dir(result.setup.workspace, artifact_id)
     particles_dir = (
         result.setup.workspace.simulations_folder
-        / run_id
+        / artifact_id
         / "_postprocess"
         / "_particles"
     )
@@ -773,8 +774,8 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
     if not any([run_concentration, run_gif, run_web_animation]):
         return
 
-    run_id = flow_model.model_name
-    output_dir = resolve_model_figure_dir(result.setup.workspace, run_id) / "transport"
+    artifact_id = resolve_flow_artifact_id(flow_model)
+    output_dir = resolve_artifact_figure_dir(result.setup.workspace, artifact_id) / "transport"
     if _is_unstructured_flow_model(flow_model):
         _copy_latest_native_mesh_figures(
             _native_mesh_figure_dir(flow_model),

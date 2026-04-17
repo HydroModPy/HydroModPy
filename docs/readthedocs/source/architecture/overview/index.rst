@@ -11,7 +11,9 @@ The pages below focus on three recurring maintenance boundaries:
 - the compatibility layers that keep legacy or simplified imports alive while
   internals are reorganized,
 - the root data-manager orchestration layer that decides what is loaded, from
-  where, and under which external constraints.
+  where, and under which external constraints,
+- the code-reading map that points developers to the right package README or
+  runtime entry point before diving into implementation details.
 
 They are deliberately complementary to the package-level sections in
 :doc:`../index`.
@@ -19,6 +21,7 @@ They are deliberately complementary to the package-level sections in
 .. toctree::
    :maxdepth: 2
 
+   code-reading-guide
    tests-and-validation
    compatibility-facades
    data-managers-and-external-dependencies

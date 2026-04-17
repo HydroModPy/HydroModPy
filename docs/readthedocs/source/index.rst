@@ -47,9 +47,10 @@ Use :doc:`getting_started/index` when you want a guided first workflow. Use
 script inventory. Use :doc:`capability_gallery/index` when you want stable,
 curated result pages before running anything locally.
 
-If you are looking for the technical documentation, module diagrams, or UML
-pages, use :doc:`architecture/index`. If you are looking for equations,
-modelling assumptions, or method notes, use :doc:`scientific/index`.
+If you are looking for technical documentation, code-reading guides, module
+diagrams, or UML pages, use :doc:`architecture/index`. If you are looking for
+equations, modelling assumptions, or method notes, use
+:doc:`scientific/index`.
 
 Documentation map
 -----------------
@@ -120,10 +121,11 @@ Documentation map
       :link: architecture/index
       :link-type: doc
 
-      **Architecture & UML**
+      **Architecture & code guides**
       ^^^
-      Technical documentation, component diagrams, class diagrams, activity
-      diagrams, and runtime handoff views for the main HydroModPy modules.
+      Technical documentation, code-reading maps, component diagrams, class
+      diagrams, activity diagrams, and runtime handoff views for the main
+      HydroModPy modules.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4

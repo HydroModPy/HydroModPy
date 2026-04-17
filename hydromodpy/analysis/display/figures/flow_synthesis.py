@@ -328,7 +328,11 @@ def plot_flow_spatial_field(
     if rendered is not None:
         mappable, colorbar_label = rendered
         _add_compact_colorbar(fig, ax, mappable, label=colorbar_label)
-    fig.suptitle(f"{FLOW_SPATIAL_FIELD_SPECS[field_name].title} | {payload.run_id}", fontsize=11.5, y=0.98)
+    fig.suptitle(
+        f"{FLOW_SPATIAL_FIELD_SPECS[field_name].title} | {payload.artifact_id}",
+        fontsize=11.5,
+        y=0.98,
+    )
     fig.subplots_adjust(left=0.08, right=0.94, bottom=0.11, top=0.9)
     if options is not None:
         finalize_figure(fig, options=options, save_path=save_path)
@@ -390,7 +394,7 @@ def plot_flow_state_triptych(
         sharey=True,
     )
     render_flow_state_triptych(axs, payload=payload, figure=fig)
-    fig.suptitle(f"Flow state synthesis | {payload.run_id}", fontsize=11.5, y=0.96)
+    fig.suptitle(f"Flow state synthesis | {payload.artifact_id}", fontsize=11.5, y=0.96)
     fig.subplots_adjust(left=0.05, right=0.985, bottom=0.12, top=0.88, wspace=0.34)
     if options is not None:
         finalize_figure(fig, options=options, save_path=save_path)
@@ -526,7 +530,11 @@ def plot_flow_recharge_discharge_cumulative(
 
     fig, axs = make_figure(nrows=2, ncols=1, figsize=figsize, dpi=dpi, sharex=True)
     render_flow_recharge_discharge_cumulative(axs, payload=payload)
-    fig.suptitle(f"Recharge and discharge synthesis | {payload.run_id}", fontsize=11.5, y=0.97)
+    fig.suptitle(
+        f"Recharge and discharge synthesis | {payload.artifact_id}",
+        fontsize=11.5,
+        y=0.97,
+    )
     fig.subplots_adjust(left=0.09, right=0.84, bottom=0.11, top=0.9, hspace=0.22)
     if options is not None:
         finalize_figure(fig, options=options, save_path=save_path)

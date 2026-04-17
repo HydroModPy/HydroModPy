@@ -226,6 +226,13 @@ def color_columns_by_row_overlap(
     return tuple(np.asarray(group, dtype=int) for group in groups)
 
 
+def greedy_column_coloring(
+    rows_by_col: tuple[np.ndarray, ...],
+) -> tuple[np.ndarray, ...]:
+    """Backward-compatible alias for the sparse FD column-coloring helper."""
+    return color_columns_by_row_overlap(rows_by_col)
+
+
 def build_colored_sparse_fd_jacobian_triplets(
     residual_fn: Callable[[np.ndarray], np.ndarray],
     head_m: np.ndarray,
@@ -309,5 +316,6 @@ __all__ = [
     "build_colored_sparse_fd_jacobian_triplets",
     "build_dense_fd_jacobian",
     "color_columns_by_row_overlap",
+    "greedy_column_coloring",
     "build_sparse_fd_jacobian_triplets",
 ]

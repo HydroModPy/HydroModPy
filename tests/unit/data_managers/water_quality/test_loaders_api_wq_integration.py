@@ -12,7 +12,9 @@ import pytest
 from hydromodpy.data.variables.water_quality.apis.hubeau import fetch
 
 
-@pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.slow]
+
+
 def test_river_quality_real_api():
     """Fetch real river quality data from Hub'Eau."""
     try:
@@ -35,7 +37,6 @@ def test_river_quality_real_api():
     print(f"River: {len(records)} parameter records")
 
 
-@pytest.mark.integration
 def test_piezometer_quality_real_api():
     """Fetch real piezometer quality data from Hub'Eau."""
     try:

@@ -98,6 +98,10 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.process.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.solver.modflow_common.forcing_discretization import (
+    discretize_spatially_distributed_source,
+    has_spatially_distributed_source,
+)
 from hydromodpy.solver.modflow_common.grid_context import GridReference
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.core.units import (
@@ -118,48 +122,6 @@ from .property_mapping import (
 
 if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
-
-
-def _discretize_heterogeneous_source(
-    het_source: object,
-    *,
-    solver_mesh: SolverMesh,
-    nper: int,
-    simulation_window: object,
-    method: str = "nearest",
-) -> dict[int, np.ndarray]:
-    """Dispatch heterogeneous discretization for fields or located points."""
-    from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_field_discretization import (
-        discretize_fields_on_sgrid,
-        discretize_points_on_sgrid,
-    )
-
-    # SolverMesh exposes sgrid-compatible properties (nrow, ncol, delr, delc,
-    # xoffset, yoffset, xvertices, yvertices) so it can be passed directly.
-
-    # Prefer fields when available.
-    if getattr(het_source, "has_fields", False):
-        return discretize_fields_on_sgrid(
-            load_result=het_source,
-            sgrid=solver_mesh,
-            nper=nper,
-            simulation_window=simulation_window,
-            method=method,
-        )
-
-    # Fall back to located points.
-    if getattr(het_source, "has_points", False):
-        return discretize_points_on_sgrid(
-            load_result=het_source,
-            sgrid=solver_mesh,
-            nper=nper,
-            simulation_window=simulation_window,
-            method=method,
-        )
-
-    nrow = solver_mesh.nrow
-    ncol = solver_mesh.ncol
-    return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(nper)}
 
 
 @dataclass(slots=True)
@@ -1055,9 +1017,9 @@ class FlowToModflowAdapter:
         if recharge_cfg is None:
             return None, None
 
-        # Heterogeneous path: gridded FieldRecords from data managers.
+        # Heterogeneous path: gridded fields or located point forcings from data managers.
         het_source = getattr(recharge_cfg, "heterogeneous_source", None)
-        if het_source is not None and getattr(het_source, "has_fields", False):
+        if has_spatially_distributed_source(het_source):
             return self._build_heterogeneous_recharge_payload(recharge_cfg)
 
         # Homogeneous path (existing behavior).
@@ -1081,7 +1043,7 @@ class FlowToModflowAdapter:
         """
         het_source = recharge_cfg.heterogeneous_source
         interp_method = getattr(recharge_cfg, "interpolation_method", "nearest")
-        raw_arrays = _discretize_heterogeneous_source(
+        raw_arrays = discretize_spatially_distributed_source(
             het_source,
             solver_mesh=self.solver_mesh,
             nper=self.nper,

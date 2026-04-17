@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import hydromodpy.solver.modflow6.postprocess as mf6_postprocess
 import numpy as np
 import pytest
 
@@ -140,17 +141,17 @@ def _build_model(work_dir: Path) -> Modflow6:
 
 
 def _patch_postprocess_runtime(monkeypatch, budget_file_cls: type[object]) -> None:
-    monkeypatch.setattr("hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFile)
+    monkeypatch.setattr("hydromodpy.solver.modflow6.postprocess.bf.HeadFile", _DummyHeadFile)
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.bf.CellBudgetFile",
+        "hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile",
         budget_file_cls,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.pp.get_water_table",
+        "hydromodpy.solver.modflow6.postprocess.pp.get_water_table",
         lambda head, nodata: np.asarray(head[0], dtype=float),
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.toolbox.export_tif",
         lambda *args, **kwargs: None,
     )
 
@@ -370,15 +371,15 @@ def test_modflow6_post_processing_routes_accumulation_flux_via_masstransfer(
             return accumulated
 
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.toolbox.export_tif",
         _fake_export_tif,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.masstransfer.Masstransfer",
+        "hydromodpy.solver.modflow6.postprocess.masstransfer.Masstransfer",
         _FakeMasstransfer,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.rasterio.open",
+        "hydromodpy.solver.modflow6.postprocess.rasterio.open",
         lambda path: _FakeRasterReader(path),
     )
     monkeypatch.setattr(
@@ -424,17 +425,17 @@ def test_modflow6_post_processing_exports_native_unstructured_mesh_outputs(
 ) -> None:
     work_dir = _workspace_dir(tmp_path, "mf6_postprocess_native_mesh")
     model = _build_unstructured_model(work_dir)
-    monkeypatch.setattr("hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFileUnstructured)
+    monkeypatch.setattr("hydromodpy.solver.modflow6.postprocess.bf.HeadFile", _DummyHeadFileUnstructured)
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.bf.CellBudgetFile",
+        "hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile",
         _DummyBudgetFile,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.pp.get_water_table",
+        "hydromodpy.solver.modflow6.postprocess.pp.get_water_table",
         lambda head, nodata: np.asarray(head, dtype=float).reshape(-1),
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.toolbox.export_tif",
         lambda *args, **kwargs: None,
     )
 
@@ -491,17 +492,17 @@ def test_modflow6_post_processing_accumulates_unstructured_flow_on_mesh(
 ) -> None:
     work_dir = _workspace_dir(tmp_path, "mf6_postprocess_unstructured_accumulation")
     model = _build_unstructured_model(work_dir, dem_values=np.asarray([10.0, 5.0], dtype=float))
-    monkeypatch.setattr("hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFileUnstructured)
+    monkeypatch.setattr("hydromodpy.solver.modflow6.postprocess.bf.HeadFile", _DummyHeadFileUnstructured)
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.bf.CellBudgetFile",
+        "hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile",
         _DummyBudgetFileWithDrn,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.pp.get_water_table",
+        "hydromodpy.solver.modflow6.postprocess.pp.get_water_table",
         lambda head, nodata: np.asarray(head, dtype=float).reshape(-1),
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.toolbox.export_tif",
         lambda *args, **kwargs: None,
     )
 
@@ -554,11 +555,11 @@ def test_modflow6_transport_post_processing_exports_native_unstructured_mesh_out
         return path_obj
 
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.bf.UcnFile",
+        "hydromodpy.solver.modflow6.postprocess.bf.UcnFile",
         _DummyUcnFileUnstructured,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.toolbox.export_tif",
         lambda *args, **kwargs: None,
     )
     monkeypatch.setattr(
@@ -620,11 +621,11 @@ def test_modflow6_transport_post_processing_accumulates_unstructured_mass(
     )
 
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.bf.UcnFile",
+        "hydromodpy.solver.modflow6.postprocess.bf.UcnFile",
         _DummyUcnFileUnstructured,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.toolbox.export_tif",
         lambda *args, **kwargs: None,
     )
 
@@ -642,23 +643,155 @@ def test_modflow6_transport_post_processing_accumulates_unstructured_mass(
     )
 
 
+def test_modflow6_postprocess_module_maps_drain_records_to_cell_outputs() -> None:
+    outflow, seepage = mf6_postprocess.compute_drain_outflow_and_seepage(
+        [np.array([[1.0, -2.5], [4.0, 1.0]], dtype=float)],
+        ncpl=4,
+    )
+
+    np.testing.assert_allclose(outflow, np.array([2.5, 0.0, 0.0, 0.0], dtype=float))
+    np.testing.assert_allclose(seepage, np.array([1.0, 0.0, 0.0, 0.0], dtype=float))
+
+
+def test_modflow6_postprocess_module_computes_east_side_chd_discharge() -> None:
+    dtype = np.dtype([("node", "<i4"), ("node2", "<i4"), ("q", "<f8")])
+    discharge = mf6_postprocess.compute_chd_outlet_discharge_east_side_m3_s(
+        [
+            np.array(
+                [
+                    (1, 0, 1.5),
+                    (2, 0, -2.5),
+                    (3, 0, 0.5),
+                    (4, 0, -3.5),
+                ],
+                dtype=dtype,
+            )
+        ],
+        ncpl=4,
+        east_side_cell_ids={1, 3},
+    )
+
+    assert discharge == pytest.approx(6.0)
+
+
+def test_modflow6_transport_post_processing_routes_structured_mass_accumulation_via_rasterio(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    class _DummyUcnFileStructured:
+        def __init__(self, path: str):
+            self.path = path
+
+        def get_times(self) -> list[float]:
+            return [1.0]
+
+        def get_alldata(self, *, mflay=None) -> np.ndarray:
+            del mflay
+            return np.array([[[[0.2, 0.4], [0.1, 0.0]]]], dtype=float)
+
+    class _FakeMasstransfer:
+        def __init__(
+            self,
+            geographic,
+            raw_rast_name,
+            trace_shp_name,
+            mass_rast_name,
+            *,
+            extraction_folder,
+            routing_fill_path,
+            routing_direc_path,
+        ) -> None:
+            del geographic, extraction_folder, routing_fill_path, routing_direc_path
+            self.raw_rast_name = raw_rast_name
+            self.trace_shp_name = trace_shp_name
+            self.mass_rast_name = mass_rast_name
+            self.called = False
+
+        def trace_cumulated(self) -> None:
+            self.called = True
+
+    class _FakeRasterReader:
+        def __init__(self, array: np.ndarray):
+            self._array = array
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self, band: int) -> np.ndarray:
+            assert band == 1
+            return self._array
+
+    work_dir = _workspace_dir(tmp_path, "mf6_transport_postprocess_structured_accumulation")
+    flow_model = _build_model(work_dir)
+    flow_model.nper = 1
+    transport_model = _build_unstructured_transport_model(flow_model)
+
+    save_dir = Path(flow_model.full_path) / "_postprocess"
+    save_dir.mkdir(parents=True, exist_ok=True)
+    np.save(
+        save_dir / "outflow_drain",
+        {0: np.array([[1.0, 0.5], [0.0, 0.0]], dtype=float)},
+    )
+
+    accumulated = np.array([[5.0, 4.0], [3.0, -9999.0]], dtype=float)
+
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.postprocess.bf.UcnFile",
+        _DummyUcnFileStructured,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.postprocess.bf.HeadFile",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("HeadFile fallback not expected")),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.postprocess.toolbox.export_tif",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.postprocess.masstransfer.Masstransfer",
+        _FakeMasstransfer,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.postprocess.rasterio.open",
+        lambda path: _FakeRasterReader(accumulated),
+    )
+    monkeypatch.setattr(
+        flow_model,
+        "_ensure_solver_routing_context",
+        lambda: SimpleNamespace(correc_path="routing_fill.tif", direc_path="routing_direc.tif"),
+    )
+
+    transport_model.post_processing(
+        transport_model,
+        concentration_seepage=False,
+        mass_seepage=True,
+        mass_accumulated=True,
+    )
+
+    mass_accumulated = np.load(save_dir / "mass_accumulated.npy", allow_pickle=True).item()
+    np.testing.assert_allclose(mass_accumulated[0], accumulated)
+
+
 def test_modflow6_post_processing_tolerates_missing_meshio_for_vtu_export(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
     work_dir = _workspace_dir(tmp_path, "mf6_postprocess_missing_meshio")
     model = _build_unstructured_model(work_dir)
-    monkeypatch.setattr("hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFileUnstructured)
+    monkeypatch.setattr("hydromodpy.solver.modflow6.postprocess.bf.HeadFile", _DummyHeadFileUnstructured)
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.bf.CellBudgetFile",
+        "hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile",
         _DummyBudgetFile,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.pp.get_water_table",
+        "hydromodpy.solver.modflow6.postprocess.pp.get_water_table",
         lambda head, nodata: np.asarray(head, dtype=float).reshape(-1),
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.toolbox.export_tif",
         lambda *args, **kwargs: None,
     )
 
@@ -711,17 +844,17 @@ def test_modflow6_post_processing_exports_runtime_support_overview(
             }
         },
     )
-    monkeypatch.setattr("hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFileUnstructured)
+    monkeypatch.setattr("hydromodpy.solver.modflow6.postprocess.bf.HeadFile", _DummyHeadFileUnstructured)
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.bf.CellBudgetFile",
+        "hydromodpy.solver.modflow6.postprocess.bf.CellBudgetFile",
         _DummyBudgetFile,
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.pp.get_water_table",
+        "hydromodpy.solver.modflow6.postprocess.pp.get_water_table",
         lambda head, nodata: np.asarray(head, dtype=float).reshape(-1),
     )
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        "hydromodpy.solver.modflow6.postprocess.toolbox.export_tif",
         lambda *args, **kwargs: None,
     )
 

@@ -51,6 +51,21 @@ python -m tools.doc_gallery --category geographic
 python -m tools.doc_gallery --check --only geographic_nancon_identity_card
 ```
 
+The gallery now uses one repo-local temporary root by default:
+
+- `.tmp-doc-gallery/` under the repository root
+- override with `HYDROMODPY_DOC_GALLERY_TMPDIR` if needed
+
+Scaffold one new declarative `copy_assets` case:
+
+```bash
+python -m tools.doc_gallery.new_case \
+  --manifest geographic_cases.json \
+  --category geographic \
+  --slug geographic_example_case \
+  --title "Example Geographic Case"
+```
+
 Generate versioned batch reports for the analytical validation suites:
 
 ```bash
@@ -142,11 +157,12 @@ Analytical validation cases are discovered automatically from
 1. For a simple `copy_assets` page, prefer adding one entry under `tools/doc_gallery/manifests/*.json`.
 2. For a generated or discovered case, add the corresponding `GalleryCaseSpec` or helper builder in `tools/doc_gallery/gallery_manifest.py`.
 3. Make sure the case is reproducible from versioned repository inputs rather than one local `results_stable` tree.
-4. Run `python -m tools.doc_gallery --list --only <slug>` to confirm the case is visible in the inventory.
-5. Run `python -m tools.doc_gallery --only <slug>`.
-6. Inspect the generated page under `docs/readthedocs/source/capability_gallery/cases/`.
-7. Run `python -m tools.doc_gallery --check --only <slug>`.
-8. Rebuild Sphinx with `python -m sphinx -E -a -W -b html source _build/html` from `docs/readthedocs/`.
+4. If it is a new declarative `copy_assets` case, start with `python -m tools.doc_gallery.new_case ...` to create the manifest entry and asset directory.
+5. Run `python -m tools.doc_gallery --list --only <slug>` to confirm the case is visible in the inventory.
+6. Run `python -m tools.doc_gallery --only <slug>`.
+7. Inspect the generated page under `docs/readthedocs/source/capability_gallery/cases/`.
+8. Run `python -m tools.doc_gallery --check --only <slug>`.
+9. Rebuild Sphinx with `python -m sphinx -E -a -W -b html source _build/html` from `docs/readthedocs/`.
 
 ## How To Add One Mesh Bundle Case
 
