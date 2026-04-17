@@ -97,6 +97,15 @@ def _try_import_flopy_runtime_readers():
     return bf, pp
 
 
+def _try_import_modflow6_postprocess_helpers():
+    """Import optional MODFLOW 6 postprocess helpers used in raw-output fallback."""
+    try:
+        from hydromodpy.solver.modflow6 import postprocess as mf6_postprocess
+    except Exception:
+        return None
+    return mf6_postprocess
+
+
 def _candidate_output_containers(run_state: Any) -> tuple[tuple[str, Any], ...]:
     """Return possible output containers in lookup priority order."""
     containers: list[tuple[str, Any]] = []
@@ -312,6 +321,7 @@ def _modflow6_raw_output_payloads(
         return {name: cache[name] for name in requested if name in cache}
 
     bf, pp = _try_import_flopy_runtime_readers()
+    mf6_postprocess = _try_import_modflow6_postprocess_helpers()
     paths = _modflow6_solver_output_paths(model)
     if bf is None or pp is None or paths is None:
         return {name: cache[name] for name in requested if name in cache}
@@ -334,6 +344,8 @@ def _modflow6_raw_output_payloads(
     east_side_cell_ids: set[int] = set()
     if "outlet_discharge_east_side_m3_s" in missing:
         east_side_builder = getattr(model, "_east_side_cell_ids", None)
+        if not callable(east_side_builder) and mf6_postprocess is not None:
+            east_side_builder = lambda: mf6_postprocess.east_side_cell_ids(model)
         if callable(east_side_builder):
             try:
                 east_side_cell_ids = {int(value) for value in east_side_builder()}
@@ -346,6 +358,8 @@ def _modflow6_raw_output_payloads(
         head_fpu = bf.HeadFile(str(head_path))
         if cbc_path.is_file():
             open_budget = getattr(model, "_open_budget_file", None)
+            if not callable(open_budget) and mf6_postprocess is not None:
+                open_budget = mf6_postprocess.open_budget_file
             if callable(open_budget):
                 cbb = open_budget(str(cbc_path))
             else:
@@ -385,6 +399,8 @@ def _modflow6_raw_output_payloads(
                 )
             ):
                 drn_getter = getattr(model, "_get_budget_records_or_none", None)
+                if not callable(drn_getter) and mf6_postprocess is not None:
+                    drn_getter = mf6_postprocess.get_budget_records_or_none
                 if callable(drn_getter):
                     drn = drn_getter(cbb, kstpkper=(0, item), text="DRN")
                 else:
@@ -428,11 +444,17 @@ def _modflow6_raw_output_payloads(
                 and "outlet_discharge_east_side_m3_s" in missing
             ):
                 chd_getter = getattr(model, "_get_budget_records_or_none", None)
+                if not callable(chd_getter) and mf6_postprocess is not None:
+                    chd_getter = mf6_postprocess.get_budget_records_or_none
                 discharge_builder = getattr(
                     model,
                     "_compute_chd_outlet_discharge_east_side_m3_s",
                     None,
                 )
+                if not callable(discharge_builder) and mf6_postprocess is not None:
+                    discharge_builder = (
+                        mf6_postprocess.compute_chd_outlet_discharge_east_side_m3_s
+                    )
                 if callable(chd_getter) and callable(discharge_builder):
                     chd = chd_getter(cbb, kstpkper=(0, item), text="CHD")
                     discharge = discharge_builder(

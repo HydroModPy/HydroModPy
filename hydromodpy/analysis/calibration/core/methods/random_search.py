@@ -28,6 +28,8 @@ def random_search_calibrate(objective_cost, bounds, n_samples=6000, seed=42, log
     rng = np.random.default_rng(seed)
 
     n_samples = int(n_samples)
+    if n_samples <= 0:
+        raise ValueError("n_samples must be >= 1")
     samples = np.empty((n_samples, n_dim), dtype=float)
     for i in range(n_dim):
         if i in log_scale_indices:
@@ -39,7 +41,7 @@ def random_search_calibrate(objective_cost, bounds, n_samples=6000, seed=42, log
             samples[:, i] = rng.uniform(lower[i], upper[i], n_samples)
 
     best_cost = np.inf
-    best_x = None
+    best_x = samples[0].copy()
     for x in samples:
         cost = float(objective_cost(x))
         if cost < best_cost:

@@ -1216,6 +1216,115 @@ def test_model_calibration_selects_outputs_from_solver_postprocess_npy(
     assert selected["q_outlet_lowflow_mean"] == (pytest.approx(6.0),)
 
 
+def test_model_calibration_selects_outputs_from_modflow6_solver_files(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import launchers.model_calibration.output_selection as output_selection
+
+    config_path = tmp_path / "config_model_calibration.toml"
+    _write_minimal_model_calibration_config(config_path)
+    cfg = ModelCalibrationConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        base_dir=tmp_path,
+    )
+
+    model_root = tmp_path / "flow_main_raw"
+    model_root.mkdir(parents=True, exist_ok=True)
+    (model_root / "flow_main_raw.hds").write_text("", encoding="utf-8")
+    (model_root / "flow_main_raw.cbc").write_text("", encoding="utf-8")
+
+    class _FakeHeadFile:
+        def __init__(self, path: str) -> None:
+            self.path = path
+
+        def get_times(self):
+            return ("2020-08-15", "2020-09-15")
+
+        def get_data(self, *, totim):
+            if str(totim) == "2020-08-15":
+                return np.asarray([10.0, 20.0], dtype=float)
+            return np.asarray([14.0, 18.0], dtype=float)
+
+        def close(self) -> None:
+            return None
+
+    class _FakeBudgetFile:
+        def close(self) -> None:
+            return None
+
+    fake_bf = SimpleNamespace(
+        HeadFile=_FakeHeadFile,
+        CellBudgetFile=lambda *args, **kwargs: _FakeBudgetFile(),
+    )
+    fake_pp = SimpleNamespace(
+        get_water_table=lambda head, _nodata: np.asarray(head, dtype=float),
+    )
+
+    class _FakeMf6Postprocess:
+        @staticmethod
+        def open_budget_file(path: str):
+            return _FakeBudgetFile()
+
+        @staticmethod
+        def get_budget_records_or_none(_cbb, *, kstpkper: tuple[int, int], text: str):
+            return {"item": int(kstpkper[1]), "text": str(text)}
+
+        @staticmethod
+        def east_side_cell_ids(_model) -> set[int]:
+            return {1}
+
+        @staticmethod
+        def compute_chd_outlet_discharge_east_side_m3_s(
+            chd_records,
+            *,
+            ncpl: int,
+            east_side_cell_ids: set[int],
+        ) -> float:
+            assert ncpl == 2
+            assert east_side_cell_ids == {1}
+            if int(chd_records["item"]) == 0:
+                return 4.0
+            return 8.0
+
+    monkeypatch.setattr(
+        output_selection,
+        "_try_import_flopy_runtime_readers",
+        lambda: (fake_bf, fake_pp),
+    )
+    monkeypatch.setattr(
+        output_selection,
+        "_try_import_modflow6_postprocess_helpers",
+        lambda: _FakeMf6Postprocess,
+    )
+
+    run_state = SimpleNamespace(
+        execution=SimpleNamespace(
+            models_by_run_id={
+                "flow_main": SimpleNamespace(
+                    full_path=str(model_root),
+                    model_name="flow_main_raw",
+                    ncpl=2,
+                    dem_mask=np.asarray([False, False], dtype=bool),
+                    dem=np.asarray([20.0, 20.0], dtype=float),
+                    runtime_mesh_support=SimpleNamespace(
+                        cell_centroid_x_m=np.asarray([0.0, 2.0], dtype=float),
+                        cell_centroid_y_m=np.asarray([2.0, 2.0], dtype=float),
+                    ),
+                )
+            }
+        )
+    )
+
+    selected = select_candidate_outputs(
+        cfg=cfg,
+        run_state=run_state,
+    )
+
+    assert selected["pz_01"] == (pytest.approx(15.0), pytest.approx(16.0))
+    assert selected["q_outlet_lowflow_mean"] == (pytest.approx(6.0),)
+
+
 def test_model_calibration_selects_outputs_from_solver_native_mesh_npz(
     tmp_path: Path,
 ) -> None:
