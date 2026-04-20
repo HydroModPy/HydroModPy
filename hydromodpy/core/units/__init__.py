@@ -60,6 +60,11 @@ from hydromodpy.core.units.radiation import (
     factor_to_w_per_m2,
     normalize_radiation_unit,
 )
+from hydromodpy.core.units.parse import (
+    canonical_unit_short_form,
+    check_unit_compatible,
+    parse_to_canonical_magnitude,
+)
 from hydromodpy.core.units.scalar import canonical_unit_token, parse_scalar_and_unit
 from hydromodpy.core.units.time import (
     TIME_CANONICAL_UNITS,
@@ -92,7 +97,10 @@ __all__ = [
     "M_PER_S_CANONICAL_UNITS",
     "LENGTH_CANONICAL_UNITS",
     "TIME_CANONICAL_UNITS",
+    "canonical_unit_short_form",
     "canonical_unit_token",
+    "check_unit_compatible",
+    "parse_to_canonical_magnitude",
     "convert_payload_to_m",
     "convert_payload_to_m_per_s",
     "convert_to_m",
