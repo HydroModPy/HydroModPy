@@ -1,5 +1,10 @@
 """Shared MODFLOW helper utilities used across solver backends."""
 
+from .binary_reader import (
+    list_budget_records,
+    open_cell_budget_file,
+    open_head_file,
+)
 from .boundary_packages import (
     BoundaryCell,
     DisvBoundaryCell,
@@ -73,6 +78,9 @@ __all__ = [
     "broadcast_to_stress_periods",
     "discretize_spatially_distributed_source",
     "has_spatially_distributed_source",
+    "list_budget_records",
+    "open_cell_budget_file",
+    "open_head_file",
     "stress_period_axes",
     "Masstransfer",
     "package_attr_names",
