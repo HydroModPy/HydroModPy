@@ -24,9 +24,8 @@ from hydromodpy.process.flow.boundary_conditions import (
     FlowBoundaryConditionConfig,
 )
 from hydromodpy.core.units import (
-    normalize_length_unit,
-    parse_to_m,
-    parse_to_m2_per_s,
+    canonical_unit_short_form,
+    parse_to_canonical_magnitude,
 )
 
 
@@ -56,6 +55,13 @@ def _extract_explicit_boundary_units(payload: Mapping[str, object]) -> str | Non
     return None
 
 
+_BOUNDARY_UNIT_TARGETS: dict[str, tuple[str, str]] = {
+    # default_units label -> (pint canonical target, error label)
+    "m": ("m", "length"),
+    "m2/s": ("m**2/s", "hydraulic-conductance"),
+}
+
+
 def _coerce_boundary_value_and_units(
     *,
     payload: Mapping[str, object],
@@ -64,23 +70,18 @@ def _coerce_boundary_value_and_units(
 ) -> tuple[float, str]:
     if "value" not in payload:
         raise ValueError(f"{location_prefix}.value is required")
-    if default_units == "m":
-        value_si, _ = parse_to_m(
-            payload["value"],
-            location=f"{location_prefix}.value",
-            default_unit=default_units,
-            explicit_unit=_extract_explicit_boundary_units(payload),
-        )
-        return value_si, "m"
-    if default_units == "m2/s":
-        value_si, _ = parse_to_m2_per_s(
-            payload["value"],
-            location=f"{location_prefix}.value",
-            default_unit=default_units,
-            explicit_unit=_extract_explicit_boundary_units(payload),
-        )
-        return value_si, "m2/s"
-    raise ValueError(f"Unsupported boundary unit target: {default_units}")
+    target = _BOUNDARY_UNIT_TARGETS.get(default_units)
+    if target is None:
+        raise ValueError(f"Unsupported boundary unit target: {default_units}")
+    canonical_unit, label = target
+    value_si = parse_to_canonical_magnitude(
+        payload["value"],
+        location=f"{location_prefix}.value",
+        canonical_unit=canonical_unit,
+        explicit_unit=_extract_explicit_boundary_units(payload),
+        length_label=label,
+    )
+    return value_si, default_units
 
 
 def _normalize_dirichlet_forcing_units(
@@ -99,10 +100,18 @@ def _normalize_dirichlet_forcing_units(
         return "m"
     try:
         normalized_parent_units = (
-            normalize_length_unit(explicit_units) if explicit_units is not None else None
+            canonical_unit_short_form(
+                explicit_units, canonical_unit="m", label="length"
+            )
+            if explicit_units is not None
+            else None
         )
         normalized_forcing_units = (
-            normalize_length_unit(forcing_units) if forcing_units is not None else None
+            canonical_unit_short_form(
+                forcing_units, canonical_unit="m", label="length"
+            )
+            if forcing_units is not None
+            else None
         )
     except ValueError as exc:
         raise ValueError(

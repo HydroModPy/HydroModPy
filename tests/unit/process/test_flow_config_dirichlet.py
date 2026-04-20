@@ -203,7 +203,7 @@ def test_boundary_value_rejects_unknown_units() -> None:
                 "bc": {
                     "dirichlet": {
                         "ocean": {
-                            "value": "1.0 furlong",
+                            "value": "1.0 qblorp",
                         }
                     }
                 }
