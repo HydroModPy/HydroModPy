@@ -44,6 +44,15 @@ Each release section includes the following standard categories:
 - README: replaced the paper-era example list with a pointer to
   `examples/getting_started/` and `examples/projects/`.
 
+### Deprecated
+- Documented intentional MODFLOW-NWT sunset plan — see
+  `docs/developers/nwt_sunset_plan.md`. NWT stays fully supported in
+  v0.4 and will be retired after the MF6 Lake (LAK) module integration
+  lands. The duplication between
+  `hydromodpy/solver/modflow_nwt/modflow/flow_to_modflow_adapter.py`
+  and `hydromodpy/solver/modflow6/flow_to_modflow_adapter.py` is kept
+  deliberately rather than factored into `modflow_common/`.
+
 ### Removed
 - `hydromodpy.core.backends` backwards-compatibility shim. Import
   `get_whitebox_backend` from `hydromodpy.spatial.delineation` instead.
