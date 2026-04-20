@@ -1,8 +1,7 @@
-"""Backward-compatible thin shim around :mod:`hydromodpy.display`.
+"""Thin wrapper around :mod:`hydromodpy.display` for result-side rendering.
 
-The legacy ``HYDROMODPY_NO_DISPLAY`` / ``HYDROMODPY_NO_SAVE`` environment
-variables are no longer consulted; saving and showing are controlled by
-``DisplayConfig`` (TOML ``[display]`` section).
+Saving and showing are controlled by ``DisplayConfig`` (TOML
+``[display]`` section).
 """
 
 from __future__ import annotations

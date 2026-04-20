@@ -1,8 +1,7 @@
 """Pydantic schema for the ``[display]`` TOML section.
 
-Replaces the legacy ``HYDROMODPY_NO_DISPLAY`` / ``HYDROMODPY_NO_SAVE`` env
-vars with explicit, declarative configuration. Each value defaults to a
-non-interactive, save-enabled mode that is safe for CI.
+Each value defaults to a non-interactive, save-enabled mode that is
+safe for CI.
 """
 
 from __future__ import annotations
