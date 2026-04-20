@@ -14,11 +14,11 @@
 
 Les décisions ci-dessous **prévalent** sur toute mention contraire dans la suite du document.
 
-### 1. API SIM2 via INRAE — PRÉSERVÉE
+### 1. API SIM2 (Météo-France) — PRÉSERVÉE
 
-- Le client SIM2 actuel (`hydromodpy/data/climatic/sim2_API.py`) pointe vers un **hébergement INRAE public** qui **redistribue Météo-France** avec des formats améliorés (NetCDF CF natif, pas de rate limit, pas de clé obligatoire). Testé, fonctionne bien.
+- Le client SIM2 actuel (`hydromodpy/data/climatic/sim2_API.py`) pointe vers un **hébergement public** (geosas.fr) qui expose la réanalyse **Météo-France SAFRAN-ISBA** avec des formats améliorés (NetCDF CF natif, pas de rate limit, pas de clé obligatoire). Testé, fonctionne bien.
 - **NE PAS** migrer vers `meteo.data.gouv.fr/api/v1/edr/collections/sim2/` — cela casserait un flow qui marche déjà pour un gain théorique.
-- Action P04 : **refacto cosmétique uniquement** → déplacer le fichier vers `hydromodpy/data/common/clients/sim2_inrae.py`. **Aucun changement d'endpoint, aucun changement de format.**
+- Action P04 : **refacto cosmétique uniquement** → déplacer le fichier vers `hydromodpy/data/common/clients/sim2_meteofrance.py`. **Aucun changement d'endpoint, aucun changement de format.**
 - Les sections 2.1 / 2.2 qui détaillent la migration vers l'EDR data.gouv sont **annulées**.
 
 ### 2. Données utilisateur custom — drag-and-drop AVANT CLI
@@ -63,7 +63,7 @@ Les décisions ci-dessous **prévalent** sur toute mention contraire dans la sui
 
 ### Conséquences dans le reste du document
 
-- Section 2 (Couche API-first) : l'entrée SIM2 pointe vers INRAE, pas data.gouv.
+- Section 2 (Couche API-first) : l'entrée SIM2 pointe vers le mirroir geosas.fr, pas data.gouv.
 - Section 3 (Couche fichiers locaux) / Section 4 (hmp data) : le drag-and-drop est le flow **primaire**, les commandes CLI sont **secondaires**.
 
 ---
@@ -116,7 +116,7 @@ La section qui suit propose un remplacement intégral. Elle ne cherche pas à pa
 
 **Justification :**
 
-1. **HydroModPy sert deux publics opposés** : l'utilisateur institutionnel (BRGM, INRAE) qui part *de zéro* sur un bassin et veut tout fetcher, et l'hydrogéologue local qui a *déjà ses propres piézos* et sa propre géologie de forage. Une architecture mono-source ignore la moitié du public.
+1. **HydroModPy sert deux publics opposés** : l'utilisateur institutionnel (BRGM, grand laboratoire) qui part *de zéro* sur un bassin et veut tout fetcher, et l'hydrogéologue local qui a *déjà ses propres piézos* et sa propre géologie de forage. Une architecture mono-source ignore la moitié du public.
 2. **La donnée hydro française est déjà exposée en APIs nationales** (Hub'Eau, ADES via Hub'Eau, BRGM InfoTerre, Météo-France SIM2 EDR, SHOM Refmar, IGN Géoservices). Ne pas en profiter, c'est réinventer un scraping.
 3. **Mais aucune API ne couvre tout** : un DEM de forage, une carte géologique interne de labo, une piézo « maison » non déclarée en ADES existent. Ces cas justifient un second chemin d'ingestion.
 4. **Le cache local DOIT exister de toute façon** (audits Hub'Eau : ~1 000 req/jour sans clé). Autant en faire la *seule source de vérité runtime* : **runtime → cache local → fetch API si manquant**. C'est le pattern DVC, Poetry, npm.
@@ -256,7 +256,7 @@ hydromodpy/data/
 | `geology` (1/50k) | **BRGM Géologie 1/50 000** | Téléchargement par feuille | SHP | statique | — | — | — |
 | `geology` (BDLisa) | **BRGM BDLisa (nappes)** | WMS/WFS | GPKG | statique | — | — | — |
 | `oceanic` (marégraphes) | **SHOM Refmar** | `https://data.shom.fr/data/seismometre/*` et `refmar.shom.fr` | CSV/JSON | 10 min | ~1 req/s | — | 1846 (Brest) – aujourd'hui |
-| `recharge`, `etp`, `precipitation`, `temperature`, `humidity`, `wind`, `radiation`, `soil_moisture`, `runoff` | **SIM2 via hébergement INRAE** (préservé — voir OVERRIDES) | Endpoint INRAE existant (ne **pas** migrer vers `meteo.data.gouv.fr`) | NetCDF / CSV reformaté | journalier | pas de rate limit | aucune clé | 1958 – J-5 |
+| `recharge`, `etp`, `precipitation`, `temperature`, `humidity`, `wind`, `radiation`, `soil_moisture`, `runoff` | **SIM2 Météo-France** (préservé — voir OVERRIDES) | Endpoint geosas.fr existant (ne **pas** migrer vers `meteo.data.gouv.fr`) | NetCDF / CSV reformaté | journalier | pas de rate limit | aucune clé | 1958 – J-5 |
 | `administrative` (communes, dépts) | **IGN ADMIN-EXPRESS** | `https://geoservices.ign.fr/adminexpress` | SHP/GPKG | statique | — | — | — |
 | `landcover` (OCS) | **IGN OCS GE** | Téléchargement par département | SHP | statique | — | — | — |
 | `soils` (carte mondiale) | **SoilGrids 250 m (ISRIC)** | WCS/WMS | GeoTIFF COG | statique | ~50 req/min | — | — |

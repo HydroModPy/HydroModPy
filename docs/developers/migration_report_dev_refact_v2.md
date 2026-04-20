@@ -19,7 +19,7 @@ Les 13 phases du plan de migration ont toutes été marquées `DONE` par le scri
 | P01 | Foundations (cleanup + glossary + docs) | 10 min | DONE | **OK** (1 nuance mineure) |
 | P02 | Storage : schema DuckDB + geographic cache | 23 min | DONE | **OK complet** |
 | P03 | Config Pydantic + pydantic-pint | 66 min | DONE | **PARTIEL** (migration types incomplète) |
-| P04 | Data layer : scaffold + auto-scan + INRAE | 17 min | DONE | **OK** (divergence doc mtime vs SHA-256) |
+| P04 | Data layer : scaffold + auto-scan + Météo-France SIM2 | 17 min | DONE | **OK** (divergence doc mtime vs SHA-256) |
 | P05 | Spatial : delineation multi-backend | 11 min | DONE | **OK complet** |
 | P06 | Solvers : Protocol + modflow_common | 82 min (2 essais) | DONE | **OK** (duplication NWT/MF6 = décision assumée, voir nwt_sunset_plan.md) |
 | P07 | Pipeline + checkpointing + resume | 14 min | DONE | **PARTIEL** (11 steps vs 14 spec, DeriveStep stub) |
@@ -82,7 +82,7 @@ Les 13 phases du plan de migration ont toutes été marquées `DONE` par le scri
 | Critère spec | État réel | Commentaire |
 |---|---|---|
 | `hydromodpy/data/climatic/` supprimé | ✅ | Absent. |
-| Client INRAE SIM2 préservé | ✅ | `data/common/clients/sim2_inrae.py` (120 L) + `sim2_edr.py` bas niveau. Endpoint `api.geosas.fr/edr/collections/safran-isba`. |
+| Client SIM2 (Météo-France) préservé | ✅ | `data/common/clients/sim2_meteofrance.py` (120 L) + `sim2_edr.py` bas niveau. Endpoint `api.geosas.fr/edr/collections/safran-isba`. |
 | `data/scaffold.py` (16 variables) | ✅ | 326 L, crée `{variable}_custom/` + READMEs + `example_locations.csv`. |
 | `data/auto_scan.py` avec `scan_custom()` | ✅ | 404 L, API `ScanReport`, détection **mtime** (pas SHA-256). |
 | Adapters csv→parquet / shp→geoparquet / asc→geotiff | ✅ | Les 3 fichiers présents et réexportés. |
@@ -251,7 +251,7 @@ Ces éléments des specs cibles n'étaient **pas dans le scope des 13 phases** m
 - Adapter PEST++/pyemu (parqué en post-P13 via entry_points).
 - Migration complète des configs sectionnelles (Transport, Calibration, etc.) vers pint (héritée de P03).
 - Refonte `validation_cases/` (modules cassés actuellement — 3 tests `test_doc_gallery_*` skipés pour `cannot import name 'load_last_npy_array_on_expected_grid'`).
-- Un smoke test end-to-end `hmp run examples/getting_started/project.toml` n'a pas été validé par l'audit (nécessite accès réseau INRAE ou données de test).
+- Un smoke test end-to-end `hmp run examples/getting_started/project.toml` n'a pas été validé par l'audit (nécessite accès réseau au mirroir SIM2 ou données de test).
 
 ---
 

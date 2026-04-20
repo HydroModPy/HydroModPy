@@ -365,7 +365,7 @@ Pour les variables climatiques, cohabitent `.csv` et `.nc`. Le `.csv` aplatit un
 
 - **Lecture par QGIS** : non (CSV LOC avec doubles coords non reconnu automatiquement).
 - **Lecture par `geopandas.read_file`** : non (il faut passer par `pd.read_csv` + conversion).
-- **Partage avec partenaire externe (INRAE, BRGM)** : nécessite un README manuel pour documenter les colonnes.
+- **Partage avec partenaire externe (laboratoires, BRGM)** : nécessite un README manuel pour documenter les colonnes.
 
 **C'est un format interne HydroModPy, pas un format d'échange.** À assumer comme tel, ou à standardiser.
 

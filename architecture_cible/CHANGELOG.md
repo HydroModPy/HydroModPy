@@ -50,10 +50,10 @@
 - Consommateurs cibles : Streamlit local, Angular externe (repo séparé), React, etc.
 
 ## `12_input_data_rethink.md`
-- **API SIM2 via INRAE préservée.** Pas de migration vers `meteo.data.gouv.fr/api/v1/edr/...`. Refacto cosmétique uniquement : déplacement de `hydromodpy/data/climatic/sim2_API.py` vers `hydromodpy/data/common/clients/sim2_inrae.py`, endpoint identique.
+- **API SIM2 Météo-France préservée.** Pas de migration vers `meteo.data.gouv.fr/api/v1/edr/...`. Refacto cosmétique uniquement : déplacement de `hydromodpy/data/climatic/sim2_API.py` vers `hydromodpy/data/common/clients/sim2_meteofrance.py`, endpoint identique.
 - **Drag-and-drop avant CLI** : flow principal = déposer dans `~/hydromodpy/{variable}_custom/`, auto-scan mtime-based au `hmp run`. `hmp data add` reste disponible mais secondaire (power-user).
 - Formats utilisateur : CSV, SHP, GeoJSON, GeoTIFF, ASC. Parquet / GeoParquet restent internes.
-- Ligne 201 du tableau des APIs mise à jour (endpoint SIM2 INRAE, pas rate-limited, pas de clé).
+- Ligne 201 du tableau des APIs mise à jour (endpoint SIM2 Météo-France via geosas.fr, pas rate-limited, pas de clé).
 
 ## `14_plan_migration.md`
 - **Un seul script `run_migration.sh`** à la racine du repo orchestre les 13 phases. Remplace les `run_migration_Pxx.sh` individuels.

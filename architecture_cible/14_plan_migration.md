@@ -35,7 +35,7 @@ Ce document consolide les 13 documents d'architecture cible (`architecture_cible
 | **P01** | Foundations | Cleanup legacy + glossaire + migration docs |
 | **P02** | Storage | DuckDB schema clean + Zarr + **geographic fingerprint cache** |
 | **P03** | Config | Pydantic + **pydantic-pint** + JSON Schema + annotations riches |
-| **P04** | Data layer | Scaffold drag-and-drop + auto-scan mtime + **INRAE SIM2 préservé** |
+| **P04** | Data layer | Scaffold drag-and-drop + auto-scan mtime + **Météo-France SIM2 préservé** |
 | **P05** | Spatial/Delineation | whitebox → **spatial/delineation/** multi-backend + synthetic |
 | **P06** | Solvers | Protocol SolverAdapter + `modflow_common/` mutualisé |
 | **P07** | Pipeline | Orchestration unifiée + **checkpointing** + resume après crash |
