@@ -18,7 +18,7 @@ from os.path import dirname
 from typing import Union
 import os
 import rasterio
-from hydromodpy.core.backends import get_whitebox_backend
+from hydromodpy.spatial.delineation import get_whitebox_backend
 from hydromodpy.core.tools import get_logger
 
 logger = get_logger(__name__)

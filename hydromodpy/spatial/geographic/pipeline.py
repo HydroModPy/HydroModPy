@@ -15,7 +15,7 @@ from typing import Any
 import geopandas as gpd
 from geopy.geocoders import Nominatim
 
-from hydromodpy.core.backends import WhiteboxBackend, get_whitebox_backend
+from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.spatial.geographic.core.catchment_domain import CatchmentDomainProducts
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.core.direct_dem_domain import build_direct_dem_domain

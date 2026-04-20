@@ -19,7 +19,7 @@ from rasterio.warp import calculate_default_transform, reproject
 from shapely.geometry import Point
 import xarray as xr
 
-from hydromodpy.core.backends import get_whitebox_backend
+from hydromodpy.spatial.delineation import get_whitebox_backend
 
 logger = logging.getLogger(__name__)
 

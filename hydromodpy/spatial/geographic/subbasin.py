@@ -21,7 +21,7 @@ import pandas as pd
 import geopandas as gpd
 import glob
 import shutil
-from hydromodpy.core.backends import get_whitebox_backend
+from hydromodpy.spatial.delineation import get_whitebox_backend
 
 # Root
 from os.path import dirname, abspath

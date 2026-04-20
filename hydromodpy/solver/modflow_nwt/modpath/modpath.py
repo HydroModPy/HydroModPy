@@ -38,7 +38,7 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.core.backends import get_whitebox_backend
+from hydromodpy.spatial.delineation import get_whitebox_backend
 from hydromodpy.solver.modflow_common import ensure_platform_executable
 from hydromodpy.core.tools import get_logger
 from hydromodpy.core.tools.filesystem import create_folder

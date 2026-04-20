@@ -23,7 +23,7 @@ import os
 import numpy as np
 import rasterio
 
-from hydromodpy.core.backends import get_whitebox_backend
+from hydromodpy.spatial.delineation import get_whitebox_backend
 from hydromodpy.core.tools import get_logger
 from hydromodpy.core.tools.filesystem import create_folder
 from hydromodpy.core.tools.raster_io import load_to_numpy, clip_tif

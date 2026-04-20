@@ -59,7 +59,7 @@ def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
     if sim_id is None:
         return
 
-    from hydromodpy.core.backends import get_whitebox_backend
+    from hydromodpy.spatial.delineation import get_whitebox_backend
 
     wb = get_whitebox_backend()
 
@@ -196,7 +196,7 @@ def _cleanup_intermediate_dirs(geographic: Any) -> None:
 
 
 def dump_cached_rasters_to_disk(geographic: Any) -> None:
-    from hydromodpy.core.backends import get_whitebox_backend
+    from hydromodpy.spatial.delineation import get_whitebox_backend
 
     wb = get_whitebox_backend()
     if not wb._raster_cache:
@@ -214,7 +214,7 @@ def dump_cached_rasters_to_disk(geographic: Any) -> None:
 
 def cleanup_stable_folder(geographic: Any) -> None:
     import shutil
-    from hydromodpy.core.backends import get_whitebox_backend
+    from hydromodpy.spatial.delineation import get_whitebox_backend
 
     get_whitebox_backend().clear_raster_cache()
 

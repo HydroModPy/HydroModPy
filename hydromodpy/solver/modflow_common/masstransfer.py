@@ -16,7 +16,7 @@
 import os
 
 import rasterio
-from hydromodpy.core.backends import WhiteboxBackend, get_whitebox_backend
+from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
 
 # HydroModPy
 from hydromodpy.core.tools import get_logger

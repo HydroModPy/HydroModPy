@@ -369,7 +369,7 @@ def _accumulation_flux_routed(
     import tempfile
     import rasterio
     from pathlib import Path
-    from hydromodpy.core.backends import get_whitebox_backend
+    from hydromodpy.spatial.delineation import get_whitebox_backend
 
     # Read surface_top from mesh (solver resolution) and infer 2D shape.
     grp = store.open_zarr_group(sim_id, mode="r")

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from geopy.geocoders import Nominatim
 
-from hydromodpy.core.backends import WhiteboxBackend, get_whitebox_backend
+from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.dem_metadata import read_legacy_dem_metadata
 from hydromodpy.spatial.geographic.pipeline import build_legacy_geographic_context
