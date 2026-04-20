@@ -29,6 +29,7 @@ Usage (hmp and hydromodpy are interchangeable):
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -379,6 +380,10 @@ def _cmd_config(args: argparse.Namespace) -> None:
     """Generate a TOML configuration template."""
     from hydromodpy.core.config.generate_toml import generate_toml, available_modules
 
+    if args.output == "schema":
+        _cmd_config_schema(args)
+        return
+
     if args.list_modules:
         for name in available_modules():
             print(name)
@@ -407,6 +412,39 @@ def _cmd_config(args: argparse.Namespace) -> None:
         print(f"Written to: {Path(args.output).resolve()}", file=sys.stderr)
     else:
         print(content)
+
+
+def _cmd_config_schema(args: argparse.Namespace) -> None:
+    """Export the JSON Schema for the HydroModPy configuration.
+
+    Usage::
+
+        hmp config schema                        # full root schema to stdout
+        hmp config schema --section flow         # single section
+        hmp config schema --out schema.json      # write to file
+    """
+    from hydromodpy.core.config.schema_export import (
+        ROOT_SECTIONS,
+        export_schema,
+        write_schema,
+        _ensure_root_sections,
+    )
+
+    if getattr(args, "list_sections", False):
+        for name in sorted(_ensure_root_sections()):
+            print(name)
+        return
+
+    section = getattr(args, "section", None)
+    out_path = getattr(args, "out", None)
+
+    if out_path:
+        written = write_schema(out_path, section=section)
+        print(f"Written to: {written}", file=sys.stderr)
+        return
+
+    schema = export_schema(section=section)
+    print(json.dumps(schema, indent=2, ensure_ascii=False))
 
 
 def _derive_run_id_from_filename(toml_path: Path) -> str:
@@ -970,12 +1008,16 @@ def main() -> None:
 
     config_parser = subparsers.add_parser(
         "config",
-        help="Generate a TOML configuration template",
+        help="Generate a TOML configuration template, or export the JSON Schema",
     )
     config_parser.add_argument(
         "output",
         nargs="?",
-        help="Output file path (prints to stdout if not provided)",
+        help=(
+            "Output file path for the TOML template (prints to stdout if not "
+            "provided). Use the literal word 'schema' to export the JSON "
+            "Schema instead: 'hmp config schema [--section NAME] [--out FILE]'."
+        ),
     )
     config_parser.add_argument(
         "--profile",
@@ -997,6 +1039,25 @@ def main() -> None:
         "--ui",
         action="store_true",
         help="Launch interactive Streamlit configuration editor",
+    )
+    # Schema-export flags (only active with 'hmp config schema ...').
+    config_parser.add_argument(
+        "--section",
+        default=None,
+        help=(
+            "When used with 'hmp config schema', export the JSON Schema of a "
+            "single root TOML section (e.g. 'flow', 'workspace')."
+        ),
+    )
+    config_parser.add_argument(
+        "--out",
+        default=None,
+        help="When used with 'hmp config schema', write the JSON Schema to this file.",
+    )
+    config_parser.add_argument(
+        "--list-sections",
+        action="store_true",
+        help="When used with 'hmp config schema', list available section names.",
     )
 
     # --- run subcommand (replaces 'simulation') ---
