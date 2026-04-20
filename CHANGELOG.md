@@ -31,42 +31,60 @@ Each release section includes the following standard categories:
 ---
 
 ## [Unreleased]
+
+---
+
+## [v0.4.0] - 2026-04-21
+
+First release of the refactored architecture (branch `dev-refact_v2`).
+Major version bump: HydroModPy v0.4.0 is a **breaking release** that
+consolidates the 13 migration phases (P01–P13) plus the finalization
+phases (F01–F07). External scripts pinned to 0.3.x require the
+**Migration Guide** below.
+
+### Breaking Changes
+- `SimulationCatalog.export_simulation` → `SimulationCatalog.export_package`
+  and `SimulationCatalog.import_simulation` → `SimulationCatalog.import_package`.
+  The `_package` suffix aligns with `architecture_cible/10_ux_cli_api.md`
+  and disambiguates the per-variable
+  `SimulationCatalog.export(sim_id, variable, fmt, path)` helper.
+  No alias, no deprecation shim.
+- Environment variables `HYDROMODPY_NO_DISPLAY` and `HYDROMODPY_NO_SAVE`
+  removed. Display behaviour (saving figures, interactivity, output
+  directory) is now controlled exclusively by the `[display]` TOML
+  section.
+- Calibration TOML simplified: the `[calibration]` section is now
+  declarative (optimizer + objective + parameters) with the lightweight
+  mode enabled by default.
+- SIM2 client renamed: `hydromodpy.data.common.clients.sim2_inrae` →
+  `hydromodpy.data.common.clients.sim2_meteofrance`;
+  `Sim2InraeClient` → `Sim2MeteoFranceClient`;
+  `INRAE_SIM2_BASE_URL` → `SIM2_BASE_URL`. The data source is
+  Meteo-France (SAFRAN-ISBA surface reanalysis). Endpoint unchanged.
+- `hydromodpy.core.backends` compatibility shim removed. Import
+  `get_whitebox_backend` directly from
+  `hydromodpy.spatial.delineation` instead.
+
 ### Added
-- `examples/getting_started/` — minimal, self-contained synthetic Dupuit
-  example driven by `hmp run project.toml`; no DEM or network download
-  required.
+- `examples/getting_started/` — minimal, self-contained synthetic
+  Dupuit example driven by `hmp run project.toml`; no DEM or network
+  download required.
 - `docs/developers/design_patterns.md` — reference guide for the ten
   core patterns (Protocol Solver, Pipeline Step, Figure, Delineation
-  Backend, Data Manager, Pydantic+Annotated Config, Calibration Adapter,
-  Objective, Metric, Figure Protocol).
+  Backend, Data Manager, Pydantic+Annotated Config, Calibration
+  Adapter, Objective, Metric, Figure Protocol).
+- `hmp.SimulationPlan` exposed on the public top-level API
+  (`hydromodpy/__init__.py:__all__`) so advanced users can inspect the
+  immutable plan produced by `SimulationPlanner` before execution.
+- Pipeline orchestration primitives: `PipelineState`, `CheckpointStore`,
+  `StepsLedger`, `DerivedRegistry` (see
+  `docs/developers/glossary.md`).
 
 ### Changed
-- README: replaced the paper-era example list with a pointer to
+- README: paper-era example list replaced by a pointer to
   `examples/getting_started/` and `examples/projects/`.
-- **Breaking**: renamed `SimulationCatalog.export_simulation` to
-  `SimulationCatalog.export_package` and
-  `SimulationCatalog.import_simulation` to
-  `SimulationCatalog.import_package`. The `_package` suffix aligns with
-  the target API in `architecture_cible/10_ux_cli_api.md` and avoids
-  collision with the existing per-variable
-  `SimulationCatalog.export(sim_id, variable, fmt, path)` helper.
-  No alias or deprecation shim is provided.
-- Added `hmp.SimulationPlan` to the public top-level API (
-  `hydromodpy/__init__.py:__all__`) so advanced users can inspect the
-  immutable plan produced by `SimulationPlanner` before execution.
-
-### Deprecated
-- Documented intentional MODFLOW-NWT sunset plan — see
-  `docs/developers/nwt_sunset_plan.md`. NWT stays fully supported in
-  v0.4 and will be retired after the MF6 Lake (LAK) module integration
-  lands. The duplication between
-  `hydromodpy/solver/modflow_nwt/modflow/flow_to_modflow_adapter.py`
-  and `hydromodpy/solver/modflow6/flow_to_modflow_adapter.py` is kept
-  deliberately rather than factored into `modflow_common/`.
 
 ### Removed
-- `hydromodpy.core.backends` backwards-compatibility shim. Import
-  `get_whitebox_backend` from `hydromodpy.spatial.delineation` instead.
 - Orphan module `hydromodpy.exceptions` (no production imports).
 - Orphan modules `hydromodpy.simulation.settings`,
   `hydromodpy.simulation.forcing`, `hydromodpy.results.resample`,
@@ -78,33 +96,25 @@ Each release section includes the following standard categories:
 - Unused legacy pickle compatibility helpers under
   `hydromodpy.simulation.adapters.flow.legacy_compat`.
 - Paper-era `examples_legacy/` tree (3+ GB of historical scripts and
-  outputs, superseded by the new `examples/` and
-  `validation_cases/` trees).
-- Environment variables `HYDROMODPY_NO_DISPLAY` and
-  `HYDROMODPY_NO_SAVE`. Display behaviour (saving, interactivity,
-  output directory) is now driven exclusively by the ``[display]``
-  TOML section. Breaking change, no deprecation shim.
+  outputs, superseded by the new `examples/` and `validation_cases/`
+  trees).
 - Empty residual shells `hydromodpy/analysis/display/` and
-  `hydromodpy/analysis/postprocess/` (content was migrated to
+  `hydromodpy/analysis/postprocess/` (content migrated to
   `hydromodpy/display/` and the pipeline extract/derive/export steps
   during P08).
 
-### Migration guide (external scripts still pinned to 0.3.x)
-- Replace `from hydromodpy.core.backends import get_whitebox_backend`
-  with `from hydromodpy.spatial.delineation import get_whitebox_backend`.
-- `hydromodpy.exceptions` was unused; if you had custom catches, define
-  your own exception hierarchy — the class set was never raised by the
-  library itself.
-- TOML configs produced before P13 remain loadable; the `[postprocess]`
-  section is accepted but now ignored in favour of pipeline steps 8–10
-  (`extract`, `derive`, `export`).
-- Scripts and CI pipelines that exported `HYDROMODPY_NO_DISPLAY=1`
-  or `HYDROMODPY_NO_SAVE=1` should either drop those exports (the
-  `[display]` defaults are already non-interactive and save-enabled)
-  or set `save = false` / `interactive = false` in their project TOML.
-
 ### Fixed
--
+- Restored coverage collection on the regression CI job after the
+  headless env-var purge.
+
+### Deprecated
+- MODFLOW-NWT sunset plan documented in
+  `docs/developers/nwt_sunset_plan.md`. NWT stays fully supported in
+  v0.4 and will be retired after the MF6 Lake (LAK) module integration
+  lands (target v0.5+). The duplication between
+  `hydromodpy/solver/modflow_nwt/modflow/flow_to_modflow_adapter.py`
+  and `hydromodpy/solver/modflow6/flow_to_modflow_adapter.py` is kept
+  deliberately rather than factored into `modflow_common/`.
 
 ---
 
@@ -237,7 +247,8 @@ Each release section includes the following standard categories:
 
 ---
 
-[Unreleased]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.4...dev
+[Unreleased]: https://github.com/HydroModPy/HydroModPy/compare/v0.4.0...dev
+[v0.4.0]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.4...v0.4.0
 [v0.3.4]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.3...v0.3.4
 [v0.3.2]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.1...v0.3.2
 [v0.3.1]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.0...v0.3.1
