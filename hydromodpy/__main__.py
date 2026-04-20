@@ -827,7 +827,7 @@ def _cmd_display(args: argparse.Namespace) -> None:
             f"Available figures: {', '.join(figure_names())}",
             file=sys.stderr,
         )
-        sys.exit(1)
+        sys.exit(EXIT_CONFIG)
 
     target_path = Path(target).expanduser()
 
@@ -845,7 +845,7 @@ def _cmd_display(args: argparse.Namespace) -> None:
             sims = catalog.list_simulations(project=project_dir.name)
             if sims.empty:
                 print("No simulations found in catalog.", file=sys.stderr)
-                sys.exit(1)
+                sys.exit(EXIT_NOT_FOUND)
             sim_id = str(sims.iloc[-1]["sim_id"])
             sim = catalog[sim_id]
             wanted = display_cfg.figures or sim.display_capabilities
@@ -867,7 +867,7 @@ def _cmd_display(args: argparse.Namespace) -> None:
             "Provide a figure name: hmp display <sim_id> <figure_name>",
             file=sys.stderr,
         )
-        sys.exit(1)
+        sys.exit(EXIT_CONFIG)
 
     workspace_root = _find_workspace_root(Path.cwd())
     with SimulationCatalog(workspace_root) as catalog:
