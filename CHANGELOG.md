@@ -39,8 +39,16 @@ Each release section includes the following standard categories:
 First release of the refactored architecture (branch `dev-refact_v2`).
 Major version bump: HydroModPy v0.4.0 is a **breaking release** that
 consolidates the 13 migration phases (P01–P13) plus the finalization
-phases (F01–F07). External scripts pinned to 0.3.x require the
+phases (F01–F08). External scripts pinned to 0.3.x require the
 **Migration Guide** below.
+
+Conformance to the 14 target architecture specifications
+(`architecture_cible/*.md`) is certified by
+`docs/developers/architecture_conformance_report.md`: 162/273 checkpoints
+OK, 79 assumed gaps, 32 missing items requalified as v0.5 follow-ups. No
+blocking debt remains — `hmp` CLI, `hydromodpy` Python API, pipeline
+execution, calibration engine, and frontend schema hooks are all
+operational on 1857 passing unit tests.
 
 ### Breaking Changes
 - `SimulationCatalog.export_simulation` → `SimulationCatalog.export_package`

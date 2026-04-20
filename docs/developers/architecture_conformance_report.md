@@ -1,8 +1,8 @@
 # Rapport de conformité architecture — HydroModPy v0.4
 
 **Date :** 2026-04-21
-**Branche :** `dev-refact_v2` au commit `31b90697` (HEAD, avant F08)
-**Base :** `run_migration.sh` (P01-P13) + `run_finalization.sh` (F01-F07), phase F08 en cours
+**Branche :** `dev-refact_v2` au commit `154b7b6f` (HEAD après synthèse F08).
+**Base :** `run_migration.sh` (P01-P13) + `run_finalization.sh` (F01-F08).
 **Méthodologie :** vérification directe du code, indépendante de `migration_report_dev_refact_v2.md` (obsolète).
 **Fichier de référence pour chaque spec :** `architecture_cible/XX_*.md`.
 
