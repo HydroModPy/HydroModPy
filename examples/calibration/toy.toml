@@ -1,0 +1,9 @@
+[calibration]
+method = "optuna"
+max_iter = 20
+save_runs = "none"
+seed = 42
+
+[calibration.parameters]
+K_aquifer = { bounds = [1e-6, 1e-3], transform = "log" }
+Sy_main = { bounds = [0.02, 0.30] }

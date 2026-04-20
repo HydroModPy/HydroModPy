@@ -364,6 +364,32 @@ def _append_regression_directory_selection(
 # Subcommand handlers
 # ---------------------------------------------------------------------------
 
+def _cmd_calibrate(args: argparse.Namespace) -> None:
+    """Run a calibration from a TOML file.
+
+    Usage::
+
+        hmp calibrate config.toml
+        hmp calibrate config.toml --objective my_pkg.my_module:my_fn
+    """
+    from hydromodpy.calibration.cli import run_calibration_cli
+
+    config_path = Path(args.config).expanduser().resolve()
+    if not config_path.is_file():
+        print(f"File not found: {config_path}", file=sys.stderr)
+        sys.exit(1)
+
+    summary = run_calibration_cli(
+        config_path,
+        objective=getattr(args, "objective", None),
+        workspace=getattr(args, "workspace", None),
+        project=getattr(args, "project", "calibration"),
+    )
+    print("Calibration complete:", file=sys.stderr)
+    for key, value in summary.items():
+        print(f"  {key}: {value}", file=sys.stderr)
+
+
 def _cmd_init(args: argparse.Namespace) -> None:
     """Create HydroModPy workspace with shared data and projects directory."""
     from hydromodpy.data.scaffold import scaffold
@@ -1432,6 +1458,32 @@ def main() -> None:
     data_add.add_argument("--station-id", default=None, help="Station id for single-station files")
     data_add.add_argument("--workspace", default=None, help="Workspace root (default: ~/hydromodpy/)")
 
+    # --- calibrate subcommand ---
+    calibrate_parser = subparsers.add_parser(
+        "calibrate",
+        help="Run a calibration campaign from a TOML config",
+    )
+    calibrate_parser.add_argument(
+        "config",
+        type=Path,
+        help="Path to a TOML with a [calibration] section",
+    )
+    calibrate_parser.add_argument(
+        "--objective",
+        default=None,
+        help="Python entry-point 'module.path:callable' (evaluator function)",
+    )
+    calibrate_parser.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace directory (default: TOML parent directory)",
+    )
+    calibrate_parser.add_argument(
+        "--project",
+        default="calibration",
+        help="Project label to tag the session (default: calibration)",
+    )
+
     args = parser.parse_args()
 
     handlers = {
@@ -1439,6 +1491,7 @@ def main() -> None:
         "new": _cmd_new,
         "config": _cmd_config,
         "run": _cmd_run,
+        "calibrate": _cmd_calibrate,
         "display": _cmd_display,
         "list": _cmd_list,
         "export": _cmd_export,
