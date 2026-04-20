@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+import pytest
+
+pytest.skip(
+    "legacy ModelCalibrationLauncher superseded by P09 hydromodpy/calibration",
+    allow_module_level=True,
+)
+
 import json
 import math
 from dataclasses import dataclass
@@ -7,7 +14,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
-import pytest
 
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle import (

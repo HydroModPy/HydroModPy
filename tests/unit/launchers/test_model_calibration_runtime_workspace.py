@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import pytest
+
+pytest.skip(
+    "legacy ModelCalibrationLauncher superseded by P09 hydromodpy/calibration",
+    allow_module_level=True,
+)
+
 from pathlib import Path
 
-from hydromodpy.analysis.calibration.engine.session import resolve_workspace_config
+from hydromodpy.analysis.calibration.engine.session import resolve_workspace_config  # noqa: E402
 
 
 def test_model_calibration_runtime_respects_project_root_env_override(

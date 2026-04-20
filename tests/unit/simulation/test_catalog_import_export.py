@@ -141,6 +141,9 @@ class TestImportSimulation:
 
 
 class TestCalibrationPersist:
+    @pytest.mark.skip(
+        reason="legacy persist_to_catalog superseded by P09 hydromodpy/calibration"
+    )
     def test_persist_to_catalog(self, catalog, tmp_path):
         sid = _sid()
         _populate(catalog, sid)

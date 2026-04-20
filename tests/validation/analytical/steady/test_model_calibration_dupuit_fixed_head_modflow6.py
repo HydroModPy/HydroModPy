@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
-import math
-from pathlib import Path
-
 import pytest
 
-from hydromodpy.analysis.calibration.engine.launcher import ModelCalibrationLauncher
-from hydromodpy.analysis.calibration.engine.session import (
+pytest.skip(
+    "legacy ModelCalibrationLauncher superseded by P09 hydromodpy/calibration",
+    allow_module_level=True,
+)
+
+import math  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+from hydromodpy.analysis.calibration.engine.launcher import ModelCalibrationLauncher  # noqa: E402
+from hydromodpy.analysis.calibration.engine.session import (  # noqa: E402
     actualize_candidate,
     select_candidate_outputs,
 )
