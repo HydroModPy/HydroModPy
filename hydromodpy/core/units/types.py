@@ -25,6 +25,10 @@ Design notes
   that quantities from different fields remain comparable.
 - ``BeforeValidator`` coerces bare numeric inputs (``int``/``float``, but NOT
   ``bool``) to the canonical-unit string before handing off to pydantic-pint.
+  Important: in an ``Annotated[...]`` chain, later entries wrap earlier ones,
+  so ``BeforeValidator`` must be listed **after** ``PydanticPintQuantity`` —
+  otherwise pydantic-pint's custom core schema replaces the chain and the
+  before-validator never runs.
 - ``SpecificYield`` is a plain ``float`` constrained to [0, 1] (it is
   genuinely dimensionless with a physical range) — not a pint Quantity.
 - ``Dimensionless`` is the pint way to express a pure-number quantity when the
@@ -71,24 +75,24 @@ def _pint_annotation(unit: str):
 
 Length = Annotated[
     Any,
-    BeforeValidator(_coerce_bare_number("m")),
     _pint_annotation("m"),
+    BeforeValidator(_coerce_bare_number("m")),
 ]
 """Length in metres. Accepts ``1.0``, ``"1.0 m"``, ``"100 cm"``, ..."""
 
 
 Area = Annotated[
     Any,
-    BeforeValidator(_coerce_bare_number("m**2")),
     _pint_annotation("m**2"),
+    BeforeValidator(_coerce_bare_number("m**2")),
 ]
 """Area in square metres."""
 
 
 Volume = Annotated[
     Any,
-    BeforeValidator(_coerce_bare_number("m**3")),
     _pint_annotation("m**3"),
+    BeforeValidator(_coerce_bare_number("m**3")),
 ]
 """Volume in cubic metres."""
 
@@ -99,8 +103,8 @@ Volume = Annotated[
 
 Time = Annotated[
     Any,
-    BeforeValidator(_coerce_bare_number("s")),
     _pint_annotation("s"),
+    BeforeValidator(_coerce_bare_number("s")),
 ]
 """Duration in seconds. Accepts ``"1 day"``, ``"3600 s"``, ``86400``, ..."""
 
@@ -111,8 +115,8 @@ Time = Annotated[
 
 FlowRate = Annotated[
     Any,
-    BeforeValidator(_coerce_bare_number("m**3/s")),
     _pint_annotation("m**3/s"),
+    BeforeValidator(_coerce_bare_number("m**3/s")),
 ]
 """Volumetric flow rate in m^3/s."""
 
@@ -123,16 +127,16 @@ FlowRate = Annotated[
 
 HydraulicConductivity = Annotated[
     Any,
-    BeforeValidator(_coerce_bare_number("m/s")),
     _pint_annotation("m/s"),
+    BeforeValidator(_coerce_bare_number("m/s")),
 ]
 """Hydraulic conductivity (K) in m/s. Accepts ``"1e-4 m/s"``, ``"0.36 m/h"``, ``1e-4``."""
 
 
 SpecificStorage = Annotated[
     Any,
-    BeforeValidator(_coerce_bare_number("1/m")),
     _pint_annotation("1/m"),
+    BeforeValidator(_coerce_bare_number("1/m")),
 ]
 """Specific storage (Ss) in m^-1."""
 
@@ -148,8 +152,8 @@ SpecificYield = Annotated[
 # Plain dimensionless Quantity when the pipeline expects a Quantity instance.
 Dimensionless = Annotated[
     Any,
-    BeforeValidator(_coerce_bare_number("dimensionless")),
     _pint_annotation("dimensionless"),
+    BeforeValidator(_coerce_bare_number("dimensionless")),
 ]
 """Dimensionless pint Quantity (``-``)."""
 

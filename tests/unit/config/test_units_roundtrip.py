@@ -31,11 +31,6 @@ def _build_model():
     return Aquifer
 
 
-@pytest.mark.xfail(
-    reason="Current pydantic-pint validator rejects bare numbers; canonical "
-    "fallback is tracked for a future units-ergonomics pass.",
-    strict=True,
-)
 def test_bare_number_falls_back_to_canonical_unit():
     from hydromodpy.core.units.registry import UREG
 
