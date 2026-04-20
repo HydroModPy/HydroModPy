@@ -32,12 +32,46 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 ### Added
--
+- `examples/getting_started/` — minimal, self-contained synthetic Dupuit
+  example driven by `hmp run project.toml`; no DEM or network download
+  required.
+- `docs/developers/design_patterns.md` — reference guide for the ten
+  core patterns (Protocol Solver, Pipeline Step, Figure, Delineation
+  Backend, Data Manager, Pydantic+Annotated Config, Calibration Adapter,
+  Objective, Metric, Figure Protocol).
+
 ### Changed
--
-### Fixed
--
+- README: replaced the paper-era example list with a pointer to
+  `examples/getting_started/` and `examples/projects/`.
+
 ### Removed
+- `hydromodpy.core.backends` backwards-compatibility shim. Import
+  `get_whitebox_backend` from `hydromodpy.spatial.delineation` instead.
+- Orphan module `hydromodpy.exceptions` (no production imports).
+- Orphan modules `hydromodpy.simulation.settings`,
+  `hydromodpy.simulation.forcing`, `hydromodpy.results.resample`,
+  `hydromodpy.core.tools.folder_root`,
+  `hydromodpy.workflow.pipelines.process_simulation`.
+- Dead legacy `__getattr__` shim in `hydromodpy.process` (contract
+  symbols were already re-exported at module top; the deprecation path
+  was unreachable).
+- Unused legacy pickle compatibility helpers under
+  `hydromodpy.simulation.adapters.flow.legacy_compat`.
+- Paper-era `examples_legacy/` tree (3+ GB of historical scripts and
+  outputs, superseded by the new `examples/` and
+  `validation_cases/` trees).
+
+### Migration guide (external scripts still pinned to 0.3.x)
+- Replace `from hydromodpy.core.backends import get_whitebox_backend`
+  with `from hydromodpy.spatial.delineation import get_whitebox_backend`.
+- `hydromodpy.exceptions` was unused; if you had custom catches, define
+  your own exception hierarchy — the class set was never raised by the
+  library itself.
+- TOML configs produced before P13 remain loadable; the `[postprocess]`
+  section is accepted but now ignored in favour of pipeline steps 8–10
+  (`extract`, `derive`, `export`).
+
+### Fixed
 -
 
 ---
