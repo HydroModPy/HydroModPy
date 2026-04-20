@@ -82,12 +82,14 @@ def test_hmp_run_dispatches_mesh_via_detect_workflow(monkeypatch, tmp_path) -> N
 
 
 def test_hmp_run_exits_on_missing_file(monkeypatch, tmp_path) -> None:
+    from hydromodpy.__main__ import EXIT_NOT_FOUND
+
     missing = tmp_path / "does_not_exist.toml"
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(missing)])
 
     with pytest.raises(SystemExit) as exc_info:
         main()
-    assert exc_info.value.code == 1
+    assert exc_info.value.code == EXIT_NOT_FOUND
 
 
 def test_hmp_run_dispatches_calibration_via_detect_workflow(monkeypatch, tmp_path) -> None:
