@@ -11,7 +11,6 @@ ask simple questions such as:
 """
 from __future__ import annotations
 
-import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Annotated, Any
@@ -208,14 +207,6 @@ class DisplayConfig(BaseModel):
         ge=1,
         description="Output resolution used when saving raster figures.",
     )
-    respect_env_no_display: Annotated[bool, ParamLevel("dev")] = Field(
-        default=True,
-        description="If true, honor HYDROMODPY_NO_DISPLAY=1 by forcing show=false in headless runs.",
-    )
-    respect_env_no_save: Annotated[bool, ParamLevel("dev")] = Field(
-        default=True,
-        description="If true, honor HYDROMODPY_NO_SAVE=1 by forcing save=false in headless runs.",
-    )
     flow: Annotated[FlowDisplayConfig, ParamLevel("user")] = Field(
         default_factory=FlowDisplayConfig,
         description="Display flags for flow plots.",
@@ -249,21 +240,11 @@ class DisplayConfig(BaseModel):
     def to_runtime_options(self) -> "DisplayOptions":
         """Convert the validated config into runtime display options."""
 
-        show = self.show
-        save = self.save
-        if self.respect_env_no_display and os.environ.get("HYDROMODPY_NO_DISPLAY") == "1":
-            # Allow CI/headless runs to keep saving figures while disabling windows.
-            show = False
-        if self.respect_env_no_save and os.environ.get("HYDROMODPY_NO_SAVE") == "1":
-            # Allow headless runs to skip file exports when requested.
-            save = False
-
         return DisplayOptions(
             enabled=self.enabled,
-            show=show,
-            save=save,
+            show=self.show,
+            save=self.save,
             dpi=self.dpi,
-            respect_env_no_display=self.respect_env_no_display,
             flow=self.flow.to_section_options(),
             particles=self.particles.to_section_options(),
             transport=self.transport.to_section_options(),
@@ -319,7 +300,6 @@ class DisplayOptions:
     show: bool = True
     save: bool = False
     dpi: int = 300
-    respect_env_no_display: bool = True
     flow: DisplaySectionOptions = field(default_factory=DisplaySectionOptions)
     particles: DisplaySectionOptions = field(default_factory=DisplaySectionOptions)
     transport: DisplaySectionOptions = field(default_factory=DisplaySectionOptions)
@@ -338,13 +318,9 @@ class DisplayOptions:
 def display_options_from_raw_toml(raw_toml: dict) -> DisplayOptions:
     """Parse the raw project TOML payload into :class:`DisplayOptions`.
 
-    The function reads the optional ``[display]`` block, applies default values
-    for missing keys, and normalizes nested sections into ``DisplaySectionOptions``.
-
-    It also supports a practical headless override: when
-    ``HYDROMODPY_NO_DISPLAY=1`` and ``respect_env_no_display`` is enabled, the
-    returned options will disable interactive display while still allowing file
-    export.
+    Reads the optional ``[display]`` block, applies default values for
+    missing keys, and normalizes nested sections into
+    :class:`DisplaySectionOptions`.
     """
 
     return DisplayConfig.from_raw_toml(raw_toml).to_runtime_options()

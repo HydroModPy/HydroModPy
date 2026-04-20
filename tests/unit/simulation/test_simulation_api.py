@@ -157,8 +157,8 @@ class TestSimulationDisplayCapabilities:
         sid = _register(catalog, n_cells=10, n_layers=1, flow_regime="steady")
         sim = Simulation(sid, catalog)
         caps = sim.display_capabilities
-        assert "watertable_map" in caps
-        assert "budget_chart" in caps
+        assert "piezometric_map" in caps
+        assert "water_budget" in caps
         assert "cross_section" not in caps
 
     def test_multilayer_caps(self, catalog):
@@ -170,8 +170,7 @@ class TestSimulationDisplayCapabilities:
         sid = _register(catalog, n_cells=10, n_layers=1, flow_regime="transient")
         sim = Simulation(sid, catalog)
         caps = sim.display_capabilities
-        assert "streamflow" in caps
-        assert "head_timeseries" in caps
+        assert "hydrograph" in caps
 
 
 class TestSimulationPlot:
@@ -181,8 +180,9 @@ class TestSimulationPlot:
         with pytest.raises(ValueError, match="not available"):
             sim.plot("nonexistent_figure")
 
-    def test_plot_save(self, catalog, tmp_path, monkeypatch):
-        monkeypatch.setenv("HYDROMODPY_NO_DISPLAY", "1")
+    def test_plot_save(self, catalog, tmp_path):
+        import matplotlib
+        matplotlib.use("Agg", force=True)
         sid = _register(catalog, n_cells=5, n_layers=1, n_timesteps=2)
         sz = catalog.open_zarr(sid)
         sz.write_field("head", 0, np.ones(5), n_timesteps=2)
@@ -190,8 +190,8 @@ class TestSimulationPlot:
         catalog.write_budget(sid, 0, "z1", "recharge", 100.0, 0.0)
         sim = Simulation(sid, catalog)
         out = tmp_path / "figures"
-        sim.plot("budget_chart", save=out)
-        assert (out / "budget_chart.png").exists()
+        sim.plot("water_budget", save=out)
+        assert (out / "water_budget.png").exists()
 
 
 class TestSimulationRepr:

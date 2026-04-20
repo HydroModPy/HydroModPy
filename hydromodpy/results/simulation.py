@@ -280,7 +280,7 @@ class Simulation:
 
     @property
     def display_capabilities(self) -> list[str]:
-        caps = ["watertable_map", "budget_chart"]
+        caps = ["piezometric_map", "water_budget"]
         row = self._load_row()
 
         n_layers = row.get("n_layers") or 0
@@ -288,13 +288,13 @@ class Simulation:
             caps.append("cross_section")
 
         if row.get("flow_regime") == "transient":
-            caps.extend(["streamflow", "head_timeseries", "drainage_density"])
+            caps.append("hydrograph")
 
         sz = self._catalog.open_zarr(self._sim_id)
         if "concentration" in sz.root:
             caps.append("concentration_map")
         if "pathlines" in sz.root:
-            caps.append("pathlines")
+            caps.append("particle_tracks")
 
         return caps
 
