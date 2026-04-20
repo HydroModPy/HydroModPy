@@ -27,8 +27,10 @@ from .discretization_temporal import (
 )
 from .executables import ensure_platform_executable
 from .forcing_discretization import (
+    broadcast_to_stress_periods,
     discretize_spatially_distributed_source,
     has_spatially_distributed_source,
+    stress_period_axes,
 )
 from .grid_context import GridReference, SolverGridContext
 from .masstransfer import Masstransfer
@@ -68,8 +70,10 @@ __all__ = [
     "build_temporal_discretization",
     "build_temporal_discretization_from_time_grid",
     "ensure_platform_executable",
+    "broadcast_to_stress_periods",
     "discretize_spatially_distributed_source",
     "has_spatially_distributed_source",
+    "stress_period_axes",
     "Masstransfer",
     "package_attr_names",
     "resolve_package",

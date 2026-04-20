@@ -96,7 +96,32 @@ def discretize_spatially_distributed_source(
     }
 
 
+def broadcast_to_stress_periods(
+    values: np.ndarray | float,
+    *,
+    nper: int,
+    shape: tuple[int, ...] | None = None,
+) -> dict[int, np.ndarray]:
+    """Expand a steady scalar or constant array to a per-stress-period dict.
+
+    Used by RCH/EVT translators when the user supplies a single uniform
+    forcing value and the MODFLOW API expects one payload per stress
+    period.
+    """
+    arr = np.asarray(values, dtype=float)
+    if shape is not None and arr.ndim == 0:
+        arr = np.full(shape, float(arr))
+    return {kper: arr.copy() for kper in range(int(nper))}
+
+
+def stress_period_axes(nper: int) -> list[int]:
+    """Return the list of stress-period indices ``[0, ..., nper-1]``."""
+    return list(range(int(nper)))
+
+
 __all__ = [
+    "broadcast_to_stress_periods",
     "discretize_spatially_distributed_source",
     "has_spatially_distributed_source",
+    "stress_period_axes",
 ]
