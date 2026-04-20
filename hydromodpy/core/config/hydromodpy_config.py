@@ -47,6 +47,7 @@ from hydromodpy.workflow.pipelines.overview_config import OverviewSection
 from hydromodpy.core.config.path_resolution import resolve_declared_path
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
+from hydromodpy.calibration.config import CalibrationConfig
 
 
 def _derive_run_id_from_filename(toml_path: Path) -> str:
@@ -178,6 +179,13 @@ class HydroModPyConfig(BaseModel):
             "Optional mesh-only settings loaded from the [mesh_catchment] "
             "section.  When present without [simulation], triggers the "
             "mesh-only workflow."
+        ),
+    )
+    calibration: CalibrationConfig | None = Field(
+        default=None,
+        description=(
+            "Optional calibration settings loaded from the [calibration] "
+            "section.  When present, triggers the calibration workflow."
         ),
     )
 
