@@ -109,7 +109,7 @@ def persist_calibration_result(
         store.finalize(sim_id, status="failed")
         raise
 
-    store.finalize(sim_id, status="calibrated")
+    store.finalize(sim_id, status="completed")
     logger.info("Persisted calibration result for sim %s", sim_id)
 
 
@@ -183,7 +183,7 @@ def persist_calibration_summary_to_store(
         for k, v in params_with_meta.items()
     ])
 
-    store.finalize(sim_id, status="calibrated")
+    store.finalize(sim_id, status="completed")
     logger.info(
         "Persisted calibration summary for sim %s "
         "(method=%s, objective=%.6g, iterations=%d)",

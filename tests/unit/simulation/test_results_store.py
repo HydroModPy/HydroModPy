@@ -143,7 +143,7 @@ class TestProvenance:
         assert df.iloc[0]["source_ref"] == "recharge/sim2"
 
         # Verify provenance via fingerprint comparison
-        stored_checksum = df.iloc[0]["checksum"]
+        stored_checksum = df.iloc[0]["payload_sha256"]
         assert fingerprint(data)["checksum"] == stored_checksum
 
         altered = data.copy()

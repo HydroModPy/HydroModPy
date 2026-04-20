@@ -120,7 +120,8 @@ class Simulation:
     @property
     def provenance(self) -> pd.DataFrame:
         return self._catalog.connection.execute(
-            "SELECT variable, source_type, source_ref, checksum, "
+            "SELECT variable, source_type, source_ref, "
+            "payload_sha256 AS checksum, "
             "period_start, period_end, n_records "
             "FROM provenance WHERE sim_id = ?",
             [self._sim_id],
@@ -135,14 +136,14 @@ class Simulation:
         period: tuple | None = None,
     ) -> pd.Series:
         query = (
-            "SELECT timestamp, value FROM timeseries "
+            "SELECT datetime, value FROM timeseries "
             "WHERE sim_id = ? AND station_id = ? AND variable = ?"
         )
         params: list = [self._sim_id, station, variable]
         if period is not None:
-            query += " AND timestamp >= ? AND timestamp <= ?"
+            query += " AND datetime >= ? AND datetime <= ?"
             params.extend([period[0], period[1]])
-        query += " ORDER BY timestamp"
+        query += " ORDER BY datetime"
         result = self._catalog.connection.execute(query, params).fetchdf()
         if result.empty:
             raise KeyError(
@@ -151,7 +152,7 @@ class Simulation:
             )
         return pd.Series(
             result["value"].values,
-            index=pd.DatetimeIndex(result["timestamp"]),
+            index=pd.DatetimeIndex(result["datetime"]),
             name=variable,
         )
 
@@ -266,8 +267,9 @@ class Simulation:
 
     def to_csv(self, path: Path | str | None = None) -> pd.DataFrame:
         df = self._catalog.connection.execute(
-            "SELECT station_id, variable, timestamp, value, unit "
-            "FROM timeseries WHERE sim_id = ? ORDER BY station_id, variable, timestamp",
+            "SELECT station_id, variable, datetime, value, unit "
+            "FROM timeseries WHERE sim_id = ? "
+            "ORDER BY station_id, variable, datetime",
             [self._sim_id],
         ).fetchdf()
         if path is not None:

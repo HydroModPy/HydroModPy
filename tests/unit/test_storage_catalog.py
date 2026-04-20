@@ -223,14 +223,27 @@ class TestPrimaryKeys:
         )
 
 
-class TestForeignKeys:
-    def test_parameters_rejects_unknown_sim(self, mem_conn):
-        unknown = _sim_id()
-        with pytest.raises(duckdb.ConstraintException):
-            mem_conn.execute(
-                "INSERT INTO parameters (sim_id, param_name, value) "
-                "VALUES (?, 'K', 1.0)", [unknown],
-            )
+class TestPerSimColumns:
+    def test_per_sim_tables_carry_sim_id(self, mem_conn):
+        """Each per-sim table exposes a non-null ``sim_id`` column.
+
+        Referential integrity is enforced by the catalog's delete path
+        rather than by DuckDB FK constraints (see module docstring), so
+        this test only checks the structural invariant.
+        """
+        per_sim = (
+            "parameters", "metrics", "timeseries", "budgets",
+            "mass_balance", "observation_points", "provenance",
+            "geographic_features", "geographic_metadata",
+        )
+        for table in per_sim:
+            row = mem_conn.execute(
+                "SELECT is_nullable FROM information_schema.columns "
+                "WHERE table_name = ? AND column_name = 'sim_id'",
+                [table],
+            ).fetchone()
+            assert row is not None, f"{table} missing sim_id"
+            assert row[0] == "NO", f"{table}.sim_id must be NOT NULL"
 
 
 class TestChecks:

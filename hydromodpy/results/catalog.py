@@ -1012,15 +1012,12 @@ class SimulationCatalog:
             "SELECT zarr_path FROM simulations WHERE sim_id = ?", [sid],
         ).fetchone()
 
-        self._db.begin()
-        try:
-            for table in PER_SIM_TABLE_NAMES:
-                self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
-            self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
-            self._db.commit()
-        except Exception:
-            self._db.rollback()
-            raise
+        for table in PER_SIM_TABLE_NAMES:
+            self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
+        self._db.execute(
+            "DELETE FROM calibration_iterations WHERE sim_id = ?", [sid],
+        )
+        self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
 
         if row and row[0]:
             zarr_abs = self._workspace / row[0]

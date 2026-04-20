@@ -92,7 +92,7 @@ class TestPersistCalibrationResult:
         # Verify the simulation was registered and finalized
         sims = store.list_simulations(sim_id=sid)
         assert len(sims) == 1
-        assert sims.iloc[0]["status"] == "calibrated"
+        assert sims.iloc[0]["status"] == "completed"
         assert sims.iloc[0]["name"] == "best_run"
 
         # Verify timeseries was written

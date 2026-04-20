@@ -46,7 +46,7 @@ def export_csv(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     query = (
-        "SELECT timestamp AS datetime, station_id, variable, value, unit "
+        "SELECT datetime, station_id, variable, value, unit "
         "FROM timeseries WHERE sim_id = ?"
     )
     params: list = [sim_id]

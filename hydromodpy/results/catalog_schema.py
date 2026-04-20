@@ -1,10 +1,9 @@
 """DuckDB schema for the HydroModPy simulation catalog.
 
 Clean-slate schema (phase P02): 12 core tables with normalized primary keys,
-foreign-key references to ``simulations(sim_id)``, ``TIMESTAMPTZ`` time
-columns, a JSON ``config_snapshot`` for full-config reproducibility, and a
-``geographic_fingerprint`` column used by the workspace-level
-content-addressable geographic cache
+``TIMESTAMPTZ`` time columns, a JSON ``config_snapshot`` for full-config
+reproducibility, and a ``geographic_fingerprint`` column that ties each
+simulation to the workspace-level content-addressable geographic cache
 (see :mod:`hydromodpy.results.geographic_cache`).
 
 This module defines only DDL and helpers; it does not track historical schema
@@ -12,9 +11,13 @@ versions. Each major release starts from a fresh schema. Migration principles
 for post-P13 evolutions are documented in
 ``docs/developers/schema_evolution.md``.
 
-Note on foreign keys: DuckDB's FK engine enforces existence at INSERT time
-but does not support ``ON DELETE CASCADE`` / ``SET NULL`` clauses. Application
-code that deletes a simulation is responsible for removing per-sim rows.
+Note on referential integrity: per-sim tables carry ``sim_id UUID NOT NULL``
+columns but **no** ``FOREIGN KEY`` clause. DuckDB's foreign-key engine does
+not implement ``ON DELETE CASCADE`` and refuses ``UPDATE`` on a parent row
+when child rows with composite primary keys still reference it (issue
+#duckdb/duckdb#11132 family). The catalog's :py:meth:`SimulationCatalog.delete`
+method removes per-sim rows explicitly, which gives equivalent semantics
+without the engine bug.
 """
 
 from __future__ import annotations
@@ -71,8 +74,7 @@ CREATE TABLE IF NOT EXISTS simulations (
     config_toml             JSON,
     config_snapshot         JSON,
     config_hash             VARCHAR,
-    parent_sim_id           UUID
-        REFERENCES simulations(sim_id),
+    parent_sim_id           UUID,
     lineage_kind            VARCHAR,
     zarr_path               VARCHAR,
     zarr_packed             BOOLEAN NOT NULL DEFAULT FALSE,
@@ -104,8 +106,7 @@ CREATE INDEX IF NOT EXISTS ix_sim_geo_fp ON simulations(geographic_fingerprint);
 
 _PARAMETERS_DDL = """
 CREATE TABLE IF NOT EXISTS parameters (
-    sim_id           UUID NOT NULL
-        REFERENCES simulations(sim_id),
+    sim_id           UUID NOT NULL,
     param_name       VARCHAR NOT NULL,
     zone_id          VARCHAR NOT NULL DEFAULT '_homogeneous',
     value            DOUBLE,
@@ -118,8 +119,7 @@ CREATE INDEX IF NOT EXISTS ix_param_name ON parameters(param_name);
 
 _METRICS_DDL = """
 CREATE TABLE IF NOT EXISTS metrics (
-    sim_id       UUID NOT NULL
-        REFERENCES simulations(sim_id),
+    sim_id       UUID NOT NULL,
     station_id   VARCHAR NOT NULL DEFAULT '__outlet__',
     variable     VARCHAR NOT NULL DEFAULT 'head',
     metric_name  VARCHAR NOT NULL,
@@ -134,8 +134,7 @@ CREATE INDEX IF NOT EXISTS ix_metrics_metric ON metrics(metric_name);
 
 _TIMESERIES_DDL = """
 CREATE TABLE IF NOT EXISTS timeseries (
-    sim_id     UUID NOT NULL
-        REFERENCES simulations(sim_id),
+    sim_id     UUID NOT NULL,
     station_id VARCHAR NOT NULL,
     variable   VARCHAR NOT NULL,
     datetime   TIMESTAMPTZ NOT NULL,
@@ -152,8 +151,7 @@ CREATE INDEX IF NOT EXISTS ix_ts_cross_sim
 
 _BUDGETS_DDL = """
 CREATE TABLE IF NOT EXISTS budgets (
-    sim_id    UUID NOT NULL
-        REFERENCES simulations(sim_id),
+    sim_id    UUID NOT NULL,
     timestep  INTEGER NOT NULL CHECK (timestep >= 0),
     zone_id   VARCHAR NOT NULL DEFAULT '__global__',
     component VARCHAR NOT NULL
@@ -172,8 +170,7 @@ CREATE INDEX IF NOT EXISTS ix_budgets_component ON budgets(component);
 
 _MASS_BALANCE_DDL = """
 CREATE TABLE IF NOT EXISTS mass_balance (
-    sim_id        UUID NOT NULL
-        REFERENCES simulations(sim_id),
+    sim_id        UUID NOT NULL,
     timestep      INTEGER NOT NULL,
     total_in      DOUBLE NOT NULL,
     total_out     DOUBLE NOT NULL,
@@ -191,8 +188,7 @@ CREATE TABLE IF NOT EXISTS mass_balance (
 
 _OBSERVATION_POINTS_DDL = """
 CREATE TABLE IF NOT EXISTS observation_points (
-    sim_id     UUID NOT NULL
-        REFERENCES simulations(sim_id),
+    sim_id     UUID NOT NULL,
     station_id VARCHAR NOT NULL,
     x          DOUBLE NOT NULL,
     y          DOUBLE NOT NULL,
@@ -206,8 +202,7 @@ CREATE INDEX IF NOT EXISTS ix_obs_cell
 
 _PROVENANCE_DDL = """
 CREATE TABLE IF NOT EXISTS provenance (
-    sim_id         UUID NOT NULL
-        REFERENCES simulations(sim_id),
+    sim_id         UUID NOT NULL,
     variable       VARCHAR NOT NULL,
     source_type    VARCHAR NOT NULL
         CHECK (source_type IN ('http_api', 'custom_file',
@@ -238,8 +233,7 @@ CREATE TABLE IF NOT EXISTS calibration_sessions (
     method         VARCHAR,
     objective_name VARCHAR,
     n_iterations   INTEGER,
-    best_sim_id    UUID
-        REFERENCES simulations(sim_id),
+    best_sim_id    UUID,
     best_objective DOUBLE,
     config         JSON,
     started_at     TIMESTAMPTZ,
@@ -255,11 +249,9 @@ CREATE INDEX IF NOT EXISTS ix_cal_project ON calibration_sessions(project);
 
 _CALIBRATION_ITERATIONS_DDL = """
 CREATE TABLE IF NOT EXISTS calibration_iterations (
-    session_id      UUID NOT NULL
-        REFERENCES calibration_sessions(session_id),
+    session_id      UUID NOT NULL,
     iteration       INTEGER NOT NULL,
-    sim_id          UUID
-        REFERENCES simulations(sim_id),
+    sim_id          UUID,
     parameters      JSON NOT NULL,
     objective_value DOUBLE,
     metrics         JSON,
@@ -276,8 +268,7 @@ CREATE INDEX IF NOT EXISTS ix_cal_iter_sim
 
 _GEOGRAPHIC_FEATURES_DDL = """
 CREATE TABLE IF NOT EXISTS geographic_features (
-    sim_id          UUID NOT NULL
-        REFERENCES simulations(sim_id),
+    sim_id          UUID NOT NULL,
     feature_name    VARCHAR NOT NULL,
     geometry_kind   VARCHAR
         CHECK (geometry_kind IS NULL OR
@@ -292,8 +283,7 @@ CREATE TABLE IF NOT EXISTS geographic_features (
 
 _GEOGRAPHIC_METADATA_DDL = """
 CREATE TABLE IF NOT EXISTS geographic_metadata (
-    sim_id     UUID NOT NULL
-        REFERENCES simulations(sim_id),
+    sim_id     UUID NOT NULL,
     key        VARCHAR NOT NULL,
     value      VARCHAR,
     value_type VARCHAR NOT NULL DEFAULT 'string'

@@ -195,7 +195,7 @@ class TestWriteMethods:
         data = np.random.default_rng(0).random(100)
         catalog.write_provenance(sid, "recharge", "/data/recharge.nc", data)
         row = catalog.connection.execute(
-            "SELECT checksum, n_records FROM provenance WHERE sim_id = ?",
+            "SELECT payload_sha256, n_records FROM provenance WHERE sim_id = ?",
             [sid],
         ).fetchone()
         assert row[0] is not None
@@ -210,7 +210,7 @@ class TestDelete:
         catalog.write_parameters(sid, [{"param_name": "K", "value": 1.0}])
         idx = pd.date_range("2020-01-01", periods=5, freq="D")
         catalog.write_timeseries(sid, "P01", "head", pd.Series(np.ones(5), index=idx))
-        catalog.write_budget(sid, 0, "z1", "rch", 10.0, 0.0)
+        catalog.write_budget(sid, 0, "z1", "recharge", 10.0, 0.0)
         catalog.write_mass_balance(sid, 0, 10.0, 9.5, 5.0)
         catalog.write_metric(sid, "P01", "nse", 0.8)
         catalog.write_provenance(sid, "dem", "dem.tif", np.ones(10))
