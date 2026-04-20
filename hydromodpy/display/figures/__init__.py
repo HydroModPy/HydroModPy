@@ -13,6 +13,7 @@ from hydromodpy.display.figures import (  # noqa: F401
     hydrograph,
     piezometric_map,
     recharge_map,
+    seepage_map,
 )
 
 __all__: list[str] = []
