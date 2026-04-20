@@ -1034,3 +1034,44 @@ class SimulationCatalog:
 
     def __exit__(self, *exc):
         self.close()
+
+    def __repr__(self) -> str:
+        try:
+            count = self._db.execute(
+                "SELECT COUNT(*) FROM simulations"
+            ).fetchone()[0]
+        except Exception:
+            count = "?"
+        return f"SimulationCatalog(workspace={str(self._workspace)!r}, simulations={count})"
+
+    def _repr_html_(self) -> str:
+        try:
+            count = self._db.execute(
+                "SELECT COUNT(*), "
+                "SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END), "
+                "SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) FROM simulations"
+            ).fetchone()
+            total, ok, failed = count
+            projects = [
+                str(r[0])
+                for r in self._db.execute(
+                    "SELECT DISTINCT project FROM simulations"
+                ).fetchall()
+            ]
+        except Exception:
+            total, ok, failed, projects = 0, 0, 0, []
+        projects_str = ", ".join(sorted(projects)) if projects else "&mdash;"
+        rows = [
+            ("workspace", f"<code>{self._workspace}</code>"),
+            ("simulations", f"{total or 0} ({ok or 0} success, {failed or 0} failed)"),
+            ("projects", projects_str),
+        ]
+        body = "".join(
+            f"<tr><th style='text-align:left'>{k}</th><td>{v}</td></tr>"
+            for k, v in rows
+        )
+        return (
+            "<div><b>SimulationCatalog</b>"
+            "<table style='font-size:0.85em;border-collapse:collapse'>"
+            f"{body}</table></div>"
+        )
