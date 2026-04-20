@@ -45,6 +45,16 @@ def test_normalize_flow_initial_conditions_rejects_unknown_units() -> None:
         normalize_flow_initial_conditions(
             {
                 "type": "custom",
-                "value": "1.25 furlong",
+                "value": "1.25 qblorp",
+            }
+        )
+
+
+def test_normalize_flow_initial_conditions_rejects_non_length_units() -> None:
+    with pytest.raises(ValueError, match="Unsupported length unit"):
+        normalize_flow_initial_conditions(
+            {
+                "type": "custom",
+                "value": "1.25 kg",
             }
         )

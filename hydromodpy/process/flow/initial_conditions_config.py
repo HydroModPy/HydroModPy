@@ -16,7 +16,7 @@ from hydromodpy.process.flow.initial_conditions import (
     FlowInitialCondition,
     FlowInitialConditions,
 )
-from hydromodpy.core.units import parse_to_m
+from hydromodpy.core.units import parse_to_canonical_magnitude
 
 
 def normalize_flow_initial_conditions(
@@ -89,23 +89,23 @@ def _normalize_single_ic_payload(
     if ic_type == "custom":
         if "value" not in payload_dict:
             raise ValueError(f"{location_prefix}.value is required when type='custom'")
-        scalar_value, _ = parse_to_m(
+        payload_dict["value"] = parse_to_canonical_magnitude(
             payload_dict["value"],
             location=f"{location_prefix}.value",
-            default_unit="m",
+            canonical_unit="m",
             explicit_unit=explicit_units,
+            length_label="length",
         )
-        payload_dict["value"] = scalar_value
         payload_dict["units"] = "m"
     else:
         if "value" in payload_dict:
-            scalar_value, _ = parse_to_m(
+            payload_dict["value"] = parse_to_canonical_magnitude(
                 payload_dict["value"],
                 location=f"{location_prefix}.value",
-                default_unit="m",
+                canonical_unit="m",
                 explicit_unit=explicit_units,
+                length_label="length",
             )
-            payload_dict["value"] = scalar_value
             payload_dict["units"] = "m"
         else:
             payload_dict.pop("value", None)
