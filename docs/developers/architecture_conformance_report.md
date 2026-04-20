@@ -314,6 +314,43 @@ checkpoint est noté :
 
 ---
 
+### 08_postprocess_display.md
+**Résumé :** Le module `display/` est conforme sur le contrat Figure, le registre, les 9 figures canoniques, le helper UGRID, les métriques, les dérivés et la purge des env vars ; la cible d'architecture étendue (Thème, colormaps banlist, GeoFigureMixin, duration_curve/Piper/etc.) reste volontairement non implémentée pour v0.4.
+**Checkpoints :** 19 au total, OK=14, ÉCART=2, MANQUANT=3.
+
+| # | Checkpoint | Verdict | Preuve / Note |
+|---|------------|---------|---------------|
+| 1 | `display/figure.py` : Figure Protocol + BaseFigure ABC | OK | `display/figure.py:55-76`. |
+| 2 | `display/catalog.py` : register/get/list_figures/names | OK | `display/catalog.py:16-43`. |
+| 3 | 9 figures canoniques sous `display/figures/` | OK | piezometric_map, hydrograph, cross_section, recharge_map, seepage_map, particle_tracks, concentration_map, water_budget, difference_map. |
+| 4 | Chaque figure = `BaseFigure` + `@register` + `FigureSpec` | OK | 9 classes matchent ; test `tests/unit/test_figure_catalog.py:17-27`. |
+| 5 | `display/_ugrid.py::render_face_field` unifie DIS + DISV | OK | `_ugrid.py:23-65` — `PolyCollection` sans `reshape(nrow,ncol)`. |
+| 6 | `results/metrics.py` : 7 métriques (+ align) | OK | `metrics.py:18-27` `__all__ = ["align","bias","correlation","kge","log_nse","nse","pbias","rmse"]`. |
+| 7 | Métriques robustes NaN + retournent `float` | OK | `align()` masque les non-finis. |
+| 8 | `results/derived.py` : 4 fonctions canoniques | OK | `derived.py:22-27` `__all__ = ["fluxes_from_budget","seepage_mask","watertable_depth","watertable_elevation"]`. |
+| 9 | `HYDROMODPY_NO_DISPLAY` purgé du package | OK | 0 occurrence dans `hydromodpy/`, `tests/`, `validation_cases/`. |
+| 10 | `HYDROMODPY_NO_SAVE` purgé du package | OK | Idem. |
+| 11 | `hydromodpy/analysis/display/` physiquement supprimé | OK | `analysis/` ne contient que `batch/`, `comparison/`, `capability_gallery.py`, `__init__.py`. |
+| 12 | `hydromodpy/analysis/postprocess/` physiquement supprimé | OK | Idem. |
+| 13 | `[display]` TOML section via `DisplayConfig` | OK | `display/config.py:17-45` (save, interactive, output_dir, dpi, figures) + intégré `core/config/hydromodpy_config.py:36,146,271`. |
+| 14 | Tests contrat Figure (`test_figure_catalog.py`) | OK | 72 lignes, registration + protocol conformance. |
+| 15 | Tests métriques + derived | OK | `test_metrics_nse.py`, `test_metrics_kge.py`, `test_derived_watertable.py`, `test_derived_registry.py`. |
+| 16 | `DisplayConfig` expose `enabled/backend/preset/show/[display.overrides.*]` | ÉCART | Champs simplifiés (save/interactive/output_dir/dpi/figures) — intention respectée mais schéma cible plus riche (§9/§11). |
+| 17 | Pipeline "derived écrits dans Zarr à l'extraction" | ÉCART | Fonctions pures `results/derived.py` présentes ; intégration systématique via extractors non vérifiable depuis ce module. |
+| 18 | Infrastructures cibles (theme.py, colormaps.py banlist, renderer.py BackendManager, geo/, core/units/labels.py) | MANQUANT | Non implémentées — cible §3.3–§3.5/§8/§9. |
+| 19 | Figures étendues (duration_curve, recession, Piper/Stiff/Schoeller, seasonal_boxplot, side_by_side, ensemble_band, calibration plots, watershed_id_card) | MANQUANT | `display/figures/` = 9 canoniques seulement. |
+
+**Écarts assumés :**
+- `DisplayConfig` minimal (save/interactive/output_dir/dpi/figures) — intention "CI-safe" respectée.
+- Intégration derived → Zarr à confirmer côté extractors (hors périmètre display).
+
+**Manquants :**
+- Infrastructures cibles (theme, colormaps banlist, renderer, geo, labels) — suivi `v0.5-display-theme-colormap`.
+- Corpus figures étendu (20+ figures supplémentaires spec §6) — suivi `v0.5-figure-library`.
+- Tests d'interdiction (`test_no_banned_cmap_in_display`, `test_no_matplotlib_side_effects`, `test_display_never_writes_to_zarr`) — suivi `v0.5-display-guardtests`.
+
+---
+
 
 
 ## Écarts globaux assumés (décisions architecture)
