@@ -351,6 +351,49 @@ checkpoint est noté :
 
 ---
 
+### 09_tests_ideaux.md
+**Résumé :** F06 a amorcé la migration (dossier `integration/`, fixtures `tmp_workspace`/`minimal_config`, CI trois jobs avec flags Codecov) mais la suite cible (`unit ~80` fichiers, `_helpers/`, `e2e/`, MMS/Theis/Hantush, `pytest.ini` dédié, `TOLERANCES.md`) reste majoritairement non implémentée.
+**Checkpoints :** 20 au total, OK=8, ÉCART=5, MANQUANT=7.
+
+| # | Checkpoint | Verdict | Preuve / Note |
+|---|------------|---------|---------------|
+| 1 | Quatre tiers unit/integration/validation/e2e | ÉCART | unit/integration/validation/regression ; `tests/e2e/` absent ; `regression/` persiste (spec §2.1 fusionne dans validation/e2e). |
+| 2 | `tests/integration/` avec `__init__.py` + `conftest.py` | OK | `conftest.py` autouse `_integration_tier_marker`. |
+| 3 | Fixtures `tmp_workspace` + `minimal_config` dans `tests/conftest.py` | OK | Lignes 61-97. |
+| 4 | `tests/README.md` documente les tiers | OK | Sections « Tiers », « Markers », « Writing new tests ». |
+| 5 | CI job unit avec Codecov flag `unit` | OK | `.github/workflows/coverage.yml:11-65`. |
+| 6 | CI job integration avec Codecov flag `integration` | OK | Lignes 67-121. |
+| 7 | CI job regression (fast+extensive) avec flag `regression` | OK | Lignes 123-179. |
+| 8 | Markers declared (13 marqueurs dont integration, coverage, petsc, extensive) | OK | `pyproject.toml:141-155`. |
+| 9 | Marker `boussinesq`/`network`/`binary`/`gpu` | ÉCART | Absents — on vit avec `nwt`/`mf6`/`petsc`. |
+| 10 | `tests/pytest.ini` dédié (sortie de `pyproject.toml`) | MANQUANT | Config reste dans `pyproject.toml`. |
+| 11 | Suite pytest collecte sans erreur | OK | integration=20, unit=1878, regression+validation=97 tests collectés. |
+| 12 | Ratio cible 75/17/6/2 | ÉCART | 82/1.5/12.8/0 (unit/integration/validation/e2e) — très éloigné. |
+| 13 | `tests/_helpers/` renommé | MANQUANT | Toujours `tests/support/`. |
+| 14 | `tests/TOLERANCES.md` avec justifications | MANQUANT | Seuls `README.md` et `README_timing_distribution.md` présents. |
+| 15 | Auto-tag par chemin + timeouts par layer | ÉCART | Gère `fast`/`extensive` pour regression seulement ; pas de timeout layer ni auto-tag global. |
+| 16 | Hook anti-subprocess dans `tests/unit/conftest.py` | MANQUANT | Aucun `tests/unit/conftest.py`. |
+| 17 | Benchmarks Theis / Hantush / Ogata-Banks | MANQUANT | Absents de `tests/validation/analytical/transient/`. |
+| 18 | MMS (Laplacien 1D, diffusion transitoire) | MANQUANT | Pas de `tests/validation/mms/`. |
+| 19 | Seeds déterministes autouse + BLAS single-thread | ÉCART | `conftest.py` ne configure que `HYDROMODPY_TEST_SCRATCH_ROOT`/`TMPDIR`. |
+| 20 | Migration 3 cross-module tests F06 vers `integration/` | OK | `test_calibration_bridge.py`, `test_results_adapters.py`, `test_results_post_run.py` + `test_fixtures_smoke.py`. |
+
+**Écarts assumés :**
+- Ratios éloignés de 75/17/6/2 — dégraissage `tests/unit/` hors scope v0.4.
+- Markers secondaires `boussinesq`/`network`/`binary`/`gpu` non ajoutés.
+- `tests/regression/` persistant — fusion dans validation/e2e reportée.
+
+**Manquants :**
+- `tests/e2e/` complet — suivi `v0.5-tests-e2e`.
+- `tests/_helpers/` (fixtures_mesh/catalog/config/data.py, strategies.py, signatures.py, assertions.py) — suivi `v0.5-tests-helpers`.
+- `tests/TOLERANCES.md` — suivi `v0.5-tests-tolerances`.
+- `tests/pytest.ini` dédié — suivi `v0.5-tests-pytest-ini`.
+- `tests/unit/conftest.py` hook anti-subprocess — suivi `v0.5-tests-unit-guardrails`.
+- Benchmarks analytiques Theis/Hantush/Ogata-Banks + MMS — suivi `v0.5-validation-analytical-mms`.
+- Fixture autouse `_deterministic_seeds` + BLAS mono-thread — suivi `v0.5-tests-determinism`.
+
+---
+
 
 
 ## Écarts globaux assumés (décisions architecture)
