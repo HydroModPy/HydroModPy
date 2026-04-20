@@ -460,6 +460,14 @@ def _cmd_config(args: argparse.Namespace) -> None:
         _cmd_config_schema(args)
         return
 
+    if args.output == "wizard" or getattr(args, "wizard", False):
+        # Clear "output" from the wizard trigger so the helper asks for a
+        # destination path instead of trying to write to a file called "wizard".
+        if args.output == "wizard":
+            args.output = None
+        _cmd_config_wizard(args)
+        return
+
     if args.list_modules:
         for name in available_modules():
             print(name)
@@ -1431,6 +1439,12 @@ def main() -> None:
         "--list-sections",
         action="store_true",
         help="When used with 'hmp config schema', list available section names.",
+    )
+    config_parser.add_argument(
+        "--wizard",
+        action="store_true",
+        help="Launch the simple stdin-based TOML wizard. You can also pass the "
+             "literal word 'wizard' as OUTPUT: 'hmp config wizard'.",
     )
 
     # --- run subcommand (replaces 'simulation') ---
