@@ -849,11 +849,12 @@ class SimulationCatalog:
         output.mkdir(parents=True, exist_ok=True)
 
         row = self._db.execute(
-            "SELECT zarr_path FROM simulations WHERE sim_id = ?", [sid],
+            "SELECT zarr_path, geographic_fingerprint "
+            "FROM simulations WHERE sim_id = ?", [sid],
         ).fetchone()
         if row is None:
             raise KeyError(f"Simulation '{sid}' not found")
-        zarr_rel = row[0]
+        zarr_rel, geo_fp = row
 
         pkg_db_path = output / "simulation.duckdb"
         pkg_db = duckdb.connect(str(pkg_db_path))
@@ -878,6 +879,13 @@ class SimulationCatalog:
         elif zarr_src.is_dir():
             zarr_dst = output / "results.zarr"
             shutil.copytree(zarr_src, zarr_dst, dirs_exist_ok=True)
+
+        # Materialise the shared geographic cache entry so the package is
+        # self-contained without duplicating rasters in every simulation.
+        from hydromodpy.results.exporters.hmp_package import (
+            materialize_geographic_on_export,
+        )
+        materialize_geographic_on_export(self._workspace, geo_fp, output)
 
         return output
 
@@ -956,6 +964,15 @@ class SimulationCatalog:
                 for fpath in sorted(pkg_zarr_dir.rglob("*")):
                     if fpath.is_file():
                         zf.write(str(fpath), str(fpath.relative_to(pkg_zarr_dir)))
+
+        # De-materialise the geographic payload into the workspace cache so
+        # subsequent imports sharing the same fingerprint deduplicate.
+        from hydromodpy.results.exporters.hmp_package import (
+            dematerialize_geographic_on_import,
+        )
+        dematerialize_geographic_on_import(
+            pkg, self._workspace, overwrite=force,
+        )
 
         return sid
 
