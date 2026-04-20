@@ -291,6 +291,7 @@ _LAZY_IMPORTS = {
     # Simulation API (programmatic façade)
     "Simulation": "hydromodpy.project",
     "SimulationResult": "hydromodpy.project",
+    "SimulationPlan": "hydromodpy.simulation.planning.plan",
     # Catalog API
     "Catalog": "hydromodpy.results.catalog:SimulationCatalog",
     "SimulationCatalog": "hydromodpy.results.catalog",
@@ -388,6 +389,7 @@ __all__ = [
     "Simulation",
     "SimulationResult",
     "SimulationView",
+    "SimulationPlan",
     "Catalog",
     "SimulationCatalog",
     "SimulationGroup",
