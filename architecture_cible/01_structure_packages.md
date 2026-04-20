@@ -112,11 +112,6 @@ hydromodpy/
 │   │   ├── crs.py                  Parsing CRS robuste (pyproj.CRS.from_user_input).
 │   │   └── http_client.py          HTTPClient avec retry/backoff/timeout (Hub'Eau, BRGM, IGN).
 │   │
-│   ├── whitebox/                   Backend Whitebox (ex core/backends/, renommé au singulier).
-│   │   ├── __init__.py
-│   │   ├── backend.py              WhiteboxBackend + cache.
-│   │   └── adapter.py              whitebox_workflows → API homogène.
-│   │
 │   ├── exceptions.py               Hiérarchie exceptions (HydroModPyError, ConfigError,
 │   │                               SolverError, DataError, MeshError). UTILISÉE partout.
 │   └── version.py                  __version__ (récupère metadata, fallback pyproject).
@@ -198,9 +193,19 @@ hydromodpy/
 │   │   ├── __init__.py
 │   │   ├── geographic.py           Geographic (ex-classe). Interface stable.
 │   │   ├── geographic_config.py    GeographicConfig Pydantic.
-│   │   ├── delineation.py          Algo délinéation (pysheds/whitebox).
 │   │   ├── streams.py              Extraction réseau hydrographique.
 │   │   └── subbasin.py             Subbasin structure + algorithmes.
+│   │
+│   ├── delineation/                Backends de délinéation multi-implémentation.
+│   │   ├── __init__.py             Exports : get_backend, DelineationBackend.
+│   │   ├── base.py                 Protocol DelineationBackend
+│   │   │                           (flow_accumulation, flow_direction,
+│   │   │                            stream_network, catchment_from_outlet).
+│   │   ├── whitebox_cli_backend.py       Wrapper WhiteboxTools CLI (ex core/backends/whitebox_backend.py).
+│   │   ├── whitebox_workflows_backend.py Wrapper whitebox_workflows Python (ex core/backends/whitebox_workflows_backend.py).
+│   │   ├── pysheds_backend.py      [FUTUR] Stub NotImplementedError.
+│   │   ├── synthetic_backend.py    BV auto-générés (procedural DEM + catchment).
+│   │   └── registry.py             get_backend(name) → instance, fallback gracieux.
 │   │
 │   ├── domain/                     Assemblage domaine de simulation.
 │   │   ├── __init__.py
@@ -935,7 +940,12 @@ def _handle(args: argparse.Namespace) -> int:
 | `core/tools/raster.py`, `core/tools/statistics.py` | `core/io/raster_io.py`, conservé si tactique | [D] déplacé |
 | `core/tools/run_id.py` (NOUVEAU) | `core/tools/run_id.py` | **[N]** factorise `_derive_run_id_from_filename` (duplicata). |
 | `core/workspace/` | `core/workspace/` | [C] conservé |
-| `core/backends/` (pluriel trompeur) | `core/whitebox/` | [R] renommé (singulier) |
+| `core/backends/whitebox_backend.py` | `spatial/delineation/whitebox_cli_backend.py` | [D]+[R] déplacé hors `core/` vers `spatial/delineation/` (code scientifique, pas infra). Shim rétrocompat en P05, supprimé en P13. |
+| `core/backends/whitebox_workflows_backend.py` | `spatial/delineation/whitebox_workflows_backend.py` | [D]+[R] même raison. |
+| `core/backends/` (dossier entier) | **supprimé** | [X] disparaît de l'arbre cible. |
+| (NOUVEAU) | `spatial/delineation/base.py` | **[N]** Protocol `DelineationBackend` (multi-backend). |
+| (NOUVEAU) | `spatial/delineation/synthetic_backend.py` | **[N]** BV auto-générés (récupérer l'existant si déjà présent). |
+| (NOUVEAU) | `spatial/delineation/registry.py` | **[N]** `get_backend(name)` avec fallback. |
 | `core/exceptions.py` (NOUVEAU depuis racine) | `core/exceptions.py` | [D]+[F] déplacé depuis `hydromodpy/exceptions.py` + utilisé réellement |
 | `core/version.py` (NOUVEAU) | `core/version.py` | **[N]** extrait le calcul `__version__` du top-level `__init__.py`. |
 | `core/io/http_client.py` (NOUVEAU) | `core/io/http_client.py` | **[N]** wrapper HTTP unique avec retry, timeout, 429. Remplace tous les `urllib.request.urlretrieve` dispersés. |

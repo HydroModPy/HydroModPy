@@ -1,20 +1,69 @@
-# 11 — Architecture Frontend-Ready (API REST + Angular)
+# 11 — Frontend-Ready (JSON Schema + hooks Pydantic)
 
-> **Objectif** : concevoir la couche HTTP qui expose HydroModPy à un frontend
-> Angular (ou tout client web) avec validation de configuration en temps réel,
-> suivi de simulations, navigation dans le catalogue et streaming de résultats.
-> Le package Python reste local-first, pur, indépendant ; l'API est un vernis.
+> **Objectif révisé** : **pas de serveur FastAPI dans HydroModPy**. Le projet
+> expose des **hooks Pydantic + JSON Schema** pour que des frontends externes
+> (Streamlit local, Angular tiers, React, n'importe quel consommateur de JSON
+> Schema) puissent se brancher **sans refactoring du cœur**.
 >
-> **Analogie** : c'est le modèle JupyterHub/JupyterServer (Python noyau ↔ REST)
-> ou Grafana (noyau Go ↔ frontend React via API OpenAPI), ou encore Apache
-> Superset (Flask-AppBuilder ↔ React, modèles SQLAlchemy exposés en JSON
-> Schema).
->
-> **Préfixes de traçabilité** :
-> - [NOUVEAU] : n'existe pas aujourd'hui, à créer.
-> - [REFACTORE] : existe mais doit changer pour supporter l'API.
-> - [RENOMME] : change de nom.
-> - [CONSERVE] : tel quel.
+> Le cœur `hydromodpy` reste **pur Python, zéro dépendance web**.
+
+---
+
+## OVERRIDES (décisions post-review)
+
+Les décisions ci-dessous **prévalent** sur toute mention contraire dans la suite du document.
+
+### FastAPI, uvicorn, WebSockets : **HORS SCOPE**
+
+- **Le projet n'implémente PAS de serveur FastAPI.**
+- Tout ce qui est décrit plus bas avec `POST /`, `GET /`, `WebSocket /`, `uvicorn`, `create_app() -> FastAPI` : **à considérer comme référence externe uniquement**, pour un développeur tiers qui voudrait écrire son serveur.
+- **Ne PAS ajouter** aux dépendances : `fastapi`, `uvicorn`, `websockets`, `httpx[server]`, `starlette`.
+- L'éventuel `hydromodpy/api/` proposé dans le doc : **non créé** dans cette migration.
+
+### Livrable réel de cette phase (P11)
+
+1. **`hmp schema export`** — export JSON Schema complet depuis `HydroModPyConfig` :
+   - `schema/config.json` : JSON Schema Pydantic.
+   - `schema/config_meta.json` : métadonnées (sections TOML, groupes UI, ordre).
+   - `schema/field_validators.json` : mapping `field_path` → type de validator.
+
+2. **Annotations riches Pydantic** (`json_schema_extra` sur chaque `Field`) :
+   - `widget_type` ∈ `{"slider", "input", "select", "checkbox", "file"}`
+   - `unit` (ex : `"m/s"`)
+   - `display_name_fr` (ex : `"Conductivité hydraulique"`)
+   - `help_text_fr`
+   - `display_min`, `display_max` (pour sliders)
+
+3. **Partial field validator** pour validation champ-par-champ (< 50 ms) :
+   ```python
+   from hydromodpy.schema.partial_validator import validate_field
+
+   result = validate_field(
+       path="flow.properties.specific_yield",
+       value=1.5,
+       context=current_config_dict,
+   )
+   # → {"valid": False, "error": "Sy must be ≤ 1", "warnings": [],
+   #    "dependent_fields_affected": []}
+   ```
+
+4. **Documentation** dans `docs/developers/frontend_hooks.md` : snippets Streamlit, Angular, React pour consommer le schema.
+
+5. **Exemple Streamlit** dans `docs/examples/streamlit_app.py` (fichier d'exemple, **pas** dans les dépendances).
+
+### Consommateurs cibles
+
+| Consommateur | Comment il se branche |
+|---|---|
+| **Streamlit local** (usage interne) | `streamlit run app.py` qui lit `schema/config.json` et génère un formulaire. |
+| **Angular externe** (repo séparé `hydromodpy-ui`) | codegen depuis `schema/config.json`, client HTTP vers le CLI via `subprocess` ou un serveur **externe** au projet. |
+| **React / Vue / Svelte** | même mécanique, JSON Schema standard. |
+| **Swagger / OpenAPI UI** | uniquement si un développeur écrit un serveur externe ; pas fourni ici. |
+
+### Conséquences dans le reste du document
+
+- Toutes les sections `## 2. Couche API REST/HTTP (FastAPI)`, `## 2.6 Endpoint POST /simulations/run`, les blocs de code FastAPI, les WebSocket handlers : **références externes**, **non implémentées**.
+- Les sections `## 2.1 JSON Schema depuis Pydantic`, `## 2.2 Validation champ-par-champ`, `## 3 Annotations riches` : **effectivement livrées** en P11.
 
 ---
 

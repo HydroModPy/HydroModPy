@@ -1,9 +1,61 @@
 # Plan de migration HydroModPy — architecture cible
 
-**Statut :** Plan exécutable · **Cible :** migration intégrale 01→13 · **Branche base :** `dev-database`
-**Périmètre :** 13 phases indépendantes, chacune déclenchable par un prompt Claude Code autonome.
+**Statut :** Plan exécutable · **Cible :** migration intégrale 01→13 · **Branche base :** `dev-refact_v2`
+**Périmètre :** 13 phases indépendantes, exécutées par un **unique script** `run_migration.sh` à la racine du repo.
 
-Ce document consolide les 13 documents d'architecture cible (`architecture_cible/01..13`) et les 11 rapports d'audit (`audit_code/01..11`) en une séquence opérationnelle de migration. Chaque phase est autonome, testable isolément, rollback-safe via git branch, et équipée d'un prompt Claude Code prêt à copier-coller.
+Ce document consolide les 13 documents d'architecture cible (`architecture_cible/01..13`) et les 11 rapports d'audit (`audit_code/01..11`) en une séquence opérationnelle de migration.
+
+---
+
+## OVERRIDES (décisions post-review)
+
+### Un seul script `run_migration.sh` à la racine
+
+- **Remplace** les anciens `run_migration_Pxx.sh` individuels mentionnés plus bas.
+- Orchestre **les 13 phases** avec :
+  - gestion des **rate limits Claude** (attente jusqu'au reset, max 6h)
+  - **reprise après crash / déconnexion** (état persistant dans `migration/phases/*.done`)
+  - **commits atomiques** au format `[Pxx] - <few english words>` (sans `Co-Authored-By`)
+  - **zéro push**, **zéro changement de branche**, garde-fous automatiques
+  - utilisation de **sous-agents Claude** (Agent/Explore) pour paralléliser la recherche
+- Lancement : `tmux new-session -s migration './run_migration.sh'`.
+- Reprise : `./run_migration.sh --resume` (ou simplement le relancer — idempotent).
+- Statut : `./run_migration.sh --status`.
+
+### Phases retirées du scope initial
+
+- **Migration DB** : supprimée (clean slate, voir `04_storage_ideal.md` OVERRIDES).
+- **PEST++ adapter** : retiré (voir `07_calibration.md` OVERRIDES, reporté post-P13).
+- **FastAPI serveur** : retiré (voir `11_frontend_ready.md` OVERRIDES, hors scope).
+
+### Ordre canonique des phases (appliqué par le script)
+
+| # | Phase | Objectif (synthèse) |
+|---|---|---|
+| **P01** | Foundations | Cleanup legacy + glossaire + migration docs |
+| **P02** | Storage | DuckDB schema clean + Zarr + **geographic fingerprint cache** |
+| **P03** | Config | Pydantic + **pydantic-pint** + JSON Schema + annotations riches |
+| **P04** | Data layer | Scaffold drag-and-drop + auto-scan mtime + **INRAE SIM2 préservé** |
+| **P05** | Spatial/Delineation | whitebox → **spatial/delineation/** multi-backend + synthetic |
+| **P06** | Solvers | Protocol SolverAdapter + `modflow_common/` mutualisé |
+| **P07** | Pipeline | Orchestration unifiée + **checkpointing** + resume après crash |
+| **P08** | Post-process | Figures solver-agnostiques + métriques + derived |
+| **P09** | Calibration | **Optuna** principal + **lightweight mode** + TOML simplifié |
+| **P10** | API + CLI | `import hydromodpy as hmp` + CLI `hmp` sous-commandes |
+| **P11** | Frontend hooks | JSON Schema export + partial validator (**pas de FastAPI**) |
+| **P12** | Tests | Suite compacte + maintenable |
+| **P13** | Cleanup | Code mort + renommages + docs finales |
+
+### Conséquences dans le reste du document
+
+- Toute table de phases avec un ordre différent : **considérer celle des OVERRIDES comme canonique**.
+- Toute proposition de scripts `run_migration_Pxx.sh` séparés : fusionnée dans le `run_migration.sh` unique.
+
+---
+
+**Plan historique détaillé conservé ci-dessous à titre de référence.**
+
+Chaque phase est autonome, testable isolément, rollback-safe via git branch, et équipée d'un prompt Claude Code prêt à copier-coller.
 
 Légende statuts par fichier/classe :
 - **[N]** NOUVEAU — n'existe pas aujourd'hui

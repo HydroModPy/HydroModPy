@@ -10,6 +10,64 @@
 
 ---
 
+## OVERRIDES (décisions post-review)
+
+Les décisions ci-dessous **prévalent** sur toute mention contraire dans la suite du document.
+
+### 1. API SIM2 via INRAE — PRÉSERVÉE
+
+- Le client SIM2 actuel (`hydromodpy/data/climatic/sim2_API.py`) pointe vers un **hébergement INRAE public** qui **redistribue Météo-France** avec des formats améliorés (NetCDF CF natif, pas de rate limit, pas de clé obligatoire). Testé, fonctionne bien.
+- **NE PAS** migrer vers `meteo.data.gouv.fr/api/v1/edr/collections/sim2/` — cela casserait un flow qui marche déjà pour un gain théorique.
+- Action P04 : **refacto cosmétique uniquement** → déplacer le fichier vers `hydromodpy/data/common/clients/sim2_inrae.py`. **Aucun changement d'endpoint, aucun changement de format.**
+- Les sections 2.1 / 2.2 qui détaillent la migration vers l'EDR data.gouv sont **annulées**.
+
+### 2. Données utilisateur custom — drag-and-drop AVANT CLI
+
+**Flow principal** (déjà amorcé dans `hydromodpy/data/scaffold.py`) :
+
+```
+~/hydromodpy/                              ← workspace
+├── hydrometry_custom/                     ← scaffoldé à `hmp init`
+│   ├── locations.csv                      ← header: id,x,y,crs,unit
+│   ├── README.md                          ← format expliqué
+│   └── chronicles/
+│       ├── P01.csv                        ← header: datetime,value
+│       └── P02.csv
+├── piezometry_custom/
+├── precipitation_custom/
+├── recharge_custom/
+└── ...
+```
+
+**Auto-scan mtime-based** au `hmp run` :
+- `hydromodpy/data/auto_scan.py` (NOUVEAU en P04) détecte les fichiers **nouveaux ou modifiés** (mtime > `indexed_at` dans `data/cache.duckdb`).
+- Validation schéma automatique, conversion format pivot invisible.
+- Enregistrement avec `provider="custom"` dans le cache DuckDB.
+
+**Coexistence avec CLI** :
+- `hmp data add FILE` reste disponible pour les **power users** (contrôle fin, metadata explicite).
+- `hmp data check [--variable X]` valide sans ingérer.
+- `hmp data list` liste les artefacts indexés.
+- **Mais le flow standard ne l'exige pas** : l'utilisateur drop ses fichiers dans `{variable}_custom/` et lance `hmp run`, point.
+
+### 3. Formats utilisateur acceptés
+
+| Type | Formats utilisateur acceptés | Format pivot interne (invisible) |
+|---|---|---|
+| Stations / points | CSV (header `id,x,y,crs,unit`), SHP, GeoJSON | GeoParquet |
+| Chroniques | CSV (header `datetime,value`) | Parquet |
+| Rasters | GeoTIFF, ASC (Esri grid) | GeoTIFF COG |
+| Géométries vectorielles | SHP, GeoJSON, GPKG | GeoParquet |
+
+**Principe** : l'utilisateur n'est **jamais exposé** à Parquet/GeoParquet. Des adapters convertissent en amont du cache.
+
+### Conséquences dans le reste du document
+
+- Section 2 (Couche API-first) : l'entrée SIM2 pointe vers INRAE, pas data.gouv.
+- Section 3 (Couche fichiers locaux) / Section 4 (hmp data) : le drag-and-drop est le flow **primaire**, les commandes CLI sont **secondaires**.
+
+---
+
 ## Table des matières
 
 0. [Diagnostic synthétique de l'existant](#0-diagnostic-synthétique)
@@ -198,7 +256,7 @@ hydromodpy/data/
 | `geology` (1/50k) | **BRGM Géologie 1/50 000** | Téléchargement par feuille | SHP | statique | — | — | — |
 | `geology` (BDLisa) | **BRGM BDLisa (nappes)** | WMS/WFS | GPKG | statique | — | — | — |
 | `oceanic` (marégraphes) | **SHOM Refmar** | `https://data.shom.fr/data/seismometre/*` et `refmar.shom.fr` | CSV/JSON | 10 min | ~1 req/s | — | 1846 (Brest) – aujourd'hui |
-| `recharge`, `etp`, `precipitation`, `temperature`, `humidity`, `wind`, `radiation`, `soil_moisture`, `runoff` | **Météo-France SIM2** | `https://meteo.data.gouv.fr/api/v1/edr/collections/sim2/` | NetCDF (OGC EDR) | journalier | ~1 req/s | Clé (gratuite, obligatoire depuis 2024) | 1958 – J-5 |
+| `recharge`, `etp`, `precipitation`, `temperature`, `humidity`, `wind`, `radiation`, `soil_moisture`, `runoff` | **SIM2 via hébergement INRAE** (préservé — voir OVERRIDES) | Endpoint INRAE existant (ne **pas** migrer vers `meteo.data.gouv.fr`) | NetCDF / CSV reformaté | journalier | pas de rate limit | aucune clé | 1958 – J-5 |
 | `administrative` (communes, dépts) | **IGN ADMIN-EXPRESS** | `https://geoservices.ign.fr/adminexpress` | SHP/GPKG | statique | — | — | — |
 | `landcover` (OCS) | **IGN OCS GE** | Téléchargement par département | SHP | statique | — | — | — |
 | `soils` (carte mondiale) | **SoilGrids 250 m (ISRIC)** | WCS/WMS | GeoTIFF COG | statique | ~50 req/min | — | — |

@@ -12,6 +12,78 @@
 
 ---
 
+## OVERRIDES (décisions post-review)
+
+Les décisions ci-dessous **prévalent** sur toute mention contraire dans la suite du document.
+
+### Clean slate — pas de migration DB
+
+- **La table `_schema_version`, les scripts `MIGRATIONS`, les round-trips de schéma sont SUPPRIMÉS du scope initial.**
+- Chaque version majeure repart d'un **schéma neuf** (pas de base existante à préserver, seuls des tests l'utilisent actuellement).
+- Les **principes** de migration future sont documentés dans `docs/developers/schema_evolution.md` pour les évolutions **post-P13** uniquement.
+- Le principe #9 du tableau ci-dessous est **annulé** pour la phase initiale.
+
+### Cache geographic content-addressable (NOUVEAU)
+
+Pour éviter la duplication du geographic (DEM, géologie, watershed) dans chaque `simulations/<uuid>.zarr/` — en particulier critique en calibration (200 itérations sur le même BV = 200 copies jusqu'ici).
+
+```
+workspace/
+├── hydromodpy.duckdb
+├── data/
+├── geographic/                           ← NOUVEAU
+│   └── <fingerprint>/                    ← 1 dossier par empreinte unique
+│       ├── dem.zarr/
+│       ├── geology.zarr/
+│       └── watershed.parquet
+└── simulations/
+    └── <uuid>.zarr/                      ← NE contient PLUS geographic/
+        ├── head/
+        ├── derived/
+        └── .zmetadata                    ← geographic_fingerprint="ab12..."
+```
+
+**Fingerprint** : `SHA-256(resolved_inputs_json)` où `resolved_inputs_json` inclut :
+- DEM : path + file SHA-256 + bbox + résolution
+- Géologie : path + SHA-256
+- CRS, emprise, options de délinéation
+
+**API Python** :
+
+```python
+from hydromodpy.results.geographic_cache import GeographicCache
+
+cache = GeographicCache(workspace_root)
+fp = cache.fingerprint_of(spatial_config)  # déterministe
+
+if not cache.is_cached(fp):
+    geog_data = spatial.build_geographic(spatial_config)
+    cache.save(fp, geog_data)
+
+sim_zarr.attrs["geographic_fingerprint"] = fp
+# La sim stocke juste la chaîne, pas les rasters.
+
+# Lecture transparente :
+sim.geographic  # → résout fp → lit workspace/geographic/<fp>/
+```
+
+**Export `.hmp`** : le package **matérialise** `geographic/` depuis le cache (reste auto-contenu et portable).
+
+**Import `.hmp`** : **dé-matérialisation** dans `workspace/geographic/<fp>/` (évite les doublons).
+
+**Impact mesuré attendu** :
+- Calibration 200 itérations même BV : **1 build geographic** au lieu de 200.
+- Disque : réduction ~99 % sur les rasters geographic.
+- Portabilité : identique à aujourd'hui (export reste auto-contenu).
+
+### Conséquences dans le reste du document
+
+- Toute mention de `_schema_version`, `MIGRATIONS[]`, `SchemaTooNewError` : **ignorer** pour la phase initiale.
+- Toute mention de `geographic/` **dans** `simulations/<uuid>.zarr/` : **remplacer** par `geographic_fingerprint` (attribut Zarr root).
+- La table DuckDB `simulations` ajoute une colonne `geographic_fingerprint VARCHAR` pour la jointure rapide.
+
+---
+
 ## Table des matières
 
 0. [Principes directeurs](#0-principes-directeurs)
@@ -40,7 +112,7 @@
 | 6 | **Écriture streaming, schéma idempotent** | `INSERT … ON CONFLICT DO UPDATE` (DuckDB 0.10+). Rejouer un pas de temps écrase, ne duplique pas. Un solveur qui crash à t=37 peut reprendre à t=37. |
 | 7 | **Métadonnées CF-1.11 + UGRID-1.0 dans le Zarr** | Zéro attribut dans DuckDB qui ne soit dans le Zarr. Le Zarr est **auto-descriptif** : `xarray.open_zarr(...)` suffit pour la science. |
 | 8 | **Unification DIS / DISV / DISU via UGRID** | La dimension métier est `face`, jamais `row/col/node`. Un helper `mesh.face_to_row_col()` existe pour la régulière seulement. |
-| 9 | **Migrations ordonnées, testées, réversibles** | `_schema_version` + liste `MIGRATIONS` + test de round-trip v(n) → v(n+1) → v(n). |
+| 9 | ~~**Migrations ordonnées, testées, réversibles**~~ **ANNULÉ — Clean slate (voir overrides en tête de doc).** Principes documentés pour évolutions post-P13 dans `docs/developers/schema_evolution.md`. |
 | 10 | **Format portable auto-décrit et versionné** | `.hmp` = `tar.zst` avec `manifest.json`. `format_version` indépendant de `schema_version`. Round-trip export→import testé. |
 | 11 | **Single-writer + lock explicite** | `filelock` sur `hydromodpy.duckdb.lock`. Double lancement = erreur claire, pas deadlock DuckDB. |
 | 12 | **Provenance scientifique PROV-O complète** | Table `runs_environment` (user, host, git_sha, python_ver, solver_binary_sha). SHA-256 sur fichier **source**, pas sur `tobytes()`. |

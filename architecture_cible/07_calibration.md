@@ -15,6 +15,75 @@
 
 ---
 
+## OVERRIDES (décisions post-review)
+
+Les décisions ci-dessous **prévalent** sur toute mention contraire dans la suite du document.
+
+### Optuna = adapter principal, PEST++ hors scope initial
+
+- **Optuna** devient l'adapter **principal** (TPE, NSGA-II, CMA-ES via plugin), à créer en P09 (actuellement le code a uniquement `scipy.optimize` + un simplex custom).
+- **PEST++ via pyemu** : **retiré du scope initial**. Devient un adapter plugin optionnel **post-P13**, uniquement si un besoin concret est identifié (complexité de prise en main jugée trop élevée pour le gain immédiat).
+- Adapters inclus en P09 : `scipy_adapter` (CONSERVE), `optuna_adapter` (NOUVEAU), `grid_adapter` (NOUVEAU simple).
+
+### TOML simplifié avec auto-discovery Pydantic
+
+**Le bloc `[calibration.parameters]` présenté dans la section 7 est remplacé par cette version minimale :**
+
+```toml
+[calibration]
+method       = "optuna"
+max_iter     = 200
+save_runs    = "best_n"      # voir section "Modes save_runs" ci-dessous
+save_best_n  = 10
+
+[calibration.parameters]
+K_aquifer   = { bounds = [1e-6, 1e-3], transform = "log" }
+Sy_main     = { bounds = [0.02, 0.30] }
+drain_cond  = { bounds = [1e-4, 1e-1], transform = "log" }
+```
+
+- Le `path` dans `HydroModPyConfig`, la `prior`, la `distribution` sont **dérivés automatiquement** des annotations Pydantic du champ ciblé :
+
+  ```python
+  class FlowProperties(BaseModel):
+      k_aquifer: HydraulicConductivity = Field(
+          ...,
+          json_schema_extra={
+              "calibrable": {
+                  "path": "flow.properties.k_aquifer",
+                  "prior": "log_uniform",
+                  "transform": "log",
+              }
+          },
+      )
+  ```
+
+- Les cas avancés (zone mapping, priors bayésiens custom, multi-objective) restent accessibles **en Python direct** (API CalibrationEngine), pas dans le TOML.
+
+### Modes `save_runs` (lightweight par défaut)
+
+Nouveau paramètre `save_runs` dans `[calibration]` :
+
+| Valeur | Comportement | Cas d'usage |
+|---|---|---|
+| `"none"` (**défaut**) | Chaque itération = **1 ligne** dans `calibration_iterations` (params + metrics + params_hash). **Aucun Zarr créé.** | Calibration exploratoire, 200+ itérations légères. |
+| `"best_n"` | Idem + les **N meilleures** itérations promues en vraies simulations complètes (Zarr + export) après la boucle de calibration. | Usage standard : on veut les meilleures simulations pour analyses ultérieures. |
+| `"all"` | 1 Zarr par itération (comportement lourd historique). | Études de sensibilité complètes, reproductibilité stricte. Opt-in explicite. |
+
+### Cache content-addressable (params_hash + geographic_fingerprint)
+
+- `params_hash = SHA-256(canonical_json(resolved_params_after_transform))`.
+- Avant de lancer une simulation, vérifier si `params_hash` existe déjà dans `calibration_iterations`. Si oui : retourner le `sim_id` mis en cache, **skip** la simulation.
+- Combiné au `geographic_fingerprint` (voir `04_storage_ideal.md` OVERRIDES) : **le geographic et le mesh sont buildés 1 fois par fingerprint**, seul le solver tourne à chaque itération.
+- Économie typique : 200 itérations = 1 build geographic + 1 build mesh + 200 runs solver (au lieu de 200× le pipeline complet).
+
+### Conséquences dans le reste du document
+
+- Toute mention de `PESTPPAdapter` comme composant initial : **ignorer** (roadmap post-P13).
+- Tout exemple de `[calibration.parameters]` verbeux (avec `path`, `mapping`, `zone_id`, `prior`, `prior_params`) : voir la version simplifiée ci-dessus.
+
+---
+
 ## Table des matières
 
 0. [Principes directeurs](#0-principes-directeurs)

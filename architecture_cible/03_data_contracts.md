@@ -11,6 +11,36 @@
 
 ---
 
+## OVERRIDES (décisions post-review)
+
+Les décisions ci-dessous **prévalent** sur toute mention contraire dans la suite du document.
+
+### Formats utilisateur acceptés — CSV / SHP / GeoTIFF (PAS Parquet côté utilisateur)
+
+L'utilisateur hydrogéologue (peu versé en SIG / data engineering) **n'est jamais exposé aux formats pivot internes** (Parquet, GeoParquet). Des **adapters** convertissent en amont du cache, transparent.
+
+| Type de donnée | **Formats utilisateur acceptés** | Format pivot **interne** (invisible) |
+|---|---|---|
+| Stations / points | **CSV** (header `id,x,y,crs,unit`), **SHP**, **GeoJSON** | GeoParquet |
+| Chroniques temporelles | **CSV** (header `datetime,value`) | Parquet (DatetimeIndex UTC) |
+| Rasters (DEM, recharge grid…) | **GeoTIFF**, **ASC** (Esri grid) | GeoTIFF COG |
+| Géométries vectorielles | **SHP**, **GeoJSON**, **GPKG** | GeoParquet |
+| Grilles climatiques | **NetCDF** (CF) si existant, sinon CSV | Zarr v3 + CF-1.11 |
+
+**Adapters d'ingestion** (créés en P04) :
+- `hydromodpy/data/adapters/csv_to_parquet.py`
+- `hydromodpy/data/adapters/shp_to_geoparquet.py`
+- `hydromodpy/data/adapters/asc_to_geotiff.py`
+
+**Principe** : un utilisateur qui drop un `.csv` ou un `.shp` dans `~/hydromodpy/{variable}_custom/` voit son fichier **ingéré, validé, converti, et indexé** automatiquement au `hmp run` suivant. Il ne sait pas — et n'a pas à savoir — que le stockage interne est en Parquet.
+
+### Conséquences dans le reste du document
+
+- Toute mention qui **impose** Parquet ou GeoParquet en **entrée utilisateur** : à lire comme *format pivot interne*, pas obligation pour l'utilisateur.
+- Les exemples d'ingestion doivent couvrir CSV et SHP comme cas nominaux.
+
+---
+
 ## Table des matières
 
 0. [Principes directeurs](#0-principes-directeurs)

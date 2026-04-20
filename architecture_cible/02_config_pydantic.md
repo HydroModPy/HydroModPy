@@ -1150,7 +1150,65 @@ Un job GitHub Actions (`.github/workflows/schema.yml`) vérifie que le JSON Sche
 Pour clarifier le périmètre :
 
 1. **Pas de migration vers Hydra/OmegaConf** — le projet a besoin de `tomlkit` + `Pydantic v2`, pas d'une couche supplémentaire.
-2. **Pas de pydantic-pint** en phase initiale — introduit une dépendance lourde ; on reste sur `normalize_m_per_s_unit` existant pour l'instant. Roadmap P4.
-3. **Pas de schéma SQL séparé** — DuckDB stocke le `model_dump_json()` du `HydroModPyConfig` dans la colonne `config_snapshot`. Reproductibilité assurée.
-4. **Pas de *runtime overrides* CLI** (type `hmp run cfg.toml +flow.flow_regime=transient`) en phase initiale. Utile mais non prioritaire.
-5. **Pas de multi-environnement** (`env=dev/prod`) — un projet = un TOML. Les overrides ponctuels via env vars `HYDROMODPY_*` (paths + flags CI) uniquement.
+2. **Pas de schéma SQL séparé** — DuckDB stocke le `model_dump_json()` du `HydroModPyConfig` dans la colonne `config_snapshot`. Reproductibilité assurée.
+3. **Pas de *runtime overrides* CLI** (type `hmp run cfg.toml +flow.flow_regime=transient`) en phase initiale. Utile mais non prioritaire.
+4. **Pas de multi-environnement** (`env=dev/prod`) — un projet = un TOML. Les overrides ponctuels via env vars `HYDROMODPY_*` (paths + flags CI) uniquement.
+
+---
+
+## 12. Unités via pydantic-pint (adopté en P03)
+
+**Décision** : pydantic-pint est **adopté comme dépendance core** et remplace `normalize_m_per_s_unit` ainsi que `units/conversions.py`.
+
+**Motivation** :
+- Remplace du code maison brittle par une librairie éprouvée (pint, ~10 ans de maturité scientifique).
+- Permet l'expression d'unités physiques directement dans les types Pydantic.
+- Zéro régression : tout ce que fait `normalize_m_per_s_unit` est un cas particulier de pint.
+- Dépendance acceptable (pint est léger, pas de compilation native).
+
+**Structure** :
+
+```
+hydromodpy/core/units/
+├── __init__.py          Exports : HydraulicConductivity, SpecificYield, …
+├── registry.py          UnitRegistry pint avec unités hydrogéologiques
+│                        (m, m/s, mm/day, m3/s, m3/day, degC, Pa·s, -, etc.)
+└── types.py             Types annotés Pydantic :
+                            HydraulicConductivity = Annotated[PintQuantity, "m/s"]
+                            SpecificYield = Annotated[float, Ge(0), Le(1)]
+                            SpecificStorage, Length, FlowRate, Area, Volume, Time
+```
+
+**Exemple d'utilisation** :
+
+```python
+from typing import Annotated
+from pydantic import BaseModel, Field
+from hydromodpy.core.units import HydraulicConductivity, SpecificYield
+
+class FlowProperties(BaseModel):
+    k_aquifer: HydraulicConductivity = Field(
+        default="1e-4 m/s",
+        description="Conductivité hydraulique de l'aquifère",
+        json_schema_extra={"widget_type": "input", "unit": "m/s",
+                           "display_name_fr": "Conductivité hydraulique"},
+    )
+    specific_yield: SpecificYield = Field(
+        default=0.1,
+        description="Porosité efficace",
+    )
+```
+
+**Format TOML accepté (rétrocompatibilité)** :
+
+```toml
+[flow.properties]
+# Accepte valeur numérique sans unité (fallback sur unité canonique m/s)
+k_aquifer = 1e-4
+
+# OU expression explicite avec unité
+k_aquifer = "0.0001 m/s"
+k_aquifer = "0.36 m/h"       # converti automatiquement en m/s
+```
+
+**Migration** : en phase P03, on refactore `flow_config.py` d'abord (le plus critique), puis les autres modules en P04-P09.
