@@ -142,7 +142,6 @@ markers = [
     "regression: non-regression tests based on reference datasets",
     "validation: scientific or benchmark validation tests against a reference solution",
     "analytical: validation test compared to an analytical reference solution",
-    "normal: deprecated alias for the fast regression tier",
     "extensive: extended regression checks for deeper validation",
     "steady: steady-state validation or regression case",
     "transient: transient validation or regression case",
