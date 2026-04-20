@@ -111,11 +111,3 @@ def pytest_sessionfinish(session, exitstatus):
     if scratch.exists():
         shutil.rmtree(scratch, ignore_errors=True)
 
-
-def pytest_ignore_collect(collection_path, config):
-    """Skip non-selected regression test files before import/collection."""
-    path = Path(str(collection_path))
-    if path.suffix != ".py":
-        return False
-    return False
-
