@@ -83,28 +83,27 @@
 
 ### 1.1 Liste canonique
 
-Le pipeline standard d'une simulation HydroModPy est une **liste ordonnée de 11 étapes**. Chaque étape est pure (pas d'effet de bord sur l'état précédent, elle **renvoie** un nouvel état).
+Le pipeline standard d'une simulation HydroModPy est une **liste ordonnée de 11 étapes effectives** (code : `hydromodpy/pipeline/steps/`, registre : `standard_steps()`). Chaque étape est pure (pas d'effet de bord sur l'état précédent, elle **renvoie** un nouvel état).
 
 ```
-  0 │ validate    │ HydroModPyConfig → ValidatedConfig      │ Pydantic + contraintes physiques
-  1 │ resolve     │ ValidatedConfig → ResolvedConfig        │ Résolution chemins, time window, CRS
-  2 │ load_data   │ ResolvedConfig → LoadedData             │ DataPlanner + managers + cache
-  3 │ geographic  │ ResolvedConfig, LoadedData → Geography  │ Délinéation catchment, streams
-  4 │ mesh        │ Geography, MeshConfig → HydroMesh       │ Cartesian ou Gmsh
-  5 │ domain      │ HydroMesh, LoadedData → Domain          │ Zones, FieldParam, BC
-  6 │ plan        │ ResolvedConfig → SimulationPlan         │ SolverPlan (ex-SimulationPlanner)
-  7 │ open_store  │ All prior → StoreHandle                 │ DuckDB REGISTER + Zarr init
-  8 │ solve       │ Domain, Plan, StoreHandle → SolveReport │ Boucle sur plan.runs
-  9 │ extract     │ SolveReport, StoreHandle → Extracted    │ Fields + timeseries + budget
- 10 │ derive      │ Extracted, StoreHandle → Derived        │ Watertable, seepage, flux
- 11 │ aggregate   │ Derived, StoreHandle → Aggregated       │ Catchment-wide scalars
- 12 │ export      │ Aggregated, ExportConfig → Exports      │ NetCDF, GeoTIFF, VTU (optionnel)
- 13 │ display     │ Aggregated, DisplayConfig → Figures     │ Matplotlib figures (optionnel)
- 14 │ finalize    │ StoreHandle → None                       │ mark completed, close DB
+  0 │ validate          │ HydroModPyConfig → ValidatedConfig      │ Pydantic + contraintes physiques
+  1 │ resolve           │ ValidatedConfig → ResolvedConfig        │ Résolution chemins, time window, CRS
+  2 │ load_data         │ ResolvedConfig → LoadedData             │ DataPlanner + managers + cache
+  3 │ build_geographic  │ ResolvedConfig, LoadedData → Geography  │ Délinéation catchment, streams
+  4 │ build_mesh        │ Geography, MeshConfig → HydroMesh       │ Cartesian ou Gmsh
+  5 │ setup_process     │ HydroMesh, LoadedData → Domain          │ Zones, FieldParam, BC, SimulationPlan
+  6 │ prepare_solver    │ Domain, Plan → SolverReady              │ Open DuckDB + Zarr, build solver model
+  7 │ run_solver        │ SolverReady → SolveReport               │ Boucle sur plan.runs + after_run ingestion
+  8 │ extract           │ SolveReport, StoreHandle → Extracted    │ Finalisation extraction (pass-through)
+  9 │ derive            │ Extracted, StoreHandle → Derived        │ DerivedRegistry : watertable, seepage, flux
+ 10 │ export            │ Derived, ExportConfig → Exports         │ NetCDF, GeoTIFF, VTU, CSV (opt-in)
 ```
 
-> Les étapes 0 à 11 sont **obligatoires**. 12-13 sont opt-in. 14 est un teardown garanti.
-> La numérotation suit l'ordre chronologique ; la discussion ci-dessous regroupe `export` et `display` sous « étape 9+ » quand c'est pertinent.
+> Les 11 étapes sont **obligatoires** dans l'ordre ; la sortie `export` est opt-in par configuration mais la step est exécutée (no-op silencieux quand rien n'est demandé).
+>
+> **Écart assumé vis-à-vis de la rédaction initiale** : la liste conceptuelle d'origine énumérait 14 positions (0–14) en considérant `domain`, `plan`, `open_store`, `aggregate`, `display`, `finalize` comme steps indépendants. L'implémentation les a fusionnés — `setup_process` absorbe `domain` + `plan`, `prepare_solver` absorbe `open_store` + la construction du modèle solver, l'affichage et l'agrégation sont résolus ailleurs (`display/` à la demande, `results.catalog` pour les scalaires), et `finalize` est garanti par le `Pipeline` via le ledger `steps` en DuckDB. Cette réduction à 11 étapes est désormais la référence.
+>
+> **`derive` (step 9)** s'appuie sur le registre :class:`hydromodpy.pipeline.derived.DerivedRegistry`. Chaque entrée déclare `required_inputs` et `required_derived`, la step ordonne topologiquement les dérivées et skippe silencieusement celles dont les inputs manquent. Derivations canoniques : `watertable_elevation`, `watertable_depth`, `seepage_mask`, `fluxes_from_budget`.
 
 ### 1.2 Propriétés d'un step
 
