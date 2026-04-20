@@ -116,6 +116,35 @@ phases (F01–F07). External scripts pinned to 0.3.x require the
   and `hydromodpy/solver/modflow6/flow_to_modflow_adapter.py` is kept
   deliberately rather than factored into `modflow_common/`.
 
+### Migration Guide
+Projects pinned to 0.3.x need the following one-time edits:
+
+1. **Display env vars → `[display]` TOML section.** Drop
+   `HYDROMODPY_NO_DISPLAY=1` / `HYDROMODPY_NO_SAVE=1` from scripts and
+   CI pipelines. The `[display]` defaults are already non-interactive
+   and save-enabled; otherwise set `save = false` /
+   `interactive = false` in the project TOML.
+2. **Catalog export/import rename.** Replace
+   `catalog.export_simulation(sim_id, path)` with
+   `catalog.export_package(sim_id, path)`, and
+   `catalog.import_simulation(path)` with
+   `catalog.import_package(path)`.
+3. **Calibration section.** Replace nested legacy calibration blocks
+   with the simplified `[calibration]` section: `optimizer`,
+   `objective`, and `parameters` subkeys (see
+   `examples/getting_started/project.toml`).
+4. **SIM2 client import path.** Replace
+   `from hydromodpy.data.common.clients.sim2_inrae import Sim2InraeClient, INRAE_SIM2_BASE_URL`
+   with
+   `from hydromodpy.data.common.clients.sim2_meteofrance import Sim2MeteoFranceClient, SIM2_BASE_URL`.
+5. **Spatial delineation backend.** Replace
+   `from hydromodpy.core.backends import get_whitebox_backend` with
+   `from hydromodpy.spatial.delineation import get_whitebox_backend`.
+6. **Orphan modules.** `hydromodpy.exceptions` was unused; define your
+   own exception hierarchy if you caught anything from it. TOML
+   `[postprocess]` blocks are accepted but ignored — migrate to the
+   pipeline extract/derive/export steps.
+
 ---
 
 ## [v0.3.4] - 2026-01-04
