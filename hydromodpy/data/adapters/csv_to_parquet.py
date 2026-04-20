@@ -203,8 +203,9 @@ def read_locations_csv(path: str | Path) -> LocationsArtifact:
     errors: list[str] = []
 
     if not rows:
+        # Empty template (only comments + header) is legitimate — no stations yet.
         return LocationsArtifact(
-            stations=[], crs="", unit="", source_path=path, errors=["file is empty"],
+            stations=[], crs="", unit="", source_path=path, errors=[],
         )
 
     missing = [c for c in LOCATIONS_COLUMNS if c not in rows[0]]
