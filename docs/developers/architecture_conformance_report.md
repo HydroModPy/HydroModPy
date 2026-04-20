@@ -464,6 +464,38 @@ checkpoint est noté :
 
 ---
 
+### 12_input_data_rethink.md
+**Résumé :** Les décisions d'override du spec (scaffold 16-variables, auto_scan mtime, 3 adapters CSV/SHP/ASC, SIM2 geosas.fr préservé sous `sim2_meteofrance`, `inference_mode` Literal, CLI `hmp data {check,list,add}`, purge INRAE) sont toutes implémentées ; le volet "API-first durci" (HTTPClient unique, InputCatalog 7-tables, lockfile, `hmp data remove/prune/export/import`) reste non implémenté.
+**Checkpoints :** 15 au total, OK=11, ÉCART=2, MANQUANT=2.
+
+| # | Checkpoint | Verdict | Preuve / Note |
+|---|------------|---------|---------------|
+| 1 | Scaffold expose 16 variables drag-and-drop | OK | `data/scaffold.py:32-49` — `VARIABLES` tuple = 16 `VariableSpec`. |
+| 2 | `auto_scan.py` invalidation par mtime (pas SHA-256) | OK | `data/auto_scan.py:78-101` `_last_indexed_mtime`/`_is_fresh`, aucune SHA-256. Conforme OVERRIDE §2. |
+| 3 | Auto-scan enregistre `provider="custom"` dans `data/cache.duckdb` | OK | `data/auto_scan.py:158-173` `catalog.register(source="custom", is_custom=True, ...)`. |
+| 4 | Auto-scan branché sur `hmp run` | OK | `__main__.py:81-104` `_auto_scan_workspace()`. |
+| 5 | 3 adapters (csv→parquet, shp→geoparquet, asc→geotiff) | OK | `data/adapters/__init__.py:9-17`. |
+| 6 | Formats utilisateur acceptés conformes §3 | OK | csv_to_parquet (timeseries/locations), shp_to_geoparquet (shp/geojson/gpkg/parquet), asc_to_geotiff (asc/tif/tiff). |
+| 7 | Client SIM2 Météo-France renommé sur geosas.fr | OK | `data/common/clients/sim2_meteofrance.py:1-6` ; `api.geosas.fr/edr/collections/safran-isba/`. |
+| 8 | Purge INRAE du code source `hydromodpy/` | OK | `grep -ri "inrae" hydromodpy/` = 0. |
+| 9 | `data_managers_config.py` `inference_mode: Literal["warn","strict"]` | OK | `data/data_managers_config.py:85` + validator `:197-205`. |
+| 10 | Règles d'auto-détection (geology, hydrography, oceanic) | OK | `data/planner.py:66-100`. |
+| 11 | CLI `hmp data {check,list,add}` | OK | `__main__.py:1122-1231` + `1762-1787`. |
+| 12 | CLI `hmp data` complète (remove/prune/export/import/check --fix) §4.4 | MANQUANT | Seuls check/list/add. |
+| 13 | `HTTPClient` unique avec backoff/timeout/Retry-After (§2.2.5) | MANQUANT | Aucun `data/common/http_client.py`. |
+| 14 | `InputCatalog` DuckDB refactoré (7 tables + SHA-256 + provenance + transactions) §5.2 | ÉCART | `catalog_duckdb.py` reste au schéma legacy (entries + file_mtime). Conforme à OVERRIDE §2 mais ne couvre pas la refonte §5.2. |
+| 15 | `hydromodpy.lock` + `hmp lock {update,archive,restore}` + `--frozen` (§6) | ÉCART | Aucun `data/lockfile.py`, aucune sous-commande `hmp lock`. |
+
+**Écarts assumés :**
+- `InputCatalog` cible (schéma 7-tables, SHA-256, provenance/coverage/failures) non migré — OVERRIDE §2 prévaut.
+- Lockfile `hydromodpy.lock` et commandes `hmp lock` absents.
+
+**Manquants :**
+- Sous-commandes CLI `hmp data remove/prune/export/import`, `hmp data check --fix` — suivi `v0.5-hmp-data-extras`.
+- Wrapper `common/http_client.py` unique (backoff, Retry-After, token bucket, SHA-256 streaming, validation Pydantic) — suivi `v0.5-http-client-durci`.
+
+---
+
 ---
 
 ## Écarts globaux assumés (décisions architecture)
