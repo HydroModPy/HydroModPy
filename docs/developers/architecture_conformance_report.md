@@ -169,6 +169,53 @@ checkpoint est noté :
 
 ---
 
+### 04_storage_ideal.md
+**Résumé :** Le schéma DuckDB à 12 tables, le layout Zarr et les classes `SimulationCatalog/SimulationZarr/Simulation/SimulationGroup` sont présents et alignés avec la décision clean-slate, mais plusieurs éléments riches du design (`runs_environment`/`stations`/`tags`/`observations`, ENUMs/FK CASCADE/RTREE, CF-UGRID, chunking balanced, manifest `tar.zst`) restent non implémentés.
+**Checkpoints :** 25 au total, OK=14, ÉCART=7, MANQUANT=4.
+
+| # | Checkpoint | Verdict | Preuve / Note |
+|---|------------|---------|---------------|
+| 1 | 12 tables DuckDB exactes | OK | `catalog_schema.py:307-320` `TABLE_NAMES` liste précisément ces 12 tables. |
+| 2 | Absence de `_schema_version` (clean slate P02) | OK | Aucun match dans `hydromodpy/results/` ; docstring `catalog_schema.py:9-13` confirme. |
+| 3 | Colonne `config_snapshot JSON` dans `simulations` | OK | `catalog_schema.py:75`. |
+| 4 | Colonne `geographic_fingerprint VARCHAR` + index | OK | `catalog_schema.py:81` + index `ix_sim_geo_fp` L100. |
+| 5 | PK `simulations(sim_id UUID)` + 29 colonnes clés | OK | `catalog_schema.py:46-93`. |
+| 6 | Table `parameters` PK (sim_id, param_name, zone_id) + DEFAULT `_homogeneous` | OK | `catalog_schema.py:107-116` (default `_homogeneous` au lieu de `__global__` du spec §2.2 L357). |
+| 7 | Table `timeseries` PK (sim_id, station_id, variable, datetime) TIMESTAMPTZ | OK | `catalog_schema.py:136-145`. |
+| 8 | Table `budgets` PK (sim_id, timestep, zone_id, component) | OK | `catalog_schema.py:153-166`. |
+| 9 | Table `metrics` PK inclut `variable` | OK | `catalog_schema.py:130`. |
+| 10 | Table `mass_balance` PK (sim_id, timestep) + total_in/out/storage/percent_error | OK | `catalog_schema.py:171-182`. |
+| 11 | Table `observation_points` PK (sim_id, station_id) + (x, y, cell_id, layer) | OK | `catalog_schema.py:189-198`. |
+| 12 | Table `provenance` PK (sim_id, variable, source_ref) + source_sha256 + payload_sha256 + stats JSON | OK | `catalog_schema.py:203-222`. |
+| 13 | Tables `calibration_sessions` + `calibration_iterations` | OK | `catalog_schema.py:229-269` avec `best_sim_id`, `from_cache`, `params_hash`. |
+| 14 | Tables `geographic_features` + `geographic_metadata` | OK | `catalog_schema.py:276-300`. |
+| 15 | Compression Zarr BLOSC-ZSTD clevel=3 | OK | `zarr_store.py:14`. |
+| 16 | Layout `simulations/<uuid>.zarr/` | OK | `catalog.py:183` + `catalog.py:100-101`. |
+| 17 | Classes canoniques `SimulationCatalog/SimulationZarr/Simulation/SimulationGroup` | OK | `catalog.py:90`, `zarr_store.py:19`, `simulation.py:19`, `simulation_group.py:14`. |
+| 18 | Méthodes catalog (`register_simulation`, `write_*`, `finalize`, `best`, `find`, `latest`, `sql`, `export_package`, `import_package`) | OK | F05 rename vérifié `catalog.py:845` (`export_package`) et L893 (`import_package`). |
+| 19 | Chunking Zarr `(1, n_layers, n_cells)` | ÉCART | `zarr_store.py:169-173` implémente le chunking (1, L, N) ; spec cible `balanced`, assumé comme phase initiale. |
+| 20 | Sous-groupes Zarr (`mesh/`, `head/`, `derived/`, `budget/`, `pathlines/`, `geographic/`) | ÉCART | `zarr_store.py:16` crée en plus `forcing` (spec §9.2 marqué `[SUPPRIME]`) ; `geographic/` reste dans le Zarr même si `GeographicCache` existe. |
+| 21 | Format portable `.hmp` tar.zst + manifest.json + SHA-256 | ÉCART | `exporters/hmp_package.py:17-21` indique "pragmatic form … will evolve into the full tar.zst" ; produit un **dossier** (non archive). |
+| 22 | Métadonnées Zarr CF-1.11 + UGRID-1.0 + `consolidate_metadata` + `to_xarray` | MANQUANT | `zarr_store.py:107-148` écrit seulement `vertices`, `face_node_connectivity`, `z_interfaces`. Pas de `CF_REGISTRY`, pas de `write_time`, pas de scalar `crs`. |
+| 23 | Tables additionnelles `runs_environment`, `tags`, `stations`, `observations` | MANQUANT | Non présentes ; §9.1 les marque `[NOUVEAU]`. |
+| 24 | Vues `v_simulation_summary`, `v_best_per_project`, `v_params_wide`, `v_metrics_wide` | MANQUANT | Aucune `CREATE VIEW` dans `catalog_schema.py`. |
+| 25 | `SimulationGroup.to_xarray(variable, dim="sim")` | MANQUANT | Seules `best/worst/top/to_dataframe/to_csv` existent. |
+
+**Écarts assumés :**
+- Chunking Zarr `(1, n_layers, n_cells)` toujours actif (décrit tel quel dans `CLAUDE.md`).
+- Sous-groupe Zarr `forcing/` conservé ; `geographic/` dupliqué avec le cache content-addressable.
+- Format `.hmp` reste un dossier pragmatique (non tar.zst, sans manifest canonique) — auto-admis.
+- PK `parameters.zone_id DEFAULT '_homogeneous'` (au lieu de `__global__`) — cohérent avec les constantes internes.
+- Absence de FK `ON DELETE CASCADE` / ENUMs SQL / RTREE : docstring `catalog_schema.py:14-20` l'assume (bug DuckDB #11132).
+
+**Manquants :**
+- 4 tables `[NOUVEAU]` (`runs_environment`, `tags`, `stations`, `observations`) — suivi `v0.5-duckdb-tables`.
+- Vues dénormalisées (`v_simulation_summary` etc.) — suivi `v0.5-duckdb-views`.
+- Couche CF-1.11 / UGRID-1.0 dans Zarr — suivi `v0.5-zarr-cf-ugrid`.
+- `SimulationGroup.to_xarray(variable, dim="sim")` — suivi `v0.5-ensemble-xarray`.
+
+---
+
 ## Écarts globaux assumés (décisions architecture)
 
 _À compiler après les 14 vérifications._
