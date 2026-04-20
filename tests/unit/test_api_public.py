@@ -1,0 +1,93 @@
+"""Smoke tests for the public ``hydromodpy`` API surface.
+
+These checks pin down the top-level symbols that the P10 spec promises to
+users — ``hmp.open``, ``hmp.Simulation``, ``hmp.SimulationCatalog``, etc.
+Regressions here usually mean a refactor broke the import contract.
+"""
+
+from __future__ import annotations
+
+import tempfile
+
+import pytest
+
+import hydromodpy as hmp
+
+
+EXPECTED_TOP_LEVEL = [
+    # Entry points
+    "open",
+    "run",
+    "calibrate",
+    "compare",
+    "doctor",
+    # Simulation / catalog API
+    "Simulation",
+    "SimulationCatalog",
+    "SimulationGroup",
+    "Catalog",
+    # Core
+    "Workspace",
+    "Geographic",
+    # Solvers
+    "Modflow",
+    "Boussinesq",
+    "Modflow6",
+]
+
+
+@pytest.mark.parametrize("symbol", EXPECTED_TOP_LEVEL)
+def test_public_symbol_available(symbol: str) -> None:
+    assert hasattr(hmp, symbol), f"hmp.{symbol} missing from public API"
+
+
+def test_catalog_alias_is_simulation_catalog() -> None:
+    assert hmp.Catalog is hmp.SimulationCatalog
+
+
+def test_open_returns_simulation_catalog() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cat = hmp.open(tmp)
+        try:
+            assert isinstance(cat, hmp.SimulationCatalog)
+        finally:
+            cat.close()
+
+
+def test_simulation_catalog_repr_html() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cat = hmp.open(tmp)
+        try:
+            html = cat._repr_html_()
+            assert "<b>SimulationCatalog</b>" in html
+            assert "<table" in html
+        finally:
+            cat.close()
+
+
+def test_simulation_group_fluent_methods_present() -> None:
+    from hydromodpy.results.simulation_group import SimulationGroup
+
+    assert hasattr(SimulationGroup, "filter")
+    assert hasattr(SimulationGroup, "to_dataframe")
+    assert hasattr(SimulationGroup, "_repr_html_")
+
+
+def test_simulation_view_fluent_methods_present() -> None:
+    from hydromodpy.results.simulation import Simulation
+
+    assert hasattr(Simulation, "at")
+    assert hasattr(Simulation, "field")
+    assert hasattr(Simulation, "_repr_html_")
+
+
+def test_doctor_returns_dict() -> None:
+    report = hmp.doctor()
+    assert isinstance(report, dict)
+    for key in ("python", "hydromodpy", "solvers", "optional"):
+        assert key in report
+
+
+def test_unknown_attribute_raises() -> None:
+    with pytest.raises(AttributeError):
+        hmp.NotARealThing  # noqa: B018
