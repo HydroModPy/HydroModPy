@@ -13,7 +13,7 @@ The schema boundary covered here is:
 - **DuckDB files** `hydromodpy.duckdb` (workspace catalog) and
   `data/cache.duckdb` (input cache).
 - **Zarr stores** `simulations/<sim_id>.zarr/`.
-- Portable `.hmp` packages produced by `SimulationCatalog.export_simulation`.
+- Portable `.hmp` packages produced by `SimulationCatalog.export_package`.
 
 It does **not** cover user TOML configs (Pydantic models already provide
 versioning through `extra="forbid"`).
