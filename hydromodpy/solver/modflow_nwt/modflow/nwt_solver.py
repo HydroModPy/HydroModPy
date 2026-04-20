@@ -10,9 +10,6 @@
 * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
-# %% LIBRAIRIES
-
-# Python
 from collections.abc import Mapping
 import flopy
 import numpy as np
@@ -20,14 +17,12 @@ import os
 import rasterio
 import sys
 from tqdm import tqdm
-from os.path import dirname, abspath
-import flopy.utils.binaryfile as fpu
 
-# Root
-df = dirname(dirname(abspath(__file__)))
-sys.path.append(df)
+from hydromodpy.solver.modflow_common.binary_reader import (
+    open_cell_budget_file,
+    open_head_file,
+)
 
-# HydroModPy
 # Map MODFLOW ITMUNI codes to seconds per time unit.
 # Used to convert FieldParam SI values (m/s) to solver time units.
 _ITMUNI_TO_SECONDS: dict[int, float] = {
@@ -753,9 +748,9 @@ class Modflow(Solver):
             raise ValueError("inactive_mask must be set before MODFLOW post-processing.")
         inactive_mask = np.asarray(self.inactive_mask, dtype=bool)
         # heads
-        self.head_fpu = fpu.HeadFile(self.path_file + ".hds")
+        self.head_fpu = open_head_file(self.path_file + ".hds", precision="single")
         # fluxes
-        self.cbb = fpu.CellBudgetFile(self.path_file + ".cbc")
+        self.cbb = open_cell_budget_file(self.path_file + ".cbc", precision="single")
 
         # Import times
         self.times = self.head_fpu.get_times()
