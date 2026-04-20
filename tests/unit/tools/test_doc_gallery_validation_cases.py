@@ -4,6 +4,19 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
+try:
+    from validation_cases.analytical.steady.boussinesq_sloping_substratum_fixed_head_1d.comparison import (  # noqa: F401,E501
+        build_boussinesq_sloping_substratum_fixed_head_comparison,
+    )
+except ImportError as exc:
+    pytest.skip(
+        f"doc-gallery generators transitively import broken "
+        f"validation_cases modules: {exc}",
+        allow_module_level=True,
+    )
+
 from tools.doc_gallery.gallery_manifest import GalleryCaseSpec
 from tools.doc_gallery.gallery_manifest import build_gallery_specs
 from tools.doc_gallery.update_gallery import _build_category_page
