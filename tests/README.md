@@ -98,8 +98,6 @@ tree clean:
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `HYDROMODPY_TEST_SCRATCH_ROOT` | `/tmp/hydromodpy_tests/` | Shared scratch root; set this to redirect all test artifacts. |
-| `HYDROMODPY_NO_DISPLAY`        | unset | When `1`, disables interactive plot windows. Required in CI. |
-| `HYDROMODPY_NO_SAVE`           | unset | When `1`, disables figure saving. |
 | `HYDROMODPY_COVERAGE`          | unset | When `1`, enables coverage collection during regression runs. |
 | `PYTEST_DEBUG_TEMPROOT`        | `<scratch>/pytest` | Points pytest's `tmp_path` generator inside the scratch root. |
 

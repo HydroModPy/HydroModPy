@@ -206,9 +206,7 @@ def run_launcher_simulation_regression(
         test_file=test_file,
         run_name=run_name,
     )
-    env = {"HYDROMODPY_NO_DISPLAY": "1"}
-    if transport_solver == "mf6":
-        env["HYDROMODPY_NO_SAVE"] = "1"
+    env: dict[str, str] = {}
     if extra_env:
         env.update(extra_env)
 
@@ -296,7 +294,6 @@ def run_launcher_simulation_boussinesq_regression(
     run_hmp_cli(
         config_path=config_path,
         out_path=out_path,
-        extra_env={"HYDROMODPY_NO_DISPLAY": "1"},
         timeout=timeout,
     )
 
