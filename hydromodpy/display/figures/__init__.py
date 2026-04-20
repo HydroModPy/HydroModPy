@@ -11,6 +11,7 @@ from __future__ import annotations
 from hydromodpy.display.figures import (  # noqa: F401
     cross_section,
     hydrograph,
+    particle_tracks,
     piezometric_map,
     recharge_map,
     seepage_map,
