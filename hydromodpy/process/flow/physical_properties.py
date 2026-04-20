@@ -53,6 +53,7 @@ class FlowPhysicalProperties(BaseModel):
         extra="forbid",
         arbitrary_types_allowed=True,
         str_strip_whitespace=True,
+        validate_default=True,
     )
 
     k_aquifer: Annotated[HydraulicConductivity, ParamLevel("user")] = Field(
