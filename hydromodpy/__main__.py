@@ -38,6 +38,19 @@ import tempfile
 from pathlib import Path
 
 
+# ---------------------------------------------------------------------------
+# Standardised exit codes (P10 spec: 0 ok | 1 config invalid |
+# 2 run failed | 3 not found | 4 user abort).
+# ---------------------------------------------------------------------------
+
+EXIT_OK = 0
+EXIT_CONFIG = 1
+EXIT_RUN_FAILED = 2
+EXIT_NOT_FOUND = 3
+EXIT_USER_ABORT = 4
+EXIT_SIGINT = 130
+
+
 def _find_project_root() -> Path:
     """Walk up from this file to find the directory containing tests/."""
     current = Path(__file__).resolve().parent
@@ -521,7 +534,7 @@ def _cmd_run(args: argparse.Namespace) -> None:
     target = Path(args.config).expanduser().resolve()
     if not target.is_file():
         print(f"File not found: {target}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(EXIT_NOT_FOUND)
 
     if target.suffix == ".py":
         _cmd_run_script(target, getattr(args, "script_args", []))
@@ -532,7 +545,7 @@ def _cmd_run(args: argparse.Namespace) -> None:
             f"Unsupported file type: {target.suffix} (expected .toml or .py)",
             file=sys.stderr,
         )
-        sys.exit(1)
+        sys.exit(EXIT_CONFIG)
 
 
 def _cmd_run_toml(config_path: Path, *, resume: str | None = None) -> None:
@@ -547,8 +560,12 @@ def _cmd_run_toml(config_path: Path, *, resume: str | None = None) -> None:
 
     _auto_scan_workspace(config_path)
 
-    with open(config_path, "rb") as f:
-        raw_toml = tomllib.load(f)
+    try:
+        with open(config_path, "rb") as f:
+            raw_toml = tomllib.load(f)
+    except tomllib.TOMLDecodeError as exc:
+        print(f"Invalid TOML: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
 
     workflow = detect_workflow(raw_toml)
 
@@ -561,10 +578,23 @@ def _cmd_run_toml(config_path: Path, *, resume: str | None = None) -> None:
     }
 
     module = importlib.import_module(dispatch[workflow])
-    if resume is not None and workflow == "simulation":
-        summary = module.run(config_path, resume=resume)
-    else:
-        summary = module.run(config_path)
+    try:
+        if resume is not None and workflow == "simulation":
+            summary = module.run(config_path, resume=resume)
+        else:
+            summary = module.run(config_path)
+    except KeyboardInterrupt:
+        print("Aborted by user.", file=sys.stderr)
+        sys.exit(EXIT_USER_ABORT)
+    except FileNotFoundError as exc:
+        print(f"Missing file: {exc}", file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+    except Exception as exc:
+        # Pydantic ValidationError exposes .errors(); treat as config issue.
+        if type(exc).__name__ == "ValidationError":
+            print(f"Config invalid: {exc}", file=sys.stderr)
+            sys.exit(EXIT_CONFIG)
+        raise
 
     print(f"Workflow '{workflow}' complete: {config_path.name}", file=sys.stderr)
     if summary:
@@ -1127,6 +1157,188 @@ def _cmd_data_add(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
+# New unified subcommands: show / compare / import / config wizard
+# ---------------------------------------------------------------------------
+
+
+def _resolve_sim_id(catalog, sim_id_or_prefix: str) -> str:
+    """Resolve a full sim_id from a prefix or a human-readable name."""
+    conn = catalog.connection
+    # Exact match on id
+    row = conn.execute(
+        "SELECT sim_id FROM simulations WHERE sim_id = ?",
+        [sim_id_or_prefix],
+    ).fetchone()
+    if row is not None:
+        return str(row[0])
+    # Prefix match
+    rows = conn.execute(
+        "SELECT sim_id FROM simulations WHERE sim_id LIKE ?",
+        [sim_id_or_prefix + "%"],
+    ).fetchall()
+    if len(rows) == 1:
+        return str(rows[0][0])
+    if len(rows) > 1:
+        print(f"Ambiguous sim_id prefix '{sim_id_or_prefix}'", file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+    # Fallback: name
+    row = conn.execute(
+        "SELECT sim_id FROM simulations WHERE name = ?",
+        [sim_id_or_prefix],
+    ).fetchone()
+    if row is not None:
+        return str(row[0])
+    print(f"Simulation not found: {sim_id_or_prefix}", file=sys.stderr)
+    sys.exit(EXIT_NOT_FOUND)
+
+
+def _cmd_show(args: argparse.Namespace) -> None:
+    """Print the metadata, metrics, and parameters of a simulation."""
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    workspace_root = _find_workspace_root(
+        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
+    )
+    if not (workspace_root / "hydromodpy.duckdb").exists():
+        print(f"No catalog at {workspace_root}", file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+
+    with SimulationCatalog(workspace_root) as catalog:
+        sid = _resolve_sim_id(catalog, args.sim_id)
+        sim = catalog[sid]
+        if args.json:
+            out = {
+                "sim_id": sim.id,
+                "name": sim.name,
+                "project": sim.project,
+                "solver": sim.solver,
+                "status": sim.status,
+                "duration_s": sim.duration_s,
+                "n_cells": sim.n_cells,
+                "n_timesteps": sim.n_timesteps,
+            }
+            print(json.dumps(out, indent=2, default=str))
+            return
+        print(f"Simulation {sim.name or sim.id[:8]}")
+        print(f"  sim_id    : {sim.id}")
+        print(f"  project   : {sim.project}")
+        print(f"  solver    : {sim.solver}")
+        print(f"  status    : {sim.status}")
+        if sim.duration_s is not None:
+            print(f"  duration  : {sim.duration_s:.1f} s")
+        if sim.n_cells is not None:
+            print(f"  n_cells   : {sim.n_cells}")
+        metrics = sim.metrics
+        if not metrics.empty:
+            print("Metrics:")
+            print(metrics.to_string(index=False))
+        params = sim.parameters
+        if not params.empty:
+            print("Parameters:")
+            print(params.to_string(index=False))
+
+
+def _cmd_compare(args: argparse.Namespace) -> None:
+    """Compare two simulations side-by-side."""
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    workspace_root = _find_workspace_root(
+        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
+    )
+    if not (workspace_root / "hydromodpy.duckdb").exists():
+        print(f"No catalog at {workspace_root}", file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+
+    with SimulationCatalog(workspace_root) as catalog:
+        sid_a = _resolve_sim_id(catalog, args.sim_a)
+        sid_b = _resolve_sim_id(catalog, args.sim_b)
+        sim_a = catalog[sid_a]
+        sim_b = catalog[sid_b]
+        print(f"A: {sim_a.name or sid_a[:8]}  (solver={sim_a.solver})")
+        print(f"B: {sim_b.name or sid_b[:8]}  (solver={sim_b.solver})")
+        # Metrics side by side
+        placeholders = "(?, ?)"
+        df = catalog.connection.execute(
+            "SELECT sim_id, station_id, metric_name, value "
+            f"FROM metrics WHERE sim_id IN {placeholders} "
+            "ORDER BY metric_name, station_id",
+            [sid_a, sid_b],
+        ).fetchdf()
+        if df.empty:
+            print("(no metrics recorded for either simulation)")
+            return
+        pivot = df.pivot_table(
+            index=["metric_name", "station_id"],
+            columns="sim_id",
+            values="value",
+            aggfunc="first",
+        )
+        # Rename columns to A/B
+        rename = {sid_a: "A", sid_b: "B"}
+        pivot = pivot.rename(columns=rename)
+        print(pivot.to_string())
+
+
+def _cmd_import(args: argparse.Namespace) -> None:
+    """Import an .hmp package into a workspace."""
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    src = Path(args.package).expanduser().resolve()
+    if not src.is_file():
+        print(f"Package not found: {src}", file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+
+    workspace_root = Path(
+        getattr(args, "workspace", None) or Path.cwd()
+    ).expanduser().resolve()
+    workspace_root.mkdir(parents=True, exist_ok=True)
+
+    with SimulationCatalog(workspace_root) as catalog:
+        try:
+            new_ids = catalog.import_simulation(src)
+        except Exception as exc:
+            print(f"Import failed: {exc}", file=sys.stderr)
+            sys.exit(EXIT_RUN_FAILED)
+    if isinstance(new_ids, str):
+        new_ids = [new_ids]
+    print(f"Imported {len(new_ids)} simulation(s) into {workspace_root}")
+    for sid in new_ids:
+        print(f"  {sid}")
+
+
+def _cmd_config_wizard(args: argparse.Namespace) -> None:
+    """Minimal interactive wizard to scaffold a TOML config.
+
+    Deliberately dependency-free (stdin prompts only). Designed to be a safe
+    placeholder that asks the essentials and delegates formatting to the
+    existing template generator.
+    """
+    from hydromodpy.core.config.generate_toml import generate_toml
+
+    def _ask(label: str, default: str | None = None) -> str:
+        hint = f" [{default}]" if default else ""
+        if not sys.stdin.isatty():
+            return default or ""
+        try:
+            ans = input(f"{label}{hint}: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nAborted.", file=sys.stderr)
+            sys.exit(EXIT_USER_ABORT)
+        return ans or (default or "")
+
+    print("HydroModPy configuration wizard (non-interactive-safe)", file=sys.stderr)
+    project = _ask("Project label", "my_project")
+    profile = _ask("Profile (user/dev/expert)", "user") or "user"
+    output = args.output or _ask("Output TOML path", f"{project}.toml")
+
+    dest = Path(output).expanduser().resolve()
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    generate_toml(output_path=str(dest), modules=None, profile=profile)
+    print(f"Written: {dest}", file=sys.stderr)
+    print(f"Try: hmp run {dest}")
+
+
+# ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 
@@ -1458,6 +1670,54 @@ def main() -> None:
     data_add.add_argument("--station-id", default=None, help="Station id for single-station files")
     data_add.add_argument("--workspace", default=None, help="Workspace root (default: ~/hydromodpy/)")
 
+    # --- show subcommand ---
+    show_parser = subparsers.add_parser(
+        "show",
+        help="Show metadata, metrics, and parameters of a simulation",
+    )
+    show_parser.add_argument(
+        "sim_id",
+        help="Full sim_id, unique prefix (>=4 chars), or simulation name",
+    )
+    show_parser.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace root (default: auto-detect upwards from cwd)",
+    )
+    show_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit a JSON document (suitable for jq)",
+    )
+
+    # --- compare subcommand ---
+    compare_parser = subparsers.add_parser(
+        "compare",
+        help="Compare two simulations by sim_id, prefix, or name",
+    )
+    compare_parser.add_argument("sim_a", help="First simulation")
+    compare_parser.add_argument("sim_b", help="Second simulation")
+    compare_parser.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace root (default: auto-detect upwards from cwd)",
+    )
+
+    # --- import subcommand ---
+    import_parser = subparsers.add_parser(
+        "import",
+        help="Import a .hmp package into a workspace",
+    )
+    import_parser.add_argument(
+        "package",
+        help="Path to the .hmp package directory",
+    )
+    import_parser.add_argument(
+        "-w", "--workspace",
+        default=None,
+        help="Target workspace root (default: cwd)",
+    )
+
     # --- calibrate subcommand ---
     calibrate_parser = subparsers.add_parser(
         "calibrate",
@@ -1497,13 +1757,16 @@ def main() -> None:
         "export": _cmd_export,
         "test": _cmd_test,
         "data": _cmd_data,
+        "show": _cmd_show,
+        "compare": _cmd_compare,
+        "import": _cmd_import,
     }
     handler = handlers.get(args.command)
     if handler is not None:
         handler(args)
     else:
         parser.print_help()
-        sys.exit(1)
+        sys.exit(EXIT_OK)
 
 
 if __name__ == "__main__":
