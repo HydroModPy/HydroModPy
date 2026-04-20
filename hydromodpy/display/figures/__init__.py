@@ -9,6 +9,7 @@ subclass.
 from __future__ import annotations
 
 from hydromodpy.display.figures import (  # noqa: F401
+    cross_section,
     hydrograph,
     piezometric_map,
 )
