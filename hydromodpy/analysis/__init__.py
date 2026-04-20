@@ -8,7 +8,9 @@ The legacy ``display`` and ``postprocess`` subpackages were removed in P08:
 - The launcher-managed postprocess workflow is now part of the simulation
   pipeline (see :mod:`hydromodpy.pipeline.steps`).
 
-Calibration, comparison, batch and capability-gallery helpers remain here.
+The legacy ``calibration`` subpackage was removed in P09 — calibration now
+lives at :mod:`hydromodpy.calibration` (Optuna-first, lightweight, TOML-
+simplified). Comparison, batch and capability-gallery helpers remain here.
 """
 
 from __future__ import annotations
@@ -18,7 +20,6 @@ from typing import Any
 
 
 _SUBMODULES = {
-    "calibration": "hydromodpy.analysis.calibration",
     "comparison": "hydromodpy.analysis.comparison",
     "batch": "hydromodpy.analysis.batch",
 }

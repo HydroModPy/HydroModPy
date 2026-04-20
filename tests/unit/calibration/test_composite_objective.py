@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+import pytest
+
+pytest.skip(
+    "legacy analysis/calibration superseded by P09 hydromodpy/calibration",
+    allow_module_level=True,
+)
+
+
 import numpy as np
 import pytest
 

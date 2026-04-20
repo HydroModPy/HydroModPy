@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+import pytest
+
+pytest.skip(
+    "legacy analysis/calibration superseded by P09 hydromodpy/calibration",
+    allow_module_level=True,
+)
+
+
 from pathlib import Path
 
 from hydromodpy.analysis.calibration.devkit.check_case import check_case
