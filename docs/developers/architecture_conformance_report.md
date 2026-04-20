@@ -496,6 +496,42 @@ checkpoint est noté :
 
 ---
 
+### 13_coherence_globale.md
+**Résumé :** La structure de paquets, la nomenclature DuckDB/Zarr, les runners CLI, les docs (glossary/design_patterns) et les tiers de tests sont conformes, mais plusieurs renommages canoniques (SolverAdapter→SolverRunner, DataManagersPlanner→DataPlanner, Geographic→CatchmentDelineation, Simulation vs SimulationView, suppression de `watershed/`) ainsi que `FieldDescriptor` registry et un catalogue unique d'exceptions typées ne sont pas appliqués.
+**Checkpoints :** 18 au total, OK=8, ÉCART=9, MANQUANT=1.
+
+| # | Checkpoint | Verdict | Preuve / Note |
+|---|------------|---------|---------------|
+| 1 | Terminologie canonique `Simulation` (façade) vs `SimulationView` (vue) (§3.1) | ÉCART | `project.py:132 class Simulation` + `results/simulation.py:19 class Simulation` ; `__init__.py:299` alias `SimulationView` via lazy. |
+| 2 | `SimulationCatalog`, `SimulationZarr`, `SimulationGroup` noms canoniques | OK | `results/catalog.py:90`, `results/zarr_store.py:19`, `results/simulation_group.py:14`. |
+| 3 | Renommage `SolverAdapter` → `SolverRunner` (§3.2 #6) | ÉCART | `solver/base/protocol.py:34 SolverAdapter` + `simulation/adapters/base.py:29 SolverAdapter`. |
+| 4 | Renommage `DataManagersPlanner` → `DataPlanner` (§3.2 #2) | ÉCART | `data/planner.py:19 DataManagersPlanner`. |
+| 5 | Renommage `Geographic` → `CatchmentDelineation` (§3.2 #9) | ÉCART | `spatial/geographic/geographic.py:83 class Geographic`. |
+| 6 | Suppression `Watershed` façade legacy (§3.2 #8) | ÉCART | `watershed/watershed.py:38 class Watershed` + ré-export public. |
+| 7 | `ParameterSpace` (non `ParamSpace`) | OK | `calibration/parameters.py` utilise `ParameterSpace`. |
+| 8 | `CalibrationEngine` + `CalibrationSession` canoniques | OK | `calibration/engine.py:46,67`. |
+| 9 | Runners : une shell par verbe (simulation/overview/mesh/calibration/batch) | OK | `runners/` contient exactement ces 5 shells + `__init__.py` (`detect_workflow`). |
+| 10 | Aucun import circulaire : `core/` feuille du DAG | ÉCART | `core/config/hydromodpy_config.py:34 from hydromodpy.data.data_managers_config import DataManagersConfig`. |
+| 11 | `ProcessSpatial[TInitialConditions]`, `Flow`, `Transport` | OK | `process/base/process_spatial.py:47`, `flow/flow.py:96`, `transport/transport.py:39`. |
+| 12 | Patterns Pydantic uniformes (`BaseModel` + `ConfigDict`) | OK | 114 `ConfigDict` dans 51 fichiers config. |
+| 13 | `HydroModPyConfig` `extra="forbid"` racine (P0 §11.1) | ÉCART | `hydromodpy_config.py` `model_config = ConfigDict(arbitrary_types_allowed=True)` sans `extra="forbid"`. |
+| 14 | Catalogue unique `hydromodpy/core/exceptions.py` (HydroModPyError/ConfigError/SolverError/...) | MANQUANT | Aucun fichier `exceptions.py`. Exceptions locales seulement. |
+| 15 | Registre `FieldDescriptor` dans `results/field_registry.py` (§1.3) | ÉCART | Pas de `field_registry.py` ; `results/virtual_fields.py` + `derived.py` sans descripteur CF central. |
+| 16 | `docs/developers/glossary.md` vocabulaire canonique | OK | 210 lignes, sections Objects/Identifiers/Pipeline. |
+| 17 | `docs/developers/design_patterns.md` 10 patterns | OK | 229 lignes, 10 sections numérotées. |
+| 18 | Guide migration + changelog v0.4 consolidé (F07) | OK | `CHANGELOG.md` section `[v0.4.0]` + `### Migration Guide`. |
+
+**Écarts assumés :**
+- 4 renommages canoniques différés (SolverAdapter/DataManagersPlanner/Geographic/Watershed) — compat v0.3.5 conservée.
+- `core/` dépend encore de `data/` (import `DataManagersConfig`).
+- `HydroModPyConfig` sans `extra="forbid"` à la racine.
+- `FieldDescriptor` registry absent — `derived.py` suffit pour v0.4.
+
+**Manquants :**
+- `hydromodpy/core/exceptions.py` catalogue unique — suivi `v0.5-exceptions-hierarchy`.
+
+---
+
 ---
 
 ## Écarts globaux assumés (décisions architecture)
