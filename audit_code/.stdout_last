@@ -1,0 +1,18 @@
+Synthèse finale rédigée — 539 lignes, 11 sections demandées.
+
+**Structure livrée** (`audit_code/11_synthese_finale.md`) :
+
+1. **Verdict en 5 lignes** — position stratégique du projet
+2. **Scorecard global** — 13 domaines notés /10 avec justification
+3. **Top 10 forces** à préserver (Simulation Catalog, Protocol adapters, MCP Boussinesq, calibration exemplaire…)
+4. **Top 10 dettes** classées bloquant/majeur × effort, avec références aux rapports sources
+5. **20 problèmes critiques** bloquant la release, répartis : bugs physiques (C1-C8) / silencieux (C9-C16) / opérationnels (C17-C20)
+6. **33 éléments de code mort** (~9 600 lignes supprimables, 12 % du code non-test)
+7. **Inconsistances inter-modules** (nommage, conventions, interfaces)
+8. **Conformité aux standards** — tableau PEP / CF-1.8 / UGRID / OGC / MODFLOW / PROV-O / Crameri 2020
+9. **20 renommages** avec justification
+10. **Réorganisation packages** — arbre actuel vs arbre proposé
+11. **Plan 3 mois** — 3 sprints chiffrés (20+40+60 = 120 j-dev), hypothèse 2.5 ETP
+12. **Conclusion** en 5 phrases — trajectoire et investissement
+
+**Note globale : 5,0/10** (acceptable pour recherche, insuffisant pour certification), passage à 7,5/10 après les 3 sprints. Urgence absolue : bugs physiques silencieux (BC `stream/ocean → CHD`, moyenne K arithmétique, porosité = Sy).
