@@ -69,6 +69,14 @@ Each release section includes the following standard categories:
 - Paper-era `examples_legacy/` tree (3+ GB of historical scripts and
   outputs, superseded by the new `examples/` and
   `validation_cases/` trees).
+- Environment variables `HYDROMODPY_NO_DISPLAY` and
+  `HYDROMODPY_NO_SAVE`. Display behaviour (saving, interactivity,
+  output directory) is now driven exclusively by the ``[display]``
+  TOML section. Breaking change, no deprecation shim.
+- Empty residual shells `hydromodpy/analysis/display/` and
+  `hydromodpy/analysis/postprocess/` (content was migrated to
+  `hydromodpy/display/` and the pipeline extract/derive/export steps
+  during P08).
 
 ### Migration guide (external scripts still pinned to 0.3.x)
 - Replace `from hydromodpy.core.backends import get_whitebox_backend`
@@ -79,6 +87,10 @@ Each release section includes the following standard categories:
 - TOML configs produced before P13 remain loadable; the `[postprocess]`
   section is accepted but now ignored in favour of pipeline steps 8–10
   (`extract`, `derive`, `export`).
+- Scripts and CI pipelines that exported `HYDROMODPY_NO_DISPLAY=1`
+  or `HYDROMODPY_NO_SAVE=1` should either drop those exports (the
+  `[display]` defaults are already non-interactive and save-enabled)
+  or set `save = false` / `interactive = false` in their project TOML.
 
 ### Fixed
 -
