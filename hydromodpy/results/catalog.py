@@ -31,6 +31,62 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _coerce_timestamp(value: Any) -> Any:
+    """Return a value suitable for a ``TIMESTAMPTZ`` column.
+
+    Accepts ``None``, pandas ``Timestamp``, ``datetime``, or ISO string. Plain
+    strings are validated and passed through; anything else is returned as-is
+    for DuckDB to cast.
+    """
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value
+    return str(value)
+
+
+def _python_value_type(value: object) -> str:
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, int):
+        return "int"
+    if isinstance(value, float):
+        return "double"
+    return "string"
+
+
+def _normalize_geometry_kind(geom_type: str | None) -> str | None:
+    if not geom_type:
+        return None
+    mapping = {
+        "Point": "point",
+        "MultiPoint": "point",
+        "LineString": "linestring",
+        "MultiLineString": "linestring",
+        "Polygon": "polygon",
+        "MultiPolygon": "multipolygon",
+    }
+    return mapping.get(geom_type, "polygon")
+
+
+def _epsg_from_crs(crs: str) -> int | None:
+    """Best-effort extraction of an EPSG code from a CRS string."""
+    if not crs:
+        return None
+    upper = crs.upper().strip()
+    if upper.startswith("EPSG:"):
+        try:
+            return int(upper.split(":", 1)[1])
+        except ValueError:
+            return None
+    try:
+        from pyproj import CRS as _CRS
+
+        return _CRS.from_user_input(crs).to_epsg()
+    except Exception:
+        return None
+
+
 class SimulationCatalog:
 
     def __init__(self, workspace_path: Path | str) -> None:
@@ -68,18 +124,22 @@ class SimulationCatalog:
         solver_category: str | None = None,
         flow_regime: str | None = None,
         config: dict | None = None,
+        config_snapshot: dict | None = None,
         n_cells: int | None = None,
         n_layers: int | None = None,
         n_timesteps: int | None = None,
         cell_types: list[str] | None = None,
-        bbox: list[float] | None = None,
+        bbox: list[float] | tuple[float, float, float, float] | None = None,
         crs: str | None = None,
+        crs_epsg: int | None = None,
         period_start: Any = None,
         period_end: Any = None,
         time_unit: str | None = None,
         parent_sim_id: str | UUID | None = None,
         mesh_hash: str | None = None,
         mesh_type: str | None = None,
+        mesh_topology: str | None = None,
+        geographic_fingerprint: str | None = None,
         tags: list[str] | None = None,
         notes: str | None = None,
         run_id: str | None = None,
@@ -98,32 +158,52 @@ class SimulationCatalog:
             solver_category = SOLVER_CATEGORIES.get(solver)
 
         config_json = json.dumps(config) if config else None
+        snapshot_source = config_snapshot if config_snapshot is not None else config
+        snapshot_json = (
+            json.dumps(snapshot_source) if snapshot_source is not None else None
+        )
         config_hash = None
         if config:
             config_hash = hashlib.sha256(
                 json.dumps(config, sort_keys=True).encode()
             ).hexdigest()
 
+        bbox_xmin = bbox_ymin = bbox_xmax = bbox_ymax = None
+        if bbox is not None and len(bbox) == 4:
+            bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax = (float(v) for v in bbox)
+
+        crs_wkt = crs
+        if crs_epsg is None and crs:
+            crs_epsg = _epsg_from_crs(crs)
+
+        topology = mesh_topology or mesh_type
+        p_start = _coerce_timestamp(period_start)
+        p_end = _coerce_timestamp(period_end)
+
         zarr_path = f"simulations/{sid}.zarr"
         parent_sid = str(parent_sim_id) if parent_sim_id else None
-        p_start = str(period_start) if period_start is not None else None
-        p_end = str(period_end) if period_end is not None else None
 
         self._db.execute(
             """INSERT INTO simulations
                (sim_id, name, project, solver, solver_category, flow_regime,
-                n_cells, n_layers, n_timesteps, cell_types, bbox, crs,
+                n_cells, n_layers, n_timesteps,
+                bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
+                crs_wkt, crs_epsg,
                 period_start, period_end, time_unit,
-                config_toml, config_hash, zarr_path,
-                parent_sim_id, mesh_hash, mesh_type, tags, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                       ?, ?, ?, ?, ?)""",
+                config_toml, config_snapshot, config_hash, zarr_path,
+                parent_sim_id, mesh_hash, mesh_topology,
+                geographic_fingerprint, tags, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
                 sid, name, project, solver, solver_category, flow_regime,
-                n_cells, n_layers, n_timesteps, cell_types, bbox, crs,
+                n_cells, n_layers, n_timesteps,
+                bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
+                crs_wkt, crs_epsg,
                 p_start, p_end, time_unit,
-                config_json, config_hash, zarr_path,
-                parent_sid, mesh_hash, mesh_type, tags, notes,
+                config_json, snapshot_json, config_hash, zarr_path,
+                parent_sid, mesh_hash, topology,
+                geographic_fingerprint, tags, notes,
             ],
         )
 
@@ -175,15 +255,15 @@ class SimulationCatalog:
                 "sim_id": np.full(n, sid, dtype=object),
                 "station_id": np.full(n, station_id, dtype=object),
                 "variable": np.full(n, variable, dtype=object),
-                "timestamp": ts.index,
+                "datetime": ts.index,
                 "value": ts.values.astype("float64"),
                 "unit": np.full(n, unit, dtype=object),
             }
         )
         self._db.execute(
-            "INSERT INTO timeseries "
-            "(sim_id, station_id, variable, timestamp, value, unit) "
-            "SELECT sim_id, station_id, variable, timestamp, value, unit "
+            "INSERT OR REPLACE INTO timeseries "
+            "(sim_id, station_id, variable, datetime, value, unit) "
+            "SELECT sim_id, station_id, variable, datetime, value, unit "
             "FROM insert_df"
         )
 
@@ -272,12 +352,14 @@ class SimulationCatalog:
         station_id: str,
         metric_name: str,
         value: float,
+        *,
+        variable: str = "head",
     ) -> None:
         self._db.execute(
             """INSERT OR REPLACE INTO metrics
-               (sim_id, station_id, metric_name, value)
-               VALUES (?, ?, ?, ?)""",
-            [str(sim_id), station_id, metric_name, value],
+               (sim_id, station_id, variable, metric_name, value)
+               VALUES (?, ?, ?, ?, ?)""",
+            [str(sim_id), station_id, variable, metric_name, value],
         )
 
     # -- Provenance ----------------------------------------------------------
@@ -294,15 +376,18 @@ class SimulationCatalog:
         period_end: Any = None,
     ) -> None:
         fp = fingerprint(data)
+        source_type_value = source_type if source_type in (
+            "http_api", "custom_file", "derived", "cache",
+        ) else "derived"
         self._db.execute(
-            """INSERT INTO provenance
+            """INSERT OR REPLACE INTO provenance
                (sim_id, variable, source_type, source_ref,
-                period_start, period_end, checksum, n_records, stats)
+                period_start, period_end, payload_sha256, n_records, stats)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
-                str(sim_id), variable, source_type, source_ref,
-                str(period_start) if period_start is not None else None,
-                str(period_end) if period_end is not None else None,
+                str(sim_id), variable, source_type_value, source_ref,
+                _coerce_timestamp(period_start),
+                _coerce_timestamp(period_end),
                 fp["checksum"],
                 int(np.prod(data.shape)),
                 json.dumps(fp["stats"]),
@@ -326,14 +411,15 @@ class SimulationCatalog:
         vertices = mesh["vertices"][:]
         connectivity = mesh["face_node_connectivity"][:]
 
+        _ = variable
         mapping = point_in_cell(vertices, connectivity, points)
         for station_id, (x, y) in points.items():
             cell_id = mapping[station_id]
             self._db.execute(
-                """INSERT INTO observation_points
-                   (sim_id, station_id, x, y, cell_id, layer, variable)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                [sid, station_id, x, y, cell_id, layer, variable],
+                """INSERT OR REPLACE INTO observation_points
+                   (sim_id, station_id, x, y, cell_id, layer)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                [sid, station_id, x, y, cell_id, layer],
             )
 
     # -- Geographic features & metadata (sim-scoped in DuckDB) ----------------
@@ -343,22 +429,30 @@ class SimulationCatalog:
         sim_id: str | UUID,
         feature_name: str,
         gdf: gpd.GeoDataFrame,
+        *,
+        geoparquet_path: str | None = None,
     ) -> None:
         if gdf.empty:
             return
-        geojson_str = gdf.to_json()
         from shapely.ops import unary_union
         union_geom = unary_union(
             [g for g in gdf.geometry if g is not None and not g.is_empty]
         )
-        geom_type = union_geom.geom_type
-        crs_str = str(gdf.crs) if gdf.crs else ""
-
+        geom_kind = _normalize_geometry_kind(union_geom.geom_type)
+        crs_str = str(gdf.crs) if gdf.crs else None
+        properties = {
+            "geojson": gdf.to_json(),
+            "n_features": int(len(gdf)),
+        }
         self._db.execute(
             "INSERT OR REPLACE INTO geographic_features "
-            "(sim_id, feature_name, geojson, geometry_type, crs, properties) "
-            "VALUES (?, ?, ?, ?, ?, NULL)",
-            [str(sim_id), feature_name, geojson_str, geom_type, crs_str],
+            "(sim_id, feature_name, geometry_kind, crs_wkt, "
+            " geoparquet_path, properties) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                str(sim_id), feature_name, geom_kind, crs_str,
+                geoparquet_path, json.dumps(properties),
+            ],
         )
 
     def read_geographic_feature(
@@ -367,7 +461,7 @@ class SimulationCatalog:
         import geopandas as gpd_mod
 
         row = self._db.execute(
-            "SELECT geojson, crs FROM geographic_features "
+            "SELECT properties, crs_wkt FROM geographic_features "
             "WHERE sim_id = ? AND feature_name = ?",
             [str(sim_id), feature_name],
         ).fetchone()
@@ -375,13 +469,19 @@ class SimulationCatalog:
             raise KeyError(
                 f"Feature '{feature_name}' not found for sim '{sim_id}'"
             )
-        geojson_str, crs = row
-        if geojson_str:
-            gdf = gpd_mod.read_file(geojson_str)
-            if crs and gdf.crs is None:
-                gdf = gdf.set_crs(crs)
-            return gdf
-        raise KeyError(f"No GeoJSON data for feature '{feature_name}'")
+        properties_json, crs = row
+        if not properties_json:
+            raise KeyError(f"No payload for feature '{feature_name}'")
+        props = json.loads(properties_json) if isinstance(
+            properties_json, str
+        ) else properties_json
+        geojson_str = props.get("geojson") if isinstance(props, dict) else None
+        if not geojson_str:
+            raise KeyError(f"No GeoJSON data for feature '{feature_name}'")
+        gdf = gpd_mod.read_file(geojson_str)
+        if crs and gdf.crs is None:
+            gdf = gdf.set_crs(crs)
+        return gdf
 
     def list_geographic_features(self, sim_id: str | UUID) -> list[str]:
         rows = self._db.execute(
@@ -392,14 +492,16 @@ class SimulationCatalog:
         return [r[0] for r in rows]
 
     def write_geographic_metadata(
-        self, sim_id: str | UUID, metadata: dict[str, str],
+        self, sim_id: str | UUID, metadata: dict[str, object],
     ) -> None:
         sid = str(sim_id)
         for key, value in metadata.items():
+            value_type = _python_value_type(value)
             self._db.execute(
-                "INSERT OR REPLACE INTO geographic_metadata (sim_id, key, value) "
-                "VALUES (?, ?, ?)",
-                [sid, str(key), str(value)],
+                "INSERT OR REPLACE INTO geographic_metadata "
+                "(sim_id, key, value, value_type) "
+                "VALUES (?, ?, ?, ?)",
+                [sid, str(key), None if value is None else str(value), value_type],
             )
 
     def read_geographic_metadata(self, sim_id: str | UUID) -> dict[str, str]:
@@ -496,14 +598,14 @@ class SimulationCatalog:
         period: tuple | None = None,
     ) -> pd.Series:
         query = (
-            "SELECT timestamp, value FROM timeseries "
+            "SELECT datetime, value FROM timeseries "
             "WHERE sim_id = ? AND station_id = ? AND variable = ?"
         )
         params: list = [str(sim_id), station_id, variable]
         if period is not None:
-            query += " AND timestamp >= ? AND timestamp <= ?"
+            query += " AND datetime >= ? AND datetime <= ?"
             params.extend([period[0], period[1]])
-        query += " ORDER BY timestamp"
+        query += " ORDER BY datetime"
         result = self._db.execute(query, params).fetchdf()
         if result.empty:
             raise KeyError(
@@ -511,7 +613,7 @@ class SimulationCatalog:
             )
         return pd.Series(
             result["value"].values,
-            index=pd.DatetimeIndex(result["timestamp"]),
+            index=pd.DatetimeIndex(result["datetime"]),
             name=variable,
         )
 
@@ -658,9 +760,13 @@ class SimulationCatalog:
                 params.append(metric)
                 clauses.append(f"{alias}.value >= ?")
                 params.append(val)
+            elif key == "crs":
+                clauses.append("s.crs_wkt = ?")
+                params.append(val)
             elif key in (
                 "project", "solver", "solver_category", "flow_regime",
-                "status", "name", "crs",
+                "status", "name", "crs_wkt", "mesh_topology",
+                "geographic_fingerprint",
             ):
                 clauses.append(f"s.{key} = ?")
                 params.append(val)
@@ -762,11 +868,6 @@ class SimulationCatalog:
                     f"SELECT * FROM {table} WHERE sim_id = ?", [sid],
                 ).fetchdf()
                 pkg_db.execute(f"CREATE TABLE {table} AS SELECT * FROM df")
-
-            ver_df = self._db.execute("SELECT * FROM _schema_version").fetchdf()
-            pkg_db.execute(
-                "CREATE TABLE _schema_version AS SELECT * FROM ver_df"
-            )
         finally:
             pkg_db.close()
 
