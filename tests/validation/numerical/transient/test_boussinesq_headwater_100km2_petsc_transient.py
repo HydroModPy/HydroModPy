@@ -81,8 +81,6 @@ def _run_transient_real_case_summary(
         ).resolve(),
     )
 
-    monkeypatch.setenv("HYDROMODPY_NO_DISPLAY", "1")
-    monkeypatch.setenv("HYDROMODPY_NO_SAVE", "1")
     monkeypatch.setenv("MPLBACKEND", "Agg")
 
     with Simulation(config_path) as project:

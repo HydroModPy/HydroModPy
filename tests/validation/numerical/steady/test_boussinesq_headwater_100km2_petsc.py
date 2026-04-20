@@ -105,8 +105,6 @@ def test_headwater_real_case_petsc_variants_converge_on_committed_mesh(
         ).resolve(),
     )
 
-    monkeypatch.setenv("HYDROMODPY_NO_DISPLAY", "1")
-    monkeypatch.setenv("HYDROMODPY_NO_SAVE", "1")
     monkeypatch.setenv("MPLBACKEND", "Agg")
 
     with Simulation(config_path) as project:

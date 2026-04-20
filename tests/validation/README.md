@@ -123,13 +123,10 @@ In practice:
 - If those Linux dependencies are missing, the PETSc tests will skip or fail at
   import/runtime setup rather than indicate a scientific regression.
 
-During pytest execution, validation runs are launched with:
-
-- `HYDROMODPY_NO_DISPLAY=1`
-- `HYDROMODPY_NO_SAVE=1`
-- `MPLBACKEND=Agg`
-
-This keeps the tests non-interactive and deterministic.
+During pytest execution, validation runs are launched with
+`MPLBACKEND=Agg`. Display behaviour is otherwise driven by the
+``[display]`` TOML section (defaults are non-interactive and
+save-enabled), which keeps the tests deterministic.
 
 ## Running the Suite
 
