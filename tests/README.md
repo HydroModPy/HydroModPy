@@ -7,8 +7,9 @@ three tiers with different purposes, budgets, and selection rules.
 
 ```
 tests/
-├── conftest.py                  # shared scratch root, update-goldens flag
-├── unit/                        # fast, isolated, no external binaries
+├── conftest.py                  # shared scratch root, update-goldens flag, shared fixtures
+├── unit/                        # one module under test, < 2 s, no real I/O
+├── integration/                 # cross-module workflows with shared fixtures, < 10 s
 ├── regression/                  # golden-reference tests for full workflows
 │   ├── fast/                    # routine non-regression tier
 │   ├── extensive/               # deeper end-to-end non-regression tier
@@ -25,7 +26,8 @@ tests/
 
 | Tier | Target budget | Purpose | Selection |
 |------|---------------|---------|-----------|
-| `unit`       | ≤ 1 min total, ≤ 2 s per test | Pure Python logic, no external binaries, no real I/O outside `tmp_path`. | `pytest tests/unit/` |
+| `unit`       | ≤ 1 min total, ≤ 2 s per test | One module under test, pure-Python logic, no external binaries, no real I/O outside `tmp_path`. | `pytest tests/unit/` |
+| `integration` | ≤ 10 s per test | Cross-module workflows exercising more than one HydroModPy subpackage via shared fixtures (`tmp_workspace`, `minimal_config`, …). No golden files. | `pytest tests/integration/` or `pytest -m integration` |
 | `regression/fast` | ≤ 5 min | Full launcher/pipeline workflows on mini fixtures, compared to committed golden signatures. | `pytest tests/regression/fast/` |
 | `regression/extensive` | ≤ 30 min | Deeper end-to-end golden checks with heavier fixtures. | `pytest tests/regression/extensive/` |
 | `validation` | ≤ 30 min | Numerical results vs analytical / MMS references with documented tolerances. | `pytest tests/validation/` |
@@ -47,7 +49,7 @@ Declared in `pyproject.toml`:
 | `nwt`         | MODFLOW-NWT / MODPATH / MT3DMS |
 | `mf6`         | MODFLOW 6 / GWT |
 | `petsc`       | Linux PETSc Boussinesq runtime |
-| `integration` | reaches external services or systems |
+| `integration` | cross-module workflow test (auto-applied to `tests/integration/`) |
 | `coverage`    | long-running coverage-focused test |
 
 The `fast`/`extensive` markers under `tests/regression/` are auto-applied
@@ -157,11 +159,23 @@ for the per-case workflow.
 
 - **unit/** — one importable module under test, one behaviour per test,
   budget ≤ 2 s. No external binaries. Use `tmp_path` for any I/O.
+- **integration/** — cross-module test (pipeline + catalog, planner +
+  adapters, …) backed by shared fixtures from the root conftest
+  (`tmp_workspace`, `minimal_config`). Budget ≤ 10 s, no golden files.
 - **regression/** — exercise a full launcher / pipeline on a fixture, then
   compare a committed signature. Tag with `@pytest.mark.regression` and
   (if solver-specific) `@pytest.mark.nwt` or `@pytest.mark.mf6`.
 - **validation/** — exercise a physical case against a known analytical
   solution; document the reference and the tolerance rationale.
+
+The shared fixtures come from `tests/conftest.py`:
+
+- `tmp_workspace(tmp_path)` yields an initialized workspace directory
+  (standard `data/`, `projects/`, per-variable `*_custom/` seed folders)
+  ready to back a `SimulationCatalog`.
+- `minimal_config(tmp_path)` returns the smallest valid
+  `HydroModPyConfig` (synthetic `geographic` + a `workspace` pointed at
+  `tmp_path / "project"`). Extend via `.model_copy(update=...)`.
 
 Prefer `@pytest.mark.parametrize` over copy-pasting N near-identical
 tests. Keep test files under ~400 LOC: a file that grows beyond that is
