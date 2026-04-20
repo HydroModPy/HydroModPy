@@ -345,8 +345,8 @@ def _cmd_init(args: argparse.Namespace) -> None:
             print(f"  {indent}{rel.name}")
     print()
     print("Next steps:")
-    print(f"  1. Fill data/*_LOC.csv with your station coordinates (id,x,y,crs)")
-    print(f"  2. Add chronicle CSVs per station in data/<variable>/")
+    print(f"  1. Drop your files into <variable>_custom/ folders (see README.md there)")
+    print(f"  2. Run: hmp data check to validate them before first run")
     print(f"  3. Run: hmp new <project_name>")
     print(f"  4. Edit projects/<project>/project.toml with your settings")
 
