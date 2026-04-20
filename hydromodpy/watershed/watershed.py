@@ -25,15 +25,6 @@ repo_root = dirname(package_root)
 
 # HydroModPy
 from hydromodpy.spatial.geographic.geographic import Geographic
-import warnings as _warnings
-with _warnings.catch_warnings():
-    _warnings.filterwarnings(
-        "ignore",
-        category=DeprecationWarning,
-        message=r".*hydromodpy\.(data_managers|data\.climatic).*",
-    )
-    from hydromodpy.data.climatic.driaseau import Driaseau
-    from hydromodpy.data.climatic import driasclimat, safransurfex
 from hydromodpy.analysis.postprocess import netcdf
 from hydromodpy.core.tools import get_logger
 from hydromodpy.core.tools import setup_simulation_log
@@ -374,38 +365,20 @@ class Watershed:
     #%% ADDING DATA
 
     def add_driasclimat(self, driasclimat_path, list_models='all', list_vars='all'):
-        """
-        Public method to add drias climat data.
-        Link: https://www.drias-climat.fr/
-
-        Returns
-        -------
-        None.
-        """
-        self.driasclimat_path = driasclimat_path
-        self.driasclimat = driasclimat.Driasclimat(out_path=self.watershed_folder,
-                                          driasclimat_path=self.driasclimat_path,
-                                          watershed_shp=self.geographic.watershed_shp,
-                                          list_models=list_models,
-                                          list_vars=list_vars)
-        self.elt_def.append('driasclimat')
+        """Deprecated. Legacy DRIAS-Climat loader removed with `hydromodpy.data.climatic`."""
+        raise NotImplementedError(
+            "add_driasclimat() has been removed. Use the custom data scaffold "
+            "(drop NetCDFs in ~/hydromodpy/<variable>_custom/) or a dedicated "
+            "DataSource registered under hydromodpy.data.sources."
+        )
 
     def add_driaseau(self, driaseau_path, list_models='all', list_vars='all'):
-        """
-        Public method to add drias eau data.
-        Link: https://www.drias-eau.fr/
-
-        Returns
-        -------
-        None.
-        """
-        self.driaseau_path = driaseau_path
-        self.driaseau = Driaseau(out_path=self.watershed_folder,
-                                          driaseau_path=self.driaseau_path,
-                                          watershed_shp=self.geographic.watershed_shp,
-                                          list_models=list_models,
-                                          list_vars=list_vars)
-        self.elt_def.append('driaseau')
+        """Deprecated. Legacy DRIAS-Eau loader removed with `hydromodpy.data.climatic`."""
+        raise NotImplementedError(
+            "add_driaseau() has been removed. Use the custom data scaffold "
+            "(drop NetCDFs in ~/hydromodpy/<variable>_custom/) or a dedicated "
+            "DataSource registered under hydromodpy.data.sources."
+        )
 
     def add_piezometry(self):
         """
@@ -420,20 +393,12 @@ class Watershed:
         )
 
     def add_safransurfex(self, safransurfex_path):
-        """
-        Pulic method to add safran-surfex (historical reanalysis) climate data.
-
-        Returns
-        -------
-        None.
-        """
-        self.safransurfex_path = safransurfex_path
-        self.safransurfex = safransurfex.SafranSurfex(out_path=self.watershed_folder,
-                                                      safransurfex_path=self.safransurfex_path,
-                                                      watershed_shp=self.geographic.box_buff)
-        safransurfex.Merge(out_path=self.watershed_folder)
-        self.elt_def.append('safransurfex')
-        self.save_object()
+        """Deprecated. Legacy SAFRAN-SURFEX loader removed with `hydromodpy.data.climatic`."""
+        raise NotImplementedError(
+            "add_safransurfex() has been removed. Use the SIM2 INRAE client "
+            "(hydromodpy.data.common.clients.sim2_inrae) or the custom data "
+            "scaffold for SAFRAN-SURFEX NetCDFs."
+        )
 
     #%% EXTRACT NETCDF
 
