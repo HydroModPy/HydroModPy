@@ -90,6 +90,12 @@ def _write_tmp_config(tmp_path: Path) -> Path:
 
 
 @pytest.mark.slow
+@pytest.mark.skip(
+    reason=(
+        "Nancon DEM came from examples_legacy/ removed in P13; "
+        "restore this test once a replacement raster ships under examples/data/dem/."
+    )
+)
 def test_run_geographic_case_metrics_golden(update_goldens, tmp_path, monkeypatch: pytest.MonkeyPatch):
     """
     Validate DEM-sensitive geographic metrics on the largest geographic case.
