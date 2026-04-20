@@ -38,6 +38,12 @@ from .forcing_discretization import (
     stress_period_axes,
 )
 from .grid_context import GridReference, SolverGridContext
+from .grid_mapping import (
+    DiscretizationKind,
+    DisDescriptor,
+    DisvDescriptor,
+    describe_grid,
+)
 from .masstransfer import Masstransfer
 from .options import (
     ModflowPostprocessOptions,
@@ -56,6 +62,9 @@ from .solver_mesh import SolverMesh
 __all__ = [
     "BoundaryCell",
     "BoundaryKind",
+    "DiscretizationKind",
+    "DisDescriptor",
+    "DisvDescriptor",
     "DisvBoundaryCell",
     "GridReference",
     "MF6_PACKAGES",
@@ -74,6 +83,7 @@ __all__ = [
     "project_surfaces_to_planar_grid",
     "build_temporal_discretization",
     "build_temporal_discretization_from_time_grid",
+    "describe_grid",
     "ensure_platform_executable",
     "broadcast_to_stress_periods",
     "discretize_spatially_distributed_source",
