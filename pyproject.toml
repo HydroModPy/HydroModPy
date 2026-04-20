@@ -64,6 +64,7 @@ dependencies = [
     "scikit-learn",
     "scipy",
     "cma",
+    "optuna",
     "selenium",
     "ultraplot",
     "vedo",
