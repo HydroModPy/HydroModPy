@@ -8,6 +8,9 @@ subclass.
 
 from __future__ import annotations
 
-from hydromodpy.display.figures import piezometric_map  # noqa: F401
+from hydromodpy.display.figures import (  # noqa: F401
+    hydrograph,
+    piezometric_map,
+)
 
 __all__: list[str] = []
