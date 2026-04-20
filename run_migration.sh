@@ -38,6 +38,14 @@ ALL_PHASES=(P01 P02 P03 P04 P05 P06 P07 P08 P09 P10 P11 P12 P13)
 mkdir -p "$STATE_DIR" "$PHASES_DIR"
 
 # ===============================================================
+# ENV — activer le venv uv pour que `pytest` soit dans le PATH
+# ===============================================================
+if [[ -d "$PROJECT/.venv/bin" ]]; then
+    export PATH="$PROJECT/.venv/bin:$PATH"
+    export VIRTUAL_ENV="$PROJECT/.venv"
+fi
+
+# ===============================================================
 # HELPERS — log, notify
 # ===============================================================
 log() {
@@ -271,8 +279,18 @@ CONTEXTE GENERAL :
 - Audit existant : audit_code/ (contexte de ce qui existe)
 - Code : hydromodpy/  |  Tests : tests/unit, tests/regression/{fast,extensive}, tests/validation
 - CLI : hmp (entry : hydromodpy/__main__.py), hydromodpy (alias)
-- Python : 3.11-3.13, conda env 'hmp', pip install -e .
+- Python : 3.11-3.13. Gestion via **uv**. Environnement virtuel a la racine : .venv/
 - Conventions existantes dans CLAUDE.md (lire si besoin).
+
+ENVIRONNEMENT D EXECUTION :
+- Le PATH est deja configure avec .venv/bin en prefixe : `pytest`, `python`,
+  `hmp` sont directement disponibles. NE PAS chercher pytest avec `find /`
+  (scan systeme = plusieurs heures, STRICTEMENT INTERDIT).
+- Si `pytest` ne fonctionne pas directement, utiliser `uv run pytest` a la
+  racine du repo. Ne JAMAIS lancer `find / -name pytest` ni `which pytest`
+  dans des dossiers systeme.
+- Pour installer une nouvelle dependance : editer pyproject.toml puis
+  `uv sync` (pas `pip install` directement).
 
 SIGNALISATION DE FIN :
 Quand la phase est COMPLETEMENT terminee (tous les commits passes, tous les

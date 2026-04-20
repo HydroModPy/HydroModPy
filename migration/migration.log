@@ -1,0 +1,75 @@
+[2026-04-20 13:36:15] Initial branch : dev-refact_v2
+[2026-04-20 13:36:15] Initial commit : bf8dc016652a78c8bf2f5fc1eb061d4d64afc7cc
+[2026-04-20 13:36:15] 
+[2026-04-20 13:36:15] ================================================================
+[2026-04-20 13:36:15]   MIGRATION HYDROMODPY
+[2026-04-20 13:36:15]   Branch : dev-refact_v2
+[2026-04-20 13:36:15]   HEAD   : bf8dc016652a78c8bf2f5fc1eb061d4d64afc7cc
+[2026-04-20 13:36:15]   Start  : 2026-04-20 13:36:15
+[2026-04-20 13:36:15]   Specs  : /home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/architecture_cible
+[2026-04-20 13:36:15]   Audit  : /home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/audit_code
+[2026-04-20 13:36:15]   MODE   : resume-all (skip already done)
+[2026-04-20 13:36:15] ================================================================
+[2026-04-20 13:36:15] START P01: Foundations: cleanup + glossary + migration docs (attempt 1/15)
+[2026-04-20 13:47:02] DONE P01 (647s)
+[2026-04-20 13:47:02] MARK P01 done at 6e0bf21cec7cc0a51daebcf2f5c100bbcbd0a389
+[2026-04-20 13:47:02] START P02: Storage: new DuckDB schema + geographic fingerprint cache (attempt 1/15)
+[2026-04-20 14:10:16] DONE P02 (1394s)
+[2026-04-20 14:10:16] MARK P02 done at d3a2c8931bf4410d7740c10851e968462be0c215
+[2026-04-20 14:10:16] START P03: Config: Pydantic + pydantic-pint + JSON Schema (attempt 1/15)
+[2026-04-20 15:16:02] DONE P03 (3946s)
+[2026-04-20 15:16:02] MARK P03 done at 45e0e79a0b2c6d9a6d90bc7535cddce1e519d0c7
+[2026-04-20 15:16:02] START P04: Data layer: scaffold + auto-scan + INRAE preservation (attempt 1/15)
+[2026-04-20 15:32:59] DONE P04 (1017s)
+[2026-04-20 15:32:59] MARK P04 done at 0b20dd2e2467bfd536fef80b8fa4f46e3f2135be
+[2026-04-20 15:32:59] START P05: Spatial: delineation multi-backend + synthetic (attempt 1/15)
+[2026-04-20 15:44:04] DONE P05 (665s)
+[2026-04-20 15:44:04] MARK P05 done at 05a285077c011efd00134509106e7a1b4b48d561
+[2026-04-20 15:44:04] START P06: Solvers: Protocol + modflow_common mutualization (attempt 1/15)
+[2026-04-20 16:49:58] DONE P06 (3954s)
+[2026-04-20 16:49:58] MARK P06 done at 8b7cb5242910cf7955435a660f0c63263f520c8f
+[2026-04-20 16:49:58] START P07: Pipeline: orchestration + checkpointing + resume (attempt 1/15)
+[2026-04-20 16:50:00] FAIL P07 (rc=0, 2s): Execution error
+[2026-04-20 16:50:00] WAIT 3min (backoff x1) — resume 16:53:00
+[2026-04-20 16:58:29] Initial branch : dev-refact_v2
+[2026-04-20 16:58:29] Initial commit : 8b7cb5242910cf7955435a660f0c63263f520c8f
+[2026-04-20 16:58:29] 
+[2026-04-20 16:58:29] ================================================================
+[2026-04-20 16:58:29]   MIGRATION HYDROMODPY
+[2026-04-20 16:58:29]   Branch : dev-refact_v2
+[2026-04-20 16:58:29]   HEAD   : 8b7cb5242910cf7955435a660f0c63263f520c8f
+[2026-04-20 16:58:29]   Start  : 2026-04-20 16:58:29
+[2026-04-20 16:58:29]   Specs  : /home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/architecture_cible
+[2026-04-20 16:58:29]   Audit  : /home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/audit_code
+[2026-04-20 16:58:29]   MODE   : resume-all (skip already done)
+[2026-04-20 16:58:29] ================================================================
+[2026-04-20 16:58:29] SKIP P01 (Foundations: cleanup + glossary + migration docs) — already done
+[2026-04-20 16:58:29] SKIP P02 (Storage: new DuckDB schema + geographic fingerprint cache) — already done
+[2026-04-20 16:58:29] SKIP P03 (Config: Pydantic + pydantic-pint + JSON Schema) — already done
+[2026-04-20 16:58:29] SKIP P04 (Data layer: scaffold + auto-scan + INRAE preservation) — already done
+[2026-04-20 16:58:29] SKIP P05 (Spatial: delineation multi-backend + synthetic) — already done
+[2026-04-20 16:58:29] START P06: Solvers: Protocol + modflow_common mutualization (attempt 1/15)
+[2026-04-20 17:14:41] DONE P06 (972s)
+[2026-04-20 17:14:41] MARK P06 done at 2bd7b1a0152d15dbc9897e27a29febb21fe9bd66
+[2026-04-20 17:14:41] START P07: Pipeline: orchestration + checkpointing + resume (attempt 1/15)
+[2026-04-20 17:28:23] DONE P07 (822s)
+[2026-04-20 17:28:23] MARK P07 done at 9bf8f8105df472938d2f5c5b08a697d4145b6af2
+[2026-04-20 17:28:23] START P08: Post-process & display: solver-agnostic figures + metrics (attempt 1/15)
+[2026-04-20 18:02:46] DONE P08 (2063s)
+[2026-04-20 18:02:46] MARK P08 done at 1c4852339f98200ee9f368573c67813362727579
+[2026-04-20 18:02:46] START P09: Calibration: optuna + lightweight + simplified TOML (attempt 1/15)
+[2026-04-20 18:37:27] DONE P09 (2081s)
+[2026-04-20 18:37:27] MARK P09 done at 7f4aec37c0d7c7100664746fc0554be183016fe1
+[2026-04-20 18:37:27] START P10: API Python + CLI unified (attempt 1/15)
+[2026-04-20 19:04:03] DONE P10 (1596s)
+[2026-04-20 19:04:03] MARK P10 done at 010649efc14d5e24b6360e26035c5d934996730a
+[2026-04-20 19:04:04] START P11: Frontend hooks: JSON Schema + field validator (no server) (attempt 1/15)
+[2026-04-20 19:13:31] DONE P11 (567s)
+[2026-04-20 19:13:31] MARK P11 done at 615ceb1fea546695e9717d8aaf763fbb376ebf94
+[2026-04-20 19:13:31] START P12: Tests: compact + maintainable (attempt 1/15)
+[2026-04-20 19:48:00] FAIL P12 (rc=1, 2069s): You've hit your limit · resets 8pm (Europe/Paris)
+[2026-04-20 19:48:00] QUOTA HIT — pause 0h17m, resume 2026-04-20 20:05
+[2026-04-20 20:05:00] START P12: Tests: compact + maintainable (attempt 2/15)
+[2026-04-20 20:18:47] DONE P12 (827s)
+[2026-04-20 20:18:47] MARK P12 done at 5541e0401bed683b9676ac2ef9aaa4d1aa91bd8e
+[2026-04-20 20:18:47] START P13: Cleanup: dead code + renames + docs (attempt 1/15)
