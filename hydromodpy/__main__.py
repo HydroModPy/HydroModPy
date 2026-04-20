@@ -55,6 +55,43 @@ def _find_workspace_root(project_dir: Path) -> Path:
     return project_dir
 
 
+def _find_data_workspace(start: Path) -> Path | None:
+    """Walk up from *start* to find a workspace with a ``*_custom/`` folder."""
+    for parent in [start] + list(start.parents):
+        for child in parent.iterdir() if parent.is_dir() else []:
+            if child.is_dir() and child.name.endswith("_custom"):
+                return parent
+    return None
+
+
+def _auto_scan_workspace(config_path: Path) -> None:
+    """Best-effort scan of drag-and-drop custom folders before a run.
+
+    Silent on success; prints a short summary to stderr when anything
+    changed. Errors are logged and ignored so runs don't fail on an
+    optional discovery step.
+    """
+    try:
+        project_dir = config_path.parent.resolve()
+        ws = _find_data_workspace(project_dir)
+        if ws is None:
+            return
+        from hydromodpy.data.auto_scan import scan_custom
+
+        report = scan_custom(ws)
+        if report.n_changed or report.errors:
+            print(
+                f"[auto_scan] {len(report.added)} added, "
+                f"{len(report.updated)} updated, "
+                f"{len(report.errors)} error(s) in {ws}",
+                file=sys.stderr,
+            )
+            for path, msg in report.errors[:5]:
+                print(f"[auto_scan]   ! {path}: {msg}", file=sys.stderr)
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"[auto_scan] skipped ({type(exc).__name__}: {exc})", file=sys.stderr)
+
+
 def _resolve_test_scratch_root() -> Path:
     """Return the shared repository-external scratch root for test runs."""
     override = os.environ.get("HYDROMODPY_TEST_SCRATCH_ROOT")
@@ -481,6 +518,8 @@ def _cmd_run_toml(config_path: Path) -> None:
     from hydromodpy.runners import detect_workflow
 
     print_hydromodpy()
+
+    _auto_scan_workspace(config_path)
 
     with open(config_path, "rb") as f:
         raw_toml = tomllib.load(f)
