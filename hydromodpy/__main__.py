@@ -1056,7 +1056,7 @@ def _resolve_workspace(workspace_arg: str | None) -> Path:
             f"Workspace {root} does not exist. Run 'hmp init' first.",
             file=sys.stderr,
         )
-        sys.exit(1)
+        sys.exit(EXIT_NOT_FOUND)
     return root
 
 
@@ -1073,7 +1073,7 @@ def _cmd_data(args: argparse.Namespace) -> None:
             "Usage: hmp data {check|list|add} [options]",
             file=sys.stderr,
         )
-        sys.exit(1)
+        sys.exit(EXIT_CONFIG)
 
 
 def _cmd_data_check(args: argparse.Namespace) -> None:
@@ -1087,7 +1087,7 @@ def _cmd_data_check(args: argparse.Namespace) -> None:
     print(f"  {len(issues)} issue(s) found:")
     for path, msg in issues:
         print(f"    {path}: {msg}")
-    sys.exit(1)
+    sys.exit(EXIT_CONFIG)
 
 
 def _cmd_data_list(args: argparse.Namespace) -> None:
@@ -1123,17 +1123,17 @@ def _cmd_data_add(args: argparse.Namespace) -> None:
     src = Path(args.file).expanduser().resolve()
     if not src.is_file():
         print(f"File not found: {src}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(EXIT_NOT_FOUND)
 
     if not args.variable:
         print("--type is required (e.g. --type piezometry)", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(EXIT_CONFIG)
 
     spec = next((s for s in VARIABLES if s.name == args.variable), None)
     if spec is None:
         names = ", ".join(s.name for s in VARIABLES)
         print(f"Unknown variable {args.variable!r}. Available: {names}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(EXIT_CONFIG)
 
     blobs = workspace / "data" / "blobs" / spec.name / args.provider
     blobs.mkdir(parents=True, exist_ok=True)
@@ -1153,7 +1153,7 @@ def _cmd_data_add(args: argparse.Namespace) -> None:
         convert_vector_to_geoparquet(src, dest)
     else:
         print(f"Unsupported kind {spec.kind!r}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(EXIT_CONFIG)
 
     with DataCatalogDuckDB(workspace / "data" / "cache.duckdb") as catalog:
         catalog.register(
