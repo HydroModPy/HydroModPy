@@ -32,7 +32,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config.param_level import ParamLevel
-from hydromodpy.core.units import normalize_length_unit, normalize_m2_per_s_unit
+from hydromodpy.core.units import canonical_unit_short_form, check_unit_compatible
 
 ALLOWED_BC_APPLICATION_DOMAINS = {
     "top",
@@ -290,8 +290,9 @@ class FlowBoundaryConditionConfig(BaseModel):
             raise ValueError("boundary requires either value or forcing")
         if self.type == "dirichlet":
             if self.forcing is None:
-                normalized_units = normalize_length_unit(str(self.units).strip() or "m")
-                if normalized_units != "m":
+                raw_units = str(self.units).strip() or "m"
+                check_unit_compatible(raw_units, canonical_unit="m", label="length")
+                if raw_units != "m":
                     raise ValueError(
                         "boundary.units must be normalized to 'm' for runtime Dirichlet values"
                     )
@@ -302,11 +303,15 @@ class FlowBoundaryConditionConfig(BaseModel):
                 parent_units_explicit = "units" in self.model_fields_set
                 forcing_units_explicit = "units" in self.forcing.model_fields_set
                 if forcing_units_explicit:
-                    normalized_forcing_units = normalize_length_unit(
-                        str(forcing_units).strip() or "m"
+                    normalized_forcing_units = canonical_unit_short_form(
+                        str(forcing_units).strip() or "m",
+                        canonical_unit="m",
+                        label="length",
                     )
                     if parent_units_explicit:
-                        normalized_parent_units = normalize_length_unit(parent_units)
+                        normalized_parent_units = canonical_unit_short_form(
+                            parent_units, canonical_unit="m", label="length"
+                        )
                         if (
                             normalized_parent_units != "m"
                             and normalized_parent_units != normalized_forcing_units
@@ -315,14 +320,19 @@ class FlowBoundaryConditionConfig(BaseModel):
                                 "boundary.units conflicts with boundary.forcing.units"
                             )
                 else:
-                    normalized_forcing_units = normalize_length_unit(parent_units)
+                    normalized_forcing_units = canonical_unit_short_form(
+                        parent_units, canonical_unit="m", label="length"
+                    )
                 self.forcing = self.forcing.model_copy(
                     update={"units": normalized_forcing_units}
                 )
                 self.units = "m"
         else:
-            normalized_units = normalize_m2_per_s_unit(str(self.units).strip() or "m2/s")
-            if normalized_units != "m2/s":
+            raw_units = str(self.units).strip() or "m2/s"
+            check_unit_compatible(
+                raw_units, canonical_unit="m**2/s", label="hydraulic-conductance"
+            )
+            if raw_units != "m2/s":
                 raise ValueError(
                     "boundary.units must be normalized to 'm2/s' for runtime Cauchy/Robin values"
                 )
