@@ -252,14 +252,21 @@ CREATE TABLE IF NOT EXISTS calibration_iterations (
     session_id      UUID NOT NULL,
     iteration       INTEGER NOT NULL,
     sim_id          UUID,
+    params_hash     VARCHAR,
     parameters      JSON NOT NULL,
     objective_value DOUBLE,
     metrics         JSON,
+    status          VARCHAR DEFAULT 'completed'
+        CHECK (status IN ('completed', 'diverged', 'timeout',
+                          'crashed', 'cached')),
+    from_cache      BOOLEAN DEFAULT FALSE,
     duration_s      DOUBLE,
     PRIMARY KEY (session_id, iteration)
 );
 CREATE INDEX IF NOT EXISTS ix_cal_iter_sim
     ON calibration_iterations(sim_id);
+CREATE INDEX IF NOT EXISTS ix_cal_iter_hash
+    ON calibration_iterations(params_hash);
 """
 
 # ---------------------------------------------------------------------------
