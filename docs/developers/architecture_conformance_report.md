@@ -87,6 +87,48 @@ checkpoint est noté :
 
 ---
 
+### 02_config_pydantic.md
+**Résumé :** Fondations Pydantic v2 + `ParamLevel` + types pint en place ; `HydroModelBase`, refonte `FlowConfig`/`Forcing`/`GridConfig`, round-trip `tomlkit` et validation physique centrale restent non implémentés.
+**Checkpoints :** 21 au total, OK=8, ÉCART=9, MANQUANT=4.
+
+| # | Checkpoint | Verdict | Preuve / Note |
+|---|------------|---------|---------------|
+| 1 | `HydroModelBase` racine avec `ConfigDict(extra="forbid", serialize_by_alias, populate_by_name, validate_assignment)` | MANQUANT | `grep -r "class HydroModelBase"` → 0 résultat ; chaque config déclare son propre `model_config`. |
+| 2 | `HydroModPyConfig` agrégateur root | OK (partiel) | `hydromodpy/core/config/hydromodpy_config.py:63` présent, mais `model_config = ConfigDict(arbitrary_types_allowed=True)` sans `extra="forbid"` (ÉCART). |
+| 3 | `extra="forbid"` sur les sous-configs | OK | 116 occurrences dans 52 fichiers. |
+| 4 | `from_toml` minimaliste | ÉCART | `hydromodpy_config.py:192-299` ~110 lignes avec dispatcher custom + `from_toml_section` (flow, data). |
+| 5 | `to_toml(profile=...)` round-trip | MANQUANT | Aucun résultat sous `hydromodpy/core/config` ; seul `streamlit_config.py` en possède un équivalent ad-hoc. |
+| 6 | Validateur cross-section (`solver.engine ↔ packages.engine`, `flow_regime=transient ⇒ ic`) | MANQUANT | Aucun `model_validator` transverse dans `HydroModPyConfig`. |
+| 7 | `ParamLevel` user/dev/expert disponibles | OK | `hydromodpy/core/config/param_level.py:22` `PROFILES = {"user": 0, "dev": 1, "expert": 2}`. |
+| 8 | `Profile(IntEnum)` comparable | ÉCART | `PROFILES` reste un `dict[str,int]` ; `ParamLevel` est dataclass. |
+| 9 | `VisibleWhen` + validateur cible | ÉCART | `VisibleWhen` présent (`param_level.py:35`) mais aucun `_check_visible_when_targets`. |
+| 10 | Types pint `Length`, `Time`, `FlowRate`, `HydraulicConductivity`, `SpecificStorage`, `SpecificYield`, `Area`, `Volume`, `Dimensionless` | OK | `core/units/types.py:161-171` ; ré-exports via `core/units/__init__.py:14-24`. |
+| 11 | Registre pint partagé `UREG` | OK | `core/units/registry.py` + `UREG` exporté `core/units/__init__.py:13`. |
+| 12 | `pydantic-pint` en dépendance core | OK | `pyproject.toml:58-59`. |
+| 13 | `FlowPhysicalProperties` migré vers types pint (F01) | OK | `process/flow/physical_properties.py:39-41,59,75,88` utilise `HydraulicConductivity/SpecificYield/SpecificStorage`. |
+| 14 | xfail `test_bare_number_falls_back_to_canonical_unit` + `test_flow_physical_properties_defaults_and_overrides` résolus (F01) | OK | `tests/unit/config/test_units_roundtrip.py:34,93` plus aucun marker `xfail`. |
+| 15 | `FlowConfig` refactoré (runtime: FlowRuntimeConfig, types pint) | ÉCART | `process/flow/flow_config.py:51` hérite encore de `ProcessSpatialConfig` ; pas d'import pint (confirme F01 scope limité). |
+| 16 | `TimeseriesVariableConfig` factorisant etp/humidity/... | MANQUANT | Les 14 configs timeseries restent séparées. |
+| 17 | Union discriminée `Forcing` | MANQUANT | `ConstantForcing/SyntheticForcing/CsvForcing` absents. |
+| 18 | `GridConfig` unifié + suppression suffixe `Schema` | ÉCART | `SGridConfig` toujours présent ; 31 classes `*Schema` subsistent. |
+| 19 | CLI `hmp config <out.toml> --profile {user,dev,expert}` | OK | `__main__.py:1470-1475` + `_cmd_config`. |
+| 20 | CLI `hmp schema export` + `hmp config schema` | OK | `__main__.py:1491-1509` + `1517-1533`. |
+| 21 | `PHYSICAL_BOUNDS` centralisé + `validate_physical_value` | ÉCART | Seul `calibration/parameters.py` utilise des bounds physiques ad-hoc ; pas de `spatial/field/core/physical_bounds.py`. |
+
+**Écarts assumés :**
+- `HydroModPyConfig` conserve un `from_toml` impératif avec dispatcher — post-v0.4.
+- `FlowConfig` hérite toujours de `ProcessSpatialConfig` et n'a pas migré vers pint (dette F01 tracée).
+- Suffixe `Schema` encore porté par 31 classes dans 6 fichiers.
+- `Profile(IntEnum)` non introduit : `PROFILES` dict suffit à l'implémentation courante.
+
+**Manquants :**
+- `hydromodpy/core/config/base.py::HydroModelBase` (suivi `v0.5-config-hydromodelbase`).
+- `to_toml(profile=...)` via `tomlkit` (suivi `v0.5-toml-roundtrip`).
+- `TimeseriesVariableConfig` factorisation (suivi `v0.5-timeseries-refactor`).
+- `Forcing` discriminated union + `PHYSICAL_BOUNDS` central (suivi `v0.5-forcing-union` et `v0.5-physical-bounds`).
+
+---
+
 ## Écarts globaux assumés (décisions architecture)
 
 _À compiler après les 14 vérifications._
