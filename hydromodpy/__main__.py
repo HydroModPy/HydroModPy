@@ -500,7 +500,7 @@ def _cmd_run(args: argparse.Namespace) -> None:
     if target.suffix == ".py":
         _cmd_run_script(target, getattr(args, "script_args", []))
     elif target.suffix == ".toml":
-        _cmd_run_toml(target)
+        _cmd_run_toml(target, resume=getattr(args, "resume", None))
     else:
         print(
             f"Unsupported file type: {target.suffix} (expected .toml or .py)",
@@ -509,7 +509,7 @@ def _cmd_run(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def _cmd_run_toml(config_path: Path) -> None:
+def _cmd_run_toml(config_path: Path, *, resume: str | None = None) -> None:
     """Run a workflow from a TOML file (auto-detected from sections)."""
     import importlib
     import tomllib
@@ -535,7 +535,10 @@ def _cmd_run_toml(config_path: Path) -> None:
     }
 
     module = importlib.import_module(dispatch[workflow])
-    summary = module.run(config_path)
+    if resume is not None and workflow == "simulation":
+        summary = module.run(config_path, resume=resume)
+    else:
+        summary = module.run(config_path)
 
     print(f"Workflow '{workflow}' complete: {config_path.name}", file=sys.stderr)
     if summary:
@@ -1243,6 +1246,15 @@ def main() -> None:
         "script_args",
         nargs="*",
         help="Extra arguments forwarded to .py scripts",
+    )
+    run_parser.add_argument(
+        "--resume",
+        default=None,
+        metavar="RUN_ID",
+        help=(
+            "Resume a simulation run from its last completed step. "
+            "The RUN_ID must match a previous run's checkpoint directory."
+        ),
     )
 
     # --- display subcommand ---
