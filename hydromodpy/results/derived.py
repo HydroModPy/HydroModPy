@@ -39,8 +39,8 @@ def watertable_elevation(head: ArrayLike, top: ArrayLike) -> ArrayLike:
         return wt
     head_arr = np.asarray(head, dtype=float)
     top_arr = np.asarray(top, dtype=float)
-    if head_arr.ndim == 2 and head_arr.shape[0] != top_arr.size:
-        # Multilayer: pick uppermost saturated head.
+    if head_arr.ndim == 2 and head_arr.shape[1] == top_arr.size:
+        # Multilayer: pick uppermost saturated head per cell.
         wt = np.full(head_arr.shape[1], np.nan, dtype=float)
         for layer in range(head_arr.shape[0]):
             mask = np.isfinite(head_arr[layer]) & np.isnan(wt)
