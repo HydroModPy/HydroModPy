@@ -385,9 +385,9 @@ class Watershed:
     def add_safransurfex(self, safransurfex_path):
         """Deprecated. Legacy SAFRAN-SURFEX loader removed with `hydromodpy.data.climatic`."""
         raise NotImplementedError(
-            "add_safransurfex() has been removed. Use the SIM2 INRAE client "
-            "(hydromodpy.data.common.clients.sim2_inrae) or the custom data "
-            "scaffold for SAFRAN-SURFEX NetCDFs."
+            "add_safransurfex() has been removed. Use the SIM2 (Meteo-France) "
+            "client (hydromodpy.data.common.clients.sim2_meteofrance) or the "
+            "custom data scaffold for SAFRAN-SURFEX NetCDFs."
         )
 
     #%% EXTRACT NETCDF
