@@ -1,3 +1,22 @@
+"""DuckDB schema for the HydroModPy simulation catalog.
+
+Clean-slate schema (phase P02): 12 core tables with normalized primary keys,
+foreign-key references to ``simulations(sim_id)``, ``TIMESTAMPTZ`` time
+columns, a JSON ``config_snapshot`` for full-config reproducibility, and a
+``geographic_fingerprint`` column used by the workspace-level
+content-addressable geographic cache
+(see :mod:`hydromodpy.results.geographic_cache`).
+
+This module defines only DDL and helpers; it does not track historical schema
+versions. Each major release starts from a fresh schema. Migration principles
+for post-P13 evolutions are documented in
+``docs/developers/schema_evolution.md``.
+
+Note on foreign keys: DuckDB's FK engine enforces existence at INSERT time
+but does not support ``ON DELETE CASCADE`` / ``SET NULL`` clauses. Application
+code that deletes a simulation is responsible for removing per-sim rows.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -6,9 +25,9 @@ import duckdb
 
 logger = logging.getLogger(__name__)
 
-LATEST_VERSION = 1
-
 HOMOGENEOUS_ZONE = "_homogeneous"
+GLOBAL_ZONE = "__global__"
+OUTLET_STATION = "__outlet__"
 
 SOLVER_CATEGORIES: dict[str, str] = {
     "modflownwt": "distributed",
@@ -16,197 +35,277 @@ SOLVER_CATEGORIES: dict[str, str] = {
     "boussinesq": "integrated",
 }
 
-# -- DDL ---------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+#  Simulations root table
+# ---------------------------------------------------------------------------
 
-_SCHEMA_VERSION_DDL = """\
-CREATE TABLE IF NOT EXISTS _schema_version (
-    version    INTEGER NOT NULL,
-    applied_at TIMESTAMP DEFAULT now()
-);
-"""
-
-_SIMULATIONS_DDL = """\
+_SIMULATIONS_DDL = """
 CREATE TABLE IF NOT EXISTS simulations (
-    sim_id          UUID PRIMARY KEY,
-    name            VARCHAR,
-    project         VARCHAR NOT NULL,
-    solver          VARCHAR,
-    solver_category VARCHAR,
-    flow_regime     VARCHAR,
-    n_cells         INTEGER,
-    n_layers        INTEGER,
-    n_timesteps     INTEGER,
-    cell_types      VARCHAR[],
-    bbox            DOUBLE[4],
-    crs             VARCHAR,
-    period_start    VARCHAR,
-    period_end      VARCHAR,
-    time_unit       VARCHAR,
-    config_toml     JSON,
-    config_hash     VARCHAR,
-    zarr_path       VARCHAR,
-    parent_sim_id   UUID,
-    mesh_hash       VARCHAR,
-    mesh_type       VARCHAR,
-    status          VARCHAR DEFAULT 'running',
-    duration_s      DOUBLE,
-    created_at      TIMESTAMP DEFAULT now(),
-    tags            VARCHAR[],
-    notes           VARCHAR
+    sim_id                  UUID PRIMARY KEY,
+    name                    VARCHAR,
+    project                 VARCHAR NOT NULL,
+    solver                  VARCHAR NOT NULL,
+    solver_category         VARCHAR,
+    flow_regime             VARCHAR
+        CHECK (flow_regime IS NULL OR
+               flow_regime IN ('steady', 'transient', 'steady_then_transient')),
+    status                  VARCHAR NOT NULL DEFAULT 'running'
+        CHECK (status IN ('pending', 'running', 'completed',
+                          'failed', 'aborted')),
+    mesh_topology           VARCHAR
+        CHECK (mesh_topology IS NULL OR
+               mesh_topology IN ('dis', 'disv', 'disu')),
+    mesh_hash               VARCHAR,
+    n_cells                 INTEGER,
+    n_layers                INTEGER,
+    n_timesteps             INTEGER,
+    crs_wkt                 VARCHAR,
+    crs_epsg                INTEGER,
+    bbox_xmin               DOUBLE,
+    bbox_ymin               DOUBLE,
+    bbox_xmax               DOUBLE,
+    bbox_ymax               DOUBLE,
+    period_start            TIMESTAMPTZ,
+    period_end              TIMESTAMPTZ,
+    time_unit               VARCHAR DEFAULT 'day',
+    config_toml             JSON,
+    config_snapshot         JSON,
+    config_hash             VARCHAR,
+    parent_sim_id           UUID
+        REFERENCES simulations(sim_id),
+    lineage_kind            VARCHAR,
+    zarr_path               VARCHAR,
+    zarr_packed             BOOLEAN NOT NULL DEFAULT FALSE,
+    geographic_fingerprint  VARCHAR,
+    duration_s              DOUBLE,
+    started_at              TIMESTAMPTZ,
+    ended_at                TIMESTAMPTZ,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
+    tags                    VARCHAR[],
+    notes                   VARCHAR,
+    CHECK (period_end IS NULL OR period_start IS NULL OR
+           period_end >= period_start),
+    CHECK (bbox_xmin IS NULL OR bbox_xmax IS NULL OR bbox_xmax >= bbox_xmin),
+    CHECK (bbox_ymin IS NULL OR bbox_ymax IS NULL OR bbox_ymax >= bbox_ymin)
 );
 CREATE INDEX IF NOT EXISTS ix_sim_project ON simulations(project);
 CREATE INDEX IF NOT EXISTS ix_sim_solver ON simulations(solver);
 CREATE INDEX IF NOT EXISTS ix_sim_status ON simulations(status);
-CREATE INDEX IF NOT EXISTS ix_sim_created ON simulations(created_at);
+CREATE INDEX IF NOT EXISTS ix_sim_created_at ON simulations(created_at);
+CREATE INDEX IF NOT EXISTS ix_sim_config_hash ON simulations(config_hash);
+CREATE INDEX IF NOT EXISTS ix_sim_mesh_hash ON simulations(mesh_hash);
+CREATE INDEX IF NOT EXISTS ix_sim_geo_fp ON simulations(geographic_fingerprint);
 """
 
-_PARAMETERS_DDL = """\
+# ---------------------------------------------------------------------------
+#  Parameters, metrics, timeseries, budgets, mass_balance
+# ---------------------------------------------------------------------------
+
+_PARAMETERS_DDL = """
 CREATE TABLE IF NOT EXISTS parameters (
-    sim_id           UUID NOT NULL,
+    sim_id           UUID NOT NULL
+        REFERENCES simulations(sim_id),
     param_name       VARCHAR NOT NULL,
     zone_id          VARCHAR NOT NULL DEFAULT '_homogeneous',
     value            DOUBLE,
     unit             VARCHAR,
-    parameterization VARCHAR,
+    parameterization VARCHAR DEFAULT 'uniform',
     PRIMARY KEY (sim_id, param_name, zone_id)
 );
+CREATE INDEX IF NOT EXISTS ix_param_name ON parameters(param_name);
 """
 
-_TIMESERIES_DDL = """\
+_METRICS_DDL = """
+CREATE TABLE IF NOT EXISTS metrics (
+    sim_id       UUID NOT NULL
+        REFERENCES simulations(sim_id),
+    station_id   VARCHAR NOT NULL DEFAULT '__outlet__',
+    variable     VARCHAR NOT NULL DEFAULT 'head',
+    metric_name  VARCHAR NOT NULL,
+    value        DOUBLE,
+    n_samples    INTEGER,
+    period_start TIMESTAMPTZ,
+    period_end   TIMESTAMPTZ,
+    PRIMARY KEY (sim_id, station_id, variable, metric_name)
+);
+CREATE INDEX IF NOT EXISTS ix_metrics_metric ON metrics(metric_name);
+"""
+
+_TIMESERIES_DDL = """
 CREATE TABLE IF NOT EXISTS timeseries (
-    sim_id     UUID NOT NULL,
+    sim_id     UUID NOT NULL
+        REFERENCES simulations(sim_id),
     station_id VARCHAR NOT NULL,
     variable   VARCHAR NOT NULL,
-    timestamp  TIMESTAMP NOT NULL,
+    datetime   TIMESTAMPTZ NOT NULL,
     value      DOUBLE,
-    unit       VARCHAR
+    unit       VARCHAR,
+    qflag      VARCHAR DEFAULT 'simulated',
+    PRIMARY KEY (sim_id, station_id, variable, datetime)
 );
 CREATE INDEX IF NOT EXISTS ix_ts_lookup
-    ON timeseries(sim_id, station_id, variable, timestamp);
+    ON timeseries(sim_id, station_id, variable, datetime);
+CREATE INDEX IF NOT EXISTS ix_ts_cross_sim
+    ON timeseries(station_id, variable, datetime);
 """
 
-_BUDGETS_DDL = """\
+_BUDGETS_DDL = """
 CREATE TABLE IF NOT EXISTS budgets (
-    sim_id    UUID NOT NULL,
-    timestep  INTEGER,
-    zone_id   VARCHAR,
-    component VARCHAR,
-    flux_in   DOUBLE,
-    flux_out  DOUBLE,
-    unit      VARCHAR DEFAULT 'm3/d'
+    sim_id    UUID NOT NULL
+        REFERENCES simulations(sim_id),
+    timestep  INTEGER NOT NULL CHECK (timestep >= 0),
+    zone_id   VARCHAR NOT NULL DEFAULT '__global__',
+    component VARCHAR NOT NULL
+        CHECK (component IN (
+            'recharge', 'drain', 'river', 'ghb', 'chd', 'well',
+            'storage', 'constant_head', 'specified_flow',
+            'evapotranspiration', 'seepage'
+        )),
+    flux_in   DOUBLE NOT NULL DEFAULT 0.0,
+    flux_out  DOUBLE NOT NULL DEFAULT 0.0,
+    unit      VARCHAR NOT NULL DEFAULT 'm3/d',
+    PRIMARY KEY (sim_id, timestep, zone_id, component)
 );
+CREATE INDEX IF NOT EXISTS ix_budgets_component ON budgets(component);
 """
 
-_MASS_BALANCE_DDL = """\
+_MASS_BALANCE_DDL = """
 CREATE TABLE IF NOT EXISTS mass_balance (
-    sim_id        UUID NOT NULL,
-    timestep      INTEGER,
-    total_in      DOUBLE,
-    total_out     DOUBLE,
-    storage_in    DOUBLE,
-    storage_out   DOUBLE,
-    percent_error DOUBLE
+    sim_id        UUID NOT NULL
+        REFERENCES simulations(sim_id),
+    timestep      INTEGER NOT NULL,
+    total_in      DOUBLE NOT NULL,
+    total_out     DOUBLE NOT NULL,
+    storage_in    DOUBLE NOT NULL,
+    storage_out   DOUBLE NOT NULL,
+    percent_error DOUBLE NOT NULL,
+    unit          VARCHAR NOT NULL DEFAULT 'm3/d',
+    PRIMARY KEY (sim_id, timestep)
 );
 """
 
-_METRICS_DDL = """\
-CREATE TABLE IF NOT EXISTS metrics (
-    sim_id      UUID NOT NULL,
-    station_id  VARCHAR NOT NULL,
-    metric_name VARCHAR NOT NULL,
-    value       DOUBLE,
-    PRIMARY KEY (sim_id, station_id, metric_name)
-);
-"""
+# ---------------------------------------------------------------------------
+#  Observation points and provenance
+# ---------------------------------------------------------------------------
 
-_OBSERVATION_POINTS_DDL = """\
+_OBSERVATION_POINTS_DDL = """
 CREATE TABLE IF NOT EXISTS observation_points (
-    sim_id     UUID NOT NULL,
-    station_id VARCHAR,
-    x          DOUBLE,
-    y          DOUBLE,
-    cell_id    INTEGER,
-    layer      INTEGER DEFAULT 0,
-    variable   VARCHAR
+    sim_id     UUID NOT NULL
+        REFERENCES simulations(sim_id),
+    station_id VARCHAR NOT NULL,
+    x          DOUBLE NOT NULL,
+    y          DOUBLE NOT NULL,
+    cell_id    INTEGER NOT NULL,
+    layer      INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (sim_id, station_id)
 );
+CREATE INDEX IF NOT EXISTS ix_obs_cell
+    ON observation_points(sim_id, cell_id);
 """
 
-_PROVENANCE_DDL = """\
+_PROVENANCE_DDL = """
 CREATE TABLE IF NOT EXISTS provenance (
-    sim_id       UUID NOT NULL,
-    variable     VARCHAR,
-    source_type  VARCHAR,
-    source_ref   VARCHAR,
-    checksum     VARCHAR,
-    period_start VARCHAR,
-    period_end   VARCHAR,
-    n_records    INTEGER,
-    stats        JSON
+    sim_id         UUID NOT NULL
+        REFERENCES simulations(sim_id),
+    variable       VARCHAR NOT NULL,
+    source_type    VARCHAR NOT NULL
+        CHECK (source_type IN ('http_api', 'custom_file',
+                               'derived', 'cache')),
+    source_ref     VARCHAR NOT NULL,
+    source_sha256  VARCHAR,
+    payload_sha256 VARCHAR,
+    loader_name    VARCHAR,
+    loader_version VARCHAR,
+    fetched_at     TIMESTAMPTZ,
+    period_start   TIMESTAMPTZ,
+    period_end     TIMESTAMPTZ,
+    n_records      BIGINT,
+    stats          JSON,
+    PRIMARY KEY (sim_id, variable, source_ref)
 );
+CREATE INDEX IF NOT EXISTS ix_prov_sha256 ON provenance(source_sha256);
 """
 
-_CALIBRATION_SESSIONS_DDL = """\
+# ---------------------------------------------------------------------------
+#  Calibration sessions / iterations
+# ---------------------------------------------------------------------------
+
+_CALIBRATION_SESSIONS_DDL = """
 CREATE TABLE IF NOT EXISTS calibration_sessions (
     session_id     UUID PRIMARY KEY,
-    best_sim_id    UUID,
+    project        VARCHAR,
     method         VARCHAR,
+    objective_name VARCHAR,
     n_iterations   INTEGER,
+    best_sim_id    UUID
+        REFERENCES simulations(sim_id),
     best_objective DOUBLE,
-    duration_s     DOUBLE,
     config         JSON,
-    created_at     TIMESTAMP DEFAULT now()
+    started_at     TIMESTAMPTZ,
+    ended_at       TIMESTAMPTZ,
+    duration_s     DOUBLE,
+    status         VARCHAR DEFAULT 'pending'
+        CHECK (status IN ('pending', 'running', 'completed',
+                          'failed', 'aborted')),
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
 );
+CREATE INDEX IF NOT EXISTS ix_cal_project ON calibration_sessions(project);
 """
 
-_CALIBRATION_ITERATIONS_DDL = """\
+_CALIBRATION_ITERATIONS_DDL = """
 CREATE TABLE IF NOT EXISTS calibration_iterations (
-    session_id      UUID NOT NULL,
+    session_id      UUID NOT NULL
+        REFERENCES calibration_sessions(session_id),
     iteration       INTEGER NOT NULL,
-    parameters      JSON,
+    sim_id          UUID
+        REFERENCES simulations(sim_id),
+    parameters      JSON NOT NULL,
     objective_value DOUBLE,
     metrics         JSON,
     duration_s      DOUBLE,
     PRIMARY KEY (session_id, iteration)
 );
+CREATE INDEX IF NOT EXISTS ix_cal_iter_sim
+    ON calibration_iterations(sim_id);
 """
 
-_GEOGRAPHIC_FEATURES_DDL = """\
+# ---------------------------------------------------------------------------
+#  Geographic tables
+# ---------------------------------------------------------------------------
+
+_GEOGRAPHIC_FEATURES_DDL = """
 CREATE TABLE IF NOT EXISTS geographic_features (
-    sim_id        UUID NOT NULL,
-    feature_name  VARCHAR NOT NULL,
-    geojson       TEXT,
-    geometry_type VARCHAR,
-    crs           VARCHAR,
-    properties    JSON,
+    sim_id          UUID NOT NULL
+        REFERENCES simulations(sim_id),
+    feature_name    VARCHAR NOT NULL,
+    geometry_kind   VARCHAR
+        CHECK (geometry_kind IS NULL OR
+               geometry_kind IN ('point', 'linestring',
+                                 'polygon', 'multipolygon')),
+    crs_wkt         VARCHAR,
+    geoparquet_path VARCHAR,
+    properties      JSON,
     PRIMARY KEY (sim_id, feature_name)
 );
 """
 
-_GEOGRAPHIC_METADATA_DDL = """\
+_GEOGRAPHIC_METADATA_DDL = """
 CREATE TABLE IF NOT EXISTS geographic_metadata (
-    sim_id  UUID NOT NULL,
-    key     VARCHAR NOT NULL,
-    value   VARCHAR,
+    sim_id     UUID NOT NULL
+        REFERENCES simulations(sim_id),
+    key        VARCHAR NOT NULL,
+    value      VARCHAR,
+    value_type VARCHAR NOT NULL DEFAULT 'string'
+        CHECK (value_type IN ('double', 'int', 'string', 'bool')),
+    unit       VARCHAR,
     PRIMARY KEY (sim_id, key)
 );
 """
 
-_ALL_DDL = [
-    _SIMULATIONS_DDL,
-    _PARAMETERS_DDL,
-    _TIMESERIES_DDL,
-    _BUDGETS_DDL,
-    _MASS_BALANCE_DDL,
-    _METRICS_DDL,
-    _OBSERVATION_POINTS_DDL,
-    _PROVENANCE_DDL,
-    _CALIBRATION_SESSIONS_DDL,
-    _CALIBRATION_ITERATIONS_DDL,
-    _GEOGRAPHIC_FEATURES_DDL,
-    _GEOGRAPHIC_METADATA_DDL,
-]
-
-# -- Public constants --------------------------------------------------------
+# ---------------------------------------------------------------------------
+#  Public constants and entry points
+# ---------------------------------------------------------------------------
 
 TABLE_NAMES: tuple[str, ...] = (
     "simulations",
@@ -235,46 +334,30 @@ PER_SIM_TABLE_NAMES: tuple[str, ...] = (
     "geographic_metadata",
 )
 
-MIGRATIONS: dict[int, list[str]] = {
-    # 1: [],  # initial schema, no migration needed
-}
-
-# -- Schema versioning -------------------------------------------------------
-
-
-def _get_schema_version(conn: duckdb.DuckDBPyConnection) -> int:
-    try:
-        tables = {
-            r[0]
-            for r in conn.execute(
-                "SELECT table_name FROM information_schema.tables "
-                "WHERE table_schema = 'main'"
-            ).fetchall()
-        }
-        if "_schema_version" not in tables:
-            return 0
-        row = conn.execute("SELECT MAX(version) FROM _schema_version").fetchone()
-        return row[0] if row and row[0] is not None else 0
-    except Exception:
-        return 0
+_ALL_DDL: tuple[str, ...] = (
+    _SIMULATIONS_DDL,
+    _PARAMETERS_DDL,
+    _METRICS_DDL,
+    _TIMESERIES_DDL,
+    _BUDGETS_DDL,
+    _MASS_BALANCE_DDL,
+    _OBSERVATION_POINTS_DDL,
+    _PROVENANCE_DDL,
+    _CALIBRATION_SESSIONS_DDL,
+    _CALIBRATION_ITERATIONS_DDL,
+    _GEOGRAPHIC_FEATURES_DDL,
+    _GEOGRAPHIC_METADATA_DDL,
+)
 
 
 def ensure_schema(conn: duckdb.DuckDBPyConnection) -> None:
-    conn.execute(_SCHEMA_VERSION_DDL)
-    current = _get_schema_version(conn)
+    """Create the 12 catalog tables if they do not already exist.
 
-    if current >= LATEST_VERSION:
-        for ddl in _ALL_DDL:
-            conn.execute(ddl)
-        return
-
+    Idempotent: repeated calls on the same connection are safe. The function
+    does not register a schema version — the whole catalog follows a
+    clean-slate policy for the current release. See
+    ``docs/developers/schema_evolution.md`` for future-proof evolution rules.
+    """
     for ddl in _ALL_DDL:
         conn.execute(ddl)
-
-    for v in range(current + 1, LATEST_VERSION + 1):
-        for stmt in MIGRATIONS.get(v, []):
-            conn.execute(stmt)
-        conn.execute(
-            "INSERT INTO _schema_version (version) VALUES (?)", [v]
-        )
-        logger.debug("Schema stamped at version %d", v)
+    logger.debug("DuckDB catalog schema ensured (%d tables)", len(TABLE_NAMES))
