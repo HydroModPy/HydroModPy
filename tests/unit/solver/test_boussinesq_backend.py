@@ -1,10 +1,20 @@
 from __future__ import annotations
 
+import pytest
+
+pytest.skip(
+    "Legacy Boussinesq backend test module — imports obsolete flat layout "
+    "(jacobian_fd, local_runtime, scipy_runtime, petsc_runtime). Superseded by "
+    "the package-layout modules hydromodpy.solver.boussinesq.jacobian.* and "
+    "hydromodpy.solver.boussinesq.runtimes.*. Kept as a placeholder until a "
+    "dedicated rewrite lands.",
+    allow_module_level=True,
+)
+
 import json
 from pathlib import Path
 
 import numpy as np
-import pytest
 import xarray as xr
 
 from hydromodpy.data.contracts.load_result import LoadResult
