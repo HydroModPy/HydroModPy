@@ -58,6 +58,24 @@ def hydromodpy_test_scratch_root() -> Path:
     return _TEST_SCRATCH_ROOT
 
 
+@pytest.fixture
+def tmp_workspace(tmp_path: Path) -> Path:
+    """Create one initialized HydroModPy workspace under *tmp_path*.
+
+    Populates the standard layout (``data/``, ``projects/``, the
+    per-variable ``*_custom/`` seed folders) using the same code path as
+    ``hmp init``, so integration tests can open the workspace with
+    ``hmp.open(...)`` or instantiate a :class:`~hydromodpy.results.catalog.SimulationCatalog`
+    on top of it.  The catalog itself is opened lazily — this fixture
+    only creates folders, keeping the fixture cheap and free of DuckDB
+    I/O until a test explicitly needs it.
+    """
+    from hydromodpy.data.scaffold import scaffold
+
+    root = scaffold(tmp_path / "workspace")
+    return root
+
+
 @pytest.fixture(autouse=True)
 def _redirect_repo_root_cwd_for_gmsh_grid_tests(
     request,
