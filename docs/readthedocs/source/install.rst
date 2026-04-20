@@ -251,7 +251,6 @@ After activation, a typical Linux/WSL non-interactive test session is:
 
 .. code-block:: bash
 
-   export HYDROMODPY_NO_DISPLAY=1
    export MPLBACKEND=Agg
    python -m pytest tests/unit -q
    hmp test regression --fast -j 2

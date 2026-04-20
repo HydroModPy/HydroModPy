@@ -111,7 +111,6 @@ Repository root:   ${REPO_ROOT}
 
 Suggested next commands:
   conda activate ${ENV_NAME}
-  export HYDROMODPY_NO_DISPLAY=1
   export MPLBACKEND=Agg
   python -m pytest tests/unit -q
   hmp test regression --fast -j 2

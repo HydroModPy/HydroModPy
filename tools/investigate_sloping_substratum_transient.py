@@ -520,11 +520,7 @@ def _run_mf6_irregular(*, timeout: int, runtime_configs_dir: Path) -> Validation
         script_path=LAUNCHER_SCRIPT,
         out_path=out_path,
         out_env_var="HYDROMODPY_OUT_PATH",
-        extra_env={
-            "HYDROMODPY_NO_DISPLAY": "1",
-            "HYDROMODPY_NO_SAVE": "1",
-            "MPLBACKEND": "Agg",
-        },
+        extra_env={"MPLBACKEND": "Agg"},
         script_args=[str(config_path)],
         timeout=timeout,
     )

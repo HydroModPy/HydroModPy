@@ -135,7 +135,6 @@ conda install -n hydromodpy-light-pkg -c conda-forge xorg-libxft
 Typical Linux/WSL test commands after activation:
 
 ```bash
-export HYDROMODPY_NO_DISPLAY=1
 export MPLBACKEND=Agg
 python -m pytest tests/unit -q
 hmp test regression --fast -j 2
