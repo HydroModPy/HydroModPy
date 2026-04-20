@@ -43,6 +43,17 @@ Each release section includes the following standard categories:
 ### Changed
 - README: replaced the paper-era example list with a pointer to
   `examples/getting_started/` and `examples/projects/`.
+- **Breaking**: renamed `SimulationCatalog.export_simulation` to
+  `SimulationCatalog.export_package` and
+  `SimulationCatalog.import_simulation` to
+  `SimulationCatalog.import_package`. The `_package` suffix aligns with
+  the target API in `architecture_cible/10_ux_cli_api.md` and avoids
+  collision with the existing per-variable
+  `SimulationCatalog.export(sim_id, variable, fmt, path)` helper.
+  No alias or deprecation shim is provided.
+- Added `hmp.SimulationPlan` to the public top-level API (
+  `hydromodpy/__init__.py:__all__`) so advanced users can inspect the
+  immutable plan produced by `SimulationPlanner` before execution.
 
 ### Deprecated
 - Documented intentional MODFLOW-NWT sunset plan — see
