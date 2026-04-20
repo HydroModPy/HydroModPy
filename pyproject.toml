@@ -170,8 +170,6 @@ parallel = true
 omit = [
     "hydromodpy/**/cases/*",
     "hydromodpy/**/examples/*",
-    "hydromodpy/calibration_legacy/*",
-    "hydromodpy/calibration2/*",
     "examples/*",
     "examples_legacy/*",
     "validation_cases/*",
