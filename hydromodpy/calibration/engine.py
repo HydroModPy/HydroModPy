@@ -17,15 +17,9 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, Protocol
+from typing import Callable, Protocol
 
 from hydromodpy.calibration.cache import ParamsHashCache, params_hash
-from hydromodpy.calibration.objective import (
-    Objective,
-    ObjectiveValue,
-    SimulationOutput,
-    evaluate_objective,
-)
 from hydromodpy.calibration.optimizer import (
     EvaluationResult,
     Optimizer,

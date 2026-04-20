@@ -19,7 +19,6 @@ import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-import sys
 
 from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
 from typing import Any

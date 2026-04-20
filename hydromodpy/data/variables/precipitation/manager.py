@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from hydromodpy.data.common.base_field_manager import BaseFieldManager
-from hydromodpy.data.variables.precipitation.config import PrecipitationConfig, PrecipitationSourceConfig
+from hydromodpy.data.variables.precipitation.config import PrecipitationSourceConfig
 
 
 class PrecipitationManager(BaseFieldManager):

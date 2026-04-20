@@ -18,7 +18,6 @@ Flow state mapping (Hub'Eau code_ecoulement -> internal 1-5 ordinal):
 
 from __future__ import annotations
 
-import time
 from datetime import datetime
 from typing import Sequence
 

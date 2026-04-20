@@ -14,10 +14,8 @@ import argparse
 import os.path as osp
 from pathlib import Path
 
-import pandas as pd
 
 from .managers import HelpManager
-from .bilan import calc_yearly_streamflow
 from .daily_output import calc_area_daily_avg
 from hydromodpy.core.tools import get_logger
 

@@ -20,7 +20,7 @@ from typing import Callable
 
 from hydromodpy.calibration.cache import ParamsHashCache
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.engine import CalibrationEngine, CalibrationSession
+from hydromodpy.calibration.engine import CalibrationEngine
 from hydromodpy.calibration.optimizer import (
     EvaluationResult,
     ParamSuggestion,

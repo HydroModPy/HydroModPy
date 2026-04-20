@@ -9,7 +9,7 @@ matching the Protocol is accepted.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Mapping, Protocol, Sequence, runtime_checkable
+from typing import Mapping, Protocol, runtime_checkable
 
 import numpy as np
 

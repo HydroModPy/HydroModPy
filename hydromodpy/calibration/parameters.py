@@ -9,7 +9,7 @@ A Pydantic field becomes calibrable by attaching a ``Calibrable`` instance via
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Iterable, Mapping
 
 from pydantic import BaseModel

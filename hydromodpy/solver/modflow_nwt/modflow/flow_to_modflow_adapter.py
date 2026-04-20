@@ -91,7 +91,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from numbers import Real
 from typing import TYPE_CHECKING
 
 import numpy as np

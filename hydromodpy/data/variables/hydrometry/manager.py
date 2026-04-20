@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from hydromodpy.data.common.base_manager import BaseVariableManager
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
+from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig
 
 
 class HydrometryManager(BaseVariableManager):

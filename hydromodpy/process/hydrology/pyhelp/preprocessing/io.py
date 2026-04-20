@@ -22,7 +22,6 @@ import xarray as xr
 
 import logging
 from .pyhelp_grid import PyhelpGrid
-from .pyhelp_era5 import PyhelpEra5
 from ..core.processing import read_daily_help_output
 from hydromodpy.core.tools.geospatial import transform_coordinates, filter_coordinates_by_shape
 

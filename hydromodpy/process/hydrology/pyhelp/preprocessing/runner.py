@@ -1,13 +1,10 @@
 
 # -*- coding: utf-8 -*-
-import os
 from pathlib import Path
 from typing import Optional
 
-import pandas as pd
 
 from ..core.managers import HelpManager
-from ..core.output import HelpOutput
 
 
 def run_help(

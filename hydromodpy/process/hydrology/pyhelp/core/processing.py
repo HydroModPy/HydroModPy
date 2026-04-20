@@ -13,7 +13,6 @@
 
 # ---- Standard Library Imports
 import os
-import os.path as osp
 import multiprocessing as mp
 import time
 import csv

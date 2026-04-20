@@ -19,7 +19,6 @@ from hydromodpy.analysis.comparison.config import (
     MethodComparisonVariantSchema,
 )
 from hydromodpy.analysis.comparison.runtime import (
-    CellCentroidTable,
     VariableSeries,
     load_variable_series,
     mask_depth_series_from_head_nodata,

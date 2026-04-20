@@ -8,7 +8,6 @@ Returns raw data as CoverageJSON dicts or xarray Datasets (when NetCDF4).
 
 from __future__ import annotations
 
-import io
 import tempfile
 from pathlib import Path
 from typing import Any

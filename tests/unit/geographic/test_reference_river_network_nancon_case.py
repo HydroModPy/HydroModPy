@@ -61,6 +61,12 @@ def _write_tmp_config(work_root: Path) -> Path:
 
 
 @pytest.mark.slow
+@pytest.mark.skip(
+    reason=(
+        "Nancon reference DEM was part of the examples_legacy tree removed in P13; "
+        "rework this test against examples/data/dem/ when a replacement raster is added."
+    )
+)
 def test_run_reference_river_network_nancon_case(
     monkeypatch: pytest.MonkeyPatch,
     hydromodpy_test_scratch_root: Path,

@@ -9,9 +9,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly import (
-    BoussinesqAssembly,
-)
 from hydromodpy.solver.boussinesq.runtimes.head_only_common import (
     build_steady_assembly_callback,
     build_transient_assembly_callback,

@@ -47,7 +47,7 @@ from hydromodpy.core.config.generate_toml import (
     _get_registry,
     _UNDEFINED,
 )
-from hydromodpy.core.config.param_level import PROFILES, ParamLevel, VisibleWhen
+from hydromodpy.core.config.param_level import PROFILES, VisibleWhen
 
 
 # ── Type introspection helpers ───────────────────────────────────────────

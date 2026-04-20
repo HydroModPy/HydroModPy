@@ -5,7 +5,7 @@ Produces ``PointRecord`` instances from the Hub'Eau v1 niveaux_nappes endpoints.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Sequence
 
 import pandas as pd

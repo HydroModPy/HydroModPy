@@ -17,8 +17,6 @@ import os
 import pickle
 from os.path import abspath, dirname
 
-import geopandas as gpd
-import rasterio
 
 package_root = dirname(dirname(abspath(__file__)))
 repo_root = dirname(package_root)

@@ -12,10 +12,8 @@ from __future__ import annotations
 
 from pathlib import Path
 import math
-import os
-import os.path as osp
 import shutil
-from typing import Iterable, List, Sequence
+from typing import Sequence
 
 import h5py
 import numpy as np

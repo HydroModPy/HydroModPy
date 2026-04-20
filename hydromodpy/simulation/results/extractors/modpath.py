@@ -29,7 +29,6 @@ class ModpathOutputAdapter:
         model_name: str | None = None,
     ) -> None:
         """Read MODPATH output files and write pathlines into the store."""
-        from flopy.utils import PathlineFile, EndpointFile
 
         solver_output_dir = Path(solver_output_dir)
 

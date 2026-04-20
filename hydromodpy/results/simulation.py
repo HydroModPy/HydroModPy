@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     import geopandas as gpd
 
     from hydromodpy.results.catalog import SimulationCatalog
-    from hydromodpy.results.zarr_store import SimulationZarr
 
 
 class Simulation:
@@ -258,7 +257,6 @@ class Simulation:
         new_config = HydroModPyConfig.from_snapshot(snapshot, **overrides)
 
         from hydromodpy.project import Simulation
-        from uuid import uuid4
 
         # Build a minimal Simulation-like execution from the reconstructed config
         # and register with parent_sim_id linkage.

@@ -6,7 +6,6 @@ License: ETALAB Open Licence v2.0 (open data, attribution required)
 
 from __future__ import annotations
 
-import io
 import logging
 import urllib.request
 import zipfile

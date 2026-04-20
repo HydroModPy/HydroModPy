@@ -509,7 +509,6 @@ def _cmd_config_schema(args: argparse.Namespace) -> None:
         hmp config schema --out schema.json      # write to file
     """
     from hydromodpy.core.config.schema_export import (
-        ROOT_SECTIONS,
         export_schema,
         write_schema,
         _ensure_root_sections,

@@ -175,7 +175,6 @@ class DataManagersRuntimeLoader:
         """Load geology data via GeologyManager, then build GeologyField."""
         from hydromodpy.data.variables.geology.config import GeologyConfig
         from hydromodpy.data.variables.geology.manager import GeologyManager
-        from hydromodpy.spatial.field.geology.geology_field import GeologyField
 
         raw_section = self._get_data_section(result, "geology")
         if raw_section is None:
