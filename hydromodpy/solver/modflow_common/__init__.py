@@ -1,5 +1,13 @@
 """Shared MODFLOW helper utilities used across solver backends."""
 
+from .boundary_packages import (
+    BoundaryCell,
+    DisvBoundaryCell,
+    PACKAGE_ATTRS,
+    PackageKind,
+    package_attr_names,
+    validate_attrs,
+)
 from .flow_translator import (
     BoundaryKind,
     MF6_PACKAGES,
@@ -39,10 +47,14 @@ from .runtime_arrays import (
 from .solver_mesh import SolverMesh
 
 __all__ = [
+    "BoundaryCell",
     "BoundaryKind",
+    "DisvBoundaryCell",
     "GridReference",
     "MF6_PACKAGES",
     "NWT_PACKAGES",
+    "PACKAGE_ATTRS",
+    "PackageKind",
     "SolverGridContext",
     "SolverMesh",
     "SolverRoutingContext",
@@ -59,8 +71,10 @@ __all__ = [
     "discretize_spatially_distributed_source",
     "has_spatially_distributed_source",
     "Masstransfer",
+    "package_attr_names",
     "resolve_package",
     "resolve_packages",
+    "validate_attrs",
     "write_grid_array_to_raster",
     "build_solver_routing_context",
     "build_concentration_runtime_overrides",
