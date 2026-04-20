@@ -434,23 +434,37 @@ checkpoint est noté :
 - `tests/integration/test_ux_acceptance.py` — suivi `v0.5-tests-ux-acceptance`.
 
 ---
+### 11_frontend_ready.md
+**Résumé :** Les hooks frontend (schéma JSON + validator partiel) sont livrés conformément aux OVERRIDES de P11, avec CLI `hmp schema export|validate-field`, docs, exemple Streamlit et absence stricte de dépendances web.
+**Checkpoints :** 15 au total, OK=13, ÉCART=2, MANQUANT=0.
 
-## Écarts globaux assumés (décisions architecture)
+| # | Checkpoint | Verdict | Preuve / Note |
+|---|------------|---------|---------------|
+| 1 | Module `hydromodpy/schema/` avec `export.py`, `partial_validator.py`, `__init__.py` | OK | Fichiers présents. |
+| 2 | `export.py` produit `config.json`, `config_meta.json`, `field_validators.json` | OK | Constantes `SCHEMA_FILE`/`META_FILE`/`VALIDATORS_FILE` + `export_full_schema`. |
+| 3 | Utilisation `TypeAdapter` et/ou `model_json_schema()` | OK | `partial_validator.py:23` + `:95` `TypeAdapter(info.annotation)` ; `export.py:124` `model_json_schema()`. |
+| 4 | `validate_field(path, value, context, locale)` | OK | `partial_validator.py:121`. |
+| 5 | `ValidationResult` dataclass retourné | OK | `partial_validator.py:27-39` frozen dataclass (`valid`, `path`, `error`, `warnings`, `dependent_fields_affected`, `timing_ms`). |
+| 6 | CLI `hmp schema export` | OK | `__main__.py:1524-1532` + `_cmd_schema_export`. |
+| 7 | CLI `hmp schema validate-field` | OK | `__main__.py:1534-1550` + `_cmd_schema_validate_field`. |
+| 8 | Documentation `docs/developers/frontend_hooks.md` | OK | Présent avec snippets Streamlit/Angular. |
+| 9 | Exemple `docs/examples/streamlit_app.py` | OK | Charge `schema/config.json`, note explicite sur l'absence de dep `streamlit`. |
+| 10 | Pas de `fastapi`/`uvicorn`/`websockets`/`starlette` dans `pyproject.toml` | OK | Grep vide. |
+| 11 | Test latence `test_validate_field_latency_under_100ms` | OK | `tests/unit/test_partial_validator.py:43-54`. |
+| 12 | Tests export schéma (3 fichiers + JSON validity + CLI) | OK | `tests/unit/test_schema_export.py`. |
+| 13 | Annotations riches (`widget_type`, `unit`, `display_name_fr`, `help_text_fr`, `display_min`, `display_max`) | OK | `process/flow/physical_properties.py:63-100` et `flow_config.py:65-105`. |
+| 14 | Seuil de latence `< 50 ms` p95 (§3.5) | ÉCART | Test à `< 100 ms` (seuil opérationnel) — suffisant pour la réactivité. |
+| 15 | Convention `UiMeta`/`ui()` + préfixes `x-*` (§4.2-4.4) | ÉCART | Clés plates (`widget_type`, `display_name_fr`, ...) dans `json_schema_extra` — équivalent fonctionnel aligné avec les OVERRIDES. |
 
-_À compiler après les 14 vérifications._
+**Écarts assumés :**
+- Test de latence à `< 100 ms` (cible opérationnelle) au lieu de `< 50 ms` p95.
+- Annotations UI plates plutôt que `UiMeta`/`x-*` — conforme aux OVERRIDES.
+
+**Manquants :** Aucun — tous les livrables des OVERRIDES sont présents et testés.
 
 ---
 
-## Manquants résiduels (à traiter post-v0.4)
-
-_À compiler après les 14 vérifications._
-
 ---
-
-## Conclusion
-
-_À renseigner après synthèse._
-
 
 ## Écarts globaux assumés (décisions architecture)
 
