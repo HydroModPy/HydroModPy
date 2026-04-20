@@ -114,7 +114,7 @@ Les 13 phases du plan de migration ont toutes été marquées `DONE` par le scri
 
 **Statut :** la duplication NWT/MF6 des builders `RIV/GHB/DRN/CHD/WEL` n'est **pas une dette** mais une décision produit actée : MODFLOW-NWT sera retiré après le jalon Lake (LAK) de MF6, remonter les builders coûterait plus que ce que le retrait économise. Les deux `flow_to_modflow_adapter.py` portent un header explicatif pointant vers `nwt_sunset_plan.md`.
 
-### P07 — Pipeline & Checkpointing  ⚠ PARTIEL
+### P07 — Pipeline & Checkpointing  ✔ OK (résolu en F03)
 
 | Critère spec | État réel | Commentaire |
 |---|---|---|
@@ -122,12 +122,12 @@ Les 13 phases du plan de migration ont toutes été marquées `DONE` par le scri
 | Pipeline/Step/State contrats | ✅ | Classes conformes, `PipelineState` frozen dataclass avec `advance()`. |
 | Checkpoint zstd | ✅ | `workspace/.hmp/checkpoints/<run_id>/<idx:02d>_<name>.pkl.zst`. |
 | Ledger DuckDB `steps` | ✅ | DDL exact conforme spec. |
-| 11 steps portés | ⚠️ | Spec `06_pipeline_execution.md §1.1` listait 14 steps (avec `domain`, `plan`, `open_store`, `aggregate`, `display`, `finalize`). Le script prescrivait **11 steps** et le code implémente 11. Écart assumé par le plan P07, mais la spec reste à aligner. |
-| DeriveStep | ❌ PARTIEL | `step_09_derive.py` est un **pass-through placeholder** (`# delegated to extractors for now`). Pas de `DerivedRegistry` ni `DerivedComputer`. |
+| 11 steps portés | ✅ | Spec `06_pipeline_execution.md §1.1` réalignée sur les 11 steps effectifs en F03. L'écart avec les 14 positions initiales (fusion `domain`+`plan`, `open_store`+model build, report d'`aggregate`/`display`/`finalize`) est documenté comme décision assumée. |
+| DeriveStep | ✅ | Registre `DerivedRegistry` implémenté en F03 (`hydromodpy/pipeline/derived.py`) avec 4 dérivées canoniques ordonnées topologiquement (`watertable_elevation`, `watertable_depth`, `seepage_mask`, `fluxes_from_budget`). `step_09_derive.py` applique le registre et skippe proprement les dérivées dont les inputs manquent. |
 | CLI `--resume RUN_ID` | ✅ | `__main__.py:1562`, `runners/simulation.py:_run_resume`. |
-| Tests | ✅ | `test_pipeline_basic`, `test_pipeline_checkpoint`, `test_pipeline_full`. |
+| Tests | ✅ | `test_pipeline_basic`, `test_pipeline_checkpoint`, `test_pipeline_full`, `test_derived_registry` (18 tests ajoutés en F03). |
 
-**Dette restante :** décider si `DeriveStep` doit vraiment exister séparément ou si fusion avec `ExtractStep`. Aligner la spec `06_pipeline_execution.md` sur les 11 steps effectifs (ou porter les 3 manquants).
+**Dette restante :** aucune après F03.
 
 ### P08 — Post-process & Display  ⚠ PARTIEL
 
@@ -229,7 +229,7 @@ Aucune fonctionnalité critique absente. Le binaire `hmp` fonctionne, l'API publ
 
 1. **P03 — Migration pint incomplète** : `flow_config.py`, `boundary_conditions_config.py`, `initial_conditions_config.py` utilisent encore `normalize_*` legacy. Résoudre les 2 xfail `test_bare_number_falls_back_to_canonical_unit` et `test_flow_physical_properties_defaults_and_overrides`.
 2. **P06 — Factorisation solveurs** : résolu en finalisation (F02). La duplication `flow_to_modflow_adapter.py` entre NWT (1391 L) et MF6 (581 L) est **assumée** — MODFLOW-NWT sera retiré après le jalon Lake (LAK) de MF6. Voir `docs/developers/nwt_sunset_plan.md`.
-3. **P07 — DeriveStep placeholder** : soit implémenter un vrai `DerivedRegistry`, soit fusionner avec `ExtractStep`. Décider et aligner la spec `06_pipeline_execution.md`.
+3. **P07 — DeriveStep placeholder** : résolu en finalisation (F03). Un vrai `DerivedRegistry` (`hydromodpy/pipeline/derived.py`) est en place avec quatre dérivées canoniques (`watertable_elevation`, `watertable_depth`, `seepage_mask`, `fluxes_from_budget`) ordonnées topologiquement ; `step_09_derive.py` applique le registre et skippe silencieusement les dérivées aux inputs manquants. Spec `06_pipeline_execution.md` §1.1 alignée sur les 11 steps effectifs.
 4. **P08 — Env vars résiduelles** : purger les 43 références à `HYDROMODPY_NO_DISPLAY`/`HYDROMODPY_NO_SAVE` (CI YAML, tests validation, tools). Supprimer physiquement les coquilles `analysis/display/{figures,report}/` et `analysis/postprocess/{flow,netcdf,timeseries}/`.
 5. **P10 — Nommage API catalog** : choisir entre renommer `export_simulation`→`export`/`import_simulation`→`import_package` ou aligner spec 10.md sur l'API effective.
 
@@ -237,7 +237,7 @@ Aucune fonctionnalité critique absente. Le binaire `hmp` fonctionne, l'API publ
 
 1. **P01** : 14 termes H3 vs 15+ demandés dans le glossaire. Ajouter `sim_id` et `run_id` en H3 dédié si on veut respecter la lettre.
 2. **P04** : documenter explicitement dans `docs/developers/` le choix mtime (OVERRIDE §2) vs SHA-256 (spec §5.4) afin d'éviter la confusion.
-3. **P07** : spec cible mentionne 14 steps (domain, plan, open_store, aggregate, display, finalize) alors que 11 sont implémentés. Aligner la spec.
+3. **P07** : résolu en finalisation (F03). Spec cible `06_pipeline_execution.md` §1.1 réécrite sur les 11 steps effectifs (`validate`, `resolve`, `load_data`, `build_geographic`, `build_mesh`, `setup_process`, `prepare_solver`, `run_solver`, `extract`, `derive`, `export`) avec note d'écart assumé documentant la fusion `domain`+`plan` → `setup_process`, `open_store`+model build → `prepare_solver`, et le report de `aggregate`/`display`/`finalize` hors pipeline.
 4. **P12** : dossier `integration/` non créé, tests d'intégration noyés dans `unit/`. Soit extraire, soit aligner spec 09.
 5. **P13** : `CHANGELOG.md` utilise Keep-a-Changelog au lieu des sections demandées.
 6. **Cohérence docs** : `CLAUDE.md:221` mentionne des alias `LengthM`, `TimeS` qui n'existent pas dans l'implémentation (`Length`, `Time`).
