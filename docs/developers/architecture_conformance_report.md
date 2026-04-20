@@ -532,6 +532,49 @@ checkpoint est noté :
 
 ---
 
+### 14_plan_migration.md
+**Résumé :** Les 13 phases de migration et 7 phases de finalisation (F01–F07) ont toutes produit leurs marqueurs `*.done` et des commits au format attendu ; plusieurs livrables canoniques P01 (exceptions typées, `field_registry`, `canonical_json`, rename `process/→physics/` en P13) restent absents du codebase mais ont été requalifiés en dettes v0.5.
+**Checkpoints :** 24 au total, OK=14, ÉCART=9, MANQUANT=1.
+
+| # | Checkpoint | Verdict | Preuve / Note |
+|---|------------|---------|---------------|
+| 1 | `run_migration.sh` racine (OVERRIDES §1) | OK | Présent, immuable. |
+| 2 | `run_finalization.sh` racine | OK | Présent, immuable. |
+| 3 | Marqueurs `migration/phases/P01..P13.done` | OK | 13 fichiers avec timestamps + SHA commit. |
+| 4 | Marqueurs `migration_final/phases/F01..F07.done` | OK | 7 fichiers ; F08 en cours (pas de marker attendu). |
+| 5 | Format commits `[Pxx] - <english words>` | OK | 138 commits `[Pxx]`. |
+| 6 | Format commits `[Fxx] - <english words>` | OK | 55+ commits `[Fxx]` couvrant F01–F08. |
+| 7 | P01 — `hydromodpy/core/exceptions.py` hiérarchie typée | ÉCART | P13 a supprimé le module orphelin ; hiérarchie cible absente. |
+| 8 | P01 — `hydromodpy/results/field_registry.py` | MANQUANT | Fichier absent. |
+| 9 | P01 — `hydromodpy/core/io/canonical_json.py` | ÉCART | Dossier `core/io/` absent. |
+| 10 | P01 — renommage `Simulation` → `SimulationView` | ÉCART | `results/simulation.py` conserve `Simulation`. |
+| 11 | P02 — DuckDB + Zarr + geographic fingerprint | OK | Commits dédiés. |
+| 12 | P03 — Pydantic + pydantic-pint + JSON Schema | OK | Commits dédiés. |
+| 13 | P04 — Data scaffold + auto-scan + SIM2 (renommé meteofrance en F07) | OK | Commits dédiés. |
+| 14 | P05 — `spatial/delineation/` multi-backend | OK | Package complet. |
+| 15 | P06 — Protocol SolverAdapter + `modflow_common/` | OK | Registre canonique + modules communs. |
+| 16 | P07 — Pipeline unifié + checkpointing + resume | OK | Package `pipeline/` complet + `--resume`. |
+| 17 | P08 — Figures + métriques + derived | OK | 9 figures, 7 métriques, 4 dérivées. |
+| 18 | P09 — Optuna + TOML simplifié + save_runs | OK | Package calibration complet. |
+| 19 | P10 — API lazy + CLI unifié | OK | `__getattr__` + `hmp` CLI. |
+| 20 | P11 — JSON Schema export + partial validator (sans FastAPI) | OK | Package `schema/` + CLI + tests. |
+| 21 | P12 — Suite tests compacte | OK | `tests/{unit,integration,regression,validation}/`. |
+| 22 | P13 — Renommage `process/ → physics/` (différé P01→P13) | ÉCART | `hydromodpy/process/` toujours présent. |
+| 23 | P13 — Suppression alias back-compat DeprecationWarning | ÉCART | Partielle : `SolverAdapter`, `Geographic`, `Watershed` non renommés. |
+| 24 | CHANGELOG + glossaire + migration guide (P01/F07) | OK | `CHANGELOG.md` + `glossary.md` + section migration guide. |
+
+**Écarts assumés :**
+- P01 primitives (`core/exceptions.py`, `core/io/canonical_json.py`) matérialisées différemment dans le repo ; requalifiées v0.5.
+- `Simulation → SimulationView` non appliqué (compat publique).
+- `process/ → physics/` différé post-v0.4.
+- Nettoyage alias P13 partiel.
+- F08 encore en cours (phase de vérification, par définition sans marker au moment de ce rapport).
+
+**Manquants :**
+- `hydromodpy/results/field_registry.py` (`FieldDescriptor` + 18 entrées CF) — suivi `v0.5-field-registry`.
+
+---
+
 ---
 
 ## Écarts globaux assumés (décisions architecture)
