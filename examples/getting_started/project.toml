@@ -1,0 +1,108 @@
+# ======================================================================
+# HydroModPy — getting-started example
+# ======================================================================
+# A self-contained 1D Dupuit case with uniform recharge, solved with
+# MODFLOW-NWT in steady state. No external DEM or download required.
+#
+# Run it with the CLI:
+#     hmp run examples/getting_started/run.toml
+#
+# Or from Python:
+#     import hydromodpy as hmp
+#     hmp.run("examples/getting_started/run.toml")
+# ======================================================================
+
+[simulation]
+name = "getting_started_dupuit"
+description = "Minimal synthetic Dupuit aquifer, steady state, MODFLOW-NWT."
+
+[[simulation.process]]
+id = "flow"
+type = "flow"
+solvers = ["modflownwt"]
+
+[workspace]
+project_root = "."
+
+# --- Geographic domain (synthetic, no external data) -----------------
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "getting_started"
+
+[geographic.synthetic.grid]
+length_x = "400.0 m"
+length_y = "50.0 m"
+nx = 40
+ny = 5
+
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 20.0
+
+# --- Vertical geometry ------------------------------------------------
+
+[domain]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "20.0 m"
+
+# --- Flow process -----------------------------------------------------
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["west_side", "east_side"]
+param_list = ["K"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+
+[flow.param.K.field_homogeneous]
+value = "1e-4 m/s"
+
+[flow.ic]
+type = "custom"
+value = "5.0 m"
+
+[flow.bc.dirichlet.west_side]
+type = "dirichlet"
+value = "5.0 m"
+
+[flow.bc.dirichlet.east_side]
+type = "dirichlet"
+value = "5.0 m"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+# --- Data sources (synthetic recharge, no download) ------------------
+
+[data]
+types = ["recharge"]
+inference_mode = "warn"
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [3.0]
+runoff_ratio = 0.0
+
+# --- Solver (MODFLOW-NWT) --------------------------------------------
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 40
+ny = 5
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+# --- Display (headless by default) -----------------------------------
+
+[display]
+enabled = false
