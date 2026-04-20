@@ -61,6 +61,15 @@ class FlowConfig(ProcessSpatialConfig):
             "Global flow simulation regime used by solvers consuming [flow] "
             "(steady or transient)."
         ),
+        json_schema_extra={
+            "widget_type": "select",
+            "unit": "-",
+            "display_name_fr": "Régime d'écoulement",
+            "help_text_fr": (
+                "Régime permanent (steady) ou transitoire (transient). "
+                "Le régime transitoire requiert une condition initiale [flow.ic]."
+            ),
+        },
     )
     runtime_backend: Annotated[
         Literal["local", "scipy", "scipy_sparse", "petsc"], ParamLevel("dev")
@@ -90,6 +99,14 @@ class FlowConfig(ProcessSpatialConfig):
             "Optional override for the nonlinear iteration budget used by the "
             "Boussinesq runtime backend."
         ),
+        json_schema_extra={
+            "widget_type": "input",
+            "unit": "-",
+            "display_name_fr": "Itérations max (solveur)",
+            "help_text_fr": "Budget d'itérations non-linéaires pour le solveur.",
+            "display_min": 1,
+            "display_max": 100_000,
+        },
     )
     runtime_tol_residual_inf: Annotated[float | None, ParamLevel("dev")] = Field(
         default=None,
