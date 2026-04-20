@@ -390,7 +390,7 @@ def _cmd_calibrate(args: argparse.Namespace) -> None:
     config_path = Path(args.config).expanduser().resolve()
     if not config_path.is_file():
         print(f"File not found: {config_path}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(EXIT_NOT_FOUND)
 
     summary = run_calibration_cli(
         config_path,
@@ -438,7 +438,7 @@ def _cmd_new(args: argparse.Namespace) -> None:
             "Run 'hmp init' first or use --workspace.",
             file=sys.stderr,
         )
-        sys.exit(1)
+        sys.exit(EXIT_NOT_FOUND)
 
     project_dir = create_project(workspace_root, args.project)
     print(f"Project created: {project_dir}")
@@ -637,13 +637,13 @@ def _cmd_list(args: argparse.Namespace) -> None:
 
     if not projects_dir.is_dir():
         print(f"No projects/ directory found in {workspace_root}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(EXIT_NOT_FOUND)
 
     if args.project:
         project_dir = projects_dir / args.project
         if not project_dir.is_dir():
             print(f"Project not found: {args.project}", file=sys.stderr)
-            sys.exit(1)
+            sys.exit(EXIT_NOT_FOUND)
         workspace_root = _find_workspace_root(project_dir)
         db_path = workspace_root / "hydromodpy.duckdb"
         if not db_path.exists():
@@ -888,7 +888,7 @@ def _cmd_export(args: argparse.Namespace) -> None:
     db_path = workspace_root / "hydromodpy.duckdb"
     if not db_path.exists():
         print(f"No catalog found at {workspace_root}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(EXIT_NOT_FOUND)
 
     catalog = SimulationCatalog(workspace_root)
 
@@ -984,7 +984,7 @@ def _cmd_export(args: argparse.Namespace) -> None:
         if match.empty:
             print(f"Simulation '{sim_name}' not found (use --list)", file=sys.stderr)
             catalog.close()
-            sys.exit(1)
+            sys.exit(EXIT_NOT_FOUND)
         sim_id = match.iloc[-1]["sim_id"]
         label = sim_name
 
@@ -1036,7 +1036,7 @@ def _cmd_export(args: argparse.Namespace) -> None:
 
     if not any([args.raster, args.feature, args.sim]):
         print("Usage: hmp export <project> --list | --sim NAME [--csv --netcdf] | --raster NAME", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(EXIT_CONFIG)
 
     if exported:
         print(f"Exported {len(exported)} file(s)", file=sys.stderr)
