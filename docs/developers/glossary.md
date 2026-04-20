@@ -139,13 +139,65 @@ sources; a source may feed several managers.
 
 ## Identifiers
 
-- `sim_id` — deterministic **UUID v5**,
-  `uuid5(HYDROMODPY_NAMESPACE, run_fingerprint)`, where
-  `run_fingerprint = sha256(canonical_config_json + inputs_fingerprints)`.
-  Identical config + identical inputs → identical `sim_id` (enables
-  deduplication). Phase 10's mention of UUID v4 is superseded.
-- `run_id` — **ULID**, 26 characters, lexicographically sortable, generated
-  at submission. Multiple runs may share one `sim_id`.
+### sim_id
+
+Deterministic **UUID v5**,
+`uuid5(HYDROMODPY_NAMESPACE, run_fingerprint)`, where
+`run_fingerprint = sha256(canonical_config_json + inputs_fingerprints)`.
+Identical config + identical inputs → identical `sim_id` (enables
+deduplication). Phase 10's mention of UUID v4 is superseded.
+
+### run_id
+
+**ULID**, 26 characters, lexicographically sortable, generated at
+submission. Multiple runs may share one `sim_id`.
+
+## Pipeline internals
+
+### PipelineState
+
+- **Canonical name:** `PipelineState`
+- **Module:** `hydromodpy.pipeline.state.PipelineState`
+- **Shape:** `@dataclass(frozen=True, slots=True)` carrying `run_id`,
+  `step_index`, `step_name`, `elapsed_ms`, and an untyped `data` mapping.
+- **Role:** the single value that flows between pipeline steps. Steps
+  never mutate; they produce a successor via `state.advance(...)`.
+
+### Checkpoint
+
+- **Canonical name:** `CheckpointStore`
+- **Module:** `hydromodpy.pipeline.checkpoint.CheckpointStore`
+- **Role:** persists `PipelineState` snapshots to
+  `<workspace>/.hmp/checkpoints/<run_id>/<step_index>_<step_name>.pkl.zst`
+  after each step, enabling resume-after-crash. Falls back to plain
+  pickle when `zstandard` is unavailable.
+- **Forbidden aliases:** `Snapshot`, `StateCheckpoint`.
+
+### Ledger
+
+- **Canonical name:** `StepsLedger`
+- **Module:** `hydromodpy.pipeline.ledger.StepsLedger`
+- **Role:** DuckDB-backed log of pipeline step executions, one row per
+  `(run_id, step_index)` with status, timestamps, elapsed duration, and
+  failure message. Stored at
+  `<workspace>/.hmp/checkpoints/steps_ledger.duckdb`.
+- **Forbidden aliases:** `StepLog`, `ExecutionLog`.
+
+### DerivedRegistry
+
+- **Canonical name:** `DerivedRegistry`
+- **Module:** `hydromodpy.pipeline.derived.DerivedRegistry`
+- **Role:** ordered registry of `DerivedComputation` entries evaluated
+  by `step_09_derive`. Resolves dependencies via `ordered_names()` so
+  downstream derived fields see their prerequisites already written.
+
+### ParamsHashCache
+
+- **Canonical name:** `ParamsHashCache`
+- **Module:** `hydromodpy.calibration.cache.ParamsHashCache`
+- **Role:** fingerprint-based memoisation used inside the calibration
+  loop to deduplicate evaluations of identical parameter vectors within
+  one session.
 
 ## Naming hygiene
 
