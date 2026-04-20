@@ -25,7 +25,6 @@ repo_root = dirname(package_root)
 
 # HydroModPy
 from hydromodpy.spatial.geographic.geographic import Geographic
-from hydromodpy.analysis.postprocess import netcdf
 from hydromodpy.core.tools import get_logger
 from hydromodpy.core.tools import setup_simulation_log
 from hydromodpy.core.tools.display import plot_params, print_hydromodpy
@@ -349,18 +348,11 @@ class Watershed:
             - ``'watershed_geology'`` to display the watershed geology.
             - ``'watershed_zones'`` to display the hydraulic zones of the watershed.
         """
-        try:
-            from hydromodpy.analysis.display import visualization_watershed
-        except Exception as exc:
-            raise ModuleNotFoundError(
-                "Display dependencies are not installed. Install the full stack (contextily, matplotlib, vedo)."
-            ) from exc
-        if dtype == 'watershed_dem':
-            visualization_watershed.watershed_dem(self)
-        if dtype == 'watershed_geology':
-            visualization_watershed.watershed_geology(self)
-        if dtype == 'watershed_zones':
-            visualization_watershed.watershed_zones(self)
+        raise NotImplementedError(
+            "Watershed visualisation has been removed. Use the figure registry "
+            "in :mod:`hydromodpy.display` (e.g. ``get('piezometric_map')``) "
+            "operating on a :class:`Simulation`."
+        )
 
     #%% ADDING DATA
 
@@ -402,30 +394,12 @@ class Watershed:
 
     #%% EXTRACT NETCDF
 
-    def postprocessing_netcdf(self,
-                                  model_modflow: object,
-                                  datetime_format: bool=True):
-        """
-        Public method to postprocess the watershed netCDF.
-
-        Parameters
-        ----------
-        model_modflow : object
-            MODFLOW model in a Python object.
-        datetime_format : bool, optional
-            True if the index is in datetime format (e.g. 1995-10-17 00:00:00). The default is True.
-
-        Returns
-        -------
-        netcdf_results :
-            Python object with results stored.
-        """
-        if model_modflow != None:
-            netcdf_results = netcdf.Netcdf(self.geographic,
-                                           model_modflow=model_modflow,
-                                           datetime_format=datetime_format)
-
-            return netcdf_results
+    def postprocessing_netcdf(self, *args, **kwargs):
+        """Removed: NetCDF export now lives in the simulation pipeline."""
+        raise NotImplementedError(
+            "postprocessing_netcdf() has been removed. NetCDF/Zarr exports "
+            "are produced by the pipeline's extract/derive/export steps."
+        )
 
     #%% PYHELP
 

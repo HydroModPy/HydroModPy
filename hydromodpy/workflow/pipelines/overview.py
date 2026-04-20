@@ -16,7 +16,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from hydromodpy.analysis.display.report.overview_config import DataOverviewState
+from hydromodpy.workflow.pipelines.overview_config import DataOverviewState
 from hydromodpy.core.config import HydroModPyConfig
 
 
@@ -164,20 +164,13 @@ class DataOverviewLauncher:
 
     def _load_data(self, state: DataOverviewState) -> None:
         from hydromodpy.data.plan import DataLoadPlan
-        from hydromodpy.analysis.display.report.overview_data_loader import OverviewDataLoader
 
-        # Build a minimal data plan from the explicit types list.
         data_plan = DataLoadPlan(
             explicit_types=tuple(state.cfg.data.types),
             inferred_types=(),
         )
-
-        loader = OverviewDataLoader(
-            config_path=self.config_path,
-            data_plan=data_plan,
-        )
-        loader.load_all(state)
-        logger.info("[overview] Data loaded for: %s", list(data_plan.types))
+        state.loaded_data = state.loaded_data
+        logger.info("[overview] Data plan declared for: %s", list(data_plan.types))
 
     # ------------------------------------------------------------------
     # Phase 4 — Report generation
@@ -185,18 +178,12 @@ class DataOverviewLauncher:
 
     @staticmethod
     def _generate_report(state: DataOverviewState) -> list[Path]:
-        from hydromodpy.analysis.display.report.overview_report import (
-            generate_overview_report,
+        logger.info(
+            "[overview] Report panel generation has been removed in P08 — "
+            "use the figure registry (hydromodpy.display) on a Simulation "
+            "for per-figure rendering instead."
         )
-
-        paths = generate_overview_report(state)
-        if paths:
-            logger.info("[overview] Generated %d panel(s):", len(paths))
-            for p in paths:
-                logger.info("  %s", p)
-        else:
-            logger.info("[overview] No panels enabled -- nothing to generate.")
-        return paths
+        return []
 
 
 # ======================================================================

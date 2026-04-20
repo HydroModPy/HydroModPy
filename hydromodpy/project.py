@@ -183,7 +183,6 @@ class Simulation:
         from hydromodpy.spatial.domain.spatial_support import (
             build_default_spatial_support_provider_registry,
         )
-        from hydromodpy.analysis.postprocess.runner import PostprocessRunner
         from hydromodpy.workflow.context import WorkflowContext
         from hydromodpy.workflow.pipelines.simulation import (
             prepare_simulation_runtime,
@@ -281,15 +280,15 @@ class Simulation:
         self._ctx.data_plan = data_plan
         self._ctx.setup.time_grid = self._time_grid
 
-        # Phase 7: postprocess runner
+        # Phase 7: headless overrides (postprocess is now part of the pipeline,
+        # so no separate runner is required).
         self._headless = headless
         if headless:
-            self.cfg.display.enabled = False
-            self.cfg.display.show = False
             self.cfg.display.save = False
+            self.cfg.display.interactive = False
             self.cfg.postprocess.enabled = False
-        self._postprocess_runner = PostprocessRunner(self.cfg.postprocess)
-        self._ctx.postprocess_runner = self._postprocess_runner
+        self._postprocess_runner = None
+        self._ctx.postprocess_runner = None
 
         prepare_simulation_runtime(
             self._ctx,
@@ -495,10 +494,6 @@ class Simulation:
         })()
         step_persist_forcings(_tmp_ctx)
 
-        # Wire store + sim_id into postprocess runner
-        self._postprocess_runner.store = self._store
-        self._postprocess_runner.sim_id = sim_id
-
         # Execute
         has_transport = any(r.process_type == "transport" for r in plan.runs)
         results_cfg = ResultsConfig(
@@ -524,15 +519,11 @@ class Simulation:
                 run_id=name,
             )
 
-        def _after_process(process_type):
-            self._postprocess_runner.after_process(process_type, self._ctx)
-
         original_domain = self._ctx.setup.domain
         try:
             SimulationRunner(
                 callbacks=ProcessCallbacks(
                     after_run=_after_run,
-                    after_process=_after_process,
                 ),
             ).execute(plan, self._ctx)
         except Exception:

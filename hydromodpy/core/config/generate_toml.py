@@ -51,9 +51,9 @@ def _get_registry() -> dict[str, type[BaseModel]]:
         from hydromodpy.solver.base.solver_config import SolverConfig
         from hydromodpy.core.workspace.config import WorkspaceConfig
         from hydromodpy.simulation.planning.config import SimulationConfig
-        from hydromodpy.analysis.display.display_config import DisplayConfig
-        from hydromodpy.analysis.postprocess.postprocess_config import PostprocessConfig
-        from hydromodpy.analysis.display.report.overview_config import OverviewSection
+        from hydromodpy.display.config import DisplayConfig
+        from hydromodpy.results.postprocess_config import PostprocessConfig
+        from hydromodpy.workflow.pipelines.overview_config import OverviewSection
         from hydromodpy.spatial.mesh.config import (
             MeshCatchmentBatchSectionSchema,
             MeshCatchmentConfigSchema,

@@ -732,115 +732,78 @@ def _cmd_test(args: argparse.Namespace) -> None:
 
 
 def _cmd_display(args: argparse.Namespace) -> None:
-    """Generate display figures from existing simulation outputs."""
-    subcommand = getattr(args, "config_or_subcommand", None)
+    """Render figures for a simulation from the workspace catalog.
 
-    if subcommand == "compare":
-        _cmd_display_compare(args)
-        return
+    Two invocation forms:
 
-    if subcommand is None:
-        print("Usage: hmp display <config.toml>  or  hmp display compare --sim A --sim B", file=sys.stderr)
-        sys.exit(1)
-
+      hmp display <config.toml>          # render figures from [display] block
+      hmp display <sim_id> <figure>      # render one figure by name
+    """
     import tomllib
 
-    from hydromodpy.analysis.display.display_config import display_options_from_raw_toml
-    from hydromodpy.analysis.display.posthoc import PosthocContext
-    from hydromodpy.analysis.display.posthoc_orchestration import plot_posthoc_all
+    from hydromodpy.display import get as get_figure, names as figure_names
+    from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.results.catalog import SimulationCatalog
 
-    config_path = Path(subcommand).expanduser().resolve()
-    if not config_path.is_file():
-        print(f"Configuration file not found: {config_path}", file=sys.stderr)
-        sys.exit(1)
+    target = getattr(args, "config_or_subcommand", None)
+    figure_name = getattr(args, "figure_name", None)
 
-    with open(config_path, "rb") as f:
-        raw_toml = tomllib.load(f)
-
-    # hmp display always saves; override show/save from CLI flags.
-    display_section = dict(raw_toml.get("display", {}))
-    display_section["save"] = True  # posthoc always saves
-    if args.no_show:
-        display_section["show"] = False
-    raw_toml_patched = dict(raw_toml)
-    raw_toml_patched["display"] = display_section
-    options = display_options_from_raw_toml(raw_toml_patched)
-
-    project_dir = config_path.parent.resolve()
-    project_name = project_dir.name
-    workspace_root = _find_workspace_root(project_dir)
-    catalog = None
-    db_path = workspace_root / "hydromodpy.duckdb"
-    if db_path.exists():
-        from hydromodpy.results.catalog import SimulationCatalog
-        catalog = SimulationCatalog(workspace_root)
-
-    if catalog is not None:
-        # Resolve the latest sim_id for this project.
-        _sims = catalog.list_simulations(project=project_name)
-        _latest_sim_id = str(_sims.iloc[-1]["sim_id"]) if not _sims.empty else ""
-        ctx = PosthocContext.from_catalog(
-            project_dir, catalog,
-            sim_id=_latest_sim_id,
-            project=project_name,
-        )
-    else:
-        ctx = PosthocContext.from_toml(config_path)
-
-    if not ctx.runs and catalog is not None:
-        sims = catalog.list_simulations(project=project_name)
-        if not sims.empty:
-            from hydromodpy.analysis.display.posthoc import RunArtifacts
-            for _, row in sims.iterrows():
-                sim_name = row.get("name") or str(row["sim_id"])
-                ctx = PosthocContext(
-                    project_dir=project_dir,
-                    geographic=ctx.geographic,
-                    runs=[
-                        RunArtifacts(run_id=sim_name, run_dir=project_dir)
-                        for _, row in sims.iterrows()
-                    ],
-                )
-                break
-
-    if not ctx.runs:
-        print("No simulation runs found. Run a simulation first.", file=sys.stderr)
-        if catalog is not None:
-            catalog.close()
-        sys.exit(1)
-
-    print(
-        f"Generating figures for {len(ctx.runs)} run(s): "
-        f"{', '.join(r.run_id for r in ctx.runs)}",
-        file=sys.stderr,
-    )
-
-    figure_dirs = plot_posthoc_all(ctx, options, store=catalog)
-    if catalog is not None:
-        catalog.close()
-
-    if figure_dirs:
-        for d in figure_dirs:
-            n_figs = len(list(d.glob("*.png")))
-            print(f"  {d.relative_to(config_path.parent)}: {n_figs} figure(s)", file=sys.stderr)
-    elif not options.save:
-        print("Figures displayed interactively (use --save to write to disk).", file=sys.stderr)
-
-
-def _cmd_display_compare(args: argparse.Namespace) -> None:
-    """Compare simulation results post-hoc."""
-    from hydromodpy.analysis.display.compare import run_display_compare
-
-    sim_names = getattr(args, "sim_names", None) or []
-    if len(sim_names) < 2:
+    if target is None:
         print(
-            "Usage: hmp display compare --sim <name1> --sim <name2>\n"
-            "At least two --sim arguments are required.",
+            "Usage: hmp display <config.toml>\n"
+            "       hmp display <sim_id> <figure>\n"
+            f"Available figures: {', '.join(figure_names())}",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    run_display_compare(sim_names=sim_names)
+    target_path = Path(target).expanduser()
+
+    # ---- Form 1: config.toml ------------------------------------------------
+    if target_path.is_file() and target_path.suffix == ".toml":
+        with target_path.open("rb") as f:
+            raw_toml = tomllib.load(f)
+        display_cfg = DisplayConfig.model_validate(raw_toml.get("display", {}))
+        if args.no_show:
+            display_cfg.interactive = False
+        project_dir = target_path.parent.resolve()
+        workspace_root = _find_workspace_root(project_dir)
+        out_dir = (project_dir / display_cfg.output_dir).resolve()
+        with SimulationCatalog(workspace_root) as catalog:
+            sims = catalog.list_simulations(project=project_dir.name)
+            if sims.empty:
+                print("No simulations found in catalog.", file=sys.stderr)
+                sys.exit(1)
+            sim_id = str(sims.iloc[-1]["sim_id"])
+            sim = catalog[sim_id]
+            wanted = display_cfg.figures or sim.display_capabilities
+            for name in wanted:
+                try:
+                    fig = get_figure(name)
+                except KeyError:
+                    print(f"  skipping unknown figure '{name}'", file=sys.stderr)
+                    continue
+                save = (out_dir / f"{name}.png") if display_cfg.save else None
+                fig.plot(sim, dpi=display_cfg.dpi, save_path=save)
+                if save:
+                    print(f"  wrote {save}", file=sys.stderr)
+        return
+
+    # ---- Form 2: sim_id + figure name --------------------------------------
+    if figure_name is None:
+        print(
+            "Provide a figure name: hmp display <sim_id> <figure_name>",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    workspace_root = _find_workspace_root(Path.cwd())
+    with SimulationCatalog(workspace_root) as catalog:
+        sim = catalog[target]
+        out_dir = Path.cwd() / "figures"
+        save = out_dir / f"{figure_name}.png"
+        get_figure(figure_name).plot(sim, save_path=save)
+        print(f"wrote {save}", file=sys.stderr)
 
 
 def _cmd_export(args: argparse.Namespace) -> None:
@@ -1260,28 +1223,22 @@ def main() -> None:
     # --- display subcommand ---
     display_parser = subparsers.add_parser(
         "display",
-        help="Generate figures from existing simulation outputs",
+        help="Render figures for a simulation from the workspace catalog",
     )
     display_parser.add_argument(
         "config_or_subcommand",
         nargs="?",
-        help="Path to the project TOML file, or 'compare' for post-hoc comparison",
+        help="Path to a project TOML file, or a simulation id",
     )
     display_parser.add_argument(
-        "--save",
-        action="store_true",
-        help="Force saving figures to disk (overrides TOML display.save)",
+        "figure_name",
+        nargs="?",
+        help="Figure name (when first argument is a simulation id)",
     )
     display_parser.add_argument(
         "--no-show",
         action="store_true",
-        help="Disable interactive display (overrides TOML display.show)",
-    )
-    display_parser.add_argument(
-        "--sim",
-        action="append",
-        dest="sim_names",
-        help="Simulation name to compare (use twice: --sim A --sim B)",
+        help="Force interactive=false in the resolved DisplayConfig",
     )
 
     # --- list subcommand ---

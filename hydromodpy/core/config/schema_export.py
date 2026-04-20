@@ -45,9 +45,9 @@ def _root_sections() -> dict[str, type]:
     Returns a fresh dict so callers can safely mutate it.
     """
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
-    from hydromodpy.analysis.display.display_config import DisplayConfig
-    from hydromodpy.analysis.display.report.overview_config import OverviewSection
-    from hydromodpy.analysis.postprocess.postprocess_config import PostprocessConfig
+    from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.workflow.pipelines.overview_config import OverviewSection
+    from hydromodpy.results.postprocess_config import PostprocessConfig
     from hydromodpy.core.workspace.config import WorkspaceConfig
     from hydromodpy.data.data_managers_config import DataManagersConfig
     from hydromodpy.process.flow.flow_config import FlowConfig

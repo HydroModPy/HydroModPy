@@ -109,11 +109,6 @@ def execute_simulation(
         step_write_provenance(ctx)
         step_persist_forcings(ctx)
 
-    # Wire the postprocess runner's store if present.
-    if ctx.postprocess_runner is not None and ctx.store is not None:
-        ctx.postprocess_runner.store = ctx.store
-        ctx.postprocess_runner.sim_id = ctx.sim_id
-
     wall_start = time.monotonic()
     try:
         SimulationRunner(

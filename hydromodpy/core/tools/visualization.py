@@ -36,19 +36,13 @@ def create_watershed_plot(dem_path, BV, model_name, visualization_watershed, vis
     model_name : str
         Name of the model/simulation
     visualization_watershed : module
-        hydromodpy.analysis.display.visualization_watershed module
+        Legacy watershed-visualisation module (removed in P08).
     visualization_results : module
-        hydromodpy.analysis.display.visualization_results module
+        Legacy results-visualisation module (removed in P08).
 
     Returns:
     --------
     None (displays plots)
-
-    Examples:
-    ---------
-    >>> from hydromodpy.analysis.display import visualization_watershed, visualization_results
-    >>> create_watershed_plot(dem_path, BV, 'test_0',
-    ...                       visualization_watershed, visualization_results)
     """
     logger.info("PLOT: WATERSHED INFO")
     visualization_watershed.watershed_local(dem_path, BV)

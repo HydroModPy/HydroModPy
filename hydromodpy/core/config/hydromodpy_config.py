@@ -33,9 +33,9 @@ from pydantic.fields import FieldInfo
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
-from hydromodpy.analysis.display.display_config import DisplayConfig
+from hydromodpy.display.config import DisplayConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.analysis.postprocess.postprocess_config import PostprocessConfig
+from hydromodpy.results.postprocess_config import PostprocessConfig
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.transport.transport_config import TransportConfig
 from hydromodpy.simulation.planning.config import SimulationConfig
@@ -43,7 +43,7 @@ from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.analysis.display.report.overview_config import OverviewSection
+from hydromodpy.workflow.pipelines.overview_config import OverviewSection
 from hydromodpy.core.config.path_resolution import resolve_declared_path
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
