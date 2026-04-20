@@ -394,6 +394,62 @@ checkpoint est noté :
 
 ---
 
+### 10_ux_cli_api.md
+**Résumé :** API Python conforme sur l'essentiel (lazy imports PEP 562, `__all__`, fluent API, `_repr_html_`, exit codes, catalog best/find/latest/sql), mais CLI incomplète — plusieurs sous-commandes spec absentes (`doctor`, `inspect`, `best`, `worst`, `delete`, `completion`, `--version`) et `py.typed` manquant.
+**Checkpoints :** 20 au total, OK=13, ÉCART=3, MANQUANT=4.
+
+| # | Checkpoint | Verdict | Preuve / Note |
+|---|------------|---------|---------------|
+| 1 | Lazy imports via `__getattr__` (PEP 562) | OK | `__init__.py:260` `_LAZY_IMPORTS`, `:303` `__getattr__`. |
+| 2 | `__all__` exhaustif top-level | OK | `__init__.py:362-420` — 40+ symboles. |
+| 3 | `hmp.open()` renvoie `SimulationCatalog` | OK | `__init__.py:321-329`. |
+| 4 | `hmp.doctor()` top-level | OK (API) | `__init__.py:423-447`. **Pas de sous-commande CLI `hmp doctor`.** |
+| 5 | `hmp.compare()` | OK | `__init__.py:353-359`. |
+| 6 | `Simulation` / `SimulationPlan` / `SimulationGroup` exposés | OK | `_LAZY_IMPORTS` lignes 292-299. |
+| 7 | `catalog.best(project, metric)` | OK | `catalog.py:800`. |
+| 8 | `catalog.find(**filters) → SimulationGroup` | OK | `catalog.py:722-785`. |
+| 9 | `catalog.latest(project)` | OK | `catalog.py:787`. |
+| 10 | `catalog.sql(query)` | OK | `catalog.py:818`. |
+| 11 | `catalog.export_package` / `import_package` | ÉCART | Présents (`catalog.py:845,893`). Spec CLI §5.2.8 parle de `hmp export --format hmp` — noms symétriques F05 vs nom asymétrique spec. |
+| 12 | `Simulation` expose `field/timeseries/budget/metrics/plot` | OK | `simulation.py:184,131,158,112,308`. |
+| 13 | `_repr_html_` sur classes clés Jupyter | OK (partiel) | `Simulation`, `SimulationGroup`, `SimulationCatalog`. Manque sur `HydroMesh`, `Geographic`, `SimulationPlan`, façade `Simulation`. |
+| 14 | `SimulationGroup.to_dataframe()` | OK (nom diffère) | `simulation_group.py:151`. Spec attend `to_frame()` + `pivot()`. |
+| 15 | Exit codes standardisés | OK | `__main__.py:47-52` (EXIT_OK=0, EXIT_CONFIG=1, EXIT_RUN_FAILED=2, EXIT_NOT_FOUND=3, EXIT_USER_ABORT=4). Test `test_cli_exit_codes.py:32-36`. |
+| 16 | Sous-commandes canoniques (init/new/config/run/display/list/export) | OK | `hmp --help` confirmé. |
+| 17 | Sous-commandes additionnelles (show, compare, import, calibrate, schema, test, data) | OK | Argparse L1790-1861. |
+| 18 | Sous-commandes spec manquantes : `doctor`, `inspect`, `best`, `worst`, `delete`, `completion`, `--version` | MANQUANT | Absentes comme sous-parsers. |
+| 19 | Marker `py.typed` (PEP 561) | MANQUANT | Fichier absent. |
+| 20 | Tests exit codes + CLI | OK (partiel) | `test_cli_exit_codes.py` valide 5 codes ; pas de `test_ux_acceptance.py`. |
+
+**Écarts assumés :**
+- `catalog.export_package`/`import_package` symétriques (F05) vs spec `export_package`/CLI asymétrique.
+- `SimulationGroup.to_dataframe()` au lieu de `to_frame()`.
+- Exit codes : 4 codes métier + SIGINT 130 vs 6 codes spec §5.4 (solver/data/config distincts).
+
+**Manquants :**
+- Sous-commandes CLI `doctor`, `inspect`, `best`, `worst`, `delete`, `completion`, `--version` — suivi `v0.5-cli-missing-subcommands`.
+- `hmp config {check,template}` sous-parsers — suivi `v0.5-cli-config-subparsers`.
+- Fichier `hydromodpy/py.typed` (PEP 561) — suivi `v0.5-py-typed`.
+- `_repr_html_` sur `HydroMesh`, `Geographic`, `SimulationPlan`, façade programmatique `Simulation` — suivi `v0.5-repr-html-extra`.
+- `tests/integration/test_ux_acceptance.py` — suivi `v0.5-tests-ux-acceptance`.
+
+---
+
+## Écarts globaux assumés (décisions architecture)
+
+_À compiler après les 14 vérifications._
+
+---
+
+## Manquants résiduels (à traiter post-v0.4)
+
+_À compiler après les 14 vérifications._
+
+---
+
+## Conclusion
+
+_À renseigner après synthèse._
 
 
 ## Écarts globaux assumés (décisions architecture)
