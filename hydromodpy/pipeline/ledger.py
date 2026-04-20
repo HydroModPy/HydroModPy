@@ -13,9 +13,13 @@ without introspection.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +95,7 @@ class StepsLedger:
                 elapsed_ms = NULL,
                 error_message = NULL
             """,
-            [run_id, int(step_index), step_name, datetime.utcnow()],
+            [run_id, int(step_index), step_name, _now()],
         )
 
     def finish(
@@ -114,7 +118,7 @@ class StepsLedger:
                 error_message = ?
             WHERE run_id = ? AND step_index = ?
             """,
-            [status, datetime.utcnow(), float(elapsed_ms), error,
+            [status, _now(), float(elapsed_ms), error,
              run_id, int(step_index)],
         )
 
