@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.backends.whitebox_workflows_backend import WhiteboxWorkflowsBackend
+from hydromodpy.spatial.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
 from hydromodpy.spatial.geographic.core.catchment_from_point import extract_catchment_from_point
 
 

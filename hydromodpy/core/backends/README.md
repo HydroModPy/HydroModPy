@@ -1,7 +1,23 @@
-# Backends
+# Backends (DEPRECATED)
 
-`hydromodpy/core/backends/` contains thin adapters around optional third-party
-runtime dependencies.
+**Moved to `hydromodpy/spatial/delineation/`.** This package is a
+backward-compatibility shim. Importing from `hydromodpy.core.backends`
+still works but emits a `DeprecationWarning`. The shim will be removed
+in migration phase P13.
+
+```python
+# Preferred
+from hydromodpy.spatial.delineation import get_whitebox_backend, get_backend
+
+# Deprecated
+from hydromodpy.core.backends import get_whitebox_backend  # DeprecationWarning
+```
+
+---
+
+Historical notes below — kept for reference. `hydromodpy/core/backends/`
+used to contain thin adapters around optional third-party runtime
+dependencies.
 
 Today the package exposes one backend family implemented with
 `whitebox_workflows.WbEnvironment`.

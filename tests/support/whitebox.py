@@ -13,7 +13,10 @@ def configure_whitebox_single_thread(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MKL_NUM_THREADS", "1")
     monkeypatch.setenv("NUMEXPR_NUM_THREADS", "1")
 
-    from hydromodpy.core.backends import clear_whitebox_backend_cache, get_whitebox_backend
+    from hydromodpy.spatial.delineation import (
+        clear_whitebox_backend_cache,
+        get_whitebox_backend,
+    )
 
     clear_whitebox_backend_cache()
     tool = get_whitebox_backend()

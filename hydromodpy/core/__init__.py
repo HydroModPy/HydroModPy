@@ -34,7 +34,7 @@ def __getattr__(name: str):
         "clear_whitebox_backend_cache",
         "get_whitebox_backend",
     }:
-        from hydromodpy.core.backends import (
+        from hydromodpy.spatial.delineation import (
             WhiteboxBackend,
             WhiteboxWorkflowsBackend,
             clear_whitebox_backend_cache,
