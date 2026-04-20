@@ -157,47 +157,45 @@ git clone https://github.com/HydroModPy/HydroModPy.git
 cd HydroModPy
 ```
 
-## Launch HydroModPy
+## Getting started
 
-(1) Activate HydroModPy environment:
+The fastest route is the self-contained example under
+`examples/getting_started/` — a synthetic 1D Dupuit aquifer that
+requires no external DEM or downloaded data.
+
 ```bash
-conda activate hydromodpy-3119
+# CLI
+hmp run examples/getting_started/project.toml
+
+# Python
+python examples/getting_started/run_sim.py
 ```
 
-(2) Open Spyder or Jupyter Notebook:
-```bash
-spyder
-# or
-jupyter notebook
-```
+Outputs land in a workspace next to the config:
 
-(3) Import HydroModPy in Python:
+- `hydromodpy.duckdb` — the unified simulation catalog.
+- `simulations/<uuid>.zarr/` — spatial fields and metadata per run.
+
+Open the results programmatically:
 
 ```python
-import hydromodpy
-from hydromodpy.core.config import HydroModPyConfig
+import hydromodpy as hmp
 
-# Check version
-print(hydromodpy.__version__)
+catalog = hmp.open("examples/getting_started")
+print(catalog.simulations)              # DataFrame of all sims
+sim = catalog.best("getting_started")   # best by default metric
+sim.plot("watertable_map", save=".")
 ```
 
 ## Usage Examples
 
-Execute Python scripts following the examples below:
-```
- - 00_quick_test_of_wide_hydromodpy_capabilities
- - 01_simplified_example_presented_in_the_paper
- - 02_basic_features_and_overview_of_possibilities
- - 03_hydrographic_network_in_steady_state
- - 04_streamflow_intermittence_in_transient
- - 05_piezometry_in_a_heterogeneous_coastal_aquifer
- - 06_particle_tracking_and_residence_times
- - 07_analytical_solution_for_streamflow_recession
- - 08_exponential_distribution_of_residence_times
- - 09_transport_model_for_an_agricultural_catchment
- - 10_coupling_with_land_surface_model_pyhelp
- - 11_for_run_from_scratch_without_plots
-```
+- `examples/getting_started/` — minimal synthetic example (start here).
+- `examples/projects/01_canut/` — delineated catchment from a regional DEM.
+- `examples/projects/data_overview/` — data-only overview workflow.
+- `examples/projects/04_nancon/` — transient case with piezometry data.
+
+More examples live alongside each validation case under
+`validation_cases/analytical/` and `validation_cases/numerical/`.
 
 ## Annex Tooling (`hydromodpy_annex`)
 
