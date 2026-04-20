@@ -129,6 +129,46 @@ checkpoint est noté :
 
 ---
 
+### 03_data_contracts.md
+**Résumé :** La couche `data/` couvre les contrats de base (LoadResult, PointRecord, FieldRecord), la planification d'inférence (warn/strict), le scaffold, l'auto_scan, les trois adaptateurs utilisateur et le CLI `hmp data`, mais la refonte « contrats typés » (schemas pandera, DataSource Protocol, cache 6 tables) n'a pas encore été appliquée.
+**Checkpoints :** 22 au total, OK=13, ÉCART=6, MANQUANT=2, N/A=1.
+
+| # | Checkpoint | Verdict | Preuve / Note |
+|---|------------|---------|---------------|
+| 1 | `BaseVariableManager` ABC avec `load()` + `_fetch_from_source` abstrait | OK | `hydromodpy/data/common/base_manager.py:44`, `load()` L67, `_fetch_from_source` `@abstractmethod` L102 (491 L). |
+| 2 | `LoadResult` contract (points + fields + warnings) | OK | `hydromodpy/data/contracts/load_result.py:12`. |
+| 3 | `PointRecord` avec `data: pd.DataFrame`, `date_start/end`, `location` | OK | `hydromodpy/data/contracts/timeseries.py:19` (spec vise frozen + pd.Series : divergence mineure). |
+| 4 | `FieldRecord` contrat moderne (Dataset obligatoire) | ÉCART | `data/contracts/spatial_field.py:17` utilise `Union["xr.Dataset", Path]`. |
+| 5 | `DataManagersPlanner` résout plan explicite + inféré | OK | `hydromodpy/data/planner.py:19` (157 L). |
+| 6 | Règles d'inférence (geology via zone_ids, stream/ocean via active_bc) | OK | `planner.py:5-7` + logique L64-110. |
+| 7 | `data.inference_mode` literal `warn\|strict` | OK | `data/data_managers_config.py:85-90`, validator L197-207. |
+| 8 | `DataCatalogDuckDB` avec API cache | OK | `data/registry/catalog_duckdb.py:85` + context manager. |
+| 9 | Scaffold `hmp init` (dossiers custom + readmes) | OK | `data/scaffold.py:1-49` + `_cmd_init` (`__main__.py:409`). |
+| 10 | `auto_scan` pour `{variable}_custom/` | OK | `data/auto_scan.py:1-70`, `scan_custom`/`check_custom` utilisés `__main__.py:93,1139`. |
+| 11 | Client SIM2 Météo-France (F07 rename) | OK | `data/common/clients/sim2_meteofrance.py` présent, ancien `sim2_inrae.py` absent. |
+| 12 | Adapter CSV → Parquet | OK | `data/adapters/csv_to_parquet.py:1-12`. |
+| 13 | Adapter SHP → GeoParquet | OK | `data/adapters/shp_to_geoparquet.py:19-27`. |
+| 14 | Adapter ASC → GeoTIFF (COG) | OK | `data/adapters/asc_to_geotiff.py:22-40`. |
+| 15 | CLI `hmp data {check,list,add}` | OK | `__main__.py:1122-1232` dispatch + `1756-1788` argparse. |
+| 16 | Invalidation cache par mtime (OVERRIDE spec 12 vs SHA-256 §5.4) | OK | `auto_scan.py:78-101` `_last_indexed_mtime` ; `catalog_duckdb.py:41` `file_mtime DOUBLE`. Aucun SHA-256 (conforme OVERRIDE). |
+| 17 | Schémas pandera `data/schemas/` | MANQUANT | Pas de `hydromodpy/data/schemas/` ; `pandera` non présent dans `hydromodpy/data`. |
+| 18 | `DataContractViolation` exception | MANQUANT | 0 résultat ; seule `TimeSeriesValidationError` existe. |
+| 19 | Cache à 6 tables (`artifacts`, `provenance`, `stations`, `coverage`, `failures`, `validation_reports`) | ÉCART | `catalog_duckdb.py` 2 tables (`entries` + `api_coverage`). |
+| 20 | Protocol `DataSource` + `@register_source` | ÉCART | ABC `BaseVariableManager` conservé ; `apis → sources` non effectué. |
+| 21 | `runtime_loader.py` remplacé par `loader.py` pur | ÉCART | `data/runtime_loader.py` toujours présent (891 L). |
+| 22 | `base_field_manager.py` supprimé | ÉCART | Toujours présent (386 L). |
+
+**Écarts assumés :**
+- La feuille de route §7 (refonte DataSource Protocol / schemas pandera / cache 6 tables) n'est pas démarrée ; le code reste conforme à l'architecture pré-refactor (cohérent avec CLAUDE.md).
+- `FieldRecord` tolère encore `Union[Dataset, Path]`.
+- Checkpoint #16 : OVERRIDE utilisateur (mtime) prévaut sur la règle §0.10 / §5.4 du spec.
+
+**Manquants :**
+- `data/schemas/` et contrats pandera (suivi `v0.5-data-schemas`).
+- Exception `DataContractViolation` (suivi `v0.5-data-exceptions`).
+
+---
+
 ## Écarts globaux assumés (décisions architecture)
 
 _À compiler après les 14 vérifications._
