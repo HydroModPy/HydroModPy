@@ -890,7 +890,7 @@ class SimulationCatalog:
 
         return output
 
-    def import_simulation(
+    def import_package(
         self, package_path: Path | str, *, force: bool = False,
     ) -> str:
         pkg = Path(package_path)

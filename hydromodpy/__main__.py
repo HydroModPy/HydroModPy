@@ -1370,7 +1370,7 @@ def _cmd_import(args: argparse.Namespace) -> None:
 
     with SimulationCatalog(workspace_root) as catalog:
         try:
-            new_ids = catalog.import_simulation(src)
+            new_ids = catalog.import_package(src)
         except Exception as exc:
             print(f"Import failed: {exc}", file=sys.stderr)
             sys.exit(EXIT_RUN_FAILED)
