@@ -247,6 +247,40 @@ checkpoint est noté :
 
 ---
 
+### 06_pipeline_execution.md
+**Résumé :** Le pipeline est présent en 11 steps alignés sur §1.1 avec `Pipeline`/`Step`/`PipelineState` conformes, ledger DuckDB, checkpoint zstd et `DerivedRegistry` à 4 dérivations canoniques ; les écarts principaux tiennent à la forme (`PipelineState` payload non typé par step, protocole `Step` simplifié) mais non à la sémantique.
+**Checkpoints :** 18 au total, OK=16, ÉCART=2, MANQUANT=0.
+
+| # | Checkpoint | Verdict | Preuve / Note |
+|---|------------|---------|---------------|
+| 1 | `hydromodpy/pipeline/pipeline.py` | OK | 122 lignes. |
+| 2 | `hydromodpy/pipeline/step.py` | OK | `Step` protocol avec `name` + `run()`. |
+| 3 | `hydromodpy/pipeline/state.py` | OK | Présent. |
+| 4 | `hydromodpy/pipeline/checkpoint.py` | OK | 136 lignes. |
+| 5 | `hydromodpy/pipeline/ledger.py` | OK | Présent. |
+| 6 | `Pipeline` orchestrateur ≤ 200 l avec `run(state, resume_from=...)` | OK | 122 l, gère ledger + checkpoint. |
+| 7 | `Step` Protocol `runtime_checkable` avec `name` + `run` | OK | `step.py:18-29`. |
+| 8 | `PipelineState` frozen dataclass + `advance()` immuable | OK | `state.py:19`. |
+| 9 | Checkpoint zstd + chemin `<ws>/.hmp/checkpoints/<run_id>/<idx:02d>_<name>.pkl.zst` | OK | `checkpoint.py:32,57-62,103-106`. |
+| 10 | Ledger DuckDB `steps` avec PK (run_id, step_index) | OK | `ledger.py:52-66` persisté à `<ws>/.hmp/checkpoints/steps_ledger.duckdb`. |
+| 11 | 11 steps effectives (`step_00_validate.py` … `step_10_export.py`) | OK | `standard_steps()` retourne 11 instances. |
+| 12 | Alignement spec §1.1 (11 steps, fusion domain+plan et open_store+solver) | OK | Conforme après réalignement F03. |
+| 13 | `DerivedRegistry` dans `pipeline/derived.py` | OK | `derived.py:303` + tri topologique + skip input manquant. |
+| 14 | 4 dérivations canoniques (`watertable_elevation`, `watertable_depth`, `seepage_mask`, `fluxes_from_budget`) | OK | `derived.py:426-467`. |
+| 15 | `step_09_derive.py` applique la registry via `registry.apply(sim_zarr)` | OK | `steps/step_09_derive.py:29-88`. |
+| 16 | CLI `hmp run --resume RUN_ID` | OK | `__main__.py:1562-1575` + `runners/simulation.py:_run_resume`. |
+| 17 | Tests `test_pipeline_basic`, `test_pipeline_checkpoint`, `test_pipeline_full`, `test_derived_registry` | OK | `tests/unit/` + `tests/regression/fast/`. |
+| 18 | `Step` Protocol typé générique `TIn`/`TOut` + dataclass par step | ÉCART | `Step` est non-générique ; `PipelineState.data: Mapping[str, Any]` au lieu d'une hiérarchie frozen par step (ValidatedState/ResolvedState/...). |
+
+**Écarts assumés :**
+- Typage I/O unique (`PipelineState.data: Mapping[str, Any]`) au lieu d'une hiérarchie frozen typée par step (§1.3/§1.4). Contrat frozen + `advance()` respecté.
+- `_execute_step` attrape `BaseException` au lieu d'une hiérarchie `PipelineError` typée ; CLI sans `--until/--from/--dry-run/--no-checkpoint` (§5.4) — focus sur `--resume` seulement.
+
+**Manquants :** Aucun.
+
+---
+
+
 ## Écarts globaux assumés (décisions architecture)
 
 _À compiler après les 14 vérifications._
