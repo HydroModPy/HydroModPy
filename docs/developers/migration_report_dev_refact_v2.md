@@ -192,16 +192,17 @@ Les 13 phases du plan de migration ont toutes été marquées `DONE` par le scri
 | Pas de FastAPI/uvicorn/websockets | ✅ | `grep` vide. |
 | Tests + latence < 100 ms | ✅ | `test_validate_field_latency_under_100ms` actif. |
 
-### P12 — Tests  ⚠ PARTIEL
+### P12 — Tests  ⚠ PARTIEL (résolu en finalisation F06)
 
 | Critère spec | État réel | Commentaire |
 |---|---|---|
 | Structure unit/regression/validation | ⚠️ | `unit=216 fichiers`, `regression/fast=5`, `regression/extensive=5`, `validation=34`. Ratio ≈ 83/4/13 (cible 75/17/6). |
-| Dossier `integration/` | ❌ | N'existe pas. Les tests d'intégration restent dans `unit/`. |
+| Dossier `integration/` | ✅ | **Résolu en F06.** `tests/integration/` scaffold en place (`__init__.py`, `conftest.py` qui auto-tag le marker `integration`), 3 tests cross-module migrés depuis `tests/unit/simulation/` (`test_results_post_run.py`, `test_results_adapters.py`, `test_calibration_bridge.py`) plus 1 smoke test des fixtures racine. 20 tests passent en ≈ 2 s. |
 | Markers pytest complets | ✅ | `regression, validation, analytical, extensive, steady, transient, fast, slow, petsc, nwt, mf6, integration, coverage`. |
-| Fixtures `tmp_workspace`, `minimal_config` | ⚠️ | `conftest.py` racine fournit `update_goldens`, `hydromodpy_test_scratch_root`. Les deux fixtures demandées ne sont pas au root (peuvent exister en sous-conftest). |
-| `tests/README.md` | ✅ | Documente `update-goldens`. |
-| CI workflow coverage | ✅ | Jobs `unit` + `regression/fast+extensive`, flags Codecov. Triggers `master, dev-refact, dev-data, dev-database`. |
+| Fixtures `tmp_workspace`, `minimal_config` | ✅ | **Résolu en F06.** Les deux fixtures sont définies au niveau racine dans `tests/conftest.py` et utilisables par tous les sous-dossiers. `tmp_workspace` délègue à `hydromodpy.data.scaffold.scaffold`. `minimal_config` construit un `HydroModPyConfig` minimal (synthetic geographic + project_root sous `tmp_path`). |
+| Tests skippés pour import cassé | ✅ | **Résolu en F06.** `load_last_npy_array_on_expected_grid` restauré dans `validation_cases/shared/loaders.py` ; les 3 tests `tests/unit/tools/test_doc_gallery_{calibration_cases,extensions,validation_cases}.py` ne sont plus skippés (15 passed). |
+| `tests/README.md` | ✅ | Documente les 4 tiers (`unit`, `integration`, `regression`, `validation`) et les fixtures partagées. |
+| CI workflow coverage | ✅ | Jobs `unit` + `integration` + `regression/fast+extensive`, flags Codecov séparés (`unit` / `integration` / `regression`). Triggers `master, dev-refact, dev-data, dev-database`. |
 | Suite passe | ✅ | 1837 passed, 8 skipped, 17 xfail en 57 s. |
 
 ### P13 — Cleanup final  ✔ OK (1 divergence éditoriale)
