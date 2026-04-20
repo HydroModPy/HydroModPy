@@ -212,6 +212,7 @@ class SimulationCatalog:
             return SimulationZarr.create(
                 zarr_abs, n_cells=n_cells, n_layers=n_layers,
                 cell_types=cell_types,
+                geographic_fingerprint=geographic_fingerprint,
             )
         return None
 
