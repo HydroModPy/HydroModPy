@@ -35,6 +35,7 @@ class SimulationZarr:
         n_cells: int,
         n_layers: int,
         cell_types: list[str] | None = None,
+        geographic_fingerprint: str | None = None,
     ) -> SimulationZarr:
         path = Path(path)
         store = zarr.storage.LocalStore(str(path))
@@ -44,7 +45,13 @@ class SimulationZarr:
         root.attrs["n_layers"] = n_layers
         if cell_types is not None:
             root.attrs["cell_types"] = cell_types
+        if geographic_fingerprint is not None:
+            root.attrs["geographic_fingerprint"] = geographic_fingerprint
 
+        # ``geographic`` is intentionally omitted: rasters now live in the
+        # workspace-level content-addressable cache
+        # (see :mod:`hydromodpy.results.geographic_cache`). Resolution goes
+        # through the fingerprint attribute above.
         for sub in _SUBGROUPS:
             root.create_group(sub)
 
@@ -61,6 +68,39 @@ class SimulationZarr:
     @property
     def path(self) -> Path:
         return self._path
+
+    # -- Geographic fingerprint ---------------------------------------------
+
+    @property
+    def geographic_fingerprint(self) -> str | None:
+        """Fingerprint pointing at the shared workspace ``geographic`` cache.
+
+        Simulations no longer duplicate DEM/geology rasters inside their Zarr
+        store — instead they write the SHA-256 fingerprint computed by
+        :class:`~hydromodpy.results.geographic_cache.GeographicCache` here.
+        """
+        value = self._root.attrs.get("geographic_fingerprint")
+        return str(value) if value else None
+
+    @geographic_fingerprint.setter
+    def geographic_fingerprint(self, value: str | None) -> None:
+        if value is None:
+            if "geographic_fingerprint" in self._root.attrs:
+                del self._root.attrs["geographic_fingerprint"]
+        else:
+            self._root.attrs["geographic_fingerprint"] = str(value)
+
+    def resolve_geographic_dir(self, workspace_path: Path | str) -> Path | None:
+        """Return the cache directory for this simulation's fingerprint, if any.
+
+        The caller owns the mapping from workspace root to cache location.
+        Returns ``None`` when the simulation carries no fingerprint.
+        """
+        fp = self.geographic_fingerprint
+        if fp is None:
+            return None
+        from hydromodpy.results.geographic_cache import GeographicCache
+        return GeographicCache(workspace_path).path_for(fp)
 
     # -- Mesh ----------------------------------------------------------------
 
