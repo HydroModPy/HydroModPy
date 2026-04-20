@@ -36,6 +36,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 
 # ---------------------------------------------------------------------------
@@ -529,6 +530,65 @@ def _cmd_config_schema(args: argparse.Namespace) -> None:
 
     schema = export_schema(section=section)
     print(json.dumps(schema, indent=2, ensure_ascii=False))
+
+
+def _cmd_schema(args: argparse.Namespace) -> None:
+    """Dispatch ``hmp schema {export,validate-field}`` subcommands.
+
+    ``export``         writes ``config.json`` + ``config_meta.json`` +
+                       ``field_validators.json`` into ``--output``.
+    ``validate-field`` runs :func:`hydromodpy.schema.validate_field` on a
+                       single ``path value`` pair and prints JSON.
+    """
+    subcommand = getattr(args, "schema_command", None)
+    if subcommand == "export":
+        _cmd_schema_export(args)
+        return
+    if subcommand == "validate-field":
+        _cmd_schema_validate_field(args)
+        return
+    print(
+        "usage: hmp schema {export,validate-field} [options]",
+        file=sys.stderr,
+    )
+    sys.exit(EXIT_CONFIG)
+
+
+def _cmd_schema_export(args: argparse.Namespace) -> None:
+    from hydromodpy.schema import export_full_schema
+
+    output = Path(getattr(args, "output", None) or "schema").expanduser().resolve()
+    written = export_full_schema(output)
+    for key, path in written.items():
+        print(f"{key}: {path}", file=sys.stderr)
+
+
+def _cmd_schema_validate_field(args: argparse.Namespace) -> None:
+    import tomllib
+
+    from hydromodpy.schema import validate_field
+
+    raw_value: str = args.value
+    try:
+        value: Any = json.loads(raw_value)
+    except (ValueError, TypeError):
+        value = raw_value
+
+    context: dict | None = None
+    ctx_path = getattr(args, "context", None)
+    if ctx_path:
+        ctx_file = Path(ctx_path).expanduser().resolve()
+        if not ctx_file.is_file():
+            print(f"context TOML not found: {ctx_file}", file=sys.stderr)
+            sys.exit(EXIT_NOT_FOUND)
+        with ctx_file.open("rb") as fh:
+            context = tomllib.load(fh)
+
+    result = validate_field(args.path, value, context=context)
+    payload = result.as_dict()
+    print(json.dumps(payload, indent=2, ensure_ascii=False))
+    if not result.valid:
+        sys.exit(EXIT_CONFIG)
 
 
 def _derive_run_id_from_filename(toml_path: Path) -> str:
@@ -1455,6 +1515,41 @@ def main() -> None:
              "literal word 'wizard' as OUTPUT: 'hmp config wizard'.",
     )
 
+    # --- schema subcommand group (frontend hooks) ---
+    schema_parser = subparsers.add_parser(
+        "schema",
+        help="Export the JSON Schema and companion files for frontend hooks",
+    )
+    schema_sub = schema_parser.add_subparsers(dest="schema_command")
+
+    schema_export = schema_sub.add_parser(
+        "export",
+        help="Write config.json + config_meta.json + field_validators.json",
+    )
+    schema_export.add_argument(
+        "--output",
+        default="schema",
+        help="Destination directory (default: ./schema/)",
+    )
+
+    schema_validate = schema_sub.add_parser(
+        "validate-field",
+        help="Validate a single field value without running the full config",
+    )
+    schema_validate.add_argument(
+        "path",
+        help="Dotted field path, e.g. 'flow.flow_regime'",
+    )
+    schema_validate.add_argument(
+        "value",
+        help="Candidate value (JSON if parseable, otherwise string)",
+    )
+    schema_validate.add_argument(
+        "--context",
+        default=None,
+        help="Optional TOML config providing the current form state",
+    )
+
     # --- run subcommand (replaces 'simulation') ---
     run_parser = subparsers.add_parser(
         "run",
@@ -1772,6 +1867,7 @@ def main() -> None:
         "init": _cmd_init,
         "new": _cmd_new,
         "config": _cmd_config,
+        "schema": _cmd_schema,
         "run": _cmd_run,
         "calibrate": _cmd_calibrate,
         "display": _cmd_display,
