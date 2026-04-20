@@ -23,6 +23,7 @@ EXPECTED_TOP_LEVEL = [
     "doctor",
     # Simulation / catalog API
     "Simulation",
+    "SimulationPlan",
     "SimulationCatalog",
     "SimulationGroup",
     "Catalog",
@@ -79,6 +80,19 @@ def test_simulation_view_fluent_methods_present() -> None:
     assert hasattr(Simulation, "at")
     assert hasattr(Simulation, "field")
     assert hasattr(Simulation, "_repr_html_")
+
+
+def test_catalog_export_import_method_names() -> None:
+    """Public catalog API exposes export() and import_package() (P10 rename)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        cat = hmp.open(tmp)
+        try:
+            assert callable(getattr(cat, "export", None))
+            assert callable(getattr(cat, "import_package", None))
+            assert not hasattr(cat, "export_simulation")
+            assert not hasattr(cat, "import_simulation")
+        finally:
+            cat.close()
 
 
 def test_doctor_returns_dict() -> None:

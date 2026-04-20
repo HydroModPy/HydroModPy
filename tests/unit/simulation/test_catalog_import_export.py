@@ -45,7 +45,7 @@ class TestExportSimulation:
         sid = _sid()
         _populate(catalog, sid)
         out = tmp_path / "export.hmp"
-        catalog.export_simulation(sid, out)
+        catalog.export(sid, out)
         assert (out / "simulation.duckdb").exists()
         assert (out / "results.zarr.zip").exists()
 
@@ -53,7 +53,7 @@ class TestExportSimulation:
         sid = _sid()
         _populate(catalog, sid)
         out = tmp_path / "export.hmp"
-        catalog.export_simulation(sid, out)
+        catalog.export(sid, out)
 
         import duckdb
         pkg = duckdb.connect(str(out / "simulation.duckdb"), read_only=True)
@@ -67,7 +67,7 @@ class TestExportSimulation:
 
     def test_not_found_raises(self, catalog, tmp_path):
         with pytest.raises(KeyError):
-            catalog.export_simulation("nonexistent", tmp_path / "nope.hmp")
+            catalog.export("nonexistent", tmp_path / "nope.hmp")
 
 
 class TestImportSimulation:
@@ -79,11 +79,11 @@ class TestImportSimulation:
         sid = _sid()
         _populate(cat1, sid)
         pkg = tmp_path / "transfer.hmp"
-        cat1.export_simulation(sid, pkg)
+        cat1.export(sid, pkg)
         cat1.close()
 
         cat2 = SimulationCatalog(ws2)
-        imported_sid = cat2.import_simulation(pkg)
+        imported_sid = cat2.import_package(pkg)
         assert imported_sid == sid
 
         count = cat2.connection.execute(
@@ -101,18 +101,18 @@ class TestImportSimulation:
         sid = _sid()
         _populate(catalog, sid)
         pkg = tmp_path / "dup.hmp"
-        catalog.export_simulation(sid, pkg)
+        catalog.export(sid, pkg)
 
         with pytest.raises(ValueError, match="already exists"):
-            catalog.import_simulation(pkg)
+            catalog.import_package(pkg)
 
     def test_import_force_overwrites(self, catalog, tmp_path):
         sid = _sid()
         _populate(catalog, sid)
         pkg = tmp_path / "force.hmp"
-        catalog.export_simulation(sid, pkg)
+        catalog.export(sid, pkg)
 
-        imported = catalog.import_simulation(pkg, force=True)
+        imported = catalog.import_package(pkg, force=True)
         assert imported == sid
         count = catalog.connection.execute(
             "SELECT COUNT(*) FROM simulations WHERE sim_id = ?", [sid]
@@ -127,11 +127,11 @@ class TestImportSimulation:
         sid = _sid()
         _populate(cat1, sid)
         pkg = tmp_path / "path_test.hmp"
-        cat1.export_simulation(sid, pkg)
+        cat1.export(sid, pkg)
         cat1.close()
 
         cat2 = SimulationCatalog(ws2)
-        cat2.import_simulation(pkg)
+        cat2.import_package(pkg)
         zarr_path = cat2.connection.execute(
             "SELECT zarr_path FROM simulations WHERE sim_id = ?", [sid]
         ).fetchone()[0]
