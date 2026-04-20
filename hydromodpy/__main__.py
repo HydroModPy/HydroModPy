@@ -585,9 +585,17 @@ def _cmd_run_toml(config_path: Path, *, resume: str | None = None) -> None:
         "batch": "hydromodpy.runners.batch",
     }
 
+    if resume is not None and workflow != "simulation":
+        print(
+            f"--resume is only supported for the 'simulation' workflow "
+            f"(detected '{workflow}').",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_CONFIG)
+
     module = importlib.import_module(dispatch[workflow])
     try:
-        if resume is not None and workflow == "simulation":
+        if resume is not None:
             summary = module.run(config_path, resume=resume)
         else:
             summary = module.run(config_path)
