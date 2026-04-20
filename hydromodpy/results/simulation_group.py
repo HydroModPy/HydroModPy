@@ -148,7 +148,21 @@ class SimulationGroup:
 
     # -- ML-ready export -----------------------------------------------------
 
-    def to_dataframe(self) -> pd.DataFrame:
+    def to_dataframe(
+        self,
+        *,
+        params: list[str] | None = None,
+        metrics: list[str] | None = None,
+    ) -> pd.DataFrame:
+        """Return a wide table joining metadata, parameters, and metrics.
+
+        Parameters
+        ----------
+        params
+            Optional whitelist of parameter column names to keep after the pivot.
+        metrics
+            Optional whitelist of metric column names to keep.
+        """
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
@@ -159,20 +173,54 @@ class SimulationGroup:
             self._sim_ids,
         ).fetchdf()
 
-        params = self.parameters
-        metrics = self.metrics
+        params_df = self.parameters
+        metrics_df = self.metrics
+
+        if params is not None and not params_df.empty:
+            keep = ["sim_id", *[c for c in params_df.columns if c in params]]
+            params_df = params_df[[c for c in keep if c in params_df.columns]]
+        if metrics is not None and not metrics_df.empty:
+            keep = ["sim_id", *[c for c in metrics_df.columns if c in metrics]]
+            metrics_df = metrics_df[[c for c in keep if c in metrics_df.columns]]
 
         df = sims
-        if not params.empty:
-            df = df.merge(params, on="sim_id", how="left")
-        if not metrics.empty:
-            df = df.merge(metrics, on="sim_id", how="left")
+        if not params_df.empty:
+            df = df.merge(params_df, on="sim_id", how="left")
+        if not metrics_df.empty:
+            df = df.merge(metrics_df, on="sim_id", how="left")
         return df
 
     def to_csv(self, path: Path | str) -> None:
         self.to_dataframe().to_csv(str(path), index=False)
 
+    # -- Filter --------------------------------------------------------------
+
+    def filter(self, **criteria) -> SimulationGroup:
+        """Intersect with another ``catalog.find(**criteria)`` call.
+
+        Equivalent to ``catalog.find(...)`` but restricted to this group's
+        simulations. Useful for chainable exploration in notebooks.
+        """
+        if not self._sim_ids:
+            return self
+        subgroup = self._catalog.find(**criteria)
+        common = [sid for sid in self._sim_ids if sid in subgroup.sim_ids]
+        return SimulationGroup(common, self._catalog)
+
     # -- Repr ----------------------------------------------------------------
 
     def __repr__(self) -> str:
         return f"SimulationGroup(count={self.count})"
+
+    def _repr_html_(self) -> str:
+        if not self._sim_ids:
+            return "<div><b>SimulationGroup</b> <i>(empty)</i></div>"
+        preview = self.to_dataframe()
+        try:
+            cols = [c for c in ("sim_id", "project", "solver") if c in preview.columns]
+            head = preview[cols].head(10).to_html(index=False)
+        except Exception:
+            head = ""
+        return (
+            f"<div><b>SimulationGroup</b> ({self.count} simulations)</div>{head}"
+        )
