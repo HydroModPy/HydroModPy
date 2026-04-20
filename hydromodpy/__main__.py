@@ -1005,6 +1005,136 @@ def _cmd_export(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Data subcommand group
+# ---------------------------------------------------------------------------
+
+
+def _resolve_workspace(workspace_arg: str | None) -> Path:
+    from hydromodpy.data.scaffold import DEFAULT_ROOT
+
+    root = Path(workspace_arg).expanduser().resolve() if workspace_arg else DEFAULT_ROOT
+    if not root.is_dir():
+        print(
+            f"Workspace {root} does not exist. Run 'hmp init' first.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return root
+
+
+def _cmd_data(args: argparse.Namespace) -> None:
+    sub = getattr(args, "data_command", None)
+    if sub == "check":
+        _cmd_data_check(args)
+    elif sub == "list":
+        _cmd_data_list(args)
+    elif sub == "add":
+        _cmd_data_add(args)
+    else:
+        print(
+            "Usage: hmp data {check|list|add} [options]",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def _cmd_data_check(args: argparse.Namespace) -> None:
+    from hydromodpy.data.auto_scan import check_custom
+
+    workspace = _resolve_workspace(args.workspace)
+    issues = check_custom(workspace, variable=args.variable)
+    if not issues:
+        print(f"  OK: no schema issues in {workspace}")
+        return
+    print(f"  {len(issues)} issue(s) found:")
+    for path, msg in issues:
+        print(f"    {path}: {msg}")
+    sys.exit(1)
+
+
+def _cmd_data_list(args: argparse.Namespace) -> None:
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+
+    workspace = _resolve_workspace(args.workspace)
+    db_path = workspace / "data" / "cache.duckdb"
+    if not db_path.exists():
+        print(f"  (no cache found at {db_path})")
+        return
+
+    with DataCatalogDuckDB(db_path) as catalog:
+        df = catalog.list_entries(
+            variable=args.variable, source=args.provider,
+        )
+        if df.empty:
+            print("  (empty cache — drop files in <variable>_custom/ then run 'hmp run')")
+            return
+        cols = [c for c in ("variable", "source", "station_id", "file_path") if c in df.columns]
+        print(df[cols].to_string(index=False))
+
+
+def _cmd_data_add(args: argparse.Namespace) -> None:
+    from hydromodpy.data.adapters import (
+        convert_asc_to_geotiff,
+        convert_timeseries_csv_to_parquet,
+        convert_vector_to_geoparquet,
+    )
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    from hydromodpy.data.scaffold import VARIABLES
+
+    workspace = _resolve_workspace(args.workspace)
+    src = Path(args.file).expanduser().resolve()
+    if not src.is_file():
+        print(f"File not found: {src}", file=sys.stderr)
+        sys.exit(1)
+
+    if not args.variable:
+        print("--type is required (e.g. --type piezometry)", file=sys.stderr)
+        sys.exit(1)
+
+    spec = next((s for s in VARIABLES if s.name == args.variable), None)
+    if spec is None:
+        names = ", ".join(s.name for s in VARIABLES)
+        print(f"Unknown variable {args.variable!r}. Available: {names}", file=sys.stderr)
+        sys.exit(1)
+
+    blobs = workspace / "data" / "blobs" / spec.name / args.provider
+    blobs.mkdir(parents=True, exist_ok=True)
+
+    suffix = src.suffix.lower()
+    if spec.kind == "timeseries":
+        station_id = args.station_id or src.stem
+        dest = blobs / f"{station_id}.parquet"
+        convert_timeseries_csv_to_parquet(src, dest)
+    elif spec.kind == "raster":
+        station_id = None
+        dest = blobs / f"{src.stem}.tif"
+        convert_asc_to_geotiff(src, dest)
+    elif spec.kind == "vector":
+        station_id = None
+        dest = blobs / f"{src.stem}.parquet"
+        convert_vector_to_geoparquet(src, dest)
+    else:
+        print(f"Unsupported kind {spec.kind!r}", file=sys.stderr)
+        sys.exit(1)
+
+    with DataCatalogDuckDB(workspace / "data" / "cache.duckdb") as catalog:
+        catalog.register(
+            variable=spec.name,
+            source=args.provider,
+            station_id=station_id,
+            file_path=str(src),
+            crs=args.crs,
+            unit=args.unit or spec.unit,
+            is_custom=True,
+            fetch_metadata={
+                "pivot_path": str(dest),
+                "pivot_format": spec.pivot,
+            },
+        )
+    print(f"  Added: {spec.name}/{args.provider}/{station_id or src.stem} -> {dest}")
+
+
+# ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 
@@ -1299,6 +1429,40 @@ def main() -> None:
         help="Number of parallel workers (requires pytest-xdist). e.g. -j4, -j auto",
     )
 
+    # --- data subcommand group ---
+    data_parser = subparsers.add_parser(
+        "data",
+        help="Inspect and manage custom data artefacts in the workspace",
+    )
+    data_sub = data_parser.add_subparsers(dest="data_command")
+
+    data_check = data_sub.add_parser(
+        "check",
+        help="Validate the drag-and-drop <variable>_custom/ folders without ingesting",
+    )
+    data_check.add_argument("--workspace", default=None, help="Workspace root (default: ~/hydromodpy/)")
+    data_check.add_argument("--variable", default=None, help="Restrict to one variable (e.g. piezometry)")
+
+    data_list = data_sub.add_parser(
+        "list",
+        help="List artefacts indexed in the workspace data cache",
+    )
+    data_list.add_argument("--workspace", default=None, help="Workspace root (default: ~/hydromodpy/)")
+    data_list.add_argument("--variable", default=None, help="Filter by variable")
+    data_list.add_argument("--provider", default=None, help="Filter by provider")
+
+    data_add = data_sub.add_parser(
+        "add",
+        help="Power-user command to ingest a single file with explicit metadata",
+    )
+    data_add.add_argument("file", help="Path to the source file to ingest")
+    data_add.add_argument("--type", dest="variable", default=None, help="Variable name (e.g. piezometry)")
+    data_add.add_argument("--provider", default="custom", help="Provider label (default: custom)")
+    data_add.add_argument("--crs", default=None, help="EPSG code (e.g. EPSG:2154)")
+    data_add.add_argument("--unit", default=None, help="Override unit")
+    data_add.add_argument("--station-id", default=None, help="Station id for single-station files")
+    data_add.add_argument("--workspace", default=None, help="Workspace root (default: ~/hydromodpy/)")
+
     args = parser.parse_args()
 
     handlers = {
@@ -1310,6 +1474,7 @@ def main() -> None:
         "list": _cmd_list,
         "export": _cmd_export,
         "test": _cmd_test,
+        "data": _cmd_data,
     }
     handler = handlers.get(args.command)
     if handler is not None:
