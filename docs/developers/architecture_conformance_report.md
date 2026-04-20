@@ -280,6 +280,41 @@ checkpoint est noté :
 
 ---
 
+### 07_calibration.md
+**Résumé :** Le sous-système calibration est conforme aux OVERRIDES du spec (Optuna principal, PEST++ exclu, TOML simplifié, cache `params_hash` SHA-256, modes `save_runs`), avec quelques écarts mineurs vs layout détaillé du document.
+**Checkpoints :** 18 au total, OK=15, ÉCART=3, MANQUANT=0.
+
+| # | Checkpoint | Verdict | Preuve / Note |
+|---|------------|---------|---------------|
+| 1 | Dépendance `optuna` dans `pyproject.toml` | OK | `pyproject.toml:67`. |
+| 2 | Package `hydromodpy/calibration/` présent | OK | engine.py, optimizer.py, objective.py, parameters.py, cache.py, persistence.py, cli.py, config.py, adapters/. |
+| 3 | Suppression `hydromodpy/analysis/calibration/` | OK | Absent. |
+| 4 | `engine.py` avec CalibrationEngine ask/tell | OK | + `CalibrationSession` dataclass. |
+| 5 | `objective.py` avec Protocol `Objective` runtime_checkable | OK | `objective.py:48-55`. |
+| 6 | `optimizer.py` avec Protocol `Optimizer` + `ParamSuggestion`/`EvaluationResult` | OK | `optimizer.py:38-58`. |
+| 7 | `parameters.py` (Calibrable, transforms identity/log/logit) | OK | Présent. |
+| 8 | `cache.py` — cache `params_hash` SHA-256 | OK | `cache.py:39-42` `hashlib.sha256(canonical_json(...)).hexdigest()`. |
+| 9 | `persistence.py` — écritures DuckDB (start/append/finalize/top_n) | OK | Présent. |
+| 10 | 3 adapters optimizer (scipy/optuna/grid) + 4 décorateurs `@register_optimizer` | OK | `adapters/scipy_adapter.py`, `optuna_adapter.py`, `grid_adapter.py`. |
+| 11 | Décorateur `@register_optimizer` | OK | `optimizer.py:63-70`. |
+| 12 | Modes `save_runs` (none/best_n/all) | OK | `config.py:27`. |
+| 13 | Colonne DuckDB `params_hash` + index `ix_cal_iter_hash` | OK | `results/catalog_schema.py:255,268-269`. |
+| 14 | TOML `[calibration]` + `[calibration.parameters]` (bounds/transform/prior) | OK | `config.py` `CalibrationConfig`, `CalibParameterDecl`. |
+| 15 | CLI `hmp calibrate` | OK | `__main__.py:1837-1861`. |
+| 16 | Retrait de PEST++/pyemu | OK | 0 import dans `hydromodpy/`. |
+| 17 | Layout détaillé spec §2 (sous-packages `contracts/`, `optimizers/`, `objectives/`, `sensitivity/`, evaluator.py, batch.py) | ÉCART | Implémentation compacte mono-fichier, cohérente avec les OVERRIDES P09-P13. |
+| 18 | `Evaluator` Protocol runtime_checkable + `SimulationEvaluator` dédié | ÉCART | L'engine prend simplement `EvaluatorFn = Callable[[ParamSuggestion], EvaluationResult]` (cli.py closure). |
+
+**Écarts assumés :**
+- Layout plat vs sous-packages détaillés du §2 — OVERRIDES simplifient le scope.
+- `Evaluator` réduit à une `Callable` — design plus simple.
+- `ObjectiveValue.is_scalar` omis — `vector is not None` remplit le même rôle.
+
+**Manquants :** Aucun.
+
+---
+
+
 
 ## Écarts globaux assumés (décisions architecture)
 
