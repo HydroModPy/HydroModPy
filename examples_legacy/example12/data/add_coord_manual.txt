@@ -1,2 +1,0 @@
-code_sub;x_outlet;y_outlet
-NR4;266269.328;6784599.376
