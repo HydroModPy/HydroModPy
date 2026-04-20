@@ -9,12 +9,15 @@ subclass.
 from __future__ import annotations
 
 from hydromodpy.display.figures import (  # noqa: F401
+    concentration_map,
     cross_section,
+    difference_map,
     hydrograph,
     particle_tracks,
     piezometric_map,
     recharge_map,
     seepage_map,
+    water_budget,
 )
 
 __all__: list[str] = []
