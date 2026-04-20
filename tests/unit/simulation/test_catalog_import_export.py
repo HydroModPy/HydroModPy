@@ -45,7 +45,7 @@ class TestExportSimulation:
         sid = _sid()
         _populate(catalog, sid)
         out = tmp_path / "export.hmp"
-        catalog.export(sid, out)
+        catalog.export_package(sid, out)
         assert (out / "simulation.duckdb").exists()
         assert (out / "results.zarr.zip").exists()
 
@@ -53,7 +53,7 @@ class TestExportSimulation:
         sid = _sid()
         _populate(catalog, sid)
         out = tmp_path / "export.hmp"
-        catalog.export(sid, out)
+        catalog.export_package(sid, out)
 
         import duckdb
         pkg = duckdb.connect(str(out / "simulation.duckdb"), read_only=True)
@@ -67,7 +67,7 @@ class TestExportSimulation:
 
     def test_not_found_raises(self, catalog, tmp_path):
         with pytest.raises(KeyError):
-            catalog.export("nonexistent", tmp_path / "nope.hmp")
+            catalog.export_package("nonexistent", tmp_path / "nope.hmp")
 
 
 class TestImportSimulation:
@@ -79,7 +79,7 @@ class TestImportSimulation:
         sid = _sid()
         _populate(cat1, sid)
         pkg = tmp_path / "transfer.hmp"
-        cat1.export(sid, pkg)
+        cat1.export_package(sid, pkg)
         cat1.close()
 
         cat2 = SimulationCatalog(ws2)
@@ -101,7 +101,7 @@ class TestImportSimulation:
         sid = _sid()
         _populate(catalog, sid)
         pkg = tmp_path / "dup.hmp"
-        catalog.export(sid, pkg)
+        catalog.export_package(sid, pkg)
 
         with pytest.raises(ValueError, match="already exists"):
             catalog.import_package(pkg)
@@ -110,7 +110,7 @@ class TestImportSimulation:
         sid = _sid()
         _populate(catalog, sid)
         pkg = tmp_path / "force.hmp"
-        catalog.export(sid, pkg)
+        catalog.export_package(sid, pkg)
 
         imported = catalog.import_package(pkg, force=True)
         assert imported == sid
@@ -127,7 +127,7 @@ class TestImportSimulation:
         sid = _sid()
         _populate(cat1, sid)
         pkg = tmp_path / "path_test.hmp"
-        cat1.export(sid, pkg)
+        cat1.export_package(sid, pkg)
         cat1.close()
 
         cat2 = SimulationCatalog(ws2)

@@ -842,7 +842,7 @@ class SimulationCatalog:
 
     # -- Import / export -----------------------------------------------------
 
-    def export(
+    def export_package(
         self, sim_id: str | UUID, output_path: Path | str,
     ) -> Path:
         sid = str(sim_id)

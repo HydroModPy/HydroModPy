@@ -83,11 +83,11 @@ def test_simulation_view_fluent_methods_present() -> None:
 
 
 def test_catalog_export_import_method_names() -> None:
-    """Public catalog API exposes export() and import_package() (P10 rename)."""
+    """Public catalog API exposes export_package() and import_package() (P10 rename)."""
     with tempfile.TemporaryDirectory() as tmp:
         cat = hmp.open(tmp)
         try:
-            assert callable(getattr(cat, "export", None))
+            assert callable(getattr(cat, "export_package", None))
             assert callable(getattr(cat, "import_package", None))
             assert not hasattr(cat, "export_simulation")
             assert not hasattr(cat, "import_simulation")
