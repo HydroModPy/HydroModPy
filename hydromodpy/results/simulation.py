@@ -185,7 +185,7 @@ class Simulation:
     def field(
         self,
         variable: str,
-        timestep: int,
+        timestep: int = -1,
         layer: int | None = None,
     ) -> np.ndarray:
         sz = self._catalog.open_zarr(self._sim_id)
@@ -193,6 +193,15 @@ class Simulation:
         if n_ts is not None and timestep < 0:
             timestep = n_ts + timestep
         return sz.read_field(variable, timestep, layer=layer)
+
+    def at(self, timestep: int = -1, layer: int | None = None) -> _AtAccessor:
+        """Return a chainable accessor bound to ``(timestep, layer)``.
+
+        Enables ``sim.at(timestep=5).field("head")`` — the dual spelling of
+        ``sim.field("head", timestep=5)``. Useful in notebook sessions where
+        the same slice is reused across several variables.
+        """
+        return _AtAccessor(self, timestep=timestep, layer=layer)
 
     @property
     def mesh(self) -> dict:
@@ -330,3 +339,48 @@ class Simulation:
             )
         except KeyError:
             return f"Simulation(id={self._sim_id!r}, <not found>)"
+
+    def _repr_html_(self) -> str:
+        try:
+            row = self._load_row()
+        except KeyError:
+            return f"<b>Simulation</b> <code>{self._sim_id[:8]}</code> <i>(not found)</i>"
+        dur = row.get("duration_s")
+        dur_str = f"{dur:.1f} s" if isinstance(dur, (int, float)) else "&mdash;"
+        rows = [
+            ("sim_id", f"<code>{self._sim_id}</code>"),
+            ("name", str(row.get("name") or "&mdash;")),
+            ("project", str(row.get("project") or "&mdash;")),
+            ("solver", str(row.get("solver") or "&mdash;")),
+            ("status", str(row.get("status") or "&mdash;")),
+            ("duration", dur_str),
+            ("n_cells", str(row.get("n_cells") or "&mdash;")),
+            ("n_timesteps", str(row.get("n_timesteps") or "&mdash;")),
+        ]
+        body = "".join(
+            f"<tr><th style='text-align:left'>{k}</th><td>{v}</td></tr>"
+            for k, v in rows
+        )
+        return (
+            "<div><b>Simulation</b>"
+            "<table style='font-size:0.85em;border-collapse:collapse'>"
+            f"{body}</table></div>"
+        )
+
+
+class _AtAccessor:
+    """Chainable helper bound to a ``(timestep, layer)`` slice."""
+
+    __slots__ = ("_sim", "_timestep", "_layer")
+
+    def __init__(self, sim: Simulation, *, timestep: int, layer: int | None):
+        self._sim = sim
+        self._timestep = timestep
+        self._layer = layer
+
+    def field(self, variable: str) -> np.ndarray:
+        return self._sim.field(variable, timestep=self._timestep, layer=self._layer)
+
+    def __repr__(self) -> str:
+        layer_str = f", layer={self._layer}" if self._layer is not None else ""
+        return f"Simulation.at(timestep={self._timestep}{layer_str})"
