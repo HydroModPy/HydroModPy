@@ -25,7 +25,7 @@ from typing import ClassVar, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hydromodpy.process.base import InitialCondition as BaseInitialCondition
-from hydromodpy.core.units import normalize_length_unit
+from hydromodpy.core.units import check_unit_compatible
 
 
 class FlowInitialCondition(BaseInitialCondition):
@@ -56,8 +56,12 @@ class FlowInitialCondition(BaseInitialCondition):
         """Require `value` whenever `type='custom'`."""
         if self.type == "custom" and self.value is None:
             raise ValueError("flow.ic.value is required when flow.ic.type='custom'")
-        normalized_units = normalize_length_unit(str(self.units).strip() or "m")
-        if normalized_units != "m":
+        raw_units = str(self.units).strip() or "m"
+        # Runtime invariant: IC values are stored in meters (magnitude) and the
+        # label must already reflect that; anything else is a normalization bug
+        # upstream in ``initial_conditions_config``.
+        check_unit_compatible(raw_units, canonical_unit="m", label="length")
+        if raw_units != "m":
             raise ValueError("flow.ic.units must be normalized to 'm' in runtime objects")
         self.units = "m"
         return self
