@@ -76,6 +76,27 @@ def tmp_workspace(tmp_path: Path) -> Path:
     return root
 
 
+@pytest.fixture
+def minimal_config(tmp_path: Path):
+    """Return a minimal valid :class:`~hydromodpy.core.config.hydromodpy_config.HydroModPyConfig`.
+
+    Only the two required sub-configs are populated: ``workspace``
+    (``project_root`` pointing at *tmp_path*) and ``geographic``
+    (``source_mode='synthetic'``, avoiding the DEM/outlet requirements
+    of ``'standard'``).  All other sections fall back to their
+    ``default_factory``.  Tests that need a specific flow/solver block
+    should extend the returned instance via ``model_copy(update=...)``.
+    """
+    from hydromodpy.core.config import HydroModPyConfig
+    from hydromodpy.core.workspace.config import WorkspaceConfig
+    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+
+    return HydroModPyConfig(
+        workspace=WorkspaceConfig(project_root=tmp_path / "project"),
+        geographic=GeographicConfig(source_mode="synthetic"),
+    )
+
+
 @pytest.fixture(autouse=True)
 def _redirect_repo_root_cwd_for_gmsh_grid_tests(
     request,
