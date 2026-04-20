@@ -216,6 +216,37 @@ checkpoint est noté :
 
 ---
 
+### 05_solver_contracts.md
+**Résumé :** Le protocole `SolverAdapter` à 5 méthodes et le registre `(process_type, solver_name)` sont en place côté `solver/base/`, les helpers MODFLOW communs sont complets et les tests de conformité existent, mais la fusion du double registre (`solver/base/` vs `simulation/adapters/`) et la taxonomie d'erreurs ne sont pas implémentées ; la duplication NWT/MF6 est assumée (F02).
+**Checkpoints :** 14 au total, OK=10, ÉCART=3, MANQUANT=1.
+
+| # | Checkpoint | Verdict | Preuve / Note |
+|---|------------|---------|---------------|
+| 1 | `SolverAdapter` défini comme `@runtime_checkable Protocol` avec `process_type`/`solver_name` | OK | `solver/base/protocol.py:33-54`. |
+| 2 | Les 5 méthodes `setup/build/run/extract/cleanup` déclarées | OK | `solver/base/protocol.py:40-53`. |
+| 3 | `RunResult` `@dataclass(frozen=True)` avec `converged`, `output_dir`, `wall_time_s`, `iterations`, `residual`, `diagnostics` | OK | `solver/base/protocol.py:21-30` ; test gel `tests/unit/solver/test_solver_protocol.py:91-94`. |
+| 4 | Registre `(process_type, solver_name) → adapter_cls` avec `register/get/unregister/list_pairs/pairs_for_process` + `replace` | OK | `solver/base/registry.py:18-82`. |
+| 5 | `modflow_common/` = 5 fichiers (`flow_translator.py`, `boundary_packages.py`, `forcing_discretization.py`, `binary_reader.py`, `grid_mapping.py`) | OK | Tous présents + `__init__.py:1-105`. |
+| 6 | Adapter NWT existe (~1391 l) | OK | `solver/modflow_nwt/modflow/flow_to_modflow_adapter.py` = 1394 lignes. |
+| 7 | Adapter MF6 existe (~581 l) | OK | `solver/modflow6/flow_to_modflow_adapter.py` = 584 lignes. |
+| 8 | En-têtes F02 pointant vers `nwt_sunset_plan.md` | OK | NWT `modflow_nwt/modflow/flow_to_modflow_adapter.py:2-4` et MF6 `modflow6/flow_to_modflow_adapter.py:1-3`. |
+| 9 | Adapter Boussinesq présent avec contrat propre | OK | `solver/boussinesq/solver_contract.py` + `boussinesq.py`. |
+| 10 | Aucune référence MODFLOW-2000 / mf2k / MODFLOW-USG | OK | `grep -i` : 0 occurrence de `modflow-2000`, `mf2k`, `mfusg`. |
+| 11 | `test_solver_protocol.py` couvre conformité + ordre cycle de vie + gel `RunResult` | OK | `tests/unit/solver/test_solver_protocol.py:57-94` (6 tests). |
+| 12 | `test_solver_registry.py` couvre `register/get/replace/list_pairs/pairs_for_process/is_adapter` | OK | `tests/unit/solver/test_solver_registry.py:37-87` (8 tests). |
+| 13 | Pas de duplication NWT/MF6 dans `flow_to_modflow_adapter.py` | ÉCART | Décision F02 (`nwt_sunset_plan.md`) : NWT (1394 l) + MF6 (584 l) gardés séparés jusqu'au retrait NWT post-intégration LAK MF6. |
+| 14 | Registre unique (cible : fusion adapters/compatibility/extractors) | ÉCART | Deux registres : `solver/base/registry.py` (canonique 5-méthodes) et `simulation/adapters/registry.py:17-24` (`execute(ctx)` monolithique). |
+
+**Écarts assumés :**
+- Duplication NWT/MF6 — décision F02 (`docs/developers/nwt_sunset_plan.md`).
+- Double couche `solver/base/SolverAdapter` vs `simulation/adapters/SolverAdapter` — fusion reportée post-v0.4.
+- Pas de découverte plugin/entry-points `hydromodpy.solver` — trois solveurs embarqués suffisent.
+
+**Manquants :**
+- Hiérarchie d'exceptions typées (`SolverError`, `SolverDivergedError`, `SolverTimeoutError`, `SolverBinaryError`, `SolverMassBalanceError`, etc., §4.3 / §8.1) — suivi `v0.5-solver-exceptions`.
+
+---
+
 ## Écarts globaux assumés (décisions architecture)
 
 _À compiler après les 14 vérifications._
