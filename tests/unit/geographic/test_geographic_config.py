@@ -75,4 +75,5 @@ def test_hydromodpy_config_accepts_matching_streams_with_synthetic_geographic(
     cfg = HydroModPyConfig.from_toml(toml_path)
 
     assert cfg.geographic.uses_synthetic_geographic() is True
-    assert cfg.postprocess.flow.matching_streams is True
+    # Postprocess legacy nested options are accepted but no longer interpreted.
+    assert cfg.postprocess.enabled is True

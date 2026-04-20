@@ -212,7 +212,6 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
     cfg = HydroModPyConfig.from_toml(config_path)
 
     assert cfg.geographic.reuse_existing_outputs is True
-    assert cfg.postprocess.profile == "solver_only"
-    assert cfg.postprocess.flow.display is False
-    assert cfg.postprocess.flow.native_mesh_npz is False
-    assert cfg.postprocess.flow.native_mesh_csv is False
+    # Postprocess legacy nested options are accepted but no longer interpreted.
+    # The pipeline now drives extract/derive/export unconditionally.
+    assert cfg.postprocess.enabled is False

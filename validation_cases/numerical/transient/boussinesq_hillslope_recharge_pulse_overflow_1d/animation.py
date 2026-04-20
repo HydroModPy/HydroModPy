@@ -8,7 +8,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hydromodpy.analysis.display.figures.animation import (
+from hydromodpy.display.animation import (
     build_gif,
     build_mp4,
     build_plotly_slider,

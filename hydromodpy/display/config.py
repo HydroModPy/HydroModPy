@@ -18,7 +18,7 @@ from hydromodpy.core.config.param_level import ParamLevel
 class DisplayConfig(BaseModel):
     """Display behaviour resolved from the ``[display]`` TOML section."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     save: Annotated[bool, ParamLevel("user")] = Field(
         default=True,
