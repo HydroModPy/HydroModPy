@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
 
 
-class SimulationView:
+class Run:
 
     def __init__(self, sim_id: str, catalog: SimulationCatalog) -> None:
         self._sim_id = sim_id
@@ -246,7 +246,7 @@ class SimulationView:
         val = self._load_row().get("parent_sim_id")
         return str(val) if val is not None else None
 
-    def rerun(self, **overrides) -> SimulationView:
+    def rerun(self, **overrides) -> Run:
         """Re-run this simulation with optional config overrides.
 
         Reconstructs a ``HydroModPyConfig`` from the stored snapshot,
@@ -257,12 +257,12 @@ class SimulationView:
         ----------
         **overrides
             Nested config overrides merged recursively into the snapshot.
-            For example: ``sim.rerun(flow={"param": {"K": {"value": 2.0}}})``.
+            For example: ``run.rerun(flow={"param": {"K": {"value": 2.0}}})``.
 
         Returns
         -------
-        SimulationView
-            The newly created simulation.
+        Run
+            The newly created run.
         """
         snapshot = self.config
         if snapshot is None:
@@ -274,18 +274,13 @@ class SimulationView:
 
         new_config = HydroModPyConfig.from_snapshot(snapshot, **overrides)
 
-        from hydromodpy.project import Simulation
+        from hydromodpy.project import Project
 
-        # Build a minimal Simulation-like execution from the reconstructed config
-        # and register with parent_sim_id linkage.
-        project = Simulation.__new__(Simulation)
-        # This is a stub — full rerun integration requires the workflow to
-        # accept a pre-built config + parent_sim_id. For now, store the
-        # config and parent reference so callers can wire them.
+        project = Project.__new__(Project)
         raise NotImplementedError(
             "Full rerun() requires workflow integration with parent_sim_id. "
             "Use HydroModPyConfig.from_snapshot() to reconstruct the config "
-            "and run it manually via Simulation or hmp run."
+            "and run it manually via Project or hmp run."
         )
 
     # -- Export convenience --------------------------------------------------
@@ -407,19 +402,19 @@ class SimulationView:
         try:
             row = self._load_row()
             return (
-                f"SimulationView(id={self._sim_id!r}, "
+                f"Run(id={self._sim_id!r}, "
                 f"project={row.get('project')!r}, "
                 f"solver={row.get('solver')!r}, "
                 f"status={row.get('status')!r})"
             )
         except KeyError:
-            return f"SimulationView(id={self._sim_id!r}, <not found>)"
+            return f"Run(id={self._sim_id!r}, <not found>)"
 
     def _repr_html_(self) -> str:
         try:
             row = self._load_row()
         except KeyError:
-            return f"<b>SimulationView</b> <code>{self._sim_id[:8]}</code> <i>(not found)</i>"
+            return f"<b>Run</b> <code>{self._sim_id[:8]}</code> <i>(not found)</i>"
         dur = row.get("duration_s")
         dur_str = f"{dur:.1f} s" if isinstance(dur, (int, float)) else "&mdash;"
         rows = [
@@ -437,7 +432,7 @@ class SimulationView:
             for k, v in rows
         )
         return (
-            "<div><b>SimulationView</b>"
+            "<div><b>Run</b>"
             "<table style='font-size:0.85em;border-collapse:collapse'>"
             f"{body}</table></div>"
         )
@@ -446,16 +441,16 @@ class SimulationView:
 class _AtAccessor:
     """Chainable helper bound to a ``(timestep, layer)`` slice."""
 
-    __slots__ = ("_sim", "_timestep", "_layer")
+    __slots__ = ("_run", "_timestep", "_layer")
 
-    def __init__(self, sim: SimulationView, *, timestep: int, layer: int | None):
-        self._sim = sim
+    def __init__(self, run: Run, *, timestep: int, layer: int | None):
+        self._run = run
         self._timestep = timestep
         self._layer = layer
 
     def field(self, variable: str) -> np.ndarray:
-        return self._sim.field(variable, timestep=self._timestep, layer=self._layer)
+        return self._run.field(variable, timestep=self._timestep, layer=self._layer)
 
     def __repr__(self) -> str:
         layer_str = f", layer={self._layer}" if self._layer is not None else ""
-        return f"SimulationView.at(timestep={self._timestep}{layer_str})"
+        return f"Run.at(timestep={self._timestep}{layer_str})"

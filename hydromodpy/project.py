@@ -1,4 +1,4 @@
-"""High-level Simulation API for interactive Python usage.
+"""High-level Project API for interactive Python usage.
 
 Setup-once, run-many interface that wraps the launcher's internal phases
 behind a clean API.  The TOML-driven workflow (``hmp run``) is unchanged;
@@ -10,7 +10,7 @@ Example
 
     import hydromodpy as hmp
 
-    project = hmp.Simulation("project.toml")
+    project = hmp.Project("project.toml")
 
     result = project.run(Sy=0.05, K=5e-5, name="baseline")
     wt = result.field("watertable_depth", timestep=12)
@@ -34,10 +34,10 @@ logger = logging.getLogger(__name__)
 
 
 # =====================================================================
-# Simulation
+# Project
 # =====================================================================
 
-class Simulation:
+class Project:
     """Setup-once, run-many interface for HydroModPy simulations.
 
     Loads a project TOML, builds the geographic/domain/data context once,
@@ -60,7 +60,7 @@ class Simulation:
 
         import hydromodpy as hmp
 
-        project = hmp.Simulation("project.toml")
+        project = hmp.Project("project.toml")
 
         # Simple run
         r = project.run(Sy=0.05)
@@ -215,7 +215,7 @@ class Simulation:
         self._project_name = ws.project_root.name
 
         self._run_counter = 0
-        logger.info("Simulation ready: %s", self._config_path.name)
+        logger.info("Project ready: %s", self._config_path.name)
 
     # -- Public properties -------------------------------------------------
 
@@ -246,7 +246,7 @@ class Simulation:
 
     # -- Run ---------------------------------------------------------------
 
-    def run(self, *, name: str | None = None, **overrides) -> "SimulationView":
+    def run(self, *, name: str | None = None, **overrides) -> "Run":
         """Execute one simulation with optional parameter overrides.
 
         Without overrides, runs the TOML configuration as-is using the full
@@ -265,7 +265,7 @@ class Simulation:
 
         Returns
         -------
-        :class:`~hydromodpy.results.simulation.SimulationView`
+        :class:`~hydromodpy.results.run.Run`
             Ready-to-query view exposing ``sim_id``, ``name``,
             ``timeseries``, ``parameters``, ``budget``, ``export``, the
             lazy catchment metrics (``saturated_fraction``,
@@ -525,7 +525,7 @@ class Simulation:
         self.close()
 
     def __repr__(self) -> str:
-        return f"Simulation({self._config_path.name!r})"
+        return f"Project({self._config_path.name!r})"
 
     def _repr_html_(self) -> str:
         project_name = self._config_path.parent.name
@@ -550,7 +550,7 @@ class Simulation:
             for k, v in rows
         )
         return (
-            "<div><b>Simulation</b>"
+            "<div><b>Project</b>"
             "<table style='font-size:0.85em;border-collapse:collapse'>"
             f"{body}</table></div>"
         )

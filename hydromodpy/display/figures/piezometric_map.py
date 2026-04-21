@@ -11,7 +11,7 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.simulation import SimulationView
+    from hydromodpy.results.run import Run
 
 
 @register
@@ -28,7 +28,7 @@ class PiezometricMap(BaseFigure):
 
     def render(
         self,
-        sim: "SimulationView",
+        sim: "Run",
         ax: "Axes",
         *,
         timestep: int | None = None,

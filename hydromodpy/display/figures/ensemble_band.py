@@ -40,7 +40,7 @@ class EnsembleBandFigure(BaseFigure):
     ) -> "Axes":
         import pandas as pd
 
-        # ``sim`` is expected to be a SimulationGroup (iterable of SimulationView).
+        # ``sim`` is expected to be a SimulationGroup (iterable of Run).
         if not hasattr(sim, "__iter__"):
             raise TypeError(
                 "ensemble_band: 'sim' must be a SimulationGroup (iterable)"

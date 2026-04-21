@@ -22,7 +22,7 @@ from hydromodpy.solver.modflow_nwt import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
-from hydromodpy.project import Simulation
+from hydromodpy.project import Project
 from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )
@@ -64,7 +64,7 @@ def _build_validation_launcher() -> Simulation:
         solver_name="modflownwt",
     )
     try:
-        return Simulation(config_path, headless=True)
+        return Project(config_path, headless=True)
     finally:
         if config_path.exists():
             remove_file_with_retry(config_path)

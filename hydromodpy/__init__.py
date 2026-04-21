@@ -279,14 +279,14 @@ _LAZY_IMPORTS = {
     "IntermittencyManager": "hydromodpy.data.variables.intermittency.manager",
     "OceanicConfig": "hydromodpy.data.variables.oceanic",
     "OceanicManager": "hydromodpy.data.variables.oceanic",
-    # Simulation API (programmatic façade)
-    "Simulation": "hydromodpy.project",
+    # Project / run API (programmatic façade)
+    "Project": "hydromodpy.project",
     "SimulationPlan": "hydromodpy.simulation.planning.plan",
     # Catalog API
     "Catalog": "hydromodpy.results.catalog:SimulationCatalog",
     "SimulationCatalog": "hydromodpy.results.catalog",
     "SimulationGroup": "hydromodpy.results.simulation_group",
-    "SimulationView": "hydromodpy.results.simulation",
+    "Run": "hydromodpy.results.run",
 }
 
 
@@ -320,15 +320,15 @@ def open(workspace_path):
 
 
 def run(config, **kwargs):
-    """Functional façade for ``hmp.Simulation(config).run()``.
+    """Functional façade for ``hmp.Project(config).run()``.
 
     Keeps CLI and Python API in sync: ``hmp run config.toml`` and
     ``hmp.run("config.toml")`` execute the same workflow.
     """
-    from hydromodpy.project import Simulation
+    from hydromodpy.project import Project
 
-    with Simulation(config, headless=kwargs.pop("headless", False)) as sim:
-        return sim.run(**kwargs)
+    with Project(config, headless=kwargs.pop("headless", False)) as project:
+        return project.run(**kwargs)
 
 
 def calibrate(config, **kwargs):
@@ -375,9 +375,9 @@ __all__ = [
     "Modpath7",
     "Mt3dms",
     "Boussinesq",
-    # Simulation / catalog API
-    "Simulation",
-    "SimulationView",
+    # Project / run / catalog API
+    "Project",
+    "Run",
     "SimulationPlan",
     "Catalog",
     "SimulationCatalog",

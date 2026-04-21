@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
-    from hydromodpy.results.simulation import SimulationView
+    from hydromodpy.results.run import Run
 
 
 @register
@@ -31,10 +31,10 @@ class SideBySideMapFigure(BaseFigure):
 
     def render(
         self,
-        sim: "SimulationView",
+        sim: "Run",
         ax: "Axes",
         *,
-        reference: "SimulationView | None" = None,
+        reference: "Run | None" = None,
         field: str = "head",
         timestep: int | None = None,
         cmap: str = "viridis",
@@ -56,9 +56,9 @@ class SideBySideMapFigure(BaseFigure):
 
     def plot(
         self,
-        sim: "SimulationView",
+        sim: "Run",
         *,
-        reference: "SimulationView | None" = None,
+        reference: "Run | None" = None,
         field: str = "head",
         timestep: int | None = None,
         cmap: str = "viridis",

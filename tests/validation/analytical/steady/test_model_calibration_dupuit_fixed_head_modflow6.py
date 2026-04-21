@@ -18,7 +18,7 @@ from hydromodpy.analysis.calibration.engine.session import (  # noqa: E402
     select_candidate_outputs,
 )
 
-from hydromodpy.project import Simulation
+from hydromodpy.project import Project
 from tests.regression.golden_utils import assert_required_executables
 from validation_cases.shared.runtime import (
     _dump_toml,
@@ -250,7 +250,7 @@ def _extract_reference_flux(
         candidate_label="r",
         disable_postprocess=False,
     )
-    project = Simulation(request.candidate_config_path, headless=True)
+    project = Project(request.candidate_config_path, headless=True)
     project.run()
     selected = select_candidate_outputs(
         cfg=launcher.cfg,
@@ -281,7 +281,7 @@ def _extract_reference_transient_outputs(
         candidate_label="r",
         disable_postprocess=False,
     )
-    project = Simulation(request.candidate_config_path, headless=True)
+    project = Project(request.candidate_config_path, headless=True)
     project.run()
     selected = select_candidate_outputs(
         cfg=launcher.cfg,

@@ -24,7 +24,7 @@ VARIABLE_UNITS: dict[str, str] = {
 # calibration pipelines consume as-is. Catchment-scale reductions of
 # spatial fields (drainage density, saturated fraction, water-table
 # means, recharge means) are computed lazily on demand through
-# ``hydromodpy.results.metrics`` / ``SimulationView`` methods, so the
+# ``hydromodpy.results.metrics`` / ``Run`` methods, so the
 # catalog stays focused on observation-comparable point series.
 _AGGREGATION_SPEC: list[tuple[str, str, str]] = [
     # Outlet discharge (m3/s) — consumed by hydrograph, watershed_id_card,

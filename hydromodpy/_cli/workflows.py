@@ -38,9 +38,9 @@ def run_simulation(config_path: str | Path, *, resume: str | None = None) -> dic
     if resume is not None:
         return _run_resume(Path(config_path), resume)
 
-    from hydromodpy.project import Simulation
+    from hydromodpy.project import Project
 
-    with Simulation(config_path) as project:
+    with Project(config_path) as project:
         result = project.run()
         return {
             "name": result.name,

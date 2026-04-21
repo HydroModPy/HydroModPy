@@ -36,7 +36,7 @@ def test_figures_do_not_call_zarr_write_apis() -> None:
 
     We walk every figure's source file and confirm no line contains a
     token that would indicate a write to the storage layer. Display code
-    reads via the ``SimulationView`` interface only.
+    reads via the ``Run`` interface only.
     """
     import hydromodpy.display.figures as pkg
 

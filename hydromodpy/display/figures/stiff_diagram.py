@@ -12,7 +12,7 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.simulation import SimulationView
+    from hydromodpy.results.run import Run
 
 
 def _to_dataframe(source: Any):
@@ -43,7 +43,7 @@ class StiffDiagramFigure(BaseFigure):
 
     def render(
         self,
-        sim: "SimulationView | Any",
+        sim: "Run | Any",
         ax: "Axes",
         *,
         sample: int = 0,

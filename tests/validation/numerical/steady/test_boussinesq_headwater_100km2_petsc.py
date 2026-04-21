@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.project import Simulation
+from hydromodpy.project import Project
 
 
 def _require_linux_petsc4py() -> None:
@@ -107,7 +107,7 @@ def test_headwater_real_case_petsc_variants_converge_on_committed_mesh(
 
     monkeypatch.setenv("MPLBACKEND", "Agg")
 
-    with Simulation(config_path) as project:
+    with Project(config_path) as project:
         project.run()
     model = project._ctx.get_model_for_solver("boussinesq")
     assert model is not None

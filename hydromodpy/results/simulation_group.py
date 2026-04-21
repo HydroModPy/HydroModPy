@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from hydromodpy.results.catalog import SimulationCatalog
-    from hydromodpy.results.simulation import SimulationView
+    from hydromodpy.results.run import Run
 
 
 class SimulationGroup:
@@ -33,15 +33,15 @@ class SimulationGroup:
         return len(self._sim_ids)
 
     def __iter__(self):
-        from hydromodpy.results.simulation import SimulationView
+        from hydromodpy.results.run import Run
 
         for sid in self._sim_ids:
-            yield SimulationView(sid, self._catalog)
+            yield Run(sid, self._catalog)
 
-    def __getitem__(self, index: int) -> SimulationView:
-        from hydromodpy.results.simulation import SimulationView
+    def __getitem__(self, index: int) -> Run:
+        from hydromodpy.results.run import Run
 
-        return SimulationView(self._sim_ids[index], self._catalog)
+        return Run(self._sim_ids[index], self._catalog)
 
     # -- Pivot DataFrames ----------------------------------------------------
 
@@ -100,8 +100,8 @@ class SimulationGroup:
             self._sim_ids + [metric],
         ).fetchdf()
 
-    def best(self, metric: str) -> SimulationView:
-        from hydromodpy.results.simulation import SimulationView
+    def best(self, metric: str) -> Run:
+        from hydromodpy.results.run import Run
 
         if not self._sim_ids:
             raise ValueError("Empty group")
@@ -114,10 +114,10 @@ class SimulationGroup:
         ).fetchone()
         if row is None:
             raise KeyError(f"No metric '{metric}' found in group")
-        return SimulationView(str(row[0]), self._catalog)
+        return Run(str(row[0]), self._catalog)
 
-    def worst(self, metric: str) -> SimulationView:
-        from hydromodpy.results.simulation import SimulationView
+    def worst(self, metric: str) -> Run:
+        from hydromodpy.results.run import Run
 
         if not self._sim_ids:
             raise ValueError("Empty group")
@@ -130,7 +130,7 @@ class SimulationGroup:
         ).fetchone()
         if row is None:
             raise KeyError(f"No metric '{metric}' found in group")
-        return SimulationView(str(row[0]), self._catalog)
+        return Run(str(row[0]), self._catalog)
 
     def sort_by(self, metric: str, ascending: bool = True) -> SimulationGroup:
         if not self._sim_ids:

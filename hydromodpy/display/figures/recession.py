@@ -13,7 +13,7 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.simulation import SimulationView
+    from hydromodpy.results.run import Run
 
 
 @register
@@ -30,7 +30,7 @@ class RecessionCurveFigure(BaseFigure):
 
     def render(
         self,
-        sim: "SimulationView",
+        sim: "Run",
         ax: "Axes",
         *,
         station: str = "_catchment",

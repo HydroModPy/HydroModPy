@@ -1,4 +1,4 @@
-"""Lazy catchment-scale views computed on demand from a SimulationView.
+"""Lazy catchment-scale views computed on demand from a Run.
 
 These functions read already-persisted spatial fields (``derived/`` and
 ``budget/`` groups in the simulation Zarr) and reduce them to scalar
@@ -6,13 +6,13 @@ timeseries on the fly. Nothing is written to DuckDB: results are returned
 as ``pd.Series`` so that callers can plot, combine or aggregate them
 freely.
 
-All functions are pure — they take a :class:`SimulationView` (or any
+All functions are pure — they take a :class:`Run` (or any
 object exposing the same ``field`` / ``n_timesteps`` / ``mesh`` API) and
 the reduction parameters, and return a new object. They never mutate the
 catalog.
 
 Standard Python pattern: the module-level function is the source of
-truth; :class:`SimulationView` exposes thin delegate methods for
+truth; :class:`Run` exposes thin delegate methods for
 ergonomics (``sim.drainage_density(...)`` calls
 :func:`drainage_density`).
 """
@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    from hydromodpy.results.simulation import SimulationView
+    from hydromodpy.results.run import Run
 
 
 __all__ = [
@@ -42,7 +42,7 @@ __all__ = [
 # --------------------------------------------------------------------------
 
 
-def _time_index(sim: "SimulationView", n: int) -> pd.DatetimeIndex:
+def _time_index(sim: "Run", n: int) -> pd.DatetimeIndex:
     """Return a ``pd.DatetimeIndex`` aligned with the simulation timesteps."""
     row = sim._load_row()
     start, end = row.get("period_start"), row.get("period_end")
@@ -51,7 +51,7 @@ def _time_index(sim: "SimulationView", n: int) -> pd.DatetimeIndex:
     return pd.date_range("2000-01-01", periods=n, freq="D")
 
 
-def _catchment_mask(sim: "SimulationView") -> np.ndarray | None:
+def _catchment_mask(sim: "Run") -> np.ndarray | None:
     """Boolean mask of active cells from ``mesh/surface_top``."""
     sz = sim._catalog.open_zarr(sim._sim_id)
     mesh = sz.root.get("mesh")
@@ -61,7 +61,7 @@ def _catchment_mask(sim: "SimulationView") -> np.ndarray | None:
     return np.isfinite(top) & (top > -9000.0)
 
 
-def _stack_field(sim: "SimulationView", variable: str) -> np.ndarray:
+def _stack_field(sim: "Run", variable: str) -> np.ndarray:
     """Stack a per-timestep cell field into a ``(n_t, n_cells)`` array."""
     n = sim.n_timesteps or 1
     frames = [np.asarray(sim.field(variable, timestep=t)).ravel() for t in range(n)]
@@ -74,7 +74,7 @@ def _stack_field(sim: "SimulationView", variable: str) -> np.ndarray:
 
 
 def saturated_fraction(
-    sim: "SimulationView",
+    sim: "Run",
     *,
     threshold: float = 0.0,
 ) -> pd.Series:
@@ -98,7 +98,7 @@ def saturated_fraction(
 
 
 def drainage_density(
-    sim: "SimulationView",
+    sim: "Run",
     *,
     threshold: float = 0.0,
 ) -> pd.Series:
@@ -125,7 +125,7 @@ def drainage_density(
 
 
 def persistence(
-    sim: "SimulationView",
+    sim: "Run",
     *,
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
@@ -149,7 +149,7 @@ def persistence(
 
 
 def catchment_mean(
-    sim: "SimulationView",
+    sim: "Run",
     variable: str,
     *,
     name: str | None = None,
@@ -171,7 +171,7 @@ def catchment_mean(
                      name=name or variable)
 
 
-def recharge_forcing(sim: "SimulationView") -> pd.Series:
+def recharge_forcing(sim: "Run") -> pd.Series:
     """Input recharge rate per stress period (from ``budget/recharge``).
 
     Reads the first substep of each stress period from the MODFLOW

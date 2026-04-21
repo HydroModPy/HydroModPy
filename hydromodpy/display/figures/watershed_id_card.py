@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
-    from hydromodpy.results.simulation import SimulationView
+    from hydromodpy.results.run import Run
 
 
 @register
@@ -34,7 +34,7 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
 
     def render(
         self,
-        sim: "SimulationView",
+        sim: "Run",
         ax: "Axes",
         **_,
     ) -> "Axes":
@@ -48,7 +48,7 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
 
     def plot(
         self,
-        sim: "SimulationView",
+        sim: "Run",
         *,
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,

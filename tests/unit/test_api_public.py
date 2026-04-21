@@ -1,8 +1,8 @@
 """Smoke tests for the public ``hydromodpy`` API surface.
 
 These checks pin down the top-level symbols that the P10 spec promises to
-users — ``hmp.open``, ``hmp.Simulation``, ``hmp.SimulationCatalog``, etc.
-Regressions here usually mean a refactor broke the import contract.
+users — ``hmp.open``, ``hmp.Project``, ``hmp.Run``, ``hmp.SimulationCatalog``,
+etc. Regressions here usually mean a refactor broke the import contract.
 """
 
 from __future__ import annotations
@@ -21,8 +21,9 @@ EXPECTED_TOP_LEVEL = [
     "calibrate",
     "compare",
     "doctor",
-    # Simulation / catalog API
-    "Simulation",
+    # Project / run / catalog API
+    "Project",
+    "Run",
     "SimulationPlan",
     "SimulationCatalog",
     "SimulationGroup",
@@ -75,11 +76,11 @@ def test_simulation_group_fluent_methods_present() -> None:
 
 
 def test_simulation_view_fluent_methods_present() -> None:
-    from hydromodpy.results.simulation import SimulationView
+    from hydromodpy.results.run import Run
 
-    assert hasattr(SimulationView, "at")
-    assert hasattr(SimulationView, "field")
-    assert hasattr(SimulationView, "_repr_html_")
+    assert hasattr(Run, "at")
+    assert hasattr(Run, "field")
+    assert hasattr(Run, "_repr_html_")
 
 
 def test_catalog_export_import_method_names() -> None:

@@ -1,6 +1,6 @@
 """Piper diagram of major-ion hydrochemistry.
 
-The figure accepts either a :class:`SimulationView` (in which case it
+The figure accepts either a :class:`Run` (in which case it
 reads ``hydrochemistry`` observation-point data) or a pandas
 ``DataFrame`` with columns ``Ca, Mg, Na, K, Cl, SO4, HCO3`` (meq/L).
 """
@@ -17,7 +17,7 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.simulation import SimulationView
+    from hydromodpy.results.run import Run
 
 
 _MAJORS = ("Ca", "Mg", "Na", "K", "Cl", "SO4", "HCO3")
@@ -29,7 +29,7 @@ def _to_dataframe(source: Any):
 
     if isinstance(source, pd.DataFrame):
         return source
-    # SimulationView: try a timeseries hook; fall back to None.
+    # Run: try a timeseries hook; fall back to None.
     if hasattr(source, "timeseries"):
         try:
             return source.timeseries("hydrochemistry")
@@ -53,7 +53,7 @@ class PiperDiagramFigure(BaseFigure):
 
     def render(
         self,
-        sim: "SimulationView | Any",
+        sim: "Run | Any",
         ax: "Axes",
         **_,
     ) -> "Axes":

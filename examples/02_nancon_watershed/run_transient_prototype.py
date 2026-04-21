@@ -24,7 +24,7 @@ SY_VALUES = [0.001, 0.05, 0.30]
 # 1. Trois runs MODFLOW-NWT, Sy variable
 # ---------------------------------------------------------------------
 
-project = hmp.Simulation(HERE / "project.toml")
+project = hmp.Project(HERE / "project.toml")
 
 runs = {}
 for sy in SY_VALUES:
