@@ -32,6 +32,22 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+---
+
+## [0.5.0] - 2026-04-21
+
+Release of HydroModPy v0.5 from `dev-refact_v2`. This is the **completion**
+release of the v0.4→v0.5 migration cycle and consolidates 11 completion
+phases (G01–G11) on top of the v0.4.0 baseline (P01–P13 + F01–F08). Every
+item previously requalified as "v0.5 debt" in the
+`architecture_conformance_report.md` is now landed, and the updated
+`architecture_conformance_report_v050.md` reports **248/274 OK (90.5 %)**,
+**24 assumed gaps (8.8 %)**, **2 residual cosmetic items** — 14 / 14 target
+specifications conformant to their canonical intent.
+
+Most changes are **BREAKING** — see the *Migration Guide v0.4 → v0.5*
+section below for a copy-pasteable upgrade path.
+
 ### Added
 - Scientific benchmarks (phase G10):
   - `tests/validation/analytical/transient/test_theis.py` — Theis
@@ -445,6 +461,159 @@ Each release section includes the following standard categories:
   decompress the archive first (`tarfile` + `zstandard`). Import
   validates every file against its manifest hash before touching the
   destination catalog — tampered archives now fail fast.
+
+### Migration Guide v0.4 → v0.5
+
+All renames below are **hard** — no deprecation shim, no compatibility
+alias. Consult `docs/developers/architecture_conformance_report_v050.md`
+for the full checkpoint list, and `docs/developers/test_status_report.md`
+for the residual xfail / known-debt inventory.
+
+**Package layout**
+
+| v0.4 | v0.5 |
+|------|------|
+| `hydromodpy.process` | `hydromodpy.physics` |
+| `hydromodpy.process.flow.*` | `hydromodpy.physics.flow.*` |
+| `hydromodpy.process.transport.*` | `hydromodpy.physics.transport.*` |
+| `hydromodpy.simulation.results` | `hydromodpy.simulation.extraction` |
+| `hydromodpy.runners.*` (top-level) | `hydromodpy._cli.workflows` + `hydromodpy._cli.commands.*` |
+| `hydromodpy.watershed.*` | *(removed)* — use `hmp.CatchmentDelineation` |
+| `hydromodpy.core.tools.raster_io` | `hydromodpy.core.io.raster_io` |
+| `hydromodpy.core.tools.geospatial` | `hydromodpy.core.io.crs` |
+| `hydromodpy.core.tools.filesystem.load_shapefile` | `hydromodpy.core.io.vector_io.load_shapefile` |
+| `hydromodpy.core.tools.log_manager` | `hydromodpy.core.logging` |
+| `hydromodpy.data.runtime_loader` | `hydromodpy.data.loader` |
+| `hydromodpy.data.common.base_manager` | `hydromodpy.data.base_manager` |
+| `hydromodpy.data.common.base_config` | `hydromodpy.data.base_config` |
+| `hydromodpy.data.common.base_field_manager.BaseFieldManager` | `hydromodpy.data.base_manager.BaseFieldManager` |
+
+**Class / type renames**
+
+| v0.4 | v0.5 |
+|------|------|
+| `SolverAdapter` | `SolverRunner` |
+| `DataManagersPlanner` | `DataPlanner` |
+| `Geographic` | `CatchmentDelineation` |
+| `Watershed` (legacy façade) | *(removed)* — use `hmp.CatchmentDelineation` |
+| `hydromodpy.results.simulation.Simulation` (catalog view) | `hydromodpy.results.simulation.SimulationView` |
+| `*Schema` Pydantic suffixes (31 classes) | same name without `Schema` suffix |
+| `SimulationCatalog.export_simulation` | `SimulationCatalog.export_package` |
+| `SimulationCatalog.import_simulation` | `SimulationCatalog.import_package` |
+
+**Exceptions**
+
+- `from hydromodpy.core.exceptions import HydroModPyError, ConfigError,
+  DataError, MeshError, SolverError, PipelineError, StepError,
+  CalibrationError, DisplayError, StorageError, DataContractViolation`.
+- Every `*Error` now carries a stable `HMPY.Exxx` code and accepts
+  optional `sim_id` / `run_id`.
+- `TimeSeriesValidationError`, `RasterConversionError`,
+  `VectorConversionError` now inherit from the typed `DataError`
+  hierarchy (the change is ABI-compatible unless you caught the bare
+  `ValueError` before).
+
+**Pipeline error handling**
+
+- `Pipeline.run(...)` now raises `hydromodpy.core.exceptions.StepError`
+  (not the raw step exception) — the original is attached as `__cause__`
+  and on `StepError.cause`. Replace:
+  ```python
+  try:
+      pipeline.run(state)
+  except RuntimeError:
+      ...
+  ```
+  with
+  ```python
+  try:
+      pipeline.run(state)
+  except StepError as err:
+      original = err.cause
+      ...
+  ```
+
+**CLI**
+
+- `hmp config FILE.toml` bare form removed — use
+  `hmp config template FILE.toml`.
+- New CLI sub-commands shipped: `hmp doctor`, `hmp inspect <sim_id>`,
+  `hmp best <project>`, `hmp worst <project>`, `hmp delete <sim_id>`,
+  `hmp completion {bash,zsh,fish}`, `hmp --version`.
+- `hmp run` accepts `--from STEP`, `--until STEP`, `--dry-run`,
+  `--no-checkpoint`.
+- `hmp data {check,list,add}` extended with `remove`, `prune`, `export`,
+  `import`, `check --fix`.
+- `hmp lock {update,archive,restore,verify}` added alongside
+  `hmp run --frozen` and `hmp data add --frozen` for lockfile-enforced
+  reproducibility.
+- New exit codes: `EXIT_DATA_ERROR=5`, `EXIT_SOLVER_ERROR=6`
+  (authoritative source: `hydromodpy._cli.helpers`).
+
+**Config**
+
+- Every config class now inherits from `hydromodpy.core.config.base.HydroModelBase`
+  with `extra="forbid"`. Unknown TOML keys raise `ValidationError`.
+- `HydroModPyConfig` gained a cross-section validator
+  (`data.inference_mode='strict'` ⇒ `data.types` non-empty; `[calibration]`
+  ⇒ `flow.param_list` non-empty; Boussinesq engine forbids `[transport]`).
+- Use `HydroModelBase.to_toml(profile=...)` (tomlkit round-trip) instead
+  of ad-hoc TOML writers.
+- `[display]` TOML section now exposes `enabled`, `backend`, `preset`,
+  `show` (renamed from `interactive`), `cmap`, `overrides`.
+
+**Storage**
+
+- DuckDB catalog gains 4 new tables (`runs_environment`, `tags`,
+  `stations`, `observations`) and 4 views (`v_simulation_summary`,
+  `v_best_per_project`, `v_metrics_wide`, `v_params_wide`).
+- `parameters.zone_id` default is now `__global__` (was `_homogeneous`).
+  Migrate existing workspaces by either resetting `hydromodpy.duckdb` or
+  running `UPDATE parameters SET zone_id='__global__' WHERE
+  zone_id='_homogeneous'`.
+- Portable `.hmp` packages are now `tar.zst` archives (manifest.json +
+  SHA-256). Unpack via `tar --zstd -xf pkg.hmp` or use
+  `SimulationCatalog.import_package` (which verifies hashes before
+  mutation).
+
+**Data layer**
+
+- `hydromodpy.data.schemas` (pandera) provides the canonical data
+  contracts: `TimeSeriesSchema`, `StationCollectionSchema`,
+  `LithologyTableSchema`, `CatchmentPolygonSchema`, `DEMContract`.
+  Schema failures surface as `DataContractViolation` (HMPY.E201).
+- `hydromodpy.core.io.http_client.HTTPClient` replaces ad-hoc
+  `requests.get` calls across every data client (SIM2, Hub'Eau,
+  BD-ALTI…). It enforces backoff, Retry-After and SHA-256 streaming.
+- `hydromodpy.data.lockfile` + `hmp lock` drives reproducible pinning
+  (`hydromodpy.lock`).
+- `DataSource` Protocol + `@register_source` decorator provide an
+  explicit plugin entry for lightweight data sources (without the
+  full `BaseVariableManager` boilerplate).
+
+**Plugin system**
+
+- Third-party solver adapters can now be installed via entry-points:
+  ```toml
+  [project.entry-points."hydromodpy.solver"]
+  my_solver = "my_package.adapter:register"
+  ```
+  `Pipeline.run` discovers them idempotently through
+  `importlib.metadata`.
+
+**Tests**
+
+- `tests/_helpers/` replaces `tests/support/`.
+- `tests/pytest.ini` is the authoritative test config.
+- Autouse `_deterministic_seeds` fixture + BLAS single-thread
+  environment variables reduce flakiness.
+- `tests/unit/` enforces the no-subprocess guardrail (fails fast if a
+  unit test shells out). Opt-out: `@pytest.mark.allow_subprocess`.
+- Benchmarks Theis (1935), Hantush (1955), Ogata-Banks (1961),
+  MMS Laplacian 1D, MMS diffusion transient are part of the validation
+  tier (`pytest -m "validation"`). `tests/TOLERANCES.md` documents the
+  22 numerical tolerances with Richardson / machine-epsilon / literature
+  rationale.
 
 ---
 
