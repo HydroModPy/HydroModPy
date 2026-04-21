@@ -612,6 +612,34 @@ class Simulation:
     def __repr__(self) -> str:
         return f"Simulation({self._config_path.name!r})"
 
+    def _repr_html_(self) -> str:
+        project_name = self._config_path.parent.name
+        runs = getattr(self, "_run_history", []) or []
+        n_runs = len(runs)
+        last_run = runs[-1] if runs else None
+        rows: list[tuple[str, str]] = [
+            ("config", f"<code>{self._config_path.name}</code>"),
+            ("project", project_name),
+            ("solver", str(getattr(self, "_solver", "") or "&mdash;")),
+            ("headless", "yes" if getattr(self, "_headless", False) else "no"),
+            ("runs", str(n_runs)),
+            (
+                "last run",
+                f"<code>{last_run.sim_id[:8]}</code> ({last_run.name})"
+                if last_run is not None
+                else "&mdash;",
+            ),
+        ]
+        body = "".join(
+            f"<tr><th style='text-align:left;padding-right:8px'>{k}</th><td>{v}</td></tr>"
+            for k, v in rows
+        )
+        return (
+            "<div><b>Simulation</b>"
+            "<table style='font-size:0.85em;border-collapse:collapse'>"
+            f"{body}</table></div>"
+        )
+
     # -- Private -----------------------------------------------------------
 
     def _detect_solver(self) -> str:
