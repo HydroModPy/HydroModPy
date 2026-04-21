@@ -56,7 +56,7 @@ class TransportModpathConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    parameters: ModpathParametersConfig = Field(
+    parameters: Annotated[ModpathParametersConfig, Profile.USER] = Field(
         default_factory=ModpathParametersConfig,
         description="Solver parameter block used by Modpath.",
     )
@@ -114,7 +114,7 @@ class TransportMt3dmsConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    parameters: ConcentrationTransportParametersConfig = Field(
+    parameters: Annotated[ConcentrationTransportParametersConfig, Profile.USER] = Field(
         default_factory=ConcentrationTransportParametersConfig,
         description="Solver parameter block used by Mt3dms.",
     )
@@ -125,7 +125,7 @@ class TransportModflow6GwtConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    parameters: ConcentrationTransportParametersConfig = Field(
+    parameters: Annotated[ConcentrationTransportParametersConfig, Profile.USER] = Field(
         default_factory=ConcentrationTransportParametersConfig,
         description="Solver parameter block used by Modflow6Transport.",
     )
@@ -136,21 +136,21 @@ class TransportConfig(ProcessSpatialConfig):
 
     # Keep shared ProcessSpatial schema inheritance, but keep these generic
     # containers out of default transport serialization for backward compatibility.
-    param_list: list[str] = Field(default_factory=list, exclude=True)
-    param: dict[str, object] = Field(default_factory=dict, exclude=True)
-    ic: object | None = Field(default=None, exclude=True)
-    bc: dict[str, object] = Field(default_factory=dict, exclude=True)
-    sinks_sources: dict[str, object] = Field(default_factory=dict, exclude=True)
+    param_list: Annotated[list[str], Profile.USER] = Field(default_factory=list, exclude=True)
+    param: Annotated[dict[str, object], Profile.USER] = Field(default_factory=dict, exclude=True)
+    ic: Annotated[object | None, Profile.USER] = Field(default=None, exclude=True)
+    bc: Annotated[dict[str, object], Profile.USER] = Field(default_factory=dict, exclude=True)
+    sinks_sources: Annotated[dict[str, object], Profile.USER] = Field(default_factory=dict, exclude=True)
 
-    modpath: TransportModpathConfig = Field(
+    modpath: Annotated[TransportModpathConfig, Profile.USER] = Field(
         default_factory=TransportModpathConfig,
         description="Modpath solver configuration block.",
     )
-    mt3dms: TransportMt3dmsConfig = Field(
+    mt3dms: Annotated[TransportMt3dmsConfig, Profile.USER] = Field(
         default_factory=TransportMt3dmsConfig,
         description="MT3DMS solver configuration block.",
     )
-    modflow6gwt: TransportModflow6GwtConfig = Field(
+    modflow6gwt: Annotated[TransportModflow6GwtConfig, Profile.USER] = Field(
         default_factory=TransportModflow6GwtConfig,
         description="MODFLOW 6 GWT solver configuration block.",
     )

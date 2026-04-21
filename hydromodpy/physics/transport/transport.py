@@ -11,6 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from hydromodpy.physics.base import ProcessSpatial
 from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.core.config.base import HydroModelBase
+from typing import Annotated
+from hydromodpy.core.config.profile import Profile
 
 
 @dataclass
@@ -31,7 +33,7 @@ class TransportInitialConditions(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    payload: dict[str, Any] = Field(
+    payload: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
         description="Transport-specific initial-condition mapping.",
     )
