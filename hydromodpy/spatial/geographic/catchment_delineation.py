@@ -229,3 +229,43 @@ class CatchmentDelineation:
         for attr_name, value in self._dem_metadata.legacy_attributes().items():
             setattr(self, attr_name, value)
 
+    def _repr_html_(self) -> str:
+        rows: list[tuple[str, str]] = [
+            ("catch_def", str(self.catch_def or "&mdash;")),
+            (
+                "outlet (x, y)",
+                f"({self.x_outlet}, {self.y_outlet})"
+                if self.x_outlet is not None and self.y_outlet is not None
+                else "&mdash;",
+            ),
+            (
+                "snap_dist",
+                f"{self.snap_dist} m" if self.snap_dist is not None else "&mdash;",
+            ),
+            (
+                "buff_area",
+                f"{self.buff_area} m²" if self.buff_area is not None else "&mdash;",
+            ),
+            (
+                "polygon",
+                f"<code>{self.polyg_shp_path}</code>"
+                if self.polyg_shp_path is not None
+                else "&mdash;",
+            ),
+            ("dem", f"<code>{self.dem_init_path}</code>"),
+            ("correction", str(self.dem_correc_type or "&mdash;")),
+            (
+                "out_dir",
+                f"<code>{self.out_dir_path}</code>",
+            ),
+        ]
+        body = "".join(
+            f"<tr><th style='text-align:left;padding-right:8px'>{k}</th><td>{v}</td></tr>"
+            for k, v in rows
+        )
+        return (
+            "<div><b>CatchmentDelineation</b>"
+            "<table style='font-size:0.85em;border-collapse:collapse'>"
+            f"{body}</table></div>"
+        )
+
