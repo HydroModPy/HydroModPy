@@ -79,7 +79,7 @@ class HydroModelBase(BaseModel):
             Destination TOML file path.
         profile
             One of ``"user"``, ``"dev"``, ``"expert"``. Fields whose
-            :class:`~hydromodpy.core.config.param_level.ParamLevel` exceeds
+            :class:`~hydromodpy.core.config.profile.Profile` exceeds
             the requested profile are omitted.
         """
         from hydromodpy.core.config.toml_io import dump_toml_with_comments
