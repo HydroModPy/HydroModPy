@@ -24,6 +24,13 @@ os.environ.setdefault("PYTHONHASHSEED", "42")
 
 
 _LAYER_DIR_NAMES = ("unit", "integration", "validation", "regression", "e2e")
+_LAYER_TIMEOUTS_SECONDS = {
+    "unit": 60.0,
+    "integration": 300.0,
+    "validation": 900.0,
+    "regression": 300.0,
+    "e2e": 1800.0,
+}
 
 
 def _resolve_test_scratch_root() -> Path:
@@ -158,10 +165,17 @@ def pytest_collection_modifyitems(config, items):
         item_path = Path(str(getattr(item, "fspath", item.path)))
         parts = item_path.parts
 
-        # 1) Auto-tag layer marker by path.
+        # 1) Auto-tag layer marker by path + default timeout.
         for layer in _LAYER_DIR_NAMES:
-            if layer in parts and layer not in item.keywords:
-                item.add_marker(getattr(pytest.mark, layer))
+            if layer in parts:
+                if layer not in item.keywords:
+                    item.add_marker(getattr(pytest.mark, layer))
+                if not any(
+                    mark.name == "timeout" for mark in item.iter_markers()
+                ):
+                    item.add_marker(
+                        pytest.mark.timeout(_LAYER_TIMEOUTS_SECONDS[layer])
+                    )
                 break
 
         # 2) Regression tier default markers (fast vs extensive).
