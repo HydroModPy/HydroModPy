@@ -39,7 +39,7 @@ first_run = next(iter(runs.values()))
 catalog = project.store
 zarr_store = catalog.open_zarr(first_run.sim_id)
 
-thickness = first_run.param("thickness")
+thickness = first_run.parameters.loc["thickness", "value"]
 
 dem, dem_meta = zarr_store.read_geographic_raster("watershed_dem")
 dem = dem.astype(float)

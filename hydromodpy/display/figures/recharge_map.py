@@ -46,7 +46,7 @@ class RechargeMap(BaseFigure):
         if rch.ndim == 2:
             rch = rch[0]
         render_face_field(ax, sim, rch, cmap=cmap, cbar_label="Recharge (m/d)")
-        ax.set_title(f"Recharge — {sim.name or sim.id}")
+        ax.set_title(f"Recharge — {sim.name or sim.sim_id}")
         ax.set_xlabel("x (m)")
         ax.set_ylabel("y (m)")
         return ax

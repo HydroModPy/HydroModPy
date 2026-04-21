@@ -21,7 +21,7 @@ def _read_pathlines(sim: "SimulationView") -> list[np.ndarray]:
     The Zarr layout follows ``simulations/<id>.zarr/pathlines/`` with one
     array per particle (named ``p_<idx>``) whose columns are ``x, y, z``.
     """
-    sz = sim._catalog.open_zarr(sim.id)
+    sz = sim._catalog.open_zarr(sim.sim_id)
     grp = sz.root.get("pathlines")
     if grp is None:
         return []
@@ -65,7 +65,7 @@ class ParticleTracks(BaseFigure):
         for i, track in enumerate(tracks):
             ax.plot(track[:, 0], track[:, 1], lw=lw, color=cmap(i))
         ax.set_aspect("equal", adjustable="datalim")
-        ax.set_title(f"Pathlines — {sim.name or sim.id}")
+        ax.set_title(f"Pathlines — {sim.name or sim.sim_id}")
         ax.set_xlabel("x (m)")
         ax.set_ylabel("y (m)")
         return ax

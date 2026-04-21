@@ -58,7 +58,7 @@ class DifferenceMap(BaseFigure):
             ax, sim, diff, cmap=cmap, vmin=-vmax, vmax=vmax,
             cbar_label=f"Δ {field}",
         )
-        ax.set_title(f"Δ {field} — {sim.id} − {reference.id}")
+        ax.set_title(f"Δ {field} — {sim.sim_id} − {reference.id}")
         ax.set_xlabel("x (m)")
         ax.set_ylabel("y (m)")
         return ax

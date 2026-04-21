@@ -51,7 +51,7 @@ class SideBySideMapFigure(BaseFigure):
             ax, sim, a, cmap=cmap, vmin=vmin, vmax=vmax,
             cbar_label=axis_label(field),
         )
-        ax.set_title(sim.name or sim.id)
+        ax.set_title(sim.name or sim.sim_id)
         return ax
 
     def plot(
@@ -87,7 +87,7 @@ class SideBySideMapFigure(BaseFigure):
             axes[0], sim, a, cmap=cmap, vmin=vmin, vmax=vmax,
             cbar_label=axis_label(field),
         )
-        axes[0].set_title(sim.name or sim.id)
+        axes[0].set_title(sim.name or sim.sim_id)
         render_face_field(
             axes[1], reference, b, cmap=cmap, vmin=vmin, vmax=vmax,
             cbar_label=axis_label(field),

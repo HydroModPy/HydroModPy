@@ -55,7 +55,7 @@ class TestSimulationMetadata:
     def test_basic_properties(self, catalog):
         sid = _register(catalog, name="run1", flow_regime="transient")
         sim = SimulationView(sid, catalog)
-        assert sim.id == sid
+        assert sim.sim_id == sid
         assert sim.name == "run1"
         assert sim.project == "test"
         assert sim.solver == "modflow6"
@@ -86,8 +86,10 @@ class TestSimulationData:
         _populate(catalog, sid)
         sim = SimulationView(sid, catalog)
         df = sim.parameters
-        assert len(df) == 2
-        assert set(df["param_name"]) == {"K", "Sy"}
+        # Homogeneous-only payload: simple index by param_name, no zone_id.
+        assert set(df.index) == {"K", "Sy"}
+        assert "value" in df.columns
+        assert sim.parameters.loc["K", "value"] == pytest.approx(1.5)
 
     def test_metrics(self, catalog):
         sid = _register(catalog)
@@ -232,7 +234,7 @@ class TestSimulationGroup:
         group = SimulationGroup(sids, catalog)
         sim = group[1]
         assert isinstance(sim, SimulationView)
-        assert sim.id == sids[1]
+        assert sim.sim_id == sids[1]
 
     def test_best_worst(self, catalog):
         s1 = _register(catalog)
@@ -243,8 +245,8 @@ class TestSimulationGroup:
         catalog.finalize(s2, "completed")
 
         group = SimulationGroup([s1, s2], catalog)
-        assert group.best("nse").id == s2
-        assert group.worst("nse").id == s1
+        assert group.best("nse").sim_id == s2
+        assert group.worst("nse").sim_id == s1
 
     def test_sort_by(self, catalog):
         s1 = _register(catalog)
@@ -304,7 +306,7 @@ class TestCatalogQueryMethods:
         sid = _register(catalog)
         sim = catalog[sid]
         assert isinstance(sim, SimulationView)
-        assert sim.id == sid
+        assert sim.sim_id == sid
 
     def test_getitem_not_found(self, catalog):
         with pytest.raises(KeyError):
@@ -367,7 +369,7 @@ class TestCatalogQueryMethods:
         s2 = _register(catalog, project="p1")
         catalog.finalize(s2, "completed")
         sim = catalog.latest("p1")
-        assert sim.id == s2
+        assert sim.sim_id == s2
 
     def test_latest_not_found(self, catalog):
         with pytest.raises(KeyError):
@@ -381,7 +383,7 @@ class TestCatalogQueryMethods:
         catalog.finalize(s1, "completed")
         catalog.finalize(s2, "completed")
         sim = catalog.best("p1", metric="nse")
-        assert sim.id == s2
+        assert sim.sim_id == s2
 
     def test_best_not_found(self, catalog):
         with pytest.raises(KeyError):

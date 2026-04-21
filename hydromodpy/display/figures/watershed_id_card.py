@@ -99,7 +99,7 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
         # -- Metadata table --
         ax_meta.set_axis_off()
         rows: list[tuple[str, str]] = [
-            ("ID", str(sim.id)),
+            ("ID", str(sim.sim_id)),
             ("Name", str(sim.name or "")),
             ("Project", str(sim.project or "")),
             ("Solver", str(sim.solver or "")),
@@ -120,7 +120,7 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
         table.scale(1.0, 1.3)
         ax_meta.set_title("Identity")
 
-        fig.suptitle(f"Watershed ID card — {sim.name or sim.id}", fontweight="bold")
+        fig.suptitle(f"Watershed ID card — {sim.name or sim.sim_id}", fontweight="bold")
         if save_path is not None:
             from pathlib import Path
 

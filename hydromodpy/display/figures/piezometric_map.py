@@ -44,7 +44,7 @@ class PiezometricMap(BaseFigure):
             cmap=cmap, vmin=vmin, vmax=vmax,
             cbar_label="Head (m)",
         )
-        ax.set_title(f"Water table — {sim.name or sim.id}")
+        ax.set_title(f"Water table — {sim.name or sim.sim_id}")
         ax.set_xlabel("x (m)")
         ax.set_ylabel("y (m)")
         return ax

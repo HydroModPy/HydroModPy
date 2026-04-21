@@ -63,7 +63,7 @@ class RecessionCurveFigure(BaseFigure):
         ax.set_ylabel(axis_label(variable))
         ax.grid(True, which="both", ls=":", lw=0.4)
         ax.set_title(
-            f"Recession curves — {sim.name or sim.id} @ {station} "
+            f"Recession curves — {sim.name or sim.sim_id} @ {station} "
             f"({len(limbs)} limbs)"
         )
         return ax

@@ -53,7 +53,7 @@ class CrossSection(BaseFigure):
             ax.invert_yaxis()
             ax.set_ylabel("Layer (top = 0)")
             ax.set_xlabel("Head (m)")
-        ax.set_title(f"Cross-section — {sim.name or sim.id}")
+        ax.set_title(f"Cross-section — {sim.name or sim.sim_id}")
         ax.grid(True, ls=":", lw=0.4)
         ax.legend()
         return ax

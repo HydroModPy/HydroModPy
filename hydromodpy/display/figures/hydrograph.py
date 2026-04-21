@@ -39,14 +39,14 @@ class Hydrograph(BaseFigure):
             ts = sim.timeseries(variable, station=station)
         except KeyError as exc:
             raise KeyError(
-                f"hydrograph: no '{variable}' series at station '{station}' for sim {sim.id}"
+                f"hydrograph: no '{variable}' series at station '{station}' for sim {sim.sim_id}"
             ) from exc
         ax.plot(ts.index, ts.values, label="sim", color="steelblue", lw=1.0)
         ax.set_xlabel("Date")
         ax.set_ylabel(f"{variable} (m³/s)")
         if log_y:
             ax.set_yscale("log")
-        ax.set_title(f"Hydrograph — {sim.name or sim.id} @ {station}")
+        ax.set_title(f"Hydrograph — {sim.name or sim.sim_id} @ {station}")
         ax.grid(True, ls=":", lw=0.4)
         ax.legend()
         return ax

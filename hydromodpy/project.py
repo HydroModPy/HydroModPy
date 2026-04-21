@@ -34,129 +34,6 @@ logger = logging.getLogger(__name__)
 
 
 # =====================================================================
-# SimulationResult
-# =====================================================================
-
-class SimulationResult:
-    """Read-only view on one simulation's results in the project store.
-
-    Attributes
-    ----------
-    sim_id : str
-        UUID of the simulation.
-    name : str
-        Human-readable run name.
-    """
-
-    def __init__(self, sim_id: str, name: str, store: Any) -> None:
-        self.sim_id = sim_id
-        self.name = name
-        self._store = store
-
-    def field(
-        self,
-        variable: str,
-        timestep: int,
-        layer: int | None = None,
-    ) -> np.ndarray:
-        """Load a spatial field for one timestep.
-
-        Supports stored variables (head, budget), derived variables
-        (watertable_depth, seepage_areas, accumulation_flux), and
-        virtual fields (outflow_drain).
-        """
-        return self._store.query_field(self.sim_id, variable, timestep, layer=layer)
-
-    @property
-    def parameters(self) -> pd.DataFrame:
-        """All parameters persisted for this run (DataFrame)."""
-        return self._store.connection.execute(
-            "SELECT param_name, zone_id, value, unit, parameterization "
-            "FROM parameters WHERE sim_id = ? ORDER BY param_name, zone_id",
-            [self.sim_id],
-        ).fetchdf()
-
-    def param(self, name: str, *, zone_id: str | None = None) -> float:
-        """Return a single parameter scalar by name (optionally zonal).
-
-        >>> run.param("thickness")
-        30.0
-        >>> run.param("K", zone_id="zone_1")
-        5e-5
-        """
-        rows = self._store.connection.execute(
-            "SELECT value FROM parameters "
-            "WHERE sim_id = ? AND param_name = ? "
-            "AND (? IS NULL OR zone_id = ?)",
-            [self.sim_id, name, zone_id, zone_id],
-        ).fetchall()
-        if not rows:
-            raise KeyError(f"parameter {name!r} not found for sim {self.sim_id}")
-        return float(rows[0][0])
-
-    def timeseries(
-        self,
-        variable: str,
-        station: str = "_catchment",
-        period: tuple | None = None,
-    ) -> pd.Series:
-        """Load a time series from the store.
-
-        Parameters
-        ----------
-        variable : str
-            E.g. ``"discharge"`` (outlet) or observation-point variables
-            declared in ``[observations]``. Catchment reductions like
-            ``saturated_fraction`` and ``drainage_density`` live on the
-            lazy :class:`~hydromodpy.results.simulation.SimulationView`
-            API instead.
-        station : str
-            Defaults to ``"_catchment"`` (outlet aggregate).
-        """
-        return self._store.query_timeseries(
-            self.sim_id, station, variable, period=period,
-        )
-
-    def budget(
-        self,
-        zone_id: int | None = None,
-        period: tuple | None = None,
-    ) -> pd.DataFrame:
-        """Load budget records."""
-        return self._store.query_budget(self.sim_id, zone_id=zone_id, period=period)
-
-    def export(
-        self,
-        variable: str = "*",
-        fmt: str = "csv",
-        path: str | Path | None = None,
-        **kwargs,
-    ) -> None:
-        """Export results to a file.
-
-        Parameters
-        ----------
-        variable : str
-            Variable name or ``"*"`` for all timeseries.
-        fmt : str
-            ``"csv"``, ``"netcdf"``, ``"geotiff"``, ``"vtu"``, ``"shapefile"``.
-        path : Path, optional
-            Output file path.  Defaults to ``exports/<name>/<variable>.<ext>``.
-        """
-        if path is None:
-            ext_map = {"csv": "csv", "netcdf": "nc", "vtu": "vtu",
-                       "geotiff": "tif", "shapefile": "shp"}
-            ext = ext_map.get(fmt, fmt)
-            out_dir = self._store.project_path / "exports" / self.name
-            out_dir.mkdir(parents=True, exist_ok=True)
-            path = out_dir / f"{variable}.{ext}" if variable != "*" else out_dir / f"timeseries.{ext}"
-        self._store.export(self.sim_id, variable, fmt, path, **kwargs)
-
-    def __repr__(self) -> str:
-        return f"SimulationResult({self.name!r})"
-
-
-# =====================================================================
 # Simulation
 # =====================================================================
 
@@ -369,7 +246,7 @@ class Simulation:
 
     # -- Run ---------------------------------------------------------------
 
-    def run(self, *, name: str | None = None, **overrides) -> SimulationResult:
+    def run(self, *, name: str | None = None, **overrides) -> "SimulationView":
         """Execute one simulation with optional parameter overrides.
 
         Without overrides, runs the TOML configuration as-is using the full
@@ -388,7 +265,11 @@ class Simulation:
 
         Returns
         -------
-        SimulationResult
+        :class:`~hydromodpy.results.simulation.SimulationView`
+            Ready-to-query view exposing ``sim_id``, ``name``,
+            ``timeseries``, ``parameters``, ``budget``, ``export``, the
+            lazy catchment metrics (``saturated_fraction``,
+            ``drainage_density`` …), and ``plot``.
         """
         from hydromodpy.simulation.execution.runner import (
             ProcessCallbacks,
@@ -561,7 +442,7 @@ class Simulation:
         self._store.finalize(sim_id, status="completed")
 
         logger.info("Run '%s' completed", name)
-        return SimulationResult(sim_id=sim_id, name=name, store=self._store)
+        return self._store[sim_id]
 
     def _run_with_overrides(self, name, overrides, *, thickness=None, first_clim=None):
         """Build a minimal plan with parameter overrides applied to a fresh Flow."""

@@ -281,7 +281,6 @@ _LAZY_IMPORTS = {
     "OceanicManager": "hydromodpy.data.variables.oceanic",
     # Simulation API (programmatic façade)
     "Simulation": "hydromodpy.project",
-    "SimulationResult": "hydromodpy.project",
     "SimulationPlan": "hydromodpy.simulation.planning.plan",
     # Catalog API
     "Catalog": "hydromodpy.results.catalog:SimulationCatalog",
@@ -378,7 +377,6 @@ __all__ = [
     "Boussinesq",
     # Simulation / catalog API
     "Simulation",
-    "SimulationResult",
     "SimulationView",
     "SimulationPlan",
     "Catalog",

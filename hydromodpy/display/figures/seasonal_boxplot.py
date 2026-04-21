@@ -65,6 +65,6 @@ class SeasonalBoxplotFigure(BaseFigure):
         ax.set_xticks(positions)
         ax.set_xticklabels(_MONTH_NAMES)
         ax.set_ylabel(axis_label(variable))
-        ax.set_title(f"Seasonal distribution — {sim.name or sim.id} @ {station}")
+        ax.set_title(f"Seasonal distribution — {sim.name or sim.sim_id} @ {station}")
         ax.grid(True, axis="y", ls=":", lw=0.4)
         return ax

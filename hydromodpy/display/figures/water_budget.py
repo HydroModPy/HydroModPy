@@ -38,7 +38,7 @@ class WaterBudget(BaseFigure):
             return ax
         agg = df.groupby("component")[["flux_in", "flux_out"]].sum()
         agg.plot.bar(ax=ax, color=["#3b8686", "#cf3a3a"])
-        ax.set_title(f"Water budget — {sim.name or sim.id}")
+        ax.set_title(f"Water budget — {sim.name or sim.sim_id}")
         ax.set_ylabel("Flux (m³/d)")
         ax.set_xlabel("")
         ax.tick_params(axis="x", rotation=30)

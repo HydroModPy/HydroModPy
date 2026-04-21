@@ -38,7 +38,7 @@ class SimulationView:
     # -- Metadata properties -------------------------------------------------
 
     @property
-    def id(self) -> str:
+    def sim_id(self) -> str:
         return self._sim_id
 
     @property
@@ -102,23 +102,29 @@ class SimulationView:
 
     @property
     def parameters(self) -> pd.DataFrame:
-        return self._catalog.connection.execute(
+        """Calibratable parameters persisted for this run.
+
+        Returns a ``DataFrame`` indexed by ``param_name`` (or by the
+        ``(param_name, zone_id)`` MultiIndex when a parameter is zonal)
+        with columns ``value``, ``unit``, ``parameterization``. Homogeneous
+        scalars are trivially looked up via
+        ``sim.parameters.loc["thickness", "value"]``.
+        """
+        df = self._catalog.connection.execute(
             "SELECT param_name, zone_id, value, unit, parameterization "
             "FROM parameters WHERE sim_id = ? ORDER BY param_name, zone_id",
             [self._sim_id],
         ).fetchdf()
-
-    def param(self, name: str, *, zone_id: str | None = None) -> float:
-        """Return a single parameter scalar by name (optionally zonal)."""
-        rows = self._catalog.connection.execute(
-            "SELECT value FROM parameters "
-            "WHERE sim_id = ? AND param_name = ? "
-            "AND (? IS NULL OR zone_id = ?)",
-            [self._sim_id, name, zone_id, zone_id],
-        ).fetchall()
-        if not rows:
-            raise KeyError(f"parameter {name!r} not found for sim {self._sim_id}")
-        return float(rows[0][0])
+        # Homogeneous params have zone_id=NULL in the DB (stored as
+        # "__global__" by the writer); hide that column from the canonical
+        # view unless zonal rows are present.
+        if df.empty:
+            return df.set_index("param_name")
+        is_zonal = df["zone_id"].fillna("__global__") != "__global__"
+        if is_zonal.any():
+            df["zone_id"] = df["zone_id"].fillna("__global__")
+            return df.set_index(["param_name", "zone_id"])
+        return df.drop(columns=["zone_id"]).set_index("param_name")
 
     @property
     def metrics(self) -> pd.DataFrame:
@@ -294,6 +300,38 @@ class SimulationView:
         if path is not None:
             df.to_csv(str(path), index=False)
         return df
+
+    # -- Export --------------------------------------------------------------
+
+    def export(
+        self,
+        variable: str = "*",
+        fmt: str = "csv",
+        path: str | Path | None = None,
+        **kwargs,
+    ) -> None:
+        """Export results to a file.
+
+        Parameters
+        ----------
+        variable : str
+            Variable name or ``"*"`` for all timeseries.
+        fmt : str
+            ``"csv"``, ``"netcdf"``, ``"geotiff"``, ``"vtu"``, ``"shapefile"``.
+        path : Path, optional
+            Output file path. Defaults to
+            ``<workspace>/exports/<name>/<variable>.<ext>``.
+        """
+        if path is None:
+            ext_map = {"csv": "csv", "netcdf": "nc", "vtu": "vtu",
+                       "geotiff": "tif", "shapefile": "shp"}
+            ext = ext_map.get(fmt, fmt)
+            out_dir = self._catalog.project_path / "exports" / (self.name or self._sim_id)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            path = out_dir / (
+                f"{variable}.{ext}" if variable != "*" else f"timeseries.{ext}"
+            )
+        self._catalog.export(self._sim_id, variable, fmt, path, **kwargs)
 
     # -- Lazy catchment views (delegate to hydromodpy.results.views) ---------
 

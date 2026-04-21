@@ -45,7 +45,7 @@ class SeepageMap(BaseFigure):
         mask = np.asarray(sim.field("seepage_areas", timestep=ts), dtype=float)
         render_face_field(ax, sim, mask, cmap=cmap, vmin=0.0, vmax=1.0,
                            cbar_label="Seepage (1 = at surface)")
-        ax.set_title(f"Seepage areas — {sim.name or sim.id}")
+        ax.set_title(f"Seepage areas — {sim.name or sim.sim_id}")
         ax.set_xlabel("x (m)")
         ax.set_ylabel("y (m)")
         return ax

@@ -54,5 +54,5 @@ class DurationCurveFigure(BaseFigure):
             ax.set_yscale("log")
         ax.set_xlim(0, 100)
         ax.grid(True, ls=":", lw=0.4)
-        ax.set_title(f"Duration curve — {sim.name or sim.id} @ {station}")
+        ax.set_title(f"Duration curve — {sim.name or sim.sim_id} @ {station}")
         return ax
