@@ -18,14 +18,17 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
+from typing import ClassVar
 
-from hydromodpy.pipeline.state import PipelineState
+from hydromodpy.pipeline.state import PipelineState, ValidatedState
 
 
 class ValidateStep:
     """Validate the config via Pydantic."""
 
     name = "validate"
+    tin: ClassVar[type | None] = None
+    tout: ClassVar[type] = ValidatedState
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.core.config import HydroModPyConfig
