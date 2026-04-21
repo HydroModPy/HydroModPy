@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.exceptions import StepError
 from hydromodpy.pipeline import Pipeline, PipelineState
 from hydromodpy.pipeline.checkpoint import CheckpointStore
 from hydromodpy.pipeline.ledger import StepsLedger
@@ -117,7 +118,7 @@ def test_pipeline_crash_then_resume_converges(tmp_path: Path) -> None:
         workspace=tmp_path,
         checkpoint=True,
     )
-    with pytest.raises(RuntimeError, match="synthetic crash at step 5"):
+    with pytest.raises(StepError, match="synthetic crash at step 5"):
         crash_pipeline.run(PipelineState(run_id="crash", data={}))
 
     cp = CheckpointStore(tmp_path, "crash")
