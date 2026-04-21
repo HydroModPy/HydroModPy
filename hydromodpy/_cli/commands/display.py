@@ -53,8 +53,8 @@ def run(args: argparse.Namespace) -> None:
     target_path = Path(target).expanduser()
 
     if target_path.is_file() and target_path.suffix == ".toml":
-        with target_path.open("rb") as f:
-            raw_toml = tomllib.load(f)
+        from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+        raw_toml = load_toml_with_base_config(target_path)
         display_cfg = DisplayConfig.model_validate(raw_toml.get("display", {}))
         if args.no_show:
             display_cfg.show = False
@@ -76,7 +76,11 @@ def run(args: argparse.Namespace) -> None:
                     print(f"  skipping unknown figure '{name}'", file=sys.stderr)
                     continue
                 save = (out_dir / f"{name}.png") if display_cfg.save else None
-                fig.plot(sim, dpi=display_cfg.dpi, save_path=save)
+                try:
+                    fig.plot(sim, dpi=display_cfg.dpi, save_path=save)
+                except Exception as exc:
+                    print(f"  skipping figure '{name}': {exc}", file=sys.stderr)
+                    continue
                 if save:
                     print(f"  wrote {save}", file=sys.stderr)
         return

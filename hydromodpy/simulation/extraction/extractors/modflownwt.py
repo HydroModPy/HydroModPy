@@ -213,10 +213,31 @@ class ModflowNwtOutputAdapter:
             botm = np.asarray(m.dis.botm.array, dtype="float64")
             z_flat = np.concatenate([top[:1], botm[:, 0, 0]]) if botm.ndim == 3 else np.array([float(top[0]), float(top[0]) - 10.0])
 
+            # Synthesize UGRID (vertices + face_node_connectivity) from the
+            # structured DIS grid so downstream readers (piezometric_map,
+            # exporters) can treat NWT runs the same way as DISV.
+            sg = m.modelgrid
+            x_edges = np.asarray(sg.xvertices, dtype="float64")  # (nrow+1, ncol+1)
+            y_edges = np.asarray(sg.yvertices, dtype="float64")
+            vertices = np.column_stack([
+                x_edges.ravel(),
+                y_edges.ravel(),
+                np.zeros(x_edges.size, dtype="float64"),
+            ])
+            nc = ncol + 1
+            fnc = np.empty((nrow * ncol, 4), dtype="int32")
+            for r in range(nrow):
+                for c in range(ncol):
+                    i = r * ncol + c
+                    n0 = r * nc + c
+                    fnc[i] = (n0, n0 + 1, n0 + nc + 1, n0 + nc)
+
             grp = store.open_zarr_group(sim_id)
             if "mesh" not in grp:
                 grp.create_group("mesh")
             mesh = grp["mesh"]
+            mesh.create_array("vertices", data=vertices, overwrite=True)
+            mesh.create_array("face_node_connectivity", data=fnc, overwrite=True)
             mesh.create_array("z_interfaces", data=z_flat, overwrite=True)
             mesh.create_array("surface_top", data=top, overwrite=True)
             mesh.attrs["n_cells"] = int(n_cells)
