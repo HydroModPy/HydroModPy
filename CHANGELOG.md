@@ -33,6 +33,30 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- Typed pipeline state hierarchy (phase G08): ``PipelineState`` is now
+  ``Generic[T]`` and ten frozen payload dataclasses model the per-step
+  transitions — ``ValidatedState`` → ``ResolvedState`` → ``LoadedState`` →
+  ``MeshedState`` → ``SetupState`` → ``OpenStoreState`` → ``SolverRanState``
+  → ``ExtractedState`` → ``DerivedState`` → ``ExportedState``. Each
+  payload extends the previous one, so a step that consumes the parent
+  state also accepts every refinement.
+- ``Step`` Protocol is now generic over ``TIn``/``TOut`` (phase G08); each
+  of the eleven canonical pipeline steps declares its ``tin`` / ``tout``
+  ClassVar attributes mapping to the typed payload dataclasses above.
+- ``StepError`` canonical constructor (phase G08): accepts
+  ``(step_name, cause, *, run_id=, sim_id=, **context)`` and exposes
+  ``step_name`` / ``cause`` attributes. The ``Pipeline`` orchestrator now
+  wraps any non-``StepError`` exception raised by a step in
+  ``StepError`` while preserving the original via ``__cause__``.
+  ``KeyboardInterrupt`` and ``SystemExit`` are explicitly **not** wrapped
+  so they propagate intact.
+- ``hydromodpy.solver`` plugin entry-points group (phase G08): third-party
+  packages can register additional solver adapters via
+  ``[project.entry-points."hydromodpy.solver"]``. Built-in adapters
+  (`flow_modflownwt`, `flow_modflow6`, `flow_boussinesq`) are declared in
+  ``pyproject.toml`` and discovered through ``importlib.metadata``.
+  ``hydromodpy.solver.base.registry.load_plugins()`` is invoked once at
+  the start of every ``Pipeline.run`` (idempotent).
 - CLI subcommands `hmp doctor`, `hmp inspect <sim_id>`,
   `hmp best <project> [--metric nse]`, `hmp worst <project> [--metric nse]`,
   `hmp delete <sim_id> [-y]`, and `hmp completion {bash,zsh,fish}` (phase G07).
@@ -206,6 +230,20 @@ Each release section includes the following standard categories:
   write calls from figure code.
 
 ### Changed
+- **BREAKING** (G08): the two historical solver registries
+  (``hydromodpy.solver.base.registry`` class-based, and
+  ``hydromodpy.simulation.adapters.registry`` instance-based) are now
+  merged. ``solver.base.registry`` is the single source of truth and
+  exposes both ``register(cls)`` and ``get_solver_adapter(p, s) →
+  instance``. ``simulation.adapters.registry`` becomes a thin shim that
+  registers the in-tree adapter classes and re-exports
+  ``get_solver_adapter`` / ``register_adapter`` for legacy callers.
+- **BREAKING** (G08): ``Pipeline._execute_step`` no longer catches
+  ``BaseException``. Step failures are now raised as
+  ``hydromodpy.core.exceptions.StepError`` with the original exception
+  attached as ``__cause__`` and exposed on ``StepError.cause``.
+  Calling code that did ``except RuntimeError`` to detect a failing
+  step must now catch ``StepError`` (and inspect ``err.cause``).
 - **BREAKING**: project version bumped to `0.5.0.dev0`.
 - **BREAKING** (G07): CLI implementation relocated from
   `hydromodpy/__main__.py` (1900+ lines) to the `hydromodpy/_cli/`
