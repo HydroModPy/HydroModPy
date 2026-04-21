@@ -70,7 +70,7 @@ def _normalize_unit_token(value: str | None) -> str | None:
         ) from None
 
 
-class FieldBaseSectionSchema(HydroModelBase):
+class FieldBaseSection(HydroModelBase):
     """
     Schema for `[field]` base section.
 
@@ -129,7 +129,7 @@ class FieldBaseSectionSchema(HydroModelBase):
         return _normalize_unit_token(value)
 
 
-class FieldHomogeneousSectionSchema(HydroModelBase):
+class FieldHomogeneousSection(HydroModelBase):
     """
     Schema for `[field_homogeneous]`.
     """
@@ -160,7 +160,7 @@ class FieldHomogeneousSectionSchema(HydroModelBase):
         raise TypeError("field_homogeneous.value must be numeric or '<number> <unit>'")
 
 
-class FieldHeterogeneousSectionSchema(HydroModelBase):
+class FieldHeterogeneousSection(HydroModelBase):
     """
     Schema for `[field_heterogeneous]`.
     """
@@ -319,7 +319,7 @@ class FieldHeterogeneousSectionSchema(HydroModelBase):
         return self
 
 
-class FieldVerticalProfileSectionSchema(HydroModelBase):
+class FieldVerticalProfileSection(HydroModelBase):
     """
     Schema for `[field_vertical_profile]`.
     """
@@ -482,19 +482,19 @@ class FieldParamConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="allow")
 
-    field: Annotated[FieldBaseSectionSchema | None, ParamLevel("user")] = Field(
+    field: Annotated[FieldBaseSection | None, ParamLevel("user")] = Field(
         default=None,
         description="Base section `[field]` with parameter id and kind.",
     )
-    field_homogeneous: Annotated[FieldHomogeneousSectionSchema | None, ParamLevel("user")] = Field(
+    field_homogeneous: Annotated[FieldHomogeneousSection | None, ParamLevel("user")] = Field(
         default=None,
         description="Homogeneous parameters section `[field_homogeneous]`.",
     )
-    field_heterogeneous: Annotated[FieldHeterogeneousSectionSchema | None, ParamLevel("user")] = Field(
+    field_heterogeneous: Annotated[FieldHeterogeneousSection | None, ParamLevel("user")] = Field(
         default=None,
         description="Heterogeneous parameters section `[field_heterogeneous]`.",
     )
-    field_vertical_profile: Annotated[FieldVerticalProfileSectionSchema | None, ParamLevel("user")] = Field(
+    field_vertical_profile: Annotated[FieldVerticalProfileSection | None, ParamLevel("user")] = Field(
         default=None,
         description="Optional depth profile section `[field_vertical_profile]`.",
     )
@@ -529,7 +529,7 @@ class FieldParamConfig(HydroModelBase):
         return self
 
 
-class ResolvedFieldParamSchema(HydroModelBase):
+class ResolvedFieldParam(HydroModelBase):
     """
     Schema for a fully resolved field-parameter payload.
 
@@ -578,7 +578,7 @@ class ResolvedFieldParamSchema(HydroModelBase):
         default=None,
         description="Optional helper CSV value column used before resolution.",
     )
-    vertical_profile: Annotated[FieldVerticalProfileSectionSchema | None, ParamLevel("dev")] = Field(
+    vertical_profile: Annotated[FieldVerticalProfileSection | None, ParamLevel("dev")] = Field(
         default=None,
         description="Resolved optional depth profile configuration.",
     )
@@ -914,7 +914,7 @@ def validate_resolved_field_param_data(
             raise KeyError("Heterogeneous field requires key 'field_spatial_id'")
 
     try:
-        parsed = ResolvedFieldParamSchema.model_validate(payload)
+        parsed = ResolvedFieldParam.model_validate(payload)
     except (ValidationError, TypeError) as exc:
         raise ValueError(str(exc)) from exc
     return parsed.model_dump(mode="python", exclude_none=True)
