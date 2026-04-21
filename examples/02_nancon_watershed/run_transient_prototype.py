@@ -17,6 +17,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.colors import ListedColormap
+from rasterio.features import rasterize
+from rasterio.transform import Affine
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
@@ -255,15 +257,19 @@ print("[plot] drainage_density_comparison.png")
 
 # 4. Saturation maps
 
-contour = None
-try:
-    contour_data, _ = sz.read_geographic_raster("watershed_contour")
-    contour = np.ma.masked_where(contour_data <= 0, contour_data)
-except KeyError:
-    # Fallback: derive a 1-cell boundary raster from the DEM watershed mask.
-    from scipy.ndimage import binary_dilation
-    edge = binary_dilation(~ws_mask, iterations=1) & ws_mask
-    contour = np.ma.masked_where(~edge, edge.astype(float))
+# Read the watershed outline from the vector store (lightweight linestring)
+# and rasterise it on the DEM grid so imshow can overlay it alongside the
+# simulated fields.
+contour_gdf = catalog.read_geographic_feature(first_result.sim_id, "watershed_contour")
+contour_transform = Affine(*dem_meta["transform"])
+contour_mask = rasterize(
+    [(geom, 1) for geom in contour_gdf.geometry if geom is not None],
+    out_shape=grid_shape,
+    transform=contour_transform,
+    fill=0,
+    dtype="uint8",
+).astype(bool)
+contour = np.ma.masked_where(~contour_mask, contour_mask.astype(float))
 
 mask = dem_data.copy()
 fig, axes = plt.subplots(len(results), 2, figsize=(8, 4 * len(results)), dpi=200)
