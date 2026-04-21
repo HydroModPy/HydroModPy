@@ -54,6 +54,12 @@ class Pipeline:
         """Execute steps sequentially from ``resume_from`` (default 0)."""
         from hydromodpy.pipeline.checkpoint import CheckpointStore
         from hydromodpy.pipeline.ledger import StepsLedger
+        from hydromodpy.solver.base import registry as solver_registry
+
+        # Load any third-party solver adapters declared via the
+        # ``hydromodpy.solver`` entry-points group. Idempotent: calling this
+        # more than once is a no-op (subsequent calls return 0).
+        solver_registry.load_plugins()
 
         ledger = StepsLedger(self.workspace) if self.workspace is not None else None
         cp_store = (
