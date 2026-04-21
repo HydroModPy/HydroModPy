@@ -12,6 +12,7 @@ import pytest
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.catalog_schema import (
     TABLE_NAMES,
+    VIEW_NAMES,
     ensure_schema,
 )
 
@@ -274,3 +275,183 @@ class TestChecks:
                 "INSERT INTO simulations (sim_id, project, solver, "
                 "bbox_xmin, bbox_xmax) VALUES (?, 'p', 'mf6', 10, 0)", [sid],
             )
+
+
+class TestG05Tables:
+    """The 4 G05-added tables: runs_environment, tags, stations, observations."""
+
+    def test_runs_environment_pk_is_sim_id(self, mem_conn):
+        sid = _sim_id()
+        mem_conn.execute(
+            "INSERT INTO simulations (sim_id, project, solver) "
+            "VALUES (?, 'p', 'mf6')", [sid],
+        )
+        mem_conn.execute(
+            "INSERT INTO runs_environment (sim_id, python_version) "
+            "VALUES (?, '3.13')", [sid],
+        )
+        with pytest.raises(duckdb.ConstraintException):
+            mem_conn.execute(
+                "INSERT INTO runs_environment (sim_id, python_version) "
+                "VALUES (?, '3.12')", [sid],
+            )
+
+    def test_tags_pk_sim_tag(self, mem_conn):
+        sid = _sim_id()
+        mem_conn.execute(
+            "INSERT INTO simulations (sim_id, project, solver) "
+            "VALUES (?, 'p', 'mf6')", [sid],
+        )
+        mem_conn.execute(
+            "INSERT INTO tags (sim_id, tag) VALUES (?, 'draft')", [sid],
+        )
+        mem_conn.execute(
+            "INSERT INTO tags (sim_id, tag) VALUES (?, 'published')", [sid],
+        )
+        with pytest.raises(duckdb.ConstraintException):
+            mem_conn.execute(
+                "INSERT INTO tags (sim_id, tag) VALUES (?, 'draft')", [sid],
+            )
+
+    def test_stations_pk_station_variable(self, mem_conn):
+        mem_conn.execute(
+            "INSERT INTO stations (station_id, variable_type, name) "
+            "VALUES ('P01', 'head', 'Piezo P01')"
+        )
+        mem_conn.execute(
+            "INSERT INTO stations (station_id, variable_type, name) "
+            "VALUES ('P01', 'discharge', 'Gauge P01')"
+        )
+        with pytest.raises(duckdb.ConstraintException):
+            mem_conn.execute(
+                "INSERT INTO stations (station_id, variable_type, name) "
+                "VALUES ('P01', 'head', 'Duplicate')"
+            )
+
+    def test_observations_pk(self, mem_conn):
+        mem_conn.execute(
+            "INSERT INTO observations "
+            "(station_id, variable_type, datetime, value) "
+            "VALUES ('P01', 'head', TIMESTAMP '2020-01-01', 1.0)"
+        )
+        with pytest.raises(duckdb.ConstraintException):
+            mem_conn.execute(
+                "INSERT INTO observations "
+                "(station_id, variable_type, datetime, value) "
+                "VALUES ('P01', 'head', TIMESTAMP '2020-01-01', 2.0)"
+            )
+
+
+class TestG05Views:
+    """The four denormalized views added in G05."""
+
+    def test_views_exist(self, mem_conn):
+        rows = mem_conn.execute(
+            "SELECT table_name FROM information_schema.views "
+            "WHERE table_schema='main'"
+        ).fetchall()
+        names = {r[0] for r in rows}
+        assert set(VIEW_NAMES) <= names
+
+    def test_simulation_summary_pulls_outlet_metrics(self, mem_conn):
+        sid = _sim_id()
+        mem_conn.execute(
+            "INSERT INTO simulations (sim_id, project, solver, status) "
+            "VALUES (?, 'river', 'mf6', 'completed')", [sid],
+        )
+        mem_conn.execute(
+            "INSERT INTO metrics (sim_id, metric_name, value) "
+            "VALUES (?, 'nse', 0.9)", [sid],
+        )
+        mem_conn.execute(
+            "INSERT INTO metrics (sim_id, metric_name, value) "
+            "VALUES (?, 'rmse', 0.05)", [sid],
+        )
+        row = mem_conn.execute(
+            "SELECT nse, rmse FROM v_simulation_summary WHERE sim_id = ?",
+            [sid],
+        ).fetchone()
+        assert row is not None
+        assert row[0] == 0.9
+        assert row[1] == 0.05
+
+    def test_best_per_project_picks_highest_nse(self, mem_conn):
+        sa = _sim_id()
+        sb = _sim_id()
+        for sid, nse in [(sa, 0.5), (sb, 0.8)]:
+            mem_conn.execute(
+                "INSERT INTO simulations (sim_id, project, solver, status) "
+                "VALUES (?, 'lab', 'mf6', 'completed')", [sid],
+            )
+            mem_conn.execute(
+                "INSERT INTO metrics (sim_id, metric_name, value) "
+                "VALUES (?, 'nse', ?)", [sid, nse],
+            )
+        row = mem_conn.execute(
+            "SELECT sim_id FROM v_best_per_project WHERE project='lab'"
+        ).fetchone()
+        assert str(row[0]) == sb
+
+    def test_metrics_wide_pivots_known_names(self, mem_conn):
+        sid = _sim_id()
+        mem_conn.execute(
+            "INSERT INTO simulations (sim_id, project, solver) "
+            "VALUES (?, 'p', 'mf6')", [sid],
+        )
+        for name, val in [("nse", 0.9), ("kge", 0.85), ("rmse", 0.1)]:
+            mem_conn.execute(
+                "INSERT INTO metrics (sim_id, metric_name, value) "
+                "VALUES (?, ?, ?)", [sid, name, val],
+            )
+        row = mem_conn.execute(
+            "SELECT nse, kge, rmse FROM v_metrics_wide WHERE sim_id = ?",
+            [sid],
+        ).fetchone()
+        assert row == (0.9, 0.85, 0.1)
+
+    def test_params_wide_returns_map(self, mem_conn):
+        sid = _sim_id()
+        mem_conn.execute(
+            "INSERT INTO simulations (sim_id, project, solver) "
+            "VALUES (?, 'p', 'mf6')", [sid],
+        )
+        mem_conn.execute(
+            "INSERT INTO parameters (sim_id, param_name, value) "
+            "VALUES (?, 'K', 1e-5)", [sid],
+        )
+        mem_conn.execute(
+            "INSERT INTO parameters (sim_id, param_name, zone_id, value) "
+            "VALUES (?, 'K', 'granite', 5e-6)", [sid],
+        )
+        row = mem_conn.execute(
+            "SELECT params FROM v_params_wide WHERE sim_id = ?", [sid],
+        ).fetchone()
+        params = row[0]
+        assert params["K"] == 1e-5
+        assert params["K::granite"] == 5e-6
+
+
+class TestG05ZoneGlobal:
+    """The ``parameters.zone_id`` default was renamed ``_homogeneous`` ->
+    ``__global__`` in G05. Make sure the new default is active and the old
+    one no longer resolves."""
+
+    def test_global_zone_is_default(self, mem_conn):
+        sid = _sim_id()
+        mem_conn.execute(
+            "INSERT INTO simulations (sim_id, project, solver) "
+            "VALUES (?, 'p', 'mf6')", [sid],
+        )
+        mem_conn.execute(
+            "INSERT INTO parameters (sim_id, param_name, value) "
+            "VALUES (?, 'K', 1.0)", [sid],
+        )
+        row = mem_conn.execute(
+            "SELECT zone_id FROM parameters WHERE sim_id = ?", [sid],
+        ).fetchone()
+        assert row[0] == "__global__"
+
+    def test_old_homogeneous_zone_constant_is_gone(self):
+        from hydromodpy.results import catalog_schema
+        assert not hasattr(catalog_schema, "HOMOGENEOUS_ZONE")
+        assert catalog_schema.GLOBAL_ZONE == "__global__"
