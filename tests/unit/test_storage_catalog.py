@@ -36,14 +36,14 @@ def _sim_id() -> str:
 
 
 class TestSchema:
-    def test_twelve_tables_present(self, mem_conn):
+    def test_sixteen_tables_present(self, mem_conn):
         rows = mem_conn.execute(
             "SELECT table_name FROM information_schema.tables "
-            "WHERE table_schema='main'"
+            "WHERE table_schema='main' AND table_type='BASE TABLE'"
         ).fetchall()
         tables = {r[0] for r in rows}
         assert set(TABLE_NAMES) <= tables
-        assert len(TABLE_NAMES) == 12
+        assert len(TABLE_NAMES) == 16
 
     def test_schema_version_table_absent(self, mem_conn):
         rows = mem_conn.execute(

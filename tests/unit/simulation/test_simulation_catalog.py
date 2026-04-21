@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.results.catalog_schema import HOMOGENEOUS_ZONE
+from hydromodpy.results.catalog_schema import GLOBAL_ZONE
 
 
 @pytest.fixture
@@ -126,7 +126,7 @@ class TestWriteMethods:
         ).fetchone()[0]
         assert count == 3
 
-    def test_parameters_homogeneous_zone(self, catalog):
+    def test_parameters_global_zone_default(self, catalog):
         sid, _ = _register(catalog)
         catalog.write_parameters(sid, [
             {"param_name": "K", "value": 1.0},
@@ -135,7 +135,7 @@ class TestWriteMethods:
             "SELECT zone_id FROM parameters WHERE sim_id = ? AND param_name = 'K'",
             [sid],
         ).fetchone()
-        assert row[0] == HOMOGENEOUS_ZONE
+        assert row[0] == GLOBAL_ZONE
 
     def test_write_timeseries(self, catalog):
         sid, _ = _register(catalog)

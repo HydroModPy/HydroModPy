@@ -58,7 +58,7 @@ class SimulationGroup:
         if df.empty:
             return df
         df["key"] = df["param_name"].where(
-            df["zone_id"] == "_homogeneous",
+            df["zone_id"] == "__global__",
             df["param_name"] + "_" + df["zone_id"],
         )
         return df.pivot_table(

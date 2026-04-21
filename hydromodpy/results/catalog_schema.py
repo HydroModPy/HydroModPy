@@ -31,7 +31,6 @@ import duckdb
 
 logger = logging.getLogger(__name__)
 
-HOMOGENEOUS_ZONE = "_homogeneous"
 GLOBAL_ZONE = "__global__"
 OUTLET_STATION = "__outlet__"
 
@@ -111,7 +110,7 @@ _PARAMETERS_DDL = """
 CREATE TABLE IF NOT EXISTS parameters (
     sim_id           UUID NOT NULL,
     param_name       VARCHAR NOT NULL,
-    zone_id          VARCHAR NOT NULL DEFAULT '_homogeneous',
+    zone_id          VARCHAR NOT NULL DEFAULT '__global__',
     value            DOUBLE,
     unit             VARCHAR,
     parameterization VARCHAR DEFAULT 'uniform',

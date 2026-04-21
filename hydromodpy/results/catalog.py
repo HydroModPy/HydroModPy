@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.results.catalog_schema import (
-    HOMOGENEOUS_ZONE,
+    GLOBAL_ZONE,
     PER_SIM_TABLE_NAMES,
     SOLVER_CATEGORIES,
     ensure_schema,
@@ -226,7 +226,7 @@ class SimulationCatalog:
         sid = str(sim_id)
         for p in params:
             zone = p.get("zone_id")
-            zone_val = HOMOGENEOUS_ZONE if zone is None else str(zone)
+            zone_val = GLOBAL_ZONE if zone is None else str(zone)
             self._db.execute(
                 """INSERT INTO parameters
                    (sim_id, param_name, zone_id, value, unit, parameterization)
