@@ -13,7 +13,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.physics.flow.boundary_conditions import (
     DIRICHLET_BC_CANONICAL_DOMAINS,
     FlowBoundaryConditionConfig,
@@ -101,7 +101,7 @@ class FlowConfig(ProcessSpatialConfig):
     parameter payloads are stored in `param`.
     """
 
-    flow_regime: Annotated[Literal["steady", "transient"], ParamLevel("user")] = Field(
+    flow_regime: Annotated[Literal["steady", "transient"], Profile.USER] = Field(
         default="transient",
         description=(
             "Global flow simulation regime used by solvers consuming [flow] "
@@ -118,7 +118,7 @@ class FlowConfig(ProcessSpatialConfig):
         },
     )
     runtime_backend: Annotated[
-        Literal["local", "scipy", "scipy_sparse", "petsc"], ParamLevel("dev")
+        Literal["local", "scipy", "scipy_sparse", "petsc"], Profile.DEV
     ] = Field(
         default="local",
         description=(
@@ -128,7 +128,7 @@ class FlowConfig(ProcessSpatialConfig):
     )
     surface_interaction_model: Annotated[
         Literal["auto", "regularized_partition", "complementarity"],
-        ParamLevel("dev"),
+        Profile.DEV,
     ] = Field(
         default="auto",
         description=(
@@ -139,7 +139,7 @@ class FlowConfig(ProcessSpatialConfig):
             "backend-dependent default."
         ),
     )
-    runtime_max_iterations: Annotated[int | None, ParamLevel("dev")] = Field(
+    runtime_max_iterations: Annotated[int | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional override for the nonlinear iteration budget used by the "
@@ -154,14 +154,14 @@ class FlowConfig(ProcessSpatialConfig):
             "display_max": 100_000,
         },
     )
-    runtime_tol_residual_inf: Annotated[float | None, ParamLevel("dev")] = Field(
+    runtime_tol_residual_inf: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional override for the infinity-norm residual tolerance used "
             "by the Boussinesq runtime backend."
         ),
     )
-    runtime_tol_state_update_inf: Annotated[float | None, ParamLevel("dev")] = Field(
+    runtime_tol_state_update_inf: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional override for the infinity-norm state-update tolerance "

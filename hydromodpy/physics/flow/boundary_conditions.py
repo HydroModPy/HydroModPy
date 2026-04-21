@@ -31,7 +31,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units import canonical_unit_short_form, check_unit_compatible
 from hydromodpy.core.config.base import HydroModelBase
 
@@ -81,7 +81,7 @@ class FlowBoundaryForcingConstantConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    value: Annotated[float, ParamLevel("user")] = Field(
+    value: Annotated[float, Profile.USER] = Field(
         ...,
         description="Constant boundary head in the same units as the parent boundary.",
     )
@@ -99,22 +99,22 @@ class FlowBoundaryForcingCsvConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    path_file: Annotated[Path, ParamLevel("dev")] = Field(..., description="Path to the CSV chronicle file.")
-    sep: Annotated[str, ParamLevel("dev")] = Field(default=",", description="CSV delimiter.")
-    date_column: Annotated[str, ParamLevel("dev")] = Field(default="date", description="CSV column containing timestamps.")
-    date_format: Annotated[str | None, ParamLevel("dev")] = Field(
+    path_file: Annotated[Path, Profile.DEV] = Field(..., description="Path to the CSV chronicle file.")
+    sep: Annotated[str, Profile.DEV] = Field(default=",", description="CSV delimiter.")
+    date_column: Annotated[str, Profile.DEV] = Field(default="date", description="CSV column containing timestamps.")
+    date_format: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Optional datetime format passed to pandas.to_datetime.",
     )
-    value_column: Annotated[str, ParamLevel("dev")] = Field(
+    value_column: Annotated[str, Profile.DEV] = Field(
         default="value",
         description="CSV column containing boundary head values.",
     )
-    fill_method: Annotated[Literal["ffill", "bfill"], ParamLevel("dev")] = Field(
+    fill_method: Annotated[Literal["ffill", "bfill"], Profile.DEV] = Field(
         default="ffill",
         description="Gap-filling policy used when a stress period has no direct sample.",
     )
-    aggregate: Annotated[Literal["mean", "last"], ParamLevel("dev")] = Field(
+    aggregate: Annotated[Literal["mean", "last"], Profile.DEV] = Field(
         default="mean",
         description="Stress-period aggregation method.",
     )
@@ -133,22 +133,22 @@ class FlowBoundaryForcingConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Annotated[Literal["constant", "csv"], ParamLevel("user")] = Field(
+    mode: Annotated[Literal["constant", "csv"], Profile.USER] = Field(
         ...,
         description="Boundary forcing mode consumed by launcher runtime.",
     )
-    units: Annotated[str | None, ParamLevel("dev")] = Field(
+    units: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Source units of forcing values before runtime conversion.",
     )
-    value: Annotated[float | None, ParamLevel("user")] = Field(default=None)
-    path_file: Annotated[Path | None, ParamLevel("dev")] = Field(default=None)
-    sep: Annotated[str, ParamLevel("dev")] = Field(default=",")
-    date_column: Annotated[str, ParamLevel("dev")] = Field(default="date")
-    date_format: Annotated[str | None, ParamLevel("dev")] = Field(default=None)
-    value_column: Annotated[str, ParamLevel("dev")] = Field(default="value")
-    fill_method: Annotated[Literal["ffill", "bfill"], ParamLevel("dev")] = Field(default="ffill")
-    aggregate: Annotated[Literal["mean", "last"], ParamLevel("dev")] = Field(default="mean")
+    value: Annotated[float | None, Profile.USER] = Field(default=None)
+    path_file: Annotated[Path | None, Profile.DEV] = Field(default=None)
+    sep: Annotated[str, Profile.DEV] = Field(default=",")
+    date_column: Annotated[str, Profile.DEV] = Field(default="date")
+    date_format: Annotated[str | None, Profile.DEV] = Field(default=None)
+    value_column: Annotated[str, Profile.DEV] = Field(default="value")
+    fill_method: Annotated[Literal["ffill", "bfill"], Profile.DEV] = Field(default="ffill")
+    aggregate: Annotated[Literal["mean", "last"], Profile.DEV] = Field(default="mean")
 
     @model_validator(mode="after")
     def _validate_mode_payload(self):
@@ -190,22 +190,22 @@ class FlowBoundaryConditionConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: Annotated[str, ParamLevel("user")] = Field(..., description="Boundary-condition identifier.")
-    value: Annotated[float | list[float] | None, ParamLevel("user")] = Field(
+    id: Annotated[str, Profile.USER] = Field(..., description="Boundary-condition identifier.")
+    value: Annotated[float | list[float] | None, Profile.USER] = Field(
         default=None,
         description="Boundary-condition value, scalar or one value per stress period.",
     )
-    description: Annotated[str, ParamLevel("user")] = Field("", description="Boundary-condition description.")
-    units: Annotated[str, ParamLevel("dev")] = Field("", description="Boundary-condition units.")
-    type: Annotated[Literal["dirichlet", "cauchy", "robin"], ParamLevel("user")] = Field(
+    description: Annotated[str, Profile.USER] = Field("", description="Boundary-condition description.")
+    units: Annotated[str, Profile.DEV] = Field("", description="Boundary-condition units.")
+    type: Annotated[Literal["dirichlet", "cauchy", "robin"], Profile.USER] = Field(
         "dirichlet",
         description="Boundary-condition type.",
     )
-    data_value: Annotated[bool, ParamLevel("dev")] = Field(
+    data_value: Annotated[bool, Profile.DEV] = Field(
         False,
         description="If True, boundary-condition values are sourced from data.",
     )
-    forcing: Annotated[FlowBoundaryForcingConfig | None, ParamLevel("dev")] = Field(
+    forcing: Annotated[FlowBoundaryForcingConfig | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional runtime forcing declaration for lateral Dirichlet boundaries. "
@@ -213,7 +213,7 @@ class FlowBoundaryConditionConfig(HydroModelBase):
             "payload to boundary.value using [simulation.time]."
         ),
     )
-    application_domain: Annotated[str | None, ParamLevel("user")] = Field(
+    application_domain: Annotated[str | None, Profile.USER] = Field(
         None,
         description=(
             "Boundary-application domain. Supported values are: top, north side, "

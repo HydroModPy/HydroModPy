@@ -34,7 +34,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units import (
     HydraulicConductivity,
     SpecificStorage,
@@ -57,7 +57,7 @@ class FlowPhysicalProperties(HydroModelBase):
         validate_default=True,
     )
 
-    k_aquifer: Annotated[HydraulicConductivity, ParamLevel("user")] = Field(
+    k_aquifer: Annotated[HydraulicConductivity, Profile.USER] = Field(
         default="1e-4 m/s",
         description="Hydraulic conductivity of the aquifer (K).",
         json_schema_extra={
@@ -73,7 +73,7 @@ class FlowPhysicalProperties(HydroModelBase):
         },
     )
 
-    specific_yield: Annotated[SpecificYield, ParamLevel("user")] = Field(
+    specific_yield: Annotated[SpecificYield, Profile.USER] = Field(
         default=0.1,
         description="Specific yield of the aquifer (Sy), dimensionless.",
         json_schema_extra={
@@ -86,7 +86,7 @@ class FlowPhysicalProperties(HydroModelBase):
         },
     )
 
-    specific_storage: Annotated[SpecificStorage, ParamLevel("user")] = Field(
+    specific_storage: Annotated[SpecificStorage, Profile.USER] = Field(
         default="1e-5 1/m",
         description="Specific storage coefficient (Ss), in m^-1.",
         json_schema_extra={
