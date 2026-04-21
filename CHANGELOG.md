@@ -32,6 +32,13 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Added
+- `hydromodpy.core.exceptions` — canonical typed exception hierarchy
+  (`HydroModPyError` base + `ConfigError`, `DataError`, `MeshError`,
+  `SolverError`, `PipelineError`, `CalibrationError`, `DisplayError`,
+  `StorageError` sub-trees). Each class carries a stable `HMPY.Exxx` code
+  and optional `sim_id` / `run_id` context.
+
 ---
 
 ## [v0.4.0] - 2026-04-21
