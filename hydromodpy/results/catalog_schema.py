@@ -1,10 +1,13 @@
 """DuckDB schema for the HydroModPy simulation catalog.
 
-Clean-slate schema (phase P02): 12 core tables with normalized primary keys,
+Schema v0.5 (phase G05): 16 core tables with normalized primary keys,
 ``TIMESTAMPTZ`` time columns, a JSON ``config_snapshot`` for full-config
 reproducibility, and a ``geographic_fingerprint`` column that ties each
 simulation to the workspace-level content-addressable geographic cache
-(see :mod:`hydromodpy.results.geographic_cache`).
+(see :mod:`hydromodpy.results.geographic_cache`). G05 adds
+``runs_environment``, ``tags``, ``stations`` and ``observations`` plus four
+denormalized views for simulation summaries and wide-format parameter /
+metric pivots.
 
 This module defines only DDL and helpers; it does not track historical schema
 versions. Each major release starts from a fresh schema. Migration principles
@@ -320,6 +323,22 @@ CREATE INDEX IF NOT EXISTS ix_stations_variable ON stations(variable_type);
 CREATE INDEX IF NOT EXISTS ix_stations_active ON stations(active);
 """
 
+_OBSERVATIONS_DDL = """
+CREATE TABLE IF NOT EXISTS observations (
+    station_id    VARCHAR NOT NULL,
+    variable_type VARCHAR NOT NULL,
+    datetime      TIMESTAMPTZ NOT NULL,
+    value         DOUBLE,
+    unit          VARCHAR,
+    quality       VARCHAR,
+    PRIMARY KEY (station_id, variable_type, datetime)
+);
+CREATE INDEX IF NOT EXISTS ix_observations_station
+    ON observations(station_id, variable_type, datetime);
+CREATE INDEX IF NOT EXISTS ix_observations_datetime
+    ON observations(datetime);
+"""
+
 # ---------------------------------------------------------------------------
 #  Geographic tables
 # ---------------------------------------------------------------------------
@@ -371,6 +390,7 @@ TABLE_NAMES: tuple[str, ...] = (
     "runs_environment",
     "tags",
     "stations",
+    "observations",
 )
 
 PER_SIM_TABLE_NAMES: tuple[str, ...] = (
@@ -403,11 +423,12 @@ _ALL_DDL: tuple[str, ...] = (
     _RUNS_ENVIRONMENT_DDL,
     _TAGS_DDL,
     _STATIONS_DDL,
+    _OBSERVATIONS_DDL,
 )
 
 
 def ensure_schema(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create the 12 catalog tables if they do not already exist.
+    """Create the catalog tables if they do not already exist.
 
     Idempotent: repeated calls on the same connection are safe. The function
     does not register a schema version — the whole catalog follows a
