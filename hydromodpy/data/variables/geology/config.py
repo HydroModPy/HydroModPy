@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.base import HydroModelBase
 
 
@@ -18,7 +18,7 @@ class GeologySourceConfig(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     source: Annotated[
-        Literal["custom", "brgm_1m", "brgm_50k"], ParamLevel("user")
+        Literal["custom", "brgm_1m", "brgm_50k"], Profile.USER
     ] = Field(
         ...,
         description=(
@@ -29,11 +29,11 @@ class GeologySourceConfig(HydroModelBase):
     )
 
     # --- Custom source fields ---
-    path: Annotated[Path | None, ParamLevel("user")] = Field(
+    path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description="Path to custom geology file or directory (SHP, GPKG, TIF, CSV).",
     )
-    code_field: Annotated[str | None, ParamLevel("user")] = Field(
+    code_field: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Attribute column for geology codes in custom vector files "
@@ -41,7 +41,7 @@ class GeologySourceConfig(HydroModelBase):
             "Ignored for BRGM sources (always CODE_LEG)."
         ),
     )
-    values_table_path: Annotated[Path | None, ParamLevel("user")] = Field(
+    values_table_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional CSV linking geology codes to descriptions. "
@@ -50,31 +50,31 @@ class GeologySourceConfig(HydroModelBase):
     )
 
     # --- CSV interpolation fields ---
-    col_x: Annotated[str, ParamLevel("dev")] = Field(
+    col_x: Annotated[str, Profile.DEV] = Field(
         default="x", description="Column for X coordinate in CSV.",
     )
-    col_y: Annotated[str, ParamLevel("dev")] = Field(
+    col_y: Annotated[str, Profile.DEV] = Field(
         default="y", description="Column for Y coordinate in CSV.",
     )
-    col_code: Annotated[str, ParamLevel("dev")] = Field(
+    col_code: Annotated[str, Profile.DEV] = Field(
         default="geology_code", description="Column for geology code in CSV.",
     )
-    default_crs: Annotated[str, ParamLevel("dev")] = Field(
+    default_crs: Annotated[str, Profile.DEV] = Field(
         default="EPSG:2154", description="Default CRS for CSV points.",
     )
 
     # --- Spatial mask ---
-    mask_path: Annotated[Path | None, ParamLevel("user")] = Field(
+    mask_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description="SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
     )
-    extent: Annotated[Literal["watershed", "study_area"] | None, ParamLevel("user")] = Field(
+    extent: Annotated[Literal["watershed", "study_area"] | None, Profile.USER] = Field(
         default=None,
         description="Use project extent for bbox-based data retrieval.",
     )
 
     # --- Common ---
-    force_refresh: Annotated[bool, ParamLevel("dev")] = Field(
+    force_refresh: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Ignore cache and re-download from API.",
     )
@@ -117,17 +117,17 @@ class GeologyConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    sources: Annotated[list[GeologySourceConfig], ParamLevel("user")] = Field(
+    sources: Annotated[list[GeologySourceConfig], Profile.USER] = Field(
         default_factory=lambda: [GeologySourceConfig(source="brgm_1m")],
         min_length=1,
         description="At least one geology data source. Defaults to BRGM 1:1M.",
     )
 
-    id: Annotated[str, ParamLevel("user")] = Field(
+    id: Annotated[str, Profile.USER] = Field(
         default="field_geology",
         description="Identifier of the geology spatial field.",
     )
-    cell_samples_per_axis: Annotated[int, ParamLevel("dev")] = Field(
+    cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(
         default=8,
         ge=2,
         description=(
