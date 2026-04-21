@@ -1557,7 +1557,16 @@ cmap = "viridis"
 # Names of registered figures to render automatically after a simulation.
 # Empty list disables auto-rendering.
 # Type: list[str] | REQUIRED
-figures = []
+# Rendu avec : `uv run hmp display examples/02_nancon_watershed/project.toml`.
+# Liste complète des figures enregistrées : voir `hydromodpy/display/figures/`.
+figures = [
+    "watershed_id_card",
+    "piezometric_map",
+    "water_budget",
+    "hydrograph",
+    "recharge_map",
+    "seepage_map",
+]
 
 
 # ----------------------------------------------------------------------
