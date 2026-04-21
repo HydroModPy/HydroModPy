@@ -9,10 +9,12 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from hydromodpy.core.exceptions import DataError
+
 VECTOR_SUFFIXES = frozenset({".shp", ".geojson", ".json", ".gpkg", ".parquet"})
 
 
-class VectorConversionError(RuntimeError):
+class VectorConversionError(DataError):
     """Raised when a vector file cannot be converted."""
 
 

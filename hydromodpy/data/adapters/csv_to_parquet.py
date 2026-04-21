@@ -20,6 +20,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 
+from hydromodpy.core.exceptions import DataContractViolation
+
 
 TIMESERIES_COLUMNS = ("datetime", "value")
 LOCATIONS_COLUMNS = ("id", "x", "y", "crs", "unit")
@@ -27,7 +29,7 @@ LOCATIONS_COLUMNS = ("id", "x", "y", "crs", "unit")
 _ID_RE = re.compile(r"^[A-Za-z0-9_\-.]{1,64}$")
 
 
-class TimeSeriesValidationError(ValueError):
+class TimeSeriesValidationError(DataContractViolation):
     """Raised when a CSV file fails validation.
 
     The ``errors`` attribute exposes the full list of issues; the

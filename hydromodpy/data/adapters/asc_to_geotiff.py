@@ -11,8 +11,10 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from hydromodpy.core.exceptions import DataError
 
-class RasterConversionError(RuntimeError):
+
+class RasterConversionError(DataError):
     """Raised when a raster file cannot be converted to COG."""
 
 
