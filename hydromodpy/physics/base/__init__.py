@@ -16,6 +16,7 @@ independent from process-specific business rules.
 
 from .boundary_conditions import BoundaryCondition
 from .boundary_conditions_config import normalize_boundary_condition_payload
+from .forcing import ConstantForcing, CsvForcing, Forcing, SyntheticForcing
 from .initial_conditions import InitialCondition
 from .initial_conditions_config import normalize_initial_condition_payload
 from .process_spatial import Process, ProcessSpatial, TInitialConditions
@@ -27,6 +28,10 @@ __all__ = [
     "InitialCondition",
     "BoundaryCondition",
     "SinkSource",
+    "ConstantForcing",
+    "CsvForcing",
+    "Forcing",
+    "SyntheticForcing",
     "normalize_initial_condition_payload",
     "normalize_boundary_condition_payload",
     "normalize_sink_source_payload",
