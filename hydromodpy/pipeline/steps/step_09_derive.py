@@ -19,9 +19,10 @@ fields as a side effect.
 from __future__ import annotations
 
 import logging
+from typing import ClassVar
 
 from hydromodpy.pipeline.derived import registry as _default_registry
-from hydromodpy.pipeline.state import PipelineState
+from hydromodpy.pipeline.state import DerivedState, ExtractedState, PipelineState
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,8 @@ class DeriveStep:
     """Compute derived fields registered on the :class:`DerivedRegistry`."""
 
     name = "derive"
+    tin: ClassVar[type] = ExtractedState
+    tout: ClassVar[type] = DerivedState
 
     def __init__(self, registry=None) -> None:
         self._registry = registry if registry is not None else _default_registry
