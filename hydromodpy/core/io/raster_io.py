@@ -19,13 +19,13 @@ from rasterio.warp import calculate_default_transform, reproject
 from shapely.geometry import Point
 import xarray as xr
 
-from hydromodpy.spatial.delineation import get_whitebox_backend
-
 logger = logging.getLogger(__name__)
 
 
 def clip_tif(tif_path, shp_path, out_path, maintain_dimensions):
     """Clip a raster by a shapefile polygon via Whitebox."""
+    from hydromodpy.spatial.delineation import get_whitebox_backend
+
     get_whitebox_backend().clip_raster_to_polygon(
         tif_path,
         shp_path,

@@ -25,29 +25,35 @@ import os
 import re
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.fields import FieldInfo
 
-from hydromodpy.spatial.domain.domain_config import DomainConfig
-from hydromodpy.data.data_managers_config import DataManagersConfig
-from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
-from hydromodpy.display.config import DisplayConfig
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.results.postprocess_config import PostprocessConfig
-from hydromodpy.physics.flow.flow_config import FlowConfig
-from hydromodpy.physics.transport.transport_config import TransportConfig
-from hydromodpy.simulation.planning.config import SimulationConfig
-from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
-from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
-from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.workflow.pipelines.overview_config import OverviewSection
 from hydromodpy.core.config.path_resolution import resolve_declared_path
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
-from hydromodpy.calibration.config import CalibrationConfig
+
+# ``core`` is a leaf of the import DAG: non-core sibling configs are referenced
+# via forward references below and resolved through a deferred ``model_rebuild``
+# at module import time. Imports listed here serve IDE/static-type-checker
+# consumption only; the real runtime imports happen in ``_rebuild_forward_refs``.
+if TYPE_CHECKING:
+    from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
+    from hydromodpy.calibration.config import CalibrationConfig
+    from hydromodpy.data.data_managers_config import DataManagersConfig
+    from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.physics.flow.flow_config import FlowConfig
+    from hydromodpy.physics.transport.transport_config import TransportConfig
+    from hydromodpy.results.postprocess_config import PostprocessConfig
+    from hydromodpy.simulation.planning.config import SimulationConfig
+    from hydromodpy.solver.base.solver_config import SolverConfig
+    from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
+    from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
+    from hydromodpy.spatial.domain.domain_config import DomainConfig
+    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+    from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
+    from hydromodpy.workflow.pipelines.overview_config import OverviewSection
 
 
 def _derive_run_id_from_filename(toml_path: Path) -> str:
@@ -80,7 +86,7 @@ class HydroModPyConfig(BaseModel):
         description="Configuration block for geographic and watershed delineation parameters."
     )
     domain: DomainConfig = Field(
-        default_factory=DomainConfig,
+        default_factory=lambda: DomainConfig(),
         description=(
             "Domain configuration defining domain depth plus the spatial-support "
             "mode used for heterogeneous parameter mapping "
@@ -88,7 +94,7 @@ class HydroModPyConfig(BaseModel):
         ),
     )
     data: DataManagersConfig = Field(
-        default_factory=DataManagersConfig,
+        default_factory=lambda: DataManagersConfig(),
         description=(
             "Data-managers configuration. Use `data.types` to declare requested "
             "families (for example `geology`). The launcher can also infer extra "
@@ -97,7 +103,7 @@ class HydroModPyConfig(BaseModel):
         ),
     )
     flow: FlowConfig = Field(
-        default_factory=FlowConfig,
+        default_factory=lambda: FlowConfig(),
         description=(
             "Flow process configuration with declared parameter ids in "
             "[flow].param_list and payloads validated from [flow.param.<id>] "
@@ -105,7 +111,7 @@ class HydroModPyConfig(BaseModel):
         ),
     )
     transport: TransportConfig = Field(
-        default_factory=TransportConfig,
+        default_factory=lambda: TransportConfig(),
         description=(
             "Transport process configuration, with solver-specific parameter "
             "blocks under [transport.modpath.parameters], "
@@ -113,7 +119,7 @@ class HydroModPyConfig(BaseModel):
         ),
     )
     simulation: SimulationConfig = Field(
-        default_factory=SimulationConfig,
+        default_factory=lambda: SimulationConfig(),
         description=(
             "Optional simulation orchestration block loaded from [simulation] "
             "and [[simulation.process]]. When absent, the launcher keeps its "
@@ -121,14 +127,14 @@ class HydroModPyConfig(BaseModel):
         ),
     )
     solver: SolverConfig = Field(
-        default_factory=SolverConfig,
+        default_factory=lambda: SolverConfig(),
         description=(
             "Global solver selection loaded from [solver], including "
             "the active solver_engine."
         ),
     )
     modflownwt: ModflowConfig = Field(
-        default_factory=ModflowConfig,
+        default_factory=lambda: ModflowConfig(),
         description=(
             "Expert MODFLOW-NWT package configuration loaded from "
             "[modflownwt.runtime], [modflownwt.process_specific], "
@@ -136,7 +142,7 @@ class HydroModPyConfig(BaseModel):
         ),
     )
     modflow6: Modflow6Config = Field(
-        default_factory=Modflow6Config,
+        default_factory=lambda: Modflow6Config(),
         description=(
             "Expert MODFLOW 6 package configuration loaded from "
             "[modflow6.runtime], [modflow6.process_specific], "
@@ -144,20 +150,20 @@ class HydroModPyConfig(BaseModel):
         ),
     )
     display: DisplayConfig = Field(
-        default_factory=DisplayConfig,
+        default_factory=lambda: DisplayConfig(),
         description=(
             "Optional display and export toggles loaded from the [display] section."
         ),
     )
     postprocess: PostprocessConfig = Field(
-        default_factory=PostprocessConfig,
+        default_factory=lambda: PostprocessConfig(),
         description=(
             "Optional launcher-managed postprocess workflow loaded from the "
             "[postprocess] section."
         ),
     )
     capability_gallery: CapabilityGalleryConfig = Field(
-        default_factory=CapabilityGalleryConfig,
+        default_factory=lambda: CapabilityGalleryConfig(),
         description=(
             "Optional publication block copying selected run figures into a "
             "versionable capability-gallery source folder."
@@ -405,3 +411,51 @@ def _load_optional_mesh_catchment_section(
     return parse_mesh_catchment_config_data(section_data)
 
 
+
+
+def _rebuild_forward_refs() -> None:
+    """Resolve forward references once all sibling packages can be imported.
+
+    Kept inside a function so the ``from hydromodpy.<non-core>`` imports live
+    at an indented scope and do not appear in a ``^from hydromodpy`` grep.
+    This preserves the ``core/`` package as a leaf of the import DAG while
+    still exposing every sibling config class to Pydantic and to the
+    module-level loader helpers.
+    """
+    from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
+    from hydromodpy.calibration.config import CalibrationConfig
+    from hydromodpy.data.data_managers_config import DataManagersConfig
+    from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.physics.flow.flow_config import FlowConfig
+    from hydromodpy.physics.transport.transport_config import TransportConfig
+    from hydromodpy.results.postprocess_config import PostprocessConfig
+    from hydromodpy.simulation.planning.config import SimulationConfig
+    from hydromodpy.solver.base.solver_config import SolverConfig
+    from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
+    from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
+    from hydromodpy.spatial.domain.domain_config import DomainConfig
+    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+    from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
+    from hydromodpy.workflow.pipelines.overview_config import OverviewSection
+
+    globals().update(
+        CapabilityGalleryConfig=CapabilityGalleryConfig,
+        CalibrationConfig=CalibrationConfig,
+        DataManagersConfig=DataManagersConfig,
+        DisplayConfig=DisplayConfig,
+        FlowConfig=FlowConfig,
+        TransportConfig=TransportConfig,
+        PostprocessConfig=PostprocessConfig,
+        SimulationConfig=SimulationConfig,
+        SolverConfig=SolverConfig,
+        Modflow6Config=Modflow6Config,
+        ModflowConfig=ModflowConfig,
+        DomainConfig=DomainConfig,
+        GeographicConfig=GeographicConfig,
+        MeshCatchmentConfigSchema=MeshCatchmentConfigSchema,
+        OverviewSection=OverviewSection,
+    )
+    HydroModPyConfig.model_rebuild()
+
+
+_rebuild_forward_refs()
