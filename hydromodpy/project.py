@@ -67,6 +67,33 @@ class SimulationResult:
         """
         return self._store.query_field(self.sim_id, variable, timestep, layer=layer)
 
+    @property
+    def parameters(self) -> pd.DataFrame:
+        """All parameters persisted for this run (DataFrame)."""
+        return self._store.connection.execute(
+            "SELECT param_name, zone_id, value, unit, parameterization "
+            "FROM parameters WHERE sim_id = ? ORDER BY param_name, zone_id",
+            [self.sim_id],
+        ).fetchdf()
+
+    def param(self, name: str, *, zone_id: str | None = None) -> float:
+        """Return a single parameter scalar by name (optionally zonal).
+
+        >>> run.param("thickness")
+        30.0
+        >>> run.param("K", zone_id="zone_1")
+        5e-5
+        """
+        rows = self._store.connection.execute(
+            "SELECT value FROM parameters "
+            "WHERE sim_id = ? AND param_name = ? "
+            "AND (? IS NULL OR zone_id = ?)",
+            [self.sim_id, name, zone_id, zone_id],
+        ).fetchall()
+        if not rows:
+            raise KeyError(f"parameter {name!r} not found for sim {self.sim_id}")
+        return float(rows[0][0])
+
     def timeseries(
         self,
         variable: str,

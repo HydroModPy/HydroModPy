@@ -108,6 +108,18 @@ class SimulationView:
             [self._sim_id],
         ).fetchdf()
 
+    def param(self, name: str, *, zone_id: str | None = None) -> float:
+        """Return a single parameter scalar by name (optionally zonal)."""
+        rows = self._catalog.connection.execute(
+            "SELECT value FROM parameters "
+            "WHERE sim_id = ? AND param_name = ? "
+            "AND (? IS NULL OR zone_id = ?)",
+            [self._sim_id, name, zone_id, zone_id],
+        ).fetchall()
+        if not rows:
+            raise KeyError(f"parameter {name!r} not found for sim {self._sim_id}")
+        return float(rows[0][0])
+
     @property
     def metrics(self) -> pd.DataFrame:
         return self._catalog.connection.execute(

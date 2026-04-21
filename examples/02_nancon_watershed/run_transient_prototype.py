@@ -39,9 +39,7 @@ first_run = next(iter(runs.values()))
 catalog = project.store
 zarr_store = catalog.open_zarr(first_run.sim_id)
 
-# Paramètres persistés côté DB (table `parameters`)
-params = catalog[first_run.sim_id].parameters.set_index("param_name")["value"]
-thickness = float(params["thickness"])
+thickness = first_run.param("thickness")
 
 dem, dem_meta = zarr_store.read_geographic_raster("watershed_dem")
 dem = dem.astype(float)
