@@ -16,13 +16,17 @@ populated.
 
 from __future__ import annotations
 
-from hydromodpy.pipeline.state import PipelineState
+from typing import ClassVar
+
+from hydromodpy.pipeline.state import LoadedState, MeshedState, PipelineState
 
 
 class BuildGeographicStep:
     """Build geographic runtime, domain, and setup-phase spatial supports."""
 
     name = "build_geographic"
+    tin: ClassVar[type] = LoadedState
+    tout: ClassVar[type] = MeshedState
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.workflow.steps.setup import step_setup
