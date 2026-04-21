@@ -126,7 +126,7 @@ def _batch_cfg(tmp_path: Path):
     return SimpleNamespace(
         workspace=WorkspaceConfig(
             project_root=tmp_path / "out" / "mesh_batch",
-            workspace_root=tmp_path,
+            root=tmp_path,
         ),
         geographic=GeographicConfig(
             catch_def="from_outlet_coord",
@@ -1261,7 +1261,7 @@ def test_mesh_catchment_launcher_batch_rejects_outlets_outside_dem_extent(
     runtime_cfg = SimpleNamespace(
         workspace=WorkspaceConfig(
             project_root=tmp_path / "out" / "mesh_batch",
-            workspace_root=tmp_path,
+            root=tmp_path,
         ),
         geographic=GeographicConfig(
             catch_def="from_outlet_coord",

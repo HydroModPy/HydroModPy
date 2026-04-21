@@ -23,8 +23,12 @@ def minimal_hmp_config(project_root: Path):
     from hydromodpy.core.workspace.config import WorkspaceConfig
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
+    ws_root = Path(project_root)
     return HydroModPyConfig(
-        workspace=WorkspaceConfig(project_root=Path(project_root) / "project"),
+        workspace=WorkspaceConfig(
+            project_root=ws_root / "project",
+            root=ws_root,
+        ),
         geographic=GeographicConfig(source_mode="synthetic"),
     )
 

@@ -210,8 +210,7 @@ class Project:
 
         # Open catalog (stays open for project lifetime)
         ws = self._ctx.setup.workspace
-        workspace_root = getattr(ws, "workspace_root", None) or ws.project_root
-        self._store = SimulationCatalog(workspace_root)
+        self._store = SimulationCatalog(ws.workspace_root)
         self._project_name = ws.project_root.name
 
         self._run_counter = 0

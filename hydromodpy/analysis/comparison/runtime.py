@@ -1967,11 +1967,9 @@ def discover_result_store(
     if project_root is None:
         return None, None
 
-    from hydromodpy.core.workspace.config import WorkspaceConfig
+    from hydromodpy.core.workspace.resolve import locate_workspace_root
 
-    workspace_root = WorkspaceConfig.discover_workspace_root(project_root)
-    if workspace_root is None:
-        workspace_root = project_root
+    workspace_root = locate_workspace_root(project_root) or project_root
 
     try:
         from hydromodpy.results.catalog import SimulationCatalog

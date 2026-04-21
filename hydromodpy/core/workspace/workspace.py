@@ -47,6 +47,9 @@ class Workspace:
         self.paths = WorkspacePathRegistry.from_config(config)
         self.project_root = self.paths.project_root
         self.workspace_root = self.paths.workspace_root
+        self.catalog_path = self.paths.catalog_path
+        self.data_dir = self.paths.data_dir
+        self.simulations_dir = self.paths.simulations_dir
         self.catch_name = self.paths.catch_name
 
         create_folder(self.project_root)

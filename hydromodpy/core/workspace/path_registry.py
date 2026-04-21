@@ -20,16 +20,22 @@ class WorkspacePathRegistry:
     """Centralize canonical input/output paths for one workspace."""
 
     project_root: Path
+    workspace_root: Path
+    catalog_path: Path
+    data_dir: Path
+    simulations_dir: Path
     output_root: Path | None = None
-    workspace_root: Path | None = None
 
     @classmethod
     def from_config(cls, config: "WorkspaceConfig") -> "WorkspacePathRegistry":
-        """Build a registry from validated workspace config."""
+        """Build a registry from a fully resolved workspace config."""
         return cls(
             project_root=Path(config.project_root),
+            workspace_root=Path(config.root),
+            catalog_path=Path(config.catalog_path),
+            data_dir=Path(config.data_dir),
+            simulations_dir=Path(config.simulations_dir),
             output_root=Path(config.output_root) if config.output_root else None,
-            workspace_root=Path(config.workspace_root) if config.workspace_root else None,
         )
 
     # -- Derived convenience names -----------------------------------------
@@ -58,16 +64,8 @@ class WorkspacePathRegistry:
         return self._effective_output_root / "figures"
 
     @property
-    def data_path(self) -> Path | None:
-        if self.workspace_root is not None:
-            return self.workspace_root / "data"
-        return None
-
-    @property
-    def catalog_path(self) -> Path | None:
-        if self.workspace_root is not None:
-            return self.workspace_root / "data" / "cache.duckdb"
-        return None
+    def data_path(self) -> Path:
+        return self.data_dir
 
     def figures_subdir(self, *parts: str) -> Path:
         return self.figures_folder.joinpath(*parts)

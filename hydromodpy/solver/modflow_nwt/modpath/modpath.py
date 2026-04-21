@@ -256,15 +256,13 @@ class Modpath(Solver):
             return False
 
         try:
-            from hydromodpy.core.workspace.config import WorkspaceConfig
+            from hydromodpy.core.workspace.resolve import locate_workspace_root
             from hydromodpy.results.catalog import SimulationCatalog
 
             # model_folder is .solver_scratch/ — project root is its parent.
             mf = Path(self.model_folder)
             project_root = mf.parent if mf.name == ".solver_scratch" else mf
-            workspace_root = WorkspaceConfig.discover_workspace_root(project_root)
-            if workspace_root is None:
-                workspace_root = project_root
+            workspace_root = locate_workspace_root(project_root) or project_root
             catalog = SimulationCatalog(workspace_root)
             sims = catalog.list_simulations()
             if not sims.empty:

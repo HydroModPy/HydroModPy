@@ -118,7 +118,10 @@ def minimal_config(tmp_path: Path):
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     return HydroModPyConfig(
-        workspace=WorkspaceConfig(project_root=tmp_path / "project"),
+        workspace=WorkspaceConfig(
+            project_root=tmp_path / "project",
+            root=tmp_path,
+        ),
         geographic=GeographicConfig(source_mode="synthetic"),
     )
 

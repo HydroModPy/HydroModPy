@@ -46,14 +46,9 @@ class DataManagersRuntimeLoader:
         """Lazily create the shared DataCatalogDuckDB backed by ``data/cache.duckdb``."""
         if self._catalog is not None:
             return
-        self._cache_root = workspace_paths.data_path
-        if self._cache_root is not None:
-            self._cache_root.mkdir(parents=True, exist_ok=True)
-        catalog_path = workspace_paths.catalog_path
-        if catalog_path is None and self._cache_root is not None:
-            catalog_path = self._cache_root / "cache.duckdb"
-        if catalog_path is not None:
-            self._catalog = DataCatalogDuckDB(catalog_path)
+        self._cache_root = workspace_paths.data_dir
+        self._cache_root.mkdir(parents=True, exist_ok=True)
+        self._catalog = DataCatalogDuckDB(self._cache_root / "cache.duckdb")
 
     def _data_dir(self, variable: str) -> Path | None:
         """Return ``data_path/<variable>/`` for cache storage, or None."""
@@ -850,13 +845,7 @@ class DataManagersRuntimeLoader:
             raise ValueError("Launcher setup.workspace is required before data loading.")
         if hasattr(workspace, "paths"):
             return workspace.paths
-        return WorkspacePathRegistry(
-            project_root=Path(getattr(workspace, "project_root", result.cfg.workspace.project_root)),
-            workspace_root=(
-                Path(workspace.workspace_root) if getattr(workspace, "workspace_root", None)
-                else (Path(result.cfg.workspace.workspace_root) if result.cfg.workspace.workspace_root else None)
-            ),
-        )
+        return WorkspacePathRegistry.from_config(result.cfg.workspace)
 
     def _resolve_manager_input_path(
         self,
