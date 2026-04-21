@@ -27,6 +27,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from hydromodpy.physics.base import InitialCondition as BaseInitialCondition
 from hydromodpy.core.units import check_unit_compatible
 from hydromodpy.core.config.base import HydroModelBase
+from typing import Annotated
+from hydromodpy.core.config.profile import Profile
 
 
 class FlowInitialCondition(BaseInitialCondition):
@@ -40,14 +42,14 @@ class FlowInitialCondition(BaseInitialCondition):
     - `type="custom"`: initialize with one explicit numeric value.
     """
 
-    type: Literal["top", "bottom", "custom"] = Field(
+    type: Annotated[Literal["top", "bottom", "custom"], Profile.USER] = Field(
         "custom",
         description=(
             "Type of initial condition ('top', 'bottom', or 'custom'). "
             "'top' means a full aquifer, 'bottom' means an empty aquifer."
         ),
     )
-    value: float | None = Field(
+    value: Annotated[float | None, Profile.USER] = Field(
         None,
         description="Initial hydraulic-head value. Required when type='custom'.",
     )
@@ -82,7 +84,7 @@ class FlowInitialConditions(HydroModelBase):
     # directly at the parent section level ([flow.ic] instead of [flow.ic.h]).
     toml_flatten: ClassVar[bool] = True
 
-    h: FlowInitialCondition = Field(
+    h: Annotated[FlowInitialCondition, Profile.USER] = Field(
         default_factory=lambda: FlowInitialCondition(type="top", id="h", units="m", description="Initial condition 'h'"),
         description="Hydraulic-head initial condition payload.",
     )

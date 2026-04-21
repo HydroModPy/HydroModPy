@@ -62,15 +62,15 @@ class FlowRuntimeConfig(HydroModelBase):
     :attr:`FlowConfig.runtime` for new call-sites.
     """
 
-    backend: Literal["local", "scipy", "scipy_sparse", "petsc"] = Field(
+    backend: Annotated[Literal["local", "scipy", "scipy_sparse", "petsc"], Profile.DEV] = Field(
         default="local",
         description=(
             "Nonlinear runtime backend used by Boussinesq-style solvers."
         ),
     )
-    surface_model: Literal[
+    surface_model: Annotated[Literal[
         "auto", "regularized_partition", "complementarity"
-    ] = Field(
+    ], Profile.DEV] = Field(
         default="auto",
         description=(
             "Surface-interaction closure selector (Boussinesq). "
@@ -80,15 +80,15 @@ class FlowRuntimeConfig(HydroModelBase):
             "backend-dependent default."
         ),
     )
-    max_iterations: int | None = Field(
+    max_iterations: Annotated[int | None, Profile.DEV] = Field(
         default=None,
         description="Optional override for the nonlinear iteration budget.",
     )
-    tol_residual_inf: float | None = Field(
+    tol_residual_inf: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description="Optional override for the inf-norm residual tolerance.",
     )
-    tol_state_update_inf: float | None = Field(
+    tol_state_update_inf: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description="Optional override for the inf-norm state-update tolerance.",
     )
@@ -168,21 +168,21 @@ class FlowConfig(ProcessSpatialConfig):
             "used by Boussinesq backends that track it."
         ),
     )
-    param_list: list[str] = Field(
+    param_list: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Ordered list of flow-parameter identifiers used to build runtime "
             "parameters (for example ['K', 'Ss', 'Sy'])."
         ),
     )
-    param: dict[str, dict[str, object]] = Field(
+    param: Annotated[dict[str, dict[str, object]], Profile.USER] = Field(
         default_factory=dict,
         description=(
             "Mapping of flow-parameter identifiers to resolved FieldParamConfig "
             "payloads."
         ),
     )
-    bc: dict[str, object] = Field(
+    bc: Annotated[dict[str, object], Profile.USER] = Field(
         default_factory=dict,
         description=(
             "Mapping of flow boundary-condition payloads parsed from [flow.bc]. "
@@ -200,18 +200,18 @@ class FlowConfig(ProcessSpatialConfig):
             "Default units: m for dirichlet, m2/s for cauchy/robin."
         ),
     )
-    ic: FlowInitialConditions = Field(
+    ic: Annotated[FlowInitialConditions, Profile.USER] = Field(
         default_factory=FlowInitialConditions,
         description=(
             "Validated flow initial-condition structure parsed from [flow.ic]. "
             "Stored as FlowInitialConditions(h=FlowInitialCondition)."
         ),
     )
-    sinks_sources: FlowSinksSourcesConfig = Field(
+    sinks_sources: Annotated[FlowSinksSourcesConfig, Profile.USER] = Field(
         default_factory=FlowSinksSourcesConfig,
         description="Typed sinks/sources payload (for example pumping wells).",
     )
-    active_sinks_sources: list[str] = Field(
+    active_sinks_sources: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Explicitly activated sink/source names for this flow run. "
@@ -219,7 +219,7 @@ class FlowConfig(ProcessSpatialConfig):
             "An empty list means no sink/source package is assembled by the solver."
         ),
     )
-    active_bc: list[str] = Field(
+    active_bc: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Explicitly activated boundary-condition ids for this flow run. "

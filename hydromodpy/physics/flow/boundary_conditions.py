@@ -220,7 +220,7 @@ class FlowBoundaryConditionConfig(HydroModelBase):
             "south side, east side, west side."
         ),
     )
-    support_label: str | None = Field(
+    support_label: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional explicit runtime support label used by unstructured backends "
