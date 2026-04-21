@@ -85,3 +85,79 @@ def test_is_adapter_false_for_plain_object() -> None:
     class NotAnAdapter:
         pass
     assert not registry.is_adapter(NotAnAdapter())
+
+
+# ---------------------------------------------------------------------------
+# Instance retrieval (merged registry contract)
+# ---------------------------------------------------------------------------
+
+
+def test_get_solver_adapter_returns_fresh_instance() -> None:
+    registry.register("flow", "fresh", FakeAdapter)
+    a = registry.get_solver_adapter("flow", "fresh")
+    b = registry.get_solver_adapter("flow", "fresh")
+    assert isinstance(a, FakeAdapter)
+    assert isinstance(b, FakeAdapter)
+    assert a is not b  # one instance per call
+
+
+def test_get_solver_adapter_unknown_raises_keyerror() -> None:
+    with pytest.raises(KeyError):
+        registry.get_solver_adapter("flow", "missing")
+
+
+# ---------------------------------------------------------------------------
+# Plugin discovery via importlib.metadata entry-points
+# ---------------------------------------------------------------------------
+
+
+def test_load_plugins_is_idempotent() -> None:
+    # First call may register the in-repo entry-points (zero or more); the
+    # second call must always return 0 because _PLUGINS_LOADED is set.
+    registry.load_plugins()
+    assert registry.load_plugins() == 0
+
+
+def test_load_plugins_registers_entry_point(monkeypatch) -> None:
+    # Reset the loaded marker so the function is allowed to run again.
+    monkeypatch.setattr(registry, "_PLUGINS_LOADED", False)
+
+    class _StubEntryPoint:
+        def __init__(self, name: str, target: type) -> None:
+            self.name = name
+            self._target = target
+
+        def load(self) -> type:
+            return self._target
+
+    stub = _StubEntryPoint("flow_pluginsolver", FakeAdapter)
+
+    def _fake_entry_points(*, group: str):
+        assert group == registry.ENTRY_POINT_GROUP
+        return [stub]
+
+    monkeypatch.setattr(registry, "entry_points", _fake_entry_points)
+    count = registry.load_plugins(force=True)
+    assert count >= 1
+    assert ("flow", "pluginsolver") in registry.list_pairs()
+
+
+def test_load_plugins_skips_malformed_entry_point_name(monkeypatch) -> None:
+    monkeypatch.setattr(registry, "_PLUGINS_LOADED", False)
+
+    class _StubEntryPoint:
+        name = "no-underscore-here"
+
+        def load(self) -> type:
+            return FakeAdapter
+
+    monkeypatch.setattr(
+        registry, "entry_points",
+        lambda *, group: [_StubEntryPoint()],
+    )
+    pairs_before = set(registry.list_pairs())
+    count = registry.load_plugins(force=True)
+    pairs_after = set(registry.list_pairs())
+    # Malformed entry-points must not pollute the registry.
+    assert count == 0
+    assert pairs_after == pairs_before
