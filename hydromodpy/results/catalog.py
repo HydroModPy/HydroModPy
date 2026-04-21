@@ -845,137 +845,27 @@ class SimulationCatalog:
     def export_package(
         self, sim_id: str | UUID, output_path: Path | str,
     ) -> Path:
-        sid = str(sim_id)
-        output = Path(output_path)
-        output.mkdir(parents=True, exist_ok=True)
+        """Export a simulation as a portable ``.hmp`` archive (tar.zst).
 
-        row = self._db.execute(
-            "SELECT zarr_path, geographic_fingerprint "
-            "FROM simulations WHERE sim_id = ?", [sid],
-        ).fetchone()
-        if row is None:
-            raise KeyError(f"Simulation '{sid}' not found")
-        zarr_rel, geo_fp = row
-
-        pkg_db_path = output / "simulation.duckdb"
-        pkg_db = duckdb.connect(str(pkg_db_path))
-        try:
-            sim_df = self._db.execute(
-                "SELECT * FROM simulations WHERE sim_id = ?", [sid],
-            ).fetchdf()
-            pkg_db.execute("CREATE TABLE simulations AS SELECT * FROM sim_df")
-
-            for table in PER_SIM_TABLE_NAMES:
-                df = self._db.execute(
-                    f"SELECT * FROM {table} WHERE sim_id = ?", [sid],
-                ).fetchdf()
-                pkg_db.execute(f"CREATE TABLE {table} AS SELECT * FROM df")
-        finally:
-            pkg_db.close()
-
-        zarr_src = self._workspace / zarr_rel
-        if zarr_src.is_file():
-            zarr_dst = output / "results.zarr.zip"
-            shutil.copy2(zarr_src, zarr_dst)
-        elif zarr_src.is_dir():
-            zarr_dst = output / "results.zarr"
-            shutil.copytree(zarr_src, zarr_dst, dirs_exist_ok=True)
-
-        # Materialise the shared geographic cache entry so the package is
-        # self-contained without duplicating rasters in every simulation.
+        Returns the path to the produced ``.hmp`` file.
+        """
         from hydromodpy.results.exporters.hmp_package import (
-            materialize_geographic_on_export,
+            export_hmp_package,
         )
-        materialize_geographic_on_export(self._workspace, geo_fp, output)
-
-        return output
+        return export_hmp_package(self, sim_id, output_path)
 
     def import_package(
         self, package_path: Path | str, *, force: bool = False,
     ) -> str:
-        pkg = Path(package_path)
-        pkg_db_path = pkg / "simulation.duckdb"
-        if not pkg_db_path.exists():
-            raise FileNotFoundError(f"No simulation.duckdb in {pkg}")
+        """Import a ``.hmp`` archive into this workspace.
 
-        pkg_db = duckdb.connect(str(pkg_db_path), read_only=True)
-        try:
-            sim_row = pkg_db.execute("SELECT sim_id FROM simulations").fetchone()
-            if sim_row is None:
-                raise ValueError("Package contains no simulation")
-            sid = str(sim_row[0])
-
-            existing = self._db.execute(
-                "SELECT sim_id FROM simulations WHERE sim_id = ?", [sid],
-            ).fetchone()
-            if existing is not None:
-                if not force:
-                    raise ValueError(
-                        f"Simulation '{sid}' already exists. Use force=True to overwrite."
-                    )
-                self.delete(sid)
-
-            pkg_tables = {
-                r[0] for r in pkg_db.execute(
-                    "SELECT table_name FROM information_schema.tables "
-                    "WHERE table_schema = 'main'"
-                ).fetchall()
-            }
-
-            self._db.begin()
-            try:
-                sim_df = pkg_db.execute("SELECT * FROM simulations").fetchdf()
-                self._db.execute("INSERT INTO simulations SELECT * FROM sim_df")
-
-                for table in PER_SIM_TABLE_NAMES:
-                    if table in pkg_tables:
-                        df = pkg_db.execute(f"SELECT * FROM {table}").fetchdf()
-                        if not df.empty:
-                            self._db.execute(
-                                f"INSERT INTO {table} SELECT * FROM df"
-                            )
-
-                # Determine zarr_path based on package content
-                pkg_zarr_zip = pkg / "results.zarr.zip"
-                pkg_zarr_dir = pkg / "results.zarr"
-                if pkg_zarr_zip.exists():
-                    zarr_path = f"simulations/{sid}.zarr.zip"
-                else:
-                    zarr_path = f"simulations/{sid}.zarr.zip"
-                self._db.execute(
-                    "UPDATE simulations SET zarr_path = ? WHERE sim_id = ?",
-                    [zarr_path, sid],
-                )
-                self._db.commit()
-            except Exception:
-                self._db.rollback()
-                raise
-        finally:
-            pkg_db.close()
-
-        pkg_zarr_zip = pkg / "results.zarr.zip"
-        pkg_zarr_dir = pkg / "results.zarr"
-        dst = self._workspace / zarr_path
-        if pkg_zarr_zip.exists():
-            shutil.copy2(pkg_zarr_zip, dst)
-        elif pkg_zarr_dir.exists():
-            # Import from old-format directory: pack to zip
-            import zipfile
-            with zipfile.ZipFile(str(dst), "w", compression=zipfile.ZIP_STORED) as zf:
-                for fpath in sorted(pkg_zarr_dir.rglob("*")):
-                    if fpath.is_file():
-                        zf.write(str(fpath), str(fpath.relative_to(pkg_zarr_dir)))
-
-        # De-materialise the geographic payload into the workspace cache so
-        # subsequent imports sharing the same fingerprint deduplicate.
+        SHA-256 checksums in the archive manifest are verified before any
+        catalog mutation.
+        """
         from hydromodpy.results.exporters.hmp_package import (
-            dematerialize_geographic_on_import,
+            import_hmp_package,
         )
-        dematerialize_geographic_on_import(
-            pkg, self._workspace, overwrite=force,
-        )
-
-        return sid
+        return import_hmp_package(self, package_path, force=force)
 
     # -- Lifecycle -----------------------------------------------------------
 

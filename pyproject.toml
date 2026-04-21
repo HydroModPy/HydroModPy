@@ -76,6 +76,7 @@ dependencies = [
     "sqlalchemy>=2.0",
     "tqdm",
     "zarr>=3.0",
+    "zstandard>=0.22",
     "tomlkit",
     "pytest",
     "pandera>=0.20",
