@@ -1,13 +1,13 @@
 """``hmp config`` — configuration TOML template + schema + validator.
 
 Subparsers:
-  - ``hmp config template [OUTPUT]``  : generate a TOML template (default action)
+  - ``hmp config template [OUTPUT]``  : generate a TOML template
   - ``hmp config check FILE.toml``    : validate a TOML against the Pydantic schema
-  - ``hmp config schema ...``         : export the JSON Schema (legacy, now via ``hmp schema``)
+  - ``hmp config schema ...``         : export the JSON Schema (alias of ``hmp schema``)
   - ``hmp config wizard``             : stdin-driven wizard
 
-Backwards-incompatible change in v0.5: ``hmp config FILE.toml`` (bare form) still
-works but the canonical invocation is ``hmp config template FILE.toml``.
+v0.5 breaking change: the bare form ``hmp config FILE.toml`` has been
+retired in favour of the explicit ``hmp config template FILE.toml``.
 """
 
 from __future__ import annotations
@@ -30,65 +30,57 @@ def register(subparsers) -> argparse.ArgumentParser:
     from hydromodpy.core.config.generate_toml import PROFILES
 
     parser = subparsers.add_parser(NAME, help=HELP)
-    # Legacy top-level arguments: kept for back-compat with ``hmp config FILE`` form.
-    parser.add_argument("output", nargs="?", help=argparse.SUPPRESS)
-    parser.add_argument(
+    sub = parser.add_subparsers(dest="config_command", required=False)
+
+    tpl = sub.add_parser("template", help="Generate a TOML configuration template")
+    tpl.add_argument(
+        "output", nargs="?",
+        help="Output file (or directory); prints to stdout if omitted",
+    )
+    tpl.add_argument(
         "--profile", choices=list(PROFILES.keys()), default="expert",
         help="Parameter visibility level (default: expert)",
     )
-    parser.add_argument(
+    tpl.add_argument(
         "--modules", nargs="+",
-        help="Module sections to include (default: all).",
+        help="Module sections to include (default: all)",
     )
-    parser.add_argument(
+    tpl.add_argument(
         "--list-modules", action="store_true",
         help="List available module names and exit",
     )
-    parser.add_argument(
+    tpl.add_argument(
         "--ui", action="store_true",
         help="Launch interactive Streamlit configuration editor",
     )
-    parser.add_argument("--section", default=None, help=argparse.SUPPRESS)
-    parser.add_argument("--out", default=None, help=argparse.SUPPRESS)
-    parser.add_argument("--list-sections", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument(
-        "--wizard", action="store_true",
-        help="Launch the stdin-based TOML wizard",
-    )
-
-    sub = parser.add_subparsers(dest="config_command")
-
-    tpl = sub.add_parser("template", help="Generate a TOML configuration template")
-    tpl.add_argument("output", nargs="?",
-                     help="Output file (or directory); prints to stdout if omitted")
-    tpl.add_argument("--profile", choices=list(PROFILES.keys()), default="expert",
-                     help="Parameter visibility level (default: expert)")
-    tpl.add_argument("--modules", nargs="+",
-                     help="Module sections to include (default: all)")
-    tpl.add_argument("--list-modules", action="store_true",
-                     help="List available module names and exit")
 
     chk = sub.add_parser("check", help="Validate a TOML against the Pydantic schema")
     chk.add_argument("file", help="Path to the TOML configuration")
-    chk.add_argument("--strict", action="store_true",
-                     help="Fail on warnings in addition to errors")
+    chk.add_argument(
+        "--strict", action="store_true",
+        help="Fail on warnings in addition to errors",
+    )
 
-    # Legacy aliases preserved for back-compat
-    sch = sub.add_parser("schema", help="Export the JSON Schema (alias of 'hmp schema export')")
-    sch.add_argument("--section", default=None)
-    sch.add_argument("--out", default=None)
-    sch.add_argument("--list-sections", action="store_true")
+    sch = sub.add_parser("schema", help="Export the JSON Schema")
+    sch.add_argument("--section", default=None,
+                     help="Export a single root TOML section (e.g. 'flow')")
+    sch.add_argument("--out", default=None,
+                     help="Write the JSON Schema to this file")
+    sch.add_argument("--list-sections", action="store_true",
+                     help="List available section names")
 
     wiz = sub.add_parser("wizard", help="Interactive stdin-based TOML wizard")
     wiz.add_argument("output", nargs="?")
-    wiz.add_argument("--profile", choices=list(PROFILES.keys()), default="user")
+    wiz.add_argument(
+        "--profile", choices=list(PROFILES.keys()), default="user",
+    )
 
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    sub = getattr(args, "config_command", None)
+    sub = getattr(args, "config_command", None) or "template"
 
     if sub == "check":
         _cmd_config_check(args)
@@ -103,16 +95,11 @@ def run(args: argparse.Namespace) -> None:
         _cmd_config_wizard(args)
         return
 
-    # Legacy / bare ``hmp config [OUTPUT]`` behaviour.
-    if args.output == "schema":
-        _cmd_config_schema(args)
-        return
-    if args.output == "wizard" or getattr(args, "wizard", False):
-        if args.output == "wizard":
-            args.output = None
-        _cmd_config_wizard(args)
-        return
-    _cmd_config_template(args)
+    print(
+        "usage: hmp config {template,check,schema,wizard} ...",
+        file=sys.stderr,
+    )
+    sys.exit(EXIT_CONFIG)
 
 
 def _cmd_config_template(args: argparse.Namespace) -> None:
@@ -136,17 +123,18 @@ def _cmd_config_template(args: argparse.Namespace) -> None:
         subprocess.run(cmd)
         return
 
-    if args.output and Path(args.output).is_dir():
-        args.output = str(Path(args.output) / "config.toml")
+    output = getattr(args, "output", None)
+    if output and Path(output).is_dir():
+        output = str(Path(output) / "config.toml")
 
     content = generate_toml(
-        output_path=args.output,
+        output_path=output,
         modules=getattr(args, "modules", None),
-        profile=args.profile,
+        profile=getattr(args, "profile", "expert"),
     )
 
-    if args.output:
-        print(f"Written to: {Path(args.output).resolve()}", file=sys.stderr)
+    if output:
+        print(f"Written to: {Path(output).resolve()}", file=sys.stderr)
     else:
         print(content)
 
@@ -228,8 +216,13 @@ def _cmd_config_wizard(args: argparse.Namespace) -> None:
 
     print("HydroModPy configuration wizard (non-interactive-safe)", file=sys.stderr)
     project = _ask("Project label", "my_project")
-    profile = _ask("Profile (user/dev/expert)", getattr(args, "profile", None) or "user") or "user"
-    output = args.output or _ask("Output TOML path", f"{project}.toml")
+    profile = _ask(
+        "Profile (user/dev/expert)",
+        getattr(args, "profile", None) or "user",
+    ) or "user"
+    output = getattr(args, "output", None) or _ask(
+        "Output TOML path", f"{project}.toml",
+    )
 
     dest = Path(output).expanduser().resolve()
     dest.parent.mkdir(parents=True, exist_ok=True)
