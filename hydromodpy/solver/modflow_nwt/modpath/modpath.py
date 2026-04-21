@@ -42,7 +42,7 @@ from hydromodpy.spatial.delineation import get_whitebox_backend
 from hydromodpy.solver.modflow_common import ensure_platform_executable
 from hydromodpy.core.tools import get_logger
 from hydromodpy.core.tools.filesystem import create_folder
-from hydromodpy.core.tools.raster_io import export_tif
+from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.tools.display import plot_params
 logger = get_logger(__name__)
 fontprop = plot_params(8,15,18,20) # small, medium, interm, large

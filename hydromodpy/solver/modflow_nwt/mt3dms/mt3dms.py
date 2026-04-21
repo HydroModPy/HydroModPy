@@ -42,7 +42,7 @@ from hydromodpy.solver.modflow_common.runtime_arrays import (
 )
 from hydromodpy.core.tools import get_logger
 from hydromodpy.core.tools.filesystem import create_folder
-from hydromodpy.core.tools.raster_io import export_tif
+from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.tools.display import plot_params
 fontprop = plot_params(8,15,18,20) # small, medium, interm, large
 MT3DMS_NORMAL_MESSAGES = ["normal termination", "program completed"]

@@ -13,7 +13,7 @@ from pyproj.aoi import AreaOfInterest
 from pyproj.database import query_utm_crs_info
 from shapely.geometry import Point
 
-from hydromodpy.core.tools.raster_io import mask_by_dem
+from hydromodpy.core.io.raster_io import mask_by_dem
 from hydromodpy.core.tools.filesystem import load_shapefile
 
 logger = logging.getLogger(__name__)
