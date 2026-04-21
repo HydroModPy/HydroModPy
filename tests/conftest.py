@@ -4,7 +4,21 @@ import os
 import shutil
 from pathlib import Path
 import tempfile
+
 import pytest
+
+
+# Force single-thread BLAS / Rayon so golden signatures are reproducible
+# across CI runners (see tests/TOLERANCES.md §"Cross-platform determinism").
+for _var in (
+    "OMP_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+    "RAYON_NUM_THREADS",
+):
+    os.environ.setdefault(_var, "1")
+os.environ.setdefault("PYTHONHASHSEED", "42")
 
 
 def _resolve_test_scratch_root() -> Path:
