@@ -76,6 +76,38 @@ Each release section includes the following standard categories:
   engine forbids `[transport]`.
 - `tomlkit` promoted to a core dependency in `pyproject.toml` (required
   by the round-trip TOML writer).
+- `hydromodpy.core.io.http_client.HTTPClient` — unified HTTP client
+  used by every data source. Features: persistent `requests.Session`,
+  exponential backoff with jitter, honours `Retry-After` (seconds or
+  HTTP-date), configurable default timeout, per-host concurrency
+  token bucket, `stream()` with SHA-256 streaming, `get_json()` with
+  optional Pydantic validation, and pre/post request hooks.
+- `hydromodpy.data.schemas` — pandera-backed contracts: `TimeSeriesSchema`,
+  `StationCollectionSchema`, `LithologyTableSchema`, `CatchmentPolygonSchema`
+  and `DEMContract`, each surfacing failures as
+  `hydromodpy.core.exceptions.DataContractViolation` (HMPY.E201).
+- `hydromodpy.data.registry.catalog_duckdb` — 6 additional tables
+  (`artifacts`, `provenance`, `stations`, `coverage`, `failures`,
+  `validation_reports`) bringing the InputCatalog to 7 tables total
+  (spec 03 §5.2 / spec 12 §5). Write helpers:
+  `write_artifact`, `write_provenance`, `upsert_station`,
+  `write_coverage`, `write_failure`, `write_validation_report`, plus
+  `check_and_fix` (drop missing, refresh mtimes) and
+  `prune_older_than`.
+- `hydromodpy.data.lockfile` — reproducible data lockfile
+  (`hydromodpy.lock`): `write_lockfile`, `read_lockfile`,
+  `verify_frozen`, `archive_lockfile`, `restore_archive` plus
+  `set_frozen_mode` / `is_frozen_mode` for the new `--frozen`
+  flag on `hmp run` and `hmp data add`.
+- `hmp lock` CLI sub-commands: `update`, `archive`, `restore`,
+  `verify`.
+- `hmp data` CLI extensions: `remove`, `prune`, `export`, `import`
+  plus the new `check --fix` mode.
+- `hydromodpy.data.sources` — minimal `DataSource` Protocol with a
+  `register_source` decorator / `get_source` / `list_sources` registry
+  for pluggable data sources without the full manager boilerplate.
+- `pandera` promoted to a core dependency in `pyproject.toml`
+  (required by `hydromodpy.data.schemas`).
 
 ### Changed
 - **BREAKING**: project version bumped to `0.5.0.dev0`.
@@ -182,6 +214,17 @@ Each release section includes the following standard categories:
   `hmp.CatchmentDelineation` with `hmp.HydrographyManager`. Dependent
   helpers removed: `hydromodpy.core.tools.io_utils.extract_watershed`
   and `tests/regression/golden_utils.run_legacy_example_script`.
+- `hydromodpy/data/runtime_loader.py` renamed to
+  `hydromodpy/data/loader.py`. No alias. `load_variable(...)` is the
+  new functional dispatch helper alongside
+  `DataManagersRuntimeLoader`.
+- `hydromodpy/data/common/base_field_manager.py` deleted. The
+  `BaseFieldManager` abstract class now lives at
+  `hydromodpy.data.base_manager` next to `BaseVariableManager`.
+- `hydromodpy/data/common/base_manager.py` and
+  `hydromodpy/data/common/base_config.py` moved one level up to
+  `hydromodpy/data/base_manager.py` and `hydromodpy/data/base_config.py`.
+  All in-tree callers updated — no backwards-compat shim.
 
 ---
 
