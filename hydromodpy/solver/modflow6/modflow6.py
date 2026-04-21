@@ -15,7 +15,7 @@ import numpy as np
 import rasterio
 from flopy.utils import postprocessing as pp
 
-from hydromodpy.process.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow_common import (
 	masstransfer,
 	ModflowPostprocessOptions,

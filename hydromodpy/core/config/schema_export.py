@@ -15,7 +15,7 @@ Usage
 Python API::
 
     from hydromodpy.core.config.schema_export import export_schema, ROOT_SECTIONS
-    from hydromodpy.process.flow.flow_config import FlowConfig
+    from hydromodpy.physics.flow.flow_config import FlowConfig
 
     schema = export_schema(FlowConfig)
     # full root schema:
@@ -50,9 +50,9 @@ def _root_sections() -> dict[str, type]:
     from hydromodpy.results.postprocess_config import PostprocessConfig
     from hydromodpy.core.workspace.config import WorkspaceConfig
     from hydromodpy.data.data_managers_config import DataManagersConfig
-    from hydromodpy.process.flow.flow_config import FlowConfig
-    from hydromodpy.process.flow.physical_properties import FlowPhysicalProperties
-    from hydromodpy.process.transport.transport_config import TransportConfig
+    from hydromodpy.physics.flow.flow_config import FlowConfig
+    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
+    from hydromodpy.physics.transport.transport_config import TransportConfig
     from hydromodpy.simulation.planning.config import SimulationConfig
     from hydromodpy.solver.base.solver_config import SolverConfig
     from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config

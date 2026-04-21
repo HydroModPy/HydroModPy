@@ -531,8 +531,8 @@ class Simulation:
 
     def _run_with_overrides(self, name, overrides, *, thickness=None, first_clim=None):
         """Build a minimal plan with parameter overrides applied to a fresh Flow."""
-        from hydromodpy.process.flow import Flow
-        from hydromodpy.process.flow.structure_binders import (
+        from hydromodpy.physics.flow import Flow
+        from hydromodpy.physics.flow.structure_binders import (
             apply_recharge_load_result_to_flow,
         )
         from hydromodpy.simulation.planning.plan import (

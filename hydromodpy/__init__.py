@@ -241,7 +241,7 @@ _MODULE_EXPORTS = {
     "calibration": "hydromodpy.calibration",
     "core": "hydromodpy.core",
     "data": "hydromodpy.data",
-    "process": "hydromodpy.process",
+    "physics": "hydromodpy.physics",
     "results": "hydromodpy.results",
     "simulation": "hydromodpy.simulation",
     "solver": "hydromodpy.solver",
@@ -257,8 +257,8 @@ _LAZY_IMPORTS = {
     "HydroMesh": "hydromodpy.spatial.mesh.hydro_mesh",
     "Domain": "hydromodpy.spatial.domain.domain",
     # Processes
-    "Flow": "hydromodpy.process.flow.flow",
-    "Transport": "hydromodpy.process.transport.transport",
+    "Flow": "hydromodpy.physics.flow.flow",
+    "Transport": "hydromodpy.physics.transport.transport",
     # Solvers
     "Modflow": "hydromodpy.solver.modflow_nwt",
     "Modflow6": "hydromodpy.solver.modflow6.modflow6",
@@ -400,7 +400,7 @@ __all__ = [
     "calibration",
     "core",
     "data",
-    "process",
+    "physics",
     "results",
     "simulation",
     "solver",

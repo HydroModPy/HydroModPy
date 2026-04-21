@@ -10,7 +10,7 @@ from numbers import Real
 
 import numpy as np
 
-from hydromodpy.process.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.core.units import convert_payload_to_m_per_s
 from hydromodpy.solver.modflow_common.forcing_discretization import (
     discretize_spatially_distributed_source,

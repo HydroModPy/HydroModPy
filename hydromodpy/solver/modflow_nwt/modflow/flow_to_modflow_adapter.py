@@ -99,7 +99,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-from hydromodpy.process.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow_common.grid_context import GridReference
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.core.units import (

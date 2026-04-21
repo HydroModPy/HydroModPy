@@ -36,8 +36,8 @@ from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.results.postprocess_config import PostprocessConfig
-from hydromodpy.process.flow.flow_config import FlowConfig
-from hydromodpy.process.transport.transport_config import TransportConfig
+from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig

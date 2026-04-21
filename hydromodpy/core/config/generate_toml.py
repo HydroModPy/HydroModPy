@@ -44,8 +44,8 @@ def _get_registry() -> dict[str, type[BaseModel]]:
         from hydromodpy.data.data_managers_config import DataManagersConfig
         from hydromodpy.spatial.domain.domain_config import DomainConfig
         from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-        from hydromodpy.process.flow.flow_config import FlowConfig
-        from hydromodpy.process.transport.transport_config import TransportConfig
+        from hydromodpy.physics.flow.flow_config import FlowConfig
+        from hydromodpy.physics.transport.transport_config import TransportConfig
         from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
         from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
         from hydromodpy.solver.base.solver_config import SolverConfig

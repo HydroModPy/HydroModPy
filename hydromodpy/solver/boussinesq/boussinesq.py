@@ -25,8 +25,8 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.process.flow.boundary_conditions import SIDE_DIRICHLET_BC_IDS
-from hydromodpy.process.flow.initial_conditions import FlowInitialConditions
+from hydromodpy.physics.flow.boundary_conditions import SIDE_DIRICHLET_BC_IDS
+from hydromodpy.physics.flow.initial_conditions import FlowInitialConditions
 from hydromodpy.solver.boussinesq.assembly import (
     internal_edge_flux_from_head,
     saturated_thickness_from_head,
@@ -1427,7 +1427,7 @@ class Boussinesq(Solver):
         """
         forcing = getattr(well_cfg, "forcing", None)
         if forcing is not None:
-            from hydromodpy.process.flow.time_forcing import (
+            from hydromodpy.physics.flow.time_forcing import (
                 resolve_period_values_from_forcing,
             )
 
@@ -1496,7 +1496,7 @@ class Boussinesq(Solver):
         """Resolve one boundary condition to one head value per period."""
         forcing = getattr(boundary, "forcing", None)
         if forcing is not None:
-            from hydromodpy.process.flow.time_forcing import (
+            from hydromodpy.physics.flow.time_forcing import (
                 resolve_period_values_from_forcing,
             )
 
