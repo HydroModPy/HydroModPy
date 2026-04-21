@@ -5,7 +5,7 @@ Usage example:
     PowerShell:
         $timing_root = Join-Path $env:HYDROMODPY_TEST_SCRATCH_ROOT "timing_reports"
         python -m pytest tests/unit -q --junitxml "$timing_root/unit_junit.xml"
-    python tests/support/pytest_timing_distribution.py \
+    python tests/_helpers/pytest_timing_distribution.py \
         --junitxml "$timing_root/unit_junit.xml" \
         --out-json "$timing_root/unit_timing_distribution.json" \
         --out-csv "$timing_root/unit_test_durations.csv"
