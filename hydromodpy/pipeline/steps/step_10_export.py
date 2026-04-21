@@ -16,13 +16,17 @@ Outputs
 
 from __future__ import annotations
 
-from hydromodpy.pipeline.state import PipelineState
+from typing import ClassVar
+
+from hydromodpy.pipeline.state import DerivedState, ExportedState, PipelineState
 
 
 class ExportStep:
     """Save artefacts, finalize and close the catalog."""
 
     name = "export"
+    tin: ClassVar[type] = DerivedState
+    tout: ClassVar[type] = ExportedState
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.workflow.steps.result_ingestion import step_save_run_artifacts
