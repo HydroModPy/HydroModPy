@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.results.config import ResultsConfig
-from hydromodpy.simulation.results.post_run import post_run_results
+from hydromodpy.simulation.extraction.post_run import post_run_results
 from hydromodpy.results.catalog import SimulationCatalog
 
 

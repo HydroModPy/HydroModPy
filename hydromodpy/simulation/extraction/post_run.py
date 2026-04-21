@@ -18,31 +18,31 @@ logger = logging.getLogger(__name__)
 # Mapping solver name → output adapter module/class
 _ADAPTER_REGISTRY: dict[str, tuple[str, str]] = {
     "modflownwt": (
-        "hydromodpy.simulation.results.extractors.modflownwt",
+        "hydromodpy.simulation.extraction.extractors.modflownwt",
         "ModflowNwtOutputAdapter",
     ),
     "modflow6": (
-        "hydromodpy.simulation.results.extractors.modflow6",
+        "hydromodpy.simulation.extraction.extractors.modflow6",
         "Modflow6OutputAdapter",
     ),
     "gr4j": (
-        "hydromodpy.simulation.results.extractors.gr4j",
+        "hydromodpy.simulation.extraction.extractors.gr4j",
         "GR4JOutputAdapter",
     ),
     "mt3dms": (
-        "hydromodpy.simulation.results.extractors.mt3dms",
+        "hydromodpy.simulation.extraction.extractors.mt3dms",
         "Mt3dmsOutputAdapter",
     ),
     "modflow6gwt": (
-        "hydromodpy.simulation.results.extractors.mt3dms",
+        "hydromodpy.simulation.extraction.extractors.mt3dms",
         "Mt3dmsOutputAdapter",
     ),
     "modpath": (
-        "hydromodpy.simulation.results.extractors.modpath",
+        "hydromodpy.simulation.extraction.extractors.modpath",
         "ModpathOutputAdapter",
     ),
     "boussinesq": (
-        "hydromodpy.simulation.results.extractors.boussinesq",
+        "hydromodpy.simulation.extraction.extractors.boussinesq",
         "BoussinesqOutputAdapter",
     ),
 }
@@ -111,7 +111,7 @@ def post_run_results(
 
     # Phase 3: aggregate catchment timeseries from spatial fields
     try:
-        from hydromodpy.simulation.results.extractors.catchment_aggregation import (
+        from hydromodpy.simulation.extraction.extractors.catchment_aggregation import (
             aggregate_catchment_timeseries,
         )
         aggregate_catchment_timeseries(sim_id, store)
@@ -125,7 +125,7 @@ def post_run_results(
     # Cleanup solver files
     do_keep = keep_solver_files if keep_solver_files is not None else results_config.keep_solver_files
     if not do_keep and solver_output_dir is not None:
-        from hydromodpy.simulation.results.extractors.base import cleanup_solver_files
+        from hydromodpy.simulation.extraction.extractors.base import cleanup_solver_files
         try:
             cleanup_solver_files(solver_output_dir)
         except Exception:

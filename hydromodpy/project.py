@@ -363,7 +363,7 @@ class Simulation:
             ProcessCallbacks,
             SimulationRunner,
         )
-        from hydromodpy.simulation.results.post_run import post_run_results
+        from hydromodpy.simulation.extraction.post_run import post_run_results
         from hydromodpy.spatial.geographic.store_ingestion import (
             persist_geographic_to_store,
         )

@@ -17,7 +17,7 @@ Zarr store (``head``, ``budget``, ``mesh``). This module exposes:
 
 Heavy solver-specific post-processing (flopy multilayer water-table,
 whitebox drain routing) stays in
-:mod:`hydromodpy.simulation.results.extractors.derived`. This registry
+:mod:`hydromodpy.simulation.extraction.extractors.derived`. This registry
 provides the portable, pure-Python derivations that the canonical
 ``DeriveStep`` consumes; the two paths cooperate without duplicating.
 """

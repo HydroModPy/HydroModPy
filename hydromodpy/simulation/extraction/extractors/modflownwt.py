@@ -232,9 +232,9 @@ class ModflowNwtOutputAdapter:
     ) -> None:
         """Compute derived variables from stored head fields.
 
-        Delegates to :mod:`hydromodpy.simulation.results.extractors.derived`.
+        Delegates to :mod:`hydromodpy.simulation.extraction.extractors.derived`.
         """
-        from hydromodpy.simulation.results.extractors.derived import compute_derived
+        from hydromodpy.simulation.extraction.extractors.derived import compute_derived
 
         cfg = config or {}
         compute_derived(sim_id, store, cfg)

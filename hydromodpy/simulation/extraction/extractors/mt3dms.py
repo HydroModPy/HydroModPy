@@ -84,11 +84,11 @@ class Mt3dmsOutputAdapter:
     ) -> None:
         """Compute derived variables from stored concentration fields.
 
-        Delegates to :mod:`hydromodpy.simulation.results.extractors.derived`
+        Delegates to :mod:`hydromodpy.simulation.extraction.extractors.derived`
         for transport-dependent variables (concentration_seepage,
         mass_seepage, mass_accumulated).
         """
-        from hydromodpy.simulation.results.extractors.derived import compute_derived
+        from hydromodpy.simulation.extraction.extractors.derived import compute_derived
 
         cfg = config or {}
         compute_derived(sim_id, store, cfg)

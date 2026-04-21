@@ -136,7 +136,7 @@ class BoussinesqOutputAdapter:
         read the _boussinesq_state_history.npz if head_history and the mesh
         are both available via the store.
         """
-        from hydromodpy.simulation.results.extractors.derived import compute_derived
+        from hydromodpy.simulation.extraction.extractors.derived import compute_derived
 
         cfg = config or {}
         # Only compute what makes sense for a single-layer model.
