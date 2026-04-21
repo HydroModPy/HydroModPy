@@ -509,6 +509,25 @@ class FieldParamConfig(HydroModelBase):
             )
         return data
 
+    @model_validator(mode="after")
+    def _enforce_physical_bounds(self) -> "FieldParamConfig":
+        """Validate homogeneous scalar values against ``PHYSICAL_BOUNDS``.
+
+        Only numeric scalars are checked here; string payloads carry their
+        own unit and are handled by lower-level unit resolution.
+        """
+        from hydromodpy.spatial.field.core.physical_bounds import (
+            validate_physical_value,
+        )
+
+        base = self.field
+        homo = self.field_homogeneous
+        if base is None or base.id is None or homo is None or homo.value is None:
+            return self
+        if isinstance(homo.value, (int, float)) and not isinstance(homo.value, bool):
+            validate_physical_value(param_id=base.id, value=float(homo.value))
+        return self
+
 
 class ResolvedFieldParamSchema(HydroModelBase):
     """
