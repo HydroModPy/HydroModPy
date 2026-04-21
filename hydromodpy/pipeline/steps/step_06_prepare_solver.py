@@ -16,13 +16,17 @@ attached.
 
 from __future__ import annotations
 
-from hydromodpy.pipeline.state import PipelineState
+from typing import ClassVar
+
+from hydromodpy.pipeline.state import OpenStoreState, PipelineState, SetupState
 
 
 class PrepareSolverStep:
     """Build the simulation plan + open the store."""
 
     name = "prepare_solver"
+    tin: ClassVar[type] = SetupState
+    tout: ClassVar[type] = OpenStoreState
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.simulation.planning.planner import SimulationPlanner
