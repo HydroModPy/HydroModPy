@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import geopandas as gpd
 import pandas as pd
-import requests
 
+from hydromodpy.core.io.http_client import get_default_client
 from hydromodpy.core.logging import get_logger
 
 from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
@@ -21,7 +21,7 @@ _PAGING_GUARD = 2_000_000
 
 
 def _mapserver_pjson() -> dict:
-    r = requests.get(BASE_URL, params={"f": "pjson"}, timeout=_TIMEOUT)
+    r = get_default_client().get(BASE_URL, params={"f": "pjson"}, timeout=_TIMEOUT)
     r.raise_for_status()
     return r.json()
 
@@ -48,7 +48,9 @@ def _feature_layer_ids_in_group(ms: dict, group_name: str) -> list[int]:
 
 
 def _layer_name(layer_id: int) -> str:
-    r = requests.get(f"{BASE_URL}/{layer_id}", params={"f": "pjson"}, timeout=_TIMEOUT)
+    r = get_default_client().get(
+        f"{BASE_URL}/{layer_id}", params={"f": "pjson"}, timeout=_TIMEOUT,
+    )
     r.raise_for_status()
     return r.json().get("name", str(layer_id))
 
@@ -75,7 +77,7 @@ def _query_page_geojson(
         "resultRecordCount": limit,
         "orderByFields": "OBJECTID",
     }
-    r = requests.get(url, params=params, timeout=_TIMEOUT)
+    r = get_default_client().get(url, params=params, timeout=_TIMEOUT)
     r.raise_for_status()
     data = r.json()
     if isinstance(data, dict) and "error" in data:
