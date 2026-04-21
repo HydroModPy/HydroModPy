@@ -23,6 +23,9 @@ for _var in (
 os.environ.setdefault("PYTHONHASHSEED", "42")
 
 
+_LAYER_DIR_NAMES = ("unit", "integration", "validation", "regression", "e2e")
+
+
 def _resolve_test_scratch_root() -> Path:
     """Return the shared scratch root used by pytest and subprocesses."""
     override = os.environ.get("HYDROMODPY_TEST_SCRATCH_ROOT")
@@ -143,22 +146,34 @@ def _redirect_repo_root_cwd_for_gmsh_grid_tests(
 
 
 def pytest_collection_modifyitems(config, items):
-    """Assign default regression tier markers for selected regression tests."""
+    """Auto-tag tests with their layer marker and default regression tier.
+
+    * Any test in ``tests/<layer>/...`` gets ``@pytest.mark.<layer>``.
+    * Regression tests default to ``fast`` unless they already carry
+      ``fast`` or ``extensive``; the ``extensive/`` directory forces
+      ``extensive``.
+    """
 
     for item in items:
         item_path = Path(str(getattr(item, "fspath", item.path)))
-        is_regression_file = "regression" in item_path.parts
+        parts = item_path.parts
+
+        # 1) Auto-tag layer marker by path.
+        for layer in _LAYER_DIR_NAMES:
+            if layer in parts and layer not in item.keywords:
+                item.add_marker(getattr(pytest.mark, layer))
+                break
+
+        # 2) Regression tier default markers (fast vs extensive).
+        is_regression_file = "regression" in parts
         is_regression_test = "regression" in item.keywords
-
-        if not is_regression_file or not is_regression_test:
-            continue
-
-        if "fast" in item.keywords or "extensive" in item.keywords:
-            continue
-        if "extensive" in item_path.parts:
-            item.add_marker(pytest.mark.extensive)
-        else:
-            item.add_marker(pytest.mark.fast)
+        if is_regression_file and is_regression_test:
+            if "fast" in item.keywords or "extensive" in item.keywords:
+                continue
+            if "extensive" in parts:
+                item.add_marker(pytest.mark.extensive)
+            else:
+                item.add_marker(pytest.mark.fast)
 
 
 def pytest_sessionfinish(session, exitstatus):
