@@ -14,6 +14,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from hydromodpy.core.config.path_resolution import resolve_declared_path
 from hydromodpy.core.config.base import HydroModelBase
+from typing import Annotated
+from hydromodpy.core.config.profile import Profile
 
 
 def _load_toml(path: Path) -> dict:
@@ -42,10 +44,10 @@ class BaseVariableConfig(HydroModelBase):
 
     _TOML_SECTION: ClassVar[str] = ""
 
-    date_start: str | None = Field(
+    date_start: Annotated[str | None, Profile.USER] = Field(
         default=None, description="Project start date (ISO format, e.g. '2019-01-01').",
     )
-    date_end: str | None = Field(
+    date_end: Annotated[str | None, Profile.USER] = Field(
         default=None, description="Project end date (ISO format, e.g. '2025-12-31').",
     )
 
