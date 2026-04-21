@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.__main__ import main
+from hydromodpy._cli import main
 
 
 def test_hmp_run_dispatches_simulation_via_detect_workflow(monkeypatch, tmp_path) -> None:
-    """``hmp run config.toml`` with a simulation TOML dispatches to runners.simulation."""
+    """``hmp run config.toml`` with a simulation TOML dispatches to run_simulation."""
     config = tmp_path / "config.toml"
     config.write_text(
         '[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
@@ -24,7 +24,7 @@ def test_hmp_run_dispatches_simulation_via_detect_workflow(monkeypatch, tmp_path
         captured["run_called"] = True
         return {"name": "test", "sim_id": "abc"}
 
-    monkeypatch.setattr("hydromodpy.runners.simulation.run", fake_run)
+    monkeypatch.setattr("hydromodpy._cli.workflows.run_simulation", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -34,7 +34,7 @@ def test_hmp_run_dispatches_simulation_via_detect_workflow(monkeypatch, tmp_path
 
 
 def test_hmp_run_dispatches_overview_via_detect_workflow(monkeypatch, tmp_path) -> None:
-    """``hmp run overview.toml`` with an overview TOML dispatches to runners.overview."""
+    """``hmp run overview.toml`` with an overview TOML dispatches to run_overview."""
     config = tmp_path / "overview.toml"
     config.write_text(
         '[workspace]\nproject_root = "."\n[overview]\nname = "test"\n',
@@ -48,7 +48,7 @@ def test_hmp_run_dispatches_overview_via_detect_workflow(monkeypatch, tmp_path) 
         captured["run_called"] = True
         return {"mode": "data_overview"}
 
-    monkeypatch.setattr("hydromodpy.runners.overview.run", fake_run)
+    monkeypatch.setattr("hydromodpy._cli.workflows.run_overview", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -58,7 +58,7 @@ def test_hmp_run_dispatches_overview_via_detect_workflow(monkeypatch, tmp_path) 
 
 
 def test_hmp_run_dispatches_mesh_via_detect_workflow(monkeypatch, tmp_path) -> None:
-    """``hmp run mesh.toml`` with a mesh_catchment TOML dispatches to runners.mesh."""
+    """``hmp run mesh.toml`` with a mesh_catchment TOML dispatches to run_mesh."""
     config = tmp_path / "mesh.toml"
     config.write_text(
         '[workspace]\nproject_root = "."\n[mesh_catchment]\nelement_size = 200\n',
@@ -72,7 +72,7 @@ def test_hmp_run_dispatches_mesh_via_detect_workflow(monkeypatch, tmp_path) -> N
         captured["run_called"] = True
         return {"mode": "mesh"}
 
-    monkeypatch.setattr("hydromodpy.runners.mesh.run", fake_run)
+    monkeypatch.setattr("hydromodpy._cli.workflows.run_mesh", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
@@ -82,7 +82,7 @@ def test_hmp_run_dispatches_mesh_via_detect_workflow(monkeypatch, tmp_path) -> N
 
 
 def test_hmp_run_exits_on_missing_file(monkeypatch, tmp_path) -> None:
-    from hydromodpy.__main__ import EXIT_NOT_FOUND
+    from hydromodpy._cli.helpers import EXIT_NOT_FOUND
 
     missing = tmp_path / "does_not_exist.toml"
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(missing)])
@@ -93,7 +93,7 @@ def test_hmp_run_exits_on_missing_file(monkeypatch, tmp_path) -> None:
 
 
 def test_hmp_run_dispatches_calibration_via_detect_workflow(monkeypatch, tmp_path) -> None:
-    """``hmp run`` with a calibration TOML dispatches to runners.calibration."""
+    """``hmp run`` with a calibration TOML dispatches to run_calibration."""
     config = tmp_path / "calib.toml"
     config.write_text(
         '[calibration]\nmethod = "scipy"\n',
@@ -107,7 +107,7 @@ def test_hmp_run_dispatches_calibration_via_detect_workflow(monkeypatch, tmp_pat
         captured["run_called"] = True
         return {"mode": "calibration"}
 
-    monkeypatch.setattr("hydromodpy.runners.calibration.run", fake_run)
+    monkeypatch.setattr("hydromodpy._cli.workflows.run_calibration", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()

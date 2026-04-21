@@ -87,11 +87,11 @@ def test_schema_cli_export_produces_files(tmp_path: Path) -> None:
     """
     import argparse
 
-    from hydromodpy.__main__ import _cmd_schema_export
+    from hydromodpy._cli.commands.schema import _cmd_export
 
     out = tmp_path / "cli_out"
     args = argparse.Namespace(output=str(out))
-    _cmd_schema_export(args)
+    _cmd_export(args)
     assert (out / "config.json").is_file()
     assert (out / "config_meta.json").is_file()
     assert (out / "field_validators.json").is_file()
