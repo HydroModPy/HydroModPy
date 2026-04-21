@@ -301,6 +301,25 @@ CREATE TABLE IF NOT EXISTS tags (
 CREATE INDEX IF NOT EXISTS ix_tags_tag ON tags(tag);
 """
 
+_STATIONS_DDL = """
+CREATE TABLE IF NOT EXISTS stations (
+    station_id    VARCHAR NOT NULL,
+    name          VARCHAR,
+    latitude      DOUBLE,
+    longitude     DOUBLE,
+    elevation     DOUBLE,
+    variable_type VARCHAR NOT NULL,
+    source        VARCHAR,
+    active        BOOLEAN NOT NULL DEFAULT TRUE,
+    first_valid   DATE,
+    last_valid    DATE,
+    metadata      JSON,
+    PRIMARY KEY (station_id, variable_type)
+);
+CREATE INDEX IF NOT EXISTS ix_stations_variable ON stations(variable_type);
+CREATE INDEX IF NOT EXISTS ix_stations_active ON stations(active);
+"""
+
 # ---------------------------------------------------------------------------
 #  Geographic tables
 # ---------------------------------------------------------------------------
@@ -351,6 +370,7 @@ TABLE_NAMES: tuple[str, ...] = (
     "geographic_metadata",
     "runs_environment",
     "tags",
+    "stations",
 )
 
 PER_SIM_TABLE_NAMES: tuple[str, ...] = (
@@ -382,6 +402,7 @@ _ALL_DDL: tuple[str, ...] = (
     _GEOGRAPHIC_METADATA_DDL,
     _RUNS_ENVIRONMENT_DDL,
     _TAGS_DDL,
+    _STATIONS_DDL,
 )
 
 
