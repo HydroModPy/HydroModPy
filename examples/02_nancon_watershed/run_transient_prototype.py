@@ -1,123 +1,145 @@
 # -*- coding: utf-8 -*-
-"""Nancon catchment, transient Sy sensitivity.
+"""Nançon — sensibilité à la porosité de drainage (Sy).
 
-Runs MODFLOW-NWT for 3 specific yield values and compares
-watertable cross-sections, streamflow, drainage density,
-saturation maps and persistency index.
+Montre comment piloter HydroModPy depuis un script et comment retaper
+dans le catalogue (DuckDB + Zarr) pour rejouer des figures a posteriori.
 
     python run_transient_prototype.py
 """
+
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 from matplotlib.colors import ListedColormap
-from rasterio.features import rasterize
-from rasterio.transform import Affine
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 import hydromodpy as hmp
 
+
+# ---------------------------------------------------------------------
+# 1. Lancement des trois simulations
+# ---------------------------------------------------------------------
+
+HERE = Path(__file__).resolve().parent
 SY_VALUES = [0.001, 0.05, 0.30]
-HK = 5e-5       # m/s
-SS = 1e-5        # 1/m
-THICKNESS = 30   # m
+K_VALUE = 5e-5           # m/s (fixé)
+SS_VALUE = 1e-5          # 1/m (fixé)
+THICKNESS = 30.0         # m
 
-project = hmp.Simulation(Path(__file__).parent / "project.toml")
-print(f"Catchment area: {project.geographic.catch_area:.1f} km2")
+project = hmp.Simulation(HERE / "project.toml")
+print(f"Bassin du Nançon — surface = {project.geographic.catch_area:.1f} km²")
 
-results = {}
-for i, sy in enumerate(SY_VALUES):
-    name = f"nancon_sy_{sy:.4f}"
-    print(f"\nRun {i+1}/{len(SY_VALUES)}: Sy={sy}  ({name})")
+runs: dict[float, "hmp.SimulationResult"] = {}
+for i, sy in enumerate(SY_VALUES, start=1):
+    label = f"nancon_sy_{sy:.4f}"
+    print(f"\nRun {i}/{len(SY_VALUES)} — Sy={sy}  ({label})")
     try:
-        r = project.run(Sy=sy, K=HK, Ss=SS, name=name)
-        results[sy] = r
-        print("  converged")
-    except Exception as e:
-        print(f"  FAILED: {e}")
+        runs[sy] = project.run(Sy=sy, K=K_VALUE, Ss=SS_VALUE, name=label)
+        print("  convergé")
+    except Exception as err:
+        print(f"  ÉCHEC : {err}")
 
-print(f"\n{len(results)}/{len(SY_VALUES)} runs converged.")
-if not results:
-    sys.exit(1)
+if not runs:
+    sys.exit("Aucun run convergé.")
 
-# Read DEM from the first simulation's Zarr geographic group
-first_result = next(iter(results.values()))
+print(f"\n{len(runs)}/{len(SY_VALUES)} runs convergés.")
+
+
+# ---------------------------------------------------------------------
+# 2. Lecture de la géométrie et du contour depuis le catalogue
+# ---------------------------------------------------------------------
+
+first_run = next(iter(runs.values()))
 catalog = project.store
-sz = catalog.open_zarr(first_result.sim_id)
-dem_data, dem_meta = sz.read_geographic_raster("watershed_dem")
-dem_data = dem_data.astype(float)
-dem_data[dem_data < 0] = np.nan
+zarr_store = catalog.open_zarr(first_run.sim_id)
+
+dem, dem_meta = zarr_store.read_geographic_raster("watershed_dem")
+dem = dem.astype(float)
+dem[dem < 0] = np.nan
 
 cell_size = abs(float(dem_meta["transform"][0]))
-grid_shape = dem_data.shape
-ws_mask = np.isfinite(dem_data) & (dem_data > 0)
-active_cells = int(np.sum(ws_mask))
-catchment_area_m2 = float(active_cells) * cell_size ** 2
+grid_shape = dem.shape
+catchment_mask = np.isfinite(dem) & (dem > 0)
+n_active_cells = int(catchment_mask.sum())
+catchment_area_m2 = n_active_cells * cell_size ** 2
 
-nper = project.time_grid.nper
+# extent (xmin, xmax, ymin, ymax) pour imshow en CRS : permet de
+# superposer directement les GeoDataFrames (pas de rasterisation).
+t = dem_meta["transform"]
+xmin, ymax = t[2], t[5]
+xmax = xmin + grid_shape[1] * t[0]
+ymin = ymax + grid_shape[0] * t[4]
+crs_extent = (xmin, xmax, ymin, ymax)
+
+contour_gdf = catalog.read_geographic_feature(first_run.sim_id, "watershed_contour")
+
+
+# ---------------------------------------------------------------------
+# 3. Séries temporelles par run (lues depuis le Zarr)
+# ---------------------------------------------------------------------
+
+n_periods = project.time_grid.nper
 dates = pd.date_range(start="2000-01-01", end="2002-12-31", freq="ME")
 days_in_month = np.array([d.day for d in dates])
 
-fig_dir = Path(__file__).parent / "figures"
+fig_dir = HERE / "figures"
 fig_dir.mkdir(parents=True, exist_ok=True)
 
 
-def drainage_density(r, n):
-    d = np.zeros(n)
-    for t in range(n):
-        seepage = r.field("seepage_areas", t).reshape(grid_shape)
-        d[t] = 100.0 * int(np.sum((seepage > 0) & ws_mask)) / active_cells
-    return d
+def rasters(run, variable: str) -> np.ndarray:
+    """Pile 3D (n_periods, nrow, ncol) pour une variable cell-based."""
+    return np.stack([
+        run.field(variable, t).reshape(grid_shape) for t in range(n_periods)
+    ])
 
 
-def load_accflux(r, n):
-    return {t: r.field("accumulation_flux", t).reshape(grid_shape) for t in range(n)}
+saturated_fraction = {
+    sy: 100.0 * ((rasters(run, "seepage_areas") > 0) & catchment_mask).sum(axis=(1, 2)) / n_active_cells
+    for sy, run in runs.items()
+}
+accumulation_flux = {sy: rasters(run, "accumulation_flux") for sy, run in runs.items()}
 
 
-all_density = {sy: drainage_density(r, nper) for sy, r in results.items()}
-all_accflux = {sy: load_accflux(r, nper) for sy, r in results.items()}
+# ---------------------------------------------------------------------
+# 4. Coupes transversales (min/max Asat)
+# ---------------------------------------------------------------------
 
+fig, axes = plt.subplots(len(runs), 1, figsize=(7, 3.5 * len(runs)), dpi=200)
+axes = np.atleast_1d(axes)
 
-# 1. Cross-sections
+mid_row = grid_shape[0] // 2
+distance = np.arange(grid_shape[1]) * cell_size
+dem_profile = dem[mid_row, :]
 
-fig, axes = plt.subplots(len(results), 1, figsize=(7, 3.5 * len(results)), dpi=200)
-if len(results) == 1:
-    axes = [axes]
+for ax, (sy, run) in zip(axes, runs.items()):
+    density = saturated_fraction[sy]
+    t_min, t_max = int(density.argmin()), int(density.argmax())
 
-for idx, (sy, r) in enumerate(results.items()):
-    ax = axes[idx]
-    density = all_density[sy]
-    idx_min, idx_max = int(np.argmin(density)), int(np.argmax(density))
-    row = grid_shape[0] // 2
-    dem_profile = dem_data[row, :].copy()
-    x_dist = np.arange(dem_profile.size) * cell_size
-
-    for label, tidx, color in [("Min", idx_min, "navy"), ("Max", idx_max, "dodgerblue")]:
-        wt = r.field("watertable_elevation", tidx).reshape(grid_shape)
+    for label, tidx, color in [("Min", t_min, "navy"), ("Max", t_max, "dodgerblue")]:
+        wt = run.field("watertable_elevation", tidx).reshape(grid_shape).copy()
         wt[wt < 0] = np.nan
-        wt_profile = wt[row, :]
-        ax.fill_between(x_dist, dem_profile - THICKNESS, wt_profile,
+        wt_profile = wt[mid_row, :]
+        ax.fill_between(distance, dem_profile - THICKNESS, wt_profile,
                         color=color, alpha=0.4, lw=0)
-        ax.plot(x_dist, wt_profile, color=color, lw=1,
-                label=f"{label} ({str(dates[tidx])[:7]})")
+        ax.plot(distance, wt_profile, color=color, lw=1,
+                label=f"{label} ({dates[tidx]:%Y-%m})")
 
-    ax.fill_between(x_dist, wt_profile, dem_profile, color="saddlebrown", alpha=0.3, lw=0)
-    ax.plot(x_dist, dem_profile, color="saddlebrown", lw=1.5)
-    ax.fill_between(x_dist, 0, dem_profile - THICKNESS, color="lightgrey", alpha=0.5, lw=0)
-    ax.plot(x_dist, dem_profile - THICKNESS, color="dimgray", lw=1)
-    ax.set_xlim(x_dist[np.isfinite(dem_profile)].min(),
-                x_dist[np.isfinite(dem_profile)].max())
+    ax.fill_between(distance, wt_profile, dem_profile, color="saddlebrown", alpha=0.3, lw=0)
+    ax.plot(distance, dem_profile, color="saddlebrown", lw=1.5)
+    ax.fill_between(distance, 0, dem_profile - THICKNESS, color="lightgrey", alpha=0.5, lw=0)
+    ax.plot(distance, dem_profile - THICKNESS, color="dimgray", lw=1)
+
+    valid = np.isfinite(dem_profile)
+    ax.set_xlim(distance[valid].min(), distance[valid].max())
     ax.set_ylim(np.nanmin(dem_profile) - THICKNESS - 5,
                 np.nanmax(dem_profile) + 5)
     ax.set_xlabel("Distance [m]")
-    ax.set_ylabel("Elevation [m]")
+    ax.set_ylabel("Élévation [m]")
     ax.set_title(f"Sy = {sy}", fontsize=10)
     ax.legend(fontsize=8)
 
@@ -127,84 +149,71 @@ plt.close(fig)
 print("[plot] cross_section_comparison.png")
 
 
-# 2. Streamflow
+# ---------------------------------------------------------------------
+# 5. Débits : sim vs obs
+# ---------------------------------------------------------------------
+# Recharge : relue depuis le Zarr du run (`forcing/recharge/<station>`),
+# mais non utilisée dans la figure pour rester simple.
+#
+# Débit observé : pas encore persisté dans le catalogue v0.5 pour un run
+# hors `[observations]`/calibration. On lit donc le CSV d'origine.
+# À remplacer par `sim.observations("discharge", "NANCON")` quand l'API
+# sera disponible.
 
-data_root = Path(__file__).resolve().parent.parent / "data"
-
-runoff_mm_day = None
-runoff_candidates = list(data_root.glob("runoff/*EX04*.csv"))
-if runoff_candidates:
-    runoff_mm_day = pd.read_csv(
-        runoff_candidates[0], index_col=0, parse_dates=True,
-    )["value"]
-
-Qobs = None
-qobs_candidates = list(data_root.glob("hydrometry/*NANCON*.csv"))
-if qobs_candidates:
-    Qobs_raw = pd.read_csv(
-        qobs_candidates[0], index_col=0, parse_dates=True,
-    ).squeeze()
+obs_csv = HERE.parent / "data/hydrometry/hydrometry_custom_NANCON_19820201_20220125_D.csv"
+Q_obs = None
+if obs_csv.exists():
+    q_raw = pd.read_csv(obs_csv, index_col=0, parse_dates=True).squeeze()
     area_m2 = project.geographic.catch_area * 1e6
-    Qobs = Qobs_raw / area_m2 * 86400
-    Qobs = Qobs.resample("ME").sum() * 1000
-    Qobs = Qobs[(Qobs.index.year >= 2000) & (Qobs.index.year <= 2002)]
+    Q_obs = (q_raw / area_m2 * 86400).resample("ME").sum() * 1000  # mm/mois
+    Q_obs = Q_obs[(Q_obs.index.year >= 2000) & (Q_obs.index.year <= 2002)]
 
-all_qmod = {}
-for sy, r in results.items():
-    q = []
-    for t in range(nper):
-        drain = r.field("outflow_drain", t).reshape(grid_shape)
-        drain[~np.isfinite(drain)] = 0.0
-        q.append(
-            float(np.sum(np.abs(drain[ws_mask])))
-            / catchment_area_m2 * 86400 * 1000
-        )
-    drain_mm_day = pd.Series(q, index=dates)
-    if runoff_mm_day is not None:
-        drain_mm_day += runoff_mm_day.reindex(dates, method="nearest").fillna(0).values
-    all_qmod[sy] = drain_mm_day * days_in_month
+Q_sim = {}
+for sy, run in runs.items():
+    drain = rasters(run, "outflow_drain")
+    drain[~np.isfinite(drain)] = 0.0
+    q_daily = np.abs(drain * catchment_mask).sum(axis=(1, 2)) / catchment_area_m2 * 86400 * 1000
+    Q_sim[sy] = pd.Series(q_daily * days_in_month, index=dates)  # mm/mois
 
-all_values = np.concatenate([q.values for q in all_qmod.values()])
-if Qobs is not None:
-    all_values = np.concatenate([all_values, Qobs.values])
-all_values = all_values[all_values > 0]
-y_min, y_max = float(np.min(all_values)) * 0.5, float(np.max(all_values)) * 2.0
+pos = np.concatenate([q.values for q in Q_sim.values()] + ([Q_obs.values] if Q_obs is not None else []))
+pos = pos[pos > 0]
+y_min, y_max = float(pos.min()) * 0.5, float(pos.max()) * 2.0
 
 fig, axes = plt.subplots(
-    len(results), 2, figsize=(12, 3.5 * len(results)),
+    len(runs), 2, figsize=(12, 3.5 * len(runs)),
     gridspec_kw={"width_ratios": [3, 1]}, dpi=200,
 )
-if len(results) == 1:
-    axes = axes.reshape(1, -1)
+axes = axes.reshape(len(runs), 2)
 
-for idx, (sy, _) in enumerate(results.items()):
-    Qmod = all_qmod[sy]
+for row_axes, (sy, q_sim) in zip(axes, Q_sim.items()):
+    ax_ts, ax_sc = row_axes
 
-    ax = axes[idx, 0]
-    if Qobs is not None:
-        ax.plot(Qobs, color="k", lw=2, label="Observed")
-    ax.plot(Qmod, color="red", lw=2, label="Simulated")
-    ax.set_ylabel("Q/A [mm/month]")
-    ax.set_yscale("log")
-    ax.set_ylim(y_min, y_max)
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-    ax.set_xlim(pd.Timestamp("1999"), pd.Timestamp("2004"))
-    ax.legend(fontsize=8)
-    ax.set_title(f"Sy = {sy}", fontsize=10)
+    if Q_obs is not None:
+        ax_ts.plot(Q_obs, color="k", lw=2, label="Observé")
+    ax_ts.plot(q_sim, color="red", lw=2, label="Simulé")
+    ax_ts.set_ylabel("Q/A [mm/mois]")
+    ax_ts.set_yscale("log")
+    ax_ts.set_ylim(y_min, y_max)
+    ax_ts.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    ax_ts.set_xlim(pd.Timestamp("1999"), pd.Timestamp("2004"))
+    ax_ts.legend(fontsize=8)
+    ax_ts.set_title(f"Sy = {sy}", fontsize=10)
 
-    ax = axes[idx, 1]
-    if Qobs is not None:
-        Qmod_aligned = Qmod.reindex(Qobs.index, method="nearest")
-        ax.scatter(Qobs, Qmod_aligned, s=20, alpha=0.7,
-                   color="forestgreen", edgecolor="none")
-        ax.plot([max(1, y_min), y_max], [max(1, y_min), y_max],
-                color="grey", zorder=-1)
-        ax.set_xscale("log")
-        ax.set_yscale("log")
-        ax.set_xlim(max(1, y_min), y_max)
-        ax.set_ylim(max(1, y_min), y_max)
-        ax.set_xlabel("Obs [mm/month]")
-        ax.set_ylabel("Sim [mm/month]")
+    if Q_obs is not None:
+        q_aligned = q_sim.reindex(Q_obs.index, method="nearest")
+        ax_sc.scatter(Q_obs, q_aligned, s=20, alpha=0.7,
+                      color="forestgreen", edgecolor="none")
+        ax_sc.plot([max(1, y_min), y_max], [max(1, y_min), y_max],
+                   color="grey", zorder=-1)
+        ax_sc.set_xscale("log")
+        ax_sc.set_yscale("log")
+        ax_sc.set_xlim(max(1, y_min), y_max)
+        ax_sc.set_ylim(max(1, y_min), y_max)
+        ax_sc.set_xlabel("Obs [mm/mois]")
+        ax_sc.set_ylabel("Sim [mm/mois]")
+    else:
+        ax_sc.text(0.5, 0.5, "pas d'obs", ha="center", va="center",
+                   transform=ax_sc.transAxes, color="grey")
 
 fig.tight_layout()
 fig.savefig(fig_dir / "streamflow_comparison.png", bbox_inches="tight")
@@ -212,36 +221,28 @@ plt.close(fig)
 print("[plot] streamflow_comparison.png")
 
 
-# 3. Drainage density
+# ---------------------------------------------------------------------
+# 6. Densité de drainage (intermittent vs pérenne, par année)
+# ---------------------------------------------------------------------
 
-fig, axes = plt.subplots(len(results), 1, figsize=(8, 3 * len(results)), dpi=200)
-if len(results) == 1:
-    axes = [axes]
+fig, axes = plt.subplots(len(runs), 1, figsize=(8, 3 * len(runs)), dpi=200)
+axes = np.atleast_1d(axes)
 
-for idx, (sy, _) in enumerate(results.items()):
-    ax = axes[idx]
-    accflux = all_accflux[sy]
+for ax, (sy, accflux_stack) in zip(axes, accumulation_flux.items()):
+    active = (accflux_stack > 0) & catchment_mask
+    total = 100.0 * active.sum(axis=(1, 2)) / n_active_cells
 
-    total = np.array([
-        100.0 * int(np.sum((accflux[t] > 0) & ws_mask)) / active_cells
-        for t in range(nper)
-    ])
-
-    perennial = np.zeros(nper)
+    perennial = np.zeros(n_periods)
     for year in sorted({d.year for d in dates}):
-        yi = [t for t, d in enumerate(dates) if d.year == year]
-        mask_p = np.ones(grid_shape, dtype=bool)
-        for t in yi:
-            mask_p &= (accflux[t] > 0)
-        pct = 100.0 * int(np.sum(mask_p & ws_mask)) / active_cells
-        for t in yi:
-            perennial[t] = pct
+        year_ts = [t for t, d in enumerate(dates) if d.year == year]
+        always_active = active[year_ts].all(axis=0)
+        perennial[year_ts] = 100.0 * (always_active & catchment_mask).sum() / n_active_cells
 
     ax.fill_between(dates, 0, total, step="pre",
                     color="dodgerblue", alpha=0.5, label="Intermittent")
     ax.fill_between(dates, 0, perennial, step="pre",
-                    color="navy", alpha=0.5, label="Perennial")
-    ax.set_ylabel("Drainage density [%]")
+                    color="navy", alpha=0.5, label="Pérenne")
+    ax.set_ylabel("Densité de drainage [%]")
     ax.set_xlim(pd.Timestamp("2000-01"), pd.Timestamp("2002-12"))
     ax.set_ylim(0, None)
     ax.xaxis.set_major_locator(mdates.YearLocator())
@@ -255,45 +256,31 @@ plt.close(fig)
 print("[plot] drainage_density_comparison.png")
 
 
-# 4. Saturation maps
+# ---------------------------------------------------------------------
+# 7. Cartes de saturation (min/max) — overlay contour vectoriel
+# ---------------------------------------------------------------------
 
-# Read the watershed outline from the vector store (lightweight linestring)
-# and rasterise it on the DEM grid so imshow can overlay it alongside the
-# simulated fields.
-contour_gdf = catalog.read_geographic_feature(first_result.sim_id, "watershed_contour")
-contour_transform = Affine(*dem_meta["transform"])
-contour_mask = rasterize(
-    [(geom, 1) for geom in contour_gdf.geometry if geom is not None],
-    out_shape=grid_shape,
-    transform=contour_transform,
-    fill=0,
-    dtype="uint8",
-).astype(bool)
-contour = np.ma.masked_where(~contour_mask, contour_mask.astype(float))
+fig, axes = plt.subplots(len(runs), 2, figsize=(8, 4 * len(runs)), dpi=200)
+axes = axes.reshape(len(runs), 2)
 
-mask = dem_data.copy()
-fig, axes = plt.subplots(len(results), 2, figsize=(8, 4 * len(results)), dpi=200)
-if len(results) == 1:
-    axes = axes.reshape(1, -1)
+for row_axes, (sy, run) in zip(axes, runs.items()):
+    density = saturated_fraction[sy]
+    t_min, t_max = int(density.argmin()), int(density.argmax())
 
-for idx, (sy, r) in enumerate(results.items()):
-    density = all_density[sy]
-    idx_min, idx_max = int(np.argmin(density)), int(np.argmax(density))
-
-    for k, (tidx, label) in enumerate([(idx_min, "Min"), (idx_max, "Max")]):
-        ax = axes[idx, k]
-        flux = all_accflux[sy][tidx]
+    for ax, (tidx, label) in zip(row_axes, [(t_min, "Min"), (t_max, "Max")]):
+        flux = accumulation_flux[sy][tidx]
         ax.set_title(
-            f"Sy={sy}  {label} ({str(dates[tidx])[:7]})  Asat={density[tidx]:.1f}%",
+            f"Sy={sy}  {label} ({dates[tidx]:%Y-%m})  Asat={density[tidx]:.1f}%",
             fontsize=9,
         )
-        ax.imshow(np.ma.masked_where(np.isnan(mask), mask),
-                  cmap="Greys", alpha=0.5, zorder=0)
-        ax.imshow(np.ma.masked_where((flux <= 0) | np.isnan(mask), flux),
-                  cmap=ListedColormap(["navy"]), zorder=1)
-        if contour is not None:
-            ax.imshow(contour, cmap="Greys_r", zorder=2)
-        ax.axis("off")
+        ax.imshow(np.ma.masked_where(~catchment_mask, dem),
+                  cmap="Greys", alpha=0.5, extent=crs_extent, origin="upper")
+        ax.imshow(np.ma.masked_where((flux <= 0) | ~catchment_mask, flux),
+                  cmap=ListedColormap(["navy"]), extent=crs_extent, origin="upper")
+        contour_gdf.plot(ax=ax, color="black", lw=0.6)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_aspect("equal")
 
 fig.tight_layout()
 fig.savefig(fig_dir / "saturation_maps_comparison.png", bbox_inches="tight")
@@ -301,34 +288,35 @@ plt.close(fig)
 print("[plot] saturation_maps_comparison.png")
 
 
-# 5. Persistency index
+# ---------------------------------------------------------------------
+# 8. Indice de persistance
+# ---------------------------------------------------------------------
 
-fig, axes = plt.subplots(1, len(results), figsize=(4 * len(results), 5), dpi=200)
-if len(results) == 1:
-    axes = [axes]
+fig, axes = plt.subplots(1, len(runs), figsize=(4 * len(runs), 5), dpi=200)
+axes = np.atleast_1d(axes)
 
-for idx, (sy, _) in enumerate(results.items()):
-    ax = axes[idx]
-    accflux = all_accflux[sy]
-    n_active = np.zeros(grid_shape)
-    for t in range(nper):
-        n_active += (accflux[t] > 0).astype(float)
-    pi = np.ma.masked_where((n_active <= 0) | np.isnan(mask), n_active / nper)
-    im = ax.imshow(pi, cmap="jet", vmin=0, vmax=1)
-    if contour is not None:
-        ax.imshow(contour, cmap="Greys_r")
+for ax, (sy, accflux_stack) in zip(axes, accumulation_flux.items()):
+    persistency = (accflux_stack > 0).sum(axis=0) / n_periods
+    pi = np.ma.masked_where(~catchment_mask | (persistency <= 0), persistency)
+    im = ax.imshow(pi, cmap="jet", vmin=0, vmax=1,
+                   extent=crs_extent, origin="upper")
+    contour_gdf.plot(ax=ax, color="black", lw=0.6)
     ax.set_title(f"Sy = {sy}", fontsize=10)
-    ax.axis("off")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_aspect("equal")
 
 cbar_ax = fig.add_axes([0.25, 0.05, 0.5, 0.02])
 fig.colorbar(im, cax=cbar_ax, orientation="horizontal",
-             label="Persistency index [-]")
+             label="Indice de persistance [-]")
 fig.tight_layout(rect=[0, 0.08, 1, 1])
 fig.savefig(fig_dir / "persistency_comparison.png", bbox_inches="tight")
 plt.close(fig)
 print("[plot] persistency_comparison.png")
 
+
+# ---------------------------------------------------------------------
 project.close()
-print(f"\nDone. Figures in {fig_dir}")
-for sy, r in results.items():
-    print(f"  Sy={sy}: {r.name}")
+print(f"\nFini. Figures dans {fig_dir}")
+for sy, run in runs.items():
+    print(f"  Sy={sy}: {run.name}  (sim_id={run.sim_id[:8]}…)")
