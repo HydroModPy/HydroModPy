@@ -34,6 +34,8 @@ from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.core.config.path_resolution import resolve_declared_path
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.core.config.base import HydroModelBase
+from typing import Annotated
+from hydromodpy.core.config.profile import Profile
 
 # ``core`` is a leaf of the import DAG: non-core sibling configs are referenced
 # via forward references below and resolved through a deferred ``model_rebuild``
@@ -80,13 +82,13 @@ class HydroModPyConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
-    workspace: WorkspaceConfig = Field(
+    workspace: Annotated[WorkspaceConfig, Profile.USER] = Field(
         description="Configuration block for the project workspace and folder structure."
     )
-    geographic: GeographicConfig = Field(
+    geographic: Annotated[GeographicConfig, Profile.USER] = Field(
         description="Configuration block for geographic and watershed delineation parameters."
     )
-    domain: DomainConfig = Field(
+    domain: Annotated[DomainConfig, Profile.USER] = Field(
         default_factory=lambda: DomainConfig(),
         description=(
             "Domain configuration defining domain depth plus the spatial-support "
@@ -94,7 +96,7 @@ class HydroModPyConfig(HydroModelBase):
             "(`none`, `geology`, or `zones`)."
         ),
     )
-    data: DataManagersConfig = Field(
+    data: Annotated[DataManagersConfig, Profile.USER] = Field(
         default_factory=lambda: DataManagersConfig(),
         description=(
             "Data-managers configuration. Use `data.types` to declare requested "
@@ -103,7 +105,7 @@ class HydroModPyConfig(HydroModelBase):
             "`data.inference_mode` ('warn' or 'strict')."
         ),
     )
-    flow: FlowConfig = Field(
+    flow: Annotated[FlowConfig, Profile.USER] = Field(
         default_factory=lambda: FlowConfig(),
         description=(
             "Flow process configuration with declared parameter ids in "
@@ -111,7 +113,7 @@ class HydroModPyConfig(HydroModelBase):
             "TOML sections."
         ),
     )
-    transport: TransportConfig = Field(
+    transport: Annotated[TransportConfig, Profile.USER] = Field(
         default_factory=lambda: TransportConfig(),
         description=(
             "Transport process configuration, with solver-specific parameter "
@@ -119,7 +121,7 @@ class HydroModPyConfig(HydroModelBase):
             "[transport.mt3dms.parameters], and [transport.modflow6gwt.parameters]."
         ),
     )
-    simulation: SimulationConfig = Field(
+    simulation: Annotated[SimulationConfig, Profile.USER] = Field(
         default_factory=lambda: SimulationConfig(),
         description=(
             "Optional simulation orchestration block loaded from [simulation] "
@@ -127,14 +129,14 @@ class HydroModPyConfig(HydroModelBase):
             "legacy fixed phase order."
         ),
     )
-    solver: SolverConfig = Field(
+    solver: Annotated[SolverConfig, Profile.USER] = Field(
         default_factory=lambda: SolverConfig(),
         description=(
             "Global solver selection loaded from [solver], including "
             "the active solver_engine."
         ),
     )
-    modflownwt: ModflowConfig = Field(
+    modflownwt: Annotated[ModflowConfig, Profile.USER] = Field(
         default_factory=lambda: ModflowConfig(),
         description=(
             "Expert MODFLOW-NWT package configuration loaded from "
@@ -142,7 +144,7 @@ class HydroModPyConfig(HydroModelBase):
             "[modflownwt.sgrid.planar], and [modflownwt.sgrid.vertical]."
         ),
     )
-    modflow6: Modflow6Config = Field(
+    modflow6: Annotated[Modflow6Config, Profile.USER] = Field(
         default_factory=lambda: Modflow6Config(),
         description=(
             "Expert MODFLOW 6 package configuration loaded from "
@@ -150,20 +152,20 @@ class HydroModPyConfig(HydroModelBase):
             "[modflow6.sgrid.planar], and [modflow6.sgrid.vertical]."
         ),
     )
-    display: DisplayConfig = Field(
+    display: Annotated[DisplayConfig, Profile.USER] = Field(
         default_factory=lambda: DisplayConfig(),
         description=(
             "Optional display and export toggles loaded from the [display] section."
         ),
     )
-    postprocess: PostprocessConfig = Field(
+    postprocess: Annotated[PostprocessConfig, Profile.USER] = Field(
         default_factory=lambda: PostprocessConfig(),
         description=(
             "Optional launcher-managed postprocess workflow loaded from the "
             "[postprocess] section."
         ),
     )
-    capability_gallery: CapabilityGalleryConfig = Field(
+    capability_gallery: Annotated[CapabilityGalleryConfig, Profile.USER] = Field(
         default_factory=lambda: CapabilityGalleryConfig(),
         description=(
             "Optional publication block copying selected run figures into a "
@@ -172,7 +174,7 @@ class HydroModPyConfig(HydroModelBase):
     )
 
     # Lightweight workflows (without simulation)
-    overview: OverviewSection | None = Field(
+    overview: Annotated[OverviewSection | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional overview report settings loaded from the [overview] "
@@ -180,7 +182,7 @@ class HydroModPyConfig(HydroModelBase):
             "data-overview (watershed identity card) workflow."
         ),
     )
-    mesh_catchment: MeshCatchmentConfig | None = Field(
+    mesh_catchment: Annotated[MeshCatchmentConfig | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional mesh-only settings loaded from the [mesh_catchment] "
@@ -188,7 +190,7 @@ class HydroModPyConfig(HydroModelBase):
             "mesh-only workflow."
         ),
     )
-    calibration: CalibrationConfig | None = Field(
+    calibration: Annotated[CalibrationConfig | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional calibration settings loaded from the [calibration] "
