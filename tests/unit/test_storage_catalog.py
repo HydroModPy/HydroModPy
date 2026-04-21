@@ -256,7 +256,14 @@ class TestChecks:
                 "VALUES (?, 'p', 'mf6', 'bogus')", [sid],
             )
 
-    def test_budget_component_enum(self, mem_conn):
+    def test_budget_component_not_null(self, mem_conn):
+        """The budgets table must reject NULL component values.
+
+        The previous enum-based CHECK was dropped because solver
+        extractors legitimately emit labels like ``drains``,
+        ``river leakage`` or ``head dep bounds`` that were outside the
+        original closed list. Only NOT NULL is enforced now.
+        """
         sid = _sim_id()
         mem_conn.execute(
             "INSERT INTO simulations (sim_id, project, solver) "
@@ -265,8 +272,13 @@ class TestChecks:
         with pytest.raises(duckdb.ConstraintException):
             mem_conn.execute(
                 "INSERT INTO budgets (sim_id, timestep, component, "
-                "flux_in, flux_out) VALUES (?, 0, 'unknown', 0, 0)", [sid],
+                "flux_in, flux_out) VALUES (?, 0, NULL, 0, 0)", [sid],
             )
+        # A previously-rejected label like 'drains' is now accepted.
+        mem_conn.execute(
+            "INSERT INTO budgets (sim_id, timestep, component, "
+            "flux_in, flux_out) VALUES (?, 0, 'drains', 0, 0)", [sid],
+        )
 
     def test_bbox_order_enforced(self, mem_conn):
         sid = _sim_id()

@@ -98,17 +98,12 @@ def rasters(run, variable: str) -> np.ndarray:
     ])
 
 
-# Les deux métriques agrégées au bassin sont persistées par le pipeline
-# dans `timeseries` (station "_catchment", %). On les relit depuis la DB
-# au lieu de les recomputer cellule-par-cellule.
-saturated_fraction = {
-    sy: catalog[run.sim_id].timeseries("seepage_areas", "_catchment").values
-    for sy, run in runs.items()
-}
-drainage_density = {
-    sy: catalog[run.sim_id].timeseries("drainage_density", "_catchment").values
-    for sy, run in runs.items()
-}
+# Vues lazy : seepage_areas et drainage_density sont réduits à la volée
+# depuis les rasters `derived/` (pas matérialisés dans DuckDB).
+saturated_fraction = {sy: catalog[run.sim_id].saturated_fraction().values
+                      for sy, run in runs.items()}
+drainage_density = {sy: catalog[run.sim_id].drainage_density().values
+                    for sy, run in runs.items()}
 
 # accumulation_flux (raster) reste nécessaire pour les cartes de
 # saturation et l'indice de persistance (calcul spatial par cellule).

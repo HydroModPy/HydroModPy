@@ -93,7 +93,7 @@ class ImportedMeshCasePaths:
 def mesh_gallery_root(*, repo_root: Path = REPO_ROOT) -> Path:
     """Return the canonical root directory for versioned mesh-gallery cases."""
 
-    return repo_root / "examples" / "mesh_gallery"
+    return repo_root / "examples" / "07_mesh_gallery"
 
 
 def _validate_scale(scale: str) -> str:

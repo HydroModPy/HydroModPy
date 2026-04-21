@@ -283,6 +283,33 @@ class SimulationView:
             df.to_csv(str(path), index=False)
         return df
 
+    # -- Lazy catchment views (delegate to hydromodpy.results.views) ---------
+
+    def saturated_fraction(self, **kwargs) -> pd.Series:
+        """Lazy ``%`` of catchment cells where seepage > threshold per step."""
+        from hydromodpy.results import views
+        return views.saturated_fraction(self, **kwargs)
+
+    def drainage_density(self, **kwargs) -> pd.Series:
+        """Lazy ``%`` of catchment cells with positive routed drain flux."""
+        from hydromodpy.results import views
+        return views.drainage_density(self, **kwargs)
+
+    def persistence(self, **kwargs) -> np.ndarray:
+        """Lazy per-cell fraction of timesteps above a threshold."""
+        from hydromodpy.results import views
+        return views.persistence(self, **kwargs)
+
+    def catchment_mean(self, variable: str, **kwargs) -> pd.Series:
+        """Lazy arithmetic mean of a cell variable over active cells."""
+        from hydromodpy.results import views
+        return views.catchment_mean(self, variable, **kwargs)
+
+    def recharge_forcing(self) -> pd.Series:
+        """Lazy input recharge forcing per stress period."""
+        from hydromodpy.results import views
+        return views.recharge_forcing(self)
+
     # -- Display capabilities ------------------------------------------------
 
     @property

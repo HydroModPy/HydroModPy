@@ -13,33 +13,24 @@ logger = logging.getLogger(__name__)
 _CATCHMENT_STATION = "_catchment"
 
 VARIABLE_UNITS: dict[str, str] = {
-    "watertable_depth": "m",
-    "watertable_elevation": "m",
-    "seepage_areas": "%",
-    "outflow_drain": "m3/d/cell",
-    "recharge_budget": "m/d",
-    "recharge_forcing": "m/d",
-    "accumulation_flux": "m3/d",
-    "drainage_density": "%",
+    "discharge": "m3/s",
     "well_pumping": "m3/d",
 }
 
 # (source_variable, output_variable, reducer)
 # source_variable is looked up in derived/ then budget/ then root.
+#
+# The catalog only materialises timeseries that downstream figures and
+# calibration pipelines consume as-is. Catchment-scale reductions of
+# spatial fields (drainage density, saturated fraction, water-table
+# means, recharge means) are computed lazily on demand through
+# ``hydromodpy.results.metrics`` / ``SimulationView`` methods, so the
+# catalog stays focused on observation-comparable point series.
 _AGGREGATION_SPEC: list[tuple[str, str, str]] = [
-    ("watertable_depth", "watertable_depth", "mean_active"),
-    ("watertable_elevation", "watertable_elevation", "mean_active"),
-    ("seepage_areas", "seepage_areas", "percent_positive"),
-    # NWT: "drains"/"recharge", MF6: "drn"/"rch" — try both via _find_budget_key
-    ("drains|drn|drain", "outflow_drain", "qspe"),
-    # recharge_budget = MODFLOW budget (≈ outflow at equilibrium)
-    # recharge_forcing = input forcing (from config) — written separately below
-    ("recharge|rch", "recharge_budget", "mean_active"),
-    ("accumulation_flux", "accumulation_flux", "max"),
-    # Fraction of active cells whose routed drain flux is positive — i.e.
-    # the fraction of the catchment occupied by an active stream network.
-    # Matches the "drainage density" metric used in headwater studies.
-    ("accumulation_flux", "drainage_density", "percent_positive"),
+    # Outlet discharge (m3/s) — consumed by hydrograph, watershed_id_card,
+    # calibration.
+    ("drains|drn|drain", "discharge", "qspe"),
+    # Well pumping total (m3/d).
     ("wells|wel", "well_pumping", "sum"),
 ]
 
@@ -87,11 +78,6 @@ def aggregate_catchment_timeseries(
         unit = VARIABLE_UNITS.get(output_var, "")
         store.write_timeseries(sim_id, _CATCHMENT_STATION, output_var, ts, unit=unit)
         written += 1
-
-    # Write recharge_forcing: the INPUT recharge rate (constant per stress period).
-    # This is different from recharge_budget which equals drain at equilibrium.
-    # We take 1 value per stress period (first substep) from the budget recharge.
-    _write_recharge_forcing(store, sim_id, grp, n_timesteps, active_mask, ts_index)
 
     if written:
         logger.info("Wrote %d catchment-aggregated timeseries for sim %s", written, sim_id)
@@ -161,85 +147,6 @@ def _resolve_time_index(store: Any, sim_id: str, n_timesteps: int) -> pd.Datetim
     # Spread n_timesteps evenly across 12 months
     return pd.date_range("2000-01-01", "2000-12-31", periods=n_timesteps)
 
-
-def _write_recharge_forcing(
-    store: Any,
-    sim_id: str,
-    grp,
-    n_timesteps: int,
-    active_mask: np.ndarray | None,
-    ts_index: "pd.DatetimeIndex",
-) -> None:
-    """Write the input recharge forcing as 1 value per stress period.
-
-    The budget recharge is constant within each stress period (it's the
-    prescribed forcing). We detect stress-period boundaries by finding where
-    the recharge value changes, then take one value per period.
-    """
-    candidates = ["recharge", "rch"]
-    budget_grp = grp.get("budget")
-    if budget_grp is None:
-        return
-    rch_key = None
-    for c in candidates:
-        if c in budget_grp:
-            rch_key = c
-            break
-    if rch_key is None:
-        return
-
-    arr = budget_grp[rch_key]
-    # Compute mean recharge per timestep
-    all_means = []
-    for t in range(n_timesteps):
-        field = np.asarray(arr[t], dtype="float64")
-        if field.ndim == 2:
-            field = field[0]
-        field = field.ravel()
-        if active_mask is not None and active_mask.size == field.size:
-            field = np.where(active_mask, field, np.nan)
-        all_means.append(float(np.nanmean(field)))
-
-    # Build 1 value per stress period by taking the first substep of each period.
-    # Detect period boundaries: recharge is constant within each period,
-    # so we group consecutive identical values.
-    means = np.array(all_means)
-    if len(means) == 0:
-        return
-
-    # Determine substeps per period from head array shape
-    head_arr = grp.get("head")
-    if head_arr is not None:
-        n_head = head_arr.shape[0]
-        # Try common period counts (12, 6, 4, etc.)
-        for n_per in [12, 6, 4, 3, 2, 1]:
-            if n_head % n_per == 0:
-                nstp = n_head // n_per
-                break
-        else:
-            nstp = 1
-            n_per = n_head
-    else:
-        nstp = max(1, len(means) // 12)
-        n_per = max(1, len(means) // nstp)
-
-    period_values = []
-    period_dates = []
-    for p in range(n_per):
-        idx = p * nstp
-        if idx < len(means):
-            period_values.append(means[idx])
-            period_dates.append(ts_index[idx] if idx < len(ts_index) else ts_index[-1])
-
-    if not period_values:
-        return
-
-    ts = pd.Series(period_values, index=pd.DatetimeIndex(period_dates),
-                    name="recharge_forcing", dtype="float64")
-    store.write_timeseries(
-        sim_id, _CATCHMENT_STATION, "recharge_forcing", ts,
-        unit=VARIABLE_UNITS.get("recharge_forcing", ""),
-    )
 
 
 def _detect_n_timesteps(grp) -> int:

@@ -14,7 +14,7 @@ Example
 
     result = project.run(Sy=0.05, K=5e-5, name="baseline")
     wt = result.field("watertable_depth", timestep=12)
-    ts = result.timeseries("outflow_drain")
+    ts = result.timeseries("discharge", station="_catchment")
 
     project.close()
 """
@@ -78,9 +78,13 @@ class SimulationResult:
         Parameters
         ----------
         variable : str
-            E.g. ``"outflow_drain"``, ``"watertable_depth"``.
+            E.g. ``"discharge"`` (outlet) or observation-point variables
+            declared in ``[observations]``. Catchment reductions like
+            ``saturated_fraction`` and ``drainage_density`` live on the
+            lazy :class:`~hydromodpy.results.simulation.SimulationView`
+            API instead.
         station : str
-            Defaults to ``"_catchment"`` (catchment-wide aggregate).
+            Defaults to ``"_catchment"`` (outlet aggregate).
         """
         return self._store.query_timeseries(
             self.sim_id, station, variable, period=period,
@@ -160,7 +164,7 @@ class Simulation:
         # Parameter sweep
         for sy in [0.001, 0.05, 0.30]:
             r = project.run(Sy=sy, name=f"sy_{sy:.4f}")
-            print(r.timeseries("outflow_drain").mean())
+            print(r.timeseries("discharge").mean())
 
         project.close()
     """

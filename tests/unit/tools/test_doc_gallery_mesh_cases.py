@@ -17,7 +17,7 @@ from tools.doc_gallery.mesh_case_registry import (
 )
 
 
-SAMPLE_BUNDLE = REPO_ROOT / "examples" / "mesh_viewer" / "sample_bundle"
+SAMPLE_BUNDLE = REPO_ROOT / "examples" / "08_mesh_viewer" / "sample_bundle"
 
 
 def _write_dummy_launcher_config(repo_root: Path, relative_path: str) -> None:
@@ -64,7 +64,7 @@ def test_import_mesh_bundle_case_creates_canonical_layout(tmp_path: Path) -> Non
     expected_case_dir = (
         repo_root
         / "examples"
-        / "mesh_gallery"
+        / "07_mesh_gallery"
         / "100km2"
         / "mesh_100km2_outlet_27_geology_rivers_buffer30"
     )
@@ -86,7 +86,7 @@ def test_import_mesh_bundle_case_creates_canonical_layout(tmp_path: Path) -> Non
     assert payload["outlet_id"] == "27"
     assert (
         payload["config_path"]
-        == "examples/mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/viewer_config.toml"
+        == "examples/07_mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/viewer_config.toml"
     )
     assert "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml" in payload["source_paths"]
 
@@ -120,7 +120,7 @@ def test_build_repo_mesh_gallery_case_specs_discovers_imported_cases(tmp_path: P
     assert spec.generator == "mesh_viewer"
     assert spec.metric_specs[0].key == "node_count"
     assert spec.metadata["config_path"] == (
-        "examples/mesh_gallery/100km2/headwater_100km2_outlet_27_rivers_only_buffer30/viewer_config.toml"
+        "examples/07_mesh_gallery/100km2/headwater_100km2_outlet_27_rivers_only_buffer30/viewer_config.toml"
     )
     assert spec.case_setup
     assert spec.metadata["comparison_group"] == "100km2::outlet::27"
@@ -145,7 +145,7 @@ def test_imported_mesh_case_prefers_copied_mesher_figures_when_available(tmp_pat
     case_dir = (
         repo_root
         / "examples"
-        / "mesh_gallery"
+        / "07_mesh_gallery"
         / "100km2"
         / "mesh_100km2_outlet_27_geology_rivers_buffer30"
     )
