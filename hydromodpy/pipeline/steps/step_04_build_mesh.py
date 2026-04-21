@@ -15,13 +15,17 @@ Outputs
 
 from __future__ import annotations
 
-from hydromodpy.pipeline.state import PipelineState
+from typing import ClassVar
+
+from hydromodpy.pipeline.state import MeshedState, PipelineState
 
 
 class BuildMeshStep:
     """Build / import the mesh and complete the spatial supports."""
 
     name = "build_mesh"
+    tin: ClassVar[type] = MeshedState
+    tout: ClassVar[type] = MeshedState
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.workflow.steps.mesh import step_mesh, step_mesh_input
