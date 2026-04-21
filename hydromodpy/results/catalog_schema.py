@@ -290,6 +290,17 @@ CREATE TABLE IF NOT EXISTS runs_environment (
 );
 """
 
+_TAGS_DDL = """
+CREATE TABLE IF NOT EXISTS tags (
+    sim_id   UUID NOT NULL,
+    tag      VARCHAR NOT NULL,
+    added_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
+    added_by VARCHAR,
+    PRIMARY KEY (sim_id, tag)
+);
+CREATE INDEX IF NOT EXISTS ix_tags_tag ON tags(tag);
+"""
+
 # ---------------------------------------------------------------------------
 #  Geographic tables
 # ---------------------------------------------------------------------------
@@ -339,6 +350,7 @@ TABLE_NAMES: tuple[str, ...] = (
     "geographic_features",
     "geographic_metadata",
     "runs_environment",
+    "tags",
 )
 
 PER_SIM_TABLE_NAMES: tuple[str, ...] = (
@@ -352,6 +364,7 @@ PER_SIM_TABLE_NAMES: tuple[str, ...] = (
     "geographic_features",
     "geographic_metadata",
     "runs_environment",
+    "tags",
 )
 
 _ALL_DDL: tuple[str, ...] = (
@@ -368,6 +381,7 @@ _ALL_DDL: tuple[str, ...] = (
     _GEOGRAPHIC_FEATURES_DDL,
     _GEOGRAPHIC_METADATA_DDL,
     _RUNS_ENVIRONMENT_DDL,
+    _TAGS_DDL,
 )
 
 
