@@ -156,12 +156,7 @@ CREATE TABLE IF NOT EXISTS budgets (
     sim_id    UUID NOT NULL,
     timestep  INTEGER NOT NULL CHECK (timestep >= 0),
     zone_id   VARCHAR NOT NULL DEFAULT '__global__',
-    component VARCHAR NOT NULL
-        CHECK (component IN (
-            'recharge', 'drain', 'river', 'ghb', 'chd', 'well',
-            'storage', 'constant_head', 'specified_flow',
-            'evapotranspiration', 'seepage'
-        )),
+    component VARCHAR NOT NULL,
     flux_in   DOUBLE NOT NULL DEFAULT 0.0,
     flux_out  DOUBLE NOT NULL DEFAULT 0.0,
     unit      VARCHAR NOT NULL DEFAULT 'm3/d',

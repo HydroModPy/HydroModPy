@@ -225,7 +225,7 @@ thickness = 30.0
 # ----------------------------------------------------------------------
 
 [data]
-types = ["geology", "hydrography", "intermittency", "hydrometry", "recharge"]
+types = ["geology", "hydrography", "hydrometry", "recharge"]
 
 [data.geology]
 id = "field_geology"
@@ -242,10 +242,6 @@ source = "custom"
 path = "../data/hydrometry"
 station_ids = []
 extent = "watershed"
-
-[[data.intermittency.sources]]
-source = "custom"
-path = "../data/intermittency"
 
 [data.recharge]
 date_start = "2000-01-01"
