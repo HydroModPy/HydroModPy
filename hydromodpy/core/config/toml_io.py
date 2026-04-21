@@ -3,7 +3,7 @@
 The architecture spec (``architecture_cible/02_config_pydantic.md`` §7)
 requires that a :class:`HydroModelBase` instance be serialisable to a
 commented TOML document, with fields filtered by the requested
-:class:`~hydromodpy.core.config.param_level.ParamLevel` profile so that
+:class:`~hydromodpy.core.config.profile.Profile` so that
 ``hmp config --profile user`` emits a small user-friendly template and
 ``--profile expert`` emits the full document.
 
@@ -28,36 +28,13 @@ import tomlkit
 from tomlkit.items import Item
 from pydantic import BaseModel
 
-from hydromodpy.core.config.param_level import PROFILES, ParamLevel
+from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config.pydantic_introspect import (
+    extract_profile as _field_level,
+    resolve_profile as _resolve_profile,
+)
 
 ProfileName = str
-
-
-def _resolve_profile(profile: ProfileName) -> int:
-    """Return the numeric threshold for *profile*.
-
-    The threshold is used to filter fields: a field tagged
-    ``ParamLevel("dev")`` appears when the requested profile is ``"dev"``
-    or ``"expert"`` but not when it is ``"user"``.
-    """
-    if profile not in PROFILES:
-        allowed = ", ".join(sorted(PROFILES))
-        raise ValueError(
-            f"Unknown profile {profile!r}. Allowed values: {allowed}."
-        )
-    return PROFILES[profile]
-
-
-def _field_level(field_info) -> int:
-    """Return the numeric profile level declared on *field_info*.
-
-    Fields without an explicit :class:`ParamLevel` tag are considered
-    ``user``-level so that they always appear in the exported TOML.
-    """
-    for meta in getattr(field_info, "metadata", ()):
-        if isinstance(meta, ParamLevel):
-            return PROFILES[meta.level]
-    return PROFILES["user"]
 
 
 def _coerce_value(value: Any) -> Any:
@@ -86,11 +63,11 @@ def _coerce_value(value: Any) -> Any:
 def _iter_serialisable_fields(
     model: BaseModel,
     *,
-    profile_threshold: int,
+    profile_threshold: Profile,
 ) -> Iterable[tuple[str, Any, Any]]:
     """Yield ``(field_name, field_info, value)`` triples for *model*.
 
-    Fields whose :class:`ParamLevel` exceeds *profile_threshold* are
+    Fields whose :class:`Profile` exceeds *profile_threshold* are
     skipped. The yielded value is the live attribute on *model*
     (already validated).
     """
@@ -103,7 +80,7 @@ def _iter_serialisable_fields(
 _SENTINEL_MISSING = object()
 
 
-def _render_container_value(value: Any, *, profile_threshold: int) -> Item | Any:
+def _render_container_value(value: Any, *, profile_threshold: Profile) -> Item | Any:
     """Render *value* into a :mod:`tomlkit`-friendly representation.
 
     Returns :data:`_SENTINEL_MISSING` when the value has no TOML
@@ -137,7 +114,7 @@ def _render_container_value(value: Any, *, profile_threshold: int) -> Item | Any
 
 
 def _render_model_table(
-    model: BaseModel, *, profile_threshold: int
+    model: BaseModel, *, profile_threshold: Profile
 ) -> Item:
     """Render a Pydantic model as a :func:`tomlkit.table` honouring *profile_threshold*."""
     table = tomlkit.table()
@@ -175,7 +152,7 @@ def dump_toml_with_comments(
         Destination file path. The parent directory must already exist.
     profile
         One of ``"user"``, ``"dev"``, ``"expert"``. Fields whose
-        :class:`ParamLevel` exceeds the requested profile are omitted.
+        :class:`Profile` exceeds the requested profile are omitted.
 
     Returns
     -------
