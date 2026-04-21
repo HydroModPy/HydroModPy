@@ -21,6 +21,42 @@ _SUBGROUPS = ("mesh", "derived", "budget", "pathlines", "geographic", "forcing")
 # Zarr store (see :mod:`hydromodpy.results.field_registry`).
 CF_CONVENTIONS = "CF-1.11 UGRID-1.0"
 
+# Target balanced-chunk size in bytes. Chosen so that compressed chunks sit
+# in the typical local-disk / S3 object-store sweet spot (~1 MiB).
+_BALANCED_TARGET_BYTES = 1 * 1024 * 1024
+
+
+def _balanced_chunks_1d(
+    n_timesteps: int, n_cells: int, itemsize: int,
+) -> tuple[int, int]:
+    """Return a ``(time_chunk, cell_chunk)`` pair close to the target size."""
+    target = _BALANCED_TARGET_BYTES // max(itemsize, 1)
+    if n_timesteps <= 0 or n_cells <= 0:
+        return (1, max(n_cells, 1))
+    # Keep ``cell_chunk = n_cells`` whenever it already fits — readers almost
+    # always consume a whole timestep at once.
+    if n_cells <= target:
+        time_chunk = max(1, min(n_timesteps, target // n_cells))
+        return (time_chunk, n_cells)
+    cell_chunk = min(n_cells, max(1, target))
+    return (1, cell_chunk)
+
+
+def _balanced_chunks_2d(
+    n_timesteps: int, n_layers: int, n_cells: int, itemsize: int,
+) -> tuple[int, int, int]:
+    """Return ``(time_chunk, layer_chunk, cell_chunk)`` near the target size."""
+    per_step = n_layers * n_cells * max(itemsize, 1)
+    if per_step <= _BALANCED_TARGET_BYTES and n_timesteps > 0:
+        time_chunk = max(1, min(n_timesteps, _BALANCED_TARGET_BYTES // per_step))
+        return (time_chunk, n_layers, n_cells)
+    # Single-timestep chunks, but split cells if the step is too big.
+    cell_chunk = max(
+        1, _BALANCED_TARGET_BYTES // (n_layers * max(itemsize, 1)),
+    )
+    cell_chunk = min(n_cells, cell_chunk)
+    return (1, n_layers, cell_chunk)
+
 
 def _field_name_from_target(target: zarr.Group, variable: str) -> str:
     """Return the canonical field name for a ``(target_group, variable)`` pair.
@@ -41,8 +77,9 @@ def _field_name_from_target(target: zarr.Group, variable: str) -> str:
 
 class SimulationZarr:
 
-    def __init__(self, path: Path | str) -> None:
+    def __init__(self, path: Path | str, *, balanced: bool = False) -> None:
         self._path = Path(path)
+        self._balanced = bool(balanced)
         if self._path.suffix == ".zip" or str(self._path).endswith(".zarr.zip"):
             self._store = zarr.storage.ZipStore(str(self._path), mode="r")
             self._root = zarr.open_group(self._store, mode="r")
@@ -59,6 +96,7 @@ class SimulationZarr:
         n_layers: int,
         cell_types: list[str] | None = None,
         geographic_fingerprint: str | None = None,
+        balanced: bool = False,
     ) -> SimulationZarr:
         path = Path(path)
         store = zarr.storage.LocalStore(str(path))
@@ -83,6 +121,9 @@ class SimulationZarr:
         instance._path = path
         instance._store = store
         instance._root = root
+        instance._balanced = bool(balanced)
+        if balanced:
+            root.attrs["chunking"] = "balanced"
         return instance
 
     @property
@@ -266,13 +307,24 @@ class SimulationZarr:
         else:
             target = self._root
 
+        itemsize = values.dtype.itemsize
         if values.ndim == 1:
             full_shape = (n_timesteps, values.shape[0]) if n_timesteps else None
-            chunk_shape = (1, values.shape[0])
+            if self._balanced and n_timesteps is not None:
+                chunk_shape = _balanced_chunks_1d(
+                    n_timesteps, values.shape[0], itemsize,
+                )
+            else:
+                chunk_shape = (1, values.shape[0])
         elif values.ndim == 2:
             n_layers, n_cells = values.shape
             full_shape = (n_timesteps, n_layers, n_cells) if n_timesteps else None
-            chunk_shape = (1, n_layers, n_cells)
+            if self._balanced and n_timesteps is not None:
+                chunk_shape = _balanced_chunks_2d(
+                    n_timesteps, n_layers, n_cells, itemsize,
+                )
+            else:
+                chunk_shape = (1, n_layers, n_cells)
         else:
             raise ValueError(f"Expected 1D or 2D values, got shape {values.shape}")
 
