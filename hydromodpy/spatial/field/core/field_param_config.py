@@ -23,7 +23,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units.hydraulic_conductivity import (
     M_PER_S_CANONICAL_UNITS,
     normalize_m_per_s_unit,
@@ -82,19 +82,19 @@ class FieldBaseSection(HydroModelBase):
 
     model_config = ConfigDict(extra="allow")
 
-    id: Annotated[str | None, ParamLevel("user")] = Field(
+    id: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Parameter identifier used in outputs and logs " "(for example 'K', 'Sy')."
         ),
     )
-    kind: Annotated[str | None, ParamLevel("user")] = Field(
+    kind: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'."
         ),
     )
-    unit: Annotated[str | None, ParamLevel("user")] = Field(
+    unit: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Unit of parameter values. "
@@ -136,7 +136,7 @@ class FieldHomogeneousSection(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    value: Annotated[object | None, ParamLevel("user")] = Field(
+    value: Annotated[object | None, Profile.USER] = Field(
         default=None,
         description="Scalar surface value used when kind='homogeneous'.",
     )
@@ -167,36 +167,36 @@ class FieldHeterogeneousSection(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    values_source: Annotated[str, ParamLevel("user")] = Field(
+    values_source: Annotated[str, Profile.USER] = Field(
         default="inline",
         description=(
             "Source for heterogeneous values. "
             "Use 'inline' for TOML mapping or 'csv' for external table."
         ),
     )
-    values: Annotated[dict[str, object] | None, ParamLevel("user")] = Field(
+    values: Annotated[dict[str, object] | None, Profile.USER] = Field(
         default=None,
         description=(
             "Inline key/value mapping used when values_source='inline'. "
             "Keys are zone/material ids, values are numeric parameter values."
         ),
     )
-    values_csv_file: Annotated[str | None, ParamLevel("dev")] = Field(
+    values_csv_file: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Path to CSV mapping file used when values_source='csv'. "
             "Relative paths are resolved from TOML directory."
         ),
     )
-    csv_key_column: Annotated[str, ParamLevel("dev")] = Field(
+    csv_key_column: Annotated[str, Profile.DEV] = Field(
         default="zone_key",
         description="CSV column name containing zone/material keys.",
     )
-    csv_value_column: Annotated[str, ParamLevel("dev")] = Field(
+    csv_value_column: Annotated[str, Profile.DEV] = Field(
         default="value",
         description="CSV column name containing numeric parameter values.",
     )
-    field_spatial_id: Annotated[str | None, ParamLevel("user")] = Field(
+    field_spatial_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Identifier of the spatial field used to map heterogeneous values "
@@ -326,39 +326,39 @@ class FieldVerticalProfileSection(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Annotated[str, ParamLevel("user")] = Field(
+    mode: Annotated[str, Profile.USER] = Field(
         default="none",
         description=(
             "Depth dependency mode shared over the full domain. "
             "Allowed values: 'none', 'exponential', 'tabulated'."
         ),
     )
-    characteristic_depth: Annotated[float | None, ParamLevel("dev")] = Field(
+    characteristic_depth: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Characteristic depth for exponential mode. "
             "Vertical factor is exp(-depth/characteristic_depth)."
         ),
     )
-    min_factor: Annotated[float | None, ParamLevel("dev")] = Field(
+    min_factor: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional floor factor for exponential mode. "
             "If provided, factor is max(exp(-depth/characteristic_depth), min_factor)."
         ),
     )
-    depths: Annotated[list[float] | None, ParamLevel("dev")] = Field(
+    depths: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,
         description="Depth nodes for tabulated mode (meters, first value must be 0).",
     )
-    factors: Annotated[list[float] | None, ParamLevel("dev")] = Field(
+    factors: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Multiplicative factors aligned with `depths` for tabulated mode "
             "(first value must be 1 at depth 0)."
         ),
     )
-    interpolation: Annotated[str, ParamLevel("dev")] = Field(
+    interpolation: Annotated[str, Profile.DEV] = Field(
         default="linear",
         description=(
             "Interpolation strategy for tabulated mode. "
@@ -482,19 +482,19 @@ class FieldParamConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="allow")
 
-    field: Annotated[FieldBaseSection | None, ParamLevel("user")] = Field(
+    field: Annotated[FieldBaseSection | None, Profile.USER] = Field(
         default=None,
         description="Base section `[field]` with parameter id and kind.",
     )
-    field_homogeneous: Annotated[FieldHomogeneousSection | None, ParamLevel("user")] = Field(
+    field_homogeneous: Annotated[FieldHomogeneousSection | None, Profile.USER] = Field(
         default=None,
         description="Homogeneous parameters section `[field_homogeneous]`.",
     )
-    field_heterogeneous: Annotated[FieldHeterogeneousSection | None, ParamLevel("user")] = Field(
+    field_heterogeneous: Annotated[FieldHeterogeneousSection | None, Profile.USER] = Field(
         default=None,
         description="Heterogeneous parameters section `[field_heterogeneous]`.",
     )
-    field_vertical_profile: Annotated[FieldVerticalProfileSection | None, ParamLevel("user")] = Field(
+    field_vertical_profile: Annotated[FieldVerticalProfileSection | None, Profile.USER] = Field(
         default=None,
         description="Optional depth profile section `[field_vertical_profile]`.",
     )
@@ -538,47 +538,47 @@ class ResolvedFieldParam(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: Annotated[str | None, ParamLevel("dev")] = Field(
+    id: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Resolved parameter identifier.",
     )
-    kind: Annotated[str | None, ParamLevel("dev")] = Field(
+    kind: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Resolved parameter kind: homogeneous or heterogeneous.",
     )
-    unit: Annotated[str | None, ParamLevel("dev")] = Field(
+    unit: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Resolved parameter unit (canonical token).",
     )
-    value: Annotated[object | None, ParamLevel("dev")] = Field(
+    value: Annotated[object | None, Profile.DEV] = Field(
         default=None,
         description="Resolved scalar value for homogeneous kind.",
     )
-    values: Annotated[dict[str, object] | None, ParamLevel("dev")] = Field(
+    values: Annotated[dict[str, object] | None, Profile.DEV] = Field(
         default=None,
         description="Resolved mapping for heterogeneous kind.",
     )
-    field_spatial_id: Annotated[str | None, ParamLevel("dev")] = Field(
+    field_spatial_id: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Resolved spatial field identifier for heterogeneous kind.",
     )
-    values_source: Annotated[str | None, ParamLevel("dev")] = Field(
+    values_source: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Optional helper flag describing heterogeneous values source.",
     )
-    values_csv_file: Annotated[str | None, ParamLevel("dev")] = Field(
+    values_csv_file: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Optional helper CSV path used before resolution.",
     )
-    csv_key_column: Annotated[str | None, ParamLevel("dev")] = Field(
+    csv_key_column: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Optional helper CSV key column used before resolution.",
     )
-    csv_value_column: Annotated[str | None, ParamLevel("dev")] = Field(
+    csv_value_column: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Optional helper CSV value column used before resolution.",
     )
-    vertical_profile: Annotated[FieldVerticalProfileSection | None, ParamLevel("dev")] = Field(
+    vertical_profile: Annotated[FieldVerticalProfileSection | None, Profile.DEV] = Field(
         default=None,
         description="Resolved optional depth profile configuration.",
     )
