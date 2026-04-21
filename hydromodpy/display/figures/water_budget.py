@@ -10,7 +10,7 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.simulation import Simulation
+    from hydromodpy.results.simulation import SimulationView
 
 
 @register
@@ -27,7 +27,7 @@ class WaterBudget(BaseFigure):
 
     def render(
         self,
-        sim: "Simulation",
+        sim: "SimulationView",
         ax: "Axes",
         **_,
     ) -> "Axes":

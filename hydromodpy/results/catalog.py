@@ -25,7 +25,7 @@ from hydromodpy.results.zarr_store import SimulationZarr
 if TYPE_CHECKING:
     import geopandas as gpd
 
-    from hydromodpy.results.simulation import Simulation
+    from hydromodpy.results.simulation import SimulationView
     from hydromodpy.results.simulation_group import SimulationGroup
 
 logger = logging.getLogger(__name__)
@@ -708,8 +708,8 @@ class SimulationCatalog:
             "SELECT * FROM simulations ORDER BY created_at DESC"
         ).fetchdf()
 
-    def __getitem__(self, sim_id: str | UUID) -> Simulation:
-        from hydromodpy.results.simulation import Simulation
+    def __getitem__(self, sim_id: str | UUID) -> SimulationView:
+        from hydromodpy.results.simulation import SimulationView
 
         sid = str(sim_id)
         row = self._db.execute(
@@ -717,7 +717,7 @@ class SimulationCatalog:
         ).fetchone()
         if row is None:
             raise KeyError(f"Simulation '{sid}' not found")
-        return Simulation(sid, self)
+        return SimulationView(sid, self)
 
     def find(self, **filters) -> SimulationGroup:
         from hydromodpy.results.simulation_group import SimulationGroup
@@ -784,8 +784,8 @@ class SimulationCatalog:
         sim_ids = [str(r[0]) for r in rows]
         return SimulationGroup(sim_ids, self)
 
-    def latest(self, project: str) -> Simulation:
-        from hydromodpy.results.simulation import Simulation
+    def latest(self, project: str) -> SimulationView:
+        from hydromodpy.results.simulation import SimulationView
 
         row = self._db.execute(
             "SELECT sim_id FROM simulations "
@@ -795,10 +795,10 @@ class SimulationCatalog:
         ).fetchone()
         if row is None:
             raise KeyError(f"No completed simulation for project '{project}'")
-        return Simulation(str(row[0]), self)
+        return SimulationView(str(row[0]), self)
 
-    def best(self, project: str, metric: str = "nse") -> Simulation:
-        from hydromodpy.results.simulation import Simulation
+    def best(self, project: str, metric: str = "nse") -> SimulationView:
+        from hydromodpy.results.simulation import SimulationView
 
         row = self._db.execute(
             "SELECT s.sim_id FROM simulations s "
@@ -813,7 +813,7 @@ class SimulationCatalog:
                 f"No completed simulation with metric '{metric}' "
                 f"for project '{project}'"
             )
-        return Simulation(str(row[0]), self)
+        return SimulationView(str(row[0]), self)
 
     def sql(self, query: str, params: list | None = None) -> pd.DataFrame:
         if params:

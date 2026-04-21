@@ -75,11 +75,11 @@ def test_simulation_group_fluent_methods_present() -> None:
 
 
 def test_simulation_view_fluent_methods_present() -> None:
-    from hydromodpy.results.simulation import Simulation
+    from hydromodpy.results.simulation import SimulationView
 
-    assert hasattr(Simulation, "at")
-    assert hasattr(Simulation, "field")
-    assert hasattr(Simulation, "_repr_html_")
+    assert hasattr(SimulationView, "at")
+    assert hasattr(SimulationView, "field")
+    assert hasattr(SimulationView, "_repr_html_")
 
 
 def test_catalog_export_import_method_names() -> None:

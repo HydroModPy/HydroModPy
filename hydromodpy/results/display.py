@@ -13,14 +13,14 @@ from typing import TYPE_CHECKING
 from hydromodpy.display import get as _get_figure
 
 if TYPE_CHECKING:
-    from hydromodpy.results.simulation import Simulation
+    from hydromodpy.results.simulation import SimulationView
 
 logger = logging.getLogger(__name__)
 
 
 def render_figure(
     figure_name: str,
-    sim: "Simulation",
+    sim: "SimulationView",
     *,
     save: str | Path | None = None,
 ) -> None:

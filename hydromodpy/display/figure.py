@@ -4,7 +4,7 @@ A figure is a class with a ``spec`` (static metadata) and a ``render(sim, ax)``
 method (the only thing subclasses must implement). The ABC provides ``plot()``
 which builds the matplotlib Figure, applies styling and handles saving.
 
-All figures consume ``Simulation`` (catalog interface). They never touch a
+All figures consume ``SimulationView`` (catalog interface). They never touch a
 solver, a raw output file or a ``ProjectState``.
 """
 
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
-    from hydromodpy.results.simulation import Simulation
+    from hydromodpy.results.simulation import SimulationView
 
 
 FigureKind = Literal[
@@ -58,10 +58,10 @@ class Figure(Protocol):
 
     spec: FigureSpec
 
-    def render(self, sim: "Simulation", ax: "Axes", **opts) -> "Axes":
+    def render(self, sim: "SimulationView", ax: "Axes", **opts) -> "Axes":
         ...
 
-    def plot(self, sim: "Simulation", **opts) -> "MplFigure":
+    def plot(self, sim: "SimulationView", **opts) -> "MplFigure":
         ...
 
 
@@ -71,12 +71,12 @@ class BaseFigure(ABC):
     spec: FigureSpec
 
     @abstractmethod
-    def render(self, sim: "Simulation", ax: "Axes", **opts) -> "Axes":
+    def render(self, sim: "SimulationView", ax: "Axes", **opts) -> "Axes":
         raise NotImplementedError
 
     def plot(
         self,
-        sim: "Simulation",
+        sim: "SimulationView",
         *,
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,

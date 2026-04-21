@@ -287,7 +287,7 @@ _LAZY_IMPORTS = {
     "Catalog": "hydromodpy.results.catalog:SimulationCatalog",
     "SimulationCatalog": "hydromodpy.results.catalog",
     "SimulationGroup": "hydromodpy.results.simulation_group",
-    "SimulationView": "hydromodpy.results.simulation:Simulation",
+    "SimulationView": "hydromodpy.results.simulation",
 }
 
 

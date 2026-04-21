@@ -1,7 +1,7 @@
 """UGRID mesh rendering helper shared by spatial figures.
 
 Reads ``mesh.vertices`` and ``mesh.face_node_connectivity`` from the
-:class:`~hydromodpy.results.simulation.Simulation` and draws a per-face scalar
+:class:`~hydromodpy.results.simulation.SimulationView` and draws a per-face scalar
 field as a :class:`~matplotlib.collections.PolyCollection`. Works identically
 on DIS (rectangular cells) and DISV (arbitrary polygons) layouts because both
 solver families serialize their mesh in the same UGRID schema.
@@ -17,12 +17,12 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.collections import PolyCollection
 
-    from hydromodpy.results.simulation import Simulation
+    from hydromodpy.results.simulation import SimulationView
 
 
 def render_face_field(
     ax: "Axes",
-    sim: "Simulation",
+    sim: "SimulationView",
     values: np.ndarray,
     *,
     cmap: str = "viridis",
@@ -65,7 +65,7 @@ def render_face_field(
     return coll
 
 
-def last_timestep(sim: "Simulation") -> int:
+def last_timestep(sim: "SimulationView") -> int:
     """Return the index of the last timestep, or 0 if not declared."""
     n_ts = sim.n_timesteps or 1
     return n_ts - 1

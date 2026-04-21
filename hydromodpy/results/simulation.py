@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
 
 
-class Simulation:
+class SimulationView:
 
     def __init__(self, sim_id: str, catalog: SimulationCatalog) -> None:
         self._sim_id = sim_id
@@ -228,7 +228,7 @@ class Simulation:
         val = self._load_row().get("parent_sim_id")
         return str(val) if val is not None else None
 
-    def rerun(self, **overrides) -> Simulation:
+    def rerun(self, **overrides) -> SimulationView:
         """Re-run this simulation with optional config overrides.
 
         Reconstructs a ``HydroModPyConfig`` from the stored snapshot,
@@ -243,7 +243,7 @@ class Simulation:
 
         Returns
         -------
-        Simulation
+        SimulationView
             The newly created simulation.
         """
         snapshot = self.config
@@ -330,19 +330,19 @@ class Simulation:
         try:
             row = self._load_row()
             return (
-                f"Simulation(id={self._sim_id!r}, "
+                f"SimulationView(id={self._sim_id!r}, "
                 f"project={row.get('project')!r}, "
                 f"solver={row.get('solver')!r}, "
                 f"status={row.get('status')!r})"
             )
         except KeyError:
-            return f"Simulation(id={self._sim_id!r}, <not found>)"
+            return f"SimulationView(id={self._sim_id!r}, <not found>)"
 
     def _repr_html_(self) -> str:
         try:
             row = self._load_row()
         except KeyError:
-            return f"<b>Simulation</b> <code>{self._sim_id[:8]}</code> <i>(not found)</i>"
+            return f"<b>SimulationView</b> <code>{self._sim_id[:8]}</code> <i>(not found)</i>"
         dur = row.get("duration_s")
         dur_str = f"{dur:.1f} s" if isinstance(dur, (int, float)) else "&mdash;"
         rows = [
@@ -360,7 +360,7 @@ class Simulation:
             for k, v in rows
         )
         return (
-            "<div><b>Simulation</b>"
+            "<div><b>SimulationView</b>"
             "<table style='font-size:0.85em;border-collapse:collapse'>"
             f"{body}</table></div>"
         )
@@ -371,7 +371,7 @@ class _AtAccessor:
 
     __slots__ = ("_sim", "_timestep", "_layer")
 
-    def __init__(self, sim: Simulation, *, timestep: int, layer: int | None):
+    def __init__(self, sim: SimulationView, *, timestep: int, layer: int | None):
         self._sim = sim
         self._timestep = timestep
         self._layer = layer
@@ -381,4 +381,4 @@ class _AtAccessor:
 
     def __repr__(self) -> str:
         layer_str = f", layer={self._layer}" if self._layer is not None else ""
-        return f"Simulation.at(timestep={self._timestep}{layer_str})"
+        return f"SimulationView.at(timestep={self._timestep}{layer_str})"

@@ -13,7 +13,7 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.simulation import Simulation
+    from hydromodpy.results.simulation import SimulationView
 
 
 @register
@@ -34,7 +34,7 @@ class SeepageMap(BaseFigure):
 
     def render(
         self,
-        sim: "Simulation",
+        sim: "SimulationView",
         ax: "Axes",
         *,
         timestep: int | None = None,
