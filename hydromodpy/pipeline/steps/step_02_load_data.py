@@ -14,13 +14,17 @@ Outputs
 
 from __future__ import annotations
 
-from hydromodpy.pipeline.state import PipelineState
+from typing import ClassVar
+
+from hydromodpy.pipeline.state import LoadedState, PipelineState, ResolvedState
 
 
 class LoadDataStep:
     """Ingest external + custom data via data managers."""
 
     name = "load_data"
+    tin: ClassVar[type] = ResolvedState
+    tout: ClassVar[type] = LoadedState
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.workflow.steps.data_loading import step_data_loading
