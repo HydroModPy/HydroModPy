@@ -193,6 +193,46 @@ class SimulationGroup:
     def to_csv(self, path: Path | str) -> None:
         self.to_dataframe().to_csv(str(path), index=False)
 
+    def to_xarray(self, variable: str, *, dim: str = "sim"):
+        """Return a stacked :class:`xarray.DataArray` of ``variable`` across sims.
+
+        Every simulation in the group is opened, its
+        :meth:`SimulationZarr.to_xarray` dataset is queried for ``variable``,
+        and the results are concatenated along a new ``dim`` whose coordinate
+        values are the simulation ids. Simulations that do not carry the
+        variable are skipped with a warning; if none match, an empty
+        ``xarray.DataArray`` is returned.
+
+        Parameters
+        ----------
+        variable
+            Public field name (as declared in the
+            :mod:`hydromodpy.results.field_registry`).
+        dim
+            Name of the new stacking dimension (default ``"sim"``).
+        """
+        import xarray as xr
+
+        arrays: list[xr.DataArray] = []
+        sim_ids: list[str] = []
+        for sid in self._sim_ids:
+            sz = self._catalog.open_zarr(sid)
+            try:
+                ds = sz.to_xarray()
+            finally:
+                sz.close()
+            if variable not in ds.data_vars:
+                continue
+            arrays.append(ds[variable])
+            sim_ids.append(sid)
+
+        if not arrays:
+            return xr.DataArray(name=variable)
+        stacked = xr.concat(arrays, dim=dim)
+        stacked = stacked.assign_coords({dim: sim_ids})
+        stacked.name = variable
+        return stacked
+
     # -- Filter --------------------------------------------------------------
 
     def filter(self, **criteria) -> SimulationGroup:
