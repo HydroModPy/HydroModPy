@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.spatial.geographic.cases import run_geographic_cases_from_toml
-from tests.support.whitebox import configure_whitebox_single_thread
+from tests._helpers.whitebox import configure_whitebox_single_thread
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]

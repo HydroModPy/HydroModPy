@@ -11,7 +11,7 @@ import pytest
 import rasterio
 
 from hydromodpy.spatial.geographic.cases import run_geographic_case_from_toml
-from tests.support.whitebox import configure_whitebox_single_thread
+from tests._helpers.whitebox import configure_whitebox_single_thread
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
