@@ -20,14 +20,17 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
+from typing import ClassVar
 
-from hydromodpy.pipeline.state import PipelineState
+from hydromodpy.pipeline.state import PipelineState, ResolvedState, ValidatedState
 
 
 class ResolveStep:
     """Resolve workspace + create a ``WorkflowContext`` bound to the config."""
 
     name = "resolve"
+    tin: ClassVar[type] = ValidatedState
+    tout: ClassVar[type] = ResolvedState
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.core.state.run_state import WorkflowContext
