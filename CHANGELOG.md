@@ -33,6 +33,31 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- Scientific benchmarks (phase G10):
+  - `tests/validation/analytical/transient/test_theis.py` — Theis
+    (1935) transient confined pumping against the `W(u)` well function.
+    Three radial probes (10/50/100 m) and three times (1/3/10 d) over
+    an MF6 IMS model with a telescoping grid; NSE > 0.999 and maximum
+    pointwise relative drawdown error < 1 %.
+  - `tests/validation/analytical/transient/test_hantush.py` — Hantush
+    (1955) leaky-aquifer benchmark using scipy-integrated `W(u, r/B)`.
+    Three-layer MF6 model (source CHD / aquitard / pumped aquifer) with
+    NSE > 0.99 and maximum pointwise relative error < 2 %.
+  - `tests/validation/analytical/transient/test_ogata_banks.py` —
+    Ogata-Banks (1961) 1D advection-dispersion column solved with the
+    MF6 GWF+GWT coupling. NSE > 0.95 and maximum pointwise relative
+    concentration error < 3 % over three times and four probes.
+  - `tests/validation/mms/test_mms_laplacian_1d.py` — MMS convergence
+    test for the 1D Laplacian (manufactured `sin(π x)` solution) with a
+    centred finite-volume stencil; empirical order in `[1.8, 2.2]`.
+  - `tests/validation/mms/test_mms_diffusion_transient.py` — MMS
+    convergence tests for 1D transient diffusion; order 2 in space
+    (Crank-Nicolson) and order 1 in time (backward Euler).
+  - `tests/validation/mms/conftest.py` — reusable MMS helpers
+    (`l2_error`, `estimate_convergence_order`, `run_mms_convergence`,
+    `ConvergenceResult`).
+  - `tests/TOLERANCES.md` rows 4–10 updated to describe each benchmark
+    metric, tolerance, and rationale.
 - Test infrastructure overhaul (phase G09):
   - `tests/e2e/` — four end-to-end scenarios covering catalog roundtrip,
     calibration through the public engine, pipeline resume after crash,
