@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.base import HydroModelBase
 
 
@@ -17,47 +17,47 @@ class HydrographySourceConfig(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     source: Annotated[
-        Literal["custom", "osm", "bdtopage", "euhydro"], ParamLevel("user")
+        Literal["custom", "osm", "bdtopage", "euhydro"], Profile.USER
     ] = Field(..., description="Data provider.")
 
     # --- Custom source fields ---
-    path: Annotated[Path | None, ParamLevel("user")] = Field(
+    path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description="Path to a vector file (SHP/GPKG/GeoJSON), raster (TIF/TIFF), or directory containing one.",
     )
-    rasterize_field: Annotated[str, ParamLevel("user")] = Field(
+    rasterize_field: Annotated[str, Profile.USER] = Field(
         default="FID",
         description="Attribute field used when rasterising the vector layer.",
     )
 
     # --- BD Topage (Sandre WFS) ---
-    typename: Annotated[str, ParamLevel("dev")] = Field(
+    typename: Annotated[str, Profile.DEV] = Field(
         default="sa:CoursEau_FXX_Topage2025",
         description="WFS typename for BD Topage.",
     )
-    page_size: Annotated[int, ParamLevel("dev")] = Field(
+    page_size: Annotated[int, Profile.DEV] = Field(
         default=2000,
         description="WFS pagination page size (BD Topage).",
     )
 
     # --- EU-Hydro (EEA REST) ---
-    group_name: Annotated[str, ParamLevel("dev")] = Field(
+    group_name: Annotated[str, Profile.DEV] = Field(
         default="River_Net_lines",
         description="MapServer group name for EU-Hydro layer discovery.",
     )
-    euhydro_page_size: Annotated[int, ParamLevel("dev")] = Field(
+    euhydro_page_size: Annotated[int, Profile.DEV] = Field(
         default=1000,
         description="Pagination page size for EU-Hydro REST queries.",
     )
 
     # --- Cache ---
-    force_refresh: Annotated[bool, ParamLevel("dev")] = Field(
+    force_refresh: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Bypass API cache and re-download data.",
     )
 
     # --- OSM ---
-    waterway_types: Annotated[list[str], ParamLevel("dev")] = Field(
+    waterway_types: Annotated[list[str], Profile.DEV] = Field(
         default_factory=lambda: ["river", "stream"],
         description="OSM waterway tag values to fetch.",
     )
@@ -74,6 +74,6 @@ class HydrographyConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    sources: Annotated[list[HydrographySourceConfig], ParamLevel("user")] = Field(
+    sources: Annotated[list[HydrographySourceConfig], Profile.USER] = Field(
         ..., min_length=1, description="At least one hydrography data source.",
     )
