@@ -996,6 +996,7 @@ class SimulationCatalog:
             if zarr_dir.is_dir():
                 try:
                     sz = SimulationZarr(zarr_dir)
+                    sz.consolidate_metadata()
                     zip_path = sz.pack_to_zip()
                     rel = f"simulations/{zip_path.name}"
                     self._db.execute(

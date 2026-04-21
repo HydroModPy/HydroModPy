@@ -443,6 +443,22 @@ class SimulationZarr:
         attrs = dict(sta_grp.attrs)
         return timestamps, values, attrs
 
+    # -- Finalization --------------------------------------------------------
+
+    def consolidate_metadata(self) -> None:
+        """Consolidate Zarr metadata into a single ``.zmetadata`` entry.
+
+        Must be called once the simulation is fully written, so that readers
+        can open the store without scanning every array (zarr v3 metadata
+        consolidation). Silently ignores zip-backed stores (already frozen).
+        """
+        if not isinstance(self._store, zarr.storage.LocalStore):
+            return
+        try:
+            zarr.consolidate_metadata(self._store)
+        except Exception as exc:  # pragma: no cover - best effort
+            logger.debug("consolidate_metadata failed: %s", exc)
+
     # -- Packing -------------------------------------------------------------
 
     def pack_to_zip(self) -> Path:
