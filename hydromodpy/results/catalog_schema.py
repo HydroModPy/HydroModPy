@@ -418,14 +418,53 @@ FROM (
 WHERE rnk = 1
 """
 
+# Known metric names (keep in sync with write paths). PIVOT in a view
+# requires a fixed IN-list, so metric names outside this list will not show up
+# in ``v_metrics_wide`` — they remain queryable via the ``metrics`` table.
+_KNOWN_METRIC_NAMES = (
+    "nse", "kge", "rmse", "r2", "bias", "pbias", "mae", "mse",
+)
+
+_V_METRICS_WIDE_DDL = f"""
+CREATE OR REPLACE VIEW v_metrics_wide AS
+PIVOT metrics
+ON metric_name IN ({", ".join(f"'{n}'" for n in _KNOWN_METRIC_NAMES)})
+USING FIRST(value)
+"""
+
+# Parameter names vary by simulation, so PIVOT cannot be used in a view.
+# Instead we aggregate into a MAP keyed by ``param_name`` (or
+# ``param_name::zone_id`` when the parameter is zonal) so callers can index
+# the map directly or unnest as needed.
+_V_PARAMS_WIDE_DDL = """
+CREATE OR REPLACE VIEW v_params_wide AS
+SELECT
+    sim_id,
+    MAP(
+        LIST(
+            CASE
+                WHEN zone_id = '__global__' THEN param_name
+                ELSE param_name || '::' || zone_id
+            END
+        ),
+        LIST(value)
+    ) AS params
+FROM parameters
+GROUP BY sim_id
+"""
+
 VIEW_NAMES: tuple[str, ...] = (
     "v_simulation_summary",
     "v_best_per_project",
+    "v_metrics_wide",
+    "v_params_wide",
 )
 
 _ALL_VIEW_DDL: tuple[str, ...] = (
     _V_SIMULATION_SUMMARY_DDL,
     _V_BEST_PER_PROJECT_DDL,
+    _V_METRICS_WIDE_DDL,
+    _V_PARAMS_WIDE_DDL,
 )
 
 # ---------------------------------------------------------------------------
