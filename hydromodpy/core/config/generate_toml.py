@@ -139,6 +139,8 @@ def generate_toml(
     for section_name, model_cls in selected.items():
         section_values = (overrides or {}).get(section_name)
         lines.extend(_section(section_name, model_cls, threshold, values=section_values))
+        if section_name == "flow":
+            lines.extend(_flow_dynamic_examples(threshold))
 
     content = "\n".join(lines) + "\n"
     if output_path:
@@ -503,6 +505,89 @@ def _header(profile: str, modules: list[str]) -> list[str]:
         "# " + "=" * 70,
         "",
     ]
+
+
+# --------------------------------------------------------------------------
+# Dynamic flow examples (parameters / BC / sinks-sources)
+# --------------------------------------------------------------------------
+
+_FLOW_PARAM_EXAMPLES = (
+    ("K", "homogeneous", "m/s"),
+    ("Sy", "homogeneous", "-"),
+    ("Ss", "homogeneous", "m-1"),
+)
+
+
+def _flow_dynamic_examples(threshold: int) -> list[str]:
+    """Emit commented template blocks for the dynamic [flow.param.<id>.*],
+    [flow.bc.<type>.<id>] and [flow.sinks_sources.recharge] payloads.
+
+    These sections are driven by runtime user choices (the ``param_list``
+    and ``active_bc`` declarations in [flow]), so the main generator cannot
+    know their names in advance. We therefore emit documented examples for
+    the canonical MODFLOW triplet K / Sy / Ss, the Cauchy drainage BC, and
+    a recharge sinks-sources block.
+    """
+    from hydromodpy.spatial.field.core.field_param_config import (
+        FieldBaseSection,
+        FieldHomogeneousSection,
+    )
+    from hydromodpy.physics.flow.boundary_conditions import (
+        FlowBoundaryConditionConfig,
+    )
+    from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
+
+    out: list[str] = []
+    out.append("")
+    out.append("# " + "-" * 70)
+    out.append("# Flow field parameters — one [flow.param.<id>.field] + one")
+    out.append("# [flow.param.<id>.field_homogeneous] per id declared in")
+    out.append("# [flow].param_list. Example block below for K, Sy, Ss.")
+    out.append("# " + "-" * 70)
+    for pid, kind, unit in _FLOW_PARAM_EXAMPLES:
+        out.extend(_section(
+            f"flow.param.{pid}.field",
+            FieldBaseSection,
+            threshold,
+            values={"id": pid, "kind": kind, "unit": unit},
+            _depth=0,
+        ))
+        out.extend(_section(
+            f"flow.param.{pid}.field_homogeneous",
+            FieldHomogeneousSection,
+            threshold,
+            _depth=0,
+        ))
+
+    out.append("")
+    out.append("# " + "-" * 70)
+    out.append("# Flow boundary conditions — one block per id listed in")
+    out.append("# [flow].active_bc. Supported keys: [flow.bc.dirichlet.<side>],")
+    out.append("# [flow.bc.cauchy.drainage], [flow.bc.robin.drainage].")
+    out.append("# Example: a top-domain Cauchy drainage BC.")
+    out.append("# " + "-" * 70)
+    out.extend(_section(
+        "flow.bc.cauchy.drainage",
+        FlowBoundaryConditionConfig,
+        threshold,
+        values={"application_domain": "top", "type": "cauchy", "unit": "m2/s"},
+        _depth=0,
+    ))
+
+    out.append("")
+    out.append("# " + "-" * 70)
+    out.append("# Flow diffuse recharge — emitted when 'recharge' is listed in")
+    out.append("# [flow].active_sinks_sources. Values are taken from the data")
+    out.append("# layer ([data.recharge]) unless overridden here.")
+    out.append("# " + "-" * 70)
+    out.extend(_section(
+        "flow.sinks_sources.recharge",
+        FlowRechargeConfig,
+        threshold,
+        _depth=0,
+    ))
+
+    return out
 
 
 def _render_field_comment(

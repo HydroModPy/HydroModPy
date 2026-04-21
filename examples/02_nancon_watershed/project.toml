@@ -1,6 +1,6 @@
 # ======================================================================
 # HydroModPy Configuration
-# Profile: user | Modules: workspace, geographic, domain, data, flow, transport, solver, modflownwt, modflow6, mesh_catchment, mesh_catchment_batch, overview, simulation, display, postprocess
+# Profile: user | Modules: workspace, geographic, domain, data, flow, transport, solver, modflownwt, modflow6, overview, simulation, display, postprocess
 # Auto-generated from Pydantic models.
 # Edit values below. Comments describe each parameter.
 # ======================================================================
@@ -271,17 +271,13 @@ types = ["geology", "hydrography", "hydrometry", "recharge"]
 # Type: string | Default: "field_geology"
 id = "field_geology"
 
-# --- Nançon : carte géologique BRGM au 1:1M ---------------------------
-[[data.geology.sources]]
-source = "brgm_1m"
-
 
 # At least one geology data source.
 # Defaults to BRGM 1:1M.
-# [[data.geology.sources]]
+[[data.geology.sources]]
 # Data provider: 'custom' for user files (SHP/GPKG/TIF/CSV), 'brgm_1m' for the 1:1M national geological map, 'brgm_50k' for the 1:50K departmental geological maps.
 # Type: Literal['custom', 'brgm_1m', 'brgm_50k'] | one of: "custom", "brgm_1m", "brgm_50k" | REQUIRED
-# source = "custom"
+source = "brgm_1m"
 
 # Path to custom geology file or directory (SHP, GPKG, TIF, CSV).
 # Type: path (optional) | Optional
@@ -309,14 +305,11 @@ source = "brgm_1m"
 
 # Hydrography configuration (stream network vector data).
 
-# --- Nançon : BD Topage 2025 (IGN) -----------------------------------
+# At least one hydrography data source.
 [[data.hydrography.sources]]
+# Data provider.
+# Type: Literal['custom', 'osm', 'bdtopage', 'euhydro'] | one of: "custom", "osm", "bdtopage", "euhydro" | REQUIRED
 source = "bdtopage"
-rasterize_field = "FID"
-# Données de référence non-Nançon également disponibles :
-#   source = "osm"      # OpenStreetMap
-#   source = "euhydro"  # EU-Hydro
-#   source = "custom"   # SHP/GPKG utilisateur
 
 # Path to a vector file (SHP/GPKG/GeoJSON), raster (TIF/TIFF), or directory containing one.
 # Type: path (optional) | Optional
@@ -324,17 +317,10 @@ rasterize_field = "FID"
 
 # Attribute field used when rasterising the vector layer.
 # Type: string | Default: "FID"
-# rasterize_field = "FID"
+rasterize_field = "FID"
 
 
 # Hydrometry configuration (discharge time-series).
-
-# --- Nançon : chroniques hydrométriques locales (CSV utilisateur) ----
-[[data.hydrometry.sources]]
-source = "custom"
-path = "../data/hydrometry"
-station_ids = []
-extent = "watershed"
 
 # [data.hydrometry]
 # Project start date (ISO format, e.g.
@@ -349,14 +335,14 @@ extent = "watershed"
 
 
 # At least one data source.
-# [[data.hydrometry.sources]]
+[[data.hydrometry.sources]]
 # Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
 # Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
-# source = "custom"
+source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-# path = ""
+path = "../data/hydrometry"
 
 # SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
 # Type: path (optional) | Optional
@@ -369,11 +355,11 @@ extent = "watershed"
 
 # Explicit list of station ids to load.
 # Type: list (optional) | Optional
-# station_ids = []
+station_ids = []
 
 # Enable bbox-based station discovery using the project extent.
 # Type: Literal (optional) | Optional
-# extent = "watershed"
+extent = "watershed"
 
 # Source unit of custom data (e.g.
 # 'L/s').
@@ -577,37 +563,27 @@ extent = "watershed"
 
 # Recharge configuration (drainage / soil infiltration time series).
 
-# --- Nançon : recharge locale CSV, fenêtre 2000-2002 ------------------
 [data.recharge]
-date_start = "2000-01-01"
-date_end = "2002-12-31"
-
-[[data.recharge.sources]]
-source = "custom"
-path = "../data/recharge"
-station_ids = ["EX04"]
-
-# [data.recharge]
 # Project start date (ISO format, e.g.
 # '2019-01-01').
 # Type: string (optional) | Optional
-# date_start = ""
+date_start = "2000-01-01"
 
 # Project end date (ISO format, e.g.
 # '2025-12-31').
 # Type: string (optional) | Optional
-# date_end = ""
+date_end = "2002-12-31"
 
 
 # At least one data source.
-# [[data.recharge.sources]]
+[[data.recharge.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'synthetic' for generated series.
 # Type: Literal['custom', 'sim2', 'synthetic'] | one of: "custom", "sim2", "synthetic" | REQUIRED
-# source = "custom"
+source = "custom"
 
 # Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
 # Type: path (optional) | Optional
-# path = ""
+path = "../data/recharge"
 
 # Optional source unit for custom gridded .nc/.tif inputs.
 # If omitted for NetCDF, units are inferred from variable metadata when available.
@@ -630,7 +606,7 @@ station_ids = ["EX04"]
 
 # Explicit station ids (custom source).
 # Type: list (optional) | Optional
-# station_ids = []
+station_ids = ["EX04"]
 
 # Enable bbox-based data retrieval using the project extent.
 # Type: Literal (optional) | Optional
@@ -992,9 +968,7 @@ param_list = ["K", "Sy", "Ss"]
 
 # Mapping of flow-parameter identifiers to resolved FieldParamConfig payloads.
 # Type: dict[str, dict] | REQUIRED
-# Payloads sont fournis via les sections dédiées [flow.param.<id>.field]
-# et [flow.param.<id>.field_homogeneous] plus bas ; on laisse donc ce
-# champ implicite (pas d'inline-dict vide qui bloquerait l'extension).
+# Empty inline dict would block [flow.param.<id>.*] extension below — leave implicit.
 # param = {}
 
 # Mapping of flow boundary-condition payloads parsed from [flow.bc].
@@ -1005,8 +979,7 @@ param_list = ["K", "Sy", "Ss"]
 # Supported application_domain values are: top, north side, south side, east side, west side.
 # Default units: m for dirichlet, m2/s for cauchy/robin.
 # Type: dict[str, object] | REQUIRED
-# BC payload is assembled from the dedicated [flow.bc.*.*] sections below;
-# an empty inline dict here would block that extension.
+# Payload assembled from [flow.bc.*.*] sections below — leave implicit.
 # bc = {}
 
 # Explicitly activated sink/source names for this flow run.
@@ -1030,9 +1003,6 @@ flow_regime = "transient"
 # Stored as FlowInitialConditions(h=FlowInitialCondition).
 
 [flow.ic]
-# (Le schéma Pydantic n'accepte pas la clé 'id' ici : seules 'type',
-# 'value', 'unit', 'units', 'description' sont valides.)
-
 # Initial hydraulic-head value.
 # Required when type='custom'.
 # Type: float (optional) | Optional
@@ -1051,41 +1021,6 @@ units = "m"
 # Type: Literal['top', 'bottom', 'custom'] | one of: "top", "bottom", "custom" | Default: "custom"
 type = "top"
 
-# --- Nançon : paramètres hydrodynamiques homogènes -------------------
-
-[flow.param.K.field]
-id = "K"
-kind = "homogeneous"
-unit = "m/s"
-
-[flow.param.K.field_homogeneous]
-value = 5e-5
-
-[flow.param.Sy.field]
-id = "Sy"
-kind = "homogeneous"
-unit = "-"
-
-[flow.param.Sy.field_homogeneous]
-value = 0.05
-
-[flow.param.Ss.field]
-id = "Ss"
-kind = "homogeneous"
-unit = "m-1"
-
-[flow.param.Ss.field_homogeneous]
-value = 1e-5
-
-# --- Nançon : drainage en condition de Cauchy sur le toit -----------
-
-[flow.bc.cauchy.drainage]
-application_domain = "top"
-type = "cauchy"
-value = 0.0
-unit = "m2/s"
-data_value = false
-
 
 # Typed sinks/sources payload (for example pumping wells).
 
@@ -1098,10 +1033,160 @@ wells = {}
 # Diffuse recharge (and optional EVT) configuration.
 # None = zero recharge for all periods.
 
-# --- Nançon : recharge tirée du bloc [data.recharge] -----------------
+# [flow.sinks_sources.recharge]
+# Recharge payload: scalar, list (one per stress period), mapping {kper: value}, or runtime series.
+# Type: Any | Default: 0.0
+# values = 0.0
+
+
+# ----------------------------------------------------------------------
+# Flow field parameters — one [flow.param.<id>.field] + one
+# [flow.param.<id>.field_homogeneous] per id declared in
+# [flow].param_list. Example block below for K, Sy, Ss.
+# ----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+# Schema for `[field]` base section.
+# ----------------------------------------------------------------------
+
+[flow.param.K.field]
+# Parameter identifier used in outputs and logs (for example 'K', 'Sy').
+# Type: string (optional) | Optional
+id = "K"
+
+# Field type selector.
+# Allowed values: 'homogeneous' or 'heterogeneous'.
+# Type: string (optional) | Optional
+kind = "homogeneous"
+
+# Unit of parameter values.
+# Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss).
+# Type: string (optional) | Optional
+unit = "m/s"
+
+
+# ----------------------------------------------------------------------
+# Schema for `[field_homogeneous]`.
+# ----------------------------------------------------------------------
+
+[flow.param.K.field_homogeneous]
+# Scalar surface value used when kind='homogeneous'.
+# Type: object (optional) | Optional
+value = 5e-5
+
+
+# ----------------------------------------------------------------------
+# Schema for `[field]` base section.
+# ----------------------------------------------------------------------
+
+[flow.param.Sy.field]
+# Parameter identifier used in outputs and logs (for example 'K', 'Sy').
+# Type: string (optional) | Optional
+id = "Sy"
+
+# Field type selector.
+# Allowed values: 'homogeneous' or 'heterogeneous'.
+# Type: string (optional) | Optional
+kind = "homogeneous"
+
+# Unit of parameter values.
+# Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss).
+# Type: string (optional) | Optional
+unit = "-"
+
+
+# ----------------------------------------------------------------------
+# Schema for `[field_homogeneous]`.
+# ----------------------------------------------------------------------
+
+[flow.param.Sy.field_homogeneous]
+# Scalar surface value used when kind='homogeneous'.
+# Type: object (optional) | Optional
+value = 0.05
+
+
+# ----------------------------------------------------------------------
+# Schema for `[field]` base section.
+# ----------------------------------------------------------------------
+
+[flow.param.Ss.field]
+# Parameter identifier used in outputs and logs (for example 'K', 'Sy').
+# Type: string (optional) | Optional
+id = "Ss"
+
+# Field type selector.
+# Allowed values: 'homogeneous' or 'heterogeneous'.
+# Type: string (optional) | Optional
+kind = "homogeneous"
+
+# Unit of parameter values.
+# Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss).
+# Type: string (optional) | Optional
+unit = "m-1"
+
+
+# ----------------------------------------------------------------------
+# Schema for `[field_homogeneous]`.
+# ----------------------------------------------------------------------
+
+[flow.param.Ss.field_homogeneous]
+# Scalar surface value used when kind='homogeneous'.
+# Type: object (optional) | Optional
+value = 1e-5
+
+
+# ----------------------------------------------------------------------
+# Flow boundary conditions — one block per id listed in
+# [flow].active_bc. Supported keys: [flow.bc.dirichlet.<side>],
+# [flow.bc.cauchy.drainage], [flow.bc.robin.drainage].
+# Example: a top-domain Cauchy drainage BC.
+# ----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+# Normalized flow boundary-condition payload.
+# ----------------------------------------------------------------------
+
+[flow.bc.cauchy.drainage]
+# Boundary-condition identifier.
+# Type: string | REQUIRED
+id = "drainage"
+
+# Boundary-condition value, scalar or one value per stress period.
+# Type: UnionType[float, list, NoneType] | Optional
+value = 0.0
+
+# Boundary-condition description.
+# Type: string | Default: ""
+description = "Drainage de type Cauchy appliqué au toit du domaine."
+
+# Boundary-condition type.
+# Type: Literal['dirichlet', 'cauchy', 'robin'] | one of: "dirichlet", "cauchy", "robin" | Default: "dirichlet"
+type = "cauchy"
+
+# Boundary-application domain.
+# Supported values are: top, north side, south side, east side, west side.
+# Type: string (optional) | Optional
+application_domain = "top"
+
+# Optional explicit runtime support label used by unstructured backends to select one target support independently from the canonical boundary id.
+# Type: string (optional) | Optional
+# support_label = ""
+
+
+# ----------------------------------------------------------------------
+# Flow diffuse recharge — emitted when 'recharge' is listed in
+# [flow].active_sinks_sources. Values are taken from the data
+# layer ([data.recharge]) unless overridden here.
+# ----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+# Typed payload for diffuse recharge over the model domain.
+# ----------------------------------------------------------------------
+
 [flow.sinks_sources.recharge]
-first_clim = "first"
-negative_to_evt = false
+# Recharge payload: scalar, list (one per stress period), mapping {kper: value}, or runtime series.
+# Type: Any | Default: 0.0
+values = 0.0
 
 
 # ----------------------------------------------------------------------
