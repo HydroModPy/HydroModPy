@@ -603,6 +603,10 @@ def _cmd_run(args: argparse.Namespace) -> None:
         print(f"File not found: {target}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 
+    if getattr(args, "frozen", False):
+        from hydromodpy.data.lockfile import set_frozen_mode
+        set_frozen_mode(True)
+
     if target.suffix == ".py":
         _cmd_run_script(target, getattr(args, "script_args", []))
     elif target.suffix == ".toml":
@@ -1127,9 +1131,17 @@ def _cmd_data(args: argparse.Namespace) -> None:
         _cmd_data_list(args)
     elif sub == "add":
         _cmd_data_add(args)
+    elif sub == "remove":
+        _cmd_data_remove(args)
+    elif sub == "prune":
+        _cmd_data_prune(args)
+    elif sub == "export":
+        _cmd_data_export(args)
+    elif sub == "import":
+        _cmd_data_import(args)
     else:
         print(
-            "Usage: hmp data {check|list|add} [options]",
+            "Usage: hmp data {check|list|add|remove|prune|export|import} [options]",
             file=sys.stderr,
         )
         sys.exit(EXIT_CONFIG)
@@ -1137,9 +1149,23 @@ def _cmd_data(args: argparse.Namespace) -> None:
 
 def _cmd_data_check(args: argparse.Namespace) -> None:
     from hydromodpy.data.auto_scan import check_custom
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
     workspace = _resolve_workspace(args.workspace)
     issues = check_custom(workspace, variable=args.variable)
+
+    if getattr(args, "fix", False):
+        db_path = workspace / "data" / "cache.duckdb"
+        if db_path.exists():
+            with DataCatalogDuckDB(db_path) as catalog:
+                summary = catalog.check_and_fix()
+            print(
+                f"  catalog: dropped {summary['dropped']} stale entries, "
+                f"refreshed {summary['refreshed']} mtimes."
+            )
+        else:
+            print(f"  (no cache at {db_path}; skipped catalog fix)")
+
     if not issues:
         print(f"  OK: no schema issues in {workspace}")
         return
@@ -1175,6 +1201,7 @@ def _cmd_data_add(args: argparse.Namespace) -> None:
         convert_timeseries_csv_to_parquet,
         convert_vector_to_geoparquet,
     )
+    from hydromodpy.data.lockfile import LOCKFILE_NAME, read_lockfile, sha256_of
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.data.scaffold import VARIABLES
 
@@ -1183,6 +1210,19 @@ def _cmd_data_add(args: argparse.Namespace) -> None:
     if not src.is_file():
         print(f"File not found: {src}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
+
+    if getattr(args, "frozen", False):
+        lockfile = workspace / LOCKFILE_NAME
+        if not lockfile.is_file():
+            print(f"--frozen requested but no {lockfile}", file=sys.stderr)
+            sys.exit(EXIT_CONFIG)
+        expected = {la.sha256 for la in read_lockfile(lockfile)}
+        if sha256_of(src) not in expected:
+            print(
+                f"--frozen: {src} SHA-256 does not match any entry in {lockfile}",
+                file=sys.stderr,
+            )
+            sys.exit(EXIT_CONFIG)
 
     if not args.variable:
         print("--type is required (e.g. --type piezometry)", file=sys.stderr)
@@ -1229,6 +1269,143 @@ def _cmd_data_add(args: argparse.Namespace) -> None:
             },
         )
     print(f"  Added: {spec.name}/{args.provider}/{station_id or src.stem} -> {dest}")
+
+
+def _cmd_data_remove(args: argparse.Namespace) -> None:
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+
+    workspace = _resolve_workspace(args.workspace)
+    db_path = workspace / "data" / "cache.duckdb"
+    if not db_path.exists():
+        print(f"  (no cache at {db_path})")
+        return
+    with DataCatalogDuckDB(db_path) as catalog:
+        n = catalog.invalidate(
+            variable=args.variable,
+            source=args.provider,
+            station_id=args.station_id,
+            delete_files=args.delete_files,
+        )
+    print(f"  Removed {n} entry(ies).")
+
+
+def _cmd_data_prune(args: argparse.Namespace) -> None:
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+
+    workspace = _resolve_workspace(args.workspace)
+    db_path = workspace / "data" / "cache.duckdb"
+    if not db_path.exists():
+        print(f"  (no cache at {db_path})")
+        return
+    with DataCatalogDuckDB(db_path) as catalog:
+        n = catalog.prune_older_than(
+            days=args.older_than, delete_files=args.delete_files,
+        )
+    print(f"  Pruned {n} entry(ies) older than {args.older_than} day(s).")
+
+
+def _cmd_data_export(args: argparse.Namespace) -> None:
+    from hydromodpy.data.lockfile import archive_lockfile
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+
+    workspace = _resolve_workspace(args.workspace)
+    db_path = workspace / "data" / "cache.duckdb"
+    dest = Path(args.output).expanduser().resolve()
+    with DataCatalogDuckDB(db_path) as catalog:
+        archive_lockfile(catalog, dest)
+    print(f"  Exported cache to {dest}")
+
+
+def _cmd_data_import(args: argparse.Namespace) -> None:
+    from hydromodpy.data.lockfile import restore_archive
+
+    workspace = _resolve_workspace(args.workspace)
+    src = Path(args.input).expanduser().resolve()
+    dest = workspace / "data" / "imported"
+    restore_archive(src, dest)
+    print(f"  Imported {src} into {dest}")
+
+
+# ---------------------------------------------------------------------------
+# hmp lock subcommand group
+# ---------------------------------------------------------------------------
+
+
+def _cmd_lock(args: argparse.Namespace) -> None:
+    sub = getattr(args, "lock_command", None)
+    if sub == "update":
+        _cmd_lock_update(args)
+    elif sub == "archive":
+        _cmd_lock_archive(args)
+    elif sub == "restore":
+        _cmd_lock_restore(args)
+    elif sub == "verify":
+        _cmd_lock_verify(args)
+    else:
+        print("Usage: hmp lock {update|archive|restore|verify} [options]",
+              file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+
+
+def _cmd_lock_update(args: argparse.Namespace) -> None:
+    from hydromodpy.data.lockfile import LOCKFILE_NAME, write_lockfile
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+
+    workspace = _resolve_workspace(args.workspace)
+    db_path = workspace / "data" / "cache.duckdb"
+    dest = Path(args.output).expanduser().resolve() if args.output else (
+        workspace / LOCKFILE_NAME
+    )
+    with DataCatalogDuckDB(db_path) as catalog:
+        written = write_lockfile(catalog, dest)
+    print(f"  Lockfile written: {written}")
+
+
+def _cmd_lock_archive(args: argparse.Namespace) -> None:
+    from hydromodpy.data.lockfile import archive_lockfile
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+
+    workspace = _resolve_workspace(args.workspace)
+    db_path = workspace / "data" / "cache.duckdb"
+    dest = Path(args.output).expanduser().resolve()
+    with DataCatalogDuckDB(db_path) as catalog:
+        archive_lockfile(catalog, dest)
+    print(f"  Archive written: {dest}")
+
+
+def _cmd_lock_restore(args: argparse.Namespace) -> None:
+    from hydromodpy.data.lockfile import restore_archive
+
+    workspace = _resolve_workspace(args.workspace)
+    src = Path(args.input).expanduser().resolve()
+    dest_dir = Path(args.output).expanduser().resolve() if args.output else (
+        workspace / "data" / "restored"
+    )
+    restore_archive(src, dest_dir)
+    print(f"  Restored {src} -> {dest_dir}")
+
+
+def _cmd_lock_verify(args: argparse.Namespace) -> None:
+    from hydromodpy.data.lockfile import LOCKFILE_NAME, verify_frozen
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+
+    workspace = _resolve_workspace(args.workspace)
+    db_path = workspace / "data" / "cache.duckdb"
+    lockfile = Path(args.lockfile).expanduser().resolve() if args.lockfile else (
+        workspace / LOCKFILE_NAME
+    )
+    if not lockfile.is_file():
+        print(f"  Lockfile not found: {lockfile}", file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+    with DataCatalogDuckDB(db_path) as catalog:
+        mismatches = verify_frozen(catalog, lockfile)
+    if not mismatches:
+        print("  OK: catalog matches lockfile")
+        return
+    print(f"  {len(mismatches)} mismatch(es):")
+    for m in mismatches:
+        print(f"    [{m.kind}] {m.variable}/{m.source}/{m.station_id}")
+    sys.exit(EXIT_CONFIG)
 
 
 # ---------------------------------------------------------------------------
@@ -1573,6 +1750,14 @@ def main() -> None:
             "The RUN_ID must match a previous run's checkpoint directory."
         ),
     )
+    run_parser.add_argument(
+        "--frozen",
+        action="store_true",
+        help=(
+            "Reject any fresh download when a hydromodpy.lock file is present; "
+            "every artefact must already be in the catalog and match its recorded SHA-256."
+        ),
+    )
 
     # --- display subcommand ---
     display_parser = subparsers.add_parser(
@@ -1765,6 +1950,10 @@ def main() -> None:
     )
     data_check.add_argument("--workspace", default=None, help="Workspace root (default: ~/hydromodpy/)")
     data_check.add_argument("--variable", default=None, help="Restrict to one variable (e.g. piezometry)")
+    data_check.add_argument(
+        "--fix", action="store_true",
+        help="Attempt to repair stale catalog entries (drop missing, refresh mtimes)",
+    )
 
     data_list = data_sub.add_parser(
         "list",
@@ -1785,6 +1974,90 @@ def main() -> None:
     data_add.add_argument("--unit", default=None, help="Override unit")
     data_add.add_argument("--station-id", default=None, help="Station id for single-station files")
     data_add.add_argument("--workspace", default=None, help="Workspace root (default: ~/hydromodpy/)")
+    data_add.add_argument(
+        "--frozen", action="store_true",
+        help="Refuse to ingest if the lockfile has no matching entry",
+    )
+
+    data_remove = data_sub.add_parser(
+        "remove",
+        help="Remove cache entries for a variable/provider/station",
+    )
+    data_remove.add_argument("--workspace", default=None)
+    data_remove.add_argument("--variable", default=None)
+    data_remove.add_argument("--provider", default=None)
+    data_remove.add_argument("--station-id", default=None, dest="station_id")
+    data_remove.add_argument(
+        "--delete-files", action="store_true",
+        help="Also delete the underlying files on disk",
+    )
+
+    data_prune = data_sub.add_parser(
+        "prune",
+        help="Drop cache entries older than N days",
+    )
+    data_prune.add_argument("--workspace", default=None)
+    data_prune.add_argument(
+        "--older-than", type=int, default=30,
+        help="Age threshold in days (default: 30)",
+    )
+    data_prune.add_argument("--delete-files", action="store_true")
+
+    data_export = data_sub.add_parser(
+        "export",
+        help="Archive the cache (data + lockfile) to a portable file",
+    )
+    data_export.add_argument("output", help="Destination archive path (.tar / .tar.gz / .tar.zst)")
+    data_export.add_argument("--workspace", default=None)
+
+    data_import = data_sub.add_parser(
+        "import",
+        help="Restore a cache archive into the workspace",
+    )
+    data_import.add_argument("input", help="Archive produced by 'hmp data export'")
+    data_import.add_argument("--workspace", default=None)
+
+    # --- lock subcommand group ---
+    lock_parser = subparsers.add_parser(
+        "lock",
+        help="Manage the reproducible data lockfile (hydromodpy.lock)",
+    )
+    lock_sub = lock_parser.add_subparsers(dest="lock_command")
+
+    lock_update = lock_sub.add_parser(
+        "update",
+        help="Scan the cache and write/update hydromodpy.lock",
+    )
+    lock_update.add_argument("--workspace", default=None)
+    lock_update.add_argument(
+        "--output", default=None,
+        help="Destination lockfile (default: <workspace>/hydromodpy.lock)",
+    )
+
+    lock_archive = lock_sub.add_parser(
+        "archive",
+        help="Create a portable archive (lockfile + artefacts)",
+    )
+    lock_archive.add_argument("output", help="Destination archive (.tar / .tar.gz / .tar.zst)")
+    lock_archive.add_argument("--workspace", default=None)
+
+    lock_restore = lock_sub.add_parser(
+        "restore",
+        help="Restore an archive and verify SHA-256",
+    )
+    lock_restore.add_argument("input", help="Archive to restore")
+    lock_restore.add_argument("--workspace", default=None)
+    lock_restore.add_argument("--output", default=None, help="Target directory")
+
+    lock_verify = lock_sub.add_parser(
+        "verify",
+        help="Verify the cache matches the lockfile",
+    )
+    lock_verify.add_argument("--workspace", default=None)
+    lock_verify.add_argument(
+        "--lockfile", default=None,
+        help="Explicit lockfile path (default: <workspace>/hydromodpy.lock)",
+    )
 
     # --- show subcommand ---
     show_parser = subparsers.add_parser(
@@ -1874,6 +2147,7 @@ def main() -> None:
         "export": _cmd_export,
         "test": _cmd_test,
         "data": _cmd_data,
+        "lock": _cmd_lock,
         "show": _cmd_show,
         "compare": _cmd_compare,
         "import": _cmd_import,

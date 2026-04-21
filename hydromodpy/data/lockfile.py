@@ -30,6 +30,21 @@ from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 LOCKFILE_NAME = "hydromodpy.lock"
 _LOCKFILE_VERSION = 1
 
+# Process-wide frozen-mode flag. Consulted by data loaders to refuse
+# fresh downloads when a lockfile is authoritative.
+_FROZEN_MODE: bool = False
+
+
+def set_frozen_mode(enabled: bool) -> None:
+    """Toggle process-wide frozen mode (used by ``hmp run --frozen``)."""
+    global _FROZEN_MODE
+    _FROZEN_MODE = bool(enabled)
+
+
+def is_frozen_mode() -> bool:
+    """Return whether frozen mode is currently active."""
+    return _FROZEN_MODE
+
 
 @dataclass(frozen=True)
 class LockedArtifact:
@@ -312,6 +327,8 @@ __all__ = [
     "verify_frozen",
     "archive_lockfile",
     "restore_archive",
+    "set_frozen_mode",
+    "is_frozen_mode",
 ]
 
 
