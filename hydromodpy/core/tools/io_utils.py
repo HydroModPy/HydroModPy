@@ -10,7 +10,6 @@ Provides generalized functions for loading and saving data across examples:
 - load_simulation_results(): Batch load all simulation outputs
 - make_timeseries_data(): Create pandas timeseries
 - save_results(): Unified save for multiple formats
-- extract_watershed(): Legacy watershed extraction helper
 """
 
 import logging
@@ -307,73 +306,5 @@ def save_results(data, filepath, format='csv'):
         if hasattr(data, 'to_netcdf'):
             data.to_netcdf(filepath)
     logger.info("Saved to %s", filepath)
-
-
-def extract_watershed(dem_path, out_path, watershed_name, from_xyv=None, from_shp=None,
-                      from_dem=None, catch_def="xy", bottom_path=None, load=False, save_object=True):
-    """
-    Extract watershed with the deprecated legacy watershed runtime.
-
-    This helper is kept only for old notebooks and example scripts.
-    New code should build a geographic context from
-    ``hydromodpy.spatial.geographic`` and continue through the modern runtime.
-
-    Parameters:
-    -----------
-    dem_path : str
-        Path to regional DEM raster file
-    out_path : str
-        Output/results directory path
-    watershed_name : str
-        Name of the watershed (e.g., '00S_short', '01S_short')
-    from_xyv : list or None
-        Outlet coordinates [x, y, snap_distance, buffer_size, EPSG] for xy-based extraction.
-        Example: [150727.164, 6858066.520, 100, 10, 'EPSG:2154']
-    from_shp : str or None
-        Path to shapefile for shapefile-based extraction
-    from_dem : list or None
-        [dem_path, cell_size] for DEM-based extraction
-    catch_def : str
-        Extraction definition mode: 'xy', 'shp', or 'dem' (default: 'xy')
-    bottom_path : str or None
-        Path to bottom elevation file (default: None = automatic)
-    load : bool
-        Load existing watershed object (default: False = create new)
-    save_object : bool
-        Save watershed object to disk (default: True)
-
-    Returns:
-    --------
-    Watershed : HydroModPy Watershed object with extracted catchment
-
-    Examples:
-    ---------
-    >>> BV = extract_watershed(dem_path='data/dem.tif',
-    ...                         out_path='results',
-    ...                         watershed_name='00S_short',
-    ...                         from_xyv=[150727.164, 6858066.520, 100, 10, 'EPSG:2154'])
-
-    >>> BV = extract_watershed(dem_path='data/dem.tif',
-    ...                         out_path='results',
-    ...                         watershed_name='watershed_1',
-    ...                         from_shp='data/catchment_boundary.shp')
-    """
-    from hydromodpy.watershed import Watershed
-
-    BV = Watershed(
-        dem_path=dem_path,
-        out_path=out_path,
-        load=load,
-        watershed_name=watershed_name,
-        from_dem=from_dem,
-        from_shp=from_shp,
-        from_xyv=from_xyv,
-        catch_def=catch_def,
-        bottom_path=bottom_path,
-        save_object=save_object
-    )
-    logger.info("Watershed '%s' extracted successfully", watershed_name)
-    return BV
-
 
 

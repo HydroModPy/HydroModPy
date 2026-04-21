@@ -246,7 +246,6 @@ _MODULE_EXPORTS = {
     "simulation": "hydromodpy.simulation",
     "solver": "hydromodpy.solver",
     "spatial": "hydromodpy.spatial",
-    "watershed": "hydromodpy.watershed",
 }
 
 _LAZY_IMPORTS = {
@@ -405,7 +404,6 @@ __all__ = [
     "simulation",
     "solver",
     "spatial",
-    "watershed",
     # Misc
     "log_manager",
     "__version__",

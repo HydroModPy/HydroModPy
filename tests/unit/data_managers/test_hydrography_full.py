@@ -1177,22 +1177,7 @@ class TestTomlFormatAcceptance:
 
 
 # =====================================================================
-# 13. Watershed-facing aliases
-# =====================================================================
-
-@pytest.mark.fast
-class TestWatershedAliases:
-    def test_watershed_hydrography_module_alias(self):
-        from hydromodpy.watershed.hydrography import Hydrography
-        assert Hydrography is HydrographyResult
-
-    def test_watershed_package_alias(self):
-        from hydromodpy.watershed import Hydrography
-        assert Hydrography is HydrographyResult
-
-
-# =====================================================================
-# 14. Supported formats / internal data summary
+# 13. Supported formats / internal data summary
 # =====================================================================
 
 @pytest.mark.fast
