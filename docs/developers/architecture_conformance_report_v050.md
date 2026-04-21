@@ -118,7 +118,7 @@ tomlkit, validateurs cross-section.
 | 5 | `to_toml(profile=...)` round-trip | OK | Commit `[G03] - implement to_toml via tomlkit` ; `core/config/toml_io.py`. |
 | 6 | Validateur cross-section (`solver.engine ↔ packages.engine`, `flow_regime=transient ⇒ ic`) | OK | Commit `[G03] - add cross section validator`. |
 | 7 | `ParamLevel` user/dev/expert disponibles | OK | `core/config/param_level.py`. |
-| 8 | `Profile(IntEnum)` comparable | ÉCART | `ParamLevel` conserve son dict ordonné — équivalent fonctionnel. |
+| 8 | `Profile(IntEnum)` comparable | OK | `core/config/profile.py` — v0.6 migration, legacy `ParamLevel` kept as shim. |
 | 9 | `VisibleWhen` + validateur cible | OK | Champ présent dans `param_level.py`. |
 | 10 | Types pint `Length`, `Time`, `FlowRate`, etc. | OK | `core/units/types.py`. |
 | 11 | Registre pint partagé `UREG` | OK | `core/units/registry.py`. |
@@ -134,7 +134,6 @@ tomlkit, validateurs cross-section.
 | 21 | `PHYSICAL_BOUNDS` centralisé + `validate_physical_value` | OK | Commits `[G03] - add physical bounds registry` + `[G03] - wire validate physical value`. |
 
 **Écarts assumés :**
-- `ParamLevel` dataclass au lieu de `Profile(IntEnum)` — API équivalente.
 - Un léger résidu `Schema` peut subsister sur les alias publics pour compat v0.4 sortants.
 
 **Manquants :** Aucun.
@@ -648,7 +647,7 @@ v0.5 documente les breaking changes.
    SHA-256 streaming pour les downloads HTTP (`core/io/http_client.py`).
 6. **Pipeline à 11 steps** (F03) — fusion `domain`+`plan`, `open_store`+solver.
 7. **Layout `calibration/` plat** — OVERRIDES P09 simplifient.
-8. **`ParamLevel` dataclass** au lieu de `Profile(IntEnum)` — API équivalente.
+8. **`Profile(IntEnum)`** (v0.6) remplace `ParamLevel` dataclass ; shim conservé jusqu'en v0.7.
 9. **Markers pytest secondaires** (`boussinesq`/`network`/`binary`/`gpu`) non
    ajoutés — les 13 existants suffisent.
 10. **`BaseVariableManager` ABC coexiste avec `DataSource` Protocol** —
