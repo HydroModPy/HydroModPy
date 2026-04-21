@@ -43,6 +43,39 @@ Each release section includes the following standard categories:
 - `hydromodpy.core.logging` subpackage hosting `LogManager`, `get_logger`,
   and `setup_simulation_log` (moved from `core.tools.log_manager`).
 - `hydromodpy.core.version` — single source for `__version__`.
+- `hydromodpy.core.config.base.HydroModelBase` — shared Pydantic root that
+  centralises the strictness defaults (`extra="forbid"`,
+  `validate_assignment=True`, `serialize_by_alias=True`,
+  `populate_by_name=True`, `str_strip_whitespace=True`,
+  `ser_json_inf_nan="strings"`) and runs `VisibleWhen` metadata
+  sanity checks. Every HydroModPy config class now inherits from it.
+- `hydromodpy.core.config.toml_io.dump_toml_with_comments` and
+  `HydroModelBase.to_toml(profile=...)` — :mod:`tomlkit`-powered
+  round-trip helper that emits a TOML document filtered by the
+  requested `user` / `dev` / `expert` profile.
+- `hydromodpy.spatial.field.core.physical_bounds.PHYSICAL_BOUNDS` +
+  `validate_physical_value` — central registry of acceptable physical
+  ranges (K, Sy, Ss, porosity, transmissivity, recharge, elevation,
+  solver tolerances, …) wired into section-level config validators.
+- `hydromodpy.physics.base.forcing` — discriminated union
+  (`ConstantForcing | CsvForcing | SyntheticForcing`) factoring the
+  flow-boundary / sinks-sources forcing payloads behind a single `kind`
+  discriminator.
+- `hydromodpy.physics.flow.flow_config.FlowRuntimeConfig` — grouped
+  view over the flow-runtime Boussinesq knobs (`backend`,
+  `surface_model`, `max_iterations`, `tol_residual_inf`,
+  `tol_state_update_inf`) accessible as `FlowConfig.runtime`.
+- `hydromodpy.data.variables.timeseries_variable_config.TimeseriesVariableConfig`
+  — shared CSV-grammar base (`col_id`, `col_x`, `col_y`, `col_crs`,
+  `col_datetime`, `col_value`, `default_crs`, `station_ids`, `extent`,
+  `force_refresh`, `mask_path`) factoring ~14 near-identical
+  `[data.<variable>]` configs.
+- `HydroModPyConfig` gained a cross-section `model_validator`
+  enforcing: `data.inference_mode='strict'` ⇒ `data.types` non-empty;
+  `[calibration]` present ⇒ `flow.param_list` non-empty; Boussinesq
+  engine forbids `[transport]`.
+- `tomlkit` promoted to a core dependency in `pyproject.toml` (required
+  by the round-trip TOML writer).
 
 ### Changed
 - **BREAKING**: project version bumped to `0.5.0.dev0`.
@@ -91,6 +124,54 @@ Each release section includes the following standard categories:
 - `hydromodpy.core.config.hydromodpy_config` no longer imports any
   non-core sibling at module top level; `core/` is a leaf of the
   import DAG (forward references + deferred `model_rebuild`).
+- **BREAKING**: `*Schema` suffix dropped from every Pydantic config
+  class. Renames:
+  - `FieldBaseSectionSchema` → `FieldBaseSection`,
+    `FieldHomogeneousSectionSchema` → `FieldHomogeneousSection`,
+    `FieldHeterogeneousSectionSchema` → `FieldHeterogeneousSection`,
+    `FieldVerticalProfileSectionSchema` → `FieldVerticalProfileSection`,
+    `ResolvedFieldParamSchema` → `ResolvedFieldParam`.
+  - `MeshCatchmentConfigSchema` → `MeshCatchmentConfig`,
+    `MeshCatchmentRiversConfigSchema` → `MeshCatchmentRiversConfig`,
+    `MeshCatchmentWatershedBoundarySmoothingConfigSchema` →
+    `MeshCatchmentWatershedBoundarySmoothingConfig`,
+    `MeshCatchmentWatershedOutsideCoarseningConfigSchema` →
+    `MeshCatchmentWatershedOutsideCoarseningConfig`,
+    `MeshCatchmentWatershedGeologyConformityConfigSchema` →
+    `MeshCatchmentWatershedGeologyConformityConfig`,
+    `MeshCatchmentWatershedBoundaryConfigSchema` →
+    `MeshCatchmentWatershedBoundaryConfig`,
+    `MeshCatchmentHydraulicPropertyMappingSchema` →
+    `MeshCatchmentHydraulicPropertyMapping`,
+    `MeshCatchmentHydraulicConductivitySchema` →
+    `MeshCatchmentHydraulicConductivity`,
+    `MeshCatchmentStorageCoefficientSchema` →
+    `MeshCatchmentStorageCoefficient`,
+    `MeshCatchmentHydraulicPropertiesConfigSchema` →
+    `MeshCatchmentHydraulicPropertiesConfig`,
+    `MeshCatchmentBatchOutputsSchema` → `MeshCatchmentBatchOutputs`,
+    `MeshCatchmentBatchSectionSchema` → `MeshCatchmentBatchSection`.
+  - `MethodComparisonVariantSchema` → `MethodComparisonVariant`,
+    `MethodComparisonObservableSchema` → `MethodComparisonObservable`,
+    `MethodComparisonSectionSchema` → `MethodComparisonSection`,
+    `MethodComparisonFineRasterSchema` → `MethodComparisonFineRaster`.
+  - `GeologySourceSchema` → `GeologySource`,
+    `GeologyLandSeaSchema` → `GeologyLandSea`,
+    `GeologyConfigSchema` → `GeologyConfigBlock` (existing
+    `GeologyConfig` class in the same module already claimed the name).
+  - `ZoneMeshingRefinementFamiliesSchema` →
+    `ZoneMeshingRefinementFamilies`,
+    `ZoneMeshingDomainBBoxSchema` → `ZoneMeshingDomainBBox`,
+    `ZoneMeshingDomainPolygonSchema` → `ZoneMeshingDomainPolygon`,
+    `ZoneMeshingDomainVectorSchema` → `ZoneMeshingDomainVector`,
+    `ZoneMeshingDomainGeographicBoxBufferSchema` →
+    `ZoneMeshingDomainGeographicBoxBuffer`,
+    `ZoneMeshingDomainGeographicWatershedSchema` →
+    `ZoneMeshingDomainGeographicWatershed`,
+    `ZoneMeshingDomainGeographicWatershedBoxSchema` →
+    `ZoneMeshingDomainGeographicWatershedBox`.
+  No backwards-compatible alias is provided — callers must update
+  imports.
 
 ### Removed
 - `hydromodpy/core/tools/geospatial.py` (moved to `core/io/crs.py`). The
