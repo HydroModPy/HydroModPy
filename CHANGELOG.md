@@ -33,6 +33,28 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- Test infrastructure overhaul (phase G09):
+  - `tests/e2e/` — four end-to-end scenarios covering catalog roundtrip,
+    calibration through the public engine, pipeline resume after crash,
+    and `.hmp` package export/import.
+  - `tests/_helpers/` — renamed from `tests/support/`. New topic modules
+    `fixtures_mesh.py`, `fixtures_catalog.py`, `fixtures_config.py`,
+    `fixtures_data.py`, `strategies.py` (Hypothesis), `signatures.py`
+    (`FieldSignature` with 12 stats + moment_1) and `assertions.py`.
+  - `tests/TOLERANCES.md` — 22 numerical tolerances documented with
+    Richardson / machine-epsilon / literature rationales.
+  - `tests/pytest.ini` — dedicated config (migrated from
+    `[tool.pytest.ini_options]`), adds markers `e2e`, `unit`,
+    `boussinesq`, `network`, `binary`, `gpu`, `allow_subprocess`,
+    `timeout`.
+  - `tests/unit/conftest.py` — anti-subprocess guardrail that fails
+    fast on unit-tier tests calling `subprocess.*` or `requests.*`;
+    opt-out via `@pytest.mark.allow_subprocess`.
+  - `tests/conftest.py` — autouse `_deterministic_seeds` (resets
+    `random` and `numpy.random` seeds before each test), BLAS
+    single-thread environment variables, auto-tagging by path
+    (`unit` / `integration` / `validation` / `regression` / `e2e`)
+    and per-layer `timeout` markers (no-op without `pytest-timeout`).
 - Typed pipeline state hierarchy (phase G08): ``PipelineState`` is now
   ``Generic[T]`` and ten frozen payload dataclasses model the per-step
   transitions — ``ValidatedState`` → ``ResolvedState`` → ``LoadedState`` →
