@@ -50,7 +50,7 @@ def test_sim2_to_user_names_inverse():
     assert sim2_to_user_names("DRAINC_Q,T_Q") == ["recharge", "temperature"]
 
 
-@patch("hydromodpy.data.common.clients.sim2_edr.requests.get")
+@patch("hydromodpy.core.io.http_client.HTTPClient.get")
 def test_fetch_cube_uses_geosas_url_and_translates_names(mock_get):
     resp = MagicMock()
     resp.status_code = 200
@@ -66,14 +66,15 @@ def test_fetch_cube_uses_geosas_url_and_translates_names(mock_get):
     client.fetch_cube(parameters=["recharge", "temperature"])
 
     assert mock_get.call_count == 1
-    called_url = mock_get.call_args.args[0]
-    called_params = mock_get.call_args.kwargs["params"]
+    call = mock_get.call_args
+    called_url = call.args[0]
+    called_params = call.kwargs["params"]
     assert "api.geosas.fr" in called_url
     assert called_params["parameter-name"] == "DRAINC_Q,T_Q"
     assert called_params["crs"] == "EPSG:2154"
 
 
-@patch("hydromodpy.data.common.clients.sim2_edr.requests.get")
+@patch("hydromodpy.core.io.http_client.HTTPClient.get")
 def test_fetch_point_translates_names(mock_get):
     resp = MagicMock()
     resp.status_code = 200
@@ -87,7 +88,8 @@ def test_fetch_point_translates_names(mock_get):
 
     called_params = mock_get.call_args.kwargs["params"]
     assert called_params["parameter-name"] == "FF_Q"
-    assert "api.geosas.fr" in mock_get.call_args.args[0]
+    called_url = mock_get.call_args.args[0]
+    assert "api.geosas.fr" in called_url
 
 
 def test_module_re_exports_client_class():

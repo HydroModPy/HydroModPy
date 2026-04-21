@@ -25,7 +25,7 @@ from pydantic import Field
 
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.param_level import ParamLevel
-from hydromodpy.data.common.base_config import BaseVariableConfig
+from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class TimeseriesColumnsMixin(HydroModelBase):

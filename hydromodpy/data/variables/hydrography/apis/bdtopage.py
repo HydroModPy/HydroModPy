@@ -69,7 +69,7 @@ def fetch(
             "count": page_size,
             "startIndex": start,
         }
-        r = requests.get(WFS_URL, params=params, timeout=120)
+        r = get_default_client().get(WFS_URL, params=params, timeout=120)
         r.raise_for_status()
 
         data = r.json()
