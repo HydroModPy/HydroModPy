@@ -3,8 +3,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.profile import Profile
 
 
 class WorkspaceConfig(HydroModelBase):
@@ -30,14 +30,14 @@ class WorkspaceConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    project_root: Annotated[Path, ParamLevel("user")] = Field(
+    project_root: Annotated[Path, Profile.USER] = Field(
         description=(
             "Path to the project directory. "
             "Auto-derived from TOML location when absent."
         ),
     )
 
-    output_root: Annotated[Path | None, ParamLevel("user")] = Field(
+    output_root: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description=(
             "Root directory for all outputs (simulations/<uuid>.zarr, "
@@ -46,7 +46,7 @@ class WorkspaceConfig(HydroModelBase):
         ),
     )
 
-    workspace_root: Annotated[Path | None, ParamLevel("dev")] = Field(
+    workspace_root: Annotated[Path | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Root of the workspace containing data/ and projects/. "
