@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 
+from hydromodpy.core.exceptions import StepError
 from hydromodpy.pipeline import Pipeline, PipelineState, Step
 
 
@@ -84,11 +85,16 @@ def test_pipeline_run_without_workspace_skips_ledger() -> None:
     assert final.data["counter"] == 1
 
 
-def test_pipeline_propagates_exception() -> None:
+def test_pipeline_wraps_step_failure_in_step_error() -> None:
     state = PipelineState(run_id="r")
     pipeline = Pipeline([_AddOne(), _Fail()])
-    with pytest.raises(RuntimeError, match="boom"):
+    with pytest.raises(StepError) as excinfo:
         pipeline.run(state)
+    err = excinfo.value
+    assert err.step_name == "fail"
+    assert err.run_id == "r"
+    assert isinstance(err.cause, RuntimeError)
+    assert isinstance(err.__cause__, RuntimeError)
 
 
 def test_pipeline_resume_from_skips_early_steps() -> None:

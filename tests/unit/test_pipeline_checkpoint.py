@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.exceptions import StepError
 from hydromodpy.pipeline import Pipeline, PipelineState
 from hydromodpy.pipeline.checkpoint import CheckpointStore
 from hydromodpy.pipeline.ledger import StepsLedger
@@ -79,8 +80,10 @@ def test_crash_then_resume_replays_only_remaining(tmp_path: Path) -> None:
     pipeline = _fresh_pipeline(tmp_path, steps)
     state = PipelineState(run_id="crash-1", data={"counter": 5})
 
-    with pytest.raises(RuntimeError, match="simulated crash"):
+    with pytest.raises(StepError) as excinfo:
         pipeline.run(state)
+    assert excinfo.value.step_name == "crash"
+    assert isinstance(excinfo.value.cause, RuntimeError)
 
     cp = CheckpointStore(tmp_path, "crash-1")
     assert cp.completed_indices() == [0]
