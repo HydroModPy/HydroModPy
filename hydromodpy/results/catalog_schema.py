@@ -402,12 +402,30 @@ GROUP BY s.sim_id, s.project, s.status, s.solver, s.flow_regime,
          s.created_at, s.duration_s
 """
 
+_V_BEST_PER_PROJECT_DDL = """
+CREATE OR REPLACE VIEW v_best_per_project AS
+SELECT project, sim_id, nse, kge, rmse, r2, status, created_at
+FROM (
+    SELECT
+        project, sim_id, nse, kge, rmse, r2, status, created_at,
+        ROW_NUMBER() OVER (
+            PARTITION BY project
+            ORDER BY nse DESC NULLS LAST
+        ) AS rnk
+    FROM v_simulation_summary
+    WHERE status = 'completed'
+) t
+WHERE rnk = 1
+"""
+
 VIEW_NAMES: tuple[str, ...] = (
     "v_simulation_summary",
+    "v_best_per_project",
 )
 
 _ALL_VIEW_DDL: tuple[str, ...] = (
     _V_SIMULATION_SUMMARY_DDL,
+    _V_BEST_PER_PROJECT_DDL,
 )
 
 # ---------------------------------------------------------------------------
