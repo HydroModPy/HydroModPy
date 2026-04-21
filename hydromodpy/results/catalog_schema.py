@@ -371,6 +371,46 @@ CREATE TABLE IF NOT EXISTS geographic_metadata (
 """
 
 # ---------------------------------------------------------------------------
+#  Denormalized views (G05)
+# ---------------------------------------------------------------------------
+
+_V_SIMULATION_SUMMARY_DDL = """
+CREATE OR REPLACE VIEW v_simulation_summary AS
+SELECT
+    s.sim_id,
+    s.project,
+    s.status,
+    s.solver,
+    s.flow_regime,
+    s.created_at,
+    s.duration_s,
+    MAX(CASE WHEN m.metric_name = 'nse'
+             AND m.station_id = '__outlet__'
+             AND m.variable = 'head' THEN m.value END)  AS nse,
+    MAX(CASE WHEN m.metric_name = 'kge'
+             AND m.station_id = '__outlet__'
+             AND m.variable = 'head' THEN m.value END)  AS kge,
+    MAX(CASE WHEN m.metric_name = 'rmse'
+             AND m.station_id = '__outlet__'
+             AND m.variable = 'head' THEN m.value END)  AS rmse,
+    MAX(CASE WHEN m.metric_name = 'r2'
+             AND m.station_id = '__outlet__'
+             AND m.variable = 'head' THEN m.value END)  AS r2
+FROM simulations s
+LEFT JOIN metrics m ON s.sim_id = m.sim_id
+GROUP BY s.sim_id, s.project, s.status, s.solver, s.flow_regime,
+         s.created_at, s.duration_s
+"""
+
+VIEW_NAMES: tuple[str, ...] = (
+    "v_simulation_summary",
+)
+
+_ALL_VIEW_DDL: tuple[str, ...] = (
+    _V_SIMULATION_SUMMARY_DDL,
+)
+
+# ---------------------------------------------------------------------------
 #  Public constants and entry points
 # ---------------------------------------------------------------------------
 
@@ -428,7 +468,7 @@ _ALL_DDL: tuple[str, ...] = (
 
 
 def ensure_schema(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create the catalog tables if they do not already exist.
+    """Create the catalog tables and views if they do not already exist.
 
     Idempotent: repeated calls on the same connection are safe. The function
     does not register a schema version — the whole catalog follows a
@@ -437,4 +477,9 @@ def ensure_schema(conn: duckdb.DuckDBPyConnection) -> None:
     """
     for ddl in _ALL_DDL:
         conn.execute(ddl)
-    logger.debug("DuckDB catalog schema ensured (%d tables)", len(TABLE_NAMES))
+    for ddl in _ALL_VIEW_DDL:
+        conn.execute(ddl)
+    logger.debug(
+        "DuckDB catalog schema ensured (%d tables, %d views)",
+        len(TABLE_NAMES), len(VIEW_NAMES),
+    )
