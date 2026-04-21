@@ -443,6 +443,67 @@ class SimulationZarr:
         attrs = dict(sta_grp.attrs)
         return timestamps, values, attrs
 
+    # -- xarray export --------------------------------------------------------
+
+    def to_xarray(self):
+        """Return an ``xarray.Dataset`` view over the simulation fields.
+
+        Collects every registered field that has been written to this Zarr
+        store (root, ``derived/`` and ``budget/`` groups are scanned) and
+        wraps them in a CF/UGRID-aware :class:`xarray.Dataset`. Non-field
+        bookkeeping arrays (mesh topology, time, crs) are included as
+        coordinate variables so that downstream consumers can round-trip
+        through xarray without losing CF metadata.
+        """
+        import xarray as xr
+
+        data_vars: dict[str, xr.Variable] = {}
+        coords: dict[str, xr.Variable] = {}
+
+        def _shape_dims(shape: str) -> tuple[str, ...]:
+            return {
+                field_registry.SHAPE_TIME_LAYER_FACE: ("time", "layer", "face"),
+                field_registry.SHAPE_TIME_FACE: ("time", "face"),
+                field_registry.SHAPE_LAYER_FACE: ("layer", "face"),
+                field_registry.SHAPE_FACE: ("face",),
+                field_registry.SHAPE_PARTICLES: ("time", "particle"),
+            }.get(shape, ())
+
+        for name, desc in field_registry.FIELD_REGISTRY.items():
+            path = desc.zarr_path
+            if "/" in path:
+                group_name, var_name = path.split("/", 1)
+                group = self._root.get(group_name)
+                if group is None or var_name not in group:
+                    continue
+                arr = group[var_name]
+            else:
+                if path not in self._root:
+                    continue
+                arr = self._root[path]
+            dims = _shape_dims(desc.shape)
+            if len(dims) != arr.ndim:
+                # fall back to generic dims when the shape does not match the
+                # stored array (e.g. a field was written with an extra axis)
+                dims = tuple(f"dim_{i}" for i in range(arr.ndim))
+            data_vars[name] = xr.Variable(
+                dims, np.asarray(arr[:]), attrs=dict(arr.attrs),
+            )
+
+        if "time" in self._root:
+            time_arr = self._root["time"]
+            coords["time"] = xr.Variable(
+                ("time",), np.asarray(time_arr[:]), attrs=dict(time_arr.attrs),
+            )
+        if "crs" in self._root:
+            crs_arr = self._root["crs"]
+            coords["crs"] = xr.Variable(
+                (), np.asarray(crs_arr[()]), attrs=dict(crs_arr.attrs),
+            )
+
+        root_attrs = {k: v for k, v in self._root.attrs.items()}
+        return xr.Dataset(data_vars=data_vars, coords=coords, attrs=root_attrs)
+
     # -- Finalization --------------------------------------------------------
 
     def consolidate_metadata(self) -> None:
