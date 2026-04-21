@@ -270,6 +270,27 @@ CREATE INDEX IF NOT EXISTS ix_cal_iter_hash
 """
 
 # ---------------------------------------------------------------------------
+#  Runtime environment provenance
+# ---------------------------------------------------------------------------
+
+_RUNS_ENVIRONMENT_DDL = """
+CREATE TABLE IF NOT EXISTS runs_environment (
+    sim_id              UUID NOT NULL,
+    python_version      VARCHAR,
+    hydromodpy_version  VARCHAR,
+    platform            VARCHAR,
+    hostname            VARCHAR,
+    user_name           VARCHAR,
+    cpu_info            JSON,
+    memory_gb           DOUBLE,
+    git_commit          VARCHAR,
+    env_packages        JSON,
+    recorded_at         TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
+    PRIMARY KEY (sim_id)
+);
+"""
+
+# ---------------------------------------------------------------------------
 #  Geographic tables
 # ---------------------------------------------------------------------------
 
@@ -317,6 +338,7 @@ TABLE_NAMES: tuple[str, ...] = (
     "calibration_iterations",
     "geographic_features",
     "geographic_metadata",
+    "runs_environment",
 )
 
 PER_SIM_TABLE_NAMES: tuple[str, ...] = (
@@ -329,6 +351,7 @@ PER_SIM_TABLE_NAMES: tuple[str, ...] = (
     "provenance",
     "geographic_features",
     "geographic_metadata",
+    "runs_environment",
 )
 
 _ALL_DDL: tuple[str, ...] = (
@@ -344,6 +367,7 @@ _ALL_DDL: tuple[str, ...] = (
     _CALIBRATION_ITERATIONS_DDL,
     _GEOGRAPHIC_FEATURES_DDL,
     _GEOGRAPHIC_METADATA_DDL,
+    _RUNS_ENVIRONMENT_DDL,
 )
 
 
