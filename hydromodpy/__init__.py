@@ -5,7 +5,6 @@ import logging
 import os
 import re
 import sys
-from importlib import metadata
 from importlib.util import find_spec
 from pathlib import Path
 
@@ -226,14 +225,7 @@ def _ensure_proj_db_compatibility() -> None:
 _ensure_proj_data_from_env()
 _ensure_proj_db_compatibility()
 
-try:
-    __version__ = metadata.version("hydromodpy")
-except metadata.PackageNotFoundError:
-    import tomllib
-
-    _pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
-    with _pyproject.open("rb") as fh:
-        __version__ = tomllib.load(fh)["project"]["version"]
+from hydromodpy.core.version import __version__
 
 __author__ = "Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy"
 __email__ = "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
