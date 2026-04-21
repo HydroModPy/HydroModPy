@@ -33,6 +33,23 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- CLI subcommands `hmp doctor`, `hmp inspect <sim_id>`,
+  `hmp best <project> [--metric nse]`, `hmp worst <project> [--metric nse]`,
+  `hmp delete <sim_id> [-y]`, and `hmp completion {bash,zsh,fish}` (phase G07).
+- `hmp --version` / `hmp -V` prints the HydroModPy version, Python, OS and
+  git commit on a single line.
+- `hmp config check <file.toml>` validates a TOML against the Pydantic
+  `HydroModPyConfig` model and exits with `EXIT_CONFIG=1` on failure.
+- `hmp config template [output]` is now the explicit subcommand for
+  template generation (alongside `hmp config schema` / `hmp config wizard`).
+- `hmp run` accepts `--from STEP`, `--until STEP`, `--dry-run` and
+  `--no-checkpoint` to drive the pipeline execution explicitly (spec
+  `architecture_cible/06_pipeline_execution.md §5.4`). `--dry-run` prints
+  the workflow plan and step list without executing.
+- CLI integration tests `tests/integration/test_cli_subcommands.py` and UX
+  acceptance test `tests/integration/test_ux_acceptance.py` cover every
+  subcommand's `--help`, the `--version` flag, the `completion` output and
+  the `init → new → config template → run --dry-run → list → doctor` flow.
 - Four new DuckDB catalog tables (phase G05):
   - `runs_environment` — Python / HydroModPy version, platform, hostname,
     user, CPU info, memory, git commit and pip-freeze JSON for each run,
@@ -190,6 +207,27 @@ Each release section includes the following standard categories:
 
 ### Changed
 - **BREAKING**: project version bumped to `0.5.0.dev0`.
+- **BREAKING** (G07): CLI implementation relocated from
+  `hydromodpy/__main__.py` (1900+ lines) to the `hydromodpy/_cli/`
+  package (one subcommand per file). Entry points `hmp` and
+  `hydromodpy` now resolve `hydromodpy._cli:main`.
+  `hydromodpy/__main__.py` is reduced to a 12-line shim that forwards
+  to `_cli.main` so `python -m hydromodpy` keeps working.
+- **BREAKING** (G07): bare form `hmp config FILE.toml` removed — use
+  `hmp config template FILE.toml` (new explicit subcommand). Other
+  legacy aliases (`hmp config schema`, `hmp config wizard`) are kept.
+- **BREAKING** (G07): `hydromodpy/runners/` top-level package removed.
+  Workflow dispatch (ex `detect_workflow`) and the per-workflow thin
+  shells (`run_simulation`, `run_overview`, `run_mesh`,
+  `run_calibration`, `run_batch`) are now in
+  `hydromodpy/_cli/workflows.py`. Templates under `runners/templates/`
+  were unused in production — dropped along with the one test that
+  imported them.
+- **BREAKING** (G07): extended exit-code contract adds
+  `EXIT_DATA_ERROR=5` (returned by `hmp data check` when artefact
+  validation fails, `hmp lock verify` on mismatch) and
+  `EXIT_SOLVER_ERROR=6` (reserved). `hydromodpy._cli.helpers` is the
+  authoritative module for CLI exit codes.
 - **BREAKING**: imports relocated:
   - `hydromodpy.core.tools.raster_io` → `hydromodpy.core.io.raster_io`.
   - `hydromodpy.core.tools.geospatial` → `hydromodpy.core.io.crs`.
@@ -285,6 +323,11 @@ Each release section includes the following standard categories:
   imports.
 
 ### Removed
+- **BREAKING** (G07): `hydromodpy/runners/` package deleted entirely.
+  `detect_workflow()` and `runners/{simulation,overview,mesh,calibration,batch}.py`
+  are replaced by `hydromodpy/_cli/workflows.py`. The unused
+  `runners/templates/*.py` TOML-template renderers (used only in one
+  unit test) are dropped.
 - `hydromodpy/core/tools/geospatial.py` (moved to `core/io/crs.py`). The
   unused ``basin_area`` helper did not carry over.
 - `hydromodpy/watershed/` package deleted in full. The legacy
