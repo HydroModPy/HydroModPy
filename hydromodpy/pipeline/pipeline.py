@@ -4,6 +4,13 @@
 steps, it records progress in a :class:`StepsLedger` and optionally
 persists checkpoints via a :class:`CheckpointStore` so the pipeline can
 be resumed after a crash.
+
+Step failures are wrapped in :class:`StepError` (a subclass of
+:class:`PipelineError` from ``core.exceptions``) so callers can react on a
+typed exception that exposes ``step_name``, ``run_id`` and the original
+``cause``. ``KeyboardInterrupt`` and ``SystemExit`` are deliberately not
+intercepted: they propagate through the pipeline so users keep their
+ability to abort a run via ``Ctrl+C``.
 """
 
 from __future__ import annotations
@@ -13,6 +20,7 @@ import time
 from pathlib import Path
 from typing import Sequence
 
+from hydromodpy.core.exceptions import StepError
 from hydromodpy.pipeline.state import PipelineState
 from hydromodpy.pipeline.step import Step
 
@@ -90,7 +98,10 @@ class Pipeline:
             ledger.start(state.run_id, index, name)
         try:
             out = step.run(state)
-        except BaseException as exc:  # noqa: BLE001 — re-raise after logging
+        except (KeyboardInterrupt, SystemExit):
+            # Never swallow user interrupts — let them propagate intact.
+            raise
+        except StepError as exc:
             elapsed_ms = (time.monotonic() - t0) * 1000.0
             if ledger is not None:
                 ledger.finish(
@@ -101,6 +112,17 @@ class Pipeline:
                     error=f"{type(exc).__name__}: {exc}",
                 )
             raise
+        except Exception as exc:
+            elapsed_ms = (time.monotonic() - t0) * 1000.0
+            if ledger is not None:
+                ledger.finish(
+                    state.run_id,
+                    index,
+                    status="failed",
+                    elapsed_ms=elapsed_ms,
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+            raise StepError(name, exc, run_id=state.run_id) from exc
         elapsed_ms = (time.monotonic() - t0) * 1000.0
         # Normalize step-level metadata even if the step forgot to update.
         out = out.advance(
