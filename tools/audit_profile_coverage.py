@@ -19,8 +19,8 @@ from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.config.profile import Profile
 
 
-def _has_profile(annotation) -> bool:
-    metadata = getattr(annotation, "__metadata__", ())
+def _has_profile(field_info) -> bool:
+    metadata = getattr(field_info, "metadata", ())
     return any(isinstance(m, (Profile, ParamLevel)) for m in metadata)
 
 
@@ -31,7 +31,7 @@ def walk(cls=HydroModelBase, seen=None):
             continue
         seen.add(sub)
         for field_name, info in sub.model_fields.items():
-            if not _has_profile(info.annotation):
+            if not _has_profile(info):
                 yield f"{sub.__module__}.{sub.__qualname__}.{field_name}"
         yield from walk(sub, seen)
 
