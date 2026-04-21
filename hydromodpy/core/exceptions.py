@@ -220,9 +220,28 @@ class PipelineError(HydroModPyError):
 
 
 class StepError(PipelineError):
-    """A pipeline step raised an unrecoverable error."""
+    """A pipeline step raised an unrecoverable error.
+
+    Always carries the offending ``step_name`` and the original ``cause``
+    so callers can introspect the failure without unwrapping the chained
+    ``__cause__`` reference.
+    """
 
     code = "HMPY.E501"
+
+    def __init__(
+        self,
+        step_name: str,
+        cause: BaseException,
+        *,
+        run_id: str | None = None,
+        sim_id: str | None = None,
+        **context: Any,
+    ) -> None:
+        message = f"step {step_name!r} failed: {type(cause).__name__}: {cause}"
+        super().__init__(message, sim_id=sim_id, run_id=run_id, **context)
+        self.step_name = step_name
+        self.cause = cause
 
 
 class CheckpointError(PipelineError):
