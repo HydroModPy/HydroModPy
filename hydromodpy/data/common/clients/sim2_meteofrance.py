@@ -17,7 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
-from hydromodpy.core.tools.log_manager import get_logger
+from hydromodpy.core.logging import get_logger
 # SIM2 data distributed via geosas.fr
 from hydromodpy.data.common.clients.sim2_edr import BASE_URL, Sim2EDRClient
 

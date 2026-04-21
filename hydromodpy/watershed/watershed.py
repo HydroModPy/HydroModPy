@@ -23,8 +23,8 @@ repo_root = dirname(package_root)
 
 # HydroModPy
 from hydromodpy.spatial.geographic.geographic import Geographic
-from hydromodpy.core.tools import get_logger
-from hydromodpy.core.tools import setup_simulation_log
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.logging import setup_simulation_log
 from hydromodpy.core.tools.display import plot_params, print_hydromodpy
 from hydromodpy.core.tools.filesystem import create_folder
 

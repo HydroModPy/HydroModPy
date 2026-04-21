@@ -13,7 +13,8 @@ import rasterio
 from flopy.utils import postprocessing as pp
 
 from hydromodpy.core.io import raster_io
-from hydromodpy.core.tools import filesystem, get_logger
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.tools import filesystem
 from hydromodpy.solver.modflow_common import masstransfer
 from hydromodpy.solver.modflow_common.options import ModflowPostprocessOptions
 

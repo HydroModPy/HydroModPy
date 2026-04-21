@@ -23,7 +23,7 @@ import numpy as np
 
 # ---- Local Libraries Imports
 from . import ensure_help3o_loaded
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -271,7 +271,7 @@ def get_logger(name):
 
     Examples
     --------
-    >>> from hydromodpy.core.tools import get_logger
+    >>> from hydromodpy.core.logging import get_logger
     >>> logger = get_logger(__name__)
     >>> logger.info("Processing started")
     """

@@ -17,7 +17,7 @@ from pathlib import Path
 
 from .managers import HelpManager
 from .daily_output import calc_area_daily_avg
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

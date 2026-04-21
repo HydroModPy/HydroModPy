@@ -15,7 +15,7 @@ import time
 import os.path as osp
 import multiprocessing as mp
 
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

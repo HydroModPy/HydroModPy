@@ -19,7 +19,7 @@ import rasterio
 from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
 
 # HydroModPy
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tools.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 

@@ -10,7 +10,7 @@ from .pyhelp_csv_manager import PyhelpCsvManager
 from hydromodpy.core.tools.filesystem import load_csv
 from hydromodpy.core.io.crs import transform_coordinates, filter_coordinates_by_shape
 from typing import Optional
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

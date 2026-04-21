@@ -24,7 +24,7 @@ from hydromodpy.data.common.io_helpers import (
 )
 from hydromodpy.data.common.unit_helpers import convert_array
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.core.tools.log_manager import get_logger
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

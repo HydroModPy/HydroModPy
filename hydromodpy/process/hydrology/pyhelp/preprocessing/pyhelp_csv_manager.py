@@ -7,7 +7,7 @@ Created on Mon Feb 24 15:57:13 2025
 
 import pandas as pd
 from abc import ABC, abstractmethod
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

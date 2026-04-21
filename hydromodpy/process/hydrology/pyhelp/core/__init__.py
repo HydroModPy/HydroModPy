@@ -14,7 +14,7 @@ import platform
 import warnings
 from pathlib import Path
 
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

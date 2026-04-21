@@ -239,7 +239,7 @@ __author__ = "Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy"
 __email__ = "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
 
 # Initialize logging system
-from hydromodpy.core.tools.log_manager import LogManager
+from hydromodpy.core.logging import LogManager
 _log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
 # Public access to log manager for users
 log_manager = _log_manager

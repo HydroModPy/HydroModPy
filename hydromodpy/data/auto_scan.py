@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from hydromodpy.core.tools.log_manager import get_logger
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.adapters import (
     TimeSeriesValidationError,
     convert_asc_to_geotiff,

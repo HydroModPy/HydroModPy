@@ -5,7 +5,7 @@ import xarray as xr
 import pandas as pd
 import os
 from typing import Optional
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

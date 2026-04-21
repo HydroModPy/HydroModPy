@@ -49,7 +49,7 @@ from hydromodpy.core.units.volumetric_flow import (
 	convert_to_m3_per_s,
 	normalize_m3_per_s_unit,
 )
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tools.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 

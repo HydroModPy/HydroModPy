@@ -10,7 +10,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.core.tools.log_manager import get_logger
+from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.data.common.base_manager import BaseVariableManager

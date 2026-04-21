@@ -38,7 +38,7 @@ from hydromodpy.spatial.geographic.core.river_network import (
     build_river_network_products,
 )
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig

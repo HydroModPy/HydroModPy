@@ -28,7 +28,7 @@ from .processing import run_help_allcells
 from .utils import savedata_to_hdf5, calc_dist_from_coord, delete_folder_recursively
 from .weather_reader import save_precip_to_HELP, save_airtemp_to_HELP, save_solrad_to_HELP
 from .output import HelpOutput
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 
 FNAME_CONN_TABLES = 'connect_table.json'

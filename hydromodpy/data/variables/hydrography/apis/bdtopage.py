@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 import geopandas as gpd
 import requests
 
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 

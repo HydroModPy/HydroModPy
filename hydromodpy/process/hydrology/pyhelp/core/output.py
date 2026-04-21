@@ -21,7 +21,7 @@ import numpy as np
 import h5py
 from scipy.stats import linregress
 
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

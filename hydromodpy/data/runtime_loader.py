@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
-from hydromodpy.core.tools.log_manager import get_logger
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

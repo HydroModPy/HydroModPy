@@ -11,7 +11,7 @@ import pandas as pd
 import rasterio
 
 from hydromodpy.spatial.delineation import get_whitebox_backend
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,

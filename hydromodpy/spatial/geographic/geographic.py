@@ -26,7 +26,7 @@ from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import Domain
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

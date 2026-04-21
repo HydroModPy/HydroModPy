@@ -6,7 +6,7 @@ import geopandas as gpd
 import pandas as pd
 import requests
 
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 

@@ -40,7 +40,7 @@ sys.path.append(df)
 # HydroModPy
 from hydromodpy.spatial.delineation import get_whitebox_backend
 from hydromodpy.solver.modflow_common import ensure_platform_executable
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tools.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.tools.display import plot_params

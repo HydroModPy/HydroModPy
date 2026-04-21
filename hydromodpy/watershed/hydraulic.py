@@ -19,7 +19,7 @@ from typing import Union
 import os
 import rasterio
 from hydromodpy.spatial.delineation import get_whitebox_backend
-from hydromodpy.core.tools import get_logger
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 
