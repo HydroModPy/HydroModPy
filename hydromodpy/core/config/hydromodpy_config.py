@@ -27,7 +27,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.fields import FieldInfo
 
 from hydromodpy.core.workspace.config import WorkspaceConfig
@@ -195,6 +195,53 @@ class HydroModPyConfig(HydroModelBase):
             "section.  When present, triggers the calibration workflow."
         ),
     )
+
+    @model_validator(mode="after")
+    def _check_cross_section_coherence(self) -> "HydroModPyConfig":
+        """Cross-section coherence checks run after sub-configs validate.
+
+        Currently enforced invariants (architecture spec
+        ``02_config_pydantic.md`` §3.2):
+
+        * ``data.inference_mode == "strict"`` ⇒ at least one data type must
+          be declared (``data.types`` non-empty).
+        * ``calibration`` actif ⇒ ``flow.param_list`` non vide (no point
+          calibrating with zero tunable parameters).
+        * ``transport`` actif ⇒ solver must not be ``boussinesq`` (the
+          Boussinesq solver does not support a transport process).
+        """
+        data_cfg = getattr(self, "data", None)
+        if data_cfg is not None and getattr(data_cfg, "inference_mode", None) == "strict":
+            declared_types = list(getattr(data_cfg, "types", []) or [])
+            if not declared_types:
+                raise ValueError(
+                    "data.inference_mode='strict' requires at least one explicit "
+                    "data type in data.types"
+                )
+
+        calibration_cfg = getattr(self, "calibration", None)
+        flow_cfg = getattr(self, "flow", None)
+        if calibration_cfg is not None and flow_cfg is not None:
+            param_list = list(getattr(flow_cfg, "param_list", []) or [])
+            if not param_list:
+                raise ValueError(
+                    "[calibration] requires flow.param_list to declare at least "
+                    "one tunable parameter"
+                )
+
+        transport_cfg = getattr(self, "transport", None)
+        solver_cfg = getattr(self, "solver", None)
+        if transport_cfg is not None and solver_cfg is not None:
+            engine = getattr(solver_cfg, "solver_engine", None)
+            engine_value = getattr(engine, "value", engine)
+            active_transport_solver = getattr(transport_cfg, "solver", None)
+            if engine_value == "boussinesq" and active_transport_solver:
+                raise ValueError(
+                    "solver.solver_engine='boussinesq' does not support the "
+                    "[transport] section"
+                )
+
+        return self
 
     @classmethod
     def from_toml(cls, toml_path: "Path | str") -> "HydroModPyConfig":
