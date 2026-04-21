@@ -33,26 +33,26 @@ class CalibParameterDecl(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    bounds: list[float] | None = Field(
+    bounds: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
         description="[low, high] physical bounds. Inherits from Pydantic "
         "annotation when omitted.",
     )
-    transform: Literal["identity", "log", "logit"] = Field(
+    transform: Annotated[Literal["identity", "log", "logit"], Profile.USER] = Field(
         default="identity",
         description="Transform applied before sampling. 'log' for "
         "strictly-positive quantities spanning orders of magnitude.",
     )
-    prior: Literal["uniform", "log_uniform", "normal"] = Field(
+    prior: Annotated[Literal["uniform", "log_uniform", "normal"], Profile.USER] = Field(
         default="uniform",
         description="Prior distribution used by Bayesian samplers.",
     )
-    path: str | None = Field(
+    path: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Dotted path into HydroModPyConfig. Optional: when omitted, "
         "the caller is responsible for injection.",
     )
-    units: str | None = Field(default=None, description="Parameter units label.")
+    units: Annotated[str | None, Profile.USER] = Field(default=None, description="Parameter units label.")
 
 
 class CalibrationConfig(HydroModelBase):
