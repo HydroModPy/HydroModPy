@@ -14,6 +14,9 @@ field on the same model (catches refactor drift).
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from hydromodpy.core.config.param_level import VisibleWhen
@@ -56,6 +59,32 @@ class HydroModelBase(BaseModel):
                         f"references unknown sibling {meta.field!r}"
                     )
         return self
+
+    def to_toml(
+        self,
+        path: str | Path,
+        *,
+        profile: Literal["user", "dev", "expert"] = "user",
+    ) -> Path:
+        """Serialise this config to a TOML file filtered by *profile*.
+
+        Round-trip guarantee: when ``profile="expert"`` is used on a fully
+        resolved :class:`~hydromodpy.core.config.hydromodpy_config.HydroModPyConfig`,
+        calling :meth:`HydroModPyConfig.from_toml` on the written path yields
+        an equivalent config.
+
+        Parameters
+        ----------
+        path
+            Destination TOML file path.
+        profile
+            One of ``"user"``, ``"dev"``, ``"expert"``. Fields whose
+            :class:`~hydromodpy.core.config.param_level.ParamLevel` exceeds
+            the requested profile are omitted.
+        """
+        from hydromodpy.core.config.toml_io import dump_toml_with_comments
+
+        return dump_toml_with_comments(self, path, profile=profile)
 
 
 __all__ = ["HydroModelBase"]
