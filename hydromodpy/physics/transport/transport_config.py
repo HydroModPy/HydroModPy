@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.physics.base import ProcessSpatialConfig
 from hydromodpy.core.config.base import HydroModelBase
 
@@ -16,35 +16,35 @@ class ModpathParametersConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    zone_partic: Annotated[str, ParamLevel("dev")] = Field(
+    zone_partic: Annotated[str, Profile.DEV] = Field(
         default="domain",
         description=(
             "Particle injection zone selector: 'domain', 'seepage_clip', or a raster path."
         ),
     )
-    track_dir: Annotated[Literal["forward", "backward", "custom"], ParamLevel("dev")] = Field(
+    track_dir: Annotated[Literal["forward", "backward", "custom"], Profile.DEV] = Field(
         default="forward",
         description="Particle tracking direction.",
     )
-    bore_depth: Annotated[list[float] | None, ParamLevel("dev")] = Field(
+    bore_depth: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,
         description="Optional bore depth list used for vertical particle injection.",
     )
-    cell_div: Annotated[int, ParamLevel("dev")] = Field(
+    cell_div: Annotated[int, Profile.DEV] = Field(
         default=1,
         ge=1,
         description="Number of particles per axis in each cell.",
     )
-    zloc_div: Annotated[bool, ParamLevel("dev")] = Field(
+    zloc_div: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="If true, apply vertical subdivision for particle injection.",
     )
-    sel_random: Annotated[int | None, ParamLevel("dev")] = Field(
+    sel_random: Annotated[int | None, Profile.DEV] = Field(
         default=None,
         ge=1,
         description="Optional random downsampling count of injected particles.",
     )
-    sel_slice: Annotated[int | None, ParamLevel("dev")] = Field(
+    sel_slice: Annotated[int | None, Profile.DEV] = Field(
         default=None,
         ge=1,
         description="Optional slicing step for injected particles.",
@@ -67,43 +67,43 @@ class ConcentrationTransportParametersConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    spc_name: Annotated[str, ParamLevel("dev")] = Field(
+    spc_name: Annotated[str, Profile.DEV] = Field(
         default="NO3",
         description="Name of transported species.",
     )
-    sconc_init: Annotated[float, ParamLevel("dev")] = Field(
+    sconc_init: Annotated[float, Profile.DEV] = Field(
         default=0.0,
         description="Initial concentration value (can be overridden at runtime).",
     )
-    sconc_input: Annotated[float, ParamLevel("dev")] = Field(
+    sconc_input: Annotated[float, Profile.DEV] = Field(
         default=0.0,
         description="Recharge concentration input value (can be overridden at runtime).",
     )
-    disp_long: Annotated[float, ParamLevel("dev")] = Field(
+    disp_long: Annotated[float, Profile.DEV] = Field(
         default=0.0,
         description="Longitudinal dispersivity [L].",
     )
-    disp_transh: Annotated[float, ParamLevel("dev")] = Field(
+    disp_transh: Annotated[float, Profile.DEV] = Field(
         default=0.0,
         description="Horizontal transverse dispersivity ratio.",
     )
-    disp_transv: Annotated[float, ParamLevel("dev")] = Field(
+    disp_transv: Annotated[float, Profile.DEV] = Field(
         default=0.0,
         description="Vertical transverse dispersivity ratio.",
     )
-    diffu_coeff: Annotated[float, ParamLevel("dev")] = Field(
+    diffu_coeff: Annotated[float, Profile.DEV] = Field(
         default=0.0,
         description="Molecular diffusion coefficient [L2/T].",
     )
-    react_order: Annotated[int | None, ParamLevel("dev")] = Field(
+    react_order: Annotated[int | None, Profile.DEV] = Field(
         default=None,
         description="Reaction order for MT3DMS: None, 0, or 1.",
     )
-    rate_decay: Annotated[float, ParamLevel("dev")] = Field(
+    rate_decay: Annotated[float, Profile.DEV] = Field(
         default=0.0,
         description="Decay rate value (can be overridden at runtime).",
     )
-    plot_conc: Annotated[bool, ParamLevel("dev")] = Field(
+    plot_conc: Annotated[bool, Profile.DEV] = Field(
         default=True,
         description="Enable concentration plotting outputs.",
     )
