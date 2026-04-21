@@ -18,13 +18,17 @@ Outputs
 
 from __future__ import annotations
 
-from hydromodpy.pipeline.state import PipelineState
+from typing import ClassVar
+
+from hydromodpy.pipeline.state import ExtractedState, PipelineState, SolverRanState
 
 
 class ExtractStep:
     """Finalize extraction (currently a pass-through after run-time ingestion)."""
 
     name = "extract"
+    tin: ClassVar[type] = SolverRanState
+    tout: ClassVar[type] = ExtractedState
 
     def run(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")
