@@ -157,6 +157,36 @@ Each release section includes the following standard categories:
   for pluggable data sources without the full manager boilerplate.
 - `pandera` promoted to a core dependency in `pyproject.toml`
   (required by `hydromodpy.data.schemas`).
+- Display infrastructure (phase G06):
+  - `hydromodpy/display/theme.py` — three `Theme` presets (`default`,
+    `print`, `dark`) and an :func:`apply_theme` helper that configures
+    matplotlib `rcParams` (palette, grid, fonts, background).
+  - `hydromodpy/display/colormaps.py` — perceptually-banned colormap set
+    (`jet`, `rainbow`, `hsv`, `nipy_spectral`, `gist_rainbow`), a
+    `get_cmap` gate and a `check_no_banned_in_call` helper used by the
+    display unit-tests.
+  - `hydromodpy/display/renderer.py` — `BackendManager` context manager
+    and `save_figure` helper, switching matplotlib to Agg in headless
+    mode and tearing down every open figure on exit.
+  - `hydromodpy/display/geo/` — `GeoFigureMixin` (scale bar, north
+    arrow, optional basemap) and an opt-in `basemaps` wrapper around
+    `contextily`.
+  - `hydromodpy/core/units/labels.py` — `AXIS_LABELS` and
+    :func:`axis_label` so figures share one canonical terminology.
+- `DisplayConfig` (`[display]` TOML section) enriched with `enabled`,
+  `backend`, `preset`, `show`, `cmap`, and `overrides`. `interactive`
+  was renamed to `show` (no compat alias).
+- Eleven new registered figures in `hydromodpy/display/figures/`:
+  `duration_curve`, `recession`, `piper_diagram`, `stiff_diagram`,
+  `schoeller_diagram`, `seasonal_boxplot`, `side_by_side`,
+  `ensemble_band`, `calibration_convergence`,
+  `calibration_pairplot`, `watershed_id_card` — bringing the total to
+  twenty registered figure names.
+- `_repr_html_` added on `HydroMesh`, `CatchmentDelineation`,
+  `SimulationPlan` and the `Simulation` façade (`hydromodpy.project`).
+- Three display unit-tests enforcing the corpus invariants: no banned
+  colormap literals, no matplotlib side-effects at import time, no
+  write calls from figure code.
 
 ### Changed
 - **BREAKING**: project version bumped to `0.5.0.dev0`.
