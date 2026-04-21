@@ -1,6 +1,6 @@
 from .pyhelp_csv_manager import PyhelpCsvManager
-from hydromodpy.core.tools.filesystem import load_shapefile
-from hydromodpy.core.tools.geospatial import select_nearest_point, get_centroid_coordinates, convert_units, select_within_polygon_points
+from hydromodpy.core.io.vector_io import load_shapefile
+from hydromodpy.core.io.crs import select_nearest_point, get_centroid_coordinates, convert_units, select_within_polygon_points
 import xarray as xr
 import pandas as pd
 import os

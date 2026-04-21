@@ -23,7 +23,7 @@ import xarray as xr
 import logging
 from .pyhelp_grid import PyhelpGrid
 from ..core.processing import read_daily_help_output
-from hydromodpy.core.tools.geospatial import transform_coordinates, filter_coordinates_by_shape
+from hydromodpy.core.io.crs import transform_coordinates, filter_coordinates_by_shape
 
 logger = logging.getLogger(__name__)
 
