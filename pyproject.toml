@@ -119,6 +119,11 @@ viewer3d = ["pyvista"]
 hmp = "hydromodpy._cli:main"
 hydromodpy = "hydromodpy._cli:main"
 
+[project.entry-points."hydromodpy.solver"]
+flow_modflownwt = "hydromodpy.simulation.adapters.flow.modflownwt:ModflowNwtFlowAdapter"
+flow_modflow6 = "hydromodpy.simulation.adapters.flow.modflow6:Modflow6FlowAdapter"
+flow_boussinesq = "hydromodpy.simulation.adapters.flow.boussinesq:BoussinesqFlowAdapter"
+
 [project.urls]
 Homepage = "https://hydromodpy-docs.readthedocs.io/en/latest/"
 Documentation = "https://hydromodpy-docs.readthedocs.io/en/latest/"
