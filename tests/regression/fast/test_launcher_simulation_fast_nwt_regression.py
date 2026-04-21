@@ -11,8 +11,8 @@ from tests.regression.launcher_simulation_helpers import run_launcher_simulation
 @pytest.mark.fast
 @pytest.mark.nwt
 @pytest.mark.xfail(
-    reason="NWT particle-tracking seepage_clip raster pipeline disabled after "
-    "F04 purge of HYDROMODPY_NO_DISPLAY/SAVE and G06 display refactor; "
+    reason="NWT particle-tracking seepage_clip raster pipeline disabled "
+    "after the F04 display env-var purge and G06 display refactor; "
     "rewire tracked as v0.6 nwt-particle-seepage-refresh.",
     strict=True,
     raises=AssertionError,
