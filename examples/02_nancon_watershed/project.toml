@@ -222,8 +222,8 @@ type = "constant_thickness"
 
 # Constant aquifer thickness (m) applied below topography.
 # Type: float | > 0.0 | Default: 50.0
-# Épaisseur calibrable — surchargée par le run overlay (ex: run_transient_nwt.toml).
-thickness = 50.0
+# Épaisseur baseline — remplacée par le run overlay (run_transient_nwt.toml).
+thickness = 30.0
 
 
 # ----------------------------------------------------------------------
@@ -1073,8 +1073,9 @@ unit = "m/s"
 [flow.param.K.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
 # Type: object (optional) | Optional
-# Valeur calibrable — fournie par le run overlay (ex: run_transient_nwt.toml).
-# value = 5e-5
+# Valeur baseline — remplacée par le run overlay (run_transient_nwt.toml)
+# ou par `project.run(K=...)` depuis un script Python.
+value = 5e-5
 
 
 # ----------------------------------------------------------------------
@@ -1104,8 +1105,9 @@ unit = "-"
 [flow.param.Sy.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
 # Type: object (optional) | Optional
-# Valeur calibrable — fournie par le run overlay (ex: run_transient_nwt.toml).
-# value = 0.05
+# Valeur baseline — remplacée par le run overlay (run_transient_nwt.toml)
+# ou par `project.run(Sy=...)` depuis un script Python.
+value = 0.05
 
 
 # ----------------------------------------------------------------------
@@ -1135,8 +1137,9 @@ unit = "m-1"
 [flow.param.Ss.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
 # Type: object (optional) | Optional
-# Valeur calibrable — fournie par le run overlay (ex: run_transient_nwt.toml).
-# value = 1e-5
+# Valeur baseline — remplacée par le run overlay (run_transient_nwt.toml)
+# ou par `project.run(Ss=...)` depuis un script Python.
+value = 1e-5
 
 
 # ----------------------------------------------------------------------
@@ -1494,21 +1497,21 @@ description = "Squelette du bassin du Nançon — les runs héritent via base_co
 [simulation.time]
 # Simulation window lower datetime bound used by launcher-level time alignment and forcing checks.
 # Type: datetime (optional) | Optional
-# start_datetime = "2000-01-01"   # fourni par le run overlay
+start_datetime = "2000-01-01"
 
 # Simulation window upper datetime bound, interpreted as inclusive.
 # Must be greater than or equal to start_datetime.
 # Type: datetime (optional) | Optional
-# end_datetime = "2002-12-31"     # fourni par le run overlay
+end_datetime = "2002-12-31"
 
 # Forcing/stress-period time-step scalar or inline token '<value> <unit>' (for example '30 day').
 # This controls the temporal aggregation step for forcing series (for example recharge/runoff) and the resulting stress periods.
 # Type: UnionType[int, float, str] | Default: 1
-# step_value = "1 month"          # fourni par le run overlay
+step_value = "1 month"
 
 # Optional forcing/stress-period base time unit used with step_value when step_value is provided without an inline unit.
 # Type: Literal (optional) | Optional
-# step_unit = "hour"              # laissé vide pour ne pas entrer en conflit avec l'inline token de l'overlay
+# step_unit = "hour"              # omis : conflit avec l'inline token de step_value
 
 
 # Ordered list of requested processes loaded from [[simulation.process]].
