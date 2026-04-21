@@ -20,6 +20,7 @@ VARIABLE_UNITS: dict[str, str] = {
     "recharge_budget": "m/d",
     "recharge_forcing": "m/d",
     "accumulation_flux": "m3/d",
+    "drainage_density": "%",
     "well_pumping": "m3/d",
 }
 
@@ -35,6 +36,10 @@ _AGGREGATION_SPEC: list[tuple[str, str, str]] = [
     # recharge_forcing = input forcing (from config) — written separately below
     ("recharge|rch", "recharge_budget", "mean_active"),
     ("accumulation_flux", "accumulation_flux", "max"),
+    # Fraction of active cells whose routed drain flux is positive — i.e.
+    # the fraction of the catchment occupied by an active stream network.
+    # Matches the "drainage density" metric used in headwater studies.
+    ("accumulation_flux", "drainage_density", "percent_positive"),
     ("wells|wel", "well_pumping", "sum"),
 ]
 

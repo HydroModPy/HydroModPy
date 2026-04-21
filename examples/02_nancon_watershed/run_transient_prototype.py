@@ -98,10 +98,20 @@ def rasters(run, variable: str) -> np.ndarray:
     ])
 
 
+# Les deux métriques agrégées au bassin sont persistées par le pipeline
+# dans `timeseries` (station "_catchment", %). On les relit depuis la DB
+# au lieu de les recomputer cellule-par-cellule.
 saturated_fraction = {
-    sy: 100.0 * ((rasters(run, "seepage_areas") > 0) & catchment_mask).sum(axis=(1, 2)) / n_active_cells
+    sy: catalog[run.sim_id].timeseries("seepage_areas", "_catchment").values
     for sy, run in runs.items()
 }
+drainage_density = {
+    sy: catalog[run.sim_id].timeseries("drainage_density", "_catchment").values
+    for sy, run in runs.items()
+}
+
+# accumulation_flux (raster) reste nécessaire pour les cartes de
+# saturation et l'indice de persistance (calcul spatial par cellule).
 accumulation_flux = {sy: rasters(run, "accumulation_flux") for sy, run in runs.items()}
 
 
@@ -228,17 +238,19 @@ print("[plot] streamflow_comparison.png")
 fig, axes = plt.subplots(len(runs), 1, figsize=(8, 3 * len(runs)), dpi=200)
 axes = np.atleast_1d(axes)
 
-for ax, (sy, accflux_stack) in zip(axes, accumulation_flux.items()):
+for ax, (sy, intermittent) in zip(axes, drainage_density.items()):
+    # Pérenne = cellules actives tous les pas d'une même année. Métrique
+    # dérivée temporellement, gardée côté script (pas d'agrégation
+    # année-aware dans le pipeline pour l'instant).
+    accflux_stack = accumulation_flux[sy]
     active = (accflux_stack > 0) & catchment_mask
-    total = 100.0 * active.sum(axis=(1, 2)) / n_active_cells
-
     perennial = np.zeros(n_periods)
     for year in sorted({d.year for d in dates}):
         year_ts = [t for t, d in enumerate(dates) if d.year == year]
         always_active = active[year_ts].all(axis=0)
         perennial[year_ts] = 100.0 * (always_active & catchment_mask).sum() / n_active_cells
 
-    ax.fill_between(dates, 0, total, step="pre",
+    ax.fill_between(dates, 0, intermittent, step="pre",
                     color="dodgerblue", alpha=0.5, label="Intermittent")
     ax.fill_between(dates, 0, perennial, step="pre",
                     color="navy", alpha=0.5, label="Pérenne")
