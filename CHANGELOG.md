@@ -53,13 +53,54 @@ Each release section includes the following standard categories:
     `hydromodpy.core.io.vector_io.load_shapefile`.
   - `hydromodpy.core.tools.log_manager` → `hydromodpy.core.logging`
     (re-exported from `hydromodpy.core.logging` package init).
+- **BREAKING**: canonical package renames — no alias, no deprecation shim:
+  - `hydromodpy.process` → `hydromodpy.physics`; the Pydantic
+    configuration object `hmp.process` is now `hmp.physics` and all
+    sub-imports (`hydromodpy.process.flow.*`,
+    `hydromodpy.process.transport.*`, `hydromodpy.process.base.*`)
+    moved accordingly.
+  - `hydromodpy.simulation.results` → `hydromodpy.simulation.extraction`;
+    solver-specific post-run extractors now live at
+    `hydromodpy.simulation.extraction.extractors.*`.
+- **BREAKING**: canonical class renames:
+  - `SolverAdapter` → `SolverRunner` (both the Protocol in
+    `hydromodpy.solver.base.protocol` and its duplicate in
+    `hydromodpy.simulation.adapters.base`). Registry helpers keep their
+    names; only the type alias changes.
+  - `DataManagersPlanner` → `DataPlanner` (in `hydromodpy.data.planner`).
+    `DataLoadPlan` and `DataManagersConfig` are unchanged.
+  - `Geographic` → `CatchmentDelineation`; the module
+    `hydromodpy.spatial.geographic.geographic` is renamed to
+    `hydromodpy.spatial.geographic.catchment_delineation`. Public API:
+    `hmp.Geographic` → `hmp.CatchmentDelineation`. `GeographicConfig`,
+    `GeographicDerivedFeatures`, `GeographicCache`, and the package
+    name `hydromodpy.spatial.geographic` are unchanged.
+  - `hydromodpy.results.simulation.Simulation` (catalog view)
+    → `hydromodpy.results.simulation.SimulationView`; the
+    programmatic façade `hmp.Simulation` (in `hydromodpy.project`)
+    keeps its name. Public API exposes `hmp.SimulationView` for
+    immutable catalog-backed access and `hmp.Simulation` for
+    `Simulation(config).run()` orchestration.
+- **BREAKING**: `HydroModPyConfig` root config now forbids extra keys
+  (`ConfigDict(extra="forbid", arbitrary_types_allowed=True)`). Unknown
+  top-level TOML sections raise `ValidationError` rather than being
+  silently ignored.
 - `TimeSeriesValidationError`, `RasterConversionError`,
   `VectorConversionError` now inherit from the typed `DataError` /
   `DataContractViolation` hierarchy instead of bare built-ins.
+- `hydromodpy.core.config.hydromodpy_config` no longer imports any
+  non-core sibling at module top level; `core/` is a leaf of the
+  import DAG (forward references + deferred `model_rebuild`).
 
 ### Removed
 - `hydromodpy/core/tools/geospatial.py` (moved to `core/io/crs.py`). The
   unused ``basin_area`` helper did not carry over.
+- `hydromodpy/watershed/` package deleted in full. The legacy
+  `Watershed` facade and its helpers (`Watershed`, `Settings`,
+  `Hydraulic`, `Hydrography` alias) are gone — prefer
+  `hmp.CatchmentDelineation` with `hmp.HydrographyManager`. Dependent
+  helpers removed: `hydromodpy.core.tools.io_utils.extract_watershed`
+  and `tests/regression/golden_utils.run_legacy_example_script`.
 
 ---
 
