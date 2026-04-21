@@ -9,11 +9,34 @@ import numpy as np
 import zarr
 import zarr.codecs
 
+from hydromodpy.results import field_registry
+
 logger = logging.getLogger(__name__)
 
 BLOSC_ZSTD = zarr.codecs.BloscCodec(cname="zstd", clevel=3)
 
 _SUBGROUPS = ("mesh", "derived", "budget", "pathlines", "geographic", "forcing")
+
+# CF-1.11 + UGRID-1.0 root conventions string attached to every simulation
+# Zarr store (see :mod:`hydromodpy.results.field_registry`).
+CF_CONVENTIONS = "CF-1.11 UGRID-1.0"
+
+
+def _field_name_from_target(target: zarr.Group, variable: str) -> str:
+    """Return the canonical field name for a ``(target_group, variable)`` pair.
+
+    The registry keys data by ``public_name`` (e.g. ``watertable_depth``) and
+    maps each entry to a ``zarr_path`` (e.g. ``derived/watertable_depth``).
+    Write callers that pass ``subgroup="derived"`` only supply the tail of the
+    path, so we recompose the candidate zarr_path and look the descriptor up.
+    Returns an empty string when no registered field matches.
+    """
+    path = target.path or ""
+    candidate = f"{path}/{variable}" if path else variable
+    for name, desc in field_registry.FIELD_REGISTRY.items():
+        if desc.zarr_path == candidate or desc.public_name == variable:
+            return name
+    return ""
 
 
 class SimulationZarr:
@@ -41,6 +64,7 @@ class SimulationZarr:
         store = zarr.storage.LocalStore(str(path))
         root = zarr.open_group(store, mode="w")
 
+        root.attrs["Conventions"] = CF_CONVENTIONS
         root.attrs["n_cells"] = n_cells
         root.attrs["n_layers"] = n_layers
         if cell_types is not None:
@@ -188,12 +212,33 @@ class SimulationZarr:
                 fill_value=np.nan,
                 overwrite=True,
             )
+            self._attach_cf_attrs(target, variable)
 
         arr = target[variable]
         if values.ndim == 1:
             arr[timestep, :] = values
         else:
             arr[timestep, :, :] = values
+
+    def _attach_cf_attrs(self, target: zarr.Group, variable: str) -> None:
+        """Attach CF-1.11 attributes to a newly created field array.
+
+        Silently ignores variables that are not in the canonical registry so
+        that experimental / user-defined fields do not break writes. When the
+        field IS registered, the ``standard_name``, ``long_name``, ``units``,
+        ``cell_methods``, ``coordinates`` and ``grid_mapping`` attributes are
+        attached in one shot.
+        """
+        name = _field_name_from_target(target, variable)
+        if not name:
+            return
+        try:
+            attrs = field_registry.cf_attrs(name)
+        except KeyError:
+            return
+        arr = target[variable]
+        for key, value in attrs.items():
+            arr.attrs[key] = value
 
     def read_field(
         self,
