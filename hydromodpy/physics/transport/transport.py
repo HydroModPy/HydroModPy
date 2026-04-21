@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.physics.base import ProcessSpatial
 from hydromodpy.physics.transport.transport_config import TransportConfig
+from hydromodpy.core.config.base import HydroModelBase
 
 
 @dataclass
@@ -25,7 +26,7 @@ class _TransportComponent:
             self.parameters.update(kwargs)
 
 
-class TransportInitialConditions(BaseModel):
+class TransportInitialConditions(HydroModelBase):
     """Transport initial-condition wrapper."""
 
     model_config = ConfigDict(extra="forbid")

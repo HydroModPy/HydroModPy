@@ -7,9 +7,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.spatial.domain.depth_model_config import ConstantThicknessDepthModel, DepthModelConfig
 from hydromodpy.spatial.domain.spatial_support_config import DomainSupportConfig
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class DomainConfig(BaseModel):
+class DomainConfig(HydroModelBase):
     """
     Domain configuration.
 

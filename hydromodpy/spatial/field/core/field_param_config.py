@@ -29,6 +29,7 @@ from hydromodpy.core.units.hydraulic_conductivity import (
     normalize_m_per_s_unit,
 )
 from hydromodpy.core.units.length import parse_length_to_m
+from hydromodpy.core.config.base import HydroModelBase
 
 SUPPORTED_FIELD_KINDS = ("homogeneous", "heterogeneous")
 SUPPORTED_HETEROGENEOUS_VALUE_SOURCES = ("inline", "csv")
@@ -69,7 +70,7 @@ def _normalize_unit_token(value: str | None) -> str | None:
         ) from None
 
 
-class FieldBaseSectionSchema(BaseModel):
+class FieldBaseSectionSchema(HydroModelBase):
     """
     Schema for `[field]` base section.
 
@@ -128,7 +129,7 @@ class FieldBaseSectionSchema(BaseModel):
         return _normalize_unit_token(value)
 
 
-class FieldHomogeneousSectionSchema(BaseModel):
+class FieldHomogeneousSectionSchema(HydroModelBase):
     """
     Schema for `[field_homogeneous]`.
     """
@@ -159,7 +160,7 @@ class FieldHomogeneousSectionSchema(BaseModel):
         raise TypeError("field_homogeneous.value must be numeric or '<number> <unit>'")
 
 
-class FieldHeterogeneousSectionSchema(BaseModel):
+class FieldHeterogeneousSectionSchema(HydroModelBase):
     """
     Schema for `[field_heterogeneous]`.
     """
@@ -318,7 +319,7 @@ class FieldHeterogeneousSectionSchema(BaseModel):
         return self
 
 
-class FieldVerticalProfileSectionSchema(BaseModel):
+class FieldVerticalProfileSectionSchema(HydroModelBase):
     """
     Schema for `[field_vertical_profile]`.
     """
@@ -470,7 +471,7 @@ class FieldVerticalProfileSectionSchema(BaseModel):
         return self
 
 
-class FieldParamConfig(BaseModel):
+class FieldParamConfig(HydroModelBase):
     """
     Top-level schema for field-parameter TOML files.
 
@@ -509,7 +510,7 @@ class FieldParamConfig(BaseModel):
         return data
 
 
-class ResolvedFieldParamSchema(BaseModel):
+class ResolvedFieldParamSchema(HydroModelBase):
     """
     Schema for a fully resolved field-parameter payload.
 
@@ -673,15 +674,15 @@ class ResolvedFieldParamSchema(BaseModel):
         if self.kind == "homogeneous":
             if self.value is None:
                 raise ValueError("Homogeneous field requires 'value'")
-            self.values = None
-            self.field_spatial_id = None
+            object.__setattr__(self, "values", None)
+            object.__setattr__(self, "field_spatial_id", None)
             return self
 
         if self.values is None:
             raise ValueError("Heterogeneous field requires 'values'")
         if self.field_spatial_id is None:
             raise ValueError("Heterogeneous field requires 'field_spatial_id'")
-        self.value = None
+        object.__setattr__(self, "value", None)
         return self
 
 

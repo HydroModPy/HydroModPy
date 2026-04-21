@@ -26,6 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hydromodpy.physics.base import InitialCondition as BaseInitialCondition
 from hydromodpy.core.units import check_unit_compatible
+from hydromodpy.core.config.base import HydroModelBase
 
 
 class FlowInitialCondition(BaseInitialCondition):
@@ -63,11 +64,11 @@ class FlowInitialCondition(BaseInitialCondition):
         check_unit_compatible(raw_units, canonical_unit="m", label="length")
         if raw_units != "m":
             raise ValueError("flow.ic.units must be normalized to 'm' in runtime objects")
-        self.units = "m"
+        object.__setattr__(self, "units", "m")
         return self
 
 
-class FlowInitialConditions(BaseModel):
+class FlowInitialConditions(HydroModelBase):
     """
     Container for flow initial conditions stored in process runtime.
 

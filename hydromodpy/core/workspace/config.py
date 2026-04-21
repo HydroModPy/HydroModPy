@@ -4,9 +4,10 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class WorkspaceConfig(BaseModel):
+class WorkspaceConfig(HydroModelBase):
     """
     Workspace configuration for project-based workspace structure.
 
@@ -58,7 +59,7 @@ class WorkspaceConfig(BaseModel):
         if self.workspace_root is None:
             discovered = self.discover_workspace_root(self.project_root)
             if discovered is not None:
-                self.workspace_root = discovered
+                object.__setattr__(self, "workspace_root", discovered)
         return self
 
     @staticmethod

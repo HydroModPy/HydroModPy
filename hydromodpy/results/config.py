@@ -7,9 +7,10 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class DerivedConfig(BaseModel):
+class DerivedConfig(HydroModelBase):
     """Toggle flags for derived variable computation."""
 
     model_config = ConfigDict(extra="forbid")
@@ -52,7 +53,7 @@ class DerivedConfig(BaseModel):
     )
 
 
-class ExportVariablesConfig(BaseModel):
+class ExportVariablesConfig(HydroModelBase):
     """Which variables to include in automated exports."""
 
     model_config = ConfigDict(extra="forbid")
@@ -78,7 +79,7 @@ class ExportVariablesConfig(BaseModel):
         return names
 
 
-class ExportConfig(BaseModel):
+class ExportConfig(HydroModelBase):
     """Automated export configuration."""
 
     model_config = ConfigDict(extra="forbid")
@@ -102,7 +103,7 @@ class ExportConfig(BaseModel):
         return any([self.netcdf, self.csv_timeseries, self.vtu, self.geotiff, self.shapefile])
 
 
-class BudgetConfig(BaseModel):
+class BudgetConfig(HydroModelBase):
     """Budget extraction configuration."""
 
     model_config = ConfigDict(extra="forbid")
@@ -113,7 +114,7 @@ class BudgetConfig(BaseModel):
     )
 
 
-class ResultsConfig(BaseModel):
+class ResultsConfig(HydroModelBase):
     """Configuration for ``[simulation.results]``.
 
     Controls whether simulation outputs are stored in the SimulationCatalog,

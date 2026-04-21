@@ -33,6 +33,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.units import canonical_unit_short_form, check_unit_compatible
+from hydromodpy.core.config.base import HydroModelBase
 
 ALLOWED_BC_APPLICATION_DOMAINS = {
     "top",
@@ -75,7 +76,7 @@ SIDE_DIRICHLET_BC_IDS = {
 """Dirichlet ids eligible for launcher-managed transient forcing."""
 
 
-class FlowBoundaryForcingConstantConfig(BaseModel):
+class FlowBoundaryForcingConstantConfig(HydroModelBase):
     """One constant head forcing applied to every stress period."""
 
     model_config = ConfigDict(extra="forbid")
@@ -93,7 +94,7 @@ class FlowBoundaryForcingConstantConfig(BaseModel):
         return float(value)
 
 
-class FlowBoundaryForcingCsvConfig(BaseModel):
+class FlowBoundaryForcingCsvConfig(HydroModelBase):
     """CSV-backed boundary forcing resolved at runtime against simulation.time."""
 
     model_config = ConfigDict(extra="forbid")
@@ -127,7 +128,7 @@ class FlowBoundaryForcingCsvConfig(BaseModel):
         return text
 
 
-class FlowBoundaryForcingConfig(BaseModel):
+class FlowBoundaryForcingConfig(HydroModelBase):
     """Launcher-facing boundary forcing declaration."""
 
     model_config = ConfigDict(extra="forbid")
@@ -178,7 +179,7 @@ class FlowBoundaryForcingConfig(BaseModel):
         )
 
 
-class FlowBoundaryConditionConfig(BaseModel):
+class FlowBoundaryConditionConfig(HydroModelBase):
     """
     Normalized flow boundary-condition payload.
 
@@ -296,7 +297,7 @@ class FlowBoundaryConditionConfig(BaseModel):
                     raise ValueError(
                         "boundary.units must be normalized to 'm' for runtime Dirichlet values"
                     )
-                self.units = "m"
+                object.__setattr__(self, "units", "m")
             else:
                 parent_units = str(self.units).strip() or "m"
                 forcing_units = getattr(self.forcing, "units", None)
@@ -323,10 +324,14 @@ class FlowBoundaryConditionConfig(BaseModel):
                     normalized_forcing_units = canonical_unit_short_form(
                         parent_units, canonical_unit="m", label="length"
                     )
-                self.forcing = self.forcing.model_copy(
-                    update={"units": normalized_forcing_units}
+                object.__setattr__(
+                    self,
+                    "forcing",
+                    self.forcing.model_copy(
+                        update={"units": normalized_forcing_units}
+                    ),
                 )
-                self.units = "m"
+                object.__setattr__(self, "units", "m")
         else:
             raw_units = str(self.units).strip() or "m2/s"
             check_unit_compatible(
@@ -336,6 +341,6 @@ class FlowBoundaryConditionConfig(BaseModel):
                 raise ValueError(
                     "boundary.units must be normalized to 'm2/s' for runtime Cauchy/Robin values"
                 )
-            self.units = "m2/s"
+            object.__setattr__(self, "units", "m2/s")
         return self
 

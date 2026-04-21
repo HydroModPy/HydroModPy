@@ -6,9 +6,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.units.length import parse_length_to_m
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class ConstantThicknessDepthModel(BaseModel):
+class ConstantThicknessDepthModel(HydroModelBase):
     """
     Vertical model using one constant thickness below topography.
 
@@ -43,7 +44,7 @@ class ConstantThicknessDepthModel(BaseModel):
         )
 
 
-class FlatSubstratumDepthModel(BaseModel):
+class FlatSubstratumDepthModel(HydroModelBase):
     """
     Vertical model using one flat (constant-elevation) substratum.
 

@@ -12,12 +12,15 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class TMeshConfigModel(BaseModel):
+class TMeshConfigModel(HydroModelBase):
     """Validated input model for ``TMesh_Generation`` settings."""
 
-    model_config = ConfigDict(extra="forbid")
+    # ``chron_colsep`` accepts single whitespace separators (e.g. ``"\t"``) so
+    # we opt out of the HydroModelBase ``str_strip_whitespace`` default.
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=False)
 
     itmuni: Annotated[str, ParamLevel("dev")] = Field(
         default="d",

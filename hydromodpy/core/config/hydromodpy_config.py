@@ -33,6 +33,7 @@ from pydantic.fields import FieldInfo
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.core.config.path_resolution import resolve_declared_path
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.config.base import HydroModelBase
 
 # ``core`` is a leaf of the import DAG: non-core sibling configs are referenced
 # via forward references below and resolved through a deferred ``model_rebuild``
@@ -66,7 +67,7 @@ def _derive_run_id_from_filename(toml_path: Path) -> str:
     return re.sub(r"^run_", "", stem)
 
 
-class HydroModPyConfig(BaseModel):
+class HydroModPyConfig(HydroModelBase):
     """
     Top-level configuration for HydroModPy.
 

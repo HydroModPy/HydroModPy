@@ -11,9 +11,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.units import parse_length_to_m
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class SyntheticGridConfig(BaseModel):
+class SyntheticGridConfig(HydroModelBase):
     """Structured-grid support used to generate one synthetic DEM."""
 
     model_config = ConfigDict(extra="forbid")
@@ -109,7 +110,7 @@ class SyntheticGridConfig(BaseModel):
         return float(self.length_y) / float(self.ny)
 
 
-class SyntheticTopographyConfig(BaseModel):
+class SyntheticTopographyConfig(HydroModelBase):
     """Analytical topography definition on the synthetic support."""
 
     model_config = ConfigDict(extra="forbid")
@@ -201,7 +202,7 @@ class SyntheticTopographyConfig(BaseModel):
         return self
 
 
-class SyntheticGeographicConfig(BaseModel):
+class SyntheticGeographicConfig(HydroModelBase):
     """Top-level config for one synthetic geographic build."""
 
     model_config = ConfigDict(extra="forbid")

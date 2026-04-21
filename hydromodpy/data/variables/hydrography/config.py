@@ -8,9 +8,10 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class HydrographySourceConfig(BaseModel):
+class HydrographySourceConfig(HydroModelBase):
     """Configuration for ONE hydrography data source."""
 
     model_config = ConfigDict(extra="forbid")
@@ -68,7 +69,7 @@ class HydrographySourceConfig(BaseModel):
         return self
 
 
-class HydrographyConfig(BaseModel):
+class HydrographyConfig(HydroModelBase):
     """Top-level hydrography configuration (list of sources)."""
 
     model_config = ConfigDict(extra="forbid")

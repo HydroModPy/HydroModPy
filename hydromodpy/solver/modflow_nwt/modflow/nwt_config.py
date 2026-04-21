@@ -12,9 +12,10 @@ from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
 from hydromodpy.core.units.length import parse_length_to_m
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class ModflowRuntimeConfig(BaseModel):
+class ModflowRuntimeConfig(HydroModelBase):
     """Expert runtime settings used to build and solve MODFLOW-NWT packages."""
 
     model_config = ConfigDict(extra="forbid")
@@ -137,7 +138,7 @@ class ModflowRuntimeConfig(BaseModel):
     )
 
 
-class ModflowProcessSpecificConfig(BaseModel):
+class ModflowProcessSpecificConfig(HydroModelBase):
     """Process-specific parameters used by selected MODFLOW packages."""
 
     model_config = ConfigDict(extra="forbid")
@@ -162,7 +163,7 @@ class ModflowProcessSpecificConfig(BaseModel):
         return exdp_m
 
 
-class ModflowConfig(BaseModel):
+class ModflowConfig(HydroModelBase):
     """Expert-level MODFLOW configuration organized by concern."""
 
     model_config = ConfigDict(extra="forbid")

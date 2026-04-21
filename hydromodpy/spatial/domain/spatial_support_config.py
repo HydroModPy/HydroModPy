@@ -6,9 +6,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.units import parse_length_to_m
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class DomainSupportBaseConfig(BaseModel):
+class DomainSupportBaseConfig(HydroModelBase):
     """Base schema for one named spatial-support declaration."""
 
     model_config = ConfigDict(extra="forbid")
@@ -91,8 +92,8 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
         if len(set(normalized_labels)) != len(normalized_labels):
             raise ValueError("domain.supports.<id>.labels cannot contain duplicates.")
 
-        self.breaks = normalized_breaks
-        self.labels = normalized_labels
+        object.__setattr__(self, "breaks", normalized_breaks)
+        object.__setattr__(self, "labels", normalized_labels)
         return self
 
 
@@ -198,8 +199,8 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
         if len(set(normalized_labels)) != len(normalized_labels):
             raise ValueError("domain.supports.<id>.labels cannot contain duplicates.")
 
-        self.radii = normalized_radii
-        self.labels = normalized_labels
+        object.__setattr__(self, "radii", normalized_radii)
+        object.__setattr__(self, "labels", normalized_labels)
         return self
 
 

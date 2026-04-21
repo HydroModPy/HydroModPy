@@ -13,9 +13,10 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class PostprocessConfig(BaseModel):
+class PostprocessConfig(HydroModelBase):
     """No-op postprocess settings parsed from the ``[postprocess]`` section."""
 
     model_config = ConfigDict(extra="allow")

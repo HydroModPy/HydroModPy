@@ -7,6 +7,7 @@ from typing import Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.config.base import HydroModelBase
 
 
 def _clean_optional_text(value: object) -> str | None:
@@ -17,7 +18,7 @@ def _clean_optional_text(value: object) -> str | None:
     return text or None
 
 
-class MethodComparisonVariantSchema(BaseModel):
+class MethodComparisonVariantSchema(HydroModelBase):
     """One solver/mesh method variant to run or reuse."""
 
     model_config = ConfigDict(extra="forbid")
@@ -70,7 +71,7 @@ class MethodComparisonVariantSchema(BaseModel):
         return dict(value)
 
 
-class MethodComparisonObservableSchema(BaseModel):
+class MethodComparisonObservableSchema(HydroModelBase):
     """One quantity of interest extracted from each variant run folder."""
 
     model_config = ConfigDict(extra="forbid")
@@ -163,7 +164,7 @@ class MethodComparisonObservableSchema(BaseModel):
                     "point observables require x/y coordinates, anchor_id, or cell_index"
                 )
             if self.reducer is None:
-                self.reducer = "nearest_cell"
+                object.__setattr__(self, "reducer", 'nearest_cell')
         elif self.support == "outlet":
             has_coordinates = self.x is not None and self.y is not None
             has_anchor = self.anchor_id is not None
@@ -180,24 +181,24 @@ class MethodComparisonObservableSchema(BaseModel):
                 )
             variable_key = self.variable.strip().lower()
             if self.reducer is None:
-                self.reducer = "max" if "accumulation" in variable_key else "sum"
+                object.__setattr__(self, "reducer", 'max' if 'accumulation' in variable_key else 'sum')
         elif self.support == "boundary":
             if self.boundary_id is None and not self.cell_indices:
                 raise ValueError(
                     "boundary observables require boundary_id or cell_indices"
                 )
             if self.reducer is None:
-                self.reducer = "sum"
+                object.__setattr__(self, "reducer", 'sum')
         elif self.support == "cell_mask":
             if self.reducer is None:
-                self.reducer = "sum"
+                object.__setattr__(self, "reducer", 'sum')
         elif self.support == "map":
             if self.reducer is None:
-                self.reducer = "identity"
+                object.__setattr__(self, "reducer", 'identity')
         return self
 
 
-class MethodComparisonSectionSchema(BaseModel):
+class MethodComparisonSectionSchema(HydroModelBase):
     """Launcher-owned method-comparison section."""
 
     model_config = ConfigDict(extra="forbid")
@@ -254,7 +255,7 @@ class MethodComparisonSectionSchema(BaseModel):
         return self
 
 
-class MethodComparisonFineRasterSchema(BaseModel):
+class MethodComparisonFineRasterSchema(HydroModelBase):
     """Optional common regular-grid rasterization for map comparisons."""
 
     model_config = ConfigDict(extra="forbid")
@@ -284,7 +285,7 @@ class MethodComparisonFineRasterSchema(BaseModel):
         return self
 
 
-class MethodComparisonConfig(BaseModel):
+class MethodComparisonConfig(HydroModelBase):
     """Validated top-level configuration for the method-comparison launcher."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)

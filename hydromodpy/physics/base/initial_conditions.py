@@ -19,9 +19,10 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class InitialCondition(BaseModel):
+class InitialCondition(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     id: Annotated[str, ParamLevel("user")] = Field(..., description="id of the initial condition (ex: h0, etc.)")

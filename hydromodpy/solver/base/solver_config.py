@@ -8,9 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.solver.base.solver_engine import SolverEngine
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class SolverConfig(BaseModel):
+class SolverConfig(HydroModelBase):
     """Configuration block defining the active groundwater solver engine."""
 
     model_config = ConfigDict(extra="forbid")

@@ -15,9 +15,10 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class ProcessSpatialConfig(BaseModel):
+class ProcessSpatialConfig(HydroModelBase):
     """Base Pydantic schema shared by `ProcessSpatial` child configurations."""
 
     model_config = ConfigDict(extra="forbid")

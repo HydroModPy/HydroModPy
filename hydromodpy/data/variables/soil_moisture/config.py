@@ -9,9 +9,10 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.data.common.base_config import BaseVariableConfig
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class SoilMoistureSourceConfig(BaseModel):
+class SoilMoistureSourceConfig(HydroModelBase):
     """Configuration for ONE soil moisture data source."""
 
     model_config = ConfigDict(extra="forbid")

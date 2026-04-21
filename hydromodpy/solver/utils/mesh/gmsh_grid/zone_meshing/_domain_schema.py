@@ -12,9 +12,10 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class ZoneMeshingDomainBBoxSchema(BaseModel):
+class ZoneMeshingDomainBBoxSchema(HydroModelBase):
     """Axis-aligned bounding box domain contract."""
 
     model_config = ConfigDict(extra="forbid")
@@ -37,11 +38,11 @@ class ZoneMeshingDomainBBoxSchema(BaseModel):
         xmin, ymin, xmax, ymax = coords
         if not (xmax > xmin and ymax > ymin):
             raise ValueError("bbox domain requires xmax > xmin and ymax > ymin")
-        self.bbox = [xmin, ymin, xmax, ymax]
+        object.__setattr__(self, "bbox", [xmin, ymin, xmax, ymax])
         return self
 
 
-class ZoneMeshingDomainPolygonSchema(BaseModel):
+class ZoneMeshingDomainPolygonSchema(HydroModelBase):
     """Inline polygon coordinates domain contract."""
 
     model_config = ConfigDict(extra="forbid")
@@ -65,7 +66,7 @@ class ZoneMeshingDomainPolygonSchema(BaseModel):
         return coords
 
 
-class ZoneMeshingDomainVectorSchema(BaseModel):
+class ZoneMeshingDomainVectorSchema(HydroModelBase):
     """Vector file domain contract."""
 
     model_config = ConfigDict(extra="forbid")
@@ -109,7 +110,7 @@ class ZoneMeshingDomainVectorSchema(BaseModel):
         return self
 
 
-class ZoneMeshingDomainGeographicBoxBufferSchema(BaseModel):
+class ZoneMeshingDomainGeographicBoxBufferSchema(HydroModelBase):
     """Domain resolved from ``domain_geographic.box_buff_shp``."""
 
     model_config = ConfigDict(extra="forbid")
@@ -126,7 +127,7 @@ class ZoneMeshingDomainGeographicBoxBufferSchema(BaseModel):
         return "geographic_box_buffer"
 
 
-class ZoneMeshingDomainGeographicWatershedSchema(BaseModel):
+class ZoneMeshingDomainGeographicWatershedSchema(HydroModelBase):
     """Domain resolved from ``domain_geographic.watershed_shp``."""
 
     model_config = ConfigDict(extra="forbid")
@@ -143,7 +144,7 @@ class ZoneMeshingDomainGeographicWatershedSchema(BaseModel):
         return "geographic_watershed"
 
 
-class ZoneMeshingDomainGeographicWatershedBoxSchema(BaseModel):
+class ZoneMeshingDomainGeographicWatershedBoxSchema(HydroModelBase):
     """Domain resolved from ``domain_geographic.watershed_box_shp``."""
 
     model_config = ConfigDict(extra="forbid")

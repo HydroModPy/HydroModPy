@@ -8,9 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from hydromodpy.core.config.param_level import ParamLevel, VisibleWhen
 from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
 from hydromodpy.core.units import parse_length_to_m
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class RiverNetworkConfig(BaseModel):
+class RiverNetworkConfig(HydroModelBase):
     """Optional stream-network extraction settings for geographic preprocessing."""
 
     model_config = ConfigDict(extra="forbid")
@@ -135,7 +136,7 @@ class RiverNetworkConfig(BaseModel):
         return self
 
 
-class GeographicConfig(BaseModel):
+class GeographicConfig(HydroModelBase):
     """
     Geographic configuration for watershed delineation.
 

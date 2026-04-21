@@ -12,9 +12,10 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class BoundaryCondition(BaseModel):
+class BoundaryCondition(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     id: Annotated[str, ParamLevel("user")] = Field(..., description="id of the boundary condition (ex: h_BC, etc.)")

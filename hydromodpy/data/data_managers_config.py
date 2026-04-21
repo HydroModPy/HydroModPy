@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.data.variables.dem.config import DemConfig
 from hydromodpy.data.variables.geology.config import GeologyConfig
+from hydromodpy.core.config.base import HydroModelBase
 
 
 SUPPORTED_DATA_MANAGER_TYPES = (
@@ -48,7 +49,7 @@ SUPPORTED_DATA_MANAGER_TYPES = (
 from hydromodpy.data.variables.oceanic.config import OceanicConfig  # noqa: E402
 
 
-class DataManagersConfig(BaseModel):
+class DataManagersConfig(HydroModelBase):
     """
     Top-level configuration for data-manager families.
 
@@ -218,7 +219,7 @@ class DataManagersConfig(BaseModel):
         for type_name in self.types:
             if type_name == "geology":
                 if self.geology is None:
-                    self.geology = GeologyConfig()
+                    object.__setattr__(self, "geology", GeologyConfig())
                 continue
             section_value = getattr(self, type_name, None)
             if section_value is None:

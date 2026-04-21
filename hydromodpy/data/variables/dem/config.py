@@ -8,9 +8,10 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class DemSourceConfig(BaseModel):
+class DemSourceConfig(HydroModelBase):
     """Configuration for ONE DEM data source.
 
     Supported sources:
@@ -64,7 +65,7 @@ class DemSourceConfig(BaseModel):
         return self
 
 
-class DemConfig(BaseModel):
+class DemConfig(HydroModelBase):
     """Top-level DEM variable configuration.
 
     Example TOML::

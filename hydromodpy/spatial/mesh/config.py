@@ -29,6 +29,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
     ZoneMeshingDomainPolygonSchema,
     ZoneMeshingDomainVectorSchema,
 )
+from hydromodpy.core.config.base import HydroModelBase
 
 
 ZoneMeshingDomainSchema = (
@@ -45,7 +46,7 @@ ZoneMeshingDomainSchema = (
 # River constraints
 # ---------------------------------------------------------------------------
 
-class MeshCatchmentRiversConfigSchema(BaseModel):
+class MeshCatchmentRiversConfigSchema(HydroModelBase):
     """River-trace inputs consumed by the conformal mesher."""
 
     model_config = ConfigDict(extra="forbid")
@@ -118,7 +119,7 @@ class MeshCatchmentRiversConfigSchema(BaseModel):
         return self
 
 
-class MeshCatchmentWatershedBoundarySmoothingConfigSchema(BaseModel):
+class MeshCatchmentWatershedBoundarySmoothingConfigSchema(HydroModelBase):
     """Optional smoothing controls for the watershed-boundary constraint."""
 
     model_config = ConfigDict(extra="forbid")
@@ -156,7 +157,7 @@ class MeshCatchmentWatershedBoundarySmoothingConfigSchema(BaseModel):
     )
 
 
-class MeshCatchmentWatershedOutsideCoarseningConfigSchema(BaseModel):
+class MeshCatchmentWatershedOutsideCoarseningConfigSchema(HydroModelBase):
     """Optional coarse-background size controls outside the watershed."""
 
     model_config = ConfigDict(extra="forbid")
@@ -194,7 +195,7 @@ class MeshCatchmentWatershedOutsideCoarseningConfigSchema(BaseModel):
     )
 
 
-class MeshCatchmentWatershedGeologyConformityConfigSchema(BaseModel):
+class MeshCatchmentWatershedGeologyConformityConfigSchema(HydroModelBase):
     """Optional control of where geology remains conformal around the watershed."""
 
     model_config = ConfigDict(extra="forbid")
@@ -228,7 +229,7 @@ class MeshCatchmentWatershedGeologyConformityConfigSchema(BaseModel):
         return token
 
 
-class MeshCatchmentWatershedBoundaryConfigSchema(BaseModel):
+class MeshCatchmentWatershedBoundaryConfigSchema(HydroModelBase):
     """Optional watershed-boundary mesh constraint."""
 
     model_config = ConfigDict(extra="forbid")
@@ -290,7 +291,7 @@ def _validate_hydraulic_scalar(
     return text
 
 
-class MeshCatchmentHydraulicPropertyMappingSchema(BaseModel):
+class MeshCatchmentHydraulicPropertyMappingSchema(HydroModelBase):
     """Zone-key to property mapping contract used by bundle export."""
 
     model_config = ConfigDict(extra="forbid")
@@ -431,7 +432,7 @@ class MeshCatchmentStorageCoefficientSchema(
     """Storage-coefficient mapping exported on mesh cells."""
 
 
-class MeshCatchmentHydraulicPropertiesConfigSchema(BaseModel):
+class MeshCatchmentHydraulicPropertiesConfigSchema(HydroModelBase):
     """Optional hydraulic properties derived from the geology zonation."""
 
     model_config = ConfigDict(extra="forbid")
@@ -466,7 +467,7 @@ class MeshCatchmentHydraulicPropertiesConfigSchema(BaseModel):
 # Main single-run launcher contract
 # ---------------------------------------------------------------------------
 
-class MeshCatchmentConfigSchema(BaseModel):
+class MeshCatchmentConfigSchema(HydroModelBase):
     """Top-level launcher contract for one mono-catchment meshing run."""
 
     model_config = ConfigDict(extra="forbid")
@@ -683,7 +684,7 @@ class MeshCatchmentConfigSchema(BaseModel):
 # Batch launcher contract
 # ---------------------------------------------------------------------------
 
-class MeshCatchmentBatchOutputsSchema(BaseModel):
+class MeshCatchmentBatchOutputsSchema(HydroModelBase):
     """Output filename patterns for batch meshing."""
 
     model_config = ConfigDict(extra="forbid")
@@ -738,7 +739,7 @@ class MeshCatchmentBatchOutputsSchema(BaseModel):
         return text
 
 
-class MeshCatchmentBatchSectionSchema(BaseModel):
+class MeshCatchmentBatchSectionSchema(HydroModelBase):
     """Optional batch loop over several outlet coordinates."""
 
     model_config = ConfigDict(extra="forbid")

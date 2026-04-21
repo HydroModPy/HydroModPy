@@ -13,6 +13,7 @@ from typing import ClassVar
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config.path_resolution import resolve_declared_path
+from hydromodpy.core.config.base import HydroModelBase
 
 
 def _load_toml(path: Path) -> dict:
@@ -28,7 +29,7 @@ def _load_toml(path: Path) -> dict:
         return tomllib.load(f)
 
 
-class BaseVariableConfig(BaseModel):
+class BaseVariableConfig(HydroModelBase):
     """Base for top-level variable configs (``XxxConfig``).
 
     Provides ``date_start`` / ``date_end`` fields with ISO validation,

@@ -12,6 +12,7 @@ from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.results.config import ResultsConfig
 from hydromodpy.solver.compatibility import known_process_types
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
+from hydromodpy.core.config.base import HydroModelBase
 
 
 _VALID_STEP_UNITS = {"hour", "day", "month", "year"}
@@ -83,7 +84,7 @@ def _parse_step_spec(
     return step_value, parsed_step_unit
 
 
-class SimulationTimeConfig(BaseModel):
+class SimulationTimeConfig(HydroModelBase):
     """Canonical simulation time window and forcing-coverage policy."""
 
     model_config = ConfigDict(extra="forbid")
@@ -142,8 +143,8 @@ class SimulationTimeConfig(BaseModel):
             raw_step_value=self.step_value,
             raw_step_unit=self.step_unit,
         )
-        self.step_value = int(step_value)
-        self.step_unit = step_unit
+        object.__setattr__(self, "step_value", int(step_value))
+        object.__setattr__(self, "step_unit", step_unit)
 
         if self.start_datetime is None or self.end_datetime is None:
             raise ValueError(
@@ -161,7 +162,7 @@ class SimulationTimeConfig(BaseModel):
         return self
 
 
-class SimulationProcessConfig(BaseModel):
+class SimulationProcessConfig(HydroModelBase):
     """One requested process entry under ``[[simulation.process]]``."""
 
     model_config = ConfigDict(extra="forbid")
@@ -206,7 +207,7 @@ class SimulationProcessConfig(BaseModel):
         return cleaned
 
 
-class SimulationConfig(BaseModel):
+class SimulationConfig(HydroModelBase):
     """Minimal orchestration block declared under ``[simulation]``."""
 
     model_config = ConfigDict(extra="forbid")

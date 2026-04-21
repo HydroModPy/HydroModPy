@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.state.data import LoadedDataContext
+from hydromodpy.core.config.base import HydroModelBase
 
 if TYPE_CHECKING:
     from hydromodpy.core.config import HydroModPyConfig
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
     from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 
 
-class OverviewPanelsConfig(BaseModel):
+class OverviewPanelsConfig(HydroModelBase):
     """Toggle individual report panels on/off."""
 
     model_config = ConfigDict(extra="forbid")
@@ -39,7 +40,7 @@ class OverviewPanelsConfig(BaseModel):
     station_inventory: Annotated[bool, ParamLevel("user")] = Field(True, description="Station inventory table.")
 
 
-class OverviewSection(BaseModel):
+class OverviewSection(HydroModelBase):
     """Overview report settings (watershed identity card)."""
 
     model_config = ConfigDict(extra="forbid")

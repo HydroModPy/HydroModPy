@@ -50,12 +50,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
+from hydromodpy.core.config.base import HydroModelBase
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_common.grid_context import GridReference
 
 
-class FlowWellConfig(BaseModel):
+class FlowWellConfig(HydroModelBase):
     """
     Typed payload for one pumping or injection well.
 
@@ -262,7 +263,7 @@ class FlowWellConfig(BaseModel):
         """Enforce one unambiguous location grammar for each well."""
         if self.cell is not None:
             if self.location_mode is None:
-                self.location_mode = "cell"
+                object.__setattr__(self, "location_mode", "cell")
             if self.location_mode != "cell":
                 raise ValueError("well.cell cannot be combined with a non-'cell' location_mode")
             if any(value is not None for value in (self.layer, self.x, self.y, self.x_rel, self.y_rel)):
@@ -281,7 +282,7 @@ class FlowWellConfig(BaseModel):
                 raise ValueError("well.location_mode='cell' requires cell=[lay,row,col]")
 
             if self.layer is None:
-                self.layer = 0
+                object.__setattr__(self, "layer", 0)
 
             if self.location_mode == "absolute_xy":
                 if self.x is None or self.y is None:
@@ -316,8 +317,12 @@ class FlowWellConfig(BaseModel):
                         raise ValueError("well.units conflicts with well.forcing.units")
             else:
                 normalized_forcing_units = normalize_m3_per_s_unit(parent_units)
-            self.forcing = self.forcing.model_copy(update={"units": normalized_forcing_units})
-            self.units = "m3/s"
+            object.__setattr__(
+                self,
+                "forcing",
+                self.forcing.model_copy(update={"units": normalized_forcing_units}),
+            )
+            object.__setattr__(self, "units", "m3/s")
 
         return self
 
@@ -342,7 +347,7 @@ class FlowWellConfig(BaseModel):
         return (int(self.layer), row, col)
 
 
-class FlowWellForcingConstantConfig(BaseModel):
+class FlowWellForcingConstantConfig(HydroModelBase):
     """One constant well-rate forcing applied to every stress period."""
 
     model_config = ConfigDict(extra="forbid")
@@ -360,7 +365,7 @@ class FlowWellForcingConstantConfig(BaseModel):
         return float(value)
 
 
-class FlowWellForcingCsvConfig(BaseModel):
+class FlowWellForcingCsvConfig(HydroModelBase):
     """CSV-backed well forcing resolved at runtime against simulation.time."""
 
     model_config = ConfigDict(extra="forbid")
@@ -391,7 +396,7 @@ class FlowWellForcingCsvConfig(BaseModel):
         return text
 
 
-class FlowWellForcingConfig(BaseModel):
+class FlowWellForcingConfig(HydroModelBase):
     """Launcher-facing well forcing declaration."""
 
     model_config = ConfigDict(extra="forbid")
@@ -442,7 +447,7 @@ class FlowWellForcingConfig(BaseModel):
         )
 
 
-class FlowRechargeConfig(BaseModel):
+class FlowRechargeConfig(HydroModelBase):
     """
     Typed payload for diffuse recharge over the model domain.
 
@@ -591,7 +596,7 @@ class FlowRechargeConfig(BaseModel):
         return float(value)
 
 
-class FlowSinksSourcesConfig(BaseModel):
+class FlowSinksSourcesConfig(HydroModelBase):
     """
     Top-level container for all sink/source elements of the flow process.
 

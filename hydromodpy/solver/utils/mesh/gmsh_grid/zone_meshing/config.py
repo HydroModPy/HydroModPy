@@ -22,9 +22,10 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class ZoneMeshingRefinementFamilySettings(BaseModel):
+class ZoneMeshingRefinementFamilySettings(HydroModelBase):
     """One family-specific refinement override inside the hotspot policy."""
 
     model_config = ConfigDict(extra="forbid")
@@ -67,7 +68,7 @@ class ZoneMeshingRefinementFamilySettings(BaseModel):
 ZoneMeshingRefinementFamilySettingsSchema = ZoneMeshingRefinementFamilySettings
 
 
-class ZoneMeshingRefinementFamiliesSchema(BaseModel):
+class ZoneMeshingRefinementFamiliesSchema(HydroModelBase):
     """Validated family-specific refinement policy settings."""
 
     model_config = ConfigDict(extra="forbid")
@@ -92,7 +93,7 @@ class ZoneMeshingRefinementFamiliesSchema(BaseModel):
     )
 
 
-class ZoneMeshingRefinementHotspotSettings(BaseModel):
+class ZoneMeshingRefinementHotspotSettings(HydroModelBase):
     """Validated hotspot-detection thresholds for local refinement budgeting."""
 
     model_config = ConfigDict(extra="forbid")
@@ -135,7 +136,7 @@ class ZoneMeshingRefinementHotspotSettings(BaseModel):
 ZoneMeshingRefinementHotspotSettingsSchema = ZoneMeshingRefinementHotspotSettings
 
 
-class ZoneMeshingRefinementGridSettings(BaseModel):
+class ZoneMeshingRefinementGridSettings(HydroModelBase):
     """Validated grid settings for one locality-first refinement policy."""
 
     model_config = ConfigDict(extra="forbid")
@@ -177,7 +178,7 @@ _FAMILY_DEFAULTS: dict[str, dict[str, Any]] = {
 }
 
 
-class ZoneMeshingRefinementPolicy(BaseModel):
+class ZoneMeshingRefinementPolicy(HydroModelBase):
     """Local refinement policy for mixed river/geology interfaces."""
 
     model_config = ConfigDict(extra="forbid")
@@ -258,7 +259,7 @@ class ZoneMeshingRefinementPolicy(BaseModel):
 ZoneMeshingRefinementPolicySchema = ZoneMeshingRefinementPolicy
 
 
-class ZoneMeshingSettings(BaseModel):
+class ZoneMeshingSettings(HydroModelBase):
     """Validated settings for one conformal 2D Gmsh meshing run."""
 
     model_config = ConfigDict(extra="forbid")
@@ -409,18 +410,9 @@ class ZoneMeshingSettings(BaseModel):
 
         if self.refine_interfaces:
             if self.interface_size is None:
-                self.interface_size = min(
-                    (
-                        self.min_size
-                        if self.min_size is not None
-                        else self.global_size * 0.5
-                    ),
-                    self.global_size,
-                )
+                object.__setattr__(self, "interface_size", min(self.min_size if self.min_size is not None else self.global_size * 0.5, self.global_size))
             if self.interface_distance is None:
-                self.interface_distance = max(
-                    self.global_size * 3.0, self.interface_size
-                )
+                object.__setattr__(self, "interface_distance", max(self.global_size * 3.0, self.interface_size))
             if self.interface_size <= 0.0:
                 raise ValueError(
                     "interface_size must be > 0 when refine_interfaces=true"

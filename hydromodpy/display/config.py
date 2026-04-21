@@ -12,9 +12,10 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class DisplayConfig(BaseModel):
+class DisplayConfig(HydroModelBase):
     """Display behaviour resolved from the ``[display]`` TOML section."""
 
     model_config = ConfigDict(extra="ignore")

@@ -22,12 +22,13 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.base import HydroModelBase
 
 
 SaveRunsMode = Literal["none", "best_n", "all"]
 
 
-class CalibParameterDecl(BaseModel):
+class CalibParameterDecl(HydroModelBase):
     """Declaration of one calibratable parameter in the TOML."""
 
     model_config = ConfigDict(extra="forbid")
@@ -54,7 +55,7 @@ class CalibParameterDecl(BaseModel):
     units: str | None = Field(default=None, description="Parameter units label.")
 
 
-class CalibrationConfig(BaseModel):
+class CalibrationConfig(HydroModelBase):
     """Top-level ``[calibration]`` configuration."""
 
     model_config = ConfigDict(extra="forbid")

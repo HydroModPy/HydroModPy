@@ -40,9 +40,10 @@ from hydromodpy.core.units import (
     SpecificStorage,
     SpecificYield,
 )
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class FlowPhysicalProperties(BaseModel):
+class FlowPhysicalProperties(HydroModelBase):
     """Canonical physical properties of a flow medium.
 
     Each field uses a pint-backed Pydantic annotation so that unit conversion

@@ -20,6 +20,7 @@ from typing import Annotated, Any, Literal, Mapping
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.base import HydroModelBase
 
 
 def _require_positive_int(value, *, name: str) -> int:
@@ -45,7 +46,7 @@ def _require_positive_int(value, *, name: str) -> int:
     return out
 
 
-class VerticalGridConfig(BaseModel):
+class VerticalGridConfig(HydroModelBase):
     """
     Single source of truth for vertical-grid validation.
 
@@ -97,11 +98,11 @@ class VerticalGridConfig(BaseModel):
     @model_validator(mode="after")
     def _validate_cross_fields(self):
         if self.genmtd_lay in ("constant", "decay"):
-            self.nlay = _require_positive_int(self.nlay, name="nlay")
+            object.__setattr__(self, "nlay", _require_positive_int(self.nlay, name='nlay'))
         if self.genmtd_lay == "decay":
             if self.lay_decay is None:
                 raise ValueError("lay_decay is required when genmtd_lay='decay'")
-            self.lay_decay = float(self.lay_decay)
+            object.__setattr__(self, "lay_decay", float(self.lay_decay))
             if self.lay_decay <= 1.0:
                 raise ValueError("lay_decay must be > 1.0 when genmtd_lay='decay'")
 
@@ -116,7 +117,7 @@ class VerticalGridConfig(BaseModel):
                     UserWarning,
                     stacklevel=2,
                 )
-            self.nlay = None
+            object.__setattr__(self, "nlay", None)
         return self
 
     @classmethod
@@ -125,7 +126,7 @@ class VerticalGridConfig(BaseModel):
         return cls.model_validate(payload)
 
 
-class PlanarGridConfig(BaseModel):
+class PlanarGridConfig(HydroModelBase):
     """Planar discretization contract for solver-facing grids."""
 
     model_config = ConfigDict(extra="forbid")
@@ -155,14 +156,14 @@ class PlanarGridConfig(BaseModel):
     @model_validator(mode="after")
     def _validate_cross_fields(self):
         if self.mode == "resample_to_shape":
-            self.nx = _require_positive_int(self.nx, name="nx")
-            self.ny = _require_positive_int(self.ny, name="ny")
+            object.__setattr__(self, "nx", _require_positive_int(self.nx, name='nx'))
+            object.__setattr__(self, "ny", _require_positive_int(self.ny, name='ny'))
         elif self.nx is not None or self.ny is not None:
             raise ValueError("nx and ny must be omitted when planar.mode='keep_native'")
         return self
 
 
-class SolverSGridConfig(BaseModel):
+class SolverSGridConfig(HydroModelBase):
     """Solver-facing grid configuration split into explicit planar and vertical parts."""
 
     model_config = ConfigDict(extra="forbid")
@@ -182,7 +183,7 @@ class SolverSGridConfig(BaseModel):
         return cls.model_validate(payload)
 
 
-class SGridConfig(BaseModel):
+class SGridConfig(HydroModelBase):
     """
     Single source of truth for structured-grid configuration validation.
 

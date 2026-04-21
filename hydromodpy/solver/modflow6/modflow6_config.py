@@ -11,9 +11,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class Modflow6RuntimeConfig(BaseModel):
+class Modflow6RuntimeConfig(HydroModelBase):
     """Expert runtime settings used to build and solve MODFLOW 6 packages."""
 
     model_config = ConfigDict(extra="forbid")
@@ -78,7 +79,7 @@ class Modflow6RuntimeConfig(BaseModel):
     )
 
 
-class Modflow6ProcessSpecificConfig(BaseModel):
+class Modflow6ProcessSpecificConfig(HydroModelBase):
     """Process-specific parameters used by selected MODFLOW 6 packages."""
 
     model_config = ConfigDict(extra="forbid")
@@ -94,7 +95,7 @@ class Modflow6ProcessSpecificConfig(BaseModel):
     )
 
 
-class Modflow6Config(BaseModel):
+class Modflow6Config(HydroModelBase):
     """Expert-level MODFLOW 6 configuration organized by concern."""
 
     model_config = ConfigDict(extra="forbid")

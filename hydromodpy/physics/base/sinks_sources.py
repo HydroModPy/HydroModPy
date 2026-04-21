@@ -12,9 +12,10 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class SinkSource(BaseModel):
+class SinkSource(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     id: Annotated[str, ParamLevel("user")] = Field(..., description="id of the sink/source (ex: Q_well, etc.)")

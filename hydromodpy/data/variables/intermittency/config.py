@@ -9,9 +9,10 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.data.common.base_config import BaseVariableConfig
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class IntermittencySourceConfig(BaseModel):
+class IntermittencySourceConfig(HydroModelBase):
     """Configuration for ONE intermittency data source."""
 
     model_config = ConfigDict(extra="forbid")

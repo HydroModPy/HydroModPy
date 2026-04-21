@@ -10,6 +10,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.base import HydroModelBase
 
 
 DEFAULT_FLOW_GALLERY_ASSETS: tuple[str, ...] = (
@@ -21,7 +22,7 @@ DEFAULT_FLOW_GALLERY_ASSETS: tuple[str, ...] = (
 )
 
 
-class CapabilityGalleryConfig(BaseModel):
+class CapabilityGalleryConfig(HydroModelBase):
     """Optional publication target for stable, versionable run figures."""
 
     model_config = ConfigDict(extra="forbid")

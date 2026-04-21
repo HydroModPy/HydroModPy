@@ -8,9 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.physics.base import ProcessSpatialConfig
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class ModpathParametersConfig(BaseModel):
+class ModpathParametersConfig(HydroModelBase):
     """Configuration payload for the Modpath transport solver."""
 
     model_config = ConfigDict(extra="forbid")
@@ -50,7 +51,7 @@ class ModpathParametersConfig(BaseModel):
     )
 
 
-class TransportModpathConfig(BaseModel):
+class TransportModpathConfig(HydroModelBase):
     """Container for Modpath solver settings."""
 
     model_config = ConfigDict(extra="forbid")
@@ -61,7 +62,7 @@ class TransportModpathConfig(BaseModel):
     )
 
 
-class ConcentrationTransportParametersConfig(BaseModel):
+class ConcentrationTransportParametersConfig(HydroModelBase):
     """Configuration payload shared by concentration transport solvers."""
 
     model_config = ConfigDict(extra="forbid")
@@ -108,7 +109,7 @@ class ConcentrationTransportParametersConfig(BaseModel):
     )
 
 
-class TransportMt3dmsConfig(BaseModel):
+class TransportMt3dmsConfig(HydroModelBase):
     """Container for MT3DMS solver settings."""
 
     model_config = ConfigDict(extra="forbid")
@@ -119,7 +120,7 @@ class TransportMt3dmsConfig(BaseModel):
     )
 
 
-class TransportModflow6GwtConfig(BaseModel):
+class TransportModflow6GwtConfig(HydroModelBase):
     """Container for MODFLOW 6 GWT solver settings."""
 
     model_config = ConfigDict(extra="forbid")

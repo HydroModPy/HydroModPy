@@ -9,9 +9,10 @@ from typing import Annotated, Any, Literal, Mapping
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.base import HydroModelBase
 
 
-class GeologySourceConfig(BaseModel):
+class GeologySourceConfig(HydroModelBase):
     """Configuration for ONE geology data source."""
 
     model_config = ConfigDict(extra="forbid")
@@ -97,7 +98,7 @@ class GeologySourceConfig(BaseModel):
         return self
 
 
-class GeologyConfig(BaseModel):
+class GeologyConfig(HydroModelBase):
     """Top-level geology variable configuration.
 
     Example TOML::
@@ -164,7 +165,7 @@ def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping
     return current
 
 
-class GeologySourceSchema(BaseModel):
+class GeologySourceSchema(HydroModelBase):
     """Schema for geology data source definition (standalone field construction)."""
 
     model_config = ConfigDict(extra="forbid")
@@ -240,7 +241,7 @@ class GeologySourceSchema(BaseModel):
         return self
 
 
-class GeologyLandSeaSchema(BaseModel):
+class GeologyLandSeaSchema(HydroModelBase):
     """Optional sea-mask override for coastal workflows."""
 
     model_config = ConfigDict(extra="forbid")
@@ -303,7 +304,7 @@ class GeologyLandSeaSchema(BaseModel):
         return self
 
 
-class GeologyConfigSchema(BaseModel):
+class GeologyConfigSchema(HydroModelBase):
     """Top-level schema for one geology field definition (standalone construction)."""
 
     model_config = ConfigDict(extra="forbid")
