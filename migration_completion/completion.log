@@ -19,3 +19,9 @@
 [2026-04-21 03:06:12] DONE G02 (1532s)
 [2026-04-21 03:06:12] MARK G02 done at 0c62bf5489c2d243b70a2c17f1b53c196519b2d7
 [2026-04-21 03:06:12] START G03: Config refactor (HydroModelBase, pint, Forcing, GridConfig, PHYSICAL_BOUNDS, to_toml) (attempt 1/100)
+[2026-04-21 03:21:24] FAIL G03 (rc=1, 912s): You've hit your limit · resets 6am (Europe/Paris)
+[2026-04-21 03:21:24] QUOTA HIT — pause 2h43m, resume 2026-04-21 06:05
+[2026-04-21 06:05:00] START G03: Config refactor (HydroModelBase, pint, Forcing, GridConfig, PHYSICAL_BOUNDS, to_toml) (attempt 2/100)
+[2026-04-21 06:21:55] DONE G03 (1015s)
+[2026-04-21 06:21:55] MARK G03 done at 8ee745fcca40d694c34abb3c4c54ca5e93af9f04
+[2026-04-21 06:21:55] START G04: Data modernization (HTTPClient, pandera, InputCatalog 7 tables, lockfile, hmp lock) (attempt 1/100)
