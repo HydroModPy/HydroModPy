@@ -32,13 +32,13 @@ current implementation — they must be reassessed before v0.6.
 | 1 | MODFLOW-NWT / MF6 head convergence | max head change per iteration | `1e-6 m` | Richardson + 2 orders-of-magnitude safety vs solver outer-loop | MODFLOW default HCLOSE |
 | 2 | Global water-budget closure | relative error `|Σin-Σout|/Σin` | `1 %` | IMS / PCG solver tolerance | Matches MODFLOW 6 IMS default |
 | 3 | Calibration NSE vs baseline | absolute NSE drift | `0.01` | Stochastic optimizer noise (Optuna TPE, 50 trials) | TO REVIEW — empirical |
-| 4 | Theis confined pumping 2D | NSE vs analytical | `> 0.999` | Richardson, grid 201×201 | 10·R_well over domain bounds |
-| 5 | Theis confined pumping 2D | drawdown RMSE | `< 0.5 mm` | `5·ε·(Q·t/T)` | Machine epsilon propagation |
-| 6 | Hantush leaky aquifer | NSE vs analytical | `> 0.99` | Leaky approximation err | Lambda ≤ 0.1 |
-| 7 | Ogata-Banks 1D transport | NSE | `> 0.95` | Zheng & Wang 1999 | Péclet ≈ 100 borderline |
-| 8 | MMS Laplacian 1D | log-log slope | `∈ [1.8, 2.2]` | Second-order FV theory | Order 2 with safety band |
-| 9 | MMS diffusion transient 1D | log-log slope (h) | `∈ [1.8, 2.2]` | Second-order FV | Crank-Nicolson |
-| 10 | MMS diffusion transient 1D | log-log slope (Δt) | `∈ [0.9, 2.2]` | Scheme-dependent (Euler 1 / CN 2) | Docstring details |
+| 4 | Theis confined pumping 2D | NSE vs analytical (9 probes) | `> 0.999` | Richardson, telescoping grid, 1 m near-well cell | r = 10/50/100 m, t = 1/3/10 d |
+| 5 | Theis confined pumping 2D | max pointwise relative drawdown error | `< 1 %` | Near-well discretization, domain radius ≫ r_i(t = 10 d) | Governs probe-by-probe accuracy |
+| 6 | Hantush leaky aquifer | NSE and max pointwise relative error | `NSE > 0.99`, `max_rel < 2 %` | Leaky-aquitard assumption, effective K'/b' leakance | r/B ∈ [0.1, 1], thin-conductive source layer |
+| 7 | Ogata-Banks 1D transport | NSE and max pointwise relative error | `NSE > 0.95`, `max_rel < 3 %` | Zheng & Wang 1999; Péclet(Δx) = 1 | MF6 GWT TVD scheme, relative-error mask at c > 1e-3 |
+| 8 | MMS Laplacian 1D | log-log slope | `\|p − 2\| < 0.2`  (∈ [1.8, 2.2]) | Second-order centred-FV theory | Order 2 with 10 % safety band |
+| 9 | MMS diffusion transient 1D (space) | log-log slope | `\|p − 2\| < 0.2`  (∈ [1.8, 2.2]) | Second-order centred-FV, Crank-Nicolson in time | Time error saturated by fine Δt |
+| 10 | MMS diffusion transient 1D (time) | log-log slope | `\|p − 1\| < 0.2`  (∈ [0.8, 1.2]) | Backward Euler, first-order in time | Spatial error saturated by fine Δx |
 | 11 | Dupuit fixed-head 1D (NWT) | head RMSE | `< 0.05 m` | TO REVIEW | Fitted to reference run |
 | 12 | Dupuit fixed-head 1D (MF6) | head RMSE | `< 0.02 m` | Anderson et al. 2015 §6 | Well-posed analytical solution |
 | 13 | Boussinesq vs Marçais 2017 | recession slope error | `< 5 %` | Published benchmark | Marçais et al. 2017 Fig. 4 |
