@@ -19,7 +19,6 @@ import hydromodpy as hmp
 
 HERE = Path(__file__).resolve().parent
 SY_VALUES = [0.001, 0.05, 0.30]
-THICKNESS = 30.0  # m
 
 # ---------------------------------------------------------------------
 # 1. Trois runs MODFLOW-NWT, Sy variable
@@ -39,6 +38,10 @@ for sy in SY_VALUES:
 first_run = next(iter(runs.values()))
 catalog = project.store
 zarr_store = catalog.open_zarr(first_run.sim_id)
+
+# Paramètres persistés côté DB (table `parameters`)
+params = catalog[first_run.sim_id].parameters.set_index("param_name")["value"]
+thickness = float(params["thickness"])
 
 dem, dem_meta = zarr_store.read_geographic_raster("watershed_dem")
 dem = dem.astype(float)
@@ -101,7 +104,7 @@ for ax, (sy, run) in zip(axes, runs.items()):
     for label, tidx, color in [("Min", t_min, "navy"), ("Max", t_max, "dodgerblue")]:
         wt = run.field("watertable_elevation", tidx).reshape(grid_shape).copy()
         wt[wt < 0] = np.nan
-        ax.fill_between(distance, dem_profile - THICKNESS, wt[mid_row, :],
+        ax.fill_between(distance, dem_profile - thickness, wt[mid_row, :],
                         color=color, alpha=0.4, lw=0)
         ax.plot(distance, wt[mid_row, :], color=color, lw=1,
                 label=f"{label} ({dates[tidx]:%Y-%m})")
@@ -109,13 +112,13 @@ for ax, (sy, run) in zip(axes, runs.items()):
     ax.fill_between(distance, wt[mid_row, :], dem_profile,
                     color="saddlebrown", alpha=0.3, lw=0)
     ax.plot(distance, dem_profile, color="saddlebrown", lw=1.5)
-    ax.fill_between(distance, 0, dem_profile - THICKNESS,
+    ax.fill_between(distance, 0, dem_profile - thickness,
                     color="lightgrey", alpha=0.5, lw=0)
-    ax.plot(distance, dem_profile - THICKNESS, color="dimgray", lw=1)
+    ax.plot(distance, dem_profile - thickness, color="dimgray", lw=1)
 
     valid = np.isfinite(dem_profile)
     ax.set_xlim(distance[valid].min(), distance[valid].max())
-    ax.set_ylim(np.nanmin(dem_profile) - THICKNESS - 5,
+    ax.set_ylim(np.nanmin(dem_profile) - thickness - 5,
                 np.nanmax(dem_profile) + 5)
     ax.set_xlabel("Distance [m]")
     ax.set_ylabel("Élévation [m]")

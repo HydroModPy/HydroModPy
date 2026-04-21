@@ -62,32 +62,50 @@ def _collect_registration_kwargs(ctx: WorkflowContext) -> dict:
     return kwargs
 
 
-def _write_flow_parameters(store, sim_id: str, flow) -> None:
-    """Write hydraulic parameters from a Flow object into the catalog."""
+def _write_flow_parameters(store, sim_id: str, flow, domain=None) -> None:
+    """Write hydraulic parameters from a Flow object into the catalog.
+
+    Also persists the domain aquifer thickness (from
+    ``domain.depth_model``) as a global scalar parameter, since it is a
+    calibratable quantity listed alongside K/Sy/Ss.
+    """
+    params: list[dict] = []
+
     params_dict = getattr(flow, "parameters", None)
-    if not params_dict:
-        return
-    params = []
-    for pid, fp in params_dict.items():
-        kind = getattr(fp, "kind", "homogeneous")
-        if kind == "homogeneous":
-            params.append({
-                "param_name": pid,
-                "zone_id": None,
-                "value": getattr(fp, "value", None),
-                "unit": getattr(fp, "unit", ""),
-                "parameterization": "homogeneous",
-            })
-        else:
-            values_by_key = getattr(fp, "values_by_key", None) or {}
-            for zone_key, val in values_by_key.items():
+    if params_dict:
+        for pid, fp in params_dict.items():
+            kind = getattr(fp, "kind", "homogeneous")
+            if kind == "homogeneous":
                 params.append({
                     "param_name": pid,
-                    "zone_id": str(zone_key),
-                    "value": val,
+                    "zone_id": None,
+                    "value": getattr(fp, "value", None),
                     "unit": getattr(fp, "unit", ""),
-                    "parameterization": "geology_mapped",
+                    "parameterization": "homogeneous",
                 })
+            else:
+                values_by_key = getattr(fp, "values_by_key", None) or {}
+                for zone_key, val in values_by_key.items():
+                    params.append({
+                        "param_name": pid,
+                        "zone_id": str(zone_key),
+                        "value": val,
+                        "unit": getattr(fp, "unit", ""),
+                        "parameterization": "geology_mapped",
+                    })
+
+    if domain is not None:
+        depth_model = getattr(domain, "depth_model", None)
+        thickness = getattr(depth_model, "thickness", None) if depth_model else None
+        if thickness is not None:
+            params.append({
+                "param_name": "thickness",
+                "zone_id": None,
+                "value": float(thickness),
+                "unit": "m",
+                "parameterization": "homogeneous",
+            })
+
     if params:
         store.write_parameters(sim_id, params)
 
@@ -131,7 +149,9 @@ def step_open_store(ctx: WorkflowContext) -> None:
 
     # Write hydraulic parameters
     if ctx.setup.flow is not None:
-        _write_flow_parameters(ctx.store, ctx.sim_id, ctx.setup.flow)
+        _write_flow_parameters(
+            ctx.store, ctx.sim_id, ctx.setup.flow, domain=ctx.cfg.domain,
+        )
 
     # Write mesh topology into Zarr
     mesh = ctx.setup.mesh_planar

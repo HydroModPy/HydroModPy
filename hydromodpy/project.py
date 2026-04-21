@@ -453,7 +453,10 @@ class Simulation:
         # Write hydraulic parameters
         from hydromodpy.workflow.steps.store_lifecycle import _write_flow_parameters
         if self._ctx.setup.flow is not None:
-            _write_flow_parameters(self._store, sim_id, self._ctx.setup.flow)
+            _write_flow_parameters(
+                self._store, sim_id, self._ctx.setup.flow,
+                domain=self.cfg.domain,
+            )
 
         # Write mesh topology into Zarr
         if mesh is not None:
