@@ -142,26 +142,6 @@ hydromodpy = ["../bin/**/*", "py.typed"]
 "hydromodpy.physics.hydrology.pyhelp" = ["*.FOR"]
 "hydromodpy.data.common.administrative" = ["*.gpkg"]
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-addopts = "-ra -p no:cacheprovider"
-markers = [
-    "regression: non-regression tests based on reference datasets",
-    "validation: scientific or benchmark validation tests against a reference solution",
-    "analytical: validation test compared to an analytical reference solution",
-    "extensive: extended regression checks for deeper validation",
-    "steady: steady-state validation or regression case",
-    "transient: transient validation or regression case",
-    "fast: quick-running validation, integration, or fast-tier regression cases",
-    "slow: long-running validation, integration, or regression tests",
-    "petsc: tests that exercise the Linux PETSc-backed Boussinesq runtime",
-    "nwt: MODFLOW-NWT / MODPATH / MT3DMS test case",
-    "mf6: MODFLOW 6 / GWT test case",
-    "integration: tests that call external services or systems",
-    "coverage: long-running coverage tests",
-]
-
 [tool.coverage.run]
 source = [
     "hydromodpy.core",
