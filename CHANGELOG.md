@@ -33,6 +33,55 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- Four new DuckDB catalog tables (phase G05):
+  - `runs_environment` — Python / HydroModPy version, platform, hostname,
+    user, CPU info, memory, git commit and pip-freeze JSON for each run,
+    keyed by `sim_id`.
+  - `tags` — normalized `(sim_id, tag)` index with `added_at` / `added_by`
+    columns (replaces the legacy `simulations.tags VARCHAR[]` array column
+    for new writes).
+  - `stations` — global station catalog `(station_id, variable_type)` with
+    lat/lon, elevation, validity window, source and free-form JSON
+    metadata.
+  - `observations` — time-indexed observed values tied to the `stations`
+    catalog (keyed by `station_id, variable_type, datetime`).
+- Four denormalized views to simplify discovery queries:
+  - `v_simulation_summary` — one row per simulation with outlet NSE / KGE /
+    RMSE / R² pulled from the `metrics` table.
+  - `v_best_per_project` — per-project best simulation by NSE.
+  - `v_metrics_wide` — PIVOT of `metrics` over the known metric names
+    (`nse`, `kge`, `rmse`, `r2`, `bias`, `pbias`, `mae`, `mse`).
+  - `v_params_wide` — one row per simulation with a `MAP` of
+    `param_name[::zone_id]` → value.
+- `hydromodpy.results.field_registry` — canonical CF-1.11 registry
+  exposing `FieldDescriptor` and 18 descriptors for every field produced
+  or consumed by HydroModPy (`head`, `watertable_depth`, `seepage_mask`,
+  `recharge`, `hydraulic_conductivity`, …). Figures, exports and the
+  Zarr writer all resolve field metadata through this module.
+- CF-1.11 / UGRID-1.0 metadata on every simulation Zarr store:
+  `Conventions="CF-1.11 UGRID-1.0"` at the root, scalar
+  `mesh/topology` variable (`cf_role="mesh_topology"`), CF `time` and
+  scalar `crs` coordinate variables, and per-field
+  `standard_name`, `long_name`, `units`, `cell_methods`, `coordinates`
+  and `grid_mapping` attributes attached on first write.
+- `SimulationZarr.to_xarray()` and `SimulationZarr.consolidate_metadata()`
+  — produce a CF-aware `xarray.Dataset` (with registered fields, CF time
+  and CRS coordinates) and persist a consolidated `zarr.json` for fast
+  reopening.
+- `SimulationGroup.to_xarray(variable, dim="sim")` — concatenate the
+  same field across every simulation of the group, with `sim_id` as the
+  stacking coordinate.
+- Portable `.hmp` package format: a single `tar.zst` archive containing
+  `manifest.json` (format version, sim_id, per-file SHA-256),
+  `catalog_snapshot.duckdb` (one-simulation DuckDB dump),
+  `simulation.zarr.zip`, an optional `geographic/` cache payload and a
+  human-readable `README.md`. `SimulationCatalog.import_package` verifies
+  every file's SHA-256 before any mutation.
+- `SimulationZarr(path, balanced=True)` — opt-in balanced chunking that
+  targets ~1 MiB chunks by packing multiple timesteps along the time
+  axis (falls back to `(1, n_layers, n_cells)` for large steps).
+- `zstandard>=0.22` added as a core dependency (required by the
+  `tar.zst` `.hmp` exporter).
 - `hydromodpy.core.exceptions` — canonical typed exception hierarchy
   (`HydroModPyError` base + `ConfigError`, `DataError`, `MeshError`,
   `SolverError`, `PipelineError`, `CalibrationError`, `DisplayError`,
@@ -225,6 +274,19 @@ Each release section includes the following standard categories:
   `hydromodpy/data/common/base_config.py` moved one level up to
   `hydromodpy/data/base_manager.py` and `hydromodpy/data/base_config.py`.
   All in-tree callers updated — no backwards-compat shim.
+- **BREAKING** (G05): `HOMOGENEOUS_ZONE` constant and the
+  ``parameters.zone_id DEFAULT '_homogeneous'`` sentinel are gone. The
+  default zone is now ``__global__``; callers must migrate or reset the
+  workspace. `simulation_group.parameters` uses the new sentinel when
+  flattening its pivot table, and `SimulationCatalog.write_parameters`
+  inserts ``__global__`` when no zone is supplied.
+- **BREAKING** (G05): `SimulationCatalog.export_package` now produces a
+  single ``tar.zst`` file (``.hmp``) with a manifest and per-file
+  SHA-256, instead of an unpacked directory. Readers that used to peek
+  into ``<pkg>/simulation.duckdb`` or ``<pkg>/results.zarr.zip`` must
+  decompress the archive first (`tarfile` + `zstandard`). Import
+  validates every file against its manifest hash before touching the
+  destination catalog — tampered archives now fail fast.
 
 ---
 
