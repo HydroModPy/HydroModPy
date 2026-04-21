@@ -32,6 +32,44 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+## [0.6.0] — Unreleased
+
+### Changed
+
+- Rename the programmatic façade `Simulation` (in `hydromodpy/project.py`) to
+  `Project`, and the catalog-backed read view `SimulationView`
+  (`hydromodpy/results/simulation.py`) to `Run` (moved to
+  `hydromodpy/results/run.py`). `hmp.Project(config).run()` returns a `Run`;
+  `catalog[sim_id]` returns a `Run`. No alias, no deprecation warning — v0.6
+  is breaking.
+- Workspace resolution is now strict-binary: an explicit `[workspace]` field
+  (`root`, `catalog_path`, `data_dir`, `simulations_dir`), the
+  `HYDROMODPY_WORKSPACE` environment variable, or the canonical scaffold
+  layout under `<workspace>/projects/<name>/project.toml`. Walk-up
+  auto-discovery and the implicit fall-back to `project_root` have been
+  removed.
+- `examples/` is now a scaffolded workspace; the 10 example projects live
+  under `examples/projects/` and share `examples/data/`,
+  `examples/simulations/` and `examples/hydromodpy.duckdb`.
+
+### Added
+
+- `hmp doctor` accepts `--toml config.toml` and reports the resolution
+  source (`explicit`, `env`, `scaffold`) along with the resolved
+  `workspace_root`, `catalog_path`, `data_dir`, and `simulations_dir`.
+- `hmp init` creates the `hydromodpy.duckdb` catalog and the
+  `simulations/`, `data/`, `projects/` subdirectories atomically, and
+  takes `--force` to overwrite an existing catalog.
+- `WorkspaceError` (`hydromodpy.core.workspace.WorkspaceError`) with an
+  actionable hint covering the three resolution branches.
+- `hydromodpy.core.workspace.resolve.locate_workspace_root` — best-effort
+  read-only helper for solver-side code that needs to re-open a catalog.
+
+### Removed
+
+- `WorkspaceConfig.discover_workspace_root` (the walk-up heuristic).
+- Implicit fallback where `project_root` served as the workspace root.
+
 ### Changed
 
 - Migrate from `ParamLevel` dataclass to `Profile(IntEnum)` in

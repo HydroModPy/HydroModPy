@@ -10,45 +10,35 @@ right are forbidden in new code.
 
 ## Objects
 
-### Project (code label, not a concept)
-
-A free-form string label attached to simulations (`simulations.project`
-column in the catalog DuckDB). It **does not** correspond to a folder, a
-configuration object, or a facade. The legacy `Project` facade class is
-scheduled for removal and replaced by `Simulation` (see below).
-
 ### Workspace
 
 Root directory containing one `hydromodpy.duckdb`, one `data/` input cache,
-one `simulations/` tree of Zarr stores, and optional `configs/` and
-`exports/` subdirectories. A workspace is mutable, locked at the process
-level via `WorkspaceLock` (a `filelock` on `hydromodpy.duckdb.lock`), and
-represented in code by `hydromodpy.core.workspace.Workspace`.
+one `simulations/` tree of Zarr stores, and a `projects/` subdirectory. A
+workspace is mutable, locked at the process level via `WorkspaceLock` (a
+`filelock` on `hydromodpy.duckdb.lock`), and represented in code by
+`hydromodpy.core.workspace.Workspace`. Resolved from `[workspace] root`,
+`HYDROMODPY_WORKSPACE`, or the scaffold layout — see
+`docs/readthedocs/source/getting_started/workspace-layout.rst`.
 
-### Simulation (mutable facade)
+### Project (mutable façade, v0.6)
 
-- **Canonical name:** `Simulation`
-- **Module:** `hydromodpy.simulation.api.Simulation`
-- **Role:** programmatic execution facade. Constructed from a config,
-  executes via `.run()`, writes into the catalog.
-- **Forbidden aliases:** `Project`, `SimulationRunner`, `Launcher`,
-  `Pipeline`.
+- **Canonical name:** `Project`
+- **Module:** `hydromodpy.project.Project` (exposed as `hmp.Project`).
+- **Role:** programmatic execution facade. Constructed from a config TOML,
+  executes via `.run(**overrides)`, writes into the catalog, and returns a
+  `Run` instance.
+- **Forbidden aliases:** `Simulation` (removed in v0.6), `SimulationRunner`,
+  `Launcher`, `Pipeline`.
 
-### SimulationView (immutable view)
+### Run (immutable view, v0.6)
 
-- **Canonical name:** `SimulationView`
-- **Module:** `hydromodpy.results.simulation.SimulationView`
-- **Role:** read-only handle returned by `catalog.get(sim_id)`. Exposes
-  fields, timeseries, metadata, and `.plot(...)`.
-- **Forbidden aliases:** `Simulation` (ambiguous), `SimulationResult`,
-  `RunOutput`.
-
-### Run
-
-A single concrete execution instance. Identified by `run_id` (ULID,
-lexicographically sortable, generated at submission). A simulation may
-accumulate multiple `run_id`s; the `sim_id` is stable across them (see
-*identifiers* below).
+- **Canonical name:** `Run`
+- **Module:** `hydromodpy.results.run.Run` (exposed as `hmp.Run`).
+- **Role:** read-only handle returned by `project.run(...)`,
+  `catalog[sim_id]`, `catalog.best(...)`, and `SimulationGroup` iteration.
+  Exposes fields, timeseries, metadata, and `.plot(...)`.
+- **Forbidden aliases:** `SimulationView` (removed in v0.6),
+  `SimulationResult`, `RunOutput`.
 
 ### Catalog
 

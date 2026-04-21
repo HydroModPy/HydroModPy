@@ -88,6 +88,8 @@ Related sections
    :maxdepth: 1
 
    choose-your-first-workflow
+   workspace-layout
+   project-vs-run
    data-overview-walkthrough
    simulation-walkthrough
    reading-results-pages
