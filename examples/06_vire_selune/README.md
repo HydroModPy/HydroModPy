@@ -33,8 +33,8 @@ The example mixes local and API-backed inputs:
 ## Run the watershed overview
 
 ```bash
-python -m launchers data-overview run overview_vire.toml
-python -m launchers data-overview run overview_selune.toml
+hmp run overview_vire.toml
+hmp run overview_selune.toml
 ```
 
 ## Run the simplified transient flow simulations

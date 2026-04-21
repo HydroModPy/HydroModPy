@@ -3,7 +3,7 @@ project_root = "."
 
 [geographic]
 catch_def = "from_outlet_coord"
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+dem_init_path = "../data/dem/DEM_armorican_massif.tif"
 snap_dist = "150 m"
 buff_area = "10%"
 crs_project = "EPSG:2154"

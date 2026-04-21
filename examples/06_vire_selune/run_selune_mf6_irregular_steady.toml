@@ -59,14 +59,14 @@ id = "field_geology"
 cell_samples_per_axis = 8
 
 [mesh_catchment.geology.source]
-path = "../../data/geology/GEO1M.shp"
+path = "../data/geology/GEO1M.shp"
 kind = "vector"
 code_field = "CODE_LEG"
-reference_raster_path = "../../data/dem/DEM_armorican_massif.tif"
+reference_raster_path = "../data/dem/DEM_armorican_massif.tif"
 
 [mesh_catchment.hydraulic_properties.conductivity]
 values_source = "csv"
-values_csv_file = "../../data/geology/geology_K_dummy_demo.csv"
+values_csv_file = "../data/geology/geology_K_dummy_demo.csv"
 csv_value_column = "K_value"
 
 [mesh_catchment.hydraulic_properties.storage_coefficient]

@@ -1,6 +1,6 @@
 # Minimal data-overview example focused on BD Topage hydrography.
 # Usage:
-#   python -m launchers data-overview run config_hydrography_only.toml
+#   hmp run config_hydrography_only.toml
 
 [workspace]
 project_root = "hydrography_only"
@@ -8,7 +8,7 @@ project_root = "hydrography_only"
 [geographic]
 source_mode = "standard"
 catch_def = "from_outlet_coord"
-dem_init_path = "../../../examples_legacy/04_streamflow_intermittence_in_transient/data/regional dem.tif"
+dem_init_path = "../data/dem/DEM_armorican_massif.tif"
 x_outlet = 389285.910
 y_outlet = 6816518.749
 snap_dist = "150 m"
