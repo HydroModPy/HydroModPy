@@ -1,10 +1,12 @@
 """Shared pytest configuration for the HydroModPy test suite."""
 
 import os
+import random
 import shutil
 from pathlib import Path
 import tempfile
 
+import numpy as np
 import pytest
 
 
@@ -109,6 +111,14 @@ def minimal_config(tmp_path: Path):
         workspace=WorkspaceConfig(project_root=tmp_path / "project"),
         geographic=GeographicConfig(source_mode="synthetic"),
     )
+
+
+@pytest.fixture(autouse=True)
+def _deterministic_seeds():
+    """Reset Python and NumPy RNG seeds before each test for reproducibility."""
+    random.seed(42)
+    np.random.seed(42)
+    yield
 
 
 @pytest.fixture(autouse=True)
