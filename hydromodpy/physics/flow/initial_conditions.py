@@ -42,6 +42,11 @@ class FlowInitialCondition(BaseInitialCondition):
     - `type="custom"`: initialize with one explicit numeric value.
     """
 
+    # The flow process exposes a single IC variable always identified by "h";
+    # users never set ``id`` themselves and the [flow.ic] normalizer actively
+    # rejects it. Hide it from user-profile templates.
+    id: Annotated[str, Profile.DEV] = Field("h", description="id of the initial condition (forced to 'h' for flow)")
+
     type: Annotated[Literal["top", "bottom", "custom"], Profile.USER] = Field(
         "custom",
         description=(

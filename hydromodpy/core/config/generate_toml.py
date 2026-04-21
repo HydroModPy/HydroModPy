@@ -56,10 +56,7 @@ def _get_registry() -> dict[str, type[BaseModel]]:
         from hydromodpy.display.config import DisplayConfig
         from hydromodpy.results.postprocess_config import PostprocessConfig
         from hydromodpy.workflow.pipelines.overview_config import OverviewSection
-        from hydromodpy.spatial.mesh.config import (
-            MeshCatchmentBatchSection,
-            MeshCatchmentConfig,
-        )
+        from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
         _MODULE_REGISTRY = {
             "workspace": WorkspaceConfig,
             "geographic": GeographicConfig,
@@ -70,8 +67,12 @@ def _get_registry() -> dict[str, type[BaseModel]]:
             "solver": SolverConfig,
             "modflownwt": ModflowConfig,
             "modflow6": Modflow6Config,
+            # ``mesh_catchment`` is optional at the aggregator level and its
+            # inner schema pulls in additional required sections (geology,
+            # rivers) as soon as it is emitted. It is only used for the
+            # mesh-only workflow, so we leave it out of the default template;
+            # users can request it explicitly via ``--modules mesh_catchment``.
             "mesh_catchment": MeshCatchmentConfig,
-            "mesh_catchment_batch": MeshCatchmentBatchSection,
             "overview": OverviewSection,
             "simulation": SimulationConfig,
             "display": DisplayConfig,
@@ -119,7 +120,11 @@ def generate_toml(
     registry = _get_registry()
 
     if modules is None:
-        selected = registry
+        # Default auto-selection: drop opt-in workflow-only sections that are
+        # Optional at the aggregator level and would require more targeted
+        # inputs to validate out-of-the-box (e.g. mesh-only workflow).
+        _OPT_IN = {"mesh_catchment"}
+        selected = {k: v for k, v in registry.items() if k not in _OPT_IN}
     else:
         unknown = set(modules) - set(registry)
         if unknown:

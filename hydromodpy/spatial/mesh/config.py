@@ -12,7 +12,7 @@ codebase; this file assembles those pieces into one user-facing TOML contract.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
@@ -472,8 +472,10 @@ class MeshCatchmentConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    constraints_mode: Annotated[str, Profile.USER] = Field(
-        ...,
+    constraints_mode: Annotated[
+        Literal["geology_only", "rivers_only", "geology_rivers"], Profile.USER,
+    ] = Field(
+        "geology_rivers",
         description=(
             "Meshing compliance target. "
             "'geology_only' conforms the mesh to geology interfaces only, "
