@@ -6,14 +6,14 @@ It replaces scattered dict registries that used to live inside
 
 The registry stores *classes*, not instances, so consumers instantiate
 adapters freshly per run. This matches the lifecycle intent of
-``SolverAdapter`` (one adapter = one run).
+``SolverRunner`` (one adapter = one run).
 """
 
 from __future__ import annotations
 
 from typing import Iterable
 
-from hydromodpy.solver.base.protocol import SolverAdapter
+from hydromodpy.solver.base.protocol import SolverRunner
 
 AdapterKey = tuple[str, str]
 
@@ -67,8 +67,8 @@ def pairs_for_process(process_type: str) -> Iterable[AdapterKey]:
 
 
 def is_adapter(obj: object) -> bool:
-    """Return ``True`` when *obj* structurally conforms to ``SolverAdapter``."""
-    return isinstance(obj, SolverAdapter)
+    """Return ``True`` when *obj* structurally conforms to ``SolverRunner``."""
+    return isinstance(obj, SolverRunner)
 
 
 __all__ = [

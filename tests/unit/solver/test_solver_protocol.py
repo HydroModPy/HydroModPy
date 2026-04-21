@@ -1,4 +1,4 @@
-"""Unit tests for the ``SolverAdapter`` Protocol and ``RunResult`` dataclass."""
+"""Unit tests for the ``SolverRunner`` Protocol and ``RunResult`` dataclass."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.solver.base.protocol import RunResult, SolverAdapter
+from hydromodpy.solver.base.protocol import RunResult, SolverRunner
 
 
 class DummyAdapter:
@@ -55,11 +55,11 @@ class PartialAdapter:
 
 
 def test_dummy_adapter_is_recognised_as_solver_adapter() -> None:
-    assert isinstance(DummyAdapter(), SolverAdapter)
+    assert isinstance(DummyAdapter(), SolverRunner)
 
 
 def test_partial_adapter_fails_structural_check() -> None:
-    assert not isinstance(PartialAdapter(), SolverAdapter)
+    assert not isinstance(PartialAdapter(), SolverRunner)
 
 
 def test_lifecycle_order_on_dummy_adapter() -> None:

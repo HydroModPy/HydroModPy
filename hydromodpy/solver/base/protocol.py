@@ -7,7 +7,7 @@ orchestration layer stays solver-agnostic:
 ``setup`` → ``build`` → ``run`` → ``extract`` → ``cleanup``
 
 Adapters conform *structurally*: there is no base class to inherit from.
-The runner checks conformance via ``isinstance(obj, SolverAdapter)`` at
+The runner checks conformance via ``isinstance(obj, SolverRunner)`` at
 ``@runtime_checkable`` time.
 """
 
@@ -20,7 +20,7 @@ from typing import Any, Protocol, runtime_checkable
 
 @dataclass(frozen=True)
 class RunResult:
-    """Outcome of a single ``SolverAdapter.run`` invocation."""
+    """Outcome of a single ``SolverRunner.run`` invocation."""
 
     converged: bool
     output_dir: Path | None = None
@@ -31,7 +31,7 @@ class RunResult:
 
 
 @runtime_checkable
-class SolverAdapter(Protocol):
+class SolverRunner(Protocol):
     """Five-step lifecycle any HydroModPy solver backend must honour."""
 
     process_type: str
@@ -53,4 +53,4 @@ class SolverAdapter(Protocol):
         """Release handles, close binaries, delete scratch as needed."""
 
 
-__all__ = ["RunResult", "SolverAdapter"]
+__all__ = ["RunResult", "SolverRunner"]
