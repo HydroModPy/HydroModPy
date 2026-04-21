@@ -130,7 +130,7 @@ include-package-data = true
 include = ["hydromodpy*"]
 
 [tool.setuptools.package-data]
-hydromodpy = ["../bin/**/*"]
+hydromodpy = ["../bin/**/*", "py.typed"]
 "hydromodpy.process.hydrology.pyhelp" = ["*.FOR"]
 "hydromodpy.data.common.administrative" = ["*.gpkg"]
 

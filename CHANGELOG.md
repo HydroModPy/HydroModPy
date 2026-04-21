@@ -38,6 +38,28 @@ Each release section includes the following standard categories:
   `SolverError`, `PipelineError`, `CalibrationError`, `DisplayError`,
   `StorageError` sub-trees). Each class carries a stable `HMPY.Exxx` code
   and optional `sim_id` / `run_id` context.
+- `hydromodpy.core.io` subpackage — canonical I/O helpers
+  (`raster_io`, `vector_io`, `crs`, `canonical_json`, `http_client` stub).
+- `hydromodpy.core.logging` subpackage hosting `LogManager`, `get_logger`,
+  and `setup_simulation_log` (moved from `core.tools.log_manager`).
+- `hydromodpy.core.version` — single source for `__version__`.
+
+### Changed
+- **BREAKING**: project version bumped to `0.5.0.dev0`.
+- **BREAKING**: imports relocated:
+  - `hydromodpy.core.tools.raster_io` → `hydromodpy.core.io.raster_io`.
+  - `hydromodpy.core.tools.geospatial` → `hydromodpy.core.io.crs`.
+  - `hydromodpy.core.tools.filesystem.load_shapefile` →
+    `hydromodpy.core.io.vector_io.load_shapefile`.
+  - `hydromodpy.core.tools.log_manager` → `hydromodpy.core.logging`
+    (re-exported from `hydromodpy.core.logging` package init).
+- `TimeSeriesValidationError`, `RasterConversionError`,
+  `VectorConversionError` now inherit from the typed `DataError` /
+  `DataContractViolation` hierarchy instead of bare built-ins.
+
+### Removed
+- `hydromodpy/core/tools/geospatial.py` (moved to `core/io/crs.py`). The
+  unused ``basin_area`` helper did not carry over.
 
 ---
 
