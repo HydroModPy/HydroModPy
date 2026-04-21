@@ -178,7 +178,7 @@ class Simulation:
             apply_explicit_time_window_to_tgrids,
             require_flow_simulation_time_grid,
         )
-        from hydromodpy.data import DataManagersPlanner
+        from hydromodpy.data import DataPlanner
         from hydromodpy.results.catalog import SimulationCatalog
         from hydromodpy.spatial.domain.spatial_support import (
             build_default_spatial_support_provider_registry,
@@ -258,7 +258,7 @@ class Simulation:
         )
 
         # Phase 5: data plan (enriched with domain supports)
-        data_plan = DataManagersPlanner().build(
+        data_plan = DataPlanner().build(
             self.cfg.data,
             domain_zone_ids=self.cfg.domain.zone_ids,
             domain_support_provider_names=support_provider_names(

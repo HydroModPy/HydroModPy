@@ -16,7 +16,7 @@ from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.data.plan import DataLoadPlan
 
 
-class DataManagersPlanner:
+class DataPlanner:
     """Build a deterministic data-manager activation plan."""
 
     def build(
@@ -114,7 +114,7 @@ class DataManagersPlanner:
 
     @staticmethod
     def _domain_requests_geology(domain_zone_ids: Sequence[str] | None) -> bool:
-        return "geology" in DataManagersPlanner._normalize_tokens(domain_zone_ids)
+        return "geology" in DataPlanner._normalize_tokens(domain_zone_ids)
 
     @staticmethod
     def _normalize_tokens(values: Sequence[str] | None) -> set[str]:

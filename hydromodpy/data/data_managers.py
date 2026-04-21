@@ -6,7 +6,7 @@ Design note
 type list used by orchestration code. Validation and inference live in:
 
 - ``DataManagersConfig`` for schema/normalization,
-- ``DataManagersPlanner`` for explicit + inferred activation rules.
+- ``DataPlanner`` for explicit + inferred activation rules.
 """
 
 from __future__ import annotations
