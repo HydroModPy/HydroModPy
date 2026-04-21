@@ -38,14 +38,60 @@ from hydromodpy.physics.flow.sinks_sources import (
 from hydromodpy.physics.flow.sinks_sources_config import (
     normalize_flow_sinks_sources,
 )
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.physics.base import ProcessSpatialConfig
 
 __all__ = [
     "FlowBoundaryConditionConfig",
     "FlowWellConfig",
     "FlowSinksSourcesConfig",
+    "FlowRuntimeConfig",
     "FlowConfig",
 ]
+
+
+class FlowRuntimeConfig(HydroModelBase):
+    """Grouped view of the Boussinesq runtime fields on :class:`FlowConfig`.
+
+    The spec (``02_config_pydantic.md`` §3.3) groups all runtime-only
+    Boussinesq solver knobs under a single ``runtime`` sub-block so that
+    user-facing templates do not scatter ``runtime_backend``,
+    ``runtime_max_iterations`` and ``runtime_tol_*`` at the top of
+    ``[flow]``. We keep the flat flow-config fields for existing
+    consumers and expose this dataclass-style view via
+    :attr:`FlowConfig.runtime` for new call-sites.
+    """
+
+    backend: Literal["local", "scipy", "scipy_sparse", "petsc"] = Field(
+        default="local",
+        description=(
+            "Nonlinear runtime backend used by Boussinesq-style solvers."
+        ),
+    )
+    surface_model: Literal[
+        "auto", "regularized_partition", "complementarity"
+    ] = Field(
+        default="auto",
+        description=(
+            "Surface-interaction closure selector (Boussinesq). "
+            "``regularized_partition`` uses the Marcais-style q_ex = G_r(theta) "
+            "R(balance) law; ``complementarity`` uses the PETSc "
+            "q_ex-perp-(z_top-h) formulation; ``auto`` keeps the historical "
+            "backend-dependent default."
+        ),
+    )
+    max_iterations: int | None = Field(
+        default=None,
+        description="Optional override for the nonlinear iteration budget.",
+    )
+    tol_residual_inf: float | None = Field(
+        default=None,
+        description="Optional override for the inf-norm residual tolerance.",
+    )
+    tol_state_update_inf: float | None = Field(
+        default=None,
+        description="Optional override for the inf-norm state-update tolerance.",
+    )
 
 
 class FlowConfig(ProcessSpatialConfig):
@@ -399,6 +445,25 @@ class FlowConfig(ProcessSpatialConfig):
             seen.add(name)
             out.append(name)
         return out
+
+    @property
+    def runtime(self) -> FlowRuntimeConfig:
+        """Return the grouped Boussinesq runtime view.
+
+        Architecture spec ``02_config_pydantic.md`` §3.3 groups
+        Boussinesq runtime knobs under a single sub-block. The flat
+        ``runtime_*`` fields on :class:`FlowConfig` remain the source of
+        truth; this property exposes a structured view assembled on
+        demand for consumers that prefer one object over scattered
+        attributes.
+        """
+        return FlowRuntimeConfig(
+            backend=self.runtime_backend,
+            surface_model=self.surface_interaction_model,
+            max_iterations=self.runtime_max_iterations,
+            tol_residual_inf=self.runtime_tol_residual_inf,
+            tol_state_update_inf=self.runtime_tol_state_update_inf,
+        )
 
     @classmethod
     def from_toml_section(
