@@ -6,7 +6,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.base import HydroModelBase
 
 
@@ -15,39 +15,39 @@ class DerivedConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    watertable_elevation: Annotated[bool, ParamLevel("user")] = Field(
+    watertable_elevation: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Compute water-table elevation from uppermost saturated layer.",
     )
-    watertable_depth: Annotated[bool, ParamLevel("user")] = Field(
+    watertable_depth: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Compute water-table depth (surface minus water-table elevation).",
     )
-    seepage_areas: Annotated[bool, ParamLevel("user")] = Field(
+    seepage_areas: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Identify seepage areas where water table >= surface elevation.",
     )
-    groundwater_flux: Annotated[bool, ParamLevel("dev")] = Field(
+    groundwater_flux: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Magnitude of inter-cell flow (right/front/lower face). Volumetric.",
     )
-    accumulation_flux: Annotated[bool, ParamLevel("dev")] = Field(
+    accumulation_flux: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Drain flux routed on the drainage network.",
     )
-    outflow_drain: Annotated[bool, ParamLevel("dev")] = Field(
+    outflow_drain: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Per-cell drain outflow preserving sign convention.",
     )
-    concentration_seepage: Annotated[bool, ParamLevel("dev")] = Field(
+    concentration_seepage: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Concentration at seepage cells only. Requires transport.",
     )
-    mass_seepage: Annotated[bool, ParamLevel("dev")] = Field(
+    mass_seepage: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Mass flux at seepage cells. Requires transport + budget.",
     )
-    mass_accumulated: Annotated[bool, ParamLevel("dev")] = Field(
+    mass_accumulated: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Cumulative mass_seepage over time.",
     )
@@ -58,11 +58,11 @@ class ExportVariablesConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    head: Annotated[bool, ParamLevel("user")] = Field(default=True, description="Export head field.")
-    concentration: Annotated[bool, ParamLevel("user")] = Field(default=False, description="Export concentration field.")
-    budget: Annotated[bool, ParamLevel("dev")] = Field(default=False, description="Export spatial budget fields.")
-    pathlines: Annotated[bool, ParamLevel("dev")] = Field(default=False, description="Export pathline data.")
-    derived: Annotated[bool, ParamLevel("user")] = Field(
+    head: Annotated[bool, Profile.USER] = Field(default=True, description="Export head field.")
+    concentration: Annotated[bool, Profile.USER] = Field(default=False, description="Export concentration field.")
+    budget: Annotated[bool, Profile.DEV] = Field(default=False, description="Export spatial budget fields.")
+    pathlines: Annotated[bool, Profile.DEV] = Field(default=False, description="Export pathline data.")
+    derived: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Export derived variables (watertable_depth, seepage_areas, etc.).",
     )
@@ -84,16 +84,16 @@ class ExportConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    netcdf: Annotated[bool, ParamLevel("user")] = Field(default=True, description="Export to NetCDF-4/UGRID.")
-    csv_timeseries: Annotated[bool, ParamLevel("user")] = Field(default=True, description="Export time series to CSV.")
-    vtu: Annotated[bool, ParamLevel("dev")] = Field(default=False, description="Export to VTU (ParaView).")
-    geotiff: Annotated[bool, ParamLevel("dev")] = Field(default=False, description="Export to GeoTIFF.")
-    shapefile: Annotated[bool, ParamLevel("dev")] = Field(default=False, description="Export to Shapefile.")
-    output_dir: Annotated[str | None, ParamLevel("dev")] = Field(
+    netcdf: Annotated[bool, Profile.USER] = Field(default=True, description="Export to NetCDF-4/UGRID.")
+    csv_timeseries: Annotated[bool, Profile.USER] = Field(default=True, description="Export time series to CSV.")
+    vtu: Annotated[bool, Profile.DEV] = Field(default=False, description="Export to VTU (ParaView).")
+    geotiff: Annotated[bool, Profile.DEV] = Field(default=False, description="Export to GeoTIFF.")
+    shapefile: Annotated[bool, Profile.DEV] = Field(default=False, description="Export to Shapefile.")
+    output_dir: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Output directory for exports. Defaults to project results folder.",
     )
-    variables: Annotated[ExportVariablesConfig, ParamLevel("user")] = Field(
+    variables: Annotated[ExportVariablesConfig, Profile.USER] = Field(
         default_factory=ExportVariablesConfig,
         description="Which variables to include in exports.",
     )
@@ -108,7 +108,7 @@ class BudgetConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    spatial_fields: Annotated[bool, ParamLevel("dev")] = Field(
+    spatial_fields: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Extract per-cell budget fields (DRN, RCH, etc.) into Zarr.",
     )
@@ -124,30 +124,30 @@ class ResultsConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    store: Annotated[bool, ParamLevel("user")] = Field(
+    store: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Store simulation outputs in the SimulationCatalog (DuckDB + Zarr).",
     )
-    keep_solver_files: Annotated[bool, ParamLevel("dev")] = Field(
+    keep_solver_files: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Keep raw solver output files (.hds, .cbc, .lst) after ingestion.",
     )
-    solver_scratch: Annotated[str, ParamLevel("dev")] = Field(
+    solver_scratch: Annotated[str, Profile.DEV] = Field(
         default=".solver_scratch",
         description=(
             "Directory for temporary solver files, relative to the project. "
             "Use an absolute path (e.g. /scratch/$USER/hmp) for HPC."
         ),
     )
-    derived: Annotated[DerivedConfig, ParamLevel("user")] = Field(
+    derived: Annotated[DerivedConfig, Profile.USER] = Field(
         default_factory=DerivedConfig,
         description="Derived variable computation toggles.",
     )
-    budget: Annotated[BudgetConfig, ParamLevel("dev")] = Field(
+    budget: Annotated[BudgetConfig, Profile.DEV] = Field(
         default_factory=BudgetConfig,
         description="Budget extraction configuration.",
     )
-    export: Annotated[ExportConfig, ParamLevel("user")] = Field(
+    export: Annotated[ExportConfig, Profile.USER] = Field(
         default_factory=ExportConfig,
         description="Automated export configuration.",
     )

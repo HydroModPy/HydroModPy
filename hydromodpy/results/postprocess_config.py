@@ -12,7 +12,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.base import HydroModelBase
 
 
@@ -21,7 +21,7 @@ class PostprocessConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="allow")
 
-    enabled: Annotated[bool, ParamLevel("user")] = Field(
+    enabled: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
             "Legacy switch. The pipeline now always runs the extract/derive/"
