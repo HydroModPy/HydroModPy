@@ -5,7 +5,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.param_level import ParamLevel, VisibleWhen
+from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config.param_level import VisibleWhen
 from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
 from hydromodpy.core.units import parse_length_to_m
 from hydromodpy.core.config.base import HydroModelBase
@@ -16,14 +17,14 @@ class RiverNetworkConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: Annotated[bool, ParamLevel("user")] = Field(
+    enabled: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
             "Enable DEM-based river-network extraction from flow accumulation "
             "during geographic preprocessing."
         ),
     )
-    threshold_mode: Annotated[Literal["area_km2", "cells"], ParamLevel("user")] = Field(
+    threshold_mode: Annotated[Literal["area_km2", "cells"], Profile.USER] = Field(
         default="area_km2",
         description=(
             "Stream-initiation threshold selector. "
@@ -33,7 +34,7 @@ class RiverNetworkConfig(HydroModelBase):
     )
     threshold_area_km2: Annotated[
         float | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("threshold_mode", "area_km2"),
     ] = Field(
         default=None,
@@ -44,7 +45,7 @@ class RiverNetworkConfig(HydroModelBase):
     )
     threshold_cells: Annotated[
         float | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("threshold_mode", "cells"),
     ] = Field(
         default=None,
@@ -52,26 +53,26 @@ class RiverNetworkConfig(HydroModelBase):
             "Contributing-cell threshold, required when threshold_mode='cells'."
         ),
     )
-    prune_short_streams: Annotated[bool, ParamLevel("user")] = Field(
+    prune_short_streams: Annotated[bool, Profile.USER] = Field(
         default=False,
         description="If true, remove short stream segments after extraction.",
     )
-    min_stream_length_m: Annotated[float | str, ParamLevel("user")] = Field(
+    min_stream_length_m: Annotated[float | str, Profile.USER] = Field(
         default=0.0,
         description=(
             "Minimum stream length used by short-segment pruning. "
             "Accepts SI-friendly values (for example 0, 250, '250 m', '0.5 km')."
         ),
     )
-    compute_strahler_order: Annotated[bool, ParamLevel("user")] = Field(
+    compute_strahler_order: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Compute Strahler order raster from extracted streams.",
     )
-    compute_stream_links: Annotated[bool, ParamLevel("user")] = Field(
+    compute_stream_links: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Compute stream-link identifier raster from extracted streams.",
     )
-    all_vertices: Annotated[bool, ParamLevel("user")] = Field(
+    all_vertices: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
             "Forwarded to Whitebox raster_streams_to_vector. "
@@ -147,7 +148,7 @@ class GeographicConfig(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     source_mode: Annotated[
-        Literal["standard", "synthetic"], ParamLevel("user")
+        Literal["standard", "synthetic"], Profile.USER
     ] = Field(
         default="standard",
         description=(
@@ -158,7 +159,7 @@ class GeographicConfig(HydroModelBase):
     )
     catch_def: Annotated[
         Literal["dem", "txt", "from_outlet_coord", "from_polyg_shp"] | None,
-        ParamLevel("user"),
+        Profile.USER,
     ] = Field(
         default=None,
         description=(
@@ -174,7 +175,7 @@ class GeographicConfig(HydroModelBase):
 
     dem_init_path: Annotated[
         Path | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("source_mode", "standard"),
     ] = Field(
         default=None,
@@ -186,7 +187,7 @@ class GeographicConfig(HydroModelBase):
     )
     cell_size: Annotated[
         float | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("catch_def", "txt"),
     ] = Field(
         default=None,
@@ -195,7 +196,7 @@ class GeographicConfig(HydroModelBase):
     )
     x_outlet: Annotated[
         float | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("catch_def", "from_outlet_coord"),
     ] = Field(
         default=None,
@@ -203,7 +204,7 @@ class GeographicConfig(HydroModelBase):
     )
     y_outlet: Annotated[
         float | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("catch_def", "from_outlet_coord"),
     ] = Field(
         default=None,
@@ -211,7 +212,7 @@ class GeographicConfig(HydroModelBase):
     )
     snap_dist: Annotated[
         float | str | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("catch_def", "from_outlet_coord"),
     ] = Field(
         default=None,
@@ -223,7 +224,7 @@ class GeographicConfig(HydroModelBase):
     )
     buff_area: Annotated[
         str | float | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("catch_def", ("from_outlet_coord", "from_polyg_shp")),
     ] = Field(
         default=None,
@@ -236,43 +237,43 @@ class GeographicConfig(HydroModelBase):
     )
     polyg_shp_path: Annotated[
         Path | None,
-        ParamLevel("user"),
+        Profile.USER,
         VisibleWhen("catch_def", "from_polyg_shp"),
     ] = Field(
         default=None,
         description="Path to the watershed polygon shapefile. Required for 'from_polyg_shp' mode.",
     )
-    crs_project: Annotated[str | None, ParamLevel("user")] = Field(
+    crs_project: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM.",
     )
-    dem_correc_type: Annotated[Literal["breach", "fill"], ParamLevel("user")] = Field(
+    dem_correc_type: Annotated[Literal["breach", "fill"], Profile.USER] = Field(
         default="breach",
         description="DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.",
     )
-    bottom_path: Annotated[Path | None, ParamLevel("user")] = Field(
+    bottom_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description="Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain.",
     )
-    reg_fold: Annotated[Path | None, ParamLevel("dev")] = Field(
+    reg_fold: Annotated[Path | None, Profile.DEV] = Field(
         default=None,
         description="Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed.",
     )
-    synthetic: Annotated[SyntheticGeographicConfig, ParamLevel("user")] = Field(
+    synthetic: Annotated[SyntheticGeographicConfig, Profile.USER] = Field(
         default_factory=SyntheticGeographicConfig,
         description=(
             "Synthetic geographic support used when source_mode='synthetic'. "
             "This analytical mode bypasses watershed delineation from external DEM files."
         ),
     )
-    river_network: Annotated[RiverNetworkConfig, ParamLevel("user")] = Field(
+    river_network: Annotated[RiverNetworkConfig, Profile.USER] = Field(
         default_factory=RiverNetworkConfig,
         description=(
             "Optional DEM-derived river-network extraction settings. "
             "When disabled, no stream network is generated in geographic preprocessing."
         ),
     )
-    reuse_existing_outputs: Annotated[bool, ParamLevel("user")] = Field(
+    reuse_existing_outputs: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
             "If true, reuse previously generated geographic artifacts when the "
@@ -282,7 +283,7 @@ class GeographicConfig(HydroModelBase):
         ),
     )
 
-    write_intermediates: Annotated[bool, ParamLevel("dev")] = Field(
+    write_intermediates: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description=(
             "Keep intermediate rasters and shapefiles on disk after geographic "
