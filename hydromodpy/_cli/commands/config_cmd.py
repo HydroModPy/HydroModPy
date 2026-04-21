@@ -149,7 +149,6 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
     import tomllib
 
     from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
     path = Path(args.file).expanduser().resolve()
     if not path.is_file():
@@ -157,16 +156,13 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
         sys.exit(EXIT_NOT_FOUND)
 
     try:
-        raw = load_toml_with_base_config(path)
+        HydroModPyConfig.from_toml(path)
     except tomllib.TOMLDecodeError as exc:
         print(f"Invalid TOML syntax: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     except ValueError as exc:
         print(f"Invalid base_config chain: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
-
-    try:
-        HydroModPyConfig.model_validate(raw)
     except Exception as exc:
         if type(exc).__name__ == "ValidationError":
             print(f"Config invalid: {path}", file=sys.stderr)
