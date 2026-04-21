@@ -39,7 +39,7 @@ import hydromodpy as hmp
 
 # ---- Prototypage : acces direct aux objets ----
 workspace  = hmp.Workspace(config=cfg.workspace)
-geographic = hmp.Geographic(cfg.geographic, workspace)
+geographic = hmp.CatchmentDelineation(cfg.geographic, workspace)
 modflow    = hmp.Modflow(geographic, ...)
 modflow.pre_processing(...)
 modflow.processing(...)
@@ -52,7 +52,7 @@ launcher.run()
 ```
 
 Pas de `import hydromodpy_dev` ni de package separe pour le prototypage.
-Les objets (`Modflow`, `Geographic`, `Flow`...) sont utilises par les deux
+Les objets (`Modflow`, `CatchmentDelineation`, `Flow`...) sont utilises par les deux
 modes. Creer deux points d'entree pour les memes classes serait de la
 duplication d'API sans valeur ajoutee. C'est le pattern standard des
 bibliotheques scientifiques (scikit-learn, PyTorch, FloPy) : un package
@@ -249,7 +249,7 @@ cfg = HydroModPyConfig.from_toml("config.toml")
 
 # Etape par etape, chaque objet est manipulable
 workspace   = hmp.Workspace(config=cfg.workspace)
-geographic  = hmp.Geographic(cfg.geographic, workspace)
+geographic  = hmp.CatchmentDelineation(cfg.geographic, workspace)
 domain      = Domain(config=cfg.domain, surface_topo=geographic.get_domain_surface_topo())
 flow        = Flow(config=cfg.flow)
 
@@ -319,7 +319,7 @@ geo_cfg = GeographicConfig(
     buff_area=20.0,
     crs_project="EPSG:2154",
 )
-geographic = hmp.Geographic(geo_cfg, workspace)
+geographic = hmp.CatchmentDelineation(geo_cfg, workspace)
 ```
 
 C'est un usage de premiere classe, pas un hack. Le TOML n'est qu'un
@@ -804,7 +804,7 @@ cfg = HydroModPyConfig.from_toml("config.toml")
 
 # 1. Setup
 workspace  = hmp.Workspace(config=cfg.workspace)
-geographic = hmp.Geographic(cfg.geographic, workspace)
+geographic = hmp.CatchmentDelineation(cfg.geographic, workspace)
 domain     = Domain(config=cfg.domain, surface_topo=geographic.get_domain_surface_topo())
 
 # 2. Donnees

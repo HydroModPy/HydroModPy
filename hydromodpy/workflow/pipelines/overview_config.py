@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
         DomainGeographicContext,
     )
-    from hydromodpy.spatial.geographic.geographic import Geographic
+    from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 
 
 class OverviewPanelsConfig(BaseModel):
@@ -59,7 +59,7 @@ class DataOverviewState:
 
     cfg: "HydroModPyConfig"
     workspace: "Workspace | None" = None
-    geographic: "Geographic | None" = None
+    geographic: "CatchmentDelineation | None" = None
     geographic_features: "GeographicDerivedFeatures | None" = None
     domain_geographic: "DomainGeographicContext | None" = None
     loaded_data: LoadedDataContext = field(default_factory=LoadedDataContext)

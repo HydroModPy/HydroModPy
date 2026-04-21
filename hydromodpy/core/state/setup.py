@@ -28,7 +28,7 @@ class SetupContext:
     """Objects prepared during setup and reused by all runs."""
 
     workspace: Workspace | None = None
-    geographic: Any = None  # Geographic
+    geographic: Any = None  # CatchmentDelineation
     geographic_features: GeographicDerivedFeatures | None = None
     domain_geographic: DomainGeographicContext | None = None
     domain: Domain | None = None

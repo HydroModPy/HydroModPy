@@ -29,7 +29,7 @@ EXPECTED_TOP_LEVEL = [
     "Catalog",
     # Core
     "Workspace",
-    "Geographic",
+    "CatchmentDelineation",
     # Solvers
     "Modflow",
     "Boussinesq",

@@ -7,7 +7,7 @@ This module separates spatial referencing from raster values:
 - ``RasterSupport`` stores where those values live in space.
 
 Keeping both concerns separate makes surface operations simpler and avoids
-passing larger objects such as ``Geographic`` into low-level domain classes.
+passing larger objects such as ``CatchmentDelineation`` into low-level domain classes.
 """
 
 from collections.abc import Mapping

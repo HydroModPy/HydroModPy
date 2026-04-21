@@ -1,6 +1,6 @@
 """Ingest geographic preprocessing outputs into the SimulationCatalog.
 
-Called once per project after :class:`Geographic` processing completes.
+Called once per project after :class:`CatchmentDelineation` processing completes.
 Reads rasters (via rasterio) and shapefiles (via geopandas) from the
 file-based outputs, then writes them into the catalog (Zarr + DuckDB)
 so that downstream consumers can read from the store directly.

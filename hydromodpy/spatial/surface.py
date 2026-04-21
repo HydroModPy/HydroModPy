@@ -53,7 +53,7 @@ class Surface:
         """
         Build one surface from explicit DEM values.
 
-        This constructor does not read from ``Geographic`` directly. The caller
+        This constructor does not read from ``CatchmentDelineation`` directly. The caller
         must provide:
         - the already-extracted DEM values,
         - and, when available, the matching ``RasterSupport``.

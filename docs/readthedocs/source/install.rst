@@ -272,7 +272,7 @@ Check the installation
 
    import hydromodpy
    from hydromodpy.core.config import HydroModPyConfig
-   from hydromodpy.spatial.geographic import Geographic
+   from hydromodpy.spatial.geographic import CatchmentDelineation
    # Examples of submodule imports
    from hydromodpy.analysis.display import visualization_watershed, visualization_results
    from hydromodpy.core.tools import toolbox

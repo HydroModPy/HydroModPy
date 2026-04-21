@@ -42,7 +42,7 @@ def build_geographic_runtime(cfg: object, workspace: object) -> object:
             output_dir=Path(workspace.project_root) / LEGACY_STABLE_DIR / "geographic",
             workspace=workspace,
         )
-    return hmp.Geographic(geographic_cfg, workspace)
+    return hmp.CatchmentDelineation(geographic_cfg, workspace)
 
 
 # ---------------------------------------------------------------------------

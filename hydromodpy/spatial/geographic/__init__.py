@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import importlib
 
-from hydromodpy.spatial.geographic.geographic import DEM_correcflow_analysis, Geographic
+from hydromodpy.spatial.geographic.catchment_delineation import (
+    CatchmentDelineation,
+    DEM_correcflow_analysis,
+)
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig, RiverNetworkConfig
 from hydromodpy.spatial.geographic.dem_metadata import (
     LegacyDemMetadata,
@@ -142,7 +145,7 @@ def __getattr__(name: str):
 
 
 __all__ = [
-    "Geographic",
+    "CatchmentDelineation",
     "GeographicConfig",
     "RiverNetworkConfig",
     "DEM_correcflow_analysis",

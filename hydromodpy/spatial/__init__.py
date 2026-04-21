@@ -15,7 +15,7 @@ from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial.field import FieldParam
-from hydromodpy.spatial.geographic import Geographic, GeographicConfig
+from hydromodpy.spatial.geographic import CatchmentDelineation, GeographicConfig
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 
 __all__ = [
@@ -26,7 +26,7 @@ __all__ = [
     "Domain",
     "DomainConfig",
     "FieldParam",
-    "Geographic",
+    "CatchmentDelineation",
     "GeographicConfig",
     "CellBlock",
     "CellType",

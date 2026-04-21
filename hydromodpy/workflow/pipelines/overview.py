@@ -138,9 +138,9 @@ class DataOverviewLauncher:
         from hydromodpy.spatial.geographic.core.derived_features import (
             coerce_geographic_derived_features,
         )
-        from hydromodpy.spatial.geographic.geographic import Geographic
+        from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 
-        geographic = Geographic(state.cfg.geographic, state.workspace)
+        geographic = CatchmentDelineation(state.cfg.geographic, state.workspace)
         state.geographic = geographic
 
         geographic_features = coerce_geographic_derived_features(

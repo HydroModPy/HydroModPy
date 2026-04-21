@@ -24,7 +24,7 @@ from hydromodpy.spatial.geographic.cases.plotting_utils import (
     ensure_interactive_backend_for_show,
     show_figures_blocking,
 )
-from hydromodpy.spatial.geographic.geographic import Geographic
+from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.core.workspace import Workspace
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -35,7 +35,7 @@ def run_geographic_case_from_toml(config_toml: str | Path):
     """Build Workspace + Geographic from one global TOML file."""
     cfg = HydroModPyConfig.from_toml(config_toml)
     workspace = Workspace(config=cfg.workspace)
-    geographic = Geographic(config=cfg.geographic, initializing=workspace)
+    geographic = CatchmentDelineation(config=cfg.geographic, initializing=workspace)
     return workspace, geographic
 
 
@@ -236,7 +236,7 @@ def run_geographic_cases_from_toml(
         geo_cfg = cfg.geographic.model_copy(update=geo_overrides)
 
         workspace = Workspace(config=init_cfg)
-        geographic = Geographic(config=geo_cfg, initializing=workspace)
+        geographic = CatchmentDelineation(config=geo_cfg, initializing=workspace)
         metrics = compute_catchment_metrics(geographic)
         fig_path = None
         if write_plot:

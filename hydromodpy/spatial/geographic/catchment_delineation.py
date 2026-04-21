@@ -80,14 +80,13 @@ def DEM_correcflow_analysis(
     }
 
 
-class Geographic:
+class CatchmentDelineation:
     """
     Initializes the model domain (watershed) by performing geospatial operations.
 
-    Public contract is intentionally unchanged:
-    - constructor signature remains ``Geographic(config, initializing)``,
-    - main outputs are stored in the same public attributes,
-    - generated filenames remain identical.
+    Constructor signature is ``CatchmentDelineation(config, initializing)``.
+    Produces a public attribute payload describing the delineated catchment
+    (DEM metadata, watershed/box-buffer shapefiles, derived features).
     """
 
     def __init__(self, config: GeographicConfig, initializing):
@@ -112,7 +111,7 @@ class Geographic:
 
         The returned mapping is intentionally narrow: only the attributes that
         describe the spatial support are exposed, so callers can pass a small,
-        explicit payload instead of the whole `Geographic` object.
+        explicit payload instead of the whole `CatchmentDelineation` object.
 
         Returned keys
         -------------
@@ -137,7 +136,7 @@ class Geographic:
         Return the domain topographic surface as one fully prepared `Surface`.
 
         This helper keeps the extraction of topography-driven domain objects
-        close to the `Geographic` object that produces the underlying data,
+        close to the `CatchmentDelineation` object that produces the underlying data,
         while still passing only explicit objects to `Domain`.
         """
         return build_surface_topo_from_dem(self.watershed_box_buff_dem)

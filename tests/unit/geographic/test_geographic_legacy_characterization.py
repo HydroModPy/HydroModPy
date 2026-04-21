@@ -1,4 +1,4 @@
-"""Characterization tests for legacy ``hydromodpy.spatial.geographic.Geographic``.
+"""Characterization tests for legacy ``hydromodpy.spatial.geographic.CatchmentDelineation``.
 
 Goal:
 - lock the current public contract of the legacy class before migration,
@@ -21,7 +21,7 @@ from rasterio.features import geometry_mask, rasterize, shapes
 from rasterio.transform import from_origin
 from shapely.geometry import box, shape as shapely_shape
 
-from hydromodpy.spatial.geographic.geographic import Geographic
+from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.dem_metadata import _resolve_dep_code
 
@@ -264,8 +264,8 @@ def _write_json(path: Path, payload: dict) -> None:
         stream.write("\n")
 
 
-def _build_geographic_legacy_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Geographic:
-    import hydromodpy.spatial.geographic.geographic as geo_mod
+def _build_geographic_legacy_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CatchmentDelineation:
+    import hydromodpy.spatial.geographic.catchment_delineation as geo_mod
 
     fake_wbt = _FakeWhiteboxBackend()
     monkeypatch.setattr(geo_mod, "get_whitebox_backend", lambda: fake_wbt)
@@ -285,11 +285,11 @@ def _build_geographic_legacy_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         dem_correc_type="breach",
     )
     initializing = SimpleNamespace(project_root=str(tmp_path / "case_run"))
-    return Geographic(config=cfg, initializing=initializing)
+    return CatchmentDelineation(config=cfg, initializing=initializing)
 
 
-def _build_geographic_legacy_outlet_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Geographic:
-    import hydromodpy.spatial.geographic.geographic as geo_mod
+def _build_geographic_legacy_outlet_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CatchmentDelineation:
+    import hydromodpy.spatial.geographic.catchment_delineation as geo_mod
 
     fake_wbt = _FakeWhiteboxBackend()
     monkeypatch.setattr(geo_mod, "get_whitebox_backend", lambda: fake_wbt)
@@ -309,10 +309,10 @@ def _build_geographic_legacy_outlet_case(tmp_path: Path, monkeypatch: pytest.Mon
         dem_correc_type="breach",
     )
     initializing = SimpleNamespace(project_root=str(tmp_path / "case_run_outlet"))
-    return Geographic(config=cfg, initializing=initializing)
+    return CatchmentDelineation(config=cfg, initializing=initializing)
 
 
-def _legacy_signature(geo: Geographic) -> dict:
+def _legacy_signature(geo: CatchmentDelineation) -> dict:
     finite_box = np.isfinite(geo.dem_box_buff_data) & (geo.dem_box_buff_data != geo.nodata)
     finite_core = np.isfinite(geo.dem_data) & (geo.dem_data != geo.nodata)
 
@@ -489,7 +489,7 @@ def test_geographic_config_rejects_missing_outlet_fields() -> None:
 
 
 def test_geographic_legacy_missing_dem_file_raises(tmp_path: Path) -> None:
-    """Legacy Geographic should fail early when input DEM does not exist."""
+    """Legacy CatchmentDelineation should fail early when input DEM does not exist."""
     catchment_path = tmp_path / "inputs" / "catchment.shp"
     _write_synthetic_catchment(catchment_path)
     missing_dem = tmp_path / "inputs" / "missing_dem.tif"
@@ -505,7 +505,7 @@ def test_geographic_legacy_missing_dem_file_raises(tmp_path: Path) -> None:
     initializing = SimpleNamespace(project_root=str(tmp_path / "case_missing_dem"))
 
     with pytest.raises(RasterioIOError):
-        Geographic(config=cfg, initializing=initializing)
+        CatchmentDelineation(config=cfg, initializing=initializing)
 
 
 def test_resolve_dep_code_returns_none_when_geocoder_is_unavailable() -> None:

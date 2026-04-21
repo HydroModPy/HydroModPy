@@ -251,7 +251,7 @@ _MODULE_EXPORTS = {
 
 _LAZY_IMPORTS = {
     # Spatial / geographic
-    "Geographic": "hydromodpy.spatial.geographic.geographic",
+    "CatchmentDelineation": "hydromodpy.spatial.geographic.catchment_delineation",
     "GeographicConfig": "hydromodpy.spatial.geographic.geographic_config",
     "Subbasin": "hydromodpy.spatial.geographic.subbasin",
     "HydroMesh": "hydromodpy.spatial.mesh.hydro_mesh",
@@ -363,7 +363,7 @@ __all__ = [
     "WorkspaceConfig",
     "HydroModPyConfig",
     # Spatial / physics
-    "Geographic",
+    "CatchmentDelineation",
     "GeographicConfig",
     "HydroMesh",
     "Domain",

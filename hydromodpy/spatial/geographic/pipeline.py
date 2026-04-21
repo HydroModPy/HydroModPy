@@ -1,6 +1,6 @@
 """Assemble the full geographic artifact set from one config + workspace.
 
-This module preserves the historical ``Geographic`` payload contract while
+This module preserves the historical ``CatchmentDelineation`` payload contract while
 living in the canonical spatial package behind centralized compatibility aliases.
 """
 
@@ -61,7 +61,7 @@ class _CachedGeographicProducts:
 
 @dataclass(frozen=True)
 class LegacyGeographicContext:
-    """Full geographic payload used to hydrate the compatibility ``Geographic`` facade."""
+    """Full geographic payload used to hydrate the compatibility ``CatchmentDelineation`` facade."""
 
     paths: GeographicPaths
     flow_products: FlowProducts
@@ -74,7 +74,7 @@ class LegacyGeographicContext:
     dem_res: float
 
     def legacy_attributes(self) -> dict[str, object]:
-        """Return the public attribute payload expected from ``Geographic``."""
+        """Return the public attribute payload expected from ``CatchmentDelineation``."""
         attrs = dict(vars(self.paths))
         attrs.update(
             {
