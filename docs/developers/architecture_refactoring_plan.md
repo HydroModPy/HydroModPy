@@ -1136,11 +1136,11 @@ imports internes sont migrés d'un coup :
 
 ```python
 # Avant
-from hydromodpy.process.prototype import ProcessSpatial
+from hydromodpy.physics.prototype import ProcessSpatial
 from hydromodpy.solver.prototype import Solver
 
 # Après
-from hydromodpy.process.base import ProcessSpatial
+from hydromodpy.physics.base import ProcessSpatial
 from hydromodpy.solver.base import Solver
 ```
 

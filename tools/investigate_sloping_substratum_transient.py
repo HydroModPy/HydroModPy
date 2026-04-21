@@ -17,7 +17,7 @@ from hydromodpy.spatial.domain import Domain
 from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
 from hydromodpy.spatial.geographic.synthetic.synthetic_geographic import build_synthetic_geographic
 from hydromodpy.spatial.surface import Surface
-from hydromodpy.process.flow import Flow
+from hydromodpy.physics.flow import Flow
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow_common import (
     ModflowPostprocessOptions,

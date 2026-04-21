@@ -1,0 +1,45 @@
+[2026-04-20 23:51:46] Initial branch : dev-refact_v2
+[2026-04-20 23:51:46] Initial commit : 8ad1cfb6118dd440eef88870dc6baa5b246125e3
+[2026-04-20 23:57:04] Initial branch : dev-refact_v2
+[2026-04-20 23:57:04] Initial commit : 8ad1cfb6118dd440eef88870dc6baa5b246125e3
+[2026-04-20 23:57:04] 
+[2026-04-20 23:57:04] ================================================================
+[2026-04-20 23:57:04]   FINALIZATION HYDROMODPY
+[2026-04-20 23:57:04]   Branch : dev-refact_v2
+[2026-04-20 23:57:04]   HEAD   : 8ad1cfb6118dd440eef88870dc6baa5b246125e3
+[2026-04-20 23:57:04]   Start  : 2026-04-20 23:57:04
+[2026-04-20 23:57:04]   Specs  : /home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/architecture_cible
+[2026-04-20 23:57:04]   Audit  : /home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/developers/migration_report_dev_refact_v2.md
+[2026-04-20 23:57:04]   MODE   : resume-all (skip already done)
+[2026-04-20 23:57:04] ================================================================
+[2026-04-20 23:57:04] START F01: Complete Pydantic/pint migration (flow configs) (attempt 1/15)
+[2026-04-21 00:12:39] DONE F01 (935s)
+[2026-04-21 00:12:39] MARK F01 done at 5207a3209c3283119000592b63ffe6d8fa828c74
+[2026-04-21 00:12:39] START F02: Document NWT/MF6 intentional duplication (sunset plan) (attempt 1/15)
+[2026-04-21 00:17:44] DONE F02 (305s)
+[2026-04-21 00:17:44] MARK F02 done at 177d7821265bcec6c60eb42ba629b250667642e0
+[2026-04-21 00:17:44] START F03: Implement DerivedRegistry for DeriveStep (attempt 1/15)
+[2026-04-21 00:24:48] DONE F03 (424s)
+[2026-04-21 00:24:48] MARK F03 done at 6da53fe19209585dea5b5f9ffc3f06c31efb4ce3
+[2026-04-21 00:24:48] START F04: Remove headless env vars + delete empty analysis folders (attempt 1/15)
+[2026-04-21 00:34:05] DONE F04 (557s)
+[2026-04-21 00:34:05] MARK F04 done at 752a77422efc67c2cc2a13d8ead2e81ad4fcdda4
+[2026-04-21 00:34:05] START F05: API rename catalog.export/import_package + SimulationPlan exposure (attempt 1/15)
+[2026-04-21 00:42:54] DONE F05 (529s)
+[2026-04-21 00:42:54] MARK F05 done at 937f753a63762318da2253cb143a17aa24fcc4b2
+[2026-04-21 00:42:54] START F06: Repair validation_cases/shared + integration tier + fixtures (attempt 1/15)
+[2026-04-21 00:54:40] DONE F06 (706s)
+[2026-04-21 00:54:40] MARK F06 done at 20f9775ebf01f57d84d21898f1f2b4d8b4b197f4
+[2026-04-21 00:54:40] START F07: Docs polish: Meteo-France rename + glossary + CHANGELOG (attempt 1/15)
+[2026-04-21 01:06:59] DONE F07 (739s)
+[2026-04-21 01:06:59] MARK F07 done at 31b90697757d78f4eec617442a4a2d907e1e38f5
+[2026-04-21 01:06:59] START F08: VERIFY — Full architecture conformance report (attempt 1/15)
+[2026-04-21 01:43:11] DONE F08 (2172s)
+[2026-04-21 01:43:11] MARK F08 done at 04aa3aef5e8e11ea3300dfb8b50bd021988cf707
+[2026-04-21 01:43:11] 
+[2026-04-21 01:43:11] ================================================================
+[2026-04-21 01:43:11]   FINALIZATION TERMINEE
+[2026-04-21 01:43:11]   End    : 2026-04-21 01:43:11
+[2026-04-21 01:43:11]   Branch : dev-refact_v2
+[2026-04-21 01:43:11]   HEAD   : 04aa3aef
+[2026-04-21 01:43:11] ================================================================

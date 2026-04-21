@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.process.flow import Flow
+from hydromodpy.physics.flow import Flow
 from hydromodpy.solver.boussinesq import Boussinesq, BoussinesqState
 from hydromodpy.solver.boussinesq.assembly import saturated_thickness_from_head
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (

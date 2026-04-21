@@ -1,6 +1,6 @@
 import pytest
 
-from hydromodpy.process.flow.initial_conditions_config import (
+from hydromodpy.physics.flow.initial_conditions_config import (
     normalize_flow_initial_conditions,
 )
 

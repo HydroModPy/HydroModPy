@@ -240,7 +240,7 @@ un config Pydantic et produit un resultat sans connaitre le contexte global.
 from hydromodpy.core.config import HydroModPyConfig
 import hydromodpy as hmp
 from hydromodpy.spatial.domain import Domain
-from hydromodpy.process import Flow
+from hydromodpy.physics import Flow
 from hydromodpy.solver.modflow_nwt import (
     Modflow, ModflowPreprocessOptions, ModflowRunOptions, ModflowPostprocessOptions,
 )
@@ -796,7 +796,7 @@ lance pas de modele.
 import hydromodpy as hmp
 from hydromodpy.core.config import HydroModPyConfig
 from hydromodpy.spatial.domain import Domain
-from hydromodpy.process import Flow, Transport
+from hydromodpy.physics import Flow, Transport
 from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
 from hydromodpy.data.climatic import Climatic
 

@@ -15,7 +15,7 @@ from flopy.utils.binaryfile import HeadFile
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from hydromodpy.process.flow import Flow
+from hydromodpy.physics.flow import Flow
 from hydromodpy.solver.modflow_nwt import (
     Modflow,
     ModflowPostprocessOptions,

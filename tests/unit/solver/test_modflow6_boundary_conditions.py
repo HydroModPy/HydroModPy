@@ -11,13 +11,13 @@ import hydromodpy.solver.modflow6.flow_to_modflow_adapter as mf6_flow_adapter
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.process.flow.initial_conditions import (
+from hydromodpy.physics.flow.initial_conditions import (
     FlowInitialCondition,
     FlowInitialConditions,
 )
-from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
-from hydromodpy.process.flow.boundary_conditions import FlowBoundaryConditionConfig
-from hydromodpy.process.flow.sinks_sources import FlowWellConfig
+from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
+from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
+from hydromodpy.physics.flow.sinks_sources import FlowWellConfig
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.utils.mesh.gmsh_grid import (

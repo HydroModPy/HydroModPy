@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.physics.flow.flow_config import FlowConfig
 
 
 def _build_flow_config(

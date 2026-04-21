@@ -13,7 +13,7 @@ def test_coverage_helpers_follow_pyproject_source_list() -> None:
     assert tuple(sources) == tuple(
         s.strip()
         for s in (
-            "hydromodpy.core,hydromodpy.spatial,hydromodpy.process,"
+            "hydromodpy.core,hydromodpy.spatial,hydromodpy.physics,"
             "hydromodpy.data,hydromodpy.results,hydromodpy.simulation,"
             "hydromodpy.solver,hydromodpy.analysis"
         ).split(",")

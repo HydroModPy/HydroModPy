@@ -25,8 +25,8 @@ from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
-from hydromodpy.process.flow import Flow
-from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.physics.flow import Flow
+from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.adapters.registry import get_solver_adapter
 from hydromodpy.simulation.planning.plan import (

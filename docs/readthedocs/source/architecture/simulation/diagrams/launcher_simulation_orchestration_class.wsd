@@ -35,7 +35,7 @@ package "hydromodpy.simulation" {
   }
 }
 
-package "hydromodpy.process" {
+package "hydromodpy.physics" {
   class Flow
   class Transport
 }

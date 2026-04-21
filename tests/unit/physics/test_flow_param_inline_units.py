@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.process.flow.flow import Flow
-from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.physics.flow.flow import Flow
+from hydromodpy.physics.flow.flow_config import FlowConfig
 
 
 def test_flow_param_accepts_inline_units_with_mixed_families() -> None:

@@ -38,7 +38,7 @@ def test_export_schema_unknown_section_raises():
 
 def test_flow_physical_properties_schema_has_rich_annotations():
     from hydromodpy.core.config.schema_export import export_schema
-    from hydromodpy.process.flow.physical_properties import FlowPhysicalProperties
+    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
 
     schema = export_schema(FlowPhysicalProperties)
     props = schema["properties"]

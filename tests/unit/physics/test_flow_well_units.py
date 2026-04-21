@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.process.flow.flow import Flow
-from hydromodpy.process.flow.flow_config import FlowConfig
-from hydromodpy.process.flow.sinks_sources import FlowSinksSourcesConfig
+from hydromodpy.physics.flow.flow import Flow
+from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.physics.flow.sinks_sources import FlowSinksSourcesConfig
 
 
 def test_flow_converts_well_flux_scalar_from_m3_day_to_m3_s() -> None:

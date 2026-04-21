@@ -1,0 +1,18 @@
+[2026-04-21 02:30:05] Initial branch : dev-refact_v2
+[2026-04-21 02:30:05] Initial commit : 04aa3aef5e8e11ea3300dfb8b50bd021988cf707
+[2026-04-21 02:30:05] 
+[2026-04-21 02:30:05] ================================================================
+[2026-04-21 02:30:05]   COMPLETION HYDROMODPY v0.4 -> v0.5
+[2026-04-21 02:30:05]   Branch   : dev-refact_v2
+[2026-04-21 02:30:05]   HEAD     : 04aa3aef5e8e11ea3300dfb8b50bd021988cf707
+[2026-04-21 02:30:05]   Start    : 2026-04-21 02:30:05
+[2026-04-21 02:30:05]   Specs    : /home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/architecture_cible
+[2026-04-21 02:30:05]   Baseline : /home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/developers/architecture_conformance_report.md
+[2026-04-21 02:30:05]   Final    : /home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/developers/architecture_conformance_report_v050.md
+[2026-04-21 02:30:05]   Tests    : /home/bb/Documents/01_Git_Repository/02-HydroModPy-dev/docs/developers/test_status_report.md
+[2026-04-21 02:30:05]   MODE     : resume-all (outer loop until all .done)
+[2026-04-21 02:30:05] ================================================================
+[2026-04-21 02:30:05] START G01: Core foundations (exceptions, io, logging, version, py.typed) (attempt 1/100)
+[2026-04-21 02:40:40] DONE G01 (635s)
+[2026-04-21 02:40:40] MARK G01 done at cc1feb0f97bf651ac37298ad5c48363d526a06b8
+[2026-04-21 02:40:40] START G02: Canonical renames (process->physics, Geographic, SolverRunner, DataPlanner, SimulationView, Watershed removal) (attempt 1/100)

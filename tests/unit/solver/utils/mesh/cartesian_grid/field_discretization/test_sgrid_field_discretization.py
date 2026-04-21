@@ -557,7 +557,7 @@ class TestFlowRechargeConfigHeterogeneousSource:
 
     def test_heterogeneous_source_field_accepted(self):
         """FlowRechargeConfig should accept and expose heterogeneous_source."""
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
 
         lr = LoadResult(
             fields=[_make_static_field_record(2, 2, value=5.0)],
@@ -574,7 +574,7 @@ class TestFlowRechargeConfigHeterogeneousSource:
         assert cfg.heterogeneous_source.has_fields is True
 
     def test_heterogeneous_source_none_by_default(self):
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
 
         cfg = FlowRechargeConfig(values=1.0e-8)
         assert cfg.heterogeneous_source is None
@@ -846,31 +846,31 @@ class TestMultiBandGeoTIFF:
 class TestFlowRechargeConfigNewFields:
 
     def test_spatial_mode_default(self):
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
         cfg = FlowRechargeConfig(values=0.0)
         assert cfg.spatial_mode == "auto"
 
     def test_spatial_mode_homogeneous(self):
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
         cfg = FlowRechargeConfig(values=0.0, spatial_mode="homogeneous")
         assert cfg.spatial_mode == "homogeneous"
 
     def test_spatial_mode_invalid_raises(self):
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
         with pytest.raises(Exception):
             FlowRechargeConfig(values=0.0, spatial_mode="invalid")
 
     def test_interpolation_method_default(self):
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
         cfg = FlowRechargeConfig(values=0.0)
         assert cfg.interpolation_method == "nearest"
 
     def test_interpolation_method_idw(self):
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
         cfg = FlowRechargeConfig(values=0.0, interpolation_method="idw")
         assert cfg.interpolation_method == "idw"
 
     def test_interpolation_method_invalid_raises(self):
-        from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+        from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
         with pytest.raises(Exception):
             FlowRechargeConfig(values=0.0, interpolation_method="cubic")

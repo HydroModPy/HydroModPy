@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from hydromodpy.process.flow import Flow
-from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.physics.flow import Flow
+from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,

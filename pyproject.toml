@@ -131,7 +131,7 @@ include = ["hydromodpy*"]
 
 [tool.setuptools.package-data]
 hydromodpy = ["../bin/**/*", "py.typed"]
-"hydromodpy.process.hydrology.pyhelp" = ["*.FOR"]
+"hydromodpy.physics.hydrology.pyhelp" = ["*.FOR"]
 "hydromodpy.data.common.administrative" = ["*.gpkg"]
 
 [tool.pytest.ini_options]
@@ -158,7 +158,7 @@ markers = [
 source = [
     "hydromodpy.core",
     "hydromodpy.spatial",
-    "hydromodpy.process",
+    "hydromodpy.physics",
     "hydromodpy.data",
     "hydromodpy.results",
     "hydromodpy.simulation",

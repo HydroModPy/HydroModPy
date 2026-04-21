@@ -2,7 +2,7 @@ Process Architecture
 ====================
 
 This section documents the process runtime layer implemented in
-``hydromodpy.process``.
+``hydromodpy.physics``.
 
 For solver-side meshing and structured-grid documentation, see
 :doc:`../mesh/index`.

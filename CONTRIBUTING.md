@@ -434,7 +434,7 @@ from pathlib import Path
 import hydromodpy as hmp
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.domain import Domain
-from hydromodpy.process.flow import Flow
+from hydromodpy.physics.flow import Flow
 from hydromodpy.solver.modflow_nwt import Modflow, ModflowPreprocessOptions, ModflowRunOptions
 
 # 1. Load config from TOML
