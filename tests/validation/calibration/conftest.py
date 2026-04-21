@@ -1,23 +1,13 @@
-"""Skip twin calibration validation tests that depend on the legacy launcher.
+"""Skip only the legacy twin calibration tests.
 
-The ``validation_cases.calibration`` runtime imports the pre-P09
-``ModelCalibrationLauncher`` tree, which was removed in favor of
-``hydromodpy.calibration``. Re-enable these tests after porting the
-validation-case runner to the new engine.
+The ``test_twin_*.py`` files depend on the pre-P09 ``ModelCalibrationLauncher``
+tree that was removed in favour of ``hydromodpy.calibration``. Re-enable them
+after porting ``validation_cases.calibration.shared.runtime`` to the new
+engine. Other tests in this directory (e.g. standalone groundwater /
+recession / reservoir cases built on the new engine) are collected normally.
 """
 
 from __future__ import annotations
-
-import pytest
-
-
-def pytest_collection_modifyitems(config, items):
-    skip_reason = pytest.mark.skip(
-        reason="legacy calibration launcher removed in P09; porting pending"
-    )
-    for item in items:
-        if "tests/validation/calibration/" in str(item.fspath):
-            item.add_marker(skip_reason)
 
 
 collect_ignore_glob = ["test_twin_*.py"]
