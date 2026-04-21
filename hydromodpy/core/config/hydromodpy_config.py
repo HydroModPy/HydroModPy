@@ -77,7 +77,7 @@ class HydroModPyConfig(BaseModel):
     `FieldParamConfig` dictionaries.
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     workspace: WorkspaceConfig = Field(
         description="Configuration block for the project workspace and folder structure."
