@@ -176,7 +176,9 @@ class SimulationCatalog:
         if crs_epsg is None and crs:
             crs_epsg = _epsg_from_crs(crs)
 
-        topology = mesh_topology or mesh_type
+        topology = mesh_topology
+        if topology is None and mesh_type in ("dis", "disv", "disu"):
+            topology = mesh_type
         p_start = _coerce_timestamp(period_start)
         p_end = _coerce_timestamp(period_end)
 
