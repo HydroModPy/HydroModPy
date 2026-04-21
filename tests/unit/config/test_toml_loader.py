@@ -79,6 +79,7 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
             [
                 "[workspace]",
                 f'project_root = "{tmp_path / "demo"}"',
+                f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'catch_def = "dem"',
@@ -192,6 +193,9 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
     config_path.write_text(
         "\n".join(
             [
+                "[workspace]",
+                f'root = "{tmp_path}"',
+                "",
                 "[geographic]",
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',

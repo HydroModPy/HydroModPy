@@ -3,39 +3,50 @@
 from __future__ import annotations
 
 import argparse
+import sys
+from pathlib import Path
+
+from hydromodpy._cli.helpers import EXIT_CONFIG
 
 
 NAME = "init"
-HELP = "Create HydroModPy workspace (data + projects). Default: ~/hydromodpy/"
+HELP = "Scaffold a HydroModPy workspace (catalog + data + projects). Default: ~/hydromodpy/"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument(
-        "--path", default=None, help="Workspace path (default: ~/hydromodpy/)",
+        "path", nargs="?", default=None,
+        help="Workspace path (default: ~/hydromodpy/)",
+    )
+    parser.add_argument(
+        "--force", action="store_true",
+        help="Overwrite an existing workspace catalog.",
     )
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.data.scaffold import scaffold
+    from hydromodpy.data.scaffold import DEFAULT_ROOT, scaffold
 
-    result = scaffold(args.path)
+    target = Path(args.path).expanduser().resolve() if args.path else DEFAULT_ROOT
+    catalog = target / "hydromodpy.duckdb"
+    if catalog.exists() and not args.force:
+        print(
+            f"Workspace already initialized at {target} "
+            f"(found {catalog.name}). Re-run with --force to overwrite.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_CONFIG)
 
-    print(f"Workspace: {result}")
+    result = scaffold(target, force=args.force)
+
+    print(f"Workspace scaffolded at {result}/. Create projects with "
+          f"`hmp new <name> --workspace {result}`.")
     print()
-    print("Structure:")
-    for p in sorted(result.rglob("*")):
-        rel = p.relative_to(result)
-        indent = "  " * len(rel.parts)
-        if p.is_dir():
-            print(f"  {indent}{rel.name}/")
-        else:
-            print(f"  {indent}{rel.name}")
-    print()
-    print("Next steps:")
-    print("  1. Drop your files into <variable>_custom/ folders (see README.md there)")
-    print("  2. Run: hmp data check to validate them before first run")
-    print("  3. Run: hmp new <project_name>")
-    print("  4. Edit projects/<project>/project.toml with your settings")
+    print("Layout:")
+    print(f"  {result}/hydromodpy.duckdb")
+    print(f"  {result}/data/")
+    print(f"  {result}/projects/")
+    print(f"  {result}/simulations/")

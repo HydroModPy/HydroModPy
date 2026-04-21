@@ -40,11 +40,13 @@ def _write_tmp_config(tmp_path: Path) -> Path:
     dem_path = (REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif").as_posix()
     out_path = (tmp_path / "results").as_posix()
 
+    ws_root = tmp_path.as_posix()
     config_path.write_text(
         "\n".join(
             [
                 "[workspace]",
                 f'project_root = "{out_path}"',
+                f'root = "{ws_root}"',
                 "",
                 "[geographic]",
                 'catch_def = "from_outlet_coord"',

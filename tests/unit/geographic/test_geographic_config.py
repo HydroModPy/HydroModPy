@@ -57,6 +57,7 @@ def test_hydromodpy_config_accepts_matching_streams_with_synthetic_geographic(
             [
                 "[workspace]",
                 f'project_root = "{tmp_path}"',
+                f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'source_mode = "synthetic"',

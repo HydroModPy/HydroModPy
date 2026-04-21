@@ -30,6 +30,8 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument("--workspace", default=None,
                         help="Probe this workspace (default: ~/hydromodpy/)")
+    parser.add_argument("--toml", default=None,
+                        help="Resolve the workspace from a project TOML")
     parser.add_argument("--json", action="store_true",
                         help="Emit a JSON report")
     parser.set_defaults(_handler=run)
@@ -37,7 +39,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    report = _build_report(args.workspace)
+    report = _build_report(args.workspace, toml=args.toml)
 
     if args.json:
         import json as _json
@@ -49,7 +51,7 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def _build_report(workspace_arg: str | None) -> dict:
+def _build_report(workspace_arg: str | None, *, toml: str | None = None) -> dict:
     from hydromodpy.core.version import __version__ as hmp_version
 
     checks: list[dict] = []
@@ -145,8 +147,8 @@ def _build_report(workspace_arg: str | None) -> dict:
                 "hint": "Install via conda or copy into ~/hydromodpy/bin/",
             })
 
-    workspace = _probe_workspace(workspace_arg)
-    checks.append(workspace)
+    for entry in _probe_workspace(workspace_arg, toml=toml):
+        checks.append(entry)
 
     return {
         "python": platform.python_version(),
@@ -156,33 +158,108 @@ def _build_report(workspace_arg: str | None) -> dict:
     }
 
 
-def _probe_workspace(workspace_arg: str | None) -> dict:
+def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dict]:
     try:
+        from hydromodpy.core.workspace.config import WorkspaceConfig
+        from hydromodpy.core.workspace.exceptions import WorkspaceError
         from hydromodpy.data.scaffold import DEFAULT_ROOT
     except Exception as exc:  # pragma: no cover
-        return {
+        return [{
             "name": "workspace",
             "status": "KO",
-            "detail": f"scaffold import failed: {exc}",
+            "detail": f"workspace import failed: {exc}",
             "hint": "Reinstall hydromodpy",
-        }
+        }]
+
+    if toml is not None:
+        return _probe_from_toml(Path(toml).expanduser().resolve(), WorkspaceConfig, WorkspaceError)
+
     ws = Path(workspace_arg).expanduser().resolve() if workspace_arg else Path(DEFAULT_ROOT).expanduser()
     if not ws.exists():
-        return {
+        return [{
             "name": "workspace",
             "status": "WARN",
             "detail": f"{ws} does not exist",
-            "hint": "Run 'hmp init' to create a workspace",
-        }
+            "hint": "Run 'hmp init <workspace>' to scaffold one",
+        }]
     db = ws / "hydromodpy.duckdb"
     cache = ws / "data" / "cache.duckdb"
-    detail = f"{ws} (db={db.exists()}, cache={cache.exists()})"
-    return {
-        "name": "workspace",
-        "status": "OK",
-        "detail": detail,
-        "hint": None,
-    }
+    sims = ws / "simulations"
+    return [
+        {
+            "name": "workspace",
+            "status": "OK",
+            "detail": f"{ws}",
+            "hint": None,
+        },
+        _path_check("catalog_path", db),
+        _path_check("data_dir", ws / "data"),
+        _path_check("simulations_dir", sims),
+        _path_check("data_cache", cache, required=False),
+    ]
+
+
+def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[dict]:
+    if not toml_path.exists():
+        return [{
+            "name": "workspace",
+            "status": "KO",
+            "detail": f"TOML not found: {toml_path}",
+            "hint": "Check the path passed to --toml",
+        }]
+    try:
+        from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+        from hydromodpy.core.config.path_resolution import resolve_declared_path
+
+        raw = load_toml_with_base_config(toml_path)
+        base_dir = toml_path.parent
+        workspace_section = dict(raw.get("workspace", {}))
+        for key in ("project_root", "root", "catalog_path", "data_dir", "simulations_dir", "output_root"):
+            if key in workspace_section and workspace_section[key] is not None:
+                workspace_section[key] = str(
+                    resolve_declared_path(workspace_section[key], base_dir=base_dir)
+                )
+        workspace_section.setdefault("project_root", str(base_dir))
+        cfg = WorkspaceConfig(**workspace_section)
+    except WorkspaceError as exc:
+        return [{
+            "name": "workspace",
+            "status": "KO",
+            "detail": f"resolution failed for {toml_path}",
+            "hint": str(exc),
+        }]
+    except Exception as exc:  # pragma: no cover - defensive
+        return [{
+            "name": "workspace",
+            "status": "KO",
+            "detail": f"config load failed: {exc}",
+            "hint": "Validate the TOML with `hmp config check`",
+        }]
+
+    return [
+        {
+            "name": "workspace",
+            "status": "OK",
+            "detail": f"resolved via {cfg.resolution_source}",
+            "hint": None,
+        },
+        _path_check("workspace_root", cfg.workspace_root),
+        _path_check("catalog_path", cfg.catalog_path),
+        _path_check("data_dir", cfg.data_dir),
+        _path_check("simulations_dir", cfg.simulations_dir),
+    ]
+
+
+def _path_check(name: str, path: Path, *, required: bool = True) -> dict:
+    if path.exists():
+        status = "OK"
+        detail = f"{path}"
+        hint = None
+    else:
+        status = "WARN" if not required else "WARN"
+        detail = f"{path} (missing)"
+        hint = "Created lazily when first used" if not required else None
+    return {"name": name, "status": status, "detail": detail, "hint": hint}
 
 
 def _print_report(report: dict) -> None:
