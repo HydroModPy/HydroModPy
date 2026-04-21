@@ -199,6 +199,26 @@ submission. Multiple runs may share one `sim_id`.
   loop to deduplicate evaluations of identical parameter vectors within
   one session.
 
+## Config visibility
+
+### Profile (IntEnum)
+
+- **Canonical name:** `Profile`
+- **Module:** `hydromodpy.core.config.profile.Profile`
+- **Role:** visibility level for a Pydantic config field — one of
+  `Profile.USER` (1, physical/project fields), `Profile.DEV` (2,
+  tolerances/backends/cache), `Profile.EXPERT` (3, solver internals). A
+  field is included in a generated TOML when its profile is less than or
+  equal to the requested profile. Declared inside ``Annotated[T, Profile.X]``.
+
+### ParamLevel (legacy)
+
+- **Alias for:** `Profile`
+- **Module:** `hydromodpy.core.config.param_level.ParamLevel`
+- **Role:** legacy dataclass tag (`ParamLevel("user" | "dev" | "expert")`)
+  kept as a v0.6 shim so existing scripts keep working. New code must use
+  `Profile`. Slated for removal in v0.7.
+
 ## Naming hygiene
 
 - Do not introduce new aliases for concepts already in this glossary.
