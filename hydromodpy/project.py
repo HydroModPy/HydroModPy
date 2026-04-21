@@ -285,7 +285,7 @@ class Simulation:
         self._headless = headless
         if headless:
             self.cfg.display.save = False
-            self.cfg.display.interactive = False
+            self.cfg.display.show = False
             self.cfg.postprocess.enabled = False
         self._postprocess_runner = None
         self._ctx.postprocess_runner = None

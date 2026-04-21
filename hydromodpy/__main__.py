@@ -900,7 +900,7 @@ def _cmd_display(args: argparse.Namespace) -> None:
             raw_toml = tomllib.load(f)
         display_cfg = DisplayConfig.model_validate(raw_toml.get("display", {}))
         if args.no_show:
-            display_cfg.interactive = False
+            display_cfg.show = False
         project_dir = target_path.parent.resolve()
         workspace_root = _find_workspace_root(project_dir)
         out_dir = (project_dir / display_cfg.output_dir).resolve()
@@ -1777,7 +1777,7 @@ def main() -> None:
     display_parser.add_argument(
         "--no-show",
         action="store_true",
-        help="Force interactive=false in the resolved DisplayConfig",
+        help="Force show=false in the resolved DisplayConfig",
     )
 
     # --- list subcommand ---
