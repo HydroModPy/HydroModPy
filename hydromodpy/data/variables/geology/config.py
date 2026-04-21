@@ -165,7 +165,7 @@ def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping
     return current
 
 
-class GeologySourceSchema(HydroModelBase):
+class GeologySource(HydroModelBase):
     """Schema for geology data source definition (standalone field construction)."""
 
     model_config = ConfigDict(extra="forbid")
@@ -241,7 +241,7 @@ class GeologySourceSchema(HydroModelBase):
         return self
 
 
-class GeologyLandSeaSchema(HydroModelBase):
+class GeologyLandSea(HydroModelBase):
     """Optional sea-mask override for coastal workflows."""
 
     model_config = ConfigDict(extra="forbid")
@@ -304,7 +304,7 @@ class GeologyLandSeaSchema(HydroModelBase):
         return self
 
 
-class GeologyConfigSchema(HydroModelBase):
+class GeologyConfigBlock(HydroModelBase):
     """Top-level schema for one geology field definition (standalone construction)."""
 
     model_config = ConfigDict(extra="forbid")
@@ -316,7 +316,7 @@ class GeologyConfigSchema(HydroModelBase):
             "This id is reused by support discretization and by parameter mappings that target geology-based zonation."
         ),
     )
-    source: GeologySourceSchema = Field(
+    source: GeologySource = Field(
         description=(
             "Raw geology source definition. "
             "This section explains where the geology polygons or raster come from and how they should be interpreted."
@@ -329,8 +329,8 @@ class GeologyConfigSchema(HydroModelBase):
             "Use it to crop a very large national dataset to one smaller study area before further processing."
         ),
     )
-    landsea: GeologyLandSeaSchema = Field(
-        default_factory=GeologyLandSeaSchema,
+    landsea: GeologyLandSea = Field(
+        default_factory=GeologyLandSea,
         description=(
             "Optional coastal override applied after loading the base geology source."
         ),
@@ -375,7 +375,7 @@ def validate_geology_config_data(config_data: Mapping[str, Any]) -> dict[str, An
     if not isinstance(config_data, Mapping):
         raise ValueError("geology configuration must be a mapping")
     try:
-        parsed = GeologyConfigSchema.model_validate(dict(config_data))
+        parsed = GeologyConfigBlock.model_validate(dict(config_data))
     except ValidationError as exc:
         raise ValueError(str(exc)) from exc
     return parsed.model_dump(mode="python")

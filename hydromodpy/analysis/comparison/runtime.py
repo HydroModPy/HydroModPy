@@ -24,8 +24,8 @@ from hydromodpy.solver.boussinesq.history_contract import (
 
 from hydromodpy.analysis.comparison.config import (
     MethodComparisonConfig,
-    MethodComparisonObservableSchema,
-    MethodComparisonVariantSchema,
+    MethodComparisonObservable,
+    MethodComparisonVariant,
 )
 
 if TYPE_CHECKING:
@@ -415,7 +415,7 @@ def _build_solver_process_overlay(
 def materialize_variant_config(
     *,
     cfg: MethodComparisonConfig,
-    variant: MethodComparisonVariantSchema,
+    variant: MethodComparisonVariant,
 ) -> Path | None:
     """Return the config path used by one variant, generating it if needed."""
     direct_config = cfg.resolve_variant_config_path(variant)
@@ -794,7 +794,7 @@ def is_nodata_value(value: Any) -> bool:
 
 def normalize_observable_value(
     *,
-    observable: MethodComparisonObservableSchema,
+    observable: MethodComparisonObservable,
     series: VariableSeries,
     value: float,
     value_index: int,
@@ -1538,7 +1538,7 @@ def mask_depth_series_from_head_nodata(
 
 def _select_time_slices(
     series: VariableSeries,
-    observable: MethodComparisonObservableSchema,
+    observable: MethodComparisonObservable,
 ) -> tuple[TimeSlice, ...]:
     """Select time slices requested by one observable."""
     if observable.time_window is not None:
@@ -1582,7 +1582,7 @@ def _select_time_slices(
 
 def select_time_slices(
     series: VariableSeries,
-    observable: MethodComparisonObservableSchema,
+    observable: MethodComparisonObservable,
 ) -> tuple[TimeSlice, ...]:
     """Public wrapper exposing observable time selection for reuse."""
     return _select_time_slices(series, observable)
@@ -1655,7 +1655,7 @@ def _select_spatial_values(
     *,
     series: VariableSeries,
     time_slice: TimeSlice,
-    observable: MethodComparisonObservableSchema,
+    observable: MethodComparisonObservable,
     cells: CellCentroidTable | None,
 ) -> tuple[tuple[float, ...], dict[str, Any]]:
     """Apply spatial selection for one observable/time slice."""
@@ -1752,7 +1752,7 @@ def _time_match_key(time_slice: TimeSlice) -> str:
 
 def _fallback_time_key(
     *,
-    observable: MethodComparisonObservableSchema,
+    observable: MethodComparisonObservable,
     time_slice: TimeSlice,
     selection_time_order: int,
     non_initial_time_order: int | None,
@@ -1786,9 +1786,9 @@ def _fallback_time_key(
 def extract_observable_rows(
     *,
     comparison_id: str,
-    variant: MethodComparisonVariantSchema,
+    variant: MethodComparisonVariant,
     run_folder: Path,
-    observables: tuple[MethodComparisonObservableSchema, ...],
+    observables: tuple[MethodComparisonObservable, ...],
     config_path: Path | None = None,
     store: SimulationCatalog | None = None,
     sim_id: str | None = None,

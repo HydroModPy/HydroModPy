@@ -68,7 +68,7 @@ class ZoneMeshingRefinementFamilySettings(HydroModelBase):
 ZoneMeshingRefinementFamilySettingsSchema = ZoneMeshingRefinementFamilySettings
 
 
-class ZoneMeshingRefinementFamiliesSchema(HydroModelBase):
+class ZoneMeshingRefinementFamilies(HydroModelBase):
     """Validated family-specific refinement policy settings."""
 
     model_config = ConfigDict(extra="forbid")
@@ -211,7 +211,7 @@ class ZoneMeshingRefinementPolicy(HydroModelBase):
     @field_validator("families", mode="before")
     @classmethod
     def _normalize_families(cls, value):
-        if isinstance(value, ZoneMeshingRefinementFamiliesSchema):
+        if isinstance(value, ZoneMeshingRefinementFamilies):
             return {
                 "river": value.river,
                 "geology_interface": value.geology_interface,
@@ -514,7 +514,7 @@ def parse_zone_meshing_settings(config_data: Mapping[str, Any]) -> ZoneMeshingSe
 
 __all__ = [
     "parse_zone_meshing_settings",
-    "ZoneMeshingRefinementFamiliesSchema",
+    "ZoneMeshingRefinementFamilies",
     "ZoneMeshingRefinementFamilySettings",
     "ZoneMeshingRefinementFamilySettingsSchema",
     "ZoneMeshingRefinementGridSettings",

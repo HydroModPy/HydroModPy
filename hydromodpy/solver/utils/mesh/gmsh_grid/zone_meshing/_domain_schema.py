@@ -15,7 +15,7 @@ from pydantic import (
 from hydromodpy.core.config.base import HydroModelBase
 
 
-class ZoneMeshingDomainBBoxSchema(HydroModelBase):
+class ZoneMeshingDomainBBox(HydroModelBase):
     """Axis-aligned bounding box domain contract."""
 
     model_config = ConfigDict(extra="forbid")
@@ -42,7 +42,7 @@ class ZoneMeshingDomainBBoxSchema(HydroModelBase):
         return self
 
 
-class ZoneMeshingDomainPolygonSchema(HydroModelBase):
+class ZoneMeshingDomainPolygon(HydroModelBase):
     """Inline polygon coordinates domain contract."""
 
     model_config = ConfigDict(extra="forbid")
@@ -66,7 +66,7 @@ class ZoneMeshingDomainPolygonSchema(HydroModelBase):
         return coords
 
 
-class ZoneMeshingDomainVectorSchema(HydroModelBase):
+class ZoneMeshingDomainVector(HydroModelBase):
     """Vector file domain contract."""
 
     model_config = ConfigDict(extra="forbid")
@@ -110,7 +110,7 @@ class ZoneMeshingDomainVectorSchema(HydroModelBase):
         return self
 
 
-class ZoneMeshingDomainGeographicBoxBufferSchema(HydroModelBase):
+class ZoneMeshingDomainGeographicBoxBuffer(HydroModelBase):
     """Domain resolved from ``domain_geographic.box_buff_shp``."""
 
     model_config = ConfigDict(extra="forbid")
@@ -127,7 +127,7 @@ class ZoneMeshingDomainGeographicBoxBufferSchema(HydroModelBase):
         return "geographic_box_buffer"
 
 
-class ZoneMeshingDomainGeographicWatershedSchema(HydroModelBase):
+class ZoneMeshingDomainGeographicWatershed(HydroModelBase):
     """Domain resolved from ``domain_geographic.watershed_shp``."""
 
     model_config = ConfigDict(extra="forbid")
@@ -144,7 +144,7 @@ class ZoneMeshingDomainGeographicWatershedSchema(HydroModelBase):
         return "geographic_watershed"
 
 
-class ZoneMeshingDomainGeographicWatershedBoxSchema(HydroModelBase):
+class ZoneMeshingDomainGeographicWatershedBox(HydroModelBase):
     """Domain resolved from ``domain_geographic.watershed_box_shp``."""
 
     model_config = ConfigDict(extra="forbid")
@@ -183,12 +183,12 @@ def validate_zone_meshing_domain_model(config_data: Mapping[str, Any]) -> BaseMo
         raw["kind"] = kind
 
     schema_by_kind: dict[str, type[BaseModel]] = {
-        "bbox": ZoneMeshingDomainBBoxSchema,
-        "geographic_box_buffer": ZoneMeshingDomainGeographicBoxBufferSchema,
-        "geographic_watershed": ZoneMeshingDomainGeographicWatershedSchema,
-        "geographic_watershed_box": ZoneMeshingDomainGeographicWatershedBoxSchema,
-        "polygon": ZoneMeshingDomainPolygonSchema,
-        "vector": ZoneMeshingDomainVectorSchema,
+        "bbox": ZoneMeshingDomainBBox,
+        "geographic_box_buffer": ZoneMeshingDomainGeographicBoxBuffer,
+        "geographic_watershed": ZoneMeshingDomainGeographicWatershed,
+        "geographic_watershed_box": ZoneMeshingDomainGeographicWatershedBox,
+        "polygon": ZoneMeshingDomainPolygon,
+        "vector": ZoneMeshingDomainVector,
     }
     if kind not in schema_by_kind:
         allowed = ", ".join(sorted(schema_by_kind))

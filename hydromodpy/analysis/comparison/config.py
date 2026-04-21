@@ -18,7 +18,7 @@ def _clean_optional_text(value: object) -> str | None:
     return text or None
 
 
-class MethodComparisonVariantSchema(HydroModelBase):
+class MethodComparisonVariant(HydroModelBase):
     """One solver/mesh method variant to run or reuse."""
 
     model_config = ConfigDict(extra="forbid")
@@ -71,7 +71,7 @@ class MethodComparisonVariantSchema(HydroModelBase):
         return dict(value)
 
 
-class MethodComparisonObservableSchema(HydroModelBase):
+class MethodComparisonObservable(HydroModelBase):
     """One quantity of interest extracted from each variant run folder."""
 
     model_config = ConfigDict(extra="forbid")
@@ -151,7 +151,7 @@ class MethodComparisonObservableSchema(HydroModelBase):
         return cleaned
 
     @model_validator(mode="after")
-    def _validate_support_specific_fields(self) -> "MethodComparisonObservableSchema":
+    def _validate_support_specific_fields(self) -> "MethodComparisonObservable":
         if self.time is not None and self.time_window is not None:
             raise ValueError(
                 "method_comparison.observable cannot declare both time and time_window"
@@ -198,7 +198,7 @@ class MethodComparisonObservableSchema(HydroModelBase):
         return self
 
 
-class MethodComparisonSectionSchema(HydroModelBase):
+class MethodComparisonSection(HydroModelBase):
     """Launcher-owned method-comparison section."""
 
     model_config = ConfigDict(extra="forbid")
@@ -210,9 +210,9 @@ class MethodComparisonSectionSchema(HydroModelBase):
     run_variants: bool = True
     continue_on_error: bool = False
     reference_variant: str | None = None
-    fine_raster: "MethodComparisonFineRasterSchema | None" = None
-    variant: list[MethodComparisonVariantSchema] = Field(default_factory=list)
-    observable: list[MethodComparisonObservableSchema] = Field(default_factory=list)
+    fine_raster: "MethodComparisonFineRaster | None" = None
+    variant: list[MethodComparisonVariant] = Field(default_factory=list)
+    observable: list[MethodComparisonObservable] = Field(default_factory=list)
 
     @field_validator(
         "comparison_id",
@@ -226,7 +226,7 @@ class MethodComparisonSectionSchema(HydroModelBase):
         return _clean_optional_text(value)
 
     @model_validator(mode="after")
-    def _validate_non_empty_lists(self) -> "MethodComparisonSectionSchema":
+    def _validate_non_empty_lists(self) -> "MethodComparisonSection":
         if not self.variant:
             raise ValueError("method_comparison.variant must contain at least one item")
         if not self.observable:
@@ -255,7 +255,7 @@ class MethodComparisonSectionSchema(HydroModelBase):
         return self
 
 
-class MethodComparisonFineRasterSchema(HydroModelBase):
+class MethodComparisonFineRaster(HydroModelBase):
     """Optional common regular-grid rasterization for map comparisons."""
 
     model_config = ConfigDict(extra="forbid")
@@ -277,7 +277,7 @@ class MethodComparisonFineRasterSchema(HydroModelBase):
         return resolution
 
     @model_validator(mode="after")
-    def _validate_when_enabled(self) -> "MethodComparisonFineRasterSchema":
+    def _validate_when_enabled(self) -> "MethodComparisonFineRaster":
         if self.enabled and self.resolution is None:
             raise ValueError(
                 "method_comparison.fine_raster.resolution is required when fine_raster.enabled=true"
@@ -296,7 +296,7 @@ class MethodComparisonConfig(HydroModelBase):
     base_simulation_config_path: Path | None = None
     anchors_path: Path | None = None
     anchors: dict[str, tuple[float, float]] = Field(default_factory=dict)
-    method_comparison: MethodComparisonSectionSchema
+    method_comparison: MethodComparisonSection
 
     @classmethod
     def from_toml(
@@ -313,7 +313,7 @@ class MethodComparisonConfig(HydroModelBase):
 
         resolved_config_path = Path(config_path).expanduser().resolve()
         base_dir = resolved_config_path.parent
-        section = MethodComparisonSectionSchema.model_validate(
+        section = MethodComparisonSection.model_validate(
             raw_toml["method_comparison"]
         )
 
@@ -384,7 +384,7 @@ class MethodComparisonConfig(HydroModelBase):
 
     def resolve_variant_config_path(
         self,
-        variant: MethodComparisonVariantSchema,
+        variant: MethodComparisonVariant,
     ) -> Path | None:
         """Resolve a variant's declared simulation config path, if any."""
         if variant.simulation_config is None:
@@ -396,7 +396,7 @@ class MethodComparisonConfig(HydroModelBase):
 
     def resolve_variant_run_folder(
         self,
-        variant: MethodComparisonVariantSchema,
+        variant: MethodComparisonVariant,
     ) -> Path | None:
         """Resolve a variant's declared existing run folder, if any."""
         if variant.run_folder is None:
@@ -409,9 +409,9 @@ class MethodComparisonConfig(HydroModelBase):
 
 __all__ = (
     "MethodComparisonConfig",
-    "MethodComparisonObservableSchema",
-    "MethodComparisonSectionSchema",
-    "MethodComparisonVariantSchema",
+    "MethodComparisonObservable",
+    "MethodComparisonSection",
+    "MethodComparisonVariant",
 )
 
 
@@ -448,7 +448,7 @@ def _collect_anchor_nodes(
 
 
 def _apply_observable_anchors(
-    observables: list[MethodComparisonObservableSchema],
+    observables: list[MethodComparisonObservable],
     anchors: Mapping[str, tuple[float, float]],
 ) -> None:
     for observable in observables:

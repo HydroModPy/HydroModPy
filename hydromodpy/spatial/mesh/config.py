@@ -17,28 +17,28 @@ from typing import Annotated, Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config.param_level import ParamLevel
-from hydromodpy.data.variables.geology.config import GeologyConfigSchema
+from hydromodpy.data.variables.geology.config import GeologyConfigBlock
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
     ZoneMeshingSettingsSchema,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
-    ZoneMeshingDomainBBoxSchema,
-    ZoneMeshingDomainGeographicBoxBufferSchema,
-    ZoneMeshingDomainGeographicWatershedBoxSchema,
-    ZoneMeshingDomainGeographicWatershedSchema,
-    ZoneMeshingDomainPolygonSchema,
-    ZoneMeshingDomainVectorSchema,
+    ZoneMeshingDomainBBox,
+    ZoneMeshingDomainGeographicBoxBuffer,
+    ZoneMeshingDomainGeographicWatershedBox,
+    ZoneMeshingDomainGeographicWatershed,
+    ZoneMeshingDomainPolygon,
+    ZoneMeshingDomainVector,
 )
 from hydromodpy.core.config.base import HydroModelBase
 
 
 ZoneMeshingDomainSchema = (
-    ZoneMeshingDomainBBoxSchema
-    | ZoneMeshingDomainPolygonSchema
-    | ZoneMeshingDomainVectorSchema
-    | ZoneMeshingDomainGeographicBoxBufferSchema
-    | ZoneMeshingDomainGeographicWatershedSchema
-    | ZoneMeshingDomainGeographicWatershedBoxSchema
+    ZoneMeshingDomainBBox
+    | ZoneMeshingDomainPolygon
+    | ZoneMeshingDomainVector
+    | ZoneMeshingDomainGeographicBoxBuffer
+    | ZoneMeshingDomainGeographicWatershed
+    | ZoneMeshingDomainGeographicWatershedBox
 )
 
 
@@ -577,7 +577,7 @@ class MeshCatchmentConfig(HydroModelBase):
             "The default behavior is to reuse the in-memory river trace already built by the geographic pipeline."
         ),
     )
-    geology: Annotated[GeologyConfigSchema | None, ParamLevel("user")] = Field(
+    geology: Annotated[GeologyConfigBlock | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Optional geology support used when constraints_mode includes geology. "
@@ -602,7 +602,7 @@ class MeshCatchmentConfig(HydroModelBase):
         ),
     )
     domain: Annotated[ZoneMeshingDomainSchema, ParamLevel("user")] = Field(
-        default_factory=ZoneMeshingDomainGeographicBoxBufferSchema,
+        default_factory=ZoneMeshingDomainGeographicBoxBuffer,
         description=(
             "Effective support domain to mesh. "
             "The default `geographic_box_buffer` mode reuses the catchment bounding box plus geographic buffer "
