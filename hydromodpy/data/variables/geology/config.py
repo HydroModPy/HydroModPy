@@ -170,33 +170,33 @@ class GeologySource(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    path: str = Field(
+    path: Annotated[str, Profile.USER] = Field(
         description=(
             "Path to the raw geology dataset used by the meshing workflow. "
             "It can point to a raster or polygon vector file depending on kind."
         )
     )
-    kind: str = Field(
+    kind: Annotated[str, Profile.USER] = Field(
         default="auto",
         description=(
             "How to interpret the geology source. "
             "Use 'vector' for polygon geology, 'raster' for an already rasterized grid, or 'auto' to infer the type from the file."
         ),
     )
-    code_field: str | None = Field(
+    code_field: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Attribute column carrying the geology code for each polygon when kind='vector'."
         ),
     )
-    reference_raster_path: str | None = Field(
+    reference_raster_path: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Reference raster used when vector geology must be rasterized. "
             "Its extent and resolution define the target encoding grid."
         ),
     )
-    all_touched: bool = Field(
+    all_touched: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
             "Rasterization rule for vector geology. "
@@ -246,27 +246,27 @@ class GeologyLandSea(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(
+    enabled: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
             "Enable the coastal override that replaces geology values over sea areas."
         ),
     )
-    path: str | None = Field(
+    path: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Mask raster or vector path used when landsea.enabled=true. "
             "The mask is interpreted so that sea pixels/features overwrite the base geology code."
         ),
     )
-    sea_value: float = Field(
+    sea_value: Annotated[float, Profile.USER] = Field(
         default=0.0,
         description=(
             "Numeric value in the mask that represents the sea class. "
             "It is compared against the loaded mask before applying override_code."
         ),
     )
-    override_code: str = Field(
+    override_code: Annotated[str, Profile.USER] = Field(
         default="1",
         description=(
             "Geology code written into sea areas after applying the land/sea mask. "
@@ -309,33 +309,33 @@ class GeologyConfigBlock(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str = Field(
+    id: Annotated[str, Profile.USER] = Field(
         default="field_geology",
         description=(
             "Logical identifier of the geology field once loaded into HydroModPy. "
             "This id is reused by support discretization and by parameter mappings that target geology-based zonation."
         ),
     )
-    source: GeologySource = Field(
+    source: Annotated[GeologySource, Profile.USER] = Field(
         description=(
             "Raw geology source definition. "
             "This section explains where the geology polygons or raster come from and how they should be interpreted."
         )
     )
-    clip_polygon_path: str | None = Field(
+    clip_polygon_path: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional polygon mask applied before meshing or field projection. "
             "Use it to crop a very large national dataset to one smaller study area before further processing."
         ),
     )
-    landsea: GeologyLandSea = Field(
+    landsea: Annotated[GeologyLandSea, Profile.USER] = Field(
         default_factory=GeologyLandSea,
         description=(
             "Optional coastal override applied after loading the base geology source."
         ),
     )
-    cell_samples_per_axis: int = Field(
+    cell_samples_per_axis: Annotated[int, Profile.USER] = Field(
         default=8,
         description=(
             "Default sampling density used later when projecting geology fractions onto a target mesh. "
