@@ -8,7 +8,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
 from hydromodpy.core.units.length import parse_length_to_m
@@ -20,119 +20,119 @@ class ModflowRuntimeConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    mf_version: Annotated[str, ParamLevel("expert")] = Field(
+    mf_version: Annotated[str, Profile.EXPERT] = Field(
         default="mfnwt",
         description="MODFLOW executable/version identifier passed to FloPy.",
     )
-    mf_listunit: Annotated[int, ParamLevel("expert")] = Field(
+    mf_listunit: Annotated[int, Profile.EXPERT] = Field(
         default=2,
         description="Fortran unit number used for the MODFLOW list file.",
     )
-    mf_verbose: Annotated[bool, ParamLevel("expert")] = Field(
+    mf_verbose: Annotated[bool, Profile.EXPERT] = Field(
         default=False,
         description="Enable verbose FloPy logging for model setup.",
     )
 
-    nwt_headtol: Annotated[float, ParamLevel("expert")] = Field(
+    nwt_headtol: Annotated[float, Profile.EXPERT] = Field(
         default=1e-4,
         description="Head closure criterion for the NWT nonlinear solver.",
     )
-    nwt_fluxtol: Annotated[float, ParamLevel("expert")] = Field(
+    nwt_fluxtol: Annotated[float, Profile.EXPERT] = Field(
         default=500.0,
         description="Flux closure criterion for the NWT nonlinear solver.",
     )
-    nwt_maxiterout: Annotated[int, ParamLevel("expert")] = Field(
+    nwt_maxiterout: Annotated[int, Profile.EXPERT] = Field(
         default=5000,
         description="Maximum outer nonlinear iterations in the NWT solver.",
     )
-    nwt_thickfact: Annotated[float, ParamLevel("expert")] = Field(
+    nwt_thickfact: Annotated[float, Profile.EXPERT] = Field(
         default=1e-5,
         description="NWT wetting/thickness factor controlling nonlinear updates.",
     )
-    nwt_linmeth: Annotated[int, ParamLevel("expert")] = Field(
+    nwt_linmeth: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="Linear solver choice for NWT (see MODFLOW-NWT documentation).",
     )
-    nwt_iprnwt: Annotated[int, ParamLevel("expert")] = Field(
+    nwt_iprnwt: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="NWT print flag controlling iteration diagnostics in listing outputs.",
     )
-    nwt_ibotav: Annotated[int, ParamLevel("expert")] = Field(
+    nwt_ibotav: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="NWT option for averaging saturated thickness at the cell bottom.",
     )
-    nwt_options: Annotated[str, ParamLevel("expert")] = Field(
+    nwt_options: Annotated[str, Profile.EXPERT] = Field(
         default="COMPLEX",
         description="NWT nonlinear option keyword (for example SIMPLE or COMPLEX).",
     )
-    nwt_continue: Annotated[bool, ParamLevel("expert")] = Field(
+    nwt_continue: Annotated[bool, Profile.EXPERT] = Field(
         default=False,
         description="If true, continue NWT iterations on partially converged stress periods.",
     )
-    nwt_backflag: Annotated[int, ParamLevel("expert")] = Field(
+    nwt_backflag: Annotated[int, Profile.EXPERT] = Field(
         default=0,
         description="NWT backtracking activation flag.",
     )
-    nwt_stoptol: Annotated[float, ParamLevel("expert")] = Field(
+    nwt_stoptol: Annotated[float, Profile.EXPERT] = Field(
         default=1e-10,
         description="NWT backtracking stopping tolerance.",
     )
 
-    dis_itmuni: Annotated[int, ParamLevel("expert")] = Field(
+    dis_itmuni: Annotated[int, Profile.EXPERT] = Field(
         default=0,
         description="DIS time unit code used by MODFLOW (ITMUNI).",
     )
 
-    bas_hnoflo: Annotated[float, ParamLevel("expert")] = Field(
+    bas_hnoflo: Annotated[float, Profile.EXPERT] = Field(
         default=-9999.0,
         description="BAS no-flow head sentinel value (HNOFLO).",
     )
 
-    upw_iphdry: Annotated[int, ParamLevel("expert")] = Field(
+    upw_iphdry: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="UPW dry-cell head output flag (IPHDRY).",
     )
-    upw_hdry: Annotated[float, ParamLevel("expert")] = Field(
+    upw_hdry: Annotated[float, Profile.EXPERT] = Field(
         default=-100.0,
         description="UPW dry-cell head value (HDRY).",
     )
-    upw_layvka: Annotated[int, ParamLevel("expert")] = Field(
+    upw_layvka: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="UPW flag controlling VKA interpretation per layer (LAYVKA).",
     )
 
-    evt_nevtop: Annotated[int, ParamLevel("expert")] = Field(
+    evt_nevtop: Annotated[int, Profile.EXPERT] = Field(
         default=3,
         description="EVT option code that defines how ET extinction depth is applied (NEVTOP).",
     )
-    evt_ievt: Annotated[int, ParamLevel("expert")] = Field(
+    evt_ievt: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="EVT integer array selector used when NEVTOP requires layer indices (IEVT).",
     )
-    evt_ipakcb: Annotated[int, ParamLevel("expert")] = Field(
+    evt_ipakcb: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="EVT cell-by-cell budget output flag (IPAKCB).",
     )
 
-    oc_compact: Annotated[bool, ParamLevel("expert")] = Field(
+    oc_compact: Annotated[bool, Profile.EXPERT] = Field(
         default=True,
         description="Enable compact budget format in OC outputs.",
     )
 
-    wel_ipakcb: Annotated[int, ParamLevel("expert")] = Field(
+    wel_ipakcb: Annotated[int, Profile.EXPERT] = Field(
         default=1,
         description="WEL cell-by-cell budget output flag (IPAKCB).",
     )
 
-    lmt_output_file_name: Annotated[str, ParamLevel("expert")] = Field(
+    lmt_output_file_name: Annotated[str, Profile.EXPERT] = Field(
         default="mt3d_link.ftl",
         description="LMT output filename used to couple MODFLOW to MT3DMS.",
     )
-    lmt_extension: Annotated[str, ParamLevel("expert")] = Field(
+    lmt_extension: Annotated[str, Profile.EXPERT] = Field(
         default="lmt8",
         description="LMT package filename extension.",
     )
-    lmt_output_format: Annotated[str, ParamLevel("expert")] = Field(
+    lmt_output_format: Annotated[str, Profile.EXPERT] = Field(
         default="unformatted",
         description="LMT file format (typically 'formatted' or 'unformatted').",
     )
@@ -143,11 +143,11 @@ class ModflowProcessSpecificConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    vka: Annotated[float, ParamLevel("expert")] = Field(
+    vka: Annotated[float, Profile.EXPERT] = Field(
         default=1.0,
         description="Vertical hydraulic conductivity control passed to the UPW package (VKA).",
     )
-    exdp: Annotated[float, ParamLevel("expert")] = Field(
+    exdp: Annotated[float, Profile.EXPERT] = Field(
         default=1.0,
         description="Extinction depth [L] used by the EVT package (EXDP).",
     )
@@ -168,22 +168,22 @@ class ModflowConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    runtime: Annotated[ModflowRuntimeConfig, ParamLevel("expert")] = Field(
+    runtime: Annotated[ModflowRuntimeConfig, Profile.EXPERT] = Field(
         default_factory=ModflowRuntimeConfig,
         description="MODFLOW runtime package options (NWT/DIS/BAS/UPW/EVT/OC/WEL/LMT).",
     )
-    process_specific: Annotated[ModflowProcessSpecificConfig, ParamLevel("expert")] = Field(
+    process_specific: Annotated[ModflowProcessSpecificConfig, Profile.EXPERT] = Field(
         default_factory=ModflowProcessSpecificConfig,
         description="Process-specific package controls (currently UPW/EVT knobs).",
     )
-    sgrid: Annotated[SolverSGridConfig, ParamLevel("user")] = Field(
+    sgrid: Annotated[SolverSGridConfig, Profile.USER] = Field(
         default_factory=SolverSGridConfig,
         description=(
             "Spatial-grid payload split into `[...sgrid.planar]` and "
             "`[...sgrid.vertical]`."
         ),
     )
-    tgrid: Annotated[TMeshConfigModel | None, ParamLevel("user")] = Field(
+    tgrid: Annotated[TMeshConfigModel | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional temporal discretization payload as one validated "
