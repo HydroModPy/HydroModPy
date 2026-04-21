@@ -30,7 +30,7 @@ from hydromodpy.core.units import FlowRate, Time
 class ConstantForcing(HydroModelBase):
     """One scalar value held constant over the whole simulation."""
 
-    kind: Literal["constant"] = Field(
+    kind: Annotated[Literal["constant"], Profile.USER] = Field(
         default="constant", description="Discriminator value."
     )
     value: Annotated[FlowRate, Profile.USER] = Field(
@@ -44,7 +44,7 @@ class ConstantForcing(HydroModelBase):
 class CsvForcing(HydroModelBase):
     """Time-varying forcing backed by a CSV file on disk."""
 
-    kind: Literal["csv"] = Field(
+    kind: Annotated[Literal["csv"], Profile.USER] = Field(
         default="csv", description="Discriminator value."
     )
     path: Annotated[Path, Profile.USER] = Field(
@@ -73,7 +73,7 @@ class CsvForcing(HydroModelBase):
 class SyntheticForcing(HydroModelBase):
     """Synthetic amplitude/period forcing (sine-like profile)."""
 
-    kind: Literal["synthetic"] = Field(
+    kind: Annotated[Literal["synthetic"], Profile.USER] = Field(
         default="synthetic", description="Discriminator value."
     )
     pattern: Annotated[Literal["sine", "square", "triangle"], Profile.USER] = Field(
