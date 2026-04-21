@@ -11,7 +11,7 @@ from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field
 
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.base import HydroModelBase
 
 
@@ -20,50 +20,50 @@ class DisplayConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="ignore")
 
-    enabled: Annotated[bool, ParamLevel("user")] = Field(
+    enabled: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Master switch. When False, no figure is rendered or saved.",
     )
-    backend: Annotated[Literal["agg", "qt5agg", "auto"], ParamLevel("dev")] = Field(
+    backend: Annotated[Literal["agg", "qt5agg", "auto"], Profile.DEV] = Field(
         default="auto",
         description=(
             "Matplotlib backend. 'auto' selects Agg in headless mode and a "
             "GUI backend when ``show`` is enabled."
         ),
     )
-    preset: Annotated[Literal["default", "print", "dark"], ParamLevel("user")] = Field(
+    preset: Annotated[Literal["default", "print", "dark"], Profile.USER] = Field(
         default="default",
         description="Named theme applied before rendering any figure.",
     )
-    show: Annotated[bool, ParamLevel("user")] = Field(
+    show: Annotated[bool, Profile.USER] = Field(
         default=False,
         description="Open an interactive window via ``matplotlib.pyplot.show``.",
     )
-    save: Annotated[bool, ParamLevel("user")] = Field(
+    save: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Write rendered figures to disk under ``output_dir``.",
     )
-    output_dir: Annotated[Path, ParamLevel("user")] = Field(
+    output_dir: Annotated[Path, Profile.USER] = Field(
         default=Path("figures"),
         description="Directory (relative to project root) for saved figures.",
     )
-    dpi: Annotated[int, ParamLevel("dev")] = Field(
+    dpi: Annotated[int, Profile.DEV] = Field(
         default=150,
         ge=1,
         description="DPI used when saving raster figures.",
     )
-    cmap: Annotated[str, ParamLevel("user")] = Field(
+    cmap: Annotated[str, Profile.USER] = Field(
         default="viridis",
         description="Default sequential colormap for spatial figures.",
     )
-    figures: Annotated[list[str], ParamLevel("user")] = Field(
+    figures: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Names of registered figures to render automatically after a "
             "simulation. Empty list disables auto-rendering."
         ),
     )
-    overrides: Annotated[dict[str, dict], ParamLevel("expert")] = Field(
+    overrides: Annotated[dict[str, dict], Profile.EXPERT] = Field(
         default_factory=dict,
         description=(
             "Per-figure keyword overrides, keyed by figure name "
