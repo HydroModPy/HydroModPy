@@ -57,6 +57,7 @@ from pydantic import BaseModel, ValidationError
 from shapely.geometry import LineString, MultiLineString, Point, Polygon
 
 from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
     HydrographySourceConfig,
@@ -238,6 +239,8 @@ class TestSourceConfigParamLevels:
     def _get_param_level(model_cls: type[BaseModel], field_name: str) -> str | None:
         info = model_cls.model_fields[field_name]
         for meta in info.metadata:
+            if isinstance(meta, Profile):
+                return meta.name.lower()
             if isinstance(meta, ParamLevel):
                 return meta.level
         return None
@@ -1586,10 +1589,13 @@ class TestForceRefreshConfig:
     def test_force_refresh_param_level_dev(self):
         info = HydrographySourceConfig.model_fields["force_refresh"]
         for meta in info.metadata:
+            if isinstance(meta, Profile):
+                assert meta == Profile.DEV
+                return
             if isinstance(meta, ParamLevel):
                 assert meta.level == "dev"
                 return
-        pytest.fail("force_refresh should have ParamLevel('dev')")
+        pytest.fail("force_refresh should have Profile.DEV")
 
     def test_force_refresh_in_model_dump(self):
         cfg = HydrographySourceConfig(source="osm", force_refresh=True)
