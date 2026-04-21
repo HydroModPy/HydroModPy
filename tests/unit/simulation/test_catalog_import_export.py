@@ -45,25 +45,43 @@ class TestExportSimulation:
         sid = _sid()
         _populate(catalog, sid)
         out = tmp_path / "export.hmp"
-        catalog.export_package(sid, out)
-        assert (out / "simulation.duckdb").exists()
-        assert (out / "results.zarr.zip").exists()
+        produced = catalog.export_package(sid, out)
+        assert produced.is_file()
+        assert produced.suffix == ".hmp"
+        # tar.zst magic: first 4 bytes are 0x28B52FFD
+        assert produced.read_bytes()[:4] == b"\x28\xb5\x2f\xfd"
 
     def test_package_contains_sim_data(self, catalog, tmp_path):
+        import io
+        import json
+        import tarfile
+
+        import zstandard as zstd
         sid = _sid()
         _populate(catalog, sid)
         out = tmp_path / "export.hmp"
         catalog.export_package(sid, out)
 
-        import duckdb
-        pkg = duckdb.connect(str(out / "simulation.duckdb"), read_only=True)
-        count = pkg.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
-        assert count == 1
-        params = pkg.execute("SELECT COUNT(*) FROM parameters").fetchone()[0]
-        assert params == 1
-        ts = pkg.execute("SELECT COUNT(*) FROM timeseries").fetchone()[0]
-        assert ts == 5
-        pkg.close()
+        dctx = zstd.ZstdDecompressor()
+        with open(out, "rb") as fh:
+            raw = dctx.decompress(fh.read())
+        with tarfile.open(fileobj=io.BytesIO(raw), mode="r") as tar:
+            names = tar.getnames()
+            expected = {
+                f"{sid}/manifest.json",
+                f"{sid}/catalog_snapshot.duckdb",
+                f"{sid}/simulation.zarr.zip",
+                f"{sid}/README.md",
+            }
+            assert expected <= set(names)
+
+            manifest_bytes = tar.extractfile(f"{sid}/manifest.json").read()
+            manifest = json.loads(manifest_bytes)
+            assert manifest["sim_id"] == sid
+            assert manifest["format"].startswith("hydromodpy/hmp")
+            assert len(manifest["files"]) >= 3
+            for entry in manifest["files"]:
+                assert len(entry["sha256"]) == 64
 
     def test_not_found_raises(self, catalog, tmp_path):
         with pytest.raises(KeyError):
@@ -78,8 +96,7 @@ class TestImportSimulation:
         cat1 = SimulationCatalog(ws1)
         sid = _sid()
         _populate(cat1, sid)
-        pkg = tmp_path / "transfer.hmp"
-        cat1.export_package(sid, pkg)
+        pkg = cat1.export_package(sid, tmp_path / "transfer.hmp")
         cat1.close()
 
         cat2 = SimulationCatalog(ws2)
@@ -101,18 +118,39 @@ class TestImportSimulation:
         sid = _sid()
         _populate(catalog, sid)
         pkg = tmp_path / "dup.hmp"
-        catalog.export_package(sid, pkg)
+        produced = catalog.export_package(sid, pkg)
 
         with pytest.raises(ValueError, match="already exists"):
-            catalog.import_package(pkg)
+            catalog.import_package(produced)
+
+    def test_import_rejects_tampered_archive(self, tmp_path):
+        """Flip a byte in the archive — SHA-256 verification must fail."""
+        ws1 = tmp_path / "ws1"
+        ws2 = tmp_path / "ws2"
+
+        cat1 = SimulationCatalog(ws1)
+        sid = _sid()
+        _populate(cat1, sid)
+        pkg = cat1.export_package(sid, tmp_path / "tampered.hmp")
+        cat1.close()
+
+        # Corrupt a byte in the middle of the archive
+        raw = bytearray(pkg.read_bytes())
+        raw[len(raw) // 2] ^= 0xFF
+        pkg.write_bytes(bytes(raw))
+
+        cat2 = SimulationCatalog(ws2)
+        with pytest.raises((ValueError, Exception)):
+            cat2.import_package(pkg)
+        cat2.close()
 
     def test_import_force_overwrites(self, catalog, tmp_path):
         sid = _sid()
         _populate(catalog, sid)
         pkg = tmp_path / "force.hmp"
-        catalog.export_package(sid, pkg)
+        produced = catalog.export_package(sid, pkg)
 
-        imported = catalog.import_package(pkg, force=True)
+        imported = catalog.import_package(produced, force=True)
         assert imported == sid
         count = catalog.connection.execute(
             "SELECT COUNT(*) FROM simulations WHERE sim_id = ?", [sid]
@@ -126,8 +164,7 @@ class TestImportSimulation:
         cat1 = SimulationCatalog(ws1)
         sid = _sid()
         _populate(cat1, sid)
-        pkg = tmp_path / "path_test.hmp"
-        cat1.export_package(sid, pkg)
+        pkg = cat1.export_package(sid, tmp_path / "path_test.hmp")
         cat1.close()
 
         cat2 = SimulationCatalog(ws2)
