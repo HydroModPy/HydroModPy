@@ -32,6 +32,16 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Changed
+
+- Migrate from `ParamLevel` dataclass to `Profile(IntEnum)` in
+  `hydromodpy.core.config.profile`. 778 call sites across 51 files rewritten
+  to the shorter `Annotated[..., Profile.USER]` form. Legacy `ParamLevel`
+  kept as a re-export shim in `hydromodpy.core.config.param_level` for the
+  v0.6 window; slated for removal in v0.7.
+- Every Pydantic field in `HydroModelBase` descendants now carries an
+  explicit `Profile` tag (enforced by `tools/audit_profile_coverage.py`).
+
 ---
 
 ## [0.5.0] - 2026-04-21
