@@ -13,6 +13,8 @@ from pydantic import (
     model_validator,
 )
 from hydromodpy.core.config.base import HydroModelBase
+from typing import Annotated
+from hydromodpy.core.config.profile import Profile
 
 
 class ZoneMeshingDomainBBox(HydroModelBase):
@@ -20,8 +22,8 @@ class ZoneMeshingDomainBBox(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = Field(default="bbox")
-    bbox: list[float]
+    kind: Annotated[str, Profile.USER] = Field(default="bbox")
+    bbox: Annotated[list[float], Profile.USER]
 
     @field_validator("kind")
     @classmethod
@@ -47,8 +49,8 @@ class ZoneMeshingDomainPolygon(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = Field(default="polygon")
-    coordinates: list[list[float]]
+    kind: Annotated[str, Profile.USER] = Field(default="polygon")
+    coordinates: Annotated[list[list[float]], Profile.USER]
 
     @field_validator("kind")
     @classmethod
@@ -71,10 +73,10 @@ class ZoneMeshingDomainVector(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = Field(default="vector")
-    path: str
-    id_field: str | None = Field(default=None)
-    selected_id: str | None = Field(default=None)
+    kind: Annotated[str, Profile.USER] = Field(default="vector")
+    path: Annotated[str, Profile.USER]
+    id_field: Annotated[str | None, Profile.USER] = Field(default=None)
+    selected_id: Annotated[str | None, Profile.USER] = Field(default=None)
 
     @field_validator("kind")
     @classmethod
@@ -115,7 +117,7 @@ class ZoneMeshingDomainGeographicBoxBuffer(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = Field(default="geographic_box_buffer")
+    kind: Annotated[str, Profile.USER] = Field(default="geographic_box_buffer")
 
     @field_validator("kind")
     @classmethod
@@ -132,7 +134,7 @@ class ZoneMeshingDomainGeographicWatershed(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = Field(default="geographic_watershed")
+    kind: Annotated[str, Profile.USER] = Field(default="geographic_watershed")
 
     @field_validator("kind")
     @classmethod
@@ -149,7 +151,7 @@ class ZoneMeshingDomainGeographicWatershedBox(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = Field(default="geographic_watershed_box")
+    kind: Annotated[str, Profile.USER] = Field(default="geographic_watershed_box")
 
     @field_validator("kind")
     @classmethod
