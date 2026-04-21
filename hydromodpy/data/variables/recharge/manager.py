@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from hydromodpy.data.common.base_field_manager import BaseFieldManager
+from hydromodpy.data.common.base_manager import BaseFieldManager
 from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
 
 
