@@ -127,7 +127,7 @@ print("[plot] cross_section_comparison.png")
 
 # 2. Streamflow
 
-data_root = Path(__file__).parent.parent.parent / "data"
+data_root = Path(__file__).resolve().parent.parent / "data"
 
 runoff_mm_day = None
 runoff_candidates = list(data_root.glob("runoff/*EX04*.csv"))
@@ -260,7 +260,10 @@ try:
     contour_data, _ = sz.read_geographic_raster("watershed_contour")
     contour = np.ma.masked_where(contour_data <= 0, contour_data)
 except KeyError:
-    pass
+    # Fallback: derive a 1-cell boundary raster from the DEM watershed mask.
+    from scipy.ndimage import binary_dilation
+    edge = binary_dilation(~ws_mask, iterations=1) & ws_mask
+    contour = np.ma.masked_where(~edge, edge.astype(float))
 
 mask = dem_data.copy()
 fig, axes = plt.subplots(len(results), 2, figsize=(8, 4 * len(results)), dpi=200)
