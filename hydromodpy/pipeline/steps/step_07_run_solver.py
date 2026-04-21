@@ -20,14 +20,17 @@ Outputs
 from __future__ import annotations
 
 import time
+from typing import ClassVar
 
-from hydromodpy.pipeline.state import PipelineState
+from hydromodpy.pipeline.state import OpenStoreState, PipelineState, SolverRanState
 
 
 class RunSolverStep:
     """Execute the plan and ingest results via ``SimulationRunner``."""
 
     name = "run_solver"
+    tin: ClassVar[type] = OpenStoreState
+    tout: ClassVar[type] = SolverRanState
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.simulation.execution.runner import (
