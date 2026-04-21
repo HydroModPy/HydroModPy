@@ -708,7 +708,7 @@ def test_regional_lab_repo_example_expands_existing_cases() -> None:
     repo_root = Path(__file__).resolve().parents[3]
     config_path = (
         repo_root
-        / "examples"
+        / "examples_legacy_2"
         / "projects"
         / "launcher_simulation"
         / "regional_lab"

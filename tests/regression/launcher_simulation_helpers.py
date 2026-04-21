@@ -32,7 +32,7 @@ from tests.regression.golden_utils import (
 
 
 LAUNCHER_SIMULATION_CONFIG_DIR = (
-    REPO_ROOT / "examples" / "projects" / "launcher_simulation"
+    REPO_ROOT / "examples_legacy_2" / "projects" / "launcher_simulation"
 )
 
 MODFLOW_OUTPUT_NAMES = [

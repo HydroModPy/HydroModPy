@@ -63,7 +63,7 @@ def _run_transient_real_case_summary(
     _require_linux_petsc4py()
 
     repo_root = Path(__file__).resolve().parents[4]
-    base_dir = repo_root / "examples" / "projects" / "launcher_simulation"
+    base_dir = repo_root / "examples_legacy_2" / "projects" / "launcher_simulation"
     base_config = base_dir / config_name
     project_root = tmp_path / base_config.stem
     config_path = _write_overlay_config(

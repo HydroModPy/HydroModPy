@@ -24,11 +24,11 @@ def _repo_root() -> Path:
 
 
 def _example_bundle_dir() -> Path:
-    return _repo_root() / "examples" / "08_mesh_viewer" / "sample_bundle"
+    return _repo_root() / "examples" / "projects" / "08_mesh_viewer" / "sample_bundle"
 
 
 def _example_config_path() -> Path:
-    return _repo_root() / "examples" / "08_mesh_viewer" / "config_example.toml"
+    return _repo_root() / "examples" / "projects" / "08_mesh_viewer" / "config_example.toml"
 
 
 def test_standalone_bundle_reader_uses_shared_bundle_contracts() -> None:

@@ -436,9 +436,9 @@ def test_python_module_mesh_bundle_viewer_runs_with_default_example_bundle(
     mesh_source_dir = (
         Path(__file__).resolve().parents[3] / "tools" / "mesh_bundle_viewer"
     )
-    examples_source_dir = Path(__file__).resolve().parents[3] / "examples" / "08_mesh_viewer"
+    examples_source_dir = Path(__file__).resolve().parents[3] / "examples" / "projects" / "08_mesh_viewer"
     mesh_target_dir = distribution_root / "mesh_bundle_viewer"
-    examples_target_dir = distribution_root / "examples" / "08_mesh_viewer"
+    examples_target_dir = distribution_root / "examples" / "projects" / "08_mesh_viewer"
     shutil.copytree(mesh_source_dir, mesh_target_dir)
     shutil.copytree(examples_source_dir, examples_target_dir)
 
