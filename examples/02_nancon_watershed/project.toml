@@ -222,7 +222,8 @@ type = "constant_thickness"
 
 # Constant aquifer thickness (m) applied below topography.
 # Type: float | > 0.0 | Default: 50.0
-thickness = 30.0
+# Épaisseur calibrable — surchargée par le run overlay (ex: run_transient_nwt.toml).
+thickness = 50.0
 
 
 # ----------------------------------------------------------------------
@@ -1072,7 +1073,8 @@ unit = "m/s"
 [flow.param.K.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
 # Type: object (optional) | Optional
-value = 5e-5
+# Valeur calibrable — fournie par le run overlay (ex: run_transient_nwt.toml).
+# value = 5e-5
 
 
 # ----------------------------------------------------------------------
@@ -1102,7 +1104,8 @@ unit = "-"
 [flow.param.Sy.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
 # Type: object (optional) | Optional
-value = 0.05
+# Valeur calibrable — fournie par le run overlay (ex: run_transient_nwt.toml).
+# value = 0.05
 
 
 # ----------------------------------------------------------------------
@@ -1132,7 +1135,8 @@ unit = "m-1"
 [flow.param.Ss.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
 # Type: object (optional) | Optional
-value = 1e-5
+# Valeur calibrable — fournie par le run overlay (ex: run_transient_nwt.toml).
+# value = 1e-5
 
 
 # ----------------------------------------------------------------------
@@ -1470,7 +1474,8 @@ station_inventory = true
 [simulation]
 # Human-readable simulation name.
 # Type: string | Default: ""
-name = "nancon_transient_nwt"
+# Surchargée par le run overlay.
+name = "nancon_base"
 
 # Run identifier used as the output subfolder name under results_simulations/.
 # When empty, derived from the TOML filename at load time (e.g.
@@ -1480,7 +1485,7 @@ run_id = ""
 
 # Short free-text description of the simulation intent.
 # Type: string | Default: ""
-description = "Bassin du Nançon (~110 km²) — écoulement transitoire, MODFLOW-NWT."
+description = "Squelette du bassin du Nançon — les runs héritent via base_config."
 
 
 # Optional canonical simulation window used to align solver temporal settings and validate forcing coverage.
@@ -1489,21 +1494,21 @@ description = "Bassin du Nançon (~110 km²) — écoulement transitoire, MODFLO
 [simulation.time]
 # Simulation window lower datetime bound used by launcher-level time alignment and forcing checks.
 # Type: datetime (optional) | Optional
-start_datetime = "2000-01-01"
+# start_datetime = "2000-01-01"   # fourni par le run overlay
 
 # Simulation window upper datetime bound, interpreted as inclusive.
 # Must be greater than or equal to start_datetime.
 # Type: datetime (optional) | Optional
-end_datetime = "2002-12-31"
+# end_datetime = "2002-12-31"     # fourni par le run overlay
 
 # Forcing/stress-period time-step scalar or inline token '<value> <unit>' (for example '30 day').
 # This controls the temporal aggregation step for forcing series (for example recharge/runoff) and the resulting stress periods.
 # Type: UnionType[int, float, str] | Default: 1
-step_value = 30
+# step_value = "1 month"          # fourni par le run overlay
 
 # Optional forcing/stress-period base time unit used with step_value when step_value is provided without an inline unit.
 # Type: Literal (optional) | Optional
-step_unit = "day"
+# step_unit = "hour"              # laissé vide pour ne pas entrer en conflit avec l'inline token de l'overlay
 
 
 # Ordered list of requested processes loaded from [[simulation.process]].
@@ -1512,6 +1517,7 @@ step_unit = "day"
 # User-facing identifier for the process.
 # This id is required and must be unique within the simulation.
 # Type: string | REQUIRED
+# Processus déclarés par le run overlay (ex: run_transient_nwt.toml).
 id = "flow"
 
 # Requested process family executed by the launcher.
