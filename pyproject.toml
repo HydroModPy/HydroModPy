@@ -116,8 +116,8 @@ ugrid = ["xugrid"]
 viewer3d = ["pyvista"]
 
 [project.scripts]
-hmp = "hydromodpy.__main__:main"
-hydromodpy = "hydromodpy.__main__:main"
+hmp = "hydromodpy._cli:main"
+hydromodpy = "hydromodpy._cli:main"
 
 [project.urls]
 Homepage = "https://hydromodpy-docs.readthedocs.io/en/latest/"
