@@ -140,17 +140,29 @@ class SimulationZarr:
     ) -> None:
         mesh = self._root.require_group("mesh")
 
-        mesh.create_array(
+        vertices_arr = mesh.create_array(
             "vertices", data=vertices.astype("float64"), overwrite=True,
         )
-        mesh.create_array(
+        vertices_arr.attrs["long_name"] = "Mesh node coordinates (x, y, z)"
+        vertices_arr.attrs["units"] = "m"
+        vertices_arr.attrs["cf_role"] = "mesh_node_coordinates"
+
+        fnc = mesh.create_array(
             "face_node_connectivity",
             data=face_node_connectivity.astype("int32"),
             overwrite=True,
         )
-        mesh.create_array(
+        fnc.attrs["cf_role"] = "face_node_connectivity"
+        fnc.attrs["long_name"] = "Mapping from every face to its corner nodes"
+        fnc.attrs["start_index"] = start_index
+
+        z_arr = mesh.create_array(
             "z_interfaces", data=z_interfaces.astype("float64"), overwrite=True,
         )
+        z_arr.attrs["long_name"] = "Altitude of layer interfaces"
+        z_arr.attrs["units"] = "m"
+        z_arr.attrs["standard_name"] = "altitude"
+        z_arr.attrs["positive"] = "up"
 
         if layer_indices is not None:
             mesh.create_array(
@@ -169,6 +181,72 @@ class SimulationZarr:
         mesh.attrs["n_nodes"] = vertices.shape[0]
         mesh.attrs["n_cells"] = face_node_connectivity.shape[0]
         mesh.attrs["n_layers"] = len(z_interfaces) - 1
+
+        # UGRID-1.0 topology: create a scalar "mesh" array (value 0) that
+        # carries the topology attributes. Downstream xarray readers resolve
+        # node_coordinates / face_node_connectivity via these attrs.
+        topo = mesh.create_array(
+            "topology", data=np.zeros((), dtype="int32"), overwrite=True,
+        )
+        topo.attrs["cf_role"] = "mesh_topology"
+        topo.attrs["long_name"] = "UGRID 2D topology of the simulation mesh"
+        topo.attrs["topology_dimension"] = 2
+        topo.attrs["node_coordinates"] = "vertices"
+        topo.attrs["face_node_connectivity"] = "face_node_connectivity"
+
+    # -- Time / CRS metadata --------------------------------------------------
+
+    def write_time(
+        self,
+        values: np.ndarray,
+        *,
+        epoch: str = "1970-01-01T00:00:00",
+        calendar: str = "proleptic_gregorian",
+        units: str = "seconds since 1970-01-01T00:00:00",
+    ) -> None:
+        """Write the CF time coordinate at the store root.
+
+        ``values`` must be integer seconds since ``epoch``. Creates (or
+        overwrites) a ``time`` array with the CF ``units``, ``calendar`` and
+        ``standard_name`` attributes required to round-trip through xarray.
+        """
+        time_arr = self._root.create_array(
+            "time", data=np.asarray(values, dtype="int64"), overwrite=True,
+        )
+        time_arr.attrs["units"] = units
+        time_arr.attrs["calendar"] = calendar
+        time_arr.attrs["standard_name"] = "time"
+        time_arr.attrs["long_name"] = "Simulation time"
+        time_arr.attrs["axis"] = "T"
+        self._root.attrs["time_epoch"] = epoch
+
+    def write_crs(
+        self,
+        *,
+        crs_wkt: str,
+        grid_mapping_name: str = "latitude_longitude",
+        epsg_code: int | None = None,
+        semi_major_axis: float | None = None,
+        inverse_flattening: float | None = None,
+    ) -> None:
+        """Write a scalar CF ``grid_mapping`` variable named ``crs``.
+
+        The registry attaches ``grid_mapping = "crs"`` to every registered
+        field, so this variable makes exported Zarr stores self-describing
+        for CF-aware consumers (xarray, IRIS, CDO, ...).
+        """
+        crs_arr = self._root.create_array(
+            "crs", data=np.zeros((), dtype="int32"), overwrite=True,
+        )
+        crs_arr.attrs["grid_mapping_name"] = grid_mapping_name
+        if crs_wkt:
+            crs_arr.attrs["crs_wkt"] = crs_wkt
+        if epsg_code is not None:
+            crs_arr.attrs["epsg_code"] = int(epsg_code)
+        if semi_major_axis is not None:
+            crs_arr.attrs["semi_major_axis"] = float(semi_major_axis)
+        if inverse_flattening is not None:
+            crs_arr.attrs["inverse_flattening"] = float(inverse_flattening)
 
     # -- Fields --------------------------------------------------------------
 
