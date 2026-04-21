@@ -147,7 +147,7 @@ class GeologyConfig(HydroModelBase):
 
 # ---------------------------------------------------------------------------
 # Standalone geology field schemas (used by GeologyField.from_dict/from_toml
-# and runtime_loader for direct field construction).
+# and the data loader for direct field construction).
 # ---------------------------------------------------------------------------
 
 SUPPORTED_SOURCE_KINDS = ("auto", "raster", "vector")

@@ -5,8 +5,8 @@ files. Returns a ``LoadResult`` containing ``FieldRecord`` objects
 pointing to cached GeoPackage/GeoTIFF files.
 
 The ``GeologyField`` (field framework) is NOT built here — that
-happens in the runtime_loader, which takes the loaded geodata and
-rasterizes it on the domain grid.
+happens in :mod:`hydromodpy.data.loader`, which takes the loaded
+geodata and rasterizes it on the domain grid.
 """
 
 from __future__ import annotations

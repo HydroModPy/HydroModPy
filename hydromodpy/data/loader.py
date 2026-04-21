@@ -1,7 +1,9 @@
 """Runtime data loading orchestrator driven by a resolved data plan.
 
 This module centralizes launcher data-phase loading logic so that the launcher
-stays focused on orchestration order.
+stays focused on orchestration order. It exposes :class:`DataManagersRuntimeLoader`
+for stateful orchestration and :func:`load_variable` as a thin pure helper for
+per-variable dispatch.
 """
 
 from __future__ import annotations
@@ -888,4 +890,34 @@ class DataManagersRuntimeLoader:
                     out.append(text)
             return out
         return []
+
+
+def load_variable(
+    variable_name: str,
+    *,
+    catalog: DataCatalogDuckDB,
+    config: Any,
+    context: Any,
+) -> Any:
+    """Pure dispatch helper: resolve and load a single variable.
+
+    Thin wrapper around :class:`DataManagersRuntimeLoader` that keeps the
+    per-variable call site free of stateful plumbing. Callers supply the
+    catalog, the already-resolved config model, and a workflow context
+    (for the time window / path registry); the helper returns whatever
+    the underlying loader method yields (typically a ``LoadResult`` or
+    variable-specific object).
+    """
+    method_name = DataManagersRuntimeLoader._LOADER_DISPATCH.get(variable_name)
+    if method_name is None:
+        raise KeyError(f"Unknown variable: {variable_name!r}")
+
+    plan = DataLoadPlan()
+    loader = DataManagersRuntimeLoader(
+        config_path=getattr(context, "config_path", Path(".")),
+        data_plan=plan,
+    )
+    loader._catalog = catalog
+    method = getattr(loader, method_name)
+    return method(config=config, context=context)
 
