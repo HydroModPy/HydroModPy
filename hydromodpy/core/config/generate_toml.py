@@ -55,8 +55,8 @@ def _get_registry() -> dict[str, type[BaseModel]]:
         from hydromodpy.results.postprocess_config import PostprocessConfig
         from hydromodpy.workflow.pipelines.overview_config import OverviewSection
         from hydromodpy.spatial.mesh.config import (
-            MeshCatchmentBatchSectionSchema,
-            MeshCatchmentConfigSchema,
+            MeshCatchmentBatchSection,
+            MeshCatchmentConfig,
         )
         _MODULE_REGISTRY = {
             "workspace": WorkspaceConfig,
@@ -68,8 +68,8 @@ def _get_registry() -> dict[str, type[BaseModel]]:
             "solver": SolverConfig,
             "modflownwt": ModflowConfig,
             "modflow6": Modflow6Config,
-            "mesh_catchment": MeshCatchmentConfigSchema,
-            "mesh_catchment_batch": MeshCatchmentBatchSectionSchema,
+            "mesh_catchment": MeshCatchmentConfig,
+            "mesh_catchment_batch": MeshCatchmentBatchSection,
             "overview": OverviewSection,
             "simulation": SimulationConfig,
             "display": DisplayConfig,

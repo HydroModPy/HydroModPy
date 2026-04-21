@@ -59,7 +59,7 @@ def _root_sections() -> dict[str, type]:
     from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
     from hydromodpy.spatial.domain.domain_config import DomainConfig
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-    from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
+    from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
     return {
         "workspace": WorkspaceConfig,
@@ -76,7 +76,7 @@ def _root_sections() -> dict[str, type]:
         "display": DisplayConfig,
         "postprocess": PostprocessConfig,
         "overview": OverviewSection,
-        "mesh_catchment": MeshCatchmentConfigSchema,
+        "mesh_catchment": MeshCatchmentConfig,
         "capability_gallery": CapabilityGalleryConfig,
     }
 

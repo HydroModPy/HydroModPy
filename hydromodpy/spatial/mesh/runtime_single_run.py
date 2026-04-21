@@ -19,7 +19,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid._bundle_export_contracts import (
     CatchmentBundleHydraulicPropertiesConfig,
     CatchmentBundleSummaryReference,
 )
-from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
 
 _RIVER_TRACE_CONSTRAINT_MODES = {"rivers_only", "geology_rivers"}
@@ -157,7 +157,7 @@ def _cleanup_runtime_workspace_root(*, runtime_project_root: Path) -> list[str]:
 def _resolve_output_overrides(
     *,
     config_path: Path,
-    section_cfg: MeshCatchmentConfigSchema,
+    section_cfg: MeshCatchmentConfig,
     workspace: object,
     explicit_overrides: Mapping[str, Path | str | None] | None = None,
     default_output_dir: Path | None = None,
@@ -265,7 +265,7 @@ def _resolve_river_trace(
 
 def _prepare_runtime_environment(
     *,
-    section_cfg: MeshCatchmentConfigSchema,
+    section_cfg: MeshCatchmentConfig,
     workspace_cfg: object,
     geographic_cfg: GeographicConfig,
     workspace: object | None,
@@ -347,7 +347,7 @@ def _export_exchange_bundle_if_possible(
     summary_dict: dict[str, Any],
     resolved_outputs: ResolvedMeshCatchmentOutputs,
     prepared_runtime: PreparedMeshCatchmentRuntime,
-    section_cfg: MeshCatchmentConfigSchema,
+    section_cfg: MeshCatchmentConfig,
     domain_cfg: object | None,
     river_trace: object | None,
     config_path: Path,
@@ -400,7 +400,7 @@ def _export_exchange_bundle_if_possible(
 def _apply_post_run_cleanup(
     *,
     summary_dict: dict[str, Any],
-    section_cfg: MeshCatchmentConfigSchema,
+    section_cfg: MeshCatchmentConfig,
     prepared_runtime: PreparedMeshCatchmentRuntime,
 ) -> None:
     """Apply launcher-level cleanup policies after the meshing case returns."""
@@ -442,7 +442,7 @@ def _apply_post_run_cleanup(
 def run_single_mesh_catchment_workflow_typed(
     *,
     config_path: Path,
-    section_cfg: MeshCatchmentConfigSchema,
+    section_cfg: MeshCatchmentConfig,
     workspace_cfg: object,
     geographic_cfg: GeographicConfig,
     domain_cfg: object | None,

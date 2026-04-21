@@ -53,7 +53,7 @@ if TYPE_CHECKING:
     from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
     from hydromodpy.spatial.domain.domain_config import DomainConfig
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-    from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
+    from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
     from hydromodpy.workflow.pipelines.overview_config import OverviewSection
 
 
@@ -180,7 +180,7 @@ class HydroModPyConfig(HydroModelBase):
             "data-overview (watershed identity card) workflow."
         ),
     )
-    mesh_catchment: MeshCatchmentConfigSchema | None = Field(
+    mesh_catchment: MeshCatchmentConfig | None = Field(
         default=None,
         description=(
             "Optional mesh-only settings loaded from the [mesh_catchment] "
@@ -450,7 +450,7 @@ def _load_optional_overview_section(
 
 def _load_optional_mesh_catchment_section(
     section_data: Any, base: Path,
-) -> MeshCatchmentConfigSchema | None:
+) -> MeshCatchmentConfig | None:
     """Load the optional ``[mesh_catchment]`` section."""
     if section_data is None:
         return None
@@ -483,7 +483,7 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
     from hydromodpy.spatial.domain.domain_config import DomainConfig
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-    from hydromodpy.spatial.mesh.config import MeshCatchmentConfigSchema
+    from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
     from hydromodpy.workflow.pipelines.overview_config import OverviewSection
 
     globals().update(
@@ -500,7 +500,7 @@ def _rebuild_forward_refs() -> None:
         ModflowConfig=ModflowConfig,
         DomainConfig=DomainConfig,
         GeographicConfig=GeographicConfig,
-        MeshCatchmentConfigSchema=MeshCatchmentConfigSchema,
+        MeshCatchmentConfig=MeshCatchmentConfig,
         OverviewSection=OverviewSection,
     )
     HydroModPyConfig.model_rebuild()

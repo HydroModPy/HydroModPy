@@ -23,7 +23,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
     run_reference_2d_zone_conformal_case_from_toml,
 )
 from hydromodpy.spatial.mesh.config import (
-    MeshCatchmentConfigSchema,
+    MeshCatchmentConfig,
     parse_mesh_catchment_config_data,
 )
 from hydromodpy.spatial.mesh.runtime_single_run import (
@@ -50,7 +50,7 @@ def require_mesh_section(
     payload: Mapping[str, Any],
     *,
     section_name: str = DEFAULT_SECTION_NAME,
-) -> MeshCatchmentConfigSchema:
+) -> MeshCatchmentConfig:
     """Return one validated launcher section and fail fast when it is missing."""
     section = payload.get(section_name)
     if not isinstance(section, Mapping):
@@ -65,7 +65,7 @@ def get_optional_mesh_section(
     payload: Mapping[str, Any],
     *,
     section_name: str = DEFAULT_SECTION_NAME,
-) -> MeshCatchmentConfigSchema | None:
+) -> MeshCatchmentConfig | None:
     """Return one validated optional mesh section, or ``None`` when absent/blank."""
     section = payload.get(section_name)
     if section is None:
@@ -118,7 +118,7 @@ def prepare_geographic_config_for_meshing(
 def run_single_mesh_catchment_workflow(
     *,
     config_path: str | Path,
-    section_data: MeshCatchmentConfigSchema,
+    section_data: MeshCatchmentConfig,
     workspace_cfg: object,
     geographic_cfg: GeographicConfig,
     domain_cfg: object | None,
@@ -155,7 +155,7 @@ def run_single_mesh_catchment_workflow(
 def run_single_mesh_catchment_workflow_with_runtime_artifacts(
     *,
     config_path: str | Path,
-    section_data: MeshCatchmentConfigSchema,
+    section_data: MeshCatchmentConfig,
     workspace_cfg: object,
     geographic_cfg: GeographicConfig,
     domain_cfg: object | None,

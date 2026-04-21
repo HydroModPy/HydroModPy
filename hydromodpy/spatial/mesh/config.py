@@ -46,7 +46,7 @@ ZoneMeshingDomainSchema = (
 # River constraints
 # ---------------------------------------------------------------------------
 
-class MeshCatchmentRiversConfigSchema(HydroModelBase):
+class MeshCatchmentRiversConfig(HydroModelBase):
     """River-trace inputs consumed by the conformal mesher."""
 
     model_config = ConfigDict(extra="forbid")
@@ -113,13 +113,13 @@ class MeshCatchmentRiversConfigSchema(HydroModelBase):
         return text
 
     @model_validator(mode="after")
-    def _validate_file_mode(self) -> "MeshCatchmentRiversConfigSchema":
+    def _validate_file_mode(self) -> "MeshCatchmentRiversConfig":
         if self.source == "file" and self.path is None:
             raise ValueError("rivers.path is required when rivers.source='file'.")
         return self
 
 
-class MeshCatchmentWatershedBoundarySmoothingConfigSchema(HydroModelBase):
+class MeshCatchmentWatershedBoundarySmoothingConfig(HydroModelBase):
     """Optional smoothing controls for the watershed-boundary constraint."""
 
     model_config = ConfigDict(extra="forbid")
@@ -157,7 +157,7 @@ class MeshCatchmentWatershedBoundarySmoothingConfigSchema(HydroModelBase):
     )
 
 
-class MeshCatchmentWatershedOutsideCoarseningConfigSchema(HydroModelBase):
+class MeshCatchmentWatershedOutsideCoarseningConfig(HydroModelBase):
     """Optional coarse-background size controls outside the watershed."""
 
     model_config = ConfigDict(extra="forbid")
@@ -195,7 +195,7 @@ class MeshCatchmentWatershedOutsideCoarseningConfigSchema(HydroModelBase):
     )
 
 
-class MeshCatchmentWatershedGeologyConformityConfigSchema(HydroModelBase):
+class MeshCatchmentWatershedGeologyConformityConfig(HydroModelBase):
     """Optional control of where geology remains conformal around the watershed."""
 
     model_config = ConfigDict(extra="forbid")
@@ -229,7 +229,7 @@ class MeshCatchmentWatershedGeologyConformityConfigSchema(HydroModelBase):
         return token
 
 
-class MeshCatchmentWatershedBoundaryConfigSchema(HydroModelBase):
+class MeshCatchmentWatershedBoundaryConfig(HydroModelBase):
     """Optional watershed-boundary mesh constraint."""
 
     model_config = ConfigDict(extra="forbid")
@@ -249,20 +249,20 @@ class MeshCatchmentWatershedBoundaryConfigSchema(HydroModelBase):
             "When omitted, the mesher derives one conservative distance from the boundary extent."
         ),
     )
-    smoothing: Annotated[MeshCatchmentWatershedBoundarySmoothingConfigSchema, ParamLevel("user")] = Field(
-        default_factory=MeshCatchmentWatershedBoundarySmoothingConfigSchema,
+    smoothing: Annotated[MeshCatchmentWatershedBoundarySmoothingConfig, ParamLevel("user")] = Field(
+        default_factory=MeshCatchmentWatershedBoundarySmoothingConfig,
         description=(
             "Optional regularization controls applied before the watershed boundary is converted to a linear constraint."
         ),
     )
-    outside_coarsening: Annotated[MeshCatchmentWatershedOutsideCoarseningConfigSchema, ParamLevel("user")] = Field(
-        default_factory=MeshCatchmentWatershedOutsideCoarseningConfigSchema,
+    outside_coarsening: Annotated[MeshCatchmentWatershedOutsideCoarseningConfig, ParamLevel("user")] = Field(
+        default_factory=MeshCatchmentWatershedOutsideCoarseningConfig,
         description=(
             "Optional coarse-background size field applied outside the regularized watershed while keeping the geology partition unchanged."
         ),
     )
-    geology_conformity: Annotated[MeshCatchmentWatershedGeologyConformityConfigSchema, ParamLevel("user")] = Field(
-        default_factory=MeshCatchmentWatershedGeologyConformityConfigSchema,
+    geology_conformity: Annotated[MeshCatchmentWatershedGeologyConformityConfig, ParamLevel("user")] = Field(
+        default_factory=MeshCatchmentWatershedGeologyConformityConfig,
         description=(
             "Optional control of where geology remains conformal relative to the watershed. "
             "Keep the default full_domain mode to preserve the current behavior."
@@ -291,7 +291,7 @@ def _validate_hydraulic_scalar(
     return text
 
 
-class MeshCatchmentHydraulicPropertyMappingSchema(HydroModelBase):
+class MeshCatchmentHydraulicPropertyMapping(HydroModelBase):
     """Zone-key to property mapping contract used by bundle export."""
 
     model_config = ConfigDict(extra="forbid")
@@ -388,7 +388,7 @@ class MeshCatchmentHydraulicPropertyMappingSchema(HydroModelBase):
         return _validate_hydraulic_scalar(value, label="default_value")
 
     @model_validator(mode="after")
-    def _validate_mapping_payload(self) -> "MeshCatchmentHydraulicPropertyMappingSchema":
+    def _validate_mapping_payload(self) -> "MeshCatchmentHydraulicPropertyMapping":
         if self.values_source == "inline":
             if self.values is None and self.default_value is None:
                 raise ValueError(
@@ -404,8 +404,8 @@ class MeshCatchmentHydraulicPropertyMappingSchema(HydroModelBase):
 # Hydraulic property export contract
 # ---------------------------------------------------------------------------
 
-class MeshCatchmentHydraulicConductivitySchema(
-    MeshCatchmentHydraulicPropertyMappingSchema
+class MeshCatchmentHydraulicConductivity(
+    MeshCatchmentHydraulicPropertyMapping
 ):
     """Conductivity mapping exported on mesh cells."""
 
@@ -426,25 +426,25 @@ class MeshCatchmentHydraulicConductivitySchema(
         return text
 
 
-class MeshCatchmentStorageCoefficientSchema(
-    MeshCatchmentHydraulicPropertyMappingSchema
+class MeshCatchmentStorageCoefficient(
+    MeshCatchmentHydraulicPropertyMapping
 ):
     """Storage-coefficient mapping exported on mesh cells."""
 
 
-class MeshCatchmentHydraulicPropertiesConfigSchema(HydroModelBase):
+class MeshCatchmentHydraulicPropertiesConfig(HydroModelBase):
     """Optional hydraulic properties derived from the geology zonation."""
 
     model_config = ConfigDict(extra="forbid")
 
-    conductivity: Annotated[MeshCatchmentHydraulicConductivitySchema | None, ParamLevel("user")] = Field(
+    conductivity: Annotated[MeshCatchmentHydraulicConductivity | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Optional hydraulic-conductivity mapping by geology key. "
             "When provided, the bundle exports one `hydraulic_conductivity_m_s` value per cell."
         ),
     )
-    storage_coefficient: Annotated[MeshCatchmentStorageCoefficientSchema | None, ParamLevel("user")] = Field(
+    storage_coefficient: Annotated[MeshCatchmentStorageCoefficient | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Optional storage-coefficient mapping by geology key. "
@@ -455,7 +455,7 @@ class MeshCatchmentHydraulicPropertiesConfigSchema(HydroModelBase):
     @model_validator(mode="after")
     def _validate_at_least_one_property(
         self,
-    ) -> "MeshCatchmentHydraulicPropertiesConfigSchema":
+    ) -> "MeshCatchmentHydraulicPropertiesConfig":
         if self.conductivity is None and self.storage_coefficient is None:
             raise ValueError(
                 "hydraulic_properties must define conductivity and/or storage_coefficient."
@@ -467,7 +467,7 @@ class MeshCatchmentHydraulicPropertiesConfigSchema(HydroModelBase):
 # Main single-run launcher contract
 # ---------------------------------------------------------------------------
 
-class MeshCatchmentConfigSchema(HydroModelBase):
+class MeshCatchmentConfig(HydroModelBase):
     """Top-level launcher contract for one mono-catchment meshing run."""
 
     model_config = ConfigDict(extra="forbid")
@@ -570,8 +570,8 @@ class MeshCatchmentConfigSchema(HydroModelBase):
             "and exchange bundle have been written."
         ),
     )
-    rivers: Annotated[MeshCatchmentRiversConfigSchema, ParamLevel("user")] = Field(
-        default_factory=MeshCatchmentRiversConfigSchema,
+    rivers: Annotated[MeshCatchmentRiversConfig, ParamLevel("user")] = Field(
+        default_factory=MeshCatchmentRiversConfig,
         description=(
             "River-constraint section used when constraints_mode includes rivers. "
             "The default behavior is to reuse the in-memory river trace already built by the geographic pipeline."
@@ -585,15 +585,15 @@ class MeshCatchmentConfigSchema(HydroModelBase):
             "should be interpreted before conformal meshing."
         ),
     )
-    watershed_boundary: Annotated[MeshCatchmentWatershedBoundaryConfigSchema, ParamLevel("user")] = Field(
-        default_factory=MeshCatchmentWatershedBoundaryConfigSchema,
+    watershed_boundary: Annotated[MeshCatchmentWatershedBoundaryConfig, ParamLevel("user")] = Field(
+        default_factory=MeshCatchmentWatershedBoundaryConfig,
         description=(
             "Optional watershed-boundary mesh constraint. "
             "Enable it to force a conformal mesh line along the catchment boundary while keeping the geology zonation "
             "represented on the whole support domain."
         ),
     )
-    hydraulic_properties: Annotated[MeshCatchmentHydraulicPropertiesConfigSchema | None, ParamLevel("user")] = Field(
+    hydraulic_properties: Annotated[MeshCatchmentHydraulicPropertiesConfig | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Optional hydraulic-property tables keyed by geology zones. "
@@ -660,7 +660,7 @@ class MeshCatchmentConfigSchema(HydroModelBase):
         return text
 
     @model_validator(mode="after")
-    def _validate_required_subsections(self) -> "MeshCatchmentConfigSchema":
+    def _validate_required_subsections(self) -> "MeshCatchmentConfig":
         if self.constraints_mode in {"geology_only", "geology_rivers"} and self.geology is None:
             raise ValueError(
                 "geology section is required when constraints_mode includes geology."
@@ -684,7 +684,7 @@ class MeshCatchmentConfigSchema(HydroModelBase):
 # Batch launcher contract
 # ---------------------------------------------------------------------------
 
-class MeshCatchmentBatchOutputsSchema(HydroModelBase):
+class MeshCatchmentBatchOutputs(HydroModelBase):
     """Output filename patterns for batch meshing."""
 
     model_config = ConfigDict(extra="forbid")
@@ -739,7 +739,7 @@ class MeshCatchmentBatchOutputsSchema(HydroModelBase):
         return text
 
 
-class MeshCatchmentBatchSectionSchema(HydroModelBase):
+class MeshCatchmentBatchSection(HydroModelBase):
     """Optional batch loop over several outlet coordinates."""
 
     model_config = ConfigDict(extra="forbid")
@@ -794,8 +794,8 @@ class MeshCatchmentBatchSectionSchema(HydroModelBase):
             "If true, keep processing later outlets after one batch item fails."
         ),
     )
-    outputs: Annotated[MeshCatchmentBatchOutputsSchema, ParamLevel("dev")] = Field(
-        default_factory=MeshCatchmentBatchOutputsSchema,
+    outputs: Annotated[MeshCatchmentBatchOutputs, ParamLevel("dev")] = Field(
+        default_factory=MeshCatchmentBatchOutputs,
         description=(
             "Optional batch-specific filename patterns. Use them whenever the main [mesh_catchment] section contains fixed output paths, "
             "so each outlet writes distinct artifacts."
@@ -830,7 +830,7 @@ class MeshCatchmentBatchSectionSchema(HydroModelBase):
         return [str(item).strip() for item in value if str(item).strip() != ""]
 
     @model_validator(mode="after")
-    def _validate_enabled_contract(self) -> "MeshCatchmentBatchSectionSchema":
+    def _validate_enabled_contract(self) -> "MeshCatchmentBatchSection":
         if not self.enabled:
             return self
         if self.outlets_table_path is None:
@@ -846,7 +846,7 @@ class MeshCatchmentBatchSectionSchema(HydroModelBase):
 
 def parse_mesh_catchment_config_data(
     config_data: Mapping[str, Any],
-) -> MeshCatchmentConfigSchema:
+) -> MeshCatchmentConfig:
     """Validate one `[mesh_catchment]` section and return the typed model."""
     if not isinstance(config_data, Mapping):
         raise ValueError("mesh_catchment configuration must be a mapping.")
@@ -860,34 +860,34 @@ def parse_mesh_catchment_config_data(
     if raw_constraints_mode is None or str(raw_constraints_mode).strip() == "":
         raise ValueError("constraints_mode is required.")
     try:
-        return MeshCatchmentConfigSchema.model_validate(dict(config_data))
+        return MeshCatchmentConfig.model_validate(dict(config_data))
     except ValidationError as exc:
         raise ValueError(str(exc)) from exc
 
 
 def parse_mesh_catchment_batch_config_data(
     config_data: Mapping[str, Any],
-) -> MeshCatchmentBatchSectionSchema:
+) -> MeshCatchmentBatchSection:
     """Validate one optional `[mesh_catchment_batch]` section and return the typed model."""
     if not isinstance(config_data, Mapping):
         raise ValueError("mesh_catchment_batch configuration must be a mapping.")
     try:
-        return MeshCatchmentBatchSectionSchema.model_validate(dict(config_data))
+        return MeshCatchmentBatchSection.model_validate(dict(config_data))
     except ValidationError as exc:
         raise ValueError(str(exc)) from exc
 
 
 __all__ = [
-    "MeshCatchmentHydraulicConductivitySchema",
-    "MeshCatchmentHydraulicPropertiesConfigSchema",
-    "MeshCatchmentHydraulicPropertyMappingSchema",
-    "MeshCatchmentStorageCoefficientSchema",
-    "MeshCatchmentBatchOutputsSchema",
-    "MeshCatchmentBatchSectionSchema",
-    "MeshCatchmentConfigSchema",
-    "MeshCatchmentRiversConfigSchema",
-    "MeshCatchmentWatershedBoundaryConfigSchema",
-    "MeshCatchmentWatershedBoundarySmoothingConfigSchema",
+    "MeshCatchmentHydraulicConductivity",
+    "MeshCatchmentHydraulicPropertiesConfig",
+    "MeshCatchmentHydraulicPropertyMapping",
+    "MeshCatchmentStorageCoefficient",
+    "MeshCatchmentBatchOutputs",
+    "MeshCatchmentBatchSection",
+    "MeshCatchmentConfig",
+    "MeshCatchmentRiversConfig",
+    "MeshCatchmentWatershedBoundaryConfig",
+    "MeshCatchmentWatershedBoundarySmoothingConfig",
     "parse_mesh_catchment_batch_config_data",
     "parse_mesh_catchment_config_data",
 ]
