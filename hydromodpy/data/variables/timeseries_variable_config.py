@@ -24,7 +24,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.core.config.param_level import ParamLevel
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.data.base_config import BaseVariableConfig
 
 
@@ -35,31 +35,31 @@ class TimeseriesColumnsMixin(HydroModelBase):
     existing timeseries variable in HydroModPy.
     """
 
-    col_id: Annotated[str, ParamLevel("dev")] = Field(
+    col_id: Annotated[str, Profile.DEV] = Field(
         default="id",
         description="Column name for the station identifier in location files.",
     )
-    col_x: Annotated[str, ParamLevel("dev")] = Field(
+    col_x: Annotated[str, Profile.DEV] = Field(
         default="x",
         description="Column name for the X coordinate in location files.",
     )
-    col_y: Annotated[str, ParamLevel("dev")] = Field(
+    col_y: Annotated[str, Profile.DEV] = Field(
         default="y",
         description="Column name for the Y coordinate in location files.",
     )
-    col_crs: Annotated[str, ParamLevel("dev")] = Field(
+    col_crs: Annotated[str, Profile.DEV] = Field(
         default="crs",
         description="Column name for the CRS in location files.",
     )
-    col_datetime: Annotated[str, ParamLevel("dev")] = Field(
+    col_datetime: Annotated[str, Profile.DEV] = Field(
         default="datetime",
         description="Column name for timestamps in chronicle CSVs.",
     )
-    col_value: Annotated[str, ParamLevel("dev")] = Field(
+    col_value: Annotated[str, Profile.DEV] = Field(
         default="value",
         description="Column name for numeric values in chronicle CSVs.",
     )
-    default_crs: Annotated[str, ParamLevel("dev")] = Field(
+    default_crs: Annotated[str, Profile.DEV] = Field(
         default="EPSG:4326",
         description="Default CRS used when a location file omits the CRS column.",
     )
@@ -68,12 +68,12 @@ class TimeseriesColumnsMixin(HydroModelBase):
 class TimeseriesSelectionMixin(HydroModelBase):
     """Shared station selection and cache grammar for timeseries variables."""
 
-    station_ids: Annotated[list[str] | None, ParamLevel("user")] = Field(
+    station_ids: Annotated[list[str] | None, Profile.USER] = Field(
         default=None,
         description="Explicit station identifiers to load (custom source).",
     )
     extent: Annotated[
-        Literal["watershed", "study_area"] | None, ParamLevel("user"),
+        Literal["watershed", "study_area"] | None, Profile.USER,
     ] = Field(
         default=None,
         description=(
@@ -82,7 +82,7 @@ class TimeseriesSelectionMixin(HydroModelBase):
             "the broader study bounding box."
         ),
     )
-    force_refresh: Annotated[bool, ParamLevel("dev")] = Field(
+    force_refresh: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Ignore the cache and force a fresh download from the API.",
     )
@@ -99,29 +99,29 @@ class TimeseriesVariableConfig(BaseVariableConfig):
 
     # Re-expose the shared CSV column-name grammar at the top level of the
     # variable config so it can be overridden alongside dates.
-    col_id: Annotated[str, ParamLevel("dev")] = Field(default="id")
-    col_x: Annotated[str, ParamLevel("dev")] = Field(default="x")
-    col_y: Annotated[str, ParamLevel("dev")] = Field(default="y")
-    col_crs: Annotated[str, ParamLevel("dev")] = Field(default="crs")
-    col_datetime: Annotated[str, ParamLevel("dev")] = Field(default="datetime")
-    col_value: Annotated[str, ParamLevel("dev")] = Field(default="value")
-    default_crs: Annotated[str, ParamLevel("dev")] = Field(default="EPSG:4326")
+    col_id: Annotated[str, Profile.DEV] = Field(default="id")
+    col_x: Annotated[str, Profile.DEV] = Field(default="x")
+    col_y: Annotated[str, Profile.DEV] = Field(default="y")
+    col_crs: Annotated[str, Profile.DEV] = Field(default="crs")
+    col_datetime: Annotated[str, Profile.DEV] = Field(default="datetime")
+    col_value: Annotated[str, Profile.DEV] = Field(default="value")
+    default_crs: Annotated[str, Profile.DEV] = Field(default="EPSG:4326")
 
-    station_ids: Annotated[list[str] | None, ParamLevel("user")] = Field(
+    station_ids: Annotated[list[str] | None, Profile.USER] = Field(
         default=None,
         description="Explicit station identifiers to load (custom source).",
     )
     extent: Annotated[
-        Literal["watershed", "study_area"] | None, ParamLevel("user"),
+        Literal["watershed", "study_area"] | None, Profile.USER,
     ] = Field(
         default=None,
         description="Enable bbox-based data retrieval using the project extent.",
     )
-    force_refresh: Annotated[bool, ParamLevel("dev")] = Field(
+    force_refresh: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Ignore the cache and force a fresh download from the API.",
     )
-    mask_path: Annotated[Path | None, ParamLevel("user")] = Field(
+    mask_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations "
