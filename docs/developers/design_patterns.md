@@ -128,8 +128,10 @@ variable is one manager class plus one entry in the registry.
 All configuration is expressed as Pydantic models with
 ``ConfigDict(extra="forbid")``. Quantity-bearing fields use
 ``Annotated`` aliases from ``core/units/`` so users can write
-``"50 m"`` or ``"0.1 km"``. ``ParamLevel`` (user/dev/expert) controls
-which fields show up in generated TOML templates.
+``"50 m"`` or ``"0.1 km"``. ``Profile`` (``Profile.USER`` / ``Profile.DEV`` /
+``Profile.EXPERT`` — an ``IntEnum`` in ``core/config/profile.py``) controls
+which fields show up in generated TOML templates. The legacy
+``ParamLevel("user")`` tag still works as a v0.6-window shim.
 
 ```python
 class DomainConfig(BaseModel):
