@@ -18,13 +18,17 @@ attached when the underlying config requests them.
 
 from __future__ import annotations
 
-from hydromodpy.pipeline.state import PipelineState
+from typing import ClassVar
+
+from hydromodpy.pipeline.state import MeshedState, PipelineState, SetupState
 
 
 class SetupProcessStep:
     """Instantiate flow / transport process objects bound to the domain."""
 
     name = "setup_process"
+    tin: ClassVar[type] = MeshedState
+    tout: ClassVar[type] = SetupState
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.simulation import ensure_flow, ensure_transport
