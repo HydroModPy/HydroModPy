@@ -43,11 +43,12 @@ from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config.generate_toml import (
     _default_value,
-    _get_param_level,
     _get_registry,
     _UNDEFINED,
 )
-from hydromodpy.core.config.param_level import PROFILES, VisibleWhen
+from hydromodpy.core.config.param_level import VisibleWhen
+from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config.pydantic_introspect import extract_profile
 
 
 # ── Type introspection helpers ───────────────────────────────────────────
@@ -211,7 +212,7 @@ def _render_scalar(
 def render_model(
     section_name: str,
     model_cls: type[BaseModel],
-    threshold: int,
+    threshold: Profile,
     values: dict[str, Any],
 ) -> dict[str, Any]:
     """Render all visible fields of a Pydantic model."""
@@ -224,8 +225,8 @@ def render_model(
     for name, field_info in model_cls.model_fields.items():
         if getattr(field_info, "exclude", False):
             continue
-        level = _get_param_level(field_info)
-        if PROFILES.get(level, 0) > threshold:
+        level = extract_profile(field_info)
+        if level > threshold:
             continue
 
         list_cls = _resolve_list_basemodel(field_info)
@@ -394,8 +395,12 @@ def main() -> None:
     # ── Sidebar ──────────────────────────────────────────────────────
     with st.sidebar:
         st.header("Options")
-        profile = st.selectbox("Profil", list(PROFILES.keys()), index=0)
-        threshold = PROFILES[profile]
+        profile_name = st.selectbox(
+            "Profil",
+            [p.name.lower() for p in Profile],
+            index=0,
+        )
+        threshold = Profile[profile_name.upper()]
 
         all_modules = list(registry.keys())
         default_modules = ["workspace", "geographic", "domain", "data", "flow", "transport", "modflownwt"]
@@ -459,7 +464,7 @@ def main() -> None:
             lines = [
                 "# " + "=" * 70,
                 "# HydroModPy Configuration",
-                f"# Profile: {profile} | Modules: {', '.join(selected)}",
+                f"# Profile: {profile_name} | Modules: {', '.join(selected)}",
                 "# " + "=" * 70,
                 "",
             ]
