@@ -12,8 +12,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-import requests
-
+from hydromodpy.core.exceptions import NetworkError
+from hydromodpy.core.io.http_client import HTTPClient, get_default_client
 from hydromodpy.data.common.api_helpers import check_status
 
 BASE_URL = "https://api.geosas.fr/edr/collections/safran-isba"
@@ -42,11 +42,13 @@ class Sim2EDRClient:
         crs: str = "EPSG:2154",
         date_range: str,
         output_format: str = "CoverageJSON",
+        http_client: HTTPClient | None = None,
     ):
         self.bbox = bbox
         self.crs = crs
         self.date_range = date_range
         self.output_format = output_format
+        self._http = http_client or get_default_client()
 
     def fetch_cube(self, *, parameters: list[str]) -> Any:
         """Fetch gridded data for the bounding box.
@@ -62,10 +64,12 @@ class Sim2EDRClient:
             "datetime": self.date_range,
         }
         url = f"{BASE_URL}/cube"
-        resp = requests.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        resp = self._http.get(url, params=params, timeout=DEFAULT_TIMEOUT)
         if not check_status(resp.status_code):
-            raise RuntimeError(
-                f"SIM2 EDR API error {resp.status_code} for {url}: {resp.text[:500]}"
+            raise NetworkError(
+                f"SIM2 EDR API error {resp.status_code} for {url}: {resp.text[:500]}",
+                url=url,
+                status_code=resp.status_code,
             )
         if self.output_format == "Netcdf4":
             return self._load_netcdf_from_bytes(resp.content)
@@ -90,10 +94,12 @@ class Sim2EDRClient:
             "datetime": self.date_range,
         }
         url = f"{BASE_URL}/position"
-        resp = requests.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        resp = self._http.get(url, params=params, timeout=DEFAULT_TIMEOUT)
         if not check_status(resp.status_code):
-            raise RuntimeError(
-                f"SIM2 EDR API error {resp.status_code} for {url}: {resp.text[:500]}"
+            raise NetworkError(
+                f"SIM2 EDR API error {resp.status_code} for {url}: {resp.text[:500]}",
+                url=url,
+                status_code=resp.status_code,
             )
         return resp.json()
 
