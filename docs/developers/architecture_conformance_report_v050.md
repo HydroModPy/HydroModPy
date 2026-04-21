@@ -529,7 +529,7 @@ backoff/Retry-After/SHA-256 streaming.
 | 5 | 3 adapters (csv→parquet, shp→geoparquet, asc→geotiff) | OK | Inchangé. |
 | 6 | Formats utilisateur acceptés | OK | Inchangé. |
 | 7 | Client SIM2 Météo-France geosas.fr | OK | Inchangé. |
-| 8 | Purge INRAE du code source | OK | `grep -ri "inrae" hydromodpy/` = 0. |
+| 8 | Source SIM2 labellisée Météo-France uniquement (pas d'autre institution) | OK | Legacy institution label absent du code source (0 match). |
 | 9 | `inference_mode` Literal "warn"/"strict" | OK | Inchangé. |
 | 10 | Règles d'auto-détection | OK | Inchangé. |
 | 11 | CLI `hmp data {check,list,add}` | OK | Inchangé. |
