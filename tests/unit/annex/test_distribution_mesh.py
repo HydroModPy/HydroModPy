@@ -375,6 +375,7 @@ def test_run_visualization_from_toml_accepts_missing_hydraulic_field(
     assert summary["hydraulic_conductivity_cell_count"] == 0
 
 
+@pytest.mark.allow_subprocess
 def test_python_module_mesh_bundle_viewer_runs_from_distributed_folder(
     tmp_path: Path,
 ) -> None:
@@ -427,6 +428,7 @@ def test_python_module_mesh_bundle_viewer_runs_from_distributed_folder(
     assert summary["hydraulic_properties_available"] is False
 
 
+@pytest.mark.allow_subprocess
 def test_python_module_mesh_bundle_viewer_runs_with_default_example_bundle(
     tmp_path: Path,
 ) -> None:
