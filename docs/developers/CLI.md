@@ -3,6 +3,51 @@
 After `pip install -e .`, two commands are available: `hmp` and `hydromodpy`.
 They do the same thing -pick whichever you prefer.
 
+## Run a workflow
+
+Single entry point for all workflows:
+
+```bash
+hmp run path/to/project.toml
+```
+
+The TOML must declare a top-level `workflow = "..."` field. Valid values:
+
+| Value | Purpose |
+|---|---|
+| `"simulation"` | Execute one simulation: setup → data → mesh → solver → extract → export |
+| `"calibration"` | Optimisation loop: run N simulations varying parameters, pick the best |
+| `"batch"` | Multi-site regional campaign: expand a site catalog × recipes |
+| `"overview"` | Watershed identity card (data + geography only, no solver) |
+| `"mesh"` | Catchment mesh generation only (no solver) |
+
+Example minimal TOML:
+
+```toml
+workflow = "simulation"
+
+[workspace]
+root = "/path/to/workspace"
+project_root = "."
+
+[geographic]
+# ...
+```
+
+If `workflow = "..."` is missing or holds an unknown value, the command
+fails at config-load time with an explicit error message. The same
+constraint is enforced at the Pydantic layer so frontends (e.g. Angular
+via the JSON Schema produced by `hmp schema export`) see the field as
+a required enum.
+
+Python scripts (`.py`) can also be passed to `hmp run`. They are
+executed as a subprocess — useful for prototyping outside the workflow
+system.
+
+```bash
+hmp run prototype_script.py
+```
+
 ## Generate a config file
 
 ```bash
