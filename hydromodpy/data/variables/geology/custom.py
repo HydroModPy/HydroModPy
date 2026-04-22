@@ -202,7 +202,7 @@ def _load_custom_csv(
     # Build point geometries
     from shapely.geometry import Point
 
-    points = [Point(float(x), float(y)) for x, y in zip(df[col_x], df[col_y])]
+    points = [Point(float(x), float(y)) for x, y in zip(df[col_x], df[col_y], strict=False)]
     codes = df[col_code].astype(str).tolist()
 
     # Voronoi tessellation

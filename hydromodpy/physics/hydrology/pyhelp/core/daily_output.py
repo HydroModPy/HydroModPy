@@ -31,7 +31,7 @@ def read_daily_help_output(filepath):
     }
     current_year = None
 
-    for i, line in enumerate(lines):
+    for _i, line in enumerate(lines):
         if "DAILY OUTPUT FOR YEAR" in line:
             match = re.search(r"\d{4}", line)
             if match:
@@ -89,7 +89,7 @@ def calc_area_daily_avg(cellnames, workdir):
 
             dates = [
                 pd.Timestamp(y, 1, 1) + pd.Timedelta(days=(d - 1))
-                for y, d in zip(data["years"], data["days"])
+                for y, d in zip(data["years"], data["days"], strict=False)
             ]
 
             df_cell = pd.DataFrame(
@@ -117,7 +117,7 @@ def calc_area_daily_avg(cellnames, workdir):
     # Crée un multi-index de colonnes => (cell, flux)
     multi_cols = []
     cell_index = 0
-    for df_cell in all_dfs:
+    for _df_cell in all_dfs:
         for comp in COMPONENTS:
             multi_cols.append((cell_index, comp))
         cell_index += 1

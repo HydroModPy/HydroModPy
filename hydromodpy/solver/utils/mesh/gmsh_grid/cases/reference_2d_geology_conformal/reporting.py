@@ -33,7 +33,7 @@ def _build_watershed_cell_counts(
     prepared_watershed = prep(watershed_geometry)
     centroid_x, centroid_y = mesh.cell_centroids()
     inside_count = 0
-    for x_value, y_value in zip(centroid_x, centroid_y):
+    for x_value, y_value in zip(centroid_x, centroid_y, strict=False):
         if prepared_watershed.covers(Point(float(x_value), float(y_value))):
             inside_count += 1
 

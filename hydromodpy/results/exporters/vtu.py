@@ -58,7 +58,7 @@ def export_vtu(
 
     vertices = mesh["vertices"][:]
     connectivity = mesh["face_node_connectivity"][:]
-    n_cells = connectivity.shape[0]
+    connectivity.shape[0]
     max_vpf = connectivity.shape[1]
 
     # Pad vertices to 3D if needed

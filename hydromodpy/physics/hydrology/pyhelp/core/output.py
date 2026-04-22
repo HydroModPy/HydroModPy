@@ -397,7 +397,7 @@ class HelpOutput:
                 ax.text(
                     x,
                     var_avg_yearly,
-                    "%d\nmm/an" % round(var_avg_yearly),
+                    f"{round(var_avg_yearly)}\nmm/an",
                     ha="center",
                     va="bottom",
                     transform=ax.transData + text_offset,

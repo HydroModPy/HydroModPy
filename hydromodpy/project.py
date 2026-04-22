@@ -24,9 +24,13 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from hydromodpy.results.run import Run
 
 logger = logging.getLogger(__name__)
 

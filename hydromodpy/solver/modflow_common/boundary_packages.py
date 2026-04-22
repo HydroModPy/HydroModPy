@@ -18,10 +18,10 @@ source of truth.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 
-class PackageKind(str, Enum):
+class PackageKind(StrEnum):
     """MODFLOW package families that share a (cell, *attrs) stress-period row."""
 
     DRN = "drn"

@@ -334,7 +334,7 @@ def _restore_catalog_snapshot(
             ).fetchall()
         }
 
-        sim_df = snap.execute("SELECT * FROM simulations").fetchdf()
+        sim_df = snap.execute("SELECT * FROM simulations").fetchdf()  # noqa: F841 — referenced by DuckDB replacement scan in SQL below
         conn.execute("INSERT INTO simulations SELECT * FROM sim_df")
 
         for table in PER_SIM_TABLE_NAMES:

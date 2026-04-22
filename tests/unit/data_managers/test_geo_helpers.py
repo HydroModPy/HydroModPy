@@ -41,7 +41,7 @@ class TestFilterLocationsByBbox:
         locs = [_loc("A", 1, 1), _loc("B", 5, 5), _loc("C", 15, 15)]
         filtered = filter_locations_by_bbox(locs, (0, 0, 10, 10))
         assert len(filtered) == 2
-        assert {l.id for l in filtered} == {"A", "B"}
+        assert {loc.id for loc in filtered} == {"A", "B"}
 
 
 class TestNearestLocation:

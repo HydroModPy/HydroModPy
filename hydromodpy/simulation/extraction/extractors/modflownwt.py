@@ -123,7 +123,7 @@ class ModflowNwtOutputAdapter:
 
         n_cells = nrow * ncol
         budget_records: list[dict] = []
-        for t, (time, kstpkper) in enumerate(zip(times, kstpkpers)):
+        for t, (time, kstpkper) in enumerate(zip(times, kstpkpers, strict=False)):
             for component in record_names:
                 try:
                     # Use full3D=True to get 3D arrays for list-based

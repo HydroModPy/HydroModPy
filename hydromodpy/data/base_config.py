@@ -6,7 +6,6 @@ and path resolution boilerplate across all variable config.py files.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Annotated, ClassVar
 
@@ -19,13 +18,8 @@ from hydromodpy.core.config.profile import Profile
 
 def _load_toml(path: Path) -> dict:
     """Load a TOML file, with Python 3.10 fallback to ``tomli``."""
-    if sys.version_info >= (3, 11):
-        import tomllib
-    else:
-        try:
-            import tomllib
-        except ModuleNotFoundError:
-            import tomli as tomllib
+    import tomllib
+
     with open(path, "rb") as f:
         return tomllib.load(f)
 
@@ -61,7 +55,7 @@ class BaseVariableConfig(HydroModelBase):
             try:
                 datetime.fromisoformat(v)
             except ValueError:
-                raise ValueError(f"Invalid ISO date: '{v}'. Expected YYYY-MM-DD.")
+                raise ValueError(f"Invalid ISO date: '{v}'. Expected YYYY-MM-DD.") from None
         return v
 
     @model_validator(mode="after")

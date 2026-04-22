@@ -522,7 +522,7 @@ def _compute_concentration_seepage(
 ) -> None:
     """Concentration at seepage cells only. Zero elsewhere."""
     grp = store.open_zarr_group(sim_id, mode="r")
-    derived_grp = grp.get("derived")
+    grp.get("derived")
 
     if "concentration" not in grp:
         logger.debug("No concentration field, skipping concentration_seepage for sim %s", sim_id)

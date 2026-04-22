@@ -668,7 +668,7 @@ class Modflow(Solver):
             raise TypeError("processing options must be a ModflowRunOptions instance.")
 
         if options.link_mt3dms:
-            lmt = flopy.modflow.ModflowLmt(
+            flopy.modflow.ModflowLmt(
                 self.mf,
                 output_file_name=self._params.runtime.lmt_output_file_name,
                 extension=self._params.runtime.lmt_extension,

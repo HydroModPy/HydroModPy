@@ -19,10 +19,15 @@ import logging
 import time
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import StepError
 from hydromodpy.pipeline.state import PipelineState
 from hydromodpy.pipeline.step import Step
+
+if TYPE_CHECKING:
+    from hydromodpy.pipeline.checkpoint import CheckpointStore
+    from hydromodpy.pipeline.ledger import StepsLedger
 
 logger = logging.getLogger(__name__)
 

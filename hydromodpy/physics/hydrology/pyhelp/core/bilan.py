@@ -28,7 +28,7 @@ def calc_yearly_streamflow(help_output, surf_output):
 
     # Calculate the yearly values for the surface water cells.
     surf_cellnames = list(surf_output.keys())
-    for i, cellname in enumerate(surf_cellnames):
+    for _i, cellname in enumerate(surf_cellnames):
         cellname = str(int(cellname))
         data = surf_output[cellname]
         zone_yearly_precip += np.array(data["rain"])
@@ -217,7 +217,7 @@ def plot_streamflow_scatter(sim_qflow, obs_qflow, fig_title, figname=None):
     ax.text(
         0,
         1,
-        "RMSE débit total = %0.1f mm/an" % rmse_qtot,
+        f"RMSE débit total = {rmse_qtot:0.1f} mm/an",
         transform=ax.transAxes + offset,
         ha="left",
         va="top",
@@ -227,7 +227,7 @@ def plot_streamflow_scatter(sim_qflow, obs_qflow, fig_title, figname=None):
     ax.text(
         0,
         1,
-        "ME débit total = %0.1f mm/an" % me_qtot,
+        f"ME débit total = {me_qtot:0.1f} mm/an",
         transform=ax.transAxes + offset,
         ha="left",
         va="top",
@@ -238,7 +238,7 @@ def plot_streamflow_scatter(sim_qflow, obs_qflow, fig_title, figname=None):
     ax.text(
         0,
         1,
-        "RMSE débit base = %0.1f mm/an" % rmse_qbase,
+        f"RMSE débit base = {rmse_qbase:0.1f} mm/an",
         transform=ax.transAxes + offset,
         ha="left",
         va="top",
@@ -248,7 +248,7 @@ def plot_streamflow_scatter(sim_qflow, obs_qflow, fig_title, figname=None):
     ax.text(
         0,
         1,
-        "ME débit base = %0.1f mm/an" % me_qbase,
+        f"ME débit base = {me_qbase:0.1f} mm/an",
         transform=ax.transAxes + offset,
         ha="left",
         va="top",

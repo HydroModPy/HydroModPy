@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class SolverEngine(str, Enum):
+class SolverEngine(StrEnum):
     """Supported groundwater solver backends."""
 
     MODFLOW_NWT = "modflownwt"

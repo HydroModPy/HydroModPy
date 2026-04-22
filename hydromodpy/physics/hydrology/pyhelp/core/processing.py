@@ -188,7 +188,6 @@ def read_daily_help_output(filename):
     with open(filename) as csvfile:
         csvread = list(csv.reader(csvfile))
 
-    nlay = None
     arr_years = []
     arr_days = []
     arr_rain = []
@@ -201,14 +200,13 @@ def read_daily_help_output(filename):
     arr_leaklast = []
 
     year = None
-    nlay = nsub = None
-    for i, line in enumerate(csvread):
+    for _i, line in enumerate(csvread):
         if line:
             line = line[0]
             if "TOTAL NUMBER OF LAYERS" in line:
-                nlay = int(line.split()[-1])
+                int(line.split()[-1])
             elif "TOTAL NUMBER OF SUBPROFILES" in line:
-                nsub = int(line.split()[-1])
+                int(line.split()[-1])
             if "DAILY OUTPUT FOR YEAR" in line:
                 year = int(line.split()[-1])
                 days_in_year = 366 if calendar.isleap(year) else 365

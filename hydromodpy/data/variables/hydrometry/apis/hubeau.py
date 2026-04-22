@@ -18,9 +18,9 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_helpers import get_json
 from hydromodpy.data.common.progress import iter_progress, log_step
 from hydromodpy.data.contracts.location import StationLocation
+from hydromodpy.data.contracts.timeseries import PointRecord
 
 logger = get_logger(__name__)
-from hydromodpy.data.contracts.timeseries import PointRecord
 
 API_BASE = "https://hubeau.eaufrance.fr/api/v2/hydrometrie"
 
@@ -107,8 +107,8 @@ def fetch(
         return []
 
     log_step(
-        "Hub'Eau: %d stations [%s -> %s]"
-        % (len(ids), date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d"))
+        f"Hub'Eau: {len(ids)} stations "
+        f"[{date_start.strftime('%Y-%m-%d')} -> {date_end.strftime('%Y-%m-%d')}]"
     )
 
     records: list[PointRecord] = []
@@ -133,7 +133,7 @@ def fetch(
             )
         )
 
-    log_step("Hub'Eau: %d station records loaded" % len(records))
+    log_step(f"Hub'Eau: {len(records)} station records loaded")
     return records
 
 

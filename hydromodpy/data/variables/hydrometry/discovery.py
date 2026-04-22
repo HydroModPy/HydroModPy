@@ -536,7 +536,10 @@ class StationDiscovery(BaseStationSet):
 
         stations_gdf = gpd.GeoDataFrame(
             station_catalog.copy(),
-            geometry=[Point(xy) for xy in zip(station_catalog["lon"], station_catalog["lat"])],
+            geometry=[
+                Point(xy)
+                for xy in zip(station_catalog["lon"], station_catalog["lat"], strict=False)
+            ],
             crs="EPSG:4326",
         )
 

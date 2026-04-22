@@ -216,7 +216,7 @@ def _resolve_root(
         # At least one component is explicit — derive the root from the
         # first one that is set (catalog_path first, then data_dir, then
         # simulations_dir), using its parent as the workspace root.
-        for component, default_name in (
+        for component, _default_name in (
             (catalog_path, "hydromodpy.duckdb"),
             (data_dir, "data"),
             (simulations_dir, "simulations"),

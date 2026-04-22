@@ -92,7 +92,7 @@ def expected_linearized_unconfined_hillslope_drainage_profile_at_x(
         raise ValueError("Boundary heads must remain strictly above the local topography.")
 
     if np.isclose(drainage_rate_per_area, 0.0):
-        return np.linspace(float(west_head_m), float(east_head_m), int(ncol), dtype=float)
+        return np.linspace(float(west_head_m), float(east_head_m), len(x), dtype=float)
 
     lambda_value = np.sqrt(drainage_rate_per_area / transmissivity)
     denominator = np.sinh(lambda_value * length)

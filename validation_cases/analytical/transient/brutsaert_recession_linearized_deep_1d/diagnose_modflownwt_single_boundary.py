@@ -55,8 +55,8 @@ class ProbeResult:
     note: str
 
 
-def _build_validation_launcher() -> Simulation:
-    """Materialize one Simulation configured exactly like the validation case."""
+def _build_validation_launcher() -> Project:
+    """Materialize one Project configured exactly like the validation case."""
     config_path = _build_validation_launcher_config(
         case_dir=CASE_DIR,
         config_path=CASE_DIR / "config_modflownwt.toml",

@@ -81,8 +81,8 @@ class ProbeResult:
 ModelMutator = Callable[[Any], None]
 
 
-def _build_validation_launcher(*, solver_name: str) -> Simulation:
-    """Materialize one Simulation configured exactly like the validation case."""
+def _build_validation_launcher(*, solver_name: str) -> Project:
+    """Materialize one Project configured exactly like the validation case."""
     try:
         config_name = SOLVER_CONFIG_FILES[solver_name]
     except KeyError as exc:

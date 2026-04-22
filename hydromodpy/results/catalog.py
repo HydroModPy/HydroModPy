@@ -416,7 +416,7 @@ class SimulationCatalog:
             dt_values = dt_values.tz_localize("UTC")
         else:
             dt_values = dt_values.tz_convert("UTC")
-        insert_df = pd.DataFrame(
+        insert_df = pd.DataFrame(  # noqa: F841 — referenced by DuckDB replacement scan in SQL below
             {
                 "sim_id": np.full(n, sid, dtype=object),
                 "station_id": np.full(n, station_id, dtype=object),
@@ -830,7 +830,7 @@ class SimulationCatalog:
                 if layer is not None and result.ndim == 2:
                     return result[layer]
                 return result
-            raise KeyError(f"Variable '{variable}' not found for sim={sim_id}")
+            raise KeyError(f"Variable '{variable}' not found for sim={sim_id}") from None
 
     # -- Tabular queries -----------------------------------------------------
 

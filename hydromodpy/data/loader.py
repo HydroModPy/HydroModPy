@@ -15,9 +15,6 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel
 
 from hydromodpy.core.logging import get_logger
-
-logger = get_logger(__name__)
-
 from hydromodpy.core.time import resolve_simulation_time_window_dates
 from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR, WorkspacePathRegistry
 from hydromodpy.data.common.progress import data_phase
@@ -26,6 +23,9 @@ from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
+
+
+logger = get_logger(__name__)
 
 
 class DataManagersRuntimeLoader:

@@ -202,6 +202,7 @@ def _download_help3o_binary():
             f"  2. Download manually from: https://github.com/{HELP3O_BINARIES_REPO}/releases/latest\n"
             f"  3. Place {binary_filename} in {cache_dir}/",
             RuntimeWarning,
+            stacklevel=2,
         )
         return None
 
@@ -259,7 +260,7 @@ def ensure_help3o_loaded():
         _HELP3O_ERROR = RuntimeError(
             f"Unsupported platform: {platform.system()} {platform.machine()}"
         )
-        warnings.warn(str(_HELP3O_ERROR), ImportWarning)
+        warnings.warn(str(_HELP3O_ERROR), ImportWarning, stacklevel=2)
         return None
 
     cache_dir = _get_cache_dir()
@@ -272,7 +273,7 @@ def ensure_help3o_loaded():
         _HELP3O_ERROR = FileNotFoundError(
             f"HELP3O binary {binary_filename} not found; download it into {cache_dir}"
         )
-        warnings.warn(str(_HELP3O_ERROR), ImportWarning)
+        warnings.warn(str(_HELP3O_ERROR), ImportWarning, stacklevel=2)
         return None
 
     try:
@@ -283,6 +284,7 @@ def ensure_help3o_loaded():
         warnings.warn(
             f"HELP3O binary present at {binary_path} but could not be loaded: {exc}",
             ImportWarning,
+            stacklevel=2,
         )
         return None
     except Exception as exc:
@@ -291,6 +293,7 @@ def ensure_help3o_loaded():
         warnings.warn(
             f"HELP3O Fortran extension not available: {exc}\nPyHELP functionality will be limited.",
             ImportWarning,
+            stacklevel=2,
         )
         return None
 

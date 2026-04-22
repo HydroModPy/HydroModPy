@@ -33,7 +33,7 @@ class Run:
             if row is None:
                 raise KeyError(f"Simulation '{self._sim_id}' not found")
             cols = [d[0] for d in self._catalog.connection.description]
-            self._row = dict(zip(cols, row))
+            self._row = dict(zip(cols, row, strict=False))
         return self._row
 
     # -- Metadata properties -------------------------------------------------
@@ -386,11 +386,11 @@ class Run:
 
         from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 
-        new_config = HydroModPyConfig.from_snapshot(snapshot, **overrides)
+        HydroModPyConfig.from_snapshot(snapshot, **overrides)
 
         from hydromodpy.project import Project
 
-        project = Project.__new__(Project)
+        Project.__new__(Project)
         raise NotImplementedError(
             "Full rerun() requires workflow integration with parent_sim_id. "
             "Use HydroModPyConfig.from_snapshot() to reconstruct the config "

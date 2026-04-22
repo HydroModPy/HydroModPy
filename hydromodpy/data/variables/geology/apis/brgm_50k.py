@@ -20,10 +20,10 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
 import geopandas as gpd
 from shapely.geometry import box
+
+logger = logging.getLogger(__name__)
 
 BRGM_50K_URL_TEMPLATE = "http://infoterre.brgm.fr/telechargements/BDCharm50/GEO050K_HARM_{dept}.zip"
 FGEOL_LAYER_PATTERN = "S_FGEOL_2154"

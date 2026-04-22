@@ -23,6 +23,8 @@ import pandas as pd
 from hydromodpy.core.units import factor_to_m_per_s
 
 if TYPE_CHECKING:
+    import xarray as xr
+
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
     from hydromodpy.data.contracts.load_result import LoadResult
     from hydromodpy.data.contracts.spatial_field import FieldRecord

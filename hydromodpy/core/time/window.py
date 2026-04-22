@@ -171,7 +171,9 @@ def _normalize_step_unit(raw_step_unit: Any) -> Literal["hour", "day", "month", 
     try:
         canonical = normalize_time_unit(token)
     except ValueError:
-        raise ValueError("simulation.time.step_unit must be one of: hour, day, month, year.")
+        raise ValueError(
+            "simulation.time.step_unit must be one of: hour, day, month, year."
+        ) from None
     token_map = {
         "hours": "hour",
         "days": "day",
@@ -439,7 +441,7 @@ def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | N
         return None
 
     coverage_policy = _normalize_policy(getattr(time_cfg, "coverage_policy", "error"))
-    mode = _normalize_mode(getattr(time_cfg, "mode", "explicit"))
+    _normalize_mode(getattr(time_cfg, "mode", "explicit"))
     step_value, step_unit = _parse_step_spec(
         raw_step_value=getattr(time_cfg, "step_value", 1),
         raw_step_unit=getattr(time_cfg, "step_unit", None),

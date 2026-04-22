@@ -15,6 +15,7 @@ from __future__ import annotations
 import csv
 import json
 import shutil
+from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 from typing import Any

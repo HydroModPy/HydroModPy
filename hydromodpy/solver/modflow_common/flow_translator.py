@@ -20,10 +20,10 @@ structures (DIS vs DISV coordinates, stress period data layouts, etc.).
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class BoundaryKind(str, Enum):
+class BoundaryKind(StrEnum):
     """Semantic boundary-condition kinds understood by HydroModPy."""
 
     STREAM = "stream"  # river / open channel

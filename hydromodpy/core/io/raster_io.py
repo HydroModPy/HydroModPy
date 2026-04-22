@@ -11,6 +11,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio as rio
+import rasterio.enums  # noqa: F401 — used as rio.enums across this module
 import rasterio.features
 import xarray as xr
 from pyproj import CRS
@@ -83,7 +84,7 @@ def load_to_numpy(
     elif os.path.splitext(file)[-1] in [".txt", ".csv"]:
         try:
             df = pd.read_csv(file, sep=";")
-            geometry = [Point(xy) for xy in zip(df.x, df.y)]
+            geometry = [Point(xy) for xy in zip(df.x, df.y, strict=False)]
             df = df.drop(columns=["x", "y"])
             file_vect = gpd.GeoDataFrame(df, geometry=geometry)
         except Exception:
@@ -169,8 +170,6 @@ def load_to_numpy(
 
 def load_to_xarray(file, src_crs=None, main_var=None, base_path: str = None, dst_crs=None):
     """Load a raster/NetCDF into an xarray Dataset, optionally reprojected."""
-    import rasterio.enums
-
     if base_path:
         with rio.open(base_path, "r") as base:
             base_profile = base.profile

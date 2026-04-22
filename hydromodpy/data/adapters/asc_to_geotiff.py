@@ -49,7 +49,7 @@ def convert_asc_to_geotiff(
             return dest
         raise RasterConversionError(
             f"rasterio is required to convert ASC to GeoTIFF; cannot convert {src.name}"
-        )
+        ) from None
 
     with rasterio.open(src) as ds:
         if ds.crs is None:

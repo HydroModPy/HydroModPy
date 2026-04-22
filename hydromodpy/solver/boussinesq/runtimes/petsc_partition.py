@@ -23,6 +23,7 @@ from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.runtime_contract import (
+    RuntimeSolveResult,
     SteadySolveInputs,
     TransientStepInputs,
 )

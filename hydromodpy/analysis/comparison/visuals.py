@@ -660,7 +660,7 @@ def _write_map_comparison_figure(
     axes_array = np.asarray(axes, dtype=object).ravel()
     artist = None
     used_axes = axes_array[: len(payloads)].tolist()
-    for ax, payload in zip(used_axes, payloads):
+    for ax, payload in zip(used_axes, payloads, strict=False):
         artist = _render_map_subplot(ax, payload, cmap="viridis", vmin=vmin, vmax=vmax)
         ax.set_title(
             _variant_panel_title(
@@ -870,7 +870,7 @@ def _write_runtime_bar_figure(
                 reference_runtime = float(row["runtime_seconds"])
                 break
     max_runtime = max(runtimes)
-    for bar, row in zip(bars, ordered):
+    for bar, row in zip(bars, ordered, strict=False):
         runtime = float(row["runtime_seconds"])
         speedup = (
             reference_runtime / runtime
@@ -1517,7 +1517,7 @@ def _write_regridded_map_figure(
     )
     axes_array = np.asarray(axes, dtype=object).ravel()
     artist = None
-    for ax, (payload, array) in zip(axes_array, arrays):
+    for ax, (payload, array) in zip(axes_array, arrays, strict=False):
         artist = ax.imshow(
             array,
             origin="lower",
@@ -1878,12 +1878,8 @@ def generate_comparison_figures(
                                         )
 
     grouped_rows: dict[tuple[str, str], list[dict[str, Any]]] = {}
-    observable_support = {
-        observable.name: observable.support for observable in cfg.method_comparison.observable
-    }
-    observable_variable = {
-        observable.name: observable.variable for observable in cfg.method_comparison.observable
-    }
+    {observable.name: observable.support for observable in cfg.method_comparison.observable}
+    {observable.name: observable.variable for observable in cfg.method_comparison.observable}
     for row in rows:
         if str(row.get("support", "")) == "map":
             continue

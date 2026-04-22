@@ -671,7 +671,7 @@ def run_launcher_validation_case(
                         f"Results folder not found and no SimulationCatalog available at {out_path}"
                     ),
                 )
-            )
+            ) from None
 
     return ValidationRunResult(
         case_dir=case_dir,

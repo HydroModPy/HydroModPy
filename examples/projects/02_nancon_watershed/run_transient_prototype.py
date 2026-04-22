@@ -99,7 +99,7 @@ mid_row = grid_shape[0] // 2
 distance = np.arange(grid_shape[1]) * cell_size
 dem_profile = dem[mid_row, :]
 
-for ax, (value, run) in zip(axes, runs.items()):
+for ax, (value, run) in zip(axes, runs.items(), strict=False):
     density = saturated_fraction[value]
     t_min, t_max = int(density.argmin()), int(density.argmax())
 
@@ -161,7 +161,7 @@ fig, axes = plt.subplots(
 )
 axes = axes.reshape(len(runs), 2)
 
-for (ax_ts, ax_sc), (value, q_sim) in zip(axes, Q_sim.items()):
+for (ax_ts, ax_sc), (value, q_sim) in zip(axes, Q_sim.items(), strict=False):
     if Q_obs is not None:
         ax_ts.plot(Q_obs, color="k", lw=2, label="Observed")
     ax_ts.plot(q_sim, color="red", lw=2, label="Simulated")
@@ -195,7 +195,7 @@ plt.close(fig)
 fig, axes = plt.subplots(len(runs), 1, figsize=(8, 3 * len(runs)), dpi=200)
 axes = np.atleast_1d(axes)
 
-for ax, (value, intermittent) in zip(axes, drainage_density.items()):
+for ax, (value, intermittent) in zip(axes, drainage_density.items(), strict=False):
     active = (accumulation_flux[value] > 0) & catchment_mask
     perennial = np.zeros(n_periods)
     for year in sorted({d.year for d in dates}):
@@ -227,11 +227,11 @@ plt.close(fig)
 fig, axes = plt.subplots(len(runs), 2, figsize=(8, 4 * len(runs)), dpi=200)
 axes = axes.reshape(len(runs), 2)
 
-for row_axes, (value, run) in zip(axes, runs.items()):
+for row_axes, (value, run) in zip(axes, runs.items(), strict=False):
     density = saturated_fraction[value]
     t_min, t_max = int(density.argmin()), int(density.argmax())
 
-    for ax, (tidx, label) in zip(row_axes, [(t_min, "Min"), (t_max, "Max")]):
+    for ax, (tidx, label) in zip(row_axes, [(t_min, "Min"), (t_max, "Max")], strict=False):
         flux = accumulation_flux[value][tidx]
         ax.set_title(
             f"{SWEEP_PARAM}={value}  {label} ({dates[tidx]:%Y-%m})  Asat={density[tidx]:.1f}%",
@@ -267,7 +267,7 @@ plt.close(fig)
 fig, axes = plt.subplots(1, len(runs), figsize=(4 * len(runs), 5), dpi=200)
 axes = np.atleast_1d(axes)
 
-for ax, (value, accflux_stack) in zip(axes, accumulation_flux.items()):
+for ax, (value, accflux_stack) in zip(axes, accumulation_flux.items(), strict=False):
     persistency = (accflux_stack > 0).sum(axis=0) / n_periods
     pi = np.ma.masked_where(~catchment_mask | (persistency <= 0), persistency)
     im = ax.imshow(pi, cmap="jet", vmin=0, vmax=1, extent=crs_extent, origin="upper")

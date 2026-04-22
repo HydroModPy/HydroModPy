@@ -275,7 +275,7 @@ def render_model(
             result[name] = render_model(sub_section, nested_cls, threshold, sub_values)
 
     # ── Array-of-tables ─────────────────────────────────────────────
-    for name, field_info, item_cls in array_fields:
+    for name, _field_info, item_cls in array_fields:
         sub_section = f"{section_name}.{name}"
         st.markdown(f"**{sub_section}**")
 
@@ -324,7 +324,8 @@ def validate_section(
         return []
     except ValidationError as exc:
         return [
-            f"**{'.'.join(str(l) for l in err['loc'])}** — {err['msg']}" for err in exc.errors()
+            f"**{'.'.join(str(part) for part in err['loc'])}** — {err['msg']}"
+            for err in exc.errors()
         ]
 
 
@@ -454,7 +455,7 @@ def main() -> None:
     # ── Module tabs ──────────────────────────────────────────────────
     if selected:
         tabs = st.tabs(selected)
-        for tab, module_name in zip(tabs, selected):
+        for tab, module_name in zip(tabs, selected, strict=False):
             with tab:
                 model_cls = registry[module_name]
                 existing = st.session_state.config_values.get(module_name, {})

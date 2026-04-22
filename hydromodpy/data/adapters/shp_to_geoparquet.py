@@ -50,7 +50,7 @@ def convert_vector_to_geoparquet(
             return dest
         raise VectorConversionError(
             f"geopandas is required to convert non-Parquet vector files; cannot convert {src.name}"
-        )
+        ) from None
 
     read_kwargs = {"layer": layer} if layer else {}
     gdf = gpd.read_file(src, **read_kwargs)

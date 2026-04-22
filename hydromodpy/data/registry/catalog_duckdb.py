@@ -387,7 +387,7 @@ class DataCatalogDuckDB:
             return None
 
         cols = [d[0] for d in self._conn.description]
-        return _CatalogEntry(**dict(zip(cols, row)))
+        return _CatalogEntry(**dict(zip(cols, row, strict=False)))
 
     # -- list_entries ----------------------------------------------------------
 

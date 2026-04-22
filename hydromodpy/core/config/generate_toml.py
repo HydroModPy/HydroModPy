@@ -33,8 +33,9 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config.param_level import (
+    PROFILES,  # noqa: F401 — re-exported for CLI back-compat
     ParamLevel,
-)  # PROFILES re-exported for CLI back-compat
+)
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.pydantic_introspect import extract_profile, resolve_profile
 
@@ -759,7 +760,7 @@ def _section(
         lines.append("")
 
     # ----- nested sub-tables ----------------------------------------------
-    for name, field_info, level, nested_cls in nested_fields:
+    for name, field_info, _level, nested_cls in nested_fields:
         sub_section = f"{section_name}.{name}"
 
         # Resolve override values for the sub-section
@@ -812,7 +813,7 @@ def _section(
             )
 
     # ----- array-of-tables ([[section.name]]) --------------------------------
-    for name, field_info, level, item_cls in array_fields:
+    for name, field_info, _level, item_cls in array_fields:
         sub_section = f"{section_name}.{name}"
 
         # Description comment

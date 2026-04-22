@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import geopandas as gpd
 import numpy as np
@@ -17,6 +18,9 @@ from hydromodpy.data.variables.hydrography.config import (
 )
 from hydromodpy.data.variables.hydrography.result import HydrographyResult
 from hydromodpy.spatial.delineation import get_whitebox_backend
+
+if TYPE_CHECKING:
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
 logger = get_logger(__name__)
 

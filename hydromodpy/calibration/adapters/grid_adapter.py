@@ -36,7 +36,7 @@ class GridAdapter:
                 raise ValueError("points_per_dim length must match space dim")
             per_dim = list(points_per_dim)
         axes: list[np.ndarray] = []
-        for p, n in zip(space.parameters, per_dim):
+        for p, n in zip(space.parameters, per_dim, strict=False):
             low, high = p.lower_transformed, p.upper_transformed
             axes.append(np.linspace(low, high, n))
         self._grid: Iterator[tuple[float, ...]] = iter(itertools.product(*axes))

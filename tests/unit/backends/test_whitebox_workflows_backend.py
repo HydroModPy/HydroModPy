@@ -70,7 +70,7 @@ def test_get_whitebox_backend_rejects_legacy_whitebox_selection() -> None:
 
 def test_package_no_longer_exposes_whitebox_tools_alias() -> None:
     try:
-        backends_pkg.WhiteboxToolsBackend
+        _ = backends_pkg.WhiteboxToolsBackend
     except AttributeError:
         pass
     else:  # pragma: no cover - defensive

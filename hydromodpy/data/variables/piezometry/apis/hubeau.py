@@ -15,10 +15,10 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_helpers import get_json
 from hydromodpy.data.common.io_helpers import parse_datetime_column
 from hydromodpy.data.common.progress import iter_progress, log_step
-
-logger = get_logger(__name__)
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
+
+logger = get_logger(__name__)
 
 API_BASE = "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes"
 
@@ -88,8 +88,8 @@ def fetch(
         return []
 
     log_step(
-        "Hub'Eau piezo: %d piezometers [%s -> %s]"
-        % (len(ids), date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d"))
+        f"Hub'Eau piezo: {len(ids)} piezometers "
+        f"[{date_start.strftime('%Y-%m-%d')} -> {date_end.strftime('%Y-%m-%d')}]"
     )
 
     records: list[PointRecord] = []
@@ -113,7 +113,7 @@ def fetch(
             )
         )
 
-    log_step("Hub'Eau piezo: %d records loaded" % len(records))
+    log_step(f"Hub'Eau piezo: {len(records)} records loaded")
     return records
 
 

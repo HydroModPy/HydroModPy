@@ -160,7 +160,7 @@ class FlowWellConfig(HydroModelBase):
 
         # Parse each axis independently so validation errors name the offending axis.
         parsed: list[int] = []
-        for axis, raw_item in zip(("lay", "row", "col"), raw_seq):
+        for axis, raw_item in zip(("lay", "row", "col"), raw_seq, strict=False):
             # Booleans are a subclass of int in Python; reject them explicitly.
             if isinstance(raw_item, bool):
                 raise TypeError(f"well.cell.{axis} must be an integer")

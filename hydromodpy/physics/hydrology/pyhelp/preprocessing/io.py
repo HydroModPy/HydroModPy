@@ -293,7 +293,7 @@ def export_daily_outputs_to_netcdf(
             continue
         dates = [
             pd.Timestamp(int(y), 1, 1) + pd.Timedelta(days=int(d) - 1)
-            for y, d in zip(data["years"], data["days"])
+            for y, d in zip(data["years"], data["days"], strict=False)
         ]
         if time_index is None:
             time_index = pd.DatetimeIndex(dates, name="time")
@@ -357,7 +357,7 @@ def export_daily_outputs_to_netcdf(
         for v in (v_runoff, v_evapo, v_rechg):
             v.units = "mm/day"
 
-        for (cid, fp), r, c in zip(cells, rows, cols):
+        for (cid, fp), r, c in zip(cells, rows, cols, strict=False):
             data = read_daily_help_output(str(fp))
             v_runoff[:, r, c] = np.asarray(data["runoff"], dtype="float32")
             v_evapo[:, r, c] = np.asarray(data["et"], dtype="float32")

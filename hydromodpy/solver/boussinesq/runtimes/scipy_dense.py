@@ -13,6 +13,7 @@ from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
     build_dense_semianalytic_regularized_partition_jacobian,
 )
 from hydromodpy.solver.boussinesq.runtime_contract import (
+    RuntimeSolveResult,
     SteadySolveInputs,
     TransientStepInputs,
 )

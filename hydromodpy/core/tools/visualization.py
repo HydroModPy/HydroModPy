@@ -121,7 +121,7 @@ def create_map_plot(
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
 
     # Plot water table depth
-    sim_wtd = rasterio.plot.show(
+    rasterio.plot.show(
         wtd_data, ax=ax, transform=wtd_rio.transform, cmap="jet", alpha=0.5, zorder=0, aspect="auto"
     )
 

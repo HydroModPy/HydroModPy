@@ -120,7 +120,7 @@ class Modflow6OutputAdapter:
         record_names = [r.decode().strip() for r in cbb.get_unique_record_names()]
 
         budget_records: list[dict] = []
-        for t, (time, kstpkper) in enumerate(zip(times, kstpkpers)):
+        for t, (time, kstpkper) in enumerate(zip(times, kstpkpers, strict=False)):
             for component in record_names:
                 try:
                     data = cbb.get_data(text=component, kstpkper=kstpkper, totim=time)

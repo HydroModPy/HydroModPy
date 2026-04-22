@@ -36,7 +36,9 @@ _NODES_PER_CELL = {
 }
 
 
-from hydromodpy.solver.utils.mesh.gmsh_grid._deps import require_meshio as _require_meshio
+from hydromodpy.solver.utils.mesh.gmsh_grid._deps import (  # noqa: E402 — late import to avoid circular dependency
+    require_meshio as _require_meshio,
+)
 
 
 def _parse_int_tokens(line: str, *, expected_at_least: int) -> list[int]:

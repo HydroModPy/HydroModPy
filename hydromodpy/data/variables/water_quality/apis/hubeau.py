@@ -19,9 +19,9 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_helpers import get_json
 from hydromodpy.data.common.progress import iter_progress, log_step
 from hydromodpy.data.contracts.location import StationLocation
+from hydromodpy.data.contracts.timeseries import PointRecord
 
 logger = get_logger(__name__)
-from hydromodpy.data.contracts.timeseries import PointRecord
 
 API_RIVER_URL = "https://hubeau.eaufrance.fr/api/v2/qualite_rivieres/analyse_pc"
 API_PZ_URL = "https://hubeau.eaufrance.fr/api/v1/qualite_nappes/analyses"
@@ -76,7 +76,7 @@ def fetch(
             logger.info("Hub'Eau WQ: no station with coordinates for nearest selection.")
             return []
 
-    log_step("Hub'Eau WQ (%s): %d stations" % (site_type, len(station_ids)))
+    log_step(f"Hub'Eau WQ ({site_type}): {len(station_ids)} stations")
     records: list[PointRecord] = []
 
     for sid in iter_progress(station_ids, desc="Stations"):
@@ -125,7 +125,7 @@ def fetch(
         n_params = len(set(df["parameter"]))
         logger.info("  %s: %d analyses, %d parameters", sid, len(df), n_params)
 
-    log_step("Hub'Eau WQ: %d total records" % len(records))
+    log_step(f"Hub'Eau WQ: {len(records)} total records")
     return records
 
 

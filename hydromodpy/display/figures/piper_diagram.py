@@ -71,13 +71,13 @@ class PiperDiagramFigure(BaseFigure):
         anions /= an_sum
 
         # Left triangle (cations): Ca, Mg, Na+K
-        ca, mg = cations[:, 0], cations[:, 1]
+        _ca, mg = cations[:, 0], cations[:, 1]
         nak = cations[:, 2] + cations[:, 3]
         xL = 0.5 * (2 * nak + mg)
         yL = (np.sqrt(3) / 2) * mg
 
         # Right triangle (anions): Cl, SO4, HCO3 — shifted by +2
-        cl, so4, hco3 = anions[:, 0], anions[:, 1], anions[:, 2]
+        cl, so4, _hco3 = anions[:, 0], anions[:, 1], anions[:, 2]
         xR = 2 + 0.5 * (2 * cl + so4)
         yR = (np.sqrt(3) / 2) * so4
 

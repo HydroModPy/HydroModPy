@@ -90,7 +90,7 @@ def persist_calibration_result(
     try:
         results = run_fn(**best_params)
 
-        for station_id, variable, timestamps in observation_plan:
+        for station_id, variable, _timestamps in observation_plan:
             key = f"{station_id}_{variable}"
             ts = results.get(key)
             if ts is None:

@@ -554,7 +554,7 @@ class HelpManager:
 
         output = {}
         years = self.precip_data.index.year.values
-        for i, cellname in enumerate(cellnames):
+        for _i, cellname in enumerate(cellnames):
             precip_indx = self.connect_tables["precip"][cellname]
             precip = self.precip_data.values[:, precip_indx]
             data = {}
@@ -658,7 +658,7 @@ def load_weather_from_csv(filename: str) -> pd.DataFrame:
     # are located above the data block.
     latitudes = None
     longitudes = None
-    for i, line in enumerate(reader):
+    for i, line in enumerate(reader):  # noqa: B007 — `i` is used after the loop as `skiprows=i`
         if not line or not line[0]:
             continue
 
@@ -680,7 +680,8 @@ def load_weather_from_csv(filename: str) -> pd.DataFrame:
     )
     dataf.index.name = "date"
     dataf.columns = pd.MultiIndex.from_tuples(
-        [(lat, lon) for lat, lon in zip(latitudes, longitudes)], names=["lat_dd", "lon_dd"]
+        [(lat, lon) for lat, lon in zip(latitudes, longitudes, strict=False)],
+        names=["lat_dd", "lon_dd"],
     )
 
     return dataf

@@ -12,12 +12,10 @@ these helpers when ingesting solver output.
 
 from __future__ import annotations
 
-from typing import Union
-
 import numpy as np
 import xarray as xr
 
-ArrayLike = Union[np.ndarray, xr.DataArray]
+ArrayLike = np.ndarray | xr.DataArray
 
 __all__ = [
     "fluxes_from_budget",

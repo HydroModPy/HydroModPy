@@ -60,9 +60,9 @@ def export_netcdf(
     connectivity = mesh["face_node_connectivity"][:]
     z_interfaces = mesh["z_interfaces"][:]
     n_nodes = vertices.shape[0]
-    n_cells = connectivity.shape[0]
-    max_vpf = connectivity.shape[1]
-    n_layers = len(z_interfaces) - 1
+    connectivity.shape[0]
+    connectivity.shape[1]
+    len(z_interfaces) - 1
 
     # Build UGRID topology dataset
     ds = xr.Dataset()

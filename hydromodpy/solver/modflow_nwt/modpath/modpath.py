@@ -438,7 +438,7 @@ class Modpath(Solver):
             self.zone_opt = 1
             self.zone_inj = 1
 
-        if self.bore_depth == None:
+        if self.bore_depth is None:
             drn = np.ones((nrow, ncol))
             compti = 0
             comptj = 0
@@ -510,7 +510,7 @@ class Modpath(Solver):
         #     play = self.cell_div
         # else:
         #     play = 1
-        if self.bore_depth != None:
+        if self.bore_depth is not None:
             # play = len(self.bore_depth)
             play = nlay
         else:
@@ -533,7 +533,7 @@ class Modpath(Solver):
                     if mask_dem[i, j] > 0:  # active or note
                         for r in range(prow):
                             for c in range(pcol):
-                                for l in range(play):
+                                for _l in range(play):
                                     stldata[compt]["label"] = (
                                         "p" + str(compt + 1) + "-" + str(r) + "-" + str(c)
                                     )
@@ -576,7 +576,7 @@ class Modpath(Solver):
                     if mask_dem[i, j] > 0:  # active or note
                         for r in range(prow):
                             for c in range(pcol):
-                                for l in range(play):
+                                for layer_idx in range(play):
                                     stldata[compt]["label"] = (
                                         "p" + str(compt + 1) + "-" + str(r) + "-" + str(c)
                                     )
@@ -596,10 +596,10 @@ class Modpath(Solver):
                                     # stldata[compt]['xloc0'] = 0.5
                                     # stldata[compt]['yloc0'] = 0.5
                                     stldata[compt]["zloc0"] = 0.5
-                                    if self.bore_depth == True:
+                                    if self.bore_depth:
                                         # z0 not exist at this step: need to find the good k (layer) to inject at different depth (create a loop)
-                                        # For example: stldata[compt]['z0'] = self.mf.dis.top.array[i,j] - self.bore_depth[l]
-                                        stldata[compt]["k0"] = l
+                                        # For example: stldata[compt]['z0'] = self.mf.dis.top.array[i,j] - self.bore_depth[layer_idx]
+                                        stldata[compt]["k0"] = layer_idx
                                     else:
                                         stldata[compt]["k0"] = 0
                                     compt = compt + 1
@@ -607,7 +607,7 @@ class Modpath(Solver):
         # %% Select random particles to inject
 
         # Random
-        if self.sel_random != None:
+        if self.sel_random is not None:
             if self.sel_random >= len(stldata):
                 val_random = len(stldata) - 1
             else:
@@ -621,7 +621,7 @@ class Modpath(Solver):
             self.point_data = stldata
 
         # Slicing
-        if self.sel_slice != None:
+        if self.sel_slice is not None:
             self.point_data = stldata[:: self.sel_slice]
 
         # %% Finalize settings
@@ -673,13 +673,13 @@ class Modpath(Solver):
 
         """
         # Create modflow files
-        if write_model == True:
+        if write_model:
             with redirect_stdout(io.StringIO()):
                 self.mp.write_input()
 
         # Run modflow files
         success_model = False
-        if run_model == True:
+        if run_model:
             verbose = self.verbose
             success_model, tempo = self.mp.run_model(silent=not verbose)  # True without msg
 
@@ -753,7 +753,7 @@ class Modpath(Solver):
         e = endobj.get_alldata()
 
         # Create ending point file
-        if ending_point == True:
+        if ending_point:
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", message="Truncating shapefile fieldname.*")
                 endobj.write_shapefile(
@@ -765,7 +765,7 @@ class Modpath(Solver):
                 )
 
         # Create starting point file
-        if starting_point == True:
+        if starting_point:
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", message="Truncating shapefile fieldname.*")
                 endobj.write_shapefile(
@@ -777,7 +777,7 @@ class Modpath(Solver):
                 )
 
         # Import mppth file
-        if (pathlines_shp == True) or (particles_shp == True):
+        if (pathlines_shp) or (particles_shp):
             path_mppth = os.path.join(
                 model_modpath.model_folder, model_modpath.model_name, model_modpath.model_name
             )
@@ -785,7 +785,7 @@ class Modpath(Solver):
             pthobj = flopy.utils.PathlineFile(path_mppth + ".mppth")
             pth_data = pthobj.get_alldata()
 
-            if random_id != None:
+            if random_id is not None:
                 shp_endpoint = gpd.read_file(os.path.join(self.particles_file, "ending.shp"))
                 keep_id = shp_endpoint.particleid
                 keep_id = keep_id.tolist()
@@ -807,7 +807,7 @@ class Modpath(Solver):
                 pth_data_save = pth_data
 
             # Create pathlines file
-            if pathlines_shp == True:
+            if pathlines_shp:
                 with warnings.catch_warnings(), redirect_stdout(io.StringIO()):
                     warnings.filterwarnings("ignore", message="Truncating shapefile fieldname.*")
                     pthobj.write_shapefile(
@@ -821,7 +821,7 @@ class Modpath(Solver):
                     )
 
             # Create particles file
-            if particles_shp == True:
+            if particles_shp:
                 with warnings.catch_warnings(), redirect_stdout(io.StringIO()):
                     warnings.filterwarnings("ignore", message="Truncating shapefile fieldname.*")
                     pthobj.write_shapefile(
@@ -847,7 +847,7 @@ class Modpath(Solver):
 
         # Convert days in years
         def update_time(df, filt_time):
-            if filt_time == True:
+            if filt_time:
                 df["time_y"] = df["time"] / 365  # convert in years
                 try:
                     df["time_win_y"] = df["time_win"] / 365  # convert in years
@@ -858,11 +858,11 @@ class Modpath(Solver):
 
         # Keep particles ending in seepage and not in/out in the same cell
         def update_locout(df, filt_seep, filt_inout):
-            if filt_seep == True:
+            if filt_seep:
                 if self.track_dir == "forward":
                     df = df[df["k"] <= 1]  # out in first layer
                     df = df[df["zone"] == 1]  # out in seepage zone
-            if filt_inout == True:
+            if filt_inout:
                 df = df[
                     df.i0.astype(str) + "-" + df.j0.astype(str)
                     != df.i.astype(str) + "-" + df.j.astype(str)
@@ -917,17 +917,17 @@ class Modpath(Solver):
             return sampled
 
         # Create a new shapefile named '_weighted'
-        if norm_flux == True:
+        if norm_flux:
             modeldir = self.full_path + "/"
             namepath = model_modpath.model_name
             model_name = model_modpath.model_name
             mymodel = model_modpath.mf
             aux_rech = mymodel.get_package("RCH")
-            mybas = mymodel.get_package("BAS6")
+            mymodel.get_package("BAS6")
             mydis = mymodel.get_package("DIS")
-            ncol = np.unique(mydis.ncol)[0]
-            nrow = np.unique(mydis.nrow)[0]
-            nlay = np.unique(mydis.nlay)[0]
+            np.unique(mydis.ncol)[0]
+            np.unique(mydis.nrow)[0]
+            np.unique(mydis.nlay)[0]
             dcol = np.unique(mydis.delc)[0]
             drow = np.unique(mydis.delr)[0]
             period = 0
@@ -1027,7 +1027,7 @@ class Modpath(Solver):
                 )
             )
 
-            if self.pathlines_shp == True:
+            if self.pathlines_shp:
                 pathlines_process = ensure_crs(
                     gpd.read_file(
                         os.path.join(
@@ -1048,7 +1048,7 @@ class Modpath(Solver):
                 pathlines_up = update_time(pathlines_process, filt_time)
                 pathlines_up = pathlines_up[pathlines_up["particleid"].isin(keep_particles)]
                 random_data_file = os.path.join(self.model_folder, "_id_particles_random.data")
-                if random_id != None:
+                if random_id is not None:
                     if not os.path.exists(random_data_file):
                         id_particles_random = random.sample(pathlines_up[:-1], random_id)
                         with open(random_data_file, "wb") as f:
@@ -1070,7 +1070,7 @@ class Modpath(Solver):
                     )
                 )
 
-            if self.particles_shp == True:
+            if self.particles_shp:
                 particles_process = ensure_crs(
                     gpd.read_file(
                         os.path.join(
@@ -1084,7 +1084,7 @@ class Modpath(Solver):
                 )
                 particles_up = update_time(particles_process, filt_time)
                 random_data_file = os.path.join(self.model_folder, "_id_particles_random.data")
-                if random_id != None:
+                if random_id is not None:
                     if not os.path.exists(random_data_file):
                         id_particles_random = random.sample(particles_up[:-1], random_id)
                         with open(random_data_file, "wb") as f:
@@ -1108,7 +1108,7 @@ class Modpath(Solver):
 
         # %% PLOT
 
-        if calc_rtd == True:
+        if calc_rtd:
             if self.track_dir == "forward":
                 end = ensure_crs(
                     gpd.read_file(
@@ -1150,7 +1150,7 @@ class Modpath(Solver):
                     bin_max = np.quantile(M, 0.99)
                     bins = np.logspace(np.log10(bin_min), np.log10(bin_max), nbin)
                     pdf, binEdges = np.histogram(M, bins=bins, density=True, weights=Weight)
-                    dx = np.diff(binEdges)
+                    np.diff(binEdges)
                     xh = (binEdges[1:] + binEdges[:-1]) / 2
                     xh = np.array(xh)
                     return (xh, pdf)

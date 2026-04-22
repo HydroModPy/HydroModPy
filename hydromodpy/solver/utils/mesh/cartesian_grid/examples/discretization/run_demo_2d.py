@@ -329,7 +329,7 @@ def _plot_left_raw_geology(
         geology_masked = np.ma.masked_where(geology_codes <= 0, geology_codes)
         n_classes = max(1, int(np.nanmax(geology_codes)))
         cmap_geo = plt.get_cmap("tab20", min(20, n_classes))
-        img = ax.imshow(
+        ax.imshow(
             geology_masked,
             origin="lower",
             extent=[xmin, xmax, ymin, ymax],

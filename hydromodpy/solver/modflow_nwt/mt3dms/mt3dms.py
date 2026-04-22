@@ -189,7 +189,7 @@ class Mt3dms:
             ftlfree=False,
         )
 
-        gcg = flopy.mt3d.Mt3dGcg(
+        flopy.mt3d.Mt3dGcg(
             self.mt,
             mxiter=10,
             # cclose=1e-7,
@@ -201,7 +201,7 @@ class Mt3dms:
         self.ssflag = [
             "True"
         ]  # This one is for the transport simulation (STEADY FOR THE FIRST PERIOD)
-        for i in range((self.mf.nper - 1) * self.new_stepsize):
+        for _i in range((self.mf.nper - 1) * self.new_stepsize):
             self.ssflag.append(" ")
 
         self.btn = flopy.mt3d.Mt3dBtn(
@@ -243,7 +243,7 @@ class Mt3dms:
 
         # %% Advection package
 
-        adv = flopy.mt3d.Mt3dAdv(
+        flopy.mt3d.Mt3dAdv(
             self.mt,
             mixelm=-1,
             # percel=0.75
@@ -268,7 +268,7 @@ class Mt3dms:
 
         # %% Reactivity package
 
-        if self.react_order == None:
+        if self.react_order is None:
             ireact = 0
         if self.react_order == 1:
             ireact = 1
@@ -312,13 +312,13 @@ class Mt3dms:
 
         """
         # Create modflow files
-        if write_model == True:
+        if write_model:
             self.mt.write_input()
 
         # Run modflow files
         success_model = True
 
-        if run_model == True:
+        if run_model:
             if verbose is False:
                 logger.info("Running MT3DMS transport simulation")
             success_model, tempo = self.mt.run_model(
@@ -404,13 +404,13 @@ class Mt3dms:
             logger.info("Processing MT3DMS timestep %d/%d", i + 1, model_mt3dms.model_modflow.nper)
 
             do_export_tif = True
-            if export_all_tif == False:
+            if not export_all_tif:
                 if i > 0:
                     do_export_tif = False
 
             seep = self.outflow_drain[i]
 
-            if concentration_seepage == True:
+            if concentration_seepage:
                 concobj_1c_fil_surf = concobj_1c_fil[i + 1][0]
                 # concobj_1c_fil_surf = np.ma.masked_where(seep <= 0, concobj_1c_fil_surf)
                 concobj_1c_fil_surf[seep <= 0] = -9999
@@ -429,7 +429,7 @@ class Mt3dms:
                 the_mins.append(np.nanmin(concobj_1c_fil_surf))
                 the_maxs.append(np.nanmax(concobj_1c_fil_surf))
 
-            if mass_seepage == True:
+            if mass_seepage:
                 massobj_1c_fil_surf = concobj_1c_fil[i + 1][0]
                 # massobj_1c_fil_surf = np.ma.masked_where(seep <= 0, massobj_1c_fil_surf)
                 massobj_1c_fil_surf[seep <= 0] = np.nan
@@ -451,7 +451,7 @@ class Mt3dms:
                     )
                 self.dict_mass_seepage[i] = massobj_1c_fil_surf
 
-            if mass_accumulated == True:
+            if mass_accumulated:
                 routing_ctx = self.model_modflow._ensure_solver_routing_context()
 
                 accumulated_mass = masstransfer.Masstransfer(
@@ -468,8 +468,8 @@ class Mt3dms:
                 with rasterio.open(output_path) as src:
                     self.dict_mass_accumulated[i] = src.read(1)
 
-        the_min = np.nanmin(the_mins)
-        the_max = np.nanmax(the_maxs)
+        np.nanmin(the_mins)
+        np.nanmax(the_maxs)
 
         # concobj_1c_fil_surf = dict(list(concobj_1c_fil_surf.items())[:])
 

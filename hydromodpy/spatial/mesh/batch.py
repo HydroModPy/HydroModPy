@@ -22,9 +22,6 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
-
-logger = logging.getLogger(__name__)
-
 from hydromodpy.spatial.mesh.batch_io import (
     MeshCatchmentOutletRecord,
     load_mesh_catchment_outlet_records,
@@ -41,6 +38,8 @@ from hydromodpy.spatial.mesh.config import (
     parse_mesh_catchment_batch_config_data,
 )
 from hydromodpy.spatial.mesh.runtime_single_run import clone_config_like
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)

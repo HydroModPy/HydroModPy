@@ -10,11 +10,14 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import NetworkError
 from hydromodpy.core.io.http_client import HTTPClient, get_default_client
 from hydromodpy.data.common.api_helpers import check_status
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 BASE_URL = "https://api.geosas.fr/edr/collections/safran-isba"
 DEFAULT_TIMEOUT = 120

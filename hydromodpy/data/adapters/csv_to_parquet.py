@@ -82,7 +82,7 @@ def _parse_datetime(value: str) -> datetime:
                 return datetime.strptime(value, fmt)
             except ValueError:
                 continue
-        raise ValueError(f"unparseable datetime: {value!r}")
+        raise ValueError(f"unparseable datetime: {value!r}") from None
 
 
 def read_timeseries_csv(path: Path) -> TimeSeriesArtifact:

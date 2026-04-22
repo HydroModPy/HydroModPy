@@ -226,6 +226,7 @@ ignore = [
 "hydromodpy_annex/**" = ["E402", "F401", "B006", "B007"]
 # Demo / validation scripts: lenient, they're not production code.
 "hydromodpy/**/cases/**" = ["E402", "F401", "B007"]
+"hydromodpy/**/examples/**" = ["E402", "F401", "B007"]
 "validation_cases/**" = ["E402", "F401", "B007", "B905"]
 "examples/**" = ["E402", "F401", "B007"]
 # CLI shells can do argparse-style late imports.
@@ -235,6 +236,9 @@ ignore = [
 # with static analysis. Known-good, silencing F821 in these files.
 "hydromodpy/data/data_managers_config.py" = ["F821"]
 "hydromodpy/core/config/hydromodpy_config.py" = ["F821"]
+# Legacy MODFLOW-NWT subtree: uses `sys.path` manipulation and double-docstring
+# license headers that technically break import ordering. Not worth rewriting.
+"hydromodpy/solver/modflow_nwt/**" = ["E402"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["hydromodpy", "hydromodpy_annex"]

@@ -18,8 +18,6 @@ import logging
 import warnings
 from collections.abc import Callable
 
-_log = logging.getLogger(__name__)
-
 import numpy as np
 
 from hydromodpy.solver.boussinesq.assembly import (
@@ -50,6 +48,8 @@ from hydromodpy.solver.boussinesq.runtimes.partition_utils import (
     interiorize_regularized_partition_initial_guess,
     regularized_partition_jacobian_shift,
 )
+
+_log = logging.getLogger(__name__)
 
 
 def _require_scipy_sparse():

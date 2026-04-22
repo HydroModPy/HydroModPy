@@ -149,7 +149,7 @@ def _find_nearest(
     tg_name = str(closest.get("name", tg_id))
     tg_lat = float(closest["latitude"])
     tg_lon = float(closest["longitude"])
-    log_step("SHOM: nearest tide gauge: %s (%s) at (%.4f, %.4f)" % (tg_name, tg_id, tg_lat, tg_lon))
+    log_step(f"SHOM: nearest tide gauge: {tg_name} ({tg_id}) at ({tg_lat:.4f}, {tg_lon:.4f})")
     return tg_id, tg_name, tg_lat, tg_lon
 
 
@@ -218,7 +218,7 @@ def _try_load_cached(
     filename = f"sealevel_shom_{tg_id}_{start_str}_{end_str}_H.csv"
     filepath = os.path.join(output_folder, filename)
     if os.path.exists(filepath):
-        log_step("SHOM: cache hit %s" % filename)
+        log_step(f"SHOM: cache hit {filename}")
         return pd.read_csv(filepath, parse_dates=["timestamp"])
     return None
 
@@ -241,4 +241,4 @@ def _write_cache(
     filename = f"sealevel_shom_{tg_id}_{start_str}_{end_str}_H.csv"
     filepath = os.path.join(output_folder, filename)
     df.to_csv(filepath, index=False)
-    log_step("SHOM: cached data to %s" % filename)
+    log_step(f"SHOM: cached data to {filename}")

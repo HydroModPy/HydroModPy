@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Domain assembly logic built on top of `Surface` and `DomainConfig`.
 
@@ -11,6 +9,8 @@ This module keeps the high-level orchestration of the model domain:
 
 Low-level array manipulations intentionally remain delegated to `Surface`.
 """
+
+from __future__ import annotations
 
 from collections.abc import Mapping
 
