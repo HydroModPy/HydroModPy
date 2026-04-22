@@ -15,6 +15,8 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
     base_path.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path / "demo"}"',
                 "",
@@ -77,6 +79,8 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
     base_path.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path / "demo"}"',
                 f'root = "{tmp_path}"',
@@ -193,6 +197,8 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
     config_path.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 f'root = "{tmp_path}"',
                 "",

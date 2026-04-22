@@ -31,6 +31,8 @@ def _write_base_simulation_config(path: Path) -> None:
     path.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 'project_root = "project/base_case"',
                 "",
@@ -626,6 +628,8 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Pa
     simulation_config.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{project_root.as_posix()}"',
                 "",
@@ -1307,6 +1311,8 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
     simulation_config.write_text(
         "\n".join(
             [
+                
+                'workflow = "simulation"',
                 "[workspace]",
                 'project_root = "project/demo"',
                 "",

@@ -30,6 +30,7 @@ def _write_tmp_config(work_root: Path) -> Path:
     config_path.write_text(
         "\n".join(
             [
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{out_path}"',
                 "",

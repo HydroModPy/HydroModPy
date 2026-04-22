@@ -22,6 +22,7 @@ def _minimal_geographic() -> GeographicConfig:
 
 def _base_kwargs(tmp_path) -> dict:
     return {
+        "workflow": "simulation",
         "workspace": WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
         "geographic": _minimal_geographic(),
     }

@@ -25,6 +25,7 @@ def minimal_hmp_config(project_root: Path):
 
     ws_root = Path(project_root)
     return HydroModPyConfig(
+        workflow="simulation",
         workspace=WorkspaceConfig(
             project_root=ws_root / "project",
             root=ws_root,

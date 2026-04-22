@@ -55,6 +55,7 @@ def test_hydromodpy_config_accepts_matching_streams_with_synthetic_geographic(
     toml_path.write_text(
         "\n".join(
             [
+                'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path}"',
                 f'root = "{tmp_path}"',
