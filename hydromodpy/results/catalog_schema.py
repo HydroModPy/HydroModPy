@@ -1,31 +1,33 @@
 """DuckDB schema for the HydroModPy simulation catalog.
 
-Schema v0.5 (phase G05): 16 core tables with normalized primary keys,
-``TIMESTAMPTZ`` time columns, a JSON ``config_snapshot`` for full-config
-reproducibility, and a ``geographic_fingerprint`` column that ties each
-simulation to the workspace-level content-addressable geographic cache
-(see :mod:`hydromodpy.results.geographic_cache`). G05 adds
-``runs_environment``, ``tags``, ``stations`` and ``observations`` plus four
-denormalized views for simulation summaries and wide-format parameter /
-metric pivots.
+Schema v0.6: per-simulation ``timeseries``, ``budgets`` and ``mass_balance``
+now live as Parquet files under ``simulations/<uuid>.parquet/`` and are
+exposed in DuckDB as views with the original table names. Every other
+per-sim table (``parameters``, ``metrics``, ``observation_points``,
+``provenance``, ``geographic_features``, ``geographic_metadata``,
+``runs_environment``, ``tags``, ``tracked_files``) and the workspace-level
+tables (``simulations``, ``stations``, ``observations``,
+``calibration_sessions``, ``calibration_iterations``) stay in DuckDB.
 
 This module defines only DDL and helpers; it does not track historical schema
 versions. Each major release starts from a fresh schema. Migration principles
 for post-P13 evolutions are documented in
-``docs/developers/schema_evolution.md``.
+``docs/developers/schema_evolution.md``. The Parquet layout and rationale
+are described in ``docs/developers/parquet_lakehouse_architecture.md``.
 
-Note on referential integrity: per-sim tables carry ``sim_id UUID NOT NULL``
-columns but **no** ``FOREIGN KEY`` clause. DuckDB's foreign-key engine does
-not implement ``ON DELETE CASCADE`` and refuses ``UPDATE`` on a parent row
-when child rows with composite primary keys still reference it (issue
-#duckdb/duckdb#11132 family). The catalog's :py:meth:`SimulationCatalog.delete`
-method removes per-sim rows explicitly, which gives equivalent semantics
-without the engine bug.
+Note on referential integrity: per-sim DuckDB tables carry ``sim_id UUID
+NOT NULL`` columns but **no** ``FOREIGN KEY`` clause. DuckDB's foreign-key
+engine does not implement ``ON DELETE CASCADE`` and refuses ``UPDATE`` on
+a parent row when child rows with composite primary keys still reference
+it (issue #duckdb/duckdb#11132 family). The catalog's
+:py:meth:`SimulationCatalog.delete` method removes per-sim rows explicitly,
+which gives equivalent semantics without the engine bug.
 """
 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import duckdb
 
@@ -136,51 +138,6 @@ CREATE TABLE IF NOT EXISTS metrics (
     PRIMARY KEY (sim_id, station_id, variable, metric_name)
 );
 CREATE INDEX IF NOT EXISTS ix_metrics_metric ON metrics(metric_name);
-"""
-
-_TIMESERIES_DDL = """
-CREATE TABLE IF NOT EXISTS timeseries (
-    sim_id     UUID NOT NULL,
-    station_id VARCHAR NOT NULL,
-    variable   VARCHAR NOT NULL,
-    datetime   TIMESTAMPTZ NOT NULL,
-    value      DOUBLE,
-    unit       VARCHAR,
-    qflag      VARCHAR DEFAULT 'simulated',
-    PRIMARY KEY (sim_id, station_id, variable, datetime)
-);
-CREATE INDEX IF NOT EXISTS ix_ts_lookup
-    ON timeseries(sim_id, station_id, variable, datetime);
-CREATE INDEX IF NOT EXISTS ix_ts_cross_sim
-    ON timeseries(station_id, variable, datetime);
-"""
-
-_BUDGETS_DDL = """
-CREATE TABLE IF NOT EXISTS budgets (
-    sim_id    UUID NOT NULL,
-    timestep  INTEGER NOT NULL CHECK (timestep >= 0),
-    zone_id   VARCHAR NOT NULL DEFAULT '__global__',
-    component VARCHAR NOT NULL,
-    flux_in   DOUBLE NOT NULL DEFAULT 0.0,
-    flux_out  DOUBLE NOT NULL DEFAULT 0.0,
-    unit      VARCHAR NOT NULL DEFAULT 'm3/d',
-    PRIMARY KEY (sim_id, timestep, zone_id, component)
-);
-CREATE INDEX IF NOT EXISTS ix_budgets_component ON budgets(component);
-"""
-
-_MASS_BALANCE_DDL = """
-CREATE TABLE IF NOT EXISTS mass_balance (
-    sim_id        UUID NOT NULL,
-    timestep      INTEGER NOT NULL,
-    total_in      DOUBLE NOT NULL,
-    total_out     DOUBLE NOT NULL,
-    storage_in    DOUBLE NOT NULL,
-    storage_out   DOUBLE NOT NULL,
-    percent_error DOUBLE NOT NULL,
-    unit          VARCHAR NOT NULL DEFAULT 'm3/d',
-    PRIMARY KEY (sim_id, timestep)
-);
 """
 
 # ---------------------------------------------------------------------------
@@ -495,9 +452,6 @@ _ALL_VIEW_DDL: tuple[str, ...] = (
 TABLE_NAMES: tuple[str, ...] = (
     "simulations",
     "parameters",
-    "timeseries",
-    "budgets",
-    "mass_balance",
     "metrics",
     "observation_points",
     "provenance",
@@ -512,11 +466,12 @@ TABLE_NAMES: tuple[str, ...] = (
     "tracked_files",
 )
 
+# DuckDB-resident per-simulation tables. The Parquet-backed per-simulation
+# views (``timeseries``, ``budgets``, ``mass_balance``) are listed separately
+# in :data:`PARQUET_VIEW_NAMES` — they are never touched by SQL DELETE
+# statements because they are not tables.
 PER_SIM_TABLE_NAMES: tuple[str, ...] = (
     "parameters",
-    "timeseries",
-    "budgets",
-    "mass_balance",
     "metrics",
     "observation_points",
     "provenance",
@@ -527,13 +482,18 @@ PER_SIM_TABLE_NAMES: tuple[str, ...] = (
     "tracked_files",
 )
 
+# Per-simulation Parquet files, named by their view alias. Each file lives
+# at ``simulations/<uuid>.parquet/<name>.parquet`` in the workspace.
+PARQUET_VIEW_NAMES: tuple[str, ...] = (
+    "timeseries",
+    "budgets",
+    "mass_balance",
+)
+
 _ALL_DDL: tuple[str, ...] = (
     _SIMULATIONS_DDL,
     _PARAMETERS_DDL,
     _METRICS_DDL,
-    _TIMESERIES_DDL,
-    _BUDGETS_DDL,
-    _MASS_BALANCE_DDL,
     _OBSERVATION_POINTS_DDL,
     _PROVENANCE_DDL,
     _CALIBRATION_SESSIONS_DDL,
@@ -546,6 +506,111 @@ _ALL_DDL: tuple[str, ...] = (
     _OBSERVATIONS_DDL,
     _TRACKED_FILES_DDL,
 )
+
+# ---------------------------------------------------------------------------
+#  Parquet-backed views (timeseries / budgets / mass_balance)
+# ---------------------------------------------------------------------------
+
+_PARQUET_VIEW_COLUMNS: dict[str, tuple[tuple[str, str], ...]] = {
+    "timeseries": (
+        ("sim_id", "UUID"),
+        ("station_id", "VARCHAR"),
+        ("variable", "VARCHAR"),
+        ("datetime", "TIMESTAMPTZ"),
+        ("value", "DOUBLE"),
+        ("unit", "VARCHAR"),
+        ("qflag", "VARCHAR"),
+    ),
+    "budgets": (
+        ("sim_id", "UUID"),
+        ("timestep", "INTEGER"),
+        ("zone_id", "VARCHAR"),
+        ("component", "VARCHAR"),
+        ("flux_in", "DOUBLE"),
+        ("flux_out", "DOUBLE"),
+        ("unit", "VARCHAR"),
+    ),
+    "mass_balance": (
+        ("sim_id", "UUID"),
+        ("timestep", "INTEGER"),
+        ("total_in", "DOUBLE"),
+        ("total_out", "DOUBLE"),
+        ("storage_in", "DOUBLE"),
+        ("storage_out", "DOUBLE"),
+        ("percent_error", "DOUBLE"),
+        ("unit", "VARCHAR"),
+    ),
+}
+
+
+def parquet_view_columns(view_name: str) -> tuple[tuple[str, str], ...]:
+    """Return ``((col, type), ...)`` for one of the three Parquet views."""
+    try:
+        return _PARQUET_VIEW_COLUMNS[view_name]
+    except KeyError as exc:
+        raise KeyError(f"Unknown Parquet view: {view_name!r}") from exc
+
+
+def _empty_view_ddl(view_name: str) -> str:
+    cols = _PARQUET_VIEW_COLUMNS[view_name]
+    casts = ",\n    ".join(f"CAST(NULL AS {t}) AS {c}" for c, t in cols)
+    return f"CREATE OR REPLACE VIEW {view_name} AS SELECT\n    {casts}\nWHERE 1=0"
+
+
+def _read_parquet_view_ddl(view_name: str, glob_path: str) -> str:
+    # read_parquet preserves UUID and TIMESTAMPTZ as DuckDB native types, so
+    # an explicit cast on read is not required — see the unit test in
+    # ``tests/unit/results/test_parquet_view_types.py``.
+    escaped = glob_path.replace("'", "''")
+    return (
+        f"CREATE OR REPLACE VIEW {view_name} AS "
+        f"SELECT * FROM read_parquet('{escaped}', union_by_name=true)"
+    )
+
+
+def _glob_for_view(workspace_path: Path, view_name: str) -> str:
+    return str(workspace_path / "simulations" / "*.parquet" / f"{view_name}.parquet")
+
+
+def _parquet_files_exist(workspace_path: Path, view_name: str) -> bool:
+    sim_root = workspace_path / "simulations"
+    if not sim_root.is_dir():
+        return False
+    return any(sim_root.glob(f"*.parquet/{view_name}.parquet"))
+
+
+def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, workspace_path: Path) -> None:
+    """Create or refresh the three Parquet-backed views on ``conn``.
+
+    If no matching Parquet file exists for a given view, an empty typed
+    view is installed so that ``SELECT * FROM <view>`` still succeeds with
+    the right columns on a fresh workspace. On the next write that creates
+    the first file, the catalog calls this function again to swap the view
+    over to ``read_parquet``. If a legacy DuckDB table with the same name
+    as a target view still exists (pre-migration state), view creation is
+    skipped so the caller can still query its rows; the migration command
+    drops the table before re-running this function.
+    """
+    legacy_tables = {
+        r[0]
+        for r in conn.execute(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema='main' AND table_type='BASE TABLE'"
+        ).fetchall()
+    }
+    for view in PARQUET_VIEW_NAMES:
+        if view in legacy_tables:
+            logger.warning(
+                "Skipping view %r: a legacy table with the same name "
+                "still exists. Run `hmp migrate` to move rows to Parquet.",
+                view,
+            )
+            continue
+        if _parquet_files_exist(workspace_path, view):
+            ddl = _read_parquet_view_ddl(view, _glob_for_view(workspace_path, view))
+        else:
+            ddl = _empty_view_ddl(view)
+        conn.execute(ddl)
 
 
 # Forward-only column additions applied to the ``simulations`` table on every
@@ -570,7 +635,10 @@ def _apply_simulations_additive_columns(conn: duckdb.DuckDBPyConnection) -> None
             logger.info("DuckDB schema upgrade: added simulations.%s", name)
 
 
-def ensure_schema(conn: duckdb.DuckDBPyConnection) -> None:
+def ensure_schema(
+    conn: duckdb.DuckDBPyConnection,
+    workspace_path: Path | None = None,
+) -> None:
     """Create the catalog tables and views if they do not already exist.
 
     Idempotent: repeated calls on the same connection are safe. Additive
@@ -583,6 +651,9 @@ def ensure_schema(conn: duckdb.DuckDBPyConnection) -> None:
     table is a no-op, so additive columns must be applied *before* any
     ``CREATE INDEX`` statement that targets them — otherwise DuckDB refuses
     the index with ``Binder Error: Table X does not have a column named Y``.
+
+    When ``workspace_path`` is given, the three Parquet-backed views are
+    installed too (empty-typed until the first file lands).
     """
     # Phase 1: create tables only (no indexes that could reference new cols).
     for ddl in _ALL_DDL:
@@ -591,6 +662,7 @@ def ensure_schema(conn: duckdb.DuckDBPyConnection) -> None:
 
     # Phase 2: migrate pre-existing tables to the current column set.
     _apply_simulations_additive_columns(conn)
+    _drop_legacy_parquet_tables(conn)
 
     # Phase 3: (re-)create indexes now that every referenced column exists.
     for ddl in _ALL_DDL:
@@ -599,11 +671,45 @@ def ensure_schema(conn: duckdb.DuckDBPyConnection) -> None:
 
     for ddl in _ALL_VIEW_DDL:
         conn.execute(ddl)
+
+    if workspace_path is not None:
+        ensure_parquet_views(conn, Path(workspace_path))
+
     logger.debug(
-        "DuckDB catalog schema ensured (%d tables, %d views)",
+        "DuckDB catalog schema ensured (%d tables, %d views, %d parquet views)",
         len(TABLE_NAMES),
         len(VIEW_NAMES),
+        len(PARQUET_VIEW_NAMES),
     )
+
+
+def _drop_legacy_parquet_tables(conn: duckdb.DuckDBPyConnection) -> None:
+    """Drop pre-refactor ``timeseries`` / ``budgets`` / ``mass_balance``
+    tables if they still exist in the DuckDB file.
+
+    A table and a view cannot share a name. When opening a pre-refactor
+    catalog, the old tables must be dropped before the Parquet views can
+    be created. This function is a no-op when the names are already bound
+    to views or are absent. ``hmp migrate`` is responsible for salvaging
+    the row data into Parquet before anything gets dropped; this helper
+    only runs when the tables are empty or when migration already happened.
+    """
+    rows = conn.execute(
+        "SELECT table_name, table_type FROM information_schema.tables "
+        "WHERE table_schema='main' AND table_name IN ('timeseries', 'budgets', 'mass_balance')"
+    ).fetchall()
+    for name, kind in rows:
+        if kind == "BASE TABLE":
+            count = conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
+            if count:
+                logger.warning(
+                    "Catalog still has %d rows in legacy table %r — "
+                    "run `hmp migrate` to move them to Parquet",
+                    count,
+                    name,
+                )
+                continue
+            conn.execute(f'DROP TABLE "{name}"')
 
 
 def _iter_statements_without_index(ddl: str):
