@@ -43,6 +43,11 @@ class Run:
         return self._sim_id
 
     @property
+    def id(self) -> str:
+        """Alias for :attr:`sim_id` matching the public API (``run.id``)."""
+        return self._sim_id
+
+    @property
     def name(self) -> str | None:
         return self._load_row().get("name")
 

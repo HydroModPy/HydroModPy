@@ -131,14 +131,19 @@ def resolve_workflow(
 # ---------------------------------------------------------------------------
 
 
-def run_simulation(config_path: str | Path, *, resume: str | None = None) -> dict:
+def run_simulation(
+    config_path: str | Path,
+    *,
+    resume: str | None = None,
+    no_display: bool = False,
+) -> dict:
     """Execute a single simulation from a TOML file."""
     if resume is not None:
-        return _run_resume(Path(config_path), resume)
+        return _run_resume(Path(config_path), resume, no_display=no_display)
 
     from hydromodpy.project import Project
 
-    with Project(config_path) as project:
+    with Project(config_path, no_display=no_display) as project:
         result = project.run()
         return {
             "name": result.name,
@@ -200,7 +205,7 @@ WORKFLOW_DISPATCH: dict[str, str] = {
 }
 
 
-def _run_resume(config_path: Path, run_id: str) -> dict:
+def _run_resume(config_path: Path, run_id: str, *, no_display: bool = False) -> dict:
     """Resume a previously interrupted simulation via the new Pipeline."""
     from hydromodpy.pipeline import Pipeline, PipelineState
     from hydromodpy.pipeline.checkpoint import CheckpointStore
@@ -223,7 +228,10 @@ def _run_resume(config_path: Path, run_id: str) -> dict:
     if last_completed is not None:
         resume_from = max(resume_from, last_completed + 1)
 
-    initial = PipelineState(run_id=run_id, data={"config_path": config_path})
+    initial = PipelineState(
+        run_id=run_id,
+        data={"config_path": config_path, "skip_display": no_display},
+    )
     pipeline = Pipeline(
         standard_steps(),
         workspace=workspace,

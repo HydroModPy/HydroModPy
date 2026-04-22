@@ -422,6 +422,7 @@ def run_example_script(
     env = os.environ.copy()
     env[out_env_var] = str(out_path)
     env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
+    env["HYDROMODPY_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():
@@ -471,18 +472,18 @@ def _build_validation_launcher_config(
     config_path: Path,
     solver_name: str,
 ) -> Path:
-    """Materialize one temporary launcher config with validation-only overrides."""
+    """Materialize one temporary launcher config with validation-only overrides.
+
+    Always materializes a temp file so ``hmp run`` sees the mandatory
+    ``workflow`` field and a workspace-resolvable ``[workspace]`` block,
+    even when the source TOML has neither.
+    """
     metadata = load_case_metadata(case_dir)
     base_config_name = str(metadata.get("base_config", "")).strip()
     profile_block = _VALIDATION_PROFILES_BY_SOLVER_AND_CASE.get(solver_name, {}).get(case_dir.name)
 
     use_base = bool(base_config_name)
-    use_profile = profile_block is not None
-    if not use_base and not use_profile:
-        return config_path
     base_config_path = case_dir / base_config_name if use_base else None
-    if base_config_path is not None and not base_config_path.exists() and not use_profile:
-        return config_path
 
     if use_base and base_config_path is not None and base_config_path.exists():
         merged_payload = _merge_toml_payloads(
@@ -505,6 +506,10 @@ def _build_validation_launcher_config(
     sim_section = merged_payload.setdefault("simulation", {})
     if not sim_section.get("run_id"):
         sim_section["run_id"] = stable_run_id
+
+    # hmp run requires an explicit top-level workflow field; validation
+    # TOMLs that predate this contract need the default here.
+    merged_payload.setdefault("workflow", "simulation")
 
     tmp_name = f".__validation_runtime_{config_path.stem}_{solver_name}_{os.getpid()}.toml"
     tmp_path = case_dir / tmp_name
@@ -597,6 +602,7 @@ def run_launcher_validation_case(
 
     env = os.environ.copy()
     env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
+    env["HYDROMODPY_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
 
     command = [

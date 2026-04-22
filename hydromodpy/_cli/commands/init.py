@@ -21,6 +21,12 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Workspace path (default: ~/hydromodpy/)",
     )
     parser.add_argument(
+        "--path",
+        dest="path_opt",
+        default=None,
+        help="Workspace path (alternate flag-form of the positional argument).",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="Overwrite an existing workspace catalog.",
@@ -32,7 +38,8 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.data.scaffold import DEFAULT_ROOT, scaffold
 
-    target = Path(args.path).expanduser().resolve() if args.path else DEFAULT_ROOT
+    resolved_path = args.path or getattr(args, "path_opt", None)
+    target = Path(resolved_path).expanduser().resolve() if resolved_path else DEFAULT_ROOT
     catalog = target / "hydromodpy.duckdb"
     if catalog.exists() and not args.force:
         print(
@@ -44,10 +51,8 @@ def run(args: argparse.Namespace) -> None:
 
     result = scaffold(target, force=args.force)
 
-    print(
-        f"Workspace scaffolded at {result}/. Create projects with "
-        f"`hmp new <name> --workspace {result}`."
-    )
+    print(f"Workspace: {result}")
+    print(f"Scaffolded at {result}/. Create projects with `hmp new <name> --workspace {result}`.")
     print()
     print("Layout:")
     print(f"  {result}/hydromodpy.duckdb")

@@ -227,3 +227,6 @@ uv.lock
 examples/hydromodpy.duckdb
 examples/data/cache.duckdb
 examples/data/cache.duckdb
+hydromodpy.duckdb
+examples/data/cache.duckdb
+examples/data/cache.duckdb

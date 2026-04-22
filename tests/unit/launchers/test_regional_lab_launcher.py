@@ -634,7 +634,8 @@ def test_regional_lab_bootstrap_catalog_inspects_bundle_readiness(tmp_path: Path
         mesh_run_root=mesh_run_root,
     )
 
-    rows = list(csv.DictReader(output_path.open("r", encoding="utf-8", newline="")))
+    with output_path.open("r", encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
     assert rows[0]["mesh_bundle_dir"].endswith("mesh_catchment_outlet_3_bundle")
     assert rows[0]["bundle_cell_count"] == "1"
     assert rows[0]["bundle_missing_top_centroid_count"] == "0"
@@ -699,7 +700,8 @@ def test_regional_lab_bootstrap_catalog_infers_bundle_dir_from_manifest_mesh_pat
         manifest_csv=manifest_path,
     )
 
-    rows = list(csv.DictReader(output_path.open("r", encoding="utf-8", newline="")))
+    with output_path.open("r", encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
     assert rows[0]["mesh_bundle_dir"] == str(bundle_dir.resolve())
     assert rows[0]["bundle_boussinesq_steady_ready"] == "true"
     assert rows[0]["bundle_boussinesq_transient_ready"] == "true"

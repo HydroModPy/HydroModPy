@@ -81,6 +81,12 @@ def register(subparsers) -> argparse.ArgumentParser:
             "every artefact must already be in the catalog and match its SHA-256."
         ),
     )
+    parser.add_argument(
+        "--no-display",
+        action="store_true",
+        dest="no_display",
+        help="Skip auto-rendering of the figures listed in [display].figures.",
+    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -133,21 +139,27 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         print(f"Invalid TOML: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
+    dry_run = bool(getattr(args, "dry_run", False))
     try:
+        # In --dry-run we only print the plan, so the workflow field becomes
+        # advisory: infer from TOML sections when absent rather than refusing.
         workflow = resolve_workflow(
             config_path,
             cli_workflow=None,
-            require_toml_field=True,
+            require_toml_field=not dry_run,
         )
     except WorkflowError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
+    if workflow is None:
+        workflow = _infer_workflow_from_sections(raw_toml)
+
     resume = getattr(args, "resume", None)
     from_step = getattr(args, "from_step", None)
     until_step = getattr(args, "until_step", None)
-    dry_run = bool(getattr(args, "dry_run", False))
     no_checkpoint = bool(getattr(args, "no_checkpoint", False))
+    no_display = bool(getattr(args, "no_display", False))
 
     if dry_run:
         _print_dry_run(
@@ -198,7 +210,10 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
                 from_step=from_step,
                 until_step=until_step,
                 no_checkpoint=no_checkpoint,
+                no_display=no_display,
             )
+        elif workflow == "simulation":
+            summary = runner(config_path, no_display=no_display)
         else:
             summary = runner(config_path)
     except KeyboardInterrupt:
@@ -226,6 +241,7 @@ def _run_simulation_pipeline(
     from_step: str | None,
     until_step: str | None,
     no_checkpoint: bool,
+    no_display: bool = False,
 ) -> dict:
     """Run the simulation workflow through the explicit Pipeline orchestrator.
 
@@ -236,7 +252,7 @@ def _run_simulation_pipeline(
 
     if from_step is None and until_step is None and not no_checkpoint:
         # Only --resume triggers the pipeline path directly.
-        return run_simulation(config_path, resume=resume)
+        return run_simulation(config_path, resume=resume, no_display=no_display)
 
     from hydromodpy.pipeline import Pipeline, PipelineState
     from hydromodpy.pipeline.steps import standard_steps
@@ -255,7 +271,10 @@ def _run_simulation_pipeline(
         workspace=workspace,
         checkpoint=not no_checkpoint,
     )
-    initial = PipelineState(run_id=run_id, data={"config_path": config_path})
+    initial = PipelineState(
+        run_id=run_id,
+        data={"config_path": config_path, "skip_display": no_display},
+    )
     final = pipeline.run(
         initial,
         resume_from=resume_from,
@@ -300,6 +319,24 @@ def _run_script(script_path: Path, extra_args: list[str]) -> None:
     cmd = [sys.executable, str(script_path), *extra_args]
     result = subprocess.run(cmd, cwd=str(script_path.parent))
     sys.exit(result.returncode)
+
+
+def _infer_workflow_from_sections(raw_toml: dict) -> str:
+    """Infer the workflow from the TOML sections present.
+
+    Mirrors the dispatch table in :mod:`hydromodpy._cli.workflows` — used
+    only when ``--dry-run`` is set and the user has not declared
+    ``workflow = "..."`` at the top level.
+    """
+    if "calibration" in raw_toml:
+        return "calibration"
+    if "batch" in raw_toml:
+        return "batch"
+    if "overview" in raw_toml and "simulation" not in raw_toml:
+        return "overview"
+    if "mesh_catchment" in raw_toml and "simulation" not in raw_toml:
+        return "mesh"
+    return "simulation"
 
 
 def _print_dry_run(

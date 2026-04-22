@@ -19,6 +19,10 @@ def _collect_registration_kwargs(ctx: WorkflowContext) -> dict:
     # Flow regime
     kwargs["flow_regime"] = ctx.cfg.flow.flow_regime
 
+    # Originating TOML, used by `hmp display` to filter runs by config source.
+    if getattr(ctx, "config_path", None) is not None:
+        kwargs["config_source"] = str(ctx.config_path)
+
     # Config snapshot
     try:
         config_dict = ctx.cfg.model_dump(mode="json")

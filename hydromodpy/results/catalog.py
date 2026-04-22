@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import re
 import shutil
 from dataclasses import dataclass
@@ -14,10 +15,12 @@ import duckdb
 import numpy as np
 import pandas as pd
 
+from hydromodpy.results._db_retry import connect_with_retry, with_lock_retry
 from hydromodpy.results.catalog_schema import (
     GLOBAL_ZONE,
     PER_SIM_TABLE_NAMES,
     SOLVER_CATEGORIES,
+    ensure_parquet_views,
     ensure_schema,
 )
 from hydromodpy.results.provenance import fingerprint
@@ -194,11 +197,78 @@ class SimulationCatalog:
         self._workspace.mkdir(parents=True, exist_ok=True)
 
         self._db_path = self._workspace / "hydromodpy.duckdb"
-        self._db = duckdb.connect(str(self._db_path))
-        ensure_schema(self._db)
+        self._db = connect_with_retry(str(self._db_path))
 
         self._simulations_dir = self._workspace / "simulations"
         self._simulations_dir.mkdir(exist_ok=True)
+
+        ensure_schema(self._db, self._workspace)
+
+    def _parquet_dir_for(self, sim_id: str | UUID) -> Path:
+        """Return the per-simulation Parquet directory (may not yet exist)."""
+        return self._simulations_dir / f"{sim_id}.parquet"
+
+    def _parquet_path_for(self, sim_id: str | UUID, view_name: str) -> Path:
+        """Return the Parquet file path for ``view_name`` under ``sim_id``."""
+        return self._parquet_dir_for(sim_id) / f"{view_name}.parquet"
+
+    def _refresh_parquet_view(self, view_name: str) -> None:
+        """Refresh a Parquet-backed view DDL after files change on disk.
+
+        This must run inside the catalog connection so the view picks up
+        newly created or newly emptied per-sim Parquet files. Idempotent.
+        """
+        ensure_parquet_views(self._db, self._workspace)
+
+    def _atomic_write_parquet(
+        self,
+        target: Path,
+        insert_df: pd.DataFrame,
+        select_sql: str,
+        pk_cols: tuple[str, ...] | None = None,
+    ) -> None:
+        """Write ``insert_df`` into ``target`` atomically, via ``select_sql``.
+
+        ``select_sql`` must be a ``SELECT ... FROM _hmp_insert`` that produces
+        the target Parquet schema by casting each column. The DataFrame is
+        registered on the DuckDB connection under the alias ``_hmp_insert``
+        so the query can resolve it without relying on frame-based
+        replacement scans (which look up the caller's locals).
+
+        If ``target`` already exists, its rows are merged with the new ones
+        via a ``QUALIFY ROW_NUMBER`` dedupe on ``pk_cols`` (last write wins),
+        so the semantics match the old ``INSERT OR REPLACE`` behaviour.
+        Writes go to a sibling ``.tmp`` file first and are promoted with
+        ``os.replace`` so a crash mid-write never leaves a partial Parquet
+        in the view.
+        """
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_name(target.name + ".tmp")
+        existing = target.exists()
+        self._db.register("_hmp_insert", insert_df)
+        try:
+            if existing and pk_cols:
+                existing_escaped = str(target).replace("'", "''")
+                pk_list = ", ".join(pk_cols)
+                merge_sql = (
+                    f"WITH combined AS ("
+                    f"  SELECT *, 0 AS _prio FROM read_parquet('{existing_escaped}')"
+                    f"  UNION ALL BY NAME "
+                    f"  SELECT *, 1 AS _prio FROM ({select_sql})"
+                    f") "
+                    f"SELECT * EXCLUDE _prio FROM combined "
+                    f"QUALIFY ROW_NUMBER() OVER "
+                    f"(PARTITION BY {pk_list} ORDER BY _prio DESC) = 1"
+                )
+                copy_sql = f"COPY ({merge_sql}) TO '{tmp}' (FORMAT PARQUET)"
+            else:
+                copy_sql = f"COPY ({select_sql}) TO '{tmp}' (FORMAT PARQUET)"
+            self._db.execute(copy_sql)
+        finally:
+            self._db.unregister("_hmp_insert")
+        os.replace(tmp, target)
+        if not existing:
+            self._refresh_parquet_view(target.stem)
 
     @property
     def connection(self) -> duckdb.DuckDBPyConnection:
@@ -214,6 +284,7 @@ class SimulationCatalog:
 
     # -- Registration --------------------------------------------------------
 
+    @with_lock_retry()
     def register_simulation(
         self,
         sim_id: str | UUID,
@@ -243,6 +314,7 @@ class SimulationCatalog:
         geographic_fingerprint: str | None = None,
         tags: list[str] | None = None,
         notes: str | None = None,
+        config_source: str | Path | None = None,
     ) -> RegistrationResult:
         sid = str(sim_id)
         replaced_sid: str | None = None
@@ -307,6 +379,7 @@ class SimulationCatalog:
 
         zarr_path = f"simulations/{sid}.zarr"
         parent_sid = str(parent_sim_id) if parent_sim_id else None
+        config_source_str = str(config_source) if config_source is not None else None
 
         self._db.execute(
             """INSERT INTO simulations
@@ -315,11 +388,11 @@ class SimulationCatalog:
                 bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
                 crs_wkt, crs_epsg,
                 period_start, period_end, time_unit,
-                config_toml, config_snapshot, config_hash, zarr_path,
-                parent_sim_id, mesh_hash, mesh_topology,
+                config_toml, config_snapshot, config_hash, config_source,
+                zarr_path, parent_sim_id, mesh_hash, mesh_topology,
                 geographic_fingerprint, tags, notes)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
                 sid,
                 final_name,
@@ -342,6 +415,7 @@ class SimulationCatalog:
                 config_json,
                 snapshot_json,
                 config_hash,
+                config_source_str,
                 zarr_path,
                 parent_sid,
                 mesh_hash,
@@ -371,6 +445,7 @@ class SimulationCatalog:
 
     # -- Parameter writes ----------------------------------------------------
 
+    @with_lock_retry()
     def write_parameters(
         self,
         sim_id: str | UUID,
@@ -396,6 +471,7 @@ class SimulationCatalog:
 
     # -- Timeseries ----------------------------------------------------------
 
+    @with_lock_retry()
     def write_timeseries(
         self,
         sim_id: str | UUID,
@@ -409,14 +485,15 @@ class SimulationCatalog:
             return
         sid = str(sim_id)
         # The timeseries.datetime column is TIMESTAMPTZ (WITH TIME ZONE).
-        # DuckDB 1.5+ can't cast between tz-aware and tz-naive via Arrow,
-        # so normalize to a single tz-aware representation (UTC) here.
+        # Normalize the index to a single tz-aware representation (UTC) so
+        # the Parquet file stores a deterministic timestamp regardless of
+        # the session timezone the caller runs under.
         dt_values = pd.DatetimeIndex(ts.index)
         if dt_values.tz is None:
             dt_values = dt_values.tz_localize("UTC")
         else:
             dt_values = dt_values.tz_convert("UTC")
-        insert_df = pd.DataFrame(  # noqa: F841 — referenced by DuckDB replacement scan in SQL below
+        insert_df = pd.DataFrame(
             {
                 "sim_id": np.full(n, sid, dtype=object),
                 "station_id": np.full(n, station_id, dtype=object),
@@ -424,13 +501,26 @@ class SimulationCatalog:
                 "datetime": dt_values,
                 "value": ts.values.astype("float64"),
                 "unit": np.full(n, unit, dtype=object),
+                "qflag": np.full(n, "simulated", dtype=object),
             }
         )
-        self._db.execute(
-            "INSERT OR REPLACE INTO timeseries "
-            "(sim_id, station_id, variable, datetime, value, unit) "
-            "SELECT sim_id, station_id, variable, datetime, value, unit "
-            "FROM insert_df"
+        select_sql = (
+            "SELECT "
+            "CAST(sim_id AS UUID) AS sim_id, "
+            "CAST(station_id AS VARCHAR) AS station_id, "
+            "CAST(variable AS VARCHAR) AS variable, "
+            "CAST(datetime AS TIMESTAMPTZ) AS datetime, "
+            "CAST(value AS DOUBLE) AS value, "
+            "CAST(unit AS VARCHAR) AS unit, "
+            "CAST(qflag AS VARCHAR) AS qflag "
+            "FROM _hmp_insert"
+        )
+        target = self._parquet_path_for(sid, "timeseries")
+        self._atomic_write_parquet(
+            target,
+            insert_df,
+            select_sql,
+            pk_cols=("sim_id", "station_id", "variable", "datetime"),
         )
 
     # -- Budget --------------------------------------------------------------
@@ -445,13 +535,23 @@ class SimulationCatalog:
         flux_out: float,
         unit: str = "m3/d",
     ) -> None:
-        self._db.execute(
-            """INSERT INTO budgets
-               (sim_id, timestep, zone_id, component, flux_in, flux_out, unit)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            [str(sim_id), timestep, zone_id, component, flux_in, flux_out, unit],
+        # Single-row convenience wrapper over the batched method so both
+        # entry points share a single Parquet write path.
+        self.write_budgets(
+            sim_id,
+            [
+                {
+                    "timestep": timestep,
+                    "zone_id": zone_id,
+                    "component": component,
+                    "flux_in": flux_in,
+                    "flux_out": flux_out,
+                    "unit": unit,
+                }
+            ],
         )
 
+    @with_lock_retry()
     def write_budgets(
         self,
         sim_id: str | UUID,
@@ -460,13 +560,31 @@ class SimulationCatalog:
         if not records:
             return
         sid = str(sim_id)
-        df = pd.DataFrame(records)
-        df["sim_id"] = sid
-        self._db.execute(
-            "INSERT INTO budgets "
-            "(sim_id, timestep, zone_id, component, flux_in, flux_out, unit) "
-            "SELECT sim_id, timestep, zone_id, component, flux_in, flux_out, unit "
-            "FROM df"
+        insert_df = pd.DataFrame(records)
+        insert_df["sim_id"] = sid
+        if "zone_id" not in insert_df.columns:
+            insert_df["zone_id"] = GLOBAL_ZONE
+        else:
+            insert_df["zone_id"] = insert_df["zone_id"].fillna(GLOBAL_ZONE)
+        if "unit" not in insert_df.columns:
+            insert_df["unit"] = "m3/d"
+        select_sql = (
+            "SELECT "
+            "CAST(sim_id AS UUID) AS sim_id, "
+            "CAST(timestep AS INTEGER) AS timestep, "
+            "CAST(zone_id AS VARCHAR) AS zone_id, "
+            "CAST(component AS VARCHAR) AS component, "
+            "CAST(flux_in AS DOUBLE) AS flux_in, "
+            "CAST(flux_out AS DOUBLE) AS flux_out, "
+            "CAST(unit AS VARCHAR) AS unit "
+            "FROM _hmp_insert"
+        )
+        target = self._parquet_path_for(sid, "budgets")
+        self._atomic_write_parquet(
+            target,
+            insert_df,
+            select_sql,
+            pk_cols=("sim_id", "timestep", "zone_id", "component"),
         )
 
     # -- Mass balance --------------------------------------------------------
@@ -481,22 +599,22 @@ class SimulationCatalog:
         storage_in: float = 0.0,
         storage_out: float = 0.0,
     ) -> None:
-        self._db.execute(
-            """INSERT INTO mass_balance
-               (sim_id, timestep, total_in, total_out,
-                storage_in, storage_out, percent_error)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        # Single-row convenience wrapper; see ``write_budget``.
+        self.write_mass_balances(
+            sim_id,
             [
-                str(sim_id),
-                timestep,
-                total_in,
-                total_out,
-                storage_in,
-                storage_out,
-                percent_error,
+                {
+                    "timestep": timestep,
+                    "total_in": total_in,
+                    "total_out": total_out,
+                    "storage_in": storage_in,
+                    "storage_out": storage_out,
+                    "percent_error": percent_error,
+                }
             ],
         )
 
+    @with_lock_retry()
     def write_mass_balances(
         self,
         sim_id: str | UUID,
@@ -505,18 +623,37 @@ class SimulationCatalog:
         if not records:
             return
         sid = str(sim_id)
-        df = pd.DataFrame(records)
-        df["sim_id"] = sid
-        self._db.execute(
-            "INSERT INTO mass_balance "
-            "(sim_id, timestep, total_in, total_out, "
-            "storage_in, storage_out, percent_error) "
-            "SELECT sim_id, timestep, total_in, total_out, "
-            "storage_in, storage_out, percent_error FROM df"
+        insert_df = pd.DataFrame(records)
+        insert_df["sim_id"] = sid
+        if "unit" not in insert_df.columns:
+            insert_df["unit"] = "m3/d"
+        if "storage_in" not in insert_df.columns:
+            insert_df["storage_in"] = 0.0
+        if "storage_out" not in insert_df.columns:
+            insert_df["storage_out"] = 0.0
+        select_sql = (
+            "SELECT "
+            "CAST(sim_id AS UUID) AS sim_id, "
+            "CAST(timestep AS INTEGER) AS timestep, "
+            "CAST(total_in AS DOUBLE) AS total_in, "
+            "CAST(total_out AS DOUBLE) AS total_out, "
+            "CAST(storage_in AS DOUBLE) AS storage_in, "
+            "CAST(storage_out AS DOUBLE) AS storage_out, "
+            "CAST(percent_error AS DOUBLE) AS percent_error, "
+            "CAST(unit AS VARCHAR) AS unit "
+            "FROM _hmp_insert"
+        )
+        target = self._parquet_path_for(sid, "mass_balance")
+        self._atomic_write_parquet(
+            target,
+            insert_df,
+            select_sql,
+            pk_cols=("sim_id", "timestep"),
         )
 
     # -- Metrics -------------------------------------------------------------
 
+    @with_lock_retry()
     def write_metric(
         self,
         sim_id: str | UUID,
@@ -535,6 +672,7 @@ class SimulationCatalog:
 
     # -- Provenance ----------------------------------------------------------
 
+    @with_lock_retry()
     def write_provenance(
         self,
         sim_id: str | UUID,
@@ -580,6 +718,7 @@ class SimulationCatalog:
 
     # -- Observation points --------------------------------------------------
 
+    @with_lock_retry()
     def register_observation_points(
         self,
         sim_id: str | UUID,
@@ -606,6 +745,7 @@ class SimulationCatalog:
 
     # -- Tracked input files --------------------------------------------------
 
+    @with_lock_retry()
     def register_tracked_files(
         self,
         sim_id: str | UUID,
@@ -663,6 +803,7 @@ class SimulationCatalog:
 
     # -- Geographic features & metadata (sim-scoped in DuckDB) ----------------
 
+    @with_lock_retry()
     def write_geographic_feature(
         self,
         sim_id: str | UUID,
@@ -730,6 +871,7 @@ class SimulationCatalog:
         ).fetchall()
         return [r[0] for r in rows]
 
+    @with_lock_retry()
     def write_geographic_metadata(
         self,
         sim_id: str | UUID,
@@ -906,6 +1048,15 @@ class SimulationCatalog:
         return self._db.execute(query, params).fetchdf()
 
     def list_simulations(self, **filters) -> pd.DataFrame:
+        """Return one DataFrame row per simulation matching ``filters``.
+
+        ``order_by`` is an optional SQL ORDER BY clause (e.g. ``"created_at DESC"``).
+        When omitted, rows are returned in DuckDB storage order — which is
+        typically insertion order but not guaranteed by SQL. Callers that need
+        the most recent run should pass ``order_by="created_at DESC"`` and
+        read ``iloc[0]``.
+        """
+        order_by = filters.pop("order_by", None)
         query = "SELECT * FROM simulations"
         params: list = []
         if filters:
@@ -914,6 +1065,8 @@ class SimulationCatalog:
                 clauses.append(f"{key} = ?")
                 params.append(val)
             query += " WHERE " + " AND ".join(clauses)
+        if order_by:
+            query += f" ORDER BY {order_by}"
         return self._db.execute(query, params).fetchdf()
 
     def export(
@@ -1052,42 +1205,46 @@ class SimulationCatalog:
         query = "SELECT DISTINCT s.sim_id FROM simulations s"
         joins: list[str] = []
         clauses: list[str] = []
-        params: list = []
+        # SQL binds positional placeholders in the order they appear in the
+        # query text (JOINs before WHEREs), so keep the two bind lists separate
+        # instead of one ordered by filter-insertion.
+        join_params: list = []
+        clause_params: list = []
 
         for key, val in filters.items():
             if key == "tags":
                 clauses.append("list_contains(s.tags, ?)")
-                params.append(val)
+                clause_params.append(val)
             elif key.endswith("_gt"):
                 metric = key[:-3]
                 alias = f"m_{len(joins)}"
                 joins.append(
                     f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id AND {alias}.metric_name = ?"
                 )
-                params.append(metric)
+                join_params.append(metric)
                 clauses.append(f"{alias}.value > ?")
-                params.append(val)
+                clause_params.append(val)
             elif key.endswith("_lt"):
                 metric = key[:-3]
                 alias = f"m_{len(joins)}"
                 joins.append(
                     f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id AND {alias}.metric_name = ?"
                 )
-                params.append(metric)
+                join_params.append(metric)
                 clauses.append(f"{alias}.value < ?")
-                params.append(val)
+                clause_params.append(val)
             elif key.endswith("_gte"):
                 metric = key[:-4]
                 alias = f"m_{len(joins)}"
                 joins.append(
                     f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id AND {alias}.metric_name = ?"
                 )
-                params.append(metric)
+                join_params.append(metric)
                 clauses.append(f"{alias}.value >= ?")
-                params.append(val)
+                clause_params.append(val)
             elif key == "crs":
                 clauses.append("s.crs_wkt = ?")
-                params.append(val)
+                clause_params.append(val)
             elif key in (
                 "project",
                 "solver",
@@ -1100,7 +1257,7 @@ class SimulationCatalog:
                 "geographic_fingerprint",
             ):
                 clauses.append(f"s.{key} = ?")
-                params.append(val)
+                clause_params.append(val)
             else:
                 raise ValueError(f"Unknown filter: '{key}'")
 
@@ -1110,7 +1267,7 @@ class SimulationCatalog:
             query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY s.created_at DESC"
 
-        rows = self._db.execute(query, params).fetchall()
+        rows = self._db.execute(query, join_params + clause_params).fetchall()
         sim_ids = [str(r[0]) for r in rows]
         return SimulationGroup(sim_ids, self)
 
@@ -1218,6 +1375,7 @@ class SimulationCatalog:
 
     # -- Lifecycle -----------------------------------------------------------
 
+    @with_lock_retry()
     def finalize(
         self,
         sim_id: str | UUID,
@@ -1245,6 +1403,7 @@ class SimulationCatalog:
                 except Exception:
                     logger.debug("Could not pack zarr to zip for sim %s", sid)
 
+    @with_lock_retry()
     def delete(self, sim_id: str | UUID) -> None:
         sid = str(sim_id)
 
@@ -1260,6 +1419,13 @@ class SimulationCatalog:
             [sid],
         )
         self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+
+        parquet_dir = self._parquet_dir_for(sid)
+        if parquet_dir.is_dir():
+            shutil.rmtree(parquet_dir, ignore_errors=True)
+            # Refresh views so a workspace whose last per-sim Parquet file
+            # was just removed drops back to the empty-typed view form.
+            ensure_parquet_views(self._db, self._workspace)
 
         if row and row[0]:
             zarr_abs = self._workspace / row[0]

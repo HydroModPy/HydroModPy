@@ -15,6 +15,9 @@ from hydromodpy.solver.utils.mesh.gmsh_grid import load_planar_mesh
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid.runtime_support import (
+    build_gmsh_support_metadata,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -185,6 +188,9 @@ def load_mesh_artifacts_from_summary(
         return
     if setup_state.mesh_planar is None:
         setup_state.mesh_planar = load_planar_mesh(mesh_path_obj)
+
+    if setup_state.mesh_support is None and setup_state.mesh_bundle is not None:
+        setup_state.mesh_support = build_gmsh_support_metadata(setup_state.mesh_bundle)
 
 
 # ---------------------------------------------------------------------------

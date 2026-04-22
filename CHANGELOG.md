@@ -30,6 +30,40 @@ Each release section includes the following standard categories:
 
 ---
 
+## [Unreleased]
+
+### Changed
+- Per-simulation `timeseries`, `budgets`, and `mass_balance` rows now live as
+  Parquet files under `simulations/<uuid>.parquet/` instead of DuckDB tables
+  inside `hydromodpy.duckdb`. DuckDB views with the original table names
+  keep the read surface unchanged — every `SELECT ... FROM timeseries`
+  call keeps working. See
+  `docs/developers/parquet_lakehouse_architecture.md` for the layout and
+  `docs/developers/parquet_lakehouse_concurrency.md` for the retry and
+  atomic-rename patterns.
+- `SimulationCatalog` now retries on `duckdb.IOException` at both connect
+  time (`connect_with_retry`) and execute time (`@with_lock_retry`) on
+  every write path. Short-lived cross-process lock contention resolves
+  transparently instead of surfacing as an error.
+
+### Added
+- `hmp migrate` subcommand: detects legacy workspaces with per-sim rows
+  still in DuckDB, moves them into Parquet files per `sim_id`, verifies
+  row counts, and drops the source tables. Idempotent, with `--dry-run`.
+- `hmp doctor` now reports the Parquet layout health (orphan directories,
+  leftover legacy tables, per-sim Parquet counts).
+- Unit tests covering atomic Parquet writes, view semantics, 8-worker
+  concurrent writes, and the migration path
+  (`tests/unit/results/test_parquet_lakehouse.py`).
+
+### Fixed
+- `SimulationCatalog.write_*` methods are now tolerant of the DuckDB
+  single-writer lock through the new retry decorator, fixing a latent
+  bug where `hmp list` running concurrently with `hmp run` could raise
+  `IOException`.
+
+---
+
 ## [v0.3.3] - 2025-12-03
 ### Added
 - Lightweight conda environment option (`env_hydromodpy_light.yml`) and matching light dependency set in `pyproject.toml` for setups without VTK or Jupyter kernels.

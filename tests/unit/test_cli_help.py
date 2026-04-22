@@ -29,7 +29,6 @@ SUBCOMMANDS = [
     "show",
     "compare",
     "import",
-    "calibrate",
     "doctor",
     "inspect",
     "best",

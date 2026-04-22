@@ -21,6 +21,7 @@ from hydromodpy.pipeline.steps.step_07_run_solver import RunSolverStep
 from hydromodpy.pipeline.steps.step_08_extract import ExtractStep
 from hydromodpy.pipeline.steps.step_09_derive import DeriveStep
 from hydromodpy.pipeline.steps.step_10_export import ExportStep
+from hydromodpy.pipeline.steps.step_11_display import DisplayStep
 
 
 def standard_steps() -> tuple:
@@ -37,6 +38,7 @@ def standard_steps() -> tuple:
         ExtractStep(),
         DeriveStep(),
         ExportStep(),
+        DisplayStep(),
     )
 
 
@@ -52,5 +54,6 @@ __all__ = (
     "ExtractStep",
     "DeriveStep",
     "ExportStep",
+    "DisplayStep",
     "standard_steps",
 )

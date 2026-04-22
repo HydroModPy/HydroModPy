@@ -6,6 +6,35 @@ the same physical inputs and should return the same kind of result object.
 That separation is important because it lets the driver switch from the local
 Newton loop to SciPy root finding without touching the physics assembly or the
 post-processing code.
+
+Dirichlet representation — known systematic boundary bias
+---------------------------------------------------------
+
+The canonical Dirichlet input below is ``prescribed_head_m_by_cell`` — the
+head value is assigned directly to the unknown of the boundary cell, not to
+the boundary edge midpoint. This is a deliberate simplification (one fewer
+unknown, no interface equation) inherited from the v0.6 runtime refactor
+(commit ``c4cb92b7``, J.-R. de Dreuzy, 2026-04-17) and enforced as
+mutually exclusive with ``boundary_head_m_by_edge`` at
+``assembly/inputs.py:105``.
+
+Trade-off to be aware of when interpreting solver output:
+
+* On problems with strong head gradients near a Dirichlet frontier, the
+  boundary-cell head is pinned at the Dirichlet value but the exact solution
+  at the cell centroid differs from the edge value by ``O(grad h · dx/2)``.
+* Empirically, on the Dupuit analytical case
+  (``validation_cases/analytical/steady/dupuit_fixed_head_1d``,
+  :math:`L = 400\\,\\text{m}`, :math:`h = 10 \\to 5\\,\\text{m}`), this
+  produces up to **~32 mm** of signed residual at the boundary cells
+  (RMSE ≈ **13.6 mm**, well within the 50 mm tolerance of the boussinesq
+  profile; the MODFLOW edge-Dirichlet tolerance is sub-mm by comparison).
+* If sub-mm boundary accuracy is required, refine the mesh near the
+  Dirichlet boundary or switch the backend-level assembly to use the
+  ``boundary_head_m_by_edge`` path (still wired in ``assembly/inputs.py``).
+
+When regenerating regression goldens under this contract, expect
+~0.5 % systematic head shifts versus any pre-2026-04-17 baseline.
 """
 
 from __future__ import annotations
@@ -45,6 +74,8 @@ class TransientStepInputs:
     residual to zero over ``dt_seconds``.
 
     ``prescribed_head_m_by_cell`` is the canonical runtime Dirichlet view.
+    See the module-level note on the "systematic boundary bias" trade-off
+    this choice introduces (cell-centroid vs edge-midpoint pinning).
     """
 
     mesh: BoussinesqMesh
@@ -67,6 +98,8 @@ class SteadySolveInputs:
     stationary problem.
 
     ``prescribed_head_m_by_cell`` is the canonical runtime Dirichlet view.
+    See the module-level note on the "systematic boundary bias" trade-off
+    this choice introduces (cell-centroid vs edge-midpoint pinning).
     """
 
     mesh: BoussinesqMesh

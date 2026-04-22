@@ -20,7 +20,6 @@ SUBCOMMANDS = (
     "config",
     "schema",
     "run",
-    "calibrate",
     "display",
     "list",
     "export",

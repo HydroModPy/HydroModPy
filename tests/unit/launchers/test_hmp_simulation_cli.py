@@ -28,9 +28,10 @@ def test_hmp_run_dispatches_simulation_workflow(monkeypatch, tmp_path) -> None:
 
     captured: dict = {}
 
-    def fake_run(config_path):
+    def fake_run(config_path, **kwargs):
         captured["config_path"] = Path(config_path)
         captured["run_called"] = True
+        captured["kwargs"] = kwargs
         return {"name": "test", "sim_id": "abc"}
 
     monkeypatch.setattr("hydromodpy._cli.workflows.run_simulation", fake_run)
@@ -40,6 +41,29 @@ def test_hmp_run_dispatches_simulation_workflow(monkeypatch, tmp_path) -> None:
 
     assert captured["config_path"] == config.resolve()
     assert captured["run_called"] is True
+    # --no-display was not passed so the CLI forwards no_display=False.
+    assert captured["kwargs"].get("no_display") is False
+
+
+def test_hmp_run_forwards_no_display_flag(monkeypatch, tmp_path) -> None:
+    """``hmp run --no-display`` must reach run_simulation(no_display=True)."""
+    config = _write_toml(
+        tmp_path / "config.toml",
+        'workflow = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+    )
+
+    captured: dict = {}
+
+    def fake_run(config_path, **kwargs):
+        captured["kwargs"] = kwargs
+        return {"name": "test", "sim_id": "abc"}
+
+    monkeypatch.setattr("hydromodpy._cli.workflows.run_simulation", fake_run)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--no-display"])
+
+    main()
+
+    assert captured["kwargs"].get("no_display") is True
 
 
 def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:

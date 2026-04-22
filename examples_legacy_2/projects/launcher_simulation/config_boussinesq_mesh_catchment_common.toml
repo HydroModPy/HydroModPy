@@ -53,14 +53,14 @@ id = "field_geology"
 cell_samples_per_axis = 8
 
 [mesh_catchment.geology.source]
-path = "../../data/geology/GEO1M.shp"
+path = "../../../examples/data/geology/GEO1M.shp"
 kind = "vector"
 code_field = "CODE_LEG"
-reference_raster_path = "../../data/dem/regional_dem_naizin.tif"
+reference_raster_path = "../../../examples/data/dem/regional_dem_naizin.tif"
 
 [mesh_catchment.hydraulic_properties.conductivity]
 values_source = "csv"
-values_csv_file = "../../data/geology/geology_K_dummy_demo.csv"
+values_csv_file = "../../../examples/data/geology/geology_K_dummy_demo.csv"
 csv_value_column = "K_value"
 
 [mesh_catchment.hydraulic_properties.storage_coefficient]
@@ -114,14 +114,14 @@ runtime_max_iterations = 80
 runtime_tol_residual_inf = 1.0e-7
 
 [flow.sinks_sources.wells.W1.forcing]
-path_file = "../../data/wells/normal_wells_2003.csv"
+path_file = "../../../examples/data/wells/normal_wells_2003.csv"
 
 [flow.sinks_sources.wells.W2]
 x_rel = 0.33
 y_rel = 0.33
 
 [flow.sinks_sources.wells.W2.forcing]
-path_file = "../../data/wells/normal_wells_2003.csv"
+path_file = "../../../examples/data/wells/normal_wells_2003.csv"
 
 [postprocess]
 enabled = true
