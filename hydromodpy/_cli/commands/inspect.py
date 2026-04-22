@@ -42,10 +42,10 @@ def run(args: argparse.Namespace) -> None:
     with SimulationCatalog(workspace_root) as catalog:
         sid = resolve_sim_id(catalog, args.sim_id)
         sim = catalog[sid]
-        zarr_path = workspace_root / "simulations" / f"{sid}.zarr"
+        zarr_path = catalog.zarr_path_for(sid)
         zarr_exists = zarr_path.exists()
         sub_files: list[str] = []
-        if zarr_exists:
+        if zarr_exists and zarr_path.is_dir():
             try:
                 sub_files = sorted(p.name for p in zarr_path.iterdir() if p.is_dir())[:20]
             except OSError:

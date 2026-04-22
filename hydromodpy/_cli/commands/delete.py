@@ -65,11 +65,18 @@ def run(args: argparse.Namespace) -> None:
                 print("Aborted.", file=sys.stderr)
                 sys.exit(EXIT_USER_ABORT)
 
-        zarr_path = workspace_root / "simulations" / f"{sid}.zarr"
+        zarr_path = catalog.zarr_path_for(sid)
+        parquet_dir = catalog.parquet_dir_for(sid)
         _delete_from_catalog(catalog, sid)
         if zarr_path.exists():
-            shutil.rmtree(zarr_path, ignore_errors=True)
+            if zarr_path.is_dir():
+                shutil.rmtree(zarr_path, ignore_errors=True)
+            else:
+                zarr_path.unlink(missing_ok=True)
             print(f"  removed zarr: {zarr_path}")
+        if parquet_dir.exists():
+            shutil.rmtree(parquet_dir, ignore_errors=True)
+            print(f"  removed parquet: {parquet_dir}")
         print(f"Deleted simulation {label}")
 
 

@@ -283,7 +283,7 @@ def _probe_parquet_layout(ws: Path) -> list[dict]:
                 "name": "parquet:layout",
                 "status": "WARN",
                 "detail": f"legacy tables present: {', '.join(sorted(legacy))}",
-                "hint": "Run `hmp migrate` to move rows to Parquet",
+                "hint": "Regenerate the workspace; legacy DuckDB tables are no longer supported.",
             }
         )
     sims_dir = ws / "simulations"
