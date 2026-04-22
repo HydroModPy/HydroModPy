@@ -1,4 +1,4 @@
-﻿"""Shared damped-Newton template for head-only Boussinesq runtimes."""
+"""Shared damped-Newton template for head-only Boussinesq runtimes."""
 
 from __future__ import annotations
 
@@ -78,9 +78,7 @@ def _newton_loop_template(
         )
 
     log_start(residual_norm, float(tol_residual_inf), int(max_iterations))
-    termination_reason = (
-        f"{newton_label} Newton max_iterations reached before tol_residual_inf"
-    )
+    termination_reason = f"{newton_label} Newton max_iterations reached before tol_residual_inf"
     for iteration in range(1, int(max_iterations) + 1):
         jacobian = build_jacobian(
             head,
@@ -122,9 +120,7 @@ def _newton_loop_template(
 
         log_iteration(iteration, residual_norm, damping)
         if not accepted:
-            termination_reason = (
-                f"{newton_label} Newton line search failed to reduce the residual"
-            )
+            termination_reason = f"{newton_label} Newton line search failed to reduce the residual"
             break
         if residual_norm <= float(tol_residual_inf):
             return build_runtime_result(
@@ -149,4 +145,3 @@ def _newton_loop_template(
 
 
 __all__ = ["_newton_loop_template"]
-

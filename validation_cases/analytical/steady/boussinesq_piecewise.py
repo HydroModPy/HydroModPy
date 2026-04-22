@@ -67,7 +67,9 @@ def integrate_piecewise_inverse(points, *, edges: np.ndarray, values: np.ndarray
     return out
 
 
-def integrate_piecewise_linear_weight(points, *, edges: np.ndarray, values: np.ndarray) -> np.ndarray:
+def integrate_piecewise_linear_weight(
+    points, *, edges: np.ndarray, values: np.ndarray
+) -> np.ndarray:
     """Return ``∫ s ds / K(s)`` from the first edge to each requested point."""
     point_values = np.asarray(points, dtype=float)
     out = np.zeros_like(point_values, dtype=float)
@@ -112,7 +114,9 @@ def expected_boussinesq_fixed_head_piecewise_profile(
     )
     resistance = integrate_piecewise_inverse(x_local, edges=edges, values=conductivity)
     total_resistance = float(
-        integrate_piecewise_inverse(np.asarray([length], dtype=float), edges=edges, values=conductivity)[0]
+        integrate_piecewise_inverse(
+            np.asarray([length], dtype=float), edges=edges, values=conductivity
+        )[0]
     )
     head_squared = float(west_head) ** 2 + (
         (float(east_head) ** 2 - float(west_head) ** 2) * (resistance / total_resistance)
@@ -146,15 +150,25 @@ def expected_boussinesq_uniform_recharge_piecewise_profile(
     resistance = integrate_piecewise_inverse(x_local, edges=edges, values=conductivity)
     weighted_integral = integrate_piecewise_linear_weight(x_local, edges=edges, values=conductivity)
     total_resistance = float(
-        integrate_piecewise_inverse(np.asarray([length], dtype=float), edges=edges, values=conductivity)[0]
+        integrate_piecewise_inverse(
+            np.asarray([length], dtype=float), edges=edges, values=conductivity
+        )[0]
     )
     total_weighted = float(
-        integrate_piecewise_linear_weight(np.asarray([length], dtype=float), edges=edges, values=conductivity)[0]
+        integrate_piecewise_linear_weight(
+            np.asarray([length], dtype=float), edges=edges, values=conductivity
+        )[0]
     )
     west_head_sq = float(west_head) ** 2
     east_head_sq = float(east_head) ** 2
-    integration_constant = (east_head_sq - west_head_sq + 2.0 * recharge_m_per_s * total_weighted) / total_resistance
-    head_squared = west_head_sq + integration_constant * resistance - 2.0 * recharge_m_per_s * weighted_integral
+    integration_constant = (
+        east_head_sq - west_head_sq + 2.0 * recharge_m_per_s * total_weighted
+    ) / total_resistance
+    head_squared = (
+        west_head_sq
+        + integration_constant * resistance
+        - 2.0 * recharge_m_per_s * weighted_integral
+    )
     return _head_from_squared(head_squared)
 
 
@@ -182,9 +196,13 @@ def expected_boussinesq_divide_fixed_head_piecewise_profile(
     )
     weighted_integral = integrate_piecewise_linear_weight(x_local, edges=edges, values=conductivity)
     total_weighted = float(
-        integrate_piecewise_linear_weight(np.asarray([length], dtype=float), edges=edges, values=conductivity)[0]
+        integrate_piecewise_linear_weight(
+            np.asarray([length], dtype=float), edges=edges, values=conductivity
+        )[0]
     )
-    head_squared = float(east_head) ** 2 + 2.0 * recharge_m_per_s * (total_weighted - weighted_integral)
+    head_squared = float(east_head) ** 2 + 2.0 * recharge_m_per_s * (
+        total_weighted - weighted_integral
+    )
     return _head_from_squared(head_squared)
 
 
@@ -234,6 +252,8 @@ def expected_boussinesq_circular_island_piecewise_k_head(
             values=conductivity,
         )
         coastal_thickness = sea_level - substratum
-        thickness_squared = coastal_thickness**2 + recharge_m_per_s * (total_weighted - weighted_integral)
+        thickness_squared = coastal_thickness**2 + recharge_m_per_s * (
+            total_weighted - weighted_integral
+        )
         head[land_mask] = substratum + _head_from_squared(thickness_squared)
     return head

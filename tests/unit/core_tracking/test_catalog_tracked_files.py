@@ -26,8 +26,7 @@ def _make_catalog(tmp_path: Path) -> SimulationCatalog:
 def test_tracked_files_table_exists(tmp_path: Path) -> None:
     with _make_catalog(tmp_path) as catalog:
         rows = catalog.connection.execute(
-            "SELECT table_name FROM information_schema.tables "
-            "WHERE table_name = 'tracked_files'"
+            "SELECT table_name FROM information_schema.tables WHERE table_name = 'tracked_files'"
         ).fetchall()
     assert len(rows) == 1
 
@@ -39,14 +38,20 @@ def test_register_tracked_files_writes_rows(tmp_path: Path) -> None:
 
     with _make_catalog(tmp_path) as catalog:
         catalog.register_simulation(
-            sim_id=sid, project="proj", solver="modflow_nwt",
+            sim_id=sid,
+            project="proj",
+            solver="modflow_nwt",
         )
         n = catalog.register_tracked_files(
             sid,
-            [_Entry(
-                role="dem", category="data",
-                original_path="dem.tif", canonical_path=src.resolve(),
-            )],
+            [
+                _Entry(
+                    role="dem",
+                    category="data",
+                    original_path="dem.tif",
+                    canonical_path=src.resolve(),
+                )
+            ],
         )
         assert n == 1
         df = catalog.list_tracked_files(sid)
@@ -65,11 +70,15 @@ def test_register_tracked_files_is_idempotent(tmp_path: Path) -> None:
 
     with _make_catalog(tmp_path) as catalog:
         catalog.register_simulation(
-            sim_id=sid, project="proj", solver="modflow_nwt",
+            sim_id=sid,
+            project="proj",
+            solver="modflow_nwt",
         )
         entry = _Entry(
-            role="dem", category="data",
-            original_path="dem.tif", canonical_path=src.resolve(),
+            role="dem",
+            category="data",
+            original_path="dem.tif",
+            canonical_path=src.resolve(),
         )
         catalog.register_tracked_files(sid, [entry])
         catalog.register_tracked_files(sid, [entry])
@@ -81,15 +90,20 @@ def test_register_tracked_files_skips_missing(tmp_path: Path) -> None:
     sid = str(uuid4())
     with _make_catalog(tmp_path) as catalog:
         catalog.register_simulation(
-            sim_id=sid, project="proj", solver="modflow_nwt",
+            sim_id=sid,
+            project="proj",
+            solver="modflow_nwt",
         )
         n = catalog.register_tracked_files(
             sid,
-            [_Entry(
-                role="dem", category="data",
-                original_path="missing.tif",
-                canonical_path=tmp_path / "does-not-exist.tif",
-            )],
+            [
+                _Entry(
+                    role="dem",
+                    category="data",
+                    original_path="missing.tif",
+                    canonical_path=tmp_path / "does-not-exist.tif",
+                )
+            ],
         )
         assert n == 0
         df = catalog.list_tracked_files(sid)
@@ -102,20 +116,28 @@ def test_sha256_is_deterministic(tmp_path: Path) -> None:
     sid = str(uuid4())
 
     import hashlib
+
     expected = hashlib.sha256(b"deterministic-payload").hexdigest()
 
     with _make_catalog(tmp_path) as catalog:
         catalog.register_simulation(
-            sim_id=sid, project="proj", solver="modflow_nwt",
+            sim_id=sid,
+            project="proj",
+            solver="modflow_nwt",
         )
         catalog.register_tracked_files(
             sid,
-            [_Entry(
-                role="dem", category="data",
-                original_path="file.bin", canonical_path=src.resolve(),
-            )],
+            [
+                _Entry(
+                    role="dem",
+                    category="data",
+                    original_path="file.bin",
+                    canonical_path=src.resolve(),
+                )
+            ],
         )
         row = catalog.connection.execute(
-            "SELECT sha256 FROM tracked_files WHERE sim_id = ?", [sid],
+            "SELECT sha256 FROM tracked_files WHERE sim_id = ?",
+            [sid],
         ).fetchone()
     assert row[0] == expected

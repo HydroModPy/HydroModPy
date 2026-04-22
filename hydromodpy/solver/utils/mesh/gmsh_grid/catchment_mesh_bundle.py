@@ -329,9 +329,7 @@ def _build_hydraulic_properties_payload(
         None if hydraulic_properties_cfg is None else hydraulic_properties_cfg.conductivity
     )
     storage_cfg = (
-        None
-        if hydraulic_properties_cfg is None
-        else hydraulic_properties_cfg.storage_coefficient
+        None if hydraulic_properties_cfg is None else hydraulic_properties_cfg.storage_coefficient
     )
 
     conductivity_unit = "m/s"
@@ -458,11 +456,7 @@ def _polygon_area(vertices: np.ndarray) -> float:
     x_vals = coords[:, 0]
     y_vals = coords[:, 1]
     return float(
-        0.5
-        * abs(
-            np.dot(x_vals, np.roll(y_vals, -1))
-            - np.dot(y_vals, np.roll(x_vals, -1))
-        )
+        0.5 * abs(np.dot(x_vals, np.roll(y_vals, -1)) - np.dot(y_vals, np.roll(x_vals, -1)))
     )
 
 
@@ -587,13 +581,10 @@ def _compute_geology_payload(
                         fraction=float(fraction),
                     )
                 )
-            if (
-                fraction > dominant_fraction + 1.0e-12
-                or (
-                    abs(fraction - dominant_fraction) <= 1.0e-12
-                    and dominant_key != ""
-                    and str(zone_key) < dominant_key
-                )
+            if fraction > dominant_fraction + 1.0e-12 or (
+                abs(fraction - dominant_fraction) <= 1.0e-12
+                and dominant_key != ""
+                and str(zone_key) < dominant_key
             ):
                 dominant_key = str(zone_key) if fraction > 0.0 else dominant_key
                 dominant_fraction = float(fraction)
@@ -660,10 +651,7 @@ def _segment_matches_river(
         segment.interpolate(0.5, normalized=True),
         Point(segment.coords[-1]),
     )
-    return all(
-        float(river_linework.distance(point)) <= float(tolerance)
-        for point in checkpoints
-    )
+    return all(float(river_linework.distance(point)) <= float(tolerance) for point in checkpoints)
 
 
 def _build_edge_rows(
@@ -693,9 +681,7 @@ def _build_edge_rows(
         tolerance=tolerance,
     )
     river_linework = (
-        river_matcher
-        if river_matcher is not None
-        else _build_river_linework(river_trace)
+        river_matcher if river_matcher is not None else _build_river_linework(river_trace)
     )
 
     rows: list[dict[str, object]] = []
@@ -714,9 +700,7 @@ def _build_edge_rows(
         cell_b = None if len(cell_ids) < 2 else int(cell_ids[1])
         geology_a_key = str(cell_zone_keys[cell_a]) if cell_a < len(cell_zone_keys) else ""
         geology_b_key = (
-            ""
-            if cell_b is None or cell_b >= len(cell_zone_keys)
-            else str(cell_zone_keys[cell_b])
+            "" if cell_b is None or cell_b >= len(cell_zone_keys) else str(cell_zone_keys[cell_b])
         )
         if cell_b is None:
             edge_kind = "boundary"
@@ -764,85 +748,83 @@ def _build_metadata(
     summary_path = None if summary is None else summary.output_summary_json
     return CatchmentBundleMetadata(
         {
-        "bundle_schema_version": BUNDLE_SCHEMA_VERSION,
-        "mesh_kind": str(mesh.kind),
-        "cell_type": str(mesh.cell_type),
-        "indexing": "zero_based",
-        "crs": None if support is None else getattr(support, "crs", None),
-        "n_nodes": int(mesh.n_nodes),
-        "n_cells": int(mesh.n_cells),
-        "constraints_mode": None if summary is None else summary.constraints_mode,
-        "topography": {
-            "node_field": "z_top",
-            "cell_fields": ["z_top_centroid", "z_top_mean"],
-            "source_path": None if topography_path is None else str(topography_path),
-        },
-        "vertical": {
-            "available": True,
-            "surface_name": str(getattr(domain.substratum, "name", "substratum")),
-            "derived_from": "domain.depth_model",
-            "node_field": "z_bottom",
-            "cell_fields": ["z_bottom_centroid", "z_bottom_mean"],
-            "depth_model": _serialize_depth_model(domain),
-        },
-        "geology": {
-            "available": bool(geology_payload.available),
-            "field_id": geology_payload.field_id,
-            "source_kind": geology_payload.source_kind,
-            "cell_samples_per_axis": geology_payload.cell_samples_per_axis,
-            "zone_keys": list(geology_payload.zone_keys),
-        },
-        "hydraulic_properties": {
-            "available": bool(hydraulic_properties_payload.available),
-            "averaging": str(hydraulic_properties_payload.averaging),
-            "cell_fields": [
-                "hydraulic_conductivity_m_s",
-                "storage_coefficient",
-            ],
-            "conductivity": {
-                "available": bool(hydraulic_properties_payload.conductivity.available),
-                "unit": "m/s",
-                "values_source": hydraulic_properties_payload.conductivity.values_source,
-                "values_csv_file": hydraulic_properties_payload.conductivity.values_csv_file,
-                "default_value": hydraulic_properties_payload.conductivity.default_value,
-                "zone_keys_defined": list(
-                    hydraulic_properties_payload.conductivity.zone_keys_defined
-                ),
-                "missing_zone_keys": list(
-                    hydraulic_properties_payload.conductivity.missing_zone_keys
+            "bundle_schema_version": BUNDLE_SCHEMA_VERSION,
+            "mesh_kind": str(mesh.kind),
+            "cell_type": str(mesh.cell_type),
+            "indexing": "zero_based",
+            "crs": None if support is None else getattr(support, "crs", None),
+            "n_nodes": int(mesh.n_nodes),
+            "n_cells": int(mesh.n_cells),
+            "constraints_mode": None if summary is None else summary.constraints_mode,
+            "topography": {
+                "node_field": "z_top",
+                "cell_fields": ["z_top_centroid", "z_top_mean"],
+                "source_path": None if topography_path is None else str(topography_path),
+            },
+            "vertical": {
+                "available": True,
+                "surface_name": str(getattr(domain.substratum, "name", "substratum")),
+                "derived_from": "domain.depth_model",
+                "node_field": "z_bottom",
+                "cell_fields": ["z_bottom_centroid", "z_bottom_mean"],
+                "depth_model": _serialize_depth_model(domain),
+            },
+            "geology": {
+                "available": bool(geology_payload.available),
+                "field_id": geology_payload.field_id,
+                "source_kind": geology_payload.source_kind,
+                "cell_samples_per_axis": geology_payload.cell_samples_per_axis,
+                "zone_keys": list(geology_payload.zone_keys),
+            },
+            "hydraulic_properties": {
+                "available": bool(hydraulic_properties_payload.available),
+                "averaging": str(hydraulic_properties_payload.averaging),
+                "cell_fields": [
+                    "hydraulic_conductivity_m_s",
+                    "storage_coefficient",
+                ],
+                "conductivity": {
+                    "available": bool(hydraulic_properties_payload.conductivity.available),
+                    "unit": "m/s",
+                    "values_source": hydraulic_properties_payload.conductivity.values_source,
+                    "values_csv_file": hydraulic_properties_payload.conductivity.values_csv_file,
+                    "default_value": hydraulic_properties_payload.conductivity.default_value,
+                    "zone_keys_defined": list(
+                        hydraulic_properties_payload.conductivity.zone_keys_defined
+                    ),
+                    "missing_zone_keys": list(
+                        hydraulic_properties_payload.conductivity.missing_zone_keys
+                    ),
+                },
+                "storage_coefficient": {
+                    "available": bool(hydraulic_properties_payload.storage_coefficient.available),
+                    "unit": "-",
+                    "values_source": hydraulic_properties_payload.storage_coefficient.values_source,
+                    "values_csv_file": hydraulic_properties_payload.storage_coefficient.values_csv_file,
+                    "default_value": hydraulic_properties_payload.storage_coefficient.default_value,
+                    "zone_keys_defined": list(
+                        hydraulic_properties_payload.storage_coefficient.zone_keys_defined
+                    ),
+                    "missing_zone_keys": list(
+                        hydraulic_properties_payload.storage_coefficient.missing_zone_keys
+                    ),
+                },
+            },
+            "files": {
+                "mesh": "mesh_2d.msh",
+                "nodes": "nodes.csv",
+                "cells": "cells.csv",
+                "edges": "edges.csv",
+                "cell_geology_fractions": "cell_geology_fractions.csv",
+                "metadata": "metadata.json",
+                "readme": "README.md",
+                "mesh_summary": (
+                    None
+                    if summary_path is None or not Path(str(summary_path)).exists()
+                    else "mesh_summary.json"
                 ),
             },
-            "storage_coefficient": {
-                "available": bool(
-                    hydraulic_properties_payload.storage_coefficient.available
-                ),
-                "unit": "-",
-                "values_source": hydraulic_properties_payload.storage_coefficient.values_source,
-                "values_csv_file": hydraulic_properties_payload.storage_coefficient.values_csv_file,
-                "default_value": hydraulic_properties_payload.storage_coefficient.default_value,
-                "zone_keys_defined": list(
-                    hydraulic_properties_payload.storage_coefficient.zone_keys_defined
-                ),
-                "missing_zone_keys": list(
-                    hydraulic_properties_payload.storage_coefficient.missing_zone_keys
-                ),
-            },
-        },
-        "files": {
-            "mesh": "mesh_2d.msh",
-            "nodes": "nodes.csv",
-            "cells": "cells.csv",
-            "edges": "edges.csv",
-            "cell_geology_fractions": "cell_geology_fractions.csv",
-            "metadata": "metadata.json",
-            "readme": "README.md",
-            "mesh_summary": (
-                None
-                if summary_path is None or not Path(str(summary_path)).exists()
-                else "mesh_summary.json"
-            ),
-        },
-        "source_mesh_path": str(mesh_path),
+            "source_mesh_path": str(mesh_path),
         }
     )
 
@@ -850,9 +832,7 @@ def _build_metadata(
 def _write_readme(path: Path, *, metadata: CatchmentBundleMetadata) -> None:
     """Write the human-facing README copied next to the bundle files."""
     metadata_mapping = metadata.to_mapping()
-    geology_available = bool(
-        metadata_mapping.get("geology", {}).get("available", False)
-    )
+    geology_available = bool(metadata_mapping.get("geology", {}).get("available", False))
     hydraulic_available = bool(
         metadata_mapping.get("hydraulic_properties", {}).get("available", False)
     )
@@ -983,9 +963,7 @@ def export_catchment_mesh_bundle(
                     else conductivity_values[cell_index]
                 ),
                 "storage_coefficient": _normalize_optional_float(
-                    None
-                    if cell_index >= len(storage_values)
-                    else storage_values[cell_index]
+                    None if cell_index >= len(storage_values) else storage_values[cell_index]
                 ),
             }
         )

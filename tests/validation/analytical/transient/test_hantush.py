@@ -285,8 +285,7 @@ def test_hantush_leaky_aquifer_matches_analytical_reference(tmp_path: Path) -> N
     residual = float(np.sum((numerical_arr - analytical_arr) ** 2))
     nse = 1.0 - residual / variance
     assert nse > 0.99, (
-        f"Hantush NSE too low: {nse:.6f} (residual={residual:.3e}, "
-        f"variance={variance:.3e})"
+        f"Hantush NSE too low: {nse:.6f} (residual={residual:.3e}, variance={variance:.3e})"
     )
 
     relative_errors = np.abs(numerical_arr - analytical_arr) / np.maximum(

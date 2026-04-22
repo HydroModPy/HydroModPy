@@ -195,9 +195,7 @@ def _load_geology_dataframe(
     clipped = gpd.clip(gdf, effective_domain_payload.gdf)
     clipped = clipped[_valid_geometry_mask(clipped.geometry)].copy()
     if clipped.empty:
-        raise ValueError(
-            "The effective domain does not intersect the geology source"
-        )
+        raise ValueError("The effective domain does not intersect the geology source")
     return source_payload, clipped
 
 
@@ -247,9 +245,7 @@ def _load_watershed_geometry(
         )
     watershed_shp = getattr(domain_geographic, "watershed_shp", None)
     if watershed_shp is None:
-        raise ValueError(
-            "watershed_boundary.enabled requires domain_geographic.watershed_shp."
-        )
+        raise ValueError("watershed_boundary.enabled requires domain_geographic.watershed_shp.")
     watershed_gdf = gpd.read_file(str(watershed_shp))
     if watershed_gdf.empty:
         raise ValueError("watershed_shp produced no polygon geometry.")
@@ -445,9 +441,7 @@ def _build_buffered_geology_interface_constraint(
         heal_tolerance=zone_meshing_cfg.heal_tolerance,
         min_polygon_area=zone_meshing_cfg.min_polygon_area,
     )
-    partition_linework = unary_union(
-        [face.polygon.boundary for face in partition.faces]
-    )
+    partition_linework = unary_union([face.polygon.boundary for face in partition.faces])
     internal_linework = make_valid_linework(
         partition_linework.difference(partition.domain_geometry.boundary)
     )
@@ -509,19 +503,13 @@ def _apply_geology_conformity_mode(
         "buffer_distance": float(buffer_distance),
         "conformity_area": float(getattr(conformity_geometry, "area", 0.0)),
         "active_geology_feature_count": int(len(inside_gdf)),
-        "active_geology_zone_count": int(
-            len(set(inside_gdf["zone_key"].astype(str)))
-        ),
+        "active_geology_zone_count": int(len(set(inside_gdf["zone_key"].astype(str)))),
         "constraint_line_count": int(
             0 if geology_constraint is None else geology_constraint.line_count
         ),
         "mesh_partition_mode": "domain_background_plus_linear_geology_constraints",
     }
-    geometry_constraints = (
-        ()
-        if geology_constraint is None
-        else (geology_constraint,)
-    )
+    geometry_constraints = () if geology_constraint is None else (geology_constraint,)
     return combined, geometry_constraints, conformity_geometry, summary
 
 
@@ -537,9 +525,9 @@ def _derive_watershed_runtime_zone_meshing_config(
 
     refinement_policy = runtime_payload.get("refinement_policy")
     if refinement_policy is None:
-        refinement_policy = ZoneMeshingRefinementPolicySchema(
-            enabled=True
-        ).model_dump(mode="python")
+        refinement_policy = ZoneMeshingRefinementPolicySchema(enabled=True).model_dump(
+            mode="python"
+        )
     else:
         refinement_policy = dict(refinement_policy)
         refinement_policy["enabled"] = True
@@ -629,9 +617,7 @@ def _build_watershed_boundary_inputs(
             boundary_summary = {
                 "enabled": True,
                 "smoothing_enabled": bool(cfg.watershed_boundary.smoothing.enabled),
-                "boundary_length": float(
-                    getattr(watershed_geometry.boundary, "length", 0.0)
-                ),
+                "boundary_length": float(getattr(watershed_geometry.boundary, "length", 0.0)),
                 "boundary_area_source": float(getattr(watershed_geometry, "area", 0.0)),
             }
             if cfg.watershed_boundary.boundary_refinement_distance is not None:
@@ -658,9 +644,7 @@ def _build_watershed_boundary_inputs(
             "configured": True,
             "explicit_constraint_applied": False,
             "geometry_mode": "buffered_watershed_envelope",
-            "boundary_length": float(
-                getattr(plot_geometry.boundary, "length", 0.0)
-            ),
+            "boundary_length": float(getattr(plot_geometry.boundary, "length", 0.0)),
             "boundary_area_source": float(getattr(plot_geometry, "area", 0.0)),
         }
         if cfg.watershed_boundary.boundary_refinement_distance is not None:
@@ -872,14 +856,17 @@ def _build_zone_conformal_meshing_inputs(
     geology_conformity_summary: dict[str, object] | None = None
     geology_linear_constraints: tuple[ZoneLinearConstraint, ...] = ()
     if cfg.geology is not None:
-        zone_gdf, geology_linear_constraints, outside_region_geometry, geology_conformity_summary = (
-            _apply_geology_conformity_mode(
-                zone_gdf=zone_gdf,
-                effective_domain_payload=effective_domain_payload,
-                zone_meshing_cfg=runtime_zone_meshing_cfg,
-                watershed_boundary_cfg=cfg.watershed_boundary,
-                watershed_geometry=watershed_geometry,
-            )
+        (
+            zone_gdf,
+            geology_linear_constraints,
+            outside_region_geometry,
+            geology_conformity_summary,
+        ) = _apply_geology_conformity_mode(
+            zone_gdf=zone_gdf,
+            effective_domain_payload=effective_domain_payload,
+            zone_meshing_cfg=runtime_zone_meshing_cfg,
+            watershed_boundary_cfg=cfg.watershed_boundary,
+            watershed_geometry=watershed_geometry,
         )
     regional_size_fields: tuple[ZoneRegionalSizeField, ...] = ()
     outside_coarsening_summary: dict[str, object] | None = None

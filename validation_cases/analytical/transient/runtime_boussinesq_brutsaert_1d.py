@@ -142,7 +142,7 @@ def run_boussinesq_brutsaert_recession_case(
                     "recharge": {
                         "values": _mm_day_to_m_s(steady_recharge_mm_day),
                         "first_clim": "mean",
-                    "units": "m/s",
+                        "units": "m/s",
                     }
                 },
                 "bc": {
@@ -164,9 +164,7 @@ def run_boussinesq_brutsaert_recession_case(
     )
     steady_model.pre_processing()
     steady_success = bool(steady_model.processing(write_model=True, run_model=True))
-    steady_residual = float(
-        steady_model.runtime_summary.get("steady_residual_norm_inf", np.inf)
-    )
+    steady_residual = float(steady_model.runtime_summary.get("steady_residual_norm_inf", np.inf))
     if not steady_success and steady_residual > float(acceptable_steady_residual_inf):
         raise RuntimeError(
             "Brutsaert steady pre-run did not converge to an acceptable residual. "

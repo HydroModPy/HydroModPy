@@ -72,9 +72,7 @@ def get_centroid_coordinates(gdf: gpd.GeoDataFrame) -> tuple:
         return None, None
 
 
-def transform_coordinates(
-    dem_file_path: str, from_crs: str, to_crs: str
-) -> list:
+def transform_coordinates(dem_file_path: str, from_crs: str, to_crs: str) -> list:
     """Convert all DEM pixel coordinates from *from_crs* to *to_crs*."""
     try:
         dem_dataset = rio.open(dem_file_path)
@@ -94,9 +92,7 @@ def transform_coordinates(
         return []
 
 
-def filter_coordinates_by_shape(
-    coordinates: list, shapefile_path: str, target_crs: str
-) -> list:
+def filter_coordinates_by_shape(coordinates: list, shapefile_path: str, target_crs: str) -> list:
     """Keep only coordinates that fall within the shapefile polygon."""
     try:
         gdf = load_shapefile(shapefile_path)
@@ -105,24 +101,18 @@ def filter_coordinates_by_shape(
         polygon = gdf.to_crs(target_crs).unary_union
         return [pt for pt in coordinates if polygon.covers(Point(pt))]
     except Exception:
-        logger.exception(
-            "Failed filtering coordinates with shapefile %s", shapefile_path
-        )
+        logger.exception("Failed filtering coordinates with shapefile %s", shapefile_path)
         return []
 
 
-def select_nearest_point(
-    ds: xr.Dataset, lon: float, lat: float
-) -> xr.Dataset | None:
+def select_nearest_point(ds: xr.Dataset, lon: float, lat: float) -> xr.Dataset | None:
     """Select the nearest grid point in *ds*."""
     if lon is not None and lat is not None:
         return ds.sel(longitude=lon, latitude=lat, method="nearest")
     return None
 
 
-def select_within_polygon_points(
-    ds: xr.Dataset, gdf: gpd.GeoDataFrame
-) -> xr.Dataset:
+def select_within_polygon_points(ds: xr.Dataset, gdf: gpd.GeoDataFrame) -> xr.Dataset:
     """Mask *ds* to keep only points inside the *gdf* polygon."""
     try:
         polygon = gdf.unary_union

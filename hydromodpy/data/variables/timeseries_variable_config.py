@@ -73,7 +73,8 @@ class TimeseriesSelectionMixin(HydroModelBase):
         description="Explicit station identifiers to load (custom source).",
     )
     extent: Annotated[
-        Literal["watershed", "study_area"] | None, Profile.USER,
+        Literal["watershed", "study_area"] | None,
+        Profile.USER,
     ] = Field(
         default=None,
         description=(
@@ -112,7 +113,8 @@ class TimeseriesVariableConfig(BaseVariableConfig):
         description="Explicit station identifiers to load (custom source).",
     )
     extent: Annotated[
-        Literal["watershed", "study_area"] | None, Profile.USER,
+        Literal["watershed", "study_area"] | None,
+        Profile.USER,
     ] = Field(
         default=None,
         description="Enable bbox-based data retrieval using the project extent.",

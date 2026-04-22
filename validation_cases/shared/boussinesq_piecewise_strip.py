@@ -56,9 +56,7 @@ def _write_piecewise_strip_mesh(mesh_path: Path) -> Path:
     for iy in range(PIECEWISE_STRIP_NY + 1):
         for ix in range(PIECEWISE_STRIP_NX + 1):
             node_id = iy * (PIECEWISE_STRIP_NX + 1) + ix + 1
-            lines.append(
-                f"{node_id} {float(ix) * dx:.6f} {float(iy) * dy:.6f} 0.0"
-            )
+            lines.append(f"{node_id} {float(ix) * dx:.6f} {float(iy) * dy:.6f} 0.0")
     lines.extend(
         [
             "$EndNodes",
@@ -110,8 +108,7 @@ def write_piecewise_strip_bundle(bundle_dir: Path) -> Path:
         encoding="utf-8",
     )
     (bundle_dir / "mesh_summary.json").write_text(
-        json.dumps({"constraints_mode": "geology_only"}, indent=2, ensure_ascii=True)
-        + "\n",
+        json.dumps({"constraints_mode": "geology_only"}, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
 
@@ -152,9 +149,7 @@ def write_piecewise_strip_bundle(bundle_dir: Path) -> Path:
                 centroid_y_m = float(np.mean(triangle_points[:, 1]))
                 zone_index = _zone_index_for_x(centroid_x_m)
                 geology_key = f"zone_{zone_index + 1}"
-                conductivity = PIECEWISE_STRIP_HYDRAULIC_CONDUCTIVITY_M_S_BY_ZONE[
-                    zone_index
-                ]
+                conductivity = PIECEWISE_STRIP_HYDRAULIC_CONDUCTIVITY_M_S_BY_ZONE[zone_index]
                 cell_rows.append(
                     ",".join(
                         [
@@ -419,19 +414,19 @@ def aggregate_piecewise_strip_postprocess(
         raise AssertionError("watertable_elevation.npy is empty.")
 
     ordered_items = sorted(
-        (int(key), np.asarray(value, dtype=float))
-        for key, value in dict(head_payload).items()
+        (int(key), np.asarray(value, dtype=float)) for key, value in dict(head_payload).items()
     )
     if all(
-        array.ndim == 2 and tuple(array.shape) == (int(ny), int(nx))
-        for _, array in ordered_items
+        array.ndim == 2 and tuple(array.shape) == (int(ny), int(nx)) for _, array in ordered_items
     ):
         return
 
     head_arrays = [array.reshape(-1) for _, array in ordered_items]
     n_cells = head_arrays[0].size
     if any(array.ndim != 1 for array in head_arrays):
-        raise AssertionError("Piecewise-strip launcher aggregation expects one cell vector per timestep.")
+        raise AssertionError(
+            "Piecewise-strip launcher aggregation expects one cell vector per timestep."
+        )
     if any(array.size != n_cells for array in head_arrays):
         raise AssertionError("All piecewise-strip timesteps must share the same vector length.")
 
@@ -498,7 +493,7 @@ def write_piecewise_strip_launcher_config(
         'source_mode = "synthetic"',
         "",
         "[geographic.synthetic]",
-        f'case_id = {json.dumps(str(run_id))}',
+        f"case_id = {json.dumps(str(run_id))}",
         "",
         "[geographic.synthetic.grid]",
         f'length_x = "{PIECEWISE_STRIP_LENGTH_X_M:.1f} m"',
@@ -614,9 +609,7 @@ def run_piecewise_strip_boussinesq_launcher_case(
         initial_head_m=float(initial_head_m),
         west_head_m=None if west_head_m is None else float(west_head_m),
         east_head_m=None if east_head_m is None else float(east_head_m),
-        recharge_rate_m_s=(
-            None if recharge_rate_m_s is None else float(recharge_rate_m_s)
-        ),
+        recharge_rate_m_s=(None if recharge_rate_m_s is None else float(recharge_rate_m_s)),
         runtime_backend=runtime_backend,
     )
 
@@ -627,8 +620,12 @@ def run_piecewise_strip_boussinesq_launcher_case(
     env.setdefault("MPLBACKEND", "Agg")
     command = [sys.executable, "-m", "hydromodpy", "run", str(config_path)]
     completed = _sp.run(
-        command, cwd=str(REPO_ROOT), env=env,
-        text=True, capture_output=True, timeout=timeout,
+        command,
+        cwd=str(REPO_ROOT),
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
     )
     if completed.returncode != 0:
         raise AssertionError(

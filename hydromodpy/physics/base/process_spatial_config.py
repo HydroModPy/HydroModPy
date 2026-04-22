@@ -32,9 +32,7 @@ class ProcessSpatialConfig(HydroModelBase):
     )
     param: Annotated[dict[str, object], Profile.DEV] = Field(
         default_factory=dict,
-        description=(
-            "Mapping of process parameter identifiers to process-specific payloads."
-        ),
+        description=("Mapping of process parameter identifiers to process-specific payloads."),
     )
     ic: Annotated[object | None, Profile.DEV] = Field(
         default=None,

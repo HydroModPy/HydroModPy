@@ -412,26 +412,29 @@ class ZoneMeshingSettings(HydroModelBase):
 
         if self.refine_interfaces:
             if self.interface_size is None:
-                object.__setattr__(self, "interface_size", min(self.min_size if self.min_size is not None else self.global_size * 0.5, self.global_size))
-            if self.interface_distance is None:
-                object.__setattr__(self, "interface_distance", max(self.global_size * 3.0, self.interface_size))
-            if self.interface_size <= 0.0:
-                raise ValueError(
-                    "interface_size must be > 0 when refine_interfaces=true"
+                object.__setattr__(
+                    self,
+                    "interface_size",
+                    min(
+                        self.min_size if self.min_size is not None else self.global_size * 0.5,
+                        self.global_size,
+                    ),
                 )
+            if self.interface_distance is None:
+                object.__setattr__(
+                    self, "interface_distance", max(self.global_size * 3.0, self.interface_size)
+                )
+            if self.interface_size <= 0.0:
+                raise ValueError("interface_size must be > 0 when refine_interfaces=true")
             if self.interface_size > self.global_size:
                 raise ValueError(
                     "interface_size must be <= global_size when refine_interfaces=true"
                 )
             if self.interface_distance <= 0.0:
-                raise ValueError(
-                    "interface_distance must be > 0 when refine_interfaces=true"
-                )
+                raise ValueError("interface_distance must be > 0 when refine_interfaces=true")
         if self.refinement_policy is not None and self.refinement_policy.enabled:
             if not self.refine_interfaces:
-                raise ValueError(
-                    "refinement_policy.enabled requires refine_interfaces=true"
-                )
+                raise ValueError("refinement_policy.enabled requires refine_interfaces=true")
             if self.refinement_policy.hotspot.radius is None:
                 self.refinement_policy.hotspot.radius = self.interface_distance
             if (
@@ -450,13 +453,9 @@ class ZoneMeshingSettings(HydroModelBase):
                 family_settings = self.refinement_policy.families[family_name]
                 if family_settings.interface_size is not None:
                     if family_settings.interface_size <= 0.0:
-                        raise ValueError(
-                            f"{family_name}.interface_size must be > 0 when provided"
-                        )
+                        raise ValueError(f"{family_name}.interface_size must be > 0 when provided")
                     if family_settings.interface_size > self.global_size:
-                        raise ValueError(
-                            f"{family_name}.interface_size must be <= global_size"
-                        )
+                        raise ValueError(f"{family_name}.interface_size must be <= global_size")
                 if family_settings.interface_distance is not None:
                     if family_settings.interface_distance <= 0.0:
                         raise ValueError(
@@ -483,24 +482,16 @@ class ZoneMeshingSettings(HydroModelBase):
             "max_size": None if self.max_size is None else float(self.max_size),
             "simplify_tolerance": float(self.simplify_tolerance),
             "heal_tolerance": float(self.heal_tolerance),
-            "linear_constraint_snap_tolerance": float(
-                self.linear_constraint_snap_tolerance
-            ),
+            "linear_constraint_snap_tolerance": float(self.linear_constraint_snap_tolerance),
             "min_polygon_area": float(self.min_polygon_area),
             "refine_interfaces": bool(self.refine_interfaces),
-            "interface_size": (
-                None if self.interface_size is None else float(self.interface_size)
-            ),
+            "interface_size": (None if self.interface_size is None else float(self.interface_size)),
             "interface_distance": (
-                None
-                if self.interface_distance is None
-                else float(self.interface_distance)
+                None if self.interface_distance is None else float(self.interface_distance)
             ),
             "interface_sampling": int(self.interface_sampling),
             "refinement_policy": (
-                None
-                if self.refinement_policy is None
-                else self.refinement_policy.to_mapping()
+                None if self.refinement_policy is None else self.refinement_policy.to_mapping()
             ),
         }
 

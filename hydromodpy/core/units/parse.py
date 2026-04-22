@@ -70,20 +70,13 @@ def parse_to_canonical_magnitude(
         return float(quantity.to(canonical_unit).magnitude)
     except (pint.UndefinedUnitError, AttributeError) as exc:
         if length_label:
-            raise ValueError(
-                f"Unsupported {length_label} unit '{resolved_unit}'."
-            ) from exc
-        raise ValueError(
-            f"{location}: unit '{resolved_unit}' is not recognized."
-        ) from exc
+            raise ValueError(f"Unsupported {length_label} unit '{resolved_unit}'.") from exc
+        raise ValueError(f"{location}: unit '{resolved_unit}' is not recognized.") from exc
     except pint.DimensionalityError as exc:
         if length_label:
-            raise ValueError(
-                f"Unsupported {length_label} unit '{resolved_unit}'."
-            ) from exc
+            raise ValueError(f"Unsupported {length_label} unit '{resolved_unit}'.") from exc
         raise ValueError(
-            f"{location}: unit '{resolved_unit}' is not compatible with "
-            f"'{canonical_unit}'."
+            f"{location}: unit '{resolved_unit}' is not compatible with '{canonical_unit}'."
         ) from exc
 
 
@@ -106,9 +99,7 @@ def check_unit_compatible(
         quantity = 1.0 * UREG.Unit(_to_pint_syntax(token))
         quantity.to(canonical_unit)
     except (pint.UndefinedUnitError, pint.DimensionalityError, AttributeError) as exc:
-        raise ValueError(
-            f"Unsupported {label} unit '{unit}'."
-        ) from exc
+        raise ValueError(f"Unsupported {label} unit '{unit}'.") from exc
     return canonical_unit
 
 
@@ -132,9 +123,7 @@ def canonical_unit_short_form(
         # Confirm dimensional compatibility with the canonical target.
         (1.0 * pint_unit).to(canonical_unit)
     except (pint.UndefinedUnitError, pint.DimensionalityError, AttributeError) as exc:
-        raise ValueError(
-            f"Unsupported {label} unit '{unit}'."
-        ) from exc
+        raise ValueError(f"Unsupported {label} unit '{unit}'.") from exc
     # ``~P`` (pretty, short) is the registry's default format (see
     # :func:`registry.get_registry`). ``{!s}`` honours that format.
     return f"{pint_unit}"

@@ -67,7 +67,9 @@ def resolve_dem_path_from_data_sources(
                 return resolved
         elif source_kind in _API_SOURCES:
             return _bootstrap_api_source(
-                source_cfg, cfg=cfg, cache_dir=cache_dir,
+                source_cfg,
+                cfg=cfg,
+                cache_dir=cache_dir,
             )
     return None
 
@@ -80,9 +82,7 @@ def _resolve_custom_path(source_cfg: Any, config_dir: Path) -> Path | None:
     if not candidate.is_absolute():
         candidate = (config_dir / candidate).resolve()
     if not candidate.exists():
-        raise FileNotFoundError(
-            f"[data.dem] custom source path not found: {candidate}"
-        )
+        raise FileNotFoundError(f"[data.dem] custom source path not found: {candidate}")
     if candidate.is_dir():
         from hydromodpy.data.variables.dem.custom import _find_dem_file_in_dir
 
@@ -101,8 +101,7 @@ def _bootstrap_api_source(
     y_out = getattr(geo_cfg, "y_outlet", None)
     if x_out is None or y_out is None:
         raise ValueError(
-            "DEM API source requires geographic.x_outlet / y_outlet to "
-            "build the download bbox."
+            "DEM API source requires geographic.x_outlet / y_outlet to build the download bbox."
         )
 
     bbox = (

@@ -10,7 +10,6 @@ from hydromodpy.data.scaffold import (
 
 
 class TestScaffold:
-
     def test_creates_structure(self, tmp_path):
         root = scaffold(tmp_path / "hydromodpy")
 
@@ -72,11 +71,11 @@ class TestScaffold:
 
     def test_default_path(self):
         from hydromodpy.data.scaffold import DEFAULT_ROOT
+
         assert DEFAULT_ROOT == Path.home() / "hydromodpy"
 
 
 class TestCreateProject:
-
     def test_creates_project_structure(self, tmp_path):
         root = scaffold(tmp_path / "hydromodpy")
         project_dir = create_project(root, "my_project")

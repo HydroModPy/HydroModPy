@@ -54,7 +54,8 @@ complete -c hydromodpy -F
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument(
-        "shell", choices=["bash", "zsh", "fish"],
+        "shell",
+        choices=["bash", "zsh", "fish"],
         help="Shell flavour to emit completion for",
     )
     parser.set_defaults(_handler=run)

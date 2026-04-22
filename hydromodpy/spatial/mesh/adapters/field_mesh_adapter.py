@@ -46,9 +46,7 @@ def from_field_mesh(field_mesh) -> HydroMesh:
 
     first_kind = cells[0].kind
     ct = CellType.from_string(first_kind)
-    connectivity = np.array(
-        [cell.node_indices for cell in cells], dtype=int
-    )
+    connectivity = np.array([cell.node_indices for cell in cells], dtype=int)
 
     structured_shape = None
     if x.ndim == 2:

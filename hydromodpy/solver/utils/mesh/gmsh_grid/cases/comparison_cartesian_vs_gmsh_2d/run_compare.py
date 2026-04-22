@@ -47,6 +47,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.plot
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_case_gmsh import (
     build_reference_case_state_from_toml,
 )
+
 plt.switch_backend("Agg")
 
 
@@ -57,8 +58,7 @@ DEFAULT_GMSH_CONFIG = "case_config_gmsh.toml"
 def _parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description=(
-            "Compare cartesian and Gmsh 2D discretizations on the same "
-            "Brittany geology base."
+            "Compare cartesian and Gmsh 2D discretizations on the same Brittany geology base."
         )
     )
     parser.add_argument("--cartesian-config-file", default=DEFAULT_CARTESIAN_CONFIG)
@@ -100,9 +100,7 @@ def _dominant_zone_summary(
     mesh = field_discretization.mesh
     stack = np.vstack(
         [
-            np.asarray(
-                mesh.to_cell_values(fractions_by_zone[key]), dtype=float
-            ).reshape(-1)
+            np.asarray(mesh.to_cell_values(fractions_by_zone[key]), dtype=float).reshape(-1)
             for key in zone_keys
         ]
     )
@@ -114,9 +112,7 @@ def _dominant_zone_summary(
     undefined_count = int(np.count_nonzero(~valid))
     dominant_counts: dict[str, int] = {}
     for idx, zone_key in enumerate(zone_keys):
-        dominant_counts[str(zone_key)] = int(
-            np.count_nonzero(dominant_idx[valid] == float(idx))
-        )
+        dominant_counts[str(zone_key)] = int(np.count_nonzero(dominant_idx[valid] == float(idx)))
     return (
         tuple(str(v) for v in zone_keys),
         mixed_count,
@@ -198,34 +194,22 @@ def _build_comparison_summary(
         "shared_zone_keys": shared_zone_keys,
         "zone_keys_only_cartesian": only_cartesian,
         "zone_keys_only_gmsh": only_gmsh,
-        "bounds_delta_abs": [
-            round(float(v), 6) for v in np.abs(cart_bounds - gmsh_bounds)
-        ],
+        "bounds_delta_abs": [round(float(v), 6) for v in np.abs(cart_bounds - gmsh_bounds)],
         "n_cells_cartesian": int(cartesian["n_cells"]),
         "n_cells_gmsh": int(gmsh["n_cells"]),
         "mixed_cell_count_cartesian": int(cartesian["mixed_cell_count"]),
         "mixed_cell_count_gmsh": int(gmsh["mixed_cell_count"]),
         "undefined_cell_count_cartesian": int(cartesian["undefined_cell_count"]),
         "undefined_cell_count_gmsh": int(gmsh["undefined_cell_count"]),
-        "value_mean_delta": round(
-            float(gmsh["value_mean"]) - float(cartesian["value_mean"]), 12
-        ),
-        "value_sum_delta": round(
-            float(gmsh["value_sum"]) - float(cartesian["value_sum"]), 12
-        ),
-        "value_min_delta": round(
-            float(gmsh["value_min"]) - float(cartesian["value_min"]), 12
-        ),
-        "value_max_delta": round(
-            float(gmsh["value_max"]) - float(cartesian["value_max"]), 12
-        ),
+        "value_mean_delta": round(float(gmsh["value_mean"]) - float(cartesian["value_mean"]), 12),
+        "value_sum_delta": round(float(gmsh["value_sum"]) - float(cartesian["value_sum"]), 12),
+        "value_min_delta": round(float(gmsh["value_min"]) - float(cartesian["value_min"]), 12),
+        "value_max_delta": round(float(gmsh["value_max"]) - float(cartesian["value_max"]), 12),
         "dominant_zone_count_delta": dominant_zone_count_delta,
     }
 
 
-def _draw_structured_mesh_edges(
-    ax, mesh, *, color: str, lw: float, alpha: float
-) -> None:
+def _draw_structured_mesh_edges(ax, mesh, *, color: str, lw: float, alpha: float) -> None:
     x = np.asarray(getattr(mesh, "x_plot"), dtype=float)
     y = np.asarray(getattr(mesh, "y_plot"), dtype=float)
     for j in range(y.shape[0]):
@@ -281,11 +265,7 @@ def _draw_cartouches_panel(
         col = i % n_cols
         x = x0 + col * col_width
         y = y0 - row * row_step
-        short = (
-            label
-            if len(label) <= label_max_len
-            else (label[: label_max_len - 3] + "...")
-        )
+        short = label if len(label) <= label_max_len else (label[: label_max_len - 3] + "...")
         ax.text(
             x,
             y,
@@ -460,9 +440,7 @@ def _build_comparison_figure(
     cbar.outline.set_linewidth(0.9)
     maybe_scientific_colorbar(cbar, combined_values)
 
-    fig.suptitle(
-        "Comparison QA: shared geology, cartesian mesh vs Gmsh mesh", fontsize=34
-    )
+    fig.suptitle("Comparison QA: shared geology, cartesian mesh vs Gmsh mesh", fontsize=34)
     fig.subplots_adjust(
         left=0.03,
         right=0.988,
@@ -493,9 +471,7 @@ def _build_comparison_legend_metrics_figure(
     _draw_summary_panel(ax_metrics, comparison_summary=comparison_summary)
 
     ax_legend.axis("off")
-    ax_legend.set_title(
-        "Geology legend and mesh overlays", fontsize=32.0, loc="left", pad=12.0
-    )
+    ax_legend.set_title("Geology legend and mesh overlays", fontsize=32.0, loc="left", pad=12.0)
     ax_legend.legend(
         handles=[
             Line2D([0], [0], color="0.15", lw=5.0, label="Gmsh mesh"),
@@ -637,9 +613,7 @@ def main(argv=None) -> int:
     args = _parse_args(argv)
     cartesian_config = resolve_config_path(args.cartesian_config_file, caller_file=__file__)
     gmsh_config = resolve_config_path(args.gmsh_config_file, caller_file=__file__)
-    output_dir = resolve_output_dir(
-        args.output_dir, default_base=cartesian_config.parent
-    )
+    output_dir = resolve_output_dir(args.output_dir, default_base=cartesian_config.parent)
     payload = run_comparison_case(
         cartesian_config_toml=cartesian_config,
         gmsh_config_toml=gmsh_config,

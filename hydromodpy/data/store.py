@@ -102,10 +102,16 @@ class DataStore:
         "hydrometry": ("hydromodpy.data.variables.hydrometry.manager", "HydrometryManager"),
         "piezometry": ("hydromodpy.data.variables.piezometry.manager", "PiezometryManager"),
         "water_quality": ("hydromodpy.data.variables.water_quality.manager", "WaterQualityManager"),
-        "intermittency": ("hydromodpy.data.variables.intermittency.manager", "IntermittencyManager"),
+        "intermittency": (
+            "hydromodpy.data.variables.intermittency.manager",
+            "IntermittencyManager",
+        ),
         "recharge": ("hydromodpy.data.variables.recharge.manager", "RechargeManager"),
         "runoff": ("hydromodpy.data.variables.runoff.manager", "RunoffManager"),
-        "precipitation": ("hydromodpy.data.variables.precipitation.manager", "PrecipitationManager"),
+        "precipitation": (
+            "hydromodpy.data.variables.precipitation.manager",
+            "PrecipitationManager",
+        ),
         "etp": ("hydromodpy.data.variables.etp.manager", "EtpManager"),
         "temperature": ("hydromodpy.data.variables.temperature.manager", "TemperatureManager"),
         "wind": ("hydromodpy.data.variables.wind.manager", "WindManager"),
@@ -117,6 +123,7 @@ class DataStore:
     def _load_variable(self, variable_name: str, config, **extra_kwargs) -> LoadResult:
         """Instantiate the right manager and load data."""
         import importlib
+
         entry = self._MANAGER_REGISTRY.get(variable_name)
         if entry is None:
             raise ValueError(f"Unknown variable: {variable_name}")
@@ -124,7 +131,8 @@ class DataStore:
         mod = importlib.import_module(module_path)
         cls = getattr(mod, class_name)
         mgr = cls(
-            config=config, catalog=self.catalog,
+            config=config,
+            catalog=self.catalog,
             project_extent=self.project_extent,
             project_period=self.project_period,
             data_dir=self._data_dir(variable_name),
@@ -135,9 +143,13 @@ class DataStore:
     def load_hydrography(self, config, *, geographic, out_path):
         """Load hydrography data (vector or raster) with catalog caching."""
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
+
         mgr = HydrographyManager(
-            config=config, geographic=geographic, out_path=out_path,
-            catalog=self.catalog, data_dir=self._data_dir("hydrography"),
+            config=config,
+            geographic=geographic,
+            out_path=out_path,
+            catalog=self.catalog,
+            data_dir=self._data_dir("hydrography"),
         )
         return mgr.load()
 
@@ -185,7 +197,8 @@ class DataStore:
         return self.catalog.list_entries(variable=variable)
 
     def get_completeness_report(
-        self, records: LoadResult | list[PointRecord],
+        self,
+        records: LoadResult | list[PointRecord],
     ) -> pd.DataFrame:
         """Compute per-station completeness stats for point records."""
         from hydromodpy.data.common.validation import compute_completeness
@@ -199,7 +212,8 @@ class DataStore:
         rows = []
         for rec in records:
             stats = compute_completeness(
-                rec.data, station_id=rec.station_id,
+                rec.data,
+                station_id=rec.station_id,
                 start_date=start or rec.date_start,
                 end_date=end or rec.date_end,
             )
@@ -223,5 +237,7 @@ class DataStore:
     ) -> int:
         """Remove catalog entries (and optionally their files)."""
         return self.catalog.invalidate(
-            variable=variable, source=source, delete_files=delete_files,
+            variable=variable,
+            source=source,
+            delete_files=delete_files,
         )

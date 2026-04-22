@@ -16,11 +16,14 @@ HELP = "Scaffold a HydroModPy workspace (catalog + data + projects). Default: ~/
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument(
-        "path", nargs="?", default=None,
+        "path",
+        nargs="?",
+        default=None,
         help="Workspace path (default: ~/hydromodpy/)",
     )
     parser.add_argument(
-        "--force", action="store_true",
+        "--force",
+        action="store_true",
         help="Overwrite an existing workspace catalog.",
     )
     parser.set_defaults(_handler=run)
@@ -42,8 +45,10 @@ def run(args: argparse.Namespace) -> None:
 
     result = scaffold(target, force=args.force)
 
-    print(f"Workspace scaffolded at {result}/. Create projects with "
-          f"`hmp new <name> --workspace {result}`.")
+    print(
+        f"Workspace scaffolded at {result}/. Create projects with "
+        f"`hmp new <name> --workspace {result}`."
+    )
     print()
     print("Layout:")
     print(f"  {result}/hydromodpy.duckdb")

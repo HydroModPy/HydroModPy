@@ -85,7 +85,9 @@ def _discover_mesh_assets(mesh_run_root: Path) -> dict[str, dict[str, str]]:
             if field_name == "mesh_figure" and resolved.endswith("_regional.png"):
                 bucket["mesh_figure_regional"] = resolved
                 continue
-            if field_name == "mesh_figure" and bucket.get("mesh_figure", "").endswith("_regional.png"):
+            if field_name == "mesh_figure" and bucket.get("mesh_figure", "").endswith(
+                "_regional.png"
+            ):
                 bucket["mesh_figure"] = resolved
                 continue
             bucket.setdefault(field_name, resolved)
@@ -207,8 +209,7 @@ def inspect_mesh_bundle_boussinesq_readiness(
         and counts["bundle_invalid_vertical_geometry_count"] == 0
     )
     transient_ready = steady_ready and (
-        counts["bundle_missing_storage_coefficient_count"] == 0
-        or storage_default_value is not None
+        counts["bundle_missing_storage_coefficient_count"] == 0 or storage_default_value is not None
     )
 
     return {
@@ -332,9 +333,15 @@ def build_site_catalog_from_outlet_table(
                 "enabled": "true" if enabled else "false",
                 "tags": ";".join(_dedupe_tags(tags)),
                 "outlet_id": outlet_id,
-                "x": "" if _normalize_float(outlet_row.get(x_column)) is None else _normalize_float(outlet_row.get(x_column)),
-                "y": "" if _normalize_float(outlet_row.get(y_column)) is None else _normalize_float(outlet_row.get(y_column)),
-                "area_km2": "" if _normalize_float(outlet_row.get(area_column)) is None else _normalize_float(outlet_row.get(area_column)),
+                "x": ""
+                if _normalize_float(outlet_row.get(x_column)) is None
+                else _normalize_float(outlet_row.get(x_column)),
+                "y": ""
+                if _normalize_float(outlet_row.get(y_column)) is None
+                else _normalize_float(outlet_row.get(y_column)),
+                "area_km2": ""
+                if _normalize_float(outlet_row.get(area_column)) is None
+                else _normalize_float(outlet_row.get(area_column)),
                 "mesh_manifest_status": mesh_status,
                 "mesh_output_mesh": mesh_output or "",
                 "mesh_summary_json": mesh_summary_json or "",
@@ -357,9 +364,7 @@ def build_site_catalog_from_outlet_table(
                 "bundle_invalid_vertical_geometry_count": bundle_readiness[
                     "bundle_invalid_vertical_geometry_count"
                 ],
-                "bundle_storage_default_value": bundle_readiness[
-                    "bundle_storage_default_value"
-                ],
+                "bundle_storage_default_value": bundle_readiness["bundle_storage_default_value"],
                 "bundle_boussinesq_steady_ready": bundle_readiness[
                     "bundle_boussinesq_steady_ready"
                 ],
@@ -414,6 +419,7 @@ def build_site_catalog_from_outlet_table(
         "manifest_merged": manifest_path is not None,
         "mesh_run_root_scanned": mesh_run_root_path is not None,
     }
+
 
 __all__ = (
     "build_site_catalog_from_outlet_table",

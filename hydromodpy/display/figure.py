@@ -58,11 +58,9 @@ class Figure(Protocol):
 
     spec: FigureSpec
 
-    def render(self, sim: "Run", ax: "Axes", **opts) -> "Axes":
-        ...
+    def render(self, sim: "Run", ax: "Axes", **opts) -> "Axes": ...
 
-    def plot(self, sim: "Run", **opts) -> "MplFigure":
-        ...
+    def plot(self, sim: "Run", **opts) -> "MplFigure": ...
 
 
 class BaseFigure(ABC):

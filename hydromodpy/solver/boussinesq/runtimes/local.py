@@ -1,4 +1,4 @@
-﻿"""In-process nonlinear runtime for the Boussinesq backend.
+"""In-process nonlinear runtime for the Boussinesq backend.
 
 This backend is intentionally simple and transparent:
 
@@ -198,6 +198,7 @@ def _solve_nonlinear_system(
         solve_linear_system=_solve_dense_linear_system,
     )
 
+
 LocalStepSolveResult = RuntimeSolveResult
 
 __all__ = [
@@ -207,4 +208,3 @@ __all__ = [
     "solve_steady_state",
     "solve_transient_step",
 ]
-

@@ -52,9 +52,7 @@ def _select_name_field(gdf, *, code_field: str) -> str | None:
     return None
 
 
-def _build_zone_name_by_key(
-    gdf, *, code_field: str, name_field: str | None
-) -> dict[str, str]:
+def _build_zone_name_by_key(gdf, *, code_field: str, name_field: str | None) -> dict[str, str]:
     keys = gdf[code_field].map(normalize_zone_key)
     unique_keys = sorted(np.unique(keys.to_numpy()).tolist())
     if name_field is None:
@@ -63,16 +61,12 @@ def _build_zone_name_by_key(
     out: dict[str, str] = {}
     for key in unique_keys:
         names = gdf.loc[keys == key, name_field].astype(str).str.strip()
-        names = names[
-            (names != "") & (names.str.lower() != "nan") & (names.str.lower() != "none")
-        ]
+        names = names[(names != "") & (names.str.lower() != "nan") & (names.str.lower() != "none")]
         out[key] = str(names.value_counts().index[0]) if not names.empty else key
     return out
 
 
-def add_zone_cartouches(
-    ax, entries: list[tuple[tuple[float, float, float, float], str]]
-) -> int:
+def add_zone_cartouches(ax, entries: list[tuple[tuple[float, float, float, float], str]]) -> int:
     """Add one small legend-like cartouche strip under the raw-geology panel."""
 
     if not entries:
@@ -111,9 +105,7 @@ def add_zone_cartouches(
     return n_rows
 
 
-def _draw_mesh_edges(
-    ax, mesh: GmshPlanarMesh2D, *, color: str = "0.25", lw: float = 0.35
-) -> None:
+def _draw_mesh_edges(ax, mesh: GmshPlanarMesh2D, *, color: str = "0.25", lw: float = 0.35) -> None:
     for cell in mesh.cells:
         vertices = np.asarray(cell.vertices, dtype=float)
         closed = np.vstack((vertices, vertices[0]))
@@ -175,17 +167,13 @@ def plot_left_raw_geology(
                     idx = key_to_idx[key]
                     rgba = cmap_geo(float(idx) / denom)
                     zone_color_by_key[key] = rgba
-                    cartouches.append(
-                        (rgba, f"{zone_name_by_key.get(key, key)} [{key}]")
-                    )
+                    cartouches.append((rgba, f"{zone_name_by_key.get(key, key)} [{key}]"))
                 plotted = True
 
     if not plotted:
         geology_codes = np.asarray(geology_field.encoded_codes, dtype=float)
         geology_masked = np.ma.masked_where(geology_codes <= 0, geology_codes)
-        unique_codes = np.unique(
-            np.asarray(geology_codes[geology_codes > 0], dtype=int)
-        )
+        unique_codes = np.unique(np.asarray(geology_codes[geology_codes > 0], dtype=int))
         n_classes = max(1, int(unique_codes.size))
         cmap_geo = plt.get_cmap("tab20", min(20, n_classes))
         ax.imshow(
@@ -268,9 +256,7 @@ def plot_center_mesh_geology(
 def plot_right_field_values(ax, *, mesh, mesh_values, fig) -> None:
     """Plot the final FieldParam values on the planar mesh."""
 
-    values = np.asarray(
-        mesh.to_cell_values(mesh_values.cell_values), dtype=float
-    ).reshape(-1)
+    values = np.asarray(mesh.to_cell_values(mesh_values.cell_values), dtype=float).reshape(-1)
     mappable = mesh.plot_cell_values(ax, values, cmap="viridis", show_mesh=True)
     cbar = fig.colorbar(mappable, ax=ax, shrink=0.72, pad=0.02)
     cbar.set_label("field parameter value", fontsize=7)

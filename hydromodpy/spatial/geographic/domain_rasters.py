@@ -7,7 +7,11 @@ from pathlib import Path
 
 import rasterio
 
-from hydromodpy.spatial.delineation import WhiteboxBackend, WhiteboxWorkflowsBackend, get_whitebox_backend
+from hydromodpy.spatial.delineation import (
+    WhiteboxBackend,
+    WhiteboxWorkflowsBackend,
+    get_whitebox_backend,
+)
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.spatial.geographic.core.domain_dem import clip_dem_to_box_buffer
 from hydromodpy.spatial.geographic.geographic_io import ensure_crs
@@ -97,7 +101,9 @@ def build_legacy_domain_rasters(
 
     if isinstance(tool, WhiteboxWorkflowsBackend):
         dem_init_raster = tool.read_raster(str(dem_init_path))
-        correc_raster = correc_data if correc_data is not None else tool.read_raster(str(correc_path))
+        correc_raster = (
+            correc_data if correc_data is not None else tool.read_raster(str(correc_path))
+        )
         direc_raster = direc_data if direc_data is not None else tool.read_raster(str(direc_path))
         box_buff_vector = tool.read_vector(str(paths.box_buff))
         watershed_buff_vector = tool.read_vector(str(watershed_buff_shp))
@@ -129,7 +135,13 @@ def build_legacy_domain_rasters(
         jobs = [
             (correc_path, paths.box_buff, paths.watershed_box_buff_fill, False, None),
             (direc_path, paths.box_buff, paths.watershed_box_buff_direc, False, None),
-            (paths.watershed_box_buff_dem, watershed_buff_shp, paths.watershed_buff_dem, True, -9999),
+            (
+                paths.watershed_box_buff_dem,
+                watershed_buff_shp,
+                paths.watershed_buff_dem,
+                True,
+                -9999,
+            ),
             (correc_path, watershed_buff_shp, paths.watershed_buff_fill, False, None),
             (direc_path, watershed_buff_shp, paths.watershed_buff_direc, False, None),
             (paths.watershed_box_buff_dem, watershed_shp, paths.watershed_dem, True, None),
@@ -164,7 +176,13 @@ def build_legacy_domain_rasters(
         jobs = [
             (correc_path, paths.box_buff, paths.watershed_box_buff_fill, False, None),
             (direc_path, paths.box_buff, paths.watershed_box_buff_direc, False, None),
-            (paths.watershed_box_buff_dem, watershed_buff_shp, paths.watershed_buff_dem, True, -9999),
+            (
+                paths.watershed_box_buff_dem,
+                watershed_buff_shp,
+                paths.watershed_buff_dem,
+                True,
+                -9999,
+            ),
             (correc_path, watershed_buff_shp, paths.watershed_buff_fill, False, None),
             (direc_path, watershed_buff_shp, paths.watershed_buff_direc, False, None),
             (paths.watershed_box_buff_dem, watershed_shp, paths.watershed_dem, True, None),

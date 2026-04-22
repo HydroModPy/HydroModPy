@@ -41,10 +41,12 @@ def register_source(source: Any | None = None) -> Any:
         class MySource:
             variable_type = "piezometry"
             source_name = "custom"
+
             def fetch(self, ctx): ...
 
     and as a function called with an instance or class.
     """
+
     def _register(target: Any) -> Any:
         try:
             variable = getattr(target, "variable_type")

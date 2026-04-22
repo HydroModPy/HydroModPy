@@ -33,7 +33,9 @@ def _build_basin_plot_frame(basins: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if "area_km2" in plot_frame.columns:
         plot_frame["basin_area_km2"] = np.asarray(plot_frame["area_km2"], dtype=float)
     else:
-        plot_frame["basin_area_km2"] = np.asarray(plot_frame.geometry.area, dtype=float) / 1_000_000.0
+        plot_frame["basin_area_km2"] = (
+            np.asarray(plot_frame.geometry.area, dtype=float) / 1_000_000.0
+        )
     if "outlet_id" in plot_frame.columns:
         plot_frame["plot_label"] = plot_frame["outlet_id"].astype(int).astype(str)
     elif "basin_id" in plot_frame.columns:
@@ -110,7 +112,9 @@ def export_diagnostic_figures(
         outlets_selected.plot(
             ax=ax, color="#d62728", markersize=20, marker="^", zorder=6, label="Selected outlets"
         )
-    ax.set_title(f"Catchment overview (basin color = area) | basins={len(basins)} | selected_outlets={len(outlets_selected)}")
+    ax.set_title(
+        f"Catchment overview (basin color = area) | basins={len(basins)} | selected_outlets={len(outlets_selected)}"
+    )
     ax.set_xlabel("x [m]")
     ax.set_ylabel("y [m]")
     handles, labels = ax.get_legend_handles_labels()

@@ -41,11 +41,7 @@ def clean_domain_geometry(
         domain_valid = make_valid_geometry(domain_valid)
 
     all_parts = [polygon for polygon in iter_polygon_parts(domain_valid)]
-    polygons = [
-        polygon
-        for polygon in all_parts
-        if float(polygon.area) > float(min_polygon_area)
-    ]
+    polygons = [polygon for polygon in all_parts if float(polygon.area) > float(min_polygon_area)]
     if not polygons:
         raise ValueError("domain_geometry produced no usable polygon after cleaning")
     cleaned_domain = unary_union(polygons)
@@ -53,9 +49,7 @@ def clean_domain_geometry(
         invalid_geometry_count=int(1 if invalid_before else 0),
         invalid_geometries_repaired_count=int(repaired_count),
         polygon_parts_before_area_filter_count=int(len(all_parts)),
-        polygon_parts_removed_by_area_threshold_count=int(
-            len(all_parts) - len(polygons)
-        ),
+        polygon_parts_removed_by_area_threshold_count=int(len(all_parts) - len(polygons)),
         polygon_parts_kept_count=int(len(polygons)),
     )
     return cleaned_domain, diagnostics
@@ -138,24 +132,16 @@ def clean_zone_rows(
         out,
         ZoneRowCleaningDiagnostics(
             source_feature_count=int(counters["source_feature_count"]),
-            source_invalid_geometry_count=int(
-                counters["source_invalid_geometry_count"]
-            ),
-            invalid_geometries_repaired_count=int(
-                counters["invalid_geometries_repaired_count"]
-            ),
+            source_invalid_geometry_count=int(counters["source_invalid_geometry_count"]),
+            invalid_geometries_repaired_count=int(counters["invalid_geometries_repaired_count"]),
             features_skipped_empty_zone_key_count=int(
                 counters["features_skipped_empty_zone_key_count"]
             ),
             features_skipped_empty_geometry_count=int(
                 counters["features_skipped_empty_geometry_count"]
             ),
-            features_outside_domain_count=int(
-                counters["features_outside_domain_count"]
-            ),
-            features_after_domain_clip_count=int(
-                counters["features_after_domain_clip_count"]
-            ),
+            features_outside_domain_count=int(counters["features_outside_domain_count"]),
+            features_after_domain_clip_count=int(counters["features_after_domain_clip_count"]),
             features_dropped_after_cleaning_count=int(
                 counters["features_dropped_after_cleaning_count"]
             ),
@@ -234,17 +220,13 @@ def resolve_zone_overlaps(
     for zone_key in ordered_zone_keys:
         geometry = grouped_geometries[zone_key]
         effective = (
-            geometry
-            if assigned_geometry is None
-            else geometry.difference(assigned_geometry)
+            geometry if assigned_geometry is None else geometry.difference(assigned_geometry)
         )
         effective = make_valid_geometry(effective)
         if not effective.is_empty and float(effective.area) > overlap_tolerance:
             resolved[zone_key] = effective
             assigned_geometry = (
-                effective
-                if assigned_geometry is None
-                else assigned_geometry.union(effective)
+                effective if assigned_geometry is None else assigned_geometry.union(effective)
             )
         elif assigned_geometry is None:
             assigned_geometry = geometry

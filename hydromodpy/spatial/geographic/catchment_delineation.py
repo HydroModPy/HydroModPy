@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
- * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy
- *
- * This program and the accompanying materials are made available under the
- * terms of the Eclipse Public License 2.0 which is available at
- * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
- * which is available at https://www.apache.org/licenses/LICENSE-2.0.
- *
- * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+* Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy
+*
+* This program and the accompanying materials are made available under the
+* terms of the Eclipse Public License 2.0 which is available at
+* http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+* which is available at https://www.apache.org/licenses/LICENSE-2.0.
+*
+* SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
 from __future__ import annotations
@@ -100,7 +100,9 @@ class CatchmentDelineation:
         self.y_outlet = config.y_outlet
         self.snap_dist = config.snap_dist
         self.buff_area = config.buff_area
-        self.polyg_shp_path = str(config.polyg_shp_path) if config.polyg_shp_path is not None else None
+        self.polyg_shp_path = (
+            str(config.polyg_shp_path) if config.polyg_shp_path is not None else None
+        )
         self.dem_correc_type = config.dem_correc_type
 
         self.processing()
@@ -153,14 +155,8 @@ class CatchmentDelineation:
         if not isinstance(river_products, RiverNetworkProducts):
             river_products = RiverNetworkProducts(
                 enabled=bool(getattr(self, "river_mesh_trace", None) is not None),
-                network_shp=(
-                    str(getattr(self, "river_network_shp", ""))
-                    or None
-                ),
-                summary_json=(
-                    str(getattr(self, "river_network_summary_json", ""))
-                    or None
-                ),
+                network_shp=(str(getattr(self, "river_network_shp", "")) or None),
+                summary_json=(str(getattr(self, "river_network_summary_json", "")) or None),
                 river_mesh_trace=getattr(self, "river_mesh_trace", None),
             )
 
@@ -176,11 +172,7 @@ class CatchmentDelineation:
             catch_def=str(self.catch_def),
             x_outlet=float(self.x_outlet) if self.x_outlet is not None else None,
             y_outlet=float(self.y_outlet) if self.y_outlet is not None else None,
-            zone_kind=(
-                "uniform"
-                if str(self.catch_def).strip().lower() == "dem"
-                else "catchment"
-            ),
+            zone_kind=("uniform" if str(self.catch_def).strip().lower() == "dem" else "catchment"),
             watershed_box_buff_dem=str(self.watershed_box_buff_dem),
             regional_dem_path=str(getattr(self, "dem_init_path", "")) or None,
         )
@@ -268,4 +260,3 @@ class CatchmentDelineation:
             "<table style='font-size:0.85em;border-collapse:collapse'>"
             f"{body}</table></div>"
         )
-

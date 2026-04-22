@@ -81,9 +81,7 @@ class HydroMesh:
         """Validate node coordinates and connectivity consistency."""
         verts = np.asarray(self.vertices, dtype=float)
         if verts.ndim != 2 or verts.shape[1] not in (2, 3):
-            raise ValueError(
-                f"vertices must have shape (n_nodes, 2|3), got {verts.shape}"
-            )
+            raise ValueError(f"vertices must have shape (n_nodes, 2|3), got {verts.shape}")
         object.__setattr__(self, "vertices", verts.copy())
 
         if not self.cell_blocks:
@@ -91,9 +89,7 @@ class HydroMesh:
 
         n_nodes = verts.shape[0]
         for block in self.cell_blocks:
-            if np.any(block.connectivity < 0) or np.any(
-                block.connectivity >= n_nodes
-            ):
+            if np.any(block.connectivity < 0) or np.any(block.connectivity >= n_nodes):
                 raise ValueError(
                     f"connectivity in {block.cell_type.value} block references "
                     "node indices outside vertices"
@@ -127,9 +123,7 @@ class HydroMesh:
         """Return the unique cell type, or raise if mixed."""
         types = set(self.cell_types)
         if len(types) != 1:
-            raise ValueError(
-                f"Mesh has mixed cell types: {[t.value for t in types]}"
-            )
+            raise ValueError(f"Mesh has mixed cell types: {[t.value for t in types]}")
         return next(iter(types))
 
     @property
@@ -142,9 +136,7 @@ class HydroMesh:
         """
         if len(self.cell_blocks) == 1:
             return np.asarray(self.cell_blocks[0].connectivity, dtype=int)
-        return np.vstack(
-            [b.connectivity for b in self.cell_blocks]
-        ).astype(int, copy=False)
+        return np.vstack([b.connectivity for b in self.cell_blocks]).astype(int, copy=False)
 
     def bounds(self) -> tuple[float, ...]:
         """Return ``(xmin, ymin, [zmin,] xmax, ymax, [zmax])``."""
@@ -206,9 +198,7 @@ class HydroMesh:
             "n_cells": self.n_cells,
             "cell_types": [ct.value for ct in self.cell_types],
             "is_structured": self.is_structured,
-            "structured_shape": (
-                list(self.structured_shape) if self.structured_shape else None
-            ),
+            "structured_shape": (list(self.structured_shape) if self.structured_shape else None),
             "bounds": list(self.bounds()),
             "cell_data_keys": sorted(self.cell_data),
             "point_data_keys": sorted(self.point_data),

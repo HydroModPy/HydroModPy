@@ -27,10 +27,12 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Validate the drag-and-drop <variable>_custom/ folders without ingesting",
     )
     check.add_argument("--workspace", default=None, help="Workspace root")
-    check.add_argument("--variable", default=None,
-                       help="Restrict to one variable (e.g. piezometry)")
     check.add_argument(
-        "--fix", action="store_true",
+        "--variable", default=None, help="Restrict to one variable (e.g. piezometry)"
+    )
+    check.add_argument(
+        "--fix",
+        action="store_true",
         help="Attempt to repair stale catalog entries",
     )
 
@@ -44,17 +46,17 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Power-user command to ingest a single file with explicit metadata",
     )
     add.add_argument("file", help="Path to the source file to ingest")
-    add.add_argument("--type", dest="variable", default=None,
-                     help="Variable name (e.g. piezometry)")
-    add.add_argument("--provider", default="custom",
-                     help="Provider label (default: custom)")
+    add.add_argument(
+        "--type", dest="variable", default=None, help="Variable name (e.g. piezometry)"
+    )
+    add.add_argument("--provider", default="custom", help="Provider label (default: custom)")
     add.add_argument("--crs", default=None, help="EPSG code (e.g. EPSG:2154)")
     add.add_argument("--unit", default=None, help="Override unit")
-    add.add_argument("--station-id", default=None,
-                     help="Station id for single-station files")
+    add.add_argument("--station-id", default=None, help="Station id for single-station files")
     add.add_argument("--workspace", default=None)
     add.add_argument(
-        "--frozen", action="store_true",
+        "--frozen",
+        action="store_true",
         help="Refuse to ingest if the lockfile has no matching entry",
     )
 
@@ -64,20 +66,20 @@ def register(subparsers) -> argparse.ArgumentParser:
     remove.add_argument("--provider", default=None)
     remove.add_argument("--station-id", default=None, dest="station_id")
     remove.add_argument(
-        "--delete-files", action="store_true",
+        "--delete-files",
+        action="store_true",
         help="Also delete the underlying files on disk",
     )
 
     prune = sub.add_parser("prune", help="Drop cache entries older than N days")
     prune.add_argument("--workspace", default=None)
-    prune.add_argument("--older-than", type=int, default=30,
-                       help="Age threshold in days (default: 30)")
+    prune.add_argument(
+        "--older-than", type=int, default=30, help="Age threshold in days (default: 30)"
+    )
     prune.add_argument("--delete-files", action="store_true")
 
-    export = sub.add_parser("export",
-                            help="Archive the cache (data + lockfile) to a portable file")
-    export.add_argument("output",
-                        help="Destination archive (.tar / .tar.gz / .tar.zst)")
+    export = sub.add_parser("export", help="Archive the cache (data + lockfile) to a portable file")
+    export.add_argument("output", help="Destination archive (.tar / .tar.gz / .tar.zst)")
     export.add_argument("--workspace", default=None)
 
     import_p = sub.add_parser("import", help="Restore a cache archive into the workspace")
@@ -151,7 +153,8 @@ def _cmd_list(args: argparse.Namespace) -> None:
 
     with DataCatalogDuckDB(db_path) as catalog:
         df = catalog.list_entries(
-            variable=args.variable, source=args.provider,
+            variable=args.variable,
+            source=args.provider,
         )
         if df.empty:
             print("  (empty cache — drop files in <variable>_custom/ then run 'hmp run')")
@@ -263,7 +266,8 @@ def _cmd_prune(args: argparse.Namespace) -> None:
         return
     with DataCatalogDuckDB(db_path) as catalog:
         n = catalog.prune_older_than(
-            days=args.older_than, delete_files=args.delete_files,
+            days=args.older_than,
+            delete_files=args.delete_files,
         )
     print(f"  Pruned {n} entry(ies) older than {args.older_than} day(s).")
 

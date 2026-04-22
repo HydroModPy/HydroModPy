@@ -99,7 +99,7 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
                             "recharge": {
                                 "values": recharge_rate_m_s,
                                 "first_clim": "mean",
-                    "units": "m/s",
+                                "units": "m/s",
                             },
                             "wells": wells_payload,
                         },
@@ -114,7 +114,9 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
             ),
             domain=None,
             time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
+            workspace=SimpleNamespace(
+                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
+            ),
         ),
     )
     run = ProcessRun(

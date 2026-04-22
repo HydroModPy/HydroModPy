@@ -29,20 +29,16 @@ def resolve_reference_3d_mesh_config(
 
     config_path = Path(config_toml).resolve()
     section_cfg = load_case_section(config_path, section=section)
-    layer_thicknesses = np.asarray(
-        section_cfg.get("layer_thicknesses", []), dtype=float
-    ).reshape(-1)
+    layer_thicknesses = np.asarray(section_cfg.get("layer_thicknesses", []), dtype=float).reshape(
+        -1
+    )
     if layer_thicknesses.size == 0:
-        raise ValueError(
-            "layer_thicknesses cannot be empty for the 3D reference mesh case"
-        )
+        raise ValueError("layer_thicknesses cannot be empty for the 3D reference mesh case")
     return {
         "reference_2d_config": resolve_path(
             section_cfg["reference_2d_config"], base_dir=config_path.parent
         ),
-        "reference_2d_section": str(
-            section_cfg.get("reference_2d_section", "case")
-        ).strip()
+        "reference_2d_section": str(section_cfg.get("reference_2d_section", "case")).strip()
         or "case",
         "top_z": float(section_cfg.get("top_z", 0.0)),
         "layer_thicknesses": [float(v) for v in layer_thicknesses],

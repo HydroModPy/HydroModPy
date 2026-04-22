@@ -49,8 +49,7 @@ def discretize_fields_on_planar_mesh(
         method=method,
     )
     return {
-        int(kper): np.asarray(values, dtype=float).reshape(-1)
-        for kper, values in arrays_2d.items()
+        int(kper): np.asarray(values, dtype=float).reshape(-1) for kper, values in arrays_2d.items()
     }
 
 
@@ -74,8 +73,7 @@ def discretize_points_on_planar_mesh(
         source_unit=source_unit,
     )
     return {
-        int(kper): np.asarray(values, dtype=float).reshape(-1)
-        for kper, values in arrays_2d.items()
+        int(kper): np.asarray(values, dtype=float).reshape(-1) for kper, values in arrays_2d.items()
     }
 
 

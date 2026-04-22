@@ -13,8 +13,9 @@ The protocol is generic over the input/output payload types ``TIn`` and
         tin: ClassVar[type] = ValidatedState
         tout: ClassVar[type] = ResolvedState
 
-        def run(self, state: PipelineState[ValidatedState]) -> PipelineState[ResolvedState]:
-            ...
+        def run(
+            self, state: PipelineState[ValidatedState]
+        ) -> PipelineState[ResolvedState]: ...
 
 The protocol stays runtime-checkable on the structural shape (``name`` +
 ``run``); the type variables are erased at runtime.

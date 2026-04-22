@@ -12,14 +12,7 @@ import pytest
 
 def _load_tmesh_config_module():
     repo_root = Path(__file__).resolve().parents[5]
-    module_path = (
-        repo_root
-        / "hydromodpy"
-        / "solver"
-        / "utils"
-        / "temporal"
-        / "tmesh_config.py"
-    )
+    module_path = repo_root / "hydromodpy" / "solver" / "utils" / "temporal" / "tmesh_config.py"
     module_name = f"_test_tmesh_config_{uuid.uuid4().hex}"
     spec = importlib.util.spec_from_file_location(module_name, module_path)
     assert spec is not None and spec.loader is not None
@@ -64,10 +57,7 @@ def test_from_toml_resolves_relative_chron_path(tmp_path: Path):
 
     toml_path = tmp_path / "config.toml"
     toml_path.write_text(
-        "[tmesh]\n"
-        "genmtd = \"from_chron\"\n"
-        "flow_regime = \"transient\"\n"
-        "chron_path = \"chron.csv\"\n",
+        '[tmesh]\ngenmtd = "from_chron"\nflow_regime = "transient"\nchron_path = "chron.csv"\n',
         encoding="utf-8",
     )
 
@@ -129,9 +119,9 @@ def test_load_tmesh_toml_returns_normalized_dict(tmp_path: Path):
     toml_path = tmp_path / "config.toml"
     toml_path.write_text(
         "[tmesh]\n"
-        "itmuni = \"d\"\n"
-        "flow_regime = \"steady\"\n"
-        "genmtd = \"synthetic_regular\"\n"
+        'itmuni = "d"\n'
+        'flow_regime = "steady"\n'
+        'genmtd = "synthetic_regular"\n'
         "nper = 4\n"
         "lenper = 1\n",
         encoding="utf-8",

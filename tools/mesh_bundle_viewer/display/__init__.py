@@ -1,4 +1,4 @@
-﻿"""Affichage et synthese du package `mesh`."""
+"""Affichage et synthese du package `mesh`."""
 
 from .figure import (
     build_visualization_figure,
@@ -15,4 +15,3 @@ __all__ = [
     "build_visualization_summary_contract",
     "has_continuous_node_topography",
 ]
-

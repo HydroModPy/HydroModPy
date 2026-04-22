@@ -58,10 +58,7 @@ def _build_regional_lab_case_spec(
         deck=deck,
         summary=summary,
         what_it_shows=what_it_shows,
-        reproduction_command=(
-            "python -m launchers regional-lab run "
-            f"{regional_lab_config_path}"
-        ),
+        reproduction_command=(f"python -m launchers regional-lab run {regional_lab_config_path}"),
         source_paths=(regional_lab_config_path, *source_paths),
         generator="regional_lab_case",
         image_assets=(
@@ -152,7 +149,7 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             key_parameters=(
                 "`[regional_lab.catalog]` defines how site metadata and path-like config references are loaded from the catalog.",
-                "`[regional_lab.selection] tags = [\"mesh_ready\"]` filters the population before any recipe expansion happens.",
+                '`[regional_lab.selection] tags = ["mesh_ready"]` filters the population before any recipe expansion happens.',
                 "`[[regional_lab.cluster_rule]]` enriches catalog rows into reusable clusters/families/scales instead of relying only on static columns.",
                 "`[[regional_lab.recipe]]` turns one selected site population into concrete child launcher plans, with `required_fields` making coverage gaps explicit.",
                 "`execute = false` keeps the example in dry-plan mode, which is exactly what this page documents.",
@@ -202,7 +199,7 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             what_it_shows=(
                 "How one reusable simulation recipe is expanded from the regional site catalog instead of hard-coding one child config path per case page.",
-                "How `required_fields = [\"simulation_reference_config\"]` turns missing references into explicit recipe-level gaps.",
+                'How `required_fields = ["simulation_reference_config"]` turns missing references into explicit recipe-level gaps.',
                 "How recipe-specific overlay configs keep the reproduction command precise without duplicating the whole laboratory definition.",
             ),
             regional_lab_config_path=(
@@ -225,10 +222,10 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
                 "Child-run contract: the recipe reads `simulation_reference_config` from each candidate site row rather than deriving one path from naming conventions alone.",
             ),
             key_parameters=(
-                "`[[regional_lab.recipe]] id = \"mf6_reference\"` plus the overlay `enabled` flags define the focused orchestration slice documented by this page.",
-                "`families = [\"headwater\"]` and `scales = [\"100km2\"]` scope the recipe before any child config path is resolved.",
-                "`required_fields = [\"simulation_reference_config\"]` is the gate that separates the one runnable outlet from the two inventory-only headwater sites.",
-                "`config_path_template = \"{simulation_reference_config}\"` delegates the concrete simulation config choice to the catalog row.",
+                '`[[regional_lab.recipe]] id = "mf6_reference"` plus the overlay `enabled` flags define the focused orchestration slice documented by this page.',
+                '`families = ["headwater"]` and `scales = ["100km2"]` scope the recipe before any child config path is resolved.',
+                '`required_fields = ["simulation_reference_config"]` is the gate that separates the one runnable outlet from the two inventory-only headwater sites.',
+                '`config_path_template = "{simulation_reference_config}"` delegates the concrete simulation config choice to the catalog row.',
             ),
             how_to_read=(
                 "Read the matrix first: it shows one runnable headwater outlet and two recipe-level gaps on the same selected population.",
@@ -283,9 +280,9 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
                 "Child-run contract: the recipe reads `backend_comparison_config` from each site row and expands into `method-comparison` child runs.",
             ),
             key_parameters=(
-                "`launcher = \"method-comparison\"` shows that `regional_lab` can plan solver-comparison suites as first-class child workflows.",
-                "`required_fields = [\"backend_comparison_config\"]` is what turns the two inventory-only headwater sites into visible comparison gaps.",
-                "`config_path_template = \"{backend_comparison_config}\"` keeps the recipe generic while the site catalog remains the source of truth for child inputs.",
+                '`launcher = "method-comparison"` shows that `regional_lab` can plan solver-comparison suites as first-class child workflows.',
+                '`required_fields = ["backend_comparison_config"]` is what turns the two inventory-only headwater sites into visible comparison gaps.',
+                '`config_path_template = "{backend_comparison_config}"` keeps the recipe generic while the site catalog remains the source of truth for child inputs.',
                 "The overlay keeps the other recipes disabled so the page documents one comparison workflow rather than the full laboratory at once.",
             ),
             how_to_read=(
@@ -340,9 +337,9 @@ def build_regional_lab_specs() -> tuple[GalleryCaseSpec, ...]:
                 "Child-run contract: the recipe reads `transient_backend_comparison_config` from each site row and expands into the transient pulsed-recharge comparison suite.",
             ),
             key_parameters=(
-                "`id = \"transient_backend_compare\"` keeps the transient question separate from the simpler backend-comparison recipe instead of collapsing both into one card.",
-                "`required_fields = [\"transient_backend_comparison_config\"]` makes the missing transient child configs visible as coverage gaps rather than silent filtering.",
-                "`launcher = \"method-comparison\"` plus the recipe-specific config path field is what lets one lab coordinate several comparison families in parallel.",
+                '`id = "transient_backend_compare"` keeps the transient question separate from the simpler backend-comparison recipe instead of collapsing both into one card.',
+                '`required_fields = ["transient_backend_comparison_config"]` makes the missing transient child configs visible as coverage gaps rather than silent filtering.',
+                '`launcher = "method-comparison"` plus the recipe-specific config path field is what lets one lab coordinate several comparison families in parallel.',
                 "The overlay config gives this page one exact reproduction command while preserving the shared base laboratory definition.",
             ),
             how_to_read=(

@@ -45,8 +45,7 @@ class PlanarDiscretizer:
 
         if nx is None or ny is None:
             raise ValueError(
-                "nx and ny are required when "
-                "plan_discretization_mode='resample_to_shape'"
+                "nx and ny are required when plan_discretization_mode='resample_to_shape'"
             )
 
         target_crs = source_top_grid.crs or fallback_crs
@@ -87,9 +86,7 @@ class PlanarDiscretizer:
         )
 
     @staticmethod
-    def select_resampling(
-        src_shape: tuple[int, int], dst_shape: tuple[int, int]
-    ) -> Resampling:
+    def select_resampling(src_shape: tuple[int, int], dst_shape: tuple[int, int]) -> Resampling:
         """
         Choose resampling rule from source and destination shape.
 

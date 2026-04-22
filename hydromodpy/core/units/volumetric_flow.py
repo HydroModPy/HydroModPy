@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from numbers import Real
 
-from hydromodpy.core.units.scalar import canonical_unit_token as _canonical_unit_token, parse_scalar_and_unit
+from hydromodpy.core.units.scalar import (
+    canonical_unit_token as _canonical_unit_token,
+    parse_scalar_and_unit,
+)
 
 
 M3_PER_S_CANONICAL_UNITS: tuple[str, ...] = (
@@ -69,9 +72,7 @@ def normalize_m3_per_s_unit(unit: str) -> str:
     canonical = _M3_PER_S_UNIT_ALIASES.get(token)
     if canonical is None:
         allowed = ", ".join(M3_PER_S_CANONICAL_UNITS)
-        raise ValueError(
-            f"Unsupported volumetric-flow unit '{unit}'. Allowed units: {allowed}"
-        )
+        raise ValueError(f"Unsupported volumetric-flow unit '{unit}'. Allowed units: {allowed}")
     return canonical
 
 

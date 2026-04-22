@@ -14,7 +14,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.spatial.delineation import WhiteboxBackend, WhiteboxWorkflowsBackend, get_whitebox_backend
+from hydromodpy.spatial.delineation import (
+    WhiteboxBackend,
+    WhiteboxWorkflowsBackend,
+    get_whitebox_backend,
+)
 
 from hydromodpy.spatial.geographic.geographic_io import ensure_crs
 

@@ -83,8 +83,7 @@ _PROFILE_COLORS = ("#dc2626", "#2563eb", "#16a34a")
 def _parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description=(
-            "Compare cartesian structured 3D and Gmsh extruded 3D "
-            "FieldParam discretizations."
+            "Compare cartesian structured 3D and Gmsh extruded 3D FieldParam discretizations."
         )
     )
     parser.add_argument("--cartesian-config-file", default=DEFAULT_CARTESIAN_CONFIG)
@@ -95,9 +94,7 @@ def _parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def _extract_cartesian_profile(
-    values_3d, depth_3d, *, source_cell_index: int
-) -> dict[str, object]:
+def _extract_cartesian_profile(values_3d, depth_3d, *, source_cell_index: int) -> dict[str, object]:
     arr = np.asarray(values_3d, dtype=float)
     depth = np.asarray(depth_3d, dtype=float)
     _, _, ncol = arr.shape
@@ -206,9 +203,7 @@ def _build_profile_specs(
     for idx, (label, fx, fy) in enumerate(_PROFILE_TARGETS):
         target_x = xmin + float(fx) * (xmax - xmin)
         target_y = ymin + float(fy) * (ymax - ymin)
-        cart_index, cart_xy = nearest_cell_index(
-            cartesian_mesh, x=target_x, y=target_y
-        )
+        cart_index, cart_xy = nearest_cell_index(cartesian_mesh, x=target_x, y=target_y)
         gmsh_index, gmsh_xy = nearest_cell_index(gmsh_mesh, x=target_x, y=target_y)
         specs.append(
             {
@@ -243,9 +238,7 @@ def _build_profile_comparisons(
     values_3d_cart = np.asarray(cartesian_state["result"].values_3d, dtype=float)
     depth_3d_cart = np.asarray(cartesian_state["depth_3d"], dtype=float)
     gmsh_mesh_with_values = gmsh_state["mesh_with_values"]
-    shared_layers = min(
-        int(values_3d_cart.shape[0]), int(gmsh_mesh_with_values.n_layers)
-    )
+    shared_layers = min(int(values_3d_cart.shape[0]), int(gmsh_mesh_with_values.n_layers))
     payload: list[dict[str, object]] = []
     for spec in profile_specs:
         cart_profile = _extract_cartesian_profile(
@@ -259,9 +252,7 @@ def _build_profile_comparisons(
         cart_values = np.asarray(cart_profile["values"], dtype=float)[:shared_layers]
         gmsh_values = np.asarray(gmsh_profile["values"], dtype=float)[:shared_layers]
         cart_depths = np.asarray(cart_profile["depths"], dtype=float)[:shared_layers]
-        gmsh_depths = np.asarray(gmsh_profile.get("depths", []), dtype=float)[
-            :shared_layers
-        ]
+        gmsh_depths = np.asarray(gmsh_profile.get("depths", []), dtype=float)[:shared_layers]
         payload.append(
             {
                 "label": str(spec["label"]),
@@ -284,15 +275,9 @@ def _build_profile_comparisons(
                 },
                 "comparison": {
                     "shared_layers": int(shared_layers),
-                    "value_mean_abs_delta": round_float(
-                        np.mean(np.abs(gmsh_values - cart_values))
-                    ),
-                    "value_max_abs_delta": round_float(
-                        np.max(np.abs(gmsh_values - cart_values))
-                    ),
-                    "depth_mean_abs_delta": round_float(
-                        np.mean(np.abs(gmsh_depths - cart_depths))
-                    ),
+                    "value_mean_abs_delta": round_float(np.mean(np.abs(gmsh_values - cart_values))),
+                    "value_max_abs_delta": round_float(np.max(np.abs(gmsh_values - cart_values))),
+                    "depth_mean_abs_delta": round_float(np.mean(np.abs(gmsh_depths - cart_depths))),
                 },
             }
         )
@@ -305,9 +290,7 @@ def _build_comparison_summary(
     gmsh_summary: Mapping[str, object],
     profile_payload: list[Mapping[str, object]],
 ) -> dict[str, object]:
-    shared_layers = min(
-        int(cartesian_summary["n_layers"]), int(gmsh_summary["n_layers"])
-    )
+    shared_layers = min(int(cartesian_summary["n_layers"]), int(gmsh_summary["n_layers"]))
     cart_bounds = np.asarray(cartesian_summary["bounds_xy"], dtype=float)
     gmsh_bounds = np.asarray(gmsh_summary["bounds_xy"], dtype=float)
     cart_stats = dict(cartesian_summary["stats_3d"])
@@ -325,14 +308,10 @@ def _build_comparison_summary(
         cart_layer_quantiles = dict(cartesian_summary["layer_quantiles"][layer_idx])
         gmsh_layer_quantiles = dict(gmsh_summary["layer_quantiles"][layer_idx])
         layer_mean_delta.append(
-            round_float(
-                float(gmsh_layer_stats["mean"]) - float(cart_layer_stats["mean"])
-            )
+            round_float(float(gmsh_layer_stats["mean"]) - float(cart_layer_stats["mean"]))
         )
         layer_sum_delta.append(
-            round_float(
-                float(gmsh_layer_stats["sum"]) - float(cart_layer_stats["sum"])
-            )
+            round_float(float(gmsh_layer_stats["sum"]) - float(cart_layer_stats["sum"]))
         )
         layer_depth_mean_delta.append(
             round_float(
@@ -345,8 +324,7 @@ def _build_comparison_summary(
                 "layer_index": int(layer_idx),
                 **{
                     key: round_float(
-                        float(gmsh_layer_quantiles[key])
-                        - float(cart_layer_quantiles[key])
+                        float(gmsh_layer_quantiles[key]) - float(cart_layer_quantiles[key])
                     )
                     for key in sorted(cart_layer_quantiles)
                 },
@@ -367,14 +345,10 @@ def _build_comparison_summary(
             round_float(v, ndigits=6) for v in np.abs(cart_bounds - gmsh_bounds)
         ],
         "footprint_area_delta": round_float(
-            float(gmsh_summary["footprint_area"])
-            - float(cartesian_summary["footprint_area"])
+            float(gmsh_summary["footprint_area"]) - float(cartesian_summary["footprint_area"])
         ),
         "footprint_area_relative_delta": round_float(
-            (
-                float(gmsh_summary["footprint_area"])
-                - float(cartesian_summary["footprint_area"])
-            )
+            (float(gmsh_summary["footprint_area"]) - float(cartesian_summary["footprint_area"]))
             / float(cartesian_summary["footprint_area"])
         ),
         "global_stats_delta": {
@@ -402,16 +376,12 @@ def _build_comparison_summary(
             round_float(float(profile["comparison"]["depth_mean_abs_delta"]))
             for profile in profile_payload
         ],
-        "cartesian_values_3d_signature_head": list(
-            cartesian_summary["values_3d_signature_head"]
-        ),
+        "cartesian_values_3d_signature_head": list(cartesian_summary["values_3d_signature_head"]),
         "gmsh_values_3d_signature_head": list(gmsh_summary["values_3d_signature_head"]),
     }
 
 
-def _plot_profile_targets(
-    ax, *, specs: list[Mapping[str, object]], system_key: str
-) -> None:
+def _plot_profile_targets(ax, *, specs: list[Mapping[str, object]], system_key: str) -> None:
     for spec in specs:
         xy = spec[f"{system_key}_xy"]
         ax.scatter(
@@ -474,9 +444,7 @@ def _build_layer_figure(
     cart_values_3d = np.asarray(cartesian_state["result"].values_3d, dtype=float)
     gmsh_values_3d = np.asarray(gmsh_state["mesh_with_values"].values_3d, dtype=float)
     cart_depth_3d = np.asarray(cartesian_state["depth_3d"], dtype=float)
-    gmsh_depth_3d = np.asarray(
-        gmsh_state["mesh_with_values"].prism_center_depths, dtype=float
-    )
+    gmsh_depth_3d = np.asarray(gmsh_state["mesh_with_values"].prism_center_depths, dtype=float)
 
     fig = plt.figure(figsize=(12.5, 5.2), dpi=145)
     axes = fig.subplot_mosaic(
@@ -539,9 +507,7 @@ def _build_vertical_profiles_figure(
     output_path: Path,
 ) -> None:
     n_profiles = len(profile_payload)
-    fig, axes = plt.subplots(
-        1, n_profiles, figsize=(4.6 * n_profiles, 4.9), dpi=150, squeeze=False
-    )
+    fig, axes = plt.subplots(1, n_profiles, figsize=(4.6 * n_profiles, 4.9), dpi=150, squeeze=False)
     axes_flat = list(axes.reshape(-1))
     for ax, profile in zip(axes_flat, profile_payload, strict=True):
         cartesian = dict(profile["cartesian"])
@@ -668,10 +634,7 @@ def _build_comparison_overview_figure(
     quantile_labels = ["q05", "q25", "q50", "q75", "q95"]
     x = np.arange(len(quantile_labels), dtype=float)
     cart_quantiles = np.asarray(
-        [
-            float(cartesian_summary["global_value_quantiles"][key])
-            for key in quantile_labels
-        ],
+        [float(cartesian_summary["global_value_quantiles"][key]) for key in quantile_labels],
         dtype=float,
     )
     gmsh_quantiles = np.asarray(
@@ -688,9 +651,7 @@ def _build_comparison_overview_figure(
         color="#d97706",
         label="Cartesian",
     )
-    ax_quantiles.plot(
-        x, gmsh_quantiles, marker="s", lw=2.1, ms=6.0, color="#0f766e", label="Gmsh"
-    )
+    ax_quantiles.plot(x, gmsh_quantiles, marker="s", lw=2.1, ms=6.0, color="#0f766e", label="Gmsh")
     ax_quantiles.set_xticks(x, quantile_labels)
     ax_quantiles.set_title("Global value quantiles", fontsize=14)
     ax_quantiles.set_ylabel("Field parameter value", fontsize=11)
@@ -700,9 +661,7 @@ def _build_comparison_overview_figure(
 
     layer_idx = np.arange(int(comparison_summary["shared_layer_count"]), dtype=float)
     layer_mean_delta = np.asarray(comparison_summary["layer_mean_delta"], dtype=float)
-    layer_depth_delta = np.asarray(
-        comparison_summary["layer_depth_mean_delta"], dtype=float
-    )
+    layer_depth_delta = np.asarray(comparison_summary["layer_depth_mean_delta"], dtype=float)
     ax_layers = axes["layers"]
     ax_layers.axhline(0.0, color="0.55", lw=0.9)
     ax_layers.plot(
@@ -735,16 +694,12 @@ def _build_comparison_overview_figure(
         for line in list(ax_layers.get_lines()) + list(ax_layers_twin.get_lines())
         if not str(line.get_label()).startswith("_")
     ]
-    ax_layers.legend(
-        lines, [line.get_label() for line in lines], loc="best", fontsize=10
-    )
+    ax_layers.legend(lines, [line.get_label() for line in lines], loc="best", fontsize=10)
 
     ax_profiles = axes["profiles"]
     labels = list(comparison_summary["profile_labels"])
     x_prof = np.arange(len(labels), dtype=float)
-    mean_abs = np.asarray(
-        comparison_summary["profile_value_mean_abs_delta"], dtype=float
-    )
+    mean_abs = np.asarray(comparison_summary["profile_value_mean_abs_delta"], dtype=float)
     max_abs = np.asarray(comparison_summary["profile_value_max_abs_delta"], dtype=float)
     width = 0.36
     ax_profiles.bar(
@@ -757,9 +712,7 @@ def _build_comparison_overview_figure(
     ax_profiles.bar(
         x_prof + 0.5 * width, max_abs, width=width, color="#1d4ed8", label="Max |delta|"
     )
-    ax_profiles.set_xticks(
-        x_prof, [str(label).replace("_", " ") for label in labels], rotation=10
-    )
+    ax_profiles.set_xticks(x_prof, [str(label).replace("_", " ") for label in labels], rotation=10)
     ax_profiles.set_title("Profile absolute deltas", fontsize=14)
     ax_profiles.set_ylabel("Field parameter delta", fontsize=11)
     ax_profiles.tick_params(labelsize=10)
@@ -767,9 +720,7 @@ def _build_comparison_overview_figure(
     ax_profiles.legend(loc="best", fontsize=10)
 
     fig.suptitle("3D cartesian vs Gmsh aggregate comparison overview", fontsize=16)
-    fig.subplots_adjust(
-        left=0.055, right=0.98, top=0.91, bottom=0.10, wspace=0.25, hspace=0.25
-    )
+    fig.subplots_adjust(left=0.055, right=0.98, top=0.91, bottom=0.10, wspace=0.25, hspace=0.25)
     fig.savefig(output_path)
     plt.close(fig)
 
@@ -821,12 +772,8 @@ def run_comparison_case(
     layer_dir = out_dir / "layers"
     layer_dir.mkdir(parents=True, exist_ok=True)
 
-    cartesian_state = build_cartesian_3d_state_from_toml(
-        cartesian_config, section=section
-    )
-    gmsh_state = build_reference_3d_fieldparam_state_from_toml(
-        gmsh_config, section=section
-    )
+    cartesian_state = build_cartesian_3d_state_from_toml(cartesian_config, section=section)
+    gmsh_state = build_reference_3d_fieldparam_state_from_toml(gmsh_config, section=section)
 
     cartesian_summary = dict(cartesian_state["summary"])
     gmsh_summary = _build_gmsh_summary(gmsh_state)
@@ -872,9 +819,7 @@ def run_comparison_case(
     combined_values = np.concatenate(
         (
             np.asarray(cartesian_state["result"].values_3d, dtype=float).reshape(-1),
-            np.asarray(gmsh_state["mesh_with_values"].values_3d, dtype=float).reshape(
-                -1
-            ),
+            np.asarray(gmsh_state["mesh_with_values"].values_3d, dtype=float).reshape(-1),
         )
     )
     vmin = float(np.nanmin(combined_values))
@@ -931,9 +876,7 @@ def run_comparison_case(
     write_json(out_dir / "comparison_summary.json", payload)
 
     if show_plot:
-        show_saved_images_blocking(
-            layer_image_paths + [profiles_image_path, overview_image_path]
-        )
+        show_saved_images_blocking(layer_image_paths + [profiles_image_path, overview_image_path])
 
     return payload
 

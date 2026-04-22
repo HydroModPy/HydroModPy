@@ -64,8 +64,7 @@ def _build_method_comparison_case_spec(
         summary=summary,
         what_it_shows=what_it_shows,
         reproduction_command=(
-            "python -m launchers method-comparison run "
-            f"{comparison_config_path}"
+            f"python -m launchers method-comparison run {comparison_config_path}"
         ),
         source_paths=_augment_method_comparison_source_paths(
             comparison_config_path,
@@ -211,7 +210,7 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "Compared observables mix full maps (`head`, `depth`, `outflow_drain`), three head probes, one outlet-flux chronicle, native flux panels, and execution-time bars.",
             ),
             key_parameters=(
-                "Support equality is the main control knob here: both variants use the same `mesh_label = \"sgrid_60x60\"`, so disagreements are not attributable to a mesh-family change.",
+                'Support equality is the main control knob here: both variants use the same `mesh_label = "sgrid_60x60"`, so disagreements are not attributable to a mesh-family change.',
                 "`run_method_comparison_mf6_vs_nwt_same_regular_mesh_moderate.toml` selects the observables that stay comparable across the two MODFLOW families.",
                 "Use the outlet-flux and native-flux observables together: the outlet curve shows integrated export, while the native panels reveal how each code reports internal drainage/accumulation terms.",
             ),
@@ -259,7 +258,7 @@ def build_method_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
             ),
             key_parameters=(
                 "`[method_comparison.fine_raster] enabled = true` is essential here because the compared meshes are not natively aligned cell by cell.",
-                "`extent_mode = \"intersection\"` keeps the comparison on the spatial footprint both supports actually share.",
+                '`extent_mode = "intersection"` keeps the comparison on the spatial footprint both supports actually share.',
                 "Read outlet-flux differences with more caution than in the same-grid case: they now reflect both solver behaviour and support discretization.",
             ),
             how_to_read=(

@@ -74,9 +74,7 @@ def test_quadrilateral_gmsh_planar_mesh_plot_uses_mesh_bounds():
 
     fig, ax = plt.subplots()
     try:
-        mappable = mesh.plot_cell_values(
-            ax, np.array([1.0, 2.0], dtype=float), show_mesh=True
-        )
+        mappable = mesh.plot_cell_values(ax, np.array([1.0, 2.0], dtype=float), show_mesh=True)
         assert mappable is not None
         assert np.allclose(ax.get_xlim(), (10.0, 30.0))
         assert np.allclose(ax.get_ylim(), (30.0, 50.0))
@@ -96,9 +94,7 @@ def test_gmsh_planar_mesh_from_mesh_data_preserves_metadata():
             dtype=float,
         ),
         cell_blocks=(
-            GmshCellBlock(
-                cell_type="quad", connectivity=np.array([[0, 1, 2, 3]], dtype=int)
-            ),
+            GmshCellBlock(cell_type="quad", connectivity=np.array([[0, 1, 2, 3]], dtype=int)),
         ),
     )
 

@@ -21,21 +21,25 @@ def example_custom_csv():
         d = Path(tmpdir)
 
         # Location file (unit column required)
-        pd.DataFrame({
-            "id": ["SITE01", "SITE02"],
-            "x": [2.35, 2.40],
-            "y": [48.85, 48.90],
-            "crs": ["EPSG:4326", "EPSG:4326"],
-            "unit": ["mg/L", "mg/L"],
-        }).to_csv(d / "waterquality_custom_LOC.csv", index=False)
+        pd.DataFrame(
+            {
+                "id": ["SITE01", "SITE02"],
+                "x": [2.35, 2.40],
+                "y": [48.85, 48.90],
+                "crs": ["EPSG:4326", "EPSG:4326"],
+                "unit": ["mg/L", "mg/L"],
+            }
+        ).to_csv(d / "waterquality_custom_LOC.csv", index=False)
 
         # Chronicle files
         dates = pd.date_range("2020-01-01", "2020-06-30", freq="W")
         for sid, val in [("SITE01", 7.2), ("SITE02", 6.8)]:
-            pd.DataFrame({
-                "datetime": dates,
-                "value": val,
-            }).to_csv(d / f"waterquality_custom_{sid}_20200101_20200630_W.csv", index=False)
+            pd.DataFrame(
+                {
+                    "datetime": dates,
+                    "value": val,
+                }
+            ).to_csv(d / f"waterquality_custom_{sid}_20200101_20200630_W.csv", index=False)
 
         cfg = WaterQualitySourceConfig(source="custom", path=d)
         period = (datetime(2020, 1, 1), datetime(2020, 6, 30))
@@ -54,10 +58,15 @@ def example_custom_constant():
     with tempfile.TemporaryDirectory() as tmpdir:
         d = Path(tmpdir)
 
-        pd.DataFrame({
-            "id": ["SITE01"], "x": [2.35], "y": [48.85],
-            "crs": ["EPSG:4326"], "unit": ["mg/L"],
-        }).to_csv(d / "waterquality_custom_LOC.csv", index=False)
+        pd.DataFrame(
+            {
+                "id": ["SITE01"],
+                "x": [2.35],
+                "y": [48.85],
+                "crs": ["EPSG:4326"],
+                "unit": ["mg/L"],
+            }
+        ).to_csv(d / "waterquality_custom_LOC.csv", index=False)
 
         pd.DataFrame({"datetime": ["2020-01-01"], "value": [7.0]}).to_csv(
             d / "waterquality_custom_SITE01_20200101_20201231_D.csv", index=False

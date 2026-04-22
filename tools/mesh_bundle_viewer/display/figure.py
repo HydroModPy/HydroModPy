@@ -1,4 +1,4 @@
-﻿"""Build the final matplotlib figure for the standalone mesh viewer.
+"""Build the final matplotlib figure for the standalone mesh viewer.
 
 This module intentionally stays at orchestration level. Geometry preparation
 helpers live in ``mesh.display.geometry`` and concrete panel renderers live in
@@ -115,4 +115,3 @@ __all__ = [
     "build_visualization_figure",
     "has_continuous_node_topography",
 ]
-

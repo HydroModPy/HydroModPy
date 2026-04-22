@@ -28,9 +28,7 @@ class TestHydrometryCustomCSV:
             assert r.location.crs == "EPSG:4326"
 
     def test_filter_station_ids(self, sample_hydro_dir, project_period):
-        cfg = HydrometrySourceConfig(
-            source="custom", path=sample_hydro_dir, station_ids=["ST001"]
-        )
+        cfg = HydrometrySourceConfig(source="custom", path=sample_hydro_dir, station_ids=["ST001"])
         records = load_custom(cfg, project_period=project_period)
         assert len(records) == 1
         assert records[0].station_id == "ST001"
@@ -41,17 +39,20 @@ class TestHydrometryCustomCSV:
         d = tmp_path / "hydro_ls"
         d.mkdir()
 
-        pd.DataFrame({
-            "id": ["ST_LS"],
-            "x": [-1.5],
-            "y": [48.1],
-            "crs": ["EPSG:4326"],
-            "unit": [source_unit],
-        }).to_csv(d / "hydrometry_custom_LOC.csv", index=False)
+        pd.DataFrame(
+            {
+                "id": ["ST_LS"],
+                "x": [-1.5],
+                "y": [48.1],
+                "crs": ["EPSG:4326"],
+                "unit": [source_unit],
+            }
+        ).to_csv(d / "hydrometry_custom_LOC.csv", index=False)
 
         dates = pd.date_range("2020-01-01", "2020-03-31", freq="D")
         pd.DataFrame({"datetime": dates, "value": 2500.0}).to_csv(
-            d / "hydrometry_custom_ST_LS_20200101_20200331_D.csv", index=False,
+            d / "hydrometry_custom_ST_LS_20200101_20200331_D.csv",
+            index=False,
         )
 
         cfg = HydrometrySourceConfig(source="custom", path=d)
@@ -66,13 +67,19 @@ class TestHydrometryCustomCSV:
         d = tmp_path / "no_unit"
         d.mkdir()
 
-        pd.DataFrame({
-            "id": ["ST01"], "x": [-1.5], "y": [48.1], "crs": ["EPSG:4326"],
-        }).to_csv(d / "hydrometry_custom_LOC.csv", index=False)
+        pd.DataFrame(
+            {
+                "id": ["ST01"],
+                "x": [-1.5],
+                "y": [48.1],
+                "crs": ["EPSG:4326"],
+            }
+        ).to_csv(d / "hydrometry_custom_LOC.csv", index=False)
 
         dates = pd.date_range("2020-01-01", "2020-03-31", freq="D")
         pd.DataFrame({"datetime": dates, "value": 1.0}).to_csv(
-            d / "hydrometry_custom_ST01_20200101_20200331_D.csv", index=False,
+            d / "hydrometry_custom_ST01_20200101_20200331_D.csv",
+            index=False,
         )
 
         cfg = HydrometrySourceConfig(source="custom", path=d)
@@ -85,9 +92,15 @@ class TestHydrometryCustomConstant:
         d = tmp_path / "const"
         d.mkdir()
 
-        pd.DataFrame({
-            "id": ["C1"], "x": [0], "y": [0], "crs": ["EPSG:4326"], "unit": ["m3/s"],
-        }).to_csv(d / "hydrometry_custom_LOC.csv", index=False)
+        pd.DataFrame(
+            {
+                "id": ["C1"],
+                "x": [0],
+                "y": [0],
+                "crs": ["EPSG:4326"],
+                "unit": ["m3/s"],
+            }
+        ).to_csv(d / "hydrometry_custom_LOC.csv", index=False)
 
         pd.DataFrame({"datetime": ["2020-01-01"], "value": [9.9]}).to_csv(
             d / "hydrometry_custom_C1_20200101_20200331_D.csv", index=False

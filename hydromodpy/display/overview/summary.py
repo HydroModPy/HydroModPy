@@ -43,9 +43,7 @@ def compute_overview_summary(state: "DataOverviewState") -> OverviewSummary:
 
     return OverviewSummary(
         watershed_name=name,
-        catchment_area_km2=(
-            float(dg.catchment_area_km2) if dg is not None else None
-        ),
+        catchment_area_km2=(float(dg.catchment_area_km2) if dg is not None else None),
         outlet_xy=outlet,
         n_hydrometry=_count_points(ld.hydrometry),
         n_piezometry=_count_points(ld.piezometry),

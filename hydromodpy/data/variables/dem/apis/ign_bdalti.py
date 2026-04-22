@@ -163,6 +163,7 @@ def _extract_7z(archive_path: Path, output_dir: Path) -> None:
     # Fallback to py7zr Python package.
     try:
         import py7zr
+
         with py7zr.SevenZipFile(str(archive_path), mode="r") as z:
             z.extractall(path=str(output_dir))
         return
@@ -276,9 +277,7 @@ def fetch_bdalti(
             all_asc_files.extend(asc_files)
 
     if not all_asc_files:
-        raise ValueError(
-            f"No ASC files found for departments: {list(dept_codes)}"
-        )
+        raise ValueError(f"No ASC files found for departments: {list(dept_codes)}")
 
     log_step("Merging %d ASC tiles..." % len(all_asc_files))
 

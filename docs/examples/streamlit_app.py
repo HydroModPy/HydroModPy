@@ -32,8 +32,7 @@ def load_schema(schema_dir: Path) -> dict[str, Any]:
     schema_path = schema_dir / "config.json"
     if not schema_path.is_file():
         raise FileNotFoundError(
-            f"{schema_path} is missing; run 'hmp schema export --output "
-            f"{schema_dir}' first."
+            f"{schema_path} is missing; run 'hmp schema export --output {schema_dir}' first."
         )
     return json.loads(schema_path.read_text(encoding="utf-8"))
 
@@ -51,9 +50,7 @@ def iter_section_fields(
 ) -> list[tuple[str, dict[str, Any]]]:
     """Flatten a section into ``(field_name, field_schema)`` tuples."""
     section_ref = schema.get("properties", {}).get(section_name, {})
-    ref = section_ref.get("$ref") or (
-        section_ref.get("allOf", [{}])[0].get("$ref")
-    )
+    ref = section_ref.get("$ref") or (section_ref.get("allOf", [{}])[0].get("$ref"))
     if not ref or not ref.startswith("#/$defs/"):
         return []
     def_name = ref.split("/")[-1]
@@ -107,9 +104,7 @@ def main(schema_dir: Path = DEFAULT_SCHEMA_DIR) -> None:  # pragma: no cover - U
         return
 
     meta = load_meta(schema_dir)
-    sections = meta.get("sections") or [
-        {"name": name} for name in schema.get("properties", {})
-    ]
+    sections = meta.get("sections") or [{"name": name} for name in schema.get("properties", {})]
 
     tabs = st.tabs([s["name"] for s in sections])
     values: dict[str, dict[str, Any]] = {}

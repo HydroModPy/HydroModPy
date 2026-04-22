@@ -26,7 +26,9 @@ def _configure_matplotlib_backend_from_argv(argv: list[str]) -> None:
 _configure_matplotlib_backend_from_argv(sys.argv[1:])
 
 import matplotlib.pyplot as plt
+
 plt.switch_backend("Agg")
+
 
 # Ensure repository root is importable when script is launched directly.
 def _find_repo_root() -> Path:
@@ -113,8 +115,7 @@ def _resolve_config_path(raw_config: str) -> Path:
         return script_candidate
 
     raise FileNotFoundError(
-        f"Config TOML not found: '{raw_config}'. "
-        f"Tried '{cwd_candidate}' and '{script_candidate}'."
+        f"Config TOML not found: '{raw_config}'. Tried '{cwd_candidate}' and '{script_candidate}'."
     )
 
 
@@ -179,11 +180,7 @@ def _build_zone_name_by_key(gdf, *, code_field: str, name_field: str | None) -> 
 
     out: dict[str, str] = {}
     for key in unique_keys:
-        names = (
-            gdf.loc[keys == key, name_field]
-            .astype(str)
-            .str.strip()
-        )
+        names = gdf.loc[keys == key, name_field].astype(str).str.strip()
         names = names[(names != "") & (names.str.lower() != "nan") & (names.str.lower() != "none")]
         out[key] = str(names.value_counts().index[0]) if not names.empty else key
     return out
@@ -273,7 +270,10 @@ def _plot_left_raw_geology(
     cfg: SGridFieldParamDiscretizationConfig,
     geology_field: GeologyField,
     mesh,
-) -> tuple[list[tuple[tuple[float, float, float, float], str]], dict[str, tuple[float, float, float, float]]]:
+) -> tuple[
+    list[tuple[tuple[float, float, float, float], str]],
+    dict[str, tuple[float, float, float, float]],
+]:
     """Left panel: raw geology polygons in real coordinates."""
     source_cfg = dict(cfg.geology.get("source", {}))
     source_kind = str(source_cfg.get("kind", "auto")).strip().lower()
@@ -411,7 +411,9 @@ def _plot_center_mesh_discretization(
                     vmax=vmax,
                 )
                 cbar = fig.colorbar(img, ax=ax, shrink=0.72, pad=0.02)
-                cbar.set_label("dominant geology zone on intermediary mesh", fontsize=LABEL_FONTSIZE)
+                cbar.set_label(
+                    "dominant geology zone on intermediary mesh", fontsize=LABEL_FONTSIZE
+                )
                 cbar.ax.tick_params(labelsize=TICK_FONTSIZE)
                 if len(zone_keys) <= 12:
                     cbar.set_ticks(np.arange(len(zone_keys), dtype=float))
@@ -442,7 +444,9 @@ def _plot_center_mesh_discretization(
         ax.plot(mesh.x_plot[:, i], mesh.y_plot[:, i], color="0.80", lw=0.25)
 
     if used_geology_colors:
-        ax.set_title("Discretization on intermediary mesh (geology colors)", fontsize=TITLE_FONTSIZE)
+        ax.set_title(
+            "Discretization on intermediary mesh (geology colors)", fontsize=TITLE_FONTSIZE
+        )
     else:
         ax.set_title("Discretization on intermediary mesh", fontsize=TITLE_FONTSIZE)
     ax.set_xlabel("x [m]", fontsize=LABEL_FONTSIZE)
@@ -602,6 +606,3 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-

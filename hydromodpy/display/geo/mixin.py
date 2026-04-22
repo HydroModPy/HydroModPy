@@ -50,9 +50,7 @@ class GeoFigureMixin:
             edgecolor=color,
         )
         ax.add_patch(bar)
-        label = (
-            f"{length_m / 1000:g} km" if length_m >= 1000 else f"{length_m:g} m"
-        )
+        label = f"{length_m / 1000:g} km" if length_m >= 1000 else f"{length_m:g} m"
         ax.text(
             x0 + length_m / 2.0,
             y0 + height * 0.02,
@@ -96,7 +94,7 @@ def _nice_round(value: float) -> float:
     if value <= 0:
         return 1.0
     exp = math.floor(math.log10(value))
-    frac = value / (10 ** exp)
+    frac = value / (10**exp)
     if frac < 1.5:
         nice = 1.0
     elif frac < 3.5:
@@ -105,7 +103,7 @@ def _nice_round(value: float) -> float:
         nice = 5.0
     else:
         nice = 10.0
-    return nice * (10 ** exp)
+    return nice * (10**exp)
 
 
 __all__ = ["GeoFigureMixin"]

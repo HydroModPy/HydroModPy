@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 """Utilities used across hydromodpy.physics.hydrology.pyhelp.
 
@@ -43,7 +42,9 @@ def delete_folder_recursively(folder: str | Path) -> None:
         shutil.rmtree(folder)
 
 
-def calc_dist_from_coord(lat0: float, lon0: float, lats: Sequence[float], lons: Sequence[float]) -> np.ndarray:
+def calc_dist_from_coord(
+    lat0: float, lon0: float, lats: Sequence[float], lons: Sequence[float]
+) -> np.ndarray:
     """Compute approximate distance (meters) between (lat0, lon0) and arrays.
 
     Uses a simple equirectangular approximation. For nearest-neighbor selection
@@ -54,7 +55,7 @@ def calc_dist_from_coord(lat0: float, lon0: float, lats: Sequence[float], lons: 
     latsr = np.radians(np.asarray(lats, dtype=float))
     lonsr = np.radians(np.asarray(lons, dtype=float))
     x = (lonsr - lon0r) * np.cos(0.5 * (latsr + lat0r))
-    y = (latsr - lat0r)
+    y = latsr - lat0r
     R = 6371000.0
     return R * np.sqrt(x * x + y * y)
 

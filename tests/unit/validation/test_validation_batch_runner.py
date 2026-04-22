@@ -67,7 +67,9 @@ def test_discover_and_filter_validation_cases(tmp_path: Path) -> None:
         "validation_cases.analytical.steady.case_steady_dual.run_case",
     ]
 
-    transient_nwt_cases = filter_validation_cases(discovered, solver="modflownwt", regime="transient")
+    transient_nwt_cases = filter_validation_cases(
+        discovered, solver="modflownwt", regime="transient"
+    )
     assert [case.module_name for case in transient_nwt_cases] == [
         "validation_cases.analytical.transient.case_transient_nwt.run_case",
     ]

@@ -68,8 +68,7 @@ def _compute_layer_center_depths(sgrid) -> np.ndarray:
     nlay, nrow, ncol = botm.shape
     if top.shape != (nrow, ncol):
         raise ValueError(
-            "sgrid.top shape mismatch with sgrid.botm: "
-            f"top{top.shape} vs botm{botm.shape}"
+            f"sgrid.top shape mismatch with sgrid.botm: top{top.shape} vs botm{botm.shape}"
         )
 
     ztop = np.empty_like(botm, dtype=float)
@@ -138,9 +137,7 @@ def discretize_fieldparam_on_sgrid(
         ``field_param.field_spatial_id`` and ``support_field.identifier``.
     """
     if support_field is not None and geology_field is not None:
-        raise ValueError(
-            "Use either 'support_field' or legacy 'geology_field', not both."
-        )
+        raise ValueError("Use either 'support_field' or legacy 'geology_field', not both.")
     if support_field is None:
         support_field = geology_field
 

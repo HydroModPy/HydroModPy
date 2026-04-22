@@ -34,45 +34,53 @@ def register(subparsers) -> argparse.ArgumentParser:
 
     tpl = sub.add_parser("template", help="Generate a TOML configuration template")
     tpl.add_argument(
-        "output", nargs="?",
+        "output",
+        nargs="?",
         help="Output file (or directory); prints to stdout if omitted",
     )
     tpl.add_argument(
-        "--profile", choices=list(PROFILES.keys()), default="expert",
+        "--profile",
+        choices=list(PROFILES.keys()),
+        default="expert",
         help="Parameter visibility level (default: expert)",
     )
     tpl.add_argument(
-        "--modules", nargs="+",
+        "--modules",
+        nargs="+",
         help="Module sections to include (default: all)",
     )
     tpl.add_argument(
-        "--list-modules", action="store_true",
+        "--list-modules",
+        action="store_true",
         help="List available module names and exit",
     )
     tpl.add_argument(
-        "--ui", action="store_true",
+        "--ui",
+        action="store_true",
         help="Launch interactive Streamlit configuration editor",
     )
 
     chk = sub.add_parser("check", help="Validate a TOML against the Pydantic schema")
     chk.add_argument("file", help="Path to the TOML configuration")
     chk.add_argument(
-        "--strict", action="store_true",
+        "--strict",
+        action="store_true",
         help="Fail on warnings in addition to errors",
     )
 
     sch = sub.add_parser("schema", help="Export the JSON Schema")
-    sch.add_argument("--section", default=None,
-                     help="Export a single root TOML section (e.g. 'flow')")
-    sch.add_argument("--out", default=None,
-                     help="Write the JSON Schema to this file")
-    sch.add_argument("--list-sections", action="store_true",
-                     help="List available section names")
+    sch.add_argument(
+        "--section", default=None, help="Export a single root TOML section (e.g. 'flow')"
+    )
+    sch.add_argument("--out", default=None, help="Write the JSON Schema to this file")
+    sch.add_argument("--list-sections", action="store_true", help="List available section names")
 
     wiz = sub.add_parser("wizard", help="Interactive stdin-based TOML wizard")
     wiz.add_argument("output", nargs="?")
     wiz.add_argument(
-        "--profile", choices=list(PROFILES.keys()), default="user",
+        "--profile",
+        choices=list(PROFILES.keys()),
+        default="user",
     )
 
     parser.set_defaults(_handler=run)
@@ -111,12 +119,16 @@ def _cmd_config_template(args: argparse.Namespace) -> None:
         return
 
     if getattr(args, "ui", False):
-        ui_module = (
-            Path(__file__).resolve().parents[2]
-            / "core" / "config" / "streamlit_config.py"
-        )
-        cmd = [sys.executable, "-m", "streamlit", "run", str(ui_module),
-               "--server.headless", "true"]
+        ui_module = Path(__file__).resolve().parents[2] / "core" / "config" / "streamlit_config.py"
+        cmd = [
+            sys.executable,
+            "-m",
+            "streamlit",
+            "run",
+            str(ui_module),
+            "--server.headless",
+            "true",
+        ]
         if args.output:
             cmd.extend(["--", "--load", str(args.output)])
         print("Launching interactive config editor...")
@@ -220,12 +232,16 @@ def _cmd_config_wizard(args: argparse.Namespace) -> None:
 
     print("HydroModPy configuration wizard (non-interactive-safe)", file=sys.stderr)
     project = _ask("Project label", "my_project")
-    profile = _ask(
-        "Profile (user/dev/expert)",
-        getattr(args, "profile", None) or "user",
-    ) or "user"
+    profile = (
+        _ask(
+            "Profile (user/dev/expert)",
+            getattr(args, "profile", None) or "user",
+        )
+        or "user"
+    )
     output = getattr(args, "output", None) or _ask(
-        "Output TOML path", f"{project}.toml",
+        "Output TOML path",
+        f"{project}.toml",
     )
 
     dest = Path(output).expanduser().resolve()

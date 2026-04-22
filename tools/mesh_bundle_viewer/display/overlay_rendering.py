@@ -1,4 +1,4 @@
-﻿"""Overlay rendering for the standalone mesh visualization package."""
+"""Overlay rendering for the standalone mesh visualization package."""
 
 from __future__ import annotations
 
@@ -75,4 +75,3 @@ __all__ = [
     "OVERLAY_STYLES",
     "plot_overlays",
 ]
-

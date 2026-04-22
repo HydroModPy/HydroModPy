@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 # Geographic runtime
 # ---------------------------------------------------------------------------
 
+
 def build_geographic_runtime(cfg: object, workspace: object) -> object:
     """Build the geographic runtime selected by the validated TOML config."""
     geographic_cfg = cfg.geographic
@@ -79,7 +80,9 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
         cache_dir = Path(data_path) / "dem"
 
     resolved = resolve_dem_path_from_data_sources(
-        cfg, config_path=Path(config_path), cache_dir=cache_dir,
+        cfg,
+        config_path=Path(config_path),
+        cache_dir=cache_dir,
     )
     if resolved is not None:
         geographic_cfg.dem_init_path = resolved
@@ -88,6 +91,7 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
 # ---------------------------------------------------------------------------
 # Spatial support helpers
 # ---------------------------------------------------------------------------
+
 
 def collect_requested_support_ids(flow_cfg: object) -> tuple[str, ...]:
     """Return the ordered support ids referenced by heterogeneous flow parameters."""
@@ -105,9 +109,7 @@ def collect_requested_support_ids(flow_cfg: object) -> tuple[str, ...]:
             continue
         support_id = str(param_cfg.get("field_spatial_id", "")).strip()
         if support_id == "":
-            raise ValueError(
-                "Heterogeneous flow parameters require a non-empty field_spatial_id."
-            )
+            raise ValueError("Heterogeneous flow parameters require a non-empty field_spatial_id.")
         normalized = support_id.lower()
         if normalized in seen:
             continue
@@ -223,9 +225,7 @@ def validate_domain_support_contract(
             continue
         support_id = str(getattr(param, "field_spatial_id", "")).strip()
         if support_id == "":
-            raise ValueError(
-                "Heterogeneous flow parameters require a non-empty field_spatial_id."
-            )
+            raise ValueError("Heterogeneous flow parameters require a non-empty field_spatial_id.")
         normalized_support_id = support_id.lower()
         if normalized_support_id in declared_supports or normalized_support_id in seen:
             continue
@@ -235,9 +235,7 @@ def validate_domain_support_contract(
     if missing_supports:
         raise ValueError(
             "Heterogeneous flow parameters require explicit "
-            "[domain.supports.<id>] declarations for: "
-            + ", ".join(missing_supports)
-            + "."
+            "[domain.supports.<id>] declarations for: " + ", ".join(missing_supports) + "."
         )
 
 
@@ -273,13 +271,12 @@ def build_domain_spatial_supports(
             existing_zone = domain_get_zone(support_id)
         elif str(support_id).strip().lower() in getattr(setup_state.domain, "zones", {}):
             existing_zone = setup_state.domain.zones[str(support_id).strip().lower()]
-        if existing_zone is not None and str(
-            getattr(existing_zone, "identifier", "")
-        ).strip() == str(support_id).strip():
+        if (
+            existing_zone is not None
+            and str(getattr(existing_zone, "identifier", "")).strip() == str(support_id).strip()
+        ):
             continue
-        provider = registry.get(
-            getattr(support_cfg, "provider", "")
-        )
+        provider = registry.get(getattr(support_cfg, "provider", ""))
         if str(provider.build_phase).strip().lower() != str(phase).strip().lower():
             continue
         support_field = provider.build(
@@ -293,6 +290,7 @@ def build_domain_spatial_supports(
 # ---------------------------------------------------------------------------
 # Main setup orchestration
 # ---------------------------------------------------------------------------
+
 
 def run_setup(
     cfg: object,
@@ -331,9 +329,7 @@ def run_setup(
         raise ValueError(
             "Could not resolve geographic derived features from the runtime geographic object."
         )
-    setup_state.domain_geographic = (
-        setup_state.geographic_features.to_domain_geographic_context()
-    )
+    setup_state.domain_geographic = setup_state.geographic_features.to_domain_geographic_context()
     surface_topo = setup_state.geographic_features.surface_topo
 
     domain_cfg = cfg.domain
@@ -354,9 +350,7 @@ def run_setup(
         import re
 
         toml_path = run_state.config_path
-        setup_state.run_id = (
-            re.sub(r"^run_", "", Path(toml_path).stem) if toml_path else "default"
-        )
+        setup_state.run_id = re.sub(r"^run_", "", Path(toml_path).stem) if toml_path else "default"
 
     # Eagerly create Flow/Transport so data binders can reference them.
     ensure_flow(run_state)
@@ -371,6 +365,7 @@ def run_setup(
 # ---------------------------------------------------------------------------
 # Step entry point (unified signature for workflow pipelines)
 # ---------------------------------------------------------------------------
+
 
 def step_setup(
     ctx: WorkflowContext,

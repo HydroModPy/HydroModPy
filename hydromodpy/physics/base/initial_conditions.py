@@ -25,10 +25,14 @@ from hydromodpy.core.config.base import HydroModelBase
 class InitialCondition(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
-    id: Annotated[str, Profile.USER] = Field(..., description="id of the initial condition (ex: h0, etc.)")
+    id: Annotated[str, Profile.USER] = Field(
+        ..., description="id of the initial condition (ex: h0, etc.)"
+    )
     value: Annotated[object | None, Profile.USER] = Field(
         None,
         description="Process-specific initial-condition value payload.",
     )
-    description: Annotated[str, Profile.USER] = Field("", description="Description of the initial condition")
+    description: Annotated[str, Profile.USER] = Field(
+        "", description="Description of the initial condition"
+    )
     units: Annotated[str, Profile.USER] = Field("", description="Units of the initial condition")

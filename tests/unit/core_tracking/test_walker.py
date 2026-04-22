@@ -155,8 +155,7 @@ def test_walker_on_real_hydromodpy_config_annotations() -> None:
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     meta = [
-        (name, field_info.metadata)
-        for name, field_info in GeographicConfig.model_fields.items()
+        (name, field_info.metadata) for name, field_info in GeographicConfig.model_fields.items()
     ]
     roles_by_field = {}
     for name, metadata in meta:

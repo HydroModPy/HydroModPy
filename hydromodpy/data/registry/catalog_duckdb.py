@@ -163,11 +163,25 @@ class _CatalogEntry:
     that access attributes by name (e.g. ``entry.station_id``)."""
 
     __slots__ = (
-        "id", "variable", "source", "station_id",
-        "bbox_xmin", "bbox_ymin", "bbox_xmax", "bbox_ymax",
-        "crs", "date_start", "date_end", "frequency",
-        "unit", "source_unit", "file_path", "file_mtime",
-        "created_at", "is_custom", "fetch_metadata",
+        "id",
+        "variable",
+        "source",
+        "station_id",
+        "bbox_xmin",
+        "bbox_ymin",
+        "bbox_xmax",
+        "bbox_ymax",
+        "crs",
+        "date_start",
+        "date_end",
+        "frequency",
+        "unit",
+        "source_unit",
+        "file_path",
+        "file_mtime",
+        "created_at",
+        "is_custom",
+        "fetch_metadata",
     )
 
     def __init__(self, **kw):
@@ -275,9 +289,18 @@ class DataCatalogDuckDB:
                            is_custom=?, fetch_metadata=?
                            WHERE id=?""",
                         [
-                            bx[0], bx[1], bx[2], bx[3],
-                            crs, ds, de, frequency,
-                            unit, source_unit, str(file_path), mtime,
+                            bx[0],
+                            bx[1],
+                            bx[2],
+                            bx[3],
+                            crs,
+                            ds,
+                            de,
+                            frequency,
+                            unit,
+                            source_unit,
+                            str(file_path),
+                            mtime,
                             1 if is_custom else 0,
                             _json_or_none(fetch_metadata),
                             eid,
@@ -294,21 +317,30 @@ class DataCatalogDuckDB:
                             is_custom, fetch_metadata)
                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                         [
-                            variable, source, station_id,
-                            bx[0], bx[1], bx[2], bx[3],
-                            crs, ds, de, frequency,
-                            unit, source_unit, str(file_path), mtime,
+                            variable,
+                            source,
+                            station_id,
+                            bx[0],
+                            bx[1],
+                            bx[2],
+                            bx[3],
+                            crs,
+                            ds,
+                            de,
+                            frequency,
+                            unit,
+                            source_unit,
+                            str(file_path),
+                            mtime,
                             1 if is_custom else 0,
                             _json_or_none(fetch_metadata),
                         ],
                     )
-                    row = self._conn.execute(
-                        "SELECT currval('entries_seq')"
-                    ).fetchone()
+                    row = self._conn.execute("SELECT currval('entries_seq')").fetchone()
                     return row[0]
             except duckdb.IOException:
                 if attempt < _RETRY - 1:
-                    time.sleep(_BACKOFF * (2 ** attempt))
+                    time.sleep(_BACKOFF * (2**attempt))
                 else:
                     raise
             except Exception as exc:
@@ -412,13 +444,15 @@ class DataCatalogDuckDB:
 
             if delete_files:
                 rows = self._conn.execute(
-                    f"SELECT file_path FROM entries{where}", params,
+                    f"SELECT file_path FROM entries{where}",
+                    params,
                 ).fetchall()
                 for (fp,) in rows:
                     _try_unlink(fp)
 
             result = self._conn.execute(
-                f"DELETE FROM entries{where} RETURNING id", params,
+                f"DELETE FROM entries{where} RETURNING id",
+                params,
             ).fetchall()
             return len(result)
         except Exception as exc:
@@ -450,7 +484,9 @@ class DataCatalogDuckDB:
                 query += " AND id != ?"
                 params.append(exclude_id)
             if bbox is not None:
-                query += " AND bbox_xmin >= ? AND bbox_ymin >= ? AND bbox_xmax <= ? AND bbox_ymax <= ?"
+                query += (
+                    " AND bbox_xmin >= ? AND bbox_ymin >= ? AND bbox_xmax <= ? AND bbox_ymax <= ?"
+                )
                 params.extend([bbox[0], bbox[1], bbox[2], bbox[3]])
             if date_start is not None:
                 query += " AND date_start >= ?"
@@ -510,8 +546,13 @@ class DataCatalogDuckDB:
             "(artifact_id, variable, source, input_hash, tool_name, tool_version, parameters_json) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             [
-                artifact_id, variable, source, input_hash,
-                tool_name, tool_version, _json_or_none(parameters),
+                artifact_id,
+                variable,
+                source,
+                input_hash,
+                tool_name,
+                tool_version,
+                _json_or_none(parameters),
             ],
         )
         row = self._conn.execute("SELECT currval('provenance_seq')").fetchone()
@@ -586,8 +627,7 @@ class DataCatalogDuckDB:
     ) -> int:
         """Record a failure row; returns its id."""
         self._conn.execute(
-            "INSERT INTO failures (variable, source_ref, error_type, message) "
-            "VALUES (?, ?, ?, ?)",
+            "INSERT INTO failures (variable, source_ref, error_type, message) VALUES (?, ?, ?, ?)",
             [variable, source_ref, error_type, message],
         )
         row = self._conn.execute("SELECT currval('failures_seq')").fetchone()
@@ -631,8 +671,7 @@ class DataCatalogDuckDB:
     ) -> int:
         """Delete cache entries older than *days* days. Returns count removed."""
         rows = self._conn.execute(
-            "SELECT id, file_path FROM entries "
-            "WHERE created_at < now() - INTERVAL (?) DAY",
+            "SELECT id, file_path FROM entries WHERE created_at < now() - INTERVAL (?) DAY",
             [days],
         ).fetchall()
         count = 0
@@ -653,9 +692,7 @@ class DataCatalogDuckDB:
         Returns a summary dict ``{"dropped": N, "refreshed": N}``.
         """
         summary = {"dropped": 0, "refreshed": 0}
-        rows = self._conn.execute(
-            "SELECT id, file_path, file_mtime FROM entries"
-        ).fetchall()
+        rows = self._conn.execute("SELECT id, file_path, file_mtime FROM entries").fetchall()
         for eid, fp, mtime in rows:
             if fp in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
                 continue
@@ -712,6 +749,7 @@ def _json_or_none(d: dict | None) -> str | None:
     if d is None:
         return None
     import json
+
     return json.dumps(d)
 
 

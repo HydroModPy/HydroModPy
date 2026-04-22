@@ -67,10 +67,7 @@ def _compact_calibration_id(
     """Return one short calibration id to avoid path-length failures on Windows."""
     method_token = _compact_method_code(method_name)
     method_suffix = _short_digest(method_name, size=6)
-    return (
-        f"{_compact_case_code(definition)}_"
-        f"{method_token}_{method_suffix}"
-    )
+    return f"{_compact_case_code(definition)}_{method_token}_{method_suffix}"
 
 
 def _resolve_twin_benchmark_root(
@@ -115,9 +112,7 @@ def _prune_benchmark_artifacts(
     if mode == "full":
         return ()
     if mode != "minimal":
-        raise ValueError(
-            f"Unsupported calibration benchmark artifact_retention '{retention}'."
-        )
+        raise ValueError(f"Unsupported calibration benchmark artifact_retention '{retention}'.")
 
     removed: list[str] = []
     for project_name in ("project", "project_truth"):
@@ -345,8 +340,7 @@ def _write_reference_objective_payload(
                 "sample_count": int(reference_points.shape[0]),
                 "seed": int(definition.reference_objective_seed),
                 "truth_params": {
-                    str(name): float(value)
-                    for name, value in definition.truth_params.items()
+                    str(name): float(value) for name, value in definition.truth_params.items()
                 },
                 "points": serialized_points,
             },
@@ -457,9 +451,7 @@ def _apply_evaluation_budget(
         if retained_count < retained_target:
             kwargs["n_samples"] = int(kwargs.get("burn_in", 0)) + thin * retained_target
     else:
-        raise ValueError(
-            f"Unsupported evaluation-budget adaptation for method '{profile.name}'."
-        )
+        raise ValueError(f"Unsupported evaluation-budget adaptation for method '{profile.name}'.")
 
     return CalibrationMethodProfile(
         name=profile.name,
@@ -557,8 +549,7 @@ def synthesize_truth_observations(
                 "solver_name": definition.solver_name,
                 "truth_simulation_config_path": str(truth_simulation_config_path),
                 "truth_params": {
-                    str(name): float(value)
-                    for name, value in definition.truth_params.items()
+                    str(name): float(value) for name, value in definition.truth_params.items()
                 },
                 "observations_truth": {
                     str(name): [float(value) for value in values]
@@ -696,16 +687,12 @@ def _assess_method_result(
     summary: dict[str, Any],
 ) -> TwinMethodBenchmarkResult:
     """Convert one launcher summary to benchmark metrics."""
-    truth_params = {
-        str(name): float(value) for name, value in definition.truth_params.items()
-    }
+    truth_params = {str(name): float(value) for name, value in definition.truth_params.items()}
     abs_tolerances = {
-        str(name): float(value)
-        for name, value in definition.parameter_abs_tolerances.items()
+        str(name): float(value) for name, value in definition.parameter_abs_tolerances.items()
     }
     params_best = {
-        str(name): float(value)
-        for name, value in dict(summary.get("params_best", {})).items()
+        str(name): float(value) for name, value in dict(summary.get("params_best", {})).items()
     }
     param_abs_error = _param_abs_error(
         truth_params=truth_params,
@@ -716,8 +703,7 @@ def _assess_method_result(
         and summary.get("cost_best") is not None
         and math.isfinite(float(summary["cost_best"]))
         and all(
-            math.isfinite(param_abs_error[name])
-            and param_abs_error[name] <= abs_tolerances[name]
+            math.isfinite(param_abs_error[name]) and param_abs_error[name] <= abs_tolerances[name]
             for name in truth_params
         )
     )
@@ -731,11 +717,7 @@ def _assess_method_result(
     if not iteration_history_path.is_file():
         iteration_history_path = None
     result_payload = {}
-    result_path = (
-        None
-        if summary.get("result_path") is None
-        else Path(str(summary["result_path"]))
-    )
+    result_path = None if summary.get("result_path") is None else Path(str(summary["result_path"]))
     if result_path is not None and result_path.is_file():
         result_payload = json.loads(result_path.read_text(encoding="utf-8"))
     calibration_time_seconds = None
@@ -806,8 +788,8 @@ def _assess_method_result(
         if raw_value is not None:
             mean_candidate_objective_time_seconds = float(raw_value)
     if calibration_time_seconds is not None and int(summary.get("n_evaluations", 0)) > 0:
-        time_per_evaluation_seconds = (
-            float(calibration_time_seconds) / float(int(summary["n_evaluations"]))
+        time_per_evaluation_seconds = float(calibration_time_seconds) / float(
+            int(summary["n_evaluations"])
         )
     objective_evaluation = metadata.get("objective_evaluation", {})
     if isinstance(objective_evaluation, dict):
@@ -820,9 +802,7 @@ def _assess_method_result(
                 if block.get("raw_cost") is not None:
                     block_raw_cost_best[block_name] = float(block["raw_cost"])
                 if block.get("normalized_cost") is not None:
-                    block_normalized_cost_best[block_name] = float(
-                        block["normalized_cost"]
-                    )
+                    block_normalized_cost_best[block_name] = float(block["normalized_cost"])
                 if block.get("reference_scale") is not None:
                     block_reference_scale[block_name] = float(block["reference_scale"])
                 if block.get("n_values") is not None:
@@ -842,8 +822,8 @@ def _assess_method_result(
             if runtime_report.get("objective_cache_hit_count") is not None:
                 objective_cache_hit_count = int(runtime_report["objective_cache_hit_count"])
             if candidate_run_count > 0:
-                objective_cache_hit_rate = (
-                    float(objective_cache_hit_count) / float(candidate_run_count)
+                objective_cache_hit_rate = float(objective_cache_hit_count) / float(
+                    candidate_run_count
                 )
     estimated_candidate_runtime_seconds = _estimate_candidate_runtime_seconds(
         mean_candidate_total_time_seconds=mean_candidate_total_time_seconds,
@@ -883,9 +863,7 @@ def _assess_method_result(
         calibration_id=str(summary["calibration_id"]),
         calibration_root=calibration_root,
         result_path=result_path,
-        cost_best=(
-            None if summary.get("cost_best") is None else float(summary["cost_best"])
-        ),
+        cost_best=(None if summary.get("cost_best") is None else float(summary["cost_best"])),
         iteration_count=int(summary.get("iteration_count", 0)),
         n_evaluations=int(summary.get("n_evaluations", 0)),
         params_best=params_best,
@@ -899,33 +877,17 @@ def _assess_method_result(
         estimated_candidate_runtime_seconds=estimated_candidate_runtime_seconds,
         algorithm_overhead_time_seconds=algorithm_overhead_time_seconds,
         mean_candidate_total_time_seconds=mean_candidate_total_time_seconds,
-        mean_candidate_preparation_time_seconds=(
-            mean_candidate_preparation_time_seconds
-        ),
-        mean_candidate_simulation_time_seconds=(
-            mean_candidate_simulation_time_seconds
-        ),
-        mean_candidate_actualize_time_seconds=(
-            mean_candidate_actualize_time_seconds
-        ),
-        mean_candidate_launcher_prepare_time_seconds=(
-            mean_candidate_launcher_prepare_time_seconds
-        ),
-        mean_candidate_runtime_patch_time_seconds=(
-            mean_candidate_runtime_patch_time_seconds
-        ),
-        mean_candidate_output_selection_time_seconds=(
-            mean_candidate_output_selection_time_seconds
-        ),
-        mean_candidate_objective_build_time_seconds=(
-            mean_candidate_objective_build_time_seconds
-        ),
+        mean_candidate_preparation_time_seconds=(mean_candidate_preparation_time_seconds),
+        mean_candidate_simulation_time_seconds=(mean_candidate_simulation_time_seconds),
+        mean_candidate_actualize_time_seconds=(mean_candidate_actualize_time_seconds),
+        mean_candidate_launcher_prepare_time_seconds=(mean_candidate_launcher_prepare_time_seconds),
+        mean_candidate_runtime_patch_time_seconds=(mean_candidate_runtime_patch_time_seconds),
+        mean_candidate_output_selection_time_seconds=(mean_candidate_output_selection_time_seconds),
+        mean_candidate_objective_build_time_seconds=(mean_candidate_objective_build_time_seconds),
         mean_candidate_objective_compute_time_seconds=(
             mean_candidate_objective_compute_time_seconds
         ),
-        mean_candidate_objective_time_seconds=(
-            mean_candidate_objective_time_seconds
-        ),
+        mean_candidate_objective_time_seconds=(mean_candidate_objective_time_seconds),
         failed_iteration_count=failed_iteration_count,
         meets_success_target=bool(meets_success_target),
         candidate_run_count=candidate_run_count,
@@ -999,16 +961,12 @@ def run_twin_benchmark_case(
             if str(profile.name).strip().lower() in requested
         )
     if not selected_profiles:
-        raise ValueError(
-            f"No method profile selected for benchmark '{definition.case_id}'."
-        )
+        raise ValueError(f"No method profile selected for benchmark '{definition.case_id}'.")
 
     configuration_figure = None
     reference_objective_path = None
     generate_case_figures = (
-        definition.generate_case_figures
-        if case_figures is None
-        else bool(case_figures)
+        definition.generate_case_figures if case_figures is None else bool(case_figures)
     )
     retained_mode = (
         str(definition.artifact_retention)
@@ -1085,9 +1043,7 @@ def run_twin_benchmark_case(
                 assessed_result,
                 objective_trace_figure=figure_paths.get("objective_trace"),
                 objective_landscape_figure=figure_paths.get("objective_landscape"),
-                posterior_distribution_figure=figure_paths.get(
-                    "posterior_distribution"
-                ),
+                posterior_distribution_figure=figure_paths.get("posterior_distribution"),
             )
         method_results.append(assessed_result)
 

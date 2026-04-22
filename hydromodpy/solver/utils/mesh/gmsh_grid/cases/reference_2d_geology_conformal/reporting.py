@@ -52,27 +52,21 @@ def _build_summary(
     domain_payload: ZoneConformalGeometryPayload,
     watershed_geometry: object | None = None,
 ) -> dict[str, Any]:
-    zone_feature_counts = (
-        clipped_gdf["zone_key"].astype(str).value_counts().sort_index()
-    )
+    zone_feature_counts = clipped_gdf["zone_key"].astype(str).value_counts().sort_index()
     summary = dict(result.summary)
     summary.update(
         {
             "field_id": str(source_payload.field_id),
             "source_kind": str(source_payload.source_kind),
             "source_path": str(source_payload.source_path),
-            "n_source_features_total": int(
-                source_payload.n_source_features_before_domain_clip
-            ),
+            "n_source_features_total": int(source_payload.n_source_features_before_domain_clip),
             "n_source_features_clipped": int(len(clipped_gdf)),
             "zone_feature_counts": {
                 str(key): int(value) for key, value in zone_feature_counts.items()
             },
         }
     )
-    summary.update(
-        {str(key): value for key, value in dict(domain_payload.summary).items()}
-    )
+    summary.update({str(key): value for key, value in dict(domain_payload.summary).items()})
     summary.update(
         _build_watershed_cell_counts(
             mesh=result.mesh,
@@ -101,8 +95,7 @@ def _build_constraints_qa_contract(
         else {}
     )
     buffered_geology_mode = (
-        str(geology_conformity_payload.get("mode", ""))
-        == "buffered_watershed_envelope"
+        str(geology_conformity_payload.get("mode", "")) == "buffered_watershed_envelope"
     )
 
     zone_count = int(len(tuple(summary.get("zone_keys", ()))))
@@ -127,8 +120,7 @@ def _build_constraints_qa_contract(
         sum(
             int(payload.get("curve_count", 0))
             for payload in linear_constraints_payload.values()
-            if isinstance(payload, Mapping)
-            and str(payload.get("kind", "")) == "geology_interface"
+            if isinstance(payload, Mapping) and str(payload.get("kind", "")) == "geology_interface"
         )
     )
 
@@ -180,8 +172,7 @@ def _build_constraints_qa_contract(
     if uses_river_constraints:
         checks["river_trace_provided"] = bool(river_trace_provided)
         checks["river_curves_generated"] = bool(
-            river_curve_count >= int(thresholds["min_river_curve_count"])
-            and river_line_count > 0
+            river_curve_count >= int(thresholds["min_river_curve_count"]) and river_line_count > 0
         )
         checks["river_curve_group_present"] = bool(river_curve_group_present)
         checks["river_embedded_on_surfaces"] = bool(
@@ -231,19 +222,16 @@ def _finalize_summary_payload(
     summary["constraints_mode"] = str(constraints_mode)
     summary["effective_domain"] = dict(meshing_inputs.effective_domain_payload.summary)
     if meshing_inputs.diagnostics.watershed_boundary_summary is not None:
-        summary["watershed_boundary"] = dict(
-            meshing_inputs.diagnostics.watershed_boundary_summary
-        )
+        summary["watershed_boundary"] = dict(meshing_inputs.diagnostics.watershed_boundary_summary)
     if meshing_inputs.diagnostics.geology_conformity_summary is not None:
-        summary["geology_conformity"] = dict(
-            meshing_inputs.diagnostics.geology_conformity_summary
-        )
+        summary["geology_conformity"] = dict(meshing_inputs.diagnostics.geology_conformity_summary)
     if meshing_inputs.diagnostics.outside_coarsening_summary is not None:
-        summary["outside_coarsening"] = dict(
-            meshing_inputs.diagnostics.outside_coarsening_summary
-        )
+        summary["outside_coarsening"] = dict(meshing_inputs.diagnostics.outside_coarsening_summary)
 
-    if meshing_inputs.constraint_families.river and meshing_inputs.diagnostics.rivers_cfg is not None:
+    if (
+        meshing_inputs.constraint_families.river
+        and meshing_inputs.diagnostics.rivers_cfg is not None
+    ):
         summary["rivers_config"] = _build_rivers_config_summary(
             meshing_inputs.diagnostics.rivers_cfg
         )
@@ -259,13 +247,9 @@ def _finalize_summary_payload(
         refine_interfaces=bool(refine_interfaces),
     )
     qa_checks = (
-        dict(summary.get("qa_checks", {}))
-        if isinstance(summary.get("qa_checks"), Mapping)
-        else {}
+        dict(summary.get("qa_checks", {})) if isinstance(summary.get("qa_checks"), Mapping) else {}
     )
-    qa_checks["constraints_contract_pass"] = bool(
-        summary["constraints_qa"]["overall_pass"]
-    )
+    qa_checks["constraints_contract_pass"] = bool(summary["constraints_qa"]["overall_pass"])
     summary["qa_checks"] = qa_checks
 
     summary["output_mesh"] = str(mesh_path)

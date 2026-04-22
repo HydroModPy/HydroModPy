@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from hydromodpy.core.logging import get_logger
+
 # SIM2 data distributed via geosas.fr
 from hydromodpy.data.common.clients.sim2_edr import BASE_URL, Sim2EDRClient
 
@@ -104,7 +105,10 @@ def fetch_sim2_cube(
     ``output_format='Netcdf4'``, or a CoverageJSON dict otherwise.
     """
     client = Sim2MeteoFranceClient(
-        bbox=bbox, crs=crs, date_range=date_range, output_format=output_format,
+        bbox=bbox,
+        crs=crs,
+        date_range=date_range,
+        output_format=output_format,
     )
     result = client.fetch_cube(parameters=variables)
     if save_dir is not None and output_format == "Netcdf4":

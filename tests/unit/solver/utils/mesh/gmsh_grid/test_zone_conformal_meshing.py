@@ -110,12 +110,7 @@ def test_generate_zone_conformal_mesh_respects_zone_interface() -> None:
     assert result.summary["interface_group_count"] == 1
     assert result.summary["physical_groups_summary"]["interface_group_count"] == 1
     assert result.summary["mesh_size_fields"]["interface_refinement"]["enabled"] is True
-    assert (
-        result.summary["mesh_size_fields"]["interface_refinement"][
-            "interface_curve_count"
-        ]
-        == 1
-    )
+    assert result.summary["mesh_size_fields"]["interface_refinement"]["interface_curve_count"] == 1
     assert result.summary["cleaning_diagnostics"]["cleaning_mode"] == "tolerant"
     assert result.summary["cleaning_summary"]["mode"] == "tolerant"
     assert result.summary["qa_checks"]["coverage_within_tolerance"] is True
@@ -128,9 +123,9 @@ def test_generate_zone_conformal_mesh_respects_zone_interface() -> None:
         vertices = np.asarray(cell.vertices, dtype=float)
         has_left_vertex = bool(np.any(vertices[:, 0] < interface_x - tol))
         has_right_vertex = bool(np.any(vertices[:, 0] > interface_x + tol))
-        assert not (
-            has_left_vertex and has_right_vertex
-        ), "One generated cell crosses the zone interface instead of conforming to it"
+        assert not (has_left_vertex and has_right_vertex), (
+            "One generated cell crosses the zone interface instead of conforming to it"
+        )
 
 
 def test_generate_zone_conformal_mesh_validates_interface_parameters() -> None:
@@ -169,9 +164,7 @@ def test_generate_zone_conformal_mesh_accepts_river_trace() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "split_zone_conformal_with_river.msh"
 
-    river_trace = SimpleNamespace(
-        lines=(LineString([(0.0, 0.5), (2.0, 0.5)]),)
-    )
+    river_trace = SimpleNamespace(lines=(LineString([(0.0, 0.5), (2.0, 0.5)]),))
 
     result = generate_zone_conformal_mesh_from_dataframe(
         gdf,
@@ -215,16 +208,12 @@ def test_generate_zone_conformal_mesh_accepts_generic_linear_constraints() -> No
         linear_constraints=(constraint,),
     )
 
-    payload = dict(result.summary.get("linear_constraints", {})).get(
-        "watershed::boundary", {}
-    )
+    payload = dict(result.summary.get("linear_constraints", {})).get("watershed::boundary", {})
     assert payload.get("provided") is True
     assert int(payload.get("line_count", 0)) == 1
     assert int(payload.get("curve_count", 0)) > 0
     assert payload.get("refined_with_interface_field") is False
-    assert any(
-        group.name == "watershed::boundary" for group in result.physical_groups
-    )
+    assert any(group.name == "watershed::boundary" for group in result.physical_groups)
 
 
 def test_surface_embedding_locator_returns_face_covering_segment_midpoint() -> None:
@@ -236,9 +225,7 @@ def test_surface_embedding_locator_returns_face_covering_segment_midpoint() -> N
         tolerance=1.0e-6,
     )
 
-    matches = locator.locate_surface_tags(
-        LineString([(0.20, 0.50), (0.80, 0.50)])
-    )
+    matches = locator.locate_surface_tags(LineString([(0.20, 0.50), (0.80, 0.50)]))
 
     assert matches == (10,)
 
@@ -252,12 +239,11 @@ def test_surface_embedding_locator_tolerates_near_boundary_probe() -> None:
         tolerance=1.0e-3,
     )
 
-    matches = locator.locate_surface_tags(
-        LineString([(0.9995, 0.25), (0.9995, 0.75)])
-    )
+    matches = locator.locate_surface_tags(LineString([(0.9995, 0.25), (0.9995, 0.75)]))
 
     assert matches
     assert int(matches[0]) == 10
+
 
 def test_generate_zone_conformal_mesh_reports_local_refinement_policy() -> None:
     gdf = _build_split_zones_gdf()
@@ -265,9 +251,7 @@ def test_generate_zone_conformal_mesh_reports_local_refinement_policy() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "split_zone_conformal_with_local_policy.msh"
 
-    river_trace = SimpleNamespace(
-        lines=(LineString([(0.0, 0.5), (2.0, 0.5)]),)
-    )
+    river_trace = SimpleNamespace(lines=(LineString([(0.0, 0.5), (2.0, 0.5)]),))
     watershed_boundary = ZoneLinearConstraint(
         name="watershed::boundary",
         kind="watershed_boundary",
@@ -334,16 +318,11 @@ def test_generate_zone_conformal_mesh_reports_local_refinement_policy() -> None:
     assert policy_summary["candidate_curve_count"] > 0
     assert policy_summary["active_curve_count"] > 0
     assert policy_summary["family_curve_counts_after"]["river"] >= 0
-    family_fields = result.summary["mesh_size_fields"]["interface_refinement"][
-        "family_fields"
-    ]
+    family_fields = result.summary["mesh_size_fields"]["interface_refinement"]["family_fields"]
     assert "river" in family_fields
     assert "geology_interface" in family_fields
     assert "watershed_boundary" in family_fields
-    assert any(
-        bool(dict(payload).get("enabled", False))
-        for payload in family_fields.values()
-    )
+    assert any(bool(dict(payload).get("enabled", False)) for payload in family_fields.values())
 
 
 def test_generate_zone_conformal_mesh_accepts_regional_size_field() -> None:
@@ -360,9 +339,7 @@ def test_generate_zone_conformal_mesh_accepts_regional_size_field() -> None:
         regional_size_fields=(
             ZoneRegionalSizeField(
                 name="watershed::outside_coarsening",
-                region_geometry=Polygon(
-                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
-                ),
+                region_geometry=Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]),
                 inside_size=0.20,
                 outside_size=0.40,
                 transition_distance=0.10,
@@ -371,9 +348,7 @@ def test_generate_zone_conformal_mesh_accepts_regional_size_field() -> None:
         ),
     )
 
-    regional_background = dict(
-        result.summary["mesh_size_fields"].get("regional_background", {})
-    )
+    regional_background = dict(result.summary["mesh_size_fields"].get("regional_background", {}))
     assert regional_background.get("enabled") is True
     assert len(regional_background.get("fields", ())) == 1
     assert regional_background["fields"][0]["outside_size"] == pytest.approx(0.40)
@@ -414,12 +389,8 @@ def test_load_zone_meshing_domain_payload_supports_inline_polygon() -> None:
 
 
 def test_build_zone_conformal_partition_reports_tolerant_cleaning_diagnostics() -> None:
-    invalid_bowtie = Polygon(
-        [(0.0, 0.0), (1.0, 1.0), (0.0, 1.0), (1.0, 0.0), (0.0, 0.0)]
-    )
-    tiny_piece = Polygon(
-        [(3.1, 0.0), (3.15, 0.0), (3.15, 0.05), (3.1, 0.05), (3.1, 0.0)]
-    )
+    invalid_bowtie = Polygon([(0.0, 0.0), (1.0, 1.0), (0.0, 1.0), (1.0, 0.0), (0.0, 0.0)])
+    tiny_piece = Polygon([(3.1, 0.0), (3.15, 0.0), (3.15, 0.05), (3.1, 0.05), (3.1, 0.0)])
     big_piece = Polygon([(2.0, 0.0), (3.0, 0.0), (3.0, 1.0), (2.0, 1.0), (2.0, 0.0)])
     gdf = gpd.GeoDataFrame(
         {

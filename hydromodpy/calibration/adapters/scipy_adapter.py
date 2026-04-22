@@ -80,10 +80,7 @@ class _ScipyAdapterBase:
         raise NotImplementedError
 
     def _bounds_transformed(self) -> list[tuple[float, float]]:
-        return [
-            (p.lower_transformed, p.upper_transformed)
-            for p in self.space.parameters
-        ]
+        return [(p.lower_transformed, p.upper_transformed) for p in self.space.parameters]
 
     def ask(self, n: int = 1) -> list[ParamSuggestion]:
         out: list[ParamSuggestion] = []
@@ -93,13 +90,10 @@ class _ScipyAdapterBase:
                 break
             self._trial_id += 1
             values = {
-                p.name: p.to_physical(float(point[i]))
-                for i, p in enumerate(self.space.parameters)
+                p.name: p.to_physical(float(point[i])) for i, p in enumerate(self.space.parameters)
             }
             self._pending.append((self._trial_id, point))
-            out.append(
-                ParamSuggestion(trial_id=self._trial_id, values=values, source="ask")
-            )
+            out.append(ParamSuggestion(trial_id=self._trial_id, values=values, source="ask"))
         return out
 
     def suggest_next(self) -> ParamSuggestion:
@@ -194,10 +188,7 @@ class ScipyNelderMead(_ScipyAdapterBase):
         from scipy.optimize import minimize
 
         x0 = np.array(
-            [
-                0.5 * (p.lower_transformed + p.upper_transformed)
-                for p in self.space.parameters
-            ]
+            [0.5 * (p.lower_transformed + p.upper_transformed) for p in self.space.parameters]
         )
         bounds = self._bounds_transformed()
 

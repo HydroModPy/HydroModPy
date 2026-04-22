@@ -67,7 +67,9 @@ def _linear_profile(
     right_to_left_amplitude_m: float,
 ) -> np.ndarray:
     x = np.asarray(x_m, dtype=float)
-    return float(base_elevation_m) + float(right_to_left_amplitude_m) * (1.0 - x / float(LENGTH_X_M))
+    return float(base_elevation_m) + float(right_to_left_amplitude_m) * (
+        1.0 - x / float(LENGTH_X_M)
+    )
 
 
 def build_topography_profile(x_m: np.ndarray) -> np.ndarray:

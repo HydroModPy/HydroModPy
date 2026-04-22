@@ -72,11 +72,7 @@ CASE_DIR = (
     / "linearized_unconfined_hillslope_drainage_1d"
 )
 LAUNCHER_SCRIPT = (
-    REPO_ROOT
-    / "examples"
-    / "projects"
-    / "launcher_simulation"
-    / "launcher_simulation.py"
+    REPO_ROOT / "examples" / "projects" / "launcher_simulation" / "launcher_simulation.py"
 )
 SOLVER_ORDER = (
     "modflownwt",
@@ -136,9 +132,7 @@ YEAR_1_RECHARGE_SERIES_MM_DAY_30D = (
     0.6,
 )
 YEAR_1_RECHARGE_SERIES_MM_DAY = tuple(
-    value
-    for value in YEAR_1_RECHARGE_SERIES_MM_DAY_30D
-    for _ in range(2)
+    value for value in YEAR_1_RECHARGE_SERIES_MM_DAY_30D for _ in range(2)
 )
 DRY_RECOVERY_PERIODS = 24
 RECHARGE_SERIES_MM_DAY = YEAR_1_RECHARGE_SERIES_MM_DAY + (0.0,) * DRY_RECOVERY_PERIODS
@@ -435,14 +429,16 @@ def _run_launcher_solver(
                 topography_base_elevation_m=float(topography_base_elevation_m),
                 topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
             ),
-            z_bottom_m=lambda x_m: build_linear_topography_values(
-                x_m=np.asarray(x_m, dtype=float),
-                xmin=0.0,
-                xmax=LENGTH_X_M,
-                topography_base_elevation_m=float(topography_base_elevation_m),
-                topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
-            )
-            - AQUIFER_THICKNESS_M,
+            z_bottom_m=lambda x_m: (
+                build_linear_topography_values(
+                    x_m=np.asarray(x_m, dtype=float),
+                    xmin=0.0,
+                    xmax=LENGTH_X_M,
+                    topography_base_elevation_m=float(topography_base_elevation_m),
+                    topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
+                )
+                - AQUIFER_THICKNESS_M
+            ),
             hydraulic_conductivity_m_s=hydraulic_conductivity_m_s,
             storage_coefficient=SPECIFIC_YIELD,
             seed=IRREGULAR_TRI_SEED,
@@ -534,14 +530,16 @@ def _run_boussinesq(
             topography_base_elevation_m=float(topography_base_elevation_m),
             topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
         ),
-        z_bottom_m=lambda x_m: build_linear_topography_values(
-            x_m=np.asarray(x_m, dtype=float),
-            xmin=0.0,
-            xmax=LENGTH_X_M,
-            topography_base_elevation_m=float(topography_base_elevation_m),
-            topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
-        )
-        - AQUIFER_THICKNESS_M,
+        z_bottom_m=lambda x_m: (
+            build_linear_topography_values(
+                x_m=np.asarray(x_m, dtype=float),
+                xmin=0.0,
+                xmax=LENGTH_X_M,
+                topography_base_elevation_m=float(topography_base_elevation_m),
+                topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
+            )
+            - AQUIFER_THICKNESS_M
+        ),
         hydraulic_conductivity_m_s=hydraulic_conductivity_m_s,
         storage_coefficient=SPECIFIC_YIELD,
         flow_section={
@@ -633,8 +631,7 @@ def _load_boussinesq_east_boundary_edge_mask(bundle_dir: Path) -> np.ndarray:
     edge_kind = np.asarray(edges["edge_kind"]).reshape(-1)
 
     node_x_by_id = {
-        int(node_id): float(x_coord)
-        for node_id, x_coord in zip(node_ids.tolist(), node_x.tolist())
+        int(node_id): float(x_coord) for node_id, x_coord in zip(node_ids.tolist(), node_x.tolist())
     }
     midpoint_x = np.asarray(
         [
@@ -675,12 +672,16 @@ def _interpolate_bundle_history_to_structured_grid(
     nearest_indices = np.zeros((int(ny), int(nx)), dtype=int)
     for row_idx, y_center in enumerate(y_centers):
         for col_idx, x_center in enumerate(x_centers):
-            squared_distance = (centroid_x - float(x_center)) ** 2 + (centroid_y - float(y_center)) ** 2
+            squared_distance = (centroid_x - float(x_center)) ** 2 + (
+                centroid_y - float(y_center)
+            ) ** 2
             nearest_indices[row_idx, col_idx] = int(np.argmin(squared_distance))
     return history[:, nearest_indices].reshape(history.shape[0], int(ny), int(nx))
 
 
-def _integrate_structured_flux_m3_day(values: np.ndarray, *, dx_m: float, dy_m: float) -> np.ndarray:
+def _integrate_structured_flux_m3_day(
+    values: np.ndarray, *, dx_m: float, dy_m: float
+) -> np.ndarray:
     data = np.asarray(values, dtype=float)
     if data.ndim != 3:
         raise ValueError("Structured flux integration expects a time-y-x array.")
@@ -713,9 +714,7 @@ def _align_step_history(values: np.ndarray, *, n_steps: int) -> np.ndarray:
         return data
     if data.shape[0] > int(n_steps):
         return data[-int(n_steps) :]
-    raise ValueError(
-        f"History has {data.shape[0]} steps but {n_steps} were expected."
-    )
+    raise ValueError(f"History has {data.shape[0]} steps but {n_steps} were expected.")
 
 
 def _compute_structured_storage_change_flux_m3_day(
@@ -733,14 +732,20 @@ def _compute_structured_storage_change_flux_m3_day(
     storage_change_flux_m3_day = np.zeros(grids.shape[0], dtype=float)
     for idx, current in enumerate(grids):
         delta_storage_m3 = float(
-            np.sum((np.asarray(current, dtype=float) - previous) * cell_area_m2 * float(storage_coefficient))
+            np.sum(
+                (np.asarray(current, dtype=float) - previous)
+                * cell_area_m2
+                * float(storage_coefficient)
+            )
         )
         storage_change_flux_m3_day[idx] = delta_storage_m3 / float(dt_days)
         previous = np.asarray(current, dtype=float)
     return storage_change_flux_m3_day
 
 
-def _select_snapshot_indices(elapsed_days: np.ndarray, snapshot_days: tuple[float, ...]) -> list[int]:
+def _select_snapshot_indices(
+    elapsed_days: np.ndarray, snapshot_days: tuple[float, ...]
+) -> list[int]:
     times = np.asarray(elapsed_days, dtype=float).reshape(-1)
     selected: list[int] = []
     for day in snapshot_days:
@@ -756,9 +761,7 @@ def _first_contact_day(clearance_profiles: np.ndarray, *, elapsed_days: np.ndarr
         return float("nan")
     elapsed = np.asarray(elapsed_days, dtype=float).reshape(-1)
     if elapsed.size != mask.size:
-        raise ValueError(
-            "clearance_profiles and elapsed_days must share the same time length."
-        )
+        raise ValueError("clearance_profiles and elapsed_days must share the same time length.")
     return float(elapsed[int(np.argmax(mask))])
 
 
@@ -769,9 +772,11 @@ def _build_result(
     topography_base_elevation_m: float,
     wall_time_seconds: float | None = None,
 ) -> TransientResult:
-    period_indices, heads, explicit_elapsed_seconds = load_npy_time_series_arrays_with_elapsed_seconds(
-        result.postprocess_dir,
-        "watertable_elevation",
+    period_indices, heads, explicit_elapsed_seconds = (
+        load_npy_time_series_arrays_with_elapsed_seconds(
+            result.postprocess_dir,
+            "watertable_elevation",
+        )
     )
     del period_indices
     heads = np.asarray(heads, dtype=float)
@@ -855,11 +860,14 @@ def _build_result(
             result.postprocess_dir,
             "outlet_discharge_east_side_m3_s",
         )
-        _, accumulation_flux = load_npy_time_series_arrays(result.postprocess_dir, "accumulation_flux")
+        _, accumulation_flux = load_npy_time_series_arrays(
+            result.postprocess_dir, "accumulation_flux"
+        )
         accumulation_flux = np.asarray(accumulation_flux, dtype=float)
         if accumulation_flux.ndim == 2:
             accumulation_proxy_m3_day = (
-                np.sum(np.nan_to_num(accumulation_flux, nan=0.0), axis=1, dtype=float) * SECONDS_PER_DAY
+                np.sum(np.nan_to_num(accumulation_flux, nan=0.0), axis=1, dtype=float)
+                * SECONDS_PER_DAY
             )
         else:
             accumulation_proxy_m3_day = _integrate_structured_flux_m3_day(
@@ -1026,10 +1034,7 @@ def _select_informative_points(results: list[TransientResult]) -> list[tuple[str
     ordered = sorted(results, key=lambda item: SOLVER_ORDER.index(item.solver))
     x = np.asarray(ordered[0].x, dtype=float)
     amplitude_by_solver = np.vstack(
-        [
-            np.ptp(np.asarray(item.head_profiles, dtype=float), axis=0)
-            for item in ordered
-        ]
+        [np.ptp(np.asarray(item.head_profiles, dtype=float), axis=0) for item in ordered]
     )
     combined_amplitude = np.mean(amplitude_by_solver, axis=0)
     selected: list[tuple[str, str, float]] = []
@@ -1046,7 +1051,9 @@ def _select_informative_points(results: list[TransientResult]) -> list[tuple[str
     return selected
 
 
-def _write_head_point_figure(results: list[TransientResult], output_png: Path) -> list[dict[str, Any]]:
+def _write_head_point_figure(
+    results: list[TransientResult], output_png: Path
+) -> list[dict[str, Any]]:
     return reporting_write_head_point_figure(
         results,
         output_png,

@@ -70,11 +70,7 @@ CASE_DIR = (
     / "linearized_unconfined_hillslope_drainage_1d"
 )
 LAUNCHER_SCRIPT = (
-    REPO_ROOT
-    / "examples"
-    / "projects"
-    / "launcher_simulation"
-    / "launcher_simulation.py"
+    REPO_ROOT / "examples" / "projects" / "launcher_simulation" / "launcher_simulation.py"
 )
 SOLVER_ORDER = ("modflownwt", "modflow6", "boussinesq")
 SOLVER_LABELS = {
@@ -332,9 +328,7 @@ def _run_launcher_solver_scenario(
     model_ws, postprocess_dir, particles_dir = resolve_model_workspace(
         out_path,
         results_folder_name=str(
-            dict(metadata.get("workspace", {})).get(
-                "results_folder_name", "results_simulations"
-            )
+            dict(metadata.get("workspace", {})).get("results_folder_name", "results_simulations")
         ),
     )
     return ValidationRunResult(
@@ -383,14 +377,16 @@ def _run_boussinesq_scenario(
             topography_base_elevation_m=TOPOGRAPHY_BASE_ELEVATION_M,
             topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
         ),
-        z_bottom_m=lambda x_m: build_linear_topography_values(
-            x_m=np.asarray(x_m, dtype=float),
-            xmin=0.0,
-            xmax=length_x_m,
-            topography_base_elevation_m=TOPOGRAPHY_BASE_ELEVATION_M,
-            topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
-        )
-        - aquifer_thickness_m,
+        z_bottom_m=lambda x_m: (
+            build_linear_topography_values(
+                x_m=np.asarray(x_m, dtype=float),
+                xmin=0.0,
+                xmax=length_x_m,
+                topography_base_elevation_m=TOPOGRAPHY_BASE_ELEVATION_M,
+                topography_right_to_left_amplitude_m=TOPOGRAPHY_RIGHT_TO_LEFT_AMPLITUDE_M,
+            )
+            - aquifer_thickness_m
+        ),
         hydraulic_conductivity_m_s=float(hydraulic_conductivity_m_s),
         storage_coefficient=0.10,
     )
@@ -401,25 +397,25 @@ def _run_boussinesq_scenario(
     flow = Flow(
         build_flow_config(
             {
-            "runtime_backend": "local",
-            "flow_regime": "steady",
-            "ic": {"type": "custom", "value": initial_head_m},
-            "active_sinks_sources": ["recharge"],
-            "active_bc": ["east_side", "drainage"],
-            "sinks_sources": {
-                "recharge": {
-                    "values": mm_day_to_m_s(float(scenario.recharge_mm_day)),
-                    "first_clim": "mean",
-                }
-            },
-            "bc": {
-                "dirichlet": {
-                    "east_side": {
-                        "type": "dirichlet",
-                        "value": EAST_HEAD_M,
-                    },
+                "runtime_backend": "local",
+                "flow_regime": "steady",
+                "ic": {"type": "custom", "value": initial_head_m},
+                "active_sinks_sources": ["recharge"],
+                "active_bc": ["east_side", "drainage"],
+                "sinks_sources": {
+                    "recharge": {
+                        "values": mm_day_to_m_s(float(scenario.recharge_mm_day)),
+                        "first_clim": "mean",
+                    }
                 },
-                "cauchy": {
+                "bc": {
+                    "dirichlet": {
+                        "east_side": {
+                            "type": "dirichlet",
+                            "value": EAST_HEAD_M,
+                        },
+                    },
+                    "cauchy": {
                         "drainage": {
                             "application_domain": "top",
                             "type": "cauchy",
@@ -444,12 +440,8 @@ def _run_boussinesq_scenario(
     success = bool(model.processing(write_model=True, run_model=True))
     residual = float(model.runtime_summary.get("steady_residual_norm_inf", np.inf))
     accepted = success or residual <= ACCEPTABLE_BOUSS_RESIDUAL_INF
-    model.runtime_summary["accepted_with_relaxed_residual"] = bool(
-        (not success) and accepted
-    )
-    model.runtime_summary["acceptable_steady_residual_inf"] = float(
-        ACCEPTABLE_BOUSS_RESIDUAL_INF
-    )
+    model.runtime_summary["accepted_with_relaxed_residual"] = bool((not success) and accepted)
+    model.runtime_summary["acceptable_steady_residual_inf"] = float(ACCEPTABLE_BOUSS_RESIDUAL_INF)
     if not accepted:
         try:
             model.post_processing()
@@ -529,9 +521,7 @@ def _load_boussinesq_surface_profiles(
     surface_profile = np.zeros(int(nx), dtype=float)
     drainage_profile = np.zeros(int(nx), dtype=float)
     for cell_idx, col in enumerate(col_index.tolist()):
-        surface_profile[col] += (
-            float(final_surface[cell_idx]) * float(area_m2[cell_idx]) * 86_400.0
-        )
+        surface_profile[col] += float(final_surface[cell_idx]) * float(area_m2[cell_idx]) * 86_400.0
         drainage_profile[col] += float(final_drainage[cell_idx]) * 86_400.0
     return surface_profile, drainage_profile
 
@@ -614,12 +604,8 @@ def _build_investigation_result(
         min_clearance_m=float(np.min(clearance_profile)),
         mean_clearance_m=float(np.mean(clearance_profile)),
         max_clearance_m=float(np.max(clearance_profile)),
-        surface_lock_fraction=float(
-            np.mean(np.abs(clearance_profile) <= CONTACT_TOLERANCE_M)
-        ),
-        below_surface_fraction=float(
-            np.mean(clearance_profile < -CONTACT_TOLERANCE_M)
-        ),
+        surface_lock_fraction=float(np.mean(np.abs(clearance_profile) <= CONTACT_TOLERANCE_M)),
+        below_surface_fraction=float(np.mean(clearance_profile < -CONTACT_TOLERANCE_M)),
         locked_length_from_toe_m=_locked_length_from_toe(
             x,
             clearance_profile,
@@ -858,9 +844,7 @@ def _write_overview_figure(results: list[InvestigationResult], output_png: Path)
         if any(row.scenario.scenario_id == item.scenario_id for row in results)
     ]
     scenarios = [SCENARIO_BY_ID[item] for item in scenario_ids]
-    solvers = [
-        solver for solver in SOLVER_ORDER if any(row.solver == solver for row in results)
-    ]
+    solvers = [solver for solver in SOLVER_ORDER if any(row.solver == solver for row in results)]
 
     min_clearance = np.full((len(solvers), len(scenarios)), np.nan, dtype=float)
     locked_length = np.full((len(solvers), len(scenarios)), np.nan, dtype=float)
@@ -958,12 +942,8 @@ def _write_markdown_summary(
         lines.append(f"## {scenario.label}")
         lines.append("")
         lines.append(f"- recharge: `{scenario.recharge_mm_day:.3f} mm/day`")
-        lines.append(
-            f"- drainage conductance: `{scenario.drainage_conductance_m2_per_s:.3g} m2/s`"
-        )
-        lines.append(
-            f"- hydraulic conductivity scale: `{HYDRAULIC_CONDUCTIVITY_SCALE:.3f}x`"
-        )
+        lines.append(f"- drainage conductance: `{scenario.drainage_conductance_m2_per_s:.3g} m2/s`")
+        lines.append(f"- hydraulic conductivity scale: `{HYDRAULIC_CONDUCTIVITY_SCALE:.3f}x`")
         lines.append("")
         lines.append(
             "| Solver | Row spread [m] | Min clearance [m] | Mean clearance [m] | Surface-lock fraction | Locked length from toe [m] | Results dir |"
@@ -973,9 +953,7 @@ def _write_markdown_summary(
             lines.append(
                 f"| {SOLVER_LABELS[item.solver]} | {item.row_spread:.4f} | {item.min_clearance_m:.4f} | {item.mean_clearance_m:.4f} | {item.surface_lock_fraction:.3f} | {item.locked_length_from_toe_m:.2f} | `{item.out_path}` |"
             )
-        case_pairwise = [
-            row for row in pairwise_rows if row["scenario_id"] == scenario.scenario_id
-        ]
+        case_pairwise = [row for row in pairwise_rows if row["scenario_id"] == scenario.scenario_id]
         if case_pairwise:
             lines.append("")
             lines.append(
@@ -1008,9 +986,7 @@ def _write_markdown_summary(
                 f"| Peak head above top [m] | {float(summary.get('surface_threshold_peak_head_above_top_m', 0.0)):.4f} |"
             )
         lines.append("")
-        lines.append(
-            f"Figure: `{figures_dir / f'{_slug(scenario.scenario_id)}__profiles.png'}`"
-        )
+        lines.append(f"Figure: `{figures_dir / f'{_slug(scenario.scenario_id)}__profiles.png'}`")
         lines.append(
             f"Boussinesq diagnostics: `{figures_dir / f'{_slug(scenario.scenario_id)}__boussinesq_surface.png'}`"
         )
@@ -1060,9 +1036,9 @@ def main(argv: list[str] | None = None) -> int:
 
     metadata = load_case_metadata(CASE_DIR)
     reference_cfg = dict(metadata.get("reference", {}))
-    hydraulic_conductivity_m_s = float(
-        reference_cfg["hydraulic_conductivity_m_per_s"]
-    ) * HYDRAULIC_CONDUCTIVITY_SCALE
+    hydraulic_conductivity_m_s = (
+        float(reference_cfg["hydraulic_conductivity_m_per_s"]) * HYDRAULIC_CONDUCTIVITY_SCALE
+    )
 
     runtime_configs_dir = output_root / "runtime_configs"
     selected_scenarios = [SCENARIO_BY_ID[item] for item in args.scenarios]
@@ -1176,8 +1152,7 @@ def main(argv: list[str] | None = None) -> int:
             _write_boussinesq_diagnostics_figure(
                 scenario=scenario,
                 result=bouss,
-                output_png=figures_dir
-                / f"{_slug(scenario.scenario_id)}__boussinesq_surface.png",
+                output_png=figures_dir / f"{_slug(scenario.scenario_id)}__boussinesq_surface.png",
             )
     _write_overview_figure(results, figures_dir / "surface_onset_overview.png")
 

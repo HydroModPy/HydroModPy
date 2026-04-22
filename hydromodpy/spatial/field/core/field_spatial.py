@@ -26,9 +26,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for older Python
     import tomli as tomllib  # type: ignore[no-redef]
 
 
-def _get_nested_section(
-    payload: Mapping[str, Any], dotted_path: str
-) -> Mapping[str, Any]:
+def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
     """Resolve a nested TOML section from a dotted path."""
     current: Any = payload
     for token in str(dotted_path).split("."):

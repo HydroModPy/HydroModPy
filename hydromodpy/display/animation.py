@@ -58,8 +58,10 @@ def build_mp4(
         return None
     try:
         with imageio.get_writer(
-            mp4_path, fps=max(1, int(fps)),
-            codec="libx264", macro_block_size=1,
+            mp4_path,
+            fps=max(1, int(fps)),
+            codec="libx264",
+            macro_block_size=1,
         ) as writer:
             for path in frame_paths:
                 writer.append_data(imageio.imread(path))
@@ -90,9 +92,16 @@ def build_plotly_slider(
 
     sources = [_b64(p) for p in frame_paths]
     base = dict(
-        source=sources[0], xref="paper", yref="paper",
-        x=0.5, y=0.5, sizex=1, sizey=1,
-        xanchor="center", yanchor="middle", sizing="contain",
+        source=sources[0],
+        xref="paper",
+        yref="paper",
+        x=0.5,
+        y=0.5,
+        sizex=1,
+        sizey=1,
+        xanchor="center",
+        yanchor="middle",
+        sizing="contain",
     )
     frames = [
         go.Frame(name=str(i), layout=go.Layout(images=[dict(base, source=s)]))
@@ -102,17 +111,27 @@ def build_plotly_slider(
         layout=go.Layout(
             title=title,
             images=[base],
-            sliders=[{
-                "steps": [
-                    {"method": "animate",
-                     "args": [[str(k)], {"mode": "immediate",
-                                          "frame": {"duration": 0, "redraw": True}}],
-                     "label": f"{k + 1}"}
-                    for k in range(len(sources))
-                ],
-                "x": 0.5, "xanchor": "center", "y": -0.01,
-                "yanchor": "top", "len": 0.85, "pad": {"t": 40},
-            }],
+            sliders=[
+                {
+                    "steps": [
+                        {
+                            "method": "animate",
+                            "args": [
+                                [str(k)],
+                                {"mode": "immediate", "frame": {"duration": 0, "redraw": True}},
+                            ],
+                            "label": f"{k + 1}",
+                        }
+                        for k in range(len(sources))
+                    ],
+                    "x": 0.5,
+                    "xanchor": "center",
+                    "y": -0.01,
+                    "yanchor": "top",
+                    "len": 0.85,
+                    "pad": {"t": 40},
+                }
+            ],
         ),
         frames=frames,
     )

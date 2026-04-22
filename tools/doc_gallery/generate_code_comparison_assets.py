@@ -141,7 +141,9 @@ def _load_timeseries_rows(path: Path) -> list[dict[str, float | str]]:
     return rows
 
 
-def _group_rows_by_solver(rows: list[dict[str, float | str]]) -> dict[str, list[dict[str, float | str]]]:
+def _group_rows_by_solver(
+    rows: list[dict[str, float | str]],
+) -> dict[str, list[dict[str, float | str]]]:
     grouped: dict[str, list[dict[str, float | str]]] = {}
     for row in rows:
         solver = str(row["solver"])
@@ -151,7 +153,9 @@ def _group_rows_by_solver(rows: list[dict[str, float | str]]) -> dict[str, list[
     return grouped
 
 
-def _plot_variant(rows: list[dict[str, float | str]], *, title: str, notes: tuple[str, ...], output_png: Path) -> None:
+def _plot_variant(
+    rows: list[dict[str, float | str]], *, title: str, notes: tuple[str, ...], output_png: Path
+) -> None:
     grouped = _group_rows_by_solver(rows)
     ordered_solvers = sorted(grouped, key=_solver_sort_key)
 
@@ -159,7 +163,9 @@ def _plot_variant(rows: list[dict[str, float | str]], *, title: str, notes: tupl
     total_ax, storage_ax = axes
     reference_rows = grouped[ordered_solvers[0]]
     recharge_days = np.asarray([float(row["elapsed_days"]) for row in reference_rows], dtype=float)
-    recharge_flux = np.asarray([float(row["recharge_flux_m3_day"]) for row in reference_rows], dtype=float)
+    recharge_flux = np.asarray(
+        [float(row["recharge_flux_m3_day"]) for row in reference_rows], dtype=float
+    )
     recharge_ax = total_ax.twinx()
     recharge_fill = recharge_ax.fill_between(
         recharge_days,
@@ -179,8 +185,12 @@ def _plot_variant(rows: list[dict[str, float | str]], *, title: str, notes: tupl
     for solver in ordered_solvers:
         solver_rows = grouped[solver]
         elapsed_days = np.asarray([float(row["elapsed_days"]) for row in solver_rows], dtype=float)
-        total_outflow = np.asarray([float(row["total_outflow_m3_day"]) for row in solver_rows], dtype=float)
-        storage_change = np.asarray([float(row["storage_change_m3_day"]) for row in solver_rows], dtype=float)
+        total_outflow = np.asarray(
+            [float(row["total_outflow_m3_day"]) for row in solver_rows], dtype=float
+        )
+        storage_change = np.asarray(
+            [float(row["storage_change_m3_day"]) for row in solver_rows], dtype=float
+        )
         style = {
             "color": SOLVER_COLORS.get(solver, "#444444"),
             "linewidth": 2.0,
@@ -190,7 +200,9 @@ def _plot_variant(rows: list[dict[str, float | str]], *, title: str, notes: tupl
         if solver == "petsc":
             style.update({"linestyle": "--"})
         total_ax.plot(elapsed_days, total_outflow, label=SOLVER_LABELS.get(solver, solver), **style)
-        storage_ax.plot(elapsed_days, storage_change, label=SOLVER_LABELS.get(solver, solver), **style)
+        storage_ax.plot(
+            elapsed_days, storage_change, label=SOLVER_LABELS.get(solver, solver), **style
+        )
 
     total_ax.set_title("Total Outflow", fontsize=11.0)
     total_ax.set_ylabel("Flux [m3/day]")
@@ -241,12 +253,23 @@ def _write_surface_interaction_configuration_schematic(output_png: Path) -> None
     ax.plot(top_x, bottom_y, color="#6c757d", linewidth=1.5)
 
     east_x = 0.86
-    ax.add_patch(Rectangle((east_x, 0.26), 0.055, 0.36, facecolor="#d9e6f2", edgecolor="#4f81a8", linewidth=1.4))
+    ax.add_patch(
+        Rectangle(
+            (east_x, 0.26), 0.055, 0.36, facecolor="#d9e6f2", edgecolor="#4f81a8", linewidth=1.4
+        )
+    )
     ax.text(east_x + 0.028, 0.65, "East fixed head", ha="center", va="bottom", fontsize=10.0)
 
     ax.text(0.085, 0.87, "West divide", ha="left", va="bottom", fontsize=10.0)
     ax.text(0.46, 0.69, "Sloping ground surface", ha="center", va="bottom", fontsize=10.0)
-    ax.text(0.47, 0.37, "Unconfined aquifer strip\n400 m x 30 m", ha="center", va="center", fontsize=10.0)
+    ax.text(
+        0.47,
+        0.37,
+        "Unconfined aquifer strip\n400 m x 30 m",
+        ha="center",
+        va="center",
+        fontsize=10.0,
+    )
 
     for xpos in np.linspace(0.18, 0.72, 6):
         ax.add_patch(
@@ -259,7 +282,9 @@ def _write_surface_interaction_configuration_schematic(output_png: Path) -> None
                 color="#4f81a8",
             )
         )
-    ax.text(0.43, 0.985, "Recharge ramp forcing", ha="center", va="top", fontsize=10.0, color="#2b6c9b")
+    ax.text(
+        0.43, 0.985, "Recharge ramp forcing", ha="center", va="top", fontsize=10.0, color="#2b6c9b"
+    )
 
     for xpos in (0.28, 0.45, 0.62):
         ax.add_patch(
@@ -272,7 +297,15 @@ def _write_surface_interaction_configuration_schematic(output_png: Path) -> None
                 color="#c55a11",
             )
         )
-    ax.text(0.47, 0.58, "Top drainage / surface interaction", ha="center", va="bottom", fontsize=9.8, color="#a04d14")
+    ax.text(
+        0.47,
+        0.58,
+        "Top drainage / surface interaction",
+        ha="center",
+        va="bottom",
+        fontsize=9.8,
+        color="#a04d14",
+    )
 
     ax.text(
         0.5,
@@ -288,7 +321,9 @@ def _write_surface_interaction_configuration_schematic(output_png: Path) -> None
     plt.close(fig)
 
 
-def _write_variant_summary(rows: list[dict[str, float | str]], *, variant: ComparisonVariant, output_json: Path) -> None:
+def _write_variant_summary(
+    rows: list[dict[str, float | str]], *, variant: ComparisonVariant, output_json: Path
+) -> None:
     grouped = _group_rows_by_solver(rows)
     payload = {
         "title": variant.title,
@@ -298,10 +333,14 @@ def _write_variant_summary(rows: list[dict[str, float | str]], *, variant: Compa
             {
                 "solver": solver,
                 "solver_label": SOLVER_LABELS.get(solver, solver),
-                "peak_total_outflow_m3_day": max(float(row["total_outflow_m3_day"]) for row in solver_rows),
+                "peak_total_outflow_m3_day": max(
+                    float(row["total_outflow_m3_day"]) for row in solver_rows
+                ),
                 "final_storage_change_m3_day": float(solver_rows[-1]["storage_change_m3_day"]),
             }
-            for solver, solver_rows in sorted(grouped.items(), key=lambda item: _solver_sort_key(item[0]))
+            for solver, solver_rows in sorted(
+                grouped.items(), key=lambda item: _solver_sort_key(item[0])
+            )
         ],
     }
     output_json.write_text(

@@ -31,6 +31,7 @@ _configure_matplotlib_backend_from_argv(sys.argv[1:])
 
 import matplotlib.pyplot as plt
 
+
 # Ensure repository root is importable when script is launched directly.
 def _find_repo_root() -> Path:
     current = Path(__file__).resolve()
@@ -148,8 +149,7 @@ def _resolve_config_path(raw_config: str) -> Path:
         return script_candidate
 
     raise FileNotFoundError(
-        f"Config TOML not found: '{raw_config}'. "
-        f"Tried '{cwd_candidate}' and '{script_candidate}'."
+        f"Config TOML not found: '{raw_config}'. Tried '{cwd_candidate}' and '{script_candidate}'."
     )
 
 
@@ -309,6 +309,7 @@ def _plot_vertical_section(ax, *, values_3d: np.ndarray, sgrid, cmap, norm) -> N
     _disable_axis_offset(ax)
     ax.grid(False)
     _set_square_axes(ax)
+
 
 def _plot_horizontal_center_section(ax, *, values_3d: np.ndarray, sgrid, cmap, norm) -> None:
     """Plot one horizontal slice at the center layer."""
@@ -583,7 +584,9 @@ def main(argv=None) -> int:
     mode = str(field_param.vertical_profile.get("mode", "none"))
     char_depth = field_param.vertical_profile.get("characteristic_depth")
     if mode == "exponential" and char_depth is not None:
-        final_subtitle = f"vertical profile: exponential (characteristic_depth={float(char_depth):.3g} m)"
+        final_subtitle = (
+            f"vertical profile: exponential (characteristic_depth={float(char_depth):.3g} m)"
+        )
     else:
         final_subtitle = f"vertical profile: {mode}"
 

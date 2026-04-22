@@ -14,6 +14,7 @@ matplotlib.use("Agg", force=True)
 
 try:
     import gmsh  # noqa: F401
+
     _gmsh_available = True
 except (ImportError, OSError):
     _gmsh_available = False
@@ -58,9 +59,7 @@ CASE_TOML = (
     / "reference_2d_geology_conformal"
     / "case_config_zone_conformal.toml"
 )
-_CASE_RELATIVE_GEOLOGY_PATH = (
-    "../../../../../../../examples/data/geology/GEO1M_brittany.shp"
-)
+_CASE_RELATIVE_GEOLOGY_PATH = "../../../../../../../examples/data/geology/GEO1M_brittany.shp"
 _CASE_RELATIVE_REFERENCE_RASTER_PATH = (
     "../../../cartesian_grid/examples/discretization/demo_top_bretagne_10km.tif"
 )
@@ -317,10 +316,7 @@ def _write_invalid_clip_bbox_domain_case_toml(path: Path) -> None:
         'id_field = "domain_id"\n'
         'selected_id = "main"\n'
     )
-    new_block = (
-        "[mesh_case.domain]\n"
-        "clip_bbox = [355000.0, 6712500.0, 359000.0, 6716500.0]\n"
-    )
+    new_block = "[mesh_case.domain]\nclip_bbox = [355000.0, 6712500.0, 359000.0, 6716500.0]\n"
     if old_block not in raw:
         raise AssertionError(
             "Unable to build invalid clip_bbox-domain test config: domain block not found"
@@ -336,17 +332,13 @@ def _write_invalid_clip_bbox_domain_case_toml(path: Path) -> None:
 
 
 def _rewrite_case_config_section_and_paths(raw: str, *, section: str) -> str:
-    section_raw = raw.replace("[mesh_case]", f"[{section}]").replace(
-        "[mesh_case.", f"[{section}."
-    )
+    section_raw = raw.replace("[mesh_case]", f"[{section}]").replace("[mesh_case.", f"[{section}.")
     case_dir = CASE_TOML.parent
     absolute_domain_path = (case_dir / "domain_window.geojson").resolve().as_posix()
-    absolute_geology_path = (
-        case_dir / _CASE_RELATIVE_GEOLOGY_PATH
-    ).resolve().as_posix()
+    absolute_geology_path = (case_dir / _CASE_RELATIVE_GEOLOGY_PATH).resolve().as_posix()
     absolute_reference_raster_path = (
-        case_dir / _CASE_RELATIVE_REFERENCE_RASTER_PATH
-    ).resolve().as_posix()
+        (case_dir / _CASE_RELATIVE_REFERENCE_RASTER_PATH).resolve().as_posix()
+    )
     section_raw = section_raw.replace(
         'path = "domain_window.geojson"',
         f'path = "{absolute_domain_path}"',
@@ -402,10 +394,7 @@ def _write_geographic_box_buffer_case_toml(
         'id_field = "domain_id"\n'
         'selected_id = "main"\n'
     )
-    new_block = (
-        f"[{section}.domain]\n"
-        'kind = "geographic_box_buffer"\n'
-    )
+    new_block = f'[{section}.domain]\nkind = "geographic_box_buffer"\n'
     if old_block not in migrated:
         raise AssertionError(
             "Unable to build geographic_box_buffer test config: domain block not found"
@@ -512,9 +501,7 @@ def _write_geographic_scope_case_toml(
         'kind = "geographic_watershed_box"\n'
     )
     if old_block not in migrated:
-        raise AssertionError(
-            "Unable to build geographic scope test config: domain block not found"
-        )
+        raise AssertionError("Unable to build geographic scope test config: domain block not found")
     migrated = migrated.replace(old_block, new_block)
     migrated = migrated.replace(
         'constraints_mode = "geology_only"',
@@ -567,9 +554,7 @@ def _build_reference_river_trace() -> SimpleNamespace:
 def test_reference_2d_geology_conformal_case_non_regression(
     update_goldens: bool,
 ) -> None:
-    output_dir = (
-        Path.cwd() / "scratch_tests" / "reference_2d_geology_conformal" / "runtime"
-    )
+    output_dir = Path.cwd() / "scratch_tests" / "reference_2d_geology_conformal" / "runtime"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     summary = run_reference_2d_zone_conformal_case_from_toml(
@@ -595,23 +580,14 @@ def test_reference_2d_geology_conformal_case_non_regression(
     assert summary["mesh_size_fields"]["interface_refinement"]["enabled"] is True
     assert summary["effective_domain"]["domain_kind"] == "vector"
     assert (
-        summary["mesh_size_fields"]["interface_refinement"][
-            "candidate_interface_curve_count"
-        ]
+        summary["mesh_size_fields"]["interface_refinement"]["candidate_interface_curve_count"]
         >= summary["mesh_size_fields"]["interface_refinement"]["interface_curve_count"]
     )
     assert (
-        summary["mesh_size_fields"]["interface_refinement"][
-            "scope_filtered_interface_curve_count"
-        ]
+        summary["mesh_size_fields"]["interface_refinement"]["scope_filtered_interface_curve_count"]
         == summary["mesh_size_fields"]["interface_refinement"]["interface_curve_count"]
     )
-    assert (
-        summary["mesh_size_fields"]["interface_refinement"][
-            "refinement_scope_applied"
-        ]
-        is False
-    )
+    assert summary["mesh_size_fields"]["interface_refinement"]["refinement_scope_applied"] is False
     assert summary["cleaning_diagnostics"]["cleaning_mode"] == "tolerant"
     assert summary["cleaning_summary"]["mode"] == "tolerant"
     assert (
@@ -622,16 +598,13 @@ def test_reference_2d_geology_conformal_case_non_regression(
         summary["cleaning_diagnostics"]["source_feature_count"]
         >= summary["n_source_features_clipped"]
     )
-    assert summary["physical_groups_summary"]["surface_group_count"] == len(
-        summary["zone_keys"]
-    )
+    assert summary["physical_groups_summary"]["surface_group_count"] == len(summary["zone_keys"])
     assert summary["qa_checks"]["coverage_within_tolerance"] is True
     assert summary["qa_checks"]["has_interface_groups"] is True
     assert summary["qa_checks"]["constraints_contract_pass"] is True
     assert len(summary["surface_physical_groups"]) == len(summary["zone_keys"])
     assert any(
-        group["name"].startswith("interface::")
-        for group in summary["curve_physical_groups"]
+        group["name"].startswith("interface::") for group in summary["curve_physical_groups"]
     )
 
     stable = dict(summary)
@@ -675,8 +648,7 @@ def test_reference_2d_geology_conformal_rejects_removed_clip_bbox_syntax() -> No
         run_reference_2d_zone_conformal_case_from_toml(
             invalid_toml,
             output_mesh=output_dir / "reference_2d_geology_conformal.msh",
-            output_summary_json=output_dir
-            / "reference_2d_geology_conformal_summary.json",
+            output_summary_json=output_dir / "reference_2d_geology_conformal_summary.json",
             output_figure=output_dir / "reference_2d_geology_conformal.png",
         )
 
@@ -799,7 +771,9 @@ def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "mesh_launcher.toml"
-    config_path.write_text("[mesh_catchment]\nconstraints_mode = \"geology_only\"\n", encoding="utf-8")
+    config_path.write_text(
+        '[mesh_catchment]\nconstraints_mode = "geology_only"\n', encoding="utf-8"
+    )
 
     section_data = {
         "constraints_mode": "geology_only",
@@ -824,7 +798,7 @@ def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
             "min_polygon_area": 0.0,
             "refine_interfaces": False,
             "interface_sampling": 64,
-        }
+        },
     }
 
     cfg = _resolve_case_config(
@@ -847,7 +821,9 @@ def test_watershed_boundary_builds_linear_constraint_and_preserves_full_geology(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "mesh_launcher.toml"
-    config_path.write_text("[mesh_catchment]\nconstraints_mode = \"geology_only\"\n", encoding="utf-8")
+    config_path.write_text(
+        '[mesh_catchment]\nconstraints_mode = "geology_only"\n', encoding="utf-8"
+    )
 
     watershed_path = tmp_path / "watershed.geojson"
     watershed_gdf = gpd.GeoDataFrame(
@@ -934,20 +910,13 @@ def test_watershed_boundary_builds_linear_constraint_and_preserves_full_geology(
         inputs.diagnostics.source_plot_gdf["zone_key"].astype(str)
     )
     assert "outside_background" not in set(inputs.zone_gdf["zone_key"].astype(str))
-    assert any(
-        constraint.name == "watershed::boundary"
-        for constraint in inputs.linear_constraints
-    )
+    assert any(constraint.name == "watershed::boundary" for constraint in inputs.linear_constraints)
     assert inputs.zone_meshing_cfg.global_size == pytest.approx(250.0)
     assert inputs.zone_meshing_cfg.refinement_policy is not None
-    assert (
-        inputs.zone_meshing_cfg.refinement_policy.families["watershed_boundary"].enabled
-        is True
-    )
-    assert (
-        inputs.zone_meshing_cfg.refinement_policy.families["watershed_boundary"].interface_distance
-        == pytest.approx(500.0)
-    )
+    assert inputs.zone_meshing_cfg.refinement_policy.families["watershed_boundary"].enabled is True
+    assert inputs.zone_meshing_cfg.refinement_policy.families[
+        "watershed_boundary"
+    ].interface_distance == pytest.approx(500.0)
     assert inputs.diagnostics.watershed_boundary_summary is not None
     assert inputs.diagnostics.watershed_boundary_summary["enabled"] is True
     assert len(inputs.regional_size_fields) == 1
@@ -965,7 +934,7 @@ def test_watershed_boundary_buffered_geology_conformity_uses_linear_geology_cons
 ) -> None:
     config_path = tmp_path / "mesh_launcher.toml"
     config_path.write_text(
-        "[mesh_catchment]\nconstraints_mode = \"geology_only\"\n",
+        '[mesh_catchment]\nconstraints_mode = "geology_only"\n',
         encoding="utf-8",
     )
 
@@ -1057,38 +1026,25 @@ def test_watershed_boundary_buffered_geology_conformity_uses_linear_geology_cons
     assert set(inputs.zone_gdf["zone_key"].astype(str)) == {"domain"}
     assert "domain" not in set(inputs.diagnostics.source_plot_gdf["zone_key"].astype(str))
     assert not any(
-        constraint.name == "watershed::boundary"
-        for constraint in inputs.linear_constraints
+        constraint.name == "watershed::boundary" for constraint in inputs.linear_constraints
     )
     assert any(
-        constraint.name == "geology::active_interfaces"
-        for constraint in inputs.linear_constraints
+        constraint.name == "geology::active_interfaces" for constraint in inputs.linear_constraints
     )
     assert inputs.diagnostics.watershed_boundary_summary is not None
-    assert (
-        inputs.diagnostics.watershed_boundary_summary["explicit_constraint_applied"]
-        is False
-    )
+    assert inputs.diagnostics.watershed_boundary_summary["explicit_constraint_applied"] is False
     assert (
         inputs.diagnostics.watershed_boundary_summary["geometry_mode"]
         == "buffered_watershed_envelope"
     )
     assert inputs.diagnostics.geology_conformity_summary is not None
-    assert (
-        inputs.diagnostics.geology_conformity_summary["mode"]
-        == "buffered_watershed_envelope"
-    )
-    assert (
-        inputs.diagnostics.geology_conformity_summary["buffer_distance"]
-        == pytest.approx(250.0)
-    )
+    assert inputs.diagnostics.geology_conformity_summary["mode"] == "buffered_watershed_envelope"
+    assert inputs.diagnostics.geology_conformity_summary["buffer_distance"] == pytest.approx(250.0)
     assert (
         inputs.diagnostics.geology_conformity_summary["mesh_partition_mode"]
         == "domain_background_plus_linear_geology_constraints"
     )
-    assert (
-        inputs.diagnostics.geology_conformity_summary["constraint_line_count"] > 0
-    )
+    assert inputs.diagnostics.geology_conformity_summary["constraint_line_count"] > 0
     assert len(inputs.regional_size_fields) == 1
     assert inputs.regional_size_fields[0].inside_size == pytest.approx(250.0)
     assert inputs.regional_size_fields[0].outside_size == pytest.approx(500.0)
@@ -1098,7 +1054,9 @@ def test_watershed_boundary_defaults_regularization_tolerance_to_global_size(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "mesh_launcher.toml"
-    config_path.write_text("[mesh_catchment]\nconstraints_mode = \"geology_only\"\n", encoding="utf-8")
+    config_path.write_text(
+        '[mesh_catchment]\nconstraints_mode = "geology_only"\n', encoding="utf-8"
+    )
 
     watershed_path = tmp_path / "watershed.geojson"
     gpd.GeoDataFrame(
@@ -1163,7 +1121,9 @@ def test_watershed_boundary_defaults_regularization_tolerance_to_global_size(
     )
 
     assert inputs.diagnostics.watershed_boundary_summary is not None
-    assert inputs.diagnostics.watershed_boundary_summary["smoothing"]["distance"] == pytest.approx(250.0)
+    assert inputs.diagnostics.watershed_boundary_summary["smoothing"]["distance"] == pytest.approx(
+        250.0
+    )
 
 
 @_skip_no_gmsh
@@ -1171,7 +1131,9 @@ def test_watershed_boundary_runs_end_to_end_with_smoothed_constraint(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "mesh_launcher.toml"
-    config_path.write_text("[mesh_catchment]\nconstraints_mode = \"geology_only\"\n", encoding="utf-8")
+    config_path.write_text(
+        '[mesh_catchment]\nconstraints_mode = "geology_only"\n', encoding="utf-8"
+    )
 
     watershed_path = tmp_path / "watershed.geojson"
     watershed_gdf = gpd.GeoDataFrame(
@@ -1255,7 +1217,7 @@ def test_watershed_boundary_buffered_geology_conformity_runs_end_to_end(
 ) -> None:
     config_path = tmp_path / "mesh_launcher.toml"
     config_path.write_text(
-        "[mesh_catchment]\nconstraints_mode = \"geology_only\"\n",
+        '[mesh_catchment]\nconstraints_mode = "geology_only"\n',
         encoding="utf-8",
     )
 
@@ -1350,6 +1312,7 @@ def test_watershed_boundary_buffered_geology_conformity_runs_end_to_end(
     assert summary["constraints_qa"]["overall_pass"] is True
     assert summary["outside_coarsening"]["enabled"] is True
     assert summary["n_cells"] > 0
+
 
 def test_main_prints_summary_json(monkeypatch, capsys) -> None:
     payload = {"status": "ok", "n_cells": 3}
@@ -1537,8 +1500,7 @@ def test_reference_case_accepts_watershed_boundary_section() -> None:
     assert summary["n_cells_in_watershed"] > 0
     assert summary["n_cells_outside_watershed"] >= 0
     assert (
-        summary["n_cells_in_watershed"] + summary["n_cells_outside_watershed"]
-        == summary["n_cells"]
+        summary["n_cells_in_watershed"] + summary["n_cells_outside_watershed"] == summary["n_cells"]
     )
     assert summary["n_cells"] > 0
 
@@ -1546,10 +1508,7 @@ def test_reference_case_accepts_watershed_boundary_section() -> None:
 @_skip_no_gmsh
 def test_geology_rivers_mode_builds_combined_constraints_contract() -> None:
     output_dir = (
-        Path.cwd()
-        / "scratch_tests"
-        / "reference_2d_geology_conformal"
-        / "runtime_geology_rivers"
+        Path.cwd() / "scratch_tests" / "reference_2d_geology_conformal" / "runtime_geology_rivers"
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     case_toml = output_dir / "case_geology_rivers.toml"
@@ -1564,8 +1523,7 @@ def test_geology_rivers_mode_builds_combined_constraints_contract() -> None:
         case_toml,
         section="case",
         output_mesh=output_dir / "reference_2d_zone_conformal_geology_rivers.msh",
-        output_summary_json=output_dir
-        / "reference_2d_zone_conformal_geology_rivers_summary.json",
+        output_summary_json=output_dir / "reference_2d_zone_conformal_geology_rivers_summary.json",
         river_trace=_build_reference_river_trace(),
         show_plot=False,
     )
@@ -1582,6 +1540,7 @@ def test_geology_rivers_mode_builds_combined_constraints_contract() -> None:
     assert summary["qa_checks"]["constraints_contract_pass"] is True
     assert summary["river_trace"]["curve_count"] > 0
     assert summary["river_trace"]["embedded_surface_curve_pairs"] > 0
+
 
 def test_reference_case_rejects_removed_scope_sections() -> None:
     output_dir = (
@@ -1609,10 +1568,7 @@ def test_reference_case_rejects_removed_scope_sections() -> None:
 @_skip_no_gmsh
 def test_rivers_only_mode_builds_river_constraints_contract() -> None:
     output_dir = (
-        Path.cwd()
-        / "scratch_tests"
-        / "reference_2d_geology_conformal"
-        / "runtime_rivers_only"
+        Path.cwd() / "scratch_tests" / "reference_2d_geology_conformal" / "runtime_rivers_only"
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     config_path = output_dir / "case_rivers_only.toml"

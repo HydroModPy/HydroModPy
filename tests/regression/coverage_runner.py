@@ -40,6 +40,7 @@ try:
 except SystemExit as exc:
     if exc.code != 0:
         import traceback
+
         print(
             f"\n[coverage_runner] SystemExit(code={exc.code!r}) caught.\n"
             f"Traceback (origin of sys.exit):",
@@ -49,6 +50,7 @@ except SystemExit as exc:
     raise
 except BaseException:
     import traceback
+
     traceback.print_exc(file=sys.stderr)
     raise
 finally:

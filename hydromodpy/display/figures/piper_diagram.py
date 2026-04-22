@@ -88,13 +88,15 @@ class PiperDiagramFigure(BaseFigure):
         # Draw frames.
         tri_left = np.array([[0, 0], [1, 0], [0.5, np.sqrt(3) / 2], [0, 0]])
         tri_right = np.array([[2, 0], [3, 0], [2.5, np.sqrt(3) / 2], [2, 0]])
-        diam = np.array([
-            [1.0, np.sqrt(3) / 2],
-            [1.5, np.sqrt(3)],
-            [2.0, np.sqrt(3) / 2],
-            [1.5, 0.0],
-            [1.0, np.sqrt(3) / 2],
-        ])
+        diam = np.array(
+            [
+                [1.0, np.sqrt(3) / 2],
+                [1.5, np.sqrt(3)],
+                [2.0, np.sqrt(3) / 2],
+                [1.5, 0.0],
+                [1.0, np.sqrt(3) / 2],
+            ]
+        )
         for shape in (tri_left, tri_right, diam):
             ax.plot(shape[:, 0], shape[:, 1], "k-", lw=0.8)
 

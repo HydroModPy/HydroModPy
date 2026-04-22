@@ -69,7 +69,8 @@ def seepage_mask(head: ArrayLike, top: ArrayLike) -> ArrayLike:
 
 
 def fluxes_from_budget(
-    component_field: ArrayLike, cell_area: ArrayLike,
+    component_field: ArrayLike,
+    cell_area: ArrayLike,
 ) -> ArrayLike:
     """Convert a per-cell budget flux (m³/d) into a unit flux (m/d).
 

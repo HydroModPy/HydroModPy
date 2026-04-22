@@ -146,9 +146,7 @@ class DirichletSupportResolutionMixin:
         ocean_series_m: np.ndarray | None = None,
     ) -> tuple[tuple[ResolvedDirichletSupport, ...], ...]:
         """Resolve all Dirichlet supports once, then reuse them across projections."""
-        supports_by_period: list[list[ResolvedDirichletSupport]] = [
-            [] for _ in range(int(nper))
-        ]
+        supports_by_period: list[list[ResolvedDirichletSupport]] = [[] for _ in range(int(nper))]
         boundary_conditions = self.boundary_conditions_mapping()
 
         def append_support(
@@ -215,9 +213,9 @@ class DirichletSupportResolutionMixin:
                     ResolvedDirichletSupport(
                         "flow.bc.ocean",
                         self.ocean_support_edge_indices(float(head_value)),
-                        np.flatnonzero(
-                            self.ocean_supported_cell_mask(float(head_value))
-                        ).astype(int, copy=False),
+                        np.flatnonzero(self.ocean_supported_cell_mask(float(head_value))).astype(
+                            int, copy=False
+                        ),
                         float(head_value),
                     )
                 )
@@ -237,8 +235,7 @@ class DirichletSupportResolutionMixin:
         boundary_type = str(getattr(boundary, "type", "dirichlet")).strip().lower()
         if boundary_type != "dirichlet":
             raise ValueError(
-                f"Boundary '{bc_id}' must be Dirichlet for the current "
-                "boussinesq backend slice."
+                f"Boundary '{bc_id}' must be Dirichlet for the current boussinesq backend slice."
             )
         return boundary
 

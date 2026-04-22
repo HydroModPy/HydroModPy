@@ -24,7 +24,8 @@ class WaterQualitySourceConfig(HydroModelBase):
 
     # --- Site type (river vs piezometer quality) ---
     site_type: Annotated[Literal["river", "piezometer"], Profile.USER] = Field(
-        default="river", description="Type of site: 'river' (qualite_rivieres) or 'piezometer' (qualite_nappes)."
+        default="river",
+        description="Type of site: 'river' (qualite_rivieres) or 'piezometer' (qualite_nappes).",
     )
 
     # --- Parameter filtering ---
@@ -38,16 +39,28 @@ class WaterQualitySourceConfig(HydroModelBase):
         Path | None,
         Profile.USER,
         InputFile(role="water_quality", category="data"),
-    ] = Field(
-        default=None, description="Directory containing location file and chronicle CSVs."
+    ] = Field(default=None, description="Directory containing location file and chronicle CSVs.")
+    col_id: Annotated[str, Profile.DEV] = Field(
+        default="id", description="Column name for station identifier in location file."
     )
-    col_id: Annotated[str, Profile.DEV] = Field(default="id", description="Column name for station identifier in location file.")
-    col_x: Annotated[str, Profile.DEV] = Field(default="x", description="Column name for X coordinate in location CSV.")
-    col_y: Annotated[str, Profile.DEV] = Field(default="y", description="Column name for Y coordinate in location CSV.")
-    col_crs: Annotated[str, Profile.DEV] = Field(default="crs", description="Column name for CRS in location CSV.")
-    default_crs: Annotated[str, Profile.DEV] = Field(default="EPSG:4326", description="Default CRS when not in location file.")
-    col_datetime: Annotated[str, Profile.DEV] = Field(default="datetime", description="Column name for datetime in chronicles.")
-    col_value: Annotated[str, Profile.DEV] = Field(default="value", description="Column name for value in chronicles.")
+    col_x: Annotated[str, Profile.DEV] = Field(
+        default="x", description="Column name for X coordinate in location CSV."
+    )
+    col_y: Annotated[str, Profile.DEV] = Field(
+        default="y", description="Column name for Y coordinate in location CSV."
+    )
+    col_crs: Annotated[str, Profile.DEV] = Field(
+        default="crs", description="Column name for CRS in location CSV."
+    )
+    default_crs: Annotated[str, Profile.DEV] = Field(
+        default="EPSG:4326", description="Default CRS when not in location file."
+    )
+    col_datetime: Annotated[str, Profile.DEV] = Field(
+        default="datetime", description="Column name for datetime in chronicles."
+    )
+    col_value: Annotated[str, Profile.DEV] = Field(
+        default="value", description="Column name for value in chronicles."
+    )
 
     # --- Spatial mask ---
     mask_path: Annotated[Path | None, Profile.USER] = Field(
@@ -64,7 +77,9 @@ class WaterQualitySourceConfig(HydroModelBase):
     )
 
     # --- Common fields ---
-    station_ids: Annotated[list[str] | None, Profile.USER] = Field(default=None, description="Explicit station ids.")
+    station_ids: Annotated[list[str] | None, Profile.USER] = Field(
+        default=None, description="Explicit station ids."
+    )
     extent: Annotated[Literal["watershed", "study_area"] | None, Profile.USER] = Field(
         default=None,
         description="Enable bbox-based station discovery using the project extent.",
@@ -74,7 +89,8 @@ class WaterQualitySourceConfig(HydroModelBase):
         description="Ignore cache and re-download from API.",
     )
     source_unit: Annotated[str | None, Profile.USER] = Field(
-        default=None, description="Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit."
+        default=None,
+        description="Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit.",
     )
 
     @model_validator(mode="after")

@@ -45,9 +45,7 @@ class DeriveStep:
         store = getattr(ctx, "store", None)
         sim_id = getattr(ctx, "sim_id", None)
         if store is None or sim_id is None:
-            logger.debug(
-                "DeriveStep: no store/sim_id on ctx, skipping registry application"
-            )
+            logger.debug("DeriveStep: no store/sim_id on ctx, skipping registry application")
             return state.advance(
                 step_index=state.step_index + 1,
                 step_name=self.name,
@@ -80,9 +78,7 @@ class DeriveStep:
             if result.status == "computed":
                 logger.debug("DeriveStep: computed '%s'", result.name)
             else:
-                logger.debug(
-                    "DeriveStep: skipped '%s' (%s)", result.name, result.reason
-                )
+                logger.debug("DeriveStep: skipped '%s' (%s)", result.name, result.reason)
 
         return state.advance(
             step_index=state.step_index + 1,

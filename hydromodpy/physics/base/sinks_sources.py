@@ -18,9 +18,13 @@ from hydromodpy.core.config.base import HydroModelBase
 class SinkSource(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
-    id: Annotated[str, Profile.USER] = Field(..., description="id of the sink/source (ex: Q_well, etc.)")
+    id: Annotated[str, Profile.USER] = Field(
+        ..., description="id of the sink/source (ex: Q_well, etc.)"
+    )
     value: Annotated[float, Profile.USER] = Field(..., description="Value of the sink/source")
-    description: Annotated[str, Profile.USER] = Field("", description="Description of the sink/source")
+    description: Annotated[str, Profile.USER] = Field(
+        "", description="Description of the sink/source"
+    )
     units: Annotated[str, Profile.DEV] = Field("", description="Units of the sink/source")
     link_data: Annotated[list, Profile.DEV] = Field(
         default_factory=list,

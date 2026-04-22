@@ -35,7 +35,9 @@ def _write_csv(path: Path, header: str, rows: list[str]) -> None:
 
 
 def _build_flow_config(flow_section: dict[str, object]) -> FlowConfig:
-    merged_flow = merge_case_flow_section(CASE_DIR, flow_section, config_name="config_boussinesq.toml")
+    merged_flow = merge_case_flow_section(
+        CASE_DIR, flow_section, config_name="config_boussinesq.toml"
+    )
     return FlowConfig.from_toml_section(merged_flow, base_dir=CASE_DIR)
 
 
@@ -73,8 +75,7 @@ def _write_uniform_square_bundle(
         encoding="utf-8",
     )
     (bundle_dir / "mesh_summary.json").write_text(
-        json.dumps({"constraints_mode": "geology_only"}, indent=2, ensure_ascii=True)
-        + "\n",
+        json.dumps({"constraints_mode": "geology_only"}, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
 
@@ -281,7 +282,9 @@ def run_boussinesq_late_time_unconfined_pumping_case(
     z_bottom_m = z_top_m - 40.0
     nper = int(output_cfg["expected_periods"])
     dt_seconds = float(time_cfg["dt_seconds"])
-    simulations_folder_name = str(metadata.get("workspace", {}).get("results_folder_name", "results_simulations"))
+    simulations_folder_name = str(
+        metadata.get("workspace", {}).get("results_folder_name", "results_simulations")
+    )
 
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
@@ -341,7 +344,9 @@ def run_boussinesq_late_time_unconfined_pumping_case(
                 period_lengths_seconds=period_lengths_seconds,
                 window=None,
             ),
-            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
+            workspace=SimpleNamespace(
+                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
+            ),
         ),
     )
     run = ProcessRun(

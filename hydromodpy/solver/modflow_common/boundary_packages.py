@@ -77,9 +77,7 @@ def validate_attrs(kind: PackageKind | str, attrs: tuple[float, ...]) -> None:
     """Raise when ``attrs`` does not match the arity expected for ``kind``."""
     expected = package_attr_names(kind)
     if len(attrs) != len(expected):
-        raise ValueError(
-            f"{kind} expects {len(expected)} attrs {expected}, got {len(attrs)}."
-        )
+        raise ValueError(f"{kind} expects {len(expected)} attrs {expected}, got {len(attrs)}.")
 
 
 __all__ = [

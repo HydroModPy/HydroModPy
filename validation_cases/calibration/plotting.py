@@ -82,9 +82,7 @@ def _try_import_matplotlib():
 def _sanitize_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     """Drop rows lacking the minimal metrics used by suite figures."""
     return [
-        row
-        for row in rows
-        if row.get("case_id") is not None and row.get("method_name") is not None
+        row for row in rows if row.get("case_id") is not None and row.get("method_name") is not None
     ]
 
 
@@ -107,10 +105,7 @@ def write_suite_figures(
     extension = str(figure_format).strip().lower() or "png"
     figure_paths = []
 
-    row_labels = [
-        f"{row['case_id']} | {row['method_name']}"
-        for row in rows
-    ]
+    row_labels = [f"{row['case_id']} | {row['method_name']}" for row in rows]
     target_success = [float(row.get("target_success_rate") or 0.0) for row in rows]
     best_fit = [float(row.get("best_fit_rate") or 0.0) for row in rows]
     mean_cost = [row.get("mean_cost_best") for row in rows]
@@ -138,21 +133,15 @@ def write_suite_figures(
         )
         for row in rows
     ]
-    mean_candidate_prepare = [
-        row.get("mean_candidate_preparation_time_seconds") for row in rows
-    ]
-    mean_candidate_actualize = [
-        row.get("mean_candidate_actualize_time_seconds") for row in rows
-    ]
+    mean_candidate_prepare = [row.get("mean_candidate_preparation_time_seconds") for row in rows]
+    mean_candidate_actualize = [row.get("mean_candidate_actualize_time_seconds") for row in rows]
     mean_candidate_launcher_prepare = [
         row.get("mean_candidate_launcher_prepare_time_seconds") for row in rows
     ]
     mean_candidate_runtime_patch = [
         row.get("mean_candidate_runtime_patch_time_seconds") for row in rows
     ]
-    mean_candidate_simulation = [
-        row.get("mean_candidate_simulation_time_seconds") for row in rows
-    ]
+    mean_candidate_simulation = [row.get("mean_candidate_simulation_time_seconds") for row in rows]
     mean_candidate_output_selection = [
         row.get("mean_candidate_output_selection_time_seconds") for row in rows
     ]
@@ -162,9 +151,7 @@ def write_suite_figures(
     mean_candidate_objective_compute = [
         row.get("mean_candidate_objective_compute_time_seconds") for row in rows
     ]
-    mean_candidate_objective = [
-        row.get("mean_candidate_objective_time_seconds") for row in rows
-    ]
+    mean_candidate_objective = [row.get("mean_candidate_objective_time_seconds") for row in rows]
 
     fig, ax = plt.subplots(figsize=(12, max(4, 0.45 * len(rows) + 1)))
     y_positions = list(range(len(rows)))
@@ -217,7 +204,10 @@ def write_suite_figures(
             f"{row['case_id']} | {row['method_name']}",
         )
         for row, time_value, cost in zip(rows, mean_time_per_eval, mean_cost, strict=False)
-        if time_value is not None and cost is not None and float(cost) > 0.0 and float(time_value) > 0.0
+        if time_value is not None
+        and cost is not None
+        and float(cost) > 0.0
+        and float(time_value) > 0.0
     ]
     if time_points:
         fig, ax = plt.subplots(figsize=(8, 6))
@@ -303,9 +293,7 @@ def write_suite_figures(
         )
     ]
     if calibration_time_rows:
-        fig, ax = plt.subplots(
-            figsize=(12, max(4, 0.45 * len(calibration_time_rows) + 1))
-        )
+        fig, ax = plt.subplots(figsize=(12, max(4, 0.45 * len(calibration_time_rows) + 1)))
         y_positions = list(range(len(calibration_time_rows)))
         timing_labels = [item["label"] for item in calibration_time_rows]
         segment_specs = (
@@ -324,12 +312,10 @@ def write_suite_figures(
                 label=key,
             )
             cumulative = [
-                float(left + value)
-                for left, value in zip(cumulative, values, strict=False)
+                float(left + value) for left, value in zip(cumulative, values, strict=False)
             ]
         calibration_totals = [
-            item["session_prepare"] + item["calibration_total"]
-            for item in calibration_time_rows
+            item["session_prepare"] + item["calibration_total"] for item in calibration_time_rows
         ]
         ax.scatter(
             calibration_totals,
@@ -417,9 +403,7 @@ def write_suite_figures(
         )
     ]
     if detailed_timing_breakdown_rows:
-        fig, ax = plt.subplots(
-            figsize=(12, max(4, 0.45 * len(detailed_timing_breakdown_rows) + 1))
-        )
+        fig, ax = plt.subplots(figsize=(12, max(4, 0.45 * len(detailed_timing_breakdown_rows) + 1)))
         y_positions = list(range(len(detailed_timing_breakdown_rows)))
         timing_labels = [item["label"] for item in detailed_timing_breakdown_rows]
         segment_specs = (
@@ -442,8 +426,7 @@ def write_suite_figures(
                 label=key,
             )
             cumulative = [
-                float(left + value)
-                for left, value in zip(cumulative, values, strict=False)
+                float(left + value) for left, value in zip(cumulative, values, strict=False)
             ]
         ax.set_yticks(y_positions)
         ax.set_yticklabels(timing_labels)
@@ -457,9 +440,7 @@ def write_suite_figures(
         plt.close(fig)
         figure_paths.append(path)
     elif timing_breakdown_rows:
-        fig, ax = plt.subplots(
-            figsize=(12, max(4, 0.45 * len(timing_breakdown_rows) + 1))
-        )
+        fig, ax = plt.subplots(figsize=(12, max(4, 0.45 * len(timing_breakdown_rows) + 1)))
         y_positions = list(range(len(timing_breakdown_rows)))
         prep = [item[1] for item in timing_breakdown_rows]
         sim = [item[2] for item in timing_breakdown_rows]
@@ -492,8 +473,7 @@ def write_suite_figures(
 def _sanitize_method_slug(text: str) -> str:
     """Return one filesystem-safe method token."""
     token = "".join(
-        char if char.isalnum() or char in {"_", "-"} else "_"
-        for char in str(text).strip().lower()
+        char if char.isalnum() or char in {"_", "-"} else "_" for char in str(text).strip().lower()
     )
     return token or "method"
 
@@ -540,19 +520,12 @@ def _reference_objective_points(
             if not isinstance(params_named, dict):
                 continue
             try:
-                normalized_named = {
-                    str(name): float(value)
-                    for name, value in params_named.items()
-                }
+                normalized_named = {str(name): float(value) for name, value in params_named.items()}
             except (TypeError, ValueError):
                 continue
             objective_total = raw_point.get("objective_total")
             try:
-                objective_total_value = (
-                    None
-                    if objective_total is None
-                    else float(objective_total)
-                )
+                objective_total_value = None if objective_total is None else float(objective_total)
             except (TypeError, ValueError):
                 objective_total_value = None
             block_costs_raw = raw_point.get("block_costs", {})
@@ -561,9 +534,7 @@ def _reference_objective_points(
             points.append(
                 ObjectiveMappingPoint(
                     iteration_id=str(raw_point.get("point_id", f"reference_{index:04d}")),
-                    params_vector=tuple(
-                        float(normalized_named[name]) for name in normalized_named
-                    ),
+                    params_vector=tuple(float(normalized_named[name]) for name in normalized_named),
                     params_named=normalized_named,
                     objective_total=objective_total_value,
                     block_costs={
@@ -652,11 +623,7 @@ def _support_label(payload: dict[str, object]) -> str:
         return ", ".join(parts)
     if support == "boundary":
         boundary_id = payload.get("boundary_id")
-        return (
-            f"boundary={boundary_id}"
-            if boundary_id is not None
-            else "boundary"
-        )
+        return f"boundary={boundary_id}" if boundary_id is not None else "boundary"
     return support
 
 
@@ -664,11 +631,7 @@ def _method_summary_lines(definition: TwinCalibrationCaseDefinition) -> list[str
     """Return human-readable method summary lines."""
     lines: list[str] = []
     for profile in definition.method_profiles:
-        seeds = (
-            ""
-            if not profile.repeat_seeds
-            else f", seeds={list(profile.repeat_seeds)}"
-        )
+        seeds = "" if not profile.repeat_seeds else f", seeds={list(profile.repeat_seeds)}"
         lines.append(
             f"- {profile.name} [{profile.success_metric}], "
             f"distribution={bool(profile.persist_model_distribution)}{seeds}"
@@ -686,16 +649,14 @@ def _noise_summary_lines(definition: TwinCalibrationCaseDefinition) -> list[str]
         lines.append(
             "- abs sigma: "
             + ", ".join(
-                f"{name}={float(value):g}"
-                for name, value in noise.absolute_sigma_by_output.items()
+                f"{name}={float(value):g}" for name, value in noise.absolute_sigma_by_output.items()
             )
         )
     if noise.relative_sigma_by_output:
         lines.append(
             "- rel sigma: "
             + ", ".join(
-                f"{name}={float(value):g}"
-                for name, value in noise.relative_sigma_by_output.items()
+                f"{name}={float(value):g}" for name, value in noise.relative_sigma_by_output.items()
             )
         )
     return lines
@@ -763,20 +724,10 @@ def _draw_case_layout(
     )
 
     point_outputs = [item for item in outputs if str(item.get("support")) == "point"]
-    boundary_outputs = [
-        item for item in outputs if str(item.get("support")) == "boundary"
-    ]
+    boundary_outputs = [item for item in outputs if str(item.get("support")) == "boundary"]
 
-    x_values = [
-        float(item["x"])
-        for item in point_outputs
-        if item.get("x") is not None
-    ]
-    y_values = [
-        float(item["y"])
-        for item in point_outputs
-        if item.get("y") is not None
-    ]
+    x_values = [float(item["x"]) for item in point_outputs if item.get("x") is not None]
+    y_values = [float(item["y"]) for item in point_outputs if item.get("y") is not None]
     x_min = min(x_values) if x_values else 0.0
     x_max = max(x_values) if x_values else 1.0
     y_min = min(y_values) if y_values else 0.0
@@ -786,11 +737,7 @@ def _draw_case_layout(
 
     for output in point_outputs:
         raw_x = float(output.get("x", x_min))
-        raw_y = (
-            float(output.get("y"))
-            if output.get("y") is not None
-            else 0.5 * (y_min + y_max)
-        )
+        raw_y = float(output.get("y")) if output.get("y") is not None else 0.5 * (y_min + y_max)
         x_pos = 0.12 + 0.76 * ((raw_x - x_min) / x_span)
         y_pos = 0.2 + 0.6 * ((raw_y - y_min) / y_span)
         axis.scatter(
@@ -876,17 +823,10 @@ def write_case_configuration_figure(
     model_calibration = payload.get("model_calibration", {})
     if not isinstance(model_calibration, dict):
         model_calibration = {}
-    outputs = [
-        item for item in model_calibration.get("output", [])
-        if isinstance(item, dict)
-    ]
-    parameters = [
-        item for item in model_calibration.get("parameter", [])
-        if isinstance(item, dict)
-    ]
+    outputs = [item for item in model_calibration.get("output", []) if isinstance(item, dict)]
+    parameters = [item for item in model_calibration.get("parameter", []) if isinstance(item, dict)]
     objective_blocks = [
-        item for item in model_calibration.get("objective_block", [])
-        if isinstance(item, dict)
+        item for item in model_calibration.get("objective_block", []) if isinstance(item, dict)
     ]
     methods = _method_summary_lines(definition)
     noise_lines = _noise_summary_lines(definition)
@@ -1077,12 +1017,7 @@ def _distribution_named_samples(
         if not isinstance(params_named, dict):
             continue
         try:
-            named_samples.append(
-                {
-                    str(name): float(value)
-                    for name, value in params_named.items()
-                }
-            )
+            named_samples.append({str(name): float(value) for name, value in params_named.items()})
         except (TypeError, ValueError):
             continue
     return named_samples
@@ -1309,8 +1244,7 @@ def _write_objective_landscape_1d(
 
     figure, axis = plt.subplots(figsize=(8.0, 4.8))
     finite_costs = [
-        float(point.objective_total)
-        for point in (reference_finite_points or method_finite_points)
+        float(point.objective_total) for point in (reference_finite_points or method_finite_points)
     ]
     y_min, y_max = _plot_y_limits(finite_costs)
     if reference_finite_points:
@@ -1478,14 +1412,12 @@ def _write_objective_landscape_2d(
             [float(point.objective_total) for point in interpolation_xy_points],
             dtype=float,
         )
-        normalized_xy, normalized_grid_x, normalized_grid_y = (
-            _normalize_xy_for_interpolation(
-                xy=xy,
-                grid_x=grid_x,
-                grid_y=grid_y,
-                bounds_x=bounds_x,
-                bounds_y=bounds_y,
-            )
+        normalized_xy, normalized_grid_x, normalized_grid_y = _normalize_xy_for_interpolation(
+            xy=xy,
+            grid_x=grid_x,
+            grid_y=grid_y,
+            bounds_x=bounds_x,
+            bounds_y=bounds_y,
         )
         grid = _idw_grid(
             xy=normalized_xy,
@@ -1497,11 +1429,7 @@ def _write_objective_landscape_2d(
             grid_source_label = f"reference sample n={len(reference_points)}"
         else:
             grid_source_label = f"evaluated points n={len(finite_points)}"
-    if (
-        isinstance(grid, np.ndarray)
-        and grid.ndim == 2
-        and np.any(np.isfinite(grid))
-    ):
+    if isinstance(grid, np.ndarray) and grid.ndim == 2 and np.any(np.isfinite(grid)):
         contour = axis.contourf(
             x_values,
             y_values,
@@ -1647,8 +1575,7 @@ def _write_objective_landscape_pairgrid(
     method_finite_points = [
         point
         for point in points
-        if point.finite_objective
-        and all(name in point.params_named for name in parameter_names)
+        if point.finite_objective and all(name in point.params_named for name in parameter_names)
     ]
     failed_points = [
         point
@@ -1659,8 +1586,7 @@ def _write_objective_landscape_pairgrid(
     finite_points = [
         point
         for point in (reference_points or method_finite_points)
-        if point.finite_objective
-        and all(name in point.params_named for name in parameter_names)
+        if point.finite_objective and all(name in point.params_named for name in parameter_names)
     ]
     if not finite_points and not failed_points:
         return False
@@ -1804,12 +1730,8 @@ def _write_objective_landscape_pairgrid(
                             s=34,
                             alpha=0.8,
                         )
-                axis.set_xlim(
-                    *[float(value) for value in definition.bounds[col_name]]
-                )
-                axis.set_ylim(
-                    *[float(value) for value in definition.bounds[row_name]]
-                )
+                axis.set_xlim(*[float(value) for value in definition.bounds[col_name]])
+                axis.set_ylim(*[float(value) for value in definition.bounds[row_name]])
             if row_index == n_params - 1:
                 axis.set_xlabel(col_name, fontsize=AXIS_LABEL_FONTSIZE)
             if col_index == 0 and row_index != col_index:
@@ -1822,11 +1744,7 @@ def _write_objective_landscape_pairgrid(
             definition.case_id,
             (
                 f"{result.method_instance_name} | objective pair view"
-                + (
-                    f" | reference n={len(reference_points)}"
-                    if reference_points
-                    else ""
-                )
+                + (f" | reference n={len(reference_points)}" if reference_points else "")
             ),
         ),
         fontsize=CASE_SUPTITLE_FONTSIZE,
@@ -1850,9 +1768,7 @@ def _write_posterior_distribution_1d(
 ) -> bool:
     """Write a dedicated 1D posterior/ensemble figure."""
     sample_values = [
-        float(sample[parameter_name])
-        for sample in distribution_samples
-        if parameter_name in sample
+        float(sample[parameter_name]) for sample in distribution_samples if parameter_name in sample
     ]
     if not sample_values:
         return False
@@ -2015,9 +1931,7 @@ def _write_posterior_distribution_pairgrid(
 ) -> bool:
     """Write a pair-grid style distribution view for >2 parameters."""
     valid_samples = [
-        sample
-        for sample in distribution_samples
-        if all(name in sample for name in parameter_names)
+        sample for sample in distribution_samples if all(name in sample for name in parameter_names)
     ]
     if not valid_samples:
         return False

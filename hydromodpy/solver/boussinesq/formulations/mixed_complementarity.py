@@ -22,12 +22,8 @@ MIXED_COMPLEMENTARITY = BoussinesqFormulationSpec(
     ),
 )
 
-assemble_steady_mixed_complementarity = (
-    assemble_steady_residual_with_saturation_excess
-)
-assemble_transient_mixed_complementarity = (
-    assemble_transient_residual_with_saturation_excess
-)
+assemble_steady_mixed_complementarity = assemble_steady_residual_with_saturation_excess
+assemble_transient_mixed_complementarity = assemble_transient_residual_with_saturation_excess
 
 
 __all__ = [

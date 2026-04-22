@@ -133,12 +133,15 @@ class Sim2EDRClient:
         axes = cov_json["domain"]["axes"]
         if "values" in axes["t"]:
             times = pd.to_datetime(
-                [t.replace("T", " ").replace("-00-00Z", " 00:00:00").rstrip("Z")
-                 for t in axes["t"]["values"]]
+                [
+                    t.replace("T", " ").replace("-00-00Z", " 00:00:00").rstrip("Z")
+                    for t in axes["t"]["values"]
+                ]
             )
         else:
             times = pd.date_range(
-                start=axes["t"]["start"], periods=axes["t"]["num"],
+                start=axes["t"]["start"],
+                periods=axes["t"]["num"],
                 freq="D",
             )
         values = cov_json["ranges"][parameter]["values"]
@@ -166,12 +169,16 @@ class Sim2EDRClient:
 
         if "values" in axes.get("t", {}):
             t_coords = pd.to_datetime(
-                [t.replace("T", " ").replace("-00-00Z", " 00:00:00").rstrip("Z")
-                 for t in axes["t"]["values"]]
+                [
+                    t.replace("T", " ").replace("-00-00Z", " 00:00:00").rstrip("Z")
+                    for t in axes["t"]["values"]
+                ]
             )
         else:
             t_coords = pd.date_range(
-                start=axes["t"]["start"], periods=axes["t"]["num"], freq="D",
+                start=axes["t"]["start"],
+                periods=axes["t"]["num"],
+                freq="D",
             )
 
         data_vars = {}

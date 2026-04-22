@@ -45,14 +45,14 @@ class RunSolverStep:
 
         plan = ctx.execution.simulation_plan
         if plan is None:
-            raise RuntimeError(
-                "run_solver step requires execution.simulation_plan to be set"
-            )
+            raise RuntimeError("run_solver step requires execution.simulation_plan to be set")
 
         callbacks = ProcessCallbacks(
             after_process=state.get("after_process"),
             after_run=lambda run, result, st: step_ingest_run_results(
-                ctx, run, result,
+                ctx,
+                run,
+                result,
             ),
         )
 

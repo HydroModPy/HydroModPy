@@ -88,7 +88,9 @@ def test_mt3dms_post_processing_exports_mass_accumulated(monkeypatch, tmp_path: 
         correc_path=str(tmp_path / "routing_fill.tif"),
         direc_path=str(tmp_path / "routing_direc.tif"),
     )
-    _write_raster(Path(routing_ctx.correc_path), np.array([[1.0, 1.0], [1.0, 1.0]], dtype=np.float32))
+    _write_raster(
+        Path(routing_ctx.correc_path), np.array([[1.0, 1.0], [1.0, 1.0]], dtype=np.float32)
+    )
     _write_raster(
         Path(routing_ctx.direc_path),
         np.array([[1, 1], [1, 1]], dtype=np.int16),
@@ -171,7 +173,11 @@ def test_mt3dms_post_processing_exports_mass_accumulated(monkeypatch, tmp_path: 
     mass_acc_path = save_file / "_rasters" / "mass_accumulated_t(1).tif"
     assert mass_acc_path.exists()
     with rasterio.open(mass_acc_path) as src:
-        np.testing.assert_array_equal(src.read(1), np.array([[9.0, 8.0], [7.0, 6.0]], dtype=np.float32))
+        np.testing.assert_array_equal(
+            src.read(1), np.array([[9.0, 8.0], [7.0, 6.0]], dtype=np.float32)
+        )
 
     assert 0 in model.dict_mass_accumulated
-    np.testing.assert_array_equal(model.dict_mass_accumulated[0], np.array([[9.0, 8.0], [7.0, 6.0]], dtype=np.float32))
+    np.testing.assert_array_equal(
+        model.dict_mass_accumulated[0], np.array([[9.0, 8.0], [7.0, 6.0]], dtype=np.float32)
+    )

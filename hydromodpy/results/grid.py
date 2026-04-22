@@ -82,9 +82,7 @@ def build_grid(run: Run) -> Grid:
     cell_size = float(meta["dem_res"])
     shape = (int(meta["nrow"]), int(meta["ncol"]))
     crs = meta.get("crs_proj")
-    catchment_area_m2 = (
-        float(meta["catch_area"]) * 1e6 if "catch_area" in meta else 0.0
-    )
+    catchment_area_m2 = float(meta["catch_area"]) * 1e6 if "catch_area" in meta else 0.0
 
     _, dem_meta = run.geographic_raster("watershed_dem")
     t = dem_meta["transform"]

@@ -32,10 +32,7 @@ def _looks_like_path_key(key: str) -> bool:
     token = str(key).strip().strip("'\"").split(".")[-1].lower()
     if token == "base_config":
         return True
-    return any(
-        hint in token
-        for hint in ("path", "root", "dir", "folder", "file", "mask")
-    )
+    return any(hint in token for hint in ("path", "root", "dir", "folder", "file", "mask"))
 
 
 def _repair_path_like_basic_strings(text: str) -> str:
@@ -61,9 +58,7 @@ def _repair_path_like_basic_strings(text: str) -> str:
             repaired_lines.append(line)
             continue
         repaired_value = value.replace("\\", "\\\\")
-        repaired_lines.append(
-            f'{prefix}"{repaired_value}"{match.group("suffix")}{newline}'
-        )
+        repaired_lines.append(f'{prefix}"{repaired_value}"{match.group("suffix")}{newline}')
     return "".join(repaired_lines)
 
 
@@ -118,8 +113,7 @@ def _strip_empty_strings(data: dict[str, Any]) -> dict[str, Any]:
             cleaned[key] = _strip_empty_strings(value)
         elif isinstance(value, list):
             cleaned[key] = [
-                _strip_empty_strings(item) if isinstance(item, dict) else item
-                for item in value
+                _strip_empty_strings(item) if isinstance(item, dict) else item for item in value
             ]
         elif value == "":
             continue  # drop empty-string placeholders

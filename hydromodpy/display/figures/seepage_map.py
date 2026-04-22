@@ -43,8 +43,9 @@ class SeepageMap(BaseFigure):
     ) -> "Axes":
         ts = last_timestep(sim) if timestep is None else timestep
         mask = np.asarray(sim.field("seepage_areas", timestep=ts), dtype=float)
-        render_face_field(ax, sim, mask, cmap=cmap, vmin=0.0, vmax=1.0,
-                           cbar_label="Seepage (1 = at surface)")
+        render_face_field(
+            ax, sim, mask, cmap=cmap, vmin=0.0, vmax=1.0, cbar_label="Seepage (1 = at surface)"
+        )
         ax.set_title(f"Seepage areas — {sim.name or sim.sim_id}")
         ax.set_xlabel("x (m)")
         ax.set_ylabel("y (m)")

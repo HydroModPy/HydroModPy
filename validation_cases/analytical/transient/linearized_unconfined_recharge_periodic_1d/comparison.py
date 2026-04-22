@@ -1,4 +1,4 @@
-﻿"""Comparison workflow for the 1D linearized unconfined periodic-recharge case."""
+"""Comparison workflow for the 1D linearized unconfined periodic-recharge case."""
 
 from __future__ import annotations
 
@@ -89,6 +89,3 @@ def run_linearized_unconfined_recharge_periodic_comparison(
             solver=solver,
         )
     return build_linearized_unconfined_recharge_periodic_comparison(result=result, solver=solver)
-
-
-

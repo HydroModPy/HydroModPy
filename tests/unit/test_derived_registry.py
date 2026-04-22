@@ -29,8 +29,16 @@ from hydromodpy.results.zarr_store import SimulationZarr
 # ---------------------------------------------------------------------------
 
 
-def _make_zarr(tmp_path, *, n_timesteps=2, n_cells=4, top_value=10.0,
-               head_values=None, cell_area=None, drn=None):
+def _make_zarr(
+    tmp_path,
+    *,
+    n_timesteps=2,
+    n_cells=4,
+    top_value=10.0,
+    head_values=None,
+    cell_area=None,
+    drn=None,
+):
     path = tmp_path / "sim.zarr"
     sz = SimulationZarr.create(path, n_cells=n_cells, n_layers=1)
 
@@ -53,7 +61,9 @@ def _make_zarr(tmp_path, *, n_timesteps=2, n_cells=4, top_value=10.0,
         head_values = np.tile(np.array([5.0, 11.0, 9.0, 12.0]), (n_timesteps, 1))
     for t in range(n_timesteps):
         sz.write_field(
-            "head", t, np.asarray(head_values[t], dtype="float64"),
+            "head",
+            t,
+            np.asarray(head_values[t], dtype="float64"),
             n_timesteps=n_timesteps if t == 0 else None,
         )
 
@@ -61,8 +71,11 @@ def _make_zarr(tmp_path, *, n_timesteps=2, n_cells=4, top_value=10.0,
     if drn is not None:
         budget = sz.root["budget"]
         budget.create_array(
-            "drn", shape=(n_timesteps, n_cells),
-            chunks=(1, n_cells), dtype="float64", overwrite=True,
+            "drn",
+            shape=(n_timesteps, n_cells),
+            chunks=(1, n_cells),
+            dtype="float64",
+            overwrite=True,
         )
         for t in range(n_timesteps):
             budget["drn"][t, :] = drn[t]
@@ -184,7 +197,8 @@ def test_seepage_mask_flags_overflowing_cells(tmp_path):
         head_values=np.array([[5.0, 10.0, 11.0, 9.0], [9.9, 10.0, 10.5, 10.0]]),
     )
     registry.apply(
-        sz, names=["watertable_elevation", "seepage_mask"],
+        sz,
+        names=["watertable_elevation", "seepage_mask"],
     )
     mask = np.asarray(sz.root["derived"]["seepage_mask"][:])
     # Expect 1 where wt_elev >= top (10.0), 0 otherwise.
@@ -254,8 +268,10 @@ def test_derive_step_runs_registry(tmp_path):
     # All four derivations must have produced outputs.
     derived = sz.root["derived"]
     for name in (
-        "watertable_elevation", "watertable_depth",
-        "seepage_mask", "fluxes_from_budget",
+        "watertable_elevation",
+        "watertable_depth",
+        "seepage_mask",
+        "fluxes_from_budget",
     ):
         assert name in derived, f"{name} not written"
 
@@ -284,12 +300,15 @@ def test_derive_step_without_head_is_noop(tmp_path):
     derived = sz.root.get("derived")
     if derived is not None:
         for name in (
-            "watertable_elevation", "watertable_depth",
-            "seepage_mask", "fluxes_from_budget",
+            "watertable_elevation",
+            "watertable_depth",
+            "seepage_mask",
+            "fluxes_from_budget",
         ):
             assert name not in derived
 
 
 def test_registry_accessible_via_public_api():
     import hydromodpy.pipeline as pipeline_pkg
+
     assert "watertable_elevation" in pipeline_pkg.derived.registry.list()

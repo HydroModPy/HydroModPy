@@ -50,8 +50,7 @@ def build_run_case_parser(*, description: str) -> argparse.ArgumentParser:
         type=str,
         default=None,
         help=(
-            "Optional solver variant to run for cases that expose more than one "
-            "launcher backend."
+            "Optional solver variant to run for cases that expose more than one launcher backend."
         ),
     )
     parser.add_argument(

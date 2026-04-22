@@ -26,14 +26,21 @@ from hydromodpy.data.contracts.timeseries import PointRecord
 
 # --- Helpers ---
 
+
 def _make_record(station_id, x, y, n=10, variable="discharge"):
-    df = pd.DataFrame({
-        "datetime": pd.date_range("2020-01-01", periods=n, freq="D"),
-        "value": range(n),
-    })
+    df = pd.DataFrame(
+        {
+            "datetime": pd.date_range("2020-01-01", periods=n, freq="D"),
+            "value": range(n),
+        }
+    )
     return PointRecord(
-        station_id=station_id, variable=variable, source="custom",
-        unit="m3/s", frequency="D", data=df,
+        station_id=station_id,
+        variable=variable,
+        source="custom",
+        unit="m3/s",
+        frequency="D",
+        data=df,
         date_start=datetime(2020, 1, 1),
         date_end=datetime(2020, 1, n),
         location=StationLocation(id=station_id, x=x, y=y, crs="EPSG:4326"),
@@ -45,7 +52,6 @@ def _make_record(station_id, x, y, n=10, variable="discharge"):
 # Feature 1: Mask-based spatial selection
 # =========================================================================
 class TestMaskSpatialSelection:
-
     def test_load_mask_vector_not_found(self):
         with pytest.raises(FileNotFoundError):
             load_mask_geometry(Path("/nonexistent.shp"))
@@ -64,7 +70,7 @@ class TestMaskSpatialSelection:
         geom = box(-2.0, 47.0, -1.0, 49.0)
         locs = [
             StationLocation(id="A", x=-1.5, y=48.0, crs="EPSG:4326"),  # inside
-            StationLocation(id="B", x=3.0, y=45.0, crs="EPSG:4326"),   # outside
+            StationLocation(id="B", x=3.0, y=45.0, crs="EPSG:4326"),  # outside
             StationLocation(id="C", x=-1.2, y=48.5, crs="EPSG:4326"),  # inside
         ]
         inside = filter_locations_by_geometry(locs, geom)
@@ -106,7 +112,6 @@ class TestMaskSpatialSelection:
 # Feature 2: CSV export
 # =========================================================================
 class TestCSVExport:
-
     def test_export_records(self, tmp_path):
         records = [
             _make_record("S1", -1.5, 48.0, n=10),
@@ -146,14 +151,21 @@ class TestCSVExport:
 
     def test_export_no_location(self, tmp_path):
         """Records without location should still export."""
-        df = pd.DataFrame({
-            "datetime": pd.date_range("2020-01-01", periods=5, freq="D"),
-            "value": range(5),
-        })
+        df = pd.DataFrame(
+            {
+                "datetime": pd.date_range("2020-01-01", periods=5, freq="D"),
+                "value": range(5),
+            }
+        )
         rec = PointRecord(
-            station_id="X", variable="discharge", source="custom",
-            unit="m3/s", frequency="D", data=df,
-            date_start=datetime(2020, 1, 1), date_end=datetime(2020, 1, 5),
+            station_id="X",
+            variable="discharge",
+            source="custom",
+            unit="m3/s",
+            frequency="D",
+            data=df,
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 1, 5),
         )
         result = export_records([rec], tmp_path / "noloc", prefix="test")
         meta = pd.read_csv(result["metadata"])
@@ -165,16 +177,13 @@ class TestCSVExport:
 # Feature 3: from_toml() config loading
 # =========================================================================
 class TestFromToml:
-
     def test_hydrometry_from_toml(self, tmp_path):
         toml_path = tmp_path / "config.toml"
         toml_path.write_text(
-            '[hydrometry]\n'
-            '[[hydrometry.sources]]\n'
-            'source = "hubeau"\n'
-            'product = "QmnJ"\n'
+            '[hydrometry]\n[[hydrometry.sources]]\nsource = "hubeau"\nproduct = "QmnJ"\n'
         )
         from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
+
         cfg = HydrometryConfig.from_toml(toml_path)
         assert len(cfg.sources) == 1
         assert cfg.sources[0].source == "hubeau"
@@ -183,12 +192,10 @@ class TestFromToml:
     def test_piezometry_from_toml(self, tmp_path):
         toml_path = tmp_path / "config.toml"
         toml_path.write_text(
-            '[piezometry]\n'
-            '[[piezometry.sources]]\n'
-            'source = "hubeau"\n'
-            'product = "level"\n'
+            '[piezometry]\n[[piezometry.sources]]\nsource = "hubeau"\nproduct = "level"\n'
         )
         from hydromodpy.data.variables.piezometry.config import PiezometryConfig
+
         cfg = PiezometryConfig.from_toml(toml_path)
         assert len(cfg.sources) == 1
         assert cfg.sources[0].product == "level"
@@ -196,12 +203,10 @@ class TestFromToml:
     def test_water_quality_from_toml(self, tmp_path):
         toml_path = tmp_path / "config.toml"
         toml_path.write_text(
-            '[water_quality]\n'
-            '[[water_quality.sources]]\n'
-            'source = "custom"\n'
-            'path = "/tmp/wq"\n'
+            '[water_quality]\n[[water_quality.sources]]\nsource = "custom"\npath = "/tmp/wq"\n'
         )
         from hydromodpy.data.variables.water_quality.config import WaterQualityConfig
+
         cfg = WaterQualityConfig.from_toml(toml_path)
         assert len(cfg.sources) == 1
         assert cfg.sources[0].source == "custom"
@@ -209,27 +214,29 @@ class TestFromToml:
     def test_from_toml_custom_with_mask(self, tmp_path):
         toml_path = tmp_path / "config.toml"
         toml_path.write_text(
-            '[hydrometry]\n'
-            '[[hydrometry.sources]]\n'
+            "[hydrometry]\n"
+            "[[hydrometry.sources]]\n"
             'source = "custom"\n'
             'path = "/tmp/data"\n'
             'mask_path = "/tmp/mask.shp"\n'
         )
         from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
+
         cfg = HydrometryConfig.from_toml(toml_path)
         assert cfg.sources[0].mask_path == Path("/tmp/mask.shp")
 
     def test_from_toml_with_discovery_params(self, tmp_path):
         toml_path = tmp_path / "config.toml"
         toml_path.write_text(
-            '[hydrometry]\n'
-            '[[hydrometry.sources]]\n'
+            "[hydrometry]\n"
+            "[[hydrometry.sources]]\n"
             'source = "hubeau"\n'
             'product = "QmnJ"\n'
-            'require_observations = true\n'
-            'fallback_search_radius_km = 25.0\n'
+            "require_observations = true\n"
+            "fallback_search_radius_km = 25.0\n"
         )
         from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
+
         cfg = HydrometryConfig.from_toml(toml_path)
         assert cfg.sources[0].require_observations is True
         assert cfg.sources[0].fallback_search_radius_km == 25.0
@@ -239,29 +246,36 @@ class TestFromToml:
 # Feature 4: Advanced station discovery
 # =========================================================================
 class TestAdvancedDiscovery:
-
     def test_station_period_overlaps_hydro(self):
         from hydromodpy.data.variables.hydrometry.apis.hubeau import _station_period_overlaps
 
         # Station active 2015 to 2021, request 2020-2020 -> overlap
         assert _station_period_overlaps(
-            "2015-01-01", "2021-12-31",
-            datetime(2020, 1, 1), datetime(2020, 12, 31),
+            "2015-01-01",
+            "2021-12-31",
+            datetime(2020, 1, 1),
+            datetime(2020, 12, 31),
         )
         # Station closed before request
         assert not _station_period_overlaps(
-            "2015-01-01", "2018-12-31",
-            datetime(2020, 1, 1), datetime(2020, 12, 31),
+            "2015-01-01",
+            "2018-12-31",
+            datetime(2020, 1, 1),
+            datetime(2020, 12, 31),
         )
         # Station opened after request
         assert not _station_period_overlaps(
-            "2022-01-01", None,
-            datetime(2020, 1, 1), datetime(2020, 12, 31),
+            "2022-01-01",
+            None,
+            datetime(2020, 1, 1),
+            datetime(2020, 12, 31),
         )
         # No dates -> assume valid
         assert _station_period_overlaps(
-            None, None,
-            datetime(2020, 1, 1), datetime(2020, 12, 31),
+            None,
+            None,
+            datetime(2020, 1, 1),
+            datetime(2020, 12, 31),
         )
 
     def test_station_period_overlaps_piezo(self):
@@ -269,18 +283,24 @@ class TestAdvancedDiscovery:
 
         # Same logic as hydrometry
         assert _station_period_overlaps(
-            "2010-06-01", "2023-01-01",
-            datetime(2020, 1, 1), datetime(2020, 12, 31),
+            "2010-06-01",
+            "2023-01-01",
+            datetime(2020, 1, 1),
+            datetime(2020, 12, 31),
         )
         assert not _station_period_overlaps(
-            "2000-01-01", "2019-06-30",
-            datetime(2020, 1, 1), datetime(2020, 12, 31),
+            "2000-01-01",
+            "2019-06-30",
+            datetime(2020, 1, 1),
+            datetime(2020, 12, 31),
         )
 
     def test_config_discovery_fields(self):
         from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig
+
         cfg = HydrometrySourceConfig(
-            source="hubeau", product="QmnJ",
+            source="hubeau",
+            product="QmnJ",
             require_observations=False,
             fallback_search_radius_km=50.0,
         )
@@ -289,6 +309,7 @@ class TestAdvancedDiscovery:
 
     def test_config_discovery_defaults(self):
         from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig
+
         cfg = HydrometrySourceConfig(source="hubeau", product="QmnJ")
         assert cfg.require_observations is True
         assert cfg.fallback_search_radius_km is None
@@ -298,16 +319,19 @@ class TestAdvancedDiscovery:
 # Feature 5: Completeness report
 # =========================================================================
 class TestCompletenessReport:
-
     def test_completeness_report_via_manager(self, sample_hydro_dir, project_period):
-        from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
+        from hydromodpy.data.variables.hydrometry.config import (
+            HydrometryConfig,
+            HydrometrySourceConfig,
+        )
         from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
 
-        cfg = HydrometryConfig(sources=[
-            HydrometrySourceConfig(source="custom", path=sample_hydro_dir)
-        ])
+        cfg = HydrometryConfig(
+            sources=[HydrometrySourceConfig(source="custom", path=sample_hydro_dir)]
+        )
         mgr = HydrometryManager(
-            config=cfg, catalog=None,
+            config=cfg,
+            catalog=None,
             project_period=project_period,
         )
         records = mgr.load()
@@ -330,7 +354,8 @@ class TestCompletenessReport:
         dates = pd.date_range("2020-01-01", periods=20, freq="D")
         df = pd.DataFrame({"datetime": dates, "value": range(20)})
         stats = compute_completeness(
-            df, station_id="S1",
+            df,
+            station_id="S1",
             start_date=datetime(2020, 1, 1),
             end_date=datetime(2020, 1, 30),
         )
@@ -340,25 +365,34 @@ class TestCompletenessReport:
         assert stats["completeness_pct"] == pytest.approx(66.67, rel=0.01)
 
     def test_completeness_constant_record(self, project_period):
-        df = pd.DataFrame({
-            "datetime": pd.date_range(project_period[0], project_period[1], freq="D"),
-            "value": 1.0,
-        })
+        df = pd.DataFrame(
+            {
+                "datetime": pd.date_range(project_period[0], project_period[1], freq="D"),
+                "value": 1.0,
+            }
+        )
         rec = PointRecord(
-            station_id="C1", variable="discharge", source="custom",
-            unit="m3/s", frequency="D", data=df,
-            date_start=project_period[0], date_end=project_period[1],
+            station_id="C1",
+            variable="discharge",
+            source="custom",
+            unit="m3/s",
+            frequency="D",
+            data=df,
+            date_start=project_period[0],
+            date_end=project_period[1],
             is_constant=True,
         )
         from hydromodpy.data.base_manager import BaseVariableManager
 
         class DummyManager(BaseVariableManager):
             VARIABLE_NAME = "test"
+
             def _fetch_from_source(self, source_cfg):
                 return []
 
-        mgr = DummyManager(config=type("C", (), {"sources": []})(),
-                           catalog=None, project_period=project_period)
+        mgr = DummyManager(
+            config=type("C", (), {"sources": []})(), catalog=None, project_period=project_period
+        )
         report = mgr.get_completeness_report([rec])
         assert bool(report.iloc[0]["is_constant"]) is True
         assert report.iloc[0]["completeness_pct"] == pytest.approx(100.0)
@@ -368,16 +402,19 @@ class TestCompletenessReport:
 # Feature integration: export via manager
 # =========================================================================
 class TestManagerExport:
-
     def test_export_via_manager(self, sample_hydro_dir, project_period, tmp_path):
-        from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
+        from hydromodpy.data.variables.hydrometry.config import (
+            HydrometryConfig,
+            HydrometrySourceConfig,
+        )
         from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
 
-        cfg = HydrometryConfig(sources=[
-            HydrometrySourceConfig(source="custom", path=sample_hydro_dir)
-        ])
+        cfg = HydrometryConfig(
+            sources=[HydrometrySourceConfig(source="custom", path=sample_hydro_dir)]
+        )
         mgr = HydrometryManager(
-            config=cfg, catalog=None,
+            config=cfg,
+            catalog=None,
             project_period=project_period,
         )
         records = mgr.load()

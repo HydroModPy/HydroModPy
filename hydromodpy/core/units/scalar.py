@@ -77,4 +77,3 @@ def parse_scalar_and_unit(
         else:
             resolved_unit = inline_unit
     return scalar, resolved_unit
-

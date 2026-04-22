@@ -98,7 +98,7 @@ class VerticalGridConfig(HydroModelBase):
     @model_validator(mode="after")
     def _validate_cross_fields(self):
         if self.genmtd_lay in ("constant", "decay"):
-            object.__setattr__(self, "nlay", _require_positive_int(self.nlay, name='nlay'))
+            object.__setattr__(self, "nlay", _require_positive_int(self.nlay, name="nlay"))
         if self.genmtd_lay == "decay":
             if self.lay_decay is None:
                 raise ValueError("lay_decay is required when genmtd_lay='decay'")
@@ -156,8 +156,8 @@ class PlanarGridConfig(HydroModelBase):
     @model_validator(mode="after")
     def _validate_cross_fields(self):
         if self.mode == "resample_to_shape":
-            object.__setattr__(self, "nx", _require_positive_int(self.nx, name='nx'))
-            object.__setattr__(self, "ny", _require_positive_int(self.ny, name='ny'))
+            object.__setattr__(self, "nx", _require_positive_int(self.nx, name="nx"))
+            object.__setattr__(self, "ny", _require_positive_int(self.ny, name="ny"))
         elif self.nx is not None or self.ny is not None:
             raise ValueError("nx and ny must be omitted when planar.mode='keep_native'")
         return self
@@ -212,7 +212,9 @@ class SGridConfig(HydroModelBase):
         default=None,
         description="Optional CRS identifier (for example 'EPSG:2154').",
     )
-    plan_discretization_mode: Annotated[Literal["keep_native", "resample_to_shape"], Profile.USER] = Field(
+    plan_discretization_mode: Annotated[
+        Literal["keep_native", "resample_to_shape"], Profile.USER
+    ] = Field(
         default="keep_native",
         description=(
             "Planar discretization strategy: keep native support or "
@@ -230,7 +232,9 @@ class SGridConfig(HydroModelBase):
         description="Target number of rows when plan_discretization_mode='resample_to_shape'.",
     )
 
-    genmtd_bot: Annotated[Literal["filepath", "raster", "constant_thickness", "constant_altitude"], Profile.USER] = Field(
+    genmtd_bot: Annotated[
+        Literal["filepath", "raster", "constant_thickness", "constant_altitude"], Profile.USER
+    ] = Field(
         ...,
         description="Bottom-surface generation method.",
     )
@@ -327,14 +331,12 @@ class SGridConfig(HydroModelBase):
         if self.plan_discretization_mode == "resample_to_shape":
             if self.nx is None or self.ny is None:
                 raise ValueError(
-                    "nx and ny are required when "
-                    "plan_discretization_mode='resample_to_shape'"
+                    "nx and ny are required when plan_discretization_mode='resample_to_shape'"
                 )
         if self.plan_discretization_mode == "keep_native":
             if self.nx is not None or self.ny is not None:
                 raise ValueError(
-                    "nx and ny must not be provided when "
-                    "plan_discretization_mode='keep_native'"
+                    "nx and ny must not be provided when plan_discretization_mode='keep_native'"
                 )
 
         self._require_existing_file(

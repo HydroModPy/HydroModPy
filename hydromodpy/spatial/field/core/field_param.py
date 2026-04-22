@@ -91,9 +91,7 @@ _DEFAULT_SI_UNIT_BY_PARAM_ID = {
 }
 
 
-def _get_nested_section(
-    payload: Mapping[str, Any], dotted_path: str
-) -> Mapping[str, Any]:
+def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
     """
     Resolve a nested TOML section from a dotted path.
 
@@ -178,9 +176,7 @@ def _load_values_mapping_csv(
             if key == "":
                 continue
             if key in values:
-                raise ValueError(
-                    f"Duplicate key '{key}' in CSV mapping '{path}' at line {i}."
-                )
+                raise ValueError(f"Duplicate key '{key}' in CSV mapping '{path}' at line {i}.")
             raw_value = row.get(val_col, "")
             try:
                 value = float(raw_value)
@@ -264,9 +260,7 @@ class FieldParam:
             return normalize_m_per_s_unit(token)
         except ValueError:
             allowed = ", ".join(SUPPORTED_PARAM_UNITS)
-            raise ValueError(
-                f"Unsupported unit '{unit}'. Allowed units: {allowed}"
-            ) from None
+            raise ValueError(f"Unsupported unit '{unit}'. Allowed units: {allowed}") from None
 
     @staticmethod
     def _expected_si_unit_for_identifier(identifier: str) -> str | None:
@@ -293,14 +287,10 @@ class FieldParam:
             Multiplicative conversion factor from input unit to SI unit.
         """
         expected_si = cls._expected_si_unit_for_identifier(identifier)
-        input_unit = (
-            cls._normalize_unit(unit) if unit is not None else (expected_si or "-")
-        )
+        input_unit = cls._normalize_unit(unit) if unit is not None else (expected_si or "-")
         if input_unit not in _UNIT_TO_SI_UNIT:
             allowed = ", ".join(SUPPORTED_PARAM_UNITS)
-            raise ValueError(
-                f"Unsupported unit '{input_unit}'. Allowed units: {allowed}"
-            )
+            raise ValueError(f"Unsupported unit '{input_unit}'. Allowed units: {allowed}")
         si_unit = _UNIT_TO_SI_UNIT[input_unit]
         if expected_si is not None and si_unit != expected_si:
             raise ValueError(
@@ -394,9 +384,7 @@ class FieldParam:
         canonical_unit = self._normalize_unit(resolved_unit)
         if canonical_unit not in _UNIT_TO_SI_UNIT:
             allowed = ", ".join(SUPPORTED_PARAM_UNITS)
-            raise ValueError(
-                f"Unsupported unit '{resolved_unit}'. Allowed units: {allowed}"
-            )
+            raise ValueError(f"Unsupported unit '{resolved_unit}'. Allowed units: {allowed}")
 
         resolved_si_unit = _UNIT_TO_SI_UNIT[canonical_unit]
         if resolved_si_unit != self.unit:
@@ -430,9 +418,7 @@ class FieldParam:
         mode = str(vertical_profile.get("mode", "none")).strip().lower()
         if mode not in SUPPORTED_VERTICAL_PROFILE_MODES:
             allowed = ", ".join(SUPPORTED_VERTICAL_PROFILE_MODES)
-            raise ValueError(
-                f"Unsupported vertical profile mode '{mode}'. Allowed: {allowed}"
-            )
+            raise ValueError(f"Unsupported vertical profile mode '{mode}'. Allowed: {allowed}")
 
         if mode == "none":
             return {"mode": "none"}
@@ -454,9 +440,7 @@ class FieldParam:
             if min_factor is not None:
                 min_factor = float(min_factor)
                 if not np.isfinite(min_factor):
-                    raise ValueError(
-                        "vertical_profile.min_factor must be finite when provided"
-                    )
+                    raise ValueError("vertical_profile.min_factor must be finite when provided")
                 if min_factor < 0.0 or min_factor > 1.0:
                     raise ValueError("vertical_profile.min_factor must be in [0, 1]")
 
@@ -477,17 +461,13 @@ class FieldParam:
             depths = np.asarray(vertical_profile["depths"], dtype=float).reshape(-1)
             factors = np.asarray(vertical_profile["factors"], dtype=float).reshape(-1)
             if depths.size == 0 or factors.size == 0:
-                raise ValueError(
-                    "vertical_profile tabulated depths/factors cannot be empty"
-                )
+                raise ValueError("vertical_profile tabulated depths/factors cannot be empty")
             if depths.size != factors.size:
                 raise ValueError(
                     "vertical_profile tabulated depths/factors must have the same length"
                 )
             if np.any(~np.isfinite(depths)) or np.any(~np.isfinite(factors)):
-                raise ValueError(
-                    "vertical_profile tabulated depths/factors must be finite"
-                )
+                raise ValueError("vertical_profile tabulated depths/factors must be finite")
             if np.any(depths < 0.0):
                 raise ValueError("vertical_profile depths must be >= 0")
             if np.any(np.diff(depths) <= 0.0):
@@ -495,13 +475,9 @@ class FieldParam:
             if not np.isclose(float(depths[0]), 0.0):
                 raise ValueError("vertical_profile tabulated first depth must be 0.0")
             if not np.isclose(float(factors[0]), 1.0):
-                raise ValueError(
-                    "vertical_profile tabulated factor at depth 0.0 must be 1.0"
-                )
+                raise ValueError("vertical_profile tabulated factor at depth 0.0 must be 1.0")
 
-            interpolation = (
-                str(vertical_profile.get("interpolation", "linear")).strip().lower()
-            )
+            interpolation = str(vertical_profile.get("interpolation", "linear")).strip().lower()
             if interpolation not in SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS:
                 allowed = ", ".join(SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS)
                 raise ValueError(
@@ -524,9 +500,7 @@ class FieldParam:
         if np.any(~np.isfinite(depth_arr)):
             raise ValueError("depth must contain only finite numeric values")
         if np.any(depth_arr < 0.0):
-            raise ValueError(
-                "depth values must be >= 0 (0 at surface, positive downward)"
-            )
+            raise ValueError("depth values must be >= 0 (0 at surface, positive downward)")
         return depth_arr
 
     def vertical_factor(self, depth=0.0):
@@ -573,13 +547,9 @@ class FieldParam:
                 return float(values_arr) * scalar_factor
             return values_arr * scalar_factor
         try:
-            return np.asarray(surface_values, dtype=float) * np.asarray(
-                factor, dtype=float
-            )
+            return np.asarray(surface_values, dtype=float) * np.asarray(factor, dtype=float)
         except ValueError as exc:
-            raise ValueError(
-                "Depth shape is not broadcastable with surface values shape"
-            ) from exc
+            raise ValueError("Depth shape is not broadcastable with surface values shape") from exc
 
     def _mesh_vertical_factor(self, mesh, *, depth=0.0):
         factor = self.vertical_factor(depth)
@@ -620,9 +590,7 @@ class FieldParam:
             # If structure is available, fill it with one constant value.
             if x is not None or y is not None:
                 if x is None or y is None:
-                    raise ValueError(
-                        "For homogeneous field with coordinates, provide both x and y"
-                    )
+                    raise ValueError("For homogeneous field with coordinates, provide both x and y")
                 x_arr = np.asarray(x, dtype=float)
                 y_arr = np.asarray(y, dtype=float)
                 if x_arr.shape != y_arr.shape:
@@ -695,14 +663,11 @@ class FieldParam:
                 target_mesh = getattr(field_discretization, "mesh", None)
             if target_mesh is None:
                 raise ValueError(
-                    "Homogeneous field requires 'mesh' "
-                    "(or a field_discretization exposing '.mesh')"
+                    "Homogeneous field requires 'mesh' (or a field_discretization exposing '.mesh')"
                 )
             scalar_value = self.value
             if scalar_value is None:
-                raise RuntimeError(
-                    "Internal state error: homogeneous field has no 'value'."
-                )
+                raise RuntimeError("Internal state error: homogeneous field has no 'value'.")
             values = np.full(int(target_mesh.n_cells), float(scalar_value), dtype=float)
             values = np.asarray(target_mesh.to_cell_values(values), dtype=float)
             vertical_factor = self._mesh_vertical_factor(target_mesh, depth=depth)
@@ -718,14 +683,12 @@ class FieldParam:
         required = ("mesh", "aggregation", "weighted_components")
         if not all(hasattr(field_discretization, key) for key in required):
             raise TypeError(
-                "field_discretization must expose: "
-                "'mesh', 'aggregation', 'weighted_components'"
+                "field_discretization must expose: 'mesh', 'aggregation', 'weighted_components'"
             )
 
         if str(field_discretization.aggregation).strip().lower() != "weighted_average":
             raise ValueError(
-                "Unsupported field discretization aggregation "
-                f"'{field_discretization.aggregation}'"
+                f"Unsupported field discretization aggregation '{field_discretization.aggregation}'"
             )
 
         mesh = field_discretization.mesh
@@ -734,9 +697,7 @@ class FieldParam:
         missing: list[str] = []
         values_by_key = self.values_by_key
         if values_by_key is None:
-            raise RuntimeError(
-                "Internal state error: heterogeneous field has no 'values_by_key'."
-            )
+            raise RuntimeError("Internal state error: heterogeneous field has no 'values_by_key'.")
 
         for zone_key in zone_keys:
             if zone_key not in values_by_key:
@@ -750,9 +711,7 @@ class FieldParam:
 
         if missing:
             missing_txt = ", ".join(sorted(set(missing)))
-            raise ValueError(
-                f"Missing values for discretized field keys: {missing_txt}"
-            )
+            raise ValueError(f"Missing values for discretized field keys: {missing_txt}")
 
         if weighted is None:
             raise ValueError("Discretization did not produce any weighted contribution")
@@ -802,9 +761,7 @@ class FieldParam:
 
         if missing:
             missing_txt = ", ".join(sorted(set(missing)))
-            raise ValueError(
-                f"Missing heterogeneous values for zone ids: {missing_txt}"
-            )
+            raise ValueError(f"Missing heterogeneous values for zone ids: {missing_txt}")
         return out
 
     def as_dict(self):
@@ -974,8 +931,7 @@ class FieldParam:
         common_root = _optional_nested_section(payload, "field_common")
         if common_root is not None:
             raise ValueError(
-                "TOML section 'field_common' is no longer supported. "
-                "Move shared keys to 'field'."
+                "TOML section 'field_common' is no longer supported. Move shared keys to 'field'."
             )
 
         # Backward-compatible root [field] common block (only when another

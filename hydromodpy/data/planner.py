@@ -61,11 +61,7 @@ class DataPlanner:
         support_required = requested_spatial_support_ids is None or bool(requested_supports)
         provider_names = self._normalize_tokens(domain_support_provider_names)
 
-        if (
-            support_required
-            and "geology" in provider_names
-            and "geology" not in explicit_set
-        ):
+        if support_required and "geology" in provider_names and "geology" not in explicit_set:
             self._add_inference(
                 inferred_types,
                 reasons_by_type,
@@ -107,8 +103,7 @@ class DataPlanner:
             explicit_types=explicit_types,
             inferred_types=tuple(inferred_types),
             reasons_by_type={
-                type_name: tuple(reasons)
-                for type_name, reasons in reasons_by_type.items()
+                type_name: tuple(reasons) for type_name, reasons in reasons_by_type.items()
             },
         )
 

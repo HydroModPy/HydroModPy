@@ -40,5 +40,7 @@ class Modflow6GwtTransportAdapter:
             )
         return RunExecutionResult(
             primary_model=model_transport,
-            solver_output_dir=Path(model_transport.full_path) if hasattr(model_transport, "full_path") else None,
+            solver_output_dir=Path(model_transport.full_path)
+            if hasattr(model_transport, "full_path")
+            else None,
         )

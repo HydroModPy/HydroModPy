@@ -47,7 +47,9 @@ class PiezometerDiscovery(BaseStationSet):
     """Encapsulate piezometer discovery outside ``PiezometerSet``."""
 
     def __init__(self, *, local_data_dir: Optional[Union[str, Path]] = None):
-        self.local_data_dir = Path(local_data_dir).expanduser().resolve() if local_data_dir else None
+        self.local_data_dir = (
+            Path(local_data_dir).expanduser().resolve() if local_data_dir else None
+        )
 
     @staticmethod
     def normalize_piezometer_ids(id_values: Union[str, List[str]]) -> list[str]:
@@ -145,15 +147,24 @@ class PiezometerDiscovery(BaseStationSet):
             if candidate_data:
                 logger.info("Found %d piezometers in buffered search area.", len(candidate_data))
 
-        if reference_point is not None and candidate_data and all(item["coords"] is not None for item in candidate_data):
+        if (
+            reference_point is not None
+            and candidate_data
+            and all(item["coords"] is not None for item in candidate_data)
+        ):
             ref_lon, ref_lat = reference_point
             distances = []
             for item in candidate_data:
                 lon, lat = item["coords"]
-                distances.append((item["id"], helper._haversine_distance(ref_lon, ref_lat, lon, lat)))
+                distances.append(
+                    (item["id"], helper._haversine_distance(ref_lon, ref_lat, lon, lat))
+                )
             distances.sort(key=lambda item: item[1])
             candidate_ids = [candidate_id for candidate_id, _ in distances[:max_ids]]
-            logger.info("Discovered %d closest piezometers sorted by distance to reference point", len(candidate_ids))
+            logger.info(
+                "Discovered %d closest piezometers sorted by distance to reference point",
+                len(candidate_ids),
+            )
 
             if require_observations:
                 return helper._filter_by_observations(
@@ -379,7 +390,9 @@ class PiezometerDiscovery(BaseStationSet):
             }
             try:
                 response = get_default_client().get(
-                    f"{API_BASE_URL}chroniques", params=chrono_params, timeout=timeout,
+                    f"{API_BASE_URL}chroniques",
+                    params=chrono_params,
+                    timeout=timeout,
                 )
             except requests.exceptions.RequestException:
                 continue
@@ -436,11 +449,18 @@ class PiezometerDiscovery(BaseStationSet):
 
             if candidate_data:
                 candidate_data.sort(
-                    key=lambda item: float("inf")
-                    if item["coords"] is None
-                    else self._haversine_distance(ref_lon, ref_lat, item["coords"][0], item["coords"][1])
+                    key=lambda item: (
+                        float("inf")
+                        if item["coords"] is None
+                        else self._haversine_distance(
+                            ref_lon, ref_lat, item["coords"][0], item["coords"][1]
+                        )
+                    )
                 )
-                logger.info("Using all %d piezometers from fallback search (sorted by distance)", len(candidate_data))
+                logger.info(
+                    "Using all %d piezometers from fallback search (sorted by distance)",
+                    len(candidate_data),
+                )
             else:
                 raise ValueError(
                     "No piezometers found within the specified geographic mask "
@@ -464,14 +484,24 @@ class PiezometerDiscovery(BaseStationSet):
             station_col = "piezometer_id" if "piezometer_id" in df.columns else "code_bss"
             lon_col = "longitude_station" if "longitude_station" in df.columns else "x_wgs84"
             lat_col = "latitude_station" if "latitude_station" in df.columns else "y_wgs84"
-            if station_col not in df.columns or lon_col not in df.columns or lat_col not in df.columns:
-                raise ValueError("stations_info.csv must contain piezometer id and longitude/latitude columns.")
+            if (
+                station_col not in df.columns
+                or lon_col not in df.columns
+                or lat_col not in df.columns
+            ):
+                raise ValueError(
+                    "stations_info.csv must contain piezometer id and longitude/latitude columns."
+                )
             out = df[[station_col, lon_col, lat_col]].copy()
             out.columns = ["piezometer_id", "lon", "lat"]
         elif metadata_path.exists():
             df = pd.read_csv(metadata_path)
             station_col = "piezometer_id" if "piezometer_id" in df.columns else "code_bss"
-            if station_col not in df.columns or "x_wgs84" not in df.columns or "y_wgs84" not in df.columns:
+            if (
+                station_col not in df.columns
+                or "x_wgs84" not in df.columns
+                or "y_wgs84" not in df.columns
+            ):
                 raise ValueError(
                     "metadata.csv must contain piezometer_id (or code_bss), x_wgs84 and y_wgs84 columns."
                 )
@@ -505,7 +535,9 @@ class PiezometerDiscovery(BaseStationSet):
         try:
             stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="within")
         except Exception:
-            stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="intersects")
+            stations_in_mask = gpd.sjoin(
+                stations_gdf, mask_gdf, how="inner", predicate="intersects"
+            )
 
         if stations_in_mask.empty:
             raise ValueError("No local piezometers found within the specified geographic mask.")

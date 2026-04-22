@@ -1,4 +1,4 @@
-﻿"""Public loading helpers for the standalone ``mesh`` package.
+"""Public loading helpers for the standalone ``mesh`` package.
 
 Recommended usage:
 
@@ -34,4 +34,3 @@ __all__ = [
     "load_visualization_data",
     "load_visualization_data_from_toml",
 ]
-

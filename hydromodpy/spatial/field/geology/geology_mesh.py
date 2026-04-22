@@ -53,7 +53,9 @@ class GeologyStructuredMesh(BaseFieldMesh):
         Build a rectangular structured mesh from [xmin, ymin, xmax, ymax].
         """
         xmin, ymin, xmax, ymax = [float(v) for v in bounds]
-        if not (np.isfinite(xmin) and np.isfinite(ymin) and np.isfinite(xmax) and np.isfinite(ymax)):
+        if not (
+            np.isfinite(xmin) and np.isfinite(ymin) and np.isfinite(xmax) and np.isfinite(ymax)
+        ):
             raise ValueError("bounds must contain finite values")
         if xmax <= xmin or ymax <= ymin:
             raise ValueError("bounds must satisfy xmax > xmin and ymax > ymin")

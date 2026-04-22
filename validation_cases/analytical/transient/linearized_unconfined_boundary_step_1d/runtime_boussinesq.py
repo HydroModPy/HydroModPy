@@ -30,9 +30,7 @@ def run_boussinesq_linearized_unconfined_boundary_step_case(
     time_cfg = dict(metadata.get("time", {}))
 
     base_head_m = float(reference_cfg["base_head_m"])
-    reference_saturated_thickness_m = float(
-        reference_cfg["reference_saturated_thickness_m"]
-    )
+    reference_saturated_thickness_m = float(reference_cfg["reference_saturated_thickness_m"])
     nper = int(output_cfg["expected_periods"])
     dt_seconds = float(time_cfg["dt_seconds"])
 

@@ -1,4 +1,4 @@
-﻿"""Steady driver helpers for the Boussinesq solver."""
+"""Steady driver helpers for the Boussinesq solver."""
 
 from __future__ import annotations
 
@@ -67,13 +67,9 @@ def run_steady_runtime(solver: "Boussinesq") -> bool:
         converged=bool(steady.converged),
     )
     solver.runtime_summary["steady_mode"] = f"nonlinear_{runtime_backend.name}"
-    solver.runtime_summary["steady_residual_norm_inf"] = float(
-        steady.residual_norm_inf
-    )
+    solver.runtime_summary["steady_residual_norm_inf"] = float(steady.residual_norm_inf)
     solver.runtime_summary["steady_nonlinear_iterations"] = int(steady.iterations)
-    solver.runtime_summary["steady_termination_reason"] = str(
-        steady.termination_reason
-    )
+    solver.runtime_summary["steady_termination_reason"] = str(steady.termination_reason)
     solver.runtime_summary["active_recharge"] = bool(runtime_forcing.active_recharge)
     solver.runtime_summary["active_wells"] = bool(np.any(well_flux_m3_s != 0.0))
     solver.runtime_summary["active_prescribed_head_bc"] = bool(len(dirichlet_supports) > 0)
@@ -86,4 +82,3 @@ def run_steady_runtime(solver: "Boussinesq") -> bool:
 
 
 __all__ = ["run_steady_runtime"]
-

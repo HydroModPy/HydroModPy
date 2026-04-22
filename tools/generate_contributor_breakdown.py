@@ -170,9 +170,13 @@ def _parse_nonblank_patch_delta(text: str) -> tuple[int, int]:
     for raw_line in text.splitlines():
         if not raw_line:
             continue
-        if raw_line.startswith(("diff --git ", "index ", "@@ ", "new file mode ", "deleted file mode ")):
+        if raw_line.startswith(
+            ("diff --git ", "index ", "@@ ", "new file mode ", "deleted file mode ")
+        ):
             continue
-        if raw_line.startswith(("rename from ", "rename to ", "similarity index ", "dissimilarity index ")):
+        if raw_line.startswith(
+            ("rename from ", "rename to ", "similarity index ", "dissimilarity index ")
+        ):
             continue
         if raw_line.startswith(("--- ", "+++ ", "Binary files ")):
             continue
@@ -240,7 +244,9 @@ def _collect_commit_deltas_for_window(
     return commits
 
 
-def _collect_commit_deltas(start: date, end: date) -> tuple[list[tuple[date, str]], list[CommitDelta]]:
+def _collect_commit_deltas(
+    start: date, end: date
+) -> tuple[list[tuple[date, str]], list[CommitDelta]]:
     snapshots = _snapshot_commits_by_day(start, end)
     if not snapshots:
         return [], []
@@ -280,7 +286,9 @@ def _build_display_names(commits: list[CommitDelta]) -> dict[str, str]:
     return display_names
 
 
-def _build_summaries(commits: list[CommitDelta], display_names: dict[str, str]) -> list[ContributorSummary]:
+def _build_summaries(
+    commits: list[CommitDelta], display_names: dict[str, str]
+) -> list[ContributorSummary]:
     summaries: dict[str, ContributorSummary] = {}
     for item in commits:
         contributor_id = item.contributor_id
@@ -347,7 +355,9 @@ def _build_daily_rows(
             total_lines += value
 
         if include_other:
-            other_value = sum(running_by_contributor[contributor_id] for contributor_id in grouped_ids)
+            other_value = sum(
+                running_by_contributor[contributor_id] for contributor_id in grouped_ids
+            )
             row["Autres contributeurs"] = other_value
             total_lines += other_value
 
@@ -424,7 +434,11 @@ def _plot_breakdown(
     title: str,
 ) -> None:
     x = [datetime.fromisoformat(str(row["date"])) for row in rows]
-    columns = [column for column in rows[0].keys() if column not in {"date", "Total lignes source non vides"}]
+    columns = [
+        column
+        for column in rows[0].keys()
+        if column not in {"date", "Total lignes source non vides"}
+    ]
     series = [[int(row[column]) for row in rows] for column in columns]
     totals = [int(row["Total lignes source non vides"]) for row in rows]
 
@@ -550,7 +564,9 @@ def main(argv: list[str] | None = None) -> int:
     end_snapshot = snapshot_count_cache[end_commit]
     display_names = _build_display_names(commits)
     summaries = _build_summaries(commits, display_names)
-    kept_ids, grouped_ids, include_other = _select_chart_contributors(summaries, top_n=max(int(args.top_n), 0))
+    kept_ids, grouped_ids, include_other = _select_chart_contributors(
+        summaries, top_n=max(int(args.top_n), 0)
+    )
     daily_rows = _build_daily_rows(
         start=start,
         end=end,
@@ -586,9 +602,15 @@ def main(argv: list[str] | None = None) -> int:
     print(f"SUMMARY={summary_csv}")
     print(f"PNG={chart_png}")
     print(f"SVG={chart_svg}")
-    print(f"START {start.isoformat()} commit={start_commit[:8]} lines={baseline.nonblank_lines} files={baseline.files}")
-    print(f"END {end.isoformat()} commit={end_commit[:8]} lines={end_snapshot.nonblank_lines} files={end_snapshot.files}")
-    print(f"GROWTH total={growth_total} contributors={len(summaries)} shown={len(kept_ids) + int(include_other)}")
+    print(
+        f"START {start.isoformat()} commit={start_commit[:8]} lines={baseline.nonblank_lines} files={baseline.files}"
+    )
+    print(
+        f"END {end.isoformat()} commit={end_commit[:8]} lines={end_snapshot.nonblank_lines} files={end_snapshot.files}"
+    )
+    print(
+        f"GROWTH total={growth_total} contributors={len(summaries)} shown={len(kept_ids) + int(include_other)}"
+    )
     return 0
 
 

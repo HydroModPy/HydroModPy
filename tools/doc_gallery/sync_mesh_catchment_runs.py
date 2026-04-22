@@ -192,7 +192,13 @@ def _family_spec_by_key(key: str) -> ManagedMeshFamilySpec:
 
 
 def _manifest_path(results_root: Path, family: ManagedMeshFamilySpec) -> Path:
-    return results_root / family.results_subdir / "mesh" / "batch" / "mesh_catchment_batch_manifest.csv"
+    return (
+        results_root
+        / family.results_subdir
+        / "mesh"
+        / "batch"
+        / "mesh_catchment_batch_manifest.csv"
+    )
 
 
 def _bundle_dir_from_manifest_row(row: dict[str, str]) -> Path:
@@ -230,10 +236,7 @@ def _select_rows(
     featured_outlet_ids: tuple[int, ...],
     count: int,
 ) -> list[dict[str, str]]:
-    rows_by_outlet = {
-        int(str(row["outlet_id"]).strip()): row
-        for row in rows
-    }
+    rows_by_outlet = {int(str(row["outlet_id"]).strip()): row for row in rows}
     selected_outlet_ids: list[int] = []
     for outlet_id in featured_outlet_ids:
         if outlet_id in rows_by_outlet and outlet_id not in selected_outlet_ids:
@@ -255,7 +258,9 @@ def _managed_case_slug(family: ManagedMeshFamilySpec, outlet_id: str) -> str:
     return f"mesh_{family.key}_outlet_{str(outlet_id).strip()}_{family.variant}"
 
 
-def _clean_destination_roots(*, repo_root: Path, selected_families: tuple[ManagedMeshFamilySpec, ...]) -> None:
+def _clean_destination_roots(
+    *, repo_root: Path, selected_families: tuple[ManagedMeshFamilySpec, ...]
+) -> None:
     gallery_root = mesh_gallery_root(repo_root=repo_root)
     managed_case_dirs: set[Path] = set()
     for family in selected_families:
@@ -293,9 +298,7 @@ def sync_mesh_catchment_runs(
     results_root = results_root.expanduser().resolve()
     repo_root = repo_root.expanduser().resolve()
     selected_families = (
-        tuple(_family_spec_by_key(key) for key in family_keys)
-        if family_keys
-        else FAMILY_SPECS
+        tuple(_family_spec_by_key(key) for key in family_keys) if family_keys else FAMILY_SPECS
     )
 
     if clean_destination:
@@ -342,7 +345,9 @@ def sync_mesh_catchment_runs(
             payload["site_tabs_group_title"] = family.label
             payload["site_tabs_label"] = f"Outlet {outlet_id}"
             payload["site_tabs_order"] = tab_order
-            payload["source_results_family_dir"] = str((results_root / family.results_subdir).resolve())
+            payload["source_results_family_dir"] = str(
+                (results_root / family.results_subdir).resolve()
+            )
             payload["source_results_manifest_path"] = str(manifest_path)
             _write_json(case_json_path, payload)
             imported_case_dirs.append(case_dir)

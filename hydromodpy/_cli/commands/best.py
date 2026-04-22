@@ -16,10 +16,8 @@ HELP = "Show the top simulation for a project ranked by a metric"
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument("project", help="Project label")
-    parser.add_argument("--metric", default="nse",
-                        help="Metric name (default: nse)")
-    parser.add_argument("--workspace", default=None,
-                        help="Workspace root (default: auto-detect)")
+    parser.add_argument("--metric", default="nse", help="Metric name (default: nse)")
+    parser.add_argument("--workspace", default=None, help="Workspace root (default: auto-detect)")
     parser.set_defaults(_handler=run)
     _register_order_mode(parser, "best")
     return parser

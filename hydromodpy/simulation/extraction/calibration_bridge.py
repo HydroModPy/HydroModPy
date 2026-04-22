@@ -80,7 +80,9 @@ def persist_calibration_result(
     metrics: list[tuple[str, str, float]] | None = None,
 ) -> None:
     store.register_simulation(
-        sim_id, project=project, solver=solver,
+        sim_id,
+        project=project,
+        solver=solver,
         name=name or "calibration_best",
     )
 
@@ -101,10 +103,13 @@ def persist_calibration_result(
             for station_id, metric_name, value in metrics:
                 store.write_metric(sim_id, station_id, metric_name, value)
 
-        store.write_parameters(sim_id, [
-            {"param_name": k, "value": v, "parameterization": "calibrated"}
-            for k, v in best_params.items()
-        ])
+        store.write_parameters(
+            sim_id,
+            [
+                {"param_name": k, "value": v, "parameterization": "calibrated"}
+                for k, v in best_params.items()
+            ],
+        )
     except Exception:
         store.finalize(sim_id, status="failed")
         raise
@@ -178,14 +183,19 @@ def persist_calibration_summary_to_store(
     params_with_meta["__objective_best__"] = best_objective
     if score_best is not None:
         params_with_meta["__score_best__"] = score_best
-    store.write_parameters(sim_id, [
-        {"param_name": k, "value": v, "parameterization": "calibrated"}
-        for k, v in params_with_meta.items()
-    ])
+    store.write_parameters(
+        sim_id,
+        [
+            {"param_name": k, "value": v, "parameterization": "calibrated"}
+            for k, v in params_with_meta.items()
+        ],
+    )
 
     store.finalize(sim_id, status="completed")
     logger.info(
-        "Persisted calibration summary for sim %s "
-        "(method=%s, objective=%.6g, iterations=%d)",
-        sim_id, method, best_objective, iteration_count,
+        "Persisted calibration summary for sim %s (method=%s, objective=%.6g, iterations=%d)",
+        sim_id,
+        method,
+        best_objective,
+        iteration_count,
     )

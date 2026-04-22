@@ -1,4 +1,4 @@
-﻿"""Surface-interaction helpers for the Boussinesq assembly."""
+"""Surface-interaction helpers for the Boussinesq assembly."""
 
 from __future__ import annotations
 
@@ -92,4 +92,3 @@ __all__ = [
     "resolve_saturation_excess_rate",
     "saturation_excess_rate_from_balance",
 ]
-

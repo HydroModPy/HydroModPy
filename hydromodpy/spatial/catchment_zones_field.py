@@ -58,8 +58,7 @@ class CatchmentZonesField:
         if not present.issubset(allowed):
             unknown = sorted(present.difference(allowed))
             raise ValueError(
-                f"encoded_codes contains unknown class codes: {unknown}; "
-                f"allowed={sorted(allowed)}"
+                f"encoded_codes contains unknown class codes: {unknown}; allowed={sorted(allowed)}"
             )
 
         object.__setattr__(self, "encoded_codes", codes)

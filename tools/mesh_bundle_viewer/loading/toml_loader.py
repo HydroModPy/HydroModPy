@@ -1,4 +1,4 @@
-﻿"""Read, validate, and resolve TOML config for the standalone viewer.
+"""Read, validate, and resolve TOML config for the standalone viewer.
 
 This module is the bridge between the stable public TOML contract and the
 runtime ``VisualizationConfig`` used by the rest of the package.
@@ -89,4 +89,3 @@ def load_toml_config(
 __all__ = [
     "load_toml_config",
 ]
-

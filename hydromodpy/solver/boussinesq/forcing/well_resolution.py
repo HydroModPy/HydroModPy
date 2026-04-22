@@ -63,9 +63,7 @@ class WellResolutionMixin:
             x_m = self.mesh.x_min_m + x_rel * (self.mesh.x_max_m - self.mesh.x_min_m)
             y_m = self.mesh.y_min_m + y_rel * (self.mesh.y_max_m - self.mesh.y_min_m)
         else:
-            raise ValueError(
-                f"Unsupported well location mode for '{well_id}': {location_mode!r}."
-            )
+            raise ValueError(f"Unsupported well location mode for '{well_id}': {location_mode!r}.")
         return self.mesh.locate_cell_index_for_point(x_m, y_m, allow_nearest=True)
 
     def resolve_well_flux_series(

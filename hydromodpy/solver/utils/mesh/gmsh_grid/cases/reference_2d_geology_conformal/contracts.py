@@ -60,11 +60,7 @@ class ZoneConformalGeologySourceConfig:
         return cls(
             path=str(payload["path"]),
             kind=str(payload["kind"]),
-            code_field=(
-                None
-                if payload.get("code_field") is None
-                else str(payload["code_field"])
-            ),
+            code_field=(None if payload.get("code_field") is None else str(payload["code_field"])),
             reference_raster_path=(
                 None
                 if payload.get("reference_raster_path") is None

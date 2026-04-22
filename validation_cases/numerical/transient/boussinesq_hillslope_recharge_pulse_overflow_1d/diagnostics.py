@@ -120,8 +120,12 @@ def aggregate_cell_history_to_grid(
 
     dx = float(length_x_m) / float(nx)
     dy = float(width_y_m) / float(ny)
-    col_index = np.clip(np.floor(np.asarray(cell_x_m, dtype=float) / dx).astype(int), 0, int(nx) - 1)
-    row_index = np.clip(np.floor(np.asarray(cell_y_m, dtype=float) / dy).astype(int), 0, int(ny) - 1)
+    col_index = np.clip(
+        np.floor(np.asarray(cell_x_m, dtype=float) / dx).astype(int), 0, int(nx) - 1
+    )
+    row_index = np.clip(
+        np.floor(np.asarray(cell_y_m, dtype=float) / dy).astype(int), 0, int(ny) - 1
+    )
 
     counts = np.zeros((int(ny), int(nx)), dtype=float)
     np.add.at(counts, (row_index, col_index), 1.0)
@@ -243,8 +247,7 @@ def _align_period_values_to_elapsed_days(
             return np.zeros_like(elapsed, dtype=float)
         return np.concatenate(([float(array[0])], array))
     raise ValueError(
-        "Value chronology length does not match elapsed days "
-        f"({array.size} vs {elapsed.size})."
+        f"Value chronology length does not match elapsed days ({array.size} vs {elapsed.size})."
     )
 
 
@@ -314,7 +317,9 @@ def build_hillslope_overflow_diagnostics(
         n_snapshots=int(np.asarray(state_history["head_history_m"], dtype=float).shape[0]),
     )
     if elapsed_seconds is None:
-        raise ValueError("Transient Boussinesq diagnostics require explicit or derivable snapshot times.")
+        raise ValueError(
+            "Transient Boussinesq diagnostics require explicit or derivable snapshot times."
+        )
     elapsed_days = np.asarray(elapsed_seconds / SECONDS_PER_DAY, dtype=float)
     n_periods = max(int(elapsed_days.size) - 1, 0)
     recharge_mm_day = _resolve_recharge_series_mm_day(
@@ -380,9 +385,7 @@ def build_hillslope_overflow_diagnostics(
         solver_name=result.solver_name,
         solver_label=variant.label,
         runtime_backend=str(summary.get("runtime_backend", "unknown")),
-        surface_interaction_model=str(
-            summary.get("surface_interaction_model_resolved", "unknown")
-        ),
+        surface_interaction_model=str(summary.get("surface_interaction_model_resolved", "unknown")),
         elapsed_days=elapsed_days,
         recharge_mm_day=recharge_mm_day,
         recharge_flux_m3_day=np.asarray(recharge_flux_m3_day, dtype=float),

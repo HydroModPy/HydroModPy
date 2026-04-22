@@ -56,9 +56,7 @@ def _stable_signature(payload: dict) -> dict:
     }
 
 
-def _assert_nested_close(
-    actual, expected, *, rtol: float = 2.0e-4, atol: float = 2.0e-6
-) -> None:
+def _assert_nested_close(actual, expected, *, rtol: float = 2.0e-4, atol: float = 2.0e-6) -> None:
     if isinstance(actual, dict) and isinstance(expected, dict):
         assert set(actual) == set(expected)
         for key in actual:
@@ -81,9 +79,7 @@ def _assert_nested_close(
 
 
 def test_comparison_cartesian_vs_gmsh_2d_non_regression(update_goldens: bool) -> None:
-    output_dir = (
-        Path.cwd() / "scratch_tests" / "comparison_cartesian_vs_gmsh_2d" / "runtime"
-    )
+    output_dir = Path.cwd() / "scratch_tests" / "comparison_cartesian_vs_gmsh_2d" / "runtime"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     payload = run_comparison_case(
@@ -110,12 +106,7 @@ def test_comparison_cartesian_vs_gmsh_2d_non_regression(update_goldens: bool) ->
 def test_comparison_case_ensures_interactive_backend_before_show_build(
     monkeypatch,
 ) -> None:
-    output_dir = (
-        Path.cwd()
-        / "scratch_tests"
-        / "comparison_cartesian_vs_gmsh_2d_show"
-        / "runtime"
-    )
+    output_dir = Path.cwd() / "scratch_tests" / "comparison_cartesian_vs_gmsh_2d_show" / "runtime"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     ensured = {"done": False}
@@ -132,9 +123,7 @@ def test_comparison_case_ensures_interactive_backend_before_show_build(
         compare_2d_module.SGridFieldParamDiscretizationConfig,
         "from_toml",
         staticmethod(
-            lambda path, section="case": SimpleNamespace(
-                geology={}, field_param={}, depth=1.0
-            )
+            lambda path, section="case": SimpleNamespace(geology={}, field_param={}, depth=1.0)
         ),
     )
     monkeypatch.setattr(
@@ -181,9 +170,7 @@ def test_comparison_case_ensures_interactive_backend_before_show_build(
             "summary": {"kind": "gmsh"},
         },
     )
-    monkeypatch.setattr(
-        compare_2d_module, "build_reference_case_figure", lambda **kwargs: Figure()
-    )
+    monkeypatch.setattr(compare_2d_module, "build_reference_case_figure", lambda **kwargs: Figure())
 
     def _stub_build_comparison_figure(*, output_path, **kwargs):
         _save_dummy_image(Path(output_path))
@@ -234,9 +221,7 @@ def test_comparison_case_ensures_interactive_backend_before_show_build(
         shown["called"] = True
         assert len(image_paths) == 4
 
-    monkeypatch.setattr(
-        compare_2d_module, "show_saved_images_blocking", _fake_show_saved_images
-    )
+    monkeypatch.setattr(compare_2d_module, "show_saved_images_blocking", _fake_show_saved_images)
 
     payload = run_comparison_case(
         cartesian_config_toml=CASE_DIR / "case_config_cartesian.toml",

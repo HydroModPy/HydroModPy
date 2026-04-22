@@ -106,9 +106,7 @@ def _derive_regional_figure_path(output_figure: Path | None) -> Path | None:
     """Derive the sibling regional figure path from the main overview figure path."""
     if output_figure is None:
         return None
-    return output_figure.with_name(
-        f"{output_figure.stem}_regional{output_figure.suffix}"
-    )
+    return output_figure.with_name(f"{output_figure.stem}_regional{output_figure.suffix}")
 
 
 def _default_mesh_output_dir(workspace: object) -> Path:
@@ -126,6 +124,7 @@ def _cleanup_geographic_artifacts(*, workspace: object) -> list[str]:
     """Delete intermediate geographic folders from one workspace."""
     root = Path(getattr(workspace, "project_root", "."))
     from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+
     stable = root / LEGACY_STABLE_DIR
     deleted: list[str] = []
     for folder in (stable / "geographic", stable / "demcorrecflow"):
@@ -176,11 +175,7 @@ def _resolve_output_overrides(
             config_dir=config_path.parent,
             raw_value=section_cfg.output_mesh,
         )
-    output_mesh = (
-        Path(output_mesh)
-        if output_mesh is not None
-        else mesh_dir / "mesh_catchment.msh"
-    )
+    output_mesh = Path(output_mesh) if output_mesh is not None else mesh_dir / "mesh_catchment.msh"
 
     output_summary_json = overrides.get("output_summary_json")
     if output_summary_json is None:
@@ -209,9 +204,7 @@ def _resolve_output_overrides(
             raw_value=section_cfg.output_figure_regional,
         )
     output_figure_regional_path = (
-        None
-        if output_figure_regional is None
-        else Path(output_figure_regional)
+        None if output_figure_regional is None else Path(output_figure_regional)
     )
     if output_figure_regional_path is None:
         output_figure_regional_path = _derive_regional_figure_path(output_figure_path)
@@ -293,9 +286,7 @@ def _prepare_runtime_environment(
         )
 
     local_workspace = (
-        workspace
-        if workspace is not None
-        else deps.workspace_factory(config=runtime_workspace_cfg)
+        workspace if workspace is not None else deps.workspace_factory(config=runtime_workspace_cfg)
     )
     local_geographic_features = coerce_geographic_derived_features(
         geographic_features=geographic_features,
@@ -391,9 +382,7 @@ def _export_exchange_bundle_if_possible(
     except (Exception, SystemExit) as exc:  # pragma: no cover - defensive only
         message = str(exc).strip()
         summary_dict["exchange_bundle_error"] = (
-            type(exc).__name__
-            if message == ""
-            else f"{type(exc).__name__}: {message}"
+            type(exc).__name__ if message == "" else f"{type(exc).__name__}: {message}"
         )
 
 
@@ -411,9 +400,7 @@ def _apply_post_run_cleanup(
         and prepared_runtime.effective_output_layout != "flat"
     ):
         try:
-            deleted_paths = _cleanup_geographic_artifacts(
-                workspace=prepared_runtime.workspace
-            )
+            deleted_paths = _cleanup_geographic_artifacts(workspace=prepared_runtime.workspace)
             summary_dict["geographic_outputs_cleanup_applied"] = bool(deleted_paths)
             if deleted_paths:
                 summary_dict["geographic_outputs_cleanup_deleted"] = deleted_paths
@@ -428,13 +415,9 @@ def _apply_post_run_cleanup(
             deleted_runtime_paths = _cleanup_runtime_workspace_root(
                 runtime_project_root=prepared_runtime.runtime_project_root,
             )
-            summary_dict["runtime_workspace_cleanup_applied"] = bool(
-                deleted_runtime_paths
-            )
+            summary_dict["runtime_workspace_cleanup_applied"] = bool(deleted_runtime_paths)
             if deleted_runtime_paths:
-                summary_dict["runtime_workspace_cleanup_deleted"] = (
-                    deleted_runtime_paths
-                )
+                summary_dict["runtime_workspace_cleanup_deleted"] = deleted_runtime_paths
         except Exception as exc:  # pragma: no cover - defensive only
             summary_dict["runtime_workspace_cleanup_error"] = str(exc)
 

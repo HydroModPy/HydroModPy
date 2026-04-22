@@ -54,7 +54,9 @@ class DupuitCircularIslandOceanComparison:
     land_clearance_min: float
 
 
-def _build_reference_surfaces(reference_cfg: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def _build_reference_surfaces(
+    reference_cfg: dict,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Rebuild the synthetic DEM and radial coordinates from metadata."""
     grid = SyntheticGridConfig(
         length_x=float(reference_cfg["length_x_m"]),
@@ -99,7 +101,9 @@ def _build_annular_profile(
     if max_radius_m <= 0.0:
         raise ValueError("comparison_radius_max_m must be > 0.")
 
-    edges = np.arange(0.0, float(max_radius_m) + float(bin_width_m), float(bin_width_m), dtype=float)
+    edges = np.arange(
+        0.0, float(max_radius_m) + float(bin_width_m), float(bin_width_m), dtype=float
+    )
     if edges[-1] < float(max_radius_m):
         edges = np.append(edges, float(max_radius_m))
 
@@ -141,9 +145,7 @@ def build_dupuit_circular_island_ocean_comparison(
     case_metadata = load_case_metadata(CASE_DIR) if metadata is None else metadata
     solver_name = str(getattr(result, "solver_name", "")).strip().lower() or None
     case_tolerances = (
-        load_case_tolerances(CASE_DIR, solver=solver_name)
-        if tolerances is None
-        else tolerances
+        load_case_tolerances(CASE_DIR, solver=solver_name) if tolerances is None else tolerances
     )
 
     output_cfg = dict(case_metadata.get("output", {}))
@@ -169,7 +171,10 @@ def build_dupuit_circular_island_ocean_comparison(
     ocean_mask = dem <= sea_level
     comparison_radius_max_by_solver = reference_cfg.get("comparison_radius_max_by_solver", {})
     comparison_radius_max_m = float(reference_cfg["comparison_radius_max_m"])
-    if isinstance(comparison_radius_max_by_solver, dict) and solver_name in comparison_radius_max_by_solver:
+    if (
+        isinstance(comparison_radius_max_by_solver, dict)
+        and solver_name in comparison_radius_max_by_solver
+    ):
         comparison_radius_max_m = float(comparison_radius_max_by_solver[solver_name])
     annular_radius, annular_counts, numerical_profile, annular_std = _build_annular_profile(
         heads=np.asarray(heads, dtype=float),
@@ -213,7 +218,9 @@ def build_dupuit_circular_island_ocean_comparison(
             np.max(np.abs(np.asarray(heads, dtype=float)[ocean_mask] - sea_level))
         ),
         land_clearance_min=float(
-            np.min(np.asarray(dem, dtype=float)[land_mask] - np.asarray(heads, dtype=float)[land_mask])
+            np.min(
+                np.asarray(dem, dtype=float)[land_mask] - np.asarray(heads, dtype=float)[land_mask]
+            )
         ),
     )
 
@@ -245,6 +252,3 @@ def run_dupuit_circular_island_ocean_comparison(
         metadata=metadata,
         tolerances=tolerances,
     )
-
-
-

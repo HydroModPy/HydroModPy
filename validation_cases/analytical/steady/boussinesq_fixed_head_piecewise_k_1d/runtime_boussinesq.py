@@ -111,7 +111,9 @@ def run_boussinesq_fixed_head_piecewise_k_case(
             ),
             domain=None,
             time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
+            workspace=SimpleNamespace(
+                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
+            ),
         ),
     )
     run = ProcessRun(

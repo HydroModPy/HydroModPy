@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 # Optional mesh section resolution
 # ---------------------------------------------------------------------------
 
+
 def resolve_optional_mesh_section(
     raw_toml: Mapping[str, object],
 ) -> MeshCatchmentConfig | None:
@@ -72,9 +73,7 @@ def resolve_optional_mesh_input(
     mesh_path = _resolve_optional_path(section.get("mesh_path"))
     bundle_dir = _resolve_optional_path(section.get("bundle_dir"))
     if mesh_path == "" and bundle_dir == "":
-        raise ValueError(
-            "[mesh_input] requires at least one of 'mesh_path' or 'bundle_dir'."
-        )
+        raise ValueError("[mesh_input] requires at least one of 'mesh_path' or 'bundle_dir'.")
     return {
         "mesh_path": mesh_path,
         "bundle_dir": bundle_dir,
@@ -84,6 +83,7 @@ def resolve_optional_mesh_input(
 # ---------------------------------------------------------------------------
 # Mesh phases
 # ---------------------------------------------------------------------------
+
 
 def run_mesh_phase(
     config_path: str | Path,
@@ -143,6 +143,7 @@ def run_mesh_input_phase(
 # Mesh artifact loading
 # ---------------------------------------------------------------------------
 
+
 def load_mesh_artifacts_from_summary(
     run_state: WorkflowContext,
     *,
@@ -189,6 +190,7 @@ def load_mesh_artifacts_from_summary(
 # ---------------------------------------------------------------------------
 # Step entry points (unified signature for workflow pipelines)
 # ---------------------------------------------------------------------------
+
 
 def step_mesh(
     ctx: WorkflowContext,

@@ -26,15 +26,15 @@ from enum import Enum
 class BoundaryKind(str, Enum):
     """Semantic boundary-condition kinds understood by HydroModPy."""
 
-    STREAM = "stream"          # river / open channel
-    DRAIN = "drain"            # drain (top-of-grid seepage)
-    CHD = "chd"                # constant head
-    WELL = "well"              # pumping / injection
-    GHB = "ghb"                # general-head boundary
-    RIV = "riv"                # river package (explicit)
-    OCEAN = "ocean"            # seaward boundary (mapped to CHD/GHB)
-    RECHARGE = "recharge"      # areal recharge
-    EVT = "evt"                # evapotranspiration
+    STREAM = "stream"  # river / open channel
+    DRAIN = "drain"  # drain (top-of-grid seepage)
+    CHD = "chd"  # constant head
+    WELL = "well"  # pumping / injection
+    GHB = "ghb"  # general-head boundary
+    RIV = "riv"  # river package (explicit)
+    OCEAN = "ocean"  # seaward boundary (mapped to CHD/GHB)
+    RECHARGE = "recharge"  # areal recharge
+    EVT = "evt"  # evapotranspiration
 
 
 # Dispatch tables. Values are FloPy package class suffixes ("Riv", "Drn",

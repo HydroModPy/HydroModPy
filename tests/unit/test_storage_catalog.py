@@ -48,8 +48,7 @@ class TestSchema:
 
     def test_schema_version_table_absent(self, mem_conn):
         rows = mem_conn.execute(
-            "SELECT table_name FROM information_schema.tables "
-            "WHERE table_schema='main'"
+            "SELECT table_name FROM information_schema.tables WHERE table_schema='main'"
         ).fetchall()
         tables = {r[0] for r in rows}
         assert "_schema_version" not in tables
@@ -75,8 +74,7 @@ class TestSchema:
         cols = {
             r[0]
             for r in mem_conn.execute(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name='simulations'"
+                "SELECT column_name FROM information_schema.columns WHERE table_name='simulations'"
             ).fetchall()
         }
         assert {"bbox_xmin", "bbox_ymin", "bbox_xmax", "bbox_ymax"} <= cols
@@ -96,8 +94,7 @@ class TestSchema:
         ensure_schema(mem_conn)
         ensure_schema(mem_conn)
         rows = mem_conn.execute(
-            "SELECT table_name FROM information_schema.tables "
-            "WHERE table_schema='main'"
+            "SELECT table_name FROM information_schema.tables WHERE table_schema='main'"
         ).fetchall()
         tables = {r[0] for r in rows}
         assert set(TABLE_NAMES) <= tables
@@ -117,7 +114,9 @@ class TestRegisterAndRead:
         sid = _sim_id()
         snapshot = {"flow": {"regime": "steady"}, "k": 1.5e-5}
         catalog.register_simulation(
-            sid, project="p", solver="modflow6",
+            sid,
+            project="p",
+            solver="modflow6",
             config_snapshot=snapshot,
         )
         raw = catalog.connection.execute(
@@ -130,7 +129,10 @@ class TestRegisterAndRead:
         sid = _sim_id()
         config = {"a": 1, "b": 2}
         catalog.register_simulation(
-            sid, project="p", solver="modflow6", config=config,
+            sid,
+            project="p",
+            solver="modflow6",
+            config=config,
         )
         raw = catalog.connection.execute(
             "SELECT config_snapshot FROM simulations WHERE sim_id=?",
@@ -141,8 +143,11 @@ class TestRegisterAndRead:
     def test_register_maps_bbox_and_crs(self, catalog):
         sid = _sim_id()
         catalog.register_simulation(
-            sid, project="p", solver="modflow6",
-            bbox=[1.0, 2.0, 3.0, 4.0], crs="EPSG:2154",
+            sid,
+            project="p",
+            solver="modflow6",
+            bbox=[1.0, 2.0, 3.0, 4.0],
+            crs="EPSG:2154",
         )
         row = catalog.connection.execute(
             "SELECT bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax, "
@@ -156,7 +161,9 @@ class TestRegisterAndRead:
         sid = _sim_id()
         fp = "a" * 64
         catalog.register_simulation(
-            sid, project="p", solver="modflow6",
+            sid,
+            project="p",
+            solver="modflow6",
             geographic_fingerprint=fp,
         )
         row = catalog.connection.execute(
@@ -168,8 +175,12 @@ class TestRegisterAndRead:
     def test_register_with_zarr_creates_store(self, catalog):
         sid = _sim_id()
         reg = catalog.register_simulation(
-            sid, project="p", solver="modflow6",
-            n_cells=16, n_layers=2, geographic_fingerprint="fp-abc",
+            sid,
+            project="p",
+            solver="modflow6",
+            n_cells=16,
+            n_layers=2,
+            geographic_fingerprint="fp-abc",
         )
         sz = reg.zarr
         try:
@@ -186,42 +197,45 @@ class TestPrimaryKeys:
     def test_parameters_pk_rejects_duplicates(self, mem_conn):
         sid = _sim_id()
         mem_conn.execute(
-            "INSERT INTO simulations (sim_id, project, solver) "
-            "VALUES (?, 'p', 'mf6')", [sid],
+            "INSERT INTO simulations (sim_id, project, solver) VALUES (?, 'p', 'mf6')",
+            [sid],
         )
         mem_conn.execute(
-            "INSERT INTO parameters (sim_id, param_name, value) "
-            "VALUES (?, 'K', 1.0)", [sid],
+            "INSERT INTO parameters (sim_id, param_name, value) VALUES (?, 'K', 1.0)",
+            [sid],
         )
         with pytest.raises(duckdb.ConstraintException):
             mem_conn.execute(
-                "INSERT INTO parameters (sim_id, param_name, value) "
-                "VALUES (?, 'K', 2.0)", [sid],
+                "INSERT INTO parameters (sim_id, param_name, value) VALUES (?, 'K', 2.0)",
+                [sid],
             )
 
     def test_metrics_pk_includes_variable(self, mem_conn):
         sid = _sim_id()
         mem_conn.execute(
-            "INSERT INTO simulations (sim_id, project, solver) "
-            "VALUES (?, 'p', 'mf6')", [sid],
+            "INSERT INTO simulations (sim_id, project, solver) VALUES (?, 'p', 'mf6')",
+            [sid],
         )
         mem_conn.execute(
             "INSERT INTO metrics (sim_id, station_id, variable, "
             "metric_name, value) "
-            "VALUES (?, 'P01', 'head', 'nse', 0.8)", [sid],
+            "VALUES (?, 'P01', 'head', 'nse', 0.8)",
+            [sid],
         )
         # Same metric / variable / station → conflict
         with pytest.raises(duckdb.ConstraintException):
             mem_conn.execute(
                 "INSERT INTO metrics (sim_id, station_id, variable, "
                 "metric_name, value) "
-                "VALUES (?, 'P01', 'head', 'nse', 0.9)", [sid],
+                "VALUES (?, 'P01', 'head', 'nse', 0.9)",
+                [sid],
             )
         # Different variable → distinct row allowed
         mem_conn.execute(
             "INSERT INTO metrics (sim_id, station_id, variable, "
             "metric_name, value) "
-            "VALUES (?, 'P01', 'discharge', 'nse', 0.7)", [sid],
+            "VALUES (?, 'P01', 'discharge', 'nse', 0.7)",
+            [sid],
         )
 
 
@@ -234,9 +248,15 @@ class TestPerSimColumns:
         this test only checks the structural invariant.
         """
         per_sim = (
-            "parameters", "metrics", "timeseries", "budgets",
-            "mass_balance", "observation_points", "provenance",
-            "geographic_features", "geographic_metadata",
+            "parameters",
+            "metrics",
+            "timeseries",
+            "budgets",
+            "mass_balance",
+            "observation_points",
+            "provenance",
+            "geographic_features",
+            "geographic_metadata",
         )
         for table in per_sim:
             row = mem_conn.execute(
@@ -254,7 +274,8 @@ class TestChecks:
         with pytest.raises(duckdb.ConstraintException):
             mem_conn.execute(
                 "INSERT INTO simulations (sim_id, project, solver, status) "
-                "VALUES (?, 'p', 'mf6', 'bogus')", [sid],
+                "VALUES (?, 'p', 'mf6', 'bogus')",
+                [sid],
             )
 
     def test_budget_component_not_null(self, mem_conn):
@@ -267,18 +288,20 @@ class TestChecks:
         """
         sid = _sim_id()
         mem_conn.execute(
-            "INSERT INTO simulations (sim_id, project, solver) "
-            "VALUES (?, 'p', 'mf6')", [sid],
+            "INSERT INTO simulations (sim_id, project, solver) VALUES (?, 'p', 'mf6')",
+            [sid],
         )
         with pytest.raises(duckdb.ConstraintException):
             mem_conn.execute(
                 "INSERT INTO budgets (sim_id, timestep, component, "
-                "flux_in, flux_out) VALUES (?, 0, NULL, 0, 0)", [sid],
+                "flux_in, flux_out) VALUES (?, 0, NULL, 0, 0)",
+                [sid],
             )
         # A previously-rejected label like 'drains' is now accepted.
         mem_conn.execute(
             "INSERT INTO budgets (sim_id, timestep, component, "
-            "flux_in, flux_out) VALUES (?, 0, 'drains', 0, 0)", [sid],
+            "flux_in, flux_out) VALUES (?, 0, 'drains', 0, 0)",
+            [sid],
         )
 
     def test_bbox_order_enforced(self, mem_conn):
@@ -286,7 +309,8 @@ class TestChecks:
         with pytest.raises(duckdb.ConstraintException):
             mem_conn.execute(
                 "INSERT INTO simulations (sim_id, project, solver, "
-                "bbox_xmin, bbox_xmax) VALUES (?, 'p', 'mf6', 10, 0)", [sid],
+                "bbox_xmin, bbox_xmax) VALUES (?, 'p', 'mf6', 10, 0)",
+                [sid],
             )
 
 
@@ -296,34 +320,37 @@ class TestG05Tables:
     def test_runs_environment_pk_is_sim_id(self, mem_conn):
         sid = _sim_id()
         mem_conn.execute(
-            "INSERT INTO simulations (sim_id, project, solver) "
-            "VALUES (?, 'p', 'mf6')", [sid],
+            "INSERT INTO simulations (sim_id, project, solver) VALUES (?, 'p', 'mf6')",
+            [sid],
         )
         mem_conn.execute(
-            "INSERT INTO runs_environment (sim_id, python_version) "
-            "VALUES (?, '3.13')", [sid],
+            "INSERT INTO runs_environment (sim_id, python_version) VALUES (?, '3.13')",
+            [sid],
         )
         with pytest.raises(duckdb.ConstraintException):
             mem_conn.execute(
-                "INSERT INTO runs_environment (sim_id, python_version) "
-                "VALUES (?, '3.12')", [sid],
+                "INSERT INTO runs_environment (sim_id, python_version) VALUES (?, '3.12')",
+                [sid],
             )
 
     def test_tags_pk_sim_tag(self, mem_conn):
         sid = _sim_id()
         mem_conn.execute(
-            "INSERT INTO simulations (sim_id, project, solver) "
-            "VALUES (?, 'p', 'mf6')", [sid],
+            "INSERT INTO simulations (sim_id, project, solver) VALUES (?, 'p', 'mf6')",
+            [sid],
         )
         mem_conn.execute(
-            "INSERT INTO tags (sim_id, tag) VALUES (?, 'draft')", [sid],
+            "INSERT INTO tags (sim_id, tag) VALUES (?, 'draft')",
+            [sid],
         )
         mem_conn.execute(
-            "INSERT INTO tags (sim_id, tag) VALUES (?, 'published')", [sid],
+            "INSERT INTO tags (sim_id, tag) VALUES (?, 'published')",
+            [sid],
         )
         with pytest.raises(duckdb.ConstraintException):
             mem_conn.execute(
-                "INSERT INTO tags (sim_id, tag) VALUES (?, 'draft')", [sid],
+                "INSERT INTO tags (sim_id, tag) VALUES (?, 'draft')",
+                [sid],
             )
 
     def test_stations_pk_station_variable(self, mem_conn):
@@ -360,8 +387,7 @@ class TestG05Views:
 
     def test_views_exist(self, mem_conn):
         rows = mem_conn.execute(
-            "SELECT table_name FROM information_schema.views "
-            "WHERE table_schema='main'"
+            "SELECT table_name FROM information_schema.views WHERE table_schema='main'"
         ).fetchall()
         names = {r[0] for r in rows}
         assert set(VIEW_NAMES) <= names
@@ -370,15 +396,16 @@ class TestG05Views:
         sid = _sim_id()
         mem_conn.execute(
             "INSERT INTO simulations (sim_id, project, solver, status) "
-            "VALUES (?, 'river', 'mf6', 'completed')", [sid],
+            "VALUES (?, 'river', 'mf6', 'completed')",
+            [sid],
         )
         mem_conn.execute(
-            "INSERT INTO metrics (sim_id, metric_name, value) "
-            "VALUES (?, 'nse', 0.9)", [sid],
+            "INSERT INTO metrics (sim_id, metric_name, value) VALUES (?, 'nse', 0.9)",
+            [sid],
         )
         mem_conn.execute(
-            "INSERT INTO metrics (sim_id, metric_name, value) "
-            "VALUES (?, 'rmse', 0.05)", [sid],
+            "INSERT INTO metrics (sim_id, metric_name, value) VALUES (?, 'rmse', 0.05)",
+            [sid],
         )
         row = mem_conn.execute(
             "SELECT nse, rmse FROM v_simulation_summary WHERE sim_id = ?",
@@ -394,11 +421,12 @@ class TestG05Views:
         for sid, nse in [(sa, 0.5), (sb, 0.8)]:
             mem_conn.execute(
                 "INSERT INTO simulations (sim_id, project, solver, status) "
-                "VALUES (?, 'lab', 'mf6', 'completed')", [sid],
+                "VALUES (?, 'lab', 'mf6', 'completed')",
+                [sid],
             )
             mem_conn.execute(
-                "INSERT INTO metrics (sim_id, metric_name, value) "
-                "VALUES (?, 'nse', ?)", [sid, nse],
+                "INSERT INTO metrics (sim_id, metric_name, value) VALUES (?, 'nse', ?)",
+                [sid, nse],
             )
         row = mem_conn.execute(
             "SELECT sim_id FROM v_best_per_project WHERE project='lab'"
@@ -408,13 +436,13 @@ class TestG05Views:
     def test_metrics_wide_pivots_known_names(self, mem_conn):
         sid = _sim_id()
         mem_conn.execute(
-            "INSERT INTO simulations (sim_id, project, solver) "
-            "VALUES (?, 'p', 'mf6')", [sid],
+            "INSERT INTO simulations (sim_id, project, solver) VALUES (?, 'p', 'mf6')",
+            [sid],
         )
         for name, val in [("nse", 0.9), ("kge", 0.85), ("rmse", 0.1)]:
             mem_conn.execute(
-                "INSERT INTO metrics (sim_id, metric_name, value) "
-                "VALUES (?, ?, ?)", [sid, name, val],
+                "INSERT INTO metrics (sim_id, metric_name, value) VALUES (?, ?, ?)",
+                [sid, name, val],
             )
         row = mem_conn.execute(
             "SELECT nse, kge, rmse FROM v_metrics_wide WHERE sim_id = ?",
@@ -425,19 +453,21 @@ class TestG05Views:
     def test_params_wide_returns_map(self, mem_conn):
         sid = _sim_id()
         mem_conn.execute(
-            "INSERT INTO simulations (sim_id, project, solver) "
-            "VALUES (?, 'p', 'mf6')", [sid],
+            "INSERT INTO simulations (sim_id, project, solver) VALUES (?, 'p', 'mf6')",
+            [sid],
         )
         mem_conn.execute(
-            "INSERT INTO parameters (sim_id, param_name, value) "
-            "VALUES (?, 'K', 1e-5)", [sid],
+            "INSERT INTO parameters (sim_id, param_name, value) VALUES (?, 'K', 1e-5)",
+            [sid],
         )
         mem_conn.execute(
             "INSERT INTO parameters (sim_id, param_name, zone_id, value) "
-            "VALUES (?, 'K', 'granite', 5e-6)", [sid],
+            "VALUES (?, 'K', 'granite', 5e-6)",
+            [sid],
         )
         row = mem_conn.execute(
-            "SELECT params FROM v_params_wide WHERE sim_id = ?", [sid],
+            "SELECT params FROM v_params_wide WHERE sim_id = ?",
+            [sid],
         ).fetchone()
         params = row[0]
         assert params["K"] == 1e-5
@@ -452,20 +482,22 @@ class TestG05ZoneGlobal:
     def test_global_zone_is_default(self, mem_conn):
         sid = _sim_id()
         mem_conn.execute(
-            "INSERT INTO simulations (sim_id, project, solver) "
-            "VALUES (?, 'p', 'mf6')", [sid],
+            "INSERT INTO simulations (sim_id, project, solver) VALUES (?, 'p', 'mf6')",
+            [sid],
         )
         mem_conn.execute(
-            "INSERT INTO parameters (sim_id, param_name, value) "
-            "VALUES (?, 'K', 1.0)", [sid],
+            "INSERT INTO parameters (sim_id, param_name, value) VALUES (?, 'K', 1.0)",
+            [sid],
         )
         row = mem_conn.execute(
-            "SELECT zone_id FROM parameters WHERE sim_id = ?", [sid],
+            "SELECT zone_id FROM parameters WHERE sim_id = ?",
+            [sid],
         ).fetchone()
         assert row[0] == "__global__"
 
     def test_old_homogeneous_zone_constant_is_gone(self):
         from hydromodpy.results import catalog_schema
+
         assert not hasattr(catalog_schema, "HOMOGENEOUS_ZONE")
         assert catalog_schema.GLOBAL_ZONE == "__global__"
 
@@ -476,7 +508,10 @@ class TestResolveReference:
     def _register(self, catalog, *, project="p", name=None):
         sid = _sim_id()
         catalog.register_simulation(
-            sid, project=project, solver="modflow6", name=name,
+            sid,
+            project=project,
+            solver="modflow6",
+            name=name,
         )
         return sid
 
@@ -492,11 +527,13 @@ class TestResolveReference:
     def test_uuid_prefix_too_short_not_accepted_as_uuid(self, catalog):
         sid = self._register(catalog)
         from hydromodpy.results.catalog import SimulationNotFoundError
+
         with pytest.raises(SimulationNotFoundError):
             catalog.resolve(sid[:3])
 
     def test_uuid_prefix_ambiguous_raises(self, catalog):
         from hydromodpy.results.catalog import AmbiguousReferenceError
+
         forced_sid_1 = "12345678-0000-0000-0000-000000000001"
         forced_sid_2 = "12349999-0000-0000-0000-000000000002"
         catalog.register_simulation(forced_sid_1, project="p", solver="s")
@@ -514,6 +551,7 @@ class TestResolveReference:
 
     def test_name_without_project_ambiguous(self, catalog):
         from hydromodpy.results.catalog import AmbiguousReferenceError
+
         sid_a = self._register(catalog, project="p1", name="shared")
         sid_b = self._register(catalog, project="p2", name="shared")
         with pytest.raises(AmbiguousReferenceError):
@@ -523,6 +561,7 @@ class TestResolveReference:
 
     def test_not_found_raises(self, catalog):
         from hydromodpy.results.catalog import SimulationNotFoundError
+
         with pytest.raises(SimulationNotFoundError):
             catalog.resolve("no-such-thing")
 
@@ -540,7 +579,10 @@ class TestOnCollision:
         new = _sim_id()
         catalog.register_simulation(old, project="p", solver="s", name="foo")
         reg = catalog.register_simulation(
-            new, project="p", solver="s", name="foo",
+            new,
+            project="p",
+            solver="s",
+            name="foo",
             on_collision="replace",
         )
         assert reg.name == "foo"
@@ -552,12 +594,16 @@ class TestOnCollision:
 
     def test_fail_raises_duplicate(self, catalog):
         from hydromodpy.results.catalog import DuplicateSimulationNameError
+
         old = _sim_id()
         new = _sim_id()
         catalog.register_simulation(old, project="p", solver="s", name="foo")
         with pytest.raises(DuplicateSimulationNameError):
             catalog.register_simulation(
-                new, project="p", solver="s", name="foo",
+                new,
+                project="p",
+                solver="s",
+                name="foo",
                 on_collision="fail",
             )
 
@@ -567,11 +613,17 @@ class TestOnCollision:
         sid_3 = _sim_id()
         catalog.register_simulation(sid_1, project="p", solver="s", name="foo")
         reg2 = catalog.register_simulation(
-            sid_2, project="p", solver="s", name="foo",
+            sid_2,
+            project="p",
+            solver="s",
+            name="foo",
             on_collision="version",
         )
         reg3 = catalog.register_simulation(
-            sid_3, project="p", solver="s", name="foo",
+            sid_3,
+            project="p",
+            solver="s",
+            name="foo",
             on_collision="version",
         )
         assert reg2.name == "foo.v2"
@@ -582,7 +634,10 @@ class TestOnCollision:
         sid_b = _sim_id()
         catalog.register_simulation(sid_a, project="p1", solver="s", name="foo")
         reg = catalog.register_simulation(
-            sid_b, project="p2", solver="s", name="foo",
+            sid_b,
+            project="p2",
+            solver="s",
+            name="foo",
             on_collision="fail",
         )
         assert reg.name == "foo"
@@ -597,5 +652,6 @@ class TestOnCollision:
 
 def test_short_id_helper():
     from hydromodpy.results.catalog import short_id
+
     assert short_id("19d90750-a7ae-451a-9e6d-805a46d136d8") == "19d90750"
     assert len(short_id(uuid.uuid4())) == 8

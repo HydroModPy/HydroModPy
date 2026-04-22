@@ -40,9 +40,7 @@ class TimeSeriesValidationError(DataContractViolation):
         self.path = path
         self.errors = errors
         joined = "\n  - ".join(errors)
-        super().__init__(
-            f"Validation failed for {path} ({len(errors)} issue(s)):\n  - {joined}"
-        )
+        super().__init__(f"Validation failed for {path} ({len(errors)} issue(s)):\n  - {joined}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,9 +97,7 @@ def read_timeseries_csv(path: Path) -> TimeSeriesArtifact:
 
     missing = [c for c in TIMESERIES_COLUMNS if c not in rows[0]]
     if missing:
-        raise TimeSeriesValidationError(
-            path, [f"missing columns: {missing!r}"]
-        )
+        raise TimeSeriesValidationError(path, [f"missing columns: {missing!r}"])
 
     records: list[tuple[datetime, float | None]] = []
     for i, row in enumerate(rows, start=1):
@@ -127,7 +123,9 @@ def read_timeseries_csv(path: Path) -> TimeSeriesArtifact:
 
     station_id = infer_station_id_from_filename(path)
     return TimeSeriesArtifact(
-        station_id=station_id, records=records, source_path=path,
+        station_id=station_id,
+        records=records,
+        source_path=path,
     )
 
 
@@ -181,16 +179,15 @@ def convert_timeseries_csv_to_parquet(
 
 
 def _write_timeseries_as_csv(
-    artifact: TimeSeriesArtifact, dest: Path,
+    artifact: TimeSeriesArtifact,
+    dest: Path,
 ) -> None:
     """CSV fallback for environments lacking pyarrow/parquet."""
     with dest.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.writer(fh)
         writer.writerow(("datetime", "value", "station_id"))
         for dt, val in artifact.records:
-            writer.writerow(
-                (dt.isoformat(), "" if val is None else repr(val), artifact.station_id)
-            )
+            writer.writerow((dt.isoformat(), "" if val is None else repr(val), artifact.station_id))
 
 
 def read_locations_csv(path: str | Path) -> LocationsArtifact:
@@ -207,13 +204,20 @@ def read_locations_csv(path: str | Path) -> LocationsArtifact:
     if not rows:
         # Empty template (only comments + header) is legitimate — no stations yet.
         return LocationsArtifact(
-            stations=[], crs="", unit="", source_path=path, errors=[],
+            stations=[],
+            crs="",
+            unit="",
+            source_path=path,
+            errors=[],
         )
 
     missing = [c for c in LOCATIONS_COLUMNS if c not in rows[0]]
     if missing:
         return LocationsArtifact(
-            stations=[], crs="", unit="", source_path=path,
+            stations=[],
+            crs="",
+            unit="",
+            source_path=path,
             errors=[f"missing columns: {missing!r}"],
         )
 
@@ -250,19 +254,22 @@ def read_locations_csv(path: str | Path) -> LocationsArtifact:
         crs_values.add(crs)
         unit_values.add(unit)
 
-        stations.append(
-            {"id": sid, "x": x, "y": y, "crs": crs, "unit": unit}
-        )
+        stations.append({"id": sid, "x": x, "y": y, "crs": crs, "unit": unit})
 
     crs = crs_values.pop() if len(crs_values) == 1 else ""
     unit = unit_values.pop() if len(unit_values) == 1 else ""
     return LocationsArtifact(
-        stations=stations, crs=crs, unit=unit, source_path=path, errors=errors,
+        stations=stations,
+        crs=crs,
+        unit=unit,
+        source_path=path,
+        errors=errors,
     )
 
 
 def convert_locations_csv_to_geoparquet(
-    src: str | Path, dest: str | Path,
+    src: str | Path,
+    dest: str | Path,
 ) -> Path:
     """Convert a locations CSV into a GeoParquet file.
 
@@ -298,7 +305,8 @@ def convert_locations_csv_to_geoparquet(
 
 
 def _write_locations_as_csv(
-    artifact: LocationsArtifact, dest: Path,
+    artifact: LocationsArtifact,
+    dest: Path,
 ) -> None:
     with dest.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.writer(fh)

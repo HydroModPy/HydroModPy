@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
- * Copyright (c) 2023 Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy
- *
- * This program and the accompanying materials are made available under the
- * terms of the Eclipse Public License 2.0 which is available at
- * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
- * which is available at https://www.apache.org/licenses/LICENSE-2.0.
- *
- * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+* Copyright (c) 2023 Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy
+*
+* This program and the accompanying materials are made available under the
+* terms of the Eclipse Public License 2.0 which is available at
+* http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+* which is available at https://www.apache.org/licenses/LICENSE-2.0.
+*
+* SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
 from pathlib import Path
@@ -129,9 +129,7 @@ def _read_chron_dates(config: TMeshConfig) -> pd.Series:
     if df.empty:
         raise ValueError("Chronicle file is empty.")
     if config.chron_time_col not in df.columns:
-        raise ValueError(
-            f"Chronicle column {config.chron_time_col!r} not found in {chron_path}."
-        )
+        raise ValueError(f"Chronicle column {config.chron_time_col!r} not found in {chron_path}.")
     try:
         dates = pd.to_datetime(
             df[config.chron_time_col],
@@ -140,8 +138,7 @@ def _read_chron_dates(config: TMeshConfig) -> pd.Series:
         )
     except Exception as exc:
         raise ValueError(
-            "Failed to parse chronicle dates with chron_dateformat="
-            f"{config.chron_dateformat!r}."
+            f"Failed to parse chronicle dates with chron_dateformat={config.chron_dateformat!r}."
         ) from exc
     if len(dates) < 2:
         raise ValueError("Chronicle must contain at least two timestamps.")
@@ -186,10 +183,13 @@ def _build_period_lengths(config: TMeshConfig) -> tuple[Any, str, np.ndarray]:
             end_datetime = _as_timestamp("end_datetime", config.end_datetime)
             expected = pd.to_timedelta(np.sum(deltat))
             actual = end_datetime - start_datetime
-            inclusive_actual = _inclusive_end_candidate(
-                end_datetime,
-                itmuni=str(config.itmuni),
-            ) - start_datetime
+            inclusive_actual = (
+                _inclusive_end_candidate(
+                    end_datetime,
+                    itmuni=str(config.itmuni),
+                )
+                - start_datetime
+            )
             if actual < pd.Timedelta(0):
                 raise ValueError("end_datetime must be greater than or equal to start_datetime.")
             matches_exclusive = np.isclose(
@@ -238,9 +238,7 @@ def _build_period_lengths(config: TMeshConfig) -> tuple[Any, str, np.ndarray]:
                     "when genmtd='from_chron'."
                 )
         start_datetime = dates.iloc[0]
-        deltat = dates.iloc[1:].reset_index(drop=True) - dates.iloc[:-1].reset_index(
-            drop=True
-        )
+        deltat = dates.iloc[1:].reset_index(drop=True) - dates.iloc[:-1].reset_index(drop=True)
     else:  # pragma: no cover - unreachable due to _validate_config
         raise ValueError(f"Unsupported genmtd={config.genmtd!r}.")
 
@@ -276,9 +274,7 @@ def _expand_ntsp(value: int | list[int] | np.ndarray, nper: int) -> np.ndarray:
     else:
         arr = np.asarray(value).reshape(-1)
         if arr.size != nper:
-            raise ValueError(
-                f"ntsp length mismatch: expected {nper}, got {arr.size}."
-            )
+            raise ValueError(f"ntsp length mismatch: expected {nper}, got {arr.size}.")
         if not np.all(np.equal(arr, np.floor(arr))):
             raise ValueError("ntsp values must be integers.")
         arr = arr.astype(int)
@@ -296,9 +292,7 @@ def _expand_tsmult(
     else:
         arr = np.asarray(value, dtype=float).reshape(-1)
         if arr.size != nper:
-            raise ValueError(
-                f"tsmult length mismatch: expected {nper}, got {arr.size}."
-            )
+            raise ValueError(f"tsmult length mismatch: expected {nper}, got {arr.size}.")
     if not np.all(np.isfinite(arr)) or np.any(arr <= 0):
         raise ValueError("tsmult values must be strictly positive.")
     return arr

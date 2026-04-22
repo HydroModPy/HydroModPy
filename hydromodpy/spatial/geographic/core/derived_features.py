@@ -69,9 +69,7 @@ class GeographicDerivedFeatures:
             # Compatibility alias: the canonical owner is now `features.rivers`.
             river_mesh_trace=self.rivers.river_mesh_trace,
             regional_dem_path=(
-                None
-                if self.regional_dem_path is None
-                else str(self.regional_dem_path)
+                None if self.regional_dem_path is None else str(self.regional_dem_path)
             ),
         )
 
@@ -121,11 +119,8 @@ def coerce_geographic_derived_features(
     if isinstance(geographic_features, GeographicDerivedFeatures):
         return geographic_features
     if geographic_features is not None:
-        if (
-            getattr(geographic_features, "rivers", None) is not None
-            and callable(
-                getattr(geographic_features, "to_domain_geographic_context", None)
-            )
+        if getattr(geographic_features, "rivers", None) is not None and callable(
+            getattr(geographic_features, "to_domain_geographic_context", None)
         ):
             return geographic_features
     if geographic is not None:
@@ -136,14 +131,10 @@ def coerce_geographic_derived_features(
                 return features
         domain_getter = getattr(geographic, "get_domain_geographic_context", None)
         if callable(domain_getter):
-            return GeographicDerivedFeatures.from_domain_geographic_context(
-                domain_getter()
-            )
+            return GeographicDerivedFeatures.from_domain_geographic_context(domain_getter())
     if domain_geographic is not None:
         try:
-            return GeographicDerivedFeatures.from_domain_geographic_context(
-                domain_geographic
-            )
+            return GeographicDerivedFeatures.from_domain_geographic_context(domain_geographic)
         except AttributeError:
             return None
     return None

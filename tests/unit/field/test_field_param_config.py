@@ -386,9 +386,7 @@ def test_validate_resolved_field_param_data_accepts_vertical_profile_alias():
     )
 
     assert payload["vertical_profile"]["mode"] == "exponential"
-    assert float(payload["vertical_profile"]["characteristic_depth"]) == pytest.approx(
-        50.0
-    )
+    assert float(payload["vertical_profile"]["characteristic_depth"]) == pytest.approx(50.0)
 
 
 def test_validate_resolved_field_param_data_accepts_vertical_profile_alias_with_min_factor():
@@ -406,9 +404,7 @@ def test_validate_resolved_field_param_data_accepts_vertical_profile_alias_with_
     )
 
     assert payload["vertical_profile"]["mode"] == "exponential"
-    assert float(payload["vertical_profile"]["characteristic_depth"]) == pytest.approx(
-        50.0
-    )
+    assert float(payload["vertical_profile"]["characteristic_depth"]) == pytest.approx(50.0)
     assert float(payload["vertical_profile"]["min_factor"]) == pytest.approx(0.01)
 
 

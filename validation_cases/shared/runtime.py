@@ -109,6 +109,7 @@ _VALIDATION_PROFILES_BY_SOLVER_AND_CASE: dict[str, dict[str, str]] = {
     },
 }
 
+
 def _read_toml(path: Path) -> dict[str, Any]:
     """Read one TOML payload."""
     with path.open("r", encoding="utf-8") as stream:
@@ -362,9 +363,7 @@ def resolve_model_workspace(
         if not model_ws.is_dir():
             target = str(model_name).lower()
             case_insensitive_matches = [
-                p
-                for p in results_dir.iterdir()
-                if p.is_dir() and p.name.lower() == target
+                p for p in results_dir.iterdir() if p.is_dir() and p.name.lower() == target
             ]
             if len(case_insensitive_matches) == 1:
                 model_ws = case_insensitive_matches[0]
@@ -525,7 +524,9 @@ def _normalize_validation_config_files(raw_config_files: object) -> dict[str, st
     for key, value in raw_config_files.items():
         solver_name = str(key).strip().lower()
         if solver_name == "":
-            raise ValueError("validation metadata 'config_files' cannot contain an empty solver name")
+            raise ValueError(
+                "validation metadata 'config_files' cannot contain an empty solver name"
+            )
         normalized[solver_name] = str(value)
     return normalized
 
@@ -600,7 +601,11 @@ def run_launcher_validation_case(
     env.setdefault("MPLBACKEND", "Agg")
 
     command = [
-        sys.executable, "-m", "hydromodpy", "run", str(run_config_path),
+        sys.executable,
+        "-m",
+        "hydromodpy",
+        "run",
+        str(run_config_path),
     ]
 
     try:
@@ -625,7 +630,9 @@ def run_launcher_validation_case(
             resolve_model_workspace(
                 out_path,
                 watershed_name=workspace_cfg.get("watershed_name"),
-                results_folder_name=str(workspace_cfg.get("results_folder_name", "results_simulations")),
+                results_folder_name=str(
+                    workspace_cfg.get("results_folder_name", "results_simulations")
+                ),
                 model_name=workspace_cfg.get("model_name"),
             )
         except AssertionError as exc:
@@ -645,7 +652,9 @@ def run_launcher_validation_case(
         model_ws, postprocess_dir, particles_dir = resolve_model_workspace(
             out_path,
             watershed_name=workspace_cfg.get("watershed_name"),
-            results_folder_name=str(workspace_cfg.get("results_folder_name", "results_simulations")),
+            results_folder_name=str(
+                workspace_cfg.get("results_folder_name", "results_simulations")
+            ),
             model_name=workspace_cfg.get("model_name"),
         )
     except AssertionError:
@@ -660,8 +669,7 @@ def run_launcher_validation_case(
                     command=command,
                     completed=completed,
                     workspace_error=AssertionError(
-                        f"Results folder not found and no SimulationCatalog "
-                        f"available at {out_path}"
+                        f"Results folder not found and no SimulationCatalog available at {out_path}"
                     ),
                 )
             )

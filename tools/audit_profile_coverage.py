@@ -14,6 +14,7 @@ When a field carries a forward-reference annotation, Pydantic's runtime
 case the audit falls back to an AST inspection of the class source to avoid
 false positives.
 """
+
 from __future__ import annotations
 
 import ast

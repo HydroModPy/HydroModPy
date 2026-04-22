@@ -179,9 +179,7 @@ def test_field_param_rejects_incompatible_unit_family():
 
 
 def test_field_param_heterogeneous_from_toml():
-    param = FieldParam.from_toml(
-        "hydromodpy/spatial/field/cases/square/field_param_config.toml"
-    )
+    param = FieldParam.from_toml("hydromodpy/spatial/field/cases/square/field_param_config.toml")
     assert param.is_heterogeneous
     assert param.identifier == "K"
     assert param.field_spatial_id == "field_square"
@@ -396,7 +394,8 @@ def test_field_param_heterogeneous_from_toml_with_csv_values(tmp_path: Path):
             2141,12.0
             1501,8.5
             SEA,1.0
-            """).strip() + "\n",
+            """).strip()
+        + "\n",
         encoding="utf-8",
     )
 
@@ -434,7 +433,8 @@ def test_field_param_from_toml_with_csv_rejects_duplicate_key(tmp_path: Path):
             zone_key,value
             2141,1.0
             2141,2.0
-            """).strip() + "\n",
+            """).strip()
+        + "\n",
         encoding="utf-8",
     )
     toml_path = tmp_path / "field_param_dup.toml"
@@ -473,9 +473,7 @@ def test_field_param_to_mesh_field_applies_vertical_profile():
 
 
 def test_field_to_mesh_then_param_to_value_mesh():
-    mesh = FieldMeshSquare.from_unit_square(
-        target_n_cells=20, mesh_kind="triangular_structured"
-    )
+    mesh = FieldMeshSquare.from_unit_square(target_n_cells=20, mesh_kind="triangular_structured")
     field = FieldSquare(
         line="diag_main",
         zone1_side="positive",

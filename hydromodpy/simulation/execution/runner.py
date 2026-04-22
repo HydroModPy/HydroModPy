@@ -182,7 +182,10 @@ class SimulationRunner:
             self.callbacks.after_process(process_type)
 
     def _call_after_run(
-        self, run: ProcessRun, result: RunExecutionResult, state: Any,
+        self,
+        run: ProcessRun,
+        result: RunExecutionResult,
+        state: Any,
     ) -> None:
         if self.callbacks.after_run is not None:
             self.callbacks.after_run(run, result, state)

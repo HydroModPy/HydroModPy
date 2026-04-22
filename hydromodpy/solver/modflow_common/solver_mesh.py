@@ -47,9 +47,7 @@ class SolverMesh:
             raise ValueError("SolverMesh requires a 2D planar mesh")
         top = np.asarray(self.top, dtype=float).reshape(-1)
         if top.size != self.planar_mesh.n_cells:
-            raise ValueError(
-                f"top must have {self.planar_mesh.n_cells} values, got {top.size}"
-            )
+            raise ValueError(f"top must have {self.planar_mesh.n_cells} values, got {top.size}")
         object.__setattr__(self, "top", top)
 
         botm = np.asarray(self.botm, dtype=float)
@@ -57,16 +55,13 @@ class SolverMesh:
             botm = botm.reshape(1, -1)
         if botm.ndim != 2 or botm.shape[1] != self.planar_mesh.n_cells:
             raise ValueError(
-                f"botm must have shape (nlay, {self.planar_mesh.n_cells}), "
-                f"got {botm.shape}"
+                f"botm must have shape (nlay, {self.planar_mesh.n_cells}), got {botm.shape}"
             )
         object.__setattr__(self, "botm", botm)
 
         mask = np.asarray(self.inactive_mask, dtype=bool)
         if mask.shape != botm.shape:
-            raise ValueError(
-                f"inactive_mask must have shape {botm.shape}, got {mask.shape}"
-            )
+            raise ValueError(f"inactive_mask must have shape {botm.shape}, got {mask.shape}")
         object.__setattr__(self, "inactive_mask", mask)
 
     # -- Properties -----------------------------------------------------------
@@ -131,9 +126,7 @@ class SolverMesh:
             # Shoelace formula
             x = poly[:, 0]
             y = poly[:, 1]
-            areas[ic] = abs(float(
-                0.5 * np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y)
-            ))
+            areas[ic] = abs(float(0.5 * np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y)))
         return areas
 
     @property
@@ -473,9 +466,7 @@ class SolverMesh:
             "n_cells": self.n_cells,
             "nlay": self.nlay,
             "is_structured": self.is_structured,
-            "structured_shape": (
-                list(self.structured_shape) if self.structured_shape else None
-            ),
+            "structured_shape": (list(self.structured_shape) if self.structured_shape else None),
             "bounds": list(self.planar_mesh.bounds()),
             "top_range": [float(np.nanmin(self.top)), float(np.nanmax(self.top))],
             "botm_range": [float(np.nanmin(self.botm)), float(np.nanmax(self.botm))],

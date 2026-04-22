@@ -9,7 +9,9 @@ Usage::
 
     from hydromodpy.core.config import HydroModPyConfig
 
-    cfg = HydroModPyConfig.from_toml("examples/projects/01_canut/run_steady_nwt.toml")
+    cfg = HydroModPyConfig.from_toml(
+        "examples/projects/01_canut/run_steady_nwt.toml"
+    )
     cfg.workspace.project_root
     cfg.geographic.catch_def
     cfg.geographic.dem_init_path
@@ -143,8 +145,7 @@ class HydroModPyConfig(HydroModelBase):
     solver: Annotated[SolverConfig, Profile.USER] = Field(
         default_factory=lambda: SolverConfig(),
         description=(
-            "Global solver selection loaded from [solver], including "
-            "the active solver_engine."
+            "Global solver selection loaded from [solver], including the active solver_engine."
         ),
     )
     modflownwt: Annotated[ModflowConfig, Profile.USER] = Field(
@@ -165,15 +166,12 @@ class HydroModPyConfig(HydroModelBase):
     )
     display: Annotated[DisplayConfig, Profile.USER] = Field(
         default_factory=lambda: DisplayConfig(),
-        description=(
-            "Optional display and export toggles loaded from the [display] section."
-        ),
+        description=("Optional display and export toggles loaded from the [display] section."),
     )
     postprocess: Annotated[PostprocessConfig, Profile.USER] = Field(
         default_factory=lambda: PostprocessConfig(),
         description=(
-            "Optional launcher-managed postprocess workflow loaded from the "
-            "[postprocess] section."
+            "Optional launcher-managed postprocess workflow loaded from the [postprocess] section."
         ),
     )
     capability_gallery: Annotated[CapabilityGalleryConfig, Profile.USER] = Field(
@@ -250,8 +248,7 @@ class HydroModPyConfig(HydroModelBase):
             active_transport_solver = getattr(transport_cfg, "solver", None)
             if engine_value == "boussinesq" and active_transport_solver:
                 raise ValueError(
-                    "solver.solver_engine='boussinesq' does not support the "
-                    "[transport] section"
+                    "solver.solver_engine='boussinesq' does not support the [transport] section"
                 )
 
         return self
@@ -281,8 +278,7 @@ class HydroModPyConfig(HydroModelBase):
         base = toml_path.parent
         if "initializing" in raw:
             raise ValueError(
-                "Section [initializing] is no longer supported. "
-                "Use [workspace] instead."
+                "Section [initializing] is no longer supported. Use [workspace] instead."
             )
         if "modflow" in raw:
             raise ValueError(
@@ -295,9 +291,7 @@ class HydroModPyConfig(HydroModelBase):
         workspace_section = raw.get("workspace", {})
         env_project_root = os.environ.get("HYDROMODPY_PROJECT_ROOT")
         if env_project_root:
-            workspace_section["project_root"] = str(
-                Path(env_project_root).expanduser().resolve()
-            )
+            workspace_section["project_root"] = str(Path(env_project_root).expanduser().resolve())
         elif not workspace_section.get("project_root"):
             workspace_section["project_root"] = str(base)
 
@@ -315,13 +309,8 @@ class HydroModPyConfig(HydroModelBase):
         ):
             data_section = raw.get("data", {})
             dem_section = data_section.get("dem") if isinstance(data_section, Mapping) else None
-            has_dem_source = (
-                isinstance(dem_section, Mapping)
-                and bool(dem_section.get("sources"))
-            )
-            if has_dem_source or (
-                "overview" in raw and "dem" in data_section.get("types", [])
-            ):
+            has_dem_source = isinstance(dem_section, Mapping) and bool(dem_section.get("sources"))
+            if has_dem_source or ("overview" in raw and "dem" in data_section.get("types", [])):
                 geographic_override["dem_init_path"] = "__DEM_API_BOOTSTRAP__"
 
         section_loaders: dict[str, tuple[Any, Callable[[Any, Path], Any]]] = {
@@ -329,7 +318,10 @@ class HydroModPyConfig(HydroModelBase):
                 workspace_section,
                 lambda data, b: _load_standard_section(data, WorkspaceConfig, b),
             ),
-            "geographic": (geographic_override, lambda data, b: _load_standard_section(data, GeographicConfig, b)),
+            "geographic": (
+                geographic_override,
+                lambda data, b: _load_standard_section(data, GeographicConfig, b),
+            ),
             "domain": ({}, lambda data, b: _load_standard_section(data, DomainConfig, b)),
             "data": ({}, _load_data_section),
             "flow": ({}, _load_flow_section),
@@ -423,9 +415,7 @@ def _is_path_field(field_info: FieldInfo) -> bool:
     return Path in getattr(annotation, "__args__", ())
 
 
-def _resolve_section_paths(
-    data: dict, model_cls: type[BaseModel], base: Path
-) -> None:
+def _resolve_section_paths(data: dict, model_cls: type[BaseModel], base: Path) -> None:
     """
     Resolve relative paths and ``~`` in a config section dict (in-place).
     """
@@ -466,7 +456,8 @@ def _load_data_section(section_data: Any, base: Path) -> DataManagersConfig:
 
 
 def _load_optional_overview_section(
-    section_data: Any, base: Path,
+    section_data: Any,
+    base: Path,
 ) -> OverviewSection | None:
     """Load the optional ``[overview]`` section."""
     if section_data is None:
@@ -475,7 +466,8 @@ def _load_optional_overview_section(
 
 
 def _load_optional_mesh_catchment_section(
-    section_data: Any, base: Path,
+    section_data: Any,
+    base: Path,
 ) -> MeshCatchmentConfig | None:
     """Load the optional ``[mesh_catchment]`` section."""
     if section_data is None:
@@ -483,8 +475,6 @@ def _load_optional_mesh_catchment_section(
     from hydromodpy.spatial.mesh.config import parse_mesh_catchment_config_data
 
     return parse_mesh_catchment_config_data(section_data)
-
-
 
 
 def _rebuild_forward_refs() -> None:

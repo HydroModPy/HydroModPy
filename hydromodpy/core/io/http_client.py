@@ -92,7 +92,8 @@ class HTTPClient:
         retry_statuses: frozenset[int] = DEFAULT_RETRY_STATUSES,
         user_agent: str | None = None,
         pre_request: Callable[[str, dict[str, Any]], None] | None = None,
-        post_response: Callable[[str, requests.Response | None, Exception | None], None] | None = None,
+        post_response: Callable[[str, requests.Response | None, Exception | None], None]
+        | None = None,
     ) -> None:
         self.timeout = timeout
         self.max_retries = max_retries
@@ -121,7 +122,7 @@ class HTTPClient:
             parsed = _parse_retry_after(retry_after)
             if parsed is not None:
                 return min(parsed, self.backoff_cap)
-        delay = min(self.backoff_cap, self.backoff_base * (2 ** attempt))
+        delay = min(self.backoff_cap, self.backoff_base * (2**attempt))
         return delay + random.uniform(0, delay * 0.25)
 
     def close(self) -> None:
@@ -181,7 +182,12 @@ class HTTPClient:
                     delay = self._compute_backoff(attempt, None)
                     logger.warning(
                         "HTTP %s %s failed (%s) — retry %d/%d in %.2fs",
-                        method, url, exc, attempt + 1, self.max_retries, delay,
+                        method,
+                        url,
+                        exc,
+                        attempt + 1,
+                        self.max_retries,
+                        delay,
                     )
                     time.sleep(delay)
                     continue
@@ -190,13 +196,15 @@ class HTTPClient:
                     self._post_response(url, resp, None)
 
                 if resp.status_code in self.retry_statuses and attempt < self.max_retries:
-                    delay = self._compute_backoff(
-                        attempt, resp.headers.get("Retry-After")
-                    )
+                    delay = self._compute_backoff(attempt, resp.headers.get("Retry-After"))
                     logger.warning(
                         "HTTP %s %s -> %d, retry %d/%d in %.2fs",
-                        method, url, resp.status_code,
-                        attempt + 1, self.max_retries, delay,
+                        method,
+                        url,
+                        resp.status_code,
+                        attempt + 1,
+                        self.max_retries,
+                        delay,
                     )
                     resp.close()
                     time.sleep(delay)
@@ -230,7 +238,11 @@ class HTTPClient:
         ``pydantic.BaseModel`` subclass or ``TypeAdapter``).
         """
         resp = self.request(
-            "GET", url, params=params, headers=headers, timeout=timeout,
+            "GET",
+            url,
+            params=params,
+            headers=headers,
+            timeout=timeout,
         )
         if resp.status_code >= 400:
             raise NetworkError(
@@ -274,8 +286,12 @@ class HTTPClient:
         (after decompression if the server applied transfer encoding).
         """
         resp = self.request(
-            "GET", url,
-            params=params, headers=headers, timeout=timeout, stream=True,
+            "GET",
+            url,
+            params=params,
+            headers=headers,
+            timeout=timeout,
+            stream=True,
         )
         if resp.status_code >= 400:
             resp.close()
@@ -325,8 +341,12 @@ class HTTPClient:
     ) -> Iterator[bytes]:
         """Yield response chunks (no hashing, no sink)."""
         resp = self.request(
-            "GET", url,
-            params=params, headers=headers, timeout=timeout, stream=True,
+            "GET",
+            url,
+            params=params,
+            headers=headers,
+            timeout=timeout,
+            stream=True,
         )
         try:
             if resp.status_code >= 400:

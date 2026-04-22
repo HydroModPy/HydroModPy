@@ -108,7 +108,9 @@ def available_case_review_names() -> tuple[str, ...]:
     return tuple(spec.name for spec in CASE_REVIEW_SPECS)
 
 
-def resolve_case_review_specs(case_names: Sequence[str] | None = None) -> tuple[CaseReviewSpec, ...]:
+def resolve_case_review_specs(
+    case_names: Sequence[str] | None = None,
+) -> tuple[CaseReviewSpec, ...]:
     if not case_names:
         return CASE_REVIEW_SPECS
 

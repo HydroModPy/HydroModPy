@@ -223,9 +223,7 @@ class SyntheticGeographic:
 
         self.out_dir_path = str(catch_folder)
         self.add_data_folder = str(catch_folder / "add_data")
-        self.figure_folder = str(
-            getattr(self.workspace, "figure_folder", catch_folder / "figures")
-        )
+        self.figure_folder = str(getattr(self.workspace, "figure_folder", catch_folder / "figures"))
         self.geographic_path = str(self.output_dir)
 
     def _write_rasters(self, values: np.ndarray, *, transform) -> None:

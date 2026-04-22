@@ -18,9 +18,7 @@ class GeologySourceConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    source: Annotated[
-        Literal["custom", "brgm_1m", "brgm_50k"], Profile.USER
-    ] = Field(
+    source: Annotated[Literal["custom", "brgm_1m", "brgm_50k"], Profile.USER] = Field(
         ...,
         description=(
             "Data provider: 'custom' for user files (SHP/GPKG/TIF/CSV), "
@@ -56,16 +54,20 @@ class GeologySourceConfig(HydroModelBase):
 
     # --- CSV interpolation fields ---
     col_x: Annotated[str, Profile.DEV] = Field(
-        default="x", description="Column for X coordinate in CSV.",
+        default="x",
+        description="Column for X coordinate in CSV.",
     )
     col_y: Annotated[str, Profile.DEV] = Field(
-        default="y", description="Column for Y coordinate in CSV.",
+        default="y",
+        description="Column for Y coordinate in CSV.",
     )
     col_code: Annotated[str, Profile.DEV] = Field(
-        default="geology_code", description="Column for geology code in CSV.",
+        default="geology_code",
+        description="Column for geology code in CSV.",
     )
     default_crs: Annotated[str, Profile.DEV] = Field(
-        default="EPSG:2154", description="Default CRS for CSV points.",
+        default="EPSG:2154",
+        description="Default CRS for CSV points.",
     )
 
     # --- Spatial mask ---
@@ -253,9 +255,7 @@ class GeologyLandSea(HydroModelBase):
 
     enabled: Annotated[bool, Profile.USER] = Field(
         default=False,
-        description=(
-            "Enable the coastal override that replaces geology values over sea areas."
-        ),
+        description=("Enable the coastal override that replaces geology values over sea areas."),
     )
     path: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -336,9 +336,7 @@ class GeologyConfigBlock(HydroModelBase):
     )
     landsea: Annotated[GeologyLandSea, Profile.USER] = Field(
         default_factory=GeologyLandSea,
-        description=(
-            "Optional coastal override applied after loading the base geology source."
-        ),
+        description=("Optional coastal override applied after loading the base geology source."),
     )
     cell_samples_per_axis: Annotated[int, Profile.USER] = Field(
         default=8,

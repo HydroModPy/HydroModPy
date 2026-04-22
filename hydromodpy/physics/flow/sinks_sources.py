@@ -80,13 +80,15 @@ class FlowWellConfig(HydroModelBase):
         default=None,
         description="Legacy cell indices as [lay, row, col] (0-based).",
     )
-    location_mode: Annotated[Literal["cell", "absolute_xy", "relative_xy"] | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Well location mode. Use 'cell' for legacy [lay,row,col], "
-            "'absolute_xy' for projected coordinates, or 'relative_xy' for "
-            "normalized horizontal coordinates in the domain extent."
-        ),
+    location_mode: Annotated[Literal["cell", "absolute_xy", "relative_xy"] | None, Profile.USER] = (
+        Field(
+            default=None,
+            description=(
+                "Well location mode. Use 'cell' for legacy [lay,row,col], "
+                "'absolute_xy' for projected coordinates, or 'relative_xy' for "
+                "normalized horizontal coordinates in the domain extent."
+            ),
+        )
     )
     layer: Annotated[int | None, Profile.DEV] = Field(
         default=None,
@@ -124,7 +126,9 @@ class FlowWellConfig(HydroModelBase):
         ),
     )
     units: Annotated[str, Profile.DEV] = Field(default="m3/s", description="Units of flux values.")
-    description: Annotated[str, Profile.USER] = Field(default="", description="Optional well description.")
+    description: Annotated[str, Profile.USER] = Field(
+        default="", description="Optional well description."
+    )
 
     @field_validator("cell", mode="before")
     @classmethod
@@ -185,9 +189,7 @@ class FlowWellConfig(HydroModelBase):
         if normalized == "":
             return None
         if normalized not in {"cell", "absolute_xy", "relative_xy"}:
-            raise ValueError(
-                "well.location_mode must be one of: cell, absolute_xy, relative_xy"
-            )
+            raise ValueError("well.location_mode must be one of: cell, absolute_xy, relative_xy")
         return normalized
 
     @field_validator("layer", mode="before")
@@ -266,7 +268,9 @@ class FlowWellConfig(HydroModelBase):
                 object.__setattr__(self, "location_mode", "cell")
             if self.location_mode != "cell":
                 raise ValueError("well.cell cannot be combined with a non-'cell' location_mode")
-            if any(value is not None for value in (self.layer, self.x, self.y, self.x_rel, self.y_rel)):
+            if any(
+                value is not None for value in (self.layer, self.x, self.y, self.x_rel, self.y_rel)
+            ):
                 raise ValueError(
                     "well.cell cannot be combined with layer/x/y/x_rel/y_rel; "
                     "use either cell or coordinate-based location fields"
@@ -288,7 +292,9 @@ class FlowWellConfig(HydroModelBase):
                 if self.x is None or self.y is None:
                     raise ValueError("well.location_mode='absolute_xy' requires x and y")
                 if self.x_rel is not None or self.y_rel is not None:
-                    raise ValueError("well.location_mode='absolute_xy' cannot be combined with x_rel/y_rel")
+                    raise ValueError(
+                        "well.location_mode='absolute_xy' cannot be combined with x_rel/y_rel"
+                    )
             elif self.location_mode == "relative_xy":
                 if self.x_rel is None or self.y_rel is None:
                     raise ValueError("well.location_mode='relative_xy' requires x_rel and y_rel")
@@ -370,14 +376,20 @@ class FlowWellForcingCsvConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    path_file: Annotated[Path, Profile.DEV] = Field(..., description="Path to the CSV chronicle file.")
+    path_file: Annotated[Path, Profile.DEV] = Field(
+        ..., description="Path to the CSV chronicle file."
+    )
     sep: Annotated[str, Profile.DEV] = Field(default=",", description="CSV delimiter.")
-    date_column: Annotated[str, Profile.DEV] = Field(default="date", description="CSV column containing timestamps.")
+    date_column: Annotated[str, Profile.DEV] = Field(
+        default="date", description="CSV column containing timestamps."
+    )
     date_format: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Optional datetime format passed to pandas.to_datetime.",
     )
-    value_column: Annotated[str, Profile.DEV] = Field(default="value", description="CSV column containing well rates.")
+    value_column: Annotated[str, Profile.DEV] = Field(
+        default="value", description="CSV column containing well rates."
+    )
     fill_method: Annotated[Literal["ffill", "bfill"], Profile.DEV] = Field(
         default="ffill",
         description="Gap-filling policy used when a stress period has no direct sample.",

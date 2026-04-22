@@ -20,24 +20,30 @@ def sample_intermittency_dir(tmp_path):
     d = tmp_path / "intermittency"
     d.mkdir()
 
-    pd.DataFrame({
-        "id": ["ONDE_A", "ONDE_B"],
-        "x": [-1.5, -1.6],
-        "y": [48.1, 48.2],
-        "crs": ["EPSG:4326", "EPSG:4326"],
-    }).to_csv(d / "intermittency_custom_LOC.csv", index=False)
+    pd.DataFrame(
+        {
+            "id": ["ONDE_A", "ONDE_B"],
+            "x": [-1.5, -1.6],
+            "y": [48.1, 48.2],
+            "crs": ["EPSG:4326", "EPSG:4326"],
+        }
+    ).to_csv(d / "intermittency_custom_LOC.csv", index=False)
 
     # Station A: mixed flow states
-    pd.DataFrame({
-        "datetime": ["2020-05-25", "2020-06-25", "2020-07-25", "2020-08-25", "2020-09-25"],
-        "value": [5, 4, 3, 1, 2],
-    }).to_csv(d / "intermittency_custom_ONDE_A_20200101_20201231_irregular.csv", index=False)
+    pd.DataFrame(
+        {
+            "datetime": ["2020-05-25", "2020-06-25", "2020-07-25", "2020-08-25", "2020-09-25"],
+            "value": [5, 4, 3, 1, 2],
+        }
+    ).to_csv(d / "intermittency_custom_ONDE_A_20200101_20201231_irregular.csv", index=False)
 
     # Station B: always flowing
-    pd.DataFrame({
-        "datetime": ["2020-05-25", "2020-06-25", "2020-07-25", "2020-08-25", "2020-09-25"],
-        "value": [5, 5, 5, 4, 5],
-    }).to_csv(d / "intermittency_custom_ONDE_B_20200101_20201231_irregular.csv", index=False)
+    pd.DataFrame(
+        {
+            "datetime": ["2020-05-25", "2020-06-25", "2020-07-25", "2020-08-25", "2020-09-25"],
+            "value": [5, 5, 5, 4, 5],
+        }
+    ).to_csv(d / "intermittency_custom_ONDE_B_20200101_20201231_irregular.csv", index=False)
 
     return d
 
@@ -45,9 +51,13 @@ def sample_intermittency_dir(tmp_path):
 @pytest.mark.fast
 class TestIntermittencyConfig:
     def test_hubeau_source_valid(self):
-        cfg = IntermittencyConfig(sources=[
-            IntermittencySourceConfig(source="hubeau", station_ids=["J0014011"]),
-        ], date_start="2020-01-01", date_end="2023-12-31")
+        cfg = IntermittencyConfig(
+            sources=[
+                IntermittencySourceConfig(source="hubeau", station_ids=["J0014011"]),
+            ],
+            date_start="2020-01-01",
+            date_end="2023-12-31",
+        )
         assert cfg.sources[0].source == "hubeau"
         assert cfg.date_start == "2020-01-01"
 
@@ -76,14 +86,17 @@ class TestIntermittencyConfig:
 
     def test_data_managers_config_accepts_intermittency(self):
         from hydromodpy.data.data_managers_config import DataManagersConfig
-        cfg = DataManagersConfig.model_validate({
-            "types": ["intermittency"],
-            "intermittency": {
-                "sources": [{"source": "hubeau", "extent": "watershed"}],
-                "date_start": "2020-01-01",
-                "date_end": "2023-12-31",
-            },
-        })
+
+        cfg = DataManagersConfig.model_validate(
+            {
+                "types": ["intermittency"],
+                "intermittency": {
+                    "sources": [{"source": "hubeau", "extent": "watershed"}],
+                    "date_start": "2020-01-01",
+                    "date_end": "2023-12-31",
+                },
+            }
+        )
         assert "intermittency" in cfg.types
         assert cfg.intermittency is not None
         assert len(cfg.intermittency.sources) == 1
@@ -123,7 +136,9 @@ class TestIntermittencyCustomCSV:
 
     def test_filter_station_ids(self, sample_intermittency_dir):
         cfg = IntermittencySourceConfig(
-            source="custom", path=sample_intermittency_dir, station_ids=["ONDE_B"],
+            source="custom",
+            path=sample_intermittency_dir,
+            station_ids=["ONDE_B"],
         )
         records = load_custom(cfg)
         assert len(records) == 1
@@ -154,9 +169,11 @@ class TestIntermittencyCustomErrors:
 @pytest.mark.fast
 class TestIntermittencyManagerCustom:
     def test_manager_load_result(self, sample_intermittency_dir):
-        cfg = IntermittencyConfig(sources=[
-            IntermittencySourceConfig(source="custom", path=sample_intermittency_dir),
-        ])
+        cfg = IntermittencyConfig(
+            sources=[
+                IntermittencySourceConfig(source="custom", path=sample_intermittency_dir),
+            ]
+        )
         manager = IntermittencyManager(config=cfg, catalog=None, project_period=None)
         result = manager.load()
 

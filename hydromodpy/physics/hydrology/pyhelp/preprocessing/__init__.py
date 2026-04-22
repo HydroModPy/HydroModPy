@@ -5,7 +5,7 @@ from .pyhelp_grid import PyhelpGrid
 from .pyhelp_csv_manager import PyhelpCsvManager
 
 __all__ = [
-    'PyhelpEra5',
-    'PyhelpGrid',
-    'PyhelpCsvManager',
+    "PyhelpEra5",
+    "PyhelpGrid",
+    "PyhelpCsvManager",
 ]

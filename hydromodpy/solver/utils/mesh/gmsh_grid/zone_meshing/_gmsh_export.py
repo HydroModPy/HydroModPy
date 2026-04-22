@@ -40,9 +40,7 @@ def _write_mesh_via_short_windows_temp_path(gmsh, output_path: Path) -> None:
     """Write through one short temp path when Gmsh cannot handle long paths."""
     scratch_dir = Path(tempfile.gettempdir()) / "hydromodpy_gmsh_export"
     scratch_dir.mkdir(parents=True, exist_ok=True)
-    temp_name = (
-        f"{output_path.stem[:32]}_{uuid.uuid4().hex[:8]}{output_path.suffix or '.msh'}"
-    )
+    temp_name = f"{output_path.stem[:32]}_{uuid.uuid4().hex[:8]}{output_path.suffix or '.msh'}"
     temp_path = scratch_dir / temp_name
     try:
         gmsh.write(str(temp_path))
@@ -77,9 +75,7 @@ def build_runtime_planar_mesh_from_gmsh(
     node_tags_arr = np.asarray(node_tags, dtype=int).reshape(-1)
     coords_arr = np.asarray(coords, dtype=float).reshape(-1, 3)
     if node_tags_arr.size != coords_arr.shape[0]:
-        raise ValueError(
-            "Live Gmsh node coordinates are inconsistent with returned node tags."
-        )
+        raise ValueError("Live Gmsh node coordinates are inconsistent with returned node tags.")
 
     coords_by_tag = {
         int(tag): (float(coord[0]), float(coord[1]))
@@ -123,8 +119,7 @@ def build_runtime_planar_mesh_from_gmsh(
     if len(cell_kinds) > 1:
         present = ", ".join(sorted(cell_kinds))
         raise ValueError(
-            "Mixed 2D cell types are not supported in one planar mesh. "
-            f"Found: {present}."
+            f"Mixed 2D cell types are not supported in one planar mesh. Found: {present}."
         )
 
     ordered_node_tags = sorted(set(int(tag) for tag in used_node_tags))
@@ -136,9 +131,7 @@ def build_runtime_planar_mesh_from_gmsh(
             f"node tag ({preview})."
         )
 
-    node_index_by_tag = {
-        int(tag): idx for idx, tag in enumerate(ordered_node_tags)
-    }
+    node_index_by_tag = {int(tag): idx for idx, tag in enumerate(ordered_node_tags)}
     points_xy = np.asarray(
         [coords_by_tag[int(tag)] for tag in ordered_node_tags],
         dtype=float,

@@ -17,10 +17,12 @@ from hydromodpy.calibration.parameters import CalibParameter, ParameterSpace
 
 
 def test_calibration_engine_runs_grid_and_finds_best() -> None:
-    space = ParameterSpace([
-        CalibParameter(name="x", lower=-1.0, upper=1.0),
-        CalibParameter(name="y", lower=-1.0, upper=1.0),
-    ])
+    space = ParameterSpace(
+        [
+            CalibParameter(name="x", lower=-1.0, upper=1.0),
+            CalibParameter(name="y", lower=-1.0, upper=1.0),
+        ]
+    )
 
     optimizer = build_optimizer("grid", space, points_per_dim=3)
 
@@ -28,7 +30,7 @@ def test_calibration_engine_runs_grid_and_finds_best() -> None:
         x = float(suggestion.values["x"])
         y = float(suggestion.values["y"])
         # Convex quadratic centred on (0, 0).
-        objective = x ** 2 + y ** 2
+        objective = x**2 + y**2
         return EvaluationResult(
             trial_id=suggestion.trial_id,
             sim_id=None,

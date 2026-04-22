@@ -86,8 +86,8 @@ FIG_DIR.mkdir(parents=True, exist_ok=True)
 # ---------------------------------------------------------------------
 
 saturated_fraction = {v: run.saturated_fraction().values for v, run in runs.items()}
-drainage_density   = {v: run.drainage_density().values   for v, run in runs.items()}
-accumulation_flux  = {v: run.fields("accumulation_flux") for v, run in runs.items()}
+drainage_density = {v: run.drainage_density().values for v, run in runs.items()}
+accumulation_flux = {v: run.fields("accumulation_flux") for v, run in runs.items()}
 
 
 # ---------------------------------------------------------------------
@@ -108,22 +108,19 @@ for ax, (value, run) in zip(axes, runs.items()):
     for label, tidx, color in [("Min", t_min, "navy"), ("Max", t_max, "dodgerblue")]:
         wt = run.field("watertable_elevation", tidx).reshape(grid_shape).copy()
         wt[wt < 0] = np.nan
-        ax.fill_between(distance, dem_profile - thickness, wt[mid_row, :],
-                        color=color, alpha=0.4, lw=0)
-        ax.plot(distance, wt[mid_row, :], color=color, lw=1,
-                label=f"{label} ({dates[tidx]:%Y-%m})")
+        ax.fill_between(
+            distance, dem_profile - thickness, wt[mid_row, :], color=color, alpha=0.4, lw=0
+        )
+        ax.plot(distance, wt[mid_row, :], color=color, lw=1, label=f"{label} ({dates[tidx]:%Y-%m})")
 
-    ax.fill_between(distance, wt[mid_row, :], dem_profile,
-                    color="saddlebrown", alpha=0.3, lw=0)
+    ax.fill_between(distance, wt[mid_row, :], dem_profile, color="saddlebrown", alpha=0.3, lw=0)
     ax.plot(distance, dem_profile, color="saddlebrown", lw=1.5)
-    ax.fill_between(distance, 0, dem_profile - thickness,
-                    color="lightgrey", alpha=0.5, lw=0)
+    ax.fill_between(distance, 0, dem_profile - thickness, color="lightgrey", alpha=0.5, lw=0)
     ax.plot(distance, dem_profile - thickness, color="dimgray", lw=1)
 
     valid = np.isfinite(dem_profile)
     ax.set_xlim(distance[valid].min(), distance[valid].max())
-    ax.set_ylim(np.nanmin(dem_profile) - thickness - 5,
-                np.nanmax(dem_profile) + 5)
+    ax.set_ylim(np.nanmin(dem_profile) - thickness - 5, np.nanmax(dem_profile) + 5)
     ax.set_xlabel("Distance [m]")
     ax.set_ylabel("Elevation [m]")
     ax.set_title(f"{SWEEP_PARAM} = {value}", fontsize=10)
@@ -155,13 +152,15 @@ for value, run in runs.items():
     q_daily = np.abs(drain * catchment_mask).sum(axis=(1, 2)) / catchment_area_m2 * 86400 * 1000
     Q_sim[value] = pd.Series(q_daily * days_in_month, index=dates)
 
-pos = np.concatenate([q.values for q in Q_sim.values()]
-                     + ([Q_obs.values] if Q_obs is not None else []))
+pos = np.concatenate(
+    [q.values for q in Q_sim.values()] + ([Q_obs.values] if Q_obs is not None else [])
+)
 pos = pos[pos > 0]
 y_min, y_max = float(pos.min()) * 0.5, float(pos.max()) * 2.0
 
-fig, axes = plt.subplots(len(runs), 2, figsize=(12, 3.5 * len(runs)),
-                         gridspec_kw={"width_ratios": [3, 1]}, dpi=200)
+fig, axes = plt.subplots(
+    len(runs), 2, figsize=(12, 3.5 * len(runs)), gridspec_kw={"width_ratios": [3, 1]}, dpi=200
+)
 axes = axes.reshape(len(runs), 2)
 
 for (ax_ts, ax_sc), (value, q_sim) in zip(axes, Q_sim.items()):
@@ -177,10 +176,8 @@ for (ax_ts, ax_sc), (value, q_sim) in zip(axes, Q_sim.items()):
 
     if Q_obs is not None:
         q_aligned = q_sim.reindex(Q_obs.index, method="nearest")
-        ax_sc.scatter(Q_obs, q_aligned, s=20, alpha=0.7,
-                      color="forestgreen", edgecolor="none")
-        ax_sc.plot([max(1, y_min), y_max], [max(1, y_min), y_max],
-                   color="grey", zorder=-1)
+        ax_sc.scatter(Q_obs, q_aligned, s=20, alpha=0.7, color="forestgreen", edgecolor="none")
+        ax_sc.plot([max(1, y_min), y_max], [max(1, y_min), y_max], color="grey", zorder=-1)
         ax_sc.set_xscale("log")
         ax_sc.set_yscale("log")
         ax_sc.set_xlim(max(1, y_min), y_max)
@@ -208,10 +205,10 @@ for ax, (value, intermittent) in zip(axes, drainage_density.items()):
         always = active[yr].all(axis=0)
         perennial[yr] = 100.0 * (always & catchment_mask).sum() / n_active_cells
 
-    ax.fill_between(dates, 0, intermittent, step="pre",
-                    color="dodgerblue", alpha=0.5, label="Intermittent")
-    ax.fill_between(dates, 0, perennial, step="pre",
-                    color="navy", alpha=0.5, label="Perennial")
+    ax.fill_between(
+        dates, 0, intermittent, step="pre", color="dodgerblue", alpha=0.5, label="Intermittent"
+    )
+    ax.fill_between(dates, 0, perennial, step="pre", color="navy", alpha=0.5, label="Perennial")
     ax.set_ylabel("Drainage density [%]")
     ax.set_xlim(sim_start, sim_end)
     ax.set_ylim(0, None)
@@ -238,12 +235,23 @@ for row_axes, (value, run) in zip(axes, runs.items()):
 
     for ax, (tidx, label) in zip(row_axes, [(t_min, "Min"), (t_max, "Max")]):
         flux = accumulation_flux[value][tidx]
-        ax.set_title(f"{SWEEP_PARAM}={value}  {label} ({dates[tidx]:%Y-%m})  "
-                     f"Asat={density[tidx]:.1f}%", fontsize=9)
-        ax.imshow(np.ma.masked_where(~catchment_mask, dem),
-                  cmap="Greys", alpha=0.5, extent=crs_extent, origin="upper")
-        ax.imshow(np.ma.masked_where((flux <= 0) | ~catchment_mask, flux),
-                  cmap=ListedColormap(["navy"]), extent=crs_extent, origin="upper")
+        ax.set_title(
+            f"{SWEEP_PARAM}={value}  {label} ({dates[tidx]:%Y-%m})  Asat={density[tidx]:.1f}%",
+            fontsize=9,
+        )
+        ax.imshow(
+            np.ma.masked_where(~catchment_mask, dem),
+            cmap="Greys",
+            alpha=0.5,
+            extent=crs_extent,
+            origin="upper",
+        )
+        ax.imshow(
+            np.ma.masked_where((flux <= 0) | ~catchment_mask, flux),
+            cmap=ListedColormap(["navy"]),
+            extent=crs_extent,
+            origin="upper",
+        )
         contour_gdf.plot(ax=ax, color="black", lw=0.6)
         ax.set_xticks([])
         ax.set_yticks([])
@@ -264,8 +272,7 @@ axes = np.atleast_1d(axes)
 for ax, (value, accflux_stack) in zip(axes, accumulation_flux.items()):
     persistency = (accflux_stack > 0).sum(axis=0) / n_periods
     pi = np.ma.masked_where(~catchment_mask | (persistency <= 0), persistency)
-    im = ax.imshow(pi, cmap="jet", vmin=0, vmax=1,
-                   extent=crs_extent, origin="upper")
+    im = ax.imshow(pi, cmap="jet", vmin=0, vmax=1, extent=crs_extent, origin="upper")
     contour_gdf.plot(ax=ax, color="black", lw=0.6)
     ax.set_title(f"{SWEEP_PARAM} = {value}", fontsize=10)
     ax.set_xticks([])
@@ -273,8 +280,7 @@ for ax, (value, accflux_stack) in zip(axes, accumulation_flux.items()):
     ax.set_aspect("equal")
 
 cbar_ax = fig.add_axes([0.25, 0.05, 0.5, 0.02])
-fig.colorbar(im, cax=cbar_ax, orientation="horizontal",
-             label="Persistence index [-]")
+fig.colorbar(im, cax=cbar_ax, orientation="horizontal", label="Persistence index [-]")
 fig.tight_layout(rect=[0, 0.08, 1, 1])
 fig.savefig(FIG_DIR / "persistency_comparison.png", bbox_inches="tight")
 plt.close(fig)

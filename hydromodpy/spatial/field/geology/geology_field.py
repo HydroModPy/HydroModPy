@@ -208,16 +208,8 @@ class GeologyField(Field):
             vv = weights[:, 2][None, :]
             p0x = verts[:, 0, 0:1]
             p0y = verts[:, 0, 1:2]
-            x = (
-                p0x
-                + uu * (verts[:, 1, 0:1] - p0x)
-                + vv * (verts[:, 2, 0:1] - p0x)
-            )
-            y = (
-                p0y
-                + uu * (verts[:, 1, 1:2] - p0y)
-                + vv * (verts[:, 2, 1:2] - p0y)
-            )
+            x = p0x + uu * (verts[:, 1, 0:1] - p0x) + vv * (verts[:, 2, 0:1] - p0x)
+            y = p0y + uu * (verts[:, 1, 1:2] - p0y) + vv * (verts[:, 2, 1:2] - p0y)
             return np.asarray(x, dtype=float), np.asarray(y, dtype=float)
         else:
             raise ValueError(f"Unsupported cell kind '{cell_kind}'")
@@ -234,12 +226,7 @@ class GeologyField(Field):
         out = np.zeros(rows.shape, dtype=np.int32)
 
         n_rows, n_cols = self.shape
-        valid = (
-            (rows >= 0)
-            & (rows < n_rows)
-            & (cols >= 0)
-            & (cols < n_cols)
-        )
+        valid = (rows >= 0) & (rows < n_rows) & (cols >= 0) & (cols < n_cols)
         if np.any(valid):
             valid_rows = rows[valid]
             valid_cols = cols[valid]
@@ -336,9 +323,7 @@ class GeologyField(Field):
                             self._code_to_zone_index[valid_codes],
                             minlength=len(zone_keys),
                         )
-                        fractions_flat[:, int(cell.index)] = zone_counts / float(
-                            valid_codes.size
-                        )
+                        fractions_flat[:, int(cell.index)] = zone_counts / float(valid_codes.size)
                     continue
 
                 vertices = np.empty((len(chunk), n_vertices, 2), dtype=float)

@@ -19,7 +19,9 @@ from validation_cases.shared.cli import run_case_main
 
 
 DEFAULT_FIGURE_NAME = "boussinesq_sloping_substratum_constant_thickness_1d_validation.png"
-RUN_DESCRIPTION = "Run the sloping-substratum constant-thickness validation case and plot the result."
+RUN_DESCRIPTION = (
+    "Run the sloping-substratum constant-thickness validation case and plot the result."
+)
 
 
 def _build_metric_lines(comparison) -> tuple[str, ...]:

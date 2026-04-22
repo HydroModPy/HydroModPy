@@ -33,10 +33,13 @@ def _register(catalog, sim_id=None, **kw):
 
 
 def _populate(catalog, sid):
-    catalog.write_parameters(sid, [
-        {"param_name": "K", "value": 1.5, "unit": "m/d"},
-        {"param_name": "Sy", "value": 0.05, "unit": "-"},
-    ])
+    catalog.write_parameters(
+        sid,
+        [
+            {"param_name": "K", "value": 1.5, "unit": "m/d"},
+            {"param_name": "Sy", "value": 0.05, "unit": "-"},
+        ],
+    )
     idx = pd.date_range("2020-01-01", periods=10, freq="D")
     catalog.write_timeseries(sid, "P01", "head", pd.Series(np.arange(10.0), index=idx))
     catalog.write_budget(sid, 0, "z1", "recharge", 100.0, 0.0)
@@ -184,6 +187,7 @@ class TestSimulationPlot:
 
     def test_plot_save(self, catalog, tmp_path):
         import matplotlib
+
         matplotlib.use("Agg", force=True)
         sid = _register(catalog, n_cells=5, n_layers=1, n_timesteps=2)
         sz = catalog.open_zarr(sid)
@@ -419,7 +423,8 @@ class TestHmpOpen:
         with hmp.open(tmp_path / "ws") as cat:
             cat.register_simulation(
                 "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-                "test", "modflow6",
+                "test",
+                "modflow6",
             )
         with hmp.open(tmp_path / "ws") as cat:
             df = cat.simulations

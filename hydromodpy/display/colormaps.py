@@ -12,13 +12,15 @@ from __future__ import annotations
 
 from typing import Iterable
 
-BANNED_CMAPS: frozenset[str] = frozenset({
-    "jet",
-    "rainbow",
-    "hsv",
-    "nipy_spectral",
-    "gist_rainbow",
-})
+BANNED_CMAPS: frozenset[str] = frozenset(
+    {
+        "jet",
+        "rainbow",
+        "hsv",
+        "nipy_spectral",
+        "gist_rainbow",
+    }
+)
 
 PREFERRED_CMAPS: dict[str, str] = {
     "sequential": "viridis",

@@ -62,9 +62,7 @@ def build_linearized_unconfined_hillslope_drainage_comparison(
     case_metadata = load_case_metadata(CASE_DIR) if metadata is None else metadata
     solver_name = str(getattr(result, "solver_name", "")).strip().lower() or None
     case_tolerances = (
-        load_case_tolerances(CASE_DIR, solver=solver_name)
-        if tolerances is None
-        else tolerances
+        load_case_tolerances(CASE_DIR, solver=solver_name) if tolerances is None else tolerances
     )
 
     output_cfg = dict(case_metadata.get("output", {}))
@@ -90,23 +88,17 @@ def build_linearized_unconfined_hillslope_drainage_comparison(
 
     profile_axis = int(reference_cfg.get("profile_axis", 0))
     numerical_profile = mean_along_axis(heads, axis=profile_axis)
-    dx = (
-        float(reference_cfg["xmax"]) - float(reference_cfg["xmin"])
-    ) / float(numerical_profile.size)
-    x = float(reference_cfg["xmin"]) + (
-        (np.arange(numerical_profile.size, dtype=float) + 0.5) * dx
+    dx = (float(reference_cfg["xmax"]) - float(reference_cfg["xmin"])) / float(
+        numerical_profile.size
     )
+    x = float(reference_cfg["xmin"]) + ((np.arange(numerical_profile.size, dtype=float) + 0.5) * dx)
     nrow = int(heads.shape[0])
-    cell_area_m2 = (
-        dx * (float(reference_cfg["length_y_m"]) / float(nrow))
-    )
+    cell_area_m2 = dx * (float(reference_cfg["length_y_m"]) / float(nrow))
     topography_profile = build_linear_topography_values(
         x_m=x,
         xmin=float(reference_cfg["xmin"]),
         xmax=float(reference_cfg["xmax"]),
-        topography_base_elevation_m=float(
-            reference_cfg["topography_base_elevation_m"]
-        ),
+        topography_base_elevation_m=float(reference_cfg["topography_base_elevation_m"]),
         topography_right_to_left_amplitude_m=float(
             reference_cfg["topography_right_to_left_amplitude_m"]
         ),
@@ -117,19 +109,11 @@ def build_linearized_unconfined_hillslope_drainage_comparison(
         xmax=float(reference_cfg["xmax"]),
         west_head_m=float(reference_cfg["west_head_m"]),
         east_head_m=float(reference_cfg["east_head_m"]),
-        drainage_conductance_m2_per_s=float(
-            reference_cfg["drainage_conductance_m2_per_s"]
-        ),
+        drainage_conductance_m2_per_s=float(reference_cfg["drainage_conductance_m2_per_s"]),
         cell_area_m2=float(cell_area_m2),
-        hydraulic_conductivity_m_per_s=float(
-            reference_cfg["hydraulic_conductivity_m_per_s"]
-        ),
-        reference_saturated_thickness_m=float(
-            reference_cfg["reference_saturated_thickness_m"]
-        ),
-        topography_base_elevation_m=float(
-            reference_cfg["topography_base_elevation_m"]
-        ),
+        hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
+        reference_saturated_thickness_m=float(reference_cfg["reference_saturated_thickness_m"]),
+        topography_base_elevation_m=float(reference_cfg["topography_base_elevation_m"]),
         topography_right_to_left_amplitude_m=float(
             reference_cfg["topography_right_to_left_amplitude_m"]
         ),

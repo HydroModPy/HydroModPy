@@ -17,11 +17,7 @@ from tests.regression.golden_utils import (
 )
 
 LAUNCHER_DATA_OVERVIEW_SCRIPT = (
-    REPO_ROOT
-    / "examples"
-    / "projects"
-    / "data_overview"
-    / "run_data_overview.py"
+    REPO_ROOT / "examples" / "projects" / "data_overview" / "run_data_overview.py"
 )
 
 SHOM_HEALTHCHECK_URL = "https://services.data.shom.fr"
@@ -66,7 +62,9 @@ def test_launcher_data_overview_data_only_regression():
 
     # Intermittency now produces CSV files via the variable manager (no legacy SHP).
     intermittency_dir = stable_root / "intermittency"
-    assert intermittency_dir.exists(), f"Intermittency output directory missing: {intermittency_dir}"
+    assert intermittency_dir.exists(), (
+        f"Intermittency output directory missing: {intermittency_dir}"
+    )
     intermittency_csvs = list(intermittency_dir.glob("intermittency_*.csv"))
     assert len(intermittency_csvs) > 0, (
         f"No intermittency CSV files in {intermittency_dir}. "

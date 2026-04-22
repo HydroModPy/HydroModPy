@@ -111,12 +111,7 @@ class PreparedSurfaceSampler:
         if dx <= 0.0 or dy <= 0.0 or nrows < 1 or ncols < 1:
             return np.full(x_arr.shape, np.nan, dtype=float)
 
-        inside = (
-            (flat_x >= xmin)
-            & (flat_x <= xmax)
-            & (flat_y >= ymin)
-            & (flat_y <= ymax)
-        )
+        inside = (flat_x >= xmin) & (flat_x <= xmax) & (flat_y >= ymin) & (flat_y <= ymax)
         col_float = (flat_x - xmin) / dx - 0.5
         row_float = (ymax - flat_y) / dy - 0.5
 

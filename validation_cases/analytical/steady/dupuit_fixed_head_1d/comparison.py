@@ -1,4 +1,4 @@
-﻿"""Comparison workflow for the steady Dupuit fixed-head validation case."""
+"""Comparison workflow for the steady Dupuit fixed-head validation case."""
 
 from __future__ import annotations
 
@@ -57,9 +57,7 @@ def build_dupuit_fixed_head_comparison(
     case_metadata = load_case_metadata(CASE_DIR) if metadata is None else metadata
     solver_name = str(getattr(result, "solver_name", "")).strip().lower() or None
     case_tolerances = (
-        load_case_tolerances(CASE_DIR, solver=solver_name)
-        if tolerances is None
-        else tolerances
+        load_case_tolerances(CASE_DIR, solver=solver_name) if tolerances is None else tolerances
     )
 
     output_cfg = dict(case_metadata.get("output", {}))
@@ -151,6 +149,3 @@ def run_dupuit_fixed_head_comparison(
         metadata=metadata,
         tolerances=tolerances,
     )
-
-
-

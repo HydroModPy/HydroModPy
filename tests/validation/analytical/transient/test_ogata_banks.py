@@ -278,14 +278,13 @@ def test_ogata_banks_1d_transport_matches_analytical_reference(tmp_path: Path) -
     residual = float(np.sum((numerical_flat - analytical_flat) ** 2))
     nse = 1.0 - residual / variance
     assert nse > 0.95, (
-        f"Ogata-Banks NSE too low: {nse:.6f} (residual={residual:.3e}, "
-        f"variance={variance:.3e})"
+        f"Ogata-Banks NSE too low: {nse:.6f} (residual={residual:.3e}, variance={variance:.3e})"
     )
 
     if signal_mask.any():
-        relative_errors = np.abs(numerical_flat[signal_mask] - analytical_flat[signal_mask]) / np.abs(
-            analytical_flat[signal_mask]
-        )
+        relative_errors = np.abs(
+            numerical_flat[signal_mask] - analytical_flat[signal_mask]
+        ) / np.abs(analytical_flat[signal_mask])
         max_rel = float(relative_errors.max())
         assert max_rel < 0.03, (
             f"Ogata-Banks max relative error {max_rel:.4%} > 3%: "

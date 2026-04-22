@@ -51,8 +51,7 @@ def _ecrire_bundle_minimal(bundle_dir: Path) -> None:
         encoding="utf-8",
     )
     (bundle_dir / "mesh_summary.json").write_text(
-        json.dumps({"constraints_mode": "geology_rivers"}, indent=2, ensure_ascii=True)
-        + "\n",
+        json.dumps({"constraints_mode": "geology_rivers"}, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
     _ecrire_csv_bundle(
@@ -383,9 +382,7 @@ def test_python_module_mesh_bundle_viewer_runs_from_distributed_folder(
     _ecrire_bundle_minimal(bundle_dir)
 
     distribution_root = tmp_path / "distribution_package"
-    mesh_source_dir = (
-        Path(__file__).resolve().parents[3] / "tools" / "mesh_bundle_viewer"
-    )
+    mesh_source_dir = Path(__file__).resolve().parents[3] / "tools" / "mesh_bundle_viewer"
     mesh_target_dir = distribution_root / "mesh_bundle_viewer"
     shutil.copytree(mesh_source_dir, mesh_target_dir)
 
@@ -433,10 +430,10 @@ def test_python_module_mesh_bundle_viewer_runs_with_default_example_bundle(
     tmp_path: Path,
 ) -> None:
     distribution_root = tmp_path / "rbflow_like_package"
-    mesh_source_dir = (
-        Path(__file__).resolve().parents[3] / "tools" / "mesh_bundle_viewer"
+    mesh_source_dir = Path(__file__).resolve().parents[3] / "tools" / "mesh_bundle_viewer"
+    examples_source_dir = (
+        Path(__file__).resolve().parents[3] / "examples" / "projects" / "08_mesh_viewer"
     )
-    examples_source_dir = Path(__file__).resolve().parents[3] / "examples" / "projects" / "08_mesh_viewer"
     mesh_target_dir = distribution_root / "mesh_bundle_viewer"
     examples_target_dir = distribution_root / "examples" / "projects" / "08_mesh_viewer"
     shutil.copytree(mesh_source_dir, mesh_target_dir)
@@ -456,9 +453,7 @@ def test_python_module_mesh_bundle_viewer_runs_with_default_example_bundle(
 
     assert completed.returncode == 0, completed.stderr
     assert (distribution_root / "outputs" / "mesh_viewer" / "apercu_maillage.png").exists()
-    assert (
-        distribution_root / "outputs" / "mesh_viewer" / "resume_apercu_maillage.json"
-    ).exists()
+    assert (distribution_root / "outputs" / "mesh_viewer" / "resume_apercu_maillage.json").exists()
     summary = json.loads(completed.stdout)
     assert summary["cell_count"] == 2
     assert summary["geology_available"] is True

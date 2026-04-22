@@ -74,7 +74,12 @@ def _write_tmp_config(tmp_path: Path) -> Path:
 
 
 def _collect_case_signature(project_root: str | Path) -> dict:
-    summary_path = Path(project_root) / ".solver_scratch/_preprocessing" / "geographic" / "river_network_summary.json"
+    summary_path = (
+        Path(project_root)
+        / ".solver_scratch/_preprocessing"
+        / "geographic"
+        / "river_network_summary.json"
+    )
     if not summary_path.exists():
         raise AssertionError(f"Missing river network summary: {summary_path}")
 
@@ -117,8 +122,7 @@ def test_run_geographic_case_river_network_regression(
     )
 
     actual = {
-        case_id: _collect_case_signature(summaries[case_id]["project_root"])
-        for case_id in CASE_IDS
+        case_id: _collect_case_signature(summaries[case_id]["project_root"]) for case_id in CASE_IDS
     }
 
     if update_goldens:

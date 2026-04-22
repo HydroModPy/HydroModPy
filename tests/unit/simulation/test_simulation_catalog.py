@@ -100,9 +100,7 @@ class TestRegisterAndFinalize:
         """
         sid1, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
         sid2, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
-        count = catalog.connection.execute(
-            "SELECT COUNT(*) FROM simulations"
-        ).fetchone()[0]
+        count = catalog.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
         assert count == 2
         current = catalog.connection.execute(
             "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE name = ?",
@@ -129,11 +127,25 @@ class TestRegisterAndFinalize:
 class TestWriteMethods:
     def test_write_parameters_bulk(self, catalog):
         sid, _ = _register(catalog)
-        catalog.write_parameters(sid, [
-            {"param_name": "K", "value": 1.728, "unit": "m/d", "parameterization": "homogeneous"},
-            {"param_name": "Sy", "value": 0.05, "unit": "-", "parameterization": "homogeneous"},
-            {"param_name": "K", "zone_id": "granite", "value": 0.5, "unit": "m/d", "parameterization": "geology_mapped"},
-        ])
+        catalog.write_parameters(
+            sid,
+            [
+                {
+                    "param_name": "K",
+                    "value": 1.728,
+                    "unit": "m/d",
+                    "parameterization": "homogeneous",
+                },
+                {"param_name": "Sy", "value": 0.05, "unit": "-", "parameterization": "homogeneous"},
+                {
+                    "param_name": "K",
+                    "zone_id": "granite",
+                    "value": 0.5,
+                    "unit": "m/d",
+                    "parameterization": "geology_mapped",
+                },
+            ],
+        )
         count = catalog.connection.execute(
             "SELECT COUNT(*) FROM parameters WHERE sim_id = ?", [sid]
         ).fetchone()[0]
@@ -141,9 +153,12 @@ class TestWriteMethods:
 
     def test_parameters_global_zone_default(self, catalog):
         sid, _ = _register(catalog)
-        catalog.write_parameters(sid, [
-            {"param_name": "K", "value": 1.0},
-        ])
+        catalog.write_parameters(
+            sid,
+            [
+                {"param_name": "K", "value": 1.0},
+            ],
+        )
         row = catalog.connection.execute(
             "SELECT zone_id FROM parameters WHERE sim_id = ? AND param_name = 'K'",
             [sid],
@@ -183,8 +198,8 @@ class TestWriteMethods:
         catalog.write_mass_balance(sid, 0, 100.0, 95.0, 5.0)
         catalog.write_mass_balance(sid, 1, 110.0, 108.0, 1.8)
         rows = catalog.connection.execute(
-            "SELECT timestep, percent_error FROM mass_balance "
-            "WHERE sim_id = ? ORDER BY timestep", [sid]
+            "SELECT timestep, percent_error FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
+            [sid],
         ).fetchall()
         assert len(rows) == 2
         assert rows[0] == (0, 5.0)
@@ -233,8 +248,15 @@ class TestDelete:
 
         catalog.delete(sid)
 
-        for table in ("simulations", "parameters", "timeseries", "budgets",
-                       "mass_balance", "metrics", "provenance"):
+        for table in (
+            "simulations",
+            "parameters",
+            "timeseries",
+            "budgets",
+            "mass_balance",
+            "metrics",
+            "provenance",
+        ):
             count = catalog.connection.execute(
                 f"SELECT COUNT(*) FROM {table} WHERE sim_id = ?", [sid]
             ).fetchone()[0]
@@ -247,9 +269,7 @@ class TestContextManager:
     def test_enter_exit(self, tmp_path):
         with SimulationCatalog(tmp_path / "ws") as cat:
             sid, _ = _register(cat)
-            row = cat.connection.execute(
-                "SELECT COUNT(*) FROM simulations"
-            ).fetchone()
+            row = cat.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()
             assert row[0] == 1
 
 
@@ -257,9 +277,7 @@ class TestMultipleProjects:
     def test_two_projects_same_db(self, catalog):
         sid1, _ = _register(catalog, project="canut")
         sid2, _ = _register(catalog, project="nancon")
-        count = catalog.connection.execute(
-            "SELECT COUNT(*) FROM simulations"
-        ).fetchone()[0]
+        count = catalog.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
         assert count == 2
         projects = catalog.connection.execute(
             "SELECT DISTINCT project FROM simulations ORDER BY project"

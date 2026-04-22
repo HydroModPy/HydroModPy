@@ -63,9 +63,7 @@ class SyntheticBackend:
             "Extract them from the generated DEM via a whitebox backend."
         )
 
-    def catchment_from_outlet(
-        self, dem: Any, x: float, y: float, **kwargs: Any
-    ) -> Any:
+    def catchment_from_outlet(self, dem: Any, x: float, y: float, **kwargs: Any) -> Any:
         raise NotImplementedError(
             "Synthetic catchments are generated from the grid extent "
             "declared in SyntheticGeographicConfig, not from outlets."

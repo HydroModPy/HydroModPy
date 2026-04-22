@@ -5,7 +5,10 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from hydromodpy.core.config.profile import Profile
-from hydromodpy.spatial.domain.depth_model_config import ConstantThicknessDepthModel, DepthModelConfig
+from hydromodpy.spatial.domain.depth_model_config import (
+    ConstantThicknessDepthModel,
+    DepthModelConfig,
+)
 from hydromodpy.spatial.domain.spatial_support_config import DomainSupportConfig
 from hydromodpy.core.config.base import HydroModelBase
 
@@ -38,8 +41,7 @@ class DomainConfig(HydroModelBase):
     depth_model: Annotated[DepthModelConfig, Profile.USER] = Field(
         default_factory=ConstantThicknessDepthModel,
         description=(
-            "Vertical domain model configuration. "
-            "Use 'constant_thickness' or 'flat_substratum'."
+            "Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'."
         ),
     )
 
@@ -78,7 +80,9 @@ class DomainConfig(HydroModelBase):
 
     @field_validator("supports")
     @classmethod
-    def _normalize_support_keys(cls, value: dict[str, DomainSupportConfig]) -> dict[str, DomainSupportConfig]:
+    def _normalize_support_keys(
+        cls, value: dict[str, DomainSupportConfig]
+    ) -> dict[str, DomainSupportConfig]:
         out: dict[str, DomainSupportConfig] = {}
         seen: set[str] = set()
         for raw_key, support_cfg in value.items():

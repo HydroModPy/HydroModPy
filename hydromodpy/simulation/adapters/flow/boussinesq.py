@@ -200,18 +200,15 @@ def _resolve_bundle_solver_mesh(
     metadata_view = bundle.metadata_view
     hydraulic_view = metadata_view.hydraulic_properties
 
-    needs_conductivity = any(
-        cell.hydraulic_conductivity_m_s is None for cell in bundle.cells
-    )
+    needs_conductivity = any(cell.hydraulic_conductivity_m_s is None for cell in bundle.cells)
     needs_storage = any(cell.storage_coefficient is None for cell in bundle.cells)
     needed_properties: set[str] = set()
     if needs_conductivity and hydraulic_view.conductivity.default_value is None:
         needed_properties.add("K")
     if needs_storage:
         if hydraulic_view.storage_coefficient.default_value is None:
-            has_flow_sy = (
-                flow is not None
-                and _has_any_flow_parameter(flow=flow, canonical_name="Sy")
+            has_flow_sy = flow is not None and _has_any_flow_parameter(
+                flow=flow, canonical_name="Sy"
             )
             if regime != "steady" or has_flow_sy:
                 needed_properties.add("Sy")

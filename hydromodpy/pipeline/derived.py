@@ -393,24 +393,16 @@ class DerivedRegistry:
                     or _subgroup_has(sim_zarr, "derived", required)
                 ):
                     reason = f"input '{required}' missing"
-                    logger.debug(
-                        "DerivedRegistry: skipping '%s' (%s)", name, reason
-                    )
-                    results.append(
-                        DerivedResult(name=name, status="skipped", reason=reason)
-                    )
+                    logger.debug("DerivedRegistry: skipping '%s' (%s)", name, reason)
+                    results.append(DerivedResult(name=name, status="skipped", reason=reason))
                     break
             else:
                 try:
                     result = comp.compute(sim_zarr, **ctx)
                 except Exception as exc:  # pragma: no cover — logged + surfaced
-                    logger.warning(
-                        "DerivedRegistry: '%s' raised %s", name, exc
-                    )
+                    logger.warning("DerivedRegistry: '%s' raised %s", name, exc)
                     results.append(
-                        DerivedResult(
-                            name=name, status="skipped", reason=f"error: {exc}"
-                        )
+                        DerivedResult(name=name, status="skipped", reason=f"error: {exc}")
                     )
                     continue
                 logger.debug(

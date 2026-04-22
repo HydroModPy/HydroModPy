@@ -63,14 +63,19 @@ class Mt3dmsOutputAdapter:
 
         logger.info(
             "Extracting MT3DMS concentration: %d timesteps, %d layers, %d cells",
-            n_timesteps, nlay, n_cells,
+            n_timesteps,
+            nlay,
+            n_cells,
         )
 
         for t, time in enumerate(times):
             conc = ucn.get_data(totim=time)
             values = conc.reshape(nlay, n_cells)
             store.write_field(
-                sim_id, "concentration", t, values,
+                sim_id,
+                "concentration",
+                t,
+                values,
                 n_timesteps=n_timesteps if t == 0 else None,
             )
 

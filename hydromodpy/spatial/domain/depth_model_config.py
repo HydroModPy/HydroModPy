@@ -22,16 +22,13 @@ class ConstantThicknessDepthModel(HydroModelBase):
     type: Annotated[Literal["constant_thickness"], Profile.USER] = Field(
         default="constant_thickness",
         description=(
-            "Depth-model type selector. "
-            "Use 'constant_thickness' to define bottom as top-thickness."
+            "Depth-model type selector. Use 'constant_thickness' to define bottom as top-thickness."
         ),
     )
     thickness: Annotated[float, Profile.USER] = Field(
         default=50.0,
         gt=0.0,
-        description=(
-            "Constant aquifer thickness (m) applied below topography."
-        ),
+        description=("Constant aquifer thickness (m) applied below topography."),
     )
 
     @field_validator("thickness", mode="before")
@@ -63,9 +60,7 @@ class FlatSubstratumDepthModel(HydroModelBase):
     )
     substratum_elevation: Annotated[float, Profile.USER] = Field(
         default=0.0,
-        description=(
-            "Flat substratum elevation (m) applied over the full domain."
-        ),
+        description=("Flat substratum elevation (m) applied over the full domain."),
     )
 
 

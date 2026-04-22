@@ -42,11 +42,11 @@ COVERAGE = {
 
 # Hub'Eau code_ecoulement -> internal flow code (1 = dry ... 5 = fully flowing)
 _CODE_ECOULEMENT_MAP: dict[str, int] = {
-    "1": 5,   # Visible flow
+    "1": 5,  # Visible flow
     "1a": 4,  # Acceptable visible flow
     "1f": 3,  # Weak visible flow
-    "2": 2,   # Non-visible flow
-    "3": 1,   # Dry (no water)
+    "2": 2,  # Non-visible flow
+    "3": 1,  # Dry (no water)
     # "4" -> Observation impossible — intentionally omitted (NaN)
 }
 
@@ -81,8 +81,11 @@ def fetch(
         )
         if not ids and bbox is not None and fallback_search_radius_km:
             from hydromodpy.data.common.geo_helpers import expand_bbox
+
             expanded = expand_bbox(bbox, fallback_search_radius_km)
-            logger.info("Hub'Eau ONDE: no stations in bbox, expanding by %s km", fallback_search_radius_km)
+            logger.info(
+                "Hub'Eau ONDE: no stations in bbox, expanding by %s km", fallback_search_radius_km
+            )
             ids = _discover_stations(
                 bbox=expanded,
                 code_departement=code_departement,
@@ -97,7 +100,10 @@ def fetch(
         logger.info("Hub'Eau ONDE: no stations found.")
         return []
 
-    log_step("Hub'Eau ONDE: %d stations [%s -> %s]" % (len(ids), date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d")))
+    log_step(
+        "Hub'Eau ONDE: %d stations [%s -> %s]"
+        % (len(ids), date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d"))
+    )
 
     records: list[PointRecord] = []
     for sid in iter_progress(ids, desc="Stations"):

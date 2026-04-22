@@ -6,7 +6,6 @@ from scipy.stats import norm
 from quadprog import solve_qp
 
 
-
 def quantile_def(alpha, mu, sigma2):
     sigma_log = np.sqrt(np.log(1 + sigma2 / (mu**2)))
     mu_log = np.log(mu) - 0.5 * sigma_log**2
@@ -24,20 +23,27 @@ def compute_plot_IC(Kj, varj, alpha, litho_names):
 
     plt.figure(figsize=(8, 5))
     for i in range(len(litho_names)):
-        plt.plot([i+1, i+1], [logm[i], logM[i]], color='k', linewidth=1)
+        plt.plot([i + 1, i + 1], [logm[i], logM[i]], color="k", linewidth=1)
         plt.errorbar(
-            i+1, np.log10(Kj[i]),
+            i + 1,
+            np.log10(Kj[i]),
             yerr=[[np.log10(Kj[i]) - logm[i]], [logM[i] - np.log10(Kj[i])]],
-            fmt='none', ecolor='k', linewidth=1
+            fmt="none",
+            ecolor="k",
+            linewidth=1,
         )
         plt.scatter(
-            i+1, np.log10(Kj[i]),
-            s=110, marker='s',
-            edgecolor='#8E142F', facecolor='#E63F49', linewidth=1
+            i + 1,
+            np.log10(Kj[i]),
+            s=110,
+            marker="s",
+            edgecolor="#8E142F",
+            facecolor="#E63F49",
+            linewidth=1,
         )
 
-    plt.xticks(range(1, len(litho_names)+1), litho_names)
-    plt.ylabel('Log(K_j) [m/s]')
+    plt.xticks(range(1, len(litho_names) + 1), litho_names)
+    plt.ylabel("Log(K_j) [m/s]")
     plt.tight_layout()
     plt.show()
 
@@ -52,6 +58,7 @@ def solving_linear_system_qp(A, B, variable):
     result = solve_qp(H.astype(float), -f.astype(float), G.astype(float), h.astype(float))
     return result[0]
 
+
 def check_positivity_Kj(Kj):
     print("\n=== Check positivity of Kj ===")
     if np.all(Kj > 0):
@@ -61,6 +68,7 @@ def check_positivity_Kj(Kj):
         print("→ WARNING: some values of Kj are non positive!")
         print("Non positive values:", Kj[Kj <= 0])
         return False
+
 
 def check_positivity_varj(varj):
     print("\n=== Checking positivity of varj ===")
@@ -76,7 +84,7 @@ def check_positivity_varj(varj):
 def check_stability_Kj(A, B, Kj_ref, a_values=[1, 2, 3, 4], tol=1e-6):
     """
     Check the numerical stability of Kj_new with respect to the scaling parameter 'a'.
-    
+
     Parameters
     ----------
     A : ndarray
@@ -112,10 +120,11 @@ def check_stability_Kj(A, B, Kj_ref, a_values=[1, 2, 3, 4], tol=1e-6):
 
     return stable
 
+
 def check_stability_varj(B, vareq2, varj_ref, b_values=range(3, 13), tol=1e-6):
     """
     Check the numerical stability of varj with respect to the scaling parameter 'b'.
-    
+
     Parameters
     ----------
     B : ndarray
@@ -151,25 +160,27 @@ def check_stability_varj(B, vareq2, varj_ref, b_values=range(3, 13), tol=1e-6):
 
     return stable
 
+
 # -----------------------------
 # Main function
 # -----------------------------
+
 
 def run_hcdm(K_eff, A_lith, litho_names, a=2, b=8, alpha=0.1):
     # Solve for Kj
     k2 = solving_linear_system_qp(A_lith, K_eff * 10**a, 1)
     Kj = k2 / 10**a
-    
+
     # --- Check stability and positivity of k ---
     check_positivity_Kj(Kj)
-    check_stability_Kj(A_lith, K_eff, Kj, a_values = list(range(1, 11)), tol=1e-6)
+    check_stability_Kj(A_lith, K_eff, Kj, a_values=list(range(1, 11)), tol=1e-6)
 
     # Solve for varj
-    vareq2 = (K_eff - A_lith @ Kj)**2
+    vareq2 = (K_eff - A_lith @ Kj) ** 2
     B = A_lith**2
     var2 = solving_linear_system_qp(B, vareq2 * 10**b, 2)
     varj = var2 / 10**b
-    
+
     # --- Diagnostics for varj ---
     check_positivity_varj(varj)
     check_stability_varj(B, vareq2, varj, b_values=range(3, 13), tol=1e-6)
@@ -179,7 +190,7 @@ def run_hcdm(K_eff, A_lith, litho_names, a=2, b=8, alpha=0.1):
     mu = np.log(Kj) - sigma**2 / 2
     sj = sigma / np.log(10)
     mj = mu / np.log(10)
-    
+
     # Print results
     print("\n=== Lognormal parameters ===")
 
@@ -194,7 +205,7 @@ def run_hcdm(K_eff, A_lith, litho_names, a=2, b=8, alpha=0.1):
 
     print("\nmj (log10 mean):")
     print(mj)
-    
+
     # Prepare table data
     data = np.column_stack([mj, sj])
     data = np.round(data, 4)
@@ -206,11 +217,7 @@ def run_hcdm(K_eff, A_lith, litho_names, a=2, b=8, alpha=0.1):
 
     # Create table
     table = ax.table(
-        cellText=data,
-        rowLabels=litho_names,
-        colLabels=columns,
-        loc="center",
-        cellLoc="center"
+        cellText=data, rowLabels=litho_names, colLabels=columns, loc="center", cellLoc="center"
     )
 
     # --- Styling improvements ---
@@ -221,7 +228,7 @@ def run_hcdm(K_eff, A_lith, litho_names, a=2, b=8, alpha=0.1):
     # Bold header + gray background
     for (row, col), cell in table.get_celld().items():
         if row == 0:
-            cell.set_text_props(weight='bold')
+            cell.set_text_props(weight="bold")
             cell.set_facecolor("#d9d9d9")
 
     # Alternating row colors (safe version)

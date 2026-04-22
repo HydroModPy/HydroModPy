@@ -83,10 +83,8 @@ def expected_dupuit_circular_island_head(
     land_mask = radius <= shoreline_radius
     if np.any(land_mask):
         coastal_thickness = sea_level - substratum
-        head_sq = (
-            coastal_thickness**2
-            + (recharge_m_per_s / (2.0 * conductivity))
-            * (shoreline_radius**2 - radius[land_mask] ** 2)
+        head_sq = coastal_thickness**2 + (recharge_m_per_s / (2.0 * conductivity)) * (
+            shoreline_radius**2 - radius[land_mask] ** 2
         )
         head[land_mask] = substratum + np.sqrt(head_sq)
     return head

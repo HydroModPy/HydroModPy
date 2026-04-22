@@ -172,9 +172,7 @@ def test_export_and_load_catchment_mesh_bundle(tmp_path: Path) -> None:
     assert loaded.metadata_view.topography.source_path == str(dem_path)
     assert loaded.metadata_view.vertical.derived_from == "domain.depth_model"
     assert loaded.metadata_view.vertical.depth_model["type"] == "flat_substratum"
-    assert (
-        loaded.metadata_view.hydraulic_properties.conductivity.unit == "m/s"
-    )
+    assert loaded.metadata_view.hydraulic_properties.conductivity.unit == "m/s"
     assert loaded.metadata["geology"]["available"] is True
     assert loaded.metadata["hydraulic_properties"]["available"] is True
     assert loaded.metadata["topography"]["source_path"] == str(dem_path)

@@ -18,8 +18,10 @@ from examples_legacy_2.projects.launcher_simulation.realistic_campaign.run_campa
 def _write_campaign_manifest(tmp_path: Path) -> Path:
     configs_dir = tmp_path / "configs"
     configs_dir.mkdir(parents=True, exist_ok=True)
-    (configs_dir / "sim.toml").write_text("[simulation]\nrun_id = \"demo\"\n", encoding="utf-8")
-    (configs_dir / "compare.toml").write_text("[method_comparison]\ncomparison_id = \"demo\"\n", encoding="utf-8")
+    (configs_dir / "sim.toml").write_text('[simulation]\nrun_id = "demo"\n', encoding="utf-8")
+    (configs_dir / "compare.toml").write_text(
+        '[method_comparison]\ncomparison_id = "demo"\n', encoding="utf-8"
+    )
 
     manifest_path = tmp_path / "campaign.toml"
     manifest_path.write_text(
@@ -181,7 +183,9 @@ def test_headwater_100km2_mf6_scenario_comparison_config_loads() -> None:
         config_path=config_path,
     )
 
-    assert cfg.method_comparison.comparison_id == "headwater_100km2_outlet_2_mf6_transient_scenarios"
+    assert (
+        cfg.method_comparison.comparison_id == "headwater_100km2_outlet_2_mf6_transient_scenarios"
+    )
     assert [variant.id for variant in cfg.method_comparison.variant] == [
         "mf6_reference",
         "mf6_heterogeneous_decay",

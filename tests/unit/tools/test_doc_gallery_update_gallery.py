@@ -110,11 +110,11 @@ def test_merge_case_summaries_by_category_keeps_committed_omitted_categories(
     validation_dir.mkdir(parents=True)
     (validation_dir / "validation_alpha_summary.json").write_text(
         (
-            '{\n'
+            "{\n"
             '  "slug": "validation_alpha",\n'
             '  "category": "validation",\n'
             '  "title": "Validation Alpha"\n'
-            '}\n'
+            "}\n"
         ),
         encoding="utf-8",
     )

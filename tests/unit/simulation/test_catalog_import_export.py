@@ -23,14 +23,20 @@ def _sid():
 
 def _populate(catalog, sid, project="test"):
     reg = catalog.register_simulation(
-        sid, project=project, solver="modflow6",
-        n_cells=10, n_layers=1,
+        sid,
+        project=project,
+        solver="modflow6",
+        n_cells=10,
+        n_layers=1,
     )
     if reg.zarr is not None:
         reg.zarr.close()
-    catalog.write_parameters(sid, [
-        {"param_name": "K", "value": 1.5, "unit": "m/d"},
-    ])
+    catalog.write_parameters(
+        sid,
+        [
+            {"param_name": "K", "value": 1.5, "unit": "m/d"},
+        ],
+    )
     idx = pd.date_range("2020-01-01", periods=5, freq="D")
     catalog.write_timeseries(sid, "P01", "head", pd.Series(np.ones(5), index=idx))
     catalog.write_budget(sid, 0, "z1", "recharge", 100.0, 0.0)
@@ -57,6 +63,7 @@ class TestExportSimulation:
         import tarfile
 
         import zstandard as zstd
+
         sid = _sid()
         _populate(catalog, sid)
         out = tmp_path / "export.hmp"
@@ -103,9 +110,7 @@ class TestImportSimulation:
         imported_sid = cat2.import_package(pkg)
         assert imported_sid == sid
 
-        count = cat2.connection.execute(
-            "SELECT COUNT(*) FROM simulations"
-        ).fetchone()[0]
+        count = cat2.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
         assert count == 1
 
         params = cat2.connection.execute(
@@ -178,9 +183,7 @@ class TestImportSimulation:
 
 
 class TestCalibrationPersist:
-    @pytest.mark.skip(
-        reason="legacy persist_to_catalog superseded by P09 hydromodpy/calibration"
-    )
+    @pytest.mark.skip(reason="legacy persist_to_catalog superseded by P09 hydromodpy/calibration")
     def test_persist_to_catalog(self, catalog, tmp_path):
         sid = _sid()
         _populate(catalog, sid)
@@ -221,11 +224,11 @@ class TestCalibrationPersist:
         )
 
         from hydromodpy.analysis.calibration.engine.session import persist_to_catalog
+
         persist_to_catalog(fake, catalog, best_sim_id=sid)
 
         sessions = catalog.connection.execute(
-            "SELECT method, n_iterations, best_objective, best_sim_id "
-            "FROM calibration_sessions"
+            "SELECT method, n_iterations, best_objective, best_sim_id FROM calibration_sessions"
         ).fetchone()
         assert sessions[0] == "scipy_minimize"
         assert sessions[1] == 3

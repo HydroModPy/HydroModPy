@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """
- * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
- *
- * This program and the accompanying materials are made available under the
- * terms of the Eclipse Public License 2.0 which is available at
- * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
- * which is available at https://www.apache.org/licenses/LICENSE-2.0.
- *
- * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+* Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+*
+* This program and the accompanying materials are made available under the
+* terms of the Eclipse Public License 2.0 which is available at
+* http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+* which is available at https://www.apache.org/licenses/LICENSE-2.0.
+*
+* SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
-#%% LIBRAIRIES
+# %% LIBRAIRIES
 
 # Python
 import sys
@@ -25,6 +25,7 @@ from hydromodpy.spatial.delineation import get_whitebox_backend
 
 # Root
 from os.path import dirname, abspath
+
 root_dir = dirname(dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
@@ -32,24 +33,28 @@ sys.path.append(root_dir)
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tools.display import plot_params
 from hydromodpy.core.tools.filesystem import create_folder
-fontprop = plot_params(8,15,18,20) # small, medium, interm, large
+
+fontprop = plot_params(8, 15, 18, 20)  # small, medium, interm, large
 
 logger = get_logger(__name__)
 
-#%% CLASS
+# %% CLASS
+
 
 class Subbasin:
     """
     Class to extract results in some subbasins inside the model domain (watershed).
     """
 
-    def __init__(self,
-                 geographic: object,
-                 hydrometry: object,
-                 intermittency: object,
-                 sub_snap_dist: int,
-                 add_path: str = None,
-                 out_path: str=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
+    def __init__(
+        self,
+        geographic: object,
+        hydrometry: object,
+        intermittency: object,
+        sub_snap_dist: int,
+        add_path: str = None,
+        out_path: str = os.path.dirname(os.path.dirname(__file__)) + "\\output\\",
+    ):
         """
         Parameters
         ----------
@@ -66,20 +71,21 @@ class Subbasin:
         out_path : str
             Path of the HydroModPy outputs.
         """
-        logger.info('Extracting subbasin definitions for watershed')
+        logger.info("Extracting subbasin definitions for watershed")
         self._backend = get_whitebox_backend()
 
         self.sub_snap_dist = sub_snap_dist
 
-        stable = getattr(geographic, 'stable_folder', None)
+        stable = getattr(geographic, "stable_folder", None)
         if stable is None:
             from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+
             stable = os.path.join(out_path, LEGACY_STABLE_DIR)
-        self.subbasin_path = os.path.join(str(stable), 'subbasin')
+        self.subbasin_path = os.path.join(str(stable), "subbasin")
         if not os.path.exists(self.subbasin_path):
             create_folder(self.subbasin_path)
 
-        self.adddata_path = os.path.join(str(stable), 'add_data')
+        self.adddata_path = os.path.join(str(stable), "add_data")
         if not os.path.exists(self.adddata_path):
             create_folder(self.adddata_path)
 
@@ -88,38 +94,46 @@ class Subbasin:
             x_coord = hydrometry.x_coord
             y_coord = hydrometry.y_coord
             for i in range(len(x_coord)):
-                station_name = f'hydrometry_{code_bh[i]}' if code_bh[i] else f'hydrometry_default_{i + 1}'
+                station_name = (
+                    f"hydrometry_{code_bh[i]}" if code_bh[i] else f"hydrometry_default_{i + 1}"
+                )
                 if not code_bh[i]:
-                    logger.warning('Hydrometry code missing at index %d; using generated name', i)
+                    logger.warning("Hydrometry code missing at index %d; using generated name", i)
                 sub_path = os.path.join(self.subbasin_path, station_name)
-                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
+                self.extract_interest_zones(
+                    geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist
+                )
         except Exception as e:
-            logger.debug('No hydrometry subbasin or problem: %s', e)
+            logger.debug("No hydrometry subbasin or problem: %s", e)
             pass
 
         try:
-            if hasattr(intermittency, 'points'):
+            if hasattr(intermittency, "points"):
                 # New LoadResult-based intermittency
                 for rec in intermittency.points:
                     if rec.location is None:
                         continue
-                    onde_name = f'intermittency_{rec.station_id}'
+                    onde_name = f"intermittency_{rec.station_id}"
                     sub_path = os.path.join(self.subbasin_path, onde_name)
-                    self.extract_interest_zones(geographic, rec.location.x, rec.location.y, sub_path, sub_snap_dist)
+                    self.extract_interest_zones(
+                        geographic, rec.location.x, rec.location.y, sub_path, sub_snap_dist
+                    )
         except Exception as e:
-            logger.debug('No intermittency subbasin or problem: %s', e)
+            logger.debug("No intermittency subbasin or problem: %s", e)
             pass
 
         try:
             code_sub, x_coord, y_coord = self.add_coord_manual(add_path)
             for i in range(len(code_sub)):
-                sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
-                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
+                sub_path = os.path.join(self.subbasin_path, "subbasin_" + code_sub[i])
+                self.extract_interest_zones(
+                    geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist
+                )
         except Exception as e:
-            logger.debug('No personal subbasins or problem: %s', e)
+            logger.debug("No personal subbasins or problem: %s", e)
             pass
 
-    #%% SUB-CATCHMENT FROM STATIONS
+    # %% SUB-CATCHMENT FROM STATIONS
 
     # Extract sub-catchment from existing stations : hydrometry or intermittency
 
@@ -139,45 +153,50 @@ class Subbasin:
             shutil.rmtree(outpath)
         create_folder(outpath)
         # Coordinates
-        outpath = outpath + '/'
-        df = pd.DataFrame({'x': [X], 'y': [Y]})
-        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=geographic.crs_proj)
-        outlet_shp = outpath + 'outlet.shp'
+        outpath = outpath + "/"
+        df = pd.DataFrame({"x": [X], "y": [Y]})
+        gdf = gpd.GeoDataFrame(
+            df, geometry=gpd.points_from_xy(df["x"], df["y"]), crs=geographic.crs_proj
+        )
+        outlet_shp = outpath + "outlet.shp"
         gdf.to_file(outlet_shp)
         # Snap the outlet shapefile from the flow accumulation
-        outlet_snap_shp = outpath + 'outlet_snap.shp'
-        self._backend.snap_pour_points(outlet_shp,
-                             os.path.join(geographic.correcflow_path, 'dem_acc.tif'),
-                             outlet_snap_shp,
-                             sub_snap_dist
-                             # geographic.snap_dist
-                             )
-        logger.debug('Using regional accumulation from: %s',
-                    os.path.join(geographic.correcflow_path, 'dem_acc.tif'))
+        outlet_snap_shp = outpath + "outlet_snap.shp"
+        self._backend.snap_pour_points(
+            outlet_shp,
+            os.path.join(geographic.correcflow_path, "dem_acc.tif"),
+            outlet_snap_shp,
+            sub_snap_dist,
+            # geographic.snap_dist
+        )
+        logger.debug(
+            "Using regional accumulation from: %s",
+            os.path.join(geographic.correcflow_path, "dem_acc.tif"),
+        )
         # Generate raster watershed
-        watershed = outpath + 'watershed.tif'
+        watershed = outpath + "watershed.tif"
         self._backend.watershed(
-            os.path.join(geographic.correcflow_path, 'dem_direc.tif'),
+            os.path.join(geographic.correcflow_path, "dem_direc.tif"),
             outlet_snap_shp,
             watershed,
             esri_pntr=False,
         )
 
         # Create shapefile polygon of the watershed
-        watershed_shp = outpath + 'watershed.shp'
-        logger.debug('Creating watershed shapefile: %s', watershed_shp)
+        watershed_shp = outpath + "watershed.shp"
+        logger.debug("Creating watershed shapefile: %s", watershed_shp)
         self._backend.raster_to_vector_polygons(watershed, watershed_shp)
         shp = gpd.read_file(watershed_shp)
         shp.set_crs(geographic.crs_proj, inplace=True, allow_override=True)
         shp.to_file(watershed_shp)
         self._backend.polygon_area(watershed_shp)
-        area = gpd.read_file(watershed_shp).AREA[0]/1000000
+        area = gpd.read_file(watershed_shp).AREA[0] / 1000000
         area = np.abs(area)
         # Create shapefile polyline of the watershed
-        watershed_contour_shp = outpath + 'watershed_contour.shp'
+        watershed_contour_shp = outpath + "watershed_contour.shp"
         self._backend.polygons_to_lines(watershed_shp, watershed_contour_shp)
         # Clip buffer watershed DEM from watershed shapefile polygon
-        watershed_dem = outpath + 'watershed_dem.tif'
+        watershed_dem = outpath + "watershed_dem.tif"
         self._backend.clip_raster_to_polygon(
             geographic.watershed_buff_dem,
             watershed_shp,
@@ -185,7 +204,7 @@ class Subbasin:
             maintain_dimensions=True,
         )
 
-    #%% SUB-CATCHMENT FROM XY POINT
+    # %% SUB-CATCHMENT FROM XY POINT
 
     # From a .csv file with x, y coordinates representing the outlet desired sub-catchments
 
@@ -193,12 +212,13 @@ class Subbasin:
         """
         Check files in folder and extract 'code_sub','x_outlet','y_outlet'
         """
-        path_coord = glob.glob(str(Path(add_path) / '*'))[0]
-        logger.debug('Loading coordinates from: %s', path_coord)
-        sub_list = pd.read_csv(path_coord, sep=';')
-        code_sub = sub_list['code_sub'].to_list()
-        x_coord = sub_list['x_outlet'].to_list()
-        y_coord = sub_list['y_outlet'].to_list()
+        path_coord = glob.glob(str(Path(add_path) / "*"))[0]
+        logger.debug("Loading coordinates from: %s", path_coord)
+        sub_list = pd.read_csv(path_coord, sep=";")
+        code_sub = sub_list["code_sub"].to_list()
+        x_coord = sub_list["x_outlet"].to_list()
+        y_coord = sub_list["y_outlet"].to_list()
         return code_sub, x_coord, y_coord
 
-#%% NOTES
+
+# %% NOTES

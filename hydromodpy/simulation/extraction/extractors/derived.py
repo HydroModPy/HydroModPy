@@ -10,6 +10,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 def _write_bare_tif(path: str, data: np.ndarray, nodata: float = -99999.0) -> None:
     """Write a 2D array as a GeoTIFF with dummy georef (whitebox needs geokeys)."""
     import rasterio
@@ -19,9 +20,15 @@ def _write_bare_tif(path: str, data: np.ndarray, nodata: float = -99999.0) -> No
     nrow, ncol = data.shape
     transform = from_bounds(0, 0, ncol, nrow, ncol, nrow)
     with rasterio.open(
-        path, "w", driver="GTiff",
-        height=nrow, width=ncol, count=1,
-        dtype=data.dtype, nodata=nodata, transform=transform,
+        path,
+        "w",
+        driver="GTiff",
+        height=nrow,
+        width=ncol,
+        count=1,
+        dtype=data.dtype,
+        nodata=nodata,
+        transform=transform,
         crs=CRS.from_epsg(32631),
     ) as dst:
         dst.write(data, 1)
@@ -124,7 +131,11 @@ def _compute_watertable_elevation(
     head_sample = head_arr[:].ravel()
     finite_heads = head_sample[np.isfinite(head_sample)]
     if finite_heads.size > 0:
-        p01 = float(np.nanpercentile(finite_heads[finite_heads > _SENTINEL_THRESHOLD], 1)) if np.any(finite_heads > _SENTINEL_THRESHOLD) else 0.0
+        p01 = (
+            float(np.nanpercentile(finite_heads[finite_heads > _SENTINEL_THRESHOLD], 1))
+            if np.any(finite_heads > _SENTINEL_THRESHOLD)
+            else 0.0
+        )
         legacy_floor = min(_SENTINEL_THRESHOLD, p01 - 200.0)
     else:
         legacy_floor = _SENTINEL_THRESHOLD
@@ -136,7 +147,7 @@ def _compute_watertable_elevation(
         elif get_water_table is not None:
             # Replace NaN with a dummy sentinel for flopy (NaN != NaN
             # breaks its internal comparison).  Restore NaN afterwards.
-            _DUMMY_HDRY = -1.0e+30
+            _DUMMY_HDRY = -1.0e30
             head_clean = head.reshape(n_layers, -1, 1).squeeze().copy()
             nan_mask_3d = ~np.isfinite(head_clean)
             head_clean[nan_mask_3d] = _DUMMY_HDRY
@@ -149,7 +160,9 @@ def _compute_watertable_elevation(
         # NaN masking, or MF6 outputs with different sentinel values).
         wt = np.where(np.isfinite(wt) & (wt < legacy_floor), np.nan, wt)
         store.write_field(
-            sim_id, "watertable_elevation", t,
+            sim_id,
+            "watertable_elevation",
+            t,
             wt.astype("float64"),
             n_timesteps=n_timesteps if t == 0 else None,
             subgroup="derived",
@@ -198,7 +211,9 @@ def _compute_watertable_depth(
             return
 
         store.write_field(
-            sim_id, "watertable_depth", t,
+            sim_id,
+            "watertable_depth",
+            t,
             depth.astype("float64"),
             n_timesteps=n_timesteps if t == 0 else None,
             subgroup="derived",
@@ -242,7 +257,9 @@ def _compute_seepage_areas(
 
         seepage = (wt >= top_elev).astype("float64")
         store.write_field(
-            sim_id, "seepage_areas", t,
+            sim_id,
+            "seepage_areas",
+            t,
             seepage,
             n_timesteps=n_timesteps if t == 0 else None,
             subgroup="derived",
@@ -270,8 +287,13 @@ def _compute_groundwater_flux(
         return
 
     face_keys = []
-    for candidate in ("flow_right_face", "flow_front_face", "flow_lower_face",
-                       "flow-ja-face", "flow_ja_face"):
+    for candidate in (
+        "flow_right_face",
+        "flow_front_face",
+        "flow_lower_face",
+        "flow-ja-face",
+        "flow_ja_face",
+    ):
         if candidate in budget_grp:
             face_keys.append(candidate)
 
@@ -284,10 +306,13 @@ def _compute_groundwater_flux(
         for key in face_keys:
             arr = budget_grp[key][t]
             reshaped = arr.reshape(n_layers, n_cells) if arr.shape != (n_layers, n_cells) else arr
-            sq_sum += reshaped ** 2
+            sq_sum += reshaped**2
         magnitude = np.sqrt(sq_sum)
         store.write_field(
-            sim_id, "groundwater_flux", t, magnitude,
+            sim_id,
+            "groundwater_flux",
+            t,
+            magnitude,
             n_timesteps=n_timesteps if t == 0 else None,
             subgroup="derived",
         )
@@ -326,7 +351,12 @@ def _compute_accumulation_flux(
     # Try whitebox D8 routing with fill DEM from geographic store
     try:
         _accumulation_flux_routed(
-            sim_id, store, budget_grp, drn_key, n_timesteps, n_cells,
+            sim_id,
+            store,
+            budget_grp,
+            drn_key,
+            n_timesteps,
+            n_cells,
         )
         logger.debug("Derived accumulation_flux (routed) for sim %s", sim_id)
         return
@@ -344,7 +374,10 @@ def _compute_accumulation_flux(
         else:
             flux = np.abs(drn)
         store.write_field(
-            sim_id, "accumulation_flux", t, flux.astype("float64"),
+            sim_id,
+            "accumulation_flux",
+            t,
+            flux.astype("float64"),
             n_timesteps=n_timesteps if t == 0 else None,
             subgroup="derived",
         )
@@ -390,9 +423,7 @@ def _accumulation_flux_routed(
         if side * side == n_cells:
             grid_shape = (side, side)
         else:
-            raise ValueError(
-                f"Cannot infer 2D grid shape from n_cells={n_cells}"
-            )
+            raise ValueError(f"Cannot infer 2D grid shape from n_cells={n_cells}")
 
     wb = get_whitebox_backend()
 
@@ -429,7 +460,10 @@ def _accumulation_flux_routed(
             acc[acc < 0] = 0.0
 
             store.write_field(
-                sim_id, "accumulation_flux", t, acc.ravel(),
+                sim_id,
+                "accumulation_flux",
+                t,
+                acc.ravel(),
                 n_timesteps=n_timesteps if t == 0 else None,
                 subgroup="derived",
             )
@@ -468,7 +502,10 @@ def _compute_outflow_drain(
         else:
             flux = drn
         store.write_field(
-            sim_id, "outflow_drain", t, flux.astype("float64"),
+            sim_id,
+            "outflow_drain",
+            t,
+            flux.astype("float64"),
             n_timesteps=n_timesteps if t == 0 else None,
             subgroup="derived",
         )
@@ -504,7 +541,10 @@ def _compute_concentration_seepage(
         # NaN for non-seepage cells so stats only count seepage cells.
         result = np.where(seepage > 0, conc * seepage, np.nan)
         store.write_field(
-            sim_id, "concentration_seepage", t, result.astype("float64"),
+            sim_id,
+            "concentration_seepage",
+            t,
+            result.astype("float64"),
             n_timesteps=n_timesteps if t == 0 else None,
             subgroup="derived",
         )
@@ -547,7 +587,10 @@ def _compute_mass_seepage(
 
         mass = conc_seep * flux
         store.write_field(
-            sim_id, "mass_seepage", t, mass.astype("float64"),
+            sim_id,
+            "mass_seepage",
+            t,
+            mass.astype("float64"),
             n_timesteps=n_timesteps if t == 0 else None,
             subgroup="derived",
         )
@@ -573,7 +616,10 @@ def _compute_mass_accumulated(
 
         cumul = cumul + ms
         store.write_field(
-            sim_id, "mass_accumulated", t, cumul.copy(),
+            sim_id,
+            "mass_accumulated",
+            t,
+            cumul.copy(),
             n_timesteps=n_timesteps if t == 0 else None,
             subgroup="derived",
         )

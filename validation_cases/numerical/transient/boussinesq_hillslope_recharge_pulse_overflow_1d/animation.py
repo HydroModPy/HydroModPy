@@ -197,7 +197,10 @@ def _render_frame(
         (
             [primary.elapsed_days[0] - 0.5 * (primary.elapsed_days[1] - primary.elapsed_days[0])],
             primary.elapsed_days[:-1] + 0.5 * np.diff(primary.elapsed_days),
-            [primary.elapsed_days[-1] + 0.5 * (primary.elapsed_days[-1] - primary.elapsed_days[-2])],
+            [
+                primary.elapsed_days[-1]
+                + 0.5 * (primary.elapsed_days[-1] - primary.elapsed_days[-2])
+            ],
         )
     )
     heatmap = ax_heatmap.pcolormesh(
@@ -272,7 +275,8 @@ def build_hillslope_overflow_animation(
     if resolved_options.export_html:
         html_path = build_plotly_slider(
             frame_paths=frame_paths,
-            html_path=Path(output_dir).expanduser().resolve() / "boussinesq_hillslope_overflow_animation.html",
+            html_path=Path(output_dir).expanduser().resolve()
+            / "boussinesq_hillslope_overflow_animation.html",
             show_in_browser=False,
             title="Boussinesq hillslope overflow animation",
         )

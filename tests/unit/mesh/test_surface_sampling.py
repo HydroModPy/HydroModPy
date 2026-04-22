@@ -49,4 +49,3 @@ def test_prepared_surface_sampler_returns_nan_without_complete_support() -> None
     sampled = sampler.sample(np.array([0.0, 1.0]), np.array([0.0, 1.0]))
 
     assert np.all(np.isnan(sampled))
-

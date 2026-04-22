@@ -283,9 +283,7 @@ def get(name: str) -> FieldDescriptor:
         return FIELD_REGISTRY[name]
     except KeyError:
         available = ", ".join(sorted(FIELD_REGISTRY))
-        raise KeyError(
-            f"Field '{name}' is not registered. Available fields: {available}"
-        ) from None
+        raise KeyError(f"Field '{name}' is not registered. Available fields: {available}") from None
 
 
 def has(name: str) -> bool:

@@ -41,8 +41,7 @@ def _load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
 
 def _space_from_config(cfg: CalibrationConfig) -> ParameterSpace:
     declarations = {
-        name: decl.model_dump(exclude_none=True)
-        for name, decl in cfg.parameters.items()
+        name: decl.model_dump(exclude_none=True) for name, decl in cfg.parameters.items()
     }
     return ParameterSpace.from_toml_mapping(declarations)
 

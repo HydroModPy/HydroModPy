@@ -98,7 +98,8 @@ def test_crash_then_resume_replays_only_remaining(tmp_path: Path) -> None:
     # Replace the crashing step with a working one and resume.
     fixed_pipeline = _fresh_pipeline(tmp_path, [_AddOne(), _AddOne(), _Double()])
     final = fixed_pipeline.run(
-        PipelineState(run_id="crash-1"), resume_from=1,
+        PipelineState(run_id="crash-1"),
+        resume_from=1,
     )
     # counter was 6 after step 0; step 1 makes it 7; step 2 doubles to 14.
     assert final.data["counter"] == 14

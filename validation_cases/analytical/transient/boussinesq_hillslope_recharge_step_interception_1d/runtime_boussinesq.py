@@ -67,7 +67,7 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
                             "recharge": {
                                 "values": mm_day_to_m_s(RECHARGE_MM_DAY),
                                 "first_clim": "mean",
-                    "units": "m/s",
+                                "units": "m/s",
                             }
                         },
                         "bc": {
@@ -83,7 +83,9 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
                 period_lengths_seconds=period_lengths_seconds,
                 window=None,
             ),
-            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
+            workspace=SimpleNamespace(
+                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
+            ),
         ),
     )
     run = ProcessRun(

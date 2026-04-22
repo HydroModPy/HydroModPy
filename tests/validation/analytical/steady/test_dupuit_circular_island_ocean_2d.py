@@ -23,8 +23,9 @@ from validation_cases.analytical.steady.dupuit_circular_island_ocean_2d.comparis
         pytest.param("boussinesq", False, False, id="boussinesq"),
     ],
 )
-
-def test_dupuit_circular_island_ocean_2d_matches_reference_profile(solver: str, require_modflow: bool, require_modflow6: bool) -> None:
+def test_dupuit_circular_island_ocean_2d_matches_reference_profile(
+    solver: str, require_modflow: bool, require_modflow6: bool
+) -> None:
     """Run the launcher case and compare the final annular profile to Dupuit."""
     assert_required_executables(
         require_modflow=require_modflow,
@@ -36,7 +37,9 @@ def test_dupuit_circular_island_ocean_2d_matches_reference_profile(solver: str, 
     comparison = run_dupuit_circular_island_ocean_comparison(caller_file=__file__, solver=solver)
     profile_tol = dict(comparison.tolerances.get("radial_profile", {}))
 
-    assert_metric_below("Radial head-profile RMSE", comparison.rms_error, float(profile_tol["rmse"]), unit="m")
+    assert_metric_below(
+        "Radial head-profile RMSE", comparison.rms_error, float(profile_tol["rmse"]), unit="m"
+    )
     assert_metric_below(
         "Radial head-profile max abs error",
         comparison.max_error,
@@ -59,6 +62,3 @@ def test_dupuit_circular_island_ocean_2d_matches_reference_profile(solver: str, 
         "Minimum land freeboard is below the configured tolerance: "
         f"{comparison.land_clearance_min:.4f} m < {float(profile_tol['min_land_clearance']):.4f} m"
     )
-
-
-

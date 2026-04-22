@@ -178,9 +178,7 @@ class TwoReservoirCase:
     inflow_seed: int = 3
     noise_sigma: float = 0.05
     noise_seed: int = 17
-    fixed: Mapping[str, float] = field(
-        default_factory=lambda: {"n1": 1.5, "n2": 1.5}
-    )
+    fixed: Mapping[str, float] = field(default_factory=lambda: {"n1": 1.5, "n2": 1.5})
 
     def parameter_space(self) -> ParameterSpace:
         return ParameterSpace(

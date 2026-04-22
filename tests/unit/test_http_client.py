@@ -22,9 +22,7 @@ def _mock_response(status=200, json_data=None, content=b"", headers=None):
     resp.headers = headers or {}
     resp.json = MagicMock(return_value=json_data)
     resp.content = content
-    resp.iter_content = MagicMock(
-        return_value=iter([content]) if content else iter([])
-    )
+    resp.iter_content = MagicMock(return_value=iter([content]) if content else iter([]))
     resp.close = MagicMock()
     return resp
 
@@ -81,9 +79,7 @@ def test_stream_computes_sha256(tmp_path):
     assert dest.read_bytes() == payload
     assert result.size == len(payload)
     # sha256("hello world") = b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
-    assert result.sha256 == (
-        "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
-    )
+    assert result.sha256 == ("b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9")
 
 
 def test_stream_accepts_buffer():

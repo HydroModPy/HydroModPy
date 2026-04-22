@@ -1,4 +1,4 @@
-﻿"""PETSc runtime for the regularized partition surface-interaction model.
+"""PETSc runtime for the regularized partition surface-interaction model.
 
 This backend keeps the current head-only Boussinesq residual and solves it with
 PETSc SNES. Surface interaction follows the regularized partition law
@@ -168,9 +168,7 @@ def _solve_nonlinear_system(
                     n_rows=n_cells,
                 ),
                 residual_norm_inf=float(
-                    residual_norm_inf(
-                        np.asarray(current_assembly.residual_m3_s, dtype=float)
-                    )
+                    residual_norm_inf(np.asarray(current_assembly.residual_m3_s, dtype=float))
                 ),
                 initial_residual_norm_inf=initial_residual_norm_inf,
             )
@@ -190,9 +188,7 @@ def _solve_nonlinear_system(
     snes.solve(None, solution)
     head = np.asarray(solution.getArray(readonly=True), dtype=float).copy()
     current_assembly = assembly_for(head)
-    residual_norm = residual_norm_inf(
-        np.asarray(current_assembly.residual_m3_s, dtype=float)
-    )
+    residual_norm = residual_norm_inf(np.asarray(current_assembly.residual_m3_s, dtype=float))
     converged_reason = int(snes.getConvergedReason())
     reason_label = _snes_reason_label(converged_reason)
     termination_reason_base = (
@@ -261,4 +257,3 @@ def _csr_diagonal(
 
 
 __all__ = ["solve_steady_problem", "solve_transient_step"]
-

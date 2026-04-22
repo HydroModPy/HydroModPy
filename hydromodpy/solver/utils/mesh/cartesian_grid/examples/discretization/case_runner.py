@@ -106,4 +106,3 @@ def run_discretization_case_from_toml(
     """Load one TOML case and run discretization."""
     cfg = SGridFieldParamDiscretizationConfig.from_toml(config_toml, section=section)
     return run_discretization_case(cfg)
-

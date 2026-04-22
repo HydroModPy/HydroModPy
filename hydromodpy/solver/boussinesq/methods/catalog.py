@@ -87,9 +87,7 @@ def resolve_surface_interaction_model_token(
     """Return the resolved surface-interaction token for one backend choice."""
 
     backend_name = str(runtime_backend_name or "local").strip().lower() or "local"
-    requested = (
-        str(surface_interaction_model or "auto").strip().lower() or "auto"
-    )
+    requested = str(surface_interaction_model or "auto").strip().lower() or "auto"
     if requested == "auto":
         return "complementarity" if backend_name == "petsc" else "regularized_partition"
     if requested not in _METHOD_BY_SURFACE_CLOSURE:

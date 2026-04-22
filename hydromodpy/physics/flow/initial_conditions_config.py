@@ -43,8 +43,7 @@ def normalize_flow_initial_conditions(
         return FlowInitialConditions(h=value)
     if not isinstance(value, Mapping):
         raise TypeError(
-            f"{location_prefix} must be a mapping, FlowInitialCondition, "
-            "or FlowInitialConditions"
+            f"{location_prefix} must be a mapping, FlowInitialCondition, or FlowInitialConditions"
         )
 
     payload = dict(value)
@@ -81,9 +80,7 @@ def _normalize_single_ic_payload(
     raw_type = payload_dict.get("type", "custom")
     ic_type = str(raw_type).strip().lower()
     if ic_type not in {"top", "bottom", "custom"}:
-        raise ValueError(
-            f"{location_prefix}.type must be one of: 'top', 'bottom', 'custom'"
-        )
+        raise ValueError(f"{location_prefix}.type must be one of: 'top', 'bottom', 'custom'")
 
     explicit_units = _extract_explicit_units(payload_dict)
     if ic_type == "custom":

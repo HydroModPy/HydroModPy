@@ -32,10 +32,10 @@ import numpy as np
 # Default ε values
 # ---------------------------------------------------------------------------
 
-_EPS_THICKNESS_M: float = 5.0e-3    # 5 mm — keeps bias < 0.1 % on a 5+ m aquifer
-_EPS_DRAINAGE_M: float = 0.01      # metres
-_EPS_QEX_M_S: float = 1.0e-8       # m/s
-_EPS_SIGMA: float = 1.0e-4          # dimensionless — bias < eps/(2r) ≈ 0.1 % for r=0.05
+_EPS_THICKNESS_M: float = 5.0e-3  # 5 mm — keeps bias < 0.1 % on a 5+ m aquifer
+_EPS_DRAINAGE_M: float = 0.01  # metres
+_EPS_QEX_M_S: float = 1.0e-8  # m/s
+_EPS_SIGMA: float = 1.0e-4  # dimensionless — bias < eps/(2r) ≈ 0.1 % for r=0.05
 
 
 # ---------------------------------------------------------------------------

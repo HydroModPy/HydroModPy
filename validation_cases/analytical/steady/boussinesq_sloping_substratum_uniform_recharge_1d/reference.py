@@ -17,4 +17,3 @@ __all__ = [
     "expected_sloping_substratum_uniform_recharge_profile_at_x",
     "solve_sloping_substratum_uniform_recharge_west_discharge_per_width",
 ]
-

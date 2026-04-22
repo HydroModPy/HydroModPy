@@ -1,4 +1,4 @@
-﻿"""Read one self-contained catchment mesh bundle from disk.
+"""Read one self-contained catchment mesh bundle from disk.
 
 This reader is intentionally lightweight so the standalone ``mesh`` package can
 reload standard bundles without requiring a per-bundle ``reader.py`` helper.
@@ -90,9 +90,7 @@ def _parse_cell(row: dict[str, str]) -> CatchmentMeshBundleCell:
         z_bottom_mean=_parse_optional_float(row.get("z_bottom_mean", "")),
         geology_code=_parse_optional_int(row.get("geology_code", "")),
         geology_key=str(row.get("geology_key", "")),
-        hydraulic_conductivity_m_s=_parse_optional_float(
-            row.get("hydraulic_conductivity_m_s", "")
-        ),
+        hydraulic_conductivity_m_s=_parse_optional_float(row.get("hydraulic_conductivity_m_s", "")),
         storage_coefficient=_parse_optional_float(row.get("storage_coefficient", "")),
     )
 
@@ -121,31 +119,19 @@ def _parse_geology_fraction(row: dict[str, str]) -> CatchmentMeshBundleGeologyFr
 
 
 def _load_nodes(path: Path) -> tuple[CatchmentMeshBundleNode, ...]:
-    return tuple(
-        _parse_node(row)
-        for row in _load_csv_rows(path)
-    )
+    return tuple(_parse_node(row) for row in _load_csv_rows(path))
 
 
 def _load_cells(path: Path) -> tuple[CatchmentMeshBundleCell, ...]:
-    return tuple(
-        _parse_cell(row)
-        for row in _load_csv_rows(path)
-    )
+    return tuple(_parse_cell(row) for row in _load_csv_rows(path))
 
 
 def _load_edges(path: Path) -> tuple[CatchmentMeshBundleEdge, ...]:
-    return tuple(
-        _parse_edge(row)
-        for row in _load_csv_rows(path)
-    )
+    return tuple(_parse_edge(row) for row in _load_csv_rows(path))
 
 
 def _load_geology_fractions(path: Path) -> tuple[CatchmentMeshBundleGeologyFraction, ...]:
-    return tuple(
-        _parse_geology_fraction(row)
-        for row in _load_csv_rows(path)
-    )
+    return tuple(_parse_geology_fraction(row) for row in _load_csv_rows(path))
 
 
 def load_catchment_mesh_bundle(bundle_dir: str | Path) -> CatchmentMeshBundle:
@@ -171,9 +157,7 @@ def load_catchment_mesh_bundle(bundle_dir: str | Path) -> CatchmentMeshBundle:
         nodes=_load_nodes(bundle_path / "nodes.csv"),
         cells=_load_cells(bundle_path / "cells.csv"),
         edges=_load_edges(bundle_path / "edges.csv"),
-        geology_fractions=_load_geology_fractions(
-            bundle_path / "cell_geology_fractions.csv"
-        ),
+        geology_fractions=_load_geology_fractions(bundle_path / "cell_geology_fractions.csv"),
         mesh_summary=mesh_summary,
     )
 
@@ -186,4 +170,3 @@ __all__ = [
     "CatchmentMeshBundleNode",
     "load_catchment_mesh_bundle",
 ]
-

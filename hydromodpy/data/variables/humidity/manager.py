@@ -15,6 +15,7 @@ class HumidityManager(BaseFieldManager):
     def _fetch_from_source(self, source_cfg: HumiditySourceConfig):
         if source_cfg.source == "custom":
             from hydromodpy.data.variables.humidity.custom import load_custom
+
             records = load_custom(
                 source_cfg,
                 project_period=self.project_period,
@@ -23,5 +24,6 @@ class HumidityManager(BaseFieldManager):
             return self._handle_custom_results(records, source_cfg)
         elif source_cfg.source == "sim2":
             from hydromodpy.data.variables.humidity.apis.sim2 import fetch
+
             return self._load_or_fetch_fields(source_cfg, "sim2", fetch)
         raise ValueError(f"Unknown humidity source: {source_cfg.source}")

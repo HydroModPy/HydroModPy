@@ -31,9 +31,7 @@ def test_sha256_of_matches_standard(tmp_path):
     p = tmp_path / "f.bin"
     p.write_bytes(b"hello")
     # sha256("hello") = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
-    assert sha256_of(p) == (
-        "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
-    )
+    assert sha256_of(p) == ("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
 
 
 def test_write_and_read_roundtrip(tmp_path):

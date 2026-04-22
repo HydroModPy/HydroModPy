@@ -15,14 +15,19 @@ from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 def read_daily_help_output(filepath):
-    with open(filepath, 'r', encoding='utf-8') as f:
+    with open(filepath, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
     results = {
-        'years': [], 'days': [],
-        'rain': [], 'runoff': [], 'et': [],
-        'leak_first': [], 'leak_last': []
+        "years": [],
+        "days": [],
+        "rain": [],
+        "runoff": [],
+        "et": [],
+        "leak_first": [],
+        "leak_last": [],
     }
     current_year = None
 
@@ -39,28 +44,28 @@ def read_daily_help_output(filepath):
                 continue
 
             try:
-                day_str = parts[0].replace('*', '0')
-                rain_str = parts[1].replace('*', '0')
-                runoff_str = parts[2].replace('*', '0')
-                et_str = parts[3].replace('*', '0')
+                day_str = parts[0].replace("*", "0")
+                rain_str = parts[1].replace("*", "0")
+                runoff_str = parts[2].replace("*", "0")
+                et_str = parts[3].replace("*", "0")
 
                 day = int(day_str)
                 rain = float(rain_str)
                 runoff = float(runoff_str)
                 et = float(et_str)
 
-                leak_first_str = parts[6].replace('*', '0') if len(parts) > 6 else '0'
-                leak_last_str  = parts[7].replace('*', '0') if len(parts) > 7 else '0'
+                leak_first_str = parts[6].replace("*", "0") if len(parts) > 6 else "0"
+                leak_last_str = parts[7].replace("*", "0") if len(parts) > 7 else "0"
                 leak_first = float(leak_first_str)
-                leak_last  = float(leak_last_str)
+                leak_last = float(leak_last_str)
 
-                results['years'].append(current_year)
-                results['days'].append(day)
-                results['rain'].append(rain)
-                results['runoff'].append(runoff)
-                results['et'].append(et)
-                results['leak_first'].append(leak_first)
-                results['leak_last'].append(leak_last)
+                results["years"].append(current_year)
+                results["days"].append(day)
+                results["rain"].append(rain)
+                results["runoff"].append(runoff)
+                results["et"].append(et)
+                results["leak_first"].append(leak_first)
+                results["leak_last"].append(leak_last)
 
             except ValueError:
                 continue
@@ -68,11 +73,9 @@ def read_daily_help_output(filepath):
     return results
 
 
-
-
 def calc_area_daily_avg(cellnames, workdir):
-    
-    COMPONENTS = ['precip', 'runoff', 'evapo', 'rechg']
+
+    COMPONENTS = ["precip", "runoff", "evapo", "rechg"]
     all_dfs = []
 
     for cid in cellnames:
@@ -80,21 +83,24 @@ def calc_area_daily_avg(cellnames, workdir):
         try:
             data = read_daily_help_output(fpath)
 
-            if not data['rain']:
+            if not data["rain"]:
                 logger.warning("No daily HELP data available for cell %s", cid)
                 continue
 
             dates = [
                 pd.Timestamp(y, 1, 1) + pd.Timedelta(days=(d - 1))
-                for y, d in zip(data['years'], data['days'])
+                for y, d in zip(data["years"], data["days"])
             ]
 
-            df_cell = pd.DataFrame({
-                'precip': np.array(data['rain']),
-                'runoff': np.array(data['runoff']),
-                'evapo':  np.array(data['et']),
-                'rechg':  np.array(data['leak_last']),
-            }, index=dates)
+            df_cell = pd.DataFrame(
+                {
+                    "precip": np.array(data["rain"]),
+                    "runoff": np.array(data["runoff"]),
+                    "evapo": np.array(data["et"]),
+                    "rechg": np.array(data["leak_last"]),
+                },
+                index=dates,
+            )
 
             all_dfs.append(df_cell)
 
@@ -127,12 +133,12 @@ def calc_area_daily_avg(cellnames, workdir):
 
 def plot_daily(df_daily_mean, title="Bilan journalier moyen"):
 
-    COMPONENTS = ['precip', 'runoff', 'evapo', 'rechg']
+    COMPONENTS = ["precip", "runoff", "evapo", "rechg"]
     LABELS = {
-        'precip': 'Précipitations',
-        'runoff': 'Ruissellement',
-        'evapo': 'Évapotranspiration',
-        'rechg': 'Recharge'
+        "precip": "Précipitations",
+        "runoff": "Ruissellement",
+        "evapo": "Évapotranspiration",
+        "rechg": "Recharge",
     }
 
     fig, ax = plt.subplots(figsize=(9, 5))

@@ -54,23 +54,23 @@ def run_boussinesq_sloping_substratum_uniform_recharge_case(
         z_top_m=lambda x_m: _build_linear_profile(
             float(x_m),
             base_elevation_m=float(reference_cfg["topography_base_elevation_m"]),
-            right_to_left_amplitude_m=float(
-                reference_cfg["topography_right_to_left_amplitude_m"]
-            ),
+            right_to_left_amplitude_m=float(reference_cfg["topography_right_to_left_amplitude_m"]),
         ),
         z_bottom_m=lambda x_m: _build_linear_profile(
             float(x_m),
             base_elevation_m=float(reference_cfg["bottom_base_elevation_m"]),
-            right_to_left_amplitude_m=float(
-                reference_cfg["bottom_right_to_left_amplitude_m"]
-            ),
+            right_to_left_amplitude_m=float(reference_cfg["bottom_right_to_left_amplitude_m"]),
         ),
         hydraulic_conductivity_m_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
         storage_coefficient=0.1,
         flow_section={
             "flow_regime": "steady",
             "runtime_backend": "scipy_sparse",
-            "ic": {"type": "custom", "value": 0.5 * (float(reference_cfg["west_head"]) + float(reference_cfg["east_head"]))},
+            "ic": {
+                "type": "custom",
+                "value": 0.5
+                * (float(reference_cfg["west_head"]) + float(reference_cfg["east_head"])),
+            },
             "active_sinks_sources": ["recharge"],
             "active_bc": ["west_side", "east_side"],
             "sinks_sources": {
@@ -93,4 +93,3 @@ def run_boussinesq_sloping_substratum_uniform_recharge_case(
 
 
 __all__ = ["run_boussinesq_sloping_substratum_uniform_recharge_case"]
-

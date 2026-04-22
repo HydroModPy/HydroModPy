@@ -55,13 +55,12 @@ def iter_progress(
     Skips the progress bar when total <= 3 (not worth displaying).
     Falls back to plain iteration if tqdm is not installed.
     """
-    n = total if total is not None else (
-        len(iterable) if hasattr(iterable, "__len__") else None
-    )
+    n = total if total is not None else (len(iterable) if hasattr(iterable, "__len__") else None)
     if n is not None and n <= 3:
         return iterable
     try:
         from tqdm import tqdm
+
         return tqdm(iterable, desc=f"       {desc}", total=n, leave=False)
     except ImportError:
         return iterable

@@ -102,7 +102,9 @@ def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_store(
     export_calls: dict[str, object] = {}
     clip_calls: dict[str, object] = {}
 
-    def _fake_export_tif(base_dem_path, data_to_tif, data_tif_path, data_nodata_val=None, data_crs=None):
+    def _fake_export_tif(
+        base_dem_path, data_to_tif, data_tif_path, data_nodata_val=None, data_crs=None
+    ):
         export_calls["base_dem_path"] = base_dem_path
         export_calls["data_to_tif"] = np.asarray(data_to_tif, dtype=float)
         export_calls["data_tif_path"] = data_tif_path
@@ -126,6 +128,7 @@ def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_store(
     class _FakeStore:
         def list_simulations(self):
             import pandas as pd
+
             return pd.DataFrame([{"sim_id": "fake-uuid"}])
 
         def query_field(self, sim_id, name, timestep):
@@ -137,8 +140,10 @@ def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_store(
     class _FakeRasterSrc:
         height = 2
         width = 2
+
         def __enter__(self):
             return self
+
         def __exit__(self, *a):
             pass
 
@@ -158,8 +163,11 @@ def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_store(
 
     monkeypatch.setattr(_catalog_mod, "SimulationCatalog", _FakeSimulationCatalog)
     import rasterio as _rio_mod
+
     monkeypatch.setattr(
-        _rio_mod, "open", lambda *a, **kw: _FakeRasterSrc(),
+        _rio_mod,
+        "open",
+        lambda *a, **kw: _FakeRasterSrc(),
     )
 
     resolved = model._resolve_zone_partic("seepage_clip")

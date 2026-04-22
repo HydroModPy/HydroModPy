@@ -340,11 +340,7 @@ def load_json_gallery_case_specs(
                 filename=str(asset["filename"]),
                 caption=str(asset["caption"]),
                 alt_text=str(asset["alt_text"]),
-                source_path=(
-                    str(asset["source_path"])
-                    if asset.get("source_path")
-                    else None
-                ),
+                source_path=(str(asset["source_path"]) if asset.get("source_path") else None),
             )
             for asset in merged_case.get("image_assets", ())
         )

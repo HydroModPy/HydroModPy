@@ -60,7 +60,9 @@ def fetch(
 
         # 2. Find nearest
         tg_id, tg_name, tg_lat, tg_lon = _find_nearest(
-            geographic, gauges, radius_km=fallback_search_radius_km,
+            geographic,
+            gauges,
+            radius_km=fallback_search_radius_km,
         )
 
         # 3. Check for cached data
@@ -84,10 +86,12 @@ def fetch(
         logger.info("SHOM: no data returned for tide gauge %s (%s)", tg_name, tg_id)
         return []
 
-    ts_data = pd.DataFrame({
-        "datetime": pd.to_datetime(df["timestamp"]),
-        "value": df["value"].astype(float),
-    })
+    ts_data = pd.DataFrame(
+        {
+            "datetime": pd.to_datetime(df["timestamp"]),
+            "value": df["value"].astype(float),
+        }
+    )
 
     location = StationLocation(
         id=str(tg_id),
@@ -130,8 +134,7 @@ def _find_nearest(
     centroid = geographic.centroid_long_lat
     gauges = gauges.copy()
     gauges["_dist"] = np.sqrt(
-        (gauges["longitude"] - centroid[1]) ** 2
-        + (gauges["latitude"] - centroid[0]) ** 2
+        (gauges["longitude"] - centroid[1]) ** 2 + (gauges["latitude"] - centroid[0]) ** 2
     )
 
     if radius_km is not None:
@@ -139,9 +142,7 @@ def _find_nearest(
         max_deg = radius_km / 111.0
         gauges = gauges[gauges["_dist"] <= max_deg]
         if gauges.empty:
-            raise ValueError(
-                f"No SHOM tide gauge found within {radius_km} km of centroid."
-            )
+            raise ValueError(f"No SHOM tide gauge found within {radius_km} km of centroid.")
 
     closest = gauges.loc[gauges["_dist"].idxmin()]
     tg_id = str(closest["shom_id"])
@@ -176,8 +177,8 @@ def _download_sea_level(
     current = date_start
     while current <= date_end:
         chunk_end = min(current + timedelta(days=31), date_end)
-        dt_start = f'{current.strftime("%Y-%m-%d")}T00%3A00%3A00Z'
-        dt_end = f'{chunk_end.strftime("%Y-%m-%d")}T00%3A00%3A00Z'
+        dt_start = f"{current.strftime('%Y-%m-%d')}T00%3A00%3A00Z"
+        dt_end = f"{chunk_end.strftime('%Y-%m-%d')}T00%3A00%3A00Z"
         url = (
             f"{API_BASE}/observation/json/{tg_id}"
             f"?sources={sources}&dtStart={dt_start}&dtEnd={dt_end}&interval={interval}"

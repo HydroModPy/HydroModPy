@@ -96,9 +96,7 @@ def test_discretize_fieldparam_on_extruded_mesh_heterogeneous_matches_planar_ref
     assert set(np.round(result.values_2d, 12).tolist()) == {2.0, 10.0}
     assert np.allclose(result.values_3d[0], result.values_2d)
     assert np.allclose(result.values_3d[1], result.values_2d)
-    assert np.allclose(
-        result.prism_center_depths, np.array([[2.5, 2.5], [7.5, 7.5]], dtype=float)
-    )
+    assert np.allclose(result.prism_center_depths, np.array([[2.5, 2.5], [7.5, 7.5]], dtype=float))
 
 
 def test_discretize_fieldparam_on_extruded_mesh_rejects_spatial_id_mismatch():

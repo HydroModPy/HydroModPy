@@ -42,10 +42,14 @@ def fetch(
 
     from hydromodpy.data.common.clients.sim2_edr import Sim2EDRClient
 
-    date_range = f"{project_period[0].strftime('%Y-%m-%d')}/{project_period[1].strftime('%Y-%m-%d')}"
+    date_range = (
+        f"{project_period[0].strftime('%Y-%m-%d')}/{project_period[1].strftime('%Y-%m-%d')}"
+    )
     sim2_params = _sim2_params_for_components(config.components)
 
-    client = Sim2EDRClient(bbox=bbox, crs="EPSG:2154", date_range=date_range, output_format="CoverageJSON")
+    client = Sim2EDRClient(
+        bbox=bbox, crs="EPSG:2154", date_range=date_range, output_format="CoverageJSON"
+    )
     cov_json = client.fetch_cube(parameters=sim2_params)
     ds = Sim2EDRClient.coverage_json_to_dataset(cov_json)
 
@@ -65,16 +69,18 @@ def fetch(
             continue
 
         result_ds = xr.Dataset({var_name: var_data})
-        results.append(FieldRecord(
-            variable=var_name,
-            source="sim2",
-            unit=INTERNAL_UNIT,
-            data=result_ds,
-            bbox=bbox,
-            crs="EPSG:2154",
-            date_start=project_period[0],
-            date_end=project_period[1],
-            frequency="D",
-        ))
+        results.append(
+            FieldRecord(
+                variable=var_name,
+                source="sim2",
+                unit=INTERNAL_UNIT,
+                data=result_ds,
+                bbox=bbox,
+                crs="EPSG:2154",
+                date_start=project_period[0],
+                date_end=project_period[1],
+                frequency="D",
+            )
+        )
 
     return results

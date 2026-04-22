@@ -42,9 +42,7 @@ def register(
     """
     key = (process_type, solver_name)
     if key in _REGISTRY and not replace:
-        raise ValueError(
-            f"Solver adapter already registered for {process_type}/{solver_name}."
-        )
+        raise ValueError(f"Solver adapter already registered for {process_type}/{solver_name}.")
     _REGISTRY[key] = adapter_cls
     return adapter_cls
 
@@ -119,7 +117,8 @@ def load_plugins(*, force: bool = False) -> int:
             logger.warning(
                 "solver plugin %r ignored: entry-point name must be "
                 "'<process_type>_<solver_name>' (got %r)",
-                ep, name,
+                ep,
+                name,
             )
             continue
         process_type, _, solver_name = name.partition("_")
@@ -129,7 +128,9 @@ def load_plugins(*, force: bool = False) -> int:
             adapter_cls = ep.load()
         except Exception as exc:  # pragma: no cover - exercised via tests with stubs
             logger.warning(
-                "failed to load solver plugin %r: %s", ep, exc,
+                "failed to load solver plugin %r: %s",
+                ep,
+                exc,
             )
             continue
         register(process_type, solver_name, adapter_cls, replace=force)

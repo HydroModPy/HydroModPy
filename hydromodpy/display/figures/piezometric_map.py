@@ -40,8 +40,12 @@ class PiezometricMap(BaseFigure):
         ts = last_timestep(sim) if timestep is None else timestep
         head = sim.field("watertable_elevation", timestep=ts)
         render_face_field(
-            ax, sim, head,
-            cmap=cmap, vmin=vmin, vmax=vmax,
+            ax,
+            sim,
+            head,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
             cbar_label="Head (m)",
         )
         ax.set_title(f"Water table — {sim.name or sim.sim_id}")

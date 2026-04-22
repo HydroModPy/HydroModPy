@@ -49,7 +49,9 @@ def _feature_layer_ids_in_group(ms: dict, group_name: str) -> list[int]:
 
 def _layer_name(layer_id: int) -> str:
     r = get_default_client().get(
-        f"{BASE_URL}/{layer_id}", params={"f": "pjson"}, timeout=_TIMEOUT,
+        f"{BASE_URL}/{layer_id}",
+        params={"f": "pjson"},
+        timeout=_TIMEOUT,
     )
     r.raise_for_status()
     return r.json().get("name", str(layer_id))

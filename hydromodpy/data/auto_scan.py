@@ -81,8 +81,7 @@ def _last_indexed_mtime(catalog, variable: str, source_path: Path) -> float | No
     if conn is None:
         return None
     row = conn.execute(
-        "SELECT file_mtime FROM entries WHERE variable = ? AND source = 'custom' "
-        "AND file_path = ?",
+        "SELECT file_mtime FROM entries WHERE variable = ? AND source = 'custom' AND file_path = ?",
         [variable, str(source_path)],
     ).fetchone()
     if row is None:
@@ -135,9 +134,7 @@ def _scan_timeseries_variable(
             continue
 
         try:
-            dest = (
-                blobs_dir / spec.name / "custom" / f"{src.stem}.parquet"
-            )
+            dest = blobs_dir / spec.name / "custom" / f"{src.stem}.parquet"
             convert_timeseries_csv_to_parquet(src, dest)
         except TimeSeriesValidationError as exc:
             report.errors.append((src, str(exc)))
@@ -242,8 +239,12 @@ def _scan_raster_variable(
             },
         )
         artifact = Artifact(
-            variable=spec.name, provider="custom", station_id=None,
-            source_path=src, pivot_path=dest, format=spec.pivot,
+            variable=spec.name,
+            provider="custom",
+            station_id=None,
+            source_path=src,
+            pivot_path=dest,
+            format=spec.pivot,
             size_bytes=dest.stat().st_size if dest.exists() else 0,
             indexed_at=now,
         )
@@ -289,8 +290,12 @@ def _scan_vector_variable(
             },
         )
         artifact = Artifact(
-            variable=spec.name, provider="custom", station_id=None,
-            source_path=src, pivot_path=dest, format=spec.pivot,
+            variable=spec.name,
+            provider="custom",
+            station_id=None,
+            source_path=src,
+            pivot_path=dest,
+            format=spec.pivot,
             size_bytes=dest.stat().st_size if dest.exists() else 0,
             indexed_at=now,
         )
@@ -345,8 +350,12 @@ def scan_custom(
             if scanner is None:
                 continue
             scanner(
-                workspace, spec, catalog, report,
-                blobs_dir=blobs_dir, now=stamp,
+                workspace,
+                spec,
+                catalog,
+                report,
+                blobs_dir=blobs_dir,
+                now=stamp,
             )
     finally:
         if owned:
@@ -355,14 +364,18 @@ def scan_custom(
     if report.n_changed:
         logger.info(
             "auto_scan: %d added, %d updated, %d skipped, %d errors",
-            len(report.added), len(report.updated),
-            len(report.skipped), len(report.errors),
+            len(report.added),
+            len(report.updated),
+            len(report.skipped),
+            len(report.errors),
         )
     return report
 
 
 def check_custom(
-    workspace_path: str | Path, *, variable: str | None = None,
+    workspace_path: str | Path,
+    *,
+    variable: str | None = None,
 ) -> list[tuple[Path, str]]:
     """Dry-run validation of the drag-and-drop folders.
 

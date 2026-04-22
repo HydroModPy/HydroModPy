@@ -37,6 +37,7 @@ InterpolationMethod = Literal["nearest", "linear", "idw"]
 # Public entry points
 # ------------------------------------------------------------------
 
+
 def discretize_fields_on_sgrid(
     *,
     load_result: "LoadResult",
@@ -162,20 +163,16 @@ def discretize_points_on_sgrid(
         # Get the value of each station for this period.
         if period_bounds is not None and kper < len(period_bounds):
             t_start, t_end = period_bounds[kper]
-            values = np.array([
-                _period_mean(s, t_start, t_end)
-                for s in station_series
-            ])
+            values = np.array([_period_mean(s, t_start, t_end) for s in station_series])
         else:
             # No temporal alignment: use full-series mean.
             values = np.array([float(s.mean()) for s in station_series])
 
         # Convert from source unit to m/s.  Per-record unit takes precedence
         # over the caller-supplied default so that mixed-unit datasets work.
-        unit_factors = np.array([
-            _unit_to_m_per_s_factor(getattr(p, "unit", source_unit))
-            for p in located_points
-        ])
+        unit_factors = np.array(
+            [_unit_to_m_per_s_factor(getattr(p, "unit", source_unit)) for p in located_points]
+        )
         values_m_s = values * unit_factors
 
         arr = interpolate_points_to_grid(
@@ -226,6 +223,7 @@ def spatial_mean_from_fields(
 # ------------------------------------------------------------------
 # Internal helpers — grid utilities
 # ------------------------------------------------------------------
+
 
 def _cell_centers_from_sgrid(
     sgrid: object,
@@ -288,6 +286,7 @@ def _stress_period_bounds(
 # Internal helpers — field discretization
 # ------------------------------------------------------------------
 
+
 def _discretize_one_field_record(
     field_rec: "FieldRecord",
     *,
@@ -341,8 +340,7 @@ def _discretize_one_field_record(
         pass
 
     logger.warning(
-        "Unsupported FieldRecord data type %s for field discretization; "
-        "returning zeros.",
+        "Unsupported FieldRecord data type %s for field discretization; returning zeros.",
         type(data).__name__,
     )
     return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(nper)}
@@ -416,8 +414,19 @@ def _discretize_from_xarray(
     has_time = "time" in da.dims
     if not has_time:
         # Static field: apply to all periods.
-        arr_2d = _interp_2d(da.values, da.coords[x_dim].values, da.coords[y_dim].values,
-                            x_centers, y_centers, nrow, ncol, method) * unit_factor
+        arr_2d = (
+            _interp_2d(
+                da.values,
+                da.coords[x_dim].values,
+                da.coords[y_dim].values,
+                x_centers,
+                y_centers,
+                nrow,
+                ncol,
+                method,
+            )
+            * unit_factor
+        )
         return {kper: arr_2d.copy() for kper in range(nper)}
 
     # Time-varying: aggregate per stress period.
@@ -433,19 +442,37 @@ def _discretize_from_xarray(
                 slice_2d = da.isel(time=idx).values
             else:
                 slice_2d = da.isel(time=mask).mean(dim="time").values
-            arr_2d = _interp_2d(
-                slice_2d, da.coords[x_dim].values, da.coords[y_dim].values,
-                x_centers, y_centers, nrow, ncol, method,
-            ) * unit_factor
+            arr_2d = (
+                _interp_2d(
+                    slice_2d,
+                    da.coords[x_dim].values,
+                    da.coords[y_dim].values,
+                    x_centers,
+                    y_centers,
+                    nrow,
+                    ncol,
+                    method,
+                )
+                * unit_factor
+            )
             results[kper] = arr_2d
     else:
         # No simulation window: one array per time step.
         for kper in range(min(len(time_coords), 1000)):
             slice_2d = da.isel(time=kper).values
-            arr_2d = _interp_2d(
-                slice_2d, da.coords[x_dim].values, da.coords[y_dim].values,
-                x_centers, y_centers, nrow, ncol, method,
-            ) * unit_factor
+            arr_2d = (
+                _interp_2d(
+                    slice_2d,
+                    da.coords[x_dim].values,
+                    da.coords[y_dim].values,
+                    x_centers,
+                    y_centers,
+                    nrow,
+                    ncol,
+                    method,
+                )
+                * unit_factor
+            )
             results[kper] = arr_2d
 
     return results
@@ -467,6 +494,7 @@ def _discretize_from_file(
     suffix = path.suffix.lower()
     if suffix in (".nc", ".nc4", ".netcdf"):
         import xarray as xr
+
         ds = xr.open_dataset(path)
         try:
             return _discretize_from_xarray(
@@ -496,7 +524,9 @@ def _discretize_from_file(
             method=method,
         )
 
-    logger.warning("Unsupported file format '%s' for field discretization; returning zeros.", suffix)
+    logger.warning(
+        "Unsupported file format '%s' for field discretization; returning zeros.", suffix
+    )
     return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(nper)}
 
 
@@ -532,14 +562,20 @@ def _discretize_geotiff(
         if n_bands == 1:
             # Static single-band TIF.
             band = src.read(1).astype(float)
-            arr_2d = _interp_2d(band, src_x, src_y, x_centers, y_centers, nrow, ncol, method) * unit_factor
+            arr_2d = (
+                _interp_2d(band, src_x, src_y, x_centers, y_centers, nrow, ncol, method)
+                * unit_factor
+            )
             return {kper: arr_2d.copy() for kper in range(nper)}
 
         # Multi-band: one band per time step.
         band_arrays: list[np.ndarray] = []
         for b in range(1, n_bands + 1):
             band = src.read(b).astype(float)
-            arr_2d = _interp_2d(band, src_x, src_y, x_centers, y_centers, nrow, ncol, method) * unit_factor
+            arr_2d = (
+                _interp_2d(band, src_x, src_y, x_centers, y_centers, nrow, ncol, method)
+                * unit_factor
+            )
             band_arrays.append(arr_2d)
 
     # Map bands to stress periods.
@@ -565,6 +601,7 @@ def _discretize_geotiff(
 # Internal helpers — spatial mean (field → homogeneous)
 # ------------------------------------------------------------------
 
+
 def _spatial_mean_one_field(field_rec: "FieldRecord") -> pd.Series | None:
     """Compute the spatial mean of a single FieldRecord.
 
@@ -577,6 +614,7 @@ def _spatial_mean_one_field(field_rec: "FieldRecord") -> pd.Series | None:
 
     try:
         import xarray as xr
+
         if isinstance(data, xr.Dataset):
             return _spatial_mean_from_xarray(data)
     except ImportError:
@@ -610,6 +648,7 @@ def _spatial_mean_from_file(path: Path) -> pd.Series | None:
     suffix = path.suffix.lower()
     if suffix in (".nc", ".nc4", ".netcdf"):
         import xarray as xr
+
         ds = xr.open_dataset(path)
         try:
             return _spatial_mean_from_xarray(ds)
@@ -619,6 +658,7 @@ def _spatial_mean_from_file(path: Path) -> pd.Series | None:
     if suffix in (".tif", ".tiff"):
         try:
             import rasterio
+
             with rasterio.open(path) as src:
                 band = src.read(1).astype(float)
                 mean_val = float(np.nanmean(band))
@@ -632,6 +672,7 @@ def _spatial_mean_from_file(path: Path) -> pd.Series | None:
 # ------------------------------------------------------------------
 # Internal helpers — point extraction
 # ------------------------------------------------------------------
+
 
 def _extract_located_points(load_result: "LoadResult") -> list["PointRecord"]:
     """Return PointRecords that have a valid location with coordinates."""
@@ -668,9 +709,5 @@ def _find_xy_dims(da: object) -> tuple[str, str]:
     if y_dim is None and len(spatial_dims) >= 2:
         y_dim = spatial_dims[-2]
     if x_dim is None or y_dim is None:
-        raise ValueError(
-            f"Cannot identify X/Y dimensions in DataArray with dims={dims}"
-        )
+        raise ValueError(f"Cannot identify X/Y dimensions in DataArray with dims={dims}")
     return x_dim, y_dim
-
-

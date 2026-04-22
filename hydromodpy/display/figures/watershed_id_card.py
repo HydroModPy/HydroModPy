@@ -40,9 +40,11 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
     ) -> "Axes":
         ax.set_axis_off()
         ax.text(
-            0.5, 0.5,
+            0.5,
+            0.5,
             "watershed_id_card has its own plot()",
-            ha="center", va="center",
+            ha="center",
+            va="center",
         )
         return ax
 
@@ -74,8 +76,7 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
             dem = sim.geographic_raster("dem")
             ax_topo.imshow(dem, cmap="terrain", origin="upper")
         except Exception:
-            ax_topo.text(0.5, 0.5, "no DEM", ha="center", va="center",
-                         transform=ax_topo.transAxes)
+            ax_topo.text(0.5, 0.5, "no DEM", ha="center", va="center", transform=ax_topo.transAxes)
         ax_topo.set_title("Topography")
         ax_topo.set_aspect("equal", adjustable="datalim")
         try:
@@ -92,8 +93,9 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
             ax_hydro.set_xlabel("Date")
             ax_hydro.grid(True, ls=":", lw=0.4)
         except Exception:
-            ax_hydro.text(0.5, 0.5, "no hydrograph", ha="center", va="center",
-                          transform=ax_hydro.transAxes)
+            ax_hydro.text(
+                0.5, 0.5, "no hydrograph", ha="center", va="center", transform=ax_hydro.transAxes
+            )
         ax_hydro.set_title("Outlet discharge")
 
         # -- Metadata table --

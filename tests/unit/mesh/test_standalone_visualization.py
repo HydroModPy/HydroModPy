@@ -55,9 +55,7 @@ def test_build_visualization_summary_contract_returns_typed_summary() -> None:
     assert isinstance(summary, VisualizationSummary)
     assert summary.node_count == data.mesh.n_nodes
     assert summary.cell_count == data.mesh.n_cells
-    assert summary.to_mapping()["summary_schema_version"] == (
-        VISUALIZATION_SUMMARY_SCHEMA_VERSION
-    )
+    assert summary.to_mapping()["summary_schema_version"] == (VISUALIZATION_SUMMARY_SCHEMA_VERSION)
 
 
 @pytest.mark.allow_subprocess

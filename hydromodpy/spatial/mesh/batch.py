@@ -200,9 +200,7 @@ class MeshCatchmentBatchRunner:
             return
         reference_raster_path = Path(reference_raster_raw).expanduser()
         if not reference_raster_path.is_absolute():
-            reference_raster_path = (
-                self.config_path.parent / reference_raster_path
-            ).resolve()
+            reference_raster_path = (self.config_path.parent / reference_raster_path).resolve()
         validate_outlets_within_raster(
             records=records,
             raster_path=reference_raster_path,
@@ -297,9 +295,7 @@ class MeshCatchmentBatchRunner:
             if output_layout == "flat"
             else _workspace_stable_folder(workspace_cfg) / "mesh"
         )
-        catch_name_safe = sanitize_batch_path_token(
-            _workspace_catch_name(workspace_cfg)
-        )
+        catch_name_safe = sanitize_batch_path_token(_workspace_catch_name(workspace_cfg))
         tokens = {
             "catch_name": catch_name_safe,
             "outlet_id": record.outlet_id_safe,
@@ -318,9 +314,7 @@ class MeshCatchmentBatchRunner:
             "output_mesh": _format_relative(batch_cfg.outputs.mesh_filename),
             "output_summary_json": _format_relative(batch_cfg.outputs.summary_filename),
             "output_figure": _format_relative(batch_cfg.outputs.figure_filename),
-            "output_figure_regional": _format_relative(
-                batch_cfg.outputs.figure_regional_filename
-            ),
+            "output_figure_regional": _format_relative(batch_cfg.outputs.figure_regional_filename),
         }
 
     def _build_child_runtime(
@@ -373,11 +367,9 @@ class MeshCatchmentBatchRunner:
         record: MeshCatchmentOutletRecord,
     ) -> _BatchChildRunOutcome:
         """Execute one child mono-catchment run and normalize its batch outcome."""
-        catch_name, workspace_cfg, geographic_cfg, output_overrides = (
-            self._build_child_runtime(
-                batch_cfg=batch_cfg,
-                record=record,
-            )
+        catch_name, workspace_cfg, geographic_cfg, output_overrides = self._build_child_runtime(
+            batch_cfg=batch_cfg,
+            record=record,
         )
 
         try:
@@ -461,9 +453,7 @@ class MeshCatchmentBatchRunner:
             x_outlet=record.x_outlet,
             y_outlet=record.y_outlet,
             output_mesh=_optional_text(summary_payload.get("output_mesh")) or "",
-            output_summary_json=(
-                _optional_text(summary_payload.get("output_summary_json")) or ""
-            ),
+            output_summary_json=(_optional_text(summary_payload.get("output_summary_json")) or ""),
             output_figure=_optional_text(summary_payload.get("output_figure")) or "",
             output_figure_regional=(
                 _optional_text(summary_payload.get("output_figure_regional")) or ""

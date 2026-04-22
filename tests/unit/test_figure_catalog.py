@@ -59,8 +59,16 @@ def test_every_figure_has_render_method():
 
 
 def test_spec_kind_is_valid():
-    valid = {"spatial", "section", "timeseries", "balance", "particles",
-             "table", "comparison", "animation"}
+    valid = {
+        "spatial",
+        "section",
+        "timeseries",
+        "balance",
+        "particles",
+        "table",
+        "comparison",
+        "animation",
+    }
     for spec in list_figures():
         assert spec.kind in valid
 

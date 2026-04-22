@@ -25,10 +25,7 @@ from hydromodpy.core.units.volumetric_flow import (
 def copy_runtime_payload(payload: object) -> object:
     """Return a detached copy of one runtime payload when possible."""
     if isinstance(payload, Mapping):
-        return {
-            key: copy_runtime_payload(value)
-            for key, value in payload.items()
-        }
+        return {key: copy_runtime_payload(value) for key, value in payload.items()}
     if hasattr(payload, "copy"):
         try:
             return payload.copy()
@@ -123,7 +120,9 @@ def build_well_stress_period_data(
 
     spd: dict[int, list[list[float]]] = {}
     for t in range(n_stress_periods):
-        spd[t] = [[cell[0], cell[1], float(flux_vector[t])] for cell, flux_vector in normalized_wells]
+        spd[t] = [
+            [cell[0], cell[1], float(flux_vector[t])] for cell, flux_vector in normalized_wells
+        ]
     return spd
 
 
@@ -132,10 +131,7 @@ def sanitize_numeric_payload(payload: object) -> object:
     if payload is None:
         return 0.0
     if isinstance(payload, Mapping):
-        return {
-            key: sanitize_numeric_payload(value)
-            for key, value in payload.items()
-        }
+        return {key: sanitize_numeric_payload(value) for key, value in payload.items()}
     if isinstance(payload, Real) and not isinstance(payload, bool):
         scalar = float(payload)
         return 0.0 if not np.isfinite(scalar) else scalar
@@ -164,10 +160,7 @@ def payload_has_negative_values(payload: object) -> bool:
 def clip_negative_payload(payload: object) -> object:
     """Clip negative recharge values to zero for MF6 RCH compatibility."""
     if isinstance(payload, Mapping):
-        return {
-            key: clip_negative_payload(value)
-            for key, value in payload.items()
-        }
+        return {key: clip_negative_payload(value) for key, value in payload.items()}
     if isinstance(payload, Real) and not isinstance(payload, bool):
         return max(float(payload), 0.0)
     if hasattr(payload, "clip"):
@@ -187,10 +180,7 @@ def extract_evt_payload_2d(
     negative_to_evt: bool,
 ) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray] | None]:
     """Route negative recharge arrays to EVT and clip RCH to non-negative values."""
-    normalized_rch = {
-        int(kper): np.asarray(value, dtype=float)
-        for kper, value in rch_data.items()
-    }
+    normalized_rch = {int(kper): np.asarray(value, dtype=float) for kper, value in rch_data.items()}
     if not negative_to_evt:
         return normalized_rch, None
 
@@ -351,9 +341,7 @@ def bind_recharge_from_flow(model: object) -> None:
 def bind_heterogeneous_recharge(model: object, recharge_cfg: object) -> None:
     """Store heterogeneous source for deferred discretization."""
     model._heterogeneous_recharge_source = recharge_cfg.heterogeneous_source
-    model._heterogeneous_negative_to_evt = bool(
-        getattr(recharge_cfg, "negative_to_evt", False)
-    )
+    model._heterogeneous_negative_to_evt = bool(getattr(recharge_cfg, "negative_to_evt", False))
     model._heterogeneous_interpolation_method = getattr(
         recharge_cfg, "interpolation_method", "nearest"
     )
@@ -468,10 +456,7 @@ def recharge_to_spd(model: object) -> dict[int, np.ndarray]:
 
 
 def empty_recharge_aux(model: object) -> dict[int, list[np.ndarray]]:
-    return {
-        k: [np.zeros(int(model.ncpl), dtype=float)]
-        for k in range(int(model.nper))
-    }
+    return {k: [np.zeros(int(model.ncpl), dtype=float)] for k in range(int(model.nper))}
 
 
 def finalize_pending_recharge_evt(model: object) -> None:

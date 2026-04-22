@@ -59,13 +59,8 @@ class AmbiguousReferenceError(KeyError):
         self.ref = ref
         self.candidates = candidates
         head = candidates[:10]
-        lines = "\n".join(
-            f"  {short_id(sid)}  {name or '(no name)'}" for sid, name in head
-        )
-        suffix = (
-            f"\n  … and {len(candidates) - 10} more"
-            if len(candidates) > 10 else ""
-        )
+        lines = "\n".join(f"  {short_id(sid)}  {name or '(no name)'}" for sid, name in head)
+        suffix = f"\n  … and {len(candidates) - 10} more" if len(candidates) > 10 else ""
         super().__init__(
             f"Reference '{ref}' is ambiguous; matches {len(candidates)} "
             f"simulations:\n{lines}{suffix}"
@@ -121,12 +116,13 @@ def _sha256_streaming(path: Path, chunk_size: int = 65536) -> str:
 
 
 def _next_available_version(
-    db: duckdb.DuckDBPyConnection, project: str, base_name: str,
+    db: duckdb.DuckDBPyConnection,
+    project: str,
+    base_name: str,
 ) -> str:
     """Return ``base_name.v{n}`` where ``n`` is the smallest free integer ≥ 2."""
     rows = db.execute(
-        "SELECT name FROM simulations WHERE project = ? AND "
-        "(name = ? OR name LIKE ?)",
+        "SELECT name FROM simulations WHERE project = ? AND (name = ? OR name LIKE ?)",
         [project, base_name, base_name + ".v%"],
     ).fetchall()
     existing = {r[0] for r in rows}
@@ -193,7 +189,6 @@ def _epsg_from_crs(crs: str) -> int | None:
 
 
 class SimulationCatalog:
-
     def __init__(self, workspace_path: Path | str) -> None:
         self._workspace = Path(workspace_path)
         self._workspace.mkdir(parents=True, exist_ok=True)
@@ -271,32 +266,30 @@ class SimulationCatalog:
                     logger.info(
                         "Reassigning name '%s' in project '%s' "
                         "(previous sim %s kept, name cleared)",
-                        name, project, short_id(existing_sid),
+                        name,
+                        project,
+                        short_id(existing_sid),
                     )
                 elif on_collision == "version":
                     final_name = _next_available_version(self._db, project, name)
                     logger.info(
                         "Auto-versioned '%s' → '%s' in project '%s'",
-                        name, final_name, project,
+                        name,
+                        final_name,
+                        project,
                     )
                 else:
-                    raise ValueError(
-                        f"Unknown on_collision mode: '{on_collision}'"
-                    )
+                    raise ValueError(f"Unknown on_collision mode: '{on_collision}'")
 
         if solver_category is None:
             solver_category = SOLVER_CATEGORIES.get(solver)
 
         config_json = json.dumps(config) if config else None
         snapshot_source = config_snapshot if config_snapshot is not None else config
-        snapshot_json = (
-            json.dumps(snapshot_source) if snapshot_source is not None else None
-        )
+        snapshot_json = json.dumps(snapshot_source) if snapshot_source is not None else None
         config_hash = None
         if config:
-            config_hash = hashlib.sha256(
-                json.dumps(config, sort_keys=True).encode()
-            ).hexdigest()
+            config_hash = hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()
 
         bbox_xmin = bbox_ymin = bbox_xmax = bbox_ymax = None
         if bbox is not None and len(bbox) == 4:
@@ -328,14 +321,34 @@ class SimulationCatalog:
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
-                sid, final_name, project, solver, solver_category, flow_regime,
-                n_cells, n_layers, n_timesteps,
-                bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
-                crs_wkt, crs_epsg,
-                p_start, p_end, time_unit,
-                config_json, snapshot_json, config_hash, zarr_path,
-                parent_sid, mesh_hash, topology,
-                geographic_fingerprint, tags, notes,
+                sid,
+                final_name,
+                project,
+                solver,
+                solver_category,
+                flow_regime,
+                n_cells,
+                n_layers,
+                n_timesteps,
+                bbox_xmin,
+                bbox_ymin,
+                bbox_xmax,
+                bbox_ymax,
+                crs_wkt,
+                crs_epsg,
+                p_start,
+                p_end,
+                time_unit,
+                config_json,
+                snapshot_json,
+                config_hash,
+                zarr_path,
+                parent_sid,
+                mesh_hash,
+                topology,
+                geographic_fingerprint,
+                tags,
+                notes,
             ],
         )
 
@@ -343,12 +356,16 @@ class SimulationCatalog:
         if n_cells is not None and n_layers is not None:
             zarr_abs = self._workspace / zarr_path
             zarr_obj = SimulationZarr.create(
-                zarr_abs, n_cells=n_cells, n_layers=n_layers,
+                zarr_abs,
+                n_cells=n_cells,
+                n_layers=n_layers,
                 cell_types=cell_types,
                 geographic_fingerprint=geographic_fingerprint,
             )
         return RegistrationResult(
-            sim_id=sid, name=final_name, zarr=zarr_obj,
+            sim_id=sid,
+            name=final_name,
+            zarr=zarr_obj,
             replaced_sim_id=replaced_sid,
         )
 
@@ -368,8 +385,12 @@ class SimulationCatalog:
                    (sim_id, param_name, zone_id, value, unit, parameterization)
                    VALUES (?, ?, ?, ?, ?, ?)""",
                 [
-                    sid, p["param_name"], zone_val,
-                    p.get("value"), p.get("unit"), p.get("parameterization"),
+                    sid,
+                    p["param_name"],
+                    zone_val,
+                    p.get("value"),
+                    p.get("unit"),
+                    p.get("parameterization"),
                 ],
             )
 
@@ -466,8 +487,13 @@ class SimulationCatalog:
                 storage_in, storage_out, percent_error)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             [
-                str(sim_id), timestep, total_in, total_out,
-                storage_in, storage_out, percent_error,
+                str(sim_id),
+                timestep,
+                total_in,
+                total_out,
+                storage_in,
+                storage_out,
+                percent_error,
             ],
         )
 
@@ -521,16 +547,27 @@ class SimulationCatalog:
         period_end: Any = None,
     ) -> None:
         fp = fingerprint(data)
-        source_type_value = source_type if source_type in (
-            "http_api", "custom_file", "derived", "cache",
-        ) else "derived"
+        source_type_value = (
+            source_type
+            if source_type
+            in (
+                "http_api",
+                "custom_file",
+                "derived",
+                "cache",
+            )
+            else "derived"
+        )
         self._db.execute(
             """INSERT OR REPLACE INTO provenance
                (sim_id, variable, source_type, source_ref,
                 period_start, period_end, payload_sha256, n_records, stats)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
-                str(sim_id), variable, source_type_value, source_ref,
+                str(sim_id),
+                variable,
+                source_type_value,
+                source_ref,
                 _coerce_timestamp(period_start),
                 _coerce_timestamp(period_end),
                 fp["checksum"],
@@ -590,7 +627,8 @@ class SimulationCatalog:
             if not canonical.is_file():
                 logger.warning(
                     "Tracked input '%s' missing on disk, skipping: %s",
-                    entry.role, canonical,
+                    entry.role,
+                    canonical,
                 )
                 continue
             sha = _sha256_streaming(canonical)
@@ -636,9 +674,8 @@ class SimulationCatalog:
         if gdf.empty:
             return
         from shapely.ops import unary_union
-        union_geom = unary_union(
-            [g for g in gdf.geometry if g is not None and not g.is_empty]
-        )
+
+        union_geom = unary_union([g for g in gdf.geometry if g is not None and not g.is_empty])
         geom_kind = _normalize_geometry_kind(union_geom.geom_type)
         crs_str = str(gdf.crs) if gdf.crs else None
         properties = {
@@ -651,13 +688,19 @@ class SimulationCatalog:
             " geoparquet_path, properties) "
             "VALUES (?, ?, ?, ?, ?, ?)",
             [
-                str(sim_id), feature_name, geom_kind, crs_str,
-                geoparquet_path, json.dumps(properties),
+                str(sim_id),
+                feature_name,
+                geom_kind,
+                crs_str,
+                geoparquet_path,
+                json.dumps(properties),
             ],
         )
 
     def read_geographic_feature(
-        self, sim_id: str | UUID, feature_name: str,
+        self,
+        sim_id: str | UUID,
+        feature_name: str,
     ) -> gpd.GeoDataFrame:
         import geopandas as gpd_mod
 
@@ -667,15 +710,11 @@ class SimulationCatalog:
             [str(sim_id), feature_name],
         ).fetchone()
         if row is None:
-            raise KeyError(
-                f"Feature '{feature_name}' not found for sim '{sim_id}'"
-            )
+            raise KeyError(f"Feature '{feature_name}' not found for sim '{sim_id}'")
         properties_json, crs = row
         if not properties_json:
             raise KeyError(f"No payload for feature '{feature_name}'")
-        props = json.loads(properties_json) if isinstance(
-            properties_json, str
-        ) else properties_json
+        props = json.loads(properties_json) if isinstance(properties_json, str) else properties_json
         geojson_str = props.get("geojson") if isinstance(props, dict) else None
         if not geojson_str:
             raise KeyError(f"No GeoJSON data for feature '{feature_name}'")
@@ -686,14 +725,15 @@ class SimulationCatalog:
 
     def list_geographic_features(self, sim_id: str | UUID) -> list[str]:
         rows = self._db.execute(
-            "SELECT feature_name FROM geographic_features "
-            "WHERE sim_id = ? ORDER BY feature_name",
+            "SELECT feature_name FROM geographic_features WHERE sim_id = ? ORDER BY feature_name",
             [str(sim_id)],
         ).fetchall()
         return [r[0] for r in rows]
 
     def write_geographic_metadata(
-        self, sim_id: str | UUID, metadata: dict[str, object],
+        self,
+        sim_id: str | UUID,
+        metadata: dict[str, object],
     ) -> None:
         sid = str(sim_id)
         for key, value in metadata.items():
@@ -725,8 +765,7 @@ class SimulationCatalog:
         nodata: float = -99999.0,
     ) -> None:
         sz = self.open_zarr(sim_id)
-        sz.write_geographic_raster(name, data, transform=transform,
-                                   crs=crs, nodata=nodata)
+        sz.write_geographic_raster(name, data, transform=transform, crs=crs, nodata=nodata)
 
     # -- Zarr access ---------------------------------------------------------
 
@@ -753,8 +792,7 @@ class SimulationCatalog:
         subgroup: str | None = None,
     ) -> None:
         sz = self.open_zarr(sim_id)
-        sz.write_field(variable, timestep, values,
-                       n_timesteps=n_timesteps, subgroup=subgroup)
+        sz.write_field(variable, timestep, values, n_timesteps=n_timesteps, subgroup=subgroup)
 
     def write_mesh(
         self,
@@ -766,9 +804,13 @@ class SimulationCatalog:
         source_cell_indices: np.ndarray | None = None,
     ) -> None:
         sz = self.open_zarr(sim_id)
-        sz.write_mesh(vertices, face_node_connectivity, z_interfaces,
-                      layer_indices=layer_indices,
-                      source_cell_indices=source_cell_indices)
+        sz.write_mesh(
+            vertices,
+            face_node_connectivity,
+            z_interfaces,
+            layer_indices=layer_indices,
+            source_cell_indices=source_cell_indices,
+        )
 
     def query_field(
         self,
@@ -782,6 +824,7 @@ class SimulationCatalog:
             return sz.read_field(variable, timestep, layer=layer)
         except KeyError:
             from hydromodpy.results.virtual_fields import compute_virtual_field
+
             result = compute_virtual_field(self, str(sim_id), variable, timestep)
             if result is not None:
                 if layer is not None and result.ndim == 2:
@@ -816,9 +859,7 @@ class SimulationCatalog:
         query += " ORDER BY datetime"
         result = self._db.execute(query, params).fetchdf()
         if result.empty:
-            raise KeyError(
-                f"No timeseries for sim={sim_id}, station={station_id}, var={variable}"
-            )
+            raise KeyError(f"No timeseries for sim={sim_id}, station={station_id}, var={variable}")
         # Strip tz back to naive so the returned series aligns with
         # simulation-internal tz-naive time indexes.
         idx = pd.DatetimeIndex(result["datetime"])
@@ -889,24 +930,32 @@ class SimulationCatalog:
 
         if fmt == "netcdf":
             from hydromodpy.results.exporters.netcdf import export_netcdf
+
             variables = [v.strip() for v in variable.split(",")]
             return export_netcdf(zarr_path, sid, variables, path, **kwargs)
         elif fmt == "csv":
             from hydromodpy.results.exporters.csv import export_csv
+
             return export_csv(
-                self._db, sid, path,
-                variable=variable if variable != "*" else None, **kwargs,
+                self._db,
+                sid,
+                path,
+                variable=variable if variable != "*" else None,
+                **kwargs,
             )
         elif fmt == "vtu":
             from hydromodpy.results.exporters.vtu import export_vtu
+
             timestep = kwargs.pop("timestep", 0)
             return export_vtu(zarr_path, sid, variable, timestep, path, **kwargs)
         elif fmt == "geotiff":
             from hydromodpy.results.exporters.geotiff import export_geotiff
+
             timestep = kwargs.pop("timestep", 0)
             return export_geotiff(zarr_path, sid, variable, timestep, path, **kwargs)
         elif fmt == "shapefile":
             from hydromodpy.results.exporters.shapefile import export_shapefile
+
             timestep = kwargs.pop("timestep", 0)
             return export_shapefile(zarr_path, sid, variable, timestep, path, **kwargs)
         else:
@@ -916,12 +965,13 @@ class SimulationCatalog:
 
     @property
     def simulations(self) -> pd.DataFrame:
-        return self._db.execute(
-            "SELECT * FROM simulations ORDER BY created_at DESC"
-        ).fetchdf()
+        return self._db.execute("SELECT * FROM simulations ORDER BY created_at DESC").fetchdf()
 
     def resolve(
-        self, ref: str | UUID, *, project: str | None = None,
+        self,
+        ref: str | UUID,
+        *,
+        project: str | None = None,
     ) -> str:
         """Resolve a user reference to a simulation UUID.
 
@@ -942,8 +992,7 @@ class SimulationCatalog:
 
         if _UUID_FULL_RE.match(ref_s):
             row = self._db.execute(
-                "SELECT CAST(sim_id AS VARCHAR) FROM simulations "
-                "WHERE CAST(sim_id AS VARCHAR) = ?",
+                "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?",
                 [ref_s.lower()],
             ).fetchone()
             if row:
@@ -960,21 +1009,20 @@ class SimulationCatalog:
                 return str(rows[0][0])
             if len(rows) > 1:
                 raise AmbiguousReferenceError(
-                    ref_s, [(str(r[0]), r[1]) for r in rows],
+                    ref_s,
+                    [(str(r[0]), r[1]) for r in rows],
                 )
 
         if project is not None:
             row = self._db.execute(
-                "SELECT CAST(sim_id AS VARCHAR) FROM simulations "
-                "WHERE project = ? AND name = ?",
+                "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE project = ? AND name = ?",
                 [project, ref_s],
             ).fetchone()
             if row:
                 return str(row[0])
         else:
             rows = self._db.execute(
-                "SELECT CAST(sim_id AS VARCHAR), project FROM simulations "
-                "WHERE name = ?",
+                "SELECT CAST(sim_id AS VARCHAR), project FROM simulations WHERE name = ?",
                 [ref_s],
             ).fetchall()
             if len(rows) == 1:
@@ -1014,8 +1062,7 @@ class SimulationCatalog:
                 metric = key[:-3]
                 alias = f"m_{len(joins)}"
                 joins.append(
-                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
-                    f"AND {alias}.metric_name = ?"
+                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id AND {alias}.metric_name = ?"
                 )
                 params.append(metric)
                 clauses.append(f"{alias}.value > ?")
@@ -1024,8 +1071,7 @@ class SimulationCatalog:
                 metric = key[:-3]
                 alias = f"m_{len(joins)}"
                 joins.append(
-                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
-                    f"AND {alias}.metric_name = ?"
+                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id AND {alias}.metric_name = ?"
                 )
                 params.append(metric)
                 clauses.append(f"{alias}.value < ?")
@@ -1034,8 +1080,7 @@ class SimulationCatalog:
                 metric = key[:-4]
                 alias = f"m_{len(joins)}"
                 joins.append(
-                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
-                    f"AND {alias}.metric_name = ?"
+                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id AND {alias}.metric_name = ?"
                 )
                 params.append(metric)
                 clauses.append(f"{alias}.value >= ?")
@@ -1044,8 +1089,14 @@ class SimulationCatalog:
                 clauses.append("s.crs_wkt = ?")
                 params.append(val)
             elif key in (
-                "project", "solver", "solver_category", "flow_regime",
-                "status", "name", "crs_wkt", "mesh_topology",
+                "project",
+                "solver",
+                "solver_category",
+                "flow_regime",
+                "status",
+                "name",
+                "crs_wkt",
+                "mesh_topology",
                 "geographic_fingerprint",
             ):
                 clauses.append(f"s.{key} = ?")
@@ -1089,8 +1140,7 @@ class SimulationCatalog:
         ).fetchone()
         if row is None:
             raise KeyError(
-                f"No completed simulation with metric '{metric}' "
-                f"for project '{project}'"
+                f"No completed simulation with metric '{metric}' for project '{project}'"
             )
         return Run(str(row[0]), self)
 
@@ -1122,7 +1172,9 @@ class SimulationCatalog:
     # -- Import / export -----------------------------------------------------
 
     def export_package(
-        self, sim_id: str | UUID, output_path: Path | str,
+        self,
+        sim_id: str | UUID,
+        output_path: Path | str,
     ) -> Path:
         """Export a simulation as a portable ``.hmp`` archive (tar.zst).
 
@@ -1131,6 +1183,7 @@ class SimulationCatalog:
         from hydromodpy.results.exporters.hmp_package import (
             export_hmp_package,
         )
+
         return export_hmp_package(self, sim_id, output_path)
 
     def import_package(
@@ -1153,8 +1206,10 @@ class SimulationCatalog:
         from hydromodpy.results.exporters.hmp_package import (
             import_hmp_package,
         )
+
         return import_hmp_package(
-            self, package_path,
+            self,
+            package_path,
             force=force,
             as_project=as_project,
             dematerialise_inputs=dematerialise_inputs,
@@ -1194,13 +1249,15 @@ class SimulationCatalog:
         sid = str(sim_id)
 
         row = self._db.execute(
-            "SELECT zarr_path FROM simulations WHERE sim_id = ?", [sid],
+            "SELECT zarr_path FROM simulations WHERE sim_id = ?",
+            [sid],
         ).fetchone()
 
         for table in PER_SIM_TABLE_NAMES:
             self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
         self._db.execute(
-            "DELETE FROM calibration_iterations WHERE sim_id = ?", [sid],
+            "DELETE FROM calibration_iterations WHERE sim_id = ?",
+            [sid],
         )
         self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
 
@@ -1222,9 +1279,7 @@ class SimulationCatalog:
 
     def __repr__(self) -> str:
         try:
-            count = self._db.execute(
-                "SELECT COUNT(*) FROM simulations"
-            ).fetchone()[0]
+            count = self._db.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
         except Exception:
             count = "?"
         return f"SimulationCatalog(workspace={str(self._workspace)!r}, simulations={count})"
@@ -1239,9 +1294,7 @@ class SimulationCatalog:
             total, ok, failed = count
             projects = [
                 str(r[0])
-                for r in self._db.execute(
-                    "SELECT DISTINCT project FROM simulations"
-                ).fetchall()
+                for r in self._db.execute("SELECT DISTINCT project FROM simulations").fetchall()
             ]
         except Exception:
             total, ok, failed, projects = 0, 0, 0, []
@@ -1252,8 +1305,7 @@ class SimulationCatalog:
             ("projects", projects_str),
         ]
         body = "".join(
-            f"<tr><th style='text-align:left'>{k}</th><td>{v}</td></tr>"
-            for k, v in rows
+            f"<tr><th style='text-align:left'>{k}</th><td>{v}</td></tr>" for k, v in rows
         )
         return (
             "<div><b>SimulationCatalog</b>"

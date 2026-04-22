@@ -23,9 +23,7 @@ def test_hmp_run_dispatches_simulation_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=simulation dispatches to run_simulation."""
     config = _write_toml(
         tmp_path / "config.toml",
-        'workflow = "simulation"\n'
-        '[workspace]\nproject_root = "."\n'
-        '[simulation]\nname = "test"\n',
+        'workflow = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
     )
 
     captured: dict = {}
@@ -48,9 +46,7 @@ def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=overview dispatches to run_overview."""
     config = _write_toml(
         tmp_path / "overview.toml",
-        'workflow = "overview"\n'
-        '[workspace]\nproject_root = "."\n'
-        '[overview]\nname = "test"\n',
+        'workflow = "overview"\n[workspace]\nproject_root = "."\n[overview]\nname = "test"\n',
     )
 
     captured: dict = {}
@@ -75,7 +71,7 @@ def test_hmp_run_dispatches_mesh_workflow(monkeypatch, tmp_path) -> None:
         tmp_path / "mesh.toml",
         'workflow = "mesh"\n'
         '[workspace]\nproject_root = "."\n'
-        '[mesh_catchment]\nelement_size = 200\n',
+        "[mesh_catchment]\nelement_size = 200\n",
     )
 
     captured: dict = {}
@@ -98,8 +94,7 @@ def test_hmp_run_dispatches_calibration_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=calibration dispatches to run_calibration."""
     config = _write_toml(
         tmp_path / "calib.toml",
-        'workflow = "calibration"\n'
-        '[calibration]\nmethod = "scipy"\n',
+        'workflow = "calibration"\n[calibration]\nmethod = "scipy"\n',
     )
 
     captured: dict = {}

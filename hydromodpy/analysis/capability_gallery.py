@@ -1,4 +1,5 @@
 """Selective publication of launcher outputs for the documentation gallery."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -85,9 +86,7 @@ def publish_run_to_capability_gallery(
     if not config.enabled:
         return None
     if config.output_dir is None:
-        raise ValueError(
-            "[capability_gallery] is enabled but output_dir is not configured."
-        )
+        raise ValueError("[capability_gallery] is enabled but output_dir is not configured.")
 
     source_figure_dir = Path(run_folder) / "_postprocess" / "_figures"
     output_dir = Path(config.output_dir)

@@ -297,7 +297,9 @@ def test_discretize_fieldparam_on_sgrid_exponential_profile_for_varied_discretiz
     expected_3d = np.asarray(result.values_2d, dtype=float)[None, :, :] * expected_factor
     assert np.allclose(result.values_3d, expected_3d)
 
-    layer_means = np.asarray([np.mean(np.asarray(result.values_3d[il], dtype=float)) for il in range(nlay)])
+    layer_means = np.asarray(
+        [np.mean(np.asarray(result.values_3d[il], dtype=float)) for il in range(nlay)]
+    )
     # Exponential profile should produce a strict decrease with layer-center depth.
     assert np.all(np.diff(layer_means) < 0.0)
 
@@ -489,8 +491,7 @@ def test_discretization_non_regression_golden_signatures(tmp_path: Path):
 
     if not GOLDEN_FILE.exists():
         pytest.fail(
-            f"Missing golden reference: {GOLDEN_FILE}. "
-            f"Generate it once with {UPDATE_GOLDEN_ENV}=1."
+            f"Missing golden reference: {GOLDEN_FILE}. Generate it once with {UPDATE_GOLDEN_ENV}=1."
         )
 
     expected_by_scenario = json.loads(GOLDEN_FILE.read_text(encoding="utf-8"))

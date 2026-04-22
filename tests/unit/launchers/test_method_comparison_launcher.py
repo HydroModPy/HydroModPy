@@ -31,7 +31,6 @@ def _write_base_simulation_config(path: Path) -> None:
     path.write_text(
         "\n".join(
             [
-                
                 'workflow = "simulation"',
                 "[workspace]",
                 'project_root = "project/base_case"',
@@ -401,9 +400,7 @@ def test_method_comparison_config_resolves_paths(tmp_path: Path) -> None:
 
     assert cfg.comparison_root == (tmp_path / "comparison_outputs").resolve()
     assert cfg.method_comparison.comparison_id == "demo_compare"
-    assert cfg.resolve_variant_run_folder(
-        cfg.method_comparison.variant[0]
-    ) == run_folder.resolve()
+    assert cfg.resolve_variant_run_folder(cfg.method_comparison.variant[0]) == run_folder.resolve()
     assert cfg.method_comparison.observable[1].reducer == "sum"
 
 
@@ -476,7 +473,9 @@ def test_example_method_comparison_configs_load(
     )
 
     assert [variant.mesh_mode for variant in cfg.method_comparison.variant] == expected_mesh_modes
-    assert [observable.support for observable in cfg.method_comparison.observable] == expected_supports
+    assert [
+        observable.support for observable in cfg.method_comparison.observable
+    ] == expected_supports
     for observable in cfg.method_comparison.observable:
         if observable.anchor_id is not None:
             assert observable.x is not None
@@ -628,7 +627,6 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(tmp_path: Pa
     simulation_config.write_text(
         "\n".join(
             [
-                
                 'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{project_root.as_posix()}"',
@@ -798,10 +796,7 @@ def test_extract_observable_rows_converts_boussinesq_drainage_map_to_outflow_dra
     assert len(rows) == 3
     assert all(row["resolved_variable"] == "drainage_flux_history_m3_s" for row in rows)
     assert all(row["unit"] == "m/day" for row in rows)
-    assert all(
-        row["conversion_applied"] == "drainage_flux_m3_s_to_m_per_day"
-        for row in rows
-    )
+    assert all(row["conversion_applied"] == "drainage_flux_m3_s_to_m_per_day" for row in rows)
     first_value = float(rows[0]["value"])
     assert first_value == pytest.approx((0.08 / 5.0) * 86400.0)
 
@@ -878,9 +873,7 @@ def test_extract_observable_rows_reads_surface_excess_map_and_series(
         observables=tuple(cfg.method_comparison.observable),
     )
 
-    series_rows = [
-        row for row in rows if row["observable"] == "surface_excess_flux_series"
-    ]
+    series_rows = [row for row in rows if row["observable"] == "surface_excess_flux_series"]
     map_rows = [row for row in rows if row["observable"] == "surface_excess_map_last"]
     assert [float(row["value"]) for row in series_rows] == pytest.approx([0.27, 0.35])
     assert all(row["unit"] == "m3/s" for row in series_rows)
@@ -1311,7 +1304,6 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
     simulation_config.write_text(
         "\n".join(
             [
-                
                 'workflow = "simulation"',
                 "[workspace]",
                 'project_root = "project/demo"',
@@ -1361,9 +1353,7 @@ def test_method_comparison_launcher_prefers_model_full_path_for_completed_runs(
             self.config_path = config_path
             self._ctx = SimpleNamespace(
                 setup=SimpleNamespace(
-                    workspace=SimpleNamespace(
-                        simulations_folder=tmp_path / "results_simulations"
-                    ),
+                    workspace=SimpleNamespace(simulations_folder=tmp_path / "results_simulations"),
                     run_id="demo_run",
                 ),
                 get_model_for_solver=lambda _solver_name: SimpleNamespace(
@@ -1474,9 +1464,7 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
     assert len(detail) == 2
     summary_by_observable = {row["observable"]: row for row in summary}
     assert summary_by_observable["head_at_point"]["mae"] == 2.0
-    assert summary_by_observable["outlet_flux"]["mae"] == pytest.approx(
-        _expected_outlet_flux(0.1)
-    )
+    assert summary_by_observable["outlet_flux"]["mae"] == pytest.approx(_expected_outlet_flux(0.1))
 
 
 def test_build_comparison_metrics_aligns_last_selection_across_time_indices() -> None:

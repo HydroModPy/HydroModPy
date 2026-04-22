@@ -57,15 +57,23 @@ def fetch(
         ids = list(station_ids)
     elif bbox is not None:
         ids = _discover_piezometers_in_bbox(
-            bbox, date_start=date_start, date_end=date_end,
+            bbox,
+            date_start=date_start,
+            date_end=date_end,
             require_observations=require_observations,
         )
         if not ids and fallback_search_radius_km:
             from hydromodpy.data.common.geo_helpers import expand_bbox
+
             expanded = expand_bbox(bbox, fallback_search_radius_km)
-            logger.info("Hub'Eau piezo: no piezometers in bbox, expanding by %s km", fallback_search_radius_km)
+            logger.info(
+                "Hub'Eau piezo: no piezometers in bbox, expanding by %s km",
+                fallback_search_radius_km,
+            )
             ids = _discover_piezometers_in_bbox(
-                expanded, date_start=date_start, date_end=date_end,
+                expanded,
+                date_start=date_start,
+                date_end=date_end,
                 require_observations=require_observations,
             )
     else:
@@ -79,7 +87,10 @@ def fetch(
         logger.info("Hub'Eau piezo: no piezometers found.")
         return []
 
-    log_step("Hub'Eau piezo: %d piezometers [%s -> %s]" % (len(ids), date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d")))
+    log_step(
+        "Hub'Eau piezo: %d piezometers [%s -> %s]"
+        % (len(ids), date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d"))
+    )
 
     records: list[PointRecord] = []
     for bss_id in iter_progress(ids, desc="Piezometers"):
@@ -139,7 +150,13 @@ def _keep_nearest(
 
     if best_id is None:
         return []
-    logger.info("Hub'Eau piezo: nearest to (%.4f, %.4f) → %s (%.1f km)", target_lon, target_lat, best_id, best_dist)
+    logger.info(
+        "Hub'Eau piezo: nearest to (%.4f, %.4f) → %s (%.1f km)",
+        target_lon,
+        target_lat,
+        best_id,
+        best_dist,
+    )
     return [best_id]
 
 

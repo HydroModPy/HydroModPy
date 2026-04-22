@@ -115,10 +115,14 @@ def _entry_to_locked(row: dict[str, Any]) -> LockedArtifact | None:
 def write_lockfile(catalog: DataCatalogDuckDB, dest: Path | str) -> Path:
     """Freeze every cached artefact into *dest* (TOML)."""
     dest = Path(dest)
-    rows = catalog.connection.execute(
-        "SELECT variable, source, station_id, file_path, file_mtime "
-        "FROM entries ORDER BY variable, source, station_id"
-    ).fetchdf().to_dict(orient="records")
+    rows = (
+        catalog.connection.execute(
+            "SELECT variable, source, station_id, file_path, file_mtime "
+            "FROM entries ORDER BY variable, source, station_id"
+        )
+        .fetchdf()
+        .to_dict(orient="records")
+    )
 
     doc = tomlkit.document()
     doc.add("version", _LOCKFILE_VERSION)
@@ -157,14 +161,11 @@ def read_lockfile(path: Path | str) -> list[LockedArtifact]:
             LockedArtifact(
                 variable=str(item["variable"]),
                 source=str(item["source"]),
-                station_id=(str(item["station_id"])
-                            if "station_id" in item else None),
+                station_id=(str(item["station_id"]) if "station_id" in item else None),
                 file_path=str(item["file_path"]),
                 sha256=str(item["sha256"]),
-                file_mtime=(float(item["file_mtime"])
-                            if "file_mtime" in item else None),
-                size_bytes=(int(item["size_bytes"])
-                            if "size_bytes" in item else None),
+                file_mtime=(float(item["file_mtime"]) if "file_mtime" in item else None),
+                size_bytes=(int(item["size_bytes"]) if "size_bytes" in item else None),
                 fetched_at=str(item.get("fetched_at", "")),
             )
         )
@@ -176,10 +177,7 @@ def verify_frozen(
     lockfile: Path | str,
 ) -> list[LockMismatch]:
     """Return every mismatch between *lockfile* and the catalog state."""
-    locked = {
-        (la.variable, la.source, la.station_id): la
-        for la in read_lockfile(lockfile)
-    }
+    locked = {(la.variable, la.source, la.station_id): la for la in read_lockfile(lockfile)}
     mismatches: list[LockMismatch] = []
     rows = catalog.connection.execute(
         "SELECT variable, source, station_id, file_path FROM entries"
@@ -190,30 +188,54 @@ def verify_frozen(
         seen.add(key)
         la = locked.get(key)
         if la is None:
-            mismatches.append(LockMismatch(
-                kind="missing", variable=variable, source=source,
-                station_id=station_id, expected=None, observed=file_path,
-            ))
+            mismatches.append(
+                LockMismatch(
+                    kind="missing",
+                    variable=variable,
+                    source=source,
+                    station_id=station_id,
+                    expected=None,
+                    observed=file_path,
+                )
+            )
             continue
         p = Path(file_path)
         if not p.is_file():
-            mismatches.append(LockMismatch(
-                kind="missing", variable=variable, source=source,
-                station_id=station_id, expected=la.sha256, observed=None,
-            ))
+            mismatches.append(
+                LockMismatch(
+                    kind="missing",
+                    variable=variable,
+                    source=source,
+                    station_id=station_id,
+                    expected=la.sha256,
+                    observed=None,
+                )
+            )
             continue
         actual_sha = sha256_of(p)
         if actual_sha != la.sha256:
-            mismatches.append(LockMismatch(
-                kind="sha256", variable=variable, source=source,
-                station_id=station_id, expected=la.sha256, observed=actual_sha,
-            ))
+            mismatches.append(
+                LockMismatch(
+                    kind="sha256",
+                    variable=variable,
+                    source=source,
+                    station_id=station_id,
+                    expected=la.sha256,
+                    observed=actual_sha,
+                )
+            )
     for key, la in locked.items():
         if key not in seen:
-            mismatches.append(LockMismatch(
-                kind="missing", variable=la.variable, source=la.source,
-                station_id=la.station_id, expected=la.sha256, observed=None,
-            ))
+            mismatches.append(
+                LockMismatch(
+                    kind="missing",
+                    variable=la.variable,
+                    source=la.source,
+                    station_id=la.station_id,
+                    expected=la.sha256,
+                    observed=None,
+                )
+            )
     return mismatches
 
 
@@ -242,9 +264,7 @@ def _open_reader(src: Path):
         try:
             import zstandard as zstd  # type: ignore[import-untyped]
         except ImportError as exc:  # pragma: no cover
-            raise RuntimeError(
-                "zstandard is required to read .tar.zst archives."
-            ) from exc
+            raise RuntimeError("zstandard is required to read .tar.zst archives.") from exc
         raw = open(src, "rb")
         dctx = zstd.ZstdDecompressor()
         return dctx.stream_reader(raw), raw, "r|"
@@ -262,18 +282,14 @@ def archive_lockfile(
     """Produce an archive containing the lockfile and every artefact."""
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    lockfile_dest = Path(lockfile_dest) if lockfile_dest else (
-        dest.parent / LOCKFILE_NAME
-    )
+    lockfile_dest = Path(lockfile_dest) if lockfile_dest else (dest.parent / LOCKFILE_NAME)
     write_lockfile(catalog, lockfile_dest)
 
     stream, raw, mode = _open_writer(dest)
     try:
         with tarfile.open(fileobj=stream, mode=mode) as tar:
             tar.add(lockfile_dest, arcname=LOCKFILE_NAME)
-            rows = catalog.connection.execute(
-                "SELECT file_path FROM entries"
-            ).fetchall()
+            rows = catalog.connection.execute("SELECT file_path FROM entries").fetchall()
             for (fp,) in rows:
                 p = Path(fp)
                 if p.is_file():

@@ -83,9 +83,7 @@ def _coerce_vertical_config(
         return vertical_config
     if isinstance(vertical_config, Mapping):
         return VerticalGridConfig.from_mapping(vertical_config)
-    raise TypeError(
-        "vertical_config must be None, VerticalGridConfig, or a mapping of values."
-    )
+    raise TypeError("vertical_config must be None, VerticalGridConfig, or a mapping of values.")
 
 
 def _compute_layer_proportions(
@@ -116,12 +114,7 @@ def _assert_bottom_below_top(
     bot: np.ndarray,
     nodata: float,
 ) -> None:
-    valid = (
-        np.isfinite(top)
-        & np.isfinite(bot)
-        & (top > float(nodata))
-        & (bot > float(nodata))
-    )
+    valid = np.isfinite(top) & np.isfinite(bot) & (top > float(nodata)) & (bot > float(nodata))
     if not np.any(valid):
         raise ValueError("No finite overlapping valid cells found between top and bottom surfaces.")
     violations = bot[valid] >= top[valid]
@@ -144,7 +137,9 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     nodata: float,
 ) -> SolverMesh:
     mesh_2d = planar_mesh
-    hydro_mesh = planar_mesh.to_hydro_mesh() if hasattr(planar_mesh, "to_hydro_mesh") else planar_mesh
+    hydro_mesh = (
+        planar_mesh.to_hydro_mesh() if hasattr(planar_mesh, "to_hydro_mesh") else planar_mesh
+    )
 
     x_centers, y_centers = mesh_2d.cell_centroids()
     top_sampler = PreparedSurfaceSampler.from_surface(top_surface)
@@ -196,11 +191,7 @@ def build_spatial_discretization(
         vertical_config = sgrid_config.vertical
         planar_config = sgrid_config.planar
 
-    nodata = float(
-        vertical_config.nodata
-        if vertical_config is not None
-        else -9999.0
-    )
+    nodata = float(vertical_config.nodata if vertical_config is not None else -9999.0)
 
     top_surface, bottom_surface = resolve_domain_surfaces(domain=domain)
 
@@ -220,10 +211,7 @@ def build_spatial_discretization(
         )
         zbot = np.asarray(sgrid.botm, dtype=float)
         inactive_mask = (
-            ~np.isfinite(top)
-            | ~np.isfinite(bottom)
-            | (top <= nodata)
-            | (bottom <= nodata)
+            ~np.isfinite(top) | ~np.isfinite(bottom) | (top <= nodata) | (bottom <= nodata)
         )
         solver_mesh = SolverMesh.from_sgrid(
             sgrid,

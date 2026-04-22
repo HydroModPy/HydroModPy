@@ -38,12 +38,17 @@ def render_dem_map(
     with rasterio.open(dem_path) as src:
         data = src.read(1, masked=True)
         extent = (
-            src.bounds.left, src.bounds.right,
-            src.bounds.bottom, src.bounds.top,
+            src.bounds.left,
+            src.bounds.right,
+            src.bounds.bottom,
+            src.bounds.top,
         )
 
     im = ax.imshow(
-        data, cmap="terrain", extent=extent, origin="upper",
+        data,
+        cmap="terrain",
+        extent=extent,
+        origin="upper",
     )
     cbar = ax.figure.colorbar(im, ax=ax, fraction=0.035, pad=0.02)
     cbar.set_label("Elevation (m)", fontsize=8)
@@ -83,12 +88,18 @@ def render_hydrography_map(
     with rasterio.open(dem_path) as src:
         data = src.read(1, masked=True)
         extent = (
-            src.bounds.left, src.bounds.right,
-            src.bounds.bottom, src.bounds.top,
+            src.bounds.left,
+            src.bounds.right,
+            src.bounds.bottom,
+            src.bounds.top,
         )
 
     ax.imshow(
-        data, cmap="Greys_r", extent=extent, origin="upper", alpha=0.55,
+        data,
+        cmap="Greys_r",
+        extent=extent,
+        origin="upper",
+        alpha=0.55,
     )
 
     if watershed_shp:
@@ -96,22 +107,30 @@ def render_hydrography_map(
 
     if streams_gdf is not None and not streams_gdf.empty:
         lw_field = _pick_field(
-            streams_gdf, ("STRAHLER", "strahler", "strahler_order", "order"),
+            streams_gdf,
+            ("STRAHLER", "strahler", "strahler_order", "order"),
         )
         if lw_field is not None:
             for _, row in streams_gdf.iterrows():
                 w = 0.4 + 0.4 * float(row.get(lw_field, 1) or 1)
                 streams_gdf.iloc[[row.name]].plot(
-                    ax=ax, color="steelblue", linewidth=w,
+                    ax=ax,
+                    color="steelblue",
+                    linewidth=w,
                 )
         else:
             streams_gdf.plot(ax=ax, color="steelblue", linewidth=0.8)
 
     if outlet_xy is not None:
         ax.plot(
-            outlet_xy[0], outlet_xy[1],
-            marker="*", markersize=12, color="crimson",
-            markeredgecolor="black", zorder=10, label="Outlet",
+            outlet_xy[0],
+            outlet_xy[1],
+            marker="*",
+            markersize=12,
+            color="crimson",
+            markeredgecolor="black",
+            zorder=10,
+            label="Outlet",
         )
         ax.legend(loc="lower right", fontsize=7)
 
@@ -139,25 +158,39 @@ def render_geology_map(
     with rasterio.open(dem_path) as src:
         data = src.read(1, masked=True)
         extent = (
-            src.bounds.left, src.bounds.right,
-            src.bounds.bottom, src.bounds.top,
+            src.bounds.left,
+            src.bounds.right,
+            src.bounds.bottom,
+            src.bounds.top,
         )
 
     ax.imshow(
-        data, cmap="Greys_r", extent=extent, origin="upper", alpha=0.45,
+        data,
+        cmap="Greys_r",
+        extent=extent,
+        origin="upper",
+        alpha=0.45,
     )
 
     if geology_gdf is not None and not geology_gdf.empty:
         code_field = _pick_field(
-            geology_gdf, ("CODE_LEG", "code_leg", "litho", "LITHO", "LITH"),
+            geology_gdf,
+            ("CODE_LEG", "code_leg", "litho", "LITHO", "LITH"),
         )
         if code_field:
             geology_gdf.plot(
-                ax=ax, column=code_field, categorical=True,
-                legend=True, alpha=0.55, edgecolor="none",
+                ax=ax,
+                column=code_field,
+                categorical=True,
+                legend=True,
+                alpha=0.55,
+                edgecolor="none",
                 legend_kwds={
-                    "loc": "center left", "bbox_to_anchor": (1.02, 0.5),
-                    "fontsize": 6, "title": code_field, "title_fontsize": 7,
+                    "loc": "center left",
+                    "bbox_to_anchor": (1.02, 0.5),
+                    "fontsize": 6,
+                    "title": code_field,
+                    "title_fontsize": 7,
                 },
             )
         else:
@@ -192,9 +225,14 @@ def render_timeseries_multi(
     """Render a multi-station time series panel (one line per column)."""
     if df is None or df.empty:
         ax.text(
-            0.5, 0.5, "No records",
-            ha="center", va="center", transform=ax.transAxes,
-            fontsize=9, color="grey",
+            0.5,
+            0.5,
+            "No records",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+            fontsize=9,
+            color="grey",
         )
         ax.set_title(title, fontsize=10)
         return ax
@@ -216,9 +254,14 @@ def render_timeseries_multi(
         ax.legend(fontsize=6, loc="best", ncol=min(3, plotted))
     if plotted == 0:
         ax.text(
-            0.5, 0.5, "No valid records",
-            ha="center", va="center", transform=ax.transAxes,
-            fontsize=9, color="grey",
+            0.5,
+            0.5,
+            "No valid records",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+            fontsize=9,
+            color="grey",
         )
     return ax
 
@@ -237,14 +280,22 @@ def render_climatic_summary(
 
     if monthly_precip is not None and len(monthly_precip) == 12:
         ax.bar(
-            months - width / 2, monthly_precip, width,
-            color="steelblue", alpha=0.85, label="Precipitation",
+            months - width / 2,
+            monthly_precip,
+            width,
+            color="steelblue",
+            alpha=0.85,
+            label="Precipitation",
         )
         plotted += 1
     if monthly_etp is not None and len(monthly_etp) == 12:
         ax.bar(
-            months + width / 2, monthly_etp, width,
-            color="darkorange", alpha=0.85, label="ETP",
+            months + width / 2,
+            monthly_etp,
+            width,
+            color="darkorange",
+            alpha=0.85,
+            label="ETP",
         )
         plotted += 1
 
@@ -258,9 +309,14 @@ def render_climatic_summary(
         ax.legend(fontsize=7, loc="best")
     else:
         ax.text(
-            0.5, 0.5, "No climatic data",
-            ha="center", va="center", transform=ax.transAxes,
-            fontsize=9, color="grey",
+            0.5,
+            0.5,
+            "No climatic data",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+            fontsize=9,
+            color="grey",
         )
     return ax
 
@@ -309,7 +365,8 @@ def render_stats_card(ax: "Axes", *, summary: "OverviewSummary") -> "Axes":
         table[(i, 0)].set_text_props(fontweight="bold")
     ax.set_title(
         f"Identity — {summary.watershed_name or 'Watershed'}",
-        fontsize=11, fontweight="bold",
+        fontsize=11,
+        fontweight="bold",
     )
     return ax
 
@@ -320,9 +377,14 @@ def render_station_inventory(ax: "Axes", *, inventory: list[dict]) -> "Axes":
 
     if not inventory:
         ax.text(
-            0.5, 0.5, "No stations loaded",
-            ha="center", va="center", transform=ax.transAxes,
-            fontsize=9, color="grey",
+            0.5,
+            0.5,
+            "No stations loaded",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+            fontsize=9,
+            color="grey",
         )
         return ax
 
@@ -380,11 +442,15 @@ def _plot_station_points(ax, points: list[dict]) -> None:
         ys = [p["y"] for p in items]
         first = items[0]
         ax.scatter(
-            xs, ys,
+            xs,
+            ys,
             marker=first.get("marker", "o"),
             c=first.get("color", "red"),
-            edgecolor="black", linewidth=0.5,
-            s=36, zorder=8, label=group,
+            edgecolor="black",
+            linewidth=0.5,
+            s=36,
+            zorder=8,
+            label=group,
         )
     if groups:
         ax.legend(loc="upper right", fontsize=7, markerscale=0.8)

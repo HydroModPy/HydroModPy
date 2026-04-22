@@ -49,9 +49,7 @@ class ResolveStep:
 
         config_path = state.get("config_path")
         if config_path is None:
-            raise ValueError(
-                "ResolveStep requires 'config_path' (or a pre-built 'ctx')"
-            )
+            raise ValueError("ResolveStep requires 'config_path' (or a pre-built 'ctx')")
         config_path = Path(config_path).expanduser().resolve()
 
         raw_toml = state.get("raw_toml")

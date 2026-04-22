@@ -14,6 +14,7 @@ from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 class PyhelpGrid(PyhelpCsvManager):
     """
     1) Loads a single-row base CSV (never overwritten).
@@ -21,32 +22,36 @@ class PyhelpGrid(PyhelpCsvManager):
        assigns the new parameter values to all rows, appends lat/lon, then saves.
     """
 
-    def __init__(self, base_file_path: str, output_file_path: str,
-                 dem_file_path: str, shapefile_path: Optional[str] = None) -> None:    
+    def __init__(
+        self,
+        base_file_path: str,
+        output_file_path: str,
+        dem_file_path: str,
+        shapefile_path: Optional[str] = None,
+    ) -> None:
         """
         :param base_file_path: Path to the single-row CSV (e.g., input_grid_base1.csv).
         :param output_file_path: Where the updated CSV will be saved.
         :param dem_file_path: Path to the DEM for lat/lon extraction.
         :param shapefile_path: (optional) Path to the polygon used to filter lat/lon.
                        If None or "", the DEM is assumed already clipped.
-        
+
         """
         self._base_file_path = base_file_path
         self._output_file_path = output_file_path
         self._dem_file_path = dem_file_path
         self._shapefile_path = shapefile_path
-        
+
         # Load the single-row base CSV
         self._base_data = self._load_base_csv()
         self._data = self._base_data.copy()
 
     def _load_base_csv(self) -> pd.DataFrame:
-        """Load the base CSV file """
+        """Load the base CSV file"""
         base_df = load_csv(self._base_file_path)
         if base_df.empty:
             logger.error("Base grid CSV %s is empty or missing", self._base_file_path)
         return base_df
-    
 
     def _dem_coordinate(self) -> list:
         """
@@ -54,15 +59,15 @@ class PyhelpGrid(PyhelpCsvManager):
         Transform from DEM CRS to EPSG:4326 (WGS84)
         """
         import rasterio
-    
+
         with rasterio.open(self._dem_file_path) as ds:
             src_crs = ds.crs
-    
+
         if src_crs is None:
             raise ValueError(f"DEM has no CRS: {self._dem_file_path}")
-    
+
         coords = transform_coordinates(self._dem_file_path, str(src_crs), "EPSG:4326")
-    
+
         if self._shapefile_path:
             return filter_coordinates_by_shape(coords, self._shapefile_path, "EPSG:4326")
         return coords
@@ -98,13 +103,13 @@ class PyhelpGrid(PyhelpCsvManager):
         if base_df.empty:
             logger.error("Base CSV is empty; cannot update grid parameters")
             return
-        
+
         # Transform DEM to get coordinates
         coordinates = self._dem_coordinate()
         if not coordinates:
             logger.error("No coordinates extracted from DEM %s", self._dem_file_path)
             return
-        
+
         # Replicate the single base row to match the number of DEM points to create homogeneous case
         rows = len(coordinates)
         df2 = pd.DataFrame([base_df.iloc[0].values] * rows, columns=base_df.columns)
@@ -122,7 +127,7 @@ class PyhelpGrid(PyhelpCsvManager):
 
         # reorder columns
         keep = ["cid", "lat_dd", "lon_dd"]
-        other= [c for c in df2.columns if c not in keep]
+        other = [c for c in df2.columns if c not in keep]
         final = keep + other
         df2 = df2[final]
 
@@ -134,11 +139,24 @@ class PyhelpGrid(PyhelpCsvManager):
     def _prompt_parameters(self) -> dict:
         """Prompt the user to input parameter values if none were passed."""
         parameters_to_ask = [
-            "wind", "hum1", "hum2", "hum3", "hum4",
-            "growth_start", "growth_end", "nlayer",
-            "LAI,EZD", "CN", "lay_type1", "thick1",
-            "poro1", "fc1", "wp1", "ksat1",
-            "dist_dr1", "slope1"
+            "wind",
+            "hum1",
+            "hum2",
+            "hum3",
+            "hum4",
+            "growth_start",
+            "growth_end",
+            "nlayer",
+            "LAI,EZD",
+            "CN",
+            "lay_type1",
+            "thick1",
+            "poro1",
+            "fc1",
+            "wp1",
+            "ksat1",
+            "dist_dr1",
+            "slope1",
         ]
         params = {}
         for p in parameters_to_ask:

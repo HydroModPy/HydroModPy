@@ -15,16 +15,31 @@ def sz(tmp_path):
 
 
 def _make_mesh(n_cells=6):
-    vertices = np.array([
-        [0.0, 0.0], [1.0, 0.0], [2.0, 0.0],
-        [0.0, 1.0], [1.0, 1.0], [2.0, 1.0],
-        [0.0, 2.0], [1.0, 2.0], [2.0, 2.0],
-    ], dtype="float64")
-    connectivity = np.array([
-        [0, 1, 4, 3], [1, 2, 5, 4],
-        [3, 4, 7, 6], [4, 5, 8, 7],
-        [0, 1, 4, -1], [4, 5, 8, -1],
-    ], dtype="int32")
+    vertices = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [2.0, 0.0],
+            [0.0, 1.0],
+            [1.0, 1.0],
+            [2.0, 1.0],
+            [0.0, 2.0],
+            [1.0, 2.0],
+            [2.0, 2.0],
+        ],
+        dtype="float64",
+    )
+    connectivity = np.array(
+        [
+            [0, 1, 4, 3],
+            [1, 2, 5, 4],
+            [3, 4, 7, 6],
+            [4, 5, 8, 7],
+            [0, 1, 4, -1],
+            [4, 5, 8, -1],
+        ],
+        dtype="int32",
+    )
     z_interfaces = np.array([0.0, -5.0, -15.0, -30.0], dtype="float64")
     return vertices, connectivity[:n_cells], z_interfaces
 
@@ -97,7 +112,9 @@ class TestField:
         for t in range(n_ts):
             vals = rng.random(n_cells)
             sz.write_field(
-                "watertable_depth", t, vals,
+                "watertable_depth",
+                t,
+                vals,
                 n_timesteps=n_ts if t == 0 else None,
                 subgroup="derived",
             )
@@ -173,12 +190,14 @@ class TestG05CFMetadata:
     def test_derived_subgroup_field_gets_cf_attrs(self, sz):
         vals = np.ones(100)
         sz.write_field(
-            "watertable_depth", 0, vals, n_timesteps=2, subgroup="derived",
+            "watertable_depth",
+            0,
+            vals,
+            n_timesteps=2,
+            subgroup="derived",
         )
         arr = sz.root["derived/watertable_depth"]
-        assert arr.attrs["standard_name"] == (
-            "depth_of_water_table_below_ground_surface"
-        )
+        assert arr.attrs["standard_name"] == ("depth_of_water_table_below_ground_surface")
         assert arr.attrs["units"] == "m"
 
     def test_unregistered_field_has_no_cf_attrs(self, sz):
@@ -211,7 +230,10 @@ class TestG05ToXarray:
     def test_dataset_has_registered_vars(self, sz):
         sz.write_field("head", 0, np.ones((3, 100)), n_timesteps=1)
         sz.write_field(
-            "watertable_depth", 0, np.ones(100), n_timesteps=1,
+            "watertable_depth",
+            0,
+            np.ones(100),
+            n_timesteps=1,
             subgroup="derived",
         )
         ds = sz.to_xarray()
@@ -222,10 +244,7 @@ class TestG05ToXarray:
     def test_cf_attrs_survive_round_trip(self, sz):
         sz.write_field("head", 0, np.ones((3, 100)), n_timesteps=1)
         ds = sz.to_xarray()
-        assert (
-            ds["head"].attrs["standard_name"]
-            == "groundwater_head_above_reference_level"
-        )
+        assert ds["head"].attrs["standard_name"] == "groundwater_head_above_reference_level"
         assert ds["head"].attrs["units"] == "m"
 
 
@@ -242,7 +261,10 @@ class TestG05BalancedChunking:
     def test_balanced_chunks_pack_multiple_timesteps(self, tmp_path):
         path = tmp_path / "bal.zarr"
         s = SimulationZarr.create(
-            path, n_cells=100, n_layers=2, balanced=True,
+            path,
+            n_cells=100,
+            n_layers=2,
+            balanced=True,
         )
         try:
             s.write_field("head", 0, np.ones((2, 100)), n_timesteps=10)

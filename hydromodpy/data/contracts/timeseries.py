@@ -40,8 +40,7 @@ class PointRecord:
         missing = [c for c in REQUIRED_COLUMNS if c not in self.data.columns]
         if missing:
             raise ValueError(
-                f"PointRecord.data missing columns: {missing}. "
-                f"Got: {list(self.data.columns)}"
+                f"PointRecord.data missing columns: {missing}. Got: {list(self.data.columns)}"
             )
         self.data["datetime"] = pd.to_datetime(self.data["datetime"], errors="coerce")
         self.data["value"] = pd.to_numeric(self.data["value"], errors="coerce")

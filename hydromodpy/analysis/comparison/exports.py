@@ -189,12 +189,7 @@ def write_observable_chronicle_exports(
     if wide_rows:
         path = comparison_root / "timeseries_wide.csv"
         variant_columns = sorted(
-            {
-                key
-                for row in wide_rows
-                for key in row
-                if key.startswith("value__")
-            }
+            {key for row in wide_rows for key in row if key.startswith("value__")}
         )
         _write_csv(
             path,
@@ -275,8 +270,7 @@ def write_native_timeseries_exports(
         numeric_columns = {
             key
             for key in raw_rows[0].keys()
-            if key != "date"
-            and any(_as_float(row.get(key)) is not None for row in raw_rows)
+            if key != "date" and any(_as_float(row.get(key)) is not None for row in raw_rows)
         }
         tables[str(summary.get("id", ""))] = {
             "variant_id": str(summary.get("id", "")),
@@ -385,12 +379,7 @@ def write_native_timeseries_exports(
     if wide_rows:
         path = comparison_root / "native_timeseries_wide.csv"
         variant_columns = sorted(
-            {
-                key
-                for row in wide_rows
-                for key in row
-                if key.startswith("value__")
-            }
+            {key for row in wide_rows for key in row if key.startswith("value__")}
         )
         _write_csv(
             path,
@@ -419,7 +408,6 @@ def write_native_timeseries_exports(
         )
         artifacts.append({"kind": "native_timeseries_delta_csv", "path": str(path)})
     return artifacts, long_rows, wide_rows, delta_rows
-
 
 
 def _history_matrix(payload: Mapping[str, Any], key: str) -> np.ndarray | None:
@@ -460,9 +448,7 @@ def _storage_change_series_m3_s(
         or head_history_m.ndim != 2
     ):
         return None
-    if not (
-        head_history_m.shape[1] == area_m2.size == storage_coefficient.size
-    ):
+    if not (head_history_m.shape[1] == area_m2.size == storage_coefficient.size):
         return None
 
     n_snapshots = int(head_history_m.shape[0])
@@ -618,7 +604,11 @@ def _load_boussinesq_budget_rows(
     )
 
     component_series: dict[str, np.ndarray] = {}
-    if recharge_history is not None and area_m2 is not None and recharge_history.shape[1] == area_m2.size:
+    if (
+        recharge_history is not None
+        and area_m2 is not None
+        and recharge_history.shape[1] == area_m2.size
+    ):
         component_series["recharge_total_m3_s"] = np.sum(
             recharge_history * area_m2[None, :],
             axis=1,
@@ -632,7 +622,11 @@ def _load_boussinesq_budget_rows(
             axis=1,
             dtype=float,
         )
-    if surface_history is not None and area_m2 is not None and surface_history.shape[1] == area_m2.size:
+    if (
+        surface_history is not None
+        and area_m2 is not None
+        and surface_history.shape[1] == area_m2.size
+    ):
         component_series["surface_excess_total_m3_s"] = np.sum(
             np.maximum(surface_history, 0.0) * area_m2[None, :],
             axis=1,
@@ -704,14 +698,10 @@ def write_budget_exports(
     rows: list[dict[str, Any]] = []
     for summary in _completed_variant_summaries(variant_summaries):
         config_path_raw = summary.get("config_path")
-        config_path = (
-            None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        )
+        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
         store, sim_id = discover_result_store(config_path)
         try:
-            rows.extend(
-                _load_boussinesq_budget_rows(summary, store=store, sim_id=sim_id)
-            )
+            rows.extend(_load_boussinesq_budget_rows(summary, store=store, sim_id=sim_id))
         finally:
             if store is not None:
                 try:
@@ -759,19 +749,11 @@ def write_budget_exports(
         item[f"value__{row['variant_id']}"] = row["value"]
     wide_rows = list(wide_index.values())
     wide_path = comparison_root / "budget_timeseries_wide.csv"
-    variant_columns = sorted(
-        {
-            key
-            for row in wide_rows
-            for key in row
-            if key.startswith("value__")
-        }
-    )
+    variant_columns = sorted({key for row in wide_rows for key in row if key.startswith("value__")})
     _write_csv(
         wide_path,
         wide_rows,
-        ["component", "unit", "time_index", "elapsed_seconds", "time_label"]
-        + variant_columns,
+        ["component", "unit", "time_index", "elapsed_seconds", "time_label"] + variant_columns,
     )
     artifacts.append({"kind": "budget_timeseries_wide_csv", "path": str(wide_path)})
     return artifacts, rows

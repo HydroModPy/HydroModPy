@@ -27,9 +27,7 @@ def _to_dataframe(source: Any):
         try:
             return source.timeseries("hydrochemistry")
         except Exception as exc:
-            raise ValueError(
-                "schoeller_diagram: no hydrochemistry data available"
-            ) from exc
+            raise ValueError("schoeller_diagram: no hydrochemistry data available") from exc
     raise TypeError(f"schoeller_diagram: cannot read data from {type(source)!r}")
 
 

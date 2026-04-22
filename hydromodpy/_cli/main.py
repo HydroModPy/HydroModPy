@@ -28,7 +28,9 @@ def _version_string() -> str:
         git = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
             cwd=Path(__file__).resolve().parents[2],
-            capture_output=True, text=True, timeout=1,
+            capture_output=True,
+            text=True,
+            timeout=1,
         )
         if git.returncode == 0 and git.stdout.strip():
             parts.append(f"git {git.stdout.strip()}")
@@ -46,7 +48,8 @@ def _build_parser() -> argparse.ArgumentParser:
         description="HydroModPy command-line interface",
     )
     parser.add_argument(
-        "-V", "--version",
+        "-V",
+        "--version",
         action="version",
         version=_version_string(),
         help="Print version and exit",

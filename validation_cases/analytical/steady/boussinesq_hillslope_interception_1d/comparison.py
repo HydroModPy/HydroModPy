@@ -85,9 +85,7 @@ def build_boussinesq_hillslope_interception_comparison(
     case_metadata = load_case_metadata(CASE_DIR) if metadata is None else metadata
     solver_name = str(getattr(result, "solver_name", "")).strip().lower() or None
     case_tolerances = (
-        load_case_tolerances(CASE_DIR, solver=solver_name)
-        if tolerances is None
-        else tolerances
+        load_case_tolerances(CASE_DIR, solver=solver_name) if tolerances is None else tolerances
     )
 
     output_cfg = dict(case_metadata.get("output", {}))
@@ -109,12 +107,10 @@ def build_boussinesq_hillslope_interception_comparison(
 
     profile_axis = int(reference_cfg.get("profile_axis", 0))
     numerical_profile = mean_along_axis(heads, axis=profile_axis)
-    dx = (
-        float(reference_cfg["xmax"]) - float(reference_cfg["xmin"])
-    ) / float(numerical_profile.size)
-    x = float(reference_cfg["xmin"]) + (
-        (np.arange(numerical_profile.size, dtype=float) + 0.5) * dx
+    dx = (float(reference_cfg["xmax"]) - float(reference_cfg["xmin"])) / float(
+        numerical_profile.size
     )
+    x = float(reference_cfg["xmin"]) + ((np.arange(numerical_profile.size, dtype=float) + 0.5) * dx)
 
     analytical_profile = expected_boussinesq_hillslope_profile_at_x(
         x_m=x,
@@ -122,9 +118,7 @@ def build_boussinesq_hillslope_interception_comparison(
         xmax=float(reference_cfg["xmax"]),
         east_head_m=float(reference_cfg["east_head_m"]),
         recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
-        hydraulic_conductivity_m_per_s=float(
-            reference_cfg["hydraulic_conductivity_m_per_s"]
-        ),
+        hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
     )
     topography_profile = build_hillslope_topography_values(
         x_m=x,
@@ -138,9 +132,7 @@ def build_boussinesq_hillslope_interception_comparison(
         xmax=float(reference_cfg["xmax"]),
         east_head_m=float(reference_cfg["east_head_m"]),
         recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
-        hydraulic_conductivity_m_per_s=float(
-            reference_cfg["hydraulic_conductivity_m_per_s"]
-        ),
+        hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
         toe_elevation_m=float(reference_cfg["toe_elevation_m"]),
         slope_m_per_m=float(reference_cfg["topography_slope_m_per_m"]),
         search_samples=int(reference_cfg.get("interception_search_samples", 20001)),
@@ -155,7 +147,9 @@ def build_boussinesq_hillslope_interception_comparison(
 
     dry_zone_mask = np.asarray(x < analytical_interception_x_m, dtype=bool)
     if not np.any(dry_zone_mask):
-        raise ValueError("Dry-zone mask is empty; the interception point is too close to the divide.")
+        raise ValueError(
+            "Dry-zone mask is empty; the interception point is too close to the divide."
+        )
 
     return BoussinesqHillslopeInterceptionComparison(
         result=result,

@@ -52,7 +52,6 @@ def test_run_state_results_scope_and_lookup_helpers() -> None:
     assert result.get_model_for_solver("modflownwt") is model
 
 
-
 def test_run_state_loaded_data_and_execution_scopes_are_mutable() -> None:
     result = _build_state()
     climatic = object()

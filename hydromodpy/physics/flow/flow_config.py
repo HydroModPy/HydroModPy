@@ -64,13 +64,11 @@ class FlowRuntimeConfig(HydroModelBase):
 
     backend: Annotated[Literal["local", "scipy", "scipy_sparse", "petsc"], Profile.DEV] = Field(
         default="local",
-        description=(
-            "Nonlinear runtime backend used by Boussinesq-style solvers."
-        ),
+        description=("Nonlinear runtime backend used by Boussinesq-style solvers."),
     )
-    surface_model: Annotated[Literal[
-        "auto", "regularized_partition", "complementarity"
-    ], Profile.DEV] = Field(
+    surface_model: Annotated[
+        Literal["auto", "regularized_partition", "complementarity"], Profile.DEV
+    ] = Field(
         default="auto",
         description=(
             "Surface-interaction closure selector (Boussinesq). "
@@ -104,8 +102,7 @@ class FlowConfig(ProcessSpatialConfig):
     flow_regime: Annotated[Literal["steady", "transient"], Profile.USER] = Field(
         default="transient",
         description=(
-            "Global flow simulation regime used by solvers consuming [flow] "
-            "(steady or transient)."
+            "Global flow simulation regime used by solvers consuming [flow] (steady or transient)."
         ),
         json_schema_extra={
             "widget_type": "select",
@@ -117,14 +114,14 @@ class FlowConfig(ProcessSpatialConfig):
             ),
         },
     )
-    runtime_backend: Annotated[
-        Literal["local", "scipy", "scipy_sparse", "petsc"], Profile.DEV
-    ] = Field(
-        default="local",
-        description=(
-            "Optional nonlinear runtime backend hint used by the Boussinesq "
-            "solver implementation. Other flow solvers may ignore this field."
-        ),
+    runtime_backend: Annotated[Literal["local", "scipy", "scipy_sparse", "petsc"], Profile.DEV] = (
+        Field(
+            default="local",
+            description=(
+                "Optional nonlinear runtime backend hint used by the Boussinesq "
+                "solver implementation. Other flow solvers may ignore this field."
+            ),
+        )
     )
     surface_interaction_model: Annotated[
         Literal["auto", "regularized_partition", "complementarity"],
@@ -178,8 +175,7 @@ class FlowConfig(ProcessSpatialConfig):
     param: Annotated[dict[str, dict[str, object]], Profile.USER] = Field(
         default_factory=dict,
         description=(
-            "Mapping of flow-parameter identifiers to resolved FieldParamConfig "
-            "payloads."
+            "Mapping of flow-parameter identifiers to resolved FieldParamConfig payloads."
         ),
     )
     bc: Annotated[dict[str, object], Profile.USER] = Field(
@@ -405,9 +401,7 @@ class FlowConfig(ProcessSpatialConfig):
                     f"for Flow. Allowed values: {allowed_text}."
                 )
             if name in seen:
-                raise ValueError(
-                    f"flow.active_sinks_sources cannot contain duplicates: '{name}'"
-                )
+                raise ValueError(f"flow.active_sinks_sources cannot contain duplicates: '{name}'")
             seen.add(name)
             out.append(name)
         return out
@@ -439,9 +433,7 @@ class FlowConfig(ProcessSpatialConfig):
                     f"for Flow. Allowed values: {allowed_text}."
                 )
             if name in seen:
-                raise ValueError(
-                    f"flow.active_bc cannot contain duplicates: '{name}'"
-                )
+                raise ValueError(f"flow.active_bc cannot contain duplicates: '{name}'")
             seen.add(name)
             out.append(name)
         return out
@@ -490,9 +482,7 @@ class FlowConfig(ProcessSpatialConfig):
         if raw_param_list is None:
             raw_param_list = []
         if not isinstance(raw_param_list, (list, tuple)):
-            raise ValueError(
-                "TOML section 'flow.param_list' must be a list of ids when provided"
-            )
+            raise ValueError("TOML section 'flow.param_list' must be a list of ids when provided")
 
         raw_param = flow_section.get("param", {})
         if raw_param is None:
@@ -518,9 +508,7 @@ class FlowConfig(ProcessSpatialConfig):
         if raw_sinks_sources is None:
             raw_sinks_sources = {}
         if not isinstance(raw_sinks_sources, Mapping):
-            raise ValueError(
-                "TOML section 'flow.sinks_sources' must be a mapping when provided"
-            )
+            raise ValueError("TOML section 'flow.sinks_sources' must be a mapping when provided")
 
         raw_active_sinks_sources = flow_section.get("active_sinks_sources", [])
         if raw_active_sinks_sources is None:
@@ -534,9 +522,7 @@ class FlowConfig(ProcessSpatialConfig):
         if raw_active_bc is None:
             raw_active_bc = []
         if not isinstance(raw_active_bc, (list, tuple)):
-            raise ValueError(
-                "TOML section 'flow.active_bc' must be a list when provided"
-            )
+            raise ValueError("TOML section 'flow.active_bc' must be a list when provided")
 
         # Parameter payloads are resolved against field-param section grammar.
         parsed_param = parse_flow_param_sections(
@@ -590,6 +576,8 @@ class FlowConfig(ProcessSpatialConfig):
             active_sinks_sources=list(raw_active_sinks_sources),
             active_bc=list(raw_active_bc),
         )
+
+
 def _parse_flow_ic_section(ic_cfg: Mapping[str, object]) -> FlowInitialConditions | None:
     """
     Parse and normalize one single `[flow.ic]` payload.
@@ -670,5 +658,3 @@ def _resolve_boundary_condition_forcing_paths(
         payload[key] = _resolve_forcing_mapping(raw_item)
 
     return payload
-
-

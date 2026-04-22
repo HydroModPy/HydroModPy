@@ -188,9 +188,7 @@ class GeographicCache:
         manifest_path = dst / MANIFEST_FILENAME
         payload = dict(manifest) if manifest else {}
         payload.setdefault("fingerprint", fingerprint)
-        manifest_path.write_text(
-            json.dumps(payload, indent=2, sort_keys=True, default=str)
-        )
+        manifest_path.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str))
         return dst
 
     def load(self, fingerprint: str) -> Path:
@@ -198,16 +196,13 @@ class GeographicCache:
         p = self.path_for(fingerprint)
         if not self.is_cached(fingerprint):
             raise FileNotFoundError(
-                f"No geographic cache entry for fingerprint {fingerprint!r} "
-                f"in {self._root}"
+                f"No geographic cache entry for fingerprint {fingerprint!r} in {self._root}"
             )
         return p
 
     def list_fingerprints(self) -> list[str]:
         return sorted(
-            d.name
-            for d in self._root.iterdir()
-            if d.is_dir() and (d / MANIFEST_FILENAME).is_file()
+            d.name for d in self._root.iterdir() if d.is_dir() and (d / MANIFEST_FILENAME).is_file()
         )
 
     # -- helpers --------------------------------------------------------------
@@ -219,8 +214,14 @@ class GeographicCache:
         if isinstance(spec, GeographicInputs):
             return spec
         allowed = {
-            "dem_path", "dem_sha256", "geology_path", "geology_sha256",
-            "crs_wkt", "bbox", "resolution_m", "extra",
+            "dem_path",
+            "dem_sha256",
+            "geology_path",
+            "geology_sha256",
+            "crs_wkt",
+            "bbox",
+            "resolution_m",
+            "extra",
         }
         leftovers = {k: v for k, v in spec.items() if k not in allowed}
         init_kwargs = {k: v for k, v in spec.items() if k in allowed}

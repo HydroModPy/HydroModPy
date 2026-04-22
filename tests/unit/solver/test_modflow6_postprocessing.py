@@ -244,7 +244,9 @@ def test_modflow6_post_processing_tolerates_missing_drn_budget(
 
     assert np.allclose(model.dict_outflow_drain[0], 0.0)
     assert np.allclose(model.dict_seepage_areas[0], 0.0)
-    assert np.allclose(model.dict_watertable_elevation[0], np.array([[9.0, 8.5], [8.0, 7.5]], dtype=float))
+    assert np.allclose(
+        model.dict_watertable_elevation[0], np.array([[9.0, 8.5], [8.0, 7.5]], dtype=float)
+    )
 
 
 def test_modflow6_post_processing_reads_drn_budget_when_present(
@@ -410,7 +412,9 @@ def test_modflow6_post_processing_exports_native_unstructured_mesh_outputs(
 ) -> None:
     work_dir = _workspace_dir(tmp_path, "mf6_postprocess_native_mesh")
     model = _build_unstructured_model(work_dir)
-    monkeypatch.setattr("hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFileUnstructured)
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFileUnstructured
+    )
     monkeypatch.setattr(
         "hydromodpy.solver.modflow6.modflow6.bf.CellBudgetFile",
         _DummyBudgetFile,
@@ -454,7 +458,9 @@ def test_modflow6_post_processing_exports_native_unstructured_mesh_outputs(
     np.testing.assert_allclose(watertable_npz["values"][0], np.array([9.0, 8.5], dtype=float))
     np.testing.assert_allclose(watertable_npz["times"], np.array([1.0], dtype=float))
 
-    csv_lines = (mesh_dir / "flow_watertable_elevation.csv").read_text(encoding="utf-8").splitlines()
+    csv_lines = (
+        (mesh_dir / "flow_watertable_elevation.csv").read_text(encoding="utf-8").splitlines()
+    )
     assert csv_lines[0] == "time_index,time,cell_id,value"
     assert csv_lines[1].startswith("0,1.0,0,9.0")
 
@@ -477,7 +483,9 @@ def test_modflow6_post_processing_accumulates_unstructured_flow_on_mesh(
 ) -> None:
     work_dir = _workspace_dir(tmp_path, "mf6_postprocess_unstructured_accumulation")
     model = _build_unstructured_model(work_dir, dem_values=np.asarray([10.0, 5.0], dtype=float))
-    monkeypatch.setattr("hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFileUnstructured)
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFileUnstructured
+    )
     monkeypatch.setattr(
         "hydromodpy.solver.modflow6.modflow6.bf.CellBudgetFile",
         _DummyBudgetFileWithDrn,
@@ -585,7 +593,9 @@ def test_modflow6_transport_post_processing_accumulates_unstructured_mass(
     tmp_path: Path,
 ) -> None:
     work_dir = _workspace_dir(tmp_path, "mf6_transport_postprocess_unstructured_accumulation")
-    flow_model = _build_unstructured_model(work_dir, dem_values=np.asarray([10.0, 5.0], dtype=float))
+    flow_model = _build_unstructured_model(
+        work_dir, dem_values=np.asarray([10.0, 5.0], dtype=float)
+    )
     flow_model.last_postprocess_options = ModflowPostprocessOptions(
         accumulation_flux=False,
         native_mesh_npz=False,
@@ -628,7 +638,9 @@ def test_modflow6_post_processing_tolerates_missing_meshio_for_vtu_export(
 ) -> None:
     work_dir = _workspace_dir(tmp_path, "mf6_postprocess_missing_meshio")
     model = _build_unstructured_model(work_dir)
-    monkeypatch.setattr("hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFileUnstructured)
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFileUnstructured
+    )
     monkeypatch.setattr(
         "hydromodpy.solver.modflow6.modflow6.bf.CellBudgetFile",
         _DummyBudgetFile,
@@ -691,7 +703,9 @@ def test_modflow6_post_processing_exports_runtime_support_overview(
             }
         },
     )
-    monkeypatch.setattr("hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFileUnstructured)
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFileUnstructured
+    )
     monkeypatch.setattr(
         "hydromodpy.solver.modflow6.modflow6.bf.CellBudgetFile",
         _DummyBudgetFile,

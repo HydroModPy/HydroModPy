@@ -58,7 +58,7 @@ def recession_discharge(
     if abs(b - 1.0) < 1e-6:
         return Q0 * np.exp(-a * times)
     exponent = 1.0 - b
-    inside = Q0 ** exponent - a * exponent * times
+    inside = Q0**exponent - a * exponent * times
     inside = np.clip(inside, 1.0e-30, None)
     return inside ** (1.0 / exponent)
 

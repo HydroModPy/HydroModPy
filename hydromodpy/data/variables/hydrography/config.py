@@ -17,9 +17,9 @@ class HydrographySourceConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    source: Annotated[
-        Literal["custom", "osm", "bdtopage", "euhydro"], Profile.USER
-    ] = Field(..., description="Data provider.")
+    source: Annotated[Literal["custom", "osm", "bdtopage", "euhydro"], Profile.USER] = Field(
+        ..., description="Data provider."
+    )
 
     # --- Custom source fields ---
     path: Annotated[
@@ -80,5 +80,7 @@ class HydrographyConfig(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     sources: Annotated[list[HydrographySourceConfig], Profile.USER] = Field(
-        ..., min_length=1, description="At least one hydrography data source.",
+        ...,
+        min_length=1,
+        description="At least one hydrography data source.",
     )

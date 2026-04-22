@@ -28,7 +28,7 @@ def _exact_solution(x: np.ndarray) -> np.ndarray:
 
 
 def _forcing(x: np.ndarray) -> np.ndarray:
-    return (np.pi ** 2) * np.sin(np.pi * x)
+    return (np.pi**2) * np.sin(np.pi * x)
 
 
 def _solve_laplacian_1d(n_cells: int) -> tuple[np.ndarray, np.ndarray, float]:

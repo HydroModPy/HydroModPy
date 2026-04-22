@@ -39,9 +39,7 @@ class OptunaAdapter:
         direction: str = "minimize",
     ):
         if sampler not in _SAMPLERS:
-            raise ValueError(
-                f"Unknown Optuna sampler {sampler!r}. Choices: {sorted(_SAMPLERS)}"
-            )
+            raise ValueError(f"Unknown Optuna sampler {sampler!r}. Choices: {sorted(_SAMPLERS)}")
         self.space = space
         sampler_cls = _SAMPLERS[sampler]
         sampler_kwargs = {"seed": seed} if seed is not None else {}
@@ -62,15 +60,11 @@ class OptunaAdapter:
             trial = self._study.ask()
             values: dict[str, float] = {}
             for p in self.space.parameters:
-                y = trial.suggest_float(
-                    p.name, p.lower_transformed, p.upper_transformed
-                )
+                y = trial.suggest_float(p.name, p.lower_transformed, p.upper_transformed)
                 values[p.name] = p.to_physical(y)
             self._trial_id += 1
             self._pending[self._trial_id] = trial
-            out.append(
-                ParamSuggestion(trial_id=self._trial_id, values=values, source="ask")
-            )
+            out.append(ParamSuggestion(trial_id=self._trial_id, values=values, source="ask"))
         return out
 
     def suggest_next(self) -> ParamSuggestion:

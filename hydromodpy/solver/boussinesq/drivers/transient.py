@@ -1,4 +1,4 @@
-﻿"""Transient driver helpers for the Boussinesq solver."""
+"""Transient driver helpers for the Boussinesq solver."""
 
 from __future__ import annotations
 
@@ -32,8 +32,7 @@ def run_transient_runtime(solver: "Boussinesq") -> bool:
     solver._assert_runtime_mesh_size_supported(runtime_backend)
 
     period_lengths = tuple(
-        float(value)
-        for value in (getattr(solver.time_grid, "period_lengths_seconds", ()) or ())
+        float(value) for value in (getattr(solver.time_grid, "period_lengths_seconds", ()) or ())
     )
     if not period_lengths:
         return True
@@ -47,9 +46,7 @@ def run_transient_runtime(solver: "Boussinesq") -> bool:
     prescribed_heads_by_period = boundary_forcing.prescribed_heads_by_period
     boundary_heads_by_period = boundary_forcing.boundary_heads_by_period
     ocean_supported_cell_masks = boundary_forcing.ocean_supported_cell_masks
-    drainage_conductance_series_m2_s = (
-        boundary_forcing.drainage_conductance_series_m2_s
-    )
+    drainage_conductance_series_m2_s = boundary_forcing.drainage_conductance_series_m2_s
 
     head_prev = np.asarray(solver.state.head_m, dtype=float)
     history = TransientRuntimeHistory.initialize(
@@ -146,4 +143,3 @@ def run_transient_runtime(solver: "Boussinesq") -> bool:
 
 
 __all__ = ["run_transient_runtime"]
-

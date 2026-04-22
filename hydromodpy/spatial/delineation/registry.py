@@ -71,8 +71,7 @@ def _get_cached_backend(name: str) -> Any:
         cls = loader()
     except ImportError as exc:
         raise ImportError(
-            f"Backend {name!r} is not available: missing optional "
-            f"dependency ({exc})."
+            f"Backend {name!r} is not available: missing optional dependency ({exc})."
         ) from exc
     return cls()
 

@@ -1,4 +1,4 @@
-﻿"""PETSc runtime for the Boussinesq backend on Linux.
+"""PETSc runtime for the Boussinesq backend on Linux.
 
 This backend switches from the historical head-only regularized overflow law to
 one semi-explicit mixed formulation:
@@ -357,4 +357,3 @@ __all__ = [
     "solve_steady_problem",
     "solve_transient_step",
 ]
-

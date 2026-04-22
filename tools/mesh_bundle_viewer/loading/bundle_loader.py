@@ -1,4 +1,4 @@
-﻿"""Load one exported mesh bundle for the standalone visualization workflow."""
+"""Load one exported mesh bundle for the standalone visualization workflow."""
 
 from __future__ import annotations
 
@@ -63,5 +63,3 @@ __all__ = [
     "load_visualization_data",
     "load_visualization_data_from_toml",
 ]
-
-

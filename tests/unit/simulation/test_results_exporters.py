@@ -20,32 +20,42 @@ def catalog_with_data(tmp_path):
 
     n_cells, n_layers, n_ts = 6, 2, 3
     reg = c.register_simulation(
-        sid, project="test", solver="modflownwt",
-        n_cells=n_cells, n_layers=n_layers, n_timesteps=n_ts,
+        sid,
+        project="test",
+        solver="modflownwt",
+        n_cells=n_cells,
+        n_layers=n_layers,
+        n_timesteps=n_ts,
     )
     if reg.zarr is not None:
         reg.zarr.close()
 
     # Triangle mesh (6 triangles, 7 nodes)
-    verts = np.array([
-        [0.0, 0.0],
-        [1.0, 0.0],
-        [0.5, 0.8],
-        [1.5, 0.8],
-        [0.8, 1.8],
-        [2.0, 0.4],
-        [1.8, 1.6],
-    ], dtype="float64")
+    verts = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [0.5, 0.8],
+            [1.5, 0.8],
+            [0.8, 1.8],
+            [2.0, 0.4],
+            [1.8, 1.6],
+        ],
+        dtype="float64",
+    )
 
     # 6 cells as triangles; pad connectivity to max_vpf=4 with fill=-1
-    conn = np.array([
-        [0, 1, 2, -1],
-        [1, 3, 2, -1],
-        [2, 3, 4, -1],
-        [1, 5, 3, -1],
-        [3, 6, 4, -1],
-        [3, 5, 6, -1],
-    ], dtype="int32")
+    conn = np.array(
+        [
+            [0, 1, 2, -1],
+            [1, 3, 2, -1],
+            [2, 3, 4, -1],
+            [1, 5, 3, -1],
+            [3, 6, 4, -1],
+            [3, 5, 6, -1],
+        ],
+        dtype="int32",
+    )
 
     z_intf = np.array([10.0, 5.0, 0.0])
     c.write_mesh(sid, verts, conn, z_intf)
@@ -86,7 +96,9 @@ class TestNetCDFExport:
         rng = np.random.default_rng(0)
         for t in range(3):
             catalog.write_field(
-                sid, "watertable_depth", t,
+                sid,
+                "watertable_depth",
+                t,
                 rng.random(6),
                 n_timesteps=3 if t == 0 else None,
                 subgroup="derived",
@@ -126,7 +138,9 @@ class TestCSVExport:
         # Add another variable
         idx = pd.date_range("2020-01-01", periods=5, freq="D")
         catalog.write_timeseries(
-            sid, "outlet", "head",
+            sid,
+            "outlet",
+            "head",
             pd.Series(range(5), index=idx, dtype=float),
         )
         out = tmp_path / "filtered.csv"
@@ -161,8 +175,13 @@ class TestGeoTIFFExport:
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "field.tif"
         result = catalog.export(
-            sid, "head", "geotiff", out,
-            timestep=0, layer=0, resolution=0.5,
+            sid,
+            "head",
+            "geotiff",
+            out,
+            timestep=0,
+            layer=0,
+            resolution=0.5,
         )
         assert result.exists()
         with rasterio.open(str(out)) as src:
@@ -180,8 +199,12 @@ class TestShapefileExport:
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "cells.shp"
         result = catalog.export(
-            sid, "head", "shapefile", out,
-            timestep=0, layer=0,
+            sid,
+            "head",
+            "shapefile",
+            out,
+            timestep=0,
+            layer=0,
         )
         assert result.exists()
         gdf = gpd.read_file(str(out))

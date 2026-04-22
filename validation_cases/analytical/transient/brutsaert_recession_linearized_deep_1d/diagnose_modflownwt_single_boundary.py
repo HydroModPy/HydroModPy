@@ -235,7 +235,9 @@ def _run_probe(
 def _build_summary(results: list[ProbeResult]) -> dict[str, object]:
     """Assemble one JSON-serializable summary payload."""
     flat_steady = next(result for result in results if result.probe_id.endswith("steady_flat_ic"))
-    nudged_steady = next(result for result in results if result.probe_id.endswith("steady_nudged_ic"))
+    nudged_steady = next(
+        result for result in results if result.probe_id.endswith("steady_nudged_ic")
+    )
     transient_simple = next(
         result for result in results if result.probe_id.endswith("transient_restart_simple")
     )
@@ -258,7 +260,9 @@ def _build_summary(results: list[ProbeResult]) -> dict[str, object]:
                     flat_steady.budget_max_abs_rate_discrepancy_percent
                 ),
                 "outlet_discharge_m3_s": (
-                    None if not flat_steady.outlet_series_m3_s else flat_steady.outlet_series_m3_s[-1]
+                    None
+                    if not flat_steady.outlet_series_m3_s
+                    else flat_steady.outlet_series_m3_s[-1]
                 ),
             },
             "steady_nudged_ic_recovers_budget": {
@@ -266,7 +270,9 @@ def _build_summary(results: list[ProbeResult]) -> dict[str, object]:
                     nudged_steady.budget_max_abs_rate_discrepancy_percent
                 ),
                 "outlet_discharge_m3_s": (
-                    None if not nudged_steady.outlet_series_m3_s else nudged_steady.outlet_series_m3_s[-1]
+                    None
+                    if not nudged_steady.outlet_series_m3_s
+                    else nudged_steady.outlet_series_m3_s[-1]
                 ),
             },
             "transient_restart_simple_still_breaks": {
@@ -293,7 +299,9 @@ def _print_probe(result: ProbeResult) -> None:
     print(f"  success: {result.success}")
     print(f"  nwt_options: {result.nwt_options}")
     if result.outlet_series_m3_s:
-        print(f"  outlet first/last [m3/s]: {result.outlet_series_m3_s[0]:.6e} / {result.outlet_series_m3_s[-1]:.6e}")
+        print(
+            f"  outlet first/last [m3/s]: {result.outlet_series_m3_s[0]:.6e} / {result.outlet_series_m3_s[-1]:.6e}"
+        )
     if result.budget_max_abs_rate_discrepancy_percent is not None:
         print(
             "  budget max abs rate discrepancy [%]: "

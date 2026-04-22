@@ -41,20 +41,15 @@ class Optimizer(Protocol):
 
     name: str
 
-    def ask(self, n: int = 1) -> list[ParamSuggestion]:
-        ...
+    def ask(self, n: int = 1) -> list[ParamSuggestion]: ...
 
-    def tell(self, results: list[EvaluationResult]) -> None:
-        ...
+    def tell(self, results: list[EvaluationResult]) -> None: ...
 
-    def suggest_next(self) -> ParamSuggestion:
-        ...
+    def suggest_next(self) -> ParamSuggestion: ...
 
-    def best(self) -> EvaluationResult | None:
-        ...
+    def best(self) -> EvaluationResult | None: ...
 
-    def converged(self) -> bool:
-        ...
+    def converged(self) -> bool: ...
 
 
 _BUILTIN: dict[str, Callable[..., Optimizer]] = {}
@@ -82,10 +77,7 @@ def build_optimizer(name: str, space, **kwargs) -> Optimizer:
     for ep in entry_points(group="hydromodpy.optimizer"):
         if ep.name == name:
             return ep.load()(space, **kwargs)
-    raise KeyError(
-        f"Unknown optimizer: {name!r}. "
-        f"Available built-ins: {sorted(_BUILTIN)}"
-    )
+    raise KeyError(f"Unknown optimizer: {name!r}. Available built-ins: {sorted(_BUILTIN)}")
 
 
 _LOADED = False

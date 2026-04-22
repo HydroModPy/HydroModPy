@@ -74,8 +74,10 @@ def prepare_geographic_run(
     with rasterio.open(dem_init_path) as dem_src:
         epsg = dem_src.crs.to_epsg() if dem_src.crs is not None else None
         dem_res = float(abs(dem_src.transform.a))
-    crs_project = config.crs_project if config.crs_project is not None else (
-        f"EPSG:{epsg}" if epsg is not None else None
+    crs_project = (
+        config.crs_project
+        if config.crs_project is not None
+        else (f"EPSG:{epsg}" if epsg is not None else None)
     )
 
     return PreparedGeographicRun(
@@ -160,4 +162,3 @@ def build_standard_domain_polygons(
         watershed_box_name=Path(paths.watershed_box_shp).name,
         watershed_box_buff_name=Path(paths.box_buff).name,
     )
-

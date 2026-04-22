@@ -40,6 +40,7 @@ class OceanicManager(BaseFieldManager):
     def _fetch_from_source(self, source_cfg: OceanicSourceConfig):
         if source_cfg.source == "custom":
             from hydromodpy.data.variables.oceanic.custom import load_custom
+
             records = load_custom(
                 source_cfg,
                 project_period=self.project_period,
@@ -50,6 +51,7 @@ class OceanicManager(BaseFieldManager):
             return self._fetch_shom(source_cfg)
         elif source_cfg.source == "constant":
             from hydromodpy.data.variables.oceanic.constant import generate_constant
+
             return generate_constant(source_cfg, project_period=self.project_period)
         raise ValueError(f"Unknown oceanic source: {source_cfg.source}")
 
@@ -79,6 +81,5 @@ class OceanicManager(BaseFieldManager):
                 datetime.fromisoformat(cfg.date_end),
             )
         raise ValueError(
-            "SHOM source requires date_start/date_end in oceanic config "
-            "or a project_period."
+            "SHOM source requires date_start/date_end in oceanic config or a project_period."
         )

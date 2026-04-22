@@ -85,16 +85,14 @@ def _noise_summary(definition: Any) -> str:
         parts.append(
             "absolute "
             + ", ".join(
-                f"{name}={float(value):g}"
-                for name, value in noise.absolute_sigma_by_output.items()
+                f"{name}={float(value):g}" for name, value in noise.absolute_sigma_by_output.items()
             )
         )
     if getattr(noise, "relative_sigma_by_output", {}):
         parts.append(
             "relative "
             + ", ".join(
-                f"{name}={float(value):g}"
-                for name, value in noise.relative_sigma_by_output.items()
+                f"{name}={float(value):g}" for name, value in noise.relative_sigma_by_output.items()
             )
         )
     rendered = "; ".join(parts)
@@ -223,8 +221,7 @@ def _record(
             "solver_name": str(definition.solver_name),
             "regime": str(definition.regime),
             "truth_params": {
-                str(name): float(value)
-                for name, value in definition.truth_params.items()
+                str(name): float(value) for name, value in definition.truth_params.items()
             },
             "bounds": {
                 str(name): [float(item) for item in values]

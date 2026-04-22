@@ -23,9 +23,7 @@ from hydromodpy.spatial.mesh.cell_types import CellType
 from hydromodpy.spatial.mesh.hydro_mesh import CellBlock, HydroMesh
 
 # meshio name → CellType
-_FROM_MESHIO: dict[str, CellType] = {
-    ct.meshio_name: ct for ct in CellType
-}
+_FROM_MESHIO: dict[str, CellType] = {ct.meshio_name: ct for ct in CellType}
 
 
 def from_meshio(mesh: Any) -> HydroMesh:
@@ -64,8 +62,7 @@ def from_meshio(mesh: Any) -> HydroMesh:
 
     if not cell_blocks:
         raise ValueError(
-            "meshio mesh contains no supported cell types "
-            f"({', '.join(sorted(_FROM_MESHIO))})"
+            f"meshio mesh contains no supported cell types ({', '.join(sorted(_FROM_MESHIO))})"
         )
 
     # Collect cell_data: flatten per-block lists into flat arrays

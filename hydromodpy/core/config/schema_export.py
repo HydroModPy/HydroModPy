@@ -119,9 +119,7 @@ def export_schema(
         sections = _ensure_root_sections()
         if section not in sections:
             allowed = ", ".join(sorted(sections))
-            raise ValueError(
-                f"unknown config section {section!r} (allowed: {allowed})"
-            )
+            raise ValueError(f"unknown config section {section!r} (allowed: {allowed})")
         model_cls = sections[section]
 
     if model_cls is None:

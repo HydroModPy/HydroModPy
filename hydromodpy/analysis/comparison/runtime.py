@@ -91,10 +91,7 @@ class CellCentroidTable:
 
     def storage_for_cell_id(self, cell_id: int) -> float | None:
         """Return the storage coefficient for one cell id when available."""
-        if (
-            self.storage_coefficient is None
-            or self.storage_coefficient.size != self.cell_ids.size
-        ):
+        if self.storage_coefficient is None or self.storage_coefficient.size != self.cell_ids.size:
             return None
         matches = np.flatnonzero(self.cell_ids == int(cell_id))
         if matches.size == 0:
@@ -401,8 +398,7 @@ def _build_solver_process_overlay(
     flow_indices = [
         index
         for index, process in enumerate(processes)
-        if isinstance(process, Mapping)
-        and str(process.get("type", "")).strip().lower() == "flow"
+        if isinstance(process, Mapping) and str(process.get("type", "")).strip().lower() == "flow"
     ]
     if len(flow_indices) != 1:
         return None
@@ -529,9 +525,8 @@ def read_variant_run_metadata(run_folder: Path) -> dict[str, Any]:
             if key in boussinesq_summary:
                 payload[key] = boussinesq_summary.get(key)
 
-    bundle_dir_raw = (
-        metrics.get("mesh_output_exchange_bundle_dir")
-        or boussinesq_summary.get("bundle_dir")
+    bundle_dir_raw = metrics.get("mesh_output_exchange_bundle_dir") or boussinesq_summary.get(
+        "bundle_dir"
     )
     if bundle_dir_raw:
         bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=run_folder)
@@ -595,9 +590,7 @@ def resolve_bundle_cells(
                         )
                         storage_value = row.get("storage_coefficient")
                         storage_coefficients.append(
-                            float(storage_value)
-                            if storage_value not in (None, "")
-                            else math.nan
+                            float(storage_value) if storage_value not in (None, "") else math.nan
                         )
                     except Exception:
                         continue
@@ -607,10 +600,7 @@ def resolve_bundle_cells(
                 if area_array.size != len(cell_ids) or not np.any(np.isfinite(area_array)):
                     area_array = None
                 storage_array = np.asarray(storage_coefficients, dtype=float)
-                if (
-                    storage_array.size != len(cell_ids)
-                    or not np.any(np.isfinite(storage_array))
-                ):
+                if storage_array.size != len(cell_ids) or not np.any(np.isfinite(storage_array)):
                     storage_array = None
                 return CellCentroidTable(
                     cell_ids=np.asarray(cell_ids, dtype=int),
@@ -859,10 +849,14 @@ def normalize_observable_value(
         native_unit = "m3/s"
         conversion_applied = "drainage_flux_m3_s_to_m_per_day"
         cell_area_m2 = area_m2
-    elif observable.variable.strip().lower() in {
-        "surface_excess_rate",
-        "surface_excess_map",
-    } and series.variable_name == "saturation_excess_history_m_s":
+    elif (
+        observable.variable.strip().lower()
+        in {
+            "surface_excess_rate",
+            "surface_excess_map",
+        }
+        and series.variable_name == "saturation_excess_history_m_s"
+    ):
         output_value = _convert_rate_m_s_to_m_per_day(value_m_s=output_value)
         native_unit = "m/s"
         conversion_applied = "surface_excess_m_s_to_m_per_day"
@@ -947,15 +941,9 @@ def _load_mesh_npz_series(path: Path, *, variable_name: str) -> VariableSeries:
     else:
         time_keys = list(range(values.shape[0] if values.ndim > 1 else 1))
     elapsed_seconds = (
-        np.asarray(payload["times"], dtype=float).ravel()
-        if "times" in payload
-        else None
+        np.asarray(payload["times"], dtype=float).ravel() if "times" in payload else None
     )
-    cell_ids = (
-        np.asarray(payload["cell_ids"], dtype=int)
-        if "cell_ids" in payload
-        else None
-    )
+    cell_ids = np.asarray(payload["cell_ids"], dtype=int) if "cell_ids" in payload else None
     if values.ndim <= 1:
         elapsed = (
             float(elapsed_seconds[0])
@@ -1007,11 +995,7 @@ def _load_boussinesq_npz_series(
         else np.asarray([], dtype=float)
     )
     if values.ndim <= 1:
-        elapsed = (
-            float(np.nansum(period_lengths))
-            if period_lengths.size > 0
-            else None
-        )
+        elapsed = float(np.nansum(period_lengths)) if period_lengths.size > 0 else None
         slices = (
             TimeSlice(
                 time_key="final",
@@ -1035,7 +1019,9 @@ def _load_boussinesq_npz_series(
         if elapsed_seconds is None:
             elapsed_by_index = [None for _ in range(values.shape[0])]
         else:
-            elapsed_by_index = [float(value) for value in np.asarray(elapsed_seconds, dtype=float).tolist()]
+            elapsed_by_index = [
+                float(value) for value in np.asarray(elapsed_seconds, dtype=float).tolist()
+            ]
         slices = tuple(
             TimeSlice(
                 time_key=index,
@@ -1088,14 +1074,10 @@ def _load_boussinesq_surface_excess_total_series(
         solver_name="boussinesq",
     )
     if cells is None or cells.area_m2 is None:
-        raise ValueError(
-            "Cannot derive surface_excess_total_m3_s without bundle cell areas"
-        )
+        raise ValueError("Cannot derive surface_excess_total_m3_s without bundle cell areas")
     area_m2 = np.asarray(cells.area_m2, dtype=float).reshape(-1)
     if area_m2.size != values.shape[1]:
-        raise ValueError(
-            "Bundle cell areas do not match saturation_excess_history_m_s width"
-        )
+        raise ValueError("Bundle cell areas do not match saturation_excess_history_m_s width")
 
     positive = np.maximum(values, 0.0)
     totals_m3_s = np.sum(positive * area_m2[None, :], axis=1, dtype=float)
@@ -1117,10 +1099,11 @@ def _load_boussinesq_surface_excess_total_series(
         elapsed_by_index = [None for _ in range(totals_m3_s.size)]
         has_initial_state = False
     else:
-        elapsed_by_index = [float(value) for value in np.asarray(elapsed_seconds, dtype=float).tolist()]
+        elapsed_by_index = [
+            float(value) for value in np.asarray(elapsed_seconds, dtype=float).tolist()
+        ]
         has_initial_state = int(len(elapsed_by_index)) == int(totals_m3_s.size) and (
-            bool(period_lengths.size)
-            and int(totals_m3_s.size) == int(period_lengths.size) + 1
+            bool(period_lengths.size) and int(totals_m3_s.size) == int(period_lengths.size) + 1
         )
     slices = tuple(
         TimeSlice(
@@ -1260,18 +1243,12 @@ def _load_store_boussinesq_state_series(
     period_lengths = np.asarray([], dtype=float)
     if "period_lengths_seconds" in state_grp:
         try:
-            period_lengths = np.asarray(
-                state_grp["period_lengths_seconds"][:], dtype=float
-            ).ravel()
+            period_lengths = np.asarray(state_grp["period_lengths_seconds"][:], dtype=float).ravel()
         except Exception:
             pass
 
     if values.ndim <= 1:
-        elapsed = (
-            float(np.nansum(period_lengths))
-            if period_lengths.size > 0
-            else None
-        )
+        elapsed = float(np.nansum(period_lengths)) if period_lengths.size > 0 else None
         slices = (
             TimeSlice(
                 time_key="final",
@@ -1291,8 +1268,7 @@ def _load_store_boussinesq_state_series(
                 time_index=index,
                 values=values[index].ravel(),
                 elapsed_seconds=elapsed_by_index[index],
-                is_initial_state=period_lengths.size == values.shape[0] - 1
-                and index == 0,
+                is_initial_state=period_lengths.size == values.shape[0] - 1 and index == 0,
             )
             for index in range(values.shape[0])
         )
@@ -1329,7 +1305,8 @@ def _load_store_surface_excess_total_series(
 
     try:
         values = np.asarray(
-            state_grp["saturation_excess_history_m_s"][:], dtype=float,
+            state_grp["saturation_excess_history_m_s"][:],
+            dtype=float,
         )
     except Exception:
         return None
@@ -1357,7 +1334,8 @@ def _load_store_surface_excess_total_series(
     if "period_lengths_seconds" in state_grp:
         try:
             period_lengths = np.asarray(
-                state_grp["period_lengths_seconds"][:], dtype=float,
+                state_grp["period_lengths_seconds"][:],
+                dtype=float,
             ).ravel()
         except Exception:
             pass
@@ -1372,8 +1350,7 @@ def _load_store_surface_excess_total_series(
             time_index=index,
             values=np.asarray([float(total)], dtype=float),
             elapsed_seconds=elapsed_by_index[index],
-            is_initial_state=period_lengths.size == totals_m3_s.size - 1
-            and index == 0,
+            is_initial_state=period_lengths.size == totals_m3_s.size - 1 and index == 0,
         )
         for index, total in enumerate(totals_m3_s.tolist())
     )
@@ -1408,7 +1385,8 @@ def load_variable_series(
             if series is not None:
                 logger.debug(
                     "Loaded '%s' from SimulationCatalog (sim_id=%s).",
-                    variable_name, sim_id,
+                    variable_name,
+                    sim_id,
                 )
                 return series
 
@@ -1419,25 +1397,30 @@ def load_variable_series(
                 "saturation_excess_total_m3_s",
             }:
                 series = _load_store_surface_excess_total_series(
-                    store, sim_id,
+                    store,
+                    sim_id,
                     variable_name=variable_name,
                     run_folder=run_folder,
                 )
             else:
                 series = _load_store_boussinesq_state_series(
-                    store, sim_id, variable_name=variable_name,
+                    store,
+                    sim_id,
+                    variable_name=variable_name,
                 )
             if series is not None:
                 logger.debug(
                     "Loaded '%s' from SimulationCatalog boussinesq_state (sim_id=%s).",
-                    variable_name, sim_id,
+                    variable_name,
+                    sim_id,
                 )
                 return series
 
         logger.debug(
             "Variable '%s' not found in SimulationCatalog (sim_id=%s), "
             "falling back to legacy loaders.",
-            variable, sim_id,
+            variable,
+            sim_id,
         )
 
     # --- Fallback: legacy .npy / .npz loaders --------------------------------
@@ -1552,9 +1535,7 @@ def _select_time_slices(
             ]
         else:
             selected = [
-                item
-                for item in series.slices
-                if str(start) <= str(item.time_key) <= str(end)
+                item for item in series.slices if str(start) <= str(item.time_key) <= str(end)
             ]
         return tuple(selected or series.slices)
 
@@ -1575,8 +1556,7 @@ def _select_time_slices(
         if -len(series.slices) <= index < len(series.slices):
             return (series.slices[index],)
     raise KeyError(
-        f"Time selector {time_selector!r} not found for variable "
-        f"'{series.variable_name}'"
+        f"Time selector {time_selector!r} not found for variable '{series.variable_name}'"
     )
 
 
@@ -1645,8 +1625,7 @@ def _select_cell_values(
     positions = [_cell_position_for_cell_id(series, cell_id=cell_id) for cell_id in cell_ids]
     if any(position >= values.size for position in positions):
         raise IndexError(
-            f"cell index outside variable '{series.variable_name}' values "
-            f"(size={values.size})"
+            f"cell index outside variable '{series.variable_name}' values (size={values.size})"
         )
     return values[np.asarray(positions, dtype=int)]
 
@@ -1698,9 +1677,7 @@ def _select_spatial_values(
                 )
             selected_cell_ids = []
             details["selection"] = (
-                "domain_reducer_proxy"
-                if values.size > 1
-                else "scalar_outlet_series"
+                "domain_reducer_proxy" if values.size > 1 else "scalar_outlet_series"
             )
         if values.size == 1 and series.cell_ids is None:
             if selected_cell_ids:
@@ -1812,16 +1789,12 @@ def extract_observable_rows(
             sim_id=sim_id,
         )
         if cells is None:
-            first_slice_size = (
-                int(series.slices[0].values.size) if series.slices else None
-            )
+            first_slice_size = int(series.slices[0].values.size) if series.slices else None
             cells = resolve_bundle_cells(
                 run_folder,
                 config_path=config_path,
                 expected_size=(
-                    None
-                    if first_slice_size is None or first_slice_size <= 1
-                    else first_slice_size
+                    None if first_slice_size is None or first_slice_size <= 1 else first_slice_size
                 ),
                 solver_name=variant.solver,
             )
@@ -1838,11 +1811,7 @@ def extract_observable_rows(
             per_time_values.append((time_slice, values, details))
 
         if observable.time_reducer is not None:
-            flat = [
-                value
-                for _, values, _ in per_time_values
-                for value in values
-            ]
+            flat = [value for _, values, _ in per_time_values for value in values]
             reducer_key = str(observable.time_reducer).strip().lower()
             reduced_values = _reduce(
                 flat,
@@ -1861,9 +1830,7 @@ def extract_observable_rows(
                 time_index=-1,
                 values=np.asarray(reduced_values, dtype=float),
             )
-            per_time_values = [
-                (reduced_slice, reduced_values, reduced_details)
-            ]
+            per_time_values = [(reduced_slice, reduced_values, reduced_details)]
 
         non_initial_counter = 0
         for selection_time_order, (time_slice, values, details) in enumerate(per_time_values):
@@ -1909,20 +1876,14 @@ def extract_observable_rows(
                             else float(time_slice.elapsed_seconds)
                         ),
                         "requested_time": (
-                            "all"
-                            if observable.time is None
-                            else str(observable.time)
+                            "all" if observable.time is None else str(observable.time)
                         ),
                         "requested_time_reducer": (
-                            ""
-                            if observable.time_reducer is None
-                            else str(observable.time_reducer)
+                            "" if observable.time_reducer is None else str(observable.time_reducer)
                         ),
                         "selection_time_order": selection_time_order,
                         "non_initial_time_order": (
-                            ""
-                            if non_initial_time_order is None
-                            else non_initial_time_order
+                            "" if non_initial_time_order is None else non_initial_time_order
                         ),
                         "is_initial_state": bool(time_slice.is_initial_state),
                         "comparison_time_key": _time_match_key(time_slice),
@@ -1940,12 +1901,8 @@ def extract_observable_rows(
                         "run_folder": str(run_folder),
                         "selection": str(details.get("selection", "")),
                         "allow_domain_proxy": bool(observable.allow_domain_proxy),
-                        "selected_cell_index": str(
-                            details.get("selected_cell_index", "")
-                        ),
-                        "selected_cell_indices": str(
-                            details.get("selected_cell_indices", "")
-                        ),
+                        "selected_cell_index": str(details.get("selected_cell_index", "")),
+                        "selected_cell_indices": str(details.get("selected_cell_indices", "")),
                     }
                 )
     return rows
@@ -1983,9 +1940,7 @@ def discover_result_store(
         sim_id = str(sims.iloc[-1]["sim_id"])
         return catalog, sim_id
     except Exception:
-        logger.debug(
-            "Could not open SimulationCatalog from %s", workspace_root, exc_info=True
-        )
+        logger.debug("Could not open SimulationCatalog from %s", workspace_root, exc_info=True)
         return None, None
 
 

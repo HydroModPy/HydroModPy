@@ -24,6 +24,7 @@ _BUNDLED_GPKG = Path(__file__).parent / "departement.gpkg"
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def find_departments_in_bbox(
     bbox: tuple[float, float, float, float],
 ) -> list[str]:
@@ -75,14 +76,13 @@ department_code_to_brgm_code = department_code_to_padded
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _find_code_column(gdf: gpd.GeoDataFrame) -> str:
     """Find the column holding the department code (INSEE)."""
     for name in ("code_insee", "code", "code_dept", "CODE_DEPT", "INSEE_DEP"):
         if name in gdf.columns:
             return name
-    raise ValueError(
-        f"Cannot find department code column. Available: {list(gdf.columns)}"
-    )
+    raise ValueError(f"Cannot find department code column. Available: {list(gdf.columns)}")
 
 
 def _to_padded_codes(raw_codes: Sequence[str] | set[str]) -> set[str]:

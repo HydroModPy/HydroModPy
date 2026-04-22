@@ -307,9 +307,7 @@ def _select_gallery_specs(
     if categories:
         unknown_categories = [slug for slug in categories if slug not in CATEGORY_SPECS]
         if unknown_categories:
-            raise ValueError(
-                "Unknown gallery categories: " + ", ".join(sorted(unknown_categories))
-            )
+            raise ValueError("Unknown gallery categories: " + ", ".join(sorted(unknown_categories)))
 
     specs_by_slug = {spec.slug: spec for spec in specs}
     unknown_slugs = [slug for slug in only_slugs if slug not in specs_by_slug]
@@ -352,18 +350,10 @@ def _load_existing_case_summary(
     candidate_paths: list[Path] = []
     if category_hint:
         candidate_paths.append(
-            source_root
-            / "_static"
-            / "capability_gallery"
-            / category_hint
-            / f"{slug}_summary.json"
+            source_root / "_static" / "capability_gallery" / category_hint / f"{slug}_summary.json"
         )
     candidate_paths.extend(
-        sorted(
-            (
-                source_root / "_static" / "capability_gallery"
-            ).glob(f"*/{slug}_summary.json")
-        )
+        sorted((source_root / "_static" / "capability_gallery").glob(f"*/{slug}_summary.json"))
     )
     for candidate_path in candidate_paths:
         if not candidate_path.exists():
@@ -405,7 +395,9 @@ def _cleanup_stale_case_artifacts(
 ) -> None:
     if old_summary is None:
         return
-    stale_paths = _known_case_generated_paths(old_summary) - _known_case_generated_paths(new_summary)
+    stale_paths = _known_case_generated_paths(old_summary) - _known_case_generated_paths(
+        new_summary
+    )
     for relative_path in stale_paths:
         path = source_root / relative_path
         if path.exists() and path.is_file():
@@ -419,8 +411,7 @@ def _merge_case_summaries_by_category(
     baseline_source_root: Path,
 ) -> dict[str, list[dict[str, Any]]]:
     summaries_by_category: dict[str, list[dict[str, Any]]] = {
-        category_slug: []
-        for category_slug in CATEGORY_SPECS
+        category_slug: [] for category_slug in CATEGORY_SPECS
     }
     known_slugs = {spec.slug for spec in all_specs}
     missing_summaries: list[str] = []
@@ -474,7 +465,9 @@ def _write_gallery_pages_from_summaries(
         if category_slugs_to_write is not None and category_slug not in category_slugs_to_write:
             continue
         if cases:
-            _write_text(docs_dir / f"{category_slug}.rst", _build_category_page(category_slug, cases))
+            _write_text(
+                docs_dir / f"{category_slug}.rst", _build_category_page(category_slug, cases)
+            )
 
     calibration_cases = list(summaries_by_category.get("calibration", []))
     if not rewrite_calibration_pages or not calibration_cases:
@@ -528,7 +521,9 @@ def _generate_selected_gallery(
 
         case_summary = _with_parameter_docs(_generate_case(spec, source_root))
         selected_summaries_by_slug[spec.slug] = case_summary
-        summary_path = static_dir / str(case_summary["category"]) / f"{case_summary['slug']}_summary.json"
+        summary_path = (
+            static_dir / str(case_summary["category"]) / f"{case_summary['slug']}_summary.json"
+        )
         _write_json(summary_path, case_summary)
         _write_text(case_dir / f"{case_summary['slug']}.rst", _build_case_page(case_summary))
         _cleanup_stale_case_artifacts(
@@ -542,10 +537,7 @@ def _generate_selected_gallery(
         selected_summaries_by_slug=selected_summaries_by_slug,
         baseline_source_root=baseline_source_root,
     )
-    affected_categories = {
-        spec.category
-        for spec in selected_specs
-    }
+    affected_categories = {spec.category for spec in selected_specs}
     affected_categories.update(
         str(summary.get("category", "")).strip()
         for summary in old_summaries_by_slug.values()
@@ -612,7 +604,9 @@ def _docs_relative_static_path(*parts: str) -> str:
 
 
 def _repo_docs_artifact_path(*parts: str) -> str:
-    return (Path("docs") / "readthedocs" / "source" / "_static" / "capability_gallery" / Path(*parts)).as_posix()
+    return (
+        Path("docs") / "readthedocs" / "source" / "_static" / "capability_gallery" / Path(*parts)
+    ).as_posix()
 
 
 def _write_text(path: Path, content: str) -> None:
@@ -735,7 +729,9 @@ def _build_case_summary(
                 }
             )
 
-    summary_json_doc_path = "/" + _docs_relative_static_path(spec.category, f"{spec.slug}_summary.json")
+    summary_json_doc_path = "/" + _docs_relative_static_path(
+        spec.category, f"{spec.slug}_summary.json"
+    )
     summary_json_repo_path = _repo_docs_artifact_path(spec.category, f"{spec.slug}_summary.json")
 
     metrics = metrics_override
@@ -743,7 +739,9 @@ def _build_case_summary(
         metrics = []
         for metric_spec in spec.metric_specs:
             if metrics_source is None:
-                raise ValueError("metrics_source is required when metrics_override is not provided.")
+                raise ValueError(
+                    "metrics_source is required when metrics_override is not provided."
+                )
             raw_value = metrics_source[metric_spec.key]
             metrics.append(
                 {
@@ -807,7 +805,9 @@ def _generate_mesh_viewer_case(spec: GalleryCaseSpec, source_root: Path) -> dict
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(_repo_path(str(asset.source_path)), destination)
     else:
-        figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+        figure_path = source_root / _docs_relative_static_path(
+            spec.category, spec.image_assets[0].filename
+        )
         config = load_toml_config(_repo_path(str(spec.metadata["config_path"])))
         config = replace(
             config,
@@ -879,7 +879,11 @@ def _regional_lab_status_style(status: str) -> tuple[str, str, str]:
     normalized = str(status).strip().lower()
     return mapping.get(
         normalized,
-        ("#BAB0AC", _humanize_case_token(normalized)[:3].upper() or "NA", _humanize_case_token(normalized)),
+        (
+            "#BAB0AC",
+            _humanize_case_token(normalized)[:3].upper() or "NA",
+            _humanize_case_token(normalized),
+        ),
     )
 
 
@@ -920,7 +924,9 @@ def _render_regional_lab_figure(
             status_by_pair[(recipe_id, site_id)] = str(row.get("status", "")).strip()
 
     fig = plt.figure(figsize=(15.2, 9.2), dpi=160)
-    gs = fig.add_gridspec(2, 2, width_ratios=[1.7, 1.0], height_ratios=[1.0, 0.9], wspace=0.30, hspace=0.34)
+    gs = fig.add_gridspec(
+        2, 2, width_ratios=[1.7, 1.0], height_ratios=[1.0, 0.9], wspace=0.30, hspace=0.34
+    )
     ax_matrix = fig.add_subplot(gs[:, 0])
     ax_recipe = fig.add_subplot(gs[0, 1])
     ax_text = fig.add_subplot(gs[1, 1])
@@ -967,7 +973,9 @@ def _render_regional_lab_figure(
             spine.set_visible(False)
     else:
         ax_matrix.axis("off")
-        ax_matrix.text(0.02, 0.98, "No case-matrix rows found.", transform=ax_matrix.transAxes, va="top")
+        ax_matrix.text(
+            0.02, 0.98, "No case-matrix rows found.", transform=ax_matrix.transAxes, va="top"
+        )
 
     legend_handles = []
     seen_statuses: set[str] = set()
@@ -988,15 +996,25 @@ def _render_regional_lab_figure(
             fontsize=9,
         )
 
-    recipe_labels_ordered = [str(row.get("recipe_label", row.get("recipe_id", ""))).strip() for row in recipe_rows]
-    recipe_candidate = np.array([_safe_int(row.get("candidate_site_count")) for row in recipe_rows], dtype=float)
-    recipe_planned = np.array([_safe_int(row.get("planned_case_count")) for row in recipe_rows], dtype=float)
-    recipe_skipped = np.array([_safe_int(row.get("skipped_case_count")) for row in recipe_rows], dtype=float)
+    recipe_labels_ordered = [
+        str(row.get("recipe_label", row.get("recipe_id", ""))).strip() for row in recipe_rows
+    ]
+    recipe_candidate = np.array(
+        [_safe_int(row.get("candidate_site_count")) for row in recipe_rows], dtype=float
+    )
+    recipe_planned = np.array(
+        [_safe_int(row.get("planned_case_count")) for row in recipe_rows], dtype=float
+    )
+    recipe_skipped = np.array(
+        [_safe_int(row.get("skipped_case_count")) for row in recipe_rows], dtype=float
+    )
     y_positions = np.arange(len(recipe_rows))
     if len(recipe_rows) > 0:
         ax_recipe.barh(y_positions, recipe_candidate, color="#E6E6E6", label="Candidate sites")
         ax_recipe.barh(y_positions, recipe_planned, color="#4C78A8", label="Planned")
-        ax_recipe.barh(y_positions, recipe_skipped, left=recipe_planned, color="#F58518", label="Skipped")
+        ax_recipe.barh(
+            y_positions, recipe_skipped, left=recipe_planned, color="#F58518", label="Skipped"
+        )
         for index, row in enumerate(recipe_rows):
             pending = _safe_int(row.get("pending_case_count"))
             ax_recipe.text(
@@ -1018,7 +1036,9 @@ def _render_regional_lab_figure(
             spine.set_visible(False)
     else:
         ax_recipe.axis("off")
-        ax_recipe.text(0.02, 0.98, "No recipe summary found.", transform=ax_recipe.transAxes, va="top")
+        ax_recipe.text(
+            0.02, 0.98, "No recipe summary found.", transform=ax_recipe.transAxes, va="top"
+        )
 
     ax_text.axis("off")
     selected_sites = list(plan_payload.get("selected_sites", []))
@@ -1094,7 +1114,8 @@ def _render_regional_lab_figure(
         ", ".join(f"{label} ({count})" for label, count in sorted(status_counts.items())) or "none",
         "",
         "Candidate site maturity mix:",
-        ", ".join(f"{label} ({count})" for label, count in sorted(maturity_counts.items())) or "none",
+        ", ".join(f"{label} ({count})" for label, count in sorted(maturity_counts.items()))
+        or "none",
         "",
         "Gap reasons:",
         ", ".join(f"{label} ({count})" for label, count in sorted(gap_counts.items())) or "none",
@@ -1200,7 +1221,9 @@ def _generate_regional_lab_case(spec: GalleryCaseSpec, source_root: Path) -> dic
         cluster_rows = _read_csv_rows(cluster_summary_path)
         case_matrix_rows = _read_csv_rows(case_matrix_path)
 
-        figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+        figure_path = source_root / _docs_relative_static_path(
+            spec.category, spec.image_assets[0].filename
+        )
         _render_regional_lab_figure(
             figure_path=figure_path,
             case_title=spec.title,
@@ -1286,9 +1309,14 @@ def _generate_regional_lab_case(spec: GalleryCaseSpec, source_root: Path) -> dic
         metadata=metadata,
         extra_summary={
             "artifacts": {
-                "summary_json_doc_path": "/" + _docs_relative_static_path(spec.category, f"{spec.slug}_summary.json"),
-                "summary_json_repo_path": _repo_docs_artifact_path(spec.category, f"{spec.slug}_summary.json"),
-                "image_repo_paths": [_repo_docs_artifact_path(spec.category, spec.image_assets[0].filename)],
+                "summary_json_doc_path": "/"
+                + _docs_relative_static_path(spec.category, f"{spec.slug}_summary.json"),
+                "summary_json_repo_path": _repo_docs_artifact_path(
+                    spec.category, f"{spec.slug}_summary.json"
+                ),
+                "image_repo_paths": [
+                    _repo_docs_artifact_path(spec.category, spec.image_assets[0].filename)
+                ],
                 "extra_repo_paths": [
                     _repo_docs_artifact_path(spec.category, artifact_name)
                     for artifact_name in copied_artifact_names
@@ -1314,7 +1342,9 @@ def _build_validation_image_summary(
     }
 
 
-def _build_validation_solver_command(*, run_case_module: str, solver: str, include_solver_flag: bool) -> str:
+def _build_validation_solver_command(
+    *, run_case_module: str, solver: str, include_solver_flag: bool
+) -> str:
     command = f"python -m {run_case_module} --no-show"
     if include_solver_flag:
         command += f" --solver {solver}"
@@ -1324,8 +1354,7 @@ def _build_validation_solver_command(*, run_case_module: str, solver: str, inclu
 def _sanitize_gallery_token(text: str) -> str:
     """Return one filesystem-safe token used in generated calibration assets."""
     token = "".join(
-        char if char.isalnum() or char in {"_", "-"} else "_"
-        for char in str(text).strip().lower()
+        char if char.isalnum() or char in {"_", "-"} else "_" for char in str(text).strip().lower()
     )
     return token or "item"
 
@@ -1338,7 +1367,9 @@ def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[
     caller_file = _repo_path(str(spec.metadata["run_case_file"]))
 
     solver_variants = tuple(str(item) for item in spec.metadata.get("solver_variants", ()))
-    default_solver = str(spec.metadata.get("default_solver", solver_variants[0] if solver_variants else ""))
+    default_solver = str(
+        spec.metadata.get("default_solver", solver_variants[0] if solver_variants else "")
+    )
     solver_details = {
         str(key): value for key, value in dict(spec.metadata.get("solver_details", {})).items()
     }
@@ -1456,8 +1487,11 @@ def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[
             "solver_runs": solver_runs,
             "parameter_docs": parameter_docs,
             "artifacts": {
-                "summary_json_doc_path": "/" + _docs_relative_static_path(spec.category, f"{spec.slug}_summary.json"),
-                "summary_json_repo_path": _repo_docs_artifact_path(spec.category, f"{spec.slug}_summary.json"),
+                "summary_json_doc_path": "/"
+                + _docs_relative_static_path(spec.category, f"{spec.slug}_summary.json"),
+                "summary_json_repo_path": _repo_docs_artifact_path(
+                    spec.category, f"{spec.slug}_summary.json"
+                ),
                 "image_repo_paths": all_image_repo_paths,
             },
         },
@@ -1492,27 +1526,19 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
         definition,
         caller_file=run_case_file,
         method_names=method_names,
-        evaluation_budget=(
-            None if evaluation_budget is None else int(evaluation_budget)
-        ),
+        evaluation_budget=(None if evaluation_budget is None else int(evaluation_budget)),
         artifact_retention="minimal",
         case_figures=True,
     )
 
     method_results = list(benchmark.method_results)
     if not method_results:
-        raise RuntimeError(
-            f"Calibration gallery case '{spec.slug}' produced no method results."
-        )
+        raise RuntimeError(f"Calibration gallery case '{spec.slug}' produced no method results.")
     display_method_name = str(
         spec.metadata.get("display_method_name", method_results[0].method_name)
     )
     display_result = next(
-        (
-            result
-            for result in method_results
-            if str(result.method_name) == display_method_name
-        ),
+        (result for result in method_results if str(result.method_name) == display_method_name),
         method_results[0],
     )
 
@@ -1601,8 +1627,7 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
                 category=spec.category,
                 filename=posterior_filename,
                 caption=(
-                    f"Parameter distribution for `{result.method_instance_name}` "
-                    f"on {spec.title}."
+                    f"Parameter distribution for `{result.method_instance_name}` on {spec.title}."
                 ),
                 alt_text=f"{spec.title} posterior distribution for {result.method_instance_name}",
             )
@@ -1804,21 +1829,13 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
             "model_distribution_sample_count": int(result.model_distribution_sample_count),
             "calibration_time_seconds": result.calibration_time_seconds,
             "session_prepare_time_seconds": result.session_prepare_time_seconds,
-            "estimated_candidate_runtime_seconds": (
-                result.estimated_candidate_runtime_seconds
-            ),
-            "algorithm_overhead_time_seconds": (
-                result.algorithm_overhead_time_seconds
-            ),
-            "mean_candidate_total_time_seconds": (
-                result.mean_candidate_total_time_seconds
-            ),
+            "estimated_candidate_runtime_seconds": (result.estimated_candidate_runtime_seconds),
+            "algorithm_overhead_time_seconds": (result.algorithm_overhead_time_seconds),
+            "mean_candidate_total_time_seconds": (result.mean_candidate_total_time_seconds),
             "mean_candidate_preparation_time_seconds": (
                 result.mean_candidate_preparation_time_seconds
             ),
-            "mean_candidate_actualize_time_seconds": (
-                result.mean_candidate_actualize_time_seconds
-            ),
+            "mean_candidate_actualize_time_seconds": (result.mean_candidate_actualize_time_seconds),
             "mean_candidate_launcher_prepare_time_seconds": (
                 result.mean_candidate_launcher_prepare_time_seconds
             ),
@@ -1837,17 +1854,11 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
             "mean_candidate_objective_compute_time_seconds": (
                 result.mean_candidate_objective_compute_time_seconds
             ),
-            "mean_candidate_objective_time_seconds": (
-                result.mean_candidate_objective_time_seconds
-            ),
+            "mean_candidate_objective_time_seconds": (result.mean_candidate_objective_time_seconds),
             "param_abs_error": {
-                str(name): float(value)
-                for name, value in result.param_abs_error.items()
+                str(name): float(value) for name, value in result.param_abs_error.items()
             },
-            "params_best": {
-                str(name): float(value)
-                for name, value in result.params_best.items()
-            },
+            "params_best": {str(name): float(value) for name, value in result.params_best.items()},
             "objective_landscape_filename": method_assets.get("landscape_filename"),
             "objective_trace_filename": method_assets.get("trace_filename"),
             "posterior_distribution_filename": method_assets.get("posterior_filename"),
@@ -1908,7 +1919,9 @@ def _generate_calibration_case(spec: GalleryCaseSpec, source_root: Path) -> dict
             "lead_image_filenames": lead_image_filenames,
             "tab_specs": tab_specs,
             "configuration_figure": (
-                None if benchmark.configuration_figure is None else str(benchmark.configuration_figure)
+                None
+                if benchmark.configuration_figure is None
+                else str(benchmark.configuration_figure)
             ),
         },
         images_override=images_override,
@@ -1983,7 +1996,9 @@ def _load_committed_method_comparison_payload(
     return manifest, metrics_payload, all_rows
 
 
-def _build_method_comparison_payload(config_path: Path) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
+def _build_method_comparison_payload(
+    config_path: Path,
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     from hydromodpy.core.config.toml_loader import load_toml_with_base_config
     from hydromodpy.analysis.comparison.config import MethodComparisonConfig
     from hydromodpy.analysis.comparison.metrics import build_comparison_metrics
@@ -2045,9 +2060,7 @@ def _build_method_comparison_payload(config_path: Path) -> tuple[dict[str, Any],
                 f"a committed run_folder for variant '{variant.id}'."
             )
         if not run_folder.exists():
-            raise FileNotFoundError(
-                f"Missing run folder for variant '{variant.id}': {run_folder}"
-            )
+            raise FileNotFoundError(f"Missing run folder for variant '{variant.id}': {run_folder}")
 
         rows = extract_observable_rows(
             comparison_id=str(section.comparison_id),
@@ -2097,10 +2110,7 @@ def _build_method_comparison_payload(config_path: Path) -> tuple[dict[str, Any],
         "n_metric_rows": len(summary_metrics),
         "n_difference_rows": len(detail_metrics),
         "variants": variant_summaries,
-        "observables": [
-            observable.model_dump(mode="json")
-            for observable in section.observable
-        ],
+        "observables": [observable.model_dump(mode="json") for observable in section.observable],
     }
     metrics_payload = {
         "schema_version": "method_comparison_metrics_v1",
@@ -2124,11 +2134,7 @@ def _align_single_snapshot_rows(rows: list[dict[str, Any]]) -> None:
         observable
         for observable, _variant in snapshot_keys
         if observable
-        and all(
-            len(keys) == 1
-            for (obs, _), keys in snapshot_keys.items()
-            if obs == observable
-        )
+        and all(len(keys) == 1 for (obs, _), keys in snapshot_keys.items() if obs == observable)
     }
     for row in rows:
         observable = str(row.get("observable", ""))
@@ -2153,14 +2159,9 @@ def _render_method_comparison_figure(
 ) -> None:
     plt = _import_pyplot()
 
-    observable_order = [
-        str(row["observable"])
-        for row in summary_rows
-    ]
+    observable_order = [str(row["observable"]) for row in summary_rows]
     grouped_detail: dict[str, list[dict[str, Any]]] = {
-        observable: [
-            row for row in detail_rows if str(row.get("observable", "")) == observable
-        ]
+        observable: [row for row in detail_rows if str(row.get("observable", "")) == observable]
         for observable in observable_order
     }
 
@@ -2196,9 +2197,7 @@ def _render_method_comparison_figure(
             edgecolors="none",
         )
         ax.plot([low, high], [low, high], linestyle="--", color="0.35", linewidth=1.0)
-        summary_row = next(
-            row for row in summary_rows if str(row["observable"]) == observable
-        )
+        summary_row = next(row for row in summary_rows if str(row["observable"]) == observable)
         unit = str(summary_row.get("unit", "")).strip()
         ax.set_title(
             f"{_humanize_case_token(observable)}\n"
@@ -2262,7 +2261,9 @@ def _generate_square_parameterizations_property_case(
     from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
     from hydromodpy.spatial.field.core.field_param import FieldParam
 
-    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path = source_root / _docs_relative_static_path(
+        spec.category, spec.image_assets[0].filename
+    )
     figure_path.parent.mkdir(parents=True, exist_ok=True)
 
     field = FieldSquare(
@@ -2283,14 +2284,20 @@ def _generate_square_parameterizations_property_case(
         values_by_key={"granite": "10 m/day", "micaschists": "2 m/day"},
         field_spatial_id="field_square",
     )
-    structured_values = np.asarray(
-        conductivity.to_mesh_field(field.on_mesh(structured_mesh)).cell_values,
-        dtype=float,
-    ) * 86400.0
-    triangular_values = np.asarray(
-        conductivity.to_mesh_field(field.on_mesh(triangular_mesh)).cell_values,
-        dtype=float,
-    ) * 86400.0
+    structured_values = (
+        np.asarray(
+            conductivity.to_mesh_field(field.on_mesh(structured_mesh)).cell_values,
+            dtype=float,
+        )
+        * 86400.0
+    )
+    triangular_values = (
+        np.asarray(
+            conductivity.to_mesh_field(field.on_mesh(triangular_mesh)).cell_values,
+            dtype=float,
+        )
+        * 86400.0
+    )
     k_min = float(min(np.nanmin(structured_values), np.nanmin(triangular_values)))
     k_max = float(max(np.nanmax(structured_values), np.nanmax(triangular_values)))
 
@@ -2415,7 +2422,9 @@ def _generate_square_parameterizations_property_case(
                 {
                     "identifier": identifier,
                     "raw_value": raw_value,
-                    "normalized_value": float(np.asarray(parameter.to_array(), dtype=float).reshape(-1)[0]),
+                    "normalized_value": float(
+                        np.asarray(parameter.to_array(), dtype=float).reshape(-1)[0]
+                    ),
                     "normalized_unit": parameter.unit,
                 }
                 for identifier, raw_value, parameter in unit_examples
@@ -2435,7 +2444,9 @@ def _generate_irregular_mesh_property_case(
     from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
     from hydromodpy.spatial.field.core.field_param import FieldParam
 
-    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path = source_root / _docs_relative_static_path(
+        spec.category, spec.image_assets[0].filename
+    )
     figure_path.parent.mkdir(parents=True, exist_ok=True)
 
     field = FieldSquare(
@@ -2457,14 +2468,20 @@ def _generate_irregular_mesh_property_case(
         values_by_key={"granite": "12 m/day", "micaschists": "2.5 m/day"},
         field_spatial_id="field_square",
     )
-    structured_values = np.asarray(
-        conductivity.to_mesh_field(field.on_mesh(structured_mesh)).cell_values,
-        dtype=float,
-    ) * 86400.0
-    irregular_values = np.asarray(
-        conductivity.to_mesh_field(field.on_mesh(irregular_mesh)).cell_values,
-        dtype=float,
-    ) * 86400.0
+    structured_values = (
+        np.asarray(
+            conductivity.to_mesh_field(field.on_mesh(structured_mesh)).cell_values,
+            dtype=float,
+        )
+        * 86400.0
+    )
+    irregular_values = (
+        np.asarray(
+            conductivity.to_mesh_field(field.on_mesh(irregular_mesh)).cell_values,
+            dtype=float,
+        )
+        * 86400.0
+    )
     k_min = float(min(np.nanmin(structured_values), np.nanmin(irregular_values)))
     k_max = float(max(np.nanmax(structured_values), np.nanmax(irregular_values)))
 
@@ -2524,7 +2541,9 @@ def _generate_depth_dependence_property_case(
     from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
     from hydromodpy.spatial.field.core.field_param import FieldParam
 
-    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path = source_root / _docs_relative_static_path(
+        spec.category, spec.image_assets[0].filename
+    )
     figure_path.parent.mkdir(parents=True, exist_ok=True)
 
     field = FieldSquare(
@@ -2548,14 +2567,20 @@ def _generate_depth_dependence_property_case(
             "min_factor": 0.08,
         },
     )
-    surface_values = np.asarray(
-        exponential_param.to_mesh_field(field.on_mesh(mesh), depth=0.0).cell_values,
-        dtype=float,
-    ) * 86400.0
-    deep_values = np.asarray(
-        exponential_param.to_mesh_field(field.on_mesh(mesh), depth=depth_m).cell_values,
-        dtype=float,
-    ) * 86400.0
+    surface_values = (
+        np.asarray(
+            exponential_param.to_mesh_field(field.on_mesh(mesh), depth=0.0).cell_values,
+            dtype=float,
+        )
+        * 86400.0
+    )
+    deep_values = (
+        np.asarray(
+            exponential_param.to_mesh_field(field.on_mesh(mesh), depth=depth_m).cell_values,
+            dtype=float,
+        )
+        * 86400.0
+    )
 
     depths = np.linspace(0.0, 60.0, 220, dtype=float)
     exponential_profile = FieldParam(
@@ -2611,7 +2636,9 @@ def _generate_depth_dependence_property_case(
     ax_deep.set_title(f"Depth K ({depth_m:.0f} m)")
     ax_deep.set_aspect("equal")
 
-    exp_profile_values = np.asarray(exponential_profile.to_array(depth=depths), dtype=float) * 86400.0
+    exp_profile_values = (
+        np.asarray(exponential_profile.to_array(depth=depths), dtype=float) * 86400.0
+    )
     tab_profile_values = np.asarray(tabulated_profile.to_array(depth=depths), dtype=float) * 86400.0
     ax_profile.plot(depths, exp_profile_values, linewidth=2.0, label="Exponential")
     ax_profile.plot(depths, tab_profile_values, linewidth=2.0, linestyle="--", label="Tabulated")
@@ -2651,7 +2678,9 @@ def _generate_geology_transfer_property_case(
 
     from hydromodpy.data.variables.geology.cases import run_geology_property_case as demo
 
-    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path = source_root / _docs_relative_static_path(
+        spec.category, spec.image_assets[0].filename
+    )
     figure_path.parent.mkdir(parents=True, exist_ok=True)
     geology_config_path = _repo_path(str(spec.metadata["geology_config_path"]))
     field_param_path = _repo_path(str(spec.metadata["field_param_config_path"]))
@@ -2993,7 +3022,9 @@ def _generate_mesh_diagnostics_case(
     x, y, triangles, areas = _triangulation_from_bundle(bundle)
     min_angles, aspect_ratios = _triangle_quality_metrics(x, y, triangles)
 
-    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path = source_root / _docs_relative_static_path(
+        spec.category, spec.image_assets[0].filename
+    )
     figure_path.parent.mkdir(parents=True, exist_ok=True)
 
     triangulation = mtri.Triangulation(x, y, triangles=triangles)
@@ -3130,7 +3161,9 @@ def _generate_mesh_constraint_balance_case(
             }
         )
 
-    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path = source_root / _docs_relative_static_path(
+        spec.category, spec.image_assets[0].filename
+    )
     figure_path.parent.mkdir(parents=True, exist_ok=True)
 
     fig, ax = plt.subplots(1, 1, figsize=(10.8, 6.8), dpi=140)
@@ -3203,13 +3236,19 @@ def _generate_mesh_resolution_case(
             }
         )
 
-    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path = source_root / _docs_relative_static_path(
+        spec.category, spec.image_assets[0].filename
+    )
     figure_path.parent.mkdir(parents=True, exist_ok=True)
 
-    fig, (ax_hist, ax_table) = plt.subplots(1, 2, figsize=(15.8, 6.4), dpi=140, gridspec_kw={"width_ratios": [1.2, 0.8]})
+    fig, (ax_hist, ax_table) = plt.subplots(
+        1, 2, figsize=(15.8, 6.4), dpi=140, gridspec_kw={"width_ratios": [1.2, 0.8]}
+    )
     colors = ["#4c78a8", "#f58518", "#54a24b", "#e45756"]
     for idx, series in enumerate(hist_series):
-        ax_hist.hist(series, bins=bins, alpha=0.5, label=labels[idx], color=colors[idx % len(colors)])
+        ax_hist.hist(
+            series, bins=bins, alpha=0.5, label=labels[idx], color=colors[idx % len(colors)]
+        )
     ax_hist.set_title("Cell-area distributions (log10 m2)")
     ax_hist.set_xlabel("log10(area)")
     ax_hist.set_ylabel("Cell count")
@@ -3342,9 +3381,13 @@ def _generate_mesh_zoom_case(
 
     river_midpoints_arr = np.asarray(river_midpoints, dtype=float)
     zoom_fraction = float(spec.metadata.get("zoom_fraction", 0.2))
-    zoom_bounds = _select_zoom_bounds(river_midpoints_arr, domain_bounds, zoom_fraction=zoom_fraction)
+    zoom_bounds = _select_zoom_bounds(
+        river_midpoints_arr, domain_bounds, zoom_fraction=zoom_fraction
+    )
 
-    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path = source_root / _docs_relative_static_path(
+        spec.category, spec.image_assets[0].filename
+    )
     figure_path.parent.mkdir(parents=True, exist_ok=True)
 
     fig = plt.figure(figsize=(16.8, 10.2), dpi=140)
@@ -3357,18 +3400,26 @@ def _generate_mesh_zoom_case(
 
     ax_full.triplot(triangulation, color="0.65", linewidth=0.35)
     if interface_segments:
-        ax_full.add_collection(LineCollection(interface_segments, colors="#5c7cfa", linewidths=0.5, alpha=0.8))
+        ax_full.add_collection(
+            LineCollection(interface_segments, colors="#5c7cfa", linewidths=0.5, alpha=0.8)
+        )
     if river_segments:
-        ax_full.add_collection(LineCollection(river_segments, colors="#1f78b4", linewidths=0.7, alpha=0.9))
+        ax_full.add_collection(
+            LineCollection(river_segments, colors="#1f78b4", linewidths=0.7, alpha=0.9)
+        )
     ax_full.set_title("Full mesh with river and interface edges")
     ax_full.set_aspect("equal")
 
     for ax, bounds in zip(zoom_axes, zoom_bounds):
         ax.triplot(triangulation, color="0.65", linewidth=0.45)
         if interface_segments:
-            ax.add_collection(LineCollection(interface_segments, colors="#5c7cfa", linewidths=0.7, alpha=0.85))
+            ax.add_collection(
+                LineCollection(interface_segments, colors="#5c7cfa", linewidths=0.7, alpha=0.85)
+            )
         if river_segments:
-            ax.add_collection(LineCollection(river_segments, colors="#1f78b4", linewidths=1.0, alpha=0.95))
+            ax.add_collection(
+                LineCollection(river_segments, colors="#1f78b4", linewidths=1.0, alpha=0.95)
+            )
         ax.set_xlim(bounds[0], bounds[2])
         ax.set_ylim(bounds[1], bounds[3])
         ax.set_aspect("equal")
@@ -3380,7 +3431,10 @@ def _generate_mesh_zoom_case(
     plt.close(fig)
 
     edge_counts = _bundle_edge_counts(bundle)
-    zoom_span_m = float(zoom_fraction * max(domain_bounds[2] - domain_bounds[0], domain_bounds[3] - domain_bounds[1]))
+    zoom_span_m = float(
+        zoom_fraction
+        * max(domain_bounds[2] - domain_bounds[0], domain_bounds[3] - domain_bounds[1])
+    )
     return _build_case_summary(
         spec,
         metrics_source={
@@ -3443,7 +3497,12 @@ def _read_dem_for_plot(dem_path: Path, *, max_dim: int = 1200):
         nodata = src.nodata
         if nodata is not None:
             dem = np.where(dem == nodata, np.nan, dem)
-        extent = (float(src.bounds.left), float(src.bounds.right), float(src.bounds.bottom), float(src.bounds.top))
+        extent = (
+            float(src.bounds.left),
+            float(src.bounds.right),
+            float(src.bounds.bottom),
+            float(src.bounds.top),
+        )
     return np.asarray(dem, dtype=float), extent
 
 
@@ -3477,7 +3536,9 @@ def _generate_geometry_case(
         else:
             geology_unit_count = int(len(geology))
 
-    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path = source_root / _docs_relative_static_path(
+        spec.category, spec.image_assets[0].filename
+    )
     figure_path.parent.mkdir(parents=True, exist_ok=True)
 
     dem_min = None
@@ -3592,6 +3653,7 @@ def _generate_geometry_case(
         try:
             import rasterio
             import rasterio.features
+
             mask = rasterio.features.geometry_mask(
                 [boundary_geom],
                 transform=rasterio.transform.from_bounds(
@@ -3674,7 +3736,11 @@ def _generate_geometry_case(
 
 
 def _generate_method_comparison_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
-    from hydromodpy.analysis.comparison.metrics import DETAIL_METRIC_FIELDS, SUMMARY_METRIC_FIELDS, write_metrics_csv
+    from hydromodpy.analysis.comparison.metrics import (
+        DETAIL_METRIC_FIELDS,
+        SUMMARY_METRIC_FIELDS,
+        write_metrics_csv,
+    )
     from hydromodpy.analysis.comparison.runtime import write_observables_csv
 
     config_path = _repo_path(str(spec.metadata["comparison_config_path"]))
@@ -3685,13 +3751,16 @@ def _generate_method_comparison_case(spec: GalleryCaseSpec, source_root: Path) -
             (
                 row["variant_id"]
                 for row in metrics_payload["summary"]
-                if str(row.get("variant_id", "")) != str(metrics_payload.get("reference_variant", ""))
+                if str(row.get("variant_id", ""))
+                != str(metrics_payload.get("reference_variant", ""))
             ),
             "",
         )
     )
     if focus_variant_id == "":
-        raise ValueError(f"No non-reference variant available for method comparison case '{spec.slug}'")
+        raise ValueError(
+            f"No non-reference variant available for method comparison case '{spec.slug}'"
+        )
 
     variant_labels = {
         str(item.get("id", "")): str(item.get("label", item.get("id", "")))
@@ -3702,17 +3771,23 @@ def _generate_method_comparison_case(spec: GalleryCaseSpec, source_root: Path) -
     reference_variant_label = variant_labels.get(reference_variant, reference_variant)
 
     focus_summary_rows = [
-        row for row in metrics_payload["summary"] if str(row.get("variant_id", "")) == focus_variant_id
+        row
+        for row in metrics_payload["summary"]
+        if str(row.get("variant_id", "")) == focus_variant_id
     ]
     focus_detail_rows = [
-        row for row in metrics_payload["differences"] if str(row.get("variant_id", "")) == focus_variant_id
+        row
+        for row in metrics_payload["differences"]
+        if str(row.get("variant_id", "")) == focus_variant_id
     ]
     if not focus_summary_rows or not focus_detail_rows:
         raise ValueError(
             f"Method comparison case '{spec.slug}' produced no comparable rows for '{focus_variant_id}'."
         )
 
-    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
+    figure_path = source_root / _docs_relative_static_path(
+        spec.category, spec.image_assets[0].filename
+    )
     _render_method_comparison_figure(
         figure_path=figure_path,
         case_title=spec.title,
@@ -3774,11 +3849,18 @@ def _generate_method_comparison_case(spec: GalleryCaseSpec, source_root: Path) -
         },
         extra_summary={
             "artifacts": {
-                "summary_json_doc_path": "/" + _docs_relative_static_path(spec.category, f"{spec.slug}_summary.json"),
-                "summary_json_repo_path": _repo_docs_artifact_path(spec.category, f"{spec.slug}_summary.json"),
-                "image_repo_paths": [_repo_docs_artifact_path(spec.category, spec.image_assets[0].filename)],
+                "summary_json_doc_path": "/"
+                + _docs_relative_static_path(spec.category, f"{spec.slug}_summary.json"),
+                "summary_json_repo_path": _repo_docs_artifact_path(
+                    spec.category, f"{spec.slug}_summary.json"
+                ),
+                "image_repo_paths": [
+                    _repo_docs_artifact_path(spec.category, spec.image_assets[0].filename)
+                ],
                 "extra_repo_paths": [
-                    _repo_docs_artifact_path(spec.category, f"{spec.slug}_comparison_manifest.json"),
+                    _repo_docs_artifact_path(
+                        spec.category, f"{spec.slug}_comparison_manifest.json"
+                    ),
                     _repo_docs_artifact_path(spec.category, f"{spec.slug}_comparison_metrics.json"),
                     _repo_docs_artifact_path(spec.category, f"{spec.slug}_observables.csv"),
                     _repo_docs_artifact_path(spec.category, f"{spec.slug}_summary_metrics.csv"),
@@ -3984,9 +4066,7 @@ def _group_cases_by_family_metadata(
         section["cases"] = sorted(
             section["cases"],
             key=lambda case: (
-                _metadata_order_token(
-                    case.get("metadata", {}).get(case_order_name, 999)
-                ),
+                _metadata_order_token(case.get("metadata", {}).get(case_order_name, 999)),
                 str(case.get("title", "")),
             ),
         )
@@ -4019,14 +4099,10 @@ def _build_calibration_intercomparison_rows(
                     "target_success_rate": (
                         1.0 if bool(method_row.get("meets_success_target")) else 0.0
                     ),
-                    "best_fit_rate": (
-                        1.0 if bool(method_row.get("recovered_truth")) else 0.0
-                    ),
+                    "best_fit_rate": (1.0 if bool(method_row.get("recovered_truth")) else 0.0),
                     "mean_cost_best": method_row.get("cost_best"),
                     "mean_n_evaluations": method_row.get("n_evaluations"),
-                    "calibration_time_seconds": method_row.get(
-                        "calibration_time_seconds"
-                    ),
+                    "calibration_time_seconds": method_row.get("calibration_time_seconds"),
                     "mean_session_prepare_time_seconds": method_row.get(
                         "session_prepare_time_seconds"
                     ),
@@ -4152,21 +4228,14 @@ def _generate_calibration_intercomparison_summary(
     rows = _build_calibration_intercomparison_rows(calibration_cases)
     if output_subdir is None:
         output_subdir = Path("calibration") / "intercomparison"
-    output_root = (
-        source_root
-        / "_static"
-        / "capability_gallery"
-        / output_subdir
-    )
+    output_root = source_root / "_static" / "capability_gallery" / output_subdir
     figures: list[dict[str, Any]] = []
     if rows:
         from validation_cases.calibration.plotting import write_suite_figures
 
         figure_paths = write_suite_figures(rows, output_root=output_root)
         for path in figure_paths:
-            relative_parts = path.relative_to(
-                source_root / "_static" / "capability_gallery"
-            ).parts
+            relative_parts = path.relative_to(source_root / "_static" / "capability_gallery").parts
             figures.append(
                 _build_validation_image_summary(
                     category=str(Path(*relative_parts[:-1]).as_posix()),
@@ -4179,10 +4248,9 @@ def _generate_calibration_intercomparison_summary(
                 )
             )
 
-    summary_relative_path = (
-        output_root
-        / "calibration_intercomparison_summary.json"
-    ).relative_to(source_root / "_static" / "capability_gallery")
+    summary_relative_path = (output_root / "calibration_intercomparison_summary.json").relative_to(
+        source_root / "_static" / "capability_gallery"
+    )
     summary_payload = {
         "summary_schema_version": "capability_gallery_calibration_intercomparison_v1",
         "case_count": int(len(calibration_cases)),
@@ -4671,14 +4739,22 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
     if category_slug == "mesh":
         imported_scale_labels = sorted(
             {
-                str(case.get("metadata", {}).get("scale_label", case.get("metadata", {}).get("scale", ""))).strip()
+                str(
+                    case.get("metadata", {}).get(
+                        "scale_label", case.get("metadata", {}).get("scale", "")
+                    )
+                ).strip()
                 for case in cases
                 if str(case.get("metadata", {}).get("scale", "")).strip()
             }
         )
         present_variants = sorted(
             {
-                str(case.get("metadata", {}).get("variant_label", case.get("metadata", {}).get("variant", ""))).strip()
+                str(
+                    case.get("metadata", {}).get(
+                        "variant_label", case.get("metadata", {}).get("variant", "")
+                    )
+                ).strip()
                 for case in cases
                 if str(case.get("metadata", {}).get("variant", "")).strip()
             }
@@ -4724,14 +4800,24 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 "----------------",
                 "",
                 "- Imported case families: "
-                + (", ".join(imported_case_family_labels) if imported_case_family_labels else "none yet")
+                + (
+                    ", ".join(imported_case_family_labels)
+                    if imported_case_family_labels
+                    else "none yet"
+                )
                 + ".",
-                "- Imported scales: " + (", ".join(imported_scale_labels) if imported_scale_labels else "none yet") + ".",
-                "- Present variants: " + (", ".join(present_variants) if present_variants else "none yet") + ".",
+                "- Imported scales: "
+                + (", ".join(imported_scale_labels) if imported_scale_labels else "none yet")
+                + ".",
+                "- Present variants: "
+                + (", ".join(present_variants) if present_variants else "none yet")
+                + ".",
                 "- Cross-variant comparisons: "
                 + (", ".join(comparison_summaries) if comparison_summaries else "none yet")
                 + ".",
-                "- Prepared but not yet versioned: " + (", ".join(missing_scale_labels) if missing_scale_labels else "none") + ".",
+                "- Prepared but not yet versioned: "
+                + (", ".join(missing_scale_labels) if missing_scale_labels else "none")
+                + ".",
                 "",
             ]
         )
@@ -4784,7 +4870,9 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                     outlet_id = str(case.get("metadata", {}).get("outlet_id", "")).strip()
                     if outlet_id:
                         lines.append(f"      - Outlet: ``{outlet_id}``")
-                    constraints_mode = str(case.get("metadata", {}).get("constraints_mode", "")).strip()
+                    constraints_mode = str(
+                        case.get("metadata", {}).get("constraints_mode", "")
+                    ).strip()
                     if constraints_mode:
                         lines.append(f"      - Constraints mode: ``{constraints_mode}``")
                     for metric in list(case.get("metrics", []))[:4]:
@@ -4849,7 +4937,9 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                             "",
                         ]
                     )
-                    constraints_mode = str(case.get("metadata", {}).get("constraints_mode", "")).strip()
+                    constraints_mode = str(
+                        case.get("metadata", {}).get("constraints_mode", "")
+                    ).strip()
                     if constraints_mode:
                         lines.append(f"      - Constraints mode: ``{constraints_mode}``")
                     for metric in list(case.get("metrics", []))[:4]:
@@ -4900,7 +4990,9 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 "Current Coverage",
                 "----------------",
                 "",
-                "- Process families populated today: " + _format_counted_labels(process_counts) + ".",
+                "- Process families populated today: "
+                + _format_counted_labels(process_counts)
+                + ".",
                 "- Benchmark families: " + _format_counted_labels(family_counts) + ".",
                 "- Reference styles: " + _format_counted_labels(reference_counts) + ".",
                 "- Solver variants discovered: "
@@ -5026,8 +5118,12 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 "Current Coverage",
                 "----------------",
                 "",
-                "- Workflow stages: " + (", ".join(workflow_stages) if workflow_stages else "none yet") + ".",
-                "- Panel families: " + (", ".join(panel_families) if panel_families else "none yet") + ".",
+                "- Workflow stages: "
+                + (", ".join(workflow_stages) if workflow_stages else "none yet")
+                + ".",
+                "- Panel families: "
+                + (", ".join(panel_families) if panel_families else "none yet")
+                + ".",
                 "- Loaded data families: "
                 + (", ".join(loaded_data_types) if loaded_data_types else "none yet")
                 + ".",
@@ -5124,7 +5220,9 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 "Current Coverage",
                 "----------------",
                 "",
-                "- Parameters illustrated: " + (", ".join(parameter_ids) if parameter_ids else "none yet") + ".",
+                "- Parameters illustrated: "
+                + (", ".join(parameter_ids) if parameter_ids else "none yet")
+                + ".",
                 "- Parameterization modes: "
                 + (", ".join(parameterization_modes) if parameterization_modes else "none yet")
                 + ".",
@@ -5197,8 +5295,12 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 "- Process families shown: "
                 + (", ".join(process_families) if process_families else "none yet")
                 + ".",
-                "- Mesh supports: " + (", ".join(mesh_supports) if mesh_supports else "none yet") + ".",
-                "- Flow solvers: " + (", ".join(flow_solvers) if flow_solvers else "none yet") + ".",
+                "- Mesh supports: "
+                + (", ".join(mesh_supports) if mesh_supports else "none yet")
+                + ".",
+                "- Flow solvers: "
+                + (", ".join(flow_solvers) if flow_solvers else "none yet")
+                + ".",
                 "- Transport solvers: "
                 + (", ".join(transport_solvers) if transport_solvers else "none yet")
                 + ".",
@@ -5283,7 +5385,9 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 "----------------",
                 "",
                 "- Study areas: " + (", ".join(study_areas) if study_areas else "none yet") + ".",
-                "- Compared variants: " + (", ".join(variant_labels) if variant_labels else "none yet") + ".",
+                "- Compared variants: "
+                + (", ".join(variant_labels) if variant_labels else "none yet")
+                + ".",
                 "- Compared observables: "
                 + (", ".join(observable_names) if observable_names else "none yet")
                 + ".",
@@ -5355,11 +5459,15 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
                 "Current Coverage",
                 "----------------",
                 "",
-                "- Benchmarks: " + (", ".join(benchmark_cases) if benchmark_cases else "none yet") + ".",
+                "- Benchmarks: "
+                + (", ".join(benchmark_cases) if benchmark_cases else "none yet")
+                + ".",
                 "- Conductivity variants: "
                 + (", ".join(conductivity_levels) if conductivity_levels else "none yet")
                 + ".",
-                "- Solver families: " + (", ".join(solver_families) if solver_families else "none yet") + ".",
+                "- Solver families: "
+                + (", ".join(solver_families) if solver_families else "none yet")
+                + ".",
                 "- These pages are intentionally separate from analytical validation: they compare codes on the same numerical scenario and document where behaviours converge or diverge.",
                 "",
             ]
@@ -5375,10 +5483,7 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
         supplementary_families = [
             group
             for group in family_groups
-            if not (
-                bool(group.get("primary"))
-                and str(group.get("page_slug") or "").strip()
-            )
+            if not (bool(group.get("primary")) and str(group.get("page_slug") or "").strip())
         ]
         regimes = sorted(
             {
@@ -5482,7 +5587,7 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
         ]
     )
     for case in all_cases:
-            lines.append(f"   {case['docname']}")
+        lines.append(f"   {case['docname']}")
     if category_slug == "calibration":
         for group in _group_calibration_cases_by_benchmark_family(cases):
             page_slug = str(group.get("page_slug") or "").strip()
@@ -5549,11 +5654,7 @@ def _append_tabbed_images(
             filename = str(tab.get("filename", "")).strip()
             if filename != "":
                 filenames = [filename]
-        images = [
-            image_map[filename]
-            for filename in filenames
-            if filename in image_map
-        ]
+        images = [image_map[filename] for filename in filenames if filename in image_map]
         if not images and not tab.get("body_lines"):
             continue
         lines.extend(
@@ -5593,9 +5694,7 @@ def _render_validation_solver_block(run: dict[str, Any], *, indent: str = "") ->
                     ]
                 )
                 for metric_part in metric_parts[1:]:
-                    lines.append(
-                        f"{indent}     {metric_part}" if metric_part else f"{indent}     "
-                    )
+                    lines.append(f"{indent}     {metric_part}" if metric_part else f"{indent}     ")
                 lines.append("")
         lines.append("")
 
@@ -5629,7 +5728,9 @@ def _literal_cell(text: Any) -> str:
     return f"``{raw}``"
 
 
-def _append_parameter_table(lines: list[str], rows: list[dict[str, Any]], *, indent: str = "") -> None:
+def _append_parameter_table(
+    lines: list[str], rows: list[dict[str, Any]], *, indent: str = ""
+) -> None:
     if not rows:
         return
     lines.extend(
@@ -5803,7 +5904,9 @@ def _summary_source_path(case: dict[str, Any]) -> str:
     return str(case.get("artifacts", {}).get("summary_json_repo_path", "")).strip()
 
 
-def _metric_rows(case: dict[str, Any], *, meaning: str = "Metric displayed on this page.") -> list[dict[str, Any]]:
+def _metric_rows(
+    case: dict[str, Any], *, meaning: str = "Metric displayed on this page."
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     source = _summary_source_path(case)
     for metric in case.get("metrics", []):
@@ -5993,10 +6096,7 @@ def _build_geographic_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
         value=overview_cfg.get("name"),
         source=config_path or "",
     )
-    enabled_panels = [
-        key for key, value in overview_panels.items()
-        if bool(value)
-    ]
+    enabled_panels = [key for key, value in overview_panels.items() if bool(value)]
     _add_parameter_row(
         panel_rows,
         field="[overview.panels] enabled",
@@ -6049,7 +6149,9 @@ def _build_geographic_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
 
 def _build_simulation_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
     run_config_path = _find_first_source_path(case, suffix=".toml", contains="run_")
-    shared_config_path = _find_first_source_path(case, suffix="config_mf6_mesh_catchment_common.toml")
+    shared_config_path = _find_first_source_path(
+        case, suffix="config_mf6_mesh_catchment_common.toml"
+    )
     payload = _load_toml_with_base(run_config_path)
     if not payload:
         return {}
@@ -6280,7 +6382,11 @@ def _build_geometry_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
         ("dem_max_m", "Maximum DEM elevation represented by the rendered extent.", " m"),
         ("dem_range_m", "Elevation range covered by the masked DEM.", " m"),
         ("slope_mean_deg", "Mean slope estimated from DEM gradients on the masked area.", " deg"),
-        ("slope_p90_deg", "90th percentile slope estimated from DEM gradients on the masked area.", " deg"),
+        (
+            "slope_p90_deg",
+            "90th percentile slope estimated from DEM gradients on the masked area.",
+            " deg",
+        ),
     ):
         value = metadata.get(key)
         if _is_empty_parameter_value(value):
@@ -6312,7 +6418,10 @@ def _build_mesh_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
     for key, meaning in (
         ("scale_label", "Scale bucket used to group repeated mesh gallery cases."),
         ("outlet_id", "Outlet identifier used by the source batch meshing run."),
-        ("variant_label", "Gallery variant describing the active constraints and buffering policy."),
+        (
+            "variant_label",
+            "Gallery variant describing the active constraints and buffering policy.",
+        ),
         ("constraints_mode", "Constraint family carried by the imported bundle or viewer config."),
     ):
         _add_parameter_row(
@@ -6686,27 +6795,13 @@ def _build_calibration_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
                 "n_eval": method_row.get("n_evaluations"),
                 "distribution_samples": method_row.get("model_distribution_sample_count"),
                 "calib_s": method_row.get("calibration_time_seconds"),
-                "candidate_runtime_s": method_row.get(
-                    "estimated_candidate_runtime_seconds"
-                ),
-                "algorithm_overhead_s": method_row.get(
-                    "algorithm_overhead_time_seconds"
-                ),
-                "actualize_s": method_row.get(
-                    "mean_candidate_actualize_time_seconds"
-                ),
-                "launcher_prep_s": method_row.get(
-                    "mean_candidate_launcher_prepare_time_seconds"
-                ),
-                "runtime_patch_s": method_row.get(
-                    "mean_candidate_runtime_patch_time_seconds"
-                ),
-                "model_sim_s": method_row.get(
-                    "mean_candidate_simulation_time_seconds"
-                ),
-                "output_select_s": method_row.get(
-                    "mean_candidate_output_selection_time_seconds"
-                ),
+                "candidate_runtime_s": method_row.get("estimated_candidate_runtime_seconds"),
+                "algorithm_overhead_s": method_row.get("algorithm_overhead_time_seconds"),
+                "actualize_s": method_row.get("mean_candidate_actualize_time_seconds"),
+                "launcher_prep_s": method_row.get("mean_candidate_launcher_prepare_time_seconds"),
+                "runtime_patch_s": method_row.get("mean_candidate_runtime_patch_time_seconds"),
+                "model_sim_s": method_row.get("mean_candidate_simulation_time_seconds"),
+                "output_select_s": method_row.get("mean_candidate_output_selection_time_seconds"),
                 "objective_score_s": method_row.get(
                     "mean_candidate_objective_compute_time_seconds"
                 ),
@@ -6962,8 +7057,7 @@ def _build_case_page(case: dict[str, Any]) -> str:
         metadata = dict(case.get("metadata", {}))
         default_solver = metadata.get("default_solver")
         solver_display_names = [
-            str(run.get("solver_display_name", run.get("solver", "")))
-            for run in solver_runs
+            str(run.get("solver_display_name", run.get("solver", ""))) for run in solver_runs
         ]
         lines.extend(
             [
@@ -7054,10 +7148,7 @@ def _build_case_page(case: dict[str, Any]) -> str:
                 ]
             )
             rows = list(section.get("rows", []))
-            tabs = {
-                str(key): list(value)
-                for key, value in dict(section.get("tabs", {})).items()
-            }
+            tabs = {str(key): list(value) for key, value in dict(section.get("tabs", {})).items()}
             if rows:
                 _append_parameter_table(lines, rows)
             if tabs:
@@ -7065,7 +7156,9 @@ def _build_case_page(case: dict[str, Any]) -> str:
                     lines,
                     tabs,
                     solver_display_names=solver_display_name_map,
-                    empty_message=str(section.get("empty_message", "No additional case-specific parameters.")),
+                    empty_message=str(
+                        section.get("empty_message", "No additional case-specific parameters.")
+                    ),
                 )
         if lines[-1] != "":
             lines.append("")
@@ -7117,7 +7210,9 @@ def _collect_generated_files(source_root: Path) -> dict[str, Path]:
     return collected
 
 
-def _compare_generated_trees(*, expected_source_root: Path, committed_source_root: Path) -> list[str]:
+def _compare_generated_trees(
+    *, expected_source_root: Path, committed_source_root: Path
+) -> list[str]:
     expected_files = _collect_generated_files(expected_source_root)
     committed_files = _collect_generated_files(committed_source_root)
     issues: list[str] = []
@@ -7131,7 +7226,10 @@ def _compare_generated_trees(*, expected_source_root: Path, committed_source_roo
         suffix = Path(relative_path).suffix.lower()
         if suffix not in TEXTUAL_SUFFIXES:
             continue
-        if expected_files[relative_path].read_bytes() != committed_files[relative_path].read_bytes():
+        if (
+            expected_files[relative_path].read_bytes()
+            != committed_files[relative_path].read_bytes()
+        ):
             issues.append(f"Stale generated file: {relative_path}")
 
     return issues
@@ -7209,7 +7307,9 @@ def generate_gallery(*, source_root: Path) -> None:
             )
     for category_slug, cases in summaries_by_category.items():
         if cases:
-            _write_text(docs_dir / f"{category_slug}.rst", _build_category_page(category_slug, cases))
+            _write_text(
+                docs_dir / f"{category_slug}.rst", _build_category_page(category_slug, cases)
+            )
 
 
 def main(argv: list[str] | None = None) -> int:

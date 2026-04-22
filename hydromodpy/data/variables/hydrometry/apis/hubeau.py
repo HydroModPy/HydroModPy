@@ -41,6 +41,7 @@ MAX_DAYS_PER_CHUNK = 20_000
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _normalize_station_id(raw_id: str) -> str:
     """Normalize a Hub'Eau station or site identifier to a 10-char station code.
 
@@ -80,15 +81,22 @@ def fetch(
         ids = [_normalize_station_id(s) for s in station_ids]
     elif bbox is not None:
         ids = _discover_stations_in_bbox(
-            bbox, date_start=date_start, date_end=date_end,
+            bbox,
+            date_start=date_start,
+            date_end=date_end,
             require_observations=require_observations,
         )
         if not ids and fallback_search_radius_km:
             from hydromodpy.data.common.geo_helpers import expand_bbox
+
             expanded = expand_bbox(bbox, fallback_search_radius_km)
-            logger.info("Hub'Eau: no stations in bbox, expanding by %s km", fallback_search_radius_km)
+            logger.info(
+                "Hub'Eau: no stations in bbox, expanding by %s km", fallback_search_radius_km
+            )
             ids = _discover_stations_in_bbox(
-                expanded, date_start=date_start, date_end=date_end,
+                expanded,
+                date_start=date_start,
+                date_end=date_end,
                 require_observations=require_observations,
             )
     else:
@@ -98,7 +106,10 @@ def fetch(
         logger.info("Hub'Eau: no stations found.")
         return []
 
-    log_step("Hub'Eau: %d stations [%s -> %s]" % (len(ids), date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d")))
+    log_step(
+        "Hub'Eau: %d stations [%s -> %s]"
+        % (len(ids), date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d"))
+    )
 
     records: list[PointRecord] = []
     for sid in iter_progress(ids, desc="Stations"):
@@ -260,7 +271,11 @@ def _download_observations(
         if current <= date_end:
             time.sleep(0.5)
 
-    return pd.concat(chunks, ignore_index=True) if chunks else pd.DataFrame(columns=["datetime", "value"])
+    return (
+        pd.concat(chunks, ignore_index=True)
+        if chunks
+        else pd.DataFrame(columns=["datetime", "value"])
+    )
 
 
 def _get_obs_chunk(
@@ -293,7 +308,9 @@ def _get_obs_chunk(
     # Normalize to standard columns
     out = pd.DataFrame()
     date_col = df["date_obs_elab"] if "date_obs_elab" in df.columns else pd.Series(dtype=object)
-    value_col = df["resultat_obs_elab"] if "resultat_obs_elab" in df.columns else pd.Series(dtype=object)
+    value_col = (
+        df["resultat_obs_elab"] if "resultat_obs_elab" in df.columns else pd.Series(dtype=object)
+    )
     out["datetime"] = pd.to_datetime(date_col, errors="coerce")
     out["value"] = pd.to_numeric(value_col, errors="coerce")
     out["quality"] = df.get("libelle_qualification", "")

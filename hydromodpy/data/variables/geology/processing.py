@@ -129,44 +129,58 @@ def uniformize_sea_zone_on_dataframe(
     """
     if not bool(enabled):
         return gdf, {
-            "applied": False, "reason": "disabled", "count": 0,
-            "sea_field": str(sea_field), "sea_value": str(sea_value),
+            "applied": False,
+            "reason": "disabled",
+            "count": 0,
+            "sea_field": str(sea_field),
+            "sea_value": str(sea_value),
             "sea_zone_key": str(sea_zone_key),
         }
 
     zone_key_col = str(zone_key_column).strip()
     if zone_key_col == "" or zone_key_col not in gdf.columns:
         return gdf, {
-            "applied": False, "reason": f"missing_zone_key_column:{zone_key_col}",
-            "count": 0, "sea_field": str(sea_field), "sea_value": str(sea_value),
+            "applied": False,
+            "reason": f"missing_zone_key_column:{zone_key_col}",
+            "count": 0,
+            "sea_field": str(sea_field),
+            "sea_value": str(sea_value),
             "sea_zone_key": str(sea_zone_key),
         }
 
     sea_field_key = str(sea_field).strip()
     if sea_field_key == "" or sea_field_key not in gdf.columns:
         return gdf, {
-            "applied": False, "reason": f"missing_field:{sea_field_key}",
-            "count": 0, "sea_field": sea_field_key, "sea_value": str(sea_value),
+            "applied": False,
+            "reason": f"missing_field:{sea_field_key}",
+            "count": 0,
+            "sea_field": sea_field_key,
+            "sea_value": str(sea_value),
             "sea_zone_key": str(sea_zone_key),
         }
 
     sea_mask = (
-        gdf[sea_field_key].astype(str).str.strip().str.upper()
-        == str(sea_value).strip().upper()
+        gdf[sea_field_key].astype(str).str.strip().str.upper() == str(sea_value).strip().upper()
     )
     n_sea = int(np.count_nonzero(sea_mask.to_numpy()))
     if n_sea <= 0:
         return gdf, {
-            "applied": False, "reason": "no_matching_sea_polygon", "count": 0,
-            "sea_field": sea_field_key, "sea_value": str(sea_value),
+            "applied": False,
+            "reason": "no_matching_sea_polygon",
+            "count": 0,
+            "sea_field": sea_field_key,
+            "sea_value": str(sea_value),
             "sea_zone_key": str(sea_zone_key),
         }
 
     out = gdf.copy()
     out.loc[sea_mask, zone_key_col] = normalize_zone_key(sea_zone_key)
     return out, {
-        "applied": True, "reason": "ok", "count": n_sea,
-        "sea_field": sea_field_key, "sea_value": str(sea_value),
+        "applied": True,
+        "reason": "ok",
+        "count": n_sea,
+        "sea_field": sea_field_key,
+        "sea_value": str(sea_value),
         "sea_zone_key": normalize_zone_key(sea_zone_key),
     }
 

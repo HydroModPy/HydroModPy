@@ -42,9 +42,7 @@ class DurationCurveFigure(BaseFigure):
         values = np.asarray(ts.values, dtype=float)
         values = values[~np.isnan(values)]
         if values.size == 0:
-            raise ValueError(
-                f"duration_curve: no data for '{variable}' at '{station}'"
-            )
+            raise ValueError(f"duration_curve: no data for '{variable}' at '{station}'")
         sorted_vals = np.sort(values)[::-1]
         exceedance = np.arange(1, sorted_vals.size + 1) / (sorted_vals.size + 1) * 100.0
         ax.plot(exceedance, sorted_vals, color="steelblue", lw=1.2)

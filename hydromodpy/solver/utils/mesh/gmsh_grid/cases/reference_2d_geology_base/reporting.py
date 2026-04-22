@@ -61,13 +61,9 @@ def build_reference_case_summary(
     valid_mask = np.isfinite(dominant_idx)
     dominant_counts: dict[str, int] = {}
     for idx, zone_key in enumerate(zone_keys):
-        dominant_counts[zone_key] = int(
-            np.count_nonzero(dominant_idx[valid_mask] == float(idx))
-        )
+        dominant_counts[zone_key] = int(np.count_nonzero(dominant_idx[valid_mask] == float(idx)))
 
-    values = np.asarray(
-        mesh.to_cell_values(mesh_values.cell_values), dtype=float
-    ).reshape(-1)
+    values = np.asarray(mesh.to_cell_values(mesh_values.cell_values), dtype=float).reshape(-1)
     return {
         "mesh_kind": str(mesh.kind),
         "cell_type": str(mesh.cell_type),

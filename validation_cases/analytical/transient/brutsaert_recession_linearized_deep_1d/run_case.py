@@ -38,8 +38,7 @@ def _build_metric_lines(comparison) -> tuple[str, ...]:
         )
         if comparison.solver_budget_first_bad_stress_period is not None:
             budget_line += (
-                f" (first bad stress period: "
-                f"{comparison.solver_budget_first_bad_stress_period})"
+                f" (first bad stress period: {comparison.solver_budget_first_bad_stress_period})"
             )
         lines.append(budget_line)
     return tuple(lines)

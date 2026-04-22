@@ -28,33 +28,39 @@ def example_custom_csv():
         data_dir = Path(tmpdir)
 
         # Create location file (unit column required)
-        loc_df = pd.DataFrame({
-            "id": ["ST001", "ST002"],
-            "x": [-1.5, -1.6],
-            "y": [48.1, 48.2],
-            "crs": ["EPSG:4326", "EPSG:4326"],
-            "name": ["Station Amont", "Station Aval"],
-            "unit": ["m3/s", "m3/s"],
-        })
+        loc_df = pd.DataFrame(
+            {
+                "id": ["ST001", "ST002"],
+                "x": [-1.5, -1.6],
+                "y": [48.1, 48.2],
+                "crs": ["EPSG:4326", "EPSG:4326"],
+                "name": ["Station Amont", "Station Aval"],
+                "unit": ["m3/s", "m3/s"],
+            }
+        )
         loc_df.to_csv(data_dir / "hydrometry_custom_LOC.csv", index=False)
 
         # Create chronicle files
         dates = pd.date_range("2020-01-01", "2020-12-31", freq="D")
         for sid, base_val in [("ST001", 2.5), ("ST002", 5.0)]:
-            df = pd.DataFrame({
-                "datetime": dates,
-                "value": [base_val + i * 0.01 for i in range(len(dates))],
-                "quality": "good",
-            })
+            df = pd.DataFrame(
+                {
+                    "datetime": dates,
+                    "value": [base_val + i * 0.01 for i in range(len(dates))],
+                    "quality": "good",
+                }
+            )
             df.to_csv(data_dir / f"hydrometry_custom_{sid}_20200101_20201231_D.csv", index=False)
 
         # Configure and load
-        cfg = HydrometryConfig(sources=[
-            HydrometrySourceConfig(
-                source="custom",
-                path=data_dir,
-            )
-        ])
+        cfg = HydrometryConfig(
+            sources=[
+                HydrometrySourceConfig(
+                    source="custom",
+                    path=data_dir,
+                )
+            ]
+        )
         catalog = DataCatalog()  # in-memory
         mgr = HydrometryManager(
             config=cfg,
@@ -65,8 +71,10 @@ def example_custom_csv():
 
         print(f"  Loaded {len(records)} records")
         for r in records:
-            print(f"    {r.station_id}: {r.n_records} points, unit={r.unit}, "
-                  f"[{r.date_start:%Y-%m-%d} → {r.date_end:%Y-%m-%d}]")
+            print(
+                f"    {r.station_id}: {r.n_records} points, unit={r.unit}, "
+                f"[{r.date_start:%Y-%m-%d} → {r.date_end:%Y-%m-%d}]"
+            )
             if r.location:
                 print(f"      Location: ({r.location.x}, {r.location.y}) {r.location.crs}")
 
@@ -82,23 +90,25 @@ def example_custom_csv_one_line():
         data_dir = Path(tmpdir)
 
         # Location (unit column required)
-        pd.DataFrame({
-            "id": ["CONST01"],
-            "x": [-1.5],
-            "y": [48.1],
-            "crs": ["EPSG:4326"],
-            "unit": ["m3/s"],
-        }).to_csv(data_dir / "hydrometry_custom_LOC.csv", index=False)
+        pd.DataFrame(
+            {
+                "id": ["CONST01"],
+                "x": [-1.5],
+                "y": [48.1],
+                "crs": ["EPSG:4326"],
+                "unit": ["m3/s"],
+            }
+        ).to_csv(data_dir / "hydrometry_custom_LOC.csv", index=False)
 
         # Single-line chronicle → treated as constant
-        pd.DataFrame({
-            "datetime": ["2020-01-01"],
-            "value": [4.2],
-        }).to_csv(data_dir / "hydrometry_custom_CONST01_20200101_20201231_D.csv", index=False)
+        pd.DataFrame(
+            {
+                "datetime": ["2020-01-01"],
+                "value": [4.2],
+            }
+        ).to_csv(data_dir / "hydrometry_custom_CONST01_20200101_20201231_D.csv", index=False)
 
-        cfg = HydrometryConfig(sources=[
-            HydrometrySourceConfig(source="custom", path=data_dir)
-        ])
+        cfg = HydrometryConfig(sources=[HydrometrySourceConfig(source="custom", path=data_dir)])
         catalog = DataCatalog()
         mgr = HydrometryManager(
             config=cfg,
@@ -122,27 +132,33 @@ def example_custom_unit_conversion():
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
 
-        pd.DataFrame({
-            "id": ["ST_LS"],
-            "x": [-1.5],
-            "y": [48.1],
-            "crs": ["EPSG:4326"],
-            "unit": ["L/s"],
-        }).to_csv(data_dir / "hydrometry_custom_LOC.csv", index=False)
+        pd.DataFrame(
+            {
+                "id": ["ST_LS"],
+                "x": [-1.5],
+                "y": [48.1],
+                "crs": ["EPSG:4326"],
+                "unit": ["L/s"],
+            }
+        ).to_csv(data_dir / "hydrometry_custom_LOC.csv", index=False)
 
         # Value in L/s
         dates = pd.date_range("2020-01-01", "2020-01-10", freq="D")
-        pd.DataFrame({
-            "datetime": dates,
-            "value": [1500.0] * len(dates),  # 1500 L/s = 1.5 m³/s
-        }).to_csv(data_dir / "hydrometry_custom_ST_LS_20200101_20200110_D.csv", index=False)
+        pd.DataFrame(
+            {
+                "datetime": dates,
+                "value": [1500.0] * len(dates),  # 1500 L/s = 1.5 m³/s
+            }
+        ).to_csv(data_dir / "hydrometry_custom_ST_LS_20200101_20200110_D.csv", index=False)
 
-        cfg = HydrometryConfig(sources=[
-            HydrometrySourceConfig(
-                source="custom",
-                path=data_dir,
-            )
-        ])
+        cfg = HydrometryConfig(
+            sources=[
+                HydrometrySourceConfig(
+                    source="custom",
+                    path=data_dir,
+                )
+            ]
+        )
         catalog = DataCatalog()
         mgr = HydrometryManager(
             config=cfg,
@@ -167,13 +183,15 @@ def example_hubeau_api():
     from hydromodpy.data.variables.hydrometry.manager import HydrometryManager
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
 
-    cfg = HydrometryConfig(sources=[
-        HydrometrySourceConfig(
-            source="hubeau",
-            product="QmnJ",
-            station_ids=["J709063002"],
-        )
-    ])
+    cfg = HydrometryConfig(
+        sources=[
+            HydrometrySourceConfig(
+                source="hubeau",
+                product="QmnJ",
+                station_ids=["J709063002"],
+            )
+        ]
+    )
     catalog = DataCatalog()
     mgr = HydrometryManager(
         config=cfg,

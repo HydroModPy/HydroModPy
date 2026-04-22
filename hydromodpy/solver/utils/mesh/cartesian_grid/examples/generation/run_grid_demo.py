@@ -239,7 +239,9 @@ def _build_top_surface(
 
 def _build_bottom_surface(top_surface: Surface, scenario: dict) -> Surface:
     top = np.asarray(top_surface.as_array(), dtype=float)
-    nodata = float(top_surface.support.nodata if top_surface.support is not None else DEFAULT_NODATA)
+    nodata = float(
+        top_surface.support.nodata if top_surface.support is not None else DEFAULT_NODATA
+    )
 
     mode = scenario["bottom_mode"]
     if mode == "constant_thickness":

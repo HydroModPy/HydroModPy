@@ -23,17 +23,19 @@ def register(subparsers) -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="lock_command")
 
     update = sub.add_parser(
-        "update", help="Scan the cache and write/update hydromodpy.lock",
+        "update",
+        help="Scan the cache and write/update hydromodpy.lock",
     )
     update.add_argument("--workspace", default=None)
-    update.add_argument("--output", default=None,
-                        help="Destination lockfile (default: <workspace>/hydromodpy.lock)")
+    update.add_argument(
+        "--output", default=None, help="Destination lockfile (default: <workspace>/hydromodpy.lock)"
+    )
 
     archive = sub.add_parser(
-        "archive", help="Create a portable archive (lockfile + artefacts)",
+        "archive",
+        help="Create a portable archive (lockfile + artefacts)",
     )
-    archive.add_argument("output",
-                         help="Destination archive (.tar / .tar.gz / .tar.zst)")
+    archive.add_argument("output", help="Destination archive (.tar / .tar.gz / .tar.zst)")
     archive.add_argument("--workspace", default=None)
 
     restore = sub.add_parser("restore", help="Restore an archive and verify SHA-256")
@@ -43,8 +45,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
     verify = sub.add_parser("verify", help="Verify the cache matches the lockfile")
     verify.add_argument("--workspace", default=None)
-    verify.add_argument("--lockfile", default=None,
-                        help="Explicit lockfile path")
+    verify.add_argument("--lockfile", default=None, help="Explicit lockfile path")
 
     parser.set_defaults(_handler=run)
     return parser
@@ -61,8 +62,7 @@ def run(args: argparse.Namespace) -> None:
     elif sub == "verify":
         _cmd_verify(args)
     else:
-        print("Usage: hmp lock {update|archive|restore|verify} [options]",
-              file=sys.stderr)
+        print("Usage: hmp lock {update|archive|restore|verify} [options]", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
 
@@ -72,9 +72,7 @@ def _cmd_update(args: argparse.Namespace) -> None:
 
     workspace = resolve_workspace(args.workspace)
     db_path = workspace / "data" / "cache.duckdb"
-    dest = Path(args.output).expanduser().resolve() if args.output else (
-        workspace / LOCKFILE_NAME
-    )
+    dest = Path(args.output).expanduser().resolve() if args.output else (workspace / LOCKFILE_NAME)
     with DataCatalogDuckDB(db_path) as catalog:
         written = write_lockfile(catalog, dest)
     print(f"  Lockfile written: {written}")
@@ -97,8 +95,10 @@ def _cmd_restore(args: argparse.Namespace) -> None:
 
     workspace = resolve_workspace(args.workspace)
     src = Path(args.input).expanduser().resolve()
-    dest_dir = Path(args.output).expanduser().resolve() if args.output else (
-        workspace / "data" / "restored"
+    dest_dir = (
+        Path(args.output).expanduser().resolve()
+        if args.output
+        else (workspace / "data" / "restored")
     )
     restore_archive(src, dest_dir)
     print(f"  Restored {src} -> {dest_dir}")
@@ -110,8 +110,8 @@ def _cmd_verify(args: argparse.Namespace) -> None:
 
     workspace = resolve_workspace(args.workspace)
     db_path = workspace / "data" / "cache.duckdb"
-    lockfile = Path(args.lockfile).expanduser().resolve() if args.lockfile else (
-        workspace / LOCKFILE_NAME
+    lockfile = (
+        Path(args.lockfile).expanduser().resolve() if args.lockfile else (workspace / LOCKFILE_NAME)
     )
     if not lockfile.is_file():
         print(f"  Lockfile not found: {lockfile}", file=sys.stderr)

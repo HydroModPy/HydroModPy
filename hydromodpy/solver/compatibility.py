@@ -72,9 +72,7 @@ def register_process_solver(
     """
     key = (process_type, solver_name)
     if key in PROCESS_SOLVER_REQUIREMENTS:
-        raise ValueError(
-            f"Process/solver pair already registered: {process_type}/{solver_name}."
-        )
+        raise ValueError(f"Process/solver pair already registered: {process_type}/{solver_name}.")
     PROCESS_SOLVER_REQUIREMENTS[key] = requires
 
 

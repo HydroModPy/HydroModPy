@@ -8,6 +8,7 @@ Kept separate from :mod:`hydromodpy.core.config.generate_toml` and
 :mod:`hydromodpy.core.config.toml_io` so TOML, Streamlit, and JSON Schema
 paths can share the same source of truth.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -46,9 +47,7 @@ def resolve_profile(profile: Profile | str) -> Profile:
         return Profile[profile.upper()]
     except (KeyError, AttributeError) as exc:
         allowed = ", ".join(p.name.lower() for p in Profile)
-        raise ValueError(
-            f"Unknown profile {profile!r}. Allowed values: {allowed}."
-        ) from exc
+        raise ValueError(f"Unknown profile {profile!r}. Allowed values: {allowed}.") from exc
 
 
 __all__ = ["extract_profile", "resolve_profile", "DEFAULT_FIELD_PROFILE"]

@@ -36,8 +36,7 @@ def resolve_case_config_path(raw_config: str | Path, *, script_dir: str | Path) 
         return script_candidate
 
     raise FileNotFoundError(
-        f"Config TOML not found: '{raw_config}'. "
-        f"Tried '{cwd_candidate}' and '{script_candidate}'."
+        f"Config TOML not found: '{raw_config}'. Tried '{cwd_candidate}' and '{script_candidate}'."
     )
 
 

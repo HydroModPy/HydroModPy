@@ -42,9 +42,12 @@ def _build_adapter(
     domain = SimpleNamespace(zones={})
 
     solver_mesh = SolverMesh.from_structured_arrays(
-        nrow=dem.shape[0], ncol=dem.shape[1],
-        top=dem, botm=np.stack([bottom, bottom - 5.0]),
-        dx=5.0, dy=5.0,
+        nrow=dem.shape[0],
+        ncol=dem.shape[1],
+        top=dem,
+        botm=np.stack([bottom, bottom - 5.0]),
+        dx=5.0,
+        dy=5.0,
     )
 
     return FlowToModflowAdapter(

@@ -132,7 +132,8 @@ def _bundle_one_input(entry_row: "dict", staging_inputs: Path) -> "dict | None":
     src = Path(entry_row["canonical_path"])
     if not src.exists():
         logger.warning(
-            "Tracked file missing at export time, skipping: %s", src,
+            "Tracked file missing at export time, skipping: %s",
+            src,
         )
         return None
 
@@ -168,7 +169,9 @@ def _bundle_one_input(entry_row: "dict", staging_inputs: Path) -> "dict | None":
 
 
 def _materialise_inputs(
-    catalog: Any, sim_id: str, staging: Path,
+    catalog: Any,
+    sim_id: str,
+    staging: Path,
 ) -> list[dict]:
     """Copy every tracked input for ``sim_id`` into ``staging/inputs/``.
 
@@ -197,13 +200,16 @@ def _materialise_inputs(
             entries.append(bundled)
 
     (staging_inputs / INPUTS_MANIFEST_NAME).write_text(
-        json.dumps(entries, indent=2, sort_keys=True), encoding="utf-8",
+        json.dumps(entries, indent=2, sort_keys=True),
+        encoding="utf-8",
     )
     return entries
 
 
 def _materialise_geographic(
-    workspace_path: Path, fingerprint: str | None, staging: Path,
+    workspace_path: Path,
+    fingerprint: str | None,
+    staging: Path,
 ) -> None:
     if not fingerprint:
         return
@@ -212,7 +218,8 @@ def _materialise_geographic(
         logger.warning(
             "Geographic fingerprint %s not found in cache %s — archive will "
             "ship without geographic payload",
-            fingerprint, cache.root,
+            fingerprint,
+            cache.root,
         )
         return
     dst = staging / GEOGRAPHIC_SUBDIR
@@ -227,8 +234,11 @@ def _materialise_geographic(
 
 
 def _dematerialise_geographic(
-    staging: Path, workspace_path: Path, fingerprint: str | None,
-    *, overwrite: bool = False,
+    staging: Path,
+    workspace_path: Path,
+    fingerprint: str | None,
+    *,
+    overwrite: bool = False,
 ) -> None:
     src = staging / GEOGRAPHIC_SUBDIR
     if not src.is_dir():
@@ -237,9 +247,7 @@ def _dematerialise_geographic(
         manifest_path = src / MANIFEST_FILENAME
         if manifest_path.is_file():
             try:
-                fingerprint = json.loads(manifest_path.read_text()).get(
-                    "fingerprint"
-                )
+                fingerprint = json.loads(manifest_path.read_text()).get("fingerprint")
             except (json.JSONDecodeError, OSError):
                 fingerprint = None
     if not fingerprint:
@@ -254,12 +262,17 @@ def _dematerialise_geographic(
         except (json.JSONDecodeError, OSError):
             manifest = {}
     GeographicCache(workspace_path).save(
-        fingerprint, src, manifest=manifest, overwrite=overwrite,
+        fingerprint,
+        src,
+        manifest=manifest,
+        overwrite=overwrite,
     )
 
 
 def _dump_catalog_snapshot(
-    conn: "duckdb.DuckDBPyConnection", sim_id: str, dst: Path,
+    conn: "duckdb.DuckDBPyConnection",
+    sim_id: str,
+    dst: Path,
 ) -> None:
     """Create a one-sim DuckDB snapshot at ``dst``."""
     import duckdb as _duckdb
@@ -275,7 +288,8 @@ def _dump_catalog_snapshot(
     try:
         ensure_schema(snap)
         sim_df = conn.execute(
-            "SELECT * FROM simulations WHERE sim_id = ?", [sim_id],
+            "SELECT * FROM simulations WHERE sim_id = ?",
+            [sim_id],
         ).fetchdf()
         if sim_df.empty:
             raise KeyError(f"Simulation '{sim_id}' not found")
@@ -283,7 +297,8 @@ def _dump_catalog_snapshot(
 
         for table in PER_SIM_TABLE_NAMES:
             df = conn.execute(
-                f"SELECT * FROM {table} WHERE sim_id = ?", [sim_id],
+                f"SELECT * FROM {table} WHERE sim_id = ?",
+                [sim_id],
             ).fetchdf()
             if df.empty:
                 continue
@@ -293,7 +308,8 @@ def _dump_catalog_snapshot(
 
 
 def _restore_catalog_snapshot(
-    conn: "duckdb.DuckDBPyConnection", snapshot_path: Path,
+    conn: "duckdb.DuckDBPyConnection",
+    snapshot_path: Path,
 ) -> str:
     """Import the rows from ``snapshot_path`` into the open catalog.
 
@@ -311,7 +327,8 @@ def _restore_catalog_snapshot(
         sid = str(sim_row[0])
 
         pkg_tables = {
-            r[0] for r in snap.execute(
+            r[0]
+            for r in snap.execute(
                 "SELECT table_name FROM information_schema.tables "
                 "WHERE table_schema='main' AND table_type='BASE TABLE'"
             ).fetchall()
@@ -370,9 +387,7 @@ def _write_readme(
     *,
     n_inputs: int = 0,
 ) -> None:
-    inputs_line = (
-        f"- **bundled input files**: {n_inputs}\n" if n_inputs else ""
-    )
+    inputs_line = f"- **bundled input files**: {n_inputs}\n" if n_inputs else ""
     dst.write_text(
         (
             f"# HydroModPy simulation package\n\n"
@@ -448,12 +463,15 @@ def export_hmp_package(
     sid = str(sim_id)
     output = Path(output_path)
     if output.suffix != ".hmp":
-        output = output.with_suffix(output.suffix + ".hmp") \
-            if output.suffix else output.with_suffix(".hmp")
+        output = (
+            output.with_suffix(output.suffix + ".hmp")
+            if output.suffix
+            else output.with_suffix(".hmp")
+        )
 
     row = catalog.connection.execute(
-        "SELECT zarr_path, geographic_fingerprint, project FROM simulations "
-        "WHERE sim_id = ?", [sid],
+        "SELECT zarr_path, geographic_fingerprint, project FROM simulations WHERE sim_id = ?",
+        [sid],
     ).fetchone()
     if row is None:
         raise KeyError(f"Simulation '{sid}' not found")
@@ -466,18 +484,25 @@ def export_hmp_package(
         staging.mkdir()
 
         _dump_catalog_snapshot(
-            catalog.connection, sid, staging / CATALOG_SNAPSHOT_NAME,
+            catalog.connection,
+            sid,
+            staging / CATALOG_SNAPSHOT_NAME,
         )
         _pack_zarr(zarr_src, staging / ZARR_ARCHIVE_NAME)
         _materialise_geographic(workspace, geo_fp, staging)
         inputs_manifest = _materialise_inputs(catalog, sid, staging)
         _write_readme(
-            sid, staging / README_NAME, n_inputs=len(inputs_manifest),
+            sid,
+            staging / README_NAME,
+            n_inputs=len(inputs_manifest),
         )
 
         manifest = _build_manifest(
-            sid, staging, geo_fp,
-            inputs=inputs_manifest, project=project_name,
+            sid,
+            staging,
+            geo_fp,
+            inputs=inputs_manifest,
+            project=project_name,
         )
         (staging / MANIFEST_NAME).write_text(
             json.dumps(manifest, indent=2, sort_keys=True),
@@ -497,16 +522,16 @@ def _read_snapshot_project(snap_path: Path) -> str | None:
 
     snap = _duckdb.connect(str(snap_path), read_only=True)
     try:
-        row = snap.execute(
-            "SELECT project FROM simulations LIMIT 1"
-        ).fetchone()
+        row = snap.execute("SELECT project FROM simulations LIMIT 1").fetchone()
     finally:
         snap.close()
     return str(row[0]) if row and row[0] else None
 
 
 def _check_project_conflict(
-    catalog: Any, manifest: dict, as_project: str | None,
+    catalog: Any,
+    manifest: dict,
+    as_project: str | None,
 ) -> None:
     """Raise if the incoming project name collides without an explicit rename."""
     if as_project:
@@ -531,7 +556,8 @@ def _rewrite_snapshot_project(snap_path: Path, new_project: str) -> None:
     snap = _duckdb.connect(str(snap_path))
     try:
         snap.execute(
-            "UPDATE simulations SET project = ?", [new_project],
+            "UPDATE simulations SET project = ?",
+            [new_project],
         )
     finally:
         snap.close()
@@ -564,7 +590,8 @@ def _rewrite_snapshot_paths(snap_path: Path, rewrites: dict[str, str]) -> None:
 
 
 def _rewrite_paths_in_json_blob(
-    raw: str | None, rewrites: dict[str, str],
+    raw: str | None,
+    rewrites: dict[str, str],
 ) -> str | None:
     if not raw:
         return None
@@ -579,7 +606,8 @@ def _rewrite_paths_in_json_blob(
 
 
 def _apply_rewrites_recursive(
-    node: Any, rewrites: dict[str, str],
+    node: Any,
+    rewrites: dict[str, str],
 ) -> bool:
     changed = False
     if isinstance(node, dict):
@@ -632,8 +660,7 @@ def import_hmp_package(
         roots = [p for p in staging.iterdir() if p.is_dir()]
         if len(roots) != 1:
             raise ValueError(
-                f"Expected exactly one top-level directory in archive, "
-                f"found {len(roots)}"
+                f"Expected exactly one top-level directory in archive, found {len(roots)}"
             )
         pkg = roots[0]
 
@@ -642,17 +669,13 @@ def import_hmp_package(
             raise ValueError(f"{MANIFEST_NAME} is missing from the archive")
         manifest = json.loads(manifest_path.read_text())
         if manifest.get("format") != HMP_MAGIC:
-            raise ValueError(
-                f"Unexpected archive format: {manifest.get('format')!r}"
-            )
+            raise ValueError(f"Unexpected archive format: {manifest.get('format')!r}")
         sid = str(manifest["sim_id"])
 
         for entry in manifest["files"]:
             path = pkg / entry["path"]
             if not path.is_file():
-                raise ValueError(
-                    f"Archive is missing file listed in manifest: {entry['path']}"
-                )
+                raise ValueError(f"Archive is missing file listed in manifest: {entry['path']}")
             actual = _sha256_file(path)
             if actual != entry["sha256"]:
                 raise ValueError(
@@ -661,14 +684,12 @@ def import_hmp_package(
                 )
 
         existing = catalog.connection.execute(
-            "SELECT sim_id FROM simulations WHERE sim_id = ?", [sid],
+            "SELECT sim_id FROM simulations WHERE sim_id = ?",
+            [sid],
         ).fetchone()
         if existing is not None:
             if not force:
-                raise ValueError(
-                    f"Simulation '{sid}' already exists. "
-                    "Use force=True to overwrite."
-                )
+                raise ValueError(f"Simulation '{sid}' already exists. Use force=True to overwrite.")
         else:
             _check_project_conflict(catalog, manifest, as_project)
 
@@ -687,6 +708,7 @@ def import_hmp_package(
             from hydromodpy.results.importers import (
                 dematerialise_inputs as _dematerialise,
             )
+
             rewrites = _dematerialise(pkg, catalog.workspace_path, manifest)
 
         if as_project:
@@ -712,7 +734,9 @@ def import_hmp_package(
         shutil.copy2(pkg / ZARR_ARCHIVE_NAME, dst)
 
         _dematerialise_geographic(
-            pkg, workspace, manifest.get("geographic_fingerprint"),
+            pkg,
+            workspace,
+            manifest.get("geographic_fingerprint"),
             overwrite=force,
         )
 
@@ -749,7 +773,10 @@ def dematerialize_geographic_on_import(
     """Deprecated helper from the pre-G05 folder-based ``.hmp``."""
     pkg = Path(package_dir)
     _dematerialise_geographic(
-        pkg, Path(workspace_path), fingerprint, overwrite=overwrite,
+        pkg,
+        Path(workspace_path),
+        fingerprint,
+        overwrite=overwrite,
     )
     return fingerprint
 

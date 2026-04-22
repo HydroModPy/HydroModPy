@@ -13,7 +13,9 @@ class TestComputeCompleteness:
         dates = pd.date_range("2020-01-01", "2020-01-10", freq="D")
         df = pd.DataFrame({"datetime": dates, "value": range(10)})
         result = compute_completeness(
-            df, start_date=datetime(2020, 1, 1), end_date=datetime(2020, 1, 10),
+            df,
+            start_date=datetime(2020, 1, 1),
+            end_date=datetime(2020, 1, 10),
             station_id="S1",
         )
         assert result["completeness_pct"] == pytest.approx(100.0)
@@ -22,12 +24,23 @@ class TestComputeCompleteness:
 
     def test_missing_days(self):
         # 10 days expected, only 8 present (skip day 3 and 7)
-        dates = pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-04",
-                                 "2020-01-05", "2020-01-06", "2020-01-08",
-                                 "2020-01-09", "2020-01-10"])
+        dates = pd.to_datetime(
+            [
+                "2020-01-01",
+                "2020-01-02",
+                "2020-01-04",
+                "2020-01-05",
+                "2020-01-06",
+                "2020-01-08",
+                "2020-01-09",
+                "2020-01-10",
+            ]
+        )
         df = pd.DataFrame({"datetime": dates, "value": range(8)})
         result = compute_completeness(
-            df, start_date=datetime(2020, 1, 1), end_date=datetime(2020, 1, 10),
+            df,
+            start_date=datetime(2020, 1, 1),
+            end_date=datetime(2020, 1, 10),
             station_id="S1",
         )
         assert result["missing_days"] == 2
@@ -35,8 +48,10 @@ class TestComputeCompleteness:
 
     def test_empty_df(self):
         result = compute_completeness(
-            pd.DataFrame(), start_date=datetime(2020, 1, 1),
-            end_date=datetime(2020, 1, 10), station_id="S1",
+            pd.DataFrame(),
+            start_date=datetime(2020, 1, 1),
+            end_date=datetime(2020, 1, 10),
+            station_id="S1",
         )
         assert result["missing_days"] == 10
 

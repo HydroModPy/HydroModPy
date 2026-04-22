@@ -48,9 +48,7 @@ def _parse_int_tokens(line: str, *, expected_at_least: int) -> list[int]:
     return [int(token) for token in tokens]
 
 
-def _read_gmsh22_ascii_mesh(
-    path: Path, *, cell_type: str | None = None
-) -> GmshMeshData:
+def _read_gmsh22_ascii_mesh(path: Path, *, cell_type: str | None = None) -> GmshMeshData:
     """Fallback parser for simple ASCII ``.msh`` 2.2 files.
 
     This reader intentionally supports only the narrow subset used by the
@@ -72,16 +70,12 @@ def _read_gmsh22_ascii_mesh(
     for offset in range(n_nodes):
         tokens = lines[nodes_start + 2 + offset].strip().split()
         if len(tokens) < 4:
-            raise ValueError(
-                f"Invalid node line in '{path}': {lines[nodes_start + 2 + offset]!r}"
-            )
+            raise ValueError(f"Invalid node line in '{path}': {lines[nodes_start + 2 + offset]!r}")
         node_id = int(tokens[0])
         raw_points[node_id] = (float(tokens[1]), float(tokens[2]))
     node_ids = sorted(raw_points)
     if node_ids != list(range(1, n_nodes + 1)):
-        raise ValueError(
-            "Fallback Gmsh reader requires contiguous node ids starting at 1"
-        )
+        raise ValueError("Fallback Gmsh reader requires contiguous node ids starting at 1")
     points_xy = np.array([raw_points[node_id] for node_id in node_ids], dtype=float)
 
     elements_start = _find_section("Elements")
@@ -109,9 +103,7 @@ def _read_gmsh22_ascii_mesh(
 
     selected_types = [kind for kind, items in blocks.items() if items]
     if not selected_types:
-        raise ValueError(
-            f"No supported 2D triangle/quadrilateral elements found in '{path}'"
-        )
+        raise ValueError(f"No supported 2D triangle/quadrilateral elements found in '{path}'")
     if requested_cell_type is None and len(selected_types) > 1:
         present = ", ".join(sorted(selected_types))
         raise ValueError(
@@ -135,9 +127,7 @@ def normalize_cell_type(cell_type: str) -> str:
     normalized = _CELL_TYPE_ALIASES.get(str(cell_type).strip().lower())
     if normalized is None:
         allowed = ", ".join(sorted(set(_CELL_TYPE_ALIASES)))
-        raise ValueError(
-            f"Unsupported planar cell type '{cell_type}'. Allowed: {allowed}"
-        )
+        raise ValueError(f"Unsupported planar cell type '{cell_type}'. Allowed: {allowed}")
     return normalized
 
 
@@ -193,12 +183,8 @@ class GmshMeshData:
         n_nodes = int(points_xy.shape[0])
         for block in self.cell_blocks:
             if np.any(block.connectivity < 0) or np.any(block.connectivity >= n_nodes):
-                raise ValueError(
-                    "cell connectivity references node indices outside points_xy"
-                )
-        source_path = (
-            None if self.source_path is None else Path(self.source_path).resolve()
-        )
+                raise ValueError("cell connectivity references node indices outside points_xy")
+        source_path = None if self.source_path is None else Path(self.source_path).resolve()
         object.__setattr__(self, "points_xy", points_xy.copy())
         object.__setattr__(self, "source_path", source_path)
 
@@ -213,9 +199,7 @@ class GmshMeshData:
 
     @property
     def connectivity(self) -> np.ndarray:
-        return np.vstack([block.connectivity for block in self.cell_blocks]).astype(
-            int, copy=False
-        )
+        return np.vstack([block.connectivity for block in self.cell_blocks]).astype(int, copy=False)
 
     @property
     def n_nodes(self) -> int:
@@ -273,9 +257,7 @@ def meshio_to_mesh_data(mesh: Any, *, cell_type: str | None = None) -> GmshMeshD
     )
 
 
-def read_gmsh_2d_mesh(
-    path: str | Path, *, cell_type: str | None = None
-) -> GmshMeshData:
+def read_gmsh_2d_mesh(path: str | Path, *, cell_type: str | None = None) -> GmshMeshData:
     """Read one planar 2D triangle or quadrilateral mesh from disk.
 
     The function prefers ``meshio`` when available, then falls back to a small

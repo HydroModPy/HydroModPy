@@ -255,12 +255,21 @@ def _plot(
 
     plt.style.use("seaborn-v0_8-whitegrid")
     fig, ax = plt.subplots(figsize=(12, 6.5))
-    ax.plot(x, y, color="#126A66", linewidth=2.4, marker="o", markersize=3.2, label="Snapshots commites")
+    ax.plot(
+        x, y, color="#126A66", linewidth=2.4, marker="o", markersize=3.2, label="Snapshots commites"
+    )
     ax.fill_between(x, y, min(y), color="#126A66", alpha=0.08)
 
     if worktree_count is not None and worktree_count.nonblank_lines != end_value:
         worktree_x = datetime.combine(end, datetime.min.time())
-        ax.scatter([worktree_x], [worktree_count.nonblank_lines], color="#C43C39", s=75, zorder=5, label="Arbre de travail")
+        ax.scatter(
+            [worktree_x],
+            [worktree_count.nonblank_lines],
+            color="#C43C39",
+            s=75,
+            zorder=5,
+            label="Arbre de travail",
+        )
         ax.annotate(
             f"Arbre de travail : {worktree_count.nonblank_lines:,}".replace(",", " "),
             xy=(worktree_x, worktree_count.nonblank_lines),
@@ -378,7 +387,13 @@ def main(argv: list[str] | None = None) -> int:
     svg_path = out_dir / f"code_lines_evolution_{args.tag}.svg"
 
     _write_csv(csv_path, rows)
-    _plot(path_png=png_path, path_svg=svg_path, rows=rows, worktree_count=worktree_count, title=args.title)
+    _plot(
+        path_png=png_path,
+        path_svg=svg_path,
+        rows=rows,
+        worktree_count=worktree_count,
+        title=args.title,
+    )
 
     print(f"CSV={csv_path}")
     print(f"PNG={png_path}")

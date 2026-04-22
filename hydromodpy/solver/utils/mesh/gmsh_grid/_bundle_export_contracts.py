@@ -79,9 +79,7 @@ class CatchmentBundleGeologyExportConfig:
                 path=str(source_raw["path"]),
                 kind=str(source_raw["kind"]),
                 code_field=_optional_text(source_raw.get("code_field")),
-                reference_raster_path=_optional_text(
-                    source_raw.get("reference_raster_path")
-                ),
+                reference_raster_path=_optional_text(source_raw.get("reference_raster_path")),
             ),
             cell_samples_per_axis=int(normalized.get("cell_samples_per_axis", 8)),
         )
@@ -132,14 +130,11 @@ class CatchmentBundleHydraulicPropertyConfig:
         payload: Mapping[str, Any],
     ) -> "CatchmentBundleHydraulicPropertyConfig":
         return cls(
-            values_source=str(payload.get("values_source", "inline")).strip().lower()
-            or "inline",
+            values_source=str(payload.get("values_source", "inline")).strip().lower() or "inline",
             values=dict(payload.get("values") or {}),
             values_csv_file=_optional_text(payload.get("values_csv_file")),
-            csv_key_column=str(payload.get("csv_key_column", "zone_key")).strip()
-            or "zone_key",
-            csv_value_column=str(payload.get("csv_value_column", "value")).strip()
-            or "value",
+            csv_key_column=str(payload.get("csv_key_column", "zone_key")).strip() or "zone_key",
+            csv_value_column=str(payload.get("csv_value_column", "value")).strip() or "value",
             default_value=payload.get("default_value"),
             unit=_optional_text(payload.get("unit")),
         )
@@ -163,9 +158,7 @@ class CatchmentBundleHydraulicPropertiesConfig:
             conductivity=(
                 None
                 if not isinstance(conductivity_raw, Mapping)
-                else CatchmentBundleHydraulicPropertyConfig.from_mapping(
-                    conductivity_raw
-                )
+                else CatchmentBundleHydraulicPropertyConfig.from_mapping(conductivity_raw)
             ),
             storage_coefficient=(
                 None

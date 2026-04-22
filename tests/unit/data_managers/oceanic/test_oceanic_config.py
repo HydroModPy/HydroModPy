@@ -52,10 +52,12 @@ class TestOceanicConfig:
         assert cfg.sources[0].source == "constant"
 
     def test_multiple_sources(self, tmp_path):
-        cfg = OceanicConfig(sources=[
-            {"source": "constant", "value": 0.0},
-            {"source": "custom", "path": str(tmp_path)},
-        ])
+        cfg = OceanicConfig(
+            sources=[
+                {"source": "constant", "value": 0.0},
+                {"source": "custom", "path": str(tmp_path)},
+            ]
+        )
         assert len(cfg.sources) == 2
 
     def test_empty_sources_rejected(self):

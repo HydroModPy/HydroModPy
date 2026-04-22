@@ -18,9 +18,15 @@ from hydromodpy.core.config.base import HydroModelBase
 class BoundaryCondition(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
-    id: Annotated[str, Profile.USER] = Field(..., description="id of the boundary condition (ex: h_BC, etc.)")
-    value: Annotated[float, Profile.USER] = Field(..., description="Value of the boundary condition")
-    description: Annotated[str, Profile.USER] = Field("", description="Description of the boundary condition")
+    id: Annotated[str, Profile.USER] = Field(
+        ..., description="id of the boundary condition (ex: h_BC, etc.)"
+    )
+    value: Annotated[float, Profile.USER] = Field(
+        ..., description="Value of the boundary condition"
+    )
+    description: Annotated[str, Profile.USER] = Field(
+        "", description="Description of the boundary condition"
+    )
     units: Annotated[str, Profile.DEV] = Field("", description="Units of the boundary condition")
     type: Annotated[str, Profile.USER] = Field(
         "Dirichlet",

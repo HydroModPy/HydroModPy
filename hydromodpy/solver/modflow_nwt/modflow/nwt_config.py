@@ -157,7 +157,9 @@ class ModflowProcessSpecificConfig(HydroModelBase):
     def _normalize_exdp(cls, value):
         if value is None:
             return None
-        exdp_m = float(parse_length_to_m(value, default_unit="m", label="modflownwt.process_specific.exdp"))
+        exdp_m = float(
+            parse_length_to_m(value, default_unit="m", label="modflownwt.process_specific.exdp")
+        )
         if exdp_m <= 0.0:
             raise ValueError("modflownwt.process_specific.exdp must be > 0.")
         return exdp_m
@@ -179,8 +181,7 @@ class ModflowConfig(HydroModelBase):
     sgrid: Annotated[SolverSGridConfig, Profile.USER] = Field(
         default_factory=SolverSGridConfig,
         description=(
-            "Spatial-grid payload split into `[...sgrid.planar]` and "
-            "`[...sgrid.vertical]`."
+            "Spatial-grid payload split into `[...sgrid.planar]` and `[...sgrid.vertical]`."
         ),
     )
     tgrid: Annotated[TMeshConfigModel | None, Profile.USER] = Field(
@@ -192,6 +193,7 @@ class ModflowConfig(HydroModelBase):
             "compatibility and mainly keeps `firstpersteady`."
         ),
     )
+
 
 def _coerce_modflow_config(
     config: ModflowConfig | Mapping[str, object] | None = None,

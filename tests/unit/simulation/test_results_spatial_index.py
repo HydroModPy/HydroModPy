@@ -24,19 +24,24 @@ class TestPointInCellTriangles:
 
     @pytest.fixture
     def tri_mesh(self):
-        vertices = np.array([
-            [0.0, 0.0],
-            [2.0, 0.0],
-            [1.0, 1.0],
-            [0.0, 2.0],
-            [2.0, 2.0],
-        ])
-        connectivity = np.array([
-            [0, 1, 2],
-            [1, 4, 2],
-            [2, 4, 3],
-            [0, 2, 3],
-        ], dtype="int32")
+        vertices = np.array(
+            [
+                [0.0, 0.0],
+                [2.0, 0.0],
+                [1.0, 1.0],
+                [0.0, 2.0],
+                [2.0, 2.0],
+            ]
+        )
+        connectivity = np.array(
+            [
+                [0, 1, 2],
+                [1, 4, 2],
+                [2, 4, 3],
+                [0, 2, 3],
+            ],
+            dtype="int32",
+        )
         return vertices, connectivity
 
     def test_point_inside(self, tri_mesh):
@@ -75,19 +80,24 @@ class TestPointInCellMixed:
 
     @pytest.fixture
     def mixed_mesh(self):
-        vertices = np.array([
-            [0.0, 0.0],  # 0
-            [1.0, 0.0],  # 1
-            [2.0, 0.0],  # 2
-            [0.5, 1.0],  # 3
-            [1.0, 1.0],  # 4
-            [2.0, 1.0],  # 5
-        ])
+        vertices = np.array(
+            [
+                [0.0, 0.0],  # 0
+                [1.0, 0.0],  # 1
+                [2.0, 0.0],  # 2
+                [0.5, 1.0],  # 3
+                [1.0, 1.0],  # 4
+                [2.0, 1.0],  # 5
+            ]
+        )
         # cell 0: triangle (0,1,3), cell 1: quad (1,2,5,4)
-        connectivity = np.array([
-            [0, 1, 3, -1],
-            [1, 2, 5, 4],
-        ], dtype="int32")
+        connectivity = np.array(
+            [
+                [0, 1, 3, -1],
+                [1, 2, 5, 4],
+            ],
+            dtype="int32",
+        )
         return vertices, connectivity
 
     def test_point_in_triangle(self, mixed_mesh):

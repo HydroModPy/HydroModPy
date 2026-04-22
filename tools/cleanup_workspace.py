@@ -91,8 +91,7 @@ def _handle_remove_readonly(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Remove root-level temporary directories already ignored by git. "
-            "Dry-run by default."
+            "Remove root-level temporary directories already ignored by git. Dry-run by default."
         )
     )
     parser.add_argument(

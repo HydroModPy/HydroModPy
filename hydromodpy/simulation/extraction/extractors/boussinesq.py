@@ -55,14 +55,18 @@ class BoussinesqOutputAdapter:
 
             logger.info(
                 "Extracting Boussinesq results: %d timesteps, %d cells",
-                n_timesteps, n_cells,
+                n_timesteps,
+                n_cells,
             )
 
             # Write head as a 1-layer field.
             for t in range(n_timesteps):
                 values = head_history[t].reshape(1, n_cells)  # (1 layer, n_cells)
                 store.write_field(
-                    sim_id, "head", t, values,
+                    sim_id,
+                    "head",
+                    t,
+                    values,
                     n_timesteps=n_timesteps if t == 0 else None,
                 )
 

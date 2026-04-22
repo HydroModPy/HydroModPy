@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 Raster support metadata used to place 2D surfaces in space.
 
@@ -117,8 +118,7 @@ class RasterSupport:
                 missing.append(key)
         if missing:
             raise ValueError(
-                "RasterSupport is missing required domain metadata: "
-                + ", ".join(missing)
+                "RasterSupport is missing required domain metadata: " + ", ".join(missing)
             )
 
     def assert_same_geographic_domain(
@@ -151,6 +151,5 @@ class RasterSupport:
             b = float(getattr(other, key))
             if not isclose(a, b, rel_tol=0.0, abs_tol=float(atol)):
                 raise ValueError(
-                    f"Domain extent mismatch for '{key}': {a} != {b} "
-                    f"(abs_tol={atol})."
+                    f"Domain extent mismatch for '{key}': {a} != {b} (abs_tol={atol})."
                 )

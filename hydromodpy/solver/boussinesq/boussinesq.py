@@ -99,9 +99,7 @@ class Boussinesq(Solver):
         self.runtime_summary: dict[str, Any] = {}
         self.has_numerical_solution = False
         self.solve_stage = "created"
-        self.saturation_excess_regularization_radius = (
-            _DEFAULT_SATURATION_EXCESS_REGULARIZATION
-        )
+        self.saturation_excess_regularization_radius = _DEFAULT_SATURATION_EXCESS_REGULARIZATION
 
     def pre_processing(self):
         """Build the compact solver mesh and initialize static run metadata."""
@@ -179,9 +177,7 @@ class Boussinesq(Solver):
                 recharge_rate_history_m_s=self._as_export_array(
                     self.state.recharge_rate_history_m_s
                 ),
-                well_flux_history_m3_s=self._as_export_array(
-                    self.state.well_flux_history_m3_s
-                ),
+                well_flux_history_m3_s=self._as_export_array(self.state.well_flux_history_m3_s),
                 head_history_m=self._as_export_array(self.state.head_history_m),
                 saturated_thickness_history_m=self._as_export_array(
                     self.state.saturated_thickness_history_m
@@ -194,16 +190,12 @@ class Boussinesq(Solver):
                     self.state.saturated_thickness_m,
                     dtype=float,
                 ),
-                final_recharge_rate_m_s=self._as_export_array(
-                    self.state.recharge_rate_m_s
-                ),
+                final_recharge_rate_m_s=self._as_export_array(self.state.recharge_rate_m_s),
                 final_well_flux_m3_s=self._as_export_array(self.state.well_flux_m3_s),
                 final_saturation_excess_rate_m_s=self._as_export_array(
                     self.state.saturation_excess_rate_m_s
                 ),
-                internal_edge_flux_m3_s=self._as_export_array(
-                    self.state.internal_edge_flux_m3_s
-                ),
+                internal_edge_flux_m3_s=self._as_export_array(self.state.internal_edge_flux_m3_s),
                 internal_edge_flux_history_m3_s=self._as_export_array(
                     self.state.internal_edge_flux_history_m3_s
                 ),
@@ -230,14 +222,12 @@ class Boussinesq(Solver):
         summary_payload["solve_stage"] = str(self.solve_stage)
         if self.mesh is not None and hasattr(self.mesh, "z_top_m"):
             z_top = self.mesh.z_top_m
-            summary_payload["z_top_m"] = float(z_top[0]) if hasattr(z_top, "__len__") else float(z_top)
+            summary_payload["z_top_m"] = (
+                float(z_top[0]) if hasattr(z_top, "__len__") else float(z_top)
+            )
         if self.state is not None:
-            summary_payload["period_lengths_seconds"] = list(
-                self.state.period_lengths_seconds
-            )
-            summary_payload["nonlinear_iterations"] = list(
-                self.state.nonlinear_iterations
-            )
+            summary_payload["period_lengths_seconds"] = list(self.state.period_lengths_seconds)
+            summary_payload["nonlinear_iterations"] = list(self.state.nonlinear_iterations)
             summary_payload["converged_by_period"] = list(self.state.converged_by_period)
         summary_path = self.full_path / "_boussinesq_summary.json"
         summary_path.write_text(
@@ -278,8 +268,7 @@ class Boussinesq(Solver):
             dtype=float,
         )
         period_lengths = tuple(
-            float(value)
-            for value in (getattr(self.state, "period_lengths_seconds", ()) or ())
+            float(value) for value in (getattr(self.state, "period_lengths_seconds", ()) or ())
         )
         evaluation_start = 1 if (n_snapshots > 1 and len(period_lengths) > 0) else 0
         evaluated_head_history = np.asarray(
@@ -298,24 +287,21 @@ class Boussinesq(Solver):
         active_any_by_snapshot = active_counts > 0
         activation_transitions = int(
             np.count_nonzero(
-                active_any_by_snapshot
-                & np.concatenate(([True], ~active_any_by_snapshot[:-1]))
+                active_any_by_snapshot & np.concatenate(([True], ~active_any_by_snapshot[:-1]))
             )
         )
         deactivation_transitions = int(
             np.count_nonzero(
-                (~active_any_by_snapshot)
-                & np.concatenate(([False], active_any_by_snapshot[:-1]))
+                (~active_any_by_snapshot) & np.concatenate(([False], active_any_by_snapshot[:-1]))
             )
         )
         state_transitions = int(
-            np.count_nonzero(
-                active_any_by_snapshot[1:] != active_any_by_snapshot[:-1]
-            )
+            np.count_nonzero(active_any_by_snapshot[1:] != active_any_by_snapshot[:-1])
         )
         total_surface_flux_m3_day = (
             np.sum(
-                positive_saturation_excess * np.asarray(self.mesh.cell_area_m2, dtype=float)[None, :],
+                positive_saturation_excess
+                * np.asarray(self.mesh.cell_area_m2, dtype=float)[None, :],
                 axis=1,
             )
             * _SECONDS_PER_DAY
@@ -323,24 +309,16 @@ class Boussinesq(Solver):
         peak_active_cells = int(np.max(active_counts)) if active_counts.size else 0
         final_active_cells = int(active_counts[-1]) if active_counts.size else 0
         peak_head_above_top_m = float(
-            np.max(evaluated_head_history - z_top)
-            if evaluated_head_history.size
-            else 0.0
+            np.max(evaluated_head_history - z_top) if evaluated_head_history.size else 0.0
         )
         active_indices = np.flatnonzero(active_counts > 0)
-        first_active_index = (
-            int(active_indices[0]) if active_indices.size else None
-        )
+        first_active_index = int(active_indices[0]) if active_indices.size else None
 
         self.runtime_summary["surface_threshold_active_rate_eps_m_s"] = float(
             _SURFACE_THRESHOLD_ACTIVE_RATE_EPS_M_S
         )
-        self.runtime_summary["surface_threshold_active_any"] = bool(
-            active_indices.size > 0
-        )
-        self.runtime_summary["surface_threshold_available_snapshots"] = int(
-            n_snapshots
-        )
+        self.runtime_summary["surface_threshold_active_any"] = bool(active_indices.size > 0)
+        self.runtime_summary["surface_threshold_available_snapshots"] = int(n_snapshots)
         self.runtime_summary["surface_threshold_evaluated_snapshots"] = int(
             evaluated_head_history.shape[0]
         )
@@ -349,22 +327,16 @@ class Boussinesq(Solver):
         )
         self.runtime_summary["surface_threshold_first_active_step"] = first_active_index
         self.runtime_summary["surface_threshold_first_active_day"] = (
-            None
-            if first_active_index is None
-            else float(elapsed_days[first_active_index])
+            None if first_active_index is None else float(elapsed_days[first_active_index])
         )
         self.runtime_summary["surface_threshold_active_steps"] = int(
             np.count_nonzero(active_any_by_snapshot)
         )
-        self.runtime_summary["surface_threshold_activation_windows"] = int(
-            activation_transitions
-        )
+        self.runtime_summary["surface_threshold_activation_windows"] = int(activation_transitions)
         self.runtime_summary["surface_threshold_deactivation_windows"] = int(
             deactivation_transitions
         )
-        self.runtime_summary["surface_threshold_state_transitions"] = int(
-            state_transitions
-        )
+        self.runtime_summary["surface_threshold_state_transitions"] = int(state_transitions)
         self.runtime_summary["surface_threshold_peak_active_cells"] = peak_active_cells
         self.runtime_summary["surface_threshold_peak_active_fraction"] = float(
             peak_active_cells / max(n_cells, 1)
@@ -382,9 +354,7 @@ class Boussinesq(Solver):
         self.runtime_summary["surface_threshold_final_total_m3_day"] = float(
             total_surface_flux_m3_day[-1] if total_surface_flux_m3_day.size else 0.0
         )
-        self.runtime_summary["surface_threshold_peak_head_above_top_m"] = (
-            peak_head_above_top_m
-        )
+        self.runtime_summary["surface_threshold_peak_head_above_top_m"] = peak_head_above_top_m
         self.runtime_summary["surface_threshold_any_head_above_top"] = bool(
             peak_head_above_top_m > 0.0
         )
@@ -423,8 +393,7 @@ class Boussinesq(Solver):
         used_periods = min(period_lengths_seconds.size, max(count - 1, 0))
         if used_periods > 0:
             elapsed_days[1 : used_periods + 1] = (
-                np.cumsum(period_lengths_seconds[:used_periods], dtype=float)
-                / _SECONDS_PER_DAY
+                np.cumsum(period_lengths_seconds[:used_periods], dtype=float) / _SECONDS_PER_DAY
             )
             if used_periods + 1 < count:
                 elapsed_days[used_periods + 1 :] = elapsed_days[used_periods]
@@ -459,9 +428,7 @@ class Boussinesq(Solver):
         dangerous than silently ignoring a forcing or boundary condition.
         """
         active_bc = tuple(getattr(self.flow, "active_bc", ()) or ())
-        active_sinks_sources = tuple(
-            getattr(self.flow, "active_sinks_sources", ()) or ()
-        )
+        active_sinks_sources = tuple(getattr(self.flow, "active_sinks_sources", ()) or ())
         unsupported_bc = sorted(
             str(item) for item in active_bc if str(item) not in _SUPPORTED_BC_IDS
         )
@@ -474,9 +441,7 @@ class Boussinesq(Solver):
         if unsupported_bc:
             unsupported.append("active_bc=" + ",".join(unsupported_bc))
         if unsupported_sinks_sources:
-            unsupported.append(
-                "active_sinks_sources=" + ",".join(unsupported_sinks_sources)
-            )
+            unsupported.append("active_sinks_sources=" + ",".join(unsupported_sinks_sources))
 
         if unsupported:
             raise NotImplementedError(
@@ -490,7 +455,10 @@ class Boussinesq(Solver):
 
     def _runtime_backend_name(self) -> str:
         """Return the selected nonlinear runtime backend name."""
-        return str(getattr(self.flow, "runtime_backend", "local") or "local").strip().lower() or "local"
+        return (
+            str(getattr(self.flow, "runtime_backend", "local") or "local").strip().lower()
+            or "local"
+        )
 
     def _surface_interaction_model(self) -> str:
         """Return the selected groundwater/surface interaction closure."""
@@ -522,16 +490,12 @@ class Boussinesq(Solver):
         runtime_max_iterations = getattr(self.flow, "runtime_max_iterations", None)
         if runtime_max_iterations is not None:
             max_iterations = int(runtime_max_iterations)
-        tol_residual_inf = float(
-            getattr(self.flow, "runtime_tol_residual_inf", 1.0e-9) or 1.0e-9
-        )
+        tol_residual_inf = float(getattr(self.flow, "runtime_tol_residual_inf", 1.0e-9) or 1.0e-9)
         tol_state_update_inf = float(
             getattr(self.flow, "runtime_tol_state_update_inf", 1.0e-9) or 1.0e-9
         )
         return NonlinearRuntimeOptions(
-            regularization_radius=float(
-                self.saturation_excess_regularization_radius
-            ),
+            regularization_radius=float(self.saturation_excess_regularization_radius),
             max_iterations=int(max_iterations),
             tol_residual_inf=tol_residual_inf,
             tol_state_update_inf=tol_state_update_inf,
@@ -548,9 +512,10 @@ class Boussinesq(Solver):
         finding, dense Jacobians, and which convergence policy applied.
         """
         options = self._runtime_options()
-        flow_regime = str(
-            getattr(self.flow, "flow_regime", "transient") or "transient"
-        ).strip().lower() or "transient"
+        flow_regime = (
+            str(getattr(self.flow, "flow_regime", "transient") or "transient").strip().lower()
+            or "transient"
+        )
         time_scheme = runtime_backend.method.time_scheme_for_regime(flow_regime)
         self.runtime_summary["runtime_backend"] = runtime_backend.name
         self.runtime_summary["runtime_engine"] = runtime_backend.name
@@ -561,42 +526,20 @@ class Boussinesq(Solver):
         self.runtime_summary["surface_interaction_model_resolved"] = (
             self._surface_interaction_model()
         )
-        self.runtime_summary["runtime_solver_kind"] = (
-            runtime_backend.nonlinear_solver_kind
-        )
-        self.runtime_summary["runtime_linear_system_layout"] = (
-            runtime_backend.linear_system_layout
-        )
-        self.runtime_summary["runtime_jacobian_strategy"] = (
-            runtime_backend.jacobian_strategy
-        )
-        self.runtime_summary["runtime_linear_solver"] = (
-            runtime_backend.linear_solver_kind
-        )
-        self.runtime_summary["runtime_convergence_policy"] = (
-            runtime_backend.convergence_policy
-        )
-        self.runtime_summary["runtime_iteration_counter"] = (
-            runtime_backend.iteration_counter_label
-        )
-        self.runtime_summary["runtime_tol_residual_inf"] = float(
-            options.tol_residual_inf
-        )
-        self.runtime_summary["runtime_tol_state_update_inf"] = float(
-            options.tol_state_update_inf
-        )
+        self.runtime_summary["runtime_solver_kind"] = runtime_backend.nonlinear_solver_kind
+        self.runtime_summary["runtime_linear_system_layout"] = runtime_backend.linear_system_layout
+        self.runtime_summary["runtime_jacobian_strategy"] = runtime_backend.jacobian_strategy
+        self.runtime_summary["runtime_linear_solver"] = runtime_backend.linear_solver_kind
+        self.runtime_summary["runtime_convergence_policy"] = runtime_backend.convergence_policy
+        self.runtime_summary["runtime_iteration_counter"] = runtime_backend.iteration_counter_label
+        self.runtime_summary["runtime_tol_residual_inf"] = float(options.tol_residual_inf)
+        self.runtime_summary["runtime_tol_state_update_inf"] = float(options.tol_state_update_inf)
         self.runtime_summary["runtime_formulation"] = runtime_backend.method.id
-        self.runtime_summary["runtime_unknown_layout"] = (
-            runtime_backend.method.unknown_layout
-        )
-        self.runtime_summary["runtime_space_scheme"] = (
-            runtime_backend.method.space_scheme_id
-        )
+        self.runtime_summary["runtime_unknown_layout"] = runtime_backend.method.unknown_layout
+        self.runtime_summary["runtime_space_scheme"] = runtime_backend.method.space_scheme_id
         self.runtime_summary["runtime_time_scheme"] = time_scheme.id
         self.runtime_summary["runtime_problem_kind"] = time_scheme.problem_kind
-        self.runtime_summary["runtime_method_description"] = (
-            runtime_backend.method.description
-        )
+        self.runtime_summary["runtime_method_description"] = runtime_backend.method.description
 
     def _run_transient_runtime(self) -> bool:
         """Advance the head state over all launcher stress periods.
@@ -614,8 +557,7 @@ class Boussinesq(Solver):
         self._assert_runtime_mesh_size_supported(runtime_backend)
 
         period_lengths = tuple(
-            float(value)
-            for value in (getattr(self.time_grid, "period_lengths_seconds", ()) or ())
+            float(value) for value in (getattr(self.time_grid, "period_lengths_seconds", ()) or ())
         )
         if not period_lengths:
             return True
@@ -634,33 +576,17 @@ class Boussinesq(Solver):
             ocean_series_m,
             nper=nper,
         )
-        drainage_conductance_series_m2_s = self._resolve_drainage_conductance_series(
-            nper
-        )
+        drainage_conductance_series_m2_s = self._resolve_drainage_conductance_series(nper)
 
         head_prev = np.asarray(self.state.head_m, dtype=float)
         head_history = [head_prev.copy()]
-        thickness_history = [
-            np.asarray(self.state.saturated_thickness_m, dtype=float).copy()
-        ]
-        saturation_excess_history = [
-            np.zeros(self.mesh.n_cells, dtype=float)
-        ]
-        recharge_rate_history = [
-            np.zeros(self.mesh.n_cells, dtype=float)
-        ]
-        well_flux_history = [
-            np.zeros(self.mesh.n_cells, dtype=float)
-        ]
-        internal_edge_flux_history = [
-            np.zeros(self.mesh.n_edges, dtype=float)
-        ]
-        imposed_head_edge_flux_history = [
-            np.zeros(self.mesh.n_edges, dtype=float)
-        ]
-        drainage_flux_history = [
-            np.zeros(self.mesh.n_cells, dtype=float)
-        ]
+        thickness_history = [np.asarray(self.state.saturated_thickness_m, dtype=float).copy()]
+        saturation_excess_history = [np.zeros(self.mesh.n_cells, dtype=float)]
+        recharge_rate_history = [np.zeros(self.mesh.n_cells, dtype=float)]
+        well_flux_history = [np.zeros(self.mesh.n_cells, dtype=float)]
+        internal_edge_flux_history = [np.zeros(self.mesh.n_edges, dtype=float)]
+        imposed_head_edge_flux_history = [np.zeros(self.mesh.n_edges, dtype=float)]
+        drainage_flux_history = [np.zeros(self.mesh.n_cells, dtype=float)]
         nonlinear_iterations: list[int] = []
         converged_by_period: list[bool] = []
         final_internal_flux = internal_edge_flux_from_head(self.mesh, head_prev)
@@ -730,9 +656,7 @@ class Boussinesq(Solver):
                 dtype=float,
             )
             last_residual_norm = float(step.residual_norm_inf)
-            self.runtime_summary["last_termination_reason"] = str(
-                step.termination_reason
-            )
+            self.runtime_summary["last_termination_reason"] = str(step.termination_reason)
             head_history.append(head_prev.copy())
             thickness_history.append(step.assembly.saturated_thickness_m.copy())
             saturation_excess_history.append(final_saturation_excess_rate.copy())
@@ -754,17 +678,11 @@ class Boussinesq(Solver):
                     well_flux_history_m3_s=np.vstack(well_flux_history),
                     head_history_m=np.vstack(head_history),
                     saturated_thickness_history_m=np.vstack(thickness_history),
-                    saturation_excess_history_m_s=np.vstack(
-                        saturation_excess_history
-                    ),
+                    saturation_excess_history_m_s=np.vstack(saturation_excess_history),
                     internal_edge_flux_m3_s=final_internal_flux.copy(),
-                    internal_edge_flux_history_m3_s=np.vstack(
-                        internal_edge_flux_history
-                    ),
+                    internal_edge_flux_history_m3_s=np.vstack(internal_edge_flux_history),
                     imposed_head_edge_flux_m3_s=final_imposed_head_flux.copy(),
-                    imposed_head_edge_flux_history_m3_s=np.vstack(
-                        imposed_head_edge_flux_history
-                    ),
+                    imposed_head_edge_flux_history_m3_s=np.vstack(imposed_head_edge_flux_history),
                     drainage_flux_m3_s=final_drainage_flux.copy(),
                     drainage_flux_history_m3_s=np.vstack(drainage_flux_history),
                     period_lengths_seconds=period_lengths,
@@ -776,9 +694,7 @@ class Boussinesq(Solver):
                 self.runtime_summary["active_recharge"] = self._has_active_recharge_payload(
                     recharge_series_m_s
                 )
-                self.runtime_summary["active_wells"] = bool(
-                    np.any(well_flux_by_period_m3_s != 0.0)
-                )
+                self.runtime_summary["active_wells"] = bool(np.any(well_flux_by_period_m3_s != 0.0))
                 self.runtime_summary["active_imposed_head_bc"] = bool(
                     any(np.isfinite(values).any() for values in imposed_heads_by_period)
                 )
@@ -805,9 +721,7 @@ class Boussinesq(Solver):
             internal_edge_flux_m3_s=final_internal_flux.copy(),
             internal_edge_flux_history_m3_s=np.vstack(internal_edge_flux_history),
             imposed_head_edge_flux_m3_s=final_imposed_head_flux.copy(),
-            imposed_head_edge_flux_history_m3_s=np.vstack(
-                imposed_head_edge_flux_history
-            ),
+            imposed_head_edge_flux_history_m3_s=np.vstack(imposed_head_edge_flux_history),
             drainage_flux_m3_s=final_drainage_flux.copy(),
             drainage_flux_history_m3_s=np.vstack(drainage_flux_history),
             period_lengths_seconds=period_lengths,
@@ -819,9 +733,7 @@ class Boussinesq(Solver):
         self.runtime_summary["active_recharge"] = self._has_active_recharge_payload(
             recharge_series_m_s
         )
-        self.runtime_summary["active_wells"] = bool(
-            np.any(well_flux_by_period_m3_s != 0.0)
-        )
+        self.runtime_summary["active_wells"] = bool(np.any(well_flux_by_period_m3_s != 0.0))
         self.runtime_summary["active_imposed_head_bc"] = bool(
             any(np.isfinite(values).any() for values in imposed_heads_by_period)
         )
@@ -948,13 +860,9 @@ class Boussinesq(Solver):
             converged_by_period=(bool(steady.converged),),
         )
         self.runtime_summary["steady_mode"] = f"nonlinear_{runtime_backend.name}"
-        self.runtime_summary["steady_residual_norm_inf"] = float(
-            steady.residual_norm_inf
-        )
+        self.runtime_summary["steady_residual_norm_inf"] = float(steady.residual_norm_inf)
         self.runtime_summary["steady_nonlinear_iterations"] = int(steady.iterations)
-        self.runtime_summary["steady_termination_reason"] = str(
-            steady.termination_reason
-        )
+        self.runtime_summary["steady_termination_reason"] = str(steady.termination_reason)
         self.runtime_summary["active_recharge"] = self._has_active_recharge_payload(
             (recharge_rate_m_s,)
         )
@@ -1021,9 +929,7 @@ class Boussinesq(Solver):
             return np.asarray(self.mesh.z_bottom_m, dtype=float)
         if ic_type == "custom":
             if head_ic.value is None:
-                raise ValueError(
-                    "flow.ic.value is required when flow.ic.type='custom'."
-                )
+                raise ValueError("flow.ic.value is required when flow.ic.type='custom'.")
             return np.full(self.mesh.n_cells, float(head_ic.value), dtype=float)
         raise ValueError(f"Unsupported flow.ic.type for boussinesq: '{head_ic.type}'.")
 
@@ -1083,9 +989,7 @@ class Boussinesq(Solver):
         solver_mesh = self._planar_mesh_for_forcing()
 
         simulation_window = (
-            getattr(self.time_grid, "window", None)
-            if self.time_grid is not None
-            else None
+            getattr(self.time_grid, "window", None) if self.time_grid is not None else None
         )
         if getattr(heterogeneous_source, "has_fields", False):
             raw_arrays = discretize_fields_on_planar_mesh(
@@ -1106,8 +1010,7 @@ class Boussinesq(Solver):
             )
         else:
             raw_arrays = {
-                int(kper): np.zeros(self.mesh.n_cells, dtype=float)
-                for kper in range(int(nper))
+                int(kper): np.zeros(self.mesh.n_cells, dtype=float) for kper in range(int(nper))
             }
 
         return self._apply_first_clim_to_cellwise_recharge(
@@ -1173,8 +1076,7 @@ class Boussinesq(Solver):
                 "or a numeric value."
             )
         return tuple(
-            np.asarray(result[kper], dtype=float).reshape(-1).copy()
-            for kper in range(nper)
+            np.asarray(result[kper], dtype=float).reshape(-1).copy() for kper in range(nper)
         )
 
     def _resolve_well_flux_by_period(self, nper: int) -> np.ndarray:
@@ -1212,9 +1114,7 @@ class Boussinesq(Solver):
         if self.mesh is None:
             raise RuntimeError("Mesh must be built before resolving imposed-head BCs.")
 
-        period_vectors = [
-            np.full(self.mesh.n_edges, np.nan, dtype=float) for _ in range(nper)
-        ]
+        period_vectors = [np.full(self.mesh.n_edges, np.nan, dtype=float) for _ in range(nper)]
         boundary_conditions = self._boundary_conditions_mapping()
         for bc_id in ("west_side", "east_side", "south_side", "north_side"):
             if not self._is_bc_active(bc_id):
@@ -1253,8 +1153,7 @@ class Boussinesq(Solver):
             boundary_type = str(getattr(boundary, "type", "dirichlet")).strip().lower()
             if boundary_type != "dirichlet":
                 raise ValueError(
-                    "Boundary 'stream' must be Dirichlet for the current "
-                    "boussinesq backend slice."
+                    "Boundary 'stream' must be Dirichlet for the current boussinesq backend slice."
                 )
             edge_indices = self.mesh.river_edge_indices()
             if edge_indices.size == 0:
@@ -1296,8 +1195,7 @@ class Boussinesq(Solver):
         boundary_type = str(getattr(boundary, "type", "dirichlet")).strip().lower()
         if boundary_type != "dirichlet":
             raise ValueError(
-                "Boundary 'ocean' must be Dirichlet for the current "
-                "boussinesq backend slice."
+                "Boundary 'ocean' must be Dirichlet for the current boussinesq backend slice."
             )
         return self._boundary_value_series(boundary=boundary, bc_id="ocean", nper=nper)
 
@@ -1350,12 +1248,9 @@ class Boussinesq(Solver):
             return tuple(np.zeros(self.mesh.n_cells, dtype=bool) for _ in range(int(nper)))
         series = np.asarray(ocean_series_m, dtype=float).reshape(-1)
         if series.size != int(nper):
-            raise ValueError(
-                "ocean_series_m length must match nper when building support masks."
-            )
+            raise ValueError("ocean_series_m length must match nper when building support masks.")
         return tuple(
-            self._ocean_supported_cell_mask(float(head_value))
-            for head_value in series.tolist()
+            self._ocean_supported_cell_mask(float(head_value)) for head_value in series.tolist()
         )
 
     def _resolve_drainage_conductance_series(self, nper: int) -> np.ndarray:
@@ -1408,9 +1303,7 @@ class Boussinesq(Solver):
             x_m = self.mesh.x_min_m + x_rel * (self.mesh.x_max_m - self.mesh.x_min_m)
             y_m = self.mesh.y_min_m + y_rel * (self.mesh.y_max_m - self.mesh.y_min_m)
         else:
-            raise ValueError(
-                f"Unsupported well location mode for '{well_id}': {location_mode!r}."
-            )
+            raise ValueError(f"Unsupported well location mode for '{well_id}': {location_mode!r}.")
         return self.mesh.locate_cell_index_for_point(x_m, y_m, allow_nearest=True)
 
     def _resolve_well_flux_series(
@@ -1544,9 +1437,7 @@ class Boussinesq(Solver):
                 if float(raw_key) != float(kper):
                     raise TypeError(f"{label} mapping keys must be integer period indices.")
                 if kper < 0 or kper >= int(nper):
-                    raise ValueError(
-                        f"{label} mapping key {kper} is outside [0, {int(nper) - 1}]."
-                    )
+                    raise ValueError(f"{label} mapping key {kper} is outside [0, {int(nper) - 1}].")
                 series[kper] = float(raw_value)
             return series
         if self._is_scalar_number(payload):
@@ -1615,9 +1506,7 @@ class Boussinesq(Solver):
         try:
             array = np.asarray(payload, dtype=float).reshape(-1)
         except Exception as exc:
-            raise TypeError(
-                f"{label} must be numeric or a sequence of numeric values."
-            ) from exc
+            raise TypeError(f"{label} must be numeric or a sequence of numeric values.") from exc
         if array.size == 0:
             raise ValueError(f"{label} cannot be empty.")
         return array.astype(float, copy=False)
@@ -1633,8 +1522,7 @@ class Boussinesq(Solver):
     ) -> bool:
         """Return whether at least one recharge payload contains a non-zero value."""
         return any(
-            bool(np.any(np.asarray(payload, dtype=float) != 0.0))
-            for payload in payloads_by_period
+            bool(np.any(np.asarray(payload, dtype=float) != 0.0)) for payload in payloads_by_period
         )
 
     def _recharge_config(self) -> object | None:

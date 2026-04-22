@@ -140,7 +140,9 @@ class TransportConfig(ProcessSpatialConfig):
     param: Annotated[dict[str, object], Profile.USER] = Field(default_factory=dict, exclude=True)
     ic: Annotated[object | None, Profile.USER] = Field(default=None, exclude=True)
     bc: Annotated[dict[str, object], Profile.USER] = Field(default_factory=dict, exclude=True)
-    sinks_sources: Annotated[dict[str, object], Profile.USER] = Field(default_factory=dict, exclude=True)
+    sinks_sources: Annotated[dict[str, object], Profile.USER] = Field(
+        default_factory=dict, exclude=True
+    )
 
     modpath: Annotated[TransportModpathConfig, Profile.USER] = Field(
         default_factory=TransportModpathConfig,

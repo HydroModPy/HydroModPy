@@ -68,7 +68,9 @@ def aggregate_forcing_series(
         for left in boundaries:
             history = data.loc[data.index <= left]
             if history.empty:
-                raise ValueError(f"{label}: no value available at simulation period starting {left}.")
+                raise ValueError(
+                    f"{label}: no value available at simulation period starting {left}."
+                )
             values.append(float(history.iloc[-1]))
         return values
     raise ValueError(f"{label}: unsupported aggregate mode '{aggregate}'.")
@@ -90,9 +92,7 @@ def resolve_period_values_from_forcing(
         return [float(forcing.as_constant().value)] * int(nper)
 
     if simulation_window is None:
-        raise ValueError(
-            f"{label}: simulation.time is required to resolve non-constant forcing."
-        )
+        raise ValueError(f"{label}: simulation.time is required to resolve non-constant forcing.")
 
     if mode == "csv":
         csv_cfg = forcing.as_csv()

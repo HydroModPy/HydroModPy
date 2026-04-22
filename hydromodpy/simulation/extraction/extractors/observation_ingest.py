@@ -78,7 +78,8 @@ def ingest_observations(
             except Exception:
                 logger.exception(
                     "Failed to ingest observation %s/%s",
-                    field, getattr(rec, "station_id", "?"),
+                    field,
+                    getattr(rec, "station_id", "?"),
                 )
     if written:
         logger.info("Ingested %d observation timeseries for sim %s", written, sim_id)

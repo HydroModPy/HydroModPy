@@ -6,6 +6,7 @@ streamflow statistics, and recharge plots.
 
     python run_steady_prototype.py
 """
+
 from __future__ import annotations
 
 import sys
@@ -51,8 +52,9 @@ try:
     thickness = 20.0
 
     fig, ax = plt.subplots(figsize=(6, 4), dpi=200)
-    ax.fill_between(x_dist, dem_profile - thickness, wt_profile,
-                    color="dodgerblue", alpha=0.4, lw=0)
+    ax.fill_between(
+        x_dist, dem_profile - thickness, wt_profile, color="dodgerblue", alpha=0.4, lw=0
+    )
     ax.plot(x_dist, wt_profile, color="navy", lw=1.5, label="Water table")
     ax.fill_between(x_dist, wt_profile, dem_profile, color="saddlebrown", alpha=0.3, lw=0)
     ax.plot(x_dist, dem_profile, color="saddlebrown", lw=1.5, label="Topography")
@@ -97,8 +99,14 @@ if qobs_file.exists():
         fig, ax = plt.subplots(figsize=(6, 4))
         ax.plot(mean_interan.counts, mean_interan.q50, lw=2, color="darkred", label="Median")
         ax.fill_between(
-            mean_interan.counts, mean_interan.q10, mean_interan.q90,
-            color="cyan", edgecolor="grey", lw=0.5, alpha=0.5, label="10-90th",
+            mean_interan.counts,
+            mean_interan.q10,
+            mean_interan.q90,
+            color="cyan",
+            edgecolor="grey",
+            lw=0.5,
+            alpha=0.5,
+            label="10-90th",
         )
         ax.set_yscale("log")
         ax.set_xlim(0, 366)

@@ -75,7 +75,9 @@ def _load_case_config(config_toml: Path) -> dict[str, Any]:
             float(centroid_greenwich_vals[1]),
         )
 
-    stable_folder = (config_toml.parent / str(geo_raw.get("stable_folder", "outputs/stable"))).resolve()
+    stable_folder = (
+        config_toml.parent / str(geo_raw.get("stable_folder", "outputs/stable"))
+    ).resolve()
 
     geographic = _GeographicStub(
         centroid=(centroid_xy if centroid_xy is not None else (0.0, 0.0)),
@@ -160,7 +162,9 @@ def run_oceanic_case_from_toml(
         frame["timestamp"] = frame["datetime"]
 
     frame["value"] = pd.to_numeric(frame["value"], errors="coerce")
-    frame = frame.dropna(subset=["timestamp", "value"]).sort_values("timestamp").reset_index(drop=True)
+    frame = (
+        frame.dropna(subset=["timestamp", "value"]).sort_values("timestamp").reset_index(drop=True)
+    )
     if frame.empty:
         raise ValueError("Oceanic case produced an empty data payload")
 

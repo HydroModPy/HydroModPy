@@ -68,6 +68,7 @@ def _wrap(orig):
         if _caller_is_user_code():
             raise RuntimeError(_MESSAGE)
         return orig(*args, **kwargs)
+
     return _wrapper
 
 
@@ -88,6 +89,7 @@ def _forbid_subprocess_in_unit(request, monkeypatch):
     except ImportError:
         pass
     else:
+
         def _deny(*_args, **_kwargs):
             raise RuntimeError(_MESSAGE)
 

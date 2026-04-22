@@ -157,15 +157,21 @@ def test_apply_oceanic_to_flow_updates_ocean_boundary_value() -> None:
 
     flow = SimpleNamespace(boundary_conditions={"ocean": SimpleNamespace(value=None)})
     msl_data = pd.DataFrame({"datetime": [pd.Timestamp.now()], "value": [7.5]})
-    oceanic = LoadResult(points=[
-        PointRecord(
-            station_id="constant", variable="mean_sea_level", source="constant",
-            unit="m", frequency="constant", data=msl_data,
-            date_start=pd.Timestamp.now().to_pydatetime(),
-            date_end=pd.Timestamp.now().to_pydatetime(),
-            is_constant=True,
-        )
-    ])
+    oceanic = LoadResult(
+        points=[
+            PointRecord(
+                station_id="constant",
+                variable="mean_sea_level",
+                source="constant",
+                unit="m",
+                frequency="constant",
+                data=msl_data,
+                date_start=pd.Timestamp.now().to_pydatetime(),
+                date_end=pd.Timestamp.now().to_pydatetime(),
+                is_constant=True,
+            )
+        ]
+    )
 
     apply_oceanic_to_flow(flow=flow, oceanic=oceanic)
 
@@ -177,18 +183,26 @@ def test_apply_oceanic_to_flow_fallback_to_series_mean() -> None:
     from hydromodpy.data.contracts.timeseries import PointRecord
 
     flow = SimpleNamespace(boundary_conditions={"ocean": SimpleNamespace(value=None)})
-    ts_data = pd.DataFrame({
-        "datetime": pd.date_range("2003-01-01", periods=3, freq="h"),
-        "value": [1.0, 2.0, 3.0],
-    })
-    oceanic = LoadResult(points=[
-        PointRecord(
-            station_id="shom_001", variable="sea_level", source="shom",
-            unit="m", frequency="H", data=ts_data,
-            date_start=ts_data["datetime"].min().to_pydatetime(),
-            date_end=ts_data["datetime"].max().to_pydatetime(),
-        )
-    ])
+    ts_data = pd.DataFrame(
+        {
+            "datetime": pd.date_range("2003-01-01", periods=3, freq="h"),
+            "value": [1.0, 2.0, 3.0],
+        }
+    )
+    oceanic = LoadResult(
+        points=[
+            PointRecord(
+                station_id="shom_001",
+                variable="sea_level",
+                source="shom",
+                unit="m",
+                frequency="H",
+                data=ts_data,
+                date_start=ts_data["datetime"].min().to_pydatetime(),
+                date_end=ts_data["datetime"].max().to_pydatetime(),
+            )
+        ]
+    )
 
     apply_oceanic_to_flow(flow=flow, oceanic=oceanic)
 
@@ -326,7 +340,9 @@ def test_apply_simulation_time_to_flow_boundary_conditions_binds_constant_forcin
     assert west_side.value == pytest.approx([0.12, 0.12, 0.12])
 
 
-def test_apply_simulation_time_to_flow_boundary_conditions_binds_csv_forcing(tmp_path: Path) -> None:
+def test_apply_simulation_time_to_flow_boundary_conditions_binds_csv_forcing(
+    tmp_path: Path,
+) -> None:
     csv_path = tmp_path / "boundary.csv"
     csv_path.write_text(
         "\n".join(

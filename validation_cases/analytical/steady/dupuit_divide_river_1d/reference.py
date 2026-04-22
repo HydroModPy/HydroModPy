@@ -28,9 +28,7 @@ def expected_dupuit_divide_river_profile(
     length = float(xmax) - float(xmin)
     local_x = x - float(xmin)
     recharge_m_per_s = mm_day_to_m_s(recharge_mm_day)
-    head_squared = (
-        float(river_head) ** 2
-        + (recharge_m_per_s / float(hydraulic_conductivity_m_per_s))
-        * (length**2 - local_x**2)
-    )
+    head_squared = float(river_head) ** 2 + (
+        recharge_m_per_s / float(hydraulic_conductivity_m_per_s)
+    ) * (length**2 - local_x**2)
     return np.sqrt(head_squared)

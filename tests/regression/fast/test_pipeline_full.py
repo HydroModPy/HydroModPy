@@ -62,10 +62,13 @@ def _make_pipeline(crash_at: int | None = None):
     steps = []
     for i, name in enumerate(CANONICAL_NAMES):
         if i == crash_at:
+
             def _crash(data, _i=i):  # noqa: ANN001 — inner helper
                 raise RuntimeError(f"synthetic crash at step {_i}")
+
             steps.append(_NamedStep(name, _crash))
         else:
+
             def _bump(data, _i=i):  # noqa: ANN001 — inner helper
                 history = list(data.get("history", ()))
                 history.append(_i)
@@ -73,6 +76,7 @@ def _make_pipeline(crash_at: int | None = None):
                     "history": tuple(history),
                     "last_step": _i,
                 }
+
             steps.append(_NamedStep(name, _bump))
     return steps
 
@@ -125,10 +129,13 @@ def test_pipeline_crash_then_resume_converges(tmp_path: Path) -> None:
     assert cp.completed_indices() == [0, 1, 2, 3, 4]
 
     resumed_pipeline = Pipeline(
-        _make_pipeline(), workspace=tmp_path, checkpoint=True,
+        _make_pipeline(),
+        workspace=tmp_path,
+        checkpoint=True,
     )
     resumed_final = resumed_pipeline.run(
-        PipelineState(run_id="crash"), resume_from=5,
+        PipelineState(run_id="crash"),
+        resume_from=5,
     )
 
     assert resumed_final.data["history"] == ref_final.data["history"]

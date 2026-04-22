@@ -27,8 +27,14 @@ Quick start::
 Adapters::
 
     from hydromodpy.spatial.mesh.adapters import from_meshio, to_meshio
-    from hydromodpy.spatial.mesh.adapters import from_gmsh_planar, from_extruded_prism
-    from hydromodpy.spatial.mesh.adapters import from_flopy_structured, to_flopy_disv_args
+    from hydromodpy.spatial.mesh.adapters import (
+        from_gmsh_planar,
+        from_extruded_prism,
+    )
+    from hydromodpy.spatial.mesh.adapters import (
+        from_flopy_structured,
+        to_flopy_disv_args,
+    )
 
 I/O::
 

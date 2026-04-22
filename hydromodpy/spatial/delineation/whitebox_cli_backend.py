@@ -45,7 +45,5 @@ class WhiteboxCliBackend:
     def stream_network(self, dem: Any, threshold: float, **kwargs: Any) -> Any:
         raise NotImplementedError
 
-    def catchment_from_outlet(
-        self, dem: Any, x: float, y: float, **kwargs: Any
-    ) -> Any:
+    def catchment_from_outlet(self, dem: Any, x: float, y: float, **kwargs: Any) -> Any:
         raise NotImplementedError

@@ -1,4 +1,4 @@
-﻿"""Geometry preparation helpers for the standalone mesh visualization package."""
+"""Geometry preparation helpers for the standalone mesh visualization package."""
 
 from __future__ import annotations
 
@@ -78,8 +78,7 @@ def has_continuous_node_topography(mesh: MeshBundleLike) -> bool:
     _, valid_mask = get_node_topography_values(mesh)
     _, _, triangles = build_triangulation_inputs(mesh)
     return any(
-        bool(valid_mask[i0] and valid_mask[i1] and valid_mask[i2])
-        for i0, i1, i2 in triangles
+        bool(valid_mask[i0] and valid_mask[i1] and valid_mask[i2]) for i0, i1, i2 in triangles
     )
 
 
@@ -181,4 +180,3 @@ __all__ = [
     "get_numeric_cell_values",
     "has_continuous_node_topography",
 ]
-

@@ -105,12 +105,7 @@ SHOM_HEALTHCHECK_URL = "https://services.data.shom.fr"
 SHOM_TIDE_GAUGE_ID = "152"
 SHOM_START_DATE = "2003-01-01"
 SHOM_END_DATE = "2003-01-30"
-OCEANIC_DATA_DIR = (
-    REPO_ROOT
-    / "examples"
-    / "data"
-    / "oceanic"
-)
+OCEANIC_DATA_DIR = REPO_ROOT / "examples" / "data" / "oceanic"
 OCEANIC_LOCAL_CSV = OCEANIC_DATA_DIR / "sealevel_shom_152_20030101_20030130_H.csv"
 
 
@@ -128,8 +123,7 @@ def _ensure_local_oceanic_seed_csv(csv_path: Path) -> None:
     import requests
 
     info_url = (
-        "https://services.data.shom.fr/maregraphie/service/completetidegauge/"
-        f"{SHOM_TIDE_GAUGE_ID}"
+        f"https://services.data.shom.fr/maregraphie/service/completetidegauge/{SHOM_TIDE_GAUGE_ID}"
     )
     info_resp = requests.get(info_url, timeout=60)
     info_resp.raise_for_status()
@@ -168,10 +162,7 @@ def _ensure_custom_format_files(oceanic_dir: Path, source_csv: Path) -> None:
 
     loc_path = oceanic_dir / "oceanic_custom_LOC.csv"
     if not loc_path.exists():
-        loc_path.write_text(
-            "id,x,y,crs,unit\n"
-            f"{SHOM_TIDE_GAUGE_ID},-4.4953,48.3816,EPSG:4326,m\n"
-        )
+        loc_path.write_text(f"id,x,y,crs,unit\n{SHOM_TIDE_GAUGE_ID},-4.4953,48.3816,EPSG:4326,m\n")
 
     chronicle_path = oceanic_dir / f"oceanic_custom_{SHOM_TIDE_GAUGE_ID}_20030101_20030130_H.csv"
     if not chronicle_path.exists():
@@ -223,19 +214,26 @@ def run_launcher_simulation_regression(
         sim_id = _resolve_sim_id(store)
         actual = {
             "modflow_expected": collect_store_field_signatures(
-                store, sim_id, MODFLOW_OUTPUT_NAMES,
+                store,
+                sim_id,
+                MODFLOW_OUTPUT_NAMES,
             ),
         }
         if transport_solver == "mf6":
             actual["transport_expected"] = collect_store_field_signatures(
-                store, sim_id, TRANSPORT_OUTPUT_NAMES,
+                store,
+                sim_id,
+                TRANSPORT_OUTPUT_NAMES,
             )
         elif transport_solver == "mt3dms":
             actual["modpath_expected"] = collect_store_modpath_signatures(
-                store, sim_id,
+                store,
+                sim_id,
             )
             actual["mt3dms_expected"] = collect_store_field_signatures(
-                store, sim_id, TRANSPORT_OUTPUT_NAMES,
+                store,
+                sim_id,
+                TRANSPORT_OUTPUT_NAMES,
             )
         else:
             raise ValueError(f"Unsupported transport_solver: {transport_solver}")
@@ -285,9 +283,7 @@ def run_launcher_simulation_boussinesq_regression(
         initial_head_m=initial_head_m,
         west_head_m=west_head_m,
         east_head_m=east_head_m,
-        recharge_rate_m_s=(
-            None if recharge_mm_day is None else mm_day_to_m_s(recharge_mm_day)
-        ),
+        recharge_rate_m_s=(None if recharge_mm_day is None else mm_day_to_m_s(recharge_mm_day)),
         runtime_backend="scipy_sparse",
     )
 
@@ -310,13 +306,17 @@ def run_launcher_simulation_boussinesq_regression(
         sim_id = _resolve_sim_id(store)
         actual = {
             "modflow_expected": collect_store_field_signatures(
-                store, sim_id, BOUSSINESQ_OUTPUT_NAMES,
+                store,
+                sim_id,
+                BOUSSINESQ_OUTPUT_NAMES,
             ),
             "boussinesq_summary_expected": collect_store_json_signatures(
-                model_ws, keys=BOUSSINESQ_SUMMARY_KEYS,
+                model_ws,
+                keys=BOUSSINESQ_SUMMARY_KEYS,
             ),
             "boussinesq_state_history_expected": collect_store_npz_signatures(
-                model_ws, BOUSSINESQ_STATE_HISTORY_NAMES,
+                model_ws,
+                BOUSSINESQ_STATE_HISTORY_NAMES,
             ),
         }
     finally:

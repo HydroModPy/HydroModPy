@@ -70,12 +70,9 @@ def plot_categorical_cells(
     """Draw one cell-colored background for a categorical field."""
 
     categories = sorted(set(values))
-    resampled_cmap = matplotlib.colormaps.get_cmap(color_map).resampled(
-        max(1, len(categories))
-    )
+    resampled_cmap = matplotlib.colormaps.get_cmap(color_map).resampled(max(1, len(categories)))
     facecolors_by_category = {
-        category: resampled_cmap(index)
-        for index, category in enumerate(categories)
+        category: resampled_cmap(index) for index, category in enumerate(categories)
     }
     collection = PolyCollection(
         polygons,

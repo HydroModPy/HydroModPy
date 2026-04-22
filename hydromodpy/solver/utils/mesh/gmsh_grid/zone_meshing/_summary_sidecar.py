@@ -30,32 +30,20 @@ class ZoneCleaningSummary:
         return {
             "mode": str(self.mode),
             "source_feature_count": int(self.source_feature_count),
-            "features_after_domain_clip_count": int(
-                self.features_after_domain_clip_count
-            ),
-            "invalid_geometries_repaired_count": int(
-                self.invalid_geometries_repaired_count
-            ),
+            "features_after_domain_clip_count": int(self.features_after_domain_clip_count),
+            "invalid_geometries_repaired_count": int(self.invalid_geometries_repaired_count),
             "polygons_removed_by_area_threshold_count": int(
                 self.polygons_removed_by_area_threshold_count
             ),
             "simplify_tolerance": (
-                None
-                if self.simplify_tolerance is None
-                else float(self.simplify_tolerance)
+                None if self.simplify_tolerance is None else float(self.simplify_tolerance)
             ),
-            "heal_tolerance": (
-                None if self.heal_tolerance is None else float(self.heal_tolerance)
-            ),
+            "heal_tolerance": (None if self.heal_tolerance is None else float(self.heal_tolerance)),
             "min_polygon_area": (
-                None
-                if self.min_polygon_area is None
-                else float(self.min_polygon_area)
+                None if self.min_polygon_area is None else float(self.min_polygon_area)
             ),
             "overlap_tolerance": (
-                None
-                if self.overlap_tolerance is None
-                else float(self.overlap_tolerance)
+                None if self.overlap_tolerance is None else float(self.overlap_tolerance)
             ),
         }
 
@@ -211,9 +199,7 @@ def build_zone_conformal_summary(
         else {str(key): value for key, value in partition.cleaning_diagnostics.items()}
     )
     tolerances = (
-        dict(cleaning_diagnostics_raw.get("tolerances", {}))
-        if cleaning_diagnostics_raw
-        else {}
+        dict(cleaning_diagnostics_raw.get("tolerances", {})) if cleaning_diagnostics_raw else {}
     )
     domain_area_value = float(partition.domain_area)
     covered_area_value = float(partition.covered_area)
@@ -273,9 +259,7 @@ def build_zone_conformal_summary(
     linear_constraints_summary: dict[str, ZoneLinearConstraintSummary] = {}
     for constraint in normalized_constraints:
         constraint_name = str(constraint.name)
-        curve_tags = [
-            int(tag) for tag in curve_tags_by_name.get(constraint_name, ())
-        ]
+        curve_tags = [int(tag) for tag in curve_tags_by_name.get(constraint_name, ())]
         curve_tag_set = set(curve_tags)
         linear_constraints_summary[constraint_name] = ZoneLinearConstraintSummary(
             provided=True,
@@ -285,9 +269,7 @@ def build_zone_conformal_summary(
             embedded_surface_curve_pairs=int(
                 constraint_embed_success_by_name.get(constraint_name, 0)
             ),
-            embed_failures=int(
-                constraint_embed_failures_by_name.get(constraint_name, 0)
-            ),
+            embed_failures=int(constraint_embed_failures_by_name.get(constraint_name, 0)),
             refined_with_interface_field=bool(
                 bool(refine_interfaces_value)
                 and bool(curve_tag_set.intersection(refined_curve_tags))
@@ -303,9 +285,7 @@ def build_zone_conformal_summary(
         coverage_tolerance=coverage_tolerance,
         coverage_within_tolerance=bool(coverage_gap <= coverage_tolerance),
         has_interface_groups=bool(interface_group_count > 0),
-        has_zone_surface_groups=bool(
-            len(surface_group_summaries) >= len(partition.zone_keys)
-        ),
+        has_zone_surface_groups=bool(len(surface_group_summaries) >= len(partition.zone_keys)),
     )
     summary = {
         "summary_schema_version": "zone_conformal_sidecar_v1",
@@ -318,8 +298,7 @@ def build_zone_conformal_summary(
         "zone_keys": list(partition.zone_keys),
         "face_counts_by_zone": partition.face_counts_by_zone,
         "face_areas_by_zone": {
-            key: round(float(value), 12)
-            for key, value in partition.face_areas_by_zone.items()
+            key: round(float(value), 12) for key, value in partition.face_areas_by_zone.items()
         },
         "domain_area": round(float(domain_area_value), 12),
         "covered_area": round(float(covered_area_value), 12),
@@ -332,8 +311,7 @@ def build_zone_conformal_summary(
         "cleaning_diagnostics": cleaning_diagnostics_raw,
         "cleaning_summary": cleaning_summary.to_mapping(),
         "linear_constraints": {
-            name: payload.to_mapping()
-            for name, payload in linear_constraints_summary.items()
+            name: payload.to_mapping() for name, payload in linear_constraints_summary.items()
         },
         "river_trace": river_trace_summary.to_mapping(),
         "physical_groups_summary": physical_groups_summary.to_mapping(),
@@ -346,9 +324,8 @@ def build_zone_conformal_summary(
     }
     if regional_background_summary is not None:
         summary["mesh_size_fields"]["regional_background"] = regional_background_summary
-    if (
-        (max_size is None and effective_max_size > global_size_value)
-        or (max_size is not None and effective_max_size > float(max_size))
+    if (max_size is None and effective_max_size > global_size_value) or (
+        max_size is not None and effective_max_size > float(max_size)
     ):
         summary["effective_max_size"] = float(effective_max_size)
     if refinement_policy_summary is not None:

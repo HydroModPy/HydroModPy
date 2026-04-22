@@ -107,10 +107,7 @@ def to_flopy_disv_args(
     verts = np.asarray(hydro_mesh.vertices, dtype=float)
     nvert = verts.shape[0]
     # DISV vertices: list of (iv, xv, yv)
-    vertices = [
-        [int(i), float(verts[i, 0]), float(verts[i, 1])]
-        for i in range(nvert)
-    ]
+    vertices = [[int(i), float(verts[i, 0]), float(verts[i, 1])] for i in range(nvert)]
 
     conn = hydro_mesh.flat_connectivity
     ncpl = conn.shape[0]

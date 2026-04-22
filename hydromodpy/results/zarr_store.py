@@ -27,7 +27,9 @@ _BALANCED_TARGET_BYTES = 1 * 1024 * 1024
 
 
 def _balanced_chunks_1d(
-    n_timesteps: int, n_cells: int, itemsize: int,
+    n_timesteps: int,
+    n_cells: int,
+    itemsize: int,
 ) -> tuple[int, int]:
     """Return a ``(time_chunk, cell_chunk)`` pair close to the target size."""
     target = _BALANCED_TARGET_BYTES // max(itemsize, 1)
@@ -43,7 +45,10 @@ def _balanced_chunks_1d(
 
 
 def _balanced_chunks_2d(
-    n_timesteps: int, n_layers: int, n_cells: int, itemsize: int,
+    n_timesteps: int,
+    n_layers: int,
+    n_cells: int,
+    itemsize: int,
 ) -> tuple[int, int, int]:
     """Return ``(time_chunk, layer_chunk, cell_chunk)`` near the target size."""
     per_step = n_layers * n_cells * max(itemsize, 1)
@@ -52,7 +57,8 @@ def _balanced_chunks_2d(
         return (time_chunk, n_layers, n_cells)
     # Single-timestep chunks, but split cells if the step is too big.
     cell_chunk = max(
-        1, _BALANCED_TARGET_BYTES // (n_layers * max(itemsize, 1)),
+        1,
+        _BALANCED_TARGET_BYTES // (n_layers * max(itemsize, 1)),
     )
     cell_chunk = min(n_cells, cell_chunk)
     return (1, n_layers, cell_chunk)
@@ -76,7 +82,6 @@ def _field_name_from_target(target: zarr.Group, variable: str) -> str:
 
 
 class SimulationZarr:
-
     def __init__(self, path: Path | str, *, balanced: bool = False) -> None:
         self._path = Path(path)
         self._balanced = bool(balanced)
@@ -165,6 +170,7 @@ class SimulationZarr:
         if fp is None:
             return None
         from hydromodpy.results.geographic_cache import GeographicCache
+
         return GeographicCache(workspace_path).path_for(fp)
 
     # -- Mesh ----------------------------------------------------------------
@@ -182,7 +188,9 @@ class SimulationZarr:
         mesh = self._root.require_group("mesh")
 
         vertices_arr = mesh.create_array(
-            "vertices", data=vertices.astype("float64"), overwrite=True,
+            "vertices",
+            data=vertices.astype("float64"),
+            overwrite=True,
         )
         vertices_arr.attrs["long_name"] = "Mesh node coordinates (x, y, z)"
         vertices_arr.attrs["units"] = "m"
@@ -198,7 +206,9 @@ class SimulationZarr:
         fnc.attrs["start_index"] = start_index
 
         z_arr = mesh.create_array(
-            "z_interfaces", data=z_interfaces.astype("float64"), overwrite=True,
+            "z_interfaces",
+            data=z_interfaces.astype("float64"),
+            overwrite=True,
         )
         z_arr.attrs["long_name"] = "Altitude of layer interfaces"
         z_arr.attrs["units"] = "m"
@@ -227,7 +237,9 @@ class SimulationZarr:
         # carries the topology attributes. Downstream xarray readers resolve
         # node_coordinates / face_node_connectivity via these attrs.
         topo = mesh.create_array(
-            "topology", data=np.zeros((), dtype="int32"), overwrite=True,
+            "topology",
+            data=np.zeros((), dtype="int32"),
+            overwrite=True,
         )
         topo.attrs["cf_role"] = "mesh_topology"
         topo.attrs["long_name"] = "UGRID 2D topology of the simulation mesh"
@@ -252,7 +264,9 @@ class SimulationZarr:
         ``standard_name`` attributes required to round-trip through xarray.
         """
         time_arr = self._root.create_array(
-            "time", data=np.asarray(values, dtype="int64"), overwrite=True,
+            "time",
+            data=np.asarray(values, dtype="int64"),
+            overwrite=True,
         )
         time_arr.attrs["units"] = units
         time_arr.attrs["calendar"] = calendar
@@ -277,7 +291,9 @@ class SimulationZarr:
         for CF-aware consumers (xarray, IRIS, CDO, ...).
         """
         crs_arr = self._root.create_array(
-            "crs", data=np.zeros((), dtype="int32"), overwrite=True,
+            "crs",
+            data=np.zeros((), dtype="int32"),
+            overwrite=True,
         )
         crs_arr.attrs["grid_mapping_name"] = grid_mapping_name
         if crs_wkt:
@@ -312,7 +328,9 @@ class SimulationZarr:
             full_shape = (n_timesteps, values.shape[0]) if n_timesteps else None
             if self._balanced and n_timesteps is not None:
                 chunk_shape = _balanced_chunks_1d(
-                    n_timesteps, values.shape[0], itemsize,
+                    n_timesteps,
+                    values.shape[0],
+                    itemsize,
                 )
             else:
                 chunk_shape = (1, values.shape[0])
@@ -321,7 +339,10 @@ class SimulationZarr:
             full_shape = (n_timesteps, n_layers, n_cells) if n_timesteps else None
             if self._balanced and n_timesteps is not None:
                 chunk_shape = _balanced_chunks_2d(
-                    n_timesteps, n_layers, n_cells, itemsize,
+                    n_timesteps,
+                    n_layers,
+                    n_cells,
+                    itemsize,
                 )
             else:
                 chunk_shape = (1, n_layers, n_cells)
@@ -330,9 +351,7 @@ class SimulationZarr:
 
         if variable not in target:
             if n_timesteps is None:
-                raise ValueError(
-                    f"n_timesteps required on first write of '{variable}'"
-                )
+                raise ValueError(f"n_timesteps required on first write of '{variable}'")
             target.create_array(
                 variable,
                 shape=full_shape,
@@ -381,9 +400,7 @@ class SimulationZarr:
         if subgroup:
             target = self._root[subgroup]
             if variable not in target:
-                raise KeyError(
-                    f"Variable '{variable}' not found in subgroup '{subgroup}'"
-                )
+                raise KeyError(f"Variable '{variable}' not found in subgroup '{subgroup}'")
             data = target[variable][timestep]
         else:
             for loc_name in (None, "derived", "budget"):
@@ -411,7 +428,10 @@ class SimulationZarr:
     ) -> None:
         geo = self._root.require_group("geographic")
         geo.create_array(
-            name, data=data, compressors=BLOSC_ZSTD, overwrite=True,
+            name,
+            data=data,
+            compressors=BLOSC_ZSTD,
+            overwrite=True,
         )
         arr = geo[name]
         arr.attrs["transform"] = list(transform)
@@ -468,7 +488,10 @@ class SimulationZarr:
         """Persist one static forcing field (e.g. geology zones) into ``forcing/<variable>``."""
         forcing = self._root.require_group("forcing")
         forcing.create_array(
-            variable, data=data, compressors=BLOSC_ZSTD, overwrite=True,
+            variable,
+            data=data,
+            compressors=BLOSC_ZSTD,
+            overwrite=True,
         )
         forcing[variable].attrs["unit"] = unit
         forcing[variable].attrs["source"] = source
@@ -539,18 +562,24 @@ class SimulationZarr:
                 # stored array (e.g. a field was written with an extra axis)
                 dims = tuple(f"dim_{i}" for i in range(arr.ndim))
             data_vars[name] = xr.Variable(
-                dims, np.asarray(arr[:]), attrs=dict(arr.attrs),
+                dims,
+                np.asarray(arr[:]),
+                attrs=dict(arr.attrs),
             )
 
         if "time" in self._root:
             time_arr = self._root["time"]
             coords["time"] = xr.Variable(
-                ("time",), np.asarray(time_arr[:]), attrs=dict(time_arr.attrs),
+                ("time",),
+                np.asarray(time_arr[:]),
+                attrs=dict(time_arr.attrs),
             )
         if "crs" in self._root:
             crs_arr = self._root["crs"]
             coords["crs"] = xr.Variable(
-                (), np.asarray(crs_arr[()]), attrs=dict(crs_arr.attrs),
+                (),
+                np.asarray(crs_arr[()]),
+                attrs=dict(crs_arr.attrs),
             )
 
         root_attrs = {k: v for k, v in self._root.attrs.items()}

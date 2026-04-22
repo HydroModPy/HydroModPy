@@ -21,8 +21,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument("sim_a", help="First simulation")
     parser.add_argument("sim_b", help="Second simulation")
-    parser.add_argument("--workspace", default=None,
-                        help="Workspace root (default: auto-detect)")
+    parser.add_argument("--workspace", default=None, help="Workspace root (default: auto-detect)")
     parser.set_defaults(_handler=run)
     return parser
 

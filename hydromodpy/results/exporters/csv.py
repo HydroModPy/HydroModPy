@@ -45,10 +45,7 @@ def export_csv(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    query = (
-        "SELECT datetime, station_id, variable, value, unit "
-        "FROM timeseries WHERE sim_id = ?"
-    )
+    query = "SELECT datetime, station_id, variable, value, unit FROM timeseries WHERE sim_id = ?"
     params: list = [sim_id]
 
     if station_id is not None:
@@ -64,9 +61,9 @@ def export_csv(
 
     if result.empty:
         logger.debug("No timeseries found for sim=%s", sim_id)
-        pd.DataFrame(
-            columns=["datetime", "station_id", "variable", "value", "unit"]
-        ).to_csv(output_path, index=False)
+        pd.DataFrame(columns=["datetime", "station_id", "variable", "value", "unit"]).to_csv(
+            output_path, index=False
+        )
         return output_path
 
     result.to_csv(output_path, index=False)

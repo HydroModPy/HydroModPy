@@ -124,9 +124,7 @@ def run_reference_2d_zone_conformal_case_from_toml(
     )
 
     if mesh_path is None:
-        raise ValueError(
-            "An output mesh path is required for the conformal reference case"
-        )
+        raise ValueError("An output mesh path is required for the conformal reference case")
     trace_mesh_stage("zone_conformal.outputs.resolved", mesh_path=mesh_path)
 
     result = _run_zone_conformal_meshing(

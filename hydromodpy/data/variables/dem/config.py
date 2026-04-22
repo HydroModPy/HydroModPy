@@ -24,9 +24,7 @@ class DemSourceConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    source: Annotated[
-        Literal["custom", "ign_bdalti"], Profile.USER
-    ] = Field(
+    source: Annotated[Literal["custom", "ign_bdalti"], Profile.USER] = Field(
         ...,
         description=(
             "Data provider: 'custom' for user files (TIF/ASC/NC), "
@@ -64,9 +62,7 @@ class DemSourceConfig(HydroModelBase):
     def _check_source_requirements(self) -> "DemSourceConfig":
         if self.source == "custom":
             if self.path is None:
-                raise ValueError(
-                    "Custom source requires 'path' (TIF, ASC, or NC file)."
-                )
+                raise ValueError("Custom source requires 'path' (TIF, ASC, or NC file).")
         return self
 
 

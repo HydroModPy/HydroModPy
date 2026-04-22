@@ -1,4 +1,4 @@
-﻿"""Helpers to build Boussinesq runtime state from steady/transient solve traces."""
+"""Helpers to build Boussinesq runtime state from steady/transient solve traces."""
 
 from __future__ import annotations
 
@@ -80,9 +80,7 @@ class TransientRuntimeHistory:
         self.recharge_rate_history.append(
             np.asarray(assembly.recharge_rate_m_s, dtype=float).copy()
         )
-        self.well_flux_history.append(
-            np.asarray(assembly.well_flux_m3_s, dtype=float).copy()
-        )
+        self.well_flux_history.append(np.asarray(assembly.well_flux_m3_s, dtype=float).copy())
         self.internal_edge_flux_history.append(
             np.asarray(assembly.internal_edge_flux_m3_s, dtype=float).copy()
         )
@@ -117,9 +115,7 @@ class TransientRuntimeHistory:
             self.internal_edge_flux_history[-1],
             dtype=float,
         )
-        final_boundary_edge_flux = np.asarray(
-            self.boundary_edge_flux_history[-1], dtype=float
-        )
+        final_boundary_edge_flux = np.asarray(self.boundary_edge_flux_history[-1], dtype=float)
         final_prescribed_head_flux = np.asarray(
             self.prescribed_head_flux_history[-1],
             dtype=float,
@@ -258,8 +254,7 @@ def build_transient_activity_flags(
     )
     return {
         "active_recharge": any(
-            bool(np.any(np.asarray(payload, dtype=float) != 0.0))
-            for payload in recharge_series_m_s
+            bool(np.any(np.asarray(payload, dtype=float) != 0.0)) for payload in recharge_series_m_s
         ),
         "active_wells": bool(np.any(well_flux_by_period_m3_s != 0.0)),
         "active_prescribed_head_bc": active_prescribed,
@@ -274,4 +269,3 @@ __all__ = [
     "build_steady_runtime_state",
     "build_transient_activity_flags",
 ]
-

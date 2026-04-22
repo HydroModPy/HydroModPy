@@ -33,8 +33,7 @@ class WaterBudget(BaseFigure):
     ) -> "Axes":
         df = sim.budget()
         if df.empty:
-            ax.text(0.5, 0.5, "no budget data",
-                    ha="center", va="center", transform=ax.transAxes)
+            ax.text(0.5, 0.5, "no budget data", ha="center", va="center", transform=ax.transAxes)
             return ax
         agg = df.groupby("component")[["flux_in", "flux_out"]].sum()
         agg.plot.bar(ax=ax, color=["#3b8686", "#cf3a3a"])

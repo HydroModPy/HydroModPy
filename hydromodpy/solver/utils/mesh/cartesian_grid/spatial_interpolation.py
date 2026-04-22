@@ -54,7 +54,9 @@ def interpolate_to_grid(
 
     # Build flat source coordinate arrays.
     src_x_flat, src_y_flat, src_v_flat = _flatten_source(
-        source_values, source_x, source_y,
+        source_values,
+        source_x,
+        source_y,
     )
     if src_v_flat is None:
         return np.full((nrow, ncol), float(np.nanmean(source_values)), dtype=float)
@@ -105,6 +107,7 @@ def interpolate_points_to_grid(
 # ------------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------------
+
 
 def _grids_are_aligned(
     source_values: np.ndarray,

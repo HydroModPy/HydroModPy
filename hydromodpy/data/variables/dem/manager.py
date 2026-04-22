@@ -80,6 +80,7 @@ class DemManager:
                 geometry_to_bbox,
                 load_mask_geometry,
             )
+
             geom = load_mask_geometry(source_cfg.mask_path)
             return geometry_to_bbox(geom)
         if getattr(source_cfg, "extent", None) and self.project_extent:
@@ -91,6 +92,7 @@ class DemManager:
                     geometry_to_bbox,
                     load_mask_geometry,
                 )
+
                 geom = load_mask_geometry(watershed_shp)
                 return geometry_to_bbox(geom)
         return None
@@ -106,6 +108,7 @@ class DemManager:
             if watershed_shp:
                 import geopandas as gpd
                 from shapely.geometry import box
+
                 gdf = gpd.GeoDataFrame(
                     geometry=[box(*bbox)],
                     crs=gpd.read_file(str(watershed_shp), rows=0).crs,
@@ -124,24 +127,30 @@ class DemManager:
         bbox = self._resolve_bbox_2154(source_cfg)
         if bbox is None:
             raise ValueError(
-                "ign_bdalti source requires a bbox "
-                "(set mask_path, extent, or geographic)"
+                "ign_bdalti source requires a bbox (set mask_path, extent, or geographic)"
             )
         force_refresh = getattr(source_cfg, "force_refresh", False)
 
         # Check cache
         if not force_refresh and self.catalog is not None:
             cached = self.catalog.find_cached(
-                variable="dem", source="ign_bdalti", bbox=bbox,
+                variable="dem",
+                source="ign_bdalti",
+                bbox=bbox,
             )
             if cached is not None and cached.file_path not in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
                 cached_path = Path(cached.file_path)
                 if cached_path.exists():
-                    return [FieldRecord(
-                        variable="dem", source="ign_bdalti",
-                        unit="m", data=cached_path,
-                        bbox=bbox, crs="EPSG:2154",
-                    )]
+                    return [
+                        FieldRecord(
+                            variable="dem",
+                            source="ign_bdalti",
+                            unit="m",
+                            data=cached_path,
+                            bbox=bbox,
+                            crs="EPSG:2154",
+                        )
+                    ]
 
         from hydromodpy.data.variables.dem.apis.ign_bdalti import fetch_bdalti
 
@@ -152,20 +161,29 @@ class DemManager:
         )
 
         record = FieldRecord(
-            variable="dem", source="ign_bdalti",
-            unit="m", data=tif_path,
-            bbox=bbox, crs="EPSG:2154",
+            variable="dem",
+            source="ign_bdalti",
+            unit="m",
+            data=tif_path,
+            bbox=bbox,
+            crs="EPSG:2154",
         )
 
         # Register in catalog
         if self.catalog is not None:
             entry_id = self.catalog.register(
-                variable="dem", source="ign_bdalti",
-                file_path=str(tif_path), bbox=bbox, crs="EPSG:2154",
+                variable="dem",
+                source="ign_bdalti",
+                file_path=str(tif_path),
+                bbox=bbox,
+                crs="EPSG:2154",
             )
             self.catalog.subsume_entries(
-                variable="dem", source="ign_bdalti",
-                bbox=bbox, date_start=None, date_end=None,
+                variable="dem",
+                source="ign_bdalti",
+                bbox=bbox,
+                date_start=None,
+                date_end=None,
                 exclude_id=entry_id,
             )
 
@@ -192,9 +210,12 @@ class DemManager:
             for rec in records:
                 if isinstance(rec, FieldRecord) and isinstance(rec.data, Path):
                     self.catalog.register(
-                        variable="dem", source="custom",
+                        variable="dem",
+                        source="custom",
                         file_path=str(rec.data),
-                        bbox=rec.bbox, crs=rec.crs, is_custom=True,
+                        bbox=rec.bbox,
+                        crs=rec.crs,
+                        is_custom=True,
                     )
 
         return records

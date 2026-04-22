@@ -13,12 +13,7 @@ from validation_cases.calibration.shared.definitions import (
 from validation_cases.shared.runtime import _merge_toml_payloads, _read_toml
 
 
-CASE_DIR = (
-    Path(__file__).resolve().parents[4]
-    / "analytical"
-    / "steady"
-    / "dupuit_fixed_head_1d"
-)
+CASE_DIR = Path(__file__).resolve().parents[4] / "analytical" / "steady" / "dupuit_fixed_head_1d"
 
 
 def _build_modflow6_simulation_config(
@@ -38,9 +33,13 @@ def _build_modflow6_simulation_config(
     )
     payload.setdefault("workspace", {})["project_root"] = str(project_root)
     payload.setdefault("simulation", {})["run_id"] = str(run_id)
-    planar = payload.setdefault("modflow6", {}).setdefault("sgrid", {}).setdefault(
-        "planar",
-        {},
+    planar = (
+        payload.setdefault("modflow6", {})
+        .setdefault("sgrid", {})
+        .setdefault(
+            "planar",
+            {},
+        )
     )
     planar["nx"] = int(nx)
     planar["ny"] = int(ny)

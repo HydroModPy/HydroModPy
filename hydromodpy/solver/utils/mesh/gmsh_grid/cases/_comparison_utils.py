@@ -40,7 +40,11 @@ def resolve_config_path(raw_config: str | Path, *, caller_file: str | Path | Non
         return cwd_candidate
 
     # Fallback: relative to the caller's directory.
-    base = Path(caller_file).resolve().parent if caller_file is not None else Path(__file__).resolve().parent
+    base = (
+        Path(caller_file).resolve().parent
+        if caller_file is not None
+        else Path(__file__).resolve().parent
+    )
     script_candidate = (base / candidate).resolve()
     if script_candidate.exists():
         return script_candidate
@@ -119,10 +123,7 @@ def round_float(value: float, ndigits: int = 12) -> float:
 
 def rounded_list(values, *, ndigits: int = 12) -> list[float]:
     """Flatten *values* to a 1-D float list, rounding each element."""
-    return [
-        round_float(v, ndigits=ndigits)
-        for v in np.asarray(values, dtype=float).reshape(-1)
-    ]
+    return [round_float(v, ndigits=ndigits) for v in np.asarray(values, dtype=float).reshape(-1)]
 
 
 def array_stats(arr) -> dict[str, float]:
@@ -142,9 +143,7 @@ def array_stats(arr) -> dict[str, float]:
     }
 
 
-def value_quantiles(
-    arr, *, quantiles=(0.05, 0.25, 0.50, 0.75, 0.95)
-) -> dict[str, float]:
+def value_quantiles(arr, *, quantiles=(0.05, 0.25, 0.50, 0.75, 0.95)) -> dict[str, float]:
     """Return labelled quantiles (e.g. ``q05``, ``q50``) for finite values."""
     values = np.asarray(arr, dtype=float)
     finite = values[np.isfinite(values)]
@@ -211,9 +210,7 @@ def mesh_bounds_xy(mesh) -> list[float]:
 def mesh_centroids_flat(mesh) -> tuple[np.ndarray, np.ndarray]:
     """Return flat (1-D) centroid x and y arrays for *mesh*."""
     cx, cy = mesh.cell_centroids()
-    return np.asarray(cx, dtype=float).reshape(-1), np.asarray(cy, dtype=float).reshape(
-        -1
-    )
+    return np.asarray(cx, dtype=float).reshape(-1), np.asarray(cy, dtype=float).reshape(-1)
 
 
 def nearest_cell_index(mesh, *, x: float, y: float) -> tuple[int, tuple[float, float]]:

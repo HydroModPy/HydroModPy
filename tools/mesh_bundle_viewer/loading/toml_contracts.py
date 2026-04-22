@@ -1,4 +1,4 @@
-﻿"""Typed public TOML contracts for the standalone mesh visualization package.
+"""Typed public TOML contracts for the standalone mesh visualization package.
 
 The public section name remains ``[mesh_distribution]`` for backward
 compatibility, even though the code internally talks about "visualization".
@@ -91,9 +91,7 @@ class VisualizationPlotTomlSchema:
     ) -> "VisualizationPlotTomlSchema":
         """Validate the optional plot block from raw TOML content."""
 
-        raw_plot = (
-            {} if raw_value is None else require_mapping(raw_value, label=PLOT_LABEL)
-        )
+        raw_plot = {} if raw_value is None else require_mapping(raw_value, label=PLOT_LABEL)
         forbid_unknown_keys(
             raw_plot,
             allowed_keys=PLOT_ALLOWED_KEYS,
@@ -228,9 +226,7 @@ class MeshVisualizationTomlSchema:
     figure_output_path: Path | None = None
     summary_output_path: Path | None = None
     show_window: bool = False
-    plot: VisualizationPlotTomlSchema = field(
-        default_factory=VisualizationPlotTomlSchema
-    )
+    plot: VisualizationPlotTomlSchema = field(default_factory=VisualizationPlotTomlSchema)
 
     @classmethod
     def from_mapping(cls, raw_value: object) -> "MeshVisualizationTomlSchema":
@@ -284,4 +280,3 @@ __all__ = [
     "normalize_color_field",
     "normalize_topography_field",
 ]
-

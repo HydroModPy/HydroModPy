@@ -163,7 +163,9 @@ def validate_bundle_dir(bundle_dir: Path) -> None:
     """Ensure the imported bundle looks like one standard mesh bundle."""
 
     missing = [
-        filename for filename in MESH_GALLERY_REQUIRED_BUNDLE_FILES if not (bundle_dir / filename).exists()
+        filename
+        for filename in MESH_GALLERY_REQUIRED_BUNDLE_FILES
+        if not (bundle_dir / filename).exists()
     ]
     if missing:
         raise FileNotFoundError(

@@ -21,7 +21,10 @@ def _build_solver_mesh(*, nlay: int = 1, nrow: int = 2, ncol: int = 4):
     for ilay in range(nlay):
         botm[ilay, :, :] = 9.0 - float(ilay)
     return SolverMesh.from_structured_arrays(
-        nrow=nrow, ncol=ncol, top=top, botm=botm,
+        nrow=nrow,
+        ncol=ncol,
+        top=top,
+        botm=botm,
     )
 
 

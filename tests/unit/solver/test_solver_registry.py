@@ -12,11 +12,20 @@ class FakeAdapter:
     process_type = "flow"
     solver_name = "fake"
 
-    def setup(self, config): pass
-    def build(self, plan): pass
-    def run(self): return RunResult(converged=True)
-    def extract(self, store): pass
-    def cleanup(self): pass
+    def setup(self, config):
+        pass
+
+    def build(self, plan):
+        pass
+
+    def run(self):
+        return RunResult(converged=True)
+
+    def extract(self, store):
+        pass
+
+    def cleanup(self):
+        pass
 
 
 class AnotherFakeAdapter(FakeAdapter):
@@ -84,6 +93,7 @@ def test_is_adapter_true_for_fake_adapter() -> None:
 def test_is_adapter_false_for_plain_object() -> None:
     class NotAnAdapter:
         pass
+
     assert not registry.is_adapter(NotAnAdapter())
 
 
@@ -152,7 +162,8 @@ def test_load_plugins_skips_malformed_entry_point_name(monkeypatch) -> None:
             return FakeAdapter
 
     monkeypatch.setattr(
-        registry, "entry_points",
+        registry,
+        "entry_points",
         lambda *, group: [_StubEntryPoint()],
     )
     pairs_before = set(registry.list_pairs())

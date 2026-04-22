@@ -1,4 +1,4 @@
-﻿"""SciPy-based nonlinear runtime for the Boussinesq backend.
+"""SciPy-based nonlinear runtime for the Boussinesq backend.
 
 This backend uses the same physical assembly as the local runtime. The only
 thing that changes is the nonlinear driver: instead of a home-grown Newton line
@@ -147,4 +147,3 @@ def _solve_nonlinear_system(
 
 
 __all__ = ["solve_steady_problem", "solve_transient_step"]
-

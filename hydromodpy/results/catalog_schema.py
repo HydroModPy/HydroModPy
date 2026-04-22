@@ -434,7 +434,14 @@ WHERE rnk = 1
 # requires a fixed IN-list, so metric names outside this list will not show up
 # in ``v_metrics_wide`` — they remain queryable via the ``metrics`` table.
 _KNOWN_METRIC_NAMES = (
-    "nse", "kge", "rmse", "r2", "bias", "pbias", "mae", "mse",
+    "nse",
+    "kge",
+    "rmse",
+    "r2",
+    "bias",
+    "pbias",
+    "mae",
+    "mse",
 )
 
 _V_METRICS_WIDE_DDL = f"""
@@ -553,5 +560,6 @@ def ensure_schema(conn: duckdb.DuckDBPyConnection) -> None:
         conn.execute(ddl)
     logger.debug(
         "DuckDB catalog schema ensured (%d tables, %d views)",
-        len(TABLE_NAMES), len(VIEW_NAMES),
+        len(TABLE_NAMES),
+        len(VIEW_NAMES),
     )

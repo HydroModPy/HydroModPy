@@ -59,9 +59,15 @@ class ExportVariablesConfig(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     head: Annotated[bool, Profile.USER] = Field(default=True, description="Export head field.")
-    concentration: Annotated[bool, Profile.USER] = Field(default=False, description="Export concentration field.")
-    budget: Annotated[bool, Profile.DEV] = Field(default=False, description="Export spatial budget fields.")
-    pathlines: Annotated[bool, Profile.DEV] = Field(default=False, description="Export pathline data.")
+    concentration: Annotated[bool, Profile.USER] = Field(
+        default=False, description="Export concentration field."
+    )
+    budget: Annotated[bool, Profile.DEV] = Field(
+        default=False, description="Export spatial budget fields."
+    )
+    pathlines: Annotated[bool, Profile.DEV] = Field(
+        default=False, description="Export pathline data."
+    )
     derived: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Export derived variables (watertable_depth, seepage_areas, etc.).",
@@ -84,11 +90,19 @@ class ExportConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    netcdf: Annotated[bool, Profile.USER] = Field(default=True, description="Export to NetCDF-4/UGRID.")
-    csv_timeseries: Annotated[bool, Profile.USER] = Field(default=True, description="Export time series to CSV.")
-    vtu: Annotated[bool, Profile.DEV] = Field(default=False, description="Export to VTU (ParaView).")
+    netcdf: Annotated[bool, Profile.USER] = Field(
+        default=True, description="Export to NetCDF-4/UGRID."
+    )
+    csv_timeseries: Annotated[bool, Profile.USER] = Field(
+        default=True, description="Export time series to CSV."
+    )
+    vtu: Annotated[bool, Profile.DEV] = Field(
+        default=False, description="Export to VTU (ParaView)."
+    )
     geotiff: Annotated[bool, Profile.DEV] = Field(default=False, description="Export to GeoTIFF.")
-    shapefile: Annotated[bool, Profile.DEV] = Field(default=False, description="Export to Shapefile.")
+    shapefile: Annotated[bool, Profile.DEV] = Field(
+        default=False, description="Export to Shapefile."
+    )
     output_dir: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Output directory for exports. Defaults to project results folder.",

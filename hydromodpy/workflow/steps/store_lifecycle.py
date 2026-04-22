@@ -78,7 +78,8 @@ def _register_tracked_input_files(ctx: WorkflowContext) -> None:
     written = ctx.store.register_tracked_files(ctx.sim_id, portable)
     logger.info(
         "Registered %d tracked input file(s) for simulation %s",
-        written, ctx.sim_id,
+        written,
+        ctx.sim_id,
     )
 
 
@@ -96,35 +97,41 @@ def _write_flow_parameters(store, sim_id: str, flow, domain=None) -> None:
         for pid, fp in params_dict.items():
             kind = getattr(fp, "kind", "homogeneous")
             if kind == "homogeneous":
-                params.append({
-                    "param_name": pid,
-                    "zone_id": None,
-                    "value": getattr(fp, "value", None),
-                    "unit": getattr(fp, "unit", ""),
-                    "parameterization": "homogeneous",
-                })
+                params.append(
+                    {
+                        "param_name": pid,
+                        "zone_id": None,
+                        "value": getattr(fp, "value", None),
+                        "unit": getattr(fp, "unit", ""),
+                        "parameterization": "homogeneous",
+                    }
+                )
             else:
                 values_by_key = getattr(fp, "values_by_key", None) or {}
                 for zone_key, val in values_by_key.items():
-                    params.append({
-                        "param_name": pid,
-                        "zone_id": str(zone_key),
-                        "value": val,
-                        "unit": getattr(fp, "unit", ""),
-                        "parameterization": "geology_mapped",
-                    })
+                    params.append(
+                        {
+                            "param_name": pid,
+                            "zone_id": str(zone_key),
+                            "value": val,
+                            "unit": getattr(fp, "unit", ""),
+                            "parameterization": "geology_mapped",
+                        }
+                    )
 
     if domain is not None:
         depth_model = getattr(domain, "depth_model", None)
         thickness = getattr(depth_model, "thickness", None) if depth_model else None
         if thickness is not None:
-            params.append({
-                "param_name": "thickness",
-                "zone_id": None,
-                "value": float(thickness),
-                "unit": "m",
-                "parameterization": "homogeneous",
-            })
+            params.append(
+                {
+                    "param_name": "thickness",
+                    "zone_id": None,
+                    "value": float(thickness),
+                    "unit": "m",
+                    "parameterization": "homogeneous",
+                }
+            )
 
     if params:
         store.write_parameters(sim_id, params)
@@ -171,7 +178,10 @@ def step_open_store(ctx: WorkflowContext) -> None:
     # Write hydraulic parameters
     if ctx.setup.flow is not None:
         _write_flow_parameters(
-            ctx.store, ctx.sim_id, ctx.setup.flow, domain=ctx.cfg.domain,
+            ctx.store,
+            ctx.sim_id,
+            ctx.setup.flow,
+            domain=ctx.cfg.domain,
         )
 
     # Write mesh topology into Zarr
@@ -183,9 +193,11 @@ def step_open_store(ctx: WorkflowContext) -> None:
             z_intf_attr = getattr(domain, "z_interfaces", None)
             if z_intf_attr is not None:
                 import numpy as np
+
                 z_intf = np.asarray(z_intf_attr)
         if z_intf is None:
             import numpy as np
+
             z_intf = np.array([0.0, -10.0])
         ctx.store.write_mesh(
             ctx.sim_id,
@@ -200,7 +212,8 @@ def step_open_store(ctx: WorkflowContext) -> None:
 
     if ctx.setup.geographic is not None:
         persist_geographic_to_store(
-            ctx.setup.geographic, ctx.store,
+            ctx.setup.geographic,
+            ctx.store,
             sim_id=ctx.sim_id,
         )
 

@@ -33,35 +33,50 @@ HELP = "Run a simulation (.toml) or a prototype script (.py)"
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument(
-        "config", type=Path,
+        "config",
+        type=Path,
         help="Path to a TOML config or Python script",
     )
     parser.add_argument(
-        "script_args", nargs="*",
+        "script_args",
+        nargs="*",
         help="Extra arguments forwarded to .py scripts",
     )
     parser.add_argument(
-        "--resume", default=None, metavar="RUN_ID",
+        "--resume",
+        default=None,
+        metavar="RUN_ID",
         help="Resume a simulation from its last checkpoint.",
     )
     parser.add_argument(
-        "--from", dest="from_step", default=None, metavar="STEP",
+        "--from",
+        dest="from_step",
+        default=None,
+        metavar="STEP",
         help="Resume from a specific pipeline step (name or index).",
     )
     parser.add_argument(
-        "--until", dest="until_step", default=None, metavar="STEP",
+        "--until",
+        dest="until_step",
+        default=None,
+        metavar="STEP",
         help="Stop after the specified pipeline step (name or index).",
     )
     parser.add_argument(
-        "--dry-run", action="store_true", dest="dry_run",
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
         help="Print the resolved workflow plan without executing it.",
     )
     parser.add_argument(
-        "--no-checkpoint", action="store_true", dest="no_checkpoint",
+        "--no-checkpoint",
+        action="store_true",
+        dest="no_checkpoint",
         help="Disable pipeline checkpoint persistence for this run.",
     )
     parser.add_argument(
-        "--frozen", action="store_true",
+        "--frozen",
+        action="store_true",
         help=(
             "Reject any fresh download when hydromodpy.lock is present; "
             "every artefact must already be in the catalog and match its SHA-256."
@@ -79,6 +94,7 @@ def run(args: argparse.Namespace) -> None:
 
     if getattr(args, "frozen", False):
         from hydromodpy.data.lockfile import set_frozen_mode
+
         set_frozen_mode(True)
 
     if target.suffix == ".py":
@@ -120,7 +136,9 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
 
     try:
         workflow = resolve_workflow(
-            config_path, cli_workflow=None, require_toml_field=True,
+            config_path,
+            cli_workflow=None,
+            require_toml_field=True,
         )
     except WorkflowError as exc:
         print(str(exc), file=sys.stderr)
@@ -133,20 +151,27 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     no_checkpoint = bool(getattr(args, "no_checkpoint", False))
 
     if dry_run:
-        _print_dry_run(workflow, config_path, raw_toml,
-                       resume=resume, from_step=from_step,
-                       until_step=until_step, no_checkpoint=no_checkpoint)
+        _print_dry_run(
+            workflow,
+            config_path,
+            raw_toml,
+            resume=resume,
+            from_step=from_step,
+            until_step=until_step,
+            no_checkpoint=no_checkpoint,
+        )
         return
 
     if resume is not None and workflow != "simulation":
         print(
-            f"--resume is only supported for the 'simulation' workflow "
-            f"(detected '{workflow}').",
+            f"--resume is only supported for the 'simulation' workflow (detected '{workflow}').",
             file=sys.stderr,
         )
         sys.exit(EXIT_CONFIG)
 
-    if (from_step is not None or until_step is not None or no_checkpoint) and workflow != "simulation":
+    if (
+        from_step is not None or until_step is not None or no_checkpoint
+    ) and workflow != "simulation":
         print(
             f"--from / --until / --no-checkpoint are only supported for the "
             f"'simulation' workflow (detected '{workflow}').",
@@ -166,8 +191,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
 
     try:
         if workflow == "simulation" and (
-            resume is not None or from_step is not None
-            or until_step is not None or no_checkpoint
+            resume is not None or from_step is not None or until_step is not None or no_checkpoint
         ):
             summary = _run_simulation_pipeline(
                 config_path,
@@ -234,7 +258,8 @@ def _run_simulation_pipeline(
     )
     initial = PipelineState(run_id=run_id, data={"config_path": config_path})
     final = pipeline.run(
-        initial, resume_from=resume_from,
+        initial,
+        resume_from=resume_from,
     )
     ctx = final.get("ctx")
     return {
@@ -303,6 +328,7 @@ def _print_dry_run(
     if workflow == "simulation":
         try:
             from hydromodpy.pipeline.steps import standard_steps
+
             print("[dry-run] steps   :")
             for i, s in enumerate(standard_steps()):
                 print(f"  {i:02d}  {type(s).__name__}")

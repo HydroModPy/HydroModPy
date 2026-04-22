@@ -40,15 +40,51 @@ SOLVER_COLORS = {
     "petsc": "#d62728",
 }
 RECHARGE_SERIES_MM_DAY = (
-    0.50, 1.00, 1.50, 2.00, 2.50, 3.00, 3.50, 4.00, 4.50, 5.00, 5.50, 6.00,
-    5.50, 5.00, 4.50, 4.00, 3.50, 3.00, 2.50, 2.00, 1.50, 1.00, 0.50, 0.25,
-    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-    0.0, 0.0, 0.0, 0.0,
+    0.50,
+    1.00,
+    1.50,
+    2.00,
+    2.50,
+    3.00,
+    3.50,
+    4.00,
+    4.50,
+    5.00,
+    5.50,
+    6.00,
+    5.50,
+    5.00,
+    4.50,
+    4.00,
+    3.50,
+    3.00,
+    2.50,
+    2.00,
+    1.50,
+    1.00,
+    0.50,
+    0.25,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
 )
 SNAPSHOT_DAYS = (10.0, 60.0, 120.0, 240.0, 330.0, 420.0)
-OUTPUT_ROOT_DEFAULT = (
-    REPO_ROOT / "out" / "linux_nwt_bouss_4m4m6m_r005_dt2_refined_20260414"
-)
+OUTPUT_ROOT_DEFAULT = REPO_ROOT / "out" / "linux_nwt_bouss_4m4m6m_r005_dt2_refined_20260414"
 BOUSS_RUNTIME_MAX_ITERATIONS = 400
 BOUSS_RUNTIME_TOL_RESIDUAL_INF = 5.0e-6
 PARTITION_REGULARIZATION_RADIUS = 0.005
@@ -232,7 +268,9 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _write_summary(output_md: Path, *, results: list[base.TransientResult], figures_dir: Path) -> None:
+def _write_summary(
+    output_md: Path, *, results: list[base.TransientResult], figures_dir: Path
+) -> None:
     ordered = sorted(results, key=lambda item: SOLVER_ORDER.index(item.solver))
     lines = [
         "# Linux NWT vs Boussinesq Transient Benchmark",
@@ -251,7 +289,9 @@ def _write_summary(output_md: Path, *, results: list[base.TransientResult], figu
         "| --- | ---: | ---: | ---: | ---: | --- |",
     ]
     for item in ordered:
-        wall_time_text = "n/a" if item.wall_time_seconds is None else f"{item.wall_time_seconds:.2f}"
+        wall_time_text = (
+            "n/a" if item.wall_time_seconds is None else f"{item.wall_time_seconds:.2f}"
+        )
         lines.append(
             f"| {SOLVER_LABELS[item.solver]} | {item.onset_day:.1f} | "
             f"{item.peak_total_outflow_m3_day:.4f} | {item.max_clearance_m:.4f} | "
@@ -282,10 +322,9 @@ def main(argv: list[str] | None = None) -> int:
     os.environ["HYDROMODPY_OUT_PATH"] = str(output_root)
 
     metadata = load_case_metadata(base.CASE_DIR)
-    hydraulic_conductivity_m_s = (
-        float(metadata["reference"]["hydraulic_conductivity_m_per_s"])
-        * float(base.HYDRAULIC_CONDUCTIVITY_SCALE)
-    )
+    hydraulic_conductivity_m_s = float(
+        metadata["reference"]["hydraulic_conductivity_m_per_s"]
+    ) * float(base.HYDRAULIC_CONDUCTIVITY_SCALE)
     runtime_configs_dir = output_root / "runtime_configs"
     results: list[base.TransientResult] = []
 
@@ -309,9 +348,7 @@ def main(argv: list[str] | None = None) -> int:
             runtime_max_iterations=BOUSS_RUNTIME_MAX_ITERATIONS,
             runtime_tol_residual_inf=BOUSS_RUNTIME_TOL_RESIDUAL_INF,
             saturation_excess_regularization_radius=(
-                PARTITION_REGULARIZATION_RADIUS
-                if solver_name == "petsc_partition"
-                else None
+                PARTITION_REGULARIZATION_RADIUS if solver_name == "petsc_partition" else None
             ),
         )
         wall_time_seconds = time.perf_counter() - t0
@@ -377,7 +414,9 @@ def main(argv: list[str] | None = None) -> int:
     base._write_total_outflow_overlay_figure(results, figures_dir / "total_outflow_overlay.png")
     base._write_flux_budget_figure(results, figures_dir / "flux_budget_comparison.png")
     base._write_execution_times_figure(results, figures_dir / "execution_times.png")
-    head_point_rows = base._write_head_point_figure(results, figures_dir / "head_point_timeseries.png")
+    head_point_rows = base._write_head_point_figure(
+        results, figures_dir / "head_point_timeseries.png"
+    )
     base._write_csv(output_root / "head_point_timeseries.csv", head_point_rows)
     _write_summary(output_root / "summary.md", results=results, figures_dir=figures_dir)
     (output_root / "summary.json").write_text(

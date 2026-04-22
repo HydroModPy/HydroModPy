@@ -54,12 +54,9 @@ class GridAdapter:
                 break
             self._trial_id += 1
             values = {
-                p.name: p.to_physical(float(point[i]))
-                for i, p in enumerate(self.space.parameters)
+                p.name: p.to_physical(float(point[i])) for i, p in enumerate(self.space.parameters)
             }
-            out.append(
-                ParamSuggestion(trial_id=self._trial_id, values=values, source="ask")
-            )
+            out.append(ParamSuggestion(trial_id=self._trial_id, values=values, source="ask"))
         return out
 
     def suggest_next(self) -> ParamSuggestion:

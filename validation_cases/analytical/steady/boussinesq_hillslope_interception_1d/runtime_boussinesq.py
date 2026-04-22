@@ -71,8 +71,7 @@ def _write_hillslope_strip_bundle(bundle_dir: Path) -> Path:
         encoding="utf-8",
     )
     (bundle_dir / "mesh_summary.json").write_text(
-        json.dumps({"constraints_mode": "geology_only"}, indent=2, ensure_ascii=True)
-        + "\n",
+        json.dumps({"constraints_mode": "geology_only"}, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
 
@@ -89,9 +88,7 @@ def _write_hillslope_strip_bundle(bundle_dir: Path) -> Path:
             z_top = float(_topography_m(x_m))
             node_xy[node_id] = (x_m, y_m)
             node_top[node_id] = z_top
-            node_rows.append(
-                f"{node_id},{x_m:.6f},{y_m:.6f},{z_top:.6f},{BOTTOM_ELEVATION_M:.6f}"
-            )
+            node_rows.append(f"{node_id},{x_m:.6f},{y_m:.6f},{z_top:.6f},{BOTTOM_ELEVATION_M:.6f}")
     _write_csv(bundle_dir / "nodes.csv", "node_id,x,y,z_top,z_bottom", node_rows)
 
     triangle_area_m2 = 0.5 * dx * dy
@@ -240,7 +237,7 @@ def run_boussinesq_hillslope_interception_case(
                     "recharge": {
                         "values": mm_day_to_m_s(RECHARGE_MM_DAY),
                         "first_clim": "mean",
-                    "units": "m/s",
+                        "units": "m/s",
                     }
                 },
                 "bc": {
@@ -283,12 +280,8 @@ def run_boussinesq_hillslope_interception_case(
     success = bool(model._run_steady_runtime())
     residual = float(model.runtime_summary.get("steady_residual_norm_inf", np.inf))
     accepted = success or residual <= ACCEPTABLE_STEADY_RESIDUAL_INF
-    model.runtime_summary["accepted_with_relaxed_residual"] = bool(
-        (not success) and accepted
-    )
-    model.runtime_summary["acceptable_steady_residual_inf"] = float(
-        ACCEPTABLE_STEADY_RESIDUAL_INF
-    )
+    model.runtime_summary["accepted_with_relaxed_residual"] = bool((not success) and accepted)
+    model.runtime_summary["acceptable_steady_residual_inf"] = float(ACCEPTABLE_STEADY_RESIDUAL_INF)
 
     if not accepted:
         model.has_numerical_solution = False

@@ -33,39 +33,52 @@ _REGRESSION_TIERS = ("fast", "extensive")
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument(
-        "suite", choices=["unit", "regression", "validation"],
+        "suite",
+        choices=["unit", "regression", "validation"],
         help="Test suite to run",
     )
     parser.add_argument(
-        "name", nargs="?",
+        "name",
+        nargs="?",
         help="Regression test name (use --list to see available)",
     )
-    parser.add_argument("--list", action="store_true",
-                        help="List available regression test names and exit")
-    parser.add_argument("--fast", action="store_true",
-                        help="Run the fast subset for the selected suite")
-    parser.add_argument("--slow", action="store_true",
-                        help="Run the slow subset for the selected suite")
-    parser.add_argument("--normal", action="store_true",
-                        help="Deprecated alias for --fast")
-    parser.add_argument("--extensive", action="store_true",
-                        help="Only run extensive regression tests")
-    parser.add_argument("--nwt", action="store_true",
-                        help="Only run MODFLOW-NWT / MODPATH / MT3DMS regression tests")
-    parser.add_argument("--mf6", action="store_true",
-                        help="Only run MODFLOW 6 / GWT regression tests")
-    parser.add_argument("--steady", action="store_true",
-                        help="Filter to steady-state tests")
-    parser.add_argument("--transient", action="store_true",
-                        help="Filter to transient tests")
-    parser.add_argument("--analytical", action="store_true",
-                        help="Filter to analytical validation tests")
-    parser.add_argument("--short", action="store_true",
-                        help="Run the short variant of a specific test")
-    parser.add_argument("--update-goldens", action="store_true",
-                        help="Update golden reference files instead of asserting")
-    parser.add_argument("-j", "--jobs", default=None,
-                        help="Number of parallel workers (requires pytest-xdist)")
+    parser.add_argument(
+        "--list", action="store_true", help="List available regression test names and exit"
+    )
+    parser.add_argument(
+        "--fast", action="store_true", help="Run the fast subset for the selected suite"
+    )
+    parser.add_argument(
+        "--slow", action="store_true", help="Run the slow subset for the selected suite"
+    )
+    parser.add_argument("--normal", action="store_true", help="Deprecated alias for --fast")
+    parser.add_argument(
+        "--extensive", action="store_true", help="Only run extensive regression tests"
+    )
+    parser.add_argument(
+        "--nwt",
+        action="store_true",
+        help="Only run MODFLOW-NWT / MODPATH / MT3DMS regression tests",
+    )
+    parser.add_argument(
+        "--mf6", action="store_true", help="Only run MODFLOW 6 / GWT regression tests"
+    )
+    parser.add_argument("--steady", action="store_true", help="Filter to steady-state tests")
+    parser.add_argument("--transient", action="store_true", help="Filter to transient tests")
+    parser.add_argument(
+        "--analytical", action="store_true", help="Filter to analytical validation tests"
+    )
+    parser.add_argument(
+        "--short", action="store_true", help="Run the short variant of a specific test"
+    )
+    parser.add_argument(
+        "--update-goldens",
+        action="store_true",
+        help="Update golden reference files instead of asserting",
+    )
+    parser.add_argument(
+        "-j", "--jobs", default=None, help="Number of parallel workers (requires pytest-xdist)"
+    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -264,7 +277,10 @@ def _append_marker_filter(
 
 
 def _append_unit_marker_filter(
-    pytest_args: list[str], *, fast: bool, slow: bool,
+    pytest_args: list[str],
+    *,
+    fast: bool,
+    slow: bool,
 ) -> None:
     if fast and slow:
         print("Cannot use --fast and --slow together.", file=sys.stderr)
@@ -385,8 +401,7 @@ def _append_regression_directory_selection(
         if not tier_dir.exists():
             continue
         has_tests = any(
-            _RE_REGRESSION.match(p.name)
-            for p in tier_dir.rglob("test_*regression*.py")
+            _RE_REGRESSION.match(p.name) for p in tier_dir.rglob("test_*regression*.py")
         )
         if not has_tests:
             continue

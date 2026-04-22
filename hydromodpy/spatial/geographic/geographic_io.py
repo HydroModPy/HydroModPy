@@ -45,6 +45,7 @@ def read_raster_data_and_meta(path: str | Path) -> tuple:
 
     path_str = str(path)
     from hydromodpy.spatial.delineation import get_whitebox_backend
+
     wb = get_whitebox_backend()
     data = wb.get_cached_raster_numpy(path_str)
     if data is not None:

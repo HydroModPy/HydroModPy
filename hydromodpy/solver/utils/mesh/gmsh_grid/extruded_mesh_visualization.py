@@ -75,9 +75,7 @@ class VisualizationProfileSummary:
             _round_float(float(self.xy[0]), ndigits=6),
             _round_float(float(self.xy[1]), ndigits=6),
         ]
-        payload["values"] = [
-            _round_float(v) for v in np.asarray(payload["values"], dtype=float)
-        ]
+        payload["values"] = [_round_float(v) for v in np.asarray(payload["values"], dtype=float)]
         if "depths" in payload:
             payload["depths"] = [
                 _round_float(v) for v in np.asarray(payload["depths"], dtype=float)
@@ -109,9 +107,7 @@ class ExtrudedVisualizationSummary:
             "selected_layer_mean_depths": [
                 _round_float(v) for v in self.selected_layer_mean_depths
             ],
-            "selected_profiles": [
-                profile.to_mapping() for profile in self.selected_profiles
-            ],
+            "selected_profiles": [profile.to_mapping() for profile in self.selected_profiles],
         }
 
 
@@ -149,11 +145,7 @@ def _build_source_cell_marker_spec_contracts(
 
     specs: list[SourceCellMarkerSpec] = []
     for idx, source_idx in enumerate(source_indices):
-        label = (
-            str(labels[idx])
-            if labels is not None and idx < len(labels)
-            else f"P{idx + 1}"
-        )
+        label = str(labels[idx]) if labels is not None and idx < len(labels) else f"P{idx + 1}"
         color = (
             str(colors[idx])
             if colors is not None and idx < len(colors)
@@ -178,9 +170,7 @@ def _round_float(value: float, ndigits: int = 12) -> float:
     return round(float(value), ndigits)
 
 
-def _normalize_indices(
-    indices: Iterable[int] | None, *, upper_bound: int, label: str
-) -> list[int]:
+def _normalize_indices(indices: Iterable[int] | None, *, upper_bound: int, label: str) -> list[int]:
     """Validate, deduplicate and preserve the order of requested indices."""
     if indices is None:
         return []
@@ -210,9 +200,7 @@ def select_default_layer_indices(n_layers: int, *, max_layers: int = 3) -> list[
     return selected[: max(1, int(max_layers))]
 
 
-def select_default_source_cell_indices(
-    n_cells_2d: int, *, max_profiles: int = 3
-) -> list[int]:
+def select_default_source_cell_indices(n_cells_2d: int, *, max_profiles: int = 3) -> list[int]:
     """Select representative 2D source cells for vertical profiles."""
     n_cells_int = int(n_cells_2d)
     if n_cells_int <= 0:
@@ -324,9 +312,7 @@ def build_layer_maps_figure(
 ):
     """Build a compact figure with one panel per selected layer."""
     if not isinstance(mesh_with_values, ExtrudedPrismMeshWithValues):
-        raise TypeError(
-            "mesh_with_values must be an ExtrudedPrismMeshWithValues instance"
-        )
+        raise TypeError("mesh_with_values must be an ExtrudedPrismMeshWithValues instance")
     selected_layers = _normalize_indices(
         (
             select_default_layer_indices(mesh_with_values.n_layers)
@@ -364,9 +350,7 @@ def build_layer_maps_figure(
     for ax, layer_idx in zip(map_axes, selected_layers, strict=True):
         layer_title = f"Layer {int(layer_idx) + 1}"
         if depth_3d is not None:
-            layer_title += (
-                f"\nmean depth = {float(np.mean(depth_3d[int(layer_idx)])):.1f} m"
-            )
+            layer_title += f"\nmean depth = {float(np.mean(depth_3d[int(layer_idx)])):.1f} m"
         mappable = plot_planar_cell_values(
             ax,
             mesh=mesh_with_values.mesh.planar_mesh,
@@ -396,18 +380,14 @@ def build_vertical_profiles_figure(
 ):
     """Build a figure with one vertical profile subplot per selected source cell."""
     if not isinstance(mesh_with_values, ExtrudedPrismMeshWithValues):
-        raise TypeError(
-            "mesh_with_values must be an ExtrudedPrismMeshWithValues instance"
-        )
+        raise TypeError("mesh_with_values must be an ExtrudedPrismMeshWithValues instance")
     specs = (
         _build_source_cell_marker_spec_contracts(mesh_with_values)
         if marker_specs is None
         else _coerce_marker_specs(marker_specs)
     )
     if not specs:
-        raise ValueError(
-            "At least one source cell must be selected for profile plotting"
-        )
+        raise ValueError("At least one source cell must be selected for profile plotting")
 
     fig, axes = plt.subplots(
         1,
@@ -431,9 +411,7 @@ def build_vertical_profiles_figure(
             lw=2.1,
             color=str(spec.color),
         )
-        ax.set_title(
-            f"{spec.label} (cell {int(spec.source_cell_index)})", fontsize=12
-        )
+        ax.set_title(f"{spec.label} (cell {int(spec.source_cell_index)})", fontsize=12)
         ax.set_xlabel("Field parameter value", fontsize=10)
         ax.set_ylabel("Depth [m]", fontsize=10)
         ax.tick_params(labelsize=9)
@@ -503,11 +481,7 @@ def build_visualization_summary(
         n_cells_3d=int(mesh_with_values.n_cells_3d),
         selected_layers=tuple(int(v) for v in selected_layers),
         selected_layer_mean_values=tuple(
-            float(
-                np.mean(
-                    np.asarray(mesh_with_values.values_3d[int(layer_idx)], dtype=float)
-                )
-            )
+            float(np.mean(np.asarray(mesh_with_values.values_3d[int(layer_idx)], dtype=float)))
             for layer_idx in selected_layers
         ),
         selected_layer_mean_depths=selected_layer_mean_depths,
@@ -516,9 +490,7 @@ def build_visualization_summary(
                 label=str(spec.label),
                 source_cell_index=int(spec.source_cell_index),
                 xy=(float(spec.xy[0]), float(spec.xy[1])),
-                profile=mesh_with_values.build_vertical_profile(
-                    int(spec.source_cell_index)
-                ),
+                profile=mesh_with_values.build_vertical_profile(int(spec.source_cell_index)),
             )
             for spec in specs
         ),

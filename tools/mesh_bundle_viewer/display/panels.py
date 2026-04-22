@@ -1,4 +1,4 @@
-﻿"""Public panel-level rendering facade for the standalone mesh viewer.
+"""Public panel-level rendering facade for the standalone mesh viewer.
 
 This module intentionally re-exports a small panel API while the lower-level
 cell, overlay, and topography renderers live in dedicated helper modules.
@@ -118,4 +118,3 @@ __all__ = [
     "plot_continuous_topography_panel",
     "plot_mesh_panel",
 ]
-

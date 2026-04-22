@@ -7,6 +7,7 @@ in v0.7.
 ``VisibleWhen`` remains defined here (unchanged from v0.5) — it is not part
 of the Profile migration.
 """
+
 from dataclasses import dataclass
 from typing import Literal
 

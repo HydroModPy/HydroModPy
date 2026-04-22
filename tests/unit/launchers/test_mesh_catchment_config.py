@@ -76,7 +76,9 @@ def test_parse_mesh_catchment_config_rejects_removed_sections(
     removed_key: str,
     removed_payload: dict[str, object],
 ) -> None:
-    with pytest.raises(ValueError, match=rf"\[mesh_catchment\.{removed_key}\] is no longer supported"):
+    with pytest.raises(
+        ValueError, match=rf"\[mesh_catchment\.{removed_key}\] is no longer supported"
+    ):
         parse_mesh_catchment_config_data(
             {
                 "constraints_mode": "geology_only",
@@ -188,10 +190,7 @@ def test_parse_mesh_catchment_config_accepts_watershed_boundary_settings() -> No
     assert cfg.watershed_boundary.outside_coarsening.size_factor == 2.0
     assert cfg.watershed_boundary.outside_coarsening.transition_distance == 500.0
     assert cfg.watershed_boundary.outside_coarsening.grid_resolution == 250.0
-    assert (
-        cfg.watershed_boundary.geology_conformity.mode
-        == "buffered_watershed_envelope"
-    )
+    assert cfg.watershed_boundary.geology_conformity.mode == "buffered_watershed_envelope"
     assert cfg.watershed_boundary.geology_conformity.buffer_distance == 400.0
 
 
@@ -249,5 +248,3 @@ def test_generate_toml_exposes_mesh_catchment_sections() -> None:
     assert "Meshing compliance target" in content
     assert "Enable batch mode" in content
     assert "hydraulic_properties" in content
-
-

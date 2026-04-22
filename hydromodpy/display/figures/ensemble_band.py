@@ -42,9 +42,7 @@ class EnsembleBandFigure(BaseFigure):
 
         # ``sim`` is expected to be a SimulationGroup (iterable of Run).
         if not hasattr(sim, "__iter__"):
-            raise TypeError(
-                "ensemble_band: 'sim' must be a SimulationGroup (iterable)"
-            )
+            raise TypeError("ensemble_band: 'sim' must be a SimulationGroup (iterable)")
         series: list[pd.Series] = []
         for member in sim:
             try:
@@ -52,16 +50,17 @@ class EnsembleBandFigure(BaseFigure):
             except KeyError:
                 continue
         if not series:
-            raise ValueError(
-                f"ensemble_band: no '{variable}' series at '{station}' in group"
-            )
+            raise ValueError(f"ensemble_band: no '{variable}' series at '{station}' in group")
         df = pd.concat(series, axis=1)
         median = df.median(axis=1)
         low = df.quantile(q_low, axis=1)
         high = df.quantile(q_high, axis=1)
         ax.fill_between(
-            median.index, low, high,
-            alpha=0.3, color="steelblue",
+            median.index,
+            low,
+            high,
+            alpha=0.3,
+            color="steelblue",
             label=f"q{int(q_low * 100)}-q{int(q_high * 100)}",
         )
         ax.plot(median.index, median, color="navy", lw=1.0, label="median")
@@ -69,7 +68,10 @@ class EnsembleBandFigure(BaseFigure):
             ax.plot(
                 np.asarray(observed.index),
                 np.asarray(observed.values),
-                color="black", lw=0.8, ls="--", label="observed",
+                color="black",
+                lw=0.8,
+                ls="--",
+                label="observed",
             )
         ax.set_xlabel("Date")
         ax.set_ylabel(axis_label(variable))

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 Domain assembly logic built on top of `Surface` and `DomainConfig`.
 
@@ -88,13 +89,9 @@ class Domain:
         """
         depth_model = self.config.depth_model
         if isinstance(depth_model, ConstantThicknessDepthModel):
-            self.substratum = self.surface_topo.shifted_down_by(
-                float(depth_model.thickness)
-            )
+            self.substratum = self.surface_topo.shifted_down_by(float(depth_model.thickness))
         elif isinstance(depth_model, FlatSubstratumDepthModel):
-            self.substratum = self.surface_topo.flat_like(
-                float(depth_model.substratum_elevation)
-            )
+            self.substratum = self.surface_topo.flat_like(float(depth_model.substratum_elevation))
         else:
             raise TypeError(f"Unsupported depth_model payload: {type(depth_model)!r}")
 
@@ -148,7 +145,5 @@ class Domain:
             if str(getattr(zone_obj, "identifier", "")).strip() == normalized
         ]
         if len(matches) > 1:
-            raise ValueError(
-                f"Multiple domain zones match spatial support '{normalized}'."
-            )
+            raise ValueError(f"Multiple domain zones match spatial support '{normalized}'.")
         return matches[0] if matches else None

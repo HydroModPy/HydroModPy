@@ -113,10 +113,7 @@ class DataManagersRuntimeLoader:
 
             errors: list[tuple[str, Exception]] = []
             with ThreadPoolExecutor(max_workers=min(4, len(parallel))) as pool:
-                futures = {
-                    pool.submit(self._load_single, result, t): t
-                    for t in parallel
-                }
+                futures = {pool.submit(self._load_single, result, t): t for t in parallel}
                 for future in as_completed(futures):
                     t = futures[future]
                     exc = future.exception()
@@ -146,7 +143,9 @@ class DataManagersRuntimeLoader:
         raw_section = self._get_data_section(result, "dem")
         if raw_section is None:
             self._handle_missing_data_section(
-                result, "dem", "missing [data.dem] section",
+                result,
+                "dem",
+                "missing [data.dem] section",
             )
             return
 
@@ -176,7 +175,9 @@ class DataManagersRuntimeLoader:
         raw_section = self._get_data_section(result, "geology")
         if raw_section is None:
             self._handle_missing_data_section(
-                result, "geology", "missing [data.geology] section",
+                result,
+                "geology",
+                "missing [data.geology] section",
             )
             return
 
@@ -210,7 +211,8 @@ class DataManagersRuntimeLoader:
                 result.loaded_data.geology = geology_field
             else:
                 self._handle_data_loading_error(
-                    result, "geology",
+                    result,
+                    "geology",
                     ValueError("GeologyManager returned no field records"),
                 )
         except Exception as exc:
@@ -269,7 +271,8 @@ class DataManagersRuntimeLoader:
             cfg_dict["source"]["reference_raster_path"] = data_path
             cfg = validate_geology_config_data(cfg_dict)
             loaded = load_geology_encoded_grid_on_raster_support(
-                cfg, raster_support=raster_support,
+                cfg,
+                raster_support=raster_support,
             )
         else:
             if source_kind == "vector":
@@ -330,7 +333,10 @@ class DataManagersRuntimeLoader:
             oceanic_cfg = OceanicConfig.model_validate(raw_section)
             period = None
             if oceanic_cfg.date_start and oceanic_cfg.date_end:
-                period = (dt.fromisoformat(oceanic_cfg.date_start), dt.fromisoformat(oceanic_cfg.date_end))
+                period = (
+                    dt.fromisoformat(oceanic_cfg.date_start),
+                    dt.fromisoformat(oceanic_cfg.date_end),
+                )
             for src in oceanic_cfg.sources:
                 if not src.mask_path and result.setup.geographic is not None:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
@@ -397,7 +403,10 @@ class DataManagersRuntimeLoader:
             intermittency_cfg = IntermittencyConfig.model_validate(raw_section)
             period = None
             if intermittency_cfg.date_start and intermittency_cfg.date_end:
-                period = (dt.fromisoformat(intermittency_cfg.date_start), dt.fromisoformat(intermittency_cfg.date_end))
+                period = (
+                    dt.fromisoformat(intermittency_cfg.date_start),
+                    dt.fromisoformat(intermittency_cfg.date_end),
+                )
             for src in intermittency_cfg.sources:
                 if not src.mask_path and result.setup.geographic is not None:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
@@ -440,7 +449,10 @@ class DataManagersRuntimeLoader:
             hydro_cfg = HydrometryConfig.model_validate(raw_section)
             period = None
             if hydro_cfg.date_start and hydro_cfg.date_end:
-                period = (dt.fromisoformat(hydro_cfg.date_start), dt.fromisoformat(hydro_cfg.date_end))
+                period = (
+                    dt.fromisoformat(hydro_cfg.date_start),
+                    dt.fromisoformat(hydro_cfg.date_end),
+                )
             for src in hydro_cfg.sources:
                 if not src.mask_path and result.setup.geographic is not None:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
@@ -477,7 +489,10 @@ class DataManagersRuntimeLoader:
             piezo_cfg = PiezometryConfig.model_validate(raw_section)
             period = None
             if piezo_cfg.date_start and piezo_cfg.date_end:
-                period = (dt.fromisoformat(piezo_cfg.date_start), dt.fromisoformat(piezo_cfg.date_end))
+                period = (
+                    dt.fromisoformat(piezo_cfg.date_start),
+                    dt.fromisoformat(piezo_cfg.date_end),
+                )
             for src in piezo_cfg.sources:
                 if not src.mask_path and result.setup.geographic is not None:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
@@ -557,7 +572,10 @@ class DataManagersRuntimeLoader:
             recharge_cfg = RechargeConfig.model_validate(raw_section)
             period = None
             if recharge_cfg.date_start and recharge_cfg.date_end:
-                period = (dt.fromisoformat(recharge_cfg.date_start), dt.fromisoformat(recharge_cfg.date_end))
+                period = (
+                    dt.fromisoformat(recharge_cfg.date_start),
+                    dt.fromisoformat(recharge_cfg.date_end),
+                )
             for src in recharge_cfg.sources:
                 if not src.mask_path and result.setup.geographic is not None:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
@@ -594,7 +612,10 @@ class DataManagersRuntimeLoader:
             runoff_cfg = RunoffConfig.model_validate(raw_section)
             period = None
             if runoff_cfg.date_start and runoff_cfg.date_end:
-                period = (dt.fromisoformat(runoff_cfg.date_start), dt.fromisoformat(runoff_cfg.date_end))
+                period = (
+                    dt.fromisoformat(runoff_cfg.date_start),
+                    dt.fromisoformat(runoff_cfg.date_end),
+                )
             for src in runoff_cfg.sources:
                 if not src.mask_path and result.setup.geographic is not None:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
@@ -643,7 +664,9 @@ class DataManagersRuntimeLoader:
     }
 
     def _load_climatic_variable(
-        self, result: "WorkflowContext", variable: str,
+        self,
+        result: "WorkflowContext",
+        variable: str,
     ) -> None:
         """Generic loader for climatic variables (precipitation, etp, etc.).
 
@@ -663,7 +686,9 @@ class DataManagersRuntimeLoader:
         raw_section = self._get_data_section(result, variable)
         if raw_section is None:
             self._handle_missing_data_section(
-                result, variable, f"missing [data.{variable}] section",
+                result,
+                variable,
+                f"missing [data.{variable}] section",
             )
             return
 
@@ -766,9 +791,7 @@ class DataManagersRuntimeLoader:
                 f"{option_name}=true requires a valid [simulation.time] section."
             ) from exc
         if simulation_dates is None:
-            raise ValueError(
-                f"{option_name}=true requires a valid [simulation.time] section."
-            )
+            raise ValueError(f"{option_name}=true requires a valid [simulation.time] section.")
         return simulation_dates
 
     def _apply_simulation_window_dates(
@@ -909,4 +932,3 @@ def load_variable(
     loader._catalog = catalog
     method = getattr(loader, method_name)
     return method(config=config, context=context)
-

@@ -37,9 +37,11 @@ class CalibrationPairplotFigure(BaseFigure):
         # render() is a no-op; the pairplot needs its own grid, so plot() is overridden.
         ax.set_axis_off()
         ax.text(
-            0.5, 0.5,
+            0.5,
+            0.5,
             "calibration_pairplot has its own plot()",
-            ha="center", va="center",
+            ha="center",
+            va="center",
         )
         return ax
 
@@ -59,21 +61,18 @@ class CalibrationPairplotFigure(BaseFigure):
 
         iters = getattr(sim, "calibration_iterations", None)
         if iters is None:
-            raise ValueError(
-                "calibration_pairplot: simulation has no calibration_iterations"
-            )
+            raise ValueError("calibration_pairplot: simulation has no calibration_iterations")
         df = pd.DataFrame(iters)
         if parameters is None:
             parameters = [c for c in df.columns if c not in {objective, "iter", "i"}]
         if len(parameters) < 2:
-            raise ValueError(
-                "calibration_pairplot: need at least two parameter columns"
-            )
+            raise ValueError("calibration_pairplot: need at least two parameter columns")
         obj = df[objective].to_numpy(dtype=float) if objective in df.columns else None
 
         n = len(parameters)
         fig, axes = plt.subplots(
-            n, n,
+            n,
+            n,
             figsize=figsize or self.spec.default_figsize,
             dpi=dpi,
             constrained_layout=True,

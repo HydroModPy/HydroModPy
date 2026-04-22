@@ -1,4 +1,4 @@
-﻿"""SciPy sparse-linear-algebra runtime for the Boussinesq backend.
+"""SciPy sparse-linear-algebra runtime for the Boussinesq backend.
 
 This backend keeps the same damped Newton strategy as the historical dense
 runtime, but changes how each Newton system is assembled and solved:
@@ -366,4 +366,3 @@ def _concatenate_triplets(
 
 
 __all__ = ["solve_steady_problem", "solve_transient_step"]
-

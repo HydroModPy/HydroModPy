@@ -24,10 +24,10 @@ def register(subparsers) -> argparse.ArgumentParser:
         "sim_id",
         help="Full sim_id, unique prefix (>=4 chars), or simulation name",
     )
-    parser.add_argument("--workspace", default=None,
-                        help="Workspace root (default: auto-detect)")
-    parser.add_argument("--json", action="store_true",
-                        help="Emit a JSON document (suitable for jq)")
+    parser.add_argument("--workspace", default=None, help="Workspace root (default: auto-detect)")
+    parser.add_argument(
+        "--json", action="store_true", help="Emit a JSON document (suitable for jq)"
+    )
     parser.set_defaults(_handler=run)
     return parser
 

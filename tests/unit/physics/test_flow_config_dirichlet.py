@@ -10,7 +10,9 @@ def _build_flow_config(
     *,
     base_dir: Path | None = None,
 ) -> FlowConfig:
-    return FlowConfig.from_toml_section(flow_section, base_dir=Path(".") if base_dir is None else base_dir)
+    return FlowConfig.from_toml_section(
+        flow_section, base_dir=Path(".") if base_dir is None else base_dir
+    )
 
 
 def test_dirichlet_side_key_infers_application_domain() -> None:
@@ -236,7 +238,9 @@ def test_dirichlet_side_forcing_csv_resolves_relative_path(tmp_path: Path) -> No
 
 
 def test_dirichlet_side_forcing_rejects_value_plus_forcing() -> None:
-    with pytest.raises(ValueError, match="value and flow.bc.dirichlet.west_side.forcing are mutually exclusive"):
+    with pytest.raises(
+        ValueError, match="value and flow.bc.dirichlet.west_side.forcing are mutually exclusive"
+    ):
         _build_flow_config(
             {
                 "bc": {

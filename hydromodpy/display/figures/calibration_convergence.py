@@ -43,9 +43,7 @@ class CalibrationConvergenceFigure(BaseFigure):
             if hasattr(sim, "calibration_iterations"):
                 df = sim.calibration_iterations  # type: ignore[attr-defined]
         if df is None or len(df) == 0:
-            raise ValueError(
-                "calibration_convergence: no iteration data available"
-            )
+            raise ValueError("calibration_convergence: no iteration data available")
         values = np.asarray(getattr(df, "values", df), dtype=float)
         if values.ndim > 1:
             values = values.ravel()

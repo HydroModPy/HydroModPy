@@ -55,11 +55,13 @@ def fetch_with_smart_cache(
                 continue
 
             rec = manager._load_cached_api_record(
-                source=source_name, station_id=sid,
+                source=source_name,
+                station_id=sid,
             )
             if rec is not None:
                 gaps = manager._compute_missing_periods(
-                    rec.date_start, rec.date_end,
+                    rec.date_start,
+                    rec.date_end,
                 )
                 if not gaps:
                     ready.append(rec)
@@ -74,7 +76,8 @@ def fetch_with_smart_cache(
                         to_persist.append(merged)
                         logger.info(
                             "Hub'Eau cache merge: %s (+%d period(s))",
-                            sid, len(gaps),
+                            sid,
+                            len(gaps),
                         )
                     else:
                         ready.append(rec)

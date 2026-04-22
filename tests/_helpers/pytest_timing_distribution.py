@@ -282,14 +282,18 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="0.01,0.05,0.1,0.25,0.5,1,2,5,10,20,60",
         help="Comma-separated upper bounds in seconds for histogram bins",
     )
-    parser.add_argument("--top-n", type=int, default=20, help="Number of slow tests/modules to list")
+    parser.add_argument(
+        "--top-n", type=int, default=20, help="Number of slow tests/modules to list"
+    )
     parser.add_argument(
         "--include-skipped",
         action="store_true",
         help="Include skipped tests in duration distribution",
     )
     parser.add_argument("--out-json", default=None, help="Optional path to save JSON report")
-    parser.add_argument("--out-csv", default=None, help="Optional path to save raw sorted durations as CSV")
+    parser.add_argument(
+        "--out-csv", default=None, help="Optional path to save raw sorted durations as CSV"
+    )
     return parser.parse_args(argv)
 
 

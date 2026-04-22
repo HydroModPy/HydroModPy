@@ -1,4 +1,4 @@
-﻿"""Comparison workflow for the 1D linearized unconfined boundary-piecewise case."""
+"""Comparison workflow for the 1D linearized unconfined boundary-piecewise case."""
 
 from __future__ import annotations
 
@@ -86,6 +86,3 @@ def run_linearized_unconfined_boundary_piecewise_comparison(
             solver=solver,
         )
     return build_linearized_unconfined_boundary_piecewise_comparison(result=result, solver=solver)
-
-
-

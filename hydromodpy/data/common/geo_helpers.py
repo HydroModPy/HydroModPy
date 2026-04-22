@@ -31,9 +31,10 @@ def haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
     R = 6371.0
     dlon = math.radians(lon2 - lon1)
     dlat = math.radians(lat2 - lat1)
-    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(
-        math.radians(lat2)
-    ) * math.sin(dlon / 2) ** 2
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    )
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
@@ -43,10 +44,7 @@ def filter_locations_by_bbox(
 ) -> list[StationLocation]:
     """Keep locations inside bbox."""
     xmin, ymin, xmax, ymax = bbox
-    return [
-        loc for loc in locations
-        if xmin <= loc.x <= xmax and ymin <= loc.y <= ymax
-    ]
+    return [loc for loc in locations if xmin <= loc.x <= xmax and ymin <= loc.y <= ymax]
 
 
 def nearest_location(
@@ -105,12 +103,18 @@ def _load_mask_from_raster(path: Path):
         from shapely.geometry import shape
         from shapely.ops import unary_union
     except ImportError as exc:
-        raise ImportError("rasterio and shapely required for raster mask. pip install rasterio shapely") from exc
+        raise ImportError(
+            "rasterio and shapely required for raster mask. pip install rasterio shapely"
+        ) from exc
 
     with rasterio.open(path) as src:
         data = src.read(1)
         mask = data != src.nodata if src.nodata is not None else data != 0
-        geoms = [shape(geom) for geom, val in shapes(mask.astype("uint8"), transform=src.transform) if val == 1]
+        geoms = [
+            shape(geom)
+            for geom, val in shapes(mask.astype("uint8"), transform=src.transform)
+            if val == 1
+        ]
         if not geoms:
             raise ValueError(f"No valid cells in raster mask: {path}")
         return unary_union(geoms).convex_hull

@@ -44,13 +44,16 @@ def load_custom_nc(
     if time_dim is not None and time_dim in ds.dims:
         if project_period is not None:
             ds = ds.sel(
-                {time_dim: slice(
-                    project_period[0].isoformat(),
-                    project_period[1].isoformat(),
-                )},
+                {
+                    time_dim: slice(
+                        project_period[0].isoformat(),
+                        project_period[1].isoformat(),
+                    )
+                },
             )
         times = ds[time_dim].values
         import pandas as pd
+
         date_start = pd.Timestamp(times[0]).to_pydatetime()
         date_end = pd.Timestamp(times[-1]).to_pydatetime()
         frequency = "D"
@@ -59,18 +62,20 @@ def load_custom_nc(
         date_end = None
         frequency = None
 
-    return [FieldRecord(
-        variable=variable,
-        source="custom",
-        unit=unit,
-        data=ds,
-        bbox=bbox,
-        crs=crs,
-        date_start=date_start,
-        date_end=date_end,
-        frequency=frequency,
-        source_unit=source_unit_resolved,
-    )]
+    return [
+        FieldRecord(
+            variable=variable,
+            source="custom",
+            unit=unit,
+            data=ds,
+            bbox=bbox,
+            crs=crs,
+            date_start=date_start,
+            date_end=date_end,
+            frequency=frequency,
+            source_unit=source_unit_resolved,
+        )
+    ]
 
 
 def load_custom_tif(
@@ -101,18 +106,20 @@ def load_custom_tif(
     bbox = (bounds[0], bounds[1], bounds[2], bounds[3])
     ds = da.to_dataset(name=variable)
 
-    return [FieldRecord(
-        variable=variable,
-        source="custom",
-        unit=unit,
-        data=ds,
-        bbox=bbox,
-        crs=crs,
-        date_start=None,
-        date_end=None,
-        frequency=None,
-        source_unit=source_unit_resolved,
-    )]
+    return [
+        FieldRecord(
+            variable=variable,
+            source="custom",
+            unit=unit,
+            data=ds,
+            bbox=bbox,
+            crs=crs,
+            date_start=None,
+            date_end=None,
+            frequency=None,
+            source_unit=source_unit_resolved,
+        )
+    ]
 
 
 def _extract_bbox_and_crs(ds) -> tuple[tuple, str]:
@@ -121,6 +128,7 @@ def _extract_bbox_and_crs(ds) -> tuple[tuple, str]:
 
     try:
         import rioxarray  # noqa: F401
+
         if hasattr(ds, "rio") and ds.rio.crs is not None:
             crs = str(ds.rio.crs)
             bounds = ds.rio.bounds()
@@ -135,8 +143,10 @@ def _extract_bbox_and_crs(ds) -> tuple[tuple, str]:
         x_vals = ds[x_coord].values
         y_vals = ds[y_coord].values
         bbox = (
-            float(x_vals.min()), float(y_vals.min()),
-            float(x_vals.max()), float(y_vals.max()),
+            float(x_vals.min()),
+            float(y_vals.min()),
+            float(x_vals.max()),
+            float(y_vals.max()),
         )
         if abs(x_vals.max()) <= 180 and abs(y_vals.max()) <= 90:
             crs = "EPSG:4326"
@@ -205,7 +215,9 @@ def _convert_dataset_to_unit(
     if source_unit != target_unit:
         ds = ds.copy()
         ds[data_var] = convert_array(
-            ds[data_var].astype(float), source_unit, target_unit,
+            ds[data_var].astype(float),
+            source_unit,
+            target_unit,
         )
 
     ds[data_var].attrs = dict(ds[data_var].attrs)

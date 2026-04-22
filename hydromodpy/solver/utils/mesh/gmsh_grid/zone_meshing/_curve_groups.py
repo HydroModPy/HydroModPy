@@ -181,9 +181,7 @@ def embed_constraint_curves(
                 continue
             embedded = False
             candidate_surface_tags = (
-                ()
-                if surface_locator is None
-                else surface_locator.locate_surface_tags(segment)
+                () if surface_locator is None else surface_locator.locate_surface_tags(segment)
             )
             if candidate_surface_tags:
                 for surface_tag in candidate_surface_tags:

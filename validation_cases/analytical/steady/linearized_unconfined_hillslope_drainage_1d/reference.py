@@ -20,9 +20,8 @@ def build_linear_topography_values(
 
     x = np.asarray(x_m, dtype=float)
     x_local = x - float(xmin)
-    return (
-        float(topography_base_elevation_m)
-        + float(topography_right_to_left_amplitude_m) * (1.0 - (x_local / length))
+    return float(topography_base_elevation_m) + float(topography_right_to_left_amplitude_m) * (
+        1.0 - (x_local / length)
     )
 
 
@@ -43,9 +42,7 @@ def build_linear_topography_profile(
         xmin=float(xmin),
         xmax=float(xmax),
         topography_base_elevation_m=float(topography_base_elevation_m),
-        topography_right_to_left_amplitude_m=float(
-            topography_right_to_left_amplitude_m
-        ),
+        topography_right_to_left_amplitude_m=float(topography_right_to_left_amplitude_m),
     )
 
 
@@ -70,10 +67,7 @@ def expected_linearized_unconfined_hillslope_drainage_profile_at_x(
     if float(cell_area_m2) <= 0.0:
         raise ValueError("cell_area_m2 must be > 0.")
 
-    transmissivity = (
-        float(hydraulic_conductivity_m_per_s)
-        * float(reference_saturated_thickness_m)
-    )
+    transmissivity = float(hydraulic_conductivity_m_per_s) * float(reference_saturated_thickness_m)
     if transmissivity <= 0.0:
         raise ValueError(
             "hydraulic_conductivity_m_per_s * reference_saturated_thickness_m must be > 0."
@@ -90,16 +84,12 @@ def expected_linearized_unconfined_hillslope_drainage_profile_at_x(
         xmin=float(xmin),
         xmax=float(xmax),
         topography_base_elevation_m=float(topography_base_elevation_m),
-        topography_right_to_left_amplitude_m=float(
-            topography_right_to_left_amplitude_m
-        ),
+        topography_right_to_left_amplitude_m=float(topography_right_to_left_amplitude_m),
     )
     west_u = float(west_head_m) - float(topography_profile[0])
     east_u = float(east_head_m) - float(topography_profile[-1])
     if west_u <= 0.0 or east_u <= 0.0:
-        raise ValueError(
-            "Boundary heads must remain strictly above the local topography."
-        )
+        raise ValueError("Boundary heads must remain strictly above the local topography.")
 
     if np.isclose(drainage_rate_per_area, 0.0):
         return np.linspace(float(west_head_m), float(east_head_m), int(ncol), dtype=float)
@@ -140,7 +130,5 @@ def expected_linearized_unconfined_hillslope_drainage_profile(
         hydraulic_conductivity_m_per_s=float(hydraulic_conductivity_m_per_s),
         reference_saturated_thickness_m=float(reference_saturated_thickness_m),
         topography_base_elevation_m=float(topography_base_elevation_m),
-        topography_right_to_left_amplitude_m=float(
-            topography_right_to_left_amplitude_m
-        ),
+        topography_right_to_left_amplitude_m=float(topography_right_to_left_amplitude_m),
     )

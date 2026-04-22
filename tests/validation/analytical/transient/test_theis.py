@@ -90,9 +90,7 @@ def _cell_centers(delta: np.ndarray) -> np.ndarray:
 def _theis_drawdown(radius_m: float, elapsed_d: float) -> float:
     """Return the analytical Theis drawdown ``s = Q / (4 pi T) * W(u)``."""
     u = (radius_m * radius_m * STORATIVITY) / (4.0 * TRANSMISSIVITY_M2_PER_DAY * elapsed_d)
-    return float(
-        PUMPING_RATE_M3_PER_DAY / (4.0 * math.pi * TRANSMISSIVITY_M2_PER_DAY) * exp1(u)
-    )
+    return float(PUMPING_RATE_M3_PER_DAY / (4.0 * math.pi * TRANSMISSIVITY_M2_PER_DAY) * exp1(u))
 
 
 def _build_and_run_theis_model(workspace: Path) -> tuple[list[float], list[float]]:
@@ -121,9 +119,7 @@ def _build_and_run_theis_model(workspace: Path) -> tuple[list[float], list[float
         version="mf6",
     )
 
-    tdis_perioddata = [
-        (PERIOD_LENGTH_D, NSTP_PER_PERIOD, 1.2) for _ in range(N_STRESS_PERIODS)
-    ]
+    tdis_perioddata = [(PERIOD_LENGTH_D, NSTP_PER_PERIOD, 1.2) for _ in range(N_STRESS_PERIODS)]
     flopy.mf6.ModflowTdis(
         sim,
         time_units="DAYS",

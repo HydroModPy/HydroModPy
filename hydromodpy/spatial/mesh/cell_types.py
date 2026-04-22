@@ -18,8 +18,8 @@ class CellType(Enum):
     QUADRILATERAL = "quadrilateral"
 
     # -- 3D (layered extrusion) -----------------------------------------------
-    WEDGE = "wedge"                  # triangular prism (3 + 3 nodes)
-    HEXAHEDRON = "hexahedron"        # quadrilateral prism (4 + 4 nodes)
+    WEDGE = "wedge"  # triangular prism (3 + 3 nodes)
+    HEXAHEDRON = "hexahedron"  # quadrilateral prism (4 + 4 nodes)
 
     @property
     def nodes_per_cell(self) -> int:
@@ -40,9 +40,7 @@ class CellType(Enum):
         result = _ALIASES.get(key)
         if result is None:
             allowed = ", ".join(sorted(_ALIASES))
-            raise ValueError(
-                f"Unknown cell type '{name}'. Allowed: {allowed}"
-            )
+            raise ValueError(f"Unknown cell type '{name}'. Allowed: {allowed}")
         return result
 
 

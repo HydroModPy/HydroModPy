@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 # Lazy-import helpers (kept at module level for patchability in tests)
 # ---------------------------------------------------------------------------
 
+
 def _build_data_plan(*args, **kwargs):
     """Import planner lazily to keep launcher imports lightweight in tests."""
     from hydromodpy.data import DataPlanner
@@ -46,6 +47,7 @@ def _build_data_runtime_loader(*args, **kwargs):
 # ---------------------------------------------------------------------------
 # Data plan logging
 # ---------------------------------------------------------------------------
+
 
 def log_data_plan(data_plan: DataLoadPlan) -> None:
     """Log concise planner diagnostics when inferred types are present."""
@@ -69,6 +71,7 @@ def log_data_plan(data_plan: DataLoadPlan) -> None:
 # Data loading
 # ---------------------------------------------------------------------------
 
+
 def run_data(
     config_path: str | Path,
     data_plan: DataLoadPlan,
@@ -91,6 +94,7 @@ def run_data(
 # ---------------------------------------------------------------------------
 # Structural updates from loaded data
 # ---------------------------------------------------------------------------
+
 
 def apply_structural_updates_from_data(
     run_state: WorkflowContext,
@@ -118,6 +122,7 @@ def apply_structural_updates_from_data(
 # ---------------------------------------------------------------------------
 # Step entry point (unified signature for workflow pipelines)
 # ---------------------------------------------------------------------------
+
 
 def step_data_loading(ctx: WorkflowContext) -> None:
     """Load forcings into ``ctx.loaded_data`` and bind them to runtime structures."""

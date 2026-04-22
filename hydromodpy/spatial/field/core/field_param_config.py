@@ -65,9 +65,7 @@ def _normalize_unit_token(value: str | None) -> str | None:
         return normalize_m_per_s_unit(token)
     except ValueError:
         allowed = ", ".join(SUPPORTED_PARAMETER_UNITS)
-        raise ValueError(
-            f"Unsupported field.unit '{value}'. Allowed: {allowed}"
-        ) from None
+        raise ValueError(f"Unsupported field.unit '{value}'. Allowed: {allowed}") from None
 
 
 class FieldBaseSection(HydroModelBase):
@@ -84,21 +82,16 @@ class FieldBaseSection(HydroModelBase):
 
     id: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description=(
-            "Parameter identifier used in outputs and logs " "(for example 'K', 'Sy')."
-        ),
+        description=("Parameter identifier used in outputs and logs (for example 'K', 'Sy')."),
     )
     kind: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description=(
-            "Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'."
-        ),
+        description=("Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'."),
     )
     unit: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Unit of parameter values. "
-            "Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss)."
+            "Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss)."
         ),
     )
 
@@ -147,9 +140,7 @@ class FieldHomogeneousSection(HydroModelBase):
         if value is None:
             return None
         if isinstance(value, bool):
-            raise TypeError(
-                "field_homogeneous.value must be numeric or '<number> <unit>'"
-            )
+            raise TypeError("field_homogeneous.value must be numeric or '<number> <unit>'")
         if isinstance(value, (int, float)):
             return float(value)
         if isinstance(value, str):
@@ -211,8 +202,7 @@ class FieldHeterogeneousSection(HydroModelBase):
         if key not in SUPPORTED_HETEROGENEOUS_VALUE_SOURCES:
             allowed = ", ".join(SUPPORTED_HETEROGENEOUS_VALUE_SOURCES)
             raise ValueError(
-                f"Unsupported field_heterogeneous.values_source '{value}'. "
-                f"Allowed: {allowed}"
+                f"Unsupported field_heterogeneous.values_source '{value}'. Allowed: {allowed}"
             )
         return key
 
@@ -226,8 +216,7 @@ class FieldHeterogeneousSection(HydroModelBase):
             key_text = str(key)
             if isinstance(raw_value, bool):
                 raise TypeError(
-                    f"field_heterogeneous.values['{key_text}'] must be numeric "
-                    "or '<number> <unit>'"
+                    f"field_heterogeneous.values['{key_text}'] must be numeric or '<number> <unit>'"
                 )
             if isinstance(raw_value, (int, float)):
                 values[key_text] = float(raw_value)
@@ -235,14 +224,11 @@ class FieldHeterogeneousSection(HydroModelBase):
             if isinstance(raw_value, str):
                 token = raw_value.strip()
                 if token == "":
-                    raise ValueError(
-                        f"field_heterogeneous.values['{key_text}'] cannot be empty"
-                    )
+                    raise ValueError(f"field_heterogeneous.values['{key_text}'] cannot be empty")
                 values[key_text] = token
                 continue
             raise TypeError(
-                f"field_heterogeneous.values['{key_text}'] must be numeric "
-                "or '<number> <unit>'"
+                f"field_heterogeneous.values['{key_text}'] must be numeric or '<number> <unit>'"
             )
         if len(values) == 0:
             raise ValueError("field_heterogeneous.values cannot be empty")
@@ -257,9 +243,7 @@ class FieldHeterogeneousSection(HydroModelBase):
             return None
         text = str(value).strip()
         if text == "":
-            raise ValueError(
-                "field_heterogeneous.values_csv_file cannot be empty when provided"
-            )
+            raise ValueError("field_heterogeneous.values_csv_file cannot be empty when provided")
         return text
 
     @field_validator("csv_key_column", "csv_value_column")
@@ -361,8 +345,7 @@ class FieldVerticalProfileSection(HydroModelBase):
     interpolation: Annotated[str, Profile.DEV] = Field(
         default="linear",
         description=(
-            "Interpolation strategy for tabulated mode. "
-            "Allowed values: 'linear' or 'step'."
+            "Interpolation strategy for tabulated mode. Allowed values: 'linear' or 'step'."
         ),
     )
 
@@ -418,8 +401,7 @@ class FieldVerticalProfileSection(HydroModelBase):
         if key not in SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS:
             allowed = ", ".join(SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS)
             raise ValueError(
-                f"Unsupported field_vertical_profile.interpolation '{value}'. "
-                f"Allowed: {allowed}"
+                f"Unsupported field_vertical_profile.interpolation '{value}'. Allowed: {allowed}"
             )
         return key
 
@@ -437,35 +419,19 @@ class FieldVerticalProfileSection(HydroModelBase):
 
         if self.mode == "tabulated":
             if self.depths is None:
-                raise ValueError(
-                    "field_vertical_profile.depths is required when mode='tabulated'"
-                )
+                raise ValueError("field_vertical_profile.depths is required when mode='tabulated'")
             if self.factors is None:
-                raise ValueError(
-                    "field_vertical_profile.factors is required when mode='tabulated'"
-                )
+                raise ValueError("field_vertical_profile.factors is required when mode='tabulated'")
             if len(self.depths) != len(self.factors):
-                raise ValueError(
-                    "field_vertical_profile.depths and factors must have same length"
-                )
+                raise ValueError("field_vertical_profile.depths and factors must have same length")
             if any(v < 0.0 for v in self.depths):
                 raise ValueError("field_vertical_profile.depths must be >= 0")
-            if any(
-                self.depths[i] <= self.depths[i - 1] for i in range(1, len(self.depths))
-            ):
-                raise ValueError(
-                    "field_vertical_profile.depths must be strictly increasing"
-                )
+            if any(self.depths[i] <= self.depths[i - 1] for i in range(1, len(self.depths))):
+                raise ValueError("field_vertical_profile.depths must be strictly increasing")
             if not math.isclose(float(self.depths[0]), 0.0, rel_tol=0.0, abs_tol=1e-12):
-                raise ValueError(
-                    "field_vertical_profile tabulated first depth must be 0.0"
-                )
-            if not math.isclose(
-                float(self.factors[0]), 1.0, rel_tol=0.0, abs_tol=1e-12
-            ):
-                raise ValueError(
-                    "field_vertical_profile tabulated factor at depth 0.0 must be 1.0"
-                )
+                raise ValueError("field_vertical_profile tabulated first depth must be 0.0")
+            if not math.isclose(float(self.factors[0]), 1.0, rel_tol=0.0, abs_tol=1e-12):
+                raise ValueError("field_vertical_profile tabulated factor at depth 0.0 must be 1.0")
             return self
 
         return self
@@ -504,8 +470,7 @@ class FieldParamConfig(HydroModelBase):
     def _reject_field_common(cls, data):
         if isinstance(data, Mapping) and "field_common" in data:
             raise ValueError(
-                "`[field_common]` is no longer supported. "
-                "Move shared keys to `[field]`."
+                "`[field_common]` is no longer supported. Move shared keys to `[field]`."
             )
         return data
 
@@ -634,9 +599,7 @@ class ResolvedFieldParam(HydroModelBase):
         for key, raw_value in dict(value).items():
             key_text = str(key)
             if isinstance(raw_value, bool):
-                raise TypeError(
-                    f"values['{key_text}'] must be numeric or '<number> <unit>'"
-                )
+                raise TypeError(f"values['{key_text}'] must be numeric or '<number> <unit>'")
             if isinstance(raw_value, (int, float)):
                 values[key_text] = float(raw_value)
                 continue
@@ -646,9 +609,7 @@ class ResolvedFieldParam(HydroModelBase):
                     raise ValueError(f"values['{key_text}'] cannot be empty")
                 values[key_text] = token
                 continue
-            raise TypeError(
-                f"values['{key_text}'] must be numeric or '<number> <unit>'"
-            )
+            raise TypeError(f"values['{key_text}'] must be numeric or '<number> <unit>'")
         if len(values) == 0:
             raise ValueError("values cannot be empty")
         if any(str(key).strip() == "" for key in values):
@@ -763,9 +724,7 @@ def _load_values_mapping_csv(
             if key == "":
                 continue
             if key in values:
-                raise ValueError(
-                    f"Duplicate key '{key}' in CSV mapping '{path}' at line {i}."
-                )
+                raise ValueError(f"Duplicate key '{key}' in CSV mapping '{path}' at line {i}.")
             raw_value = row.get(val_col, "")
             try:
                 value = float(raw_value)
@@ -816,9 +775,7 @@ def resolve_field_param_config_payload(
         if isinstance(specific_section, Mapping):
             merged.update(dict(specific_section))
 
-    vertical_section = validated.get(
-        "field_vertical_profile", validated.get("vertical_profile")
-    )
+    vertical_section = validated.get("field_vertical_profile", validated.get("vertical_profile"))
     if isinstance(vertical_section, Mapping):
         merged["vertical_profile"] = dict(vertical_section)
 
@@ -864,9 +821,7 @@ def load_field_param_toml(config_path: str | Path) -> dict[str, Any]:
     try:
         return validate_field_param_toml_data(payload)
     except ValueError as exc:
-        raise ValueError(
-            f"Invalid field parameter configuration in {path}: {exc}"
-        ) from exc
+        raise ValueError(f"Invalid field parameter configuration in {path}: {exc}") from exc
 
 
 def validate_resolved_field_param_data(

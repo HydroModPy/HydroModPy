@@ -55,7 +55,9 @@ class ModflowNwtOutputAdapter:
 
         logger.info(
             "Extracting MODFLOW-NWT results: %d timesteps, %d layers, %d cells",
-            n_timesteps, nlay, n_cells,
+            n_timesteps,
+            nlay,
+            n_cells,
         )
 
         # Write head fields — mask HDRY/HNOFLO sentinels to NaN so that
@@ -68,15 +70,24 @@ class ModflowNwtOutputAdapter:
             values[np.isclose(values, hdry, atol=1.0)] = np.nan
             values[np.isclose(values, hnoflo, atol=1.0)] = np.nan
             store.write_field(
-                sim_id, "head", t, values,
+                sim_id,
+                "head",
+                t,
+                values,
                 n_timesteps=n_timesteps if t == 0 else None,
             )
 
         # Write budget components
         if cbc_path.exists():
             self._extract_budget(
-                sim_id, store, cbc_path, times, kstpkpers,
-                nlay, nrow, ncol,
+                sim_id,
+                store,
+                cbc_path,
+                times,
+                kstpkpers,
+                nlay,
+                nrow,
+                ncol,
                 spatial_fields=budget_spatial_fields,
             )
 
@@ -88,7 +99,9 @@ class ModflowNwtOutputAdapter:
         head_file.close()
 
         # Write surface elevation for derived variables.
-        self._write_surface_elevation(sim_id, store, solver_output_dir, model_name, nlay, nrow, ncol)
+        self._write_surface_elevation(
+            sim_id, store, solver_output_dir, model_name, nlay, nrow, ncol
+        )
 
     def _extract_budget(
         self,
@@ -118,13 +131,17 @@ class ModflowNwtOutputAdapter:
                     # packages (DRN, WEL, RCH, etc.) that otherwise
                     # return recarray objects.
                     data = cbb.get_data(
-                        text=component, kstpkper=kstpkper, totim=time,
+                        text=component,
+                        kstpkper=kstpkper,
+                        totim=time,
                         full3D=True,
                     )
                 except Exception as exc:
                     logger.debug(
                         "Could not read budget component '%s' at t=%d: %s",
-                        component, t, exc,
+                        component,
+                        t,
+                        exc,
                     )
                     continue
                 if not data:
@@ -136,14 +153,16 @@ class ModflowNwtOutputAdapter:
                 else:
                     flux_in = 0.0
                     flux_out = 0.0
-                budget_records.append({
-                    "timestep": t,
-                    "zone_id": "0",
-                    "component": component.lower().strip(),
-                    "flux_in": flux_in,
-                    "flux_out": abs(flux_out),
-                    "unit": "m3/d",
-                })
+                budget_records.append(
+                    {
+                        "timestep": t,
+                        "zone_id": "0",
+                        "component": component.lower().strip(),
+                        "flux_in": flux_in,
+                        "flux_out": abs(flux_out),
+                        "unit": "m3/d",
+                    }
+                )
                 if spatial_fields and arr.ndim >= 2:
                     field = arr.reshape(nlay, n_cells) if arr.ndim == 3 else arr.reshape(1, n_cells)
                     # n_timesteps is always passed: the store ignores it
@@ -152,7 +171,10 @@ class ModflowNwtOutputAdapter:
                     # be t=0 if the record is absent at t=0 (e.g. STORAGE
                     # in a steady-state initial stress period).
                     store.write_field(
-                        sim_id, component.lower().strip(), t, field,
+                        sim_id,
+                        component.lower().strip(),
+                        t,
+                        field,
                         n_timesteps=len(times),
                         subgroup="budget",
                     )
@@ -170,6 +192,7 @@ class ModflowNwtOutputAdapter:
         """Parse MODFLOW listing file for mass balance summary."""
         try:
             from flopy.utils import MfListBudget
+
             mf_list = MfListBudget(str(lst_path))
             inc, cum = mf_list.get_budget_from_list()
             if inc is not None:
@@ -177,15 +200,21 @@ class ModflowNwtOutputAdapter:
                 for t in range(len(inc)):
                     total_in = float(inc[t]["IN-OUT"])
                     total_out = 0.0
-                    pct_err = float(inc[t]["PERCENT_DISCREPANCY"]) if "PERCENT_DISCREPANCY" in inc.dtype.names else 0.0
-                    records.append({
-                        "timestep": t,
-                        "total_in": total_in,
-                        "total_out": total_out,
-                        "storage_in": 0.0,
-                        "storage_out": 0.0,
-                        "percent_error": pct_err,
-                    })
+                    pct_err = (
+                        float(inc[t]["PERCENT_DISCREPANCY"])
+                        if "PERCENT_DISCREPANCY" in inc.dtype.names
+                        else 0.0
+                    )
+                    records.append(
+                        {
+                            "timestep": t,
+                            "total_in": total_in,
+                            "total_out": total_out,
+                            "storage_in": 0.0,
+                            "storage_out": 0.0,
+                            "percent_error": pct_err,
+                        }
+                    )
                 store.write_mass_balances(sim_id, records)
         except Exception:
             logger.warning("Could not parse listing file %s", lst_path)
@@ -214,13 +243,20 @@ class ModflowNwtOutputAdapter:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 m = flopy.modflow.Modflow.load(
-                    str(nam_path), model_ws=str(solver_output_dir),
-                    load_only=["DIS"], check=False, verbose=False,
+                    str(nam_path),
+                    model_ws=str(solver_output_dir),
+                    load_only=["DIS"],
+                    check=False,
+                    verbose=False,
                     exe_name="mfnwt",
                 )
             top = np.asarray(m.dis.top.array, dtype="float64").ravel()[:n_cells]
             botm = np.asarray(m.dis.botm.array, dtype="float64")
-            z_flat = np.concatenate([top[:1], botm[:, 0, 0]]) if botm.ndim == 3 else np.array([float(top[0]), float(top[0]) - 10.0])
+            z_flat = (
+                np.concatenate([top[:1], botm[:, 0, 0]])
+                if botm.ndim == 3
+                else np.array([float(top[0]), float(top[0]) - 10.0])
+            )
 
             # Synthesize UGRID (vertices + face_node_connectivity) from the
             # structured DIS grid so downstream readers (piezometric_map,
@@ -228,11 +264,13 @@ class ModflowNwtOutputAdapter:
             sg = m.modelgrid
             x_edges = np.asarray(sg.xvertices, dtype="float64")  # (nrow+1, ncol+1)
             y_edges = np.asarray(sg.yvertices, dtype="float64")
-            vertices = np.column_stack([
-                x_edges.ravel(),
-                y_edges.ravel(),
-                np.zeros(x_edges.size, dtype="float64"),
-            ])
+            vertices = np.column_stack(
+                [
+                    x_edges.ravel(),
+                    y_edges.ravel(),
+                    np.zeros(x_edges.size, dtype="float64"),
+                ]
+            )
             nc = ncol + 1
             fnc = np.empty((nrow * ncol, 4), dtype="int32")
             for r in range(nrow):

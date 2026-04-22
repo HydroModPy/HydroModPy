@@ -81,9 +81,7 @@ class TestParameterSpace:
             ParameterSpace.from_toml_mapping({"K": {}})
 
     def test_transformed_bounds(self):
-        space = ParameterSpace(
-            [CalibParameter(name="k", lower=1e-6, upper=1e-3, transform="log")]
-        )
+        space = ParameterSpace([CalibParameter(name="k", lower=1e-6, upper=1e-3, transform="log")])
         tb = space.transformed_bounds
         assert math.isclose(tb["k"][0], -6.0)
         assert math.isclose(tb["k"][1], -3.0)
@@ -150,8 +148,6 @@ class TestAutoDiscovery:
 
     def test_apply_values_ignores_params_without_path(self):
         root = _Root()
-        space = ParameterSpace(
-            [CalibParameter(name="K", lower=0.0, upper=1.0, path=None)]
-        )
+        space = ParameterSpace([CalibParameter(name="K", lower=0.0, upper=1.0, path=None)])
         new_root = apply_values(root, {"K": 0.5}, space)
         assert new_root.leaf.k_aquifer == 1e-4

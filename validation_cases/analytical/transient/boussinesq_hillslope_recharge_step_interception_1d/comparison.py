@@ -65,7 +65,9 @@ class BoussinesqTransientHillslopeInterceptionComparison:
         return float(self.elapsed_days[-1])
 
 
-def _load_outputs(*, result: ValidationRunResult, metadata: dict) -> tuple[str, np.ndarray, np.ndarray]:
+def _load_outputs(
+    *, result: ValidationRunResult, metadata: dict
+) -> tuple[str, np.ndarray, np.ndarray]:
     output_cfg = dict(metadata.get("output", {}))
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
     expected_spatial_shape = tuple(output_cfg.get("expected_spatial_shape", ())) or None
@@ -103,9 +105,7 @@ def build_boussinesq_hillslope_recharge_step_interception_comparison(
     case_metadata = load_case_metadata(CASE_DIR) if metadata is None else metadata
     solver_name = str(getattr(result, "solver_name", "")).strip().lower() or None
     case_tolerances = (
-        load_case_tolerances(CASE_DIR, solver=solver_name)
-        if tolerances is None
-        else tolerances
+        load_case_tolerances(CASE_DIR, solver=solver_name) if tolerances is None else tolerances
     )
     observable_name, period_indices, heads = _load_outputs(
         result=result,
@@ -136,12 +136,8 @@ def build_boussinesq_hillslope_recharge_step_interception_comparison(
         xmax=float(reference_cfg["xmax"]),
         base_head_m=float(reference_cfg["base_head_m"]),
         recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
-        hydraulic_conductivity_m_per_s=float(
-            reference_cfg["hydraulic_conductivity_m_per_s"]
-        ),
-        reference_saturated_thickness_m=float(
-            reference_cfg["reference_saturated_thickness_m"]
-        ),
+        hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
+        reference_saturated_thickness_m=float(reference_cfg["reference_saturated_thickness_m"]),
         specific_yield=float(reference_cfg["specific_yield"]),
         n_terms=int(reference_cfg.get("n_terms", 400)),
     )
@@ -185,13 +181,9 @@ def build_boussinesq_hillslope_recharge_step_interception_comparison(
     analytical_traj = np.asarray(analytical_interception_x_by_time[finite_mask], dtype=float)
     reversal_values = np.diff(numerical_traj)
     trajectory_reversal_m = (
-        float(np.max(np.maximum(reversal_values, 0.0)))
-        if reversal_values.size
-        else 0.0
+        float(np.max(np.maximum(reversal_values, 0.0))) if reversal_values.size else 0.0
     )
-    max_positive_clearance_m = float(
-        np.max(numerical_profiles - topography_profile[None, :])
-    )
+    max_positive_clearance_m = float(np.max(numerical_profiles - topography_profile[None, :]))
 
     return BoussinesqTransientHillslopeInterceptionComparison(
         result=result,
@@ -218,8 +210,7 @@ def build_boussinesq_hillslope_recharge_step_interception_comparison(
         numerical_onset_time_days=float(numerical_onset_time_seconds / SECONDS_PER_DAY),
         analytical_onset_time_days=float(analytical_onset_time_seconds / SECONDS_PER_DAY),
         onset_time_error_days=abs(
-            float(numerical_onset_time_seconds - analytical_onset_time_seconds)
-            / SECONDS_PER_DAY
+            float(numerical_onset_time_seconds - analytical_onset_time_seconds) / SECONDS_PER_DAY
         ),
         trajectory_rmse_m=rmse(numerical_traj, analytical_traj),
         trajectory_max_error_m=max_abs_error(numerical_traj, analytical_traj),

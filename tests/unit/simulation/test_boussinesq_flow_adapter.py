@@ -86,8 +86,7 @@ def _write_custom_bundle(
         encoding="utf-8",
     )
     (bundle_dir / "mesh_summary.json").write_text(
-        json.dumps({"constraints_mode": "geology_only"}, indent=2, ensure_ascii=True)
-        + "\n",
+        json.dumps({"constraints_mode": "geology_only"}, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
     _write_csv(
@@ -789,9 +788,7 @@ def test_boussinesq_flow_adapter_allows_missing_bundle_storage_in_steady_mode(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
             flow=Flow(
-                FlowConfig.model_validate(
-                    {"flow_regime": "steady", "ic": {"type": "bottom"}}
-                )
+                FlowConfig.model_validate({"flow_regime": "steady", "ic": {"type": "bottom"}})
             ),
             domain=None,
             time_grid=None,

@@ -78,7 +78,9 @@ def _radial_island_law(
     return np.where(rr <= radius, land_elevation, ocean_floor)
 
 
-_TOPOGRAPHY_LAWS: dict[str, Callable[[SyntheticTopographyConfig, SyntheticGridConfig], np.ndarray]] = {
+_TOPOGRAPHY_LAWS: dict[
+    str, Callable[[SyntheticTopographyConfig, SyntheticGridConfig], np.ndarray]
+] = {
     "flat": _flat_law,
     "linear": _linear_law,
     "radial_island": _radial_island_law,

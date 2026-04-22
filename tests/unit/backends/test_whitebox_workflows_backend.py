@@ -95,9 +95,7 @@ def test_whitebox_workflows_backend_suppresses_native_stdio(capfd) -> None:
 def test_whitebox_tools_backend_module_is_no_longer_importable() -> None:
     sys.modules.pop("hydromodpy.spatial.delineation.whitebox_tools_backend", None)
     try:
-        importlib.import_module(
-            "hydromodpy.spatial.delineation.whitebox_tools_backend"
-        )
+        importlib.import_module("hydromodpy.spatial.delineation.whitebox_tools_backend")
     except ModuleNotFoundError:
         pass
     else:  # pragma: no cover - defensive
@@ -194,7 +192,9 @@ def test_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
         str(streams_vector),
         all_vertices=False,
     )
-    backend.clip_raster_to_polygon(str(dem_fill), str(polygon), str(clipped), maintain_dimensions=False)
+    backend.clip_raster_to_polygon(
+        str(dem_fill), str(polygon), str(clipped), maintain_dimensions=False
+    )
     backend.clip(str(points), str(polygon), str(points_clip))
     backend.snap_pour_points(str(points), str(acc), str(snap_pts), 2)
     backend.watershed(str(direc), str(snap_pts), str(watershed_tif))
@@ -202,7 +202,9 @@ def test_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
     backend.polygons_to_lines(str(watershed_shp), str(watershed_lines))
     backend.vector_points_to_raster(str(points), str(point_raster), field="id", base=str(dem_fill))
     backend.vector_lines_to_raster(str(lines), str(line_raster), field="id", base=str(dem_fill))
-    backend.vector_polygons_to_raster(str(polygon), str(poly_raster), field="id", base=str(dem_fill))
+    backend.vector_polygons_to_raster(
+        str(polygon), str(poly_raster), field="id", base=str(dem_fill)
+    )
     backend.set_nodata_value(str(line_raster), str(line_raster_nodata), back_value=-32768)
     backend.polygon_area(str(watershed_shp))
     backend.raster_to_vector_points(str(point_raster), str(tmp_path / "point_pixels.shp"))
@@ -304,7 +306,9 @@ def test_whitebox_workflows_backend_in_memory_chain(tmp_path: Path) -> None:
     points_snap = backend.snap_pour_points_vector(points_data, acc, 2)
     watershed = backend.watershed_raster(direc, points_snap)
     watershed_poly = backend.raster_to_vector_polygons_raster(watershed)
-    clipped = backend.clip_raster_to_polygon_raster(dem_fill, polygon_data, maintain_dimensions=False)
+    clipped = backend.clip_raster_to_polygon_raster(
+        dem_fill, polygon_data, maintain_dimensions=False
+    )
 
     backend.write_raster(clipped, str(tmp_path / "clipped.tif"))
     backend.write_vector(watershed_poly, str(tmp_path / "watershed_mem.shp"))

@@ -56,11 +56,11 @@ class ParticleTracks(BaseFigure):
     ) -> "Axes":
         tracks = _read_pathlines(sim)
         if not tracks:
-            ax.text(0.5, 0.5, "no pathlines", ha="center", va="center",
-                    transform=ax.transAxes)
+            ax.text(0.5, 0.5, "no pathlines", ha="center", va="center", transform=ax.transAxes)
             return ax
 
         import matplotlib.cm as cm
+
         cmap = cm.get_cmap(color, max(len(tracks), 2))
         for i, track in enumerate(tracks):
             ax.plot(track[:, 0], track[:, 1], lw=lw, color=cmap(i))

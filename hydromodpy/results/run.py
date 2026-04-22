@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 
 class Run:
-
     def __init__(self, sim_id: str, catalog: SimulationCatalog) -> None:
         self._sim_id = sim_id
         self._catalog = catalog
@@ -166,8 +165,7 @@ class Run:
         result = self._catalog.connection.execute(query, params).fetchdf()
         if result.empty:
             raise KeyError(
-                f"No timeseries for sim={self._sim_id}, "
-                f"station={station}, var={variable}"
+                f"No timeseries for sim={self._sim_id}, station={station}, var={variable}"
             )
         # The catalog stores datetimes as TIMESTAMPTZ (UTC); simulation
         # time_index is tz-naive, so strip the tz here to keep both aligned.
@@ -255,6 +253,7 @@ class Run:
         or when geographic metadata has not been ingested.
         """
         from hydromodpy.results.grid import build_grid
+
         return build_grid(self)
 
     @cached_property
@@ -294,10 +293,9 @@ class Run:
         """
         grid = self.grid
         n = self.n_timesteps or 1
-        return np.stack([
-            np.asarray(self.field(variable, timestep=t)).reshape(grid.shape)
-            for t in range(n)
-        ])
+        return np.stack(
+            [np.asarray(self.field(variable, timestep=t)).reshape(grid.shape) for t in range(n)]
+        )
 
     @cached_property
     def time_index(self) -> pd.DatetimeIndex:
@@ -312,8 +310,7 @@ class Run:
         start, end = row.get("period_start"), row.get("period_end")
         if n is None:
             raise RuntimeError(
-                f"Simulation '{self._sim_id}' has no n_timesteps recorded "
-                "(is it completed?)"
+                f"Simulation '{self._sim_id}' has no n_timesteps recorded (is it completed?)"
             )
         if start is None or end is None:
             raise RuntimeError(
@@ -385,9 +382,7 @@ class Run:
         """
         snapshot = self.config
         if snapshot is None:
-            raise ValueError(
-                f"Simulation '{self._sim_id}' has no config snapshot — cannot rerun"
-            )
+            raise ValueError(f"Simulation '{self._sim_id}' has no config snapshot — cannot rerun")
 
         from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 
@@ -437,14 +432,17 @@ class Run:
             ``<workspace>/exports/<name>/<variable>.<ext>``.
         """
         if path is None:
-            ext_map = {"csv": "csv", "netcdf": "nc", "vtu": "vtu",
-                       "geotiff": "tif", "shapefile": "shp"}
+            ext_map = {
+                "csv": "csv",
+                "netcdf": "nc",
+                "vtu": "vtu",
+                "geotiff": "tif",
+                "shapefile": "shp",
+            }
             ext = ext_map.get(fmt, fmt)
             out_dir = self._catalog.project_path / "exports" / (self.name or self._sim_id)
             out_dir.mkdir(parents=True, exist_ok=True)
-            path = out_dir / (
-                f"{variable}.{ext}" if variable != "*" else f"timeseries.{ext}"
-            )
+            path = out_dir / (f"{variable}.{ext}" if variable != "*" else f"timeseries.{ext}")
         self._catalog.export(self._sim_id, variable, fmt, path, **kwargs)
 
     # -- Lazy catchment views (delegate to hydromodpy.results.views) ---------
@@ -452,26 +450,31 @@ class Run:
     def saturated_fraction(self, **kwargs) -> pd.Series:
         """Lazy ``%`` of catchment cells where seepage > threshold per step."""
         from hydromodpy.results import views
+
         return views.saturated_fraction(self, **kwargs)
 
     def drainage_density(self, **kwargs) -> pd.Series:
         """Lazy ``%`` of catchment cells with positive routed drain flux."""
         from hydromodpy.results import views
+
         return views.drainage_density(self, **kwargs)
 
     def persistence(self, **kwargs) -> np.ndarray:
         """Lazy per-cell fraction of timesteps above a threshold."""
         from hydromodpy.results import views
+
         return views.persistence(self, **kwargs)
 
     def catchment_mean(self, variable: str, **kwargs) -> pd.Series:
         """Lazy arithmetic mean of a cell variable over active cells."""
         from hydromodpy.results import views
+
         return views.catchment_mean(self, variable, **kwargs)
 
     def recharge_forcing(self) -> pd.Series:
         """Lazy input recharge forcing per stress period."""
         from hydromodpy.results import views
+
         return views.recharge_forcing(self)
 
     # -- Display capabilities ------------------------------------------------
@@ -499,8 +502,7 @@ class Run:
     def plot(self, figure_name: str, *, save: str | Path | None = None) -> None:
         if figure_name not in self.display_capabilities:
             raise ValueError(
-                f"Figure '{figure_name}' not available. "
-                f"Capabilities: {self.display_capabilities}"
+                f"Figure '{figure_name}' not available. Capabilities: {self.display_capabilities}"
             )
         from hydromodpy.results.display import render_figure
 
@@ -547,8 +549,7 @@ class Run:
             ("n_timesteps", str(row.get("n_timesteps") or "&mdash;")),
         ]
         body = "".join(
-            f"<tr><th style='text-align:left'>{k}</th><td>{v}</td></tr>"
-            for k, v in rows
+            f"<tr><th style='text-align:left'>{k}</th><td>{v}</td></tr>" for k, v in rows
         )
         return (
             "<div><b>Run</b>"

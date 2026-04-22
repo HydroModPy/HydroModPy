@@ -198,16 +198,12 @@ def _create_figure(*, field_param, mesh, values_mesh, field=None):
 
         lines = [
             f'"{k}"  ->  {float(v):g}'
-            for k, v in sorted(
-                field_param.values_by_key.items(), key=lambda kv: str(kv[0])
-            )
+            for k, v in sorted(field_param.values_by_key.items(), key=lambda kv: str(kv[0]))
         ]
         values_dict_txt = f'"id"  ->  "{field_param.identifier}"\n' + "\n".join(lines)
         values_txt = ", ".join(
             f"{k}={v:g}"
-            for k, v in sorted(
-                field_param.values_by_key.items(), key=lambda kv: str(kv[0])
-            )
+            for k, v in sorted(field_param.values_by_key.items(), key=lambda kv: str(kv[0]))
         )
         suptitle = (
             f"mesh={mesh.kind} | param_id={field_param.identifier} | "
@@ -226,9 +222,7 @@ def _create_figure(*, field_param, mesh, values_mesh, field=None):
             interpolation="nearest",
             aspect="equal",
         )
-        legend_handles = [
-            Patch(facecolor=domain_color, edgecolor="0.45", label="domain")
-        ]
+        legend_handles = [Patch(facecolor=domain_color, edgecolor="0.45", label="domain")]
         ax_left.legend(
             handles=legend_handles,
             title="Zones",
@@ -238,8 +232,7 @@ def _create_figure(*, field_param, mesh, values_mesh, field=None):
         )
         ax_left.set_title("Homogeneous domain")
         values_dict_txt = (
-            f'"id"  ->  "{field_param.identifier}"\n'
-            f'"value"  ->  {float(field_param.value):g}'
+            f'"id"  ->  "{field_param.identifier}"\n"value"  ->  {float(field_param.value):g}'
         )
         suptitle = (
             f"mesh={mesh.kind} | param_id={field_param.identifier} "
@@ -310,9 +303,7 @@ def _resolve_mesh_values(*, field_param, mesh, field=None):
     """Map one field parameter onto the provided square-case mesh."""
     if field_param.is_heterogeneous:
         if field is None:
-            raise ValueError(
-                "field must be provided for heterogeneous field parameters"
-            )
+            raise ValueError("field must be provided for heterogeneous field parameters")
 
         if field_param.field_spatial_id != field.identifier:
             raise ValueError(

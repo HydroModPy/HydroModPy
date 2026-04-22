@@ -111,9 +111,7 @@ class ExtrudedMeshValuesSummary:
                 {key: round(float(value), 12) for key, value in layer_stats.items()}
                 for layer_stats in self.layer_stats
             ],
-            "values_signature_head": [
-                round(float(v), 12) for v in self.values_signature_head
-            ],
+            "values_signature_head": [round(float(v), 12) for v in self.values_signature_head],
         }
         if self.depth_stats is not None:
             payload["depth_stats"] = {
@@ -191,9 +189,7 @@ class ExtrudedPrismMeshWithValues:
         for prism_idx, (layer_idx, source_idx) in enumerate(
             zip(self.mesh.layer_indices, self.mesh.source_cell_indices, strict=True)
         ):
-            flat[prism_idx] = float(
-                self.prism_center_depths[int(layer_idx), int(source_idx)]
-            )
+            flat[prism_idx] = float(self.prism_center_depths[int(layer_idx), int(source_idx)])
         return flat
 
     def extract_layer(self, layer_index: int, *, label: str | None = None):
@@ -220,10 +216,7 @@ class ExtrudedPrismMeshWithValues:
         depths = None
         if self.prism_center_depths is not None:
             depths = tuple(
-                float(v)
-                for v in np.asarray(
-                    self.prism_center_depths[:, source_idx], dtype=float
-                )
+                float(v) for v in np.asarray(self.prism_center_depths[:, source_idx], dtype=float)
             )
         return ExtrudedVerticalProfile(
             source_cell_index=source_idx,
@@ -243,10 +236,7 @@ class ExtrudedPrismMeshWithValues:
 
     def layer_stats(self) -> list[dict[str, float]]:
         """Return one statistics payload per vertical layer."""
-        return [
-            _array_stats(self.values_3d[layer_idx, :])
-            for layer_idx in range(self.n_layers)
-        ]
+        return [_array_stats(self.values_3d[layer_idx, :]) for layer_idx in range(self.n_layers)]
 
     def build_summary_contract(self) -> ExtrudedMeshValuesSummary:
         """Return the typed summary contract of the valued mesh."""

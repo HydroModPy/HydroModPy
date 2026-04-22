@@ -1,4 +1,4 @@
-﻿"""Comparison workflow for the steady divide piecewise-K validation case."""
+"""Comparison workflow for the steady divide piecewise-K validation case."""
 
 from __future__ import annotations
 
@@ -82,6 +82,7 @@ def _load_heads_for_comparison(
 
     try:
         from validation_cases.shared import load_last_npy_array
+
         return load_last_npy_array(result.postprocess_dir, observable_name)
     except FileNotFoundError:
         if observable_name != "watertable_elevation":
@@ -107,9 +108,7 @@ def build_boussinesq_divide_fixed_head_piecewise_k_comparison(
     case_metadata = load_case_metadata(CASE_DIR) if metadata is None else metadata
     solver_name = str(getattr(result, "solver_name", "")).strip().lower() or None
     case_tolerances = (
-        load_case_tolerances(CASE_DIR, solver=solver_name)
-        if tolerances is None
-        else tolerances
+        load_case_tolerances(CASE_DIR, solver=solver_name) if tolerances is None else tolerances
     )
 
     output_cfg = dict(case_metadata.get("output", {}))
@@ -147,7 +146,9 @@ def build_boussinesq_divide_fixed_head_piecewise_k_comparison(
         east_head=float(reference_cfg["east_head"]),
         recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
         x_zone_breaks_m=reference_cfg["x_zone_breaks_m"],
-        hydraulic_conductivity_m_per_s_by_zone=reference_cfg["hydraulic_conductivity_m_per_s_by_zone"],
+        hydraulic_conductivity_m_per_s_by_zone=reference_cfg[
+            "hydraulic_conductivity_m_per_s_by_zone"
+        ],
     )
     residual_profile = np.asarray(numerical_profile - analytical_profile, dtype=float)
 
@@ -196,6 +197,3 @@ def run_boussinesq_divide_fixed_head_piecewise_k_comparison(
         metadata=metadata,
         tolerances=tolerances,
     )
-
-
-

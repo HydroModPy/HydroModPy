@@ -137,10 +137,7 @@ def _vector_artifact_exists(path: str | Path) -> bool:
     vector_path = Path(path)
     if vector_path.suffix.lower() != ".shp":
         return vector_path.exists()
-    return all(
-        vector_path.with_suffix(suffix).exists()
-        for suffix in (".shp", ".shx", ".dbf")
-    )
+    return all(vector_path.with_suffix(suffix).exists() for suffix in (".shp", ".shx", ".dbf"))
 
 
 def _all_artifacts_exist(paths: list[str | Path]) -> bool:
@@ -219,9 +216,7 @@ def _river_products_from_cache(
     return RiverNetworkProducts(
         enabled=True,
         threshold_cells=(
-            None
-            if summary.get("threshold_cells") is None
-            else float(summary["threshold_cells"])
+            None if summary.get("threshold_cells") is None else float(summary["threshold_cells"])
         ),
         flow_acc_cells_tif=str(Path(paths.correcflow_path) / "dem_acc_cells.tif"),
         streams_tif=paths.river_streams_tif,
@@ -448,9 +443,7 @@ def build_legacy_geographic_context(
                 backend=tool,
                 unsupported_mode="ignore",
             )
-            catchment_area_km2 = float(
-                compute_catchment_area_km2(setup.paths.watershed_shp)
-            )
+            catchment_area_km2 = float(compute_catchment_area_km2(setup.paths.watershed_shp))
             domain_products = build_standard_domain_polygons(
                 config=config,
                 paths=setup.paths,

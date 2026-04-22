@@ -117,7 +117,9 @@ def _plot_metrics_card(ax, scenario: HillslopeOverflowScenario) -> None:
         f"Primary:   {primary.solver_label}",
         f"Backend:   {primary.runtime_backend}",
         f"Surface:   {primary.surface_interaction_model}",
-        f"Onset:     {primary.onset_day:.1f} d" if np.isfinite(primary.onset_day) else "Onset:     not reached",
+        f"Onset:     {primary.onset_day:.1f} d"
+        if np.isfinite(primary.onset_day)
+        else "Onset:     not reached",
         f"Peak Qs:   {primary.peak_total_overflow_m3_day:.2f} m3/day",
         f"Peak len:  {primary.peak_active_length_m:.1f} m",
         f"Max h-z:   {primary.max_head_clearance_m:.3f} m",
@@ -134,8 +136,7 @@ def _plot_metrics_card(ax, scenario: HillslopeOverflowScenario) -> None:
                     f"{primary.peak_total_overflow_m3_day - secondary.peak_total_overflow_m3_day:+.2f} m3/day"
                 ),
                 (
-                    f"Delta onset: "
-                    f"{primary.onset_day - secondary.onset_day:+.1f} d"
+                    f"Delta onset: {primary.onset_day - secondary.onset_day:+.1f} d"
                     if np.isfinite(primary.onset_day) and np.isfinite(secondary.onset_day)
                     else "Delta onset: n/a"
                 ),
@@ -311,7 +312,9 @@ def plot_hillslope_overflow_scenario(
     ax_overflow.set_ylabel("Time [day]")
 
     if secondary is not None:
-        contrast_field = primary.mean_saturation_excess_mm_day - secondary.mean_saturation_excess_mm_day
+        contrast_field = (
+            primary.mean_saturation_excess_mm_day - secondary.mean_saturation_excess_mm_day
+        )
         contrast_artist = ax_contrast.pcolormesh(
             x_edges,
             time_edges,
@@ -405,7 +408,9 @@ def plot_hillslope_overflow_scenario(
     ax_total_q.tick_params(axis="y", labelcolor=PRIMARY_COLOR)
     handles_left, labels_left = ax_total.get_legend_handles_labels()
     handles_right, labels_right = ax_total_q.get_legend_handles_labels()
-    ax_total.legend(handles_left + handles_right, labels_left + labels_right, loc="upper left", fontsize=8.5)
+    ax_total.legend(
+        handles_left + handles_right, labels_left + labels_right, loc="upper left", fontsize=8.5
+    )
     ax_total.set_title("Recharge Pulses and Integrated Surface Release")
 
     ax_front.plot(

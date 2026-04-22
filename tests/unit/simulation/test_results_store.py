@@ -21,12 +21,24 @@ def catalog(tmp_path):
 
 def _make_mesh():
     """Simple 4-triangle mesh for testing."""
-    vertices = np.array([
-        [0.0, 0.0], [2.0, 0.0], [1.0, 1.0], [0.0, 2.0], [2.0, 2.0],
-    ])
-    connectivity = np.array([
-        [0, 1, 2], [1, 4, 2], [2, 4, 3], [0, 2, 3],
-    ], dtype="int32")
+    vertices = np.array(
+        [
+            [0.0, 0.0],
+            [2.0, 0.0],
+            [1.0, 1.0],
+            [0.0, 2.0],
+            [2.0, 2.0],
+        ]
+    )
+    connectivity = np.array(
+        [
+            [0, 1, 2],
+            [1, 4, 2],
+            [2, 4, 3],
+            [0, 2, 3],
+        ],
+        dtype="int32",
+    )
     z_interfaces = np.array([0.0, -5.0, -15.0])
     return vertices, connectivity, z_interfaces
 
@@ -40,9 +52,13 @@ class TestFullCycle:
         verts, conn, z = _make_mesh()
 
         reg = catalog.register_simulation(
-            sid, project="test", solver="modflownwt",
+            sid,
+            project="test",
+            solver="modflownwt",
             name="test_run",
-            n_cells=n_cells, n_layers=n_layers, n_timesteps=n_ts,
+            n_cells=n_cells,
+            n_layers=n_layers,
+            n_timesteps=n_ts,
         )
         if reg.zarr is not None:
             reg.zarr.close()
@@ -98,7 +114,10 @@ class TestTimeseriesCycle:
         catalog.write_timeseries(sid, "S1", "head", ts)
 
         result = catalog.query_timeseries(
-            sid, "S1", "head", period=("2020-01-10", "2020-01-20"),
+            sid,
+            "S1",
+            "head",
+            period=("2020-01-10", "2020-01-20"),
         )
         assert len(result) == 11
 
@@ -155,8 +174,12 @@ class TestDeleteSimulation:
     def test_cleans_all_stores(self, catalog):
         sid = str(uuid4())
         reg = catalog.register_simulation(
-            sid, project="test", solver="modflownwt",
-            n_cells=4, n_layers=2, n_timesteps=1,
+            sid,
+            project="test",
+            solver="modflownwt",
+            n_cells=4,
+            n_layers=2,
+            n_timesteps=1,
         )
         if reg.zarr is not None:
             reg.zarr.close()
@@ -182,8 +205,12 @@ class TestCompare:
 
         for sid in (sid_a, sid_b):
             reg = catalog.register_simulation(
-                sid, project="test", solver="test",
-                n_cells=n_cells, n_layers=n_layers, n_timesteps=1,
+                sid,
+                project="test",
+                solver="test",
+                n_cells=n_cells,
+                n_layers=n_layers,
+                n_timesteps=1,
             )
             if reg.zarr is not None:
                 reg.zarr.close()
@@ -197,7 +224,7 @@ class TestCompare:
         arr_b = catalog.query_field(sid_b, "head", 0).ravel()
         diff = arr_a - arr_b
         mean_diff = float(diff.mean())
-        rmse = float(np.sqrt((diff ** 2).mean()))
+        rmse = float(np.sqrt((diff**2).mean()))
 
         assert mean_diff == pytest.approx(-1.0)
         assert rmse == pytest.approx(1.0)

@@ -45,7 +45,9 @@ class FlowInitialCondition(BaseInitialCondition):
     # The flow process exposes a single IC variable always identified by "h";
     # users never set ``id`` themselves and the [flow.ic] normalizer actively
     # rejects it. Hide it from user-profile templates.
-    id: Annotated[str, Profile.DEV] = Field("h", description="id of the initial condition (forced to 'h' for flow)")
+    id: Annotated[str, Profile.DEV] = Field(
+        "h", description="id of the initial condition (forced to 'h' for flow)"
+    )
 
     type: Annotated[Literal["top", "bottom", "custom"], Profile.USER] = Field(
         "custom",
@@ -90,6 +92,8 @@ class FlowInitialConditions(HydroModelBase):
     toml_flatten: ClassVar[bool] = True
 
     h: Annotated[FlowInitialCondition, Profile.USER] = Field(
-        default_factory=lambda: FlowInitialCondition(type="top", id="h", units="m", description="Initial condition 'h'"),
+        default_factory=lambda: FlowInitialCondition(
+            type="top", id="h", units="m", description="Initial condition 'h'"
+        ),
         description="Hydraulic-head initial condition payload.",
     )

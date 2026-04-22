@@ -109,9 +109,7 @@ _VALIDATION_FAMILY_LABELS = {
         "Steady 1D Boussinesq with Topography or Sloping Substratum"
     ),
     "steady_2d_radial_or_island": "Steady 2D Radial or Island Cases",
-    "transient_1d_boundary_or_recharge_forcing": (
-        "Transient 1D Boundary or Recharge Forcing"
-    ),
+    "transient_1d_boundary_or_recharge_forcing": ("Transient 1D Boundary or Recharge Forcing"),
     "transient_1d_recession_or_interception_dynamics": (
         "Transient 1D Recession or Interception Dynamics"
     ),
@@ -221,7 +219,8 @@ def _infer_validation_family(
         if (
             "sloping_substratum" in slug
             or "hillslope" in slug
-            or slug in {
+            or slug
+            in {
                 "linearized_unconfined_drainage_1d",
                 "linearized_unconfined_hillslope_drainage_1d",
             }
@@ -240,7 +239,9 @@ def _infer_validation_family(
 
 def _build_validation_taxonomy(*, slug: str, metadata_payload: dict[str, Any]) -> dict[str, Any]:
     process_family = _infer_validation_process_family(metadata_payload)
-    geometry_family = _infer_validation_geometry_family(slug=slug, metadata_payload=metadata_payload)
+    geometry_family = _infer_validation_geometry_family(
+        slug=slug, metadata_payload=metadata_payload
+    )
     reference_type = _infer_validation_reference_type(slug=slug, metadata_payload=metadata_payload)
     regime = str(metadata_payload.get("regime", "")).strip()
     validation_family = _infer_validation_family(
@@ -255,28 +256,36 @@ def _build_validation_taxonomy(*, slug: str, metadata_payload: dict[str, Any]) -
         "process_family_label": str(
             metadata_payload.get(
                 "process_family_label",
-                _VALIDATION_PROCESS_LABELS.get(process_family, process_family.replace("_", " ").title()),
+                _VALIDATION_PROCESS_LABELS.get(
+                    process_family, process_family.replace("_", " ").title()
+                ),
             )
         ),
         "geometry_family": geometry_family,
         "geometry_family_label": str(
             metadata_payload.get(
                 "geometry_family_label",
-                _VALIDATION_GEOMETRY_LABELS.get(geometry_family, geometry_family.replace("_", " ").title()),
+                _VALIDATION_GEOMETRY_LABELS.get(
+                    geometry_family, geometry_family.replace("_", " ").title()
+                ),
             )
         ),
         "reference_type": reference_type,
         "reference_type_label": str(
             metadata_payload.get(
                 "reference_type_label",
-                _VALIDATION_REFERENCE_TYPE_LABELS.get(reference_type, reference_type.replace("_", " ").title()),
+                _VALIDATION_REFERENCE_TYPE_LABELS.get(
+                    reference_type, reference_type.replace("_", " ").title()
+                ),
             )
         ),
         "validation_family": validation_family,
         "validation_family_label": str(
             metadata_payload.get(
                 "validation_family_label",
-                _VALIDATION_FAMILY_LABELS.get(validation_family, validation_family.replace("_", " ").title()),
+                _VALIDATION_FAMILY_LABELS.get(
+                    validation_family, validation_family.replace("_", " ").title()
+                ),
             )
         ),
         "validation_family_order": int(
@@ -311,7 +320,9 @@ def _parse_markdown_table(lines: list[str], start_index: int) -> tuple[list[dict
     return parsed_rows, index
 
 
-def _load_validation_case_tables(*, repo_root: Path) -> tuple[dict[str, ValidationInventoryEntry], dict[str, ValidationCaseSheetEntry]]:
+def _load_validation_case_tables(
+    *, repo_root: Path
+) -> tuple[dict[str, ValidationInventoryEntry], dict[str, ValidationCaseSheetEntry]]:
     readme_path = repo_root / "validation_cases" / "README.md"
     lines = readme_path.read_text(encoding="utf-8").splitlines()
 
@@ -417,7 +428,9 @@ def _format_expected_output(case_metadata: dict[str, Any], solver: str) -> str |
         return None
 
     if "expected_shape" in output:
-        expected_shape = output.get("expected_shape_by_solver", {}).get(solver, output["expected_shape"])
+        expected_shape = output.get("expected_shape_by_solver", {}).get(
+            solver, output["expected_shape"]
+        )
         shape = " x ".join(str(item) for item in expected_shape)
         return f"Expected shape: {shape}"
 
@@ -437,7 +450,9 @@ def _format_expected_output(case_metadata: dict[str, Any], solver: str) -> str |
 
 def _discover_run_case_metadata(case_dir: Path, *, repo_root: Path) -> dict[str, Any]:
     run_case_path = case_dir / "run_case.py"
-    module_name = _repo_relative(run_case_path.with_suffix(""), repo_root=repo_root).replace("/", ".")
+    module_name = _repo_relative(run_case_path.with_suffix(""), repo_root=repo_root).replace(
+        "/", "."
+    )
     module = importlib.import_module(module_name)
 
     run_functions = sorted(
@@ -484,7 +499,10 @@ def _extra_source_paths_for_case(slug: str) -> tuple[str, ...]:
         "linearized_unconfined_recharge_periodic_1d",
     }:
         extra_paths.append("validation_cases/shared/boussinesq_uniform_strip.py")
-    if slug.startswith("linearized_unconfined_") or slug == "boussinesq_hillslope_recharge_step_interception_1d":
+    if (
+        slug.startswith("linearized_unconfined_")
+        or slug == "boussinesq_hillslope_recharge_step_interception_1d"
+    ):
         extra_paths.append("validation_cases/analytical/transient/linearized_unconfined_1d.py")
     if slug == "late_time_unconfined_pumping_2d":
         extra_paths.append("validation_cases/analytical/transient/common.py")
@@ -707,8 +725,7 @@ def _format_parameter_value(field: str, value: Any) -> str:
         return f"[{rendered_items}]"
     if isinstance(value, dict):
         rendered_items = ", ".join(
-            f"{key}={_format_parameter_value(field, item)}"
-            for key, item in value.items()
+            f"{key}={_format_parameter_value(field, item)}" for key, item in value.items()
         )
         return "{" + rendered_items + "}"
     return str(value)
@@ -717,13 +734,19 @@ def _format_parameter_value(field: str, value: Any) -> str:
 def _meaning_for_reference_field(field: str) -> str:
     tokens = _split_path_tokens(field)
     key = tokens[-1] if tokens else field
-    if len(tokens) >= 2 and tokens[-2] in {"hydraulic_conductivity_m_per_s_by_zone", "hydraulic_conductivity_m_per_s_by_ring"}:
+    if len(tokens) >= 2 and tokens[-2] in {
+        "hydraulic_conductivity_m_per_s_by_zone",
+        "hydraulic_conductivity_m_per_s_by_ring",
+    }:
         group = tokens[-2]
         label = tokens[-1]
         if group.endswith("_by_zone"):
             return f"Zone-specific hydraulic conductivity used by the reference for `{label}`."
         return f"Ring-specific hydraulic conductivity used by the radial reference for `{label}`."
-    if len(tokens) >= 2 and tokens[-2] in {"comparison_radius_max_by_solver", "warmup_periods_by_solver"}:
+    if len(tokens) >= 2 and tokens[-2] in {
+        "comparison_radius_max_by_solver",
+        "warmup_periods_by_solver",
+    }:
         group = tokens[-2]
         solver = tokens[-1]
         if group == "comparison_radius_max_by_solver":
@@ -732,7 +755,9 @@ def _meaning_for_reference_field(field: str) -> str:
     if key == "x_zone_breaks_m":
         return "x-coordinate breaks used to define conductivity zones in the reference solution."
     if key == "ring_radius_breaks_m":
-        return "Ring-radius breaks used to define heterogeneous conductivity in the radial reference."
+        return (
+            "Ring-radius breaks used to define heterogeneous conductivity in the radial reference."
+        )
     if key == "west_head_levels_m":
         return "Sequence of west-boundary head levels used by the transient boundary forcing."
     if key in _REFERENCE_PARAMETER_MEANINGS:
@@ -745,7 +770,11 @@ def _meaning_for_reference_field(field: str) -> str:
 def _meaning_for_output_field(field: str) -> str:
     tokens = _split_path_tokens(field)
     key = tokens[-1] if tokens else field
-    if len(tokens) >= 2 and tokens[-2] in {"expected_shape_by_solver", "expected_spatial_shape_by_solver", "warmup_periods_by_solver"}:
+    if len(tokens) >= 2 and tokens[-2] in {
+        "expected_shape_by_solver",
+        "expected_spatial_shape_by_solver",
+        "warmup_periods_by_solver",
+    }:
         group = tokens[-2]
         solver = tokens[-1]
         if group == "expected_shape_by_solver":
@@ -839,7 +868,9 @@ def _meaning_for_config_field(field: str) -> str:
         if tokens[-1] == "values_source" and "field_heterogeneous" in tokens:
             return f"Value source used for the heterogeneous `{parameter_name}` field."
         if tokens[-1] == "field_spatial_id" and "field_heterogeneous" in tokens:
-            return f"Support identifier used to distribute the heterogeneous `{parameter_name}` field."
+            return (
+                f"Support identifier used to distribute the heterogeneous `{parameter_name}` field."
+            )
         if "field_heterogeneous" in tokens and "values" in tokens:
             zone_name = tokens[-1]
             return f"Heterogeneous `{parameter_name}` value applied on support zone `{zone_name}`."
@@ -899,7 +930,9 @@ def _meaning_for_config_field(field: str) -> str:
         if tokens[-1] == "periods":
             return "Number of recharge forcing periods."
         if tokens[-1] == "runoff_ratio":
-            return "Runoff ratio applied when converting recharge forcing to effective infiltration."
+            return (
+                "Runoff ratio applied when converting recharge forcing to effective infiltration."
+            )
 
     if len(tokens) >= 4 and tokens[:2] == ["data", "oceanic"]:
         if tokens[-1] == "source":
@@ -1098,7 +1131,11 @@ def _build_acceptance_docs(
     output_payload = metadata_payload.get("output")
     if isinstance(output_payload, dict):
         for field, value in _flatten_toml_values(output_payload):
-            if field.endswith("_by_solver.modflownwt") or field.endswith("_by_solver.modflow6") or field.endswith("_by_solver.boussinesq"):
+            if (
+                field.endswith("_by_solver.modflownwt")
+                or field.endswith("_by_solver.modflow6")
+                or field.endswith("_by_solver.boussinesq")
+            ):
                 continue
             common_rows.append(
                 _build_parameter_row(
@@ -1123,7 +1160,9 @@ def _build_acceptance_docs(
                     source=metadata_rel_path,
                 )
             )
-        tolerance_rel_path = str(tolerance_files.get(solver, tolerance_files.get("default", ""))).strip()
+        tolerance_rel_path = str(
+            tolerance_files.get(solver, tolerance_files.get("default", ""))
+        ).strip()
         if tolerance_rel_path:
             tolerance_payload = _load_toml_file(repo_root / tolerance_rel_path)
             for field, value in _flatten_toml_values(tolerance_payload):
@@ -1275,12 +1314,16 @@ def _equations_for_case(slug: str) -> tuple[str, ...]:
     return equation_map.get(slug, ())
 
 
-def build_validation_case_records(*, repo_root: Path | None = None) -> tuple[ValidationCaseRecord, ...]:
+def build_validation_case_records(
+    *, repo_root: Path | None = None
+) -> tuple[ValidationCaseRecord, ...]:
     """Discover analytical validation cases and return gallery-ready records."""
 
     resolved_repo_root = _repo_root(repo_root)
     inventory_table, sheet_table = _load_validation_case_tables(repo_root=resolved_repo_root)
-    case_dirs = sorted((resolved_repo_root / "validation_cases" / "analytical").rglob("metadata.toml"))
+    case_dirs = sorted(
+        (resolved_repo_root / "validation_cases" / "analytical").rglob("metadata.toml")
+    )
     discovered: list[ValidationCaseRecord] = []
 
     solver_rank = {name: index for index, name in enumerate(VALIDATION_SOLVER_ORDER)}
@@ -1304,7 +1347,9 @@ def build_validation_case_records(*, repo_root: Path | None = None) -> tuple[Val
             )
         )
         default_solver = str(
-            metadata_payload.get("default_solver", ordered_solver_variants[0] if ordered_solver_variants else "")
+            metadata_payload.get(
+                "default_solver", ordered_solver_variants[0] if ordered_solver_variants else ""
+            )
         )
 
         case_setup_bullets = list(readme_info.sections.get("numerical_setup", ()))
@@ -1338,7 +1383,9 @@ def build_validation_case_records(*, repo_root: Path | None = None) -> tuple[Val
         tolerance_files: dict[str, str] = {}
         generic_tolerance = case_dir / "tolerances.toml"
         if generic_tolerance.exists():
-            tolerance_files["default"] = _repo_relative(generic_tolerance, repo_root=resolved_repo_root)
+            tolerance_files["default"] = _repo_relative(
+                generic_tolerance, repo_root=resolved_repo_root
+            )
         for solver in ordered_solver_variants:
             candidate = case_dir / f"tolerances_{solver}.toml"
             if candidate.exists():
@@ -1347,7 +1394,9 @@ def build_validation_case_records(*, repo_root: Path | None = None) -> tuple[Val
         solver_details = {
             solver: {
                 "display_name": _normalize_solver_name(solver),
-                "config_path": _repo_relative(case_dir / config_files[solver], repo_root=resolved_repo_root),
+                "config_path": _repo_relative(
+                    case_dir / config_files[solver], repo_root=resolved_repo_root
+                ),
                 "expected_output": _format_expected_output(metadata_payload, solver),
                 "tolerance_path": tolerance_files.get(solver, tolerance_files.get("default")),
             }
@@ -1365,18 +1414,28 @@ def build_validation_case_records(*, repo_root: Path | None = None) -> tuple[Val
         )
         taxonomy = _build_validation_taxonomy(slug=slug, metadata_payload=metadata_payload)
 
-        reproduction_command = (
-            f"python -m {_repo_relative(case_dir / 'run_case.py', repo_root=resolved_repo_root).replace('/', '.').removesuffix('.py')} --no-show"
-        )
+        reproduction_command = f"python -m {_repo_relative(case_dir / 'run_case.py', repo_root=resolved_repo_root).replace('/', '.').removesuffix('.py')} --no-show"
 
         discovered.append(
             ValidationCaseRecord(
                 slug=slug,
                 title=readme_info.title,
-                deck=inventory_entry.purpose if inventory_entry is not None else (readme_info.summary or slug.replace("_", " ")),
-                summary=readme_info.summary or (inventory_entry.purpose if inventory_entry is not None else ""),
-                regime=str(metadata_payload.get("regime", inventory_entry.regime if inventory_entry is not None else "")),
-                dimension=str(metadata_payload.get("dimension", inventory_entry.dimension if inventory_entry is not None else "")),
+                deck=inventory_entry.purpose
+                if inventory_entry is not None
+                else (readme_info.summary or slug.replace("_", " ")),
+                summary=readme_info.summary
+                or (inventory_entry.purpose if inventory_entry is not None else ""),
+                regime=str(
+                    metadata_payload.get(
+                        "regime", inventory_entry.regime if inventory_entry is not None else ""
+                    )
+                ),
+                dimension=str(
+                    metadata_payload.get(
+                        "dimension",
+                        inventory_entry.dimension if inventory_entry is not None else "",
+                    )
+                ),
                 reproduction_command=reproduction_command,
                 source_paths=_build_source_paths(
                     case_dir,
@@ -1390,7 +1449,9 @@ def build_validation_case_records(*, repo_root: Path | None = None) -> tuple[Val
                 equations_rst=_equations_for_case(slug),
                 metadata={
                     "case_dir": _repo_relative(case_dir, repo_root=resolved_repo_root),
-                    "run_case_file": _repo_relative(case_dir / "run_case.py", repo_root=resolved_repo_root),
+                    "run_case_file": _repo_relative(
+                        case_dir / "run_case.py", repo_root=resolved_repo_root
+                    ),
                     "run_case_module": run_case_metadata["run_case_module"],
                     "comparison_function_name": run_case_metadata["comparison_function_name"],
                     "plotting_function_name": run_case_metadata["plotting_function_name"],
@@ -1402,12 +1463,22 @@ def build_validation_case_records(*, repo_root: Path | None = None) -> tuple[Val
                     "solver_details": solver_details,
                     "regime": str(metadata_payload.get("regime", "")),
                     "dimension": str(metadata_payload.get("dimension", "")),
-                    "inventory_reference": inventory_entry.reference if inventory_entry is not None else "",
+                    "inventory_reference": inventory_entry.reference
+                    if inventory_entry is not None
+                    else "",
                     "case_sheet": {
-                        "numerical_setup": sheet_entry.numerical_setup if sheet_entry is not None else "",
-                        "analytical_target": sheet_entry.analytical_target if sheet_entry is not None else "",
-                        "primary_metrics": sheet_entry.primary_metrics if sheet_entry is not None else "",
-                        "what_it_validates": sheet_entry.what_it_validates if sheet_entry is not None else "",
+                        "numerical_setup": sheet_entry.numerical_setup
+                        if sheet_entry is not None
+                        else "",
+                        "analytical_target": sheet_entry.analytical_target
+                        if sheet_entry is not None
+                        else "",
+                        "primary_metrics": sheet_entry.primary_metrics
+                        if sheet_entry is not None
+                        else "",
+                        "what_it_validates": sheet_entry.what_it_validates
+                        if sheet_entry is not None
+                        else "",
                     },
                     "parameter_docs": parameter_docs,
                     **taxonomy,

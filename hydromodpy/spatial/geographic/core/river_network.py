@@ -235,7 +235,9 @@ def compute_river_network_summary(
             else float(river_network.threshold_area_km2)
         )
     else:
-        threshold_value = None if river_network.threshold_cells is None else float(river_network.threshold_cells)
+        threshold_value = (
+            None if river_network.threshold_cells is None else float(river_network.threshold_cells)
+        )
 
     stream_pixel_count = int(_active_positive_count(active_streams_tif))
     _ = network_shp
@@ -415,8 +417,7 @@ def build_river_network_products(
     if missing_methods:
         missing_list = ", ".join(missing_methods)
         raise RuntimeError(
-            "River network generation requires in-memory backend methods; "
-            f"missing: {missing_list}."
+            f"River network generation requires in-memory backend methods; missing: {missing_list}."
         )
 
     streams_raster_obj = tool_any.read_raster(str(active_streams_full_tif))

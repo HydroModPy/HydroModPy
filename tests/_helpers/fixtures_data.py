@@ -53,9 +53,7 @@ def synthetic_catchment_polygon() -> dict:
                 "properties": {"name": "synthetic", "area_m2": 1.0},
                 "geometry": {
                     "type": "Polygon",
-                    "coordinates": [
-                        [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]]
-                    ],
+                    "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]]],
                 },
             }
         ],

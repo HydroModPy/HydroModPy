@@ -135,8 +135,12 @@ class _FakeWhiteboxBackend:
         mask = (xg <= float(outlet.x)) & (yg <= float(outlet.y))
         if not np.any(mask):
             # Ensure at least one cell belongs to watershed if outlet is near edge.
-            ci = int(np.clip(round((float(outlet.x) - transform.c) / transform.a - 0.5), 0, shape[1] - 1))
-            ri = int(np.clip(round((float(outlet.y) - transform.f) / transform.e - 0.5), 0, shape[0] - 1))
+            ci = int(
+                np.clip(round((float(outlet.x) - transform.c) / transform.a - 0.5), 0, shape[1] - 1)
+            )
+            ri = int(
+                np.clip(round((float(outlet.y) - transform.f) / transform.e - 0.5), 0, shape[0] - 1)
+            )
             mask[ri, ci] = True
 
         profile.update(dtype=np.uint8, nodata=0, count=1)
@@ -163,7 +167,9 @@ class _FakeWhiteboxBackend:
 
     def polygons_to_lines(self, in_shp: str, out_shp: str) -> None:
         gdf = gpd.read_file(in_shp)
-        union_geom = gdf.geometry.union_all() if hasattr(gdf.geometry, "union_all") else gdf.unary_union
+        union_geom = (
+            gdf.geometry.union_all() if hasattr(gdf.geometry, "union_all") else gdf.unary_union
+        )
         out = gpd.GeoDataFrame({"id": [1]}, geometry=[union_geom.boundary], crs=gdf.crs)
         Path(out_shp).parent.mkdir(parents=True, exist_ok=True)
         out.to_file(out_shp)
@@ -264,7 +270,9 @@ def _write_json(path: Path, payload: dict) -> None:
         stream.write("\n")
 
 
-def _build_geographic_legacy_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CatchmentDelineation:
+def _build_geographic_legacy_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> CatchmentDelineation:
     import hydromodpy.spatial.geographic.catchment_delineation as geo_mod
 
     fake_wbt = _FakeWhiteboxBackend()
@@ -288,7 +296,9 @@ def _build_geographic_legacy_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     return CatchmentDelineation(config=cfg, initializing=initializing)
 
 
-def _build_geographic_legacy_outlet_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CatchmentDelineation:
+def _build_geographic_legacy_outlet_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> CatchmentDelineation:
     import hydromodpy.spatial.geographic.catchment_delineation as geo_mod
 
     fake_wbt = _FakeWhiteboxBackend()

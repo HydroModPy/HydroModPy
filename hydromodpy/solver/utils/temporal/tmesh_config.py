@@ -214,9 +214,7 @@ class TMeshConfigModel(HydroModelBase):
                     "start_datetime and end_datetime must be valid datetime values."
                 ) from exc
             if pd.isna(start) or pd.isna(end):
-                raise ValueError(
-                    "start_datetime and end_datetime must be valid datetime values."
-                )
+                raise ValueError("start_datetime and end_datetime must be valid datetime values.")
             if end < start:
                 raise ValueError("end_datetime must be greater than or equal to start_datetime")
         return self

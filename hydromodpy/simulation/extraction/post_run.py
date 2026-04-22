@@ -114,6 +114,7 @@ def post_run_results(
         from hydromodpy.simulation.extraction.extractors.catchment_aggregation import (
             aggregate_catchment_timeseries,
         )
+
         aggregate_catchment_timeseries(sim_id, store)
     except Exception:
         logger.exception("Failed to aggregate catchment timeseries for sim %s", sim_id)
@@ -123,9 +124,12 @@ def post_run_results(
     _auto_export(sim_id, store, results_config, export_label=export_label)
 
     # Cleanup solver files
-    do_keep = keep_solver_files if keep_solver_files is not None else results_config.keep_solver_files
+    do_keep = (
+        keep_solver_files if keep_solver_files is not None else results_config.keep_solver_files
+    )
     if not do_keep and solver_output_dir is not None:
         from hydromodpy.simulation.extraction.extractors.base import cleanup_solver_files
+
         try:
             cleanup_solver_files(solver_output_dir)
         except Exception:
@@ -168,7 +172,9 @@ def _auto_export(
     if export.netcdf and var_names:
         try:
             store.export(
-                sim_id, ",".join(var_names), "netcdf",
+                sim_id,
+                ",".join(var_names),
+                "netcdf",
                 output_dir / "fields.nc",
             )
         except KeyError:
@@ -180,7 +186,9 @@ def _auto_export(
         for var in var_names:
             try:
                 store.export(
-                    sim_id, var, "vtu",
+                    sim_id,
+                    var,
+                    "vtu",
                     output_dir / f"{var}_t0.vtu",
                     timestep=0,
                 )
@@ -191,7 +199,9 @@ def _auto_export(
         for var in var_names:
             try:
                 store.export(
-                    sim_id, var, "geotiff",
+                    sim_id,
+                    var,
+                    "geotiff",
                     output_dir / f"{var}_t0.tif",
                     timestep=0,
                 )
@@ -202,7 +212,9 @@ def _auto_export(
         for var in var_names:
             try:
                 store.export(
-                    sim_id, var, "shapefile",
+                    sim_id,
+                    var,
+                    "shapefile",
                     output_dir / f"{var}_t0.shp",
                     timestep=0,
                 )
@@ -216,6 +228,7 @@ def _get_output_adapter(solver_name: str):
     if entry is None:
         return None
     import importlib
+
     module_path, class_name = entry
     mod = importlib.import_module(module_path)
     cls = getattr(mod, class_name)

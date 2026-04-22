@@ -86,9 +86,7 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
         if any(label == "" for label in normalized_labels):
             raise ValueError("domain.supports.<id>.labels cannot contain empty values.")
         if len(normalized_labels) != len(normalized_breaks) + 1:
-            raise ValueError(
-                "domain.supports.<id>.labels length must be len(breaks) + 1."
-            )
+            raise ValueError("domain.supports.<id>.labels length must be len(breaks) + 1.")
         if len(set(normalized_labels)) != len(normalized_labels):
             raise ValueError("domain.supports.<id>.labels cannot contain duplicates.")
 
@@ -193,9 +191,7 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
         if any(label == "" for label in normalized_labels):
             raise ValueError("domain.supports.<id>.labels cannot contain empty values.")
         if len(normalized_labels) != len(normalized_radii) + 1:
-            raise ValueError(
-                "domain.supports.<id>.labels length must be len(radii) + 1."
-            )
+            raise ValueError("domain.supports.<id>.labels length must be len(radii) + 1.")
         if len(set(normalized_labels)) != len(normalized_labels):
             raise ValueError("domain.supports.<id>.labels cannot contain duplicates.")
 

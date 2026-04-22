@@ -24,7 +24,8 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Write config.json + config_meta.json + field_validators.json",
     )
     export_p.add_argument(
-        "--output", default="schema",
+        "--output",
+        default="schema",
         help="Destination directory (default: ./schema/)",
     )
 
@@ -34,10 +35,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     )
     validate_p.add_argument("path", help="Dotted field path, e.g. 'flow.flow_regime'")
     validate_p.add_argument(
-        "value", help="Candidate value (JSON if parseable, otherwise string)",
+        "value",
+        help="Candidate value (JSON if parseable, otherwise string)",
     )
     validate_p.add_argument(
-        "--context", default=None,
+        "--context",
+        default=None,
         help="Optional TOML config providing the current form state",
     )
 

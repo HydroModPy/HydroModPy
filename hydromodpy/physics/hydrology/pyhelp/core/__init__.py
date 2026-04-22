@@ -18,11 +18,11 @@ from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-version_info = (0, 4, 1, 'dev0')
-__version__ = '.'.join(map(str, version_info))
-__appname__ = 'PyHELP'
+version_info = (0, 4, 1, "dev0")
+__version__ = ".".join(map(str, version_info))
+__appname__ = "PyHELP"
 __namever__ = __appname__ + " " + __version__
-__date__ = '20/06/2022'
+__date__ = "20/06/2022"
 __project_url__ = "https://github.com/cgq-qgc/pyhelp"
 __releases_url__ = __project_url__ + "/releases"
 __releases_api__ = "https://api.github.com/repos/cgq-qgc/pyhelp/releases"
@@ -123,7 +123,10 @@ def _download_help3o_binary():
                 logger.debug("macOS bundle URL: %s", bundle_url)
 
                 bundle_request = urllib.request.Request(bundle_url, headers=_GITHUB_HEADERS)
-                with urllib.request.urlopen(bundle_request, timeout=60) as response, bundle_path.open("wb") as fh:
+                with (
+                    urllib.request.urlopen(bundle_request, timeout=60) as response,
+                    bundle_path.open("wb") as fh,
+                ):
                     shutil.copyfileobj(response, fh)
 
                 # Extract tarball to cache directory
@@ -151,7 +154,10 @@ def _download_help3o_binary():
                 logger.debug("Windows bundle URL: %s", bundle_url)
 
                 bundle_request = urllib.request.Request(bundle_url, headers=_GITHUB_HEADERS)
-                with urllib.request.urlopen(bundle_request, timeout=60) as response, bundle_path.open("wb") as fh:
+                with (
+                    urllib.request.urlopen(bundle_request, timeout=60) as response,
+                    bundle_path.open("wb") as fh,
+                ):
                     shutil.copyfileobj(response, fh)
 
                 logger.info("Extracting Windows bundle to %s", cache_dir)
@@ -180,7 +186,10 @@ def _download_help3o_binary():
         logger.debug("HELP3O binary destination %s", binary_path)
 
         binary_request = urllib.request.Request(binary_url, headers=_GITHUB_HEADERS)
-        with urllib.request.urlopen(binary_request, timeout=60) as response, binary_path.open("wb") as fh:
+        with (
+            urllib.request.urlopen(binary_request, timeout=60) as response,
+            binary_path.open("wb") as fh,
+        ):
             shutil.copyfileobj(response, fh)
         logger.info("HELP3O binary downloaded successfully")
 
@@ -193,7 +202,7 @@ def _download_help3o_binary():
             f"  1. Check your internet connection\n"
             f"  2. Download manually from: https://github.com/{HELP3O_BINARIES_REPO}/releases/latest\n"
             f"  3. Place {binary_filename} in {cache_dir}/",
-            RuntimeWarning
+            RuntimeWarning,
         )
         return None
 
@@ -248,7 +257,9 @@ def ensure_help3o_loaded():
 
     binary_filename = _get_binary_filename()
     if not binary_filename:
-        _HELP3O_ERROR = RuntimeError(f"Unsupported platform: {platform.system()} {platform.machine()}")
+        _HELP3O_ERROR = RuntimeError(
+            f"Unsupported platform: {platform.system()} {platform.machine()}"
+        )
         warnings.warn(str(_HELP3O_ERROR), ImportWarning)
         return None
 
@@ -279,8 +290,7 @@ def ensure_help3o_loaded():
         _HELP3O_ERROR = exc
         logger.exception("Failed to load HELP3O binary from %s", binary_path)
         warnings.warn(
-            f"HELP3O Fortran extension not available: {exc}\n"
-            "PyHELP functionality will be limited.",
+            f"HELP3O Fortran extension not available: {exc}\nPyHELP functionality will be limited.",
             ImportWarning,
         )
         return None

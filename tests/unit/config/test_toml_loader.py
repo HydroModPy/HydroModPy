@@ -15,7 +15,6 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
     base_path.write_text(
         "\n".join(
             [
-                
                 'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path / "demo"}"',
@@ -79,7 +78,6 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
     base_path.write_text(
         "\n".join(
             [
-                
                 'workflow = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path / "demo"}"',
@@ -184,10 +182,13 @@ def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation() 
     assert cfg.capability_gallery.enabled is True
     assert cfg.modflow6.tgrid is not None
     assert cfg.modflow6.tgrid.firstpersteady is False
-    assert cfg.capability_gallery.output_dir == (
-        example_config.parent
-        / "../../capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment"
-    ).resolve()
+    assert (
+        cfg.capability_gallery.output_dir
+        == (
+            example_config.parent
+            / "../../capability_gallery/launcher_simulation/modflow6_gmsh_mesh_catchment"
+        ).resolve()
+    )
 
 
 def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
@@ -197,7 +198,6 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
     config_path.write_text(
         "\n".join(
             [
-                
                 'workflow = "simulation"',
                 "[workspace]",
                 f'root = "{tmp_path}"',

@@ -38,7 +38,11 @@ def apply_oceanic_to_flow(
     if ocean_bc is None:
         return
     # Priority 1: constant MSL record
-    msl = [r for r in oceanic.points if r.variable == "mean_sea_level" and getattr(r, "is_constant", False)]
+    msl = [
+        r
+        for r in oceanic.points
+        if r.variable == "mean_sea_level" and getattr(r, "is_constant", False)
+    ]
     if msl:
         ocean_bc.value = msl[0].data["value"].iloc[0]
         return

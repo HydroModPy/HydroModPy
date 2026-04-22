@@ -4,4 +4,3 @@ from .planar_discretizer import PlanarDiscretizer
 from .raster_grid_reader import RasterGridReader, TopRasterGrid
 
 __all__ = ["PlanarDiscretizer", "RasterGridReader", "TopRasterGrid"]
-

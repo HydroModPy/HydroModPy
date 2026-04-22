@@ -52,30 +52,74 @@ class ParameterValue:
 
 
 PARAMETER_SPECS = [
-    ParameterSpec("source_script", "Overview", "source_script", "Python source mirrored by this notebook"),
-    ParameterSpec("watershed_name", "Case Setup", "watershed_name", "Study site or case identifier"),
+    ParameterSpec(
+        "source_script", "Overview", "source_script", "Python source mirrored by this notebook"
+    ),
+    ParameterSpec(
+        "watershed_name", "Case Setup", "watershed_name", "Study site or case identifier"
+    ),
     ParameterSpec("catch_def", "Case Setup", "catch_def", "Catchment extraction mode"),
-    ParameterSpec("from_dem", "Case Setup", "from_dem", "DEM input and working cell size when the case starts from a raster"),
-    ParameterSpec("from_shp", "Case Setup", "from_shp", "Boundary shapefile and buffer when the case starts from a polygon"),
-    ParameterSpec("from_xyv", "Case Setup", "from_xyv", "Outlet coordinates, snap distance, buffer, and CRS"),
+    ParameterSpec(
+        "from_dem",
+        "Case Setup",
+        "from_dem",
+        "DEM input and working cell size when the case starts from a raster",
+    ),
+    ParameterSpec(
+        "from_shp",
+        "Case Setup",
+        "from_shp",
+        "Boundary shapefile and buffer when the case starts from a polygon",
+    ),
+    ParameterSpec(
+        "from_xyv", "Case Setup", "from_xyv", "Outlet coordinates, snap distance, buffer, and CRS"
+    ),
     ParameterSpec("model_name", "Core Parameters", "model_name", "Simulation or run identifier"),
     ParameterSpec("sim_state", "Core Parameters", "sim_state", "Flow regime used by the example"),
-    ParameterSpec("recharge", "Core Parameters", "recharge", "Recharge forcing passed to the flow model"),
-    ParameterSpec("first_clim", "Core Parameters", "first_clim", "How the first climate step is initialized"),
+    ParameterSpec(
+        "recharge", "Core Parameters", "recharge", "Recharge forcing passed to the flow model"
+    ),
+    ParameterSpec(
+        "first_clim", "Core Parameters", "first_clim", "How the first climate step is initialized"
+    ),
     ParameterSpec("nlay", "Core Parameters", "nlay", "Number of groundwater layers"),
-    ParameterSpec("lay_decay", "Core Parameters", "lay_decay", "Vertical layer-thickness decay factor"),
-    ParameterSpec("thick", "Core Parameters", "thick", "Aquifer thickness when the bottom is not prescribed"),
+    ParameterSpec(
+        "lay_decay", "Core Parameters", "lay_decay", "Vertical layer-thickness decay factor"
+    ),
+    ParameterSpec(
+        "thick", "Core Parameters", "thick", "Aquifer thickness when the bottom is not prescribed"
+    ),
     ParameterSpec("bottom", "Core Parameters", "bottom", "Bottom elevation handling"),
     ParameterSpec("hk", "Core Parameters", "hk", "Hydraulic conductivity used for the default run"),
     ParameterSpec("sy", "Core Parameters", "sy", "Specific yield or drainable porosity"),
     ParameterSpec("ss", "Core Parameters", "ss", "Specific storage"),
     ParameterSpec("vka", "Core Parameters", "vka", "Horizontal to vertical conductivity ratio"),
-    ParameterSpec("sea_level", "Core Parameters", "sea_level", "Ocean boundary level when an oceanic boundary is active"),
+    ParameterSpec(
+        "sea_level",
+        "Core Parameters",
+        "sea_level",
+        "Ocean boundary level when an oceanic boundary is active",
+    ),
     ParameterSpec("bc_sides", "Core Parameters", "bc_sides", "Left and right boundary conditions"),
     ParameterSpec("track_dir", "Core Parameters", "track_dir", "Particle-tracking direction"),
-    ParameterSpec("hydraulic_conductivity_sweep", "Parameter Sweeps", "hydraulic_conductivity_sweep", "Conductivity values explored later in the notebook"),
-    ParameterSpec("specific_yield_sweep", "Parameter Sweeps", "specific_yield_sweep", "Specific-yield or porosity values explored later in the notebook"),
-    ParameterSpec("storage_sweep", "Parameter Sweeps", "storage_sweep", "Storage values explored later in the notebook"),
+    ParameterSpec(
+        "hydraulic_conductivity_sweep",
+        "Parameter Sweeps",
+        "hydraulic_conductivity_sweep",
+        "Conductivity values explored later in the notebook",
+    ),
+    ParameterSpec(
+        "specific_yield_sweep",
+        "Parameter Sweeps",
+        "specific_yield_sweep",
+        "Specific-yield or porosity values explored later in the notebook",
+    ),
+    ParameterSpec(
+        "storage_sweep",
+        "Parameter Sweeps",
+        "storage_sweep",
+        "Storage values explored later in the notebook",
+    ),
 ]
 
 SPEC_BY_KEY = {spec.key: spec for spec in PARAMETER_SPECS}
@@ -197,9 +241,15 @@ def _binary_op(left: Any, right: Any, operator: ast.operator) -> Any:
     if isinstance(operator, ast.Add) and isinstance(left, str) and isinstance(right, str):
         return left + right
     if isinstance(left, list) and right_num is not None:
-        return [_binary_op(item, right_num, operator) if _to_numeric(item) is not None else item for item in left]
+        return [
+            _binary_op(item, right_num, operator) if _to_numeric(item) is not None else item
+            for item in left
+        ]
     if isinstance(right, list) and left_num is not None:
-        return [_binary_op(left_num, item, operator) if _to_numeric(item) is not None else item for item in right]
+        return [
+            _binary_op(left_num, item, operator) if _to_numeric(item) is not None else item
+            for item in right
+        ]
     raise ValueError("unsupported operation")
 
 
@@ -271,13 +321,18 @@ def _evaluate(node: ast.AST, env: dict[str, Any]) -> Any:
         return ExpressionValue(_unparse(node))
 
 
-def _record_parameter(parameters: dict[str, ParameterValue], key: str, value: Any, source_name: str | None = None) -> None:
+def _record_parameter(
+    parameters: dict[str, ParameterValue], key: str, value: Any, source_name: str | None = None
+) -> None:
     if key not in SPEC_BY_KEY or _is_empty_value(key, value):
         return
     existing = parameters.get(key)
     if existing is not None and isinstance(value, ExpressionValue):
         text = value.text.strip()
-        if any(token in text for token in ("model_modflow", "list_folder[", "os.path.split(", "d[", ".mf.")):
+        if any(
+            token in text
+            for token in ("model_modflow", "list_folder[", "os.path.split(", "d[", ".mf.")
+        ):
             return
         if text == (source_name or SPEC_BY_KEY[key].label):
             return
@@ -291,7 +346,9 @@ def _record_named_assignment(parameters: dict[str, ParameterValue], name: str, v
     _record_parameter(parameters, key, value, source_name=name)
 
 
-def _record_call(parameters: dict[str, ParameterValue], dotted_name: str, call: ast.Call, env: dict[str, Any]) -> None:
+def _record_call(
+    parameters: dict[str, ParameterValue], dotted_name: str, call: ast.Call, env: dict[str, Any]
+) -> None:
     if dotted_name == "BV.settings.update_bc_sides":
         if len(call.args) >= 2:
             left = _evaluate(call.args[0], env)
@@ -301,7 +358,9 @@ def _record_call(parameters: dict[str, ParameterValue], dotted_name: str, call: 
     if dotted_name == "BV.settings.update_input_particles":
         for keyword in call.keywords:
             if keyword.arg == "track_dir":
-                _record_parameter(parameters, "track_dir", _evaluate(keyword.value, env), source_name="track_dir")
+                _record_parameter(
+                    parameters, "track_dir", _evaluate(keyword.value, env), source_name="track_dir"
+                )
                 return
         return
     mapped = CALL_ALIASES.get(dotted_name)
@@ -322,7 +381,9 @@ def _assign_target_names(target: ast.expr) -> list[str]:
     return []
 
 
-def _analyze_statements(statements: list[ast.stmt], env: dict[str, Any], parameters: dict[str, ParameterValue]) -> None:
+def _analyze_statements(
+    statements: list[ast.stmt], env: dict[str, Any], parameters: dict[str, ParameterValue]
+) -> None:
     for statement in statements:
         if isinstance(statement, ast.Assign):
             value = _evaluate(statement.value, env)
@@ -331,7 +392,11 @@ def _analyze_statements(statements: list[ast.stmt], env: dict[str, Any], paramet
                     env[name] = value
                     _record_named_assignment(parameters, name, value)
             continue
-        if isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name) and statement.value is not None:
+        if (
+            isinstance(statement, ast.AnnAssign)
+            and isinstance(statement.target, ast.Name)
+            and statement.value is not None
+        ):
             value = _evaluate(statement.value, env)
             env[statement.target.id] = value
             _record_named_assignment(parameters, statement.target.id, value)
@@ -380,7 +445,11 @@ def _analyze_source_text(source: str, source_label: str) -> dict[str, ParameterV
                     function_call = nested_call
     if function_node is not None:
         function_env = dict(module_env)
-        positional = function_node.args.args[-len(function_node.args.defaults):] if function_node.args.defaults else []
+        positional = (
+            function_node.args.args[-len(function_node.args.defaults) :]
+            if function_node.args.defaults
+            else []
+        )
         for arg, default in zip(positional, function_node.args.defaults):
             value = _evaluate(default, function_env)
             function_env[arg.arg] = value
@@ -452,7 +521,10 @@ def _render_section(title: str, rows: list[tuple[ParameterSpec, ParameterValue]]
     lines = [f"### {title}", "", "| Parameter | Meaning | Value |", "| --- | --- | --- |"]
     for spec, parameter in rows:
         rendered = _format_value(parameter.value, spec.key)
-        if not rendered.startswith("`") and rendered != "time-dependent series defined in the notebook":
+        if (
+            not rendered.startswith("`")
+            and rendered != "time-dependent series defined in the notebook"
+        ):
             rendered = f"`{rendered}`"
         lines.append(f"| `{spec.label}` | {spec.meaning} | {rendered} |")
     lines.append("")
@@ -503,7 +575,9 @@ def _read_notebook(notebook_path: Path) -> dict[str, Any]:
 
 def _write_notebook(notebook_path: Path, data: dict[str, Any]) -> None:
     normalized = _normalize_notebook(data)
-    notebook_path.write_text(json.dumps(normalized, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    notebook_path.write_text(
+        json.dumps(normalized, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
+    )
 
 
 def _upsert_generated_cell(notebook_path: Path, markdown: str) -> None:
@@ -513,7 +587,11 @@ def _upsert_generated_cell(notebook_path: Path, markdown: str) -> None:
     cell["metadata"] = dict(CELL_METADATA)
     cells = data.get("cells", [])
     insert_at = 1 if cells and cells[0].get("cell_type") == "markdown" else 0
-    if len(cells) > insert_at and cells[insert_at].get("metadata", {}).get("hydromodpy_generated_cell") == "example_parameters":
+    if (
+        len(cells) > insert_at
+        and cells[insert_at].get("metadata", {}).get("hydromodpy_generated_cell")
+        == "example_parameters"
+    ):
         existing_id = cells[insert_at].get("id")
         if existing_id:
             cell["id"] = existing_id

@@ -44,6 +44,7 @@ plt.switch_backend("Agg")
 DEFAULT_CONFIG_FILE = "case_config_gmsh.toml"
 DEFAULT_SECTION = "case"
 
+
 def _parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description=(
@@ -81,11 +82,7 @@ def build_reference_case_state_from_toml(
     if bool(cfg["strict_field_spatial_id_match"]) and field_param.is_heterogeneous:
         required_field_id = str(getattr(field_param, "field_spatial_id", "")).strip()
         support_field_id = str(getattr(geology_field, "identifier", "")).strip()
-        if (
-            required_field_id
-            and support_field_id
-            and required_field_id != support_field_id
-        ):
+        if required_field_id and support_field_id and required_field_id != support_field_id:
             raise ValueError(
                 "field_param.field_spatial_id does not match geology identifier: "
                 f"{required_field_id!r} != {support_field_id!r}"
@@ -93,13 +90,10 @@ def build_reference_case_state_from_toml(
 
     mesh = build_reference_mesh_from_toml(config_path, section=section)
     n_sub = int(
-        cfg["cell_samples_per_axis"]
-        or getattr(geology_field, "default_cell_samples_per_axis", 8)
+        cfg["cell_samples_per_axis"] or getattr(geology_field, "default_cell_samples_per_axis", 8)
     )
     field_discretization = geology_field.on_mesh(mesh, cell_samples_per_axis=n_sub)
-    mesh_values = field_param.to_mesh_field(
-        field_discretization, depth=float(cfg["depth"])
-    )
+    mesh_values = field_param.to_mesh_field(field_discretization, depth=float(cfg["depth"]))
     summary = build_reference_case_summary(
         mesh=mesh,
         geology_field=geology_field,

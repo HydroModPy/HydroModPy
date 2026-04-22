@@ -788,7 +788,9 @@ def _build_summary(
                 "steady_flat_outlet_discharge_m3_s": flat_q_mf6,
                 "steady_nudged_outlet_discharge_m3_s": nudged_q_mf6,
                 "steady_flat_vs_nudged_delta_m3_s": (
-                    None if flat_q_mf6 is None or nudged_q_mf6 is None else float(flat_q_mf6 - nudged_q_mf6)
+                    None
+                    if flat_q_mf6 is None or nudged_q_mf6 is None
+                    else float(flat_q_mf6 - nudged_q_mf6)
                 ),
             },
             "nwt_flat_ic_is_solver_specific": {
@@ -885,8 +887,12 @@ def main() -> None:
     mf6_setup = mf6_launcher.run_state.setup
     nwt_base_flow = nwt_setup.flow
     mf6_base_flow = mf6_setup.flow
-    nwt_steady_recharge_m_s = float(copy.deepcopy(nwt_base_flow.sinks_sources["recharge"]).values.iloc[0])
-    mf6_steady_recharge_m_s = float(copy.deepcopy(mf6_base_flow.sinks_sources["recharge"]).values.iloc[0])
+    nwt_steady_recharge_m_s = float(
+        copy.deepcopy(nwt_base_flow.sinks_sources["recharge"]).values.iloc[0]
+    )
+    mf6_steady_recharge_m_s = float(
+        copy.deepcopy(mf6_base_flow.sinks_sources["recharge"]).values.iloc[0]
+    )
 
     out_path = resolve_validation_results_dir(
         test_file=__file__,
@@ -906,7 +912,9 @@ def main() -> None:
     results: list[ProbeResult] = []
 
     nwt_steady_flat_cfg = nwt_cfg.model_copy(deep=True)
-    nwt_steady_flat_cfg.tgrid = nwt_steady_flat_cfg.tgrid.model_copy(update={"firstpersteady": False})
+    nwt_steady_flat_cfg.tgrid = nwt_steady_flat_cfg.tgrid.model_copy(
+        update={"firstpersteady": False}
+    )
     nwt_steady_flat_result, _ = _run_nwt_probe(
         probe_id=PROBE_IDS["nwt_steady_flat"],
         stage="steady",
@@ -991,7 +999,9 @@ def main() -> None:
     results.append(nwt_transient_complex_result)
 
     mf6_steady_flat_cfg = mf6_cfg.model_copy(deep=True)
-    mf6_steady_flat_cfg.tgrid = mf6_steady_flat_cfg.tgrid.model_copy(update={"firstpersteady": False})
+    mf6_steady_flat_cfg.tgrid = mf6_steady_flat_cfg.tgrid.model_copy(
+        update={"firstpersteady": False}
+    )
     mf6_steady_flat_result, _ = _run_mf6_probe(
         probe_id=PROBE_IDS["mf6_steady_flat"],
         stage="steady",
@@ -1011,7 +1021,9 @@ def main() -> None:
     results.append(mf6_steady_flat_result)
 
     mf6_steady_nudged_cfg = mf6_cfg.model_copy(deep=True)
-    mf6_steady_nudged_cfg.tgrid = mf6_steady_nudged_cfg.tgrid.model_copy(update={"firstpersteady": False})
+    mf6_steady_nudged_cfg.tgrid = mf6_steady_nudged_cfg.tgrid.model_copy(
+        update={"firstpersteady": False}
+    )
     mf6_steady_nudged_result, mf6_steady_head = _run_mf6_probe(
         probe_id=PROBE_IDS["mf6_steady_nudged"],
         stage="steady",

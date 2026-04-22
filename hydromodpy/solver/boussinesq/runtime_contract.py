@@ -55,9 +55,7 @@ class TransientStepInputs:
     well_flux_m3_s: np.ndarray | float | None = None
     prescribed_head_m_by_cell: np.ndarray | None = None
     drainage_conductance_m2_s: np.ndarray | float | None = None
-    options: NonlinearRuntimeOptions = field(
-        default_factory=NonlinearRuntimeOptions
-    )
+    options: NonlinearRuntimeOptions = field(default_factory=NonlinearRuntimeOptions)
 
 
 @dataclass(frozen=True)
@@ -77,9 +75,7 @@ class SteadySolveInputs:
     well_flux_m3_s: np.ndarray | float | None = None
     prescribed_head_m_by_cell: np.ndarray | None = None
     drainage_conductance_m2_s: np.ndarray | float | None = None
-    options: NonlinearRuntimeOptions = field(
-        default_factory=NonlinearRuntimeOptions
-    )
+    options: NonlinearRuntimeOptions = field(default_factory=NonlinearRuntimeOptions)
 
 
 @dataclass(frozen=True)

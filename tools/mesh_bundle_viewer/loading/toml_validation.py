@@ -28,9 +28,7 @@ def forbid_unknown_keys(
 
     unknown_keys = sorted(set(raw_mapping) - allowed_keys)
     if unknown_keys:
-        raise ValidationError(
-            f"{label} contains unknown keys: {', '.join(unknown_keys)}."
-        )
+        raise ValidationError(f"{label} contains unknown keys: {', '.join(unknown_keys)}.")
 
 
 def read_mapping_value(

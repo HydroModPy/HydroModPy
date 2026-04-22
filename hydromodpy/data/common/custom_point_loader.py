@@ -83,8 +83,12 @@ def load_custom_points(
 
     loc_file = _find_location_file(data_dir, variable_name)
     locations = read_locations(
-        loc_file, col_id=col_id, col_x=col_x,
-        col_y=col_y, col_crs=col_crs, default_crs=default_crs,
+        loc_file,
+        col_id=col_id,
+        col_x=col_x,
+        col_y=col_y,
+        col_crs=col_crs,
+        default_crs=default_crs,
     )
 
     if station_ids:
@@ -103,7 +107,9 @@ def load_custom_points(
             continue
 
         df = read_timeseries_csv(
-            chronicle_path, col_datetime=col_datetime, col_value=col_value,
+            chronicle_path,
+            col_datetime=col_datetime,
+            col_value=col_value,
         )
         if df.empty:
             continue
@@ -117,15 +123,22 @@ def load_custom_points(
 
         # Value clamping
         if clamp_values is not None:
-            df["value"] = df["value"].clip(
-                lower=clamp_values[0], upper=clamp_values[1],
-            ).astype(int)
+            df["value"] = (
+                df["value"]
+                .clip(
+                    lower=clamp_values[0],
+                    upper=clamp_values[1],
+                )
+                .astype(int)
+            )
 
         # Constant expansion
         is_constant = len(df) == 1
         if is_constant and expand_constants and project_period is not None:
             dates = pd.date_range(
-                start=project_period[0], end=project_period[1], freq="D",
+                start=project_period[0],
+                end=project_period[1],
+                freq="D",
             )
             df = pd.DataFrame({"datetime": dates, "value": df.iloc[0]["value"]})
 
@@ -183,9 +196,13 @@ def load_custom_multiformat(
             variable_name=variable_name,
             internal_unit=internal_unit,
             project_period=project_period,
-            col_id=col_id, col_x=col_x, col_y=col_y,
-            col_crs=col_crs, default_crs=default_crs,
-            col_datetime=col_datetime, col_value=col_value,
+            col_id=col_id,
+            col_x=col_x,
+            col_y=col_y,
+            col_crs=col_crs,
+            default_crs=default_crs,
+            col_datetime=col_datetime,
+            col_value=col_value,
             station_ids=station_ids,
             default_unit=default_unit,
             record_variable=record_variable,
@@ -193,27 +210,33 @@ def load_custom_multiformat(
         )
     elif path.suffix == ".nc":
         from hydromodpy.data.common.custom_grid_loader import load_custom_nc
+
         return load_custom_nc(
-            path, variable=variable_name, unit=internal_unit,
+            path,
+            variable=variable_name,
+            unit=internal_unit,
             source_unit=source_unit,
             project_period=project_period,
         )
     elif path.suffix in (".tif", ".tiff"):
         from hydromodpy.data.common.custom_grid_loader import load_custom_tif
+
         return load_custom_tif(
-            path, variable=variable_name, unit=internal_unit,
+            path,
+            variable=variable_name,
+            unit=internal_unit,
             source_unit=source_unit,
         )
     else:
         raise ValueError(
-            f"Unsupported custom format: {path.suffix}. "
-            f"Use a directory (CSV), .nc, or .tif."
+            f"Unsupported custom format: {path.suffix}. Use a directory (CSV), .nc, or .tif."
         )
 
 
 # ------------------------------------------------------------------
 # Private helpers
 # ------------------------------------------------------------------
+
 
 def _resolve_station_unit(loc, *, default_unit: str | None = None) -> str:
     """Return the source unit from LOC metadata.
@@ -226,10 +249,7 @@ def _resolve_station_unit(loc, *, default_unit: str | None = None) -> str:
         return str(unit).strip()
     if default_unit is not None:
         return default_unit
-    raise ValueError(
-        f"No unit for station {loc.id!r}. "
-        f"Add a 'unit' column in the LOC file."
-    )
+    raise ValueError(f"No unit for station {loc.id!r}. Add a 'unit' column in the LOC file.")
 
 
 def _file_prefixes(variable_name: str) -> list[str]:
@@ -250,7 +270,9 @@ def _find_location_file(data_dir: Path, variable_name: str) -> Path:
 
 
 def _find_chronicle_file(
-    data_dir: Path, variable_name: str, station_id: str,
+    data_dir: Path,
+    variable_name: str,
+    station_id: str,
 ) -> Path | None:
     safe_id = safe_file_token(station_id)
     for prefix in _file_prefixes(variable_name):

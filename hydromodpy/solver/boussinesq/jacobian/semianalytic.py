@@ -1,4 +1,4 @@
-﻿"""Semi-analytic Jacobian helpers for the Boussinesq residual.
+"""Semi-analytic Jacobian helpers for the Boussinesq residual.
 
 This module remains the public faÃ§ade for semianalytic Jacobian assembly.
 Its implementation is now split internally into:
@@ -183,4 +183,3 @@ __all__ = [
     "build_sparse_semianalytic_regularized_partition_jacobian_triplets",
     "saturated_thickness_derivative_from_head",
 ]
-

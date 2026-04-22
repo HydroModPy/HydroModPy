@@ -134,8 +134,12 @@ def _build_timeseries_rows(results: list[TimedSolverDiagnostics]) -> list[dict[s
                     "elapsed_days": float(day),
                     "recharge_mm_day": float(recharge_mm_day[idx]),
                     "recharge_flux_m3_day": float(recharge_flux[idx]),
-                    "surface_excess_flux_m3_day": float(diagnostics.surface_excess_flux_m3_day[idx]),
-                    "east_boundary_outflow_m3_day": float(diagnostics.east_boundary_outflow_m3_day[idx]),
+                    "surface_excess_flux_m3_day": float(
+                        diagnostics.surface_excess_flux_m3_day[idx]
+                    ),
+                    "east_boundary_outflow_m3_day": float(
+                        diagnostics.east_boundary_outflow_m3_day[idx]
+                    ),
                     "total_outflow_m3_day": float(total_outflow[idx]),
                     "net_inflow_m3_day": float(net_inflow[idx]),
                     "storage_change_m3_day": float(storage_change[idx]),
@@ -228,7 +232,9 @@ def _solver_plot_style(solver_name: str) -> dict[str, Any]:
     }
 
 
-def _select_snapshot_indices(elapsed_days: np.ndarray, snapshot_days: tuple[float, ...]) -> list[int]:
+def _select_snapshot_indices(
+    elapsed_days: np.ndarray, snapshot_days: tuple[float, ...]
+) -> list[int]:
     times = np.asarray(elapsed_days, dtype=float).reshape(-1)
     selected: list[int] = []
     for day in snapshot_days:
@@ -238,7 +244,9 @@ def _select_snapshot_indices(elapsed_days: np.ndarray, snapshot_days: tuple[floa
     return sorted(selected)
 
 
-def _select_informative_points(results: list[TimedSolverDiagnostics]) -> list[tuple[str, str, float]]:
+def _select_informative_points(
+    results: list[TimedSolverDiagnostics],
+) -> list[tuple[str, str, float]]:
     x = np.asarray(results[0].diagnostics.x_m, dtype=float)
     amplitude_by_solver = np.vstack(
         [
@@ -273,7 +281,9 @@ def _write_head_snapshots_figure(
     snapshot_idx = _select_snapshot_indices(ordered[0].diagnostics.elapsed_days, SNAPSHOT_DAYS)
     colors = plt.cm.cividis(np.linspace(0.12, 0.88, len(snapshot_idx)))
 
-    fig, axes = plt.subplots(len(ordered), 1, figsize=(10.8, 8.8), sharex=True, constrained_layout=True)
+    fig, axes = plt.subplots(
+        len(ordered), 1, figsize=(10.8, 8.8), sharex=True, constrained_layout=True
+    )
     if len(ordered) == 1:
         axes = [axes]
     for ax, item in zip(axes, ordered, strict=False):
@@ -354,7 +364,9 @@ def _write_outflow_components_figure(
     output_png.parent.mkdir(parents=True, exist_ok=True)
     output_png.unlink(missing_ok=True)
     ordered = list(results)
-    fig, axes = plt.subplots(len(ordered), 1, figsize=(11.0, 8.8), sharex=True, constrained_layout=True)
+    fig, axes = plt.subplots(
+        len(ordered), 1, figsize=(11.0, 8.8), sharex=True, constrained_layout=True
+    )
     if len(ordered) == 1:
         axes = [axes]
     for ax, item in zip(axes, ordered, strict=False):
@@ -613,19 +625,19 @@ def _write_summary(
             f"{diagnostics.max_head_clearance_m:.4f} | {item.wall_time_seconds:.2f} | `{diagnostics.result.out_path}` |"
         )
         lines.extend(
-        [
-            "",
-            f"Head snapshots: `{figures_dir / 'head_snapshots.png'}`",
-            f"Head point time series: `{figures_dir / 'head_point_timeseries.png'}`",
-            f"Flux chronicle: `{figures_dir / 'flux_timeseries.png'}`",
-            f"Total outflow overlay: `{figures_dir / 'total_outflow_overlay.png'}`",
-            f"Total overflow overlay: `{figures_dir / 'total_overflow_overlay.png'}`",
-            f"Outflow components: `{figures_dir / 'outflow_components.png'}`",
-            f"Complete flux budget: `{figures_dir / 'flux_budget_comparison.png'}`",
-            f"Execution times: `{figures_dir / 'execution_times.png'}`",
-            "",
-        ]
-    )
+            [
+                "",
+                f"Head snapshots: `{figures_dir / 'head_snapshots.png'}`",
+                f"Head point time series: `{figures_dir / 'head_point_timeseries.png'}`",
+                f"Flux chronicle: `{figures_dir / 'flux_timeseries.png'}`",
+                f"Total outflow overlay: `{figures_dir / 'total_outflow_overlay.png'}`",
+                f"Total overflow overlay: `{figures_dir / 'total_overflow_overlay.png'}`",
+                f"Outflow components: `{figures_dir / 'outflow_components.png'}`",
+                f"Complete flux budget: `{figures_dir / 'flux_budget_comparison.png'}`",
+                f"Execution times: `{figures_dir / 'execution_times.png'}`",
+                "",
+            ]
+        )
     output_md.parent.mkdir(parents=True, exist_ok=True)
     output_md.write_text("\n".join(lines), encoding="utf-8")
 
@@ -651,10 +663,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--solvers",
         nargs="+",
         default=list(DEFAULT_SOLVERS),
-        help=(
-            "Solver variants to compare. Defaults to: "
-            + ", ".join(DEFAULT_SOLVERS)
-        ),
+        help=("Solver variants to compare. Defaults to: " + ", ".join(DEFAULT_SOLVERS)),
     )
     parser.add_argument(
         "--context-preset",
@@ -801,7 +810,7 @@ def main(argv: list[str] | None = None) -> int:
             f"peak_qs={diagnostics.peak_total_overflow_m3_day:.3f} m3/day, "
             f"max_h_minus_top={diagnostics.max_head_clearance_m:.4f} m, "
             f"wall_time={item.wall_time_seconds:.2f} s"
-    )
+        )
     return 0
 
 

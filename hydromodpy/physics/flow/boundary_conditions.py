@@ -99,9 +99,13 @@ class FlowBoundaryForcingCsvConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    path_file: Annotated[Path, Profile.DEV] = Field(..., description="Path to the CSV chronicle file.")
+    path_file: Annotated[Path, Profile.DEV] = Field(
+        ..., description="Path to the CSV chronicle file."
+    )
     sep: Annotated[str, Profile.DEV] = Field(default=",", description="CSV delimiter.")
-    date_column: Annotated[str, Profile.DEV] = Field(default="date", description="CSV column containing timestamps.")
+    date_column: Annotated[str, Profile.DEV] = Field(
+        default="date", description="CSV column containing timestamps."
+    )
     date_format: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Optional datetime format passed to pandas.to_datetime.",
@@ -195,7 +199,9 @@ class FlowBoundaryConditionConfig(HydroModelBase):
         default=None,
         description="Boundary-condition value, scalar or one value per stress period.",
     )
-    description: Annotated[str, Profile.USER] = Field("", description="Boundary-condition description.")
+    description: Annotated[str, Profile.USER] = Field(
+        "", description="Boundary-condition description."
+    )
     units: Annotated[str, Profile.DEV] = Field("", description="Boundary-condition units.")
     type: Annotated[Literal["dirichlet", "cauchy", "robin"], Profile.USER] = Field(
         "dirichlet",
@@ -317,9 +323,7 @@ class FlowBoundaryConditionConfig(HydroModelBase):
                             normalized_parent_units != "m"
                             and normalized_parent_units != normalized_forcing_units
                         ):
-                            raise ValueError(
-                                "boundary.units conflicts with boundary.forcing.units"
-                            )
+                            raise ValueError("boundary.units conflicts with boundary.forcing.units")
                 else:
                     normalized_forcing_units = canonical_unit_short_form(
                         parent_units, canonical_unit="m", label="length"
@@ -327,20 +331,15 @@ class FlowBoundaryConditionConfig(HydroModelBase):
                 object.__setattr__(
                     self,
                     "forcing",
-                    self.forcing.model_copy(
-                        update={"units": normalized_forcing_units}
-                    ),
+                    self.forcing.model_copy(update={"units": normalized_forcing_units}),
                 )
                 object.__setattr__(self, "units", "m")
         else:
             raw_units = str(self.units).strip() or "m2/s"
-            check_unit_compatible(
-                raw_units, canonical_unit="m**2/s", label="hydraulic-conductance"
-            )
+            check_unit_compatible(raw_units, canonical_unit="m**2/s", label="hydraulic-conductance")
             if raw_units != "m2/s":
                 raise ValueError(
                     "boundary.units must be normalized to 'm2/s' for runtime Cauchy/Robin values"
                 )
             object.__setattr__(self, "units", "m2/s")
         return self
-

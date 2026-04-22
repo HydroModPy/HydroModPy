@@ -59,10 +59,7 @@ def _polygon_area(vertices: np.ndarray) -> float:
     x_values = coords[:, 0]
     y_values = coords[:, 1]
     return 0.5 * float(
-        abs(
-            np.dot(x_values, np.roll(y_values, -1))
-            - np.dot(y_values, np.roll(x_values, -1))
-        )
+        abs(np.dot(x_values, np.roll(y_values, -1)) - np.dot(y_values, np.roll(x_values, -1)))
     )
 
 
@@ -135,7 +132,9 @@ def write_irregular_strip_bundle(
     try:
         gmsh.initialize()
         gmsh.model.add("irregular_strip")
-        surface_tag = int(gmsh.model.occ.addRectangle(0.0, 0.0, 0.0, float(length_x_m), float(width_y_m)))
+        surface_tag = int(
+            gmsh.model.occ.addRectangle(0.0, 0.0, 0.0, float(length_x_m), float(width_y_m))
+        )
         gmsh.model.occ.synchronize()
 
         seed_points = _build_seed_point_cloud(
@@ -148,9 +147,7 @@ def write_irregular_strip_bundle(
         point_tags: list[int] = []
         for x_m, y_m in seed_points:
             local_size = float(base_mesh_size_m) * float(rng.uniform(0.78, 1.24))
-            point_tags.append(
-                int(gmsh.model.occ.addPoint(float(x_m), float(y_m), 0.0, local_size))
-            )
+            point_tags.append(int(gmsh.model.occ.addPoint(float(x_m), float(y_m), 0.0, local_size)))
 
         gmsh.model.occ.synchronize()
         if point_tags:
@@ -160,7 +157,9 @@ def write_irregular_strip_bundle(
         gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 1.0)
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0.0)
         gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 1.0)
-        gmsh.option.setNumber("Mesh.CharacteristicLengthMin", max(0.25, 0.55 * float(base_mesh_size_m)))
+        gmsh.option.setNumber(
+            "Mesh.CharacteristicLengthMin", max(0.25, 0.55 * float(base_mesh_size_m))
+        )
         gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1.45 * float(base_mesh_size_m))
         gmsh.model.mesh.generate(2)
 
@@ -360,8 +359,8 @@ def interpolate_bundle_history_to_structured_grids(
             f"History cell count {history.shape[1]} does not match bundle cell count {centroid_x.size}."
         )
 
-    inferred_x_min_m, inferred_x_max_m, inferred_y_min_m, inferred_y_max_m = _load_bundle_xy_extents(
-        Path(bundle_dir)
+    inferred_x_min_m, inferred_x_max_m, inferred_y_min_m, inferred_y_max_m = (
+        _load_bundle_xy_extents(Path(bundle_dir))
     )
     x_min = inferred_x_min_m if x_min_m is None else float(x_min_m)
     x_max = inferred_x_max_m if x_max_m is None else float(x_max_m)

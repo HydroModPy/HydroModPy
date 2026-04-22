@@ -1,4 +1,4 @@
-﻿"""Canonical command-line interface for the standalone mesh bundle viewer."""
+"""Canonical command-line interface for the standalone mesh bundle viewer."""
 
 from __future__ import annotations
 
@@ -90,10 +90,3 @@ __all__ = [
     "main",
     "resolve_default_config_path",
 ]
-
-
-
-
-
-
-

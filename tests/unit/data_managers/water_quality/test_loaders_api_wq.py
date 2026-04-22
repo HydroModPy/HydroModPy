@@ -17,12 +17,14 @@ from hydromodpy.data.variables.water_quality.apis.hubeau import (
 
 class TestNormalizeDataframe:
     def test_river_dataframe(self):
-        df = pd.DataFrame({
-            "date_prelevement": ["2020-01-15", "2020-02-10"],
-            "libelle_parametre": ["pH", "Nitrates"],
-            "resultat": [7.2, 15.3],
-            "symbole_unite": ["U pH", "mg/L"],
-        })
+        df = pd.DataFrame(
+            {
+                "date_prelevement": ["2020-01-15", "2020-02-10"],
+                "libelle_parametre": ["pH", "Nitrates"],
+                "resultat": [7.2, 15.3],
+                "symbole_unite": ["U pH", "mg/L"],
+            }
+        )
         out = _normalize_dataframe(df, is_river=True)
         assert len(out) == 2
         assert "datetime" in out.columns
@@ -32,12 +34,14 @@ class TestNormalizeDataframe:
         assert out["parameter"].iloc[0] == "pH"
 
     def test_piezometer_dataframe(self):
-        df = pd.DataFrame({
-            "date_debut_prelevement": ["2020-03-01"],
-            "nom_param": ["Conductivite"],
-            "resultat": [450.0],
-            "nom_unite": ["uS/cm"],
-        })
+        df = pd.DataFrame(
+            {
+                "date_debut_prelevement": ["2020-03-01"],
+                "nom_param": ["Conductivite"],
+                "resultat": [450.0],
+                "nom_unite": ["uS/cm"],
+            }
+        )
         out = _normalize_dataframe(df, is_river=False)
         assert len(out) == 1
         assert out["parameter"].iloc[0] == "Conductivite"
@@ -56,12 +60,14 @@ class TestFetchMocked:
             call_count["n"] += 1
             if "station_pc" in url or "stations" in url:
                 return {
-                    "data": [{
-                        "code_station": "R1",
-                        "longitude": 2.35,
-                        "latitude": 48.85,
-                        "libelle_station": "River 1",
-                    }]
+                    "data": [
+                        {
+                            "code_station": "R1",
+                            "longitude": 2.35,
+                            "latitude": 48.85,
+                            "libelle_station": "River 1",
+                        }
+                    ]
                 }
             # analyses endpoint
             return {

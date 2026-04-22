@@ -1,4 +1,4 @@
-﻿"""Finite-volume assembly helpers shared by all current Boussinesq runtimes.
+"""Finite-volume assembly helpers shared by all current Boussinesq runtimes.
 
 This module remains the public faÃ§ade of the Boussinesq physical assembly.
 The implementation is now split internally into:
@@ -161,4 +161,3 @@ __all__ = [
     "saturation_excess_rate_from_balance",
     "transmissivity_from_head",
 ]
-

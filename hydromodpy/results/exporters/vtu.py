@@ -47,9 +47,7 @@ def export_vtu(
     try:
         import meshio
     except ImportError as exc:
-        raise ImportError(
-            "VTU export requires meshio: pip install meshio"
-        ) from exc
+        raise ImportError("VTU export requires meshio: pip install meshio") from exc
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -94,7 +92,9 @@ def _build_meshio_cells(connectivity: np.ndarray, max_vpf: int) -> list:
     """Convert UGRID face_node_connectivity to meshio cell blocks."""
     import meshio
 
-    tri_mask = (connectivity[:, 3] == -1) if max_vpf >= 4 else np.ones(len(connectivity), dtype=bool)
+    tri_mask = (
+        (connectivity[:, 3] == -1) if max_vpf >= 4 else np.ones(len(connectivity), dtype=bool)
+    )
     quad_mask = ~tri_mask
 
     cells = []
@@ -111,7 +111,7 @@ def _split_cell_data(data: np.ndarray, cells: list) -> list[np.ndarray]:
     offset = 0
     for block in cells:
         n = block.data.shape[0]
-        result.append(data[offset:offset + n])
+        result.append(data[offset : offset + n])
         offset += n
     return result
 

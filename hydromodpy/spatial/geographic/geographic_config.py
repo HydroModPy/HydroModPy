@@ -40,8 +40,7 @@ class RiverNetworkConfig(HydroModelBase):
     ] = Field(
         default=None,
         description=(
-            "Contributing area threshold (km^2), required when "
-            "threshold_mode='area_km2'."
+            "Contributing area threshold (km^2), required when threshold_mode='area_km2'."
         ),
     )
     threshold_cells: Annotated[
@@ -50,9 +49,7 @@ class RiverNetworkConfig(HydroModelBase):
         VisibleWhen("threshold_mode", "cells"),
     ] = Field(
         default=None,
-        description=(
-            "Contributing-cell threshold, required when threshold_mode='cells'."
-        ),
+        description=("Contributing-cell threshold, required when threshold_mode='cells'."),
     )
     prune_short_streams: Annotated[bool, Profile.USER] = Field(
         default=False,
@@ -76,8 +73,7 @@ class RiverNetworkConfig(HydroModelBase):
     all_vertices: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
-            "Forwarded to Whitebox raster_streams_to_vector. "
-            "False keeps a lighter vector geometry."
+            "Forwarded to Whitebox raster_streams_to_vector. False keeps a lighter vector geometry."
         ),
     )
 
@@ -148,9 +144,7 @@ class GeographicConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    source_mode: Annotated[
-        Literal["standard", "synthetic"], Profile.USER
-    ] = Field(
+    source_mode: Annotated[Literal["standard", "synthetic"], Profile.USER] = Field(
         default="standard",
         description=(
             "Geographic runtime mode. "
@@ -318,7 +312,9 @@ class GeographicConfig(HydroModelBase):
     def _normalize_cell_size(cls, value):
         if value is None:
             return None
-        cell_size_m = float(parse_length_to_m(value, default_unit="m", label="geographic.cell_size"))
+        cell_size_m = float(
+            parse_length_to_m(value, default_unit="m", label="geographic.cell_size")
+        )
         if cell_size_m <= 0.0:
             raise ValueError("geographic.cell_size must be > 0.")
         return cell_size_m
@@ -397,9 +393,7 @@ class GeographicConfig(HydroModelBase):
                 if val is None
             ]
             if missing:
-                raise ValueError(
-                    f"catch_def='from_outlet_coord' requires: {', '.join(missing)}."
-                )
+                raise ValueError(f"catch_def='from_outlet_coord' requires: {', '.join(missing)}.")
 
         elif mode == "from_polyg_shp":
             missing = [
@@ -412,9 +406,6 @@ class GeographicConfig(HydroModelBase):
                 if val is None
             ]
             if missing:
-                raise ValueError(
-                    f"catch_def='from_polyg_shp' requires: {', '.join(missing)}."
-                )
+                raise ValueError(f"catch_def='from_polyg_shp' requires: {', '.join(missing)}.")
 
         return self
-

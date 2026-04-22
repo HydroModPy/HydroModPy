@@ -42,7 +42,9 @@ def _build_bundle_with_mesher_figures(tmp_path: Path) -> tuple[Path, Path, Path]
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
     payload["output_figure"] = str(overview_png)
     payload["output_figure_regional"] = str(regional_png)
-    summary_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    summary_path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
+    )
     return bundle_dir, overview_png, regional_png
 
 
@@ -89,7 +91,9 @@ def test_import_mesh_bundle_case_creates_canonical_layout(tmp_path: Path) -> Non
         payload["config_path"]
         == "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_geology_rivers_buffer30/viewer_config.toml"
     )
-    assert "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml" in payload["source_paths"]
+    assert (
+        "launchers/mesh_catchment/scenarios/config_headwater_100km2.toml" in payload["source_paths"]
+    )
 
     viewer_config = viewer_config_path.read_text(encoding="utf-8")
     assert 'bundle_dir = "./bundle"' in viewer_config
@@ -318,7 +322,9 @@ def test_build_mesh_category_page_groups_similar_cases_in_tabs() -> None:
         "Cross-variant comparisons: 100 km2, outlet 27 "
         "(Geology + rivers, 30% buffer; Rivers only, 30% buffer)."
     ) in page
-    assert "See :doc:`the full case page <cases/mesh_100km2_outlet_27_rivers_only_buffer30>`." in page
+    assert (
+        "See :doc:`the full case page <cases/mesh_100km2_outlet_27_rivers_only_buffer30>`." in page
+    )
     assert ":link: cases/mesh_100km2_outlet_27_geology_rivers_buffer30" not in page
 
 

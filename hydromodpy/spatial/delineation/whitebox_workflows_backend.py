@@ -26,9 +26,7 @@ class WhiteboxWorkflowsBackend:
 
     def __init__(self) -> None:
         self._env = wbw.WbEnvironment()
-        self._verbose = self._is_truthy_env(
-            os.environ.get("HYDROMODPY_WHITEBOX_VERBOSE")
-        )
+        self._verbose = self._is_truthy_env(os.environ.get("HYDROMODPY_WHITEBOX_VERBOSE"))
         try:
             self._env.verbose = bool(self._verbose)
         except Exception:
@@ -846,6 +844,7 @@ class WhiteboxWorkflowsBackend:
     def get_cached_raster_numpy(self, path: str):
         """Return a cached raster as a numpy float64 array, or None."""
         import numpy as np
+
         raster = self._raster_cache.get(path)
         if raster is None:
             return None
@@ -855,7 +854,7 @@ class WhiteboxWorkflowsBackend:
         data = np.full((rows, cols), np.nan, dtype="float64")
         for row in range(rows):
             row_data = raster.get_row_data(row)
-            data[row, :len(row_data)] = row_data
+            data[row, : len(row_data)] = row_data
         nodata = configs.nodata
         if nodata is not None and nodata != np.nan:
             data[data == nodata] = np.nan

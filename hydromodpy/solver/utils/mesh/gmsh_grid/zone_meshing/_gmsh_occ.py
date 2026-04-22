@@ -166,11 +166,7 @@ def iter_river_lines_from_trace(river_trace: object | None) -> list[LineString]:
     lines: list[LineString] = []
     for geometry in lines_attr:
         if isinstance(geometry, (LineString, MultiLineString)):
-            lines.extend(
-                line
-                for line in iter_line_parts(geometry)
-                if float(line.length) > 0.0
-            )
+            lines.extend(line for line in iter_line_parts(geometry) if float(line.length) > 0.0)
             continue
         raise TypeError(
             "river_trace.lines must contain only LineString or MultiLineString geometries"
@@ -190,12 +186,8 @@ def apply_mesh_options(
     algorithm_key = str(algorithm).strip().lower()
     if algorithm_key not in _GMSH_ALGORITHM_BY_NAME:
         allowed = ", ".join(sorted(_GMSH_ALGORITHM_BY_NAME))
-        raise ValueError(
-            f"Unsupported Gmsh 2D algorithm '{algorithm}'. Allowed: {allowed}"
-        )
-    gmsh.option.setNumber(
-        "Mesh.Algorithm", float(_GMSH_ALGORITHM_BY_NAME[algorithm_key])
-    )
+        raise ValueError(f"Unsupported Gmsh 2D algorithm '{algorithm}'. Allowed: {allowed}")
+    gmsh.option.setNumber("Mesh.Algorithm", float(_GMSH_ALGORITHM_BY_NAME[algorithm_key]))
     gmsh.option.setNumber(
         "Mesh.MeshSizeMin", float(min_size if min_size is not None else global_size)
     )

@@ -52,21 +52,11 @@ class VisualizationSummary:
             "constraints_mode": self.constraints_mode,
             "geology_available": bool(self.geology_available),
             "geology_keys": list(self.geology_keys),
-            "hydraulic_properties_available": bool(
-                self.hydraulic_properties_available
-            ),
-            "hydraulic_conductivity_available": bool(
-                self.hydraulic_conductivity_available
-            ),
-            "hydraulic_conductivity_cell_count": int(
-                self.hydraulic_conductivity_cell_count
-            ),
-            "storage_coefficient_available": bool(
-                self.storage_coefficient_available
-            ),
-            "storage_coefficient_cell_count": int(
-                self.storage_coefficient_cell_count
-            ),
+            "hydraulic_properties_available": bool(self.hydraulic_properties_available),
+            "hydraulic_conductivity_available": bool(self.hydraulic_conductivity_available),
+            "hydraulic_conductivity_cell_count": int(self.hydraulic_conductivity_cell_count),
+            "storage_coefficient_available": bool(self.storage_coefficient_available),
+            "storage_coefficient_cell_count": int(self.storage_coefficient_cell_count),
             "river_edge_count": int(self.river_edge_count),
             "boundary_edge_count": int(self.boundary_edge_count),
             "geology_interface_edge_count": int(self.geology_interface_edge_count),
@@ -75,14 +65,10 @@ class VisualizationSummary:
             "topography_field": str(self.topography_field),
             "topography_render_mode": str(self.topography_render_mode),
             "figure_output_path": (
-                None
-                if self.figure_output_path is None
-                else str(self.figure_output_path)
+                None if self.figure_output_path is None else str(self.figure_output_path)
             ),
             "summary_output_path": (
-                None
-                if self.summary_output_path is None
-                else str(self.summary_output_path)
+                None if self.summary_output_path is None else str(self.summary_output_path)
             ),
         }
 

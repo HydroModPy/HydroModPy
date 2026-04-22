@@ -392,7 +392,9 @@ def _site_from_mapping(
 
     resolved_paths: dict[str, str] = {}
     for field_name in catalog_cfg.path_fields:
-        resolved = _resolve_catalog_path(catalog_path=catalog_cfg.path, raw_value=raw.get(field_name))
+        resolved = _resolve_catalog_path(
+            catalog_path=catalog_cfg.path, raw_value=raw.get(field_name)
+        )
         if resolved is not None:
             resolved_paths[field_name] = resolved
 
@@ -909,9 +911,7 @@ def _extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
     metrics_payload = _read_json_file_if_exists(metrics_path)
     if metrics_payload is not None:
         artifacts["child_metrics_json"] = str(metrics_path.resolve())
-        artifacts["child_wall_time_seconds"] = _safe_float(
-            metrics_payload.get("wall_time_seconds")
-        )
+        artifacts["child_wall_time_seconds"] = _safe_float(metrics_payload.get("wall_time_seconds"))
         artifacts["child_success"] = metrics_payload.get("success")
         artifacts["child_mesh_output_mesh"] = _normalize_text(
             metrics_payload.get("mesh_output_mesh")
@@ -937,9 +937,7 @@ def _extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
                 summary_payload.get("runtime_engine")
             )
             artifacts["child_n_cells"] = summary_payload.get("n_cells")
-            artifacts["child_solve_stage"] = _normalize_text(
-                summary_payload.get("solve_stage")
-            )
+            artifacts["child_solve_stage"] = _normalize_text(summary_payload.get("solve_stage"))
             artifacts["child_steady_residual_norm_inf"] = _safe_float(
                 summary_payload.get("steady_residual_norm_inf")
             )
@@ -989,19 +987,13 @@ def _extract_method_comparison_child_artifacts(config_path: Path) -> dict[str, A
         artifacts["child_wall_time_seconds"] = _safe_float(
             manifest_payload.get("wall_time_seconds")
         )
-        artifacts["child_comparison_id"] = _normalize_text(
-            manifest_payload.get("comparison_id")
-        )
+        artifacts["child_comparison_id"] = _normalize_text(manifest_payload.get("comparison_id"))
         artifacts["child_reference_variant"] = _normalize_text(
             manifest_payload.get("reference_variant")
         )
         artifacts["child_n_metric_rows"] = manifest_payload.get("n_metric_rows")
-        artifacts["child_n_difference_rows"] = manifest_payload.get(
-            "n_difference_rows"
-        )
-        artifacts["child_n_observable_rows"] = manifest_payload.get(
-            "n_observable_rows"
-        )
+        artifacts["child_n_difference_rows"] = manifest_payload.get("n_difference_rows")
+        artifacts["child_n_observable_rows"] = manifest_payload.get("n_observable_rows")
         variants = manifest_payload.get("variants")
         if isinstance(variants, list):
             completed_count = 0
@@ -1034,16 +1026,11 @@ def _extract_method_comparison_child_artifacts(config_path: Path) -> dict[str, A
             mae_values = [
                 value
                 for item in summary_rows
-                if isinstance(item, Mapping)
-                and (value := _safe_float(item.get("mae"))) is not None
+                if isinstance(item, Mapping) and (value := _safe_float(item.get("mae"))) is not None
             ]
             artifacts["child_summary_metric_row_count"] = len(summary_rows)
-            artifacts["child_summary_max_rmse"] = (
-                None if not rmse_values else max(rmse_values)
-            )
-            artifacts["child_summary_max_mae"] = (
-                None if not mae_values else max(mae_values)
-            )
+            artifacts["child_summary_max_rmse"] = None if not rmse_values else max(rmse_values)
+            artifacts["child_summary_max_mae"] = None if not mae_values else max(mae_values)
         if isinstance(differences_rows, list):
             artifacts["child_difference_metric_row_count"] = len(differences_rows)
 
@@ -1171,9 +1158,7 @@ def _build_recipe_summaries(
                 "failed_case_count": len(failed),
                 "pending_case_count": pending_count,
                 "execution_duration_seconds_total": (
-                    None
-                    if not execution_durations
-                    else round(sum(execution_durations), 6)
+                    None if not execution_durations else round(sum(execution_durations), 6)
                 ),
                 "execution_duration_seconds_mean": (
                     None
@@ -1184,7 +1169,9 @@ def _build_recipe_summaries(
                     None if not child_wall_times else round(sum(child_wall_times), 6)
                 ),
                 "coverage_ratio": (
-                    0.0 if not candidate_sites else round(len(recipe_planned) / len(candidate_sites), 6)
+                    0.0
+                    if not candidate_sites
+                    else round(len(recipe_planned) / len(candidate_sites), 6)
                 ),
             }
         )
@@ -1260,14 +1247,20 @@ def _build_group_summary(
 
     rows = list(groups.values())
     for row in rows:
-        executed_count = int(row.get("executed_case_count", 0)) + int(row.get("reused_case_count", 0))
+        executed_count = int(row.get("executed_case_count", 0)) + int(
+            row.get("reused_case_count", 0)
+        )
         duration_total = _safe_float(row.get("execution_duration_seconds_total"))
         child_total = _safe_float(row.get("child_wall_time_seconds_total"))
         row["execution_duration_seconds_mean"] = (
-            None if duration_total is None or executed_count <= 0 else round(duration_total / executed_count, 6)
+            None
+            if duration_total is None or executed_count <= 0
+            else round(duration_total / executed_count, 6)
         )
         row["child_wall_time_seconds_mean"] = (
-            None if child_total is None or executed_count <= 0 else round(child_total / executed_count, 6)
+            None
+            if child_total is None or executed_count <= 0
+            else round(child_total / executed_count, 6)
         )
     rows.sort(key=lambda row: str(row[label]).lower())
     return rows
@@ -1296,9 +1289,15 @@ def _build_site_inventory_rows(
             {
                 "planned_case_count": len(site_planned),
                 "skipped_case_count": len(site_skipped),
-                "executed_case_count": len([item for item in site_executions if not item.reused_from_report]),
-                "reused_case_count": len([item for item in site_executions if item.reused_from_report]),
-                "failed_case_count": len([item for item in site_executions if item.status == "failed"]),
+                "executed_case_count": len(
+                    [item for item in site_executions if not item.reused_from_report]
+                ),
+                "reused_case_count": len(
+                    [item for item in site_executions if item.reused_from_report]
+                ),
+                "failed_case_count": len(
+                    [item for item in site_executions if item.status == "failed"]
+                ),
                 "execution_duration_seconds_total": round(
                     sum(
                         float(item.duration_seconds)
@@ -1335,9 +1334,7 @@ def _build_case_rows(
         row["duration_seconds"] = None if execution is None else execution.duration_seconds
         row["reused_from_report"] = False if execution is None else execution.reused_from_report
         row["child_artifacts_json"] = (
-            ""
-            if execution is None
-            else json.dumps(execution.child_artifacts, ensure_ascii=True)
+            "" if execution is None else json.dumps(execution.child_artifacts, ensure_ascii=True)
         )
         row["child_wall_time_seconds"] = (
             None
@@ -1360,7 +1357,9 @@ def _build_case_rows(
         row["child_wall_time_seconds"] = None
         row["child_success"] = None
         rows.append(row)
-    rows.sort(key=lambda row: (str(row.get("recipe_id", "")).lower(), str(row.get("site_id", "")).lower()))
+    rows.sort(
+        key=lambda row: (str(row.get("recipe_id", "")).lower(), str(row.get("site_id", "")).lower())
+    )
     return rows
 
 
@@ -1383,7 +1382,9 @@ def _build_execution_metric_rows(
         )
         row.update(execution.child_artifacts)
         rows.append(row)
-    rows.sort(key=lambda row: (str(row.get("recipe_id", "")).lower(), str(row.get("site_id", "")).lower()))
+    rows.sort(
+        key=lambda row: (str(row.get("recipe_id", "")).lower(), str(row.get("site_id", "")).lower())
+    )
     return rows
 
 
@@ -1538,7 +1539,9 @@ def _write_summary_artifacts(
             (cfg.output_root / "regional_lab_execution_metrics.csv").resolve()
         ),
         "recipe_summary_csv": str((cfg.output_root / "regional_lab_recipe_summary.csv").resolve()),
-        "cluster_summary_csv": str((cfg.output_root / "regional_lab_cluster_summary.csv").resolve()),
+        "cluster_summary_csv": str(
+            (cfg.output_root / "regional_lab_cluster_summary.csv").resolve()
+        ),
         "region_summary_csv": str((cfg.output_root / "regional_lab_region_summary.csv").resolve()),
         "family_summary_csv": str((cfg.output_root / "regional_lab_family_summary.csv").resolve()),
         "scale_summary_csv": str((cfg.output_root / "regional_lab_scale_summary.csv").resolve()),
@@ -1547,7 +1550,9 @@ def _write_summary_artifacts(
 
     _write_csv_rows(
         Path(paths["site_inventory_csv"]),
-        fieldnames=_collect_fieldnames(site_inventory_rows) if site_inventory_rows else [
+        fieldnames=_collect_fieldnames(site_inventory_rows)
+        if site_inventory_rows
+        else [
             "site_id",
             "site_label",
             "cluster_id",
@@ -1578,7 +1583,9 @@ def _write_summary_artifacts(
     )
     _write_csv_rows(
         Path(paths["case_matrix_csv"]),
-        fieldnames=_collect_fieldnames(case_rows) if case_rows else [
+        fieldnames=_collect_fieldnames(case_rows)
+        if case_rows
+        else [
             "case_id",
             "site_id",
             "recipe_id",
@@ -1818,7 +1825,9 @@ class RegionalLabLauncher:
             "selected_site_count": len(selected_sites),
             "planned_case_count": len(planned_cases),
             "skipped_case_count": len(skipped_cases),
-            "executed_case_count": len([item for item in executions if not item.reused_from_report]),
+            "executed_case_count": len(
+                [item for item in executions if not item.reused_from_report]
+            ),
             "reused_case_count": len([item for item in executions if item.reused_from_report]),
             "failed_case_count": len([item for item in executions if item.status == "failed"]),
             "plan_path": str(plan_path),

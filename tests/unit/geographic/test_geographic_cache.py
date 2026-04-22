@@ -105,9 +105,7 @@ def test_geographic_cache_rejects_changed_fingerprint(tmp_path: Path) -> None:
     )
     changed_config = config.model_copy(update={"x_outlet": 99.0})
 
-    assert _geographic_cache_fingerprint(config) != _geographic_cache_fingerprint(
-        changed_config
-    )
+    assert _geographic_cache_fingerprint(config) != _geographic_cache_fingerprint(changed_config)
     assert (
         _load_cached_geographic_products(
             config=changed_config,

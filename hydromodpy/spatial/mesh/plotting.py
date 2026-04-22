@@ -43,9 +43,7 @@ def plot_cell_values(
 
     vals = np.asarray(values, dtype=float).reshape(-1)
     if vals.size != hydro_mesh.n_cells:
-        raise ValueError(
-            f"Expected {hydro_mesh.n_cells} values, got {vals.size}"
-        )
+        raise ValueError(f"Expected {hydro_mesh.n_cells} values, got {vals.size}")
 
     verts = np.asarray(hydro_mesh.vertices, dtype=float)
     ct = hydro_mesh.single_cell_type
@@ -57,19 +55,37 @@ def plot_cell_values(
         and hydro_mesh.structured_shape is not None
     ):
         return _plot_structured(
-            ax, verts, vals, hydro_mesh.structured_shape,
-            cmap=cmap, show_mesh=show_mesh, vmin=vmin, vmax=vmax,
+            ax,
+            verts,
+            vals,
+            hydro_mesh.structured_shape,
+            cmap=cmap,
+            show_mesh=show_mesh,
+            vmin=vmin,
+            vmax=vmax,
         )
 
     if ct == CellType.TRIANGLE:
         return _plot_triangles(
-            ax, verts, conn, vals,
-            cmap=cmap, show_mesh=show_mesh, vmin=vmin, vmax=vmax,
+            ax,
+            verts,
+            conn,
+            vals,
+            cmap=cmap,
+            show_mesh=show_mesh,
+            vmin=vmin,
+            vmax=vmax,
         )
 
     return _plot_polygons(
-        ax, verts, conn, vals,
-        cmap=cmap, show_mesh=show_mesh, vmin=vmin, vmax=vmax,
+        ax,
+        verts,
+        conn,
+        vals,
+        cmap=cmap,
+        show_mesh=show_mesh,
+        vmin=vmin,
+        vmax=vmax,
     )
 
 
@@ -80,7 +96,13 @@ def _plot_structured(ax, verts, vals, shape, *, cmap, show_mesh, vmin, vmax):
     y = verts[:, 1].reshape(nrow + 1, ncol + 1)
     z = vals.reshape(nrow, ncol)
     mappable = ax.pcolormesh(
-        x, y, z, shading="flat", cmap=cmap, vmin=vmin, vmax=vmax,
+        x,
+        y,
+        z,
+        shading="flat",
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
     )
     if show_mesh:
         for j in range(nrow + 1):
@@ -97,8 +119,12 @@ def _plot_triangles(ax, verts, conn, vals, *, cmap, show_mesh, vmin, vmax):
     """Render a purely triangular mesh with Matplotlib triangulation support."""
     tri = mtri.Triangulation(verts[:, 0], verts[:, 1], triangles=conn)
     mappable = ax.tripcolor(
-        tri, facecolors=vals, shading="flat",
-        cmap=cmap, vmin=vmin, vmax=vmax,
+        tri,
+        facecolors=vals,
+        shading="flat",
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
     )
     if show_mesh:
         ax.triplot(tri, color="0.70", lw=0.35)
@@ -114,7 +140,10 @@ def _plot_polygons(ax, verts, conn, vals, *, cmap, show_mesh, vmin, vmax):
     edge_color = "0.70" if show_mesh else "face"
     edge_width = 0.35 if show_mesh else 0.0
     collection = mcollections.PolyCollection(
-        polygons, cmap=cmap, linewidths=edge_width, edgecolors=edge_color,
+        polygons,
+        cmap=cmap,
+        linewidths=edge_width,
+        edgecolors=edge_color,
     )
     collection.set_array(vals)
     if vmin is not None or vmax is not None:

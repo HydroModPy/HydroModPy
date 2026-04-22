@@ -16,9 +16,27 @@ from hydromodpy._cli.main import main
 
 
 SUBCOMMANDS = (
-    "init", "new", "config", "schema", "run", "calibrate", "display", "list",
-    "export", "test", "data", "lock", "show", "compare", "import",
-    "doctor", "inspect", "best", "worst", "delete", "completion",
+    "init",
+    "new",
+    "config",
+    "schema",
+    "run",
+    "calibrate",
+    "display",
+    "list",
+    "export",
+    "test",
+    "data",
+    "lock",
+    "show",
+    "compare",
+    "import",
+    "doctor",
+    "inspect",
+    "best",
+    "worst",
+    "delete",
+    "completion",
 )
 
 
@@ -93,7 +111,8 @@ def test_config_template_writes_toml(monkeypatch, tmp_path) -> None:
     """``hmp config template FILE`` creates a non-empty TOML file."""
     out = tmp_path / "cfg.toml"
     monkeypatch.setattr(
-        sys, "argv",
+        sys,
+        "argv",
         ["hmp", "config", "template", str(out), "--profile", "user"],
     )
     main()

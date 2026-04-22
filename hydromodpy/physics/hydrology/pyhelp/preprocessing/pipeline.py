@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """PyHELP preprocessing functions:
-    
+
 1) build climate CSVs (or use ready ones)
     --> To be done : build from NetCDF files in DATA
         Right now, only ready ones are used
 2) build/update grid CSV
 3) run PyHELP
-4) export rasterized NetCDF 
+4) export rasterized NetCDF
 """
 
 from pathlib import Path
@@ -26,13 +26,13 @@ def prepare_inputs(cfg):
         Path(cfg.workdir),
         nc_folder=cfg.nc_folder,
         ready_csvs=cfg.ready_csvs,
-        grid_params=cfg.grid_params
+        grid_params=cfg.grid_params,
     )
 
     # Climatic inputs (attendus dans workdir)
     precip_csv = Path(cfg.workdir) / "pyhelp_precip_input_data.csv"
     airtemp_csv = Path(cfg.workdir) / "pyhelp_airtemp_input_data.csv"
-    solrad_csv  = Path(cfg.workdir) / "pyhelp_solrad_input_data.csv"
+    solrad_csv = Path(cfg.workdir) / "pyhelp_solrad_input_data.csv"
 
     return grid_csv, (precip_csv, airtemp_csv, solrad_csv)
 
@@ -45,7 +45,7 @@ def run_pyhelp(cfg, grid_csv, climate_csvs):
         grid_csv=Path(grid_csv),
         precip_csv=Path(precip_csv),
         airtemp_csv=Path(airtemp_csv),
-        solrad_csv=Path(solrad_csv)
+        solrad_csv=Path(solrad_csv),
     )
 
     return Path(cfg.workdir)
@@ -60,6 +60,7 @@ def export_netcdf(cfg, grid_csv):
         compress_level=int(cfg.compress_level),
         clean_temp=True,
     )
+
 
 def preprocess(cfg):
     grid_csv, climate_csvs = prepare_inputs(cfg)
@@ -77,8 +78,7 @@ def preprocessing_pyhelp(
     ready_climatic_csvs: Optional[List[str]] = None,
     nc_folder: Optional[str] = None,
     shapefile: Optional[str] = None,
-    grid_params = None,
-
+    grid_params=None,
     growth_start: int = 140,
     growth_end: int = 280,
     wind: float = 2.5,
@@ -98,11 +98,9 @@ def preprocessing_pyhelp(
     ksat1: float = 0.0,
     dist_dr1: float = 50,
     slope1: float = 35,
-
-    #test pour compatibilité
+    # test pour compatibilité
     main_py: Optional[str] = None,
     help_cli: Optional[str] = None,
-
     compress_level: int = 4,
 ):
 

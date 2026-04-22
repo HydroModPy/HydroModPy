@@ -55,9 +55,8 @@ def test_figures_do_not_call_zarr_write_apis() -> None:
             for token in _WRITE_TOKENS:
                 if token in stripped.replace(" ", ""):
                     offenders.append((path.name, stripped, lineno))
-    assert not offenders, (
-        "Figures must not call write APIs. Offending lines:\n"
-        + "\n".join(f"  {p}:{ln}: {txt}" for p, txt, ln in offenders)
+    assert not offenders, "Figures must not call write APIs. Offending lines:\n" + "\n".join(
+        f"  {p}:{ln}: {txt}" for p, txt, ln in offenders
     )
 
 
@@ -70,6 +69,4 @@ def test_base_figure_plot_signature_is_readonly() -> None:
     assert "save_path" in params
     # No mutating keyword: catalog/store/zarr/duckdb must NOT be in signature.
     for banned in ("catalog", "store", "zarr", "duckdb", "connection"):
-        assert banned not in params, (
-            f"BaseFigure.plot must not accept a '{banned}' parameter."
-        )
+        assert banned not in params, f"BaseFigure.plot must not accept a '{banned}' parameter."

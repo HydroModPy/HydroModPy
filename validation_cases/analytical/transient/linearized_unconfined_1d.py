@@ -31,9 +31,8 @@ class LinearizedUnconfinedProperties:
 
     @property
     def transmissivity_m2_per_s(self) -> float:
-        return (
-            float(self.hydraulic_conductivity_m_per_s)
-            * float(self.reference_saturated_thickness_m)
+        return float(self.hydraulic_conductivity_m_per_s) * float(
+            self.reference_saturated_thickness_m
         )
 
     @property
@@ -64,9 +63,7 @@ def boundary_step_response(
 
     harmonics = np.arange(1, int(n_terms) + 1, dtype=float)
     wave_numbers = harmonics * np.pi / length
-    exp_terms = np.exp(
-        -diffusivity * np.outer(t_arr, wave_numbers**2)
-    )
+    exp_terms = np.exp(-diffusivity * np.outer(t_arr, wave_numbers**2))
     sin_terms = np.sin(np.outer(x_arr, wave_numbers))
     series = exp_terms @ (sin_terms / harmonics).T
     response = (1.0 - (x_arr / length))[None, :] - ((2.0 / np.pi) * series)
@@ -91,9 +88,7 @@ def recharge_step_response(
 
     odd_terms = (2.0 * np.arange(int(n_terms), dtype=float)) + 1.0
     wave_numbers = odd_terms * np.pi / length
-    exp_terms = np.exp(
-        -diffusivity * np.outer(t_arr, wave_numbers**2)
-    )
+    exp_terms = np.exp(-diffusivity * np.outer(t_arr, wave_numbers**2))
     sin_terms = np.sin(np.outer(x_arr, wave_numbers))
     series = exp_terms @ (sin_terms / (odd_terms**3)).T
     steady = (x_arr * (length - x_arr)) / (2.0 * transmissivity)

@@ -38,7 +38,8 @@ class TestFingerprint:
 
     def test_dict_and_dataclass_yield_same_hash(self, cache):
         dc = GeographicInputs(
-            dem_path="/d/dem.tif", crs_wkt="EPSG:2154",
+            dem_path="/d/dem.tif",
+            crs_wkt="EPSG:2154",
             bbox=(0.0, 0.0, 10.0, 10.0),
         )
         d = {
@@ -66,7 +67,8 @@ class TestFingerprint:
     def test_extra_fields_are_included(self, cache):
         base = GeographicInputs(crs_wkt="EPSG:4326", bbox=(0, 0, 1, 1))
         extra = GeographicInputs(
-            crs_wkt="EPSG:4326", bbox=(0, 0, 1, 1),
+            crs_wkt="EPSG:4326",
+            bbox=(0, 0, 1, 1),
             extra={"delineation": "d8"},
         )
         assert cache.fingerprint_of(base) != cache.fingerprint_of(extra)
@@ -80,10 +82,12 @@ class TestFingerprint:
         fp_auto = cache.fingerprint_of(inputs, hash_files=True)
 
         inputs_explicit = GeographicInputs(
-            dem_path=str(dem), dem_sha256=expected,
+            dem_path=str(dem),
+            dem_sha256=expected,
         )
         fp_explicit = cache.fingerprint_of(
-            inputs_explicit, hash_files=False,
+            inputs_explicit,
+            hash_files=False,
         )
         assert fp_auto == fp_explicit
 

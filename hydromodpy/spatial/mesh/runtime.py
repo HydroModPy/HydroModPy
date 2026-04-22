@@ -77,6 +77,7 @@ def get_optional_mesh_section(
         return None
     return parse_mesh_catchment_config_data(section)
 
+
 def prepare_geographic_config_for_meshing(
     geographic_cfg: GeographicConfig,
     *,
@@ -189,9 +190,7 @@ def run_single_mesh_catchment_workflow_with_runtime_artifacts(
         return_runtime_artifacts=True,
     )
     if not isinstance(result, MeshCatchmentWorkflowRuntimeArtifacts):
-        raise TypeError(
-            "Expected mesh-catchment runtime execution to return runtime artifacts."
-        )
+        raise TypeError("Expected mesh-catchment runtime execution to return runtime artifacts.")
     return result
 
 

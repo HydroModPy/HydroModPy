@@ -69,11 +69,7 @@ def test_toml_like_round_trip_through_string():
     """Load a TOML snippet, build the model, dump, reload, check invariants."""
     from hydromodpy.core.units.registry import UREG
 
-    toml_text = (
-        'k = "1e-4 m/s"\n'
-        'sy = 0.12\n'
-        'ss = "1e-5 1/m"\n'
-    )
+    toml_text = 'k = "1e-4 m/s"\nsy = 0.12\nss = "1e-5 1/m"\n'
     raw = tomllib.loads(toml_text)
     Aquifer = _build_model()
     m = Aquifer(**raw)
@@ -81,9 +77,7 @@ def test_toml_like_round_trip_through_string():
     # can consume back.
     dumped = m.model_dump(mode="json")
     m2 = Aquifer(**dumped)
-    assert m2.k.to(UREG.Unit("m/s")).magnitude == pytest.approx(
-        m.k.to(UREG.Unit("m/s")).magnitude
-    )
+    assert m2.k.to(UREG.Unit("m/s")).magnitude == pytest.approx(m.k.to(UREG.Unit("m/s")).magnitude)
     assert m2.sy == pytest.approx(m.sy)
     assert m2.ss.to(UREG.Unit("1/m")).magnitude == pytest.approx(
         m.ss.to(UREG.Unit("1/m")).magnitude

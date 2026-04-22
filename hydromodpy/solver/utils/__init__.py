@@ -34,9 +34,7 @@ __all__ = [
 
 def __getattr__(name: str):
     if name in _CARTESIAN_EXPORTS:
-        module = import_module(
-            "hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_mesh_adapter"
-        )
+        module = import_module("hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_mesh_adapter")
         value = getattr(module, name)
         globals()[name] = value
         return value

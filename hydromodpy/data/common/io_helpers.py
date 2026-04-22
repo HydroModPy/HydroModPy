@@ -61,7 +61,9 @@ def read_locations_csv(
     """Read CSV location file into StationLocation list."""
     df = pd.read_csv(path)
     if col_id not in df.columns:
-        raise ValueError(f"Location CSV {path} missing id column '{col_id}'. Columns: {list(df.columns)}")
+        raise ValueError(
+            f"Location CSV {path} missing id column '{col_id}'. Columns: {list(df.columns)}"
+        )
     if col_x not in df.columns or col_y not in df.columns:
         raise ValueError(
             f"Location CSV {path} missing coordinate columns '{col_x}'/'{col_y}'. "
@@ -92,7 +94,9 @@ def read_locations_vector(
     gpd = _require_geopandas()
     gdf = gpd.read_file(path)
     if col_id not in gdf.columns:
-        raise ValueError(f"Location file {path} missing id column '{col_id}'. Columns: {list(gdf.columns)}")
+        raise ValueError(
+            f"Location file {path} missing id column '{col_id}'. Columns: {list(gdf.columns)}"
+        )
     crs_str = f"EPSG:{gdf.crs.to_epsg()}" if gdf.crs else "EPSG:4326"
     locations = []
     for _, row in gdf.iterrows():
@@ -124,8 +128,12 @@ def read_locations(
     if suffix in (".shp", ".gpkg", ".geojson"):
         return read_locations_vector(path, col_id=col_id)
     return read_locations_csv(
-        path, col_id=col_id, col_x=col_x, col_y=col_y,
-        col_crs=col_crs, default_crs=default_crs,
+        path,
+        col_id=col_id,
+        col_x=col_x,
+        col_y=col_y,
+        col_crs=col_crs,
+        default_crs=default_crs,
     )
 
 
@@ -179,6 +187,7 @@ def read_parquet(path: Path) -> pd.DataFrame:
 def _require_geopandas():
     try:
         import geopandas as gpd
+
         return gpd
     except ImportError as exc:
         raise ImportError("geopandas required for SHP/GeoPackage. pip install geopandas") from exc

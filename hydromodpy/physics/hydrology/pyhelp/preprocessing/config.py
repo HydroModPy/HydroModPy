@@ -32,10 +32,10 @@ class PyhelpGridParams:
         ksat1: float = 0.0,
         dist_dr1: float = 50,
         slope1: float = 35,
-            ):
+    ):
         self.growth_start = growth_start
         self.growth_end = growth_end
-        self.wind = wind    
+        self.wind = wind
         self.hum1 = hum1
         self.hum2 = hum2
         self.hum3 = hum3
@@ -62,24 +62,19 @@ class PyhelpPreprocessingConfig:
         *,
         workdir: Path,
         pyhelp_out_nc: Path,
-
         # Grid inputs
         grid_ready: Path | None = None,
-        grid_base : Path | None = None,
+        grid_base: Path | None = None,
         dem: Path | None,
         shapefile: Path | None = None,
-
         # Climate inputs: either ready_csvs OR era5_folder
         ready_climatic_csvs: Tuple[Path, Path, Path] | None = None,
         nc_folder: Path | None = None,
-
         # Parameters
         grid_params: PyhelpGridParams | None = None,
-
         compress_level: int = 4,
-            ):
-        
-        
+    ):
+
         self.workdir = Path(workdir)
         self.pyhelp_out_nc = Path(pyhelp_out_nc)
 
@@ -90,8 +85,12 @@ class PyhelpPreprocessingConfig:
 
         self.ready_csvs = None
         if ready_climatic_csvs is not None:
-            self.ready_csvs = (Path(ready_climatic_csvs[0]), Path(ready_climatic_csvs[1]), Path(ready_climatic_csvs[2]))
-                    
+            self.ready_csvs = (
+                Path(ready_climatic_csvs[0]),
+                Path(ready_climatic_csvs[1]),
+                Path(ready_climatic_csvs[2]),
+            )
+
         self.nc_folder = None
         if nc_folder is not None:
             self.nc_folder = (Path(nc_folder[0]), Path(nc_folder[1]), Path(nc_folder[2]))

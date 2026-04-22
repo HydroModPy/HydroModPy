@@ -102,9 +102,7 @@ def run_hillslope_overflow_scenario(
         primary=primary,
         secondary=secondary,
         secondary_error=secondary_error,
-        secondary_solver_name=(
-            None if secondary_solver is None else secondary_solver.solver_name
-        ),
+        secondary_solver_name=(None if secondary_solver is None else secondary_solver.solver_name),
     )
 
 

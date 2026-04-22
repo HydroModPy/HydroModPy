@@ -51,7 +51,11 @@ CASES = (
         outlet_x=400866.1983,
         outlet_y=6923974.693,
         area_km2=1258.2,
-        nwt_run_dir=ROOT / "outputs" / "vire_nwt_steady" / "results_simulations" / "vire_nwt_steady",
+        nwt_run_dir=ROOT
+        / "outputs"
+        / "vire_nwt_steady"
+        / "results_simulations"
+        / "vire_nwt_steady",
         irregular_root=ROOT / "outputs" / "vire_mf6_irregular_steady",
         nwt_run_toml=ROOT / "run_vire_nwt_steady.toml",
         irregular_toml=ROOT / "run_vire_mf6_irregular_steady.toml",
@@ -62,7 +66,11 @@ CASES = (
         outlet_x=379541.3716,
         outlet_y=6845659.878,
         area_km2=366.9,
-        nwt_run_dir=ROOT / "outputs" / "selune_nwt_steady" / "results_simulations" / "selune_nwt_steady",
+        nwt_run_dir=ROOT
+        / "outputs"
+        / "selune_nwt_steady"
+        / "results_simulations"
+        / "selune_nwt_steady",
         irregular_root=ROOT / "outputs" / "selune_mf6_irregular_steady",
         nwt_run_toml=ROOT / "run_selune_nwt_steady.toml",
         irregular_toml=ROOT / "run_selune_mf6_irregular_steady.toml",
@@ -131,8 +139,8 @@ def _poly_and_line_data(bundle_dir: Path):
 
 def _render_mesh_overview(case: CatchmentCase) -> str:
     ctx = _mesh_context(case)
-    vertices, polygons, geology_order, geology_values, river_lines, interface_lines = _poly_and_line_data(
-        ctx["bundle_dir"]
+    vertices, polygons, geology_order, geology_values, river_lines, interface_lines = (
+        _poly_and_line_data(ctx["bundle_dir"])
     )
     watershed = gpd.read_file(ctx["watershed_shp"])
 
@@ -147,9 +155,13 @@ def _render_mesh_overview(case: CatchmentCase) -> str:
     )
     ax.add_collection(poly)
     if interface_lines:
-        ax.add_collection(LineCollection(interface_lines, colors="white", linewidths=0.60, alpha=0.95))
+        ax.add_collection(
+            LineCollection(interface_lines, colors="white", linewidths=0.60, alpha=0.95)
+        )
     if river_lines:
-        ax.add_collection(LineCollection(river_lines, colors="#0a5f99", linewidths=0.90, alpha=0.95))
+        ax.add_collection(
+            LineCollection(river_lines, colors="#0a5f99", linewidths=0.90, alpha=0.95)
+        )
     watershed.boundary.plot(ax=ax, color="black", linewidth=1.0, zorder=5)
 
     ax.set_title(f"{case.label} - maillage conforme geologie + rivieres", fontsize=14)
@@ -266,7 +278,10 @@ def _read_balance_percent(list_path: Path) -> float | None:
 
 def _read_run_status(list_path: Path) -> dict[str, str | bool]:
     text = list_path.read_text(encoding="utf-8", errors="ignore")
-    failed = "FAILURE TO MEET SOLVER CONVERGENCE CRITERIA" in text or "FAILED TO MEET SOLVER CONVERGENCE CRITERIA" in text
+    failed = (
+        "FAILURE TO MEET SOLVER CONVERGENCE CRITERIA" in text
+        or "FAILED TO MEET SOLVER CONVERGENCE CRITERIA" in text
+    )
     status = "exploratoire"
     note = "solution indicative issue du dernier etat ecrit par le solveur"
     if not failed:
@@ -358,19 +373,24 @@ def _case_payload(case: CatchmentCase) -> dict:
         "thickness": base_cfg["domain"]["depth_model"]["thickness"],
         "nlay_nwt": nwt_cfg["modflownwt"]["sgrid"]["vertical"]["nlay"],
         "nlay_irregular": irr_cfg["modflow6"]["sgrid"]["vertical"]["nlay"],
-        "nwt_planar_mode": nwt_cfg.get("modflownwt", {}).get("sgrid", {}).get("planar", {}).get("mode", "keep_native"),
+        "nwt_planar_mode": nwt_cfg.get("modflownwt", {})
+        .get("sgrid", {})
+        .get("planar", {})
+        .get("mode", "keep_native"),
         "nwt_nx": nwt_cfg.get("modflownwt", {}).get("sgrid", {}).get("planar", {}).get("nx"),
         "nwt_ny": nwt_cfg.get("modflownwt", {}).get("sgrid", {}).get("planar", {}).get("ny"),
         "sim_dir_rel": case.nwt_run_dir.relative_to(ROOT).as_posix(),
-        "mesh_dir_rel": (case.irregular_root / "results_stable" / "mesh").relative_to(ROOT).as_posix(),
+        "mesh_dir_rel": (case.irregular_root / "results_stable" / "mesh")
+        .relative_to(ROOT)
+        .as_posix(),
     }
 
 
 def _html_for_case(case: dict) -> str:
-    balance = "n/a" if case["balance_percent"] is None else f'{case["balance_percent"]:.4f} %'
+    balance = "n/a" if case["balance_percent"] is None else f"{case['balance_percent']:.4f} %"
     nwt_planar = case["nwt_planar_mode"]
     if case["nwt_nx"] and case["nwt_ny"]:
-        nwt_planar = f'{nwt_planar} ({case["nwt_nx"]} x {case["nwt_ny"]})'
+        nwt_planar = f"{nwt_planar} ({case['nwt_nx']} x {case['nwt_ny']})"
     return f"""
     <section class="case-block" id="{case["slug"]}">
       <div class="case-header">

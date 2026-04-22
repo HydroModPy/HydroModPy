@@ -1,4 +1,4 @@
-﻿"""Standalone pedagogical tools for exported mesh bundles.
+"""Standalone pedagogical tools for exported mesh bundles.
 
 This package exposes a compact API to:
 
@@ -95,10 +95,3 @@ __all__ = [
     "run_visualization",
     "run_visualization_from_toml",
 ]
-
-
-
-
-
-
-

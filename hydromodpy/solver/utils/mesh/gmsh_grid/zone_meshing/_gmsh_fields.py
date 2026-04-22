@@ -58,13 +58,9 @@ def apply_interface_refinement_field(
     summary: dict[str, Any] = {
         "enabled": bool(refine_interfaces),
         "interface_size": None if interface_size is None else float(interface_size),
-        "interface_distance": (
-            None if interface_distance is None else float(interface_distance)
-        ),
+        "interface_distance": (None if interface_distance is None else float(interface_distance)),
         "interface_sampling": int(interface_sampling),
-        "interface_curve_count": int(
-            len(sorted(set(int(tag) for tag in interface_curve_tags)))
-        ),
+        "interface_curve_count": int(len(sorted(set(int(tag) for tag in interface_curve_tags)))),
         "stop_at_distance_max": bool(stop_at_distance_max),
         "background_field": None,
     }
@@ -247,9 +243,7 @@ def create_regional_structured_size_field(
                     distance_to_boundary = float(boundary.distance(point))
                     if distance_to_boundary < float(transition_distance):
                         ratio = float(distance_to_boundary / float(transition_distance))
-                        value = float(
-                            inside_size + (ratio * (outside_size - inside_size))
-                        )
+                        value = float(inside_size + (ratio * (outside_size - inside_size)))
             values.append(f"{float(value):.12g}")
         rows.append(" ".join(values))
 

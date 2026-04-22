@@ -21,8 +21,7 @@ try:  # noqa: SIM105 — explicit skip when the real cause is a broken import
     )
 except ImportError as exc:
     pytest.skip(
-        f"doc-gallery generators transitively import broken "
-        f"validation_cases modules: {exc}",
+        f"doc-gallery generators transitively import broken validation_cases modules: {exc}",
         allow_module_level=True,
     )
 
@@ -40,11 +39,17 @@ def test_build_gallery_specs_exposes_extended_categories() -> None:
     assert specs["geometry_constraints_canut"].category == "geometry"
     assert specs["geometry_topography_canut"].category == "geometry"
     assert specs["geometry_indicators_canut"].category == "geometry"
-    assert specs["hydraulic_conductivity_square_parameterizations"].category == "hydraulic_properties"
+    assert (
+        specs["hydraulic_conductivity_square_parameterizations"].category == "hydraulic_properties"
+    )
     assert specs["hydraulic_conductivity_irregular_mesh"].category == "hydraulic_properties"
     assert specs["hydraulic_conductivity_depth_dependence"].category == "hydraulic_properties"
-    assert specs["hydraulic_conductivity_geology_transfer_brittany"].category == "hydraulic_properties"
-    assert specs["hydraulic_conductivity_geology_transfer_variants"].category == "hydraulic_properties"
+    assert (
+        specs["hydraulic_conductivity_geology_transfer_brittany"].category == "hydraulic_properties"
+    )
+    assert (
+        specs["hydraulic_conductivity_geology_transfer_variants"].category == "hydraulic_properties"
+    )
     assert specs["mesh_constraint_balance_scale_ladder"].category == "mesh"
     assert specs["mesh_resolution_sensitivity_scale_ladder"].category == "mesh"
     assert specs["mesh_zoom_panels_naizin_10km2"].category == "mesh"

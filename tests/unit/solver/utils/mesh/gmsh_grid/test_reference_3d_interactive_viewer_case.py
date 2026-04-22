@@ -53,6 +53,4 @@ def test_reference_3d_interactive_viewer_case_runs_off_screen():
     assert "field_param_value" in summary["cell_data_keys"]
     assert "prism_center_depth" in summary["cell_data_keys"]
     assert Path(summary["output_summary_json"]).exists()
-    assert summary["selection"]["source_cell_index"] == int(
-        mesh_with_values.n_cells_2d // 2
-    )
+    assert summary["selection"]["source_cell_index"] == int(mesh_with_values.n_cells_2d // 2)

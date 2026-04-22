@@ -155,7 +155,9 @@ class CatchmentMeshBundleGeologyView:
             field_id=_optional_text(payload.get("field_id")),
             source_kind=_optional_text(payload.get("source_kind")),
             cell_samples_per_axis=_parse_optional_int(
-                "" if payload.get("cell_samples_per_axis") is None else str(payload.get("cell_samples_per_axis"))
+                ""
+                if payload.get("cell_samples_per_axis") is None
+                else str(payload.get("cell_samples_per_axis"))
             ),
             zone_keys=_as_text_tuple(payload.get("zone_keys")),
         )
@@ -288,12 +290,8 @@ class CatchmentMeshBundleMetadataView:
     n_cells: int | None = None
     constraints_mode: str | None = None
     source_mesh_path: str | None = None
-    files: CatchmentMeshBundleFilesView = field(
-        default_factory=CatchmentMeshBundleFilesView
-    )
-    geology: CatchmentMeshBundleGeologyView = field(
-        default_factory=CatchmentMeshBundleGeologyView
-    )
+    files: CatchmentMeshBundleFilesView = field(default_factory=CatchmentMeshBundleFilesView)
+    geology: CatchmentMeshBundleGeologyView = field(default_factory=CatchmentMeshBundleGeologyView)
     topography: CatchmentMeshBundleTopographyView = field(
         default_factory=CatchmentMeshBundleTopographyView
     )
@@ -322,9 +320,7 @@ class CatchmentMeshBundleMetadataView:
             source_mesh_path=_optional_text(payload.get("source_mesh_path")),
             files=CatchmentMeshBundleFilesView.from_mapping(payload.get("files")),
             geology=CatchmentMeshBundleGeologyView.from_mapping(payload.get("geology")),
-            topography=CatchmentMeshBundleTopographyView.from_mapping(
-                payload.get("topography")
-            ),
+            topography=CatchmentMeshBundleTopographyView.from_mapping(payload.get("topography")),
             vertical=CatchmentMeshBundleVerticalView.from_mapping(payload.get("vertical")),
             hydraulic_properties=CatchmentMeshBundleHydraulicPropertiesView.from_mapping(
                 payload.get("hydraulic_properties")
@@ -451,18 +447,14 @@ def _load_cells(path: Path) -> tuple[CatchmentMeshBundleCell, ...]:
                 area_m2=float(row["area_m2"]),
                 z_top_centroid=_parse_optional_float(row.get("z_top_centroid", "")),
                 z_top_mean=_parse_optional_float(row.get("z_top_mean", "")),
-                z_bottom_centroid=_parse_optional_float(
-                    row.get("z_bottom_centroid", "")
-                ),
+                z_bottom_centroid=_parse_optional_float(row.get("z_bottom_centroid", "")),
                 z_bottom_mean=_parse_optional_float(row.get("z_bottom_mean", "")),
                 geology_code=_parse_optional_int(row.get("geology_code", "")),
                 geology_key=str(row.get("geology_key", "")),
                 hydraulic_conductivity_m_s=_parse_optional_float(
                     row.get("hydraulic_conductivity_m_s", "")
                 ),
-                storage_coefficient=_parse_optional_float(
-                    row.get("storage_coefficient", "")
-                ),
+                storage_coefficient=_parse_optional_float(row.get("storage_coefficient", "")),
             )
         )
     return tuple(out)
@@ -524,9 +516,7 @@ def load_catchment_mesh_bundle(bundle_dir: str | Path) -> CatchmentMeshBundle:
         nodes=_load_nodes(bundle_path / "nodes.csv"),
         cells=_load_cells(bundle_path / "cells.csv"),
         edges=_load_edges(bundle_path / "edges.csv"),
-        geology_fractions=_load_geology_fractions(
-            bundle_path / "cell_geology_fractions.csv"
-        ),
+        geology_fractions=_load_geology_fractions(bundle_path / "cell_geology_fractions.csv"),
         mesh_summary=mesh_summary,
     )
 

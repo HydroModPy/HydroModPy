@@ -51,8 +51,7 @@ class Objective(Protocol):
 
     name: str
 
-    def evaluate(self, sim: SimulationOutput) -> ObjectiveValue | float | dict:
-        ...
+    def evaluate(self, sim: SimulationOutput) -> ObjectiveValue | float | dict: ...
 
 
 # ---------------------------------------------------------------------------
@@ -157,9 +156,7 @@ class ScalarObjective:
         return ObjectiveValue(total=total, components=components)
 
 
-def evaluate_objective(
-    obj: Objective, sim: SimulationOutput
-) -> ObjectiveValue:
+def evaluate_objective(obj: Objective, sim: SimulationOutput) -> ObjectiveValue:
     """Normalize return types from user-defined Objective implementations."""
     out = obj.evaluate(sim)
     if isinstance(out, ObjectiveValue):

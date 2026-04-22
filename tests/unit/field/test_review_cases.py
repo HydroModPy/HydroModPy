@@ -29,12 +29,8 @@ def test_run_case_reviews_uses_registry_order_for_selected_cases(
         "CASE_REVIEW_SPECS",
         (
             review_cases.CaseReviewSpec("case_b", "Second case.", _runner("case_b")),
-            review_cases.CaseReviewSpec(
-                "case_a", "First selected case.", _runner("case_a")
-            ),
-            review_cases.CaseReviewSpec(
-                "case_c", "Third selected case.", _runner("case_c")
-            ),
+            review_cases.CaseReviewSpec("case_a", "First selected case.", _runner("case_a")),
+            review_cases.CaseReviewSpec("case_c", "Third selected case.", _runner("case_c")),
         ),
     )
 

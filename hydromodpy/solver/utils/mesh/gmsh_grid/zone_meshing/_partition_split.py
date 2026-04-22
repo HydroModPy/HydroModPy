@@ -34,9 +34,7 @@ def split_partition_with_constraint_lines(
             continue
         repaired = make_valid_linework(line)
         valid_lines.extend(
-            piece
-            for piece in iter_line_parts(repaired)
-            if float(piece.length) > 0.0
+            piece for piece in iter_line_parts(repaired) if float(piece.length) > 0.0
         )
     if not valid_lines:
         return partition
@@ -46,9 +44,7 @@ def split_partition_with_constraint_lines(
         zone_key = str(face.zone_key)
         current = zone_geometries.get(zone_key)
         zone_geometries[zone_key] = (
-            face.polygon
-            if current is None
-            else make_valid_geometry(current.union(face.polygon))
+            face.polygon if current is None else make_valid_geometry(current.union(face.polygon))
         )
 
     overlap_tolerance = max(float(tolerance) * float(tolerance), 1.0e-12)
@@ -67,9 +63,7 @@ def split_partition_with_constraint_lines(
             if not partition.domain_geometry.covers(point):
                 continue
             owners = [
-                zone_key
-                for zone_key, geometry in zone_geometries.items()
-                if geometry.covers(point)
+                zone_key for zone_key, geometry in zone_geometries.items() if geometry.covers(point)
             ]
             if not owners:
                 continue
@@ -78,9 +72,7 @@ def split_partition_with_constraint_lines(
             else:
                 owner = max(
                     owners,
-                    key=lambda zone_key: float(
-                        part.intersection(zone_geometries[zone_key]).area
-                    ),
+                    key=lambda zone_key: float(part.intersection(zone_geometries[zone_key]).area),
                 )
             faces.append(
                 ZonePartitionFace_cls(

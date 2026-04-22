@@ -43,13 +43,7 @@ def _normalize_solver_names(metadata: dict) -> tuple[str, ...]:
     """Extract supported solver names from one case metadata mapping."""
     config_files = metadata.get("config_files")
     if isinstance(config_files, dict) and config_files:
-        solvers = sorted(
-            {
-                str(key).strip().lower()
-                for key in config_files
-                if str(key).strip()
-            }
-        )
+        solvers = sorted({str(key).strip().lower() for key in config_files if str(key).strip()})
         if solvers:
             return tuple(solvers)
 
@@ -283,9 +277,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         if completed.returncode != 0:
-            print(
-                f"Case failed with exit code {completed.returncode}: {case.module_name}"
-            )
+            print(f"Case failed with exit code {completed.returncode}: {case.module_name}")
             if args.report_json is not None:
                 report = build_execution_report(
                     solver=str(args.solver),

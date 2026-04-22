@@ -51,9 +51,7 @@ def test_attach_extruded_values_supports_layer_and_profile_queries():
     assert attached.n_layers == 2
     assert attached.n_cells_2d == 2
     assert attached.n_cells_3d == 4
-    assert np.allclose(
-        attached.flat_values, np.array([10.0, 20.0, 8.0, 16.0], dtype=float)
-    )
+    assert np.allclose(attached.flat_values, np.array([10.0, 20.0, 8.0, 16.0], dtype=float))
 
     layer0 = attached.extract_layer(0)
     assert np.allclose(

@@ -16,24 +16,31 @@ HELP = "Export geographic data or simulation results from the project store"
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument("project", type=str, help="Path to the project directory")
-    parser.add_argument("--list", action="store_true",
-                        help="List available rasters, features, and simulations")
-    parser.add_argument("--sim", default=None,
-                        help="Simulation name to export (use --list to see available)")
-    parser.add_argument("--csv", action="store_true",
-                        help="Export timeseries as CSV (default when --sim is used alone)")
-    parser.add_argument("--netcdf", action="store_true",
-                        help="Export spatial fields as NetCDF")
-    parser.add_argument("--geotiff", action="store_true",
-                        help="Export spatial fields as GeoTIFF (one per variable)")
-    parser.add_argument("--vtu", action="store_true",
-                        help="Export mesh + fields as VTU (ParaView)")
-    parser.add_argument("--raster", nargs="+",
-                        help="Geographic raster name(s) to export as GeoTIFF")
-    parser.add_argument("--feature", nargs="+",
-                        help="Geographic feature name(s) to export as shapefile")
-    parser.add_argument("--output", default=None,
-                        help="Output directory (default: exports/<name>/ in the project)")
+    parser.add_argument(
+        "--list", action="store_true", help="List available rasters, features, and simulations"
+    )
+    parser.add_argument(
+        "--sim", default=None, help="Simulation name to export (use --list to see available)"
+    )
+    parser.add_argument(
+        "--csv",
+        action="store_true",
+        help="Export timeseries as CSV (default when --sim is used alone)",
+    )
+    parser.add_argument("--netcdf", action="store_true", help="Export spatial fields as NetCDF")
+    parser.add_argument(
+        "--geotiff", action="store_true", help="Export spatial fields as GeoTIFF (one per variable)"
+    )
+    parser.add_argument("--vtu", action="store_true", help="Export mesh + fields as VTU (ParaView)")
+    parser.add_argument(
+        "--raster", nargs="+", help="Geographic raster name(s) to export as GeoTIFF"
+    )
+    parser.add_argument(
+        "--feature", nargs="+", help="Geographic feature name(s) to export as shapefile"
+    )
+    parser.add_argument(
+        "--output", default=None, help="Output directory (default: exports/<name>/ in the project)"
+    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -83,8 +90,7 @@ def run(args: argparse.Namespace) -> None:
                 date_str = str(created)[:16] if created else ""
                 label = name or "(no name)"
                 print(
-                    f"  {label}  [{short_id(sid)}]  solver={solver}  "
-                    f"{date_str}  {status}",
+                    f"  {label}  [{short_id(sid)}]  solver={solver}  {date_str}  {status}",
                     file=sys.stderr,
                 )
         catalog.close()
@@ -112,6 +118,7 @@ def run(args: argparse.Namespace) -> None:
                         import numpy as np
                         import rasterio
                         from rasterio.transform import Affine
+
                         data = np.array(geo_grp[name][:])
                         attrs = dict(geo_grp[name].attrs)
                         transform = Affine(*attrs["transform"][:6])
@@ -119,10 +126,16 @@ def run(args: argparse.Namespace) -> None:
                         nodata = attrs.get("nodata", -99999.0)
                         out_path = geo_dir / f"{name}.tif"
                         with rasterio.open(
-                            out_path, "w", driver="GTiff",
-                            height=data.shape[-2], width=data.shape[-1],
-                            count=1, dtype=data.dtype,
-                            crs=crs, transform=transform, nodata=nodata,
+                            out_path,
+                            "w",
+                            driver="GTiff",
+                            height=data.shape[-2],
+                            width=data.shape[-1],
+                            count=1,
+                            dtype=data.dtype,
+                            crs=crs,
+                            transform=transform,
+                            nodata=nodata,
                         ) as dst:
                             dst.write(data if data.ndim == 3 else data[np.newaxis])
                         exported.append(out_path)

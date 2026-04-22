@@ -131,7 +131,9 @@ def _compute_brittany_signature(tmp_path: Path) -> dict:
         identifier=str(loaded["field_id"]),
         target_n_cells=int(args.target_n_cells),
     )
-    mesh = GeologyStructuredMesh.from_bounds(gdf.total_bounds, target_n_cells=int(args.target_n_cells))
+    mesh = GeologyStructuredMesh.from_bounds(
+        gdf.total_bounds, target_n_cells=int(args.target_n_cells)
+    )
     discretized = geology_field.on_mesh(
         mesh,
         cell_samples_per_axis=max(2, int(args.cell_samples_per_axis)),
@@ -184,4 +186,3 @@ def test_geology_property_demo_brittany_non_regression(tmp_path: Path, update_go
 
     expected = _load_json(GOLDEN_FILE)
     assert signature == expected
-

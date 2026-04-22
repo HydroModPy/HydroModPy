@@ -1,4 +1,4 @@
-﻿"""Residual builders shared by Boussinesq runtimes."""
+"""Residual builders shared by Boussinesq runtimes."""
 
 from __future__ import annotations
 
@@ -177,9 +177,7 @@ def assemble_spatial_terms(
     saturation_excess_rate = resolve_saturation_excess_rate(
         mesh,
         head_m=head,
-        lateral_flux_residual_m3_s=(
-            internal_flux_residual + boundary_head_flux_residual
-        ),
+        lateral_flux_residual_m3_s=(internal_flux_residual + boundary_head_flux_residual),
         recharge_rate_m_s=recharge_rate,
         regularization_radius=float(regularization_radius),
         saturation_excess_rate_m_s=saturation_excess_rate_m_s,
@@ -364,4 +362,3 @@ __all__ = [
     "assemble_transient_residual_generic",
     "assemble_transient_residual_with_saturation_excess_generic",
 ]
-

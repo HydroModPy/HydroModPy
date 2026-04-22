@@ -34,7 +34,7 @@ class ConstantForcing(HydroModelBase):
         default="constant", description="Discriminator value."
     )
     value: Annotated[FlowRate, Profile.USER] = Field(
-        description="Constant flow-rate value (accepts e.g. ``\"1e-3 m**3/s\"``).",
+        description='Constant flow-rate value (accepts e.g. ``"1e-3 m**3/s"``).',
     )
     description: Annotated[str | None, Profile.DEV] = Field(
         default=None, description="Optional human-readable label."
@@ -63,7 +63,8 @@ class CsvForcing(HydroModelBase):
         description="Optional source unit; if omitted the canonical unit is assumed.",
     )
     fill_method: Annotated[
-        Literal["ffill", "bfill", "nearest", "none"], Profile.DEV,
+        Literal["ffill", "bfill", "nearest", "none"],
+        Profile.DEV,
     ] = Field(
         default="none",
         description="Strategy used when the series has gaps at query time.",
@@ -84,10 +85,11 @@ class SyntheticForcing(HydroModelBase):
         description="Amplitude (peak value) of the synthetic forcing.",
     )
     period: Annotated[Time, Profile.USER] = Field(
-        description="Period of the synthetic signal (accepts e.g. ``\"1 day\"``).",
+        description='Period of the synthetic signal (accepts e.g. ``"1 day"``).',
     )
     offset: Annotated[FlowRate | None, Profile.DEV] = Field(
-        default=None, description="Optional constant offset added to the signal.",
+        default=None,
+        description="Optional constant offset added to the signal.",
     )
 
 

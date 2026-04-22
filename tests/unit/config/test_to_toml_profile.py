@@ -25,7 +25,8 @@ def _load(path: Path) -> dict:
 
 def test_to_toml_user_profile_omits_dev_fields(tmp_path: Path) -> None:
     cfg = TimeseriesVariableConfig(
-        date_start="2020-01-01", date_end="2020-12-31",
+        date_start="2020-01-01",
+        date_end="2020-12-31",
         station_ids=["A1"],
     )
     out = cfg.to_toml(tmp_path / "user.toml", profile="user")
@@ -39,15 +40,26 @@ def test_to_toml_user_profile_omits_dev_fields(tmp_path: Path) -> None:
 
 def test_to_toml_expert_profile_dumps_every_field(tmp_path: Path) -> None:
     cfg = TimeseriesVariableConfig(
-        date_start="2020-01-01", date_end="2020-12-31",
-        station_ids=["A1"], extent="watershed",
+        date_start="2020-01-01",
+        date_end="2020-12-31",
+        station_ids=["A1"],
+        extent="watershed",
     )
     out = cfg.to_toml(tmp_path / "expert.toml", profile="expert")
     payload = _load(out)
     for every_field in (
-        "date_start", "date_end", "station_ids", "extent",
-        "col_id", "col_x", "col_y", "col_crs", "col_datetime", "col_value",
-        "default_crs", "force_refresh",
+        "date_start",
+        "date_end",
+        "station_ids",
+        "extent",
+        "col_id",
+        "col_x",
+        "col_y",
+        "col_crs",
+        "col_datetime",
+        "col_value",
+        "default_crs",
+        "force_refresh",
     ):
         assert every_field in payload
 

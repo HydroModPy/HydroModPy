@@ -69,12 +69,10 @@ from hydromodpy.data.variables.hydrography.result import HydrographyResult
 # Helpers
 # =====================================================================
 
+
 def _make_lines_gdf(crs="EPSG:4326", n=3):
     """Create a small GeoDataFrame with LineString geometries."""
-    lines = [
-        LineString([(i, 48.0), (i + 0.01, 48.01)])
-        for i in range(n)
-    ]
+    lines = [LineString([(i, 48.0), (i + 0.01, 48.01)]) for i in range(n)]
     return gpd.GeoDataFrame(
         {"waterway": ["river"] * n, "id": list(range(n))},
         geometry=lines,
@@ -101,10 +99,16 @@ def _make_point_gdf(crs="EPSG:4326"):
 def _watershed_gdf(crs="EPSG:2154"):
     """Fake watershed polygon big enough to contain test data once reprojected."""
     return gpd.GeoDataFrame(
-        geometry=[Polygon([
-            (300000, 6700000), (400000, 6700000),
-            (400000, 6800000), (300000, 6800000),
-        ])],
+        geometry=[
+            Polygon(
+                [
+                    (300000, 6700000),
+                    (400000, 6700000),
+                    (400000, 6800000),
+                    (300000, 6800000),
+                ]
+            )
+        ],
         crs=crs,
     )
 
@@ -131,9 +135,15 @@ def _write_dummy_tif(path, crs="EPSG:2154", shape=(100, 100)):
 
     transform = from_bounds(300000, 6700000, 400000, 6800000, shape[1], shape[0])
     with rasterio.open(
-        str(path), "w", driver="GTiff",
-        height=shape[0], width=shape[1], count=1, dtype="float32",
-        crs=crs, transform=transform,
+        str(path),
+        "w",
+        driver="GTiff",
+        height=shape[0],
+        width=shape[1],
+        count=1,
+        dtype="float32",
+        crs=crs,
+        transform=transform,
     ) as ds:
         ds.write(np.ones(shape, dtype=np.float32), 1)
 
@@ -141,6 +151,7 @@ def _write_dummy_tif(path, crs="EPSG:2154", shape=(100, 100)):
 # =====================================================================
 # 1. Config — HydrographySourceConfig
 # =====================================================================
+
 
 @pytest.mark.fast
 class TestSourceConfigValidation:
@@ -170,9 +181,7 @@ class TestSourceConfigValidation:
         assert cfg.path is None
 
     def test_osm_custom_waterways(self):
-        cfg = HydrographySourceConfig(
-            source="osm", waterway_types=["canal", "drain", "ditch"]
-        )
+        cfg = HydrographySourceConfig(source="osm", waterway_types=["canal", "drain", "ditch"])
         assert cfg.waterway_types == ["canal", "drain", "ditch"]
 
     # -- BD Topage --
@@ -231,6 +240,7 @@ class TestSourceConfigValidation:
 # 2. Config — ParamLevel annotations
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestSourceConfigParamLevels:
     """Every field must carry a ParamLevel annotation."""
@@ -245,17 +255,20 @@ class TestSourceConfigParamLevels:
                 return meta.level
         return None
 
-    @pytest.mark.parametrize("field,expected_level", [
-        ("source", "user"),
-        ("path", "user"),
-        ("rasterize_field", "user"),
-        ("force_refresh", "dev"),
-        ("typename", "dev"),
-        ("page_size", "dev"),
-        ("group_name", "dev"),
-        ("euhydro_page_size", "dev"),
-        ("waterway_types", "dev"),
-    ])
+    @pytest.mark.parametrize(
+        "field,expected_level",
+        [
+            ("source", "user"),
+            ("path", "user"),
+            ("rasterize_field", "user"),
+            ("force_refresh", "dev"),
+            ("typename", "dev"),
+            ("page_size", "dev"),
+            ("group_name", "dev"),
+            ("euhydro_page_size", "dev"),
+            ("waterway_types", "dev"),
+        ],
+    )
     def test_source_config_param_levels(self, field, expected_level):
         level = self._get_param_level(HydrographySourceConfig, field)
         assert level == expected_level, (
@@ -271,12 +284,11 @@ class TestSourceConfigParamLevels:
 # 3. Config — HydrographyConfig (container)
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestHydrographyConfigContainer:
     def test_single_source(self, tmp_path):
-        cfg = HydrographyConfig(
-            sources=[{"source": "custom", "path": str(tmp_path / "s.shp")}]
-        )
+        cfg = HydrographyConfig(sources=[{"source": "custom", "path": str(tmp_path / "s.shp")}])
         assert len(cfg.sources) == 1
 
     def test_multi_source_all_types(self, tmp_path):
@@ -310,18 +322,20 @@ class TestHydrographyConfigContainer:
 # 4. DataManagersConfig integration
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestDataManagersConfigIntegration:
-
     def test_hydrography_field_is_typed(self):
         """The hydrography field on DataManagersConfig should be HydrographyConfig."""
         from hydromodpy.data.data_managers_config import DataManagersConfig
+
         info = DataManagersConfig.model_fields["hydrography"]
         # The annotation is Annotated[HydrographyConfig | None, ...]
         assert "HydrographyConfig" in str(info.annotation)
 
     def test_model_validate_with_hydrography(self, tmp_path):
         from hydromodpy.data.data_managers_config import DataManagersConfig
+
         payload = {
             "types": ["hydrography"],
             "hydrography": {
@@ -338,6 +352,7 @@ class TestDataManagersConfigIntegration:
         top-level resolver (only top-level Path fields are resolved).
         The Pydantic model still accepts the relative string."""
         from hydromodpy.data.data_managers_config import DataManagersConfig
+
         section = {
             "types": ["hydrography"],
             "hydrography": {
@@ -353,6 +368,7 @@ class TestDataManagersConfigIntegration:
     def test_hydrography_in_typed_sections(self):
         """HydrographyConfig is registered in _TYPED_SECTIONS dict."""
         from hydromodpy.data.data_managers_config import DataManagersConfig
+
         # from_toml_section validates hydrography as typed — just check it doesn't error
         section = {
             "types": ["hydrography"],
@@ -364,6 +380,7 @@ class TestDataManagersConfigIntegration:
     def test_hydrography_not_in_types_but_section_present(self, tmp_path):
         """If hydrography is not in types but section is present, it should still validate."""
         from hydromodpy.data.data_managers_config import DataManagersConfig
+
         section = {
             "types": ["geology"],
             "hydrography": {"sources": [{"source": "osm"}]},
@@ -374,6 +391,7 @@ class TestDataManagersConfigIntegration:
 
     def test_with_resolved_types_adds_hydrography(self, tmp_path):
         from hydromodpy.data.data_managers_config import DataManagersConfig
+
         section = {
             "types": [],
             "hydrography": {"sources": [{"source": "osm"}]},
@@ -386,6 +404,7 @@ class TestDataManagersConfigIntegration:
 # =====================================================================
 # 5. Result dataclass
 # =====================================================================
+
 
 @pytest.mark.fast
 class TestHydrographyResult:
@@ -409,9 +428,9 @@ class TestHydrographyResult:
 # 6. Custom loader
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestCustomLoader:
-
     def _write_shp(self, path: Path, gdf=None):
         if gdf is None:
             gdf = _make_lines_gdf()
@@ -421,6 +440,7 @@ class TestCustomLoader:
 
     def test_load_shp_file(self, tmp_path):
         from hydromodpy.data.variables.hydrography.custom import load_custom
+
         shp = self._write_shp(tmp_path / "rivers.shp")
         cfg = HydrographySourceConfig(source="custom", path=shp)
         gdf = load_custom(cfg)
@@ -429,6 +449,7 @@ class TestCustomLoader:
 
     def test_load_gpkg_file(self, tmp_path):
         from hydromodpy.data.variables.hydrography.custom import load_custom
+
         gpkg = tmp_path / "rivers.gpkg"
         _make_lines_gdf().to_file(gpkg, driver="GPKG")
         cfg = HydrographySourceConfig(source="custom", path=gpkg)
@@ -437,6 +458,7 @@ class TestCustomLoader:
 
     def test_load_geojson_file(self, tmp_path):
         from hydromodpy.data.variables.hydrography.custom import load_custom
+
         gj = tmp_path / "rivers.geojson"
         _make_lines_gdf().to_file(gj, driver="GeoJSON")
         cfg = HydrographySourceConfig(source="custom", path=gj)
@@ -445,6 +467,7 @@ class TestCustomLoader:
 
     def test_directory_auto_detection(self, tmp_path):
         from hydromodpy.data.variables.hydrography.custom import load_custom
+
         subdir = tmp_path / "data"
         subdir.mkdir()
         self._write_shp(subdir / "streams.shp")
@@ -454,6 +477,7 @@ class TestCustomLoader:
 
     def test_directory_empty_raises(self, tmp_path):
         from hydromodpy.data.variables.hydrography.custom import load_custom
+
         empty_dir = tmp_path / "empty"
         empty_dir.mkdir()
         cfg = HydrographySourceConfig(source="custom", path=empty_dir)
@@ -465,23 +489,25 @@ class TestCustomLoader:
 # 7. OSM API (mocked HTTP)
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestOsmApi:
-
     BBOX = (-2.5, 47.5, -2.0, 48.0)
 
     def _overpass_response(self, n=5, waterway="river"):
         elements = []
         for i in range(n):
-            elements.append({
-                "type": "way",
-                "id": 1000 + i,
-                "tags": {"waterway": waterway},
-                "geometry": [
-                    {"lat": 47.6 + i * 0.01, "lon": -2.3},
-                    {"lat": 47.6 + i * 0.01, "lon": -2.2},
-                ],
-            })
+            elements.append(
+                {
+                    "type": "way",
+                    "id": 1000 + i,
+                    "tags": {"waterway": waterway},
+                    "geometry": [
+                        {"lat": 47.6 + i * 0.01, "lon": -2.3},
+                        {"lat": 47.6 + i * 0.01, "lon": -2.2},
+                    ],
+                }
+            )
         return {"elements": elements}
 
     @patch("hydromodpy.core.io.http_client.HTTPClient.get")
@@ -530,28 +556,35 @@ class TestOsmApi:
         assert len(gdf) == 2
         # Verify query was built with "canal"
         call_params = mock_get.call_args
-        query_data = call_params[1]["params"]["data"] if "params" in call_params[1] else call_params[0][1]
+        query_data = (
+            call_params[1]["params"]["data"] if "params" in call_params[1] else call_params[0][1]
+        )
         assert "canal" in str(call_params)
 
     @patch("hydromodpy.core.io.http_client.HTTPClient.get")
     def test_intermittent_flag(self, mock_get):
         from hydromodpy.data.variables.hydrography.apis.osm import fetch
 
-        elements = [{
-            "type": "way", "id": 1,
-            "tags": {"waterway": "stream", "intermittent": "yes"},
-            "geometry": [
-                {"lat": 47.6, "lon": -2.3},
-                {"lat": 47.7, "lon": -2.2},
-            ],
-        }, {
-            "type": "way", "id": 2,
-            "tags": {"waterway": "stream"},
-            "geometry": [
-                {"lat": 47.8, "lon": -2.3},
-                {"lat": 47.9, "lon": -2.2},
-            ],
-        }]
+        elements = [
+            {
+                "type": "way",
+                "id": 1,
+                "tags": {"waterway": "stream", "intermittent": "yes"},
+                "geometry": [
+                    {"lat": 47.6, "lon": -2.3},
+                    {"lat": 47.7, "lon": -2.2},
+                ],
+            },
+            {
+                "type": "way",
+                "id": 2,
+                "tags": {"waterway": "stream"},
+                "geometry": [
+                    {"lat": 47.8, "lon": -2.3},
+                    {"lat": 47.9, "lon": -2.2},
+                ],
+            },
+        ]
         resp = MagicMock()
         resp.text = json.dumps({"elements": elements})
         resp.raise_for_status = MagicMock()
@@ -568,9 +601,9 @@ class TestOsmApi:
 # 8. BD Topage API (mocked HTTP)
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestBdTopageApi:
-
     BBOX = (-2.5, 47.5, -2.0, 48.0)
 
     def _hits_xml(self, n):
@@ -583,14 +616,16 @@ class TestBdTopageApi:
     def _features_json(self, n):
         features = []
         for i in range(n):
-            features.append({
-                "type": "Feature",
-                "geometry": {
-                    "type": "LineString",
-                    "coordinates": [[-2.3 + i * 0.01, 47.6], [-2.2 + i * 0.01, 47.7]],
-                },
-                "properties": {"gid": i, "CdOH": f"R{i:04d}"},
-            })
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[-2.3 + i * 0.01, 47.6], [-2.2 + i * 0.01, 47.7]],
+                    },
+                    "properties": {"gid": i, "CdOH": f"R{i:04d}"},
+                }
+            )
         return {"type": "FeatureCollection", "features": features}
 
     @patch("hydromodpy.core.io.http_client.HTTPClient.get")
@@ -663,9 +698,7 @@ class TestBdTopageApi:
 
         mock_get.side_effect = [hits_resp, data_resp]
 
-        cfg = HydrographySourceConfig(
-            source="bdtopage", typename="sa:CoursEau_FXX_Topage2019"
-        )
+        cfg = HydrographySourceConfig(source="bdtopage", typename="sa:CoursEau_FXX_Topage2019")
         fetch(cfg, self.BBOX)
 
         # Verify typename was used in both calls
@@ -679,9 +712,9 @@ class TestBdTopageApi:
 # 9. EU-Hydro API (mocked HTTP)
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestEuHydroApi:
-
     BBOX = (10.0, 45.0, 11.0, 46.0)
 
     def _mapserver_json(self, group_name="River_Net_lines", layer_ids=(5, 6)):
@@ -689,25 +722,29 @@ class TestEuHydroApi:
             {"id": 0, "name": group_name, "type": "Group Layer", "parentLayerId": -1},
         ]
         for lid in layer_ids:
-            layers.append({
-                "id": lid,
-                "name": f"Strahler_{lid}",
-                "type": "Feature Layer",
-                "parentLayerId": 0,
-            })
+            layers.append(
+                {
+                    "id": lid,
+                    "name": f"Strahler_{lid}",
+                    "type": "Feature Layer",
+                    "parentLayerId": 0,
+                }
+            )
         return {"layers": layers}
 
     def _layer_query_json(self, n=3):
         features = []
         for i in range(n):
-            features.append({
-                "type": "Feature",
-                "geometry": {
-                    "type": "LineString",
-                    "coordinates": [[10.0 + i * 0.01, 45.5], [10.1 + i * 0.01, 45.6]],
-                },
-                "properties": {"OBJECTID": i, "STRAHLER": 3},
-            })
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[10.0 + i * 0.01, 45.5], [10.1 + i * 0.01, 45.6]],
+                    },
+                    "properties": {"OBJECTID": i, "STRAHLER": 3},
+                }
+            )
         return {"type": "FeatureCollection", "features": features}
 
     @patch("hydromodpy.core.io.http_client.HTTPClient.get")
@@ -765,7 +802,12 @@ class TestEuHydroApi:
         ms = {
             "layers": [
                 {"id": 0, "name": "Other_Group", "type": "Group Layer", "parentLayerId": -1},
-                {"id": 10, "name": "Strahler_Order_3", "type": "Feature Layer", "parentLayerId": 99},
+                {
+                    "id": 10,
+                    "name": "Strahler_Order_3",
+                    "type": "Feature Layer",
+                    "parentLayerId": 99,
+                },
             ]
         }
         ids = _feature_layer_ids_in_group(ms, "River_Net_lines")
@@ -776,9 +818,7 @@ class TestEuHydroApi:
         from hydromodpy.data.variables.hydrography.apis.euhydro import fetch
 
         ms_resp = MagicMock()
-        ms_resp.json.return_value = self._mapserver_json(
-            group_name="Canal_lines", layer_ids=(7,)
-        )
+        ms_resp.json.return_value = self._mapserver_json(group_name="Canal_lines", layer_ids=(7,))
         ms_resp.raise_for_status = MagicMock()
 
         name7_resp = MagicMock()
@@ -802,9 +842,9 @@ class TestEuHydroApi:
 # 10. HydrographyManager pipeline (mocked backend)
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestHydrographyManager:
-
     def _make_manager(self, tmp_path, sources, crs="EPSG:2154"):
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
@@ -826,8 +866,7 @@ class TestHydrographyManager:
         lines_gdf = _make_lines_gdf(crs="EPSG:2154", n=3)
         # Shift coords into watershed bbox
         lines_gdf.geometry = [
-            LineString([(350000 + i * 100, 6750000), (350000 + i * 100, 6751000)])
-            for i in range(3)
+            LineString([(350000 + i * 100, 6750000), (350000 + i * 100, 6751000)]) for i in range(3)
         ]
         mock_fetch.return_value = lines_gdf
 
@@ -860,10 +899,16 @@ class TestHydrographyManager:
 
         poly_gdf = gpd.GeoDataFrame(
             {"id": [1]},
-            geometry=[Polygon([
-                (350000, 6750000), (351000, 6750000),
-                (351000, 6751000), (350000, 6751000),
-            ])],
+            geometry=[
+                Polygon(
+                    [
+                        (350000, 6750000),
+                        (351000, 6750000),
+                        (351000, 6751000),
+                        (350000, 6751000),
+                    ]
+                )
+            ],
             crs="EPSG:2154",
         )
         mock_fetch.return_value = poly_gdf
@@ -1003,6 +1048,7 @@ class TestHydrographyManager:
 # 11. Catalog / SQL registration
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestCatalogHydrography:
     """Test that hydrography data can be registered in the DataCatalog."""
@@ -1068,12 +1114,17 @@ class TestCatalogHydrography:
 
         cat = DataCatalog(db_path=None)
         cat.register(
-            variable="hydrography", source="custom",
-            file_path="/tmp/a.shp", is_custom=True, file_mtime=0.0,
+            variable="hydrography",
+            source="custom",
+            file_path="/tmp/a.shp",
+            is_custom=True,
+            file_mtime=0.0,
         )
         cat.register(
-            variable="hydrography", source="bdtopage",
-            file_path="/tmp/b.shp", file_mtime=0.0,
+            variable="hydrography",
+            source="bdtopage",
+            file_path="/tmp/b.shp",
+            file_mtime=0.0,
         )
         df = cat.list_entries(variable="hydrography")
         assert len(df) == 2
@@ -1083,8 +1134,10 @@ class TestCatalogHydrography:
 
         cat = DataCatalog(db_path=None)
         cat.register(
-            variable="hydrography", source="osm",
-            file_path="/tmp/osm.shp", file_mtime=0.0,
+            variable="hydrography",
+            source="osm",
+            file_path="/tmp/osm.shp",
+            file_mtime=0.0,
         )
         cat.invalidate(variable="hydrography", source="osm")
         df = cat.list_entries(variable="hydrography")
@@ -1096,8 +1149,10 @@ class TestCatalogHydrography:
         db = tmp_path / "catalog.duckdb"
         cat1 = DataCatalog(db_path=db)
         cat1.register(
-            variable="hydrography", source="euhydro",
-            file_path="/tmp/eu.shp", file_mtime=0.0,
+            variable="hydrography",
+            source="euhydro",
+            file_path="/tmp/eu.shp",
+            file_mtime=0.0,
         )
 
         # Reopen from disk
@@ -1111,12 +1166,14 @@ class TestCatalogHydrography:
 # 12. TOML format acceptance
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestTomlFormatAcceptance:
     """Verify various TOML layouts produce valid configs."""
 
     def test_minimal_custom(self, tmp_path):
         from hydromodpy.data.data_managers_config import DataManagersConfig
+
         section = {
             "types": ["hydrography"],
             "hydrography": {
@@ -1128,6 +1185,7 @@ class TestTomlFormatAcceptance:
 
     def test_minimal_osm(self):
         from hydromodpy.data.data_managers_config import DataManagersConfig
+
         section = {
             "types": ["hydrography"],
             "hydrography": {"sources": [{"source": "osm"}]},
@@ -1137,6 +1195,7 @@ class TestTomlFormatAcceptance:
 
     def test_minimal_bdtopage(self):
         from hydromodpy.data.data_managers_config import DataManagersConfig
+
         section = {
             "types": ["hydrography"],
             "hydrography": {"sources": [{"source": "bdtopage"}]},
@@ -1146,6 +1205,7 @@ class TestTomlFormatAcceptance:
 
     def test_minimal_euhydro(self):
         from hydromodpy.data.data_managers_config import DataManagersConfig
+
         section = {
             "types": ["hydrography"],
             "hydrography": {"sources": [{"source": "euhydro"}]},
@@ -1155,14 +1215,23 @@ class TestTomlFormatAcceptance:
 
     def test_multi_source_toml(self, tmp_path):
         from hydromodpy.data.data_managers_config import DataManagersConfig
+
         section = {
             "types": ["hydrography"],
             "hydrography": {
                 "sources": [
                     {"source": "custom", "path": str(tmp_path / "local.shp")},
                     {"source": "osm", "waterway_types": ["canal"]},
-                    {"source": "bdtopage", "typename": "sa:CoursEau_FXX_Topage2019", "page_size": 100},
-                    {"source": "euhydro", "group_name": "River_Net_lines", "euhydro_page_size": 500},
+                    {
+                        "source": "bdtopage",
+                        "typename": "sa:CoursEau_FXX_Topage2019",
+                        "page_size": 100,
+                    },
+                    {
+                        "source": "euhydro",
+                        "group_name": "River_Net_lines",
+                        "euhydro_page_size": 500,
+                    },
                 ],
             },
         }
@@ -1171,6 +1240,7 @@ class TestTomlFormatAcceptance:
 
     def test_invalid_source_in_toml(self):
         from hydromodpy.data.data_managers_config import DataManagersConfig
+
         section = {
             "types": ["hydrography"],
             "hydrography": {"sources": [{"source": "invalid_api"}]},
@@ -1182,6 +1252,7 @@ class TestTomlFormatAcceptance:
 # =====================================================================
 # 13. Supported formats / internal data summary
 # =====================================================================
+
 
 @pytest.mark.fast
 class TestDocumentedContracts:
@@ -1205,12 +1276,14 @@ class TestDocumentedContracts:
     def test_custom_vector_formats(self):
         """custom.py supports SHP, GPKG, GeoJSON."""
         from hydromodpy.data.variables.hydrography.custom import _VECTOR_EXTENSIONS
+
         assert "*.shp" in _VECTOR_EXTENSIONS
         assert "*.gpkg" in _VECTOR_EXTENSIONS
         assert "*.geojson" in _VECTOR_EXTENSIONS
 
     def test_result_is_dataclass(self):
         import dataclasses
+
         assert dataclasses.is_dataclass(HydrographyResult)
         assert not dataclasses.is_dataclass(HydrographyConfig)
 
@@ -1219,16 +1292,19 @@ class TestDocumentedContracts:
         # This is verified in the individual API tests above; here we just
         # verify the modules are importable and have a fetch function.
         from hydromodpy.data.variables.hydrography.apis import osm, bdtopage, euhydro
+
         assert callable(osm.fetch)
         assert callable(bdtopage.fetch)
         assert callable(euhydro.fetch)
 
     def test_manager_variable_name(self):
         from hydromodpy.data.variables.hydrography.manager import HydrographyManager
+
         assert HydrographyManager.VARIABLE_NAME == "hydrography"
 
     def test_package_exports(self):
         import hydromodpy.data.variables.hydrography as pkg
+
         assert hasattr(pkg, "HydrographyConfig")
         assert hasattr(pkg, "HydrographySourceConfig")
         assert hasattr(pkg, "HydrographyManager")
@@ -1238,6 +1314,7 @@ class TestDocumentedContracts:
 # =====================================================================
 # 15. Custom loader — TIF support
 # =====================================================================
+
 
 @pytest.mark.fast
 class TestCustomLoaderTif:
@@ -1304,6 +1381,7 @@ class TestCustomLoaderTif:
 
     def test_raster_extensions_constant(self):
         from hydromodpy.data.variables.hydrography.custom import _RASTER_EXTENSIONS
+
         assert "*.tif" in _RASTER_EXTENSIONS
         assert "*.tiff" in _RASTER_EXTENSIONS
 
@@ -1311,6 +1389,7 @@ class TestCustomLoaderTif:
 # =====================================================================
 # 16. Manager — TIF pipeline
 # =====================================================================
+
 
 @pytest.mark.fast
 class TestManagerTifPipeline:
@@ -1359,9 +1438,15 @@ class TestManagerTifPipeline:
         data[0, 0] = -32768
         data[10, 10] = -1
         with rasterio.open(
-            str(tif), "w", driver="GTiff",
-            height=shape[0], width=shape[1], count=1, dtype="float32",
-            crs="EPSG:2154", transform=transform,
+            str(tif),
+            "w",
+            driver="GTiff",
+            height=shape[0],
+            width=shape[1],
+            count=1,
+            dtype="float32",
+            crs="EPSG:2154",
+            transform=transform,
         ) as ds:
             ds.write(data, 1)
 
@@ -1378,6 +1463,7 @@ class TestManagerTifPipeline:
 # =====================================================================
 # 17. Catalog cache in manager
 # =====================================================================
+
 
 @pytest.mark.fast
 class TestCatalogCacheManager:
@@ -1396,8 +1482,11 @@ class TestCatalogCacheManager:
             sources=[{"source": "osm", "force_refresh": force_refresh}],
         )
         mgr = HydrographyManager(
-            config=cfg, geographic=geo, out_path=tmp_path,
-            catalog=catalog, data_dir=data_dir,
+            config=cfg,
+            geographic=geo,
+            out_path=tmp_path,
+            catalog=catalog,
+            data_dir=data_dir,
         )
         return mgr, catalog, data_dir
 
@@ -1438,8 +1527,11 @@ class TestCatalogCacheManager:
 
         # Second call — should use cache, not call API again
         mgr2 = HydrographyManager(
-            config=mgr.config, geographic=mgr.geographic,
-            out_path=tmp_path, catalog=catalog, data_dir=data_dir,
+            config=mgr.config,
+            geographic=mgr.geographic,
+            out_path=tmp_path,
+            catalog=catalog,
+            data_dir=data_dir,
         )
         mgr2.load()
         # API was NOT called again
@@ -1471,8 +1563,11 @@ class TestCatalogCacheManager:
 
         # Even with cache entry, force_refresh should re-fetch
         mgr2 = HydrographyManager(
-            config=mgr.config, geographic=mgr.geographic,
-            out_path=tmp_path, catalog=catalog, data_dir=data_dir,
+            config=mgr.config,
+            geographic=mgr.geographic,
+            out_path=tmp_path,
+            catalog=catalog,
+            data_dir=data_dir,
         )
         mgr2.load()
         assert mock_osm_fetch.call_count == 2
@@ -1484,8 +1579,11 @@ class TestCatalogCacheManager:
         geo = _fake_geographic(tmp_path)
         cfg = HydrographyConfig(sources=[{"source": "osm"}])
         mgr = HydrographyManager(
-            config=cfg, geographic=geo, out_path=tmp_path,
-            catalog=None, data_dir=None,
+            config=cfg,
+            geographic=geo,
+            out_path=tmp_path,
+            catalog=None,
+            data_dir=None,
         )
         result = mgr._try_load_cached("osm", (-2, 47, -1, 49))
         assert result is None
@@ -1502,25 +1600,33 @@ class TestCatalogCacheManager:
         small_gpkg = data_dir / "small.gpkg"
         _make_lines_gdf().to_file(small_gpkg, driver="GPKG")
         small_id = catalog.register(
-            variable="hydrography", source="osm",
+            variable="hydrography",
+            source="osm",
             file_path=str(small_gpkg),
             bbox=(-2.0, 47.5, -1.5, 48.0),
-            crs="EPSG:4326", is_custom=False, file_mtime=0.0,
+            crs="EPSG:4326",
+            is_custom=False,
+            file_mtime=0.0,
         )
 
         # Register a bigger bbox and subsume
         big_gpkg = data_dir / "big.gpkg"
         _make_lines_gdf().to_file(big_gpkg, driver="GPKG")
         big_id = catalog.register(
-            variable="hydrography", source="osm",
+            variable="hydrography",
+            source="osm",
             file_path=str(big_gpkg),
             bbox=(-3.0, 47.0, -1.0, 49.0),
-            crs="EPSG:4326", is_custom=False, file_mtime=0.0,
+            crs="EPSG:4326",
+            is_custom=False,
+            file_mtime=0.0,
         )
         removed = catalog.subsume_entries(
-            variable="hydrography", source="osm",
+            variable="hydrography",
+            source="osm",
             bbox=(-3.0, 47.0, -1.0, 49.0),
-            date_start=None, date_end=None,
+            date_start=None,
+            date_end=None,
             exclude_id=big_id,
         )
         assert removed == 1
@@ -1535,15 +1641,20 @@ class TestCatalogCacheManager:
 
         catalog = DataCatalog(db_path=None)
         catalog.register(
-            variable="hydrography", source="osm",
+            variable="hydrography",
+            source="osm",
             file_path="/tmp/custom.gpkg",
             bbox=(-2.0, 47.5, -1.5, 48.0),
-            crs="EPSG:4326", is_custom=True, file_mtime=0.0,
+            crs="EPSG:4326",
+            is_custom=True,
+            file_mtime=0.0,
         )
         removed = catalog.subsume_entries(
-            variable="hydrography", source="osm",
+            variable="hydrography",
+            source="osm",
             bbox=(-3.0, 47.0, -1.0, 49.0),
-            date_start=None, date_end=None,
+            date_start=None,
+            date_end=None,
         )
         assert removed == 0
 
@@ -1552,13 +1663,15 @@ class TestCatalogCacheManager:
 # 18. Result with optional streams
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestResultOptionalStreams:
-
     def test_streams_none_allowed(self):
         arr = np.zeros((10, 10))
         result = HydrographyResult(
-            streams=None, tif_streams="/tmp/s.tif", streams_array=arr,
+            streams=None,
+            tif_streams="/tmp/s.tif",
+            streams_array=arr,
         )
         assert result.streams is None
         assert result.tif_streams == "/tmp/s.tif"
@@ -1566,7 +1679,9 @@ class TestResultOptionalStreams:
     def test_streams_str_still_works(self):
         arr = np.zeros((10, 10))
         result = HydrographyResult(
-            streams="/tmp/s.shp", tif_streams="/tmp/s.tif", streams_array=arr,
+            streams="/tmp/s.shp",
+            tif_streams="/tmp/s.tif",
+            streams_array=arr,
         )
         assert result.streams == "/tmp/s.shp"
 
@@ -1575,9 +1690,9 @@ class TestResultOptionalStreams:
 # 19. Config — force_refresh field
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestForceRefreshConfig:
-
     def test_force_refresh_default_false(self):
         cfg = HydrographySourceConfig(source="osm")
         assert cfg.force_refresh is False
@@ -1607,11 +1722,12 @@ class TestForceRefreshConfig:
 # 20. DataStore — load_hydrography method
 # =====================================================================
 
+
 @pytest.mark.fast
 class TestDataStoreHydrography:
-
     def test_load_hydrography_method_exists(self):
         from hydromodpy.data.store import DataStore
+
         assert hasattr(DataStore, "load_hydrography")
 
     @patch("hydromodpy.data.variables.hydrography.manager.HydrographyManager.load")
@@ -1620,7 +1736,9 @@ class TestDataStoreHydrography:
         from hydromodpy.data.store import DataStore
 
         mock_load.return_value = HydrographyResult(
-            streams=None, tif_streams="/tmp/s.tif", streams_array=np.zeros((5, 5)),
+            streams=None,
+            tif_streams="/tmp/s.tif",
+            streams_array=np.zeros((5, 5)),
         )
 
         # Create minimal workspace

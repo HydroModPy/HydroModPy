@@ -35,8 +35,7 @@ class CalibParameterDecl(HydroModelBase):
 
     bounds: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
-        description="[low, high] physical bounds. Inherits from Pydantic "
-        "annotation when omitted.",
+        description="[low, high] physical bounds. Inherits from Pydantic annotation when omitted.",
     )
     transform: Annotated[Literal["identity", "log", "logit"], Profile.USER] = Field(
         default="identity",
@@ -52,7 +51,9 @@ class CalibParameterDecl(HydroModelBase):
         description="Dotted path into HydroModPyConfig. Optional: when omitted, "
         "the caller is responsible for injection.",
     )
-    units: Annotated[str | None, Profile.USER] = Field(default=None, description="Parameter units label.")
+    units: Annotated[str | None, Profile.USER] = Field(
+        default=None, description="Parameter units label."
+    )
 
 
 class CalibrationConfig(HydroModelBase):
@@ -75,8 +76,7 @@ class CalibrationConfig(HydroModelBase):
     batch_size: Annotated[int, Profile.DEV] = Field(
         default=1,
         ge=1,
-        description="Number of suggestions drawn per ask (for parallel "
-        "optimizers).",
+        description="Number of suggestions drawn per ask (for parallel optimizers).",
     )
     seed: Annotated[int | None, Profile.USER] = Field(
         default=None,

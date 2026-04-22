@@ -47,13 +47,24 @@ def create_watershed_plot(dem_path, BV, model_name, visualization_watershed, vis
     logger.info("PLOT: WATERSHED INFO")
     visualization_watershed.watershed_local(dem_path, BV)
     visu = visualization_results.Visualization(BV, model_name)
-    visu.visual2D(object_list=['map','grid'], color_scale=[(None,None),(None,None)], lines=None)
+    visu.visual2D(object_list=["map", "grid"], color_scale=[(None, None), (None, None)], lines=None)
     logger.info("Watershed plot created")
 
 
-def create_map_plot(wtd_data, wtd_rio, seep_data, seep_rio, sim_contour, sim_pathlines,
-                    title='SIMULATED: time 1/12', figsize=(8, 5), dpi=300,
-                    vline_pos=None, vline_width=None, pixel_res=75):
+def create_map_plot(
+    wtd_data,
+    wtd_rio,
+    seep_data,
+    seep_rio,
+    sim_contour,
+    sim_pathlines,
+    title="SIMULATED: time 1/12",
+    figsize=(8, 5),
+    dpi=300,
+    vline_pos=None,
+    vline_width=None,
+    pixel_res=75,
+):
     """
     Create water table depth and seepage map plot.
 
@@ -94,29 +105,41 @@ def create_map_plot(wtd_data, wtd_rio, seep_data, seep_rio, sim_contour, sim_pat
 
     Examples:
     ---------
-    >>> fig, ax = create_map_plot(wtd_data, wtd_rio, seep_data, seep_rio,
-    ...                            sim_contour, sim_pathlines, title='Water Table Depth')
+    >>> fig, ax = create_map_plot(
+    ...     wtd_data,
+    ...     wtd_rio,
+    ...     seep_data,
+    ...     seep_rio,
+    ...     sim_contour,
+    ...     sim_pathlines,
+    ...     title="Water Table Depth",
+    ... )
     >>> # Auto-detect vline_width (no parameters needed!)
-    >>> fig, ax = create_map_plot(wtd_data, wtd_rio, seep_data, seep_rio,
-    ...                            sim_contour, sim_pathlines)
+    >>> fig, ax = create_map_plot(
+    ...     wtd_data, wtd_rio, seep_data, seep_rio, sim_contour, sim_pathlines
+    ... )
     """
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
 
     # Plot water table depth
-    sim_wtd = rasterio.plot.show(wtd_data, ax=ax,
-                                 transform=wtd_rio.transform,
-                                 cmap='jet',
-                                 alpha=0.5, zorder=0,
-                                 aspect="auto")
+    sim_wtd = rasterio.plot.show(
+        wtd_data, ax=ax, transform=wtd_rio.transform, cmap="jet", alpha=0.5, zorder=0, aspect="auto"
+    )
 
     # Plot seepage areas
-    rasterio.plot.show(seep_data, ax=ax, transform=seep_rio.transform,
-                       cmap=mpl.colors.ListedColormap(['k']), alpha=1,
-                       zorder=1, aspect="auto")
+    rasterio.plot.show(
+        seep_data,
+        ax=ax,
+        transform=seep_rio.transform,
+        cmap=mpl.colors.ListedColormap(["k"]),
+        alpha=1,
+        zorder=1,
+        aspect="auto",
+    )
 
     # Plot watershed boundary and pathlines
-    sim_contour.plot(ax=ax, lw=3, ec='k', fc='None')
-    sim_pathlines.plot(ax=ax, color='k')
+    sim_contour.plot(ax=ax, lw=3, ec="k", fc="None")
+    sim_pathlines.plot(ax=ax, color="k")
 
     ax.set_title(title)
 
@@ -127,19 +150,25 @@ def create_map_plot(wtd_data, wtd_rio, seep_data, seep_rio, sim_contour, sim_pat
     # Add vertical line
     if vline_pos is None:
         vline_pos = ax.get_xlim()[0] + (vline_width * pixel_res)
-    ax.axvline(x=vline_pos, color='k', ls='--', lw=3)
+    ax.axvline(x=vline_pos, color="k", ls="--", lw=3)
 
-    fig.suptitle('Seepage fed by pathlines and map of water table depth [m]',
-                 y=1.02, fontsize=12)
+    fig.suptitle("Seepage fed by pathlines and map of water table depth [m]", y=1.02, fontsize=12)
     fig.tight_layout()
 
     logger.info("Map plot created")
     return fig, ax
 
 
-def create_crosssection_plot(wte_data, dem_data, wte_col=None,
-                            title='SIMULATED: time 1/12', figsize=(7, 5), dpi=300,
-                            xlim=None, ylim=None):
+def create_crosssection_plot(
+    wte_data,
+    dem_data,
+    wte_col=None,
+    title="SIMULATED: time 1/12",
+    figsize=(7, 5),
+    dpi=300,
+    xlim=None,
+    ylim=None,
+):
     """
     Create water table cross-section plot.
 
@@ -183,8 +212,9 @@ def create_crosssection_plot(wte_data, dem_data, wte_col=None,
     >>> fig, ax = create_crosssection_plot(wte_data, dem_data, wte_col=30)
 
     >>> # Full control
-    >>> fig, ax = create_crosssection_plot(wte_data, dem_data, wte_col=28,
-    ...                                     xlim=(0, 30), ylim=(40, 150))
+    >>> fig, ax = create_crosssection_plot(
+    ...     wte_data, dem_data, wte_col=28, xlim=(0, 30), ylim=(40, 150)
+    ... )
     """
     # Auto-detect wte_col if not provided (use middle of data)
     if wte_col is None:
@@ -204,38 +234,42 @@ def create_crosssection_plot(wte_data, dem_data, wte_col=None,
 
     # Extract cross-section data
     x_wte = np.arange(0, wte_data.shape[0], 1)
-    y_wte = wte_data[:, wte_col:wte_col+1]
+    y_wte = wte_data[:, wte_col : wte_col + 1]
     y_wte = np.concatenate(y_wte, axis=0)
 
     x_dem = np.arange(0, dem_data.shape[0], 1)
-    y_dem = dem_data[:, wte_col:wte_col+1]
+    y_dem = dem_data[:, wte_col : wte_col + 1]
     y_dem = np.concatenate(y_dem, axis=0)
 
     # Plot water table
-    ax.fill_between(x_wte, x_wte*0, y_wte, lw=0, alpha=0.3, color='dodgerblue')
-    ax.plot(x_wte, y_wte, lw=3, color='blue', label='Water table')
+    ax.fill_between(x_wte, x_wte * 0, y_wte, lw=0, alpha=0.3, color="dodgerblue")
+    ax.plot(x_wte, y_wte, lw=3, color="blue", label="Water table")
 
     # Plot topography
-    ax.fill_between(x_dem, y_wte, y_dem, lw=0, alpha=0.3, color='saddlebrown')
-    ax.plot(x_dem, y_dem, lw=3, color='saddlebrown', label='Topography')
+    ax.fill_between(x_dem, y_wte, y_dem, lw=0, alpha=0.3, color="saddlebrown")
+    ax.plot(x_dem, y_dem, lw=3, color="saddlebrown", label="Topography")
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-    ax.legend(prop={'size': 12})
-    ax.set_xlabel('X pixels [75 m resolution]')
-    ax.set_ylabel('Elevation [m.a.s.l]')
+    ax.legend(prop={"size": 12})
+    ax.set_xlabel("X pixels [75 m resolution]")
+    ax.set_ylabel("Elevation [m.a.s.l]")
     ax.set_title(title)
 
-    fig.suptitle('Cross-section of water table elevation [m] at X=152737 crossing 2 pumping wells',
-                 y=1.02, fontsize=12)
+    fig.suptitle(
+        "Cross-section of water table elevation [m] at X=152737 crossing 2 pumping wells",
+        y=1.02,
+        fontsize=12,
+    )
     fig.tight_layout()
 
     logger.info("Cross-section plot created")
     return fig, ax
 
 
-def create_timeseries_plot(timeseries, well_1_fluxes, well_2_fluxes,
-                          figsize=(8, 5), dpi=300, title='SIMULATED: time 1/12'):
+def create_timeseries_plot(
+    timeseries, well_1_fluxes, well_2_fluxes, figsize=(8, 5), dpi=300, title="SIMULATED: time 1/12"
+):
     """
     Create timeseries plot with dual axes.
 
@@ -267,8 +301,9 @@ def create_timeseries_plot(timeseries, well_1_fluxes, well_2_fluxes,
 
     Examples:
     ---------
-    >>> fig, ax = create_timeseries_plot(timeseries, well_1_fluxes, well_2_fluxes,
-    ...                                   figsize=(10, 6), title='Year 2017')
+    >>> fig, ax = create_timeseries_plot(
+    ...     timeseries, well_1_fluxes, well_2_fluxes, figsize=(10, 6), title="Year 2017"
+    ... )
     """
     # Prepare well flux data
     well_1_plot = well_1_fluxes.copy()
@@ -281,28 +316,53 @@ def create_timeseries_plot(timeseries, well_1_fluxes, well_2_fluxes,
     axb = ax.twinx()
 
     # Plot recharge and outflow on left axis
-    ax.step(timeseries.index, timeseries['recharge']*30*1000,
-            lw=8, color='dodgerblue', label='Recharge total', where='pre', clip_on=False)
-    ax.step(timeseries.index, timeseries['outflow_drain']*30*1000,
-            lw=5, color='red', alpha=1, label='Outflow at outlet', where='pre', clip_on=False)
+    ax.step(
+        timeseries.index,
+        timeseries["recharge"] * 30 * 1000,
+        lw=8,
+        color="dodgerblue",
+        label="Recharge total",
+        where="pre",
+        clip_on=False,
+    )
+    ax.step(
+        timeseries.index,
+        timeseries["outflow_drain"] * 30 * 1000,
+        lw=5,
+        color="red",
+        alpha=1,
+        label="Outflow at outlet",
+        where="pre",
+        clip_on=False,
+    )
 
-    ax.set_xlim(pd.to_datetime('2017-01'), pd.to_datetime('2018-01'))
-    ax.set_ylabel('Output flow results [mm/month]')
+    ax.set_xlim(pd.to_datetime("2017-01"), pd.to_datetime("2018-01"))
+    ax.set_ylabel("Output flow results [mm/month]")
     ax.set_ylim(0, 70)
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_minor_locator(mdates.MonthLocator())
-    ax.xaxis.set_minor_formatter(mdates.DateFormatter('%m'))
-    ax.legend(prop={'size': 12})
+    ax.xaxis.set_minor_formatter(mdates.DateFormatter("%m"))
+    ax.legend(prop={"size": 12})
 
     # Plot well pumping on right axis
-    axb.bar(timeseries.index, well_all_plot, clip_on=False, width=5,
-            lw=0, color='darkorange', label='Water from wells')
-    axb.set_ylabel('Sum of pumping in wells [L$^3$/T]', rotation=270, labelpad=25)
-    axb.legend(prop={'size': 12}, loc='lower left', facecolor='white')
+    axb.bar(
+        timeseries.index,
+        well_all_plot,
+        clip_on=False,
+        width=5,
+        lw=0,
+        color="darkorange",
+        label="Water from wells",
+    )
+    axb.set_ylabel("Sum of pumping in wells [L$^3$/T]", rotation=270, labelpad=25)
+    axb.legend(prop={"size": 12}, loc="lower left", facecolor="white")
 
     ax.set_title(title)
-    fig.suptitle('Date [Year 2017: monthly stress-period (12) with daily time step length (335 in total)]',
-                 y=1.02, fontsize=12)
+    fig.suptitle(
+        "Date [Year 2017: monthly stress-period (12) with daily time step length (335 in total)]",
+        y=1.02,
+        fontsize=12,
+    )
     fig.tight_layout()
 
     logger.info("Timeseries plot created")

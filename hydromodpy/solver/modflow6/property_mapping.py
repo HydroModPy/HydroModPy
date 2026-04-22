@@ -28,13 +28,11 @@ def _coerce_spatial_support_field(zone_obj, *, support_id: str | None = None):
         )
     if not hasattr(zone_obj, "on_mesh"):
         raise TypeError(
-            "Domain spatial support must expose 'on_mesh(...)'. "
-            "Expected a Field-compatible object."
+            "Domain spatial support must expose 'on_mesh(...)'. Expected a Field-compatible object."
         )
     if not hasattr(zone_obj, "identifier"):
         raise TypeError(
-            "Domain spatial support must expose 'identifier'. "
-            "Expected a Field-compatible object."
+            "Domain spatial support must expose 'identifier'. Expected a Field-compatible object."
         )
     return zone_obj
 
@@ -62,9 +60,7 @@ def _resolve_spatial_support_from_domain(*, domain: object, support_id: str) -> 
         if str(getattr(zone_obj, "identifier", "")).strip() == normalized_support_id
     ]
     if len(matches) > 1:
-        raise ValueError(
-            f"Multiple domain zones match spatial support '{normalized_support_id}'."
-        )
+        raise ValueError(f"Multiple domain zones match spatial support '{normalized_support_id}'.")
     return matches[0] if matches else None
 
 
@@ -86,9 +82,7 @@ def _resolve_field_param(*, flow: object, aliases: tuple[str, ...], property_lab
             return str(alias), param_obj
 
     aliases_txt = ", ".join(aliases)
-    raise ValueError(
-        f"Cannot map {property_label}: missing flow parameter among ({aliases_txt})"
-    )
+    raise ValueError(f"Cannot map {property_label}: missing flow parameter among ({aliases_txt})")
 
 
 def _resolve_field_discretization(
@@ -249,8 +243,7 @@ def resolve_flow_property_arrays(
         else {"K", "Sy", "Ss"}
     )
     optional_defaults = {
-        str(name).strip(): float(value)
-        for name, value in (optional_fill_values or {}).items()
+        str(name).strip(): float(value) for name, value in (optional_fill_values or {}).items()
     }
     mesh_2d = _resolve_planar_mesh(planar_mesh, solver_mesh)
     geometry_cache: dict[tuple[int, int], object] = {}

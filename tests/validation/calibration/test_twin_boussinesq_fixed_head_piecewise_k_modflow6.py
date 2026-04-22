@@ -19,7 +19,9 @@ from validation_cases.calibration.twin.steady.boussinesq_fixed_head_piecewise_k_
 @pytest.mark.validation
 @pytest.mark.steady
 @pytest.mark.mf6
-def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_recovers_truth() -> None:
+def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_recovers_truth() -> (
+    None
+):
     """Run the steady piecewise-K twin benchmark and verify zoned K recovery."""
     pytest.importorskip("cma")
 
@@ -41,19 +43,13 @@ def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_r
     assert benchmark.observations_truth["q_east"]
     assert len(benchmark.method_results) == 4
     random_results = [
-        result
-        for result in benchmark.method_results
-        if result.method_name == "random_search"
+        result for result in benchmark.method_results if result.method_name == "random_search"
     ]
     simplex_result = next(
-        result
-        for result in benchmark.method_results
-        if result.method_name == "simplex"
+        result for result in benchmark.method_results if result.method_name == "simplex"
     )
     cma_es_result = next(
-        result
-        for result in benchmark.method_results
-        if result.method_name == "cma_es"
+        result for result in benchmark.method_results if result.method_name == "cma_es"
     )
     assert len(random_results) == 2
     for result in benchmark.method_results:
@@ -83,6 +79,4 @@ def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_r
     assert sorted_cma_ratios[1] <= 2.0, cma_es_result.to_mapping()
     assert sorted_cma_ratios[-1] <= 5.0, cma_es_result.to_mapping()
     assert all(result.truth_in_distribution is True for result in random_results)
-    assert all(
-        result.model_distribution_sample_count >= 96 for result in random_results
-    )
+    assert all(result.model_distribution_sample_count >= 96 for result in random_results)

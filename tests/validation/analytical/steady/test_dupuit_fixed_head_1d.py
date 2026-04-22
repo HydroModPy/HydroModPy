@@ -42,7 +42,9 @@ def test_dupuit_fixed_head_1d_matches_reference_profile(
     comparison = run_dupuit_fixed_head_comparison(caller_file=__file__, solver=solver)
     profile_tol = dict(comparison.tolerances.get("head_profile", {}))
 
-    assert_metric_below("Head-profile RMSE", comparison.rms_error, float(profile_tol["rmse"]), unit="m")
+    assert_metric_below(
+        "Head-profile RMSE", comparison.rms_error, float(profile_tol["rmse"]), unit="m"
+    )
     assert_metric_below(
         "Head-profile max abs error",
         comparison.max_error,

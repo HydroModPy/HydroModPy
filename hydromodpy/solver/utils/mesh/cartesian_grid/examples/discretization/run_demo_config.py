@@ -70,9 +70,7 @@ def _resolve_geology_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dic
     return out
 
 
-def _resolve_field_param_paths(
-    payload: Mapping[str, Any], *, base_dir: Path
-) -> dict[str, Any]:
+def _resolve_field_param_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[str, Any]:
     out = dict(payload)
     heterogeneous = out.get("field_heterogeneous")
     if not isinstance(heterogeneous, Mapping):
@@ -115,8 +113,7 @@ class SGridFieldParamDiscretizationConfig(HydroModelBase):
     )
     sgrid: dict[str, Any] = Field(
         description=(
-            "Embedded SGrid payload (same keys as section `[sgrid]` "
-            "in SGrid config TOML)."
+            "Embedded SGrid payload (same keys as section `[sgrid]` in SGrid config TOML)."
         )
     )
 
@@ -124,8 +121,7 @@ class SGridFieldParamDiscretizationConfig(HydroModelBase):
         default=None,
         ge=2,
         description=(
-            "Optional override for geology_field.on_mesh(...). "
-            "If omitted, geology default is used."
+            "Optional override for geology_field.on_mesh(...). If omitted, geology default is used."
         ),
     )
     depth: float = Field(

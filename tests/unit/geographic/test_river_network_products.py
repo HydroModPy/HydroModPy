@@ -13,7 +13,9 @@ from hydromodpy.spatial.geographic.geographic_config import RiverNetworkConfig
 
 class _FailIfCalledBackend:
     def __getattr__(self, name: str):  # pragma: no cover - defensive
-        raise AssertionError(f"backend method should not be called when river network is disabled: {name}")
+        raise AssertionError(
+            f"backend method should not be called when river network is disabled: {name}"
+        )
 
 
 class _EmptyVectorBackend:
@@ -58,7 +60,9 @@ class _EmptyVectorBackend:
     def read_vector(self, path: str):
         return path
 
-    def raster_streams_to_vector_raster(self, streams_raster, d8_pointer, *, all_vertices: bool = False):
+    def raster_streams_to_vector_raster(
+        self, streams_raster, d8_pointer, *, all_vertices: bool = False
+    ):
         _ = (streams_raster, d8_pointer, all_vertices)
         return type("EmptyVector", (), {"records": (), "projection": "EPSG:2154"})()
 
@@ -130,7 +134,9 @@ def test_build_river_network_products_noop_when_disabled():
     assert result.summary_json is None
 
 
-def test_build_river_network_products_skips_empty_vector_export(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_build_river_network_products_skips_empty_vector_export(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     cfg = RiverNetworkConfig.model_validate(
         {
             "enabled": True,
@@ -172,15 +178,27 @@ def test_build_river_network_products_skips_empty_vector_export(tmp_path: Path, 
         geographic_dir=tmp_path / ".solver_scratch/_preprocessing" / "geographic",
         correcflow_dir=tmp_path / ".solver_scratch/_preprocessing" / "demcorrecflow",
         dem_res_m=50.0,
-        streams_tif_path=tmp_path / ".solver_scratch/_preprocessing" / "geographic" / "river_streams.tif",
-        streams_pruned_tif_path=tmp_path / ".solver_scratch/_preprocessing" / "geographic" / "river_streams_pruned.tif",
+        streams_tif_path=tmp_path
+        / ".solver_scratch/_preprocessing"
+        / "geographic"
+        / "river_streams.tif",
+        streams_pruned_tif_path=tmp_path
+        / ".solver_scratch/_preprocessing"
+        / "geographic"
+        / "river_streams_pruned.tif",
         stream_order_strahler_tif_path=tmp_path
         / ".solver_scratch/_preprocessing"
         / "geographic"
         / "river_stream_order_strahler.tif",
-        stream_link_id_tif_path=tmp_path / ".solver_scratch/_preprocessing" / "geographic" / "river_stream_link_id.tif",
+        stream_link_id_tif_path=tmp_path
+        / ".solver_scratch/_preprocessing"
+        / "geographic"
+        / "river_stream_link_id.tif",
         network_shp_path=network_shp,
-        summary_json_path=tmp_path / ".solver_scratch/_preprocessing" / "geographic" / "river_network_summary.json",
+        summary_json_path=tmp_path
+        / ".solver_scratch/_preprocessing"
+        / "geographic"
+        / "river_network_summary.json",
         backend=backend,
     )
 

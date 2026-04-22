@@ -26,20 +26,23 @@ from hydromodpy.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-VARNAMES = ['precip', 'rechg', 'runoff', 'evapo',
-            'subrun1', 'subrun2', 'perco']
-LABELS = {'precip': "Précipitations totales",
-          'rechg': "Recharge au roc",
-          'runoff': "Ruissellement de surface",
-          'evapo': "Évapotranspiration",
-          'subrun1': "Ruissellement hypodermique superficiel",
-          'subrun2': "Ruissellement hypodermique profond"}
-COLORS = {'precip': '#1f77b4',
-          'rechg': '#ff7f0e',
-          'runoff': '#2ca02c',
-          'evapo': '#d62728',
-          'subrun1': '#9467bd',
-          'subrun2': '#8c564b'}
+VARNAMES = ["precip", "rechg", "runoff", "evapo", "subrun1", "subrun2", "perco"]
+LABELS = {
+    "precip": "Précipitations totales",
+    "rechg": "Recharge au roc",
+    "runoff": "Ruissellement de surface",
+    "evapo": "Évapotranspiration",
+    "subrun1": "Ruissellement hypodermique superficiel",
+    "subrun2": "Ruissellement hypodermique profond",
+}
+COLORS = {
+    "precip": "#1f77b4",
+    "rechg": "#ff7f0e",
+    "runoff": "#2ca02c",
+    "evapo": "#d62728",
+    "subrun1": "#9467bd",
+    "subrun2": "#8c564b",
+}
 
 
 class HelpOutput(object):
@@ -59,13 +62,13 @@ class HelpOutput(object):
     def load_from_hdf5(self, path_to_hdf5: str):
         """Read data and grid from an HDF5 file at the specified location."""
         logger.info("Loading water budget dataset from %s", path_to_hdf5)
-        hdf5 = h5py.File(path_to_hdf5, mode='r+')
+        hdf5 = h5py.File(path_to_hdf5, mode="r+")
         try:
             # Load the data.
             self.data = {}
-            for key in list(hdf5['data'].keys()):
-                values = np.array(hdf5['data'][key])
-                if key == 'cid':
+            for key in list(hdf5["data"].keys()):
+                values = np.array(hdf5["data"][key])
+                if key == "cid":
                     values = values.astype(str)
                 self.data[key] = values
         finally:
@@ -75,28 +78,25 @@ class HelpOutput(object):
     def save_to_hdf5(self, path_to_hdf5: str):
         """Save the data and grid to an HDF5 file at the specified location."""
         logger.info("Writing water budget dataset to %s", osp.basename(path_to_hdf5))
-        hdf5file = h5py.File(path_to_hdf5, mode='w')
+        hdf5file = h5py.File(path_to_hdf5, mode="w")
         try:
             # Save the data.
-            group = hdf5file.create_group('data')
+            group = hdf5file.create_group("data")
             for key in list(self.data.keys()):
-                if key == 'cid':
+                if key == "cid":
                     # See http://docs.h5py.org/en/latest/strings.html as to
                     # why this is necessary to do this in order to save a list
                     # of strings in a dataset with h5py.
-                    group.create_dataset(
-                        key,
-                        data=self.data[key],
-                        dtype=h5py.string_dtype())
+                    group.create_dataset(key, data=self.data[key], dtype=h5py.string_dtype())
                 else:
                     group.create_dataset(key, data=self.data[key])
         finally:
             hdf5file.close()
         logger.info("Water budget dataset written successfully")
 
-    def save_to_csv(self, path_to_csv: str,
-                    year_from: int = -np.inf,
-                    year_to: int = np.inf) -> None:
+    def save_to_csv(
+        self, path_to_csv: str, year_from: int = -np.inf, year_to: int = np.inf
+    ) -> None:
         """
         Save in a csv file the annual average values of the components of the
         water budget calculated for each cell of the grid.
@@ -111,17 +111,17 @@ class HelpOutput(object):
             are calculated. The default is np.inf.
         """
         logger.info("Exporting annual averages to %s", osp.basename(path_to_csv))
-        df = pd.DataFrame(index=self.data['cid'])
-        df.index.name = 'cid'
+        df = pd.DataFrame(index=self.data["cid"])
+        df.index.name = "cid"
 
-        df['lat_dd'] = self.data['lat_dd']
-        df['lon_dd'] = self.data['lon_dd']
+        df["lat_dd"] = self.data["lat_dd"]
+        df["lon_dd"] = self.data["lon_dd"]
 
         yearly_avg = self.calc_cells_yearly_avg(year_from, year_to)
         for key, value in yearly_avg.items():
             df[key] = value
 
-        df.to_csv(path_to_csv, encoding='utf8')
+        df.to_csv(path_to_csv, encoding="utf8")
         logger.info("Annual averages exported successfully")
 
     # ---- Calcul
@@ -138,20 +138,20 @@ class HelpOutput(object):
             calculated over the whole study area for each month (columns) and
             every year (index) for which data is available.
         """
-        Np = len(self.data['cid']) - len(self.data['idx_nan'])
+        Np = len(self.data["cid"]) - len(self.data["idx_nan"])
 
         monthly_avg = {}
         for varname in VARNAMES:
             if self.data is None:
-                df = pd.DataFrame(
-                    columns=list(range(1, 13)))
+                df = pd.DataFrame(columns=list(range(1, 13)))
             else:
                 df = pd.DataFrame(
                     data=np.nansum(self.data[varname], axis=0) / Np,
-                    index=self.data['years'],
-                    columns=list(range(1, 13)))
-            df.columns.name = 'month'
-            df.index.name = 'year'
+                    index=self.data["years"],
+                    columns=list(range(1, 13)),
+                )
+            df.columns.name = "month"
+            df.index.name = "year"
             monthly_avg[varname] = df
         return monthly_avg
 
@@ -169,11 +169,9 @@ class HelpOutput(object):
             which data is available.
         """
         monthly_avg = self.calc_area_monthly_avg()
-        return {varname: monthly_avg[varname].sum(axis=1) for
-                varname in VARNAMES}
+        return {varname: monthly_avg[varname].sum(axis=1) for varname in VARNAMES}
 
-    def calc_cells_yearly_avg(self, year_from: int = -np.inf,
-                              year_to: int = np.inf) -> dict:
+    def calc_cells_yearly_avg(self, year_from: int = -np.inf, year_to: int = np.inf) -> dict:
         """
         Calcul the water budget average yearly values for each cell.
 
@@ -193,9 +191,7 @@ class HelpOutput(object):
            a numpy array of the average yearly values calculated for each cell
            of the grid.
         """
-        years_mask = (
-            (self.data['years'] >= year_from) &
-            (self.data['years'] <= year_to))
+        years_mask = (self.data["years"] >= year_from) & (self.data["years"] <= year_to)
 
         yearly_avg = {}
         for varname in VARNAMES:
@@ -220,20 +216,28 @@ class HelpOutput(object):
 
         # Setup axe margins.
         if margins is not None:
-            left_margin = margins[0]/fwidth
-            top_margin = margins[1]/fheight
-            right_margin = margins[2]/fwidth
-            bot_margin = margins[3]/fheight
-            ax.set_position([left_margin, bot_margin,
-                             1 - left_margin - right_margin,
-                             1 - top_margin - bot_margin])
+            left_margin = margins[0] / fwidth
+            top_margin = margins[1] / fheight
+            right_margin = margins[2] / fwidth
+            bot_margin = margins[3] / fheight
+            ax.set_position(
+                [
+                    left_margin,
+                    bot_margin,
+                    1 - left_margin - right_margin,
+                    1 - top_margin - bot_margin,
+                ]
+            )
 
         return fig, ax
 
-    def plot_area_monthly_avg(self, figname: str = None,
-                              year_from: int = -np.inf,
-                              year_to: int = np.inf,
-                              fig_title: str = None) -> Figure:
+    def plot_area_monthly_avg(
+        self,
+        figname: str = None,
+        year_from: int = -np.inf,
+        year_to: int = np.inf,
+        fig_title: str = None,
+    ) -> Figure:
         """
         Plot the monthly average values of the water budget in mm/month
         for the whole study area.
@@ -262,38 +266,54 @@ class HelpOutput(object):
 
         fig, ax = self._create_figure(fsize=(9, 6.5))
 
-        mask_years = (
-            (self.data['years'] >= year_from) &
-            (self.data['years'] <= year_to))
+        mask_years = (self.data["years"] >= year_from) & (self.data["years"] <= year_to)
         months = list(range(1, 13))
         for varname in VARNAMES[:-1]:
             vardataf = avg_monthly[varname]
-            ax.plot(months, vardataf.loc[mask_years, :].mean(axis=0),
-                    marker='o', ms=5, mec='white', clip_on=False, lw=2,
-                    label=LABELS[varname], color=COLORS[varname])
+            ax.plot(
+                months,
+                vardataf.loc[mask_years, :].mean(axis=0),
+                marker="o",
+                ms=5,
+                mec="white",
+                clip_on=False,
+                lw=2,
+                label=LABELS[varname],
+                color=COLORS[varname],
+            )
 
         ax.set_ylabel(
-            'Composantes mensuelles moyennes\ndu bilan hydrologique (mm/mois)',
-            fontsize=16, labelpad=10)
+            "Composantes mensuelles moyennes\ndu bilan hydrologique (mm/mois)",
+            fontsize=16,
+            labelpad=10,
+        )
         ax.axis(ymin=-5)
-        ax.grid(axis='y', color=[0.35, 0.35, 0.35], ls='-', lw=0.5)
+        ax.grid(axis="y", color=[0.35, 0.35, 0.35], ls="-", lw=0.5)
         ax.set_xticks(months)
 
         # http://bdl.oqlf.gouv.qc.ca/bdl/gabarit_bdl.asp?id=3619
-        ax.set_xticklabels(['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul',
-                            'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'])
-        ax.tick_params(axis='both', direction='out', labelsize=12)
+        ax.set_xticklabels(
+            ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"]
+        )
+        ax.tick_params(axis="both", direction="out", labelsize=12)
 
         ax.legend(
-            numpoints=1, fontsize=12, frameon=False, borderaxespad=0,
-            loc='lower left', borderpad=0.5, bbox_to_anchor=(0, 1), ncol=2)
+            numpoints=1,
+            fontsize=12,
+            frameon=False,
+            borderaxespad=0,
+            loc="lower left",
+            borderpad=0.5,
+            bbox_to_anchor=(0, 1),
+            ncol=2,
+        )
 
         # Add the figure title if provided in argument.
         if fig_title is not None:
             fig.suptitle(fig_title, fontsize=16)
 
         # Add note about year considered for the hydrologic budget.
-        masked_years = self.data['years'][mask_years]
+        masked_years = self.data["years"][mask_years]
         year_min = masked_years.min()
         year_max = masked_years.max()
         if year_min == year_max:
@@ -303,12 +323,10 @@ class HelpOutput(object):
             text += f"{year_min:0.0f} - {year_max:0.0f}"
 
         fig.canvas.draw()
-        bbox_bottom, _ = ax.xaxis.get_ticklabel_extents(
-            fig.canvas.get_renderer())
+        bbox_bottom, _ = ax.xaxis.get_ticklabel_extents(fig.canvas.get_renderer())
         y0 = ax.transAxes.inverted().transform(bbox_bottom)[0][1]
-        offset = transforms.ScaledTranslation(0, -12/72, fig.dpi_scale_trans)
-        ax.text(0, y0, text, transform=ax.transAxes + offset,
-                va='top', ha='left')
+        offset = transforms.ScaledTranslation(0, -12 / 72, fig.dpi_scale_trans)
+        ax.text(0, y0, text, transform=ax.transAxes + offset, va="top", ha="left")
 
         # We call tight_layout two times to make sure the layout is
         # adjusted correctly.
@@ -321,10 +339,13 @@ class HelpOutput(object):
 
         return fig
 
-    def plot_area_yearly_avg(self, figname: str = None,
-                             year_from: int = -np.inf,
-                             year_to: int = np.inf,
-                             fig_title: str = None) -> Figure:
+    def plot_area_yearly_avg(
+        self,
+        figname: str = None,
+        year_from: int = -np.inf,
+        year_to: int = np.inf,
+        fig_title: str = None,
+    ) -> Figure:
         """
         Plot the yearly average values of the water budget in mm/year
         for the whole study area.
@@ -351,13 +372,10 @@ class HelpOutput(object):
         """
         fig, ax = self._create_figure(fsize=(9, 5.5))
 
-        text_offset = transforms.ScaledTranslation(
-            0, 3/72, fig.dpi_scale_trans)
+        text_offset = transforms.ScaledTranslation(0, 3 / 72, fig.dpi_scale_trans)
 
         area_yearly_avg = self.calc_area_yearly_avg()
-        mask_years = (
-            (self.data['years'] >= year_from) &
-            (self.data['years'] <= year_to))
+        mask_years = (self.data["years"] >= year_from) & (self.data["years"] <= year_to)
 
         x = 0
         text_handles = []
@@ -367,12 +385,24 @@ class HelpOutput(object):
             vardataf = area_yearly_avg[varname]
             var_avg_yearly = vardataf.loc[mask_years].mean()
 
-            ax.bar(x, var_avg_yearly, 0.85, align='center',
-                   label=LABELS[varname], color=COLORS[varname])
+            ax.bar(
+                x,
+                var_avg_yearly,
+                0.85,
+                align="center",
+                label=LABELS[varname],
+                color=COLORS[varname],
+            )
             text_handles.append(
-                ax.text(x, var_avg_yearly, "%d\nmm/an" % round(var_avg_yearly),
-                        ha='center', va='bottom',
-                        transform=ax.transData + text_offset))
+                ax.text(
+                    x,
+                    var_avg_yearly,
+                    "%d\nmm/an" % round(var_avg_yearly),
+                    ha="center",
+                    va="bottom",
+                    transform=ax.transData + text_offset,
+                )
+            )
         fig.canvas.draw()
 
         # Setup axis limits.
@@ -384,27 +414,35 @@ class HelpOutput(object):
         ymax = np.ceil(ymax * 1.05)
         ax.axis(ymin=0, ymax=ymax, xmin=0.25, xmax=6.75)
 
-        ax.grid(axis='y', color=[0.35, 0.35, 0.35], ls='-', lw=0.5)
+        ax.grid(axis="y", color=[0.35, 0.35, 0.35], ls="-", lw=0.5)
         ax.set_axisbelow(True)
 
-        ax.tick_params(axis='y', direction='out', labelsize=12)
-        ax.tick_params(axis='x', direction='out', length=0)
+        ax.tick_params(axis="y", direction="out", labelsize=12)
+        ax.tick_params(axis="x", direction="out", length=0)
         ax.set_ylabel(
-            'Composantes annuelles moyennes\ndu bilan hydrologique (mm/an)',
-            fontsize=16, labelpad=10)
+            "Composantes annuelles moyennes\ndu bilan hydrologique (mm/an)",
+            fontsize=16,
+            labelpad=10,
+        )
         ax.set_xticklabels([])
 
         ax.legend(
-            numpoints=1, fontsize=12, frameon=False, borderaxespad=0,
-            loc='lower left', borderpad=0.5, bbox_to_anchor=(0, 1, 1, 1),
-            ncol=2)
+            numpoints=1,
+            fontsize=12,
+            frameon=False,
+            borderaxespad=0,
+            loc="lower left",
+            borderpad=0.5,
+            bbox_to_anchor=(0, 1, 1, 1),
+            ncol=2,
+        )
 
         # Add the figure title if provided in argument.
         if fig_title is not None:
             fig.suptitle(fig_title, fontsize=16)
 
         # Add note about year considered for the hydrologic budget.
-        masked_years = self.data['years'][mask_years]
+        masked_years = self.data["years"][mask_years]
         year_min = masked_years.min()
         year_max = masked_years.max()
         if year_min == year_max:
@@ -414,12 +452,10 @@ class HelpOutput(object):
             text += f"{year_min:0.0f} - {year_max:0.0f}"
 
         fig.canvas.draw()
-        bbox_bottom, _ = ax.xaxis.get_ticklabel_extents(
-            fig.canvas.get_renderer())
+        bbox_bottom, _ = ax.xaxis.get_ticklabel_extents(fig.canvas.get_renderer())
         y0 = ax.transAxes.inverted().transform(bbox_bottom)[0][1]
-        offset = transforms.ScaledTranslation(0, -6/72, fig.dpi_scale_trans)
-        ax.text(0, y0, text, transform=ax.transAxes + offset,
-                va='top', ha='left')
+        offset = transforms.ScaledTranslation(0, -6 / 72, fig.dpi_scale_trans)
+        ax.text(0, y0, text, transform=ax.transAxes + offset, va="top", ha="left")
 
         # We call tight_layout two times to make sure the layout is
         # adjusted correctly.
@@ -431,10 +467,13 @@ class HelpOutput(object):
 
         return fig
 
-    def plot_area_yearly_series(self, figname: str = None,
-                                year_from: int = -np.inf,
-                                year_to: int = np.inf,
-                                fig_title: str = None) -> Figure:
+    def plot_area_yearly_series(
+        self,
+        figname: str = None,
+        year_from: int = -np.inf,
+        year_to: int = np.inf,
+        fig_title: str = None,
+    ) -> Figure:
         """
         Plot the yearly values of the water budget in mm/year calculated
         over the whole study area.
@@ -459,39 +498,60 @@ class HelpOutput(object):
         Figure
             The matplotlib figure instance created by this method.
         """
-        fig, ax = self._create_figure(
-            fsize=(9, 6.5), margins=(1.5, 1, 0.25, 0.7))
+        fig, ax = self._create_figure(fsize=(9, 6.5), margins=(1.5, 1, 0.25, 0.7))
 
-        years = self.data['years']
+        years = self.data["years"]
         yearly_avg = self.calc_area_yearly_avg()
         mask_years = (years >= year_from) & (years <= year_to)
 
         for varname in VARNAMES[:-1]:
             masked_data = yearly_avg[varname].loc[mask_years]
-            masked_years = masked_data.index.values.astype('int')
+            masked_years = masked_data.index.values.astype("int")
 
-            ax.plot(masked_years, masked_data, marker='o', mec='white', ms=5,
-                    clip_on=False, lw=2, color=COLORS[varname],
-                    label=LABELS[varname])
+            ax.plot(
+                masked_years,
+                masked_data,
+                marker="o",
+                mec="white",
+                ms=5,
+                clip_on=False,
+                lw=2,
+                color=COLORS[varname],
+                label=LABELS[varname],
+            )
 
-            slope, intercept, r_val, p_val, std_err = linregress(
-                masked_years, masked_data.values)
+            slope, intercept, r_val, p_val, std_err = linregress(masked_years, masked_data.values)
 
-            ax.plot(masked_years, masked_years * slope + intercept,
-                    marker=None, mec='white', clip_on=False, lw=1,
-                    dashes=[5, 3], color=COLORS[varname])
+            ax.plot(
+                masked_years,
+                masked_years * slope + intercept,
+                marker=None,
+                mec="white",
+                clip_on=False,
+                lw=1,
+                dashes=[5, 3],
+                color=COLORS[varname],
+            )
 
-        ax.tick_params(axis='both', direction='out', labelsize=12)
-        ax.set_ylabel('Composantes annuelles\ndu bilan hydrologique (mm/an)',
-                      fontsize=16, labelpad=10)
-        ax.set_xlabel('Années', fontsize=16, labelpad=10)
+        ax.tick_params(axis="both", direction="out", labelsize=12)
+        ax.set_ylabel(
+            "Composantes annuelles\ndu bilan hydrologique (mm/an)", fontsize=16, labelpad=10
+        )
+        ax.set_xlabel("Années", fontsize=16, labelpad=10)
         ax.axis(ymin=0)
         ax.xaxis.get_major_locator().set_params(integer=True)
-        ax.grid(axis='y', color=[0.35, 0.35, 0.35], ls='-', lw=0.5)
+        ax.grid(axis="y", color=[0.35, 0.35, 0.35], ls="-", lw=0.5)
 
-        ax.legend(numpoints=1, fontsize=12, frameon=False,
-                  borderaxespad=0, loc='lower left', borderpad=0.5,
-                  bbox_to_anchor=(0, 1), ncol=2)
+        ax.legend(
+            numpoints=1,
+            fontsize=12,
+            frameon=False,
+            borderaxespad=0,
+            loc="lower left",
+            borderpad=0.5,
+            bbox_to_anchor=(0, 1),
+            ncol=2,
+        )
 
         # Add the figure title if provided in argument.
         if fig_title is not None:

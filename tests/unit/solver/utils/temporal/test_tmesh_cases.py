@@ -45,26 +45,32 @@ class _FakeTMeshGeneration:
                 df[self.kwargs.get("chron_time_col", "Date")],
                 format=self.kwargs.get("chron_dateformat", "%Y-%m-%d %H:%M:%S"),
             )
-            perlen = (
-                dates.diff()
-                .iloc[1:]
-                .dt.total_seconds()
-                .to_numpy(dtype=float)
-                / 86400.0
-            )
+            perlen = dates.diff().iloc[1:].dt.total_seconds().to_numpy(dtype=float) / 86400.0
             start_datetime = pd.Timestamp(dates.iloc[0])
         else:
             nper = int(self.kwargs.get("nper", 1))
             lenper = float(self.kwargs.get("lenper", 1.0))
             perlen = np.full(nper, lenper, dtype=float)
             raw_start = self.kwargs.get("start_datetime")
-            start_datetime = pd.Timestamp("1970-01-01 00:00:00") if raw_start is None else pd.Timestamp(raw_start)
+            start_datetime = (
+                pd.Timestamp("1970-01-01 00:00:00")
+                if raw_start is None
+                else pd.Timestamp(raw_start)
+            )
 
         nper_actual = int(len(perlen))
         raw_ntsp = self.kwargs.get("ntsp", 1)
         raw_tsmult = self.kwargs.get("tsmult", 1.0)
-        nstp = np.full(nper_actual, int(raw_ntsp), dtype=int) if np.isscalar(raw_ntsp) else np.asarray(raw_ntsp, dtype=int)
-        tsmult = np.full(nper_actual, float(raw_tsmult), dtype=float) if np.isscalar(raw_tsmult) else np.asarray(raw_tsmult, dtype=float)
+        nstp = (
+            np.full(nper_actual, int(raw_ntsp), dtype=int)
+            if np.isscalar(raw_ntsp)
+            else np.asarray(raw_ntsp, dtype=int)
+        )
+        tsmult = (
+            np.full(nper_actual, float(raw_tsmult), dtype=float)
+            if np.isscalar(raw_tsmult)
+            else np.asarray(raw_tsmult, dtype=float)
+        )
         totim = np.cumsum(perlen).astype(float)
         datetimes = [start_datetime + pd.to_timedelta(float(t), unit="D") for t in totim]
 
@@ -94,16 +100,16 @@ def test_load_tmesh_cases_toml_resolves_relative_paths(tmp_path: Path):
     toml_path = tmp_path / "case.toml"
     toml_path.write_text(
         "[case]\n"
-        "output_summary_json = \"outputs/summary.json\"\n"
-        "output_figures_dir = \"outputs/figures\"\n"
+        'output_summary_json = "outputs/summary.json"\n'
+        'output_figures_dir = "outputs/figures"\n'
         "[[case.scenarios]]\n"
-        "id = \"chron_case\"\n"
-        "genmtd = \"from_chron\"\n"
-        "flow_regime = \"transient\"\n"
-        "chron_path = \"chron.csv\"\n"
-        "chron_dateformat = \"%d/%m/%Y\"\n"
-        "chron_colsep = \"\\t\"\n"
-        "chron_time_col = \"date\"\n",
+        'id = "chron_case"\n'
+        'genmtd = "from_chron"\n'
+        'flow_regime = "transient"\n'
+        'chron_path = "chron.csv"\n'
+        'chron_dateformat = "%d/%m/%Y"\n'
+        'chron_colsep = "\\t"\n'
+        'chron_time_col = "date"\n',
         encoding="utf-8",
     )
 
@@ -121,32 +127,29 @@ def test_run_tmesh_cases_from_toml_builds_summaries_and_writes_json(tmp_path: Pa
 
     chron = tmp_path / "chron.csv"
     chron.write_text(
-        "date\tvalue\n"
-        "01/01/2020\t1\n"
-        "03/01/2020\t2\n"
-        "06/01/2020\t3\n",
+        "date\tvalue\n01/01/2020\t1\n03/01/2020\t2\n06/01/2020\t3\n",
         encoding="utf-8",
     )
 
     toml_path = tmp_path / "case.toml"
     toml_path.write_text(
         "[case]\n"
-        "output_summary_json = \"outputs/summary.json\"\n"
-        "output_figures_dir = \"outputs/figures\"\n"
+        'output_summary_json = "outputs/summary.json"\n'
+        'output_figures_dir = "outputs/figures"\n'
         "[[case.scenarios]]\n"
-        "id = \"steady_synth\"\n"
-        "flow_regime = \"steady\"\n"
-        "genmtd = \"synthetic_regular\"\n"
+        'id = "steady_synth"\n'
+        'flow_regime = "steady"\n'
+        'genmtd = "synthetic_regular"\n'
         "nper = 3\n"
         "lenper = 2\n"
         "[[case.scenarios]]\n"
-        "id = \"chron_trans\"\n"
-        "flow_regime = \"transient\"\n"
-        "genmtd = \"from_chron\"\n"
-        "chron_path = \"chron.csv\"\n"
-        "chron_dateformat = \"%d/%m/%Y\"\n"
-        "chron_colsep = \"\\t\"\n"
-        "chron_time_col = \"date\"\n",
+        'id = "chron_trans"\n'
+        'flow_regime = "transient"\n'
+        'genmtd = "from_chron"\n'
+        'chron_path = "chron.csv"\n'
+        'chron_dateformat = "%d/%m/%Y"\n'
+        'chron_colsep = "\\t"\n'
+        'chron_time_col = "date"\n',
         encoding="utf-8",
     )
 

@@ -309,9 +309,7 @@ class FlowToModflowAdapter:
         self.sink = None if sink is None else np.asarray(sink, dtype=float)
         self.inactive_mask = solver_mesh.reshape_to_grid(solver_mesh.inactive_mask[0])
         self.flow_runtime_overrides = (
-            None
-            if flow_runtime_overrides is None
-            else dict(flow_runtime_overrides)
+            None if flow_runtime_overrides is None else dict(flow_runtime_overrides)
         )
 
     @property
@@ -337,7 +335,9 @@ class FlowToModflowAdapter:
         ibound = np.ones((self.nlay, self.nrow, self.ncol), dtype=float)
 
         initial_conditions = getattr(self.flow, "initial_conditions", None)
-        initial_condition = None if initial_conditions is None else getattr(initial_conditions, "h", None)
+        initial_condition = (
+            None if initial_conditions is None else getattr(initial_conditions, "h", None)
+        )
         if initial_condition is None:
             raise ValueError("flow.initial_conditions.h is required for MODFLOW startup")
 
@@ -351,42 +351,55 @@ class FlowToModflowAdapter:
         elif initial_type == "bottom":
             strt = np.ones((self.nlay, self.nrow, self.ncol), dtype=float) * self.bottom_layer
         elif initial_type == "custom":
-            strt = (
-                np.ones((self.nlay, self.nrow, self.ncol), dtype=float)
-                * float(getattr(initial_condition, "value"))
+            strt = np.ones((self.nlay, self.nrow, self.ncol), dtype=float) * float(
+                getattr(initial_condition, "value")
             )
         else:
-            raise ValueError(
-                "flow.initial_conditions.h.type must be one of: top, bottom, custom"
-            )
+            raise ValueError("flow.initial_conditions.h.type must be one of: top, bottom, custom")
 
         # Side Dirichlet boundaries are enforced by:
         # - setting ibound to -1 (constant-head cells),
         # - forcing startup heads on the same faces.
-        west_side = self._boundary_conditions.get("west_side") if self._is_bc_active("west_side") else None
+        west_side = (
+            self._boundary_conditions.get("west_side") if self._is_bc_active("west_side") else None
+        )
         if west_side is not None:
             west_series = self._resolve_side_boundary_series(boundary=west_side, bc_id="west_side")
             if self._side_boundary_is_static(west_side):
                 ibound[:, :, 0] = -1
             strt[:, :, 0] = float(west_series[0])
 
-        east_side = self._boundary_conditions.get("east_side") if self._is_bc_active("east_side") else None
+        east_side = (
+            self._boundary_conditions.get("east_side") if self._is_bc_active("east_side") else None
+        )
         if east_side is not None:
             east_series = self._resolve_side_boundary_series(boundary=east_side, bc_id="east_side")
             if self._side_boundary_is_static(east_side):
                 ibound[:, :, -1] = -1
             strt[:, :, -1] = float(east_series[0])
 
-        north_side = self._boundary_conditions.get("north_side") if self._is_bc_active("north_side") else None
+        north_side = (
+            self._boundary_conditions.get("north_side")
+            if self._is_bc_active("north_side")
+            else None
+        )
         if north_side is not None:
-            north_series = self._resolve_side_boundary_series(boundary=north_side, bc_id="north_side")
+            north_series = self._resolve_side_boundary_series(
+                boundary=north_side, bc_id="north_side"
+            )
             if self._side_boundary_is_static(north_side):
                 ibound[:, 0, :] = -1
             strt[:, 0, :] = float(north_series[0])
 
-        south_side = self._boundary_conditions.get("south_side") if self._is_bc_active("south_side") else None
+        south_side = (
+            self._boundary_conditions.get("south_side")
+            if self._is_bc_active("south_side")
+            else None
+        )
         if south_side is not None:
-            south_series = self._resolve_side_boundary_series(boundary=south_side, bc_id="south_side")
+            south_series = self._resolve_side_boundary_series(
+                boundary=south_side, bc_id="south_side"
+            )
             if self._side_boundary_is_static(south_side):
                 ibound[:, -1, :] = -1
             strt[:, -1, :] = float(south_series[0])
@@ -495,11 +508,11 @@ class FlowToModflowAdapter:
         label = f"flow.bc.{bc_id}.forcing"
         if forcing is not None:
             raw_values = resolve_period_values_from_forcing(
-                    forcing=forcing,
-                    simulation_window=self.simulation_window,
-                    nper=self.nper,
-                    label=label,
-                )
+                forcing=forcing,
+                simulation_window=self.simulation_window,
+                nper=self.nper,
+                label=label,
+            )
             return self._coerce_length_series_to_m(
                 values=raw_values,
                 units=self._forcing_units(
@@ -527,9 +540,8 @@ class FlowToModflowAdapter:
         travels through the CHD package path so it behaves like other forcing-
         resolved boundary series and stays consistent with the MF6 adapter.
         """
-        return (
-            getattr(boundary, "forcing", None) is None
-            and self._is_scalar_number(getattr(boundary, "value", None))
+        return getattr(boundary, "forcing", None) is None and self._is_scalar_number(
+            getattr(boundary, "value", None)
         )
 
     def _is_bc_active(self, bc_id: str) -> bool:
@@ -732,13 +744,9 @@ class FlowToModflowAdapter:
         expected_2d = (self.nrow, self.ncol)
 
         if ibound.shape != expected_3d:
-            raise ValueError(
-                f"ibound shape mismatch: expected {expected_3d}, got {ibound.shape}"
-            )
+            raise ValueError(f"ibound shape mismatch: expected {expected_3d}, got {ibound.shape}")
         if strt.shape != expected_3d:
-            raise ValueError(
-                f"strt shape mismatch: expected {expected_3d}, got {strt.shape}"
-            )
+            raise ValueError(f"strt shape mismatch: expected {expected_3d}, got {strt.shape}")
         if drain_array.shape != expected_2d:
             raise ValueError(
                 f"drain_array shape mismatch: expected {expected_2d}, got {drain_array.shape}"
@@ -753,9 +761,7 @@ class FlowToModflowAdapter:
 
         drain_unique = np.unique(drain_array)
         if not np.isin(drain_unique, [0.0, 1.0]).all():
-            raise ValueError(
-                "drain_array must only contain binary activation values {0, 1}"
-            )
+            raise ValueError("drain_array must only contain binary activation values {0, 1}")
 
     def _build_drainage_spd(
         self,
@@ -795,9 +801,7 @@ class FlowToModflowAdapter:
             return None
 
         if self.sink_fill and self.sink is None:
-            raise ValueError(
-                "sink_fill=True requires geographic.depressions_data (sink raster)"
-            )
+            raise ValueError("sink_fill=True requires geographic.depressions_data (sink raster)")
 
         # MODFLOW DRN row format: [lay, row, col, elevation, conductance].
         # Only currently active drain cells are materialized.
@@ -1028,9 +1032,7 @@ class FlowToModflowAdapter:
         if regime is None:
             regime = getattr(self.flow, "flow_regime", None)
         if regime is None:
-            raise ValueError(
-                "flow.flow_regime is required to build recharge payloads."
-            )
+            raise ValueError("flow.flow_regime is required to build recharge payloads.")
         flow_regime = str(regime).strip().lower()
         if flow_regime not in {"steady", "transient"}:
             raise ValueError("flow.flow_regime must be 'steady' or 'transient'.")
@@ -1061,8 +1063,7 @@ class FlowToModflowAdapter:
         # Heterogeneous path: gridded FieldRecords or located points from data managers.
         het_source = getattr(recharge_cfg, "heterogeneous_source", None)
         if het_source is not None and (
-            getattr(het_source, "has_fields", False)
-            or getattr(het_source, "has_points", False)
+            getattr(het_source, "has_fields", False) or getattr(het_source, "has_points", False)
         ):
             return self._build_heterogeneous_recharge_payload(recharge_cfg)
 
@@ -1073,12 +1074,17 @@ class FlowToModflowAdapter:
             unit=str(getattr(recharge_cfg, "units", "mm/day")),
             label="flow.sinks_sources.recharge.values",
         )
-        recharge_payload, evt_spd = self._extract_evt_payload(recharge_payload, recharge_cfg.negative_to_evt)
-        rch_data = self._assemble_rch_data(recharge_payload, recharge_cfg.first_clim, self._resolve_flow_regime())
+        recharge_payload, evt_spd = self._extract_evt_payload(
+            recharge_payload, recharge_cfg.negative_to_evt
+        )
+        rch_data = self._assemble_rch_data(
+            recharge_payload, recharge_cfg.first_clim, self._resolve_flow_regime()
+        )
         return rch_data, evt_spd
 
     def _build_heterogeneous_recharge_payload(
-        self, recharge_cfg: object,
+        self,
+        recharge_cfg: object,
     ) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray] | None]:
         """Discretize gridded FieldRecords onto the MODFLOW grid.
 

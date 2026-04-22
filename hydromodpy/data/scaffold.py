@@ -23,10 +23,10 @@ class VariableSpec:
     """One drag-and-drop variable exposed at ``hmp init``."""
 
     name: str
-    kind: str          # "timeseries" | "raster" | "vector"
+    kind: str  # "timeseries" | "raster" | "vector"
     unit: str
     label_fr: str
-    pivot: str         # parquet | geoparquet | geotiff_cog | netcdf
+    pivot: str  # parquet | geoparquet | geotiff_cog | netcdf
 
 
 VARIABLES: tuple[VariableSpec, ...] = (

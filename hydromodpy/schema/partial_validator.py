@@ -58,18 +58,13 @@ def _resolve_field(path: str) -> tuple[type[BaseModel], str, FieldInfo]:
     current: type[BaseModel] = _root_model()
     for name in parts[:-1]:
         if name not in current.model_fields:
-            raise KeyError(
-                f"unknown field {name!r} while resolving {path!r} "
-                f"in {current.__name__}"
-            )
+            raise KeyError(f"unknown field {name!r} while resolving {path!r} in {current.__name__}")
         annotation = current.model_fields[name].annotation
         nested = _unwrap_basemodel(annotation)
         if nested is None:
             # Mid-path points to a leaf (e.g. dict[str, float]); bail out
             # and let caller treat as a dynamic payload.
-            raise KeyError(
-                f"mid-path field {name!r} in {path!r} is not a nested model"
-            )
+            raise KeyError(f"mid-path field {name!r} in {path!r} is not a nested model")
         current = nested
 
     leaf = parts[-1]

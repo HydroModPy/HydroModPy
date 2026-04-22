@@ -89,9 +89,7 @@ def _detect_refinement_hotspots_pairwise(
             short_segment_count=int(metrics["short_segment_count"]),
             min_cross_family_gap=metrics["min_cross_family_gap"],
         )
-        if existing is None or _hotspot_sort_key(candidate_hotspot) > _hotspot_sort_key(
-            existing
-        ):
+        if existing is None or _hotspot_sort_key(candidate_hotspot) > _hotspot_sort_key(existing):
             hotspots[key] = candidate_hotspot
 
     return tuple(sorted(hotspots.values(), key=_hotspot_sort_key, reverse=True))
@@ -114,9 +112,7 @@ def _detect_refinement_hotspots_grid(
     if not grid.active_cell_ids:
         return ()
 
-    candidate_by_tag = {
-        int(candidate.curve_tag): candidate for candidate in candidates
-    }
+    candidate_by_tag = {int(candidate.curve_tag): candidate for candidate in candidates}
     neighborhoods = _grid_neighborhoods(
         grid=grid,
         rings=int(policy.grid.neighborhood_rings),
@@ -449,9 +445,7 @@ def _hotspot_reason_from_metrics(
 
 def _hotspot_sort_key(hotspot: RefinementHotspot) -> tuple[int, int, int, float]:
     min_gap = (
-        1.0e12
-        if hotspot.min_cross_family_gap is None
-        else float(hotspot.min_cross_family_gap)
+        1.0e12 if hotspot.min_cross_family_gap is None else float(hotspot.min_cross_family_gap)
     )
     return (
         int(hotspot.curve_count),

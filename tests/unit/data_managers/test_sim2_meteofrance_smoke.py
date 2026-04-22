@@ -82,7 +82,8 @@ def test_fetch_point_translates_names(mock_get):
     mock_get.return_value = resp
 
     client = Sim2MeteoFranceClient(
-        bbox=(0, 0, 1, 1), date_range="2020-01-01/2020-01-02",
+        bbox=(0, 0, 1, 1),
+        date_range="2020-01-01/2020-01-02",
     )
     client.fetch_point(x=350000.0, y=6780000.0, parameters=["wind"])
 

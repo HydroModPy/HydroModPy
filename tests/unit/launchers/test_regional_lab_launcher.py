@@ -134,11 +134,11 @@ def _write_planned_configs(tmp_path: Path) -> None:
     configs_dir.mkdir(parents=True, exist_ok=True)
     for site_id in ("headwater_100km2_outlet_2", "headwater_100km2_outlet_3"):
         (configs_dir / f"run_{site_id}.toml").write_text(
-            "[simulation]\nrun_id = \"demo\"\n",
+            '[simulation]\nrun_id = "demo"\n',
             encoding="utf-8",
         )
     (configs_dir / "compare_headwater_100km2_outlet_2.toml").write_text(
-        "[method_comparison]\ncomparison_id = \"demo\"\n",
+        '[method_comparison]\ncomparison_id = "demo"\n',
         encoding="utf-8",
     )
 
@@ -200,8 +200,10 @@ def test_regional_lab_supports_jsonl_catalog(tmp_path: Path) -> None:
         catalog_name="site_catalog.jsonl",
     )
     (tmp_path / "regional_lab.toml").write_text(
-        Path(config_path).read_text(encoding="utf-8").replace(
-            '\n'.join(
+        Path(config_path)
+        .read_text(encoding="utf-8")
+        .replace(
+            "\n".join(
                 [
                     'format = "csv"',
                     'site_id_field = "outlet_id"',
@@ -210,7 +212,7 @@ def test_regional_lab_supports_jsonl_catalog(tmp_path: Path) -> None:
                     'source_selection_field = "source_selection_id"',
                 ]
             ),
-            '\n'.join(
+            "\n".join(
                 [
                     'format = "jsonl"',
                     'site_id_field = "site_id"',
@@ -258,8 +260,7 @@ def test_regional_lab_recipe_can_skip_unsupported_platform(tmp_path: Path) -> No
     unsupported_platform = "linux" if sys.platform.startswith("win") else "windows"
     config_path.write_text(
         config_path.read_text(encoding="utf-8").replace(
-            'id = "backend_compare"\n'
-            'launcher = "method-comparison"\n',
+            'id = "backend_compare"\nlauncher = "method-comparison"\n',
             'id = "backend_compare"\n'
             'launcher = "method-comparison"\n'
             f'allowed_platforms = ["{unsupported_platform}"]\n',
@@ -389,10 +390,7 @@ def test_regional_lab_build_run_command_dispatches_launchers(tmp_path: Path) -> 
     cfg = RegionalLabConfig.from_file(config_path)
     _, planned_cases, _ = build_regional_lab_plan(cfg, load_site_catalog(cfg.catalog))
 
-    commands = [
-        build_run_command(case, python_executable=Path("python"))
-        for case in planned_cases
-    ]
+    commands = [build_run_command(case, python_executable=Path("python")) for case in planned_cases]
 
     assert commands[0] == [
         "python",
@@ -547,12 +545,16 @@ def test_regional_lab_bootstrap_catalog_scans_mesh_run_root(tmp_path: Path) -> N
     mesh_run_root = tmp_path / "mesh_runs"
     bundle_dir = mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3_bundle"
     bundle_dir.mkdir(parents=True, exist_ok=True)
-    (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3.msh").write_text("", encoding="utf-8")
+    (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3.msh").write_text(
+        "", encoding="utf-8"
+    )
     (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3_summary.json").write_text(
         "{}\n",
         encoding="utf-8",
     )
-    (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3.png").write_text("", encoding="utf-8")
+    (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3.png").write_text(
+        "", encoding="utf-8"
+    )
     (mesh_run_root / "mesh_outlet_3" / "mesh_catchment_outlet_3_regional.png").write_text(
         "",
         encoding="utf-8",

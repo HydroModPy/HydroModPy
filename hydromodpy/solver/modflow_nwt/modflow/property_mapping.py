@@ -67,13 +67,11 @@ def _coerce_spatial_support_field(zone_obj, *, support_id: str | None = None):
 
     if not hasattr(zone_obj, "on_mesh"):
         raise TypeError(
-            "Domain spatial support must expose 'on_mesh(...)'. "
-            "Expected a Field-compatible object."
+            "Domain spatial support must expose 'on_mesh(...)'. Expected a Field-compatible object."
         )
     if not hasattr(zone_obj, "identifier"):
         raise TypeError(
-            "Domain spatial support must expose 'identifier'. "
-            "Expected a Field-compatible object."
+            "Domain spatial support must expose 'identifier'. Expected a Field-compatible object."
         )
     return zone_obj
 
@@ -102,9 +100,7 @@ def _resolve_spatial_support_from_domain(*, domain: object, support_id: str) -> 
         if str(getattr(zone_obj, "identifier", "")).strip() == normalized_support_id
     ]
     if len(matches) > 1:
-        raise ValueError(
-            f"Multiple domain zones match spatial support '{normalized_support_id}'."
-        )
+        raise ValueError(f"Multiple domain zones match spatial support '{normalized_support_id}'.")
     return matches[0] if matches else None
 
 
@@ -168,9 +164,7 @@ def _build_property_from_flow_domain(
             break
     if param_obj is None:
         aliases = ", ".join([str(v) for v in flow_param_candidates])
-        raise ValueError(
-            f"Cannot map {property_label}: missing flow parameter among ({aliases})"
-        )
+        raise ValueError(f"Cannot map {property_label}: missing flow parameter among ({aliases})")
     if not hasattr(param_obj, "to_mesh_field"):
         raise TypeError(
             f"Cannot map {property_label}: selected parameter '{selected_name}' "
@@ -267,8 +261,7 @@ def resolve_flow_property_arrays(
         else {"K", "Sy", "Ss"}
     )
     optional_defaults = {
-        str(name).strip(): float(value)
-        for name, value in (optional_fill_values or {}).items()
+        str(name).strip(): float(value) for name, value in (optional_fill_values or {}).items()
     }
 
     # Use a tiny proxy to satisfy mapping helper contract.
@@ -320,9 +313,7 @@ def resolve_flow_property_arrays(
             property_label=label,
         )
         # Copy arrays out so downstream code can mutate them safely.
-        out[target_3d_attr] = np.asarray(
-            getattr(proxy, target_3d_attr), dtype=float
-        ).copy()
+        out[target_3d_attr] = np.asarray(getattr(proxy, target_3d_attr), dtype=float).copy()
         out[target_surface_attr] = np.asarray(
             getattr(proxy, target_surface_attr), dtype=float
         ).copy()

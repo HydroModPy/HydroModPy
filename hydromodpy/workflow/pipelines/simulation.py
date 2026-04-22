@@ -115,7 +115,9 @@ def execute_simulation(
             callbacks=ProcessCallbacks(
                 after_process=after_process,
                 after_run=lambda run, result, state: step_ingest_run_results(
-                    ctx, run, result,
+                    ctx,
+                    run,
+                    result,
                 ),
             ),
         ).execute(plan, ctx)

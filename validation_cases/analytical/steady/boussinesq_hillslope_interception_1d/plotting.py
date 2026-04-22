@@ -118,10 +118,7 @@ def plot_boussinesq_hillslope_interception_comparison(
             0.0,
             color="tab:red",
             alpha=0.12,
-            label=(
-                "Numerical contact band "
-                f"[{-comparison.contact_tolerance_m:.2f}, 0.00] m"
-            ),
+            label=(f"Numerical contact band [{-comparison.contact_tolerance_m:.2f}, 0.00] m"),
             zorder=1,
         )
     ax_clearance.axhline(0.0, color="0.25", lw=1.2, ls="--", zorder=2)

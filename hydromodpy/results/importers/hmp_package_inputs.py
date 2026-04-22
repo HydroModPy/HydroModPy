@@ -70,7 +70,9 @@ def _derive_basename(entry: dict, archive_source: Path) -> str:
 
 
 def plan_dematerialise_inputs(
-    pkg: Path, workspace_root: Path, inputs: list[dict],
+    pkg: Path,
+    workspace_root: Path,
+    inputs: list[dict],
 ) -> list[_Plan]:
     """Compute per-entry copy/reuse/abort decisions without touching disk."""
     data_dir = workspace_root / "data"
@@ -80,9 +82,7 @@ def plan_dematerialise_inputs(
         archive_rel = str(entry["archive_path"])
         archive_source = pkg / archive_rel
         if not archive_source.exists():
-            raise FileNotFoundError(
-                f"Missing bundled input in archive: {archive_rel}"
-            )
+            raise FileNotFoundError(f"Missing bundled input in archive: {archive_rel}")
 
         target_basename = _derive_basename(entry, archive_source)
         target = data_dir / role / target_basename
@@ -115,12 +115,11 @@ def plan_dematerialise_inputs(
                     else:
                         raise InputCollisionError(target, existing_sha, incoming_sha)
             else:
-                raise InputCollisionError(
-                    target, "unknown", str(entry["sha256"])
-                )
+                raise InputCollisionError(target, "unknown", str(entry["sha256"]))
 
-        plans.append(_Plan(entry=entry, archive_source=archive_source,
-                           target=target, action=action))
+        plans.append(
+            _Plan(entry=entry, archive_source=archive_source, target=target, action=action)
+        )
     return plans
 
 
@@ -138,15 +137,16 @@ def _extract_shapefile_zip(zip_path: Path, dst_base: Path) -> Path:
 
     shp = next((n for n in names if n.lower().endswith(".shp")), None)
     if shp is None:
-        raise RuntimeError(
-            f"Archive {zip_path} does not contain a .shp component"
-        )
+        raise RuntimeError(f"Archive {zip_path} does not contain a .shp component")
     return (dst_base.parent / shp).resolve()
 
 
 def dematerialise_inputs(
-    pkg: Path, workspace_root: Path, manifest: dict,
-    *, dry_run: bool = False,
+    pkg: Path,
+    workspace_root: Path,
+    manifest: dict,
+    *,
+    dry_run: bool = False,
 ) -> dict[str, str]:
     """Materialise inputs and return a mapping ``original_path -> new_path``.
 

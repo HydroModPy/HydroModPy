@@ -33,10 +33,7 @@ from typing import Any, get_args, get_origin
 try:
     import streamlit as st
 except ImportError:
-    sys.exit(
-        "streamlit is required for the config UI.\n"
-        "Install it with:  pip install streamlit"
-    )
+    sys.exit("streamlit is required for the config UI.\nInstall it with:  pip install streamlit")
 
 from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
@@ -161,20 +158,30 @@ def _render_scalar(
 
     # bool
     if inner is bool or inner_name == "bool":
-        values[key] = st.checkbox(label, value=bool(current or False), help=help_text, key=widget_key)
+        values[key] = st.checkbox(
+            label, value=bool(current or False), help=help_text, key=widget_key
+        )
         return
 
     # int
     if inner is int or inner_name == "int":
         values[key] = st.number_input(
-            label, value=int(current or 0), step=1, help=help_text, key=widget_key,
+            label,
+            value=int(current or 0),
+            step=1,
+            help=help_text,
+            key=widget_key,
         )
         return
 
     # float
     if inner is float or inner_name == "float":
         values[key] = st.number_input(
-            label, value=float(current or 0.0), format="%g", help=help_text, key=widget_key,
+            label,
+            value=float(current or 0.0),
+            format="%g",
+            help=help_text,
+            key=widget_key,
         )
         return
 
@@ -191,7 +198,9 @@ def _render_scalar(
     # dict
     if inner is dict or get_origin(inner) is dict or inner_name == "dict":
         raw = current if isinstance(current, dict) else {}
-        txt = st.text_area(label, value=json.dumps(raw, indent=2), help=help_text, key=widget_key, height=80)
+        txt = st.text_area(
+            label, value=json.dumps(raw, indent=2), help=help_text, key=widget_key, height=80
+        )
         try:
             values[key] = json.loads(txt)
         except Exception:
@@ -309,14 +318,14 @@ def validate_section(
     """Try to validate values against the model, return error messages."""
     # Strip empty strings (same as the TOML loader does)
     from hydromodpy.core.config.toml_loader import _strip_empty_strings
+
     cleaned = _strip_empty_strings(values)
     try:
         model_cls.model_validate(cleaned)
         return []
     except ValidationError as exc:
         return [
-            f"**{'.'.join(str(l) for l in err['loc'])}** — {err['msg']}"
-            for err in exc.errors()
+            f"**{'.'.join(str(l) for l in err['loc'])}** — {err['msg']}" for err in exc.errors()
         ]
 
 
@@ -378,6 +387,7 @@ def _dict_to_toml(data: dict[str, Any], prefix: str = "") -> list[str]:
 def _load_existing_toml(path: Path) -> dict[str, dict[str, Any]]:
     """Load an existing config.toml into per-module dicts."""
     from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+
     raw = load_toml_with_base_config(path)
     return raw
 
@@ -388,7 +398,9 @@ def _load_existing_toml(path: Path) -> dict[str, dict[str, Any]]:
 def main() -> None:
     st.set_page_config(page_title="HydroModPy Config", layout="wide")
     st.title("HydroModPy — Configuration interactive")
-    st.caption("Interface auto-générée depuis les modèles Pydantic. Les champs marqués * sont requis.")
+    st.caption(
+        "Interface auto-générée depuis les modèles Pydantic. Les champs marqués * sont requis."
+    )
 
     registry = _get_registry()
 
@@ -403,7 +415,15 @@ def main() -> None:
         threshold = Profile[profile_name.upper()]
 
         all_modules = list(registry.keys())
-        default_modules = ["workspace", "geographic", "domain", "data", "flow", "transport", "modflownwt"]
+        default_modules = [
+            "workspace",
+            "geographic",
+            "domain",
+            "data",
+            "flow",
+            "transport",
+            "modflownwt",
+        ]
         selected = st.multiselect(
             "Modules",
             all_modules,

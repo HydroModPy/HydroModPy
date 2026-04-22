@@ -21,9 +21,7 @@ def write_grid_array_to_raster(
     """Write one 2D array on the geometry described by ``grid``."""
     array = np.asarray(data)
     if array.shape != grid.shape:
-        raise ValueError(
-            f"Raster export shape mismatch: expected {grid.shape}, got {array.shape}."
-        )
+        raise ValueError(f"Raster export shape mismatch: expected {grid.shape}, got {array.shape}.")
 
     dst_path = Path(output_path)
     dst_path.parent.mkdir(parents=True, exist_ok=True)

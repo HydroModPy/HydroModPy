@@ -39,9 +39,7 @@ def test_flow_physical_properties_annotations_survive_export() -> None:
         assert field_name in props, f"missing {field_name}"
         entry = props[field_name]
         missing = REQUIRED_UI_KEYS - set(entry.keys())
-        assert not missing, (
-            f"{field_name!r} schema entry is missing UI keys: {missing}"
-        )
+        assert not missing, f"{field_name!r} schema entry is missing UI keys: {missing}"
 
 
 def test_widget_types_are_recognized() -> None:

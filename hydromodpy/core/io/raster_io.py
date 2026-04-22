@@ -48,9 +48,7 @@ def mask_by_dem(target_data, mask_data, cond_symb, value_masked):
         ">": np.greater,
         "<": np.less,
     }
-    return np.ma.masked_array(
-        target_data, mask=cmp[cond_symb](mask_data, value_masked)
-    )
+    return np.ma.masked_array(target_data, mask=cmp[cond_symb](mask_data, value_masked))
 
 
 def load_to_numpy(
@@ -202,9 +200,7 @@ def load_to_xarray(file, src_crs=None, main_var=None, base_path: str = None, dst
                 with xr.open_dataset(file, decode_coords="all") as ds:
                     ds.load()
             except ValueError:
-                logger.warning(
-                    "Unable to decode NetCDF time units; falling back to manual parsing"
-                )
+                logger.warning("Unable to decode NetCDF time units; falling back to manual parsing")
                 with xr.open_dataset(file, decode_coords="all", decode_times=False) as ds:
                     ds.load()
 
@@ -233,9 +229,7 @@ def load_to_xarray(file, src_crs=None, main_var=None, base_path: str = None, dst
                 start_date = pd.Series(
                     pd.date_range(initdate, periods=int(ds.time[0]) + 1, freq=freq)
                 ).iloc[-1]
-                date_index = pd.date_range(
-                    start=start_date, periods=len(ds.time), freq=freq
-                )
+                date_index = pd.date_range(start=start_date, periods=len(ds.time), freq=freq)
                 ds["time"] = date_index
         else:
             logger.error("File extension %s not supported for xarray loading", ext)
@@ -273,9 +267,7 @@ def load_to_xarray(file, src_crs=None, main_var=None, base_path: str = None, dst
     if base_profile:
         if dst_crs and _is_crs_invalid(base_profile["crs"]):
             base_profile["crs"] = dst_crs
-        if (data_transform != base_profile["transform"]) | (
-            ds.rio.crs != base_profile["crs"]
-        ):
+        if (data_transform != base_profile["transform"]) | (ds.rio.crs != base_profile["crs"]):
             if _is_crs_invalid(ds.rio.crs):
                 logger.error("Source CRS required to reproject xarray dataset")
                 return
@@ -299,7 +291,11 @@ def load_to_xarray(file, src_crs=None, main_var=None, base_path: str = None, dst
         ds = ds.rio.reproject(dst_crs=dst_crs)
 
     if "units" in ds.x.attrs and ds.x.attrs["units"].casefold() in (
-        "m", "meter", "meters", "metre", "metres",
+        "m",
+        "meter",
+        "meters",
+        "metre",
+        "metres",
     ):
         ds.x.attrs = {
             "standard_name": "projection_x_coordinate",

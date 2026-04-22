@@ -78,9 +78,7 @@ def _require_mesh_with_values(
 ) -> ExtrudedPrismMeshWithValues:
     """Validate and return the expected valued 3D mesh type."""
     if not isinstance(mesh_with_values, ExtrudedPrismMeshWithValues):
-        raise TypeError(
-            "mesh_with_values must be an ExtrudedPrismMeshWithValues instance"
-        )
+        raise TypeError("mesh_with_values must be an ExtrudedPrismMeshWithValues instance")
     return mesh_with_values
 
 
@@ -91,9 +89,7 @@ def _vtk_cell_type_for_mesh(mesh_3d: ExtrudedPrismMesh3D) -> int:
         return int(pv.CellType.WEDGE)
     if mesh_3d.cell_type_2d == "quadrilateral":
         return int(pv.CellType.HEXAHEDRON)
-    raise ValueError(
-        f"Unsupported 2D cell type for PyVista conversion: {mesh_3d.cell_type_2d}"
-    )
+    raise ValueError(f"Unsupported 2D cell type for PyVista conversion: {mesh_3d.cell_type_2d}")
 
 
 def _build_cells_array(connectivity: np.ndarray) -> np.ndarray:
@@ -105,9 +101,7 @@ def _build_cells_array(connectivity: np.ndarray) -> np.ndarray:
 
 def _rounded_list(values, *, ndigits: int = 12) -> list[float]:
     """Round one numeric sequence for compact selection payloads."""
-    return [
-        round(float(v), ndigits) for v in np.asarray(values, dtype=float).reshape(-1)
-    ]
+    return [round(float(v), ndigits) for v in np.asarray(values, dtype=float).reshape(-1)]
 
 
 def build_pyvista_grid(mesh_3d: ExtrudedPrismMesh3D):
@@ -122,15 +116,9 @@ def build_pyvista_grid(mesh_3d: ExtrudedPrismMesh3D):
     points = np.asarray(mesh.points_xyz, dtype=float)
     grid = pv.UnstructuredGrid(cells, celltypes, points)
     grid.cell_data["layer_index"] = np.asarray(mesh.layer_indices, dtype=np.int32)
-    grid.cell_data["source_cell_index"] = np.asarray(
-        mesh.source_cell_indices, dtype=np.int32
-    )
-    grid.point_data["point_layer_index"] = np.asarray(
-        mesh.point_layer_indices, dtype=np.int32
-    )
-    grid.point_data["point_base_index"] = np.asarray(
-        mesh.point_base_indices, dtype=np.int32
-    )
+    grid.cell_data["source_cell_index"] = np.asarray(mesh.source_cell_indices, dtype=np.int32)
+    grid.point_data["point_layer_index"] = np.asarray(mesh.point_layer_indices, dtype=np.int32)
+    grid.point_data["point_base_index"] = np.asarray(mesh.point_base_indices, dtype=np.int32)
     return grid
 
 
@@ -157,9 +145,7 @@ def add_vertical_exaggeration(grid, factor: float):
     """Return one copy of the grid with its Z coordinates scaled."""
     factor_float = float(factor)
     if not np.isfinite(factor_float) or factor_float <= 0.0:
-        raise ValueError(
-            "vertical exaggeration factor must be strictly positive and finite"
-        )
+        raise ValueError("vertical exaggeration factor must be strictly positive and finite")
     scaled = grid.copy(deep=True)
     points = np.asarray(scaled.points, dtype=float).copy()
     points[:, 2] *= factor_float
@@ -173,9 +159,7 @@ def add_layer_slice(
 ):
     """Extract one full layer and add it to the plotter."""
     layer_idx = int(layer_index)
-    layer_ids = np.where(
-        np.asarray(grid.cell_data["layer_index"], dtype=int) == layer_idx
-    )[0]
+    layer_ids = np.where(np.asarray(grid.cell_data["layer_index"], dtype=int) == layer_idx)[0]
     if layer_ids.size == 0:
         raise IndexError(f"layer_index out of range for the current grid: {layer_idx}")
     layer_grid = grid.extract_cells(layer_ids)
@@ -230,9 +214,7 @@ def extract_source_column_grid(
     if source_idx < 0 or source_idx >= mesh_values.n_cells_2d:
         raise IndexError(f"source_cell_index out of range: {source_idx}")
     grid = build_pyvista_grid_with_values(mesh_values)
-    cell_ids = np.where(
-        np.asarray(grid.cell_data["source_cell_index"], dtype=int) == source_idx
-    )[0]
+    cell_ids = np.where(np.asarray(grid.cell_data["source_cell_index"], dtype=int) == source_idx)[0]
     return grid.extract_cells(cell_ids)
 
 
@@ -253,9 +235,7 @@ def extract_prism_pick_info(
         source_cell_index=int(prism.source_cell_index),
         centroid=tuple(float(v) for v in prism.centroid),
         value=value,
-        vertical_profile=mesh_values.build_vertical_profile(
-            int(prism.source_cell_index)
-        ),
+        vertical_profile=mesh_values.build_vertical_profile(int(prism.source_cell_index)),
     )
     if mesh_values.prism_center_depths is not None:
         flat_depths = mesh_values.flat_prism_center_depths
@@ -282,9 +262,7 @@ def _build_plotter(
 ):
     """Create the PyVista plotter used by the interactive helpers."""
     pv = _require_pyvista()
-    return pv.Plotter(
-        title=None if title is None else str(title), off_screen=bool(off_screen)
-    )
+    return pv.Plotter(title=None if title is None else str(title), off_screen=bool(off_screen))
 
 
 def _highlight_selection(

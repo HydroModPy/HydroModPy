@@ -278,12 +278,8 @@ def build_reference_3d_postprocess_state_from_toml(
         label=str(cfg["label"]),
         prism_center_depths=result.prism_center_depths,
         metadata={
-            "field_id": str(
-                getattr(state_3d_fieldparam["geology_field"], "identifier", "")
-            ),
-            "field_param_id": str(
-                getattr(state_3d_fieldparam["field_param"], "identifier", "")
-            ),
+            "field_id": str(getattr(state_3d_fieldparam["geology_field"], "identifier", "")),
+            "field_param_id": str(getattr(state_3d_fieldparam["field_param"], "identifier", "")),
         },
     )
     summary = build_reference_3d_postprocess_summary(
@@ -390,9 +386,7 @@ def run_reference_3d_visualization_from_toml(
 ) -> dict[str, object]:
     """Run the lightweight QA-figure companion workflow."""
 
-    state = build_reference_3d_visualization_state_from_toml(
-        config_toml, section=section
-    )
+    state = build_reference_3d_visualization_state_from_toml(config_toml, section=section)
     config_path = Path(state["config_path"])
     cfg = dict(state["config"])
     mesh_with_values = state["mesh_with_values"]
@@ -482,9 +476,7 @@ def run_reference_interactive_viewer_from_toml(
 ) -> dict[str, object]:
     """Run the interactive PyVista viewer companion workflow."""
 
-    state = build_reference_interactive_viewer_state_from_toml(
-        config_toml, section=section
-    )
+    state = build_reference_interactive_viewer_state_from_toml(config_toml, section=section)
     config_path = Path(state["config_path"])
     cfg = dict(state["config"])
     mesh_with_values = state["mesh_with_values"]
@@ -501,10 +493,7 @@ def run_reference_interactive_viewer_from_toml(
     )
     do_show = bool(cfg["show"]) if show is None else bool(show)
     effective_off_screen = (
-        bool(off_screen)
-        or screenshot_path is not None
-        or not do_show
-        or bool(cfg["off_screen"])
+        bool(off_screen) or screenshot_path is not None or not do_show or bool(cfg["off_screen"])
     )
     viewer_result = show_interactive_values_3d(
         mesh_with_values,

@@ -81,12 +81,16 @@ class ModpathOutputAdapter:
         pathlines_grp = grp.require_group("pathlines")
         for name, arr in [("x", x), ("y", y), ("z", z), ("time", t)]:
             pathlines_grp.create_array(
-                name, data=arr, overwrite=True,
+                name,
+                data=arr,
+                overwrite=True,
             )
 
         logger.info(
             "Extracted %d pathlines (max %d steps) for sim %s",
-            n_particles, max_steps, sim_id,
+            n_particles,
+            max_steps,
+            sim_id,
         )
 
     def _extract_endpoints(
@@ -109,16 +113,24 @@ class ModpathOutputAdapter:
         pathlines_grp = grp.require_group("pathlines")
 
         pathlines_grp.create_array(
-            "endpoint_x", data=all_data["x0"].astype("float64"), overwrite=True,
+            "endpoint_x",
+            data=all_data["x0"].astype("float64"),
+            overwrite=True,
         )
         pathlines_grp.create_array(
-            "endpoint_y", data=all_data["y0"].astype("float64"), overwrite=True,
+            "endpoint_y",
+            data=all_data["y0"].astype("float64"),
+            overwrite=True,
         )
         pathlines_grp.create_array(
-            "endpoint_z", data=all_data["z0"].astype("float64"), overwrite=True,
+            "endpoint_z",
+            data=all_data["z0"].astype("float64"),
+            overwrite=True,
         )
         pathlines_grp.create_array(
-            "endpoint_time", data=all_data["time"].astype("float64"), overwrite=True,
+            "endpoint_time",
+            data=all_data["time"].astype("float64"),
+            overwrite=True,
         )
 
         logger.info("Extracted %d endpoints for sim %s", len(all_data), sim_id)

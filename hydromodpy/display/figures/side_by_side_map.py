@@ -48,7 +48,12 @@ class SideBySideMapFigure(BaseFigure):
         vmin = float(np.nanmin([a.min(), b.min()]))
         vmax = float(np.nanmax([a.max(), b.max()]))
         render_face_field(
-            ax, sim, a, cmap=cmap, vmin=vmin, vmax=vmax,
+            ax,
+            sim,
+            a,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
             cbar_label=axis_label(field),
         )
         ax.set_title(sim.name or sim.sim_id)
@@ -73,7 +78,8 @@ class SideBySideMapFigure(BaseFigure):
             raise ValueError("side_by_side: 'reference' simulation required")
 
         fig, axes = plt.subplots(
-            1, 2,
+            1,
+            2,
             figsize=figsize or (self.spec.default_figsize[0], self.spec.default_figsize[1]),
             dpi=dpi,
             constrained_layout=True,
@@ -84,12 +90,22 @@ class SideBySideMapFigure(BaseFigure):
         vmin = float(np.nanmin([a.min(), b.min()]))
         vmax = float(np.nanmax([a.max(), b.max()]))
         render_face_field(
-            axes[0], sim, a, cmap=cmap, vmin=vmin, vmax=vmax,
+            axes[0],
+            sim,
+            a,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
             cbar_label=axis_label(field),
         )
         axes[0].set_title(sim.name or sim.sim_id)
         render_face_field(
-            axes[1], reference, b, cmap=cmap, vmin=vmin, vmax=vmax,
+            axes[1],
+            reference,
+            b,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
             cbar_label=axis_label(field),
         )
         axes[1].set_title(reference.name or reference.id)

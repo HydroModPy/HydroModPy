@@ -45,11 +45,7 @@ from hydromodpy.solver.modflow_common import ensure_platform_executable
 
 # Repository root for every path assembled in the regression helpers.
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REGRESSION_GOLDENS_ROOT = (
-    Path(__file__).resolve().parent
-    / "reference"
-    / "golden_references"
-)
+REGRESSION_GOLDENS_ROOT = Path(__file__).resolve().parent / "reference" / "golden_references"
 
 # Bump when the statistical signature layout changes (new stats, renamed
 # sections, different aggregation) so stale goldens fail loudly instead of
@@ -192,10 +188,7 @@ def resolve_tiered_results_dir(
     if base_out_path:
         results_root = Path(base_out_path).expanduser().resolve()
     else:
-        results_root = (
-            Path(tempfile.gettempdir())
-            / "hydromodpy_regression_outputs"
-        )
+        results_root = Path(tempfile.gettempdir()) / "hydromodpy_regression_outputs"
     file_path = Path(test_file).resolve()
     file_parts = set(file_path.parts)
     tier = "extensive" if "extensive" in file_parts else "fast"
@@ -417,8 +410,7 @@ def collect_npz_signatures(
     with np.load(npz_path) as payload:
         ordered_names = sorted(payload.files) if names is None else list(names)
         return {
-            name: array_signature(np.asarray(payload[name], dtype=float))
-            for name in ordered_names
+            name: array_signature(np.asarray(payload[name], dtype=float)) for name in ordered_names
         }
 
 
@@ -439,6 +431,7 @@ def collect_json_signatures(
 def _open_result_store(workspace_path: Path):
     """Open a read-only SimulationCatalog for golden comparison."""
     from hydromodpy.results.catalog import SimulationCatalog
+
     return SimulationCatalog(workspace_path)
 
 
@@ -760,7 +753,8 @@ def resolve_model_workspace(
                 return model_ws, postprocess_dir, particles_dir
         else:
             model_dirs = sorted(
-                p for p in results_dir.iterdir()
+                p
+                for p in results_dir.iterdir()
                 if p.is_dir()
                 and not p.name.startswith("_")
                 and (model_name_prefix is None or p.name.startswith(model_name_prefix))
@@ -949,12 +943,20 @@ def run_hmp_cli(
     if os.environ.get("HYDROMODPY_COVERAGE"):
         wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
         command = [
-            sys.executable, str(wrapper),
-            "-m", "hydromodpy", "run", str(config_path),
+            sys.executable,
+            str(wrapper),
+            "-m",
+            "hydromodpy",
+            "run",
+            str(config_path),
         ]
     else:
         command = [
-            sys.executable, "-m", "hydromodpy", "run", str(config_path),
+            sys.executable,
+            "-m",
+            "hydromodpy",
+            "run",
+            str(config_path),
         ]
 
     completed = subprocess.run(
@@ -972,9 +974,3 @@ def run_hmp_cli(
         f"Stdout:\n{completed.stdout}\n"
         f"Stderr:\n{completed.stderr}"
     )
-
-
-
-
-
-

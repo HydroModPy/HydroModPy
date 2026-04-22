@@ -45,10 +45,12 @@ class BaseVariableConfig(HydroModelBase):
     _TOML_SECTION: ClassVar[str] = ""
 
     date_start: Annotated[str | None, Profile.USER] = Field(
-        default=None, description="Project start date (ISO format, e.g. '2019-01-01').",
+        default=None,
+        description="Project start date (ISO format, e.g. '2019-01-01').",
     )
     date_end: Annotated[str | None, Profile.USER] = Field(
-        default=None, description="Project end date (ISO format, e.g. '2025-12-31').",
+        default=None,
+        description="Project end date (ISO format, e.g. '2025-12-31').",
     )
 
     @field_validator("date_start", "date_end", mode="after")
@@ -56,6 +58,7 @@ class BaseVariableConfig(HydroModelBase):
     def _validate_iso_date(cls, v: str | None) -> str | None:
         if v is not None and v != "":
             from datetime import datetime
+
             try:
                 datetime.fromisoformat(v)
             except ValueError:
@@ -66,6 +69,7 @@ class BaseVariableConfig(HydroModelBase):
     def _check_date_order(self):
         if self.date_start and self.date_end:
             from datetime import datetime
+
             if datetime.fromisoformat(self.date_start) >= datetime.fromisoformat(self.date_end):
                 raise ValueError("date_start must be before date_end")
         return self

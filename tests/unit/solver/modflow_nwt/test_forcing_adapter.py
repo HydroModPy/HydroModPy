@@ -4,6 +4,7 @@ Tests for RCH/EVT payload building via FlowToModflowAdapter._build_recharge_payl
 These tests exercise the logic that was previously in ForcingToModflowAdapter,
 now merged into FlowToModflowAdapter (see flow.sinks_sources.recharge).
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -29,7 +30,14 @@ def _build_solver_mesh(nrow=1, ncol=1, nlay=1, dx=1.0, dy=1.0, xoff=0.0, yoff=0.
     top = np.zeros((nrow, ncol), dtype=float)
     botm = np.zeros((nlay, nrow, ncol), dtype=float) - 10.0
     return SolverMesh.from_structured_arrays(
-        nrow=nrow, ncol=ncol, top=top, botm=botm, dx=dx, dy=dy, xoff=xoff, yoff=yoff,
+        nrow=nrow,
+        ncol=ncol,
+        top=top,
+        botm=botm,
+        dx=dx,
+        dy=dy,
+        xoff=xoff,
+        yoff=yoff,
     )
 
 
@@ -114,7 +122,9 @@ def test_recharge_no_evt_when_negative_to_evt_false():
 
 
 def test_recharge_list_builds_evt_and_clips_negative_values():
-    cfg = FlowRechargeConfig(values=[0.1, -0.2, 0.3], first_clim="mean", negative_to_evt=True, units="m/s")
+    cfg = FlowRechargeConfig(
+        values=[0.1, -0.2, 0.3], first_clim="mean", negative_to_evt=True, units="m/s"
+    )
     adapter = _make_adapter(cfg, "transient", nper=3)
 
     rch_data, evt_spd = adapter._build_recharge_payload()
@@ -244,6 +254,7 @@ def test_recharge_rejects_invalid_flow_regime():
 # active_sinks_sources gate tests
 # ---------------------------------------------------------------------------
 
+
 def test_recharge_not_activated_returns_none():
     """When 'recharge' is absent from active_sinks_sources, both payloads are None."""
     cfg = FlowRechargeConfig(values=0.001)
@@ -310,8 +321,11 @@ def test_well_absolute_xy_is_resolved_to_solver_cell():
         config=None,
     )
     grid = GridReference(
-        n_cells=20, bounds=(0.0, 0.0, 250.0, 400.0), crs=None,
-        structured_shape=(4, 5), cell_size_hint=50.0,
+        n_cells=20,
+        bounds=(0.0, 0.0, 250.0, 400.0),
+        crs=None,
+        structured_shape=(4, 5),
+        cell_size_hint=50.0,
     )
     adapter = FlowToModflowAdapter(
         flow=flow,
@@ -347,8 +361,11 @@ def test_well_relative_xy_is_resolved_to_solver_cell():
         config=None,
     )
     grid = GridReference(
-        n_cells=20, bounds=(100.0, 200.0, 150.0, 240.0), crs=None,
-        structured_shape=(4, 5), cell_size_hint=10.0,
+        n_cells=20,
+        bounds=(100.0, 200.0, 150.0, 240.0),
+        crs=None,
+        structured_shape=(4, 5),
+        cell_size_hint=10.0,
     )
     adapter = FlowToModflowAdapter(
         flow=flow,
@@ -404,13 +421,12 @@ def test_well_forcing_constant_is_resolved_in_adapter_without_runtime_binding():
 # active_bc gate tests
 # ---------------------------------------------------------------------------
 
+
 def _make_bc_adapter(boundary_conditions, active_bc, nper=1, simulation_window=None):
     """Build a minimal FlowToModflowAdapter focused on the BC path."""
     flow = types.SimpleNamespace(
         boundary_conditions=boundary_conditions,
-        initial_conditions=types.SimpleNamespace(
-            h=types.SimpleNamespace(type="custom", value=0.0)
-        ),
+        initial_conditions=types.SimpleNamespace(h=types.SimpleNamespace(type="custom", value=0.0)),
         flow_regime="transient",
         active_sinks_sources=[],
         active_bc=active_bc,
@@ -430,6 +446,7 @@ def _make_bc_adapter(boundary_conditions, active_bc, nper=1, simulation_window=N
 def test_ocean_not_activated_returns_none_chd():
     """When 'ocean' is absent from active_bc, _build_ocean_chd returns None."""
     from unittest.mock import MagicMock
+
     ibound = np.ones((1, 3, 3))
     strt = np.zeros((1, 3, 3))
     drain_array = np.ones((3, 3))
@@ -448,6 +465,7 @@ def test_ocean_not_activated_returns_none_chd():
 def test_drainage_not_activated_returns_none_drn():
     """When 'drainage' is absent from active_bc, _build_drainage_spd returns None."""
     from unittest.mock import MagicMock
+
     drain_array = np.ones((3, 3))
     hk = np.ones((1, 3, 3)) * 1e-4
 
@@ -463,6 +481,7 @@ def test_drainage_not_activated_returns_none_drn():
 def test_west_side_not_activated_leaves_ibound_unchanged():
     """When 'west_side' is absent from active_bc, its column is not set to -1."""
     from unittest.mock import MagicMock
+
     west_bc = MagicMock()
     west_bc.value = 5.0
     adapter = _make_bc_adapter({"west_side": west_bc}, active_bc=[])

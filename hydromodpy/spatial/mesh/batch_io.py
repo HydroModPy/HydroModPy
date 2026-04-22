@@ -89,9 +89,7 @@ def load_mesh_catchment_outlet_records(
             f"'{table_path.suffix}'. Supported: .csv, .shp, .gpkg, .geojson, .json."
         )
     if not rows:
-        raise ValueError(
-            f"mesh_catchment_batch outlets table contains no outlet row: {table_path}"
-        )
+        raise ValueError(f"mesh_catchment_batch outlets table contains no outlet row: {table_path}")
 
     selected_ids = set(selected_outlet_ids)
     records: list[MeshCatchmentOutletRecord] = []
@@ -115,9 +113,7 @@ def load_mesh_catchment_outlet_records(
         records.append(record)
 
     if selection_mode == "selected" and not records:
-        raise ValueError(
-            "mesh_catchment_batch.selected_outlet_ids did not match any outlet row."
-        )
+        raise ValueError("mesh_catchment_batch.selected_outlet_ids did not match any outlet row.")
     return records
 
 
@@ -148,8 +144,7 @@ def validate_outlets_within_raster(
         return
 
     sample = ", ".join(
-        f"{record.outlet_id}({record.x_outlet:.3f},{record.y_outlet:.3f})"
-        for record in outside[:3]
+        f"{record.outlet_id}({record.x_outlet:.3f},{record.y_outlet:.3f})" for record in outside[:3]
     )
     raise ValueError(
         f"{label} does not cover all selected batch outlets. "
@@ -178,9 +173,7 @@ def _load_outlet_rows_from_vector(table_path: Path) -> list[MeshCatchmentOutletT
         return []
     rows: list[MeshCatchmentOutletTableRow] = []
     for _, row in gdf.iterrows():
-        payload = {
-            str(column): row[column] for column in gdf.columns if str(column) != "geometry"
-        }
+        payload = {str(column): row[column] for column in gdf.columns if str(column) != "geometry"}
         geometry = getattr(row, "geometry", None)
         geometry_x = None
         geometry_y = None
@@ -255,10 +248,9 @@ def _require_text(raw_value: object, *, label: str) -> str:
 
 
 def _point_is_within_bounds(*, x: float, y: float, bounds) -> bool:
-    return (
-        float(bounds.left) <= float(x) <= float(bounds.right)
-        and float(bounds.bottom) <= float(y) <= float(bounds.top)
-    )
+    return float(bounds.left) <= float(x) <= float(bounds.right) and float(bounds.bottom) <= float(
+        y
+    ) <= float(bounds.top)
 
 
 __all__ = [

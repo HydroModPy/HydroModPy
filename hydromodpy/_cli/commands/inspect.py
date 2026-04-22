@@ -24,10 +24,8 @@ def register(subparsers) -> argparse.ArgumentParser:
         "sim_id",
         help="Full sim_id, unique prefix, or simulation name",
     )
-    parser.add_argument("--workspace", default=None,
-                        help="Workspace root (default: auto-detect)")
-    parser.add_argument("--json", action="store_true",
-                        help="Emit a JSON document")
+    parser.add_argument("--workspace", default=None, help="Workspace root (default: auto-detect)")
+    parser.add_argument("--json", action="store_true", help="Emit a JSON document")
     parser.set_defaults(_handler=run)
     return parser
 
@@ -50,9 +48,7 @@ def run(args: argparse.Namespace) -> None:
         sub_files: list[str] = []
         if zarr_exists:
             try:
-                sub_files = sorted(
-                    p.name for p in zarr_path.iterdir() if p.is_dir()
-                )[:20]
+                sub_files = sorted(p.name for p in zarr_path.iterdir() if p.is_dir())[:20]
             except OSError:
                 sub_files = []
 

@@ -247,7 +247,9 @@ def _build_time_boundaries(window: ResolvedSimulationTimeWindow) -> list[pd.Time
     start = window.start
     end = window.end
     if end < start:
-        raise ValueError("simulation.time.end_datetime must be greater than or equal to start_datetime.")
+        raise ValueError(
+            "simulation.time.end_datetime must be greater than or equal to start_datetime."
+        )
 
     end_exclusive = _inclusive_end_to_exclusive_end(
         end,
@@ -347,7 +349,9 @@ def _process_type(process_cfg: Any) -> str:
 
 def has_flow_simulation_process(cfg: Any) -> bool:
     """Return ``True`` when the simulation plan declares at least one flow process."""
-    return any(_process_type(process_cfg) == "flow" for process_cfg in _iter_simulation_processes(cfg))
+    return any(
+        _process_type(process_cfg) == "flow" for process_cfg in _iter_simulation_processes(cfg)
+    )
 
 
 def _flow_regime(cfg: Any) -> str | None:
@@ -442,10 +446,16 @@ def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | N
         raw_step_unit=getattr(time_cfg, "step_unit", None),
     )
 
-    start = _as_timestamp(getattr(time_cfg, "start_datetime", None), name="simulation.time.start_datetime")
-    end = _as_timestamp(getattr(time_cfg, "end_datetime", None), name="simulation.time.end_datetime")
+    start = _as_timestamp(
+        getattr(time_cfg, "start_datetime", None), name="simulation.time.start_datetime"
+    )
+    end = _as_timestamp(
+        getattr(time_cfg, "end_datetime", None), name="simulation.time.end_datetime"
+    )
     if end < start:
-        raise ValueError("simulation.time.end_datetime must be greater than or equal to start_datetime.")
+        raise ValueError(
+            "simulation.time.end_datetime must be greater than or equal to start_datetime."
+        )
     return ResolvedSimulationTimeWindow(
         start=start,
         end=end,

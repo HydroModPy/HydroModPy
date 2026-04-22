@@ -71,10 +71,7 @@ class WorkspaceConfig(HydroModelBase):
     model_config = ConfigDict(extra="forbid")
 
     project_root: Annotated[Path, Profile.USER] = Field(
-        description=(
-            "Path to the project directory. "
-            "Auto-derived from TOML location when absent."
-        ),
+        description=("Path to the project directory. Auto-derived from TOML location when absent."),
     )
 
     root: Annotated[Path | None, Profile.USER] = Field(
@@ -87,25 +84,18 @@ class WorkspaceConfig(HydroModelBase):
 
     catalog_path: Annotated[Path | None, Profile.DEV] = Field(
         default=None,
-        description=(
-            "Explicit path to hydromodpy.duckdb. "
-            "Defaults to <root>/hydromodpy.duckdb."
-        ),
+        description=("Explicit path to hydromodpy.duckdb. Defaults to <root>/hydromodpy.duckdb."),
     )
 
     data_dir: Annotated[Path | None, Profile.DEV] = Field(
         default=None,
-        description=(
-            "Explicit path to the workspace data directory. "
-            "Defaults to <root>/data."
-        ),
+        description=("Explicit path to the workspace data directory. Defaults to <root>/data."),
     )
 
     simulations_dir: Annotated[Path | None, Profile.DEV] = Field(
         default=None,
         description=(
-            "Explicit path to the simulations Zarr directory. "
-            "Defaults to <root>/simulations."
+            "Explicit path to the simulations Zarr directory. Defaults to <root>/simulations."
         ),
     )
 
@@ -134,20 +124,24 @@ class WorkspaceConfig(HydroModelBase):
 
         object.__setattr__(self, "root", root)
         object.__setattr__(
-            self, "catalog_path",
+            self,
+            "catalog_path",
             _finalize(self.catalog_path, root / "hydromodpy.duckdb"),
         )
         object.__setattr__(
-            self, "data_dir",
+            self,
+            "data_dir",
             _finalize(self.data_dir, root / "data"),
         )
         object.__setattr__(
-            self, "simulations_dir",
+            self,
+            "simulations_dir",
             _finalize(self.simulations_dir, root / "simulations"),
         )
         if self.output_root is not None:
             object.__setattr__(
-                self, "output_root",
+                self,
+                "output_root",
                 Path(self.output_root).expanduser().resolve(),
             )
         object.__setattr__(self, "_resolution_source", source)

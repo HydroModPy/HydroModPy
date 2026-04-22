@@ -91,9 +91,7 @@ class MethodComparisonLauncher:
             sim_id = None
             try:
                 config_path = summary.get("config_path")
-                resolved_config_path = (
-                    None if config_path in (None, "") else Path(str(config_path))
-                )
+                resolved_config_path = None if config_path in (None, "") else Path(str(config_path))
                 store, sim_id = discover_result_store(resolved_config_path)
                 rows = extract_observable_rows(
                     comparison_id=str(section.comparison_id),
@@ -160,8 +158,7 @@ class MethodComparisonLauncher:
                 rows=all_rows,
                 detail_metrics=detail_metrics,
                 observables=[
-                    observable.model_dump(mode="json")
-                    for observable in section.observable
+                    observable.model_dump(mode="json") for observable in section.observable
                 ],
             )
         )
@@ -205,8 +202,7 @@ class MethodComparisonLauncher:
                 reference_variant=reference_variant,
                 variant_summaries=variant_summaries,
                 observables=[
-                    observable.model_dump(mode="json")
-                    for observable in section.observable
+                    observable.model_dump(mode="json") for observable in section.observable
                 ],
                 rows=all_rows,
                 summary_metrics=summary_metrics,
@@ -243,8 +239,7 @@ class MethodComparisonLauncher:
             "wall_time_seconds": round(time.monotonic() - started_at, 2),
             "variants": variant_summaries,
             "observables": [
-                observable.model_dump(mode="json")
-                for observable in section.observable
+                observable.model_dump(mode="json") for observable in section.observable
             ],
         }
         manifest_path = comparison_root / "comparison_manifest.json"
@@ -287,9 +282,7 @@ class MethodComparisonLauncher:
                 )
                 status = "reused"
             elif run_folder is None:
-                raise ValueError(
-                    f"Variant '{variant.id}' has no config_path or run_folder"
-                )
+                raise ValueError(f"Variant '{variant.id}' has no config_path or run_folder")
 
             metrics = compact_run_metrics(read_json_file(run_folder / "_metrics.json"))
             metadata = read_variant_run_metadata(run_folder)

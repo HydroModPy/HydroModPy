@@ -16,8 +16,17 @@ from tests._helpers.signatures import FieldSignature
 
 
 DEFAULT_SIGNATURE_FIELDS: tuple[str, ...] = (
-    "min", "p05", "p25", "p50", "p75", "p95", "max",
-    "mean", "std", "sum", "moment_1",
+    "min",
+    "p05",
+    "p25",
+    "p50",
+    "p75",
+    "p95",
+    "max",
+    "mean",
+    "std",
+    "sum",
+    "moment_1",
 )
 
 
@@ -81,13 +90,10 @@ def assert_dataframe_equal_modulo_dtype(
     """Compare DataFrames ignoring column dtype (useful across DuckDB/Pandas)."""
     if list(actual.columns) != list(expected.columns):
         raise AssertionError(
-            f"columns mismatch: actual={list(actual.columns)}, "
-            f"expected={list(expected.columns)}"
+            f"columns mismatch: actual={list(actual.columns)}, expected={list(expected.columns)}"
         )
     if len(actual) != len(expected):
-        raise AssertionError(
-            f"row count mismatch: actual={len(actual)}, expected={len(expected)}"
-        )
+        raise AssertionError(f"row count mismatch: actual={len(actual)}, expected={len(expected)}")
     for col in actual.columns:
         a = actual[col].to_numpy()
         e = expected[col].to_numpy()

@@ -25,10 +25,8 @@ def register(subparsers) -> argparse.ArgumentParser:
         "sim_id",
         help="Full sim_id, unique prefix, or simulation name",
     )
-    parser.add_argument("--workspace", default=None,
-                        help="Workspace root (default: auto-detect)")
-    parser.add_argument("-y", "--yes", action="store_true",
-                        help="Skip the confirmation prompt")
+    parser.add_argument("--workspace", default=None, help="Workspace root (default: auto-detect)")
+    parser.add_argument("-y", "--yes", action="store_true", help="Skip the confirmation prompt")
     parser.set_defaults(_handler=run)
     return parser
 
@@ -56,9 +54,11 @@ def run(args: argparse.Namespace) -> None:
                 )
                 sys.exit(EXIT_USER_ABORT)
             try:
-                resp = input(
-                    f"Delete simulation {label} ({sid}) and its Zarr store? [y/N] "
-                ).strip().lower()
+                resp = (
+                    input(f"Delete simulation {label} ({sid}) and its Zarr store? [y/N] ")
+                    .strip()
+                    .lower()
+                )
             except (EOFError, KeyboardInterrupt):
                 print("\nAborted.", file=sys.stderr)
                 sys.exit(EXIT_USER_ABORT)
@@ -82,10 +82,19 @@ def _delete_from_catalog(catalog, sid: str) -> None:
     """
     conn = catalog.connection
     tables = (
-        "parameters", "timeseries", "budgets", "mass_balance", "metrics",
-        "observation_points", "provenance", "calibration_iterations",
-        "calibration_sessions", "geographic_features", "geographic_metadata",
-        "tags", "runs_environment",
+        "parameters",
+        "timeseries",
+        "budgets",
+        "mass_balance",
+        "metrics",
+        "observation_points",
+        "provenance",
+        "calibration_iterations",
+        "calibration_sessions",
+        "geographic_features",
+        "geographic_metadata",
+        "tags",
+        "runs_environment",
     )
     for table in tables:
         try:

@@ -62,9 +62,7 @@ class FieldSquare(Field):
         side_key = str(zone1_side).strip().lower()
         if side_key not in SUPPORTED_SIDES:
             allowed = ", ".join(SUPPORTED_SIDES)
-            raise ValueError(
-                f"Unsupported zone1_side '{zone1_side}'. Allowed: {allowed}"
-            )
+            raise ValueError(f"Unsupported zone1_side '{zone1_side}'. Allowed: {allowed}")
         z1 = str(zone1_name).strip()
         z2 = str(zone2_name).strip()
         if z1 == "" or z2 == "":
@@ -137,18 +135,8 @@ class FieldSquare(Field):
             w1 = uu * (1.0 - vv)
             w2 = uu * vv
             w3 = (1.0 - uu) * vv
-            x = (
-                w0 * verts[0, 0]
-                + w1 * verts[1, 0]
-                + w2 * verts[2, 0]
-                + w3 * verts[3, 0]
-            )
-            y = (
-                w0 * verts[0, 1]
-                + w1 * verts[1, 1]
-                + w2 * verts[2, 1]
-                + w3 * verts[3, 1]
-            )
+            x = w0 * verts[0, 0] + w1 * verts[1, 0] + w2 * verts[2, 0] + w3 * verts[3, 0]
+            y = w0 * verts[0, 1] + w1 * verts[1, 1] + w2 * verts[2, 1] + w3 * verts[3, 1]
             return x.ravel(), y.ravel()
 
         if cell.kind == "triangle":
@@ -173,9 +161,7 @@ class FieldSquare(Field):
         frac_zone2 = np.empty(mesh.n_cells, dtype=float)
 
         for cell in mesh.cells:
-            x_s, y_s = self._sample_points_in_cell(
-                cell, n_sub_per_axis=cell_samples_per_axis
-            )
+            x_s, y_s = self._sample_points_in_cell(cell, n_sub_per_axis=cell_samples_per_axis)
             zones = self.zone_id(x_s, y_s)
 
             c1 = int(np.count_nonzero(zones == self.zone1_name))
@@ -244,8 +230,7 @@ class FieldSquare(Field):
                 line = f"axis_{orientation}"
             else:
                 raise KeyError(
-                    "Field config must provide either 'line' or "
-                    "('line_family', 'line_orientation')"
+                    "Field config must provide either 'line' or ('line_family', 'line_orientation')"
                 )
 
         return cls(

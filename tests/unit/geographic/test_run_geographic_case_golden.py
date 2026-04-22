@@ -97,7 +97,9 @@ def _write_tmp_config(tmp_path: Path) -> Path:
         "restore this test once a replacement raster ships under examples/data/dem/."
     )
 )
-def test_run_geographic_case_metrics_golden(update_goldens, tmp_path, monkeypatch: pytest.MonkeyPatch):
+def test_run_geographic_case_metrics_golden(
+    update_goldens, tmp_path, monkeypatch: pytest.MonkeyPatch
+):
     """
     Validate DEM-sensitive geographic metrics on the largest geographic case.
 
@@ -156,4 +158,3 @@ def test_run_geographic_case_metrics_golden(update_goldens, tmp_path, monkeypatc
             )
         for key in COUNT_METRIC_KEYS:
             assert actual[case_id][key] == expected[case_id][key]
-

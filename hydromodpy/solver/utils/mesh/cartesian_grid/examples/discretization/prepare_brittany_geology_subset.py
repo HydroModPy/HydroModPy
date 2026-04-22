@@ -94,13 +94,11 @@ def main(argv=None) -> int:
 
     if output_shp.exists() and not args.overwrite:
         raise FileExistsError(
-            f"Output shapefile already exists: {output_shp}. "
-            "Use --overwrite to replace it."
+            f"Output shapefile already exists: {output_shp}. Use --overwrite to replace it."
         )
     if output_csv.exists() and not args.overwrite:
         raise FileExistsError(
-            f"Output CSV already exists: {output_csv}. "
-            "Use --overwrite to replace it."
+            f"Output CSV already exists: {output_csv}. Use --overwrite to replace it."
         )
 
     # Remove previous shapefile sidecars when overwriting.

@@ -112,7 +112,9 @@ class TestIngest:
         sid = _sim_id()
         catalog.register_simulation(sid, project="obs_test", solver="modflow6")
         empty_rec = _StubPointRecord(
-            station_id="S1", variable="discharge", unit="m3/s",
+            station_id="S1",
+            variable="discharge",
+            unit="m3/s",
             data=pd.DataFrame({"datetime": pd.DatetimeIndex([]), "value": []}),
         )
         loaded = _StubLoadedData(hydrometry=_StubLoadResult(points=[empty_rec]))

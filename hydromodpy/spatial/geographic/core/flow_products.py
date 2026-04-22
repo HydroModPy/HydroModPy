@@ -18,7 +18,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from hydromodpy.spatial.delineation import WhiteboxBackend, WhiteboxWorkflowsBackend, get_whitebox_backend
+from hydromodpy.spatial.delineation import (
+    WhiteboxBackend,
+    WhiteboxWorkflowsBackend,
+    get_whitebox_backend,
+)
 
 from hydromodpy.spatial.geographic.geographic_io import ensure_crs
 
@@ -81,7 +85,9 @@ def build_regional_flow_products(
     elif dem_correc_type == "breach":
         correc = str(out_dir / "dem_breach.tif")
     else:
-        raise ValueError(f"Unknown dem_correc_type={dem_correc_type!r}. Expected 'fill' or 'breach'.")
+        raise ValueError(
+            f"Unknown dem_correc_type={dem_correc_type!r}. Expected 'fill' or 'breach'."
+        )
 
     direc = str(out_dir / "dem_direc.tif")
     acc = str(out_dir / "dem_acc.tif")

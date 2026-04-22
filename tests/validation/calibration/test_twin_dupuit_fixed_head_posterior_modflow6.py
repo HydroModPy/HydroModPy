@@ -19,7 +19,9 @@ from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment im
 @pytest.mark.validation
 @pytest.mark.steady
 @pytest.mark.mf6
-def test_calibration_twin_dupuit_fixed_head_posterior_modflow6_distribution_methods_cover_truth() -> None:
+def test_calibration_twin_dupuit_fixed_head_posterior_modflow6_distribution_methods_cover_truth() -> (
+    None
+):
     """Run the posterior-oriented steady twin benchmark and verify truth coverage."""
     pytest.importorskip("cma")
 

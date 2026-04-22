@@ -60,9 +60,7 @@ def build_linear_surface_values(
 
     x = np.asarray(x_m, dtype=float)
     x_local = x - float(xmin)
-    return float(base_elevation_m) + float(right_to_left_amplitude_m) * (
-        1.0 - (x_local / length)
-    )
+    return float(base_elevation_m) + float(right_to_left_amplitude_m) * (1.0 - (x_local / length))
 
 
 def build_linear_substratum_values(
@@ -185,9 +183,7 @@ def _sloping_substratum_length_from_discharge(
 
     def _primitive(thickness_m: float) -> float:
         term = alpha * float(thickness_m) - discharge
-        return (
-            term + (discharge * np.log(abs(term)))
-        ) / (conductivity * slope * slope)
+        return (term + (discharge * np.log(abs(term)))) / (conductivity * slope * slope)
 
     return float(
         _primitive(float(east_saturated_thickness_m))
@@ -239,13 +235,16 @@ def solve_sloping_substratum_fixed_head_discharge_per_width(
     hi = max(2.0 * lo, 1.0e-8)
 
     def _residual(discharge_m2_s: float) -> float:
-        return _sloping_substratum_length_from_discharge(
-            discharge_per_width_m2_s=float(discharge_m2_s),
-            west_saturated_thickness_m=west_thickness_m,
-            east_saturated_thickness_m=east_thickness_m,
-            hydraulic_conductivity_m_per_s=conductivity,
-            bottom_slope_m_per_m=slope,
-        ) - length
+        return (
+            _sloping_substratum_length_from_discharge(
+                discharge_per_width_m2_s=float(discharge_m2_s),
+                west_saturated_thickness_m=west_thickness_m,
+                east_saturated_thickness_m=east_thickness_m,
+                hydraulic_conductivity_m_per_s=conductivity,
+                bottom_slope_m_per_m=slope,
+            )
+            - length
+        )
 
     residual_lo = _residual(lo)
     residual_hi = _residual(hi)
@@ -322,9 +321,9 @@ def expected_sloping_substratum_fixed_head_saturated_thickness_at_x(
 
     def _primitive(thickness_m: float) -> float:
         term = (alpha * float(thickness_m)) - discharge
-        return (
-            term + (discharge * np.log(abs(term)))
-        ) / (float(hydraulic_conductivity_m_per_s) * slope * slope)
+        return (term + (discharge * np.log(abs(term)))) / (
+            float(hydraulic_conductivity_m_per_s) * slope * slope
+        )
 
     thickness_min = min(west_thickness_m, east_thickness_m)
     thickness_max = max(west_thickness_m, east_thickness_m)
@@ -565,9 +564,7 @@ def solve_sloping_substratum_uniform_recharge_west_discharge_per_width(
         residual_hi = _residual(hi)
         expansion_count += 1
         if expansion_count > 80:
-            raise RuntimeError(
-                "Could not bracket the sloping-substratum recharge discharge."
-            )
+            raise RuntimeError("Could not bracket the sloping-substratum recharge discharge.")
 
     for _ in range(120):
         mid = 0.5 * (lo + hi)
@@ -627,14 +624,16 @@ def expected_sloping_substratum_uniform_recharge_saturated_thickness_at_x(
         hydraulic_conductivity_m_per_s=float(hydraulic_conductivity_m_per_s),
         recharge_mm_day=float(recharge_mm_day),
     )
-    length_grid, thickness_grid, success = _integrate_sloping_substratum_uniform_recharge_saturated_thickness(
-        length_m=length,
-        west_saturated_thickness_m=west_thickness_m,
-        west_discharge_per_width_m2_s=float(west_discharge),
-        hydraulic_conductivity_m_per_s=float(hydraulic_conductivity_m_per_s),
-        bottom_slope_m_per_m=float(bottom_right_to_left_amplitude_m) / length,
-        recharge_m_per_s=_mm_day_to_m_s(float(recharge_mm_day)),
-        n_steps=4096,
+    length_grid, thickness_grid, success = (
+        _integrate_sloping_substratum_uniform_recharge_saturated_thickness(
+            length_m=length,
+            west_saturated_thickness_m=west_thickness_m,
+            west_discharge_per_width_m2_s=float(west_discharge),
+            hydraulic_conductivity_m_per_s=float(hydraulic_conductivity_m_per_s),
+            bottom_slope_m_per_m=float(bottom_right_to_left_amplitude_m) / length,
+            recharge_m_per_s=_mm_day_to_m_s(float(recharge_mm_day)),
+            n_steps=4096,
+        )
     )
     if not success:
         raise RuntimeError(

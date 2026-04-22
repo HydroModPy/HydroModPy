@@ -93,8 +93,7 @@ def saturated_fraction(
         return pd.Series(dtype="float64", name="saturated_fraction")
     active = (stack > threshold) & mask
     pct = 100.0 * active.sum(axis=1) / n_active
-    return pd.Series(pct, index=_time_index(sim, stack.shape[0]),
-                     name="saturated_fraction")
+    return pd.Series(pct, index=_time_index(sim, stack.shape[0]), name="saturated_fraction")
 
 
 def drainage_density(
@@ -120,8 +119,7 @@ def drainage_density(
         return pd.Series(dtype="float64", name="drainage_density")
     active = (stack > threshold) & mask
     pct = 100.0 * active.sum(axis=1) / n_active
-    return pd.Series(pct, index=_time_index(sim, stack.shape[0]),
-                     name="drainage_density")
+    return pd.Series(pct, index=_time_index(sim, stack.shape[0]), name="drainage_density")
 
 
 def persistence(
@@ -167,8 +165,7 @@ def catchment_mean(
         return pd.Series(dtype="float64", name=name or variable)
     masked = np.where(mask[None, :], stack, np.nan)
     means = np.nanmean(masked, axis=1)
-    return pd.Series(means, index=_time_index(sim, stack.shape[0]),
-                     name=name or variable)
+    return pd.Series(means, index=_time_index(sim, stack.shape[0]), name=name or variable)
 
 
 def recharge_forcing(sim: "Run") -> pd.Series:
@@ -195,5 +192,4 @@ def recharge_forcing(sim: "Run") -> pd.Series:
             field = np.where(mask, field, np.nan)
         means.append(float(np.nanmean(field)))
 
-    return pd.Series(means, index=_time_index(sim, n_t),
-                     name="recharge_forcing")
+    return pd.Series(means, index=_time_index(sim, n_t), name="recharge_forcing")

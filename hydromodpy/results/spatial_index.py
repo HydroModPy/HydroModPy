@@ -63,6 +63,7 @@ def point_in_cell(
 
     for station_id, (px, py) in points.items():
         from shapely.geometry import Point
+
         pt = Point(px, py)
         idx = tree.query(pt, predicate="within")
         if len(idx) > 0:

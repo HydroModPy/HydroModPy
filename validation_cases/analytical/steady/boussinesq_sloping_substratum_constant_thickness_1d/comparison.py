@@ -67,9 +67,7 @@ def build_boussinesq_sloping_substratum_constant_thickness_comparison(
     case_metadata = load_case_metadata(CASE_DIR) if metadata is None else metadata
     solver_name = str(getattr(result, "solver_name", "")).strip().lower() or None
     case_tolerances = (
-        load_case_tolerances(CASE_DIR, solver=solver_name)
-        if tolerances is None
-        else tolerances
+        load_case_tolerances(CASE_DIR, solver=solver_name) if tolerances is None else tolerances
     )
 
     output_cfg = dict(case_metadata.get("output", {}))
@@ -110,18 +108,14 @@ def build_boussinesq_sloping_substratum_constant_thickness_comparison(
         xmin=float(reference_cfg["xmin"]),
         xmax=float(reference_cfg["xmax"]),
         bottom_base_elevation_m=float(reference_cfg["bottom_base_elevation_m"]),
-        bottom_right_to_left_amplitude_m=float(
-            reference_cfg["bottom_right_to_left_amplitude_m"]
-        ),
+        bottom_right_to_left_amplitude_m=float(reference_cfg["bottom_right_to_left_amplitude_m"]),
     )
     analytical_profile = expected_sloping_substratum_constant_thickness_profile_at_x(
         x_m=x,
         xmin=float(reference_cfg["xmin"]),
         xmax=float(reference_cfg["xmax"]),
         bottom_base_elevation_m=float(reference_cfg["bottom_base_elevation_m"]),
-        bottom_right_to_left_amplitude_m=float(
-            reference_cfg["bottom_right_to_left_amplitude_m"]
-        ),
+        bottom_right_to_left_amplitude_m=float(reference_cfg["bottom_right_to_left_amplitude_m"]),
         saturated_thickness_m=float(reference_cfg["target_saturated_thickness_m"]),
     )
     residual_profile = np.asarray(numerical_profile - analytical_profile, dtype=float)
@@ -137,10 +131,7 @@ def build_boussinesq_sloping_substratum_constant_thickness_comparison(
     reference_discharge = (
         float(reference_cfg["hydraulic_conductivity_m_per_s"])
         * float(reference_cfg["target_saturated_thickness_m"])
-        * (
-            float(reference_cfg["bottom_right_to_left_amplitude_m"])
-            / length_m
-        )
+        * (float(reference_cfg["bottom_right_to_left_amplitude_m"]) / length_m)
     )
 
     return BoussinesqSlopingSubstratumConstantThicknessComparison(

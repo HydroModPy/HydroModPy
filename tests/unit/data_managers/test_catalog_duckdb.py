@@ -24,9 +24,12 @@ def dummy_file(tmp_path):
 class TestRegister:
     def test_register_returns_id(self, catalog, dummy_file):
         entry_id = catalog.register(
-            variable="hydrometry", source="hubeau", file_path=dummy_file,
+            variable="hydrometry",
+            source="hubeau",
+            file_path=dummy_file,
             station_id="J7214001",
-            date_start=datetime(2020, 1, 1), date_end=datetime(2020, 12, 31),
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 12, 31),
         )
         assert isinstance(entry_id, int)
         assert entry_id > 0
@@ -43,12 +46,18 @@ class TestRegister:
 
     def test_source_unit_roundtrip(self, catalog, dummy_file):
         catalog.register(
-            variable="hydrometry", source="custom", file_path=dummy_file,
-            station_id="ST001", unit="m3/s", source_unit="L/s",
+            variable="hydrometry",
+            source="custom",
+            file_path=dummy_file,
+            station_id="ST001",
+            unit="m3/s",
+            source_unit="L/s",
         )
 
         entry = catalog.find_cached(
-            variable="hydrometry", source="custom", station_id="ST001",
+            variable="hydrometry",
+            source="custom",
+            station_id="ST001",
         )
         assert entry is not None
         assert entry.unit == "m3/s"
@@ -61,41 +70,57 @@ class TestRegister:
 class TestFindCached:
     def test_find_by_station(self, catalog, dummy_file):
         catalog.register(
-            variable="hydrometry", source="hubeau", file_path=dummy_file,
+            variable="hydrometry",
+            source="hubeau",
+            file_path=dummy_file,
             station_id="ST001",
-            date_start=datetime(2020, 1, 1), date_end=datetime(2020, 12, 31),
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 12, 31),
         )
         entry = catalog.find_cached(
-            variable="hydrometry", source="hubeau", station_id="ST001",
+            variable="hydrometry",
+            source="hubeau",
+            station_id="ST001",
         )
         assert entry is not None
         assert entry.station_id == "ST001"
 
     def test_not_found(self, catalog):
         entry = catalog.find_cached(
-            variable="hydrometry", source="hubeau", station_id="NOPE",
+            variable="hydrometry",
+            source="hubeau",
+            station_id="NOPE",
         )
         assert entry is None
 
     def test_superset_period(self, catalog, dummy_file):
         catalog.register(
-            variable="hydrometry", source="hubeau", file_path=dummy_file,
+            variable="hydrometry",
+            source="hubeau",
+            file_path=dummy_file,
             station_id="ST001",
-            date_start=datetime(2019, 1, 1), date_end=datetime(2025, 12, 31),
+            date_start=datetime(2019, 1, 1),
+            date_end=datetime(2025, 12, 31),
         )
         entry = catalog.find_cached(
-            variable="hydrometry", source="hubeau", station_id="ST001",
-            date_start=datetime(2020, 1, 1), date_end=datetime(2023, 12, 31),
+            variable="hydrometry",
+            source="hubeau",
+            station_id="ST001",
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2023, 12, 31),
         )
         assert entry is not None
 
     def test_superset_bbox(self, catalog, dummy_file):
         catalog.register(
-            variable="precipitation", source="sim2", file_path=dummy_file,
+            variable="precipitation",
+            source="sim2",
+            file_path=dummy_file,
             bbox=(0.0, 42.0, 5.0, 48.0),
         )
         entry = catalog.find_cached(
-            variable="precipitation", source="sim2",
+            variable="precipitation",
+            source="sim2",
             bbox=(1.0, 43.0, 4.0, 47.0),
         )
         assert entry is not None
@@ -104,14 +129,20 @@ class TestFindCached:
 class TestUpsert:
     def test_register_twice_no_duplicate(self, catalog, dummy_file):
         catalog.register(
-            variable="hydrometry", source="hubeau", file_path=dummy_file,
+            variable="hydrometry",
+            source="hubeau",
+            file_path=dummy_file,
             station_id="ST001",
-            date_start=datetime(2020, 1, 1), date_end=datetime(2020, 12, 31),
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 12, 31),
         )
         catalog.register(
-            variable="hydrometry", source="hubeau", file_path=dummy_file,
+            variable="hydrometry",
+            source="hubeau",
+            file_path=dummy_file,
             station_id="ST001",
-            date_start=datetime(2019, 1, 1), date_end=datetime(2023, 12, 31),
+            date_start=datetime(2019, 1, 1),
+            date_end=datetime(2023, 12, 31),
         )
         df = catalog.list_entries()
         assert len(df) == 1
@@ -119,11 +150,15 @@ class TestUpsert:
 
     def test_different_stations_separate_entries(self, catalog, dummy_file):
         catalog.register(
-            variable="hydrometry", source="hubeau", file_path=dummy_file,
+            variable="hydrometry",
+            source="hubeau",
+            file_path=dummy_file,
             station_id="ST001",
         )
         catalog.register(
-            variable="hydrometry", source="hubeau", file_path=dummy_file,
+            variable="hydrometry",
+            source="hubeau",
+            file_path=dummy_file,
             station_id="ST002",
         )
         assert len(catalog.list_entries()) == 2
@@ -135,10 +170,8 @@ class TestCleanup:
         existing.write_text("ok")
         gone = tmp_path / "gone.csv"
         gone.write_text("ok")
-        catalog.register(variable="hydrometry", source="hubeau",
-                         file_path=existing, station_id="A")
-        catalog.register(variable="hydrometry", source="hubeau",
-                         file_path=gone, station_id="B")
+        catalog.register(variable="hydrometry", source="hubeau", file_path=existing, station_id="A")
+        catalog.register(variable="hydrometry", source="hubeau", file_path=gone, station_id="B")
 
         gone.unlink()
         removed = catalog.cleanup()
@@ -146,8 +179,13 @@ class TestCleanup:
         assert len(catalog.list_entries()) == 1
 
     def test_cleanup_skips_custom_sentinel(self, catalog):
-        catalog.register(variable="hydrometry", source="custom",
-                         file_path="custom", station_id="C", is_custom=True)
+        catalog.register(
+            variable="hydrometry",
+            source="custom",
+            file_path="custom",
+            station_id="C",
+            is_custom=True,
+        )
         removed = catalog.cleanup()
         assert removed == 0
         assert len(catalog.list_entries()) == 1
@@ -179,20 +217,28 @@ class TestSubsumeEntries:
         big.write_text("big grid")
 
         catalog.register(
-            variable="precipitation", source="sim2", file_path=small,
+            variable="precipitation",
+            source="sim2",
+            file_path=small,
             bbox=(1.0, 43.0, 3.0, 46.0),
-            date_start="2020-01-01", date_end="2020-12-31",
+            date_start="2020-01-01",
+            date_end="2020-12-31",
         )
         big_id = catalog.register(
-            variable="precipitation", source="sim2", file_path=big,
+            variable="precipitation",
+            source="sim2",
+            file_path=big,
             bbox=(0.0, 42.0, 5.0, 48.0),
-            date_start="2019-01-01", date_end="2025-12-31",
+            date_start="2019-01-01",
+            date_end="2025-12-31",
         )
 
         removed = catalog.subsume_entries(
-            variable="precipitation", source="sim2",
+            variable="precipitation",
+            source="sim2",
             bbox=(0.0, 42.0, 5.0, 48.0),
-            date_start="2019-01-01", date_end="2025-12-31",
+            date_start="2019-01-01",
+            date_end="2025-12-31",
             exclude_id=big_id,
         )
         assert removed == 1
@@ -205,11 +251,14 @@ class TestEdgeCases:
         f = tmp_path / "grid.nc"
         f.write_text("data")
         catalog.register(
-            variable="precipitation", source="sim2", file_path=f,
+            variable="precipitation",
+            source="sim2",
+            file_path=f,
             bbox=(0.0, 43.0, 3.0, 46.0),
         )
         result = catalog.find_cached(
-            variable="precipitation", source="sim2",
+            variable="precipitation",
+            source="sim2",
             bbox=(3.0, 46.0, 0.0, 43.0),
         )
         assert result is None
@@ -218,25 +267,35 @@ class TestEdgeCases:
         f = tmp_path / "station.csv"
         f.write_text("data")
         catalog.register(
-            variable="hydrometry", source="hubeau", file_path=f,
+            variable="hydrometry",
+            source="hubeau",
+            file_path=f,
             station_id="ST001",
-            date_start=datetime(2020, 1, 1), date_end=datetime(2024, 12, 31),
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2024, 12, 31),
         )
         entry = catalog.find_cached(
-            variable="hydrometry", source="hubeau", station_id="ST001",
-            date_start=None, date_end=None,
+            variable="hydrometry",
+            source="hubeau",
+            station_id="ST001",
+            date_start=None,
+            date_end=None,
         )
         assert entry is not None
         assert entry.station_id == "ST001"
 
     def test_register_nonexistent_file_does_not_crash(self, catalog):
         entry_id = catalog.register(
-            variable="precipitation", source="sim2",
-            file_path="/nonexistent/path/to/data.nc", station_id="GHOST",
+            variable="precipitation",
+            source="sim2",
+            file_path="/nonexistent/path/to/data.nc",
+            station_id="GHOST",
         )
         assert entry_id > 0
         entry = catalog.find_cached(
-            variable="precipitation", source="sim2", station_id="GHOST",
+            variable="precipitation",
+            source="sim2",
+            station_id="GHOST",
         )
         assert entry is not None
         assert entry.file_mtime is None
@@ -248,19 +307,27 @@ class TestEdgeCases:
         f_new.write_text("new")
 
         catalog.register(
-            variable="precipitation", source="sim2", file_path=f_old,
+            variable="precipitation",
+            source="sim2",
+            file_path=f_old,
             bbox=(0.0, 43.0, 3.0, 46.0),
-            date_start="2020-01-01", date_end="2020-12-31",
+            date_start="2020-01-01",
+            date_end="2020-12-31",
         )
         id_b = catalog.register(
-            variable="precipitation", source="sim2", file_path=f_new,
+            variable="precipitation",
+            source="sim2",
+            file_path=f_new,
             bbox=(0.0, 43.0, 3.0, 46.0),
-            date_start="2020-01-01", date_end="2020-12-31",
+            date_start="2020-01-01",
+            date_end="2020-12-31",
         )
         removed = catalog.subsume_entries(
-            variable="precipitation", source="sim2",
+            variable="precipitation",
+            source="sim2",
             bbox=(0.0, 43.0, 3.0, 46.0),
-            date_start="2020-01-01", date_end="2020-12-31",
+            date_start="2020-01-01",
+            date_end="2020-12-31",
             exclude_id=id_b,
         )
         assert removed == 1
@@ -271,14 +338,19 @@ class TestEdgeCases:
         f = tmp_path / "grid.nc"
         f.write_text("data")
         entry_id = catalog.register(
-            variable="recharge", source="sim2", file_path=f,
+            variable="recharge",
+            source="sim2",
+            file_path=f,
             bbox=(1.0, 44.0, 2.0, 45.0),
-            date_start="2020-01-01", date_end="2020-12-31",
+            date_start="2020-01-01",
+            date_end="2020-12-31",
         )
         removed = catalog.subsume_entries(
-            variable="recharge", source="sim2",
+            variable="recharge",
+            source="sim2",
             bbox=(0.0, 43.0, 3.0, 46.0),
-            date_start="2019-01-01", date_end="2021-12-31",
+            date_start="2019-01-01",
+            date_end="2021-12-31",
             exclude_id=entry_id,
         )
         assert removed == 0
@@ -289,7 +361,9 @@ class TestEdgeCases:
             f = tmp_path / f"file_{i}.csv"
             f.write_text(f"data{i}")
             catalog.register(
-                variable="hydrometry", source="hubeau", file_path=f,
+                variable="hydrometry",
+                source="hubeau",
+                file_path=f,
                 station_id=f"ST{i:03d}",
             )
         assert len(catalog.list_entries()) == 5
@@ -301,11 +375,15 @@ class TestEdgeCases:
         real_file = tmp_path / "to_remove.parquet"
         real_file.write_text("important data")
         catalog.register(
-            variable="hydrometry", source="hubeau", file_path=real_file,
+            variable="hydrometry",
+            source="hubeau",
+            file_path=real_file,
             station_id="DEL01",
         )
         count = catalog.invalidate(
-            variable="hydrometry", source="hubeau", station_id="DEL01",
+            variable="hydrometry",
+            source="hubeau",
+            station_id="DEL01",
             delete_files=True,
         )
         assert count == 1
@@ -314,12 +392,18 @@ class TestEdgeCases:
 
     def test_cleanup_preserves_sentinel_entries(self, catalog):
         catalog.register(
-            variable="hydrometry", source="custom", file_path="custom",
-            station_id="CUSTOM01", is_custom=True,
+            variable="hydrometry",
+            source="custom",
+            file_path="custom",
+            station_id="CUSTOM01",
+            is_custom=True,
         )
         catalog.register(
-            variable="piezometry", source="custom", file_path="empty",
-            station_id="EMPTY01", is_custom=True,
+            variable="piezometry",
+            source="custom",
+            file_path="empty",
+            station_id="EMPTY01",
+            is_custom=True,
         )
         assert catalog.cleanup() == 0
         assert len(catalog.list_entries()) == 2

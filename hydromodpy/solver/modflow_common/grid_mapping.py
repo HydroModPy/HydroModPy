@@ -29,10 +29,10 @@ class DisDescriptor:
     nlay: int
     nrow: int
     ncol: int
-    delr: np.ndarray     # (ncol,) column widths
-    delc: np.ndarray     # (nrow,) row heights
-    top: np.ndarray      # (nrow, ncol)
-    botm: np.ndarray     # (nlay, nrow, ncol)
+    delr: np.ndarray  # (ncol,) column widths
+    delc: np.ndarray  # (nrow,) row heights
+    top: np.ndarray  # (nrow, ncol)
+    botm: np.ndarray  # (nlay, nrow, ncol)
     xorigin: float
     yorigin: float
 
@@ -46,12 +46,12 @@ class DisvDescriptor:
     """Parameters feeding ``flopy.mf6.ModflowGwfdisv``."""
 
     nlay: int
-    ncpl: int                         # cells per layer
+    ncpl: int  # cells per layer
     nvert: int
-    vertices: np.ndarray              # (nvert, 3) [iv, x, y]
-    cell2d: list[tuple]               # flopy-style per-cell connectivity
-    top: np.ndarray                   # (ncpl,)
-    botm: np.ndarray                  # (nlay, ncpl)
+    vertices: np.ndarray  # (nvert, 3) [iv, x, y]
+    cell2d: list[tuple]  # flopy-style per-cell connectivity
+    top: np.ndarray  # (ncpl,)
+    botm: np.ndarray  # (nlay, ncpl)
 
     @property
     def kind(self) -> DiscretizationKind:
@@ -67,10 +67,13 @@ def describe_grid(solver_mesh: SolverMesh) -> DisDescriptor | DisvDescriptor:
     """
     if solver_mesh.is_structured:
         top = np.asarray(solver_mesh.top, dtype=float).reshape(
-            solver_mesh.nrow, solver_mesh.ncol,
+            solver_mesh.nrow,
+            solver_mesh.ncol,
         )
         botm = np.asarray(solver_mesh.botm, dtype=float).reshape(
-            solver_mesh.nlay, solver_mesh.nrow, solver_mesh.ncol,
+            solver_mesh.nlay,
+            solver_mesh.nrow,
+            solver_mesh.ncol,
         )
         bounds = solver_mesh.planar_mesh.bounds()
         delr_val = (float(bounds[2]) - float(bounds[0])) / solver_mesh.ncol
@@ -96,7 +99,8 @@ def describe_grid(solver_mesh: SolverMesh) -> DisDescriptor | DisvDescriptor:
     ncpl = int(planar.n_cells)
     top = np.asarray(solver_mesh.top, dtype=float).reshape(ncpl)
     botm = np.asarray(solver_mesh.botm, dtype=float).reshape(
-        solver_mesh.nlay, ncpl,
+        solver_mesh.nlay,
+        ncpl,
     )
     return DisvDescriptor(
         nlay=solver_mesh.nlay,

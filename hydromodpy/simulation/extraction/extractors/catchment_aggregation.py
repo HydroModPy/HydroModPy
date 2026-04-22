@@ -70,7 +70,9 @@ def aggregate_catchment_timeseries(
 
     written = 0
     for store_var, output_var, reducer in _AGGREGATION_SPEC:
-        values = _aggregate_variable(store, sim_id, grp, store_var, n_timesteps, active_mask, reducer)
+        values = _aggregate_variable(
+            store, sim_id, grp, store_var, n_timesteps, active_mask, reducer
+        )
         if values is None:
             continue
 
@@ -146,7 +148,6 @@ def _resolve_time_index(store: Any, sim_id: str, n_timesteps: int) -> pd.Datetim
         return pd.date_range("2000-01-01", periods=n_timesteps, freq="MS")
     # Spread n_timesteps evenly across 12 months
     return pd.date_range("2000-01-01", "2000-12-31", periods=n_timesteps)
-
 
 
 def _detect_n_timesteps(grp) -> int:

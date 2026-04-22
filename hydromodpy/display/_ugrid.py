@@ -44,9 +44,7 @@ def render_face_field(
 
     flat = np.asarray(values).ravel()
     if flat.size != len(polygons):
-        raise ValueError(
-            f"face field has {flat.size} values but mesh has {len(polygons)} faces"
-        )
+        raise ValueError(f"face field has {flat.size} values but mesh has {len(polygons)} faces")
 
     coll = PolyCollection(
         polygons,

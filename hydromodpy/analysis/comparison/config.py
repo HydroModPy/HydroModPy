@@ -123,9 +123,7 @@ class MethodComparisonObservable(HydroModelBase):
         if value is None:
             return None
         if not isinstance(value, list) or not value:
-            raise ValueError(
-                "method_comparison.observable.cell_indices must be a non-empty list"
-            )
+            raise ValueError("method_comparison.observable.cell_indices must be a non-empty list")
         indices = [int(item) for item in value]
         if any(index < 0 for index in indices):
             raise ValueError("method_comparison.observable.cell_indices must be >= 0")
@@ -137,16 +135,12 @@ class MethodComparisonObservable(HydroModelBase):
         if value is None:
             return None
         if not isinstance(value, list) or not value:
-            raise ValueError(
-                "method_comparison.observable.variants must be a non-empty list"
-            )
+            raise ValueError("method_comparison.observable.variants must be a non-empty list")
         cleaned = []
         for item in value:
             text = str(item).strip()
             if not text:
-                raise ValueError(
-                    "method_comparison.observable.variants cannot contain empty ids"
-                )
+                raise ValueError("method_comparison.observable.variants cannot contain empty ids")
             cleaned.append(text)
         return cleaned
 
@@ -164,7 +158,7 @@ class MethodComparisonObservable(HydroModelBase):
                     "point observables require x/y coordinates, anchor_id, or cell_index"
                 )
             if self.reducer is None:
-                object.__setattr__(self, "reducer", 'nearest_cell')
+                object.__setattr__(self, "reducer", "nearest_cell")
         elif self.support == "outlet":
             has_coordinates = self.x is not None and self.y is not None
             has_anchor = self.anchor_id is not None
@@ -181,20 +175,20 @@ class MethodComparisonObservable(HydroModelBase):
                 )
             variable_key = self.variable.strip().lower()
             if self.reducer is None:
-                object.__setattr__(self, "reducer", 'max' if 'accumulation' in variable_key else 'sum')
+                object.__setattr__(
+                    self, "reducer", "max" if "accumulation" in variable_key else "sum"
+                )
         elif self.support == "boundary":
             if self.boundary_id is None and not self.cell_indices:
-                raise ValueError(
-                    "boundary observables require boundary_id or cell_indices"
-                )
+                raise ValueError("boundary observables require boundary_id or cell_indices")
             if self.reducer is None:
-                object.__setattr__(self, "reducer", 'sum')
+                object.__setattr__(self, "reducer", "sum")
         elif self.support == "cell_mask":
             if self.reducer is None:
-                object.__setattr__(self, "reducer", 'sum')
+                object.__setattr__(self, "reducer", "sum")
         elif self.support == "map":
             if self.reducer is None:
-                object.__setattr__(self, "reducer", 'identity')
+                object.__setattr__(self, "reducer", "identity")
         return self
 
 
@@ -238,9 +232,7 @@ class MethodComparisonSection(HydroModelBase):
         if len(set(observable_names)) != len(observable_names):
             raise ValueError("method_comparison.observable names must be unique")
         if self.reference_variant is not None and self.reference_variant not in set(ids):
-            raise ValueError(
-                "method_comparison.reference_variant must match a declared variant id"
-            )
+            raise ValueError("method_comparison.reference_variant must match a declared variant id")
         variant_ids = set(ids)
         for observable in self.observable:
             if observable.variants is None:
@@ -249,8 +241,7 @@ class MethodComparisonSection(HydroModelBase):
             if missing:
                 missing_text = ", ".join(missing)
                 raise ValueError(
-                    "method_comparison.observable.variants contains unknown ids: "
-                    f"{missing_text}"
+                    f"method_comparison.observable.variants contains unknown ids: {missing_text}"
                 )
         return self
 
@@ -313,9 +304,7 @@ class MethodComparisonConfig(HydroModelBase):
 
         resolved_config_path = Path(config_path).expanduser().resolve()
         base_dir = resolved_config_path.parent
-        section = MethodComparisonSection.model_validate(
-            raw_toml["method_comparison"]
-        )
+        section = MethodComparisonSection.model_validate(raw_toml["method_comparison"])
 
         comparison_id = section.comparison_id or resolved_config_path.stem
         section.comparison_id = comparison_id
@@ -330,9 +319,7 @@ class MethodComparisonConfig(HydroModelBase):
 
         base_simulation_config_path: Path | None = None
         if section.base_simulation_config is not None:
-            base_simulation_config_path = Path(
-                section.base_simulation_config
-            ).expanduser()
+            base_simulation_config_path = Path(section.base_simulation_config).expanduser()
             if not base_simulation_config_path.is_absolute():
                 base_simulation_config_path = base_dir / base_simulation_config_path
             base_simulation_config_path = base_simulation_config_path.resolve()
@@ -348,8 +335,7 @@ class MethodComparisonConfig(HydroModelBase):
             _apply_observable_anchors(section.observable, anchors)
         elif any(observable.anchor_id is not None for observable in section.observable):
             raise ValueError(
-                "method_comparison.observable.anchor_id requires "
-                "method_comparison.anchors_file"
+                "method_comparison.observable.anchor_id requires method_comparison.anchors_file"
             )
 
         cfg = cls(
@@ -370,9 +356,8 @@ class MethodComparisonConfig(HydroModelBase):
             if not variant.enabled:
                 continue
             has_direct_config = variant.simulation_config is not None
-            has_generated_config = (
-                self.base_simulation_config_path is not None
-                and bool(variant.overlay or variant.solver)
+            has_generated_config = self.base_simulation_config_path is not None and bool(
+                variant.overlay or variant.solver
             )
             has_run_folder = variant.run_folder is not None
             if not (has_direct_config or has_generated_config or has_run_folder):
@@ -420,9 +405,7 @@ def _load_method_comparison_anchors(path: Path) -> dict[str, tuple[float, float]
     raw_toml = load_toml_with_base_config(path)
     raw_anchors = raw_toml.get("method_comparison_anchors")
     if not isinstance(raw_anchors, Mapping):
-        raise KeyError(
-            f"Anchors file '{path}' must expose a [method_comparison_anchors] tree"
-        )
+        raise KeyError(f"Anchors file '{path}' must expose a [method_comparison_anchors] tree")
     anchors: dict[str, tuple[float, float]] = {}
     _collect_anchor_nodes(raw_anchors, anchors=anchors, prefix=())
     if not anchors:

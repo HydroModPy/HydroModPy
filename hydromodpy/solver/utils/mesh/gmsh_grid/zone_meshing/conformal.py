@@ -225,9 +225,7 @@ def generate_zone_conformal_mesh_from_dataframe(
     )
     point_tolerance = as_metric_tolerance(float(heal_tolerance))
     prepared_constraints = normalized_constraints
-    constraint_lines = [
-        line for constraint in prepared_constraints for line in constraint.lines
-    ]
+    constraint_lines = [line for constraint in prepared_constraints for line in constraint.lines]
     trace_mesh_stage(
         "zone_meshing.partition.split.start",
         n_constraint_lines=len(constraint_lines),
@@ -259,9 +257,7 @@ def generate_zone_conformal_mesh_from_dataframe(
         zone_keys=partition.zone_keys,
         constraint_names=[str(constraint.name) for constraint in prepared_constraints],
     )
-    constraint_by_name = {
-        str(constraint.name): constraint for constraint in prepared_constraints
-    }
+    constraint_by_name = {str(constraint.name): constraint for constraint in prepared_constraints}
     trace_mesh_stage("zone_meshing.gmsh.initialize")
     gmsh.initialize()
     try:
@@ -313,9 +309,7 @@ def generate_zone_conformal_mesh_from_dataframe(
             # Re-node the constraint lines against the partition boundary so
             # Gmsh receives a consistent set of segments to embed/refine.
             trace_mesh_stage("zone_meshing.constraints.embed_prep.start")
-            partition_linework = unary_union(
-                [face.polygon.boundary for face in partition.faces]
-            )
+            partition_linework = unary_union([face.polygon.boundary for face in partition.faces])
             for constraint in prepared_constraints:
                 constraint_name = str(constraint.name)
                 constraint_linework = unary_union(list(constraint.lines))
@@ -386,9 +380,7 @@ def generate_zone_conformal_mesh_from_dataframe(
             )
         trace_mesh_stage("zone_meshing.physical_groups.surfaces.done")
 
-        curve_tag_to_segment = build_curve_tag_to_segment(
-            line_registry=build_state.line_registry
-        )
+        curve_tag_to_segment = build_curve_tag_to_segment(line_registry=build_state.line_registry)
         domain_boundary = partition.domain_geometry.boundary
 
         curve_groups = draft_curve_groups(
@@ -556,14 +548,16 @@ def generate_zone_conformal_mesh_from_dataframe(
                 field_tags=combined_background_field_tags,
             )
             build_state.regional_background_summary["final_background_field_tag"] = (
-                None
-                if final_background_field_tag is None
-                else int(final_background_field_tag)
+                None if final_background_field_tag is None else int(final_background_field_tag)
             )
         trace_mesh_stage(
             "zone_meshing.refinement.done",
-            n_candidate_interface_curves=mesh_size_fields_summary["candidate_interface_curve_count"],
-            n_scope_interface_curves=mesh_size_fields_summary["scope_filtered_interface_curve_count"],
+            n_candidate_interface_curves=mesh_size_fields_summary[
+                "candidate_interface_curve_count"
+            ],
+            n_scope_interface_curves=mesh_size_fields_summary[
+                "scope_filtered_interface_curve_count"
+            ],
         )
 
         trace_mesh_stage("zone_meshing.gmsh.generate.start")

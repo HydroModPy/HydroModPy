@@ -130,9 +130,7 @@ def test_headwater_transient_real_case_petsc_variants_converge_on_committed_mesh
     assert summary["surface_interaction_model_resolved"] == expected_surface_model
     assert int(summary["n_periods"]) == 8
     assert all(bool(flag) for flag in summary["converged_by_period"])
-    assert float(summary["last_residual_norm_inf"]) <= float(
-        summary["runtime_tol_residual_inf"]
-    )
+    assert float(summary["last_residual_norm_inf"]) <= float(summary["runtime_tol_residual_inf"])
     assert summary["surface_threshold_active_any"] is True
     assert int(summary["surface_threshold_active_steps"]) > 0
     assert int(summary["surface_threshold_activation_windows"]) >= 1

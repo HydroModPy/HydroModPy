@@ -226,8 +226,4 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
     )
 
     assert model.pre_kwargs is not None
-    assert model.pre_kwargs["flow_runtime_overrides"] == {
-        "properties": {"K": [1.0, 2.0]}
-    }
-
-
+    assert model.pre_kwargs["flow_runtime_overrides"] == {"properties": {"K": [1.0, 2.0]}}

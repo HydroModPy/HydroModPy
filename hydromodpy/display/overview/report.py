@@ -56,88 +56,115 @@ def generate_overview_report(state: "DataOverviewState") -> list[Path]:
 
     if panels_cfg.map_dem and dem_path:
         station_points = _build_station_points(ld)
-        paths.append(_render_panel(
-            output_dir / "map_dem.png", figsize=(7, 6),
-            render_fn=render_dem_map,
-            dem_path=str(dem_path),
-            watershed_shp=str(watershed_shp) if watershed_shp else None,
-            streams_gdf=streams_gdf,
-            station_points=station_points,
-            title=f"{title} — DEM",
-        ))
+        paths.append(
+            _render_panel(
+                output_dir / "map_dem.png",
+                figsize=(7, 6),
+                render_fn=render_dem_map,
+                dem_path=str(dem_path),
+                watershed_shp=str(watershed_shp) if watershed_shp else None,
+                streams_gdf=streams_gdf,
+                station_points=station_points,
+                title=f"{title} — DEM",
+            )
+        )
 
     if panels_cfg.map_geology and dem_path and ld.geology is not None:
         geology_gdf = _load_geology_gdf(ld.geology)
-        paths.append(_render_panel(
-            output_dir / "map_geology.png", figsize=(9, 6),
-            render_fn=render_geology_map,
-            dem_path=str(dem_path),
-            watershed_shp=str(watershed_shp) if watershed_shp else None,
-            geology_gdf=geology_gdf,
-            title=f"{title} — Geology",
-        ))
+        paths.append(
+            _render_panel(
+                output_dir / "map_geology.png",
+                figsize=(9, 6),
+                render_fn=render_geology_map,
+                dem_path=str(dem_path),
+                watershed_shp=str(watershed_shp) if watershed_shp else None,
+                geology_gdf=geology_gdf,
+                title=f"{title} — Geology",
+            )
+        )
 
     if panels_cfg.map_hydrography and dem_path:
         outlet_xy = None
         if dg and dg.x_outlet is not None and dg.y_outlet is not None:
             outlet_xy = (float(dg.x_outlet), float(dg.y_outlet))
-        paths.append(_render_panel(
-            output_dir / "map_hydrography.png", figsize=(7, 6),
-            render_fn=render_hydrography_map,
-            dem_path=str(dem_path),
-            watershed_shp=str(watershed_shp) if watershed_shp else None,
-            streams_gdf=streams_gdf,
-            outlet_xy=outlet_xy,
-            title=f"{title} — Hydrography",
-        ))
+        paths.append(
+            _render_panel(
+                output_dir / "map_hydrography.png",
+                figsize=(7, 6),
+                render_fn=render_hydrography_map,
+                dem_path=str(dem_path),
+                watershed_shp=str(watershed_shp) if watershed_shp else None,
+                streams_gdf=streams_gdf,
+                outlet_xy=outlet_xy,
+                title=f"{title} — Hydrography",
+            )
+        )
 
     if panels_cfg.timeseries_discharge:
         obs_df = _records_to_timeseries_df(
             _filter_discharge_records(ld.hydrometry),
         )
-        paths.append(_render_panel(
-            output_dir / "timeseries_discharge.png", figsize=(10, 4),
-            render_fn=render_timeseries_multi,
-            df=obs_df, ylabel="Discharge", unit="m³/s",
-            title=f"{title} — Observed discharge",
-        ))
+        paths.append(
+            _render_panel(
+                output_dir / "timeseries_discharge.png",
+                figsize=(10, 4),
+                render_fn=render_timeseries_multi,
+                df=obs_df,
+                ylabel="Discharge",
+                unit="m³/s",
+                title=f"{title} — Observed discharge",
+            )
+        )
 
     if panels_cfg.timeseries_piezometry:
         piezo_records = ld.piezometry.points if ld.piezometry else None
         obs_df = _records_to_timeseries_df(piezo_records)
-        paths.append(_render_panel(
-            output_dir / "timeseries_piezometry.png", figsize=(10, 4),
-            render_fn=render_timeseries_multi,
-            df=obs_df, ylabel="Piezometric level", unit="m",
-            title=f"{title} — Piezometry",
-        ))
+        paths.append(
+            _render_panel(
+                output_dir / "timeseries_piezometry.png",
+                figsize=(10, 4),
+                render_fn=render_timeseries_multi,
+                df=obs_df,
+                ylabel="Piezometric level",
+                unit="m",
+                title=f"{title} — Piezometry",
+            )
+        )
 
     if panels_cfg.climatic_summary:
         monthly_precip = _monthly_mean_from_result(ld.precipitation)
         monthly_etp = _monthly_mean_from_result(ld.etp)
-        paths.append(_render_panel(
-            output_dir / "climatic_summary.png", figsize=(8, 4),
-            render_fn=render_climatic_summary,
-            monthly_precip=monthly_precip,
-            monthly_etp=monthly_etp,
-            title=f"{title} — Monthly climatology",
-        ))
+        paths.append(
+            _render_panel(
+                output_dir / "climatic_summary.png",
+                figsize=(8, 4),
+                render_fn=render_climatic_summary,
+                monthly_precip=monthly_precip,
+                monthly_etp=monthly_etp,
+                title=f"{title} — Monthly climatology",
+            )
+        )
 
     if panels_cfg.stats_card:
-        paths.append(_render_panel(
-            output_dir / "stats_card.png", figsize=(6, 5),
-            render_fn=render_stats_card,
-            summary=summary,
-        ))
+        paths.append(
+            _render_panel(
+                output_dir / "stats_card.png",
+                figsize=(6, 5),
+                render_fn=render_stats_card,
+                summary=summary,
+            )
+        )
 
     if panels_cfg.station_inventory:
         inventory = _build_station_inventory(state)
-        paths.append(_render_panel(
-            output_dir / "station_inventory.png",
-            figsize=(10, max(3, 0.35 * len(inventory) + 1)),
-            render_fn=render_station_inventory,
-            inventory=inventory,
-        ))
+        paths.append(
+            _render_panel(
+                output_dir / "station_inventory.png",
+                figsize=(10, max(3, 0.35 * len(inventory) + 1)),
+                render_fn=render_station_inventory,
+                inventory=inventory,
+            )
+        )
 
     logger.info("[overview] Generated %d panel(s) in %s", len(paths), output_dir)
     return paths
@@ -208,9 +235,7 @@ def _load_geology_gdf(geology):
 def _filter_discharge_records(hydrometry_lr) -> list | None:
     if hydrometry_lr is None:
         return None
-    discharge = [
-        r for r in hydrometry_lr.points if r.variable in ("discharge", "streamflow")
-    ]
+    discharge = [r for r in hydrometry_lr.points if r.variable in ("discharge", "streamflow")]
     return discharge or None
 
 
@@ -337,11 +362,16 @@ def _build_station_points(ld) -> list[dict] | None:
             loc = rec.location
             if loc is None or loc.x is None or loc.y is None:
                 continue
-            points.append({
-                "x": float(loc.x), "y": float(loc.y),
-                "label": rec.station_id,
-                "marker": marker, "color": color, "group": group,
-            })
+            points.append(
+                {
+                    "x": float(loc.x),
+                    "y": float(loc.y),
+                    "label": rec.station_id,
+                    "marker": marker,
+                    "color": color,
+                    "group": group,
+                }
+            )
     return points or None
 
 

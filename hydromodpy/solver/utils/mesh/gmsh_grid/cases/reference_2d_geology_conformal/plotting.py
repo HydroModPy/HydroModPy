@@ -62,9 +62,7 @@ def _draw_mesh_edges(
 
 
 def _draw_domain_outline(ax, domain_gdf: gpd.GeoDataFrame) -> None:
-    domain_gdf.boundary.plot(
-        ax=ax, color="black", linewidth=1.2, linestyle="--", zorder=6
-    )
+    domain_gdf.boundary.plot(ax=ax, color="black", linewidth=1.2, linestyle="--", zorder=6)
 
 
 def _draw_raw_catchment_boundary(
@@ -382,19 +380,13 @@ def _build_geographic_mesh_figure(
 
     legend_handles: list[Line2D] = []
     if boundary_drawn:
-        legend_handles.append(
-            Line2D([0], [0], color="black", lw=1.05, label="Catchment boundary")
-        )
+        legend_handles.append(Line2D([0], [0], color="black", lw=1.05, label="Catchment boundary"))
     legend_handles.append(
         Line2D([0], [0], color="black", lw=1.2, linestyle="--", label="Meshing domain")
     )
     if river_count > 0:
-        legend_handles.append(
-            Line2D([0], [0], color="#1f78b4", lw=0.9, label="Hydro network")
-        )
-    legend_handles.append(
-        Line2D([0], [0], color="0.20", lw=0.9, label="Mesh edges")
-    )
+        legend_handles.append(Line2D([0], [0], color="#1f78b4", lw=0.9, label="Hydro network"))
+    legend_handles.append(Line2D([0], [0], color="0.20", lw=0.9, label="Mesh edges"))
     overlay_legend = ax_overlay.legend(
         handles=legend_handles,
         loc="lower left",
@@ -404,9 +396,7 @@ def _build_geographic_mesh_figure(
     ax_overlay.add_artist(overlay_legend)
 
     fig.suptitle("Mesh-catchment overview", fontsize=17)
-    fig.subplots_adjust(
-        left=0.05, right=0.985, top=0.84, bottom=0.14, wspace=0.12
-    )
+    fig.subplots_adjust(left=0.05, right=0.985, top=0.84, bottom=0.14, wspace=0.12)
     if cbar is not None:
         cbar.ax.xaxis.set_label_position("top")
         cbar.ax.xaxis.set_ticks_position("top")
@@ -506,9 +496,7 @@ def _build_regional_context_figure(
             Line2D([0], [0], color="black", lw=1.2, label="Catchment boundary"),
         )
     if river_count > 0:
-        legend_handles.append(
-            Line2D([0], [0], color="#1f78b4", lw=1.1, label="Hydro network")
-        )
+        legend_handles.append(Line2D([0], [0], color="#1f78b4", lw=1.1, label="Hydro network"))
     if outlet_xy is not None:
         legend_handles.append(
             Line2D(
@@ -710,9 +698,7 @@ def _build_figure(
         interface_refinement=interface_refinement,
     )
     fig.suptitle("Reference 2D zone-conformal Gmsh mesh", fontsize=18)
-    fig.subplots_adjust(
-        left=0.05, right=0.985, top=0.92, bottom=0.06, wspace=0.12, hspace=0.12
-    )
+    fig.subplots_adjust(left=0.05, right=0.985, top=0.92, bottom=0.06, wspace=0.12, hspace=0.12)
     return fig
 
 

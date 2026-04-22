@@ -123,8 +123,7 @@ def _write_circular_island_bundle(
         encoding="utf-8",
     )
     (bundle_dir / "mesh_summary.json").write_text(
-        json.dumps({"constraints_mode": "geology_only"}, indent=2, ensure_ascii=True)
-        + "\n",
+        json.dumps({"constraints_mode": "geology_only"}, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
 
@@ -139,12 +138,12 @@ def _write_circular_island_bundle(
     ocean_floor_elevation_m = float(reference_cfg["ocean_floor_elevation_m"])
     substratum_elevation_m = float(reference_cfg["substratum_elevation_m"])
 
-    support_radii_m = LAND_SUPPORT_RADII_M + (
-        island_radius_m + float(OUTER_OCEAN_BUFFER_M),
-    )
+    support_radii_m = LAND_SUPPORT_RADII_M + (island_radius_m + float(OUTER_OCEAN_BUFFER_M),)
 
     node_xy_by_id: dict[int, tuple[float, float]] = {0: (center_x_m, center_y_m)}
-    node_rows = [f"0,{center_x_m:.6f},{center_y_m:.6f},{crest_elevation_m:.6f},{substratum_elevation_m:.6f}"]
+    node_rows = [
+        f"0,{center_x_m:.6f},{center_y_m:.6f},{crest_elevation_m:.6f},{substratum_elevation_m:.6f}"
+    ]
 
     def ring_node_id(ring_index: int, sector_index: int) -> int:
         return 1 + (int(ring_index) * int(N_SECTORS)) + int(sector_index)
@@ -182,14 +181,11 @@ def _write_circular_island_bundle(
             dtype=float,
         )
         triangle_radii_m = np.sqrt(
-            (triangle_points[:, 0] - center_x_m) ** 2
-            + (triangle_points[:, 1] - center_y_m) ** 2
+            (triangle_points[:, 0] - center_x_m) ** 2 + (triangle_points[:, 1] - center_y_m) ** 2
         )
         centroid_x_m = float(np.mean(triangle_points[:, 0]))
         centroid_y_m = float(np.mean(triangle_points[:, 1]))
-        centroid_radius_m = float(
-            np.hypot(centroid_x_m - center_x_m, centroid_y_m - center_y_m)
-        )
+        centroid_radius_m = float(np.hypot(centroid_x_m - center_x_m, centroid_y_m - center_y_m))
         is_ocean_cell = bool(np.max(triangle_radii_m) > float(island_radius_m) + 1.0e-9)
         if is_ocean_cell:
             geology_code = int(len(conductivity_by_ring) + 1)
@@ -354,7 +350,9 @@ def _aggregate_triangle_history_to_reference_grid(model, reference_cfg: dict) ->
         head_grid[valid_mask] = np.asarray(head_values, dtype=float)[projection_indices[valid_mask]]
         head_grid[np.asarray(dem, dtype=float) <= sea_level_m] = sea_level_m
         watertable_elevation[int(time_index)] = head_grid
-        watertable_depth[int(time_index)] = np.maximum(np.asarray(dem, dtype=float) - head_grid, 0.0)
+        watertable_depth[int(time_index)] = np.maximum(
+            np.asarray(dem, dtype=float) - head_grid, 0.0
+        )
 
     postprocess_dir = Path(model.full_path) / "_postprocess"
     postprocess_dir.mkdir(parents=True, exist_ok=True)
@@ -412,7 +410,7 @@ def run_boussinesq_circular_island_piecewise_k_case(
                             "recharge": {
                                 "values": recharge_rate_m_s,
                                 "first_clim": "mean",
-                    "units": "m/s",
+                                "units": "m/s",
                             },
                             "wells": wells_payload,
                         },
@@ -427,7 +425,9 @@ def run_boussinesq_circular_island_piecewise_k_case(
             ),
             domain=None,
             time_grid=None,
-            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
+            workspace=SimpleNamespace(
+                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
+            ),
         ),
     )
     run = ProcessRun(

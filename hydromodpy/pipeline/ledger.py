@@ -21,6 +21,7 @@ from typing import Literal
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
+
 logger = logging.getLogger(__name__)
 
 Status = Literal["pending", "running", "completed", "failed", "skipped"]
@@ -118,8 +119,7 @@ class StepsLedger:
                 error_message = ?
             WHERE run_id = ? AND step_index = ?
             """,
-            [status, _now(), float(elapsed_ms), error,
-             run_id, int(step_index)],
+            [status, _now(), float(elapsed_ms), error, run_id, int(step_index)],
         )
 
     # ------------------------------------------------------------------

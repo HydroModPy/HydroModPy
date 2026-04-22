@@ -18,12 +18,14 @@ import tomllib
 from pathlib import Path
 from typing import Literal
 
-WorkflowName = Literal[
-    "simulation", "calibration", "batch", "overview", "mesh"
-]
+WorkflowName = Literal["simulation", "calibration", "batch", "overview", "mesh"]
 
 KNOWN_WORKFLOWS: tuple[str, ...] = (
-    "simulation", "calibration", "batch", "overview", "mesh",
+    "simulation",
+    "calibration",
+    "batch",
+    "overview",
+    "mesh",
 )
 
 
@@ -60,9 +62,7 @@ def extract_workflow_field(raw_toml: dict) -> str | None:
     if value is None:
         return None
     if not isinstance(value, str):
-        raise WorkflowUnknownError(
-            f"TOML 'workflow' must be a string, got {type(value).__name__}"
-        )
+        raise WorkflowUnknownError(f"TOML 'workflow' must be a string, got {type(value).__name__}")
     return value
 
 
@@ -225,7 +225,9 @@ def _run_resume(config_path: Path, run_id: str) -> dict:
 
     initial = PipelineState(run_id=run_id, data={"config_path": config_path})
     pipeline = Pipeline(
-        standard_steps(), workspace=workspace, checkpoint=True,
+        standard_steps(),
+        workspace=workspace,
+        checkpoint=True,
     )
     final = pipeline.run(initial, resume_from=resume_from)
     ctx = final.get("ctx")
@@ -239,9 +241,7 @@ def _run_resume(config_path: Path, run_id: str) -> dict:
 def _resolve_workspace_for_resume(config_path: Path) -> Path:
     """Walk up from ``config_path`` to find a workspace root."""
     for parent in [config_path.parent, *config_path.parents]:
-        if (parent / "hydromodpy.duckdb").exists() or (
-            parent / ".hmp"
-        ).is_dir():
+        if (parent / "hydromodpy.duckdb").exists() or (parent / ".hmp").is_dir():
             return parent
     return config_path.parent
 

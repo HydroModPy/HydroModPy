@@ -16,15 +16,18 @@ HELP = "Render figures for a simulation from the workspace catalog"
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument(
-        "config_or_subcommand", nargs="?",
+        "config_or_subcommand",
+        nargs="?",
         help="Path to a project TOML file, or a simulation id",
     )
     parser.add_argument(
-        "figure_name", nargs="?",
+        "figure_name",
+        nargs="?",
         help="Figure name (when first argument is a simulation id)",
     )
     parser.add_argument(
-        "--no-show", action="store_true",
+        "--no-show",
+        action="store_true",
         help="Force show=false in the resolved DisplayConfig",
     )
     parser.set_defaults(_handler=run)
@@ -54,6 +57,7 @@ def run(args: argparse.Namespace) -> None:
 
     if target_path.is_file() and target_path.suffix == ".toml":
         from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+
         raw_toml = load_toml_with_base_config(target_path)
         display_cfg = DisplayConfig.model_validate(raw_toml.get("display", {}))
         if args.no_show:
@@ -96,6 +100,7 @@ def run(args: argparse.Namespace) -> None:
         AmbiguousReferenceError,
         SimulationNotFoundError,
     )
+
     workspace_root = find_workspace_root(Path.cwd())
     with SimulationCatalog(workspace_root) as catalog:
         try:

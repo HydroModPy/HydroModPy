@@ -242,7 +242,9 @@ def _select_outlet_points_scan_global(
                     break
 
     if not selected:
-        return gpd.GeoDataFrame(columns=["outlet_id", "row", "col", "geometry"], geometry="geometry", crs=crs)
+        return gpd.GeoDataFrame(
+            columns=["outlet_id", "row", "col", "geometry"], geometry="geometry", crs=crs
+        )
 
     selected = sorted(selected, key=lambda item: float(item[2]), reverse=True)
     records: list[dict[str, Any]] = []
@@ -345,9 +347,7 @@ def _build_headwater_candidate_stream_mask(
         return narrow_mask
 
     target_upper_bound = (
-        float(max_accumulation_area_km2) / float(lower_ratio)
-        if lower_ratio > 0.0
-        else float("inf")
+        float(max_accumulation_area_km2) / float(lower_ratio) if lower_ratio > 0.0 else float("inf")
     )
     raise ValueError(
         "No stream cell found inside target window for headwater selection. "
@@ -406,8 +406,7 @@ def _filter_outlets_by_strahler_order(
     filtered = filtered[np.isfinite(filtered["strahler_order"])].copy()
     filtered["strahler_order"] = np.rint(filtered["strahler_order"]).astype(int)
     filtered = filtered[
-        (filtered["strahler_order"] >= 1)
-        & (filtered["strahler_order"] <= int(max_strahler_order))
+        (filtered["strahler_order"] >= 1) & (filtered["strahler_order"] <= int(max_strahler_order))
     ].copy()
     if not filtered.empty:
         return filtered
@@ -540,10 +539,10 @@ def _select_headwater_non_overlapping_basins(
     selected_outlet_ids = set(int(v) for v in selected["outlet_id"].to_list())
     outlets_final = outlets_selected[outlets_selected["outlet_id"].isin(selected_outlet_ids)].copy()
     area_map = dict(zip(selected["outlet_id"], selected["area_km2"], strict=False))
-    outlets_final["basin_area_km2"] = (
-        outlets_final["outlet_id"].map(area_map).astype(float)
+    outlets_final["basin_area_km2"] = outlets_final["outlet_id"].map(area_map).astype(float)
+    outlets_final = outlets_final.sort_values("basin_area_km2", ascending=False).reset_index(
+        drop=True
     )
-    outlets_final = outlets_final.sort_values("basin_area_km2", ascending=False).reset_index(drop=True)
     return selected, outlets_final
 
 
@@ -661,7 +660,9 @@ def run_catchment_identification_from_toml(
         acc_crs = acc_src.crs
 
     if acc_nodata is not None:
-        accumulation_cells[np.isclose(accumulation_cells, float(acc_nodata), equal_nan=False)] = np.nan
+        accumulation_cells[np.isclose(accumulation_cells, float(acc_nodata), equal_nan=False)] = (
+            np.nan
+        )
     accumulation_cells[~np.isfinite(accumulation_cells)] = np.nan
 
     valid_accum = accumulation_cells[valid_mask & np.isfinite(accumulation_cells)]
@@ -779,7 +780,9 @@ def run_catchment_identification_from_toml(
         outlets = gpd.read_file(outlets_for_watershed_path)
     else:
         _remove_vector_dataset(outlets_for_watershed_path)
-        _write_vector_layer(outlets_candidates[["outlet_id", "geometry"]], outlets_for_watershed_path)
+        _write_vector_layer(
+            outlets_candidates[["outlet_id", "geometry"]], outlets_for_watershed_path
+        )
         outlets = outlets_candidates.copy()
 
     outlets = outlets.reset_index(drop=True)
@@ -884,8 +887,12 @@ def run_catchment_identification_from_toml(
     selected_outlet_ids = set(int(v) for v in basins["outlet_id"].to_list())
     outlets_selected = outlets[outlets["outlet_id"].isin(selected_outlet_ids)].copy()
     outlet_area_map = dict(zip(basins["outlet_id"], basins["area_km2"], strict=False))
-    outlets_selected["basin_area_km2"] = outlets_selected["outlet_id"].map(outlet_area_map).astype(float)
-    outlets_selected = outlets_selected.sort_values("basin_area_km2", ascending=False).reset_index(drop=True)
+    outlets_selected["basin_area_km2"] = (
+        outlets_selected["outlet_id"].map(outlet_area_map).astype(float)
+    )
+    outlets_selected = outlets_selected.sort_values("basin_area_km2", ascending=False).reset_index(
+        drop=True
+    )
     basins_count_before_selection = int(len(basins))
     outlets_count_before_selection = int(len(outlets_selected))
 

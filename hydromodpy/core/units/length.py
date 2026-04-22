@@ -7,7 +7,10 @@ from numbers import Real
 import re
 from typing import Any
 
-from hydromodpy.core.units.scalar import canonical_unit_token as _canonical_unit_token, parse_scalar_and_unit
+from hydromodpy.core.units.scalar import (
+    canonical_unit_token as _canonical_unit_token,
+    parse_scalar_and_unit,
+)
 
 try:
     from pint import UnitRegistry

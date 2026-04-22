@@ -32,17 +32,24 @@ class TestStationLocation:
 
 class TestPointRecord:
     def _make_df(self, n=10):
-        return pd.DataFrame({
-            "datetime": pd.date_range("2020-01-01", periods=n, freq="D"),
-            "value": range(n),
-        })
+        return pd.DataFrame(
+            {
+                "datetime": pd.date_range("2020-01-01", periods=n, freq="D"),
+                "value": range(n),
+            }
+        )
 
     def test_creation(self):
         df = self._make_df()
         rec = PointRecord(
-            station_id="S1", variable="discharge", source="custom",
-            unit="m3/s", frequency="D", data=df,
-            date_start=datetime(2020, 1, 1), date_end=datetime(2020, 1, 10),
+            station_id="S1",
+            variable="discharge",
+            source="custom",
+            unit="m3/s",
+            frequency="D",
+            data=df,
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 1, 10),
         )
         assert rec.n_records == 10
         assert rec.has_data
@@ -51,17 +58,27 @@ class TestPointRecord:
         df = pd.DataFrame({"date": ["2020-01-01"], "val": [1.0]})
         with pytest.raises(ValueError, match="missing columns"):
             PointRecord(
-                station_id="S1", variable="x", source="x",
-                unit="x", frequency="D", data=df,
-                date_start=datetime(2020, 1, 1), date_end=datetime(2020, 1, 1),
+                station_id="S1",
+                variable="x",
+                source="x",
+                unit="x",
+                frequency="D",
+                data=df,
+                date_start=datetime(2020, 1, 1),
+                date_end=datetime(2020, 1, 1),
             )
 
     def test_filter_by_period(self):
         df = self._make_df(30)
         rec = PointRecord(
-            station_id="S1", variable="discharge", source="custom",
-            unit="m3/s", frequency="D", data=df,
-            date_start=datetime(2020, 1, 1), date_end=datetime(2020, 1, 30),
+            station_id="S1",
+            variable="discharge",
+            source="custom",
+            unit="m3/s",
+            frequency="D",
+            data=df,
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 1, 30),
             source_unit="L/s",
         )
         filtered = rec.filter_by_period(datetime(2020, 1, 5), datetime(2020, 1, 15))
@@ -71,9 +88,14 @@ class TestPointRecord:
     def test_quality_auto_computed(self):
         df = self._make_df(10)
         rec = PointRecord(
-            station_id="S1", variable="discharge", source="custom",
-            unit="m3/s", frequency="D", data=df,
-            date_start=datetime(2020, 1, 1), date_end=datetime(2020, 1, 10),
+            station_id="S1",
+            variable="discharge",
+            source="custom",
+            unit="m3/s",
+            frequency="D",
+            data=df,
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 1, 10),
         )
         assert rec.quality is not None
         assert rec.quality["completeness_pct"] == 100.0
@@ -83,13 +105,19 @@ class TestPointRecord:
         assert rec.quality["n_gaps"] == 0
 
     def test_quality_with_gaps(self):
-        dates = pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-05",
-                                "2020-01-09", "2020-01-10"])
+        dates = pd.to_datetime(
+            ["2020-01-01", "2020-01-02", "2020-01-05", "2020-01-09", "2020-01-10"]
+        )
         df = pd.DataFrame({"datetime": dates, "value": range(5)})
         rec = PointRecord(
-            station_id="S1", variable="discharge", source="custom",
-            unit="m3/s", frequency="D", data=df,
-            date_start=datetime(2020, 1, 1), date_end=datetime(2020, 1, 10),
+            station_id="S1",
+            variable="discharge",
+            source="custom",
+            unit="m3/s",
+            frequency="D",
+            data=df,
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 1, 10),
         )
         assert rec.quality["completeness_pct"] == 50.0
         assert rec.quality["n_missing"] == 5
@@ -99,30 +127,46 @@ class TestPointRecord:
         df = self._make_df(5)
         custom_quality = {"completeness_pct": 42.0, "custom": True}
         rec = PointRecord(
-            station_id="S1", variable="discharge", source="custom",
-            unit="m3/s", frequency="D", data=df,
-            date_start=datetime(2020, 1, 1), date_end=datetime(2020, 1, 5),
+            station_id="S1",
+            variable="discharge",
+            source="custom",
+            unit="m3/s",
+            frequency="D",
+            data=df,
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 1, 5),
             quality=custom_quality,
         )
         assert rec.quality["completeness_pct"] == 42.0
         assert rec.quality["custom"] is True
 
     def test_quality_none_on_empty_data(self):
-        df = pd.DataFrame({"datetime": pd.Series(dtype="datetime64[ns]"),
-                           "value": pd.Series(dtype="float64")})
+        df = pd.DataFrame(
+            {"datetime": pd.Series(dtype="datetime64[ns]"), "value": pd.Series(dtype="float64")}
+        )
         rec = PointRecord(
-            station_id="S1", variable="discharge", source="custom",
-            unit="m3/s", frequency="D", data=df,
-            date_start=datetime(2020, 1, 1), date_end=datetime(2020, 1, 10),
+            station_id="S1",
+            variable="discharge",
+            source="custom",
+            unit="m3/s",
+            frequency="D",
+            data=df,
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 1, 10),
         )
         assert rec.quality is None
 
     def test_filter_recomputes_quality(self):
         df = self._make_df(30)
         rec = PointRecord(
-            station_id="S1", variable="discharge", source="custom",
-            unit="m3/s", frequency="D", data=df,
-            date_start=datetime(2020, 1, 1), date_end=datetime(2020, 1, 30),
+            station_id="S1",
+            variable="discharge",
+            source="custom",
+            unit="m3/s",
+            frequency="D",
+            data=df,
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 1, 30),
         )
         filtered = rec.filter_by_period(datetime(2020, 1, 1), datetime(2020, 1, 10))
         assert filtered.quality["n_expected"] == 10

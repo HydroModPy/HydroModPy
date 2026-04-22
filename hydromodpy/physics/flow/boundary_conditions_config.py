@@ -100,16 +100,12 @@ def _normalize_dirichlet_forcing_units(
         return "m"
     try:
         normalized_parent_units = (
-            canonical_unit_short_form(
-                explicit_units, canonical_unit="m", label="length"
-            )
+            canonical_unit_short_form(explicit_units, canonical_unit="m", label="length")
             if explicit_units is not None
             else None
         )
         normalized_forcing_units = (
-            canonical_unit_short_form(
-                forcing_units, canonical_unit="m", label="length"
-            )
+            canonical_unit_short_form(forcing_units, canonical_unit="m", label="length")
             if forcing_units is not None
             else None
         )
@@ -123,9 +119,7 @@ def _normalize_dirichlet_forcing_units(
         and normalized_forcing_units is not None
         and normalized_parent_units != normalized_forcing_units
     ):
-        raise ValueError(
-            f"{location_prefix}.units conflicts with {location_prefix}.forcing.units"
-        )
+        raise ValueError(f"{location_prefix}.units conflicts with {location_prefix}.forcing.units")
     return normalized_forcing_units or normalized_parent_units or "m"
 
 
@@ -234,9 +228,7 @@ def _normalize_dirichlet_boundary_payload(
         "application_domain": application_domain,
         "support_label": _extract_support_label(payload=payload),
     }
-    return FlowBoundaryConditionConfig.model_validate(normalized_payload).model_dump(
-        mode="python"
-    )
+    return FlowBoundaryConditionConfig.model_validate(normalized_payload).model_dump(mode="python")
 
 
 def _normalize_drainage_boundary_payload(
@@ -282,9 +274,7 @@ def _normalize_drainage_boundary_payload(
         "application_domain": application_domain,
         "support_label": _extract_support_label(payload=payload),
     }
-    return FlowBoundaryConditionConfig.model_validate(normalized_payload).model_dump(
-        mode="python"
-    )
+    return FlowBoundaryConditionConfig.model_validate(normalized_payload).model_dump(mode="python")
 
 
 def _normalize_generic_boundary_payload(
@@ -346,7 +336,9 @@ def _extract_boundary_forcing(
     if forcing is None:
         return None
     if "value" in payload and payload.get("value") is not None:
-        raise ValueError(f"{location_prefix}.value and {location_prefix}.forcing are mutually exclusive")
+        raise ValueError(
+            f"{location_prefix}.value and {location_prefix}.forcing are mutually exclusive"
+        )
     if not isinstance(forcing, Mapping):
         raise TypeError(f"{location_prefix}.forcing must be a mapping")
     return FlowBoundaryForcingConfig.model_validate(dict(forcing)).model_dump(mode="python")
@@ -460,4 +452,3 @@ def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:
             )
 
     return cast(dict[str, object], parsed)
-

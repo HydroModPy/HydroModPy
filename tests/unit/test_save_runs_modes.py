@@ -27,8 +27,9 @@ from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.results.catalog import SimulationCatalog
 
 
-def _write_toml(path: Path, method: str, max_iter: int, save_runs: str,
-                save_best_n: int = 3) -> None:
+def _write_toml(
+    path: Path, method: str, max_iter: int, save_runs: str, save_best_n: int = 3
+) -> None:
     path.write_text(
         dedent(
             f"""
@@ -59,9 +60,9 @@ class TestSaveRunsModes:
 
         # DuckDB: one row per iteration, no per-sim Zarrs.
         catalog = SimulationCatalog(tmp_path)
-        rows = catalog.connection.execute(
-            "SELECT COUNT(*) FROM calibration_iterations"
-        ).fetchone()[0]
+        rows = catalog.connection.execute("SELECT COUNT(*) FROM calibration_iterations").fetchone()[
+            0
+        ]
         assert rows == summary["n_iterations"]
 
         # No Zarr directory was created for any iteration.
@@ -70,8 +71,7 @@ class TestSaveRunsModes:
 
     def test_best_n_mode_persists_top_rows(self, tmp_path: Path):
         toml = tmp_path / "cfg.toml"
-        _write_toml(toml, method="grid", max_iter=9, save_runs="best_n",
-                    save_best_n=3)
+        _write_toml(toml, method="grid", max_iter=9, save_runs="best_n", save_best_n=3)
 
         summary = run_calibration_cli(toml, workspace=tmp_path, project="test-bestn")
 
@@ -92,9 +92,9 @@ class TestSaveRunsModes:
         summary = run_calibration_cli(toml, workspace=tmp_path, project="stress")
 
         catalog = SimulationCatalog(tmp_path)
-        rows = catalog.connection.execute(
-            "SELECT COUNT(*) FROM calibration_iterations"
-        ).fetchone()[0]
+        rows = catalog.connection.execute("SELECT COUNT(*) FROM calibration_iterations").fetchone()[
+            0
+        ]
         assert rows == 50
 
         zarrs = list((tmp_path / "simulations").glob("*.zarr"))

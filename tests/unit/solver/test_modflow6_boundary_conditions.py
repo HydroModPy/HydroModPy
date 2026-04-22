@@ -102,10 +102,14 @@ def _build_unstructured_runtime(
         edge_midpoint_x_m=np.asarray([0.5, 1.0, 0.5, 0.0, 0.5], dtype=float),
         edge_midpoint_y_m=np.asarray([0.0, 0.5, 1.0, 0.5, 0.5], dtype=float),
         edge_kind=("boundary", "boundary", "boundary", "boundary", "internal"),
-        edge_is_river=np.asarray([False, False, False, False, bool(river_internal_edge)], dtype=bool),
+        edge_is_river=np.asarray(
+            [False, False, False, False, bool(river_internal_edge)], dtype=bool
+        ),
         geology_a_key=("", "", "", "", ""),
         geology_b_key=("", "", "", "", ""),
-        boundary_labels_by_edge_id={} if boundary_labels_by_edge_id is None else dict(boundary_labels_by_edge_id),
+        boundary_labels_by_edge_id={}
+        if boundary_labels_by_edge_id is None
+        else dict(boundary_labels_by_edge_id),
     )
     return solver_mesh, support
 
@@ -164,15 +168,69 @@ def test_build_gmsh_support_metadata_from_bundle_like_payload() -> None:
             SimpleNamespace(node_id=3, x=0.0, y=1.0),
         ),
         cells=(
-            SimpleNamespace(cell_id=0, node_indices=(0, 1, 2), centroid_x=2.0 / 3.0, centroid_y=1.0 / 3.0),
-            SimpleNamespace(cell_id=1, node_indices=(0, 2, 3), centroid_x=1.0 / 3.0, centroid_y=2.0 / 3.0),
+            SimpleNamespace(
+                cell_id=0, node_indices=(0, 1, 2), centroid_x=2.0 / 3.0, centroid_y=1.0 / 3.0
+            ),
+            SimpleNamespace(
+                cell_id=1, node_indices=(0, 2, 3), centroid_x=1.0 / 3.0, centroid_y=2.0 / 3.0
+            ),
         ),
         edges=(
-            SimpleNamespace(edge_id=0, node_a=0, node_b=1, cell_a=0, cell_b=None, edge_kind="boundary", is_river=False, geology_a_key="", geology_b_key=""),
-            SimpleNamespace(edge_id=1, node_a=1, node_b=2, cell_a=0, cell_b=None, edge_kind="boundary", is_river=False, geology_a_key="", geology_b_key=""),
-            SimpleNamespace(edge_id=2, node_a=2, node_b=3, cell_a=1, cell_b=None, edge_kind="boundary", is_river=False, geology_a_key="", geology_b_key=""),
-            SimpleNamespace(edge_id=3, node_a=3, node_b=0, cell_a=1, cell_b=None, edge_kind="boundary", is_river=False, geology_a_key="", geology_b_key=""),
-            SimpleNamespace(edge_id=4, node_a=0, node_b=2, cell_a=0, cell_b=1, edge_kind="internal", is_river=False, geology_a_key="", geology_b_key=""),
+            SimpleNamespace(
+                edge_id=0,
+                node_a=0,
+                node_b=1,
+                cell_a=0,
+                cell_b=None,
+                edge_kind="boundary",
+                is_river=False,
+                geology_a_key="",
+                geology_b_key="",
+            ),
+            SimpleNamespace(
+                edge_id=1,
+                node_a=1,
+                node_b=2,
+                cell_a=0,
+                cell_b=None,
+                edge_kind="boundary",
+                is_river=False,
+                geology_a_key="",
+                geology_b_key="",
+            ),
+            SimpleNamespace(
+                edge_id=2,
+                node_a=2,
+                node_b=3,
+                cell_a=1,
+                cell_b=None,
+                edge_kind="boundary",
+                is_river=False,
+                geology_a_key="",
+                geology_b_key="",
+            ),
+            SimpleNamespace(
+                edge_id=3,
+                node_a=3,
+                node_b=0,
+                cell_a=1,
+                cell_b=None,
+                edge_kind="boundary",
+                is_river=False,
+                geology_a_key="",
+                geology_b_key="",
+            ),
+            SimpleNamespace(
+                edge_id=4,
+                node_a=0,
+                node_b=2,
+                cell_a=0,
+                cell_b=1,
+                edge_kind="internal",
+                is_river=False,
+                geology_a_key="",
+                geology_b_key="",
+            ),
         ),
     )
 
@@ -417,16 +475,17 @@ def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime
 def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
     model = _build_model()
     model.flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(
-            h=FlowInitialCondition(id="h", type="top")
-        ),
+        initial_conditions=FlowInitialConditions(h=FlowInitialCondition(id="h", type="top")),
         boundary_conditions={},
         active_bc=[],
     )
     top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
     botm_2d = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=float)
     solver_mesh = SolverMesh.from_structured_arrays(
-        nrow=2, ncol=3, top=top, botm=np.stack([botm_2d]),
+        nrow=2,
+        ncol=3,
+        top=top,
+        botm=np.stack([botm_2d]),
     )
 
     strt = model._build_start_heads(solver_mesh)
@@ -439,9 +498,7 @@ def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
 def test_modflow6_accepts_bottom_initial_condition_name() -> None:
     model = _build_model()
     model.flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(
-            h=FlowInitialCondition(id="h", type="bottom")
-        ),
+        initial_conditions=FlowInitialConditions(h=FlowInitialCondition(id="h", type="bottom")),
         boundary_conditions={},
         active_bc=[],
     )
@@ -449,7 +506,10 @@ def test_modflow6_accepts_bottom_initial_condition_name() -> None:
     botm_layer1 = np.array([[6.0, 6.0, 6.0], [6.0, 6.0, 6.0]], dtype=float)
     botm_layer2 = np.array([[2.0, 3.0, 4.0], [5.0, 6.0, 7.0]], dtype=float)
     solver_mesh = SolverMesh.from_structured_arrays(
-        nrow=2, ncol=3, top=top, botm=np.stack([botm_layer1, botm_layer2]),
+        nrow=2,
+        ncol=3,
+        top=top,
+        botm=np.stack([botm_layer1, botm_layer2]),
     )
 
     strt = model._build_start_heads(solver_mesh)
@@ -667,9 +727,7 @@ def test_modflow6_enables_rewet_when_requested() -> None:
     model.flow_regime = "transient"
     model.modflow_config = model.modflow_config.model_copy(
         update={
-            "runtime": model.modflow_config.runtime.model_copy(
-                update={"mf6_enable_rewet": True}
-            )
+            "runtime": model.modflow_config.runtime.model_copy(update={"mf6_enable_rewet": True})
         }
     )
     top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)

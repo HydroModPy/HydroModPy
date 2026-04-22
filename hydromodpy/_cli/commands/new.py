@@ -16,10 +16,12 @@ HELP = "Create a new project inside the workspace"
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument(
-        "project", help="Project name (will be created under projects/)",
+        "project",
+        help="Project name (will be created under projects/)",
     )
     parser.add_argument(
-        "--workspace", default=None,
+        "--workspace",
+        default=None,
         help="Workspace root (default: ~/hydromodpy/)",
     )
     parser.set_defaults(_handler=run)

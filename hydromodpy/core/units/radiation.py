@@ -85,9 +85,7 @@ def normalize_radiation_unit(unit: str) -> str:
     canonical = _RADIATION_UNIT_ALIASES.get(token)
     if canonical is None:
         allowed = ", ".join(RADIATION_CANONICAL_UNITS)
-        raise ValueError(
-            f"Unsupported radiation unit '{unit}'. Allowed units: {allowed}"
-        )
+        raise ValueError(f"Unsupported radiation unit '{unit}'. Allowed units: {allowed}")
     return canonical
 
 

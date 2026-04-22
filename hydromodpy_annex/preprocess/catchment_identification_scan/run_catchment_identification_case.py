@@ -58,9 +58,7 @@ def _format_cli_summary(
     if outlets_csv_path:
         lines.append(f"outlets_csv_path: {outlets_csv_path}")
     if summary_json_path is not None:
-        lines.append(
-            f"summary_json_path: {summary_json_path.expanduser().resolve()}"
-        )
+        lines.append(f"summary_json_path: {summary_json_path.expanduser().resolve()}")
     figures_dir = summary.get("figures_dir")
     if figures_dir:
         lines.append(f"figures_dir: {figures_dir}")

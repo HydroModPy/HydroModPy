@@ -592,7 +592,9 @@ def _render_template(
 """
 
 
-def render_markdown_to_html(markdown_path: Path, output_path: Path, *, title: str | None = None) -> None:
+def render_markdown_to_html(
+    markdown_path: Path, output_path: Path, *, title: str | None = None
+) -> None:
     markdown_text = markdown_path.read_text(encoding="utf-8")
     headings = extract_headings(markdown_text)
     renderer = mistune.create_markdown(plugins=["table", "strikethrough"])

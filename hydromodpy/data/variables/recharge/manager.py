@@ -19,6 +19,7 @@ class RechargeManager(BaseFieldManager):
     def _fetch_from_source(self, source_cfg: RechargeSourceConfig):
         if source_cfg.source == "custom":
             from hydromodpy.data.variables.recharge.custom import load_custom
+
             records = load_custom(
                 source_cfg,
                 project_period=self.project_period,
@@ -27,8 +28,10 @@ class RechargeManager(BaseFieldManager):
             return self._handle_custom_results(records, source_cfg)
         elif source_cfg.source == "sim2":
             from hydromodpy.data.variables.recharge.apis.sim2 import fetch
+
             return self._load_or_fetch_fields(source_cfg, "sim2", fetch)
         elif source_cfg.source == "synthetic":
             from hydromodpy.data.variables.recharge.synthetic import generate
+
             return generate(source_cfg, project_period=self.project_period)
         raise ValueError(f"Unknown recharge source: {source_cfg.source}")

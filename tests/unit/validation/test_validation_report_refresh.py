@@ -29,9 +29,9 @@ def test_build_report_jobs_targets_one_json_per_solver(tmp_path: Path) -> None:
     assert all(job.show_plot is False for job in jobs)
     assert all(job.timeout == 4321 for job in jobs)
     assert jobs[0].report_path == (tmp_path / "reports" / "modflow6_both.json").resolve()
-    assert jobs[1].report_path == (
-        tmp_path / "reports" / "modflow6_irregular_tri_both.json"
-    ).resolve()
+    assert (
+        jobs[1].report_path == (tmp_path / "reports" / "modflow6_irregular_tri_both.json").resolve()
+    )
     assert jobs[2].report_path == (tmp_path / "reports" / "boussinesq_both.json").resolve()
 
 

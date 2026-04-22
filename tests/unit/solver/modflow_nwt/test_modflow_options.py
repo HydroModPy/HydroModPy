@@ -49,6 +49,7 @@ def test_postprocess_options_defaults_are_stable():
 
 # --- FlowRechargeConfig ---
 
+
 def test_recharge_config_defaults():
     cfg = FlowRechargeConfig()
 

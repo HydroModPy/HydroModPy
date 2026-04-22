@@ -306,7 +306,10 @@ def load_field(
                 and data.size != int(np.prod(eff_shape))
             ):
                 data = _aggregate_triangles_to_grid(
-                    data, eff_shape, store, sim_id,
+                    data,
+                    eff_shape,
+                    store,
+                    sim_id,
                 )
             return int(resolved_ts), data
         except Exception:
@@ -321,8 +324,7 @@ def load_field(
     # --- Fallback to legacy .npy loader --------------------------------------
     if postprocess_dir is None:
         raise ValueError(
-            f"Cannot load field '{observable_name}': no store provided and "
-            "postprocess_dir is None."
+            f"Cannot load field '{observable_name}': no store provided and postprocess_dir is None."
         )
     return load_last_npy_array(postprocess_dir, observable_name)
 
@@ -377,8 +379,7 @@ def load_time_series_fields(
                 return indices, data
         except Exception:
             logger.debug(
-                "Store Zarr query failed for '%s' (sim_id=%s), "
-                "trying DuckDB timeseries.",
+                "Store Zarr query failed for '%s' (sim_id=%s), trying DuckDB timeseries.",
                 observable_name,
                 sim_id,
                 exc_info=True,
@@ -409,8 +410,7 @@ def load_time_series_fields(
                 pass
 
         logger.debug(
-            "Store queries failed for '%s' (sim_id=%s), "
-            "falling back to legacy .npy loader.",
+            "Store queries failed for '%s' (sim_id=%s), falling back to legacy .npy loader.",
             observable_name,
             sim_id,
         )
@@ -431,7 +431,9 @@ def load_npy_time_series_arrays(
     payload = load_npy_dict(postprocess_dir / f"{observable_name}.npy")
     assert payload, f"{observable_name}.npy is empty."
 
-    ordered_items = sorted((int(key), np.asarray(value, dtype=float)) for key, value in payload.items())
+    ordered_items = sorted(
+        (int(key), np.asarray(value, dtype=float)) for key, value in payload.items()
+    )
     indices = np.asarray([key for key, _ in ordered_items], dtype=int)
     arrays = np.stack([value for _, value in ordered_items], axis=0)
     return indices, arrays

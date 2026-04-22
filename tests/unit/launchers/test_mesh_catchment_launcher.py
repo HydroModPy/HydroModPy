@@ -187,12 +187,8 @@ def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path:
     assert kwargs["show_plot"] is False
     assert kwargs["river_trace"] is not None
     expected_root = minimal_cfg.workspace.project_root
-    assert kwargs["output_mesh"] == (
-        expected_root / "mesh" / "mesh_catchment.msh"
-    )
-    assert kwargs["output_summary_json"] == (
-        expected_root / "mesh" / "mesh_catchment_summary.json"
-    )
+    assert kwargs["output_mesh"] == (expected_root / "mesh" / "mesh_catchment.msh")
+    assert kwargs["output_summary_json"] == (expected_root / "mesh" / "mesh_catchment_summary.json")
     assert kwargs["output_figure"] is None
     assert kwargs["output_figure_regional"] is None
     assert kwargs["section_data_override"]["domain"]["kind"] == "geographic_box_buffer"
@@ -329,7 +325,9 @@ def test_mesh_catchment_launcher_flat_output_layout_writes_directly_to_project_r
     def _fake_build_geographic_derived_features(**kwargs):
         runtime_root = Path(kwargs["workspace"].project_root)
         captured["runtime_workspace_project_root"] = runtime_root
-        (runtime_root / ".solver_scratch/_preprocessing" / "geographic").mkdir(parents=True, exist_ok=True)
+        (runtime_root / ".solver_scratch/_preprocessing" / "geographic").mkdir(
+            parents=True, exist_ok=True
+        )
         (runtime_root / "results_simulations").mkdir(parents=True, exist_ok=True)
         (runtime_root / "results_calibration").mkdir(parents=True, exist_ok=True)
         return _DummyGeographicFeatures()
@@ -355,9 +353,7 @@ def test_mesh_catchment_launcher_flat_output_layout_writes_directly_to_project_r
     runtime_workspace_project_root = Path(captured["runtime_workspace_project_root"])
     assert summary["output_layout"] == "flat"
     assert kwargs["output_mesh"] == expected_root / "mesh_catchment.msh"
-    assert kwargs["output_summary_json"] == (
-        expected_root / "mesh_catchment_summary.json"
-    )
+    assert kwargs["output_summary_json"] == (expected_root / "mesh_catchment_summary.json")
     assert kwargs["output_figure"] is None
     assert kwargs["output_figure_regional"] is None
     assert runtime_workspace_project_root == (
@@ -395,9 +391,7 @@ def test_mesh_catchment_launcher_passes_domain_depth_model_to_bundle_export(
             minimal_cfg.workspace
             if model_cls.__name__ == "WorkspaceConfig"
             else (
-                minimal_cfg.geographic
-                if model_cls.__name__ == "GeographicConfig"
-                else domain_cfg
+                minimal_cfg.geographic if model_cls.__name__ == "GeographicConfig" else domain_cfg
             )
         ),
     )
@@ -500,13 +494,14 @@ def test_mesh_catchment_launcher_run_uses_section_output_overrides(
 
     kwargs = captured["kwargs"]
     assert kwargs["output_mesh"] == (config_path.parent / "mesh/custom_mesh.msh").resolve()
-    assert kwargs["output_summary_json"] == (
-        config_path.parent / "mesh/custom_summary.json"
-    ).resolve()
+    assert (
+        kwargs["output_summary_json"] == (config_path.parent / "mesh/custom_summary.json").resolve()
+    )
     assert kwargs["output_figure"] == (config_path.parent / "mesh/custom_plot.png").resolve()
-    assert kwargs["output_figure_regional"] == (
-        config_path.parent / "mesh/custom_plot_regional.png"
-    ).resolve()
+    assert (
+        kwargs["output_figure_regional"]
+        == (config_path.parent / "mesh/custom_plot_regional.png").resolve()
+    )
     assert kwargs["show_plot"] is True
     assert kwargs["river_trace"] is not None
 
@@ -1014,10 +1009,17 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
         str(Path("mesh_batch_outlet_2") / ".solver_scratch/_preprocessing" / "mesh" / "mesh_2.msh")
     )
     assert str(kwargs["output_summary_json"]).endswith(
-        str(Path("mesh_batch_outlet_2") / ".solver_scratch/_preprocessing" / "mesh" / "summary_2.json")
+        str(
+            Path("mesh_batch_outlet_2")
+            / ".solver_scratch/_preprocessing"
+            / "mesh"
+            / "summary_2.json"
+        )
     )
     assert str(kwargs["output_figure"]).endswith(
-        str(Path("mesh_batch_outlet_2") / ".solver_scratch/_preprocessing" / "mesh" / "figure_2.png")
+        str(
+            Path("mesh_batch_outlet_2") / ".solver_scratch/_preprocessing" / "mesh" / "figure_2.png"
+        )
     )
     assert str(kwargs["output_figure_regional"]).endswith(
         str(
@@ -1106,15 +1108,11 @@ def test_mesh_catchment_launcher_batch_flat_layout_writes_directly_to_catchment_
 
     assert summary["outlets_succeeded"] == 1
     kwargs = captured_calls[0]["kwargs"]
-    assert str(kwargs["output_mesh"]).endswith(
-        str(Path("mesh_batch_outlet_2") / "mesh_2.msh")
-    )
+    assert str(kwargs["output_mesh"]).endswith(str(Path("mesh_batch_outlet_2") / "mesh_2.msh"))
     assert str(kwargs["output_summary_json"]).endswith(
         str(Path("mesh_batch_outlet_2") / "summary_2.json")
     )
-    assert str(kwargs["output_figure"]).endswith(
-        str(Path("mesh_batch_outlet_2") / "figure_2.png")
-    )
+    assert str(kwargs["output_figure"]).endswith(str(Path("mesh_batch_outlet_2") / "figure_2.png"))
     assert str(kwargs["output_figure_regional"]).endswith(
         str(Path("mesh_batch_outlet_2") / "figure_2_regional.png")
     )

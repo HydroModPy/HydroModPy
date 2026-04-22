@@ -58,8 +58,7 @@ def _build_summary(
         "layer_index_head": [int(v) for v in mesh_3d.layer_indices[:8]],
         "source_cell_index_head": [int(v) for v in mesh_3d.source_cell_indices[:8]],
         "prism_connectivity_head": [
-            [int(v) for v in row]
-            for row in np.asarray(mesh_3d.prism_connectivity[:3], dtype=int)
+            [int(v) for v in row] for row in np.asarray(mesh_3d.prism_connectivity[:3], dtype=int)
         ],
     }
 

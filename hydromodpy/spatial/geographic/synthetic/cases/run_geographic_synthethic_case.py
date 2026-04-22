@@ -148,9 +148,7 @@ def plot_synthetic_geographic_summary(
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description=(
-            "Run one synthetic geographic demo case and save a quick summary figure."
-        )
+        description=("Run one synthetic geographic demo case and save a quick summary figure.")
     )
     parser.add_argument(
         "--config",

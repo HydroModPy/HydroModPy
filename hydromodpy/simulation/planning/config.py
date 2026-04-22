@@ -212,7 +212,9 @@ class SimulationConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: Annotated[str, Profile.USER] = Field(default="", description="Human-readable simulation name.")
+    name: Annotated[str, Profile.USER] = Field(
+        default="", description="Human-readable simulation name."
+    )
     run_id: Annotated[str, Profile.USER] = Field(
         default="",
         description=(
@@ -222,7 +224,8 @@ class SimulationConfig(HydroModelBase):
         ),
     )
     on_collision: Annotated[
-        Literal["replace", "fail", "version"], Profile.USER,
+        Literal["replace", "fail", "version"],
+        Profile.USER,
     ] = Field(
         default="replace",
         description=(

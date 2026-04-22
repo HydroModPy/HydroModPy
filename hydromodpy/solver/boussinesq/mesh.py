@@ -58,11 +58,7 @@ def _point_in_triangle(
     l1 = (((y1 - y2) * (point_x_m - x2)) + ((x2 - x1) * (point_y_m - y2))) / det
     l2 = (((y2 - y0) * (point_x_m - x2)) + ((x0 - x2) * (point_y_m - y2))) / det
     l3 = 1.0 - l1 - l2
-    return (
-        l1 >= -float(tolerance)
-        and l2 >= -float(tolerance)
-        and l3 >= -float(tolerance)
-    )
+    return l1 >= -float(tolerance) and l2 >= -float(tolerance) and l3 >= -float(tolerance)
 
 
 def _optional_finite_float(value: float) -> float | None:
@@ -87,11 +83,7 @@ def _polygon_area(vertices: np.ndarray) -> float:
     x_vals = coords[:, 0]
     y_vals = coords[:, 1]
     return float(
-        0.5
-        * abs(
-            np.dot(x_vals, np.roll(y_vals, -1))
-            - np.dot(y_vals, np.roll(x_vals, -1))
-        )
+        0.5 * abs(np.dot(x_vals, np.roll(y_vals, -1)) - np.dot(y_vals, np.roll(x_vals, -1)))
     )
 
 
@@ -234,9 +226,9 @@ class BoussinesqMesh:
         )
         if edge_indices.size == 0:
             return np.asarray([], dtype=int)
-        return np.unique(
-            np.asarray(self.edge_cell_a[edge_indices], dtype=int)
-        ).astype(int, copy=False)
+        return np.unique(np.asarray(self.edge_cell_a[edge_indices], dtype=int)).astype(
+            int, copy=False
+        )
 
     def locate_cell_index_for_point(
         self,
@@ -284,9 +276,9 @@ class BoussinesqMesh:
         edge_indices = self.river_edge_indices()
         if edge_indices.size == 0:
             return np.asarray([], dtype=int)
-        return np.unique(
-            np.asarray(self.edge_cell_a[edge_indices], dtype=int)
-        ).astype(int, copy=False)
+        return np.unique(np.asarray(self.edge_cell_a[edge_indices], dtype=int)).astype(
+            int, copy=False
+        )
 
     @classmethod
     def from_planar_mesh(
@@ -367,13 +359,9 @@ class BoussinesqMesh:
                     centroid_x=float(cell.centroid[0]),
                     centroid_y=float(cell.centroid[1]),
                     area_m2=_polygon_area(np.asarray(cell.vertices, dtype=float)),
-                    z_top_centroid=_optional_finite_float(
-                        float(centroid_z_top[cell_index])
-                    ),
+                    z_top_centroid=_optional_finite_float(float(centroid_z_top[cell_index])),
                     z_top_mean=_optional_finite_nanmean(cell_node_z_top),
-                    z_bottom_centroid=_optional_finite_float(
-                        float(centroid_z_bottom[cell_index])
-                    ),
+                    z_bottom_centroid=_optional_finite_float(float(centroid_z_bottom[cell_index])),
                     z_bottom_mean=_optional_finite_nanmean(cell_node_z_bottom),
                     geology_code=None,
                     geology_key="",
@@ -393,11 +381,7 @@ class BoussinesqMesh:
                 node_a=int(row["node_a"]),
                 node_b=int(row["node_b"]),
                 cell_a=int(row["cell_a"]),
-                cell_b=(
-                    None
-                    if str(row.get("cell_b", "")).strip() == ""
-                    else int(row["cell_b"])
-                ),
+                cell_b=(None if str(row.get("cell_b", "")).strip() == "" else int(row["cell_b"])),
                 length_m=float(row["length_m"]),
                 edge_kind=str(row["edge_kind"]),
                 is_river=bool(row["is_river"]),
@@ -408,11 +392,7 @@ class BoussinesqMesh:
         )
 
         source_path = getattr(mesh, "source_path", None)
-        bundle_dir = (
-            Path(source_path).resolve().parent
-            if source_path is not None
-            else Path.cwd()
-        )
+        bundle_dir = Path(source_path).resolve().parent if source_path is not None else Path.cwd()
         runtime_bundle = CatchmentMeshBundle(
             bundle_dir=bundle_dir,
             metadata={
@@ -565,22 +545,17 @@ class BoussinesqMesh:
             node_b_id = int(bundle_edge.node_b)
             if node_a_id not in node_index_by_id or node_b_id not in node_index_by_id:
                 raise ValueError(
-                    f"Unknown node reference on edge_id={edge_id}: "
-                    f"({node_a_id}, {node_b_id})."
+                    f"Unknown node reference on edge_id={edge_id}: ({node_a_id}, {node_b_id})."
                 )
             cell_a_id = int(bundle_edge.cell_a)
             if cell_a_id not in cell_index_by_id:
-                raise ValueError(
-                    f"Unknown cell_a={cell_a_id} referenced by edge_id={edge_id}."
-                )
+                raise ValueError(f"Unknown cell_a={cell_a_id} referenced by edge_id={edge_id}.")
             cell_a_index = int(cell_index_by_id[cell_a_id])
             cell_b_index = -1
             if bundle_edge.cell_b is not None:
                 cell_b_id = int(bundle_edge.cell_b)
                 if cell_b_id not in cell_index_by_id:
-                    raise ValueError(
-                        f"Unknown cell_b={cell_b_id} referenced by edge_id={edge_id}."
-                    )
+                    raise ValueError(f"Unknown cell_b={cell_b_id} referenced by edge_id={edge_id}.")
                 cell_b_index = int(cell_index_by_id[cell_b_id])
 
             node_a_index = int(node_index_by_id[node_a_id])

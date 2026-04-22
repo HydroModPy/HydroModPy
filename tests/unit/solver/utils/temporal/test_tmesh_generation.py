@@ -14,14 +14,7 @@ import pytest
 
 def _load_tmesh_module():
     repo_root = Path(__file__).resolve().parents[5]
-    module_path = (
-        repo_root
-        / "hydromodpy"
-        / "solver"
-        / "utils"
-        / "temporal"
-        / "tmesh_generation.py"
-    )
+    module_path = repo_root / "hydromodpy" / "solver" / "utils" / "temporal" / "tmesh_generation.py"
     module_name = f"_test_tmesh_generation_{uuid.uuid4().hex}"
     spec = importlib.util.spec_from_file_location(module_name, module_path)
     assert spec is not None and spec.loader is not None
@@ -88,10 +81,7 @@ def test_from_chron_parses_dates_and_computes_perlen(monkeypatch, tmp_path: Path
 
     chron_path = tmp_path / "chron.csv"
     chron_path.write_text(
-        "Date\tvalue\n"
-        "2020-01-01 00:00:00\t1\n"
-        "2020-01-03 00:00:00\t2\n"
-        "2020-01-06 00:00:00\t3\n",
+        "Date\tvalue\n2020-01-01 00:00:00\t1\n2020-01-03 00:00:00\t2\n2020-01-06 00:00:00\t3\n",
         encoding="utf-8",
     )
 
@@ -182,10 +172,7 @@ def test_from_chron_requires_exact_window_bounds_in_chronicle(monkeypatch, tmp_p
 
     chron_path = tmp_path / "chron.csv"
     chron_path.write_text(
-        "Date\tvalue\n"
-        "2020-01-01 00:00:00\t1\n"
-        "2020-01-02 00:00:00\t2\n"
-        "2020-01-03 00:00:00\t3\n",
+        "Date\tvalue\n2020-01-01 00:00:00\t1\n2020-01-02 00:00:00\t2\n2020-01-03 00:00:00\t3\n",
         encoding="utf-8",
     )
 
@@ -232,9 +219,7 @@ def test_from_chron_requires_strictly_increasing_dates(monkeypatch, tmp_path: Pa
 
     chron_path = tmp_path / "chron.csv"
     chron_path.write_text(
-        "Date\tvalue\n"
-        "2020-01-01 00:00:00\t1\n"
-        "2020-01-01 00:00:00\t2\n",
+        "Date\tvalue\n2020-01-01 00:00:00\t1\n2020-01-01 00:00:00\t2\n",
         encoding="utf-8",
     )
     builder = mod.TMesh_Generation(
@@ -251,9 +236,7 @@ def test_from_chron_requires_time_column(monkeypatch, tmp_path: Path):
 
     chron_path = tmp_path / "chron.csv"
     chron_path.write_text(
-        "Other\tvalue\n"
-        "2020-01-01 00:00:00\t1\n"
-        "2020-01-02 00:00:00\t2\n",
+        "Other\tvalue\n2020-01-01 00:00:00\t1\n2020-01-02 00:00:00\t2\n",
         encoding="utf-8",
     )
     builder = mod.TMesh_Generation(
@@ -270,9 +253,7 @@ def test_from_chron_invalid_date_format_raises(monkeypatch, tmp_path: Path):
 
     chron_path = tmp_path / "chron.csv"
     chron_path.write_text(
-        "Date\tvalue\n"
-        "01/31/2020\t1\n"
-        "02/01/2020\t2\n",
+        "Date\tvalue\n01/31/2020\t1\n02/01/2020\t2\n",
         encoding="utf-8",
     )
     builder = mod.TMesh_Generation(

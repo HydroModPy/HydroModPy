@@ -1,4 +1,4 @@
-﻿"""Flux and transmissivity operators used by the Boussinesq assembly."""
+"""Flux and transmissivity operators used by the Boussinesq assembly."""
 
 from __future__ import annotations
 
@@ -59,10 +59,7 @@ def edge_to_stage_tau_from_head(
             _MIN_DISTANCE_M,
         )
         tau_a[edge_index] = (
-            conductivity
-            * thickness
-            * float(mesh.edge_length_m[edge_index])
-            / distance_a_m
+            conductivity * thickness * float(mesh.edge_length_m[edge_index]) / distance_a_m
         )
         cell_b = int(mesh.edge_cell_b[edge_index])
         if cell_b >= 0:
@@ -73,10 +70,7 @@ def edge_to_stage_tau_from_head(
                 _MIN_DISTANCE_M,
             )
             tau_b[edge_index] = (
-                conductivity_b
-                * thickness_b
-                * float(mesh.edge_length_m[edge_index])
-                / distance_b_m
+                conductivity_b * thickness_b * float(mesh.edge_length_m[edge_index]) / distance_b_m
             )
     return tau_a, tau_b
 
@@ -102,16 +96,12 @@ def boundary_head_edge_flux_from_head(
         if not np.isfinite(boundary_head):
             continue
         cell_a = int(mesh.edge_cell_a[edge_index])
-        flux_a = -float(tau_a[edge_index]) * (
-            boundary_head - float(head[cell_a])
-        )
+        flux_a = -float(tau_a[edge_index]) * (boundary_head - float(head[cell_a]))
         residual[cell_a] += flux_a
         edge_flux[edge_index] += flux_a
         cell_b = int(mesh.edge_cell_b[edge_index])
         if cell_b >= 0 and float(tau_b[edge_index]) > 0.0:
-            flux_b = -float(tau_b[edge_index]) * (
-                boundary_head - float(head[cell_b])
-            )
+            flux_b = -float(tau_b[edge_index]) * (boundary_head - float(head[cell_b]))
             residual[cell_b] += flux_b
             edge_flux[edge_index] += flux_b
     return edge_flux, residual
@@ -206,4 +196,3 @@ __all__ = [
     "saturated_thickness_from_head",
     "transmissivity_from_head",
 ]
-

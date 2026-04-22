@@ -29,6 +29,7 @@ logger = get_logger(__name__)
 @runtime_checkable
 class SourceConfigProtocol(Protocol):
     """Minimal interface expected from source config objects."""
+
     source: str
     mask_path: Path | None
     extent: str | None
@@ -114,8 +115,10 @@ class BaseVariableManager(ABC):
         """Get WGS84 bbox from mask or project extent (Hub'Eau expects lon/lat)."""
         if source_cfg.mask_path:
             from hydromodpy.data.common.geo_helpers import (
-                load_mask_geometry_wgs84, geometry_to_bbox,
+                load_mask_geometry_wgs84,
+                geometry_to_bbox,
             )
+
             geom = load_mask_geometry_wgs84(source_cfg.mask_path)
             return geometry_to_bbox(geom)
         if source_cfg.extent and self.project_extent:
@@ -127,16 +130,15 @@ class BaseVariableManager(ABC):
         if not source_cfg.mask_path:
             return records
         from hydromodpy.data.common.geo_helpers import (
-            load_mask_geometry_wgs84, filter_locations_by_geometry,
+            load_mask_geometry_wgs84,
+            filter_locations_by_geometry,
         )
+
         geom = load_mask_geometry_wgs84(source_cfg.mask_path)
         locs_to_check = [r.location for r in records if r.location is not None]
         inside = filter_locations_by_geometry(locs_to_check, geom)
         valid_ids = {loc.id for loc in inside}
-        return [
-            r for r in records
-            if r.location is None or r.station_id in valid_ids
-        ]
+        return [r for r in records if r.location is None or r.station_id in valid_ids]
 
     def _resolve_nearest_to(self, source_cfg) -> tuple[float, float] | None:
         """Compute centroid of the project extent for nearest-station search."""
@@ -206,7 +208,9 @@ class BaseVariableManager(ABC):
     # ------------------------------------------------------------------
 
     def _persist_api_records(
-        self, records: list[PointRecord], source: str,
+        self,
+        records: list[PointRecord],
+        source: str,
     ) -> None:
         """Save API records as CSV files in data_dir and register in catalog.
 
@@ -226,9 +230,7 @@ class BaseVariableManager(ABC):
             safe_id = safe_file_token(r.station_id)
             start_str = r.date_start.strftime("%Y%m%d")
             end_str = r.date_end.strftime("%Y%m%d")
-            filename = (
-                f"{prefix}_{source}_{safe_id}_{start_str}_{end_str}_{r.frequency}.csv"
-            )
+            filename = f"{prefix}_{source}_{safe_id}_{start_str}_{end_str}_{r.frequency}.csv"
             filepath = self.data_dir / filename
             r.data.to_csv(filepath, index=False)
 
@@ -270,7 +272,9 @@ class BaseVariableManager(ABC):
         return p
 
     def _register_empty_api_stations(
-        self, station_ids: list[str], source: str,
+        self,
+        station_ids: list[str],
+        source: str,
     ) -> None:
         """Register stations that returned no data from the API.
 
@@ -395,7 +399,9 @@ class BaseVariableManager(ABC):
         if not filepath.exists():
             # File deleted externally — clean up stale entry
             self.catalog.invalidate(
-                variable=self.VARIABLE_NAME, source=source, station_id=station_id,
+                variable=self.VARIABLE_NAME,
+                source=source,
+                station_id=station_id,
             )
             return None
 
@@ -405,11 +411,14 @@ class BaseVariableManager(ABC):
             if abs(current_mtime - entry.file_mtime) > 1.0:
                 # File modified externally — invalidate and re-fetch
                 self.catalog.invalidate(
-                    variable=self.VARIABLE_NAME, source=source, station_id=station_id,
+                    variable=self.VARIABLE_NAME,
+                    source=source,
+                    station_id=station_id,
                 )
                 return None
 
         from hydromodpy.data.common.io_helpers import read_timeseries_csv
+
         df = read_timeseries_csv(filepath)
         if df.empty:
             return None
@@ -431,7 +440,9 @@ class BaseVariableManager(ABC):
         )
 
     def _load_cached_location(
-        self, source: str, station_id: str,
+        self,
+        source: str,
+        station_id: str,
     ) -> StationLocation | None:
         """Load a station's location from the API LOC file."""
         if self.data_dir is None:
@@ -447,8 +458,11 @@ class BaseVariableManager(ABC):
         r = row.iloc[0]
         extra = {k: v for k, v in r.items() if k not in ("id", "x", "y", "crs") and pd.notna(v)}
         return StationLocation(
-            id=str(r["id"]), x=float(r["x"]), y=float(r["y"]),
-            crs=str(r.get("crs", "EPSG:4326")), metadata=extra,
+            id=str(r["id"]),
+            x=float(r["x"]),
+            y=float(r["y"]),
+            crs=str(r.get("crs", "EPSG:4326")),
+            metadata=extra,
         )
 
     # ------------------------------------------------------------------
@@ -466,7 +480,8 @@ class BaseVariableManager(ABC):
         rows = []
         for rec in records:
             stats = compute_completeness(
-                rec.data, station_id=rec.station_id,
+                rec.data,
+                station_id=rec.station_id,
                 start_date=start or rec.date_start,
                 end_date=end or rec.date_end,
             )
@@ -486,8 +501,10 @@ class BaseVariableManager(ABC):
         if isinstance(records, LoadResult):
             records = records.points
         from hydromodpy.data.common.export import export_records
+
         return export_records(
-            records, output_dir,
+            records,
+            output_dir,
             variable_name=self.VARIABLE_NAME,
             prefix=self.VARIABLE_NAME,
         )
@@ -556,6 +573,7 @@ class BaseFieldManager(ABC):
                 geometry_to_bbox,
                 load_mask_geometry,
             )
+
             geom = load_mask_geometry(source_cfg.mask_path)
             return geometry_to_bbox(geom)
         if source_cfg.extent and self.project_extent:
@@ -563,7 +581,9 @@ class BaseFieldManager(ABC):
         return None
 
     def _apply_mask(
-        self, records: list[PointRecord], source_cfg,
+        self,
+        records: list[PointRecord],
+        source_cfg,
     ) -> list[PointRecord]:
         if not source_cfg.mask_path:
             return records
@@ -571,14 +591,12 @@ class BaseFieldManager(ABC):
             filter_locations_by_geometry,
             load_mask_geometry_wgs84,
         )
+
         geom = load_mask_geometry_wgs84(source_cfg.mask_path)
         locs_to_check = [r.location for r in records if r.location is not None]
         inside = filter_locations_by_geometry(locs_to_check, geom)
         valid_ids = {loc.id for loc in inside}
-        return [
-            r for r in records
-            if r.location is None or r.station_id in valid_ids
-        ]
+        return [r for r in records if r.location is None or r.station_id in valid_ids]
 
     def _handle_custom_results(self, records: list, source_cfg) -> list:
         """Dispatch custom results: mask PointRecords, register FieldRecords."""
@@ -619,7 +637,9 @@ class BaseFieldManager(ABC):
                 return cached
 
         records = fetch_fn(
-            source_cfg, bbox=bbox, project_period=self.project_period,
+            source_cfg,
+            bbox=bbox,
+            project_period=self.project_period,
         )
         self._persist_field_records(records, source_name)
         return records
@@ -656,24 +676,26 @@ class BaseFieldManager(ABC):
                 return None
 
             import xarray as xr
+
             ds = xr.open_dataset(nc_path)
             logger.info("Cache hit: %s from %s", var_name, nc_path.name)
 
-            results.append(FieldRecord(
-                variable=var_name,
-                source=source,
-                unit=entry.unit or self.INTERNAL_UNIT,
-                data=ds,
-                bbox=(entry.bbox_xmin, entry.bbox_ymin,
-                      entry.bbox_xmax, entry.bbox_ymax),
-                crs=entry.crs or "EPSG:4326",
-                date_start=datetime.fromisoformat(entry.date_start)
-                if entry.date_start else None,
-                date_end=datetime.fromisoformat(entry.date_end)
-                if entry.date_end else None,
-                frequency=entry.frequency,
-                source_unit=self._extract_field_source_unit(ds, var_name) or entry.source_unit,
-            ))
+            results.append(
+                FieldRecord(
+                    variable=var_name,
+                    source=source,
+                    unit=entry.unit or self.INTERNAL_UNIT,
+                    data=ds,
+                    bbox=(entry.bbox_xmin, entry.bbox_ymin, entry.bbox_xmax, entry.bbox_ymax),
+                    crs=entry.crs or "EPSG:4326",
+                    date_start=datetime.fromisoformat(entry.date_start)
+                    if entry.date_start
+                    else None,
+                    date_end=datetime.fromisoformat(entry.date_end) if entry.date_end else None,
+                    frequency=entry.frequency,
+                    source_unit=self._extract_field_source_unit(ds, var_name) or entry.source_unit,
+                )
+            )
 
         return results
 
@@ -689,8 +711,11 @@ class BaseFieldManager(ABC):
 
         for rec in records:
             filename = self._nc_filename(
-                rec.variable, source, rec.bbox,
-                rec.date_start, rec.date_end,
+                rec.variable,
+                source,
+                rec.bbox,
+                rec.date_start,
+                rec.date_end,
             )
             nc_path = self.data_dir / filename
 
@@ -707,17 +732,18 @@ class BaseFieldManager(ABC):
                     variable=rec.variable,
                     source=source,
                     bbox=rec.bbox,
-                    date_start=rec.date_start.isoformat()
-                    if rec.date_start else None,
-                    date_end=rec.date_end.isoformat()
-                    if rec.date_end else None,
+                    date_start=rec.date_start.isoformat() if rec.date_start else None,
+                    date_end=rec.date_end.isoformat() if rec.date_end else None,
                     exclude_id=entry_id,
                 )
                 if removed:
                     logger.info("Subsumed %d smaller grid(s) for %s", removed, rec.variable)
 
     def _register_field(
-        self, rec: FieldRecord, nc_path: Path, source: str,
+        self,
+        rec: FieldRecord,
+        nc_path: Path,
+        source: str,
     ) -> int | None:
         """Register a FieldRecord in the catalog. Returns entry id."""
         if self.catalog is None:

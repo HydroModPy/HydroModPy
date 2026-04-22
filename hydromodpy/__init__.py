@@ -78,7 +78,9 @@ def _ensure_proj_data_from_env() -> None:
             return
 
         reason = (
-            "does not exist on disk" if not current_path.exists() else "points outside the active environment"
+            "does not exist on disk"
+            if not current_path.exists()
+            else "points outside the active environment"
         )
         _bootstrap_logger.warning(
             "PROJ_DATA=%s %s; switching HydroModPy to %s instead.",
@@ -228,10 +230,13 @@ _ensure_proj_db_compatibility()
 from hydromodpy.core.version import __version__
 
 __author__ = "Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy"
-__email__ = "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
+__email__ = (
+    "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
+)
 
 # Initialize logging system
 from hydromodpy.core.logging import LogManager
+
 _log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
 # Public access to log manager for users
 log_manager = _log_manager
@@ -433,4 +438,3 @@ def doctor() -> dict:
     for exe in ("mf2005", "mfnwt", "mf6"):
         report["solvers"][exe] = shutil.which(exe)
     return report
-

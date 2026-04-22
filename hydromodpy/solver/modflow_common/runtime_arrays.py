@@ -20,8 +20,10 @@ def flow_grid_shape(flow_model: object) -> tuple[int, int, int]:
         return int(mf.nlay), int(mf.nrow), int(mf.ncol)
 
     if all(hasattr(flow_model, name) for name in ("nlay", "nrow", "ncol")):
-        return int(getattr(flow_model, "nlay")), int(getattr(flow_model, "nrow")), int(
-            getattr(flow_model, "ncol")
+        return (
+            int(getattr(flow_model, "nlay")),
+            int(getattr(flow_model, "nrow")),
+            int(getattr(flow_model, "ncol")),
         )
 
     if all(hasattr(flow_model, name) for name in ("nlay", "ncpl")):
@@ -74,7 +76,9 @@ def _normalize_sconc_input(
     if _is_scalar_number(raw_value):
         scalar = float(raw_value)
         if structured:
-            return {sp: np.full((int(nrow), int(ncol)), scalar, dtype=float) for sp in range(1, nper)}
+            return {
+                sp: np.full((int(nrow), int(ncol)), scalar, dtype=float) for sp in range(1, nper)
+            }
         return {sp: np.full(ncpl, scalar, dtype=float) for sp in range(1, nper)}
 
     if not isinstance(raw_value, Mapping):
@@ -96,7 +100,9 @@ def _normalize_sconc_input(
 
         if _is_scalar_number(raw_array):
             if structured:
-                normalized[stress_period] = np.full((int(nrow), int(ncol)), float(raw_array), dtype=float)
+                normalized[stress_period] = np.full(
+                    (int(nrow), int(ncol)), float(raw_array), dtype=float
+                )
             else:
                 normalized[stress_period] = np.full(ncpl, float(raw_array), dtype=float)
             continue
@@ -127,14 +133,18 @@ def build_concentration_runtime_overrides(
     sconc_init = params.get("sconc_init")
     if _is_scalar_number(sconc_init):
         if structured:
-            overrides["sconc_init"] = np.full((nlay, nrow_hint, ncol_hint), float(sconc_init), dtype=float)
+            overrides["sconc_init"] = np.full(
+                (nlay, nrow_hint, ncol_hint), float(sconc_init), dtype=float
+            )
         else:
             overrides["sconc_init"] = np.full((nlay, ncpl), float(sconc_init), dtype=float)
 
     rate_decay = params.get("rate_decay")
     if _is_scalar_number(rate_decay):
         if structured:
-            overrides["rate_decay"] = np.full((nlay, nrow_hint, ncol_hint), float(rate_decay), dtype=float)
+            overrides["rate_decay"] = np.full(
+                (nlay, nrow_hint, ncol_hint), float(rate_decay), dtype=float
+            )
         else:
             overrides["rate_decay"] = np.full((nlay, ncpl), float(rate_decay), dtype=float)
 
@@ -254,8 +264,7 @@ def resolve_flow_property_runtime_overrides(
         else {"K", "Sy", "Ss"}
     )
     optional_defaults = {
-        str(name).strip(): float(value)
-        for name, value in (optional_fill_values or {}).items()
+        str(name).strip(): float(value) for name, value in (optional_fill_values or {}).items()
     }
 
     out: dict[str, np.ndarray] = {}

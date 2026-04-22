@@ -27,16 +27,28 @@ class HydrometrySourceConfig(HydroModelBase):
         Path | None,
         Profile.USER,
         InputFile(role="hydrometry", category="data"),
-    ] = Field(
-        default=None, description="Directory containing location file and chronicle CSVs."
+    ] = Field(default=None, description="Directory containing location file and chronicle CSVs.")
+    col_id: Annotated[str, Profile.DEV] = Field(
+        default="id", description="Column name for station identifier in location file."
     )
-    col_id: Annotated[str, Profile.DEV] = Field(default="id", description="Column name for station identifier in location file.")
-    col_x: Annotated[str, Profile.DEV] = Field(default="x", description="Column name for X coordinate in location CSV.")
-    col_y: Annotated[str, Profile.DEV] = Field(default="y", description="Column name for Y coordinate in location CSV.")
-    col_crs: Annotated[str, Profile.DEV] = Field(default="crs", description="Column name for CRS in location CSV.")
-    default_crs: Annotated[str, Profile.DEV] = Field(default="EPSG:4326", description="Default CRS when not specified in location file.")
-    col_datetime: Annotated[str, Profile.DEV] = Field(default="datetime", description="Column name for datetime in chronicle CSVs.")
-    col_value: Annotated[str, Profile.DEV] = Field(default="value", description="Column name for value in chronicle CSVs.")
+    col_x: Annotated[str, Profile.DEV] = Field(
+        default="x", description="Column name for X coordinate in location CSV."
+    )
+    col_y: Annotated[str, Profile.DEV] = Field(
+        default="y", description="Column name for Y coordinate in location CSV."
+    )
+    col_crs: Annotated[str, Profile.DEV] = Field(
+        default="crs", description="Column name for CRS in location CSV."
+    )
+    default_crs: Annotated[str, Profile.DEV] = Field(
+        default="EPSG:4326", description="Default CRS when not specified in location file."
+    )
+    col_datetime: Annotated[str, Profile.DEV] = Field(
+        default="datetime", description="Column name for datetime in chronicle CSVs."
+    )
+    col_value: Annotated[str, Profile.DEV] = Field(
+        default="value", description="Column name for value in chronicle CSVs."
+    )
 
     # --- Spatial mask ---
     mask_path: Annotated[Path | None, Profile.USER] = Field(
@@ -68,7 +80,8 @@ class HydrometrySourceConfig(HydroModelBase):
         description="Ignore cache and re-download from API.",
     )
     source_unit: Annotated[str | None, Profile.USER] = Field(
-        default=None, description="Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit."
+        default=None,
+        description="Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit.",
     )
 
     @model_validator(mode="after")

@@ -54,9 +54,7 @@ class DataOverviewLauncher:
             "mode": "data_overview",
             "report_paths": [str(p) for p in report_paths],
             "catchment_area_km2": (
-                state.domain_geographic.catchment_area_km2
-                if state.domain_geographic
-                else None
+                state.domain_geographic.catchment_area_km2 if state.domain_geographic else None
             ),
         }
 
@@ -98,16 +96,18 @@ class DataOverviewLauncher:
             cache_dir = state.workspace.paths.data_path / "dem"
 
         resolved = resolve_dem_path_from_data_sources(
-            state.cfg, config_path=self.config_path, cache_dir=cache_dir,
+            state.cfg,
+            config_path=self.config_path,
+            cache_dir=cache_dir,
         )
         if resolved is None:
             raise ValueError(
                 "No dem_init_path and no [data.dem] source configured. "
                 "Either set geographic.dem_init_path or add:\n"
-                "  [data]\n  types = [..., \"dem\"]\n"
-                "  [[data.dem.sources]]\n  source = \"ign_bdalti\"\n"
+                '  [data]\n  types = [..., "dem"]\n'
+                '  [[data.dem.sources]]\n  source = "ign_bdalti"\n'
                 "or:\n"
-                "  [[data.dem.sources]]\n  source = \"custom\"\n  path = \"...\""
+                '  [[data.dem.sources]]\n  source = "custom"\n  path = "..."'
             )
         logger.info("[overview] DEM resolved from [data.dem]: %s", resolved)
         geo_cfg.dem_init_path = resolved
@@ -219,5 +219,3 @@ class DataOverviewLauncher:
         from hydromodpy.display.overview import generate_overview_report
 
         return generate_overview_report(state)
-
-

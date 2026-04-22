@@ -28,9 +28,16 @@ THEMES: dict[str, Theme] = {
     "default": Theme(
         name="default",
         palette=[
-            "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
-            "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
-            "#bcbd22", "#17becf",
+            "#1f77b4",
+            "#ff7f0e",
+            "#2ca02c",
+            "#d62728",
+            "#9467bd",
+            "#8c564b",
+            "#e377c2",
+            "#7f7f7f",
+            "#bcbd22",
+            "#17becf",
         ],
         grid_alpha=0.3,
         font_family="sans-serif",
@@ -42,8 +49,14 @@ THEMES: dict[str, Theme] = {
     "print": Theme(
         name="print",
         palette=[
-            "#000000", "#555555", "#888888", "#333333",
-            "#aaaaaa", "#222222", "#666666", "#444444",
+            "#000000",
+            "#555555",
+            "#888888",
+            "#333333",
+            "#aaaaaa",
+            "#222222",
+            "#666666",
+            "#444444",
         ],
         grid_alpha=0.5,
         font_family="serif",
@@ -55,8 +68,14 @@ THEMES: dict[str, Theme] = {
     "dark": Theme(
         name="dark",
         palette=[
-            "#8ab4f8", "#f28b82", "#81c995", "#fdd663",
-            "#c58af9", "#ff8bcb", "#78d9ec", "#fcad70",
+            "#8ab4f8",
+            "#f28b82",
+            "#81c995",
+            "#fdd663",
+            "#c58af9",
+            "#ff8bcb",
+            "#78d9ec",
+            "#fcad70",
         ],
         grid_alpha=0.3,
         font_family="sans-serif",
@@ -86,21 +105,23 @@ def apply_theme(name: str) -> Theme:
     from cycler import cycler
 
     theme = get_theme(name)
-    mpl.rcParams.update({
-        "axes.prop_cycle": cycler(color=theme.palette),
-        "axes.grid": True,
-        "grid.alpha": theme.grid_alpha,
-        "font.family": theme.font_family,
-        "font.size": theme.font_size_base,
-        "axes.titleweight": theme.title_weight,
-        "figure.facecolor": theme.background,
-        "axes.facecolor": theme.background,
-        "axes.edgecolor": theme.foreground,
-        "axes.labelcolor": theme.foreground,
-        "text.color": theme.foreground,
-        "xtick.color": theme.foreground,
-        "ytick.color": theme.foreground,
-    })
+    mpl.rcParams.update(
+        {
+            "axes.prop_cycle": cycler(color=theme.palette),
+            "axes.grid": True,
+            "grid.alpha": theme.grid_alpha,
+            "font.family": theme.font_family,
+            "font.size": theme.font_size_base,
+            "axes.titleweight": theme.title_weight,
+            "figure.facecolor": theme.background,
+            "axes.facecolor": theme.background,
+            "axes.edgecolor": theme.foreground,
+            "axes.labelcolor": theme.foreground,
+            "text.color": theme.foreground,
+            "xtick.color": theme.foreground,
+            "ytick.color": theme.foreground,
+        }
+    )
     return theme
 
 

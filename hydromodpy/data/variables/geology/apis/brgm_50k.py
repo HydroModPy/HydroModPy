@@ -25,9 +25,7 @@ logger = logging.getLogger(__name__)
 import geopandas as gpd
 from shapely.geometry import box
 
-BRGM_50K_URL_TEMPLATE = (
-    "http://infoterre.brgm.fr/telechargements/BDCharm50/GEO050K_HARM_{dept}.zip"
-)
+BRGM_50K_URL_TEMPLATE = "http://infoterre.brgm.fr/telechargements/BDCharm50/GEO050K_HARM_{dept}.zip"
 FGEOL_LAYER_PATTERN = "S_FGEOL_2154"
 
 
@@ -157,12 +155,11 @@ def fetch_brgm_50k(
             gdfs.append(gdf)
 
     if not gdfs:
-        raise ValueError(
-            f"No 50K geology data could be downloaded for departments: {dept_codes}"
-        )
+        raise ValueError(f"No 50K geology data could be downloaded for departments: {dept_codes}")
 
     # Step 3: merge all departments
     import pandas as pd
+
     merged = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
     if merged.crs is None:
         merged = merged.set_crs("EPSG:2154")

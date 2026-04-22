@@ -46,7 +46,9 @@ def run_brutsaert_recession_linearized_deep_comparison(
     """Run one solver variant and return the Brutsaert recession comparison."""
     normalized_solver = None if solver is None else str(solver).strip().lower()
     metadata = load_case_metadata(CASE_DIR)
-    effective_solver = normalized_solver or str(metadata.get("default_solver", "")).strip().lower() or None
+    effective_solver = (
+        normalized_solver or str(metadata.get("default_solver", "")).strip().lower() or None
+    )
     tolerances = load_case_tolerances(CASE_DIR, solver=effective_solver)
     if normalized_solver == "boussinesq":
         result = run_boussinesq_brutsaert_recession_linearized_deep_case(

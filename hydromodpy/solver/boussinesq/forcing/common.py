@@ -160,9 +160,7 @@ class ForcingCommonMixin:
                 if float(raw_key) != float(kper):
                     raise TypeError(f"{label} mapping keys must be integer period indices.")
                 if kper < 0 or kper >= int(nper):
-                    raise ValueError(
-                        f"{label} mapping key {kper} is outside [0, {int(nper) - 1}]."
-                    )
+                    raise ValueError(f"{label} mapping key {kper} is outside [0, {int(nper) - 1}].")
                 series[kper] = float(raw_value)
             return series
         if self.is_scalar_number(payload):
@@ -229,9 +227,7 @@ class ForcingCommonMixin:
         try:
             array = np.asarray(payload, dtype=float).reshape(-1)
         except Exception as exc:
-            raise TypeError(
-                f"{label} must be numeric or a sequence of numeric values."
-            ) from exc
+            raise TypeError(f"{label} must be numeric or a sequence of numeric values.") from exc
         if array.size == 0:
             raise ValueError(f"{label} cannot be empty.")
         return array.astype(float, copy=False)
@@ -247,8 +243,7 @@ class ForcingCommonMixin:
     ) -> bool:
         """Return whether at least one recharge payload contains a non-zero value."""
         return any(
-            bool(np.any(np.asarray(payload, dtype=float) != 0.0))
-            for payload in payloads_by_period
+            bool(np.any(np.asarray(payload, dtype=float) != 0.0)) for payload in payloads_by_period
         )
 
     def recharge_config(self) -> object | None:

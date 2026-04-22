@@ -127,14 +127,10 @@ class ZoneLinearConstraint:
         if name_text == "":
             raise ValueError("linear constraints require one non-empty name.")
         if kind_text == "":
-            raise ValueError(
-                f"linear constraint '{name_text}' requires one non-empty kind."
-            )
+            raise ValueError(f"linear constraint '{name_text}' requires one non-empty kind.")
         lines_attr = payload.get("lines")
         if lines_attr is None:
-            raise TypeError(
-                f"linear constraint '{name_text}' must expose one 'lines' collection."
-            )
+            raise TypeError(f"linear constraint '{name_text}' must expose one 'lines' collection.")
 
         lines: list[LineString] = []
         for geometry in lines_attr:
@@ -145,16 +141,12 @@ class ZoneLinearConstraint:
                     lines.append(line)
 
         if not lines:
-            raise ValueError(
-                f"linear constraint '{name_text}' produced no usable line segment."
-            )
+            raise ValueError(f"linear constraint '{name_text}' produced no usable line segment.")
         return cls(
             name=name_text,
             kind=kind_text,
             lines=tuple(lines),
-            participates_in_refinement=bool(
-                payload.get("participates_in_refinement", True)
-            ),
+            participates_in_refinement=bool(payload.get("participates_in_refinement", True)),
         )
 
 

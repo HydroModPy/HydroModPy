@@ -76,9 +76,7 @@ def _find_geology_file_in_dir(directory: Path) -> Path:
         candidates = list(directory.glob(f"*{ext}"))
         if candidates:
             return candidates[0]
-    raise FileNotFoundError(
-        f"No geology file (SHP, GPKG, GeoJSON, TIF, CSV) found in {directory}"
-    )
+    raise FileNotFoundError(f"No geology file (SHP, GPKG, GeoJSON, TIF, CSV) found in {directory}")
 
 
 def _load_custom_vector(
@@ -98,15 +96,13 @@ def _load_custom_vector(
     gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()].copy()
 
     if code_field not in gdf.columns:
-        raise KeyError(
-            f"Column '{code_field}' not found in {path}. "
-            f"Available: {list(gdf.columns)}"
-        )
+        raise KeyError(f"Column '{code_field}' not found in {path}. Available: {list(gdf.columns)}")
 
     crs = str(gdf.crs) if gdf.crs else "EPSG:2154"
 
     if bbox is not None:
         from shapely.geometry import box
+
         bbox_geom = box(*bbox)
         bbox_gdf = gpd.GeoDataFrame(geometry=[bbox_geom], crs=gdf.crs)
         gdf = gpd.clip(gdf, bbox_gdf)
@@ -124,11 +120,16 @@ def _load_custom_vector(
     else:
         data = path
 
-    return [FieldRecord(
-        variable="geology", source="custom",
-        unit="category", data=data,
-        bbox=actual_bbox, crs=crs,
-    )]
+    return [
+        FieldRecord(
+            variable="geology",
+            source="custom",
+            unit="category",
+            data=data,
+            bbox=actual_bbox,
+            crs=crs,
+        )
+    ]
 
 
 def _load_custom_raster(
@@ -145,11 +146,16 @@ def _load_custom_raster(
         crs = str(src.crs) if src.crs else "EPSG:2154"
         actual_bbox = (bounds.left, bounds.bottom, bounds.right, bounds.top)
 
-    return [FieldRecord(
-        variable="geology", source="custom",
-        unit="category", data=path,
-        bbox=actual_bbox, crs=crs,
-    )]
+    return [
+        FieldRecord(
+            variable="geology",
+            source="custom",
+            unit="category",
+            data=path,
+            bbox=actual_bbox,
+            crs=crs,
+        )
+    ]
 
 
 def _load_custom_csv(
@@ -195,6 +201,7 @@ def _load_custom_csv(
 
     # Build point geometries
     from shapely.geometry import Point
+
     points = [Point(float(x), float(y)) for x, y in zip(df[col_x], df[col_y])]
     codes = df[col_code].astype(str).tolist()
 
@@ -238,8 +245,13 @@ def _load_custom_csv(
     else:
         data = path
 
-    return [FieldRecord(
-        variable="geology", source="custom",
-        unit="category", data=data,
-        bbox=actual_bbox, crs=default_crs,
-    )]
+    return [
+        FieldRecord(
+            variable="geology",
+            source="custom",
+            unit="category",
+            data=data,
+            bbox=actual_bbox,
+            crs=default_crs,
+        )
+    ]

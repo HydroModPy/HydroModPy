@@ -56,10 +56,12 @@ def generate(
         modulation = config.amplitude * np.sin(omega * t) + offset
         series_values = series_values + modulation
 
-    df = pd.DataFrame({
-        "datetime": index,
-        "value": series_values,
-    })
+    df = pd.DataFrame(
+        {
+            "datetime": index,
+            "value": series_values,
+        }
+    )
 
     return [
         PointRecord(

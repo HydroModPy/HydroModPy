@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import zstandard as _zstd
+
     _HAS_ZSTD = True
 except ImportError:  # pragma: no cover — optional dep
     _zstd = None
@@ -65,9 +66,7 @@ class CheckpointStore:
         """Load the state saved at the end of step ``step_index``."""
         path = self._find_path(step_index)
         if path is None:
-            raise FileNotFoundError(
-                f"no checkpoint for step {step_index} in {self.dir}"
-            )
+            raise FileNotFoundError(f"no checkpoint for step {step_index} in {self.dir}")
         raw = path.read_bytes()
         if path.suffix == ".zst" and _HAS_ZSTD:
             dctx = _zstd.ZstdDecompressor()

@@ -1,4 +1,4 @@
-﻿"""High-level orchestration for the standalone mesh visualization workflow.
+"""High-level orchestration for the standalone mesh visualization workflow.
 
 Execution flow:
 
@@ -143,4 +143,3 @@ __all__ = [
     "run_visualization",
     "run_visualization_from_toml",
 ]
-

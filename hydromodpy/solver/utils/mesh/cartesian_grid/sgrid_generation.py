@@ -82,12 +82,7 @@ class StructuredGridBuilder:
         nodata = float(cfg.nodata)
 
         # Mask invalid cells consistently in both surfaces.
-        invalid = (
-            ~np.isfinite(top)
-            | ~np.isfinite(bot)
-            | (top <= nodata)
-            | (bot <= nodata)
-        )
+        invalid = ~np.isfinite(top) | ~np.isfinite(bot) | (top <= nodata) | (bot <= nodata)
         top = np.array(top, dtype=float, copy=True)
         bot = np.array(bot, dtype=float, copy=True)
         top[invalid] = nodata
@@ -143,14 +138,11 @@ class StructuredGridBuilder:
         bot = np.asarray(bot, dtype=float)
         nodata_value = float(nodata)
 
-        valid = (
-            np.isfinite(top)
-            & np.isfinite(bot)
-            & (top > nodata_value)
-            & (bot > nodata_value)
-        )
+        valid = np.isfinite(top) & np.isfinite(bot) & (top > nodata_value) & (bot > nodata_value)
         if not np.any(valid):
-            raise ValueError("No finite overlapping valid cells found between top and bottom surfaces.")
+            raise ValueError(
+                "No finite overlapping valid cells found between top and bottom surfaces."
+            )
 
         violations = bot[valid] >= top[valid]
         if np.any(violations):
@@ -243,6 +235,4 @@ def _coerce_vertical_config(
         return vertical_config
     if isinstance(vertical_config, Mapping):
         return VerticalGridConfig.from_mapping(vertical_config)
-    raise TypeError(
-        "vertical_config must be None, VerticalGridConfig, or a mapping of values."
-    )
+    raise TypeError("vertical_config must be None, VerticalGridConfig, or a mapping of values.")

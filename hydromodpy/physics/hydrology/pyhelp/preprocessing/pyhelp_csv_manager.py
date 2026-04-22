@@ -11,16 +11,17 @@ from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 class PyhelpCsvManager(ABC):
     """Abstract base class for managing operations on PyHelp CSV input files."""
-    
+
     def _save_csv(self, data: pd.DataFrame, output_path: str) -> None:
         """Save the DataFrame to a CSV file."""
         try:
             data.to_csv(output_path, index=False)
         except Exception as e:
             logger.exception("Failed to save CSV to %s", output_path)
-    
+
     @abstractmethod
     def display_data(self) -> None:
         """Display data"""

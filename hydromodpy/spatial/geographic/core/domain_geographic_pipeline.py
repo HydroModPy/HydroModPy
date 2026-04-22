@@ -285,4 +285,3 @@ def build_geographic_derived_features(
         zone_kind="catchment",
         regional_dem_path=setup.dem_init_path,
     )
-

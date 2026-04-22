@@ -1,2 +1,1 @@
 """Calibration-specific validation tests."""
-

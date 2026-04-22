@@ -159,15 +159,13 @@ class SyntheticTopographyConfig(HydroModelBase):
     center_x: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description=(
-            "Optional x coordinate of the radial-island center. "
-            "Defaults to the grid midpoint."
+            "Optional x coordinate of the radial-island center. Defaults to the grid midpoint."
         ),
     )
     center_y: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description=(
-            "Optional y coordinate of the radial-island center. "
-            "Defaults to the grid midpoint."
+            "Optional y coordinate of the radial-island center. Defaults to the grid midpoint."
         ),
     )
 
@@ -212,7 +210,9 @@ class SyntheticGeographicConfig(HydroModelBase):
         description="Identifier used by local case runners and outputs.",
     )
     grid: Annotated[SyntheticGridConfig, Profile.USER] = Field(default_factory=SyntheticGridConfig)
-    topography: Annotated[SyntheticTopographyConfig, Profile.USER] = Field(default_factory=SyntheticTopographyConfig)
+    topography: Annotated[SyntheticTopographyConfig, Profile.USER] = Field(
+        default_factory=SyntheticTopographyConfig
+    )
 
     @classmethod
     def from_toml(cls, path: str | Path) -> "SyntheticGeographicConfig":
@@ -236,9 +236,7 @@ class SyntheticGeographicConfig(HydroModelBase):
             raw_toml = tomllib.load(stream)
         section = raw_toml.get("synthetic_geographic")
         if section is None:
-            raise ValueError(
-                f"Missing [synthetic_geographic] section in TOML file: {toml_path}"
-            )
+            raise ValueError(f"Missing [synthetic_geographic] section in TOML file: {toml_path}")
         if not isinstance(section, dict):
             raise ValueError("[synthetic_geographic] must be a mapping payload.")
         return cls.model_validate(section)

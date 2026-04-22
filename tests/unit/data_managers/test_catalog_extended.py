@@ -8,20 +8,34 @@ from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 def test_extended_tables_present():
     cat = DataCatalogDuckDB()
     names = set(cat.table_names())
-    assert {"entries", "artifacts", "provenance", "stations",
-            "coverage", "failures", "validation_reports"} <= names
+    assert {
+        "entries",
+        "artifacts",
+        "provenance",
+        "stations",
+        "coverage",
+        "failures",
+        "validation_reports",
+    } <= names
 
 
 def test_artifact_and_provenance_roundtrip():
     cat = DataCatalogDuckDB()
     aid = cat.write_artifact(
-        artifact_type="dem", path="/tmp/x.tif",
-        sha256="a" * 64, size_bytes=100, variable="dem",
+        artifact_type="dem",
+        path="/tmp/x.tif",
+        sha256="a" * 64,
+        size_bytes=100,
+        variable="dem",
     )
     assert aid >= 1
     cat.write_provenance(
-        artifact_id=aid, variable="dem", source="ign",
-        input_hash="a" * 64, tool_name="HTTPClient", tool_version="0.5",
+        artifact_id=aid,
+        variable="dem",
+        source="ign",
+        input_hash="a" * 64,
+        tool_name="HTTPClient",
+        tool_version="0.5",
         parameters={"bbox": [0, 0, 1, 1]},
     )
     rows = cat.connection.execute(
@@ -35,9 +49,7 @@ def test_station_upsert():
     cat = DataCatalogDuckDB()
     cat.upsert_station(station_id="A", variable="piezometry", lat=48.0, lon=2.0)
     cat.upsert_station(station_id="A", variable="piezometry", lat=48.1, lon=2.1)
-    rows = cat.connection.execute(
-        "SELECT lat, lon FROM stations WHERE station_id = 'A'"
-    ).fetchall()
+    rows = cat.connection.execute("SELECT lat, lon FROM stations WHERE station_id = 'A'").fetchall()
     assert len(rows) == 1
     assert rows[0][0] == 48.1
 

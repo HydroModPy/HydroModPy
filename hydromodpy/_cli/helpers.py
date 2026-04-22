@@ -27,6 +27,7 @@ EXIT_SIGINT = 130
 # Workspace / project discovery
 # ---------------------------------------------------------------------------
 
+
 def find_project_root() -> Path:
     """Walk up from this file to find the directory containing ``tests/``."""
     current = Path(__file__).resolve().parent
@@ -77,6 +78,7 @@ def resolve_sim_id(catalog, sim_id_or_prefix: str) -> str:
         AmbiguousReferenceError,
         SimulationNotFoundError,
     )
+
     try:
         return catalog.resolve(sim_id_or_prefix)
     except AmbiguousReferenceError as exc:
@@ -118,6 +120,7 @@ def auto_scan_workspace(config_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Pytest scratch environment helpers
 # ---------------------------------------------------------------------------
+
 
 def resolve_test_scratch_root() -> Path:
     """Return the shared repository-external scratch root for test runs."""

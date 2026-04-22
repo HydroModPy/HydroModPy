@@ -12,8 +12,7 @@ try:
     )
 except ImportError as exc:
     pytest.skip(
-        f"doc-gallery generators transitively import broken "
-        f"validation_cases modules: {exc}",
+        f"doc-gallery generators transitively import broken validation_cases modules: {exc}",
         allow_module_level=True,
     )
 
@@ -59,7 +58,9 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
         "modflow6_irregular_tri",
         "boussinesq",
     )
-    assert records["boussinesq_sloping_substratum_constant_thickness_1d"].metadata["solver_variants"] == (
+    assert records["boussinesq_sloping_substratum_constant_thickness_1d"].metadata[
+        "solver_variants"
+    ] == (
         "modflownwt",
         "modflow6",
         "modflow6_irregular_tri",
@@ -71,7 +72,9 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
         "modflow6_irregular_tri",
         "boussinesq",
     )
-    assert records["boussinesq_sloping_substratum_uniform_recharge_1d"].metadata["solver_variants"] == (
+    assert records["boussinesq_sloping_substratum_uniform_recharge_1d"].metadata[
+        "solver_variants"
+    ] == (
         "modflownwt",
         "modflow6",
         "modflow6_irregular_tri",
@@ -109,12 +112,18 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
     assert records["boussinesq_sloping_substratum_fixed_head_1d"].equations_rst
     assert records["boussinesq_sloping_substratum_uniform_recharge_1d"].equations_rst
     assert records["late_time_unconfined_pumping_2d"].equations_rst
-    assert records["boussinesq_sloping_substratum_constant_thickness_1d"].metadata["process_family"] == "flow"
+    assert (
+        records["boussinesq_sloping_substratum_constant_thickness_1d"].metadata["process_family"]
+        == "flow"
+    )
     assert (
         records["boussinesq_sloping_substratum_constant_thickness_1d"].metadata["validation_family"]
         == "steady_1d_boussinesq_topography_sloping_substratum"
     )
-    assert records["boussinesq_sloping_substratum_fixed_head_1d"].metadata["geometry_family"] == "hillslope_1d"
+    assert (
+        records["boussinesq_sloping_substratum_fixed_head_1d"].metadata["geometry_family"]
+        == "hillslope_1d"
+    )
     assert (
         records["boussinesq_sloping_substratum_uniform_recharge_1d"].metadata["validation_family"]
         == "steady_1d_boussinesq_topography_sloping_substratum"
@@ -123,7 +132,10 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
         records["late_time_unconfined_pumping_2d"].metadata["validation_family"]
         == "transient_2d_radial_response"
     )
-    assert records["boussinesq_hillslope_interception_1d"].metadata["reference_type"] == "semi_analytical"
+    assert (
+        records["boussinesq_hillslope_interception_1d"].metadata["reference_type"]
+        == "semi_analytical"
+    )
 
 
 def test_build_gallery_specs_exposes_validation_inventory() -> None:

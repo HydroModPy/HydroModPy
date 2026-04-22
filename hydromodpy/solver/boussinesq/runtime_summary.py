@@ -56,9 +56,7 @@ def elapsed_days_for_snapshots(
     ).snapshot_elapsed_seconds
     used_snapshots = min(snapshot_elapsed_seconds.size, count)
     if used_snapshots > 0:
-        elapsed_days[:used_snapshots] = (
-            snapshot_elapsed_seconds[:used_snapshots] / _SECONDS_PER_DAY
-        )
+        elapsed_days[:used_snapshots] = snapshot_elapsed_seconds[:used_snapshots] / _SECONDS_PER_DAY
         if used_snapshots < count:
             elapsed_days[used_snapshots:] = elapsed_days[used_snapshots - 1]
     return elapsed_days
@@ -77,51 +75,27 @@ def record_runtime_backend_summary(
     solver.runtime_summary["runtime_engine"] = runtime_backend.name
     solver.runtime_summary["runtime_engine_id"] = runtime_backend.engine_id
     solver.runtime_summary["flow_regime"] = flow_regime
-    solver.runtime_summary["runtime_backend_requested"] = (
-        contract.runtime_backend_requested
-    )
+    solver.runtime_summary["runtime_backend_requested"] = contract.runtime_backend_requested
     solver.runtime_summary["surface_interaction_model_requested"] = (
         contract.surface_interaction_model_requested
     )
     solver.runtime_summary["surface_interaction_model_resolved"] = (
         contract.surface_interaction_model_resolved
     )
-    solver.runtime_summary["runtime_solver_kind"] = (
-        runtime_backend.nonlinear_solver_kind
-    )
-    solver.runtime_summary["runtime_linear_system_layout"] = (
-        runtime_backend.linear_system_layout
-    )
-    solver.runtime_summary["runtime_jacobian_strategy"] = (
-        runtime_backend.jacobian_strategy
-    )
-    solver.runtime_summary["runtime_linear_solver"] = (
-        runtime_backend.linear_solver_kind
-    )
-    solver.runtime_summary["runtime_convergence_policy"] = (
-        runtime_backend.convergence_policy
-    )
-    solver.runtime_summary["runtime_iteration_counter"] = (
-        runtime_backend.iteration_counter_label
-    )
-    solver.runtime_summary["runtime_tol_residual_inf"] = float(
-        options.tol_residual_inf
-    )
-    solver.runtime_summary["runtime_tol_state_update_inf"] = float(
-        options.tol_state_update_inf
-    )
+    solver.runtime_summary["runtime_solver_kind"] = runtime_backend.nonlinear_solver_kind
+    solver.runtime_summary["runtime_linear_system_layout"] = runtime_backend.linear_system_layout
+    solver.runtime_summary["runtime_jacobian_strategy"] = runtime_backend.jacobian_strategy
+    solver.runtime_summary["runtime_linear_solver"] = runtime_backend.linear_solver_kind
+    solver.runtime_summary["runtime_convergence_policy"] = runtime_backend.convergence_policy
+    solver.runtime_summary["runtime_iteration_counter"] = runtime_backend.iteration_counter_label
+    solver.runtime_summary["runtime_tol_residual_inf"] = float(options.tol_residual_inf)
+    solver.runtime_summary["runtime_tol_state_update_inf"] = float(options.tol_state_update_inf)
     solver.runtime_summary["runtime_formulation"] = runtime_backend.method.id
-    solver.runtime_summary["runtime_unknown_layout"] = (
-        runtime_backend.method.unknown_layout
-    )
-    solver.runtime_summary["runtime_space_scheme"] = (
-        runtime_backend.method.space_scheme_id
-    )
+    solver.runtime_summary["runtime_unknown_layout"] = runtime_backend.method.unknown_layout
+    solver.runtime_summary["runtime_space_scheme"] = runtime_backend.method.space_scheme_id
     solver.runtime_summary["runtime_time_scheme"] = time_scheme.id
     solver.runtime_summary["runtime_problem_kind"] = time_scheme.problem_kind
-    solver.runtime_summary["runtime_method_description"] = (
-        runtime_backend.method.description
-    )
+    solver.runtime_summary["runtime_method_description"] = runtime_backend.method.description
 
 
 def record_surface_threshold_summary(solver: "Boussinesq") -> None:
@@ -150,8 +124,7 @@ def record_surface_threshold_summary(solver: "Boussinesq") -> None:
         dtype=float,
     )
     period_lengths = tuple(
-        float(value)
-        for value in (getattr(solver.state, "period_lengths_seconds", ()) or ())
+        float(value) for value in (getattr(solver.state, "period_lengths_seconds", ()) or ())
     )
     evaluation_start = 1 if (n_snapshots > 1 and len(period_lengths) > 0) else 0
     evaluated_head_history = np.asarray(head_history[evaluation_start:], dtype=float)
@@ -167,14 +140,12 @@ def record_surface_threshold_summary(solver: "Boussinesq") -> None:
     active_any_by_snapshot = active_counts > 0
     activation_transitions = int(
         np.count_nonzero(
-            active_any_by_snapshot
-            & np.concatenate(([True], ~active_any_by_snapshot[:-1]))
+            active_any_by_snapshot & np.concatenate(([True], ~active_any_by_snapshot[:-1]))
         )
     )
     deactivation_transitions = int(
         np.count_nonzero(
-            (~active_any_by_snapshot)
-            & np.concatenate(([False], active_any_by_snapshot[:-1]))
+            (~active_any_by_snapshot) & np.concatenate(([False], active_any_by_snapshot[:-1]))
         )
     )
     state_transitions = int(
@@ -182,8 +153,7 @@ def record_surface_threshold_summary(solver: "Boussinesq") -> None:
     )
     total_surface_flux_m3_day = (
         np.sum(
-            positive_saturation_excess
-            * np.asarray(solver.mesh.cell_area_m2, dtype=float)[None, :],
+            positive_saturation_excess * np.asarray(solver.mesh.cell_area_m2, dtype=float)[None, :],
             axis=1,
         )
         * _SECONDS_PER_DAY
@@ -199,9 +169,7 @@ def record_surface_threshold_summary(solver: "Boussinesq") -> None:
     solver.runtime_summary["surface_threshold_active_rate_eps_m_s"] = float(
         _SURFACE_THRESHOLD_ACTIVE_RATE_EPS_M_S
     )
-    solver.runtime_summary["surface_threshold_active_any"] = bool(
-        active_indices.size > 0
-    )
+    solver.runtime_summary["surface_threshold_active_any"] = bool(active_indices.size > 0)
     solver.runtime_summary["surface_threshold_available_snapshots"] = int(n_snapshots)
     solver.runtime_summary["surface_threshold_evaluated_snapshots"] = int(
         evaluated_head_history.shape[0]
@@ -216,15 +184,9 @@ def record_surface_threshold_summary(solver: "Boussinesq") -> None:
     solver.runtime_summary["surface_threshold_active_steps"] = int(
         np.count_nonzero(active_any_by_snapshot)
     )
-    solver.runtime_summary["surface_threshold_activation_windows"] = int(
-        activation_transitions
-    )
-    solver.runtime_summary["surface_threshold_deactivation_windows"] = int(
-        deactivation_transitions
-    )
-    solver.runtime_summary["surface_threshold_state_transitions"] = int(
-        state_transitions
-    )
+    solver.runtime_summary["surface_threshold_activation_windows"] = int(activation_transitions)
+    solver.runtime_summary["surface_threshold_deactivation_windows"] = int(deactivation_transitions)
+    solver.runtime_summary["surface_threshold_state_transitions"] = int(state_transitions)
     solver.runtime_summary["surface_threshold_peak_active_cells"] = peak_active_cells
     solver.runtime_summary["surface_threshold_peak_active_fraction"] = float(
         peak_active_cells / max(n_cells, 1)
@@ -242,9 +204,7 @@ def record_surface_threshold_summary(solver: "Boussinesq") -> None:
     solver.runtime_summary["surface_threshold_final_total_m3_day"] = float(
         total_surface_flux_m3_day[-1] if total_surface_flux_m3_day.size else 0.0
     )
-    solver.runtime_summary["surface_threshold_peak_head_above_top_m"] = (
-        peak_head_above_top_m
-    )
+    solver.runtime_summary["surface_threshold_peak_head_above_top_m"] = peak_head_above_top_m
     solver.runtime_summary["surface_threshold_any_head_above_top"] = bool(
         peak_head_above_top_m > 0.0
     )

@@ -21,9 +21,7 @@ def _find_fgeol_shp(extract_dir: Path) -> Path:
     """Find the S_FGEOL shapefile inside the extracted archive."""
     candidates = list(extract_dir.rglob(f"*{FGEOL_LAYER_PATTERN}.shp"))
     if not candidates:
-        raise FileNotFoundError(
-            f"No *{FGEOL_LAYER_PATTERN}.shp found in {extract_dir}"
-        )
+        raise FileNotFoundError(f"No *{FGEOL_LAYER_PATTERN}.shp found in {extract_dir}")
     return candidates[0]
 
 
@@ -85,6 +83,7 @@ def fetch_brgm_1m(
 
         # Cleanup extracted files
         import shutil
+
         shutil.rmtree(str(extract_dir), ignore_errors=True)
 
     # If bbox provided, create a cropped version
@@ -101,9 +100,7 @@ def fetch_brgm_1m(
             gdf = gpd.clip(gdf, bbox_gdf)
 
             if gdf.empty:
-                raise ValueError(
-                    "No geology feature from the 1M map intersects the requested bbox"
-                )
+                raise ValueError("No geology feature from the 1M map intersects the requested bbox")
             gdf.to_file(str(cropped_gpkg), driver="GPKG")
             logger.info("[geology] Cropped 1M map: %s", cropped_gpkg)
 
@@ -115,5 +112,6 @@ def fetch_brgm_1m(
 def _bbox_hash_str(bbox: tuple) -> str:
     """Short deterministic hash of a bounding box."""
     import hashlib
+
     s = f"{bbox[0]:.2f}_{bbox[1]:.2f}_{bbox[2]:.2f}_{bbox[3]:.2f}"
     return hashlib.md5(s.encode()).hexdigest()[:8]

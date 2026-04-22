@@ -593,7 +593,9 @@ def _run_boussinesq_irregular(*, timeout: int) -> ValidationRunResult:
             flow=Flow(build_flow_config(flow_section)),
             domain=None,
             time_grid=SimpleNamespace(
-                period_lengths_seconds=tuple(float(DT_DAYS * base.SECONDS_PER_DAY) for _ in RECHARGE_SERIES_MM_DAY),
+                period_lengths_seconds=tuple(
+                    float(DT_DAYS * base.SECONDS_PER_DAY) for _ in RECHARGE_SERIES_MM_DAY
+                ),
                 window=None,
             ),
             workspace=SimpleNamespace(simulations_folder=out_path / "results_simulations"),
@@ -653,7 +655,9 @@ def _write_summary(results: list[base.TransientResult], output_md: Path, figures
         "| --- | ---: | ---: | ---: | ---: | ---: | --- |",
     ]
     for item in ordered:
-        wall_time_text = "n/a" if item.wall_time_seconds is None else f"{item.wall_time_seconds:.2f}"
+        wall_time_text = (
+            "n/a" if item.wall_time_seconds is None else f"{item.wall_time_seconds:.2f}"
+        )
         lines.append(
             f"| {SOLVER_LABELS[item.solver]} | {item.onset_day:.1f} | {item.peak_drainage_flux_m3_day:.4f} | {item.peak_total_outflow_m3_day:.4f} | {item.max_clearance_m:.4f} | {wall_time_text} | `{item.out_path}` |"
         )
@@ -738,7 +742,9 @@ def _write_head_point_figure_mixed(
                 label=SOLVER_LABELS[item.solver],
                 **base._comparison_plot_style(item.solver),
             )
-            for t_day, head_m, clearance_m in zip(item.elapsed_days, head_series, clearance_series, strict=False):
+            for t_day, head_m, clearance_m in zip(
+                item.elapsed_days, head_series, clearance_series, strict=False
+            ):
                 rows.append(
                     {
                         "point_id": point_id,
@@ -767,7 +773,10 @@ def _write_head_point_figure_mixed(
 
     axes[1].legend(loc="upper left", fontsize=8.8, frameon=False, ncols=4)
     axes[-1].set_xlabel("Time [days]")
-    fig.suptitle("Recharge ramp then dry recovery: head time series at selected hillslope points", fontsize=11.0)
+    fig.suptitle(
+        "Recharge ramp then dry recovery: head time series at selected hillslope points",
+        fontsize=11.0,
+    )
     fig.savefig(output_png, dpi=180, bbox_inches="tight")
     base.plt.close(fig)
     return rows
@@ -825,7 +834,9 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     t0 = time.perf_counter()
-    mf6_result = _run_mf6_irregular(timeout=int(args.timeout), runtime_configs_dir=runtime_configs_dir)
+    mf6_result = _run_mf6_irregular(
+        timeout=int(args.timeout), runtime_configs_dir=runtime_configs_dir
+    )
     results.append(base._build_result(mf6_result, wall_time_seconds=time.perf_counter() - t0))
 
     t0 = time.perf_counter()
@@ -889,7 +900,9 @@ def main(argv: list[str] | None = None) -> int:
     base._write_outflow_components_figure(results, figures_dir / "outflow_components.png")
     base._write_flux_budget_figure(results, figures_dir / "flux_budget_comparison.png")
     base._write_execution_times_figure(results, figures_dir / "execution_times.png")
-    head_point_rows = _write_head_point_figure_mixed(results, figures_dir / "head_point_timeseries.png")
+    head_point_rows = _write_head_point_figure_mixed(
+        results, figures_dir / "head_point_timeseries.png"
+    )
     base._write_csv(output_root / "head_point_timeseries.csv", head_point_rows)
     _write_summary(results, output_root / "summary.md", figures_dir)
     (output_root / "summary.json").write_text(

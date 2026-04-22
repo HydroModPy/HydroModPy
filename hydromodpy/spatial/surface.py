@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 Surface abstractions for domain topography and derived vertical supports.
 
@@ -86,8 +87,7 @@ class Surface:
         expected = (int(self.support.nrows), int(self.support.ncols))
         if arr.shape != expected:
             raise ValueError(
-                f"Surface '{self.name}' shape {arr.shape} does not match "
-                f"support shape {expected}."
+                f"Surface '{self.name}' shape {arr.shape} does not match support shape {expected}."
             )
 
     def assert_same_geographic_domain(
@@ -127,9 +127,7 @@ class Surface:
         Geographic extent and CRS are preserved; only raster resolution changes.
         """
         if self.support is None:
-            raise ValueError(
-                f"Surface '{self.name}' has no RasterSupport and cannot be resampled."
-            )
+            raise ValueError(f"Surface '{self.name}' has no RasterSupport and cannot be resampled.")
         self.support.assert_complete_domain()
         self.assert_support_matches_values()
 

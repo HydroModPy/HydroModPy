@@ -64,7 +64,9 @@ def test_flow_rejects_unsupported_well_units() -> None:
         )
     )
 
-    with pytest.raises(ValueError, match="flow.sinks_sources.wells.W1.units must be compatible with m3/s"):
+    with pytest.raises(
+        ValueError, match="flow.sinks_sources.wells.W1.units must be compatible with m3/s"
+    ):
         _ = Flow(cfg)
 
 

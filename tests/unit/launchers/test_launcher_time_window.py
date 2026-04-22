@@ -105,9 +105,7 @@ def test_validate_recharge_coverage_passes_for_full_coverage() -> None:
     window = resolve_simulation_time_window(cfg)
     recharge = pd.Series(
         [0.1, 0.2, 0.3],
-        index=pd.to_datetime(
-            ["2020-01-01 00:00:00", "2020-01-02 00:00:00", "2020-01-03 00:00:00"]
-        ),
+        index=pd.to_datetime(["2020-01-01 00:00:00", "2020-01-02 00:00:00", "2020-01-03 00:00:00"]),
     )
 
     validate_recharge_coverage(recharge, window)
@@ -120,9 +118,7 @@ def test_validate_recharge_coverage_accepts_period_aligned_series() -> None:
     window = resolve_simulation_time_window(cfg)
     recharge = pd.Series(
         [0.1, 0.2, 0.3],
-        index=pd.to_datetime(
-            ["2020-01-01 00:00:00", "2020-01-11 00:00:00", "2020-01-21 00:00:00"]
-        ),
+        index=pd.to_datetime(["2020-01-01 00:00:00", "2020-01-11 00:00:00", "2020-01-21 00:00:00"]),
     )
 
     validate_recharge_coverage(recharge, window)
@@ -168,7 +164,9 @@ def test_require_flow_simulation_time_grid_requires_window_for_flow_process() ->
     cfg.simulation.time = None
     cfg.flow = SimpleNamespace(flow_regime="transient")
 
-    with pytest.raises(ValueError, match=r"Launcher flow processes require a valid \[simulation\.time\] section"):
+    with pytest.raises(
+        ValueError, match=r"Launcher flow processes require a valid \[simulation\.time\] section"
+    ):
         require_flow_simulation_time_grid(cfg)
 
 

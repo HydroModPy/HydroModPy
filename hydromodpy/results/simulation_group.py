@@ -12,7 +12,6 @@ if TYPE_CHECKING:
 
 
 class SimulationGroup:
-
     def __init__(
         self,
         sim_ids: list[str],
@@ -62,7 +61,10 @@ class SimulationGroup:
             df["param_name"] + "_" + df["zone_id"],
         )
         return df.pivot_table(
-            index="sim_id", columns="key", values="value", aggfunc="first",
+            index="sim_id",
+            columns="key",
+            values="value",
+            aggfunc="first",
         ).reset_index()
 
     @property
@@ -82,7 +84,10 @@ class SimulationGroup:
             df["metric_name"] + "_" + df["station_id"],
         )
         return df.pivot_table(
-            index="sim_id", columns="key", values="value", aggfunc="first",
+            index="sim_id",
+            columns="key",
+            values="value",
+            aggfunc="first",
         ).reset_index()
 
     # -- Comparison ----------------------------------------------------------
@@ -261,6 +266,4 @@ class SimulationGroup:
             head = preview[cols].head(10).to_html(index=False)
         except Exception:
             head = ""
-        return (
-            f"<div><b>SimulationGroup</b> ({self.count} simulations)</div>{head}"
-        )
+        return f"<div><b>SimulationGroup</b> ({self.count} simulations)</div>{head}"

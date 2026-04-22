@@ -48,15 +48,12 @@ def convert_asc_to_geotiff(
             shutil.copyfile(src, dest)
             return dest
         raise RasterConversionError(
-            "rasterio is required to convert ASC to GeoTIFF; "
-            f"cannot convert {src.name}"
+            f"rasterio is required to convert ASC to GeoTIFF; cannot convert {src.name}"
         )
 
     with rasterio.open(src) as ds:
         if ds.crs is None:
-            raise RasterConversionError(
-                f"{src} has no CRS; add a .prj sidecar before ingest"
-            )
+            raise RasterConversionError(f"{src} has no CRS; add a .prj sidecar before ingest")
         data = ds.read()
         profile = ds.profile
 

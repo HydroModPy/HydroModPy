@@ -56,17 +56,13 @@ def check_water_flow_connectivity(
 
                 neighbors: list[tuple[float, float]] = []
 
-                if y > 0 and not (
-                    np.isnan(grid[z, y - 1, x]) or np.isnan(grid[z + 1, y - 1, x])
-                ):
+                if y > 0 and not (np.isnan(grid[z, y - 1, x]) or np.isnan(grid[z + 1, y - 1, x])):
                     neighbors.append((grid[z, y - 1, x], grid[z + 1, y - 1, x]))
                 if y < rows - 1 and not (
                     np.isnan(grid[z, y + 1, x]) or np.isnan(grid[z + 1, y + 1, x])
                 ):
                     neighbors.append((grid[z, y + 1, x], grid[z + 1, y + 1, x]))
-                if x > 0 and not (
-                    np.isnan(grid[z, y, x - 1]) or np.isnan(grid[z + 1, y, x - 1])
-                ):
+                if x > 0 and not (np.isnan(grid[z, y, x - 1]) or np.isnan(grid[z + 1, y, x - 1])):
                     neighbors.append((grid[z, y, x - 1], grid[z + 1, y, x - 1]))
                 if x < cols - 1 and not (
                     np.isnan(grid[z, y, x + 1]) or np.isnan(grid[z + 1, y, x + 1])

@@ -8,13 +8,13 @@ from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig
 
 
 class HydrometryManager(BaseVariableManager):
-
     VARIABLE_NAME = "hydrometry"
     INTERNAL_UNIT = "m3/s"
 
     def _fetch_from_source(self, source_cfg: HydrometrySourceConfig) -> list[PointRecord]:
         if source_cfg.source == "custom":
             from hydromodpy.data.variables.hydrometry.custom import load_custom
+
             records = load_custom(source_cfg, project_period=self.project_period)
             return self._apply_mask(records, source_cfg)
         elif source_cfg.source == "hubeau":
@@ -27,12 +27,17 @@ class HydrometryManager(BaseVariableManager):
 
         def _fetch_for(sids, start, end):
             return fetch(
-                product=source_cfg.product, bbox=self._resolve_bbox(source_cfg),
-                station_ids=sids, date_start=start, date_end=end,
+                product=source_cfg.product,
+                bbox=self._resolve_bbox(source_cfg),
+                station_ids=sids,
+                date_start=start,
+                date_end=end,
                 require_observations=source_cfg.require_observations,
                 fallback_search_radius_km=source_cfg.fallback_search_radius_km,
             )
 
         return fetch_with_smart_cache(
-            self, source_cfg=source_cfg, fetch_fn=_fetch_for,
+            self,
+            source_cfg=source_cfg,
+            fetch_fn=_fetch_for,
         )

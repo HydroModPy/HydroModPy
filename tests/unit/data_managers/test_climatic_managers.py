@@ -34,10 +34,12 @@ from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCat
 
 
 def _make_point_record(station_id: str = "ST01", n: int = 5) -> PointRecord:
-    df = pd.DataFrame({
-        "datetime": pd.date_range("2020-01-01", periods=n, freq="D"),
-        "value": range(n),
-    })
+    df = pd.DataFrame(
+        {
+            "datetime": pd.date_range("2020-01-01", periods=n, freq="D"),
+            "value": range(n),
+        }
+    )
     return PointRecord(
         station_id=station_id,
         variable="recharge",
@@ -172,8 +174,11 @@ class TestNcFilename:
     def test_deterministic_with_bbox(self):
         bbox = (100.0, 200.0, 300.0, 400.0)
         name = BaseFieldManager._nc_filename(
-            "recharge", "sim2", bbox,
-            datetime(2020, 1, 1), datetime(2020, 12, 31),
+            "recharge",
+            "sim2",
+            bbox,
+            datetime(2020, 1, 1),
+            datetime(2020, 12, 31),
         )
         expected_hash = _bbox_hash(bbox)
         assert name == f"recharge_sim2_{expected_hash}_20200101_20201231.nc"
@@ -186,10 +191,18 @@ class TestNcFilename:
 
     def test_different_bbox_different_hash(self):
         n1 = BaseFieldManager._nc_filename(
-            "etp", "sim2", (1.0, 2.0, 3.0, 4.0), None, None,
+            "etp",
+            "sim2",
+            (1.0, 2.0, 3.0, 4.0),
+            None,
+            None,
         )
         n2 = BaseFieldManager._nc_filename(
-            "etp", "sim2", (10.0, 20.0, 30.0, 40.0), None, None,
+            "etp",
+            "sim2",
+            (10.0, 20.0, 30.0, 40.0),
+            None,
+            None,
         )
         assert n1 != n2
 
@@ -264,9 +277,18 @@ def catalog():
     return DataCatalog(None)
 
 
-def _register_grid(catalog, tmp_path, *, variable="recharge", source="sim2",
-                    bbox=(100, 200, 300, 400), date_start="2020-01-01",
-                    date_end="2020-12-31", is_custom=False, filename="grid.nc"):
+def _register_grid(
+    catalog,
+    tmp_path,
+    *,
+    variable="recharge",
+    source="sim2",
+    bbox=(100, 200, 300, 400),
+    date_start="2020-01-01",
+    date_end="2020-12-31",
+    is_custom=False,
+    filename="grid.nc",
+):
     """Helper: register a grid entry with a real file on disk."""
     f = tmp_path / filename
     f.write_text("dummy")
@@ -283,19 +305,22 @@ def _register_grid(catalog, tmp_path, *, variable="recharge", source="sim2",
 
 @pytest.mark.fast
 class TestSubsumeEntries:
-
     def test_smaller_bbox_inside_larger_is_subsumed(self, catalog, tmp_path):
         """Smaller bbox+dates fully inside larger bbox+dates -> deleted."""
         small_id = _register_grid(
-            catalog, tmp_path,
+            catalog,
+            tmp_path,
             bbox=(150, 250, 250, 350),
-            date_start="2020-03-01", date_end="2020-09-30",
+            date_start="2020-03-01",
+            date_end="2020-09-30",
             filename="small.nc",
         )
         large_id = _register_grid(
-            catalog, tmp_path,
+            catalog,
+            tmp_path,
             bbox=(100, 200, 300, 400),
-            date_start="2020-01-01", date_end="2020-12-31",
+            date_start="2020-01-01",
+            date_end="2020-12-31",
             filename="large.nc",
         )
         removed = catalog.subsume_entries(
@@ -315,15 +340,19 @@ class TestSubsumeEntries:
     def test_entry_outside_bbox_not_subsumed(self, catalog, tmp_path):
         """Entry with bbox outside the new larger bbox -> kept."""
         outside_id = _register_grid(
-            catalog, tmp_path,
+            catalog,
+            tmp_path,
             bbox=(500, 600, 700, 800),
-            date_start="2020-01-01", date_end="2020-12-31",
+            date_start="2020-01-01",
+            date_end="2020-12-31",
             filename="outside.nc",
         )
         large_id = _register_grid(
-            catalog, tmp_path,
+            catalog,
+            tmp_path,
             bbox=(100, 200, 300, 400),
-            date_start="2020-01-01", date_end="2020-12-31",
+            date_start="2020-01-01",
+            date_end="2020-12-31",
             filename="large.nc",
         )
         removed = catalog.subsume_entries(
@@ -340,16 +369,20 @@ class TestSubsumeEntries:
     def test_custom_entries_never_subsumed(self, catalog, tmp_path):
         """Entries with is_custom=1 are never deleted by subsume."""
         custom_id = _register_grid(
-            catalog, tmp_path,
+            catalog,
+            tmp_path,
             bbox=(150, 250, 250, 350),
-            date_start="2020-03-01", date_end="2020-09-30",
+            date_start="2020-03-01",
+            date_end="2020-09-30",
             is_custom=True,
             filename="custom.nc",
         )
         large_id = _register_grid(
-            catalog, tmp_path,
+            catalog,
+            tmp_path,
             bbox=(100, 200, 300, 400),
-            date_start="2020-01-01", date_end="2020-12-31",
+            date_start="2020-01-01",
+            date_end="2020-12-31",
             filename="large.nc",
         )
         removed = catalog.subsume_entries(
@@ -366,9 +399,11 @@ class TestSubsumeEntries:
     def test_exclude_id_prevents_self_deletion(self, catalog, tmp_path):
         """The newly registered entry (exclude_id) is never subsumed."""
         entry_id = _register_grid(
-            catalog, tmp_path,
+            catalog,
+            tmp_path,
             bbox=(100, 200, 300, 400),
-            date_start="2020-01-01", date_end="2020-12-31",
+            date_start="2020-01-01",
+            date_end="2020-12-31",
             filename="self.nc",
         )
         removed = catalog.subsume_entries(
@@ -391,14 +426,20 @@ class TestSubsumeEntries:
         f2.write_text("b")
 
         id1 = catalog.register(
-            variable="recharge", source="sim2", file_path=f1,
+            variable="recharge",
+            source="sim2",
+            file_path=f1,
             bbox=(100, 200, 300, 400),
-            date_start="2020-01-01", date_end="2020-06-30",
+            date_start="2020-01-01",
+            date_end="2020-06-30",
         )
         id2 = catalog.register(
-            variable="recharge", source="sim2", file_path=f2,
+            variable="recharge",
+            source="sim2",
+            file_path=f2,
             bbox=(100, 200, 300, 400),
-            date_start="2020-07-01", date_end="2020-12-31",
+            date_start="2020-07-01",
+            date_end="2020-12-31",
         )
         assert id1 != id2
         assert len(catalog.list_entries()) == 2
@@ -411,7 +452,6 @@ class TestSubsumeEntries:
 
 @pytest.mark.fast
 class TestRechargeSourceConfigValidation:
-
     def test_custom_requires_path(self):
         with pytest.raises(ValueError, match="path"):
             RechargeSourceConfig(source="custom")
@@ -464,25 +504,29 @@ class TestRechargeSourceConfigValidation:
 
 @pytest.mark.fast
 class TestLoadCustomNc:
-
     def test_load_roundtrip(self, tmp_path):
         """Save a simple xr.Dataset as .nc, load via load_custom_nc,
         verify FieldRecord contents."""
         times = pd.date_range("2020-01-01", periods=10, freq="D")
         raw_values = np.full((10, 4, 5), 0.25, dtype=float)
-        ds = xr.Dataset({
-            "recharge": (["time", "x", "y"], raw_values),
-        }, coords={
-            "time": times,
-            "x": np.arange(4),
-            "y": np.arange(5),
-        })
+        ds = xr.Dataset(
+            {
+                "recharge": (["time", "x", "y"], raw_values),
+            },
+            coords={
+                "time": times,
+                "x": np.arange(4),
+                "y": np.arange(5),
+            },
+        )
         ds["recharge"].attrs["units"] = "m/day"
         nc_path = tmp_path / "test_recharge.nc"
         ds.to_netcdf(nc_path)
 
         records = load_custom_nc(
-            nc_path, variable="recharge", unit="mm/day",
+            nc_path,
+            variable="recharge",
+            unit="mm/day",
         )
 
         assert len(records) == 1
@@ -505,13 +549,16 @@ class TestLoadCustomNc:
     def test_load_uses_explicit_source_unit_when_attrs_missing(self, tmp_path):
         times = pd.date_range("2020-01-01", periods=3, freq="D")
         raw_values = np.full((3, 2, 2), 0.5, dtype=float)
-        ds = xr.Dataset({
-            "etp": (["time", "x", "y"], raw_values),
-        }, coords={
-            "time": times,
-            "x": [1.0, 2.0],
-            "y": [10.0, 20.0],
-        })
+        ds = xr.Dataset(
+            {
+                "etp": (["time", "x", "y"], raw_values),
+            },
+            coords={
+                "time": times,
+                "x": [1.0, 2.0],
+                "y": [10.0, 20.0],
+            },
+        )
         nc_path = tmp_path / "etp_explicit_source_unit.nc"
         ds.to_netcdf(nc_path)
 
@@ -532,18 +579,23 @@ class TestLoadCustomNc:
     def test_load_with_project_period_clips(self, tmp_path):
         """When project_period is given, temporal dimension is clipped."""
         times = pd.date_range("2020-01-01", periods=30, freq="D")
-        ds = xr.Dataset({
-            "etp": (["time", "x", "y"], np.ones((30, 3, 3))),
-        }, coords={
-            "time": times,
-            "x": [1.0, 2.0, 3.0],
-            "y": [10.0, 20.0, 30.0],
-        })
+        ds = xr.Dataset(
+            {
+                "etp": (["time", "x", "y"], np.ones((30, 3, 3))),
+            },
+            coords={
+                "time": times,
+                "x": [1.0, 2.0, 3.0],
+                "y": [10.0, 20.0, 30.0],
+            },
+        )
         nc_path = tmp_path / "etp.nc"
         ds.to_netcdf(nc_path)
 
         records = load_custom_nc(
-            nc_path, variable="etp", unit="mm/d",
+            nc_path,
+            variable="etp",
+            unit="mm/d",
             project_period=(datetime(2020, 1, 10), datetime(2020, 1, 20)),
         )
         rec = records[0]
@@ -553,12 +605,15 @@ class TestLoadCustomNc:
 
     def test_load_static_no_time(self, tmp_path):
         """Dataset without time dimension -> date_start/date_end are None."""
-        ds = xr.Dataset({
-            "soil_k": (["x", "y"], np.ones((4, 5))),
-        }, coords={
-            "x": np.arange(4),
-            "y": np.arange(5),
-        })
+        ds = xr.Dataset(
+            {
+                "soil_k": (["x", "y"], np.ones((4, 5))),
+            },
+            coords={
+                "x": np.arange(4),
+                "y": np.arange(5),
+            },
+        )
         nc_path = tmp_path / "soil.nc"
         ds.to_netcdf(nc_path)
 
@@ -571,23 +626,23 @@ class TestLoadCustomNc:
 
 @pytest.mark.fast
 class TestLoadCustomTif:
-
     def test_skip_if_rioxarray_not_available(self):
         """If rioxarray is not installed, load_custom_tif should raise ImportError."""
         try:
             import rioxarray  # noqa: F401
+
             pytest.skip("rioxarray is available; skip-test not applicable")
         except ImportError:
             from hydromodpy.data.common.custom_grid_loader import (
                 load_custom_tif,
             )
+
             with pytest.raises(ImportError):
                 load_custom_tif(Path("/fake.tif"), variable="x", unit="y")
 
 
 @pytest.mark.fast
 class TestFindTimeDim:
-
     def test_finds_time(self):
         ds = xr.Dataset({"v": (["time", "x"], np.zeros((3, 2)))})
         assert _find_time_dim(ds) == "time"
@@ -624,7 +679,6 @@ class TestFindTimeDim:
 
 @pytest.mark.fast
 class TestFindCoord:
-
     def test_finds_x(self):
         ds = xr.Dataset(coords={"x": [1, 2], "y": [3, 4]})
         assert _find_coord(ds, ("x", "lon", "longitude")) == "x"
@@ -675,16 +729,24 @@ class TestRechargeBridge:
 
         dates = pd.date_range("2020-01-01", periods=3, freq="D")
         rec1 = PointRecord(
-            station_id="A", variable="recharge", source="custom",
-            unit="mm/d", frequency="D",
+            station_id="A",
+            variable="recharge",
+            source="custom",
+            unit="mm/d",
+            frequency="D",
             data=pd.DataFrame({"datetime": dates, "value": [10.0, 20.0, 30.0]}),
-            date_start=datetime(2020, 1, 1), date_end=datetime(2020, 1, 3),
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 1, 3),
         )
         rec2 = PointRecord(
-            station_id="B", variable="recharge", source="custom",
-            unit="mm/d", frequency="D",
+            station_id="B",
+            variable="recharge",
+            source="custom",
+            unit="mm/d",
+            frequency="D",
             data=pd.DataFrame({"datetime": dates, "value": [20.0, 40.0, 60.0]}),
-            date_start=datetime(2020, 1, 1), date_end=datetime(2020, 1, 3),
+            date_start=datetime(2020, 1, 1),
+            date_end=datetime(2020, 1, 3),
         )
         result = LoadResult(points=[rec1, rec2])
         series = extract_homogeneous_series(result)
@@ -713,7 +775,9 @@ class TestRechargeBridge:
         rec = _make_point_record("A", n=3)
         result = LoadResult(points=[rec])
         series = build_forcing_series(
-            result, unit_conversion_factor=mm_day_to_m_s, label="recharge",
+            result,
+            unit_conversion_factor=mm_day_to_m_s,
+            label="recharge",
         )
         assert series is not None
         # Value 1 (mm/day) → 1 * factor_to_m_per_s("mm/day") (m/s)
@@ -724,9 +788,14 @@ class TestRechargeBridge:
         from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
 
         result = LoadResult(fields=[_make_field_record()])
-        assert build_forcing_series(
-            result, unit_conversion_factor=factor_to_m_per_s("mm/day"), label="recharge",
-        ) is None
+        assert (
+            build_forcing_series(
+                result,
+                unit_conversion_factor=factor_to_m_per_s("mm/day"),
+                label="recharge",
+            )
+            is None
+        )
 
     def test_build_forcing_series_runoff_converts_units(self):
         from hydromodpy.physics.forcing.forcing_bridge import build_forcing_series
@@ -736,7 +805,9 @@ class TestRechargeBridge:
         rec = _make_point_record("A", n=3)
         result = LoadResult(points=[rec])
         series = build_forcing_series(
-            result, unit_conversion_factor=mm_day_to_m_s, label="runoff",
+            result,
+            unit_conversion_factor=mm_day_to_m_s,
+            label="runoff",
         )
         assert series is not None
         assert series.iloc[2] == pytest.approx(2.0 * mm_day_to_m_s)

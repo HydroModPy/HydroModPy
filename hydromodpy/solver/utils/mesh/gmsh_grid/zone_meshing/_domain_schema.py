@@ -106,9 +106,7 @@ class ZoneMeshingDomainVector(HydroModelBase):
     @model_validator(mode="after")
     def _validate_selector(self):
         if (self.selected_id is not None) and (self.id_field is None):
-            raise ValueError(
-                "domain.id_field is required when domain.selected_id is provided"
-            )
+            raise ValueError("domain.id_field is required when domain.selected_id is provided")
         return self
 
 
@@ -123,9 +121,7 @@ class ZoneMeshingDomainGeographicBoxBuffer(HydroModelBase):
     @classmethod
     def _validate_kind(cls, value):
         if str(value).strip().lower() != "geographic_box_buffer":
-            raise ValueError(
-                "geographic box-buffer domain kind must be 'geographic_box_buffer'"
-            )
+            raise ValueError("geographic box-buffer domain kind must be 'geographic_box_buffer'")
         return "geographic_box_buffer"
 
 
@@ -140,9 +136,7 @@ class ZoneMeshingDomainGeographicWatershed(HydroModelBase):
     @classmethod
     def _validate_kind(cls, value):
         if str(value).strip().lower() != "geographic_watershed":
-            raise ValueError(
-                "geographic watershed domain kind must be 'geographic_watershed'"
-            )
+            raise ValueError("geographic watershed domain kind must be 'geographic_watershed'")
         return "geographic_watershed"
 
 

@@ -27,12 +27,11 @@ def expected_linearized_unconfined_drainage_profile(
     if float(cell_area_m2) <= 0.0:
         raise ValueError("cell_area_m2 must be > 0.")
 
-    transmissivity = (
-        float(hydraulic_conductivity_m_per_s)
-        * float(reference_saturated_thickness_m)
-    )
+    transmissivity = float(hydraulic_conductivity_m_per_s) * float(reference_saturated_thickness_m)
     if transmissivity <= 0.0:
-        raise ValueError("hydraulic_conductivity_m_per_s * reference_saturated_thickness_m must be > 0.")
+        raise ValueError(
+            "hydraulic_conductivity_m_per_s * reference_saturated_thickness_m must be > 0."
+        )
 
     drainage_rate_per_area = float(drainage_conductance_m2_per_s) / float(cell_area_m2)
     if drainage_rate_per_area < 0.0:

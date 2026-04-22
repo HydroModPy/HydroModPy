@@ -157,8 +157,12 @@ def _pairwise_rows(results: list[TransientSimpleComparisonResult]) -> list[dict[
                         "solver_right": right.solver,
                         "pairwise_final_profile_rmse_m": float(np.sqrt(np.mean(final_diff**2))),
                         "pairwise_final_profile_max_abs_error_m": float(np.max(np.abs(final_diff))),
-                        "pairwise_monitor_rmse_m": float(np.sqrt(np.mean(monitor_diff_flat**2))) if monitor_diff_flat.size else float("nan"),
-                        "pairwise_monitor_max_abs_error_m": float(np.max(np.abs(monitor_diff_flat))) if monitor_diff_flat.size else float("nan"),
+                        "pairwise_monitor_rmse_m": float(np.sqrt(np.mean(monitor_diff_flat**2)))
+                        if monitor_diff_flat.size
+                        else float("nan"),
+                        "pairwise_monitor_max_abs_error_m": float(np.max(np.abs(monitor_diff_flat)))
+                        if monitor_diff_flat.size
+                        else float("nan"),
                     }
                 )
     return rows
@@ -175,19 +179,25 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
-def _write_case_figure(case_results: list[TransientSimpleComparisonResult], output_png: Path) -> None:
+def _write_case_figure(
+    case_results: list[TransientSimpleComparisonResult], output_png: Path
+) -> None:
     output_png.parent.mkdir(parents=True, exist_ok=True)
     output_png.unlink(missing_ok=True)
 
     ref = case_results[0]
     center_idx = ref.monitor_positions.size // 2 if ref.monitor_positions.size else 0
-    center_position = float(ref.monitor_positions[center_idx]) if ref.monitor_positions.size else float("nan")
+    center_position = (
+        float(ref.monitor_positions[center_idx]) if ref.monitor_positions.size else float("nan")
+    )
     final_time = float(ref.elapsed_days[-1])
 
     fig, axes = plt.subplots(2, 2, figsize=(11.5, 8.2), constrained_layout=True)
 
     # Final profile
-    axes[0, 0].plot(ref.x, ref.analytical_profiles[-1], color="#222222", linewidth=2.0, label="Analytical")
+    axes[0, 0].plot(
+        ref.x, ref.analytical_profiles[-1], color="#222222", linewidth=2.0, label="Analytical"
+    )
     for item in case_results:
         axes[0, 0].plot(
             item.x,
@@ -273,8 +283,12 @@ def _write_overview_bar(results: list[TransientSimpleComparisonResult], output_p
     output_png.parent.mkdir(parents=True, exist_ok=True)
     output_png.unlink(missing_ok=True)
 
-    case_ids = [case_id for case_id in DEFAULT_CASE_IDS if any(item.case_id == case_id for item in results)]
-    solvers = [solver for solver in DEFAULT_SOLVERS if any(item.solver == solver for item in results)]
+    case_ids = [
+        case_id for case_id in DEFAULT_CASE_IDS if any(item.case_id == case_id for item in results)
+    ]
+    solvers = [
+        solver for solver in DEFAULT_SOLVERS if any(item.solver == solver for item in results)
+    ]
     values = np.full((len(solvers), len(case_ids)), np.nan, dtype=float)
     titles = {case_id: CASE_SPECS[case_id][2] for case_id in case_ids}
     index_case = {case_id: idx for idx, case_id in enumerate(case_ids)}
@@ -335,7 +349,9 @@ def _write_markdown_summary(
         case_results = sorted(by_case[case_id], key=lambda item: DEFAULT_SOLVERS.index(item.solver))
         lines.append(f"## {case_results[0].case_title}")
         lines.append("")
-        lines.append("| Solver | Space-time RMSE [m] | Space-time max abs [m] | Final profile RMSE [m] | Final profile max abs [m] | Row spread [m] | Results dir |")
+        lines.append(
+            "| Solver | Space-time RMSE [m] | Space-time max abs [m] | Final profile RMSE [m] | Final profile max abs [m] | Row spread [m] | Results dir |"
+        )
         lines.append("| --- | ---: | ---: | ---: | ---: | ---: | --- |")
         for item in case_results:
             lines.append(
@@ -344,7 +360,9 @@ def _write_markdown_summary(
         case_pairwise = [row for row in pairwise_rows if row["case_id"] == case_id]
         if case_pairwise:
             lines.append("")
-            lines.append("| Pair | Final profile RMSE [m] | Final profile max abs [m] | Monitor RMSE [m] | Monitor max abs [m] |")
+            lines.append(
+                "| Pair | Final profile RMSE [m] | Final profile max abs [m] | Monitor RMSE [m] | Monitor max abs [m] |"
+            )
             lines.append("| --- | ---: | ---: | ---: | ---: |")
             for row in case_pairwise:
                 left = SOLVER_LABELS[row["solver_left"]]

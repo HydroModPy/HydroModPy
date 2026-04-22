@@ -27,26 +27,20 @@ def resolve_reference_case_config_path(raw_config: str | Path) -> Path:
     return resolve_case_config_path(raw_config, script_dir=Path(__file__).resolve().parent)
 
 
-def _resolve_optional_mapping_path(
-    payload: dict[str, Any], *, key: str, base_dir: Path
-) -> None:
+def _resolve_optional_mapping_path(payload: dict[str, Any], *, key: str, base_dir: Path) -> None:
     raw = payload.get(key)
     if raw is None:
         return
     payload[key] = resolve_path(raw, base_dir=base_dir)
 
 
-def _resolve_geology_paths(
-    payload: Mapping[str, Any], *, base_dir: Path
-) -> dict[str, Any]:
+def _resolve_geology_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[str, Any]:
     out = dict(payload)
     source = out.get("source")
     if isinstance(source, Mapping):
         source_data = dict(source)
         _resolve_optional_mapping_path(source_data, key="path", base_dir=base_dir)
-        _resolve_optional_mapping_path(
-            source_data, key="reference_raster_path", base_dir=base_dir
-        )
+        _resolve_optional_mapping_path(source_data, key="reference_raster_path", base_dir=base_dir)
         out["source"] = source_data
 
     landsea = out.get("landsea")
@@ -55,9 +49,7 @@ def _resolve_geology_paths(
     return out
 
 
-def _resolve_field_param_paths(
-    payload: Mapping[str, Any], *, base_dir: Path
-) -> dict[str, Any]:
+def _resolve_field_param_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[str, Any]:
     out = dict(payload)
     heterogeneous = out.get("field_heterogeneous")
     if not isinstance(heterogeneous, Mapping):
@@ -73,9 +65,7 @@ def _resolve_field_param_paths(
     return out
 
 
-def _resolve_mesh_paths(
-    payload: Mapping[str, Any], *, base_dir: Path
-) -> dict[str, Any]:
+def _resolve_mesh_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[str, Any]:
     out = dict(payload)
     _resolve_optional_mapping_path(out, key="path", base_dir=base_dir)
     return out
@@ -91,9 +81,7 @@ def resolve_reference_case_config(
     config_path = Path(config_toml).resolve()
     section_cfg = load_case_section(config_path, section=section)
 
-    mesh_cfg = _resolve_mesh_paths(
-        dict(section_cfg.get("mesh", {})), base_dir=config_path.parent
-    )
+    mesh_cfg = _resolve_mesh_paths(dict(section_cfg.get("mesh", {})), base_dir=config_path.parent)
     geology_cfg = _resolve_geology_paths(
         dict(section_cfg.get("geology", {})), base_dir=config_path.parent
     )

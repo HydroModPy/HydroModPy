@@ -41,8 +41,7 @@ def _resolve_constraints_mode(raw_value: Any) -> str:
     }
     if token not in allowed:
         raise ValueError(
-            "constraints_mode must be one of: "
-            "geology_only, rivers_only, geology_rivers."
+            "constraints_mode must be one of: geology_only, rivers_only, geology_rivers."
         )
     return token
 
@@ -151,9 +150,7 @@ def _validate_watershed_boundary_case_config(
     section: str,
 ) -> ZoneConformalWatershedBoundaryConfig:
     if not isinstance(config_data, Mapping):
-        raise ValueError(
-            f"[{section}.watershed_boundary] configuration must be a mapping"
-        )
+        raise ValueError(f"[{section}.watershed_boundary] configuration must be a mapping")
     raw = dict(config_data)
 
     def _optional_non_negative_float(key: str) -> float | None:
@@ -167,9 +164,7 @@ def _validate_watershed_boundary_case_config(
                 f"[{section}.watershed_boundary].{key} must be a number, got '{value}'."
             ) from exc
         if out < 0.0:
-            raise ValueError(
-                f"[{section}.watershed_boundary].{key} must be >= 0."
-            )
+            raise ValueError(f"[{section}.watershed_boundary].{key} must be >= 0.")
         return out
 
     enabled = bool(raw.get("enabled", False))
@@ -211,9 +206,7 @@ def _validate_watershed_boundary_case_config(
                 f"[{section}.watershed_boundary.smoothing].{key} must be a number, got '{value}'."
             ) from exc
         if out < 0.0:
-            raise ValueError(
-                f"[{section}.watershed_boundary.smoothing].{key} must be >= 0."
-            )
+            raise ValueError(f"[{section}.watershed_boundary.smoothing].{key} must be >= 0.")
         return out
 
     def _outside_coarsening_float(
@@ -242,9 +235,7 @@ def _validate_watershed_boundary_case_config(
     if size_factor is None:
         size_factor = 2.0
 
-    geology_conformity_mode = str(
-        geology_conformity_cfg.get("mode", "full_domain")
-    ).strip().lower()
+    geology_conformity_mode = str(geology_conformity_cfg.get("mode", "full_domain")).strip().lower()
     if geology_conformity_mode not in {"full_domain", "buffered_watershed_envelope"}:
         raise ValueError(
             f"[{section}.watershed_boundary.geology_conformity].mode must be 'full_domain' or 'buffered_watershed_envelope', got '{geology_conformity_mode}'."
@@ -252,9 +243,7 @@ def _validate_watershed_boundary_case_config(
 
     return ZoneConformalWatershedBoundaryConfig(
         enabled=enabled,
-        boundary_refinement_distance=_optional_non_negative_float(
-            "boundary_refinement_distance"
-        ),
+        boundary_refinement_distance=_optional_non_negative_float("boundary_refinement_distance"),
         smoothing=ZoneConformalWatershedBoundarySmoothingConfig(
             enabled=smoothing_enabled,
             distance=None if not smoothing_enabled else _optional_smoothing_float("distance"),
@@ -264,9 +253,7 @@ def _validate_watershed_boundary_case_config(
                 else _optional_smoothing_float("river_buffer_distance")
             ),
             outer_bias_distance=(
-                None
-                if not smoothing_enabled
-                else _optional_smoothing_float("outer_bias_distance")
+                None if not smoothing_enabled else _optional_smoothing_float("outer_bias_distance")
             ),
         ),
         outside_coarsening=ZoneConformalWatershedOutsideCoarseningConfig(
@@ -332,21 +319,13 @@ def _resolve_case_config(
             "geology_only, rivers_only, geology_rivers."
         )
     _reject_removed_case_sections(section_cfg, section=section)
-    constraints_mode_label = _resolve_constraints_mode(
-        str(section_cfg.get("constraints_mode", ""))
-    )
+    constraints_mode_label = _resolve_constraints_mode(str(section_cfg.get("constraints_mode", "")))
     constraint_families = _resolve_constraint_families(constraints_mode_label)
-    domain_cfg = _validate_domain_case_config(
-        dict(section_cfg.get("domain", {}))
-    )
-    zone_meshing_cfg = _validate_zone_meshing_case_config(
-        dict(section_cfg.get("zone_meshing", {}))
-    )
+    domain_cfg = _validate_domain_case_config(dict(section_cfg.get("domain", {})))
+    zone_meshing_cfg = _validate_zone_meshing_case_config(dict(section_cfg.get("zone_meshing", {})))
     geology_cfg = None
     if constraint_families.geology_interface:
-        geology_cfg = _validate_geology_case_config(
-            dict(section_cfg.get("geology", {}))
-        )
+        geology_cfg = _validate_geology_case_config(dict(section_cfg.get("geology", {})))
     rivers_cfg = None
     if constraint_families.river:
         rivers_cfg = _validate_rivers_case_config(

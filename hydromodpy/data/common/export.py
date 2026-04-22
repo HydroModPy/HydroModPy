@@ -47,19 +47,21 @@ def export_records(
         rec.data[["datetime", "value"]].to_csv(fpath, index=False)
         created[f"chronicle_{rec.station_id}"] = fpath
 
-        chronicle_rows.append({
-            "station_id": rec.station_id,
-            "file": fname,
-            "variable": rec.variable,
-            "source": rec.source,
-            "unit": rec.unit,
-            "source_unit": rec.source_unit or "",
-            "frequency": rec.frequency,
-            "n_records": rec.n_records,
-            "date_start": rec.date_start,
-            "date_end": rec.date_end,
-            "is_constant": rec.is_constant,
-        })
+        chronicle_rows.append(
+            {
+                "station_id": rec.station_id,
+                "file": fname,
+                "variable": rec.variable,
+                "source": rec.source,
+                "unit": rec.unit,
+                "source_unit": rec.source_unit or "",
+                "frequency": rec.frequency,
+                "n_records": rec.n_records,
+                "date_start": rec.date_start,
+                "date_end": rec.date_end,
+                "is_constant": rec.is_constant,
+            }
+        )
 
     # Metadata CSV (station summary with coordinates)
     meta_rows: list[dict] = []

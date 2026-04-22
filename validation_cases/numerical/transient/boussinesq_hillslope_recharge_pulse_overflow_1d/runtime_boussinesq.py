@@ -54,22 +54,36 @@ _WINDOWS_SURFACE_CONTEXT_OVERRIDES: dict[str, object] = {
     },
     "forcing": {
         "first_clim": "first",
-                    "units": "m/s",
+        "units": "m/s",
         "recharge_mm_day": [
-            0.6, 0.6,
-            1.8, 1.8,
-            3.0, 3.0,
-            4.2, 4.2,
-            5.4, 5.4,
-            7.2, 7.2,
-            6.0, 6.0,
-            4.8, 4.8,
-            3.6, 3.6,
-            2.4, 2.4,
-            1.2, 1.2,
-            0.6, 0.6,
-            0.0, 0.0,
-            0.0, 0.0,
+            0.6,
+            0.6,
+            1.8,
+            1.8,
+            3.0,
+            3.0,
+            4.2,
+            4.2,
+            5.4,
+            5.4,
+            7.2,
+            7.2,
+            6.0,
+            6.0,
+            4.8,
+            4.8,
+            3.6,
+            3.6,
+            2.4,
+            2.4,
+            1.2,
+            1.2,
+            0.6,
+            0.6,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
         ],
     },
 }
@@ -95,10 +109,48 @@ _LINUX_NWT_BOUSS_RAMP_CONTEXT_OVERRIDES: dict[str, object] = {
     "forcing": {
         "first_clim": "first",
         "recharge_mm_day": [
-            0.50, 1.00, 1.50, 2.00, 2.50, 3.00, 3.50, 4.00, 4.50, 5.00, 5.50, 6.00,
-            5.50, 5.00, 4.50, 4.00, 3.50, 3.00, 2.50, 2.00, 1.50, 1.00, 0.50, 0.25,
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0,
+            0.50,
+            1.00,
+            1.50,
+            2.00,
+            2.50,
+            3.00,
+            3.50,
+            4.00,
+            4.50,
+            5.00,
+            5.50,
+            6.00,
+            5.50,
+            5.00,
+            4.50,
+            4.00,
+            3.50,
+            3.00,
+            2.50,
+            2.00,
+            1.50,
+            1.00,
+            0.50,
+            0.25,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
         ],
     },
 }
@@ -186,8 +238,7 @@ def _resolve_case_settings(
         if context_name not in _CONTEXT_PRESET_OVERRIDES:
             supported = ", ".join(sorted(_CONTEXT_PRESET_OVERRIDES))
             raise ValueError(
-                "Unsupported context preset "
-                f"'{context_preset}'. Supported values: {supported}."
+                f"Unsupported context preset '{context_preset}'. Supported values: {supported}."
             )
         preset_overrides = _CONTEXT_PRESET_OVERRIDES[context_name]
         geometry_cfg.update(dict(preset_overrides.get("geometry", {})))
@@ -301,9 +352,7 @@ def run_boussinesq_hillslope_overflow_case(
     dt_days = float(time_cfg["dt_days"])
     recharge_mm_day = np.asarray(forcing_cfg.get("recharge_mm_day", ()), dtype=float).reshape(-1)
     if recharge_mm_day.size != nper:
-        raise ValueError(
-            f"Expected {nper} recharge periods, got {recharge_mm_day.size} values."
-        )
+        raise ValueError(f"Expected {nper} recharge periods, got {recharge_mm_day.size} values.")
 
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
@@ -334,7 +383,7 @@ def run_boussinesq_hillslope_overflow_case(
             "recharge": {
                 "values": [mm_day_to_m_s(float(value)) for value in recharge_mm_day],
                 "first_clim": str(forcing_cfg.get("first_clim", "first")),
-                    "units": "m/s",
+                "units": "m/s",
             }
         },
         "bc": {
@@ -377,7 +426,9 @@ def run_boussinesq_hillslope_overflow_case(
                 period_lengths_seconds=period_lengths_seconds,
                 window=None,
             ),
-            workspace=SimpleNamespace(simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder),
+            workspace=SimpleNamespace(
+                simulations_folder=simulations_folder, solver_scratch_folder=simulations_folder
+            ),
         ),
     )
     run = ProcessRun(

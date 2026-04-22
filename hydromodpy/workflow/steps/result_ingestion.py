@@ -140,8 +140,10 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
             try:
                 codes = np.asarray(obj.encoded_codes)
                 sz.write_forcing_field(
-                    "geology_codes", codes,
-                    unit="", source=getattr(obj, "source_kind", "raster"),
+                    "geology_codes",
+                    codes,
+                    unit="",
+                    source=getattr(obj, "source_kind", "raster"),
                 )
                 forcing = sz.root.require_group("forcing")
                 geo_grp = forcing.require_group("geology_meta")
@@ -157,9 +159,7 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
                 geo_grp.attrs["cell_samples_per_axis"] = int(
                     getattr(obj, "default_cell_samples_per_axis", 8)
                 )
-                geo_grp.attrs["source_kind"] = str(
-                    getattr(obj, "source_kind", "raster")
-                )
+                geo_grp.attrs["source_kind"] = str(getattr(obj, "source_kind", "raster"))
 
                 # Persist per-cell zone assignment if mesh is available
                 mesh = getattr(ctx, "setup", None)
@@ -191,8 +191,10 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
                 arr = np.asarray(obj.streams_array)
                 if arr.size > 0:
                     sz.write_forcing_field(
-                        "hydrography_streams", arr,
-                        unit="", source="hydrography",
+                        "hydrography_streams",
+                        arr,
+                        unit="",
+                        source="hydrography",
                     )
                     written += 1
             except Exception:
@@ -209,15 +211,18 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
                     values = df["value"].values.astype("float64")
                     station = getattr(rec, "station_id", None) or f.name
                     sz.write_forcing_timeseries(
-                        f.name, station,
-                        timestamps, values,
+                        f.name,
+                        station,
+                        timestamps,
+                        values,
                         unit=getattr(rec, "unit", ""),
                         source=getattr(rec, "source", ""),
                     )
                     written += 1
                 except Exception:
-                    logger.debug("Failed to persist forcing %s:%s",
-                                 f.name, getattr(rec, "station_id", "?"))
+                    logger.debug(
+                        "Failed to persist forcing %s:%s", f.name, getattr(rec, "station_id", "?")
+                    )
 
         fields_list = getattr(obj, "fields", None)
         if fields_list:
@@ -243,8 +248,11 @@ def step_persist_forcings(ctx: WorkflowContext) -> None:
                     )
                     written += 1
                 except Exception:
-                    logger.debug("Failed to persist forcing field %s:%s",
-                                 f.name, getattr(rec, "variable", "?"))
+                    logger.debug(
+                        "Failed to persist forcing field %s:%s",
+                        f.name,
+                        getattr(rec, "variable", "?"),
+                    )
 
     if written:
         logger.info("Persisted %d forcing datasets for sim %s", written, ctx.sim_id)

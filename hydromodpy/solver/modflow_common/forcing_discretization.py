@@ -10,8 +10,7 @@ def has_spatially_distributed_source(load_result: object | None) -> bool:
     if load_result is None:
         return False
     return bool(
-        getattr(load_result, "has_fields", False)
-        or getattr(load_result, "has_points", False)
+        getattr(load_result, "has_fields", False) or getattr(load_result, "has_points", False)
     )
 
 
@@ -53,10 +52,7 @@ def discretize_spatially_distributed_source(
             )
         nrow = int(getattr(solver_mesh, "nrow"))
         ncol = int(getattr(solver_mesh, "ncol"))
-        return {
-            kper: np.zeros((nrow, ncol), dtype=float)
-            for kper in range(int(nper))
-        }
+        return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(int(nper))}
 
     from hydromodpy.solver.utils.mesh.gmsh_grid.planar_forcing_discretization import (
         discretize_fields_on_planar_mesh,
@@ -69,9 +65,7 @@ def discretize_spatially_distributed_source(
             GmshPlanarMesh2D,
         )
 
-        resolved_planar_mesh = GmshPlanarMesh2D.from_hydro_mesh(
-            solver_mesh.planar_mesh
-        )
+        resolved_planar_mesh = GmshPlanarMesh2D.from_hydro_mesh(solver_mesh.planar_mesh)
 
     if getattr(load_result, "has_fields", False):
         return discretize_fields_on_planar_mesh(
@@ -90,10 +84,7 @@ def discretize_spatially_distributed_source(
             method=method,
         )
     n_cells = int(getattr(solver_mesh, "n_cells", 0))
-    return {
-        kper: np.zeros(n_cells, dtype=float)
-        for kper in range(int(nper))
-    }
+    return {kper: np.zeros(n_cells, dtype=float) for kper in range(int(nper))}
 
 
 def broadcast_to_stress_periods(

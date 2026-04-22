@@ -177,9 +177,7 @@ def scaffold_copy_assets_case(
     manifest_path = _resolve_manifest_path(manifest, repo_root=repo_root)
     payload = _load_manifest_payload(manifest_path)
     existing_slugs = {
-        str(case.get("slug", "")).strip()
-        for case in payload["cases"]
-        if isinstance(case, dict)
+        str(case.get("slug", "")).strip() for case in payload["cases"] if isinstance(case, dict)
     }
     if slug in existing_slugs:
         raise ValueError(f"Gallery slug already exists in {manifest_path.name}: {slug}")

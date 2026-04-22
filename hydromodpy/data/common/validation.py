@@ -19,8 +19,12 @@ def compute_completeness(
     """Compute missing-data stats for one time series."""
     empty = {
         "station_id": str(station_id),
-        "expected_days": 0, "actual_days": 0, "missing_days": 0,
-        "completeness_pct": 0.0, "first_date": None, "last_date": None,
+        "expected_days": 0,
+        "actual_days": 0,
+        "missing_days": 0,
+        "completeness_pct": 0.0,
+        "first_date": None,
+        "last_date": None,
         "gaps_detected": 0,
     }
 

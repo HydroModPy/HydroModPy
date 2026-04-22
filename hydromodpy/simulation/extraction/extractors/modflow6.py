@@ -59,7 +59,9 @@ class Modflow6OutputAdapter:
 
         logger.info(
             "Extracting MODFLOW 6 results: %d timesteps, %d layers, %d cells",
-            n_timesteps, nlay, n_cells,
+            n_timesteps,
+            nlay,
+            n_cells,
         )
 
         for t, time in enumerate(times):
@@ -69,13 +71,20 @@ class Modflow6OutputAdapter:
             # MF6 uses 1e30 for dry/no-flow cells.
             values[np.abs(values) > 1e20] = np.nan
             store.write_field(
-                sim_id, "head", t, values,
+                sim_id,
+                "head",
+                t,
+                values,
                 n_timesteps=n_timesteps if t == 0 else None,
             )
 
         if cbc_path.exists():
             self._extract_budget(
-                sim_id, store, cbc_path, times, kstpkpers,
+                sim_id,
+                store,
+                cbc_path,
+                times,
+                kstpkpers,
                 spatial_fields=budget_spatial_fields,
                 nlay=nlay,
                 n_cells=n_cells,
@@ -119,7 +128,9 @@ class Modflow6OutputAdapter:
                 except Exception as exc:
                     logger.debug(
                         "Could not read MF6 budget '%s' at t=%d: %s",
-                        component, t, exc,
+                        component,
+                        t,
+                        exc,
                     )
                     continue
                 if not data:
@@ -136,14 +147,16 @@ class Modflow6OutputAdapter:
                 else:
                     flux_in = 0.0
                     flux_out = 0.0
-                budget_records.append({
-                    "timestep": t,
-                    "zone_id": "0",
-                    "component": component.lower().strip(),
-                    "flux_in": flux_in,
-                    "flux_out": abs(flux_out),
-                    "unit": "m3/d",
-                })
+                budget_records.append(
+                    {
+                        "timestep": t,
+                        "zone_id": "0",
+                        "component": component.lower().strip(),
+                        "flux_in": flux_in,
+                        "flux_out": abs(flux_out),
+                        "unit": "m3/d",
+                    }
+                )
                 if spatial_fields and hasattr(arr, "shape") and arr.ndim >= 1:
                     # n_timesteps is always passed: the store ignores it
                     # on subsequent writes, but needs it for allocation
@@ -151,7 +164,9 @@ class Modflow6OutputAdapter:
                     # record is absent there (e.g. STORAGE in a steady
                     # initial stress period).
                     store.write_field(
-                        sim_id, component.lower().strip(), t,
+                        sim_id,
+                        component.lower().strip(),
+                        t,
                         arr.reshape(-1) if arr.ndim == 1 else arr,
                         n_timesteps=len(times),
                         subgroup="budget",
@@ -219,14 +234,16 @@ class Modflow6OutputAdapter:
                         if "PERCENT_DISCREPANCY" in names
                         else 0.0
                     )
-                    records.append({
-                        "timestep": t,
-                        "total_in": total_in,
-                        "total_out": total_out,
-                        "storage_in": 0.0,
-                        "storage_out": 0.0,
-                        "percent_error": pct_err,
-                    })
+                    records.append(
+                        {
+                            "timestep": t,
+                            "total_in": total_in,
+                            "total_out": total_out,
+                            "storage_in": 0.0,
+                            "storage_out": 0.0,
+                            "percent_error": pct_err,
+                        }
+                    )
                 store.write_mass_balances(sim_id, records)
         except Exception:
             logger.warning("Could not parse MF6 listing file %s", lst_path)
@@ -256,13 +273,13 @@ class Modflow6OutputAdapter:
                 bot_raw = getattr(grd, "bot1d", None) or getattr(grd, "bot")
                 top = np.asarray(top_raw, dtype="float64").ravel()[:n_cells]
                 botm = np.asarray(bot_raw, dtype="float64")
-                botm_per_layer = botm.reshape(nlay, n_cells) if botm.size == nlay * n_cells else None
+                botm_per_layer = (
+                    botm.reshape(nlay, n_cells) if botm.size == nlay * n_cells else None
+                )
                 if botm_per_layer is not None:
                     z_intf = np.vstack([top.reshape(1, -1), botm_per_layer])
                     z_flat = np.array([z_intf[:, 0].mean()])  # placeholder
-                    z_flat = np.concatenate(
-                        [top[:1], botm_per_layer[:, 0]]
-                    )  # (nlay+1,)
+                    z_flat = np.concatenate([top[:1], botm_per_layer[:, 0]])  # (nlay+1,)
                 else:
                     z_flat = np.array([float(top.mean()), float(top.mean()) - 10.0])
             else:

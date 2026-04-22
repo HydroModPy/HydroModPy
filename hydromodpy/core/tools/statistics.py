@@ -78,18 +78,11 @@ def hydrological_mean(data, accuracy=15):
     if isinstance(data.index[0], str):
         data.index = pd.to_datetime(data.index)
     if not isinstance(data.index[0], datetime.datetime):
-        logger.error(
-            "No recognized datetime index in input series for hydrological_mean"
-        )
+        logger.error("No recognized datetime index in input series for hydrological_mean")
         return None
 
     idx = data[data.index.month == data.index[0].month][
-        abs(
-            data[data.index.month == data.index[0].month].index.day
-            - data.index[0].day
-        )
-        - 3
-        <= 0
+        abs(data[data.index.month == data.index[0].month].index.day - data.index[0].day) - 3 <= 0
     ].index[-1]
 
     if (idx - data.index[0]).days < 350:

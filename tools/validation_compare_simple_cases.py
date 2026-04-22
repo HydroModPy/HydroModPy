@@ -143,7 +143,9 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def _profile_ylim(results: list[SimpleComparisonResult]) -> tuple[float, float]:
-    values = [item.analytical_profile for item in results] + [item.numerical_profile for item in results]
+    values = [item.analytical_profile for item in results] + [
+        item.numerical_profile for item in results
+    ]
     finite = np.concatenate([arr[np.isfinite(arr)] for arr in values if np.any(np.isfinite(arr))])
     if finite.size == 0:
         return 0.0, 1.0
@@ -155,7 +157,11 @@ def _profile_ylim(results: list[SimpleComparisonResult]) -> tuple[float, float]:
 
 def _residual_ylim(results: list[SimpleComparisonResult]) -> tuple[float, float]:
     finite = np.concatenate(
-        [item.residual_profile[np.isfinite(item.residual_profile)] for item in results if np.any(np.isfinite(item.residual_profile))]
+        [
+            item.residual_profile[np.isfinite(item.residual_profile)]
+            for item in results
+            if np.any(np.isfinite(item.residual_profile))
+        ]
     )
     if finite.size == 0:
         return -1.0, 1.0
@@ -168,7 +174,11 @@ def _difference_ylim(results: list[SimpleComparisonResult]) -> tuple[float, floa
     for idx, left in enumerate(results):
         for right in results[idx + 1 :]:
             diffs.append(np.asarray(left.numerical_profile - right.numerical_profile, dtype=float))
-    finite = np.concatenate([arr[np.isfinite(arr)] for arr in diffs if np.any(np.isfinite(arr))]) if diffs else np.array([])
+    finite = (
+        np.concatenate([arr[np.isfinite(arr)] for arr in diffs if np.any(np.isfinite(arr))])
+        if diffs
+        else np.array([])
+    )
     if finite.size == 0:
         return -1.0, 1.0
     bound = max(float(np.max(np.abs(finite))) * 1.15, 0.02)
@@ -236,8 +246,12 @@ def _write_case_figure(case_results: list[SimpleComparisonResult], output_png: P
 def _write_rmse_bar_figure(results: list[SimpleComparisonResult], output_png: Path) -> None:
     output_png.parent.mkdir(parents=True, exist_ok=True)
     output_png.unlink(missing_ok=True)
-    case_ids = [case_id for case_id in DEFAULT_CASE_IDS if any(item.case_id == case_id for item in results)]
-    solvers = [solver for solver in DEFAULT_SOLVERS if any(item.solver == solver for item in results)]
+    case_ids = [
+        case_id for case_id in DEFAULT_CASE_IDS if any(item.case_id == case_id for item in results)
+    ]
+    solvers = [
+        solver for solver in DEFAULT_SOLVERS if any(item.solver == solver for item in results)
+    ]
     values = np.full((len(solvers), len(case_ids)), np.nan, dtype=float)
     titles = {case_id: CASE_SPECS[case_id][2] for case_id in case_ids}
     index_case = {case_id: idx for idx, case_id in enumerate(case_ids)}
@@ -297,7 +311,9 @@ def _write_markdown_summary(
         case_results = sorted(by_case[case_id], key=lambda item: DEFAULT_SOLVERS.index(item.solver))
         lines.append(f"## {case_results[0].case_title}")
         lines.append("")
-        lines.append("| Solver | RMSE vs analytical [m] | Max abs error [m] | Cross-row spread [m] | Results dir |")
+        lines.append(
+            "| Solver | RMSE vs analytical [m] | Max abs error [m] | Cross-row spread [m] | Results dir |"
+        )
         lines.append("| --- | ---: | ---: | ---: | --- |")
         for item in case_results:
             lines.append(
@@ -306,7 +322,9 @@ def _write_markdown_summary(
         case_pairwise = [row for row in pairwise_rows if row["case_id"] == case_id]
         if case_pairwise:
             lines.append("")
-            lines.append("| Pair | Pairwise RMSE [m] | Pairwise max abs error [m] | Pairwise mean abs error [m] |")
+            lines.append(
+                "| Pair | Pairwise RMSE [m] | Pairwise max abs error [m] | Pairwise mean abs error [m] |"
+            )
             lines.append("| --- | ---: | ---: | ---: |")
             for row in case_pairwise:
                 left = SOLVER_LABELS[row["solver_left"]]

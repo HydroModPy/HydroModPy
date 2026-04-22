@@ -18,8 +18,7 @@ class FlowDisplayAdapter:
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         raise NotImplementedError(
-            "FlowDisplayAdapter is a stub. "
-            "Implement by wrapping the flow display module."
+            "FlowDisplayAdapter is a stub. Implement by wrapping the flow display module."
         )
 
 
@@ -31,6 +30,5 @@ class TransportDisplayAdapter:
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         raise NotImplementedError(
-            "TransportDisplayAdapter is a stub. "
-            "Implement by wrapping the transport display module."
+            "TransportDisplayAdapter is a stub. Implement by wrapping the transport display module."
         )

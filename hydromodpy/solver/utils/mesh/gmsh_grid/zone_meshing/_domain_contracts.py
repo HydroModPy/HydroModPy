@@ -40,24 +40,16 @@ class ZoneMeshingDomainConfig:
         coordinates_raw = payload.get("coordinates")
         return cls(
             kind=str(payload["kind"]),
-            bbox=(
-                None
-                if bbox_raw is None
-                else tuple(float(value) for value in bbox_raw)
-            ),
+            bbox=(None if bbox_raw is None else tuple(float(value) for value in bbox_raw)),
             coordinates=(
                 None
                 if coordinates_raw is None
                 else tuple((float(pair[0]), float(pair[1])) for pair in coordinates_raw)
             ),
             path=None if payload.get("path") is None else str(payload["path"]),
-            id_field=(
-                None if payload.get("id_field") is None else str(payload["id_field"])
-            ),
+            id_field=(None if payload.get("id_field") is None else str(payload["id_field"])),
             selected_id=(
-                None
-                if payload.get("selected_id") is None
-                else str(payload["selected_id"])
+                None if payload.get("selected_id") is None else str(payload["selected_id"])
             ),
         )
 
@@ -67,9 +59,7 @@ class ZoneMeshingDomainConfig:
         if self.bbox is not None:
             payload["bbox"] = [float(value) for value in self.bbox]
         if self.coordinates is not None:
-            payload["coordinates"] = [
-                [float(x), float(y)] for x, y in self.coordinates
-            ]
+            payload["coordinates"] = [[float(x), float(y)] for x, y in self.coordinates]
         if self.path is not None:
             payload["path"] = self.path
         if self.id_field is not None:

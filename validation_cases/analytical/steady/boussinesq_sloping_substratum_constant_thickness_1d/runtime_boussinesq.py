@@ -36,16 +36,26 @@ def run_boussinesq_sloping_substratum_constant_thickness_case(
         ny=NY,
         length_x_m=LENGTH_X_M,
         width_y_m=WIDTH_Y_M,
-        z_top_m=lambda x_m: reference_cfg["topography_base_elevation_m"]
-        + float(reference_cfg["topography_right_to_left_amplitude_m"]) * (1.0 - (float(x_m) / LENGTH_X_M)),
-        z_bottom_m=lambda x_m: reference_cfg["bottom_base_elevation_m"]
-        + float(reference_cfg["bottom_right_to_left_amplitude_m"]) * (1.0 - (float(x_m) / LENGTH_X_M)),
+        z_top_m=lambda x_m: (
+            reference_cfg["topography_base_elevation_m"]
+            + float(reference_cfg["topography_right_to_left_amplitude_m"])
+            * (1.0 - (float(x_m) / LENGTH_X_M))
+        ),
+        z_bottom_m=lambda x_m: (
+            reference_cfg["bottom_base_elevation_m"]
+            + float(reference_cfg["bottom_right_to_left_amplitude_m"])
+            * (1.0 - (float(x_m) / LENGTH_X_M))
+        ),
         hydraulic_conductivity_m_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
         storage_coefficient=0.1,
         flow_section={
             "flow_regime": "steady",
             "runtime_backend": "scipy_sparse",
-            "ic": {"type": "custom", "value": 0.5 * (float(reference_cfg["west_head"]) + float(reference_cfg["east_head"]))},
+            "ic": {
+                "type": "custom",
+                "value": 0.5
+                * (float(reference_cfg["west_head"]) + float(reference_cfg["east_head"])),
+            },
             "active_sinks_sources": [],
             "active_bc": ["west_side", "east_side"],
             "bc": {

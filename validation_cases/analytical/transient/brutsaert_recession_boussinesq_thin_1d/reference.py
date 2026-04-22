@@ -32,18 +32,12 @@ def load_case_parameters(metadata: dict | None = None) -> dict:
         "nper": int(time_cfg["nper"]),
         "dt_seconds": float(time_cfg["dt_seconds"]),
         "solution": str(reference_cfg["solution"]),
-        "hydraulic_conductivity_m_per_s": float(
-            reference_cfg["hydraulic_conductivity_m_per_s"]
-        ),
+        "hydraulic_conductivity_m_per_s": float(reference_cfg["hydraulic_conductivity_m_per_s"]),
         "specific_yield": float(reference_cfg["specific_yield"]),
         "watershed_area_m2": float(reference_cfg["watershed_area_m2"]),
         "channel_length_m": float(reference_cfg["channel_length_m"]),
-        "active_drainage_fraction": float(
-            reference_cfg.get("active_drainage_fraction", 0.7)
-        ),
-        "linearization_constant": float(
-            reference_cfg.get("linearization_constant", 0.346)
-        ),
+        "active_drainage_fraction": float(reference_cfg.get("active_drainage_fraction", 0.7)),
+        "linearization_constant": float(reference_cfg.get("linearization_constant", 0.346)),
     }
 
 

@@ -28,7 +28,9 @@ if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
 
 from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.spatial.domain import Domain
-from hydromodpy.spatial.geographic.structure_binders import build_catchment_zone_field_from_geographic
+from hydromodpy.spatial.geographic.structure_binders import (
+    build_catchment_zone_field_from_geographic,
+)
 from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
     DomainGeographicContext,
     build_domain_geographic_context,
@@ -151,8 +153,7 @@ def run_domain_case_from_toml(
     if "catchment" not in domain_cfg.zone_ids:
         domain_cfg.zone_ids.append("catchment")
     geology_requested = "geology" in {
-        str(zone_id).strip().lower()
-        for zone_id in domain_cfg.zone_ids
+        str(zone_id).strip().lower() for zone_id in domain_cfg.zone_ids
     } or any(
         str(getattr(support_cfg, "provider", "")).strip().lower() == "geology"
         for support_cfg in getattr(domain_cfg, "supports", {}).values()
@@ -206,12 +207,7 @@ def _surface_extent(surface) -> tuple[float, float, float, float] | None:
     support = getattr(surface, "support", None)
     if support is None:
         return None
-    if (
-        support.xmin is None
-        or support.xmax is None
-        or support.ymin is None
-        or support.ymax is None
-    ):
+    if support.xmin is None or support.xmax is None or support.ymin is None or support.ymax is None:
         return None
     return (
         float(support.xmin),
@@ -288,8 +284,12 @@ def _format_axes(
 
     if km_origin is not None:
         x0, y0 = km_origin
-        ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _pos: f"{(value - x0) / 1000.0:.1f}"))
-        ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _pos: f"{(value - y0) / 1000.0:.1f}"))
+        ax.xaxis.set_major_formatter(
+            FuncFormatter(lambda value, _pos: f"{(value - x0) / 1000.0:.1f}")
+        )
+        ax.yaxis.set_major_formatter(
+            FuncFormatter(lambda value, _pos: f"{(value - y0) / 1000.0:.1f}")
+        )
         ax.set_xlabel("x (km)" if show_xlabel else "", fontsize=7)
         ax.set_ylabel("y (km)" if show_ylabel else "", fontsize=7)
     else:
@@ -385,10 +385,10 @@ def plot_domain_summary(
     bot = _mask_nodata(domain.substratum.as_array(), nodata=nodata)
     thick = top - bot
     zone_codes = _load_zone_codes_array(domain, catchment_zone_codes_tif)
-    replacement_panel = (
-        _choose_zone_replacement_panel(domain) if zone_codes is not None else None
+    replacement_panel = _choose_zone_replacement_panel(domain) if zone_codes is not None else None
+    zone_kind = (
+        getattr(geographic, "zone_kind", "catchment") if geographic is not None else "catchment"
     )
-    zone_kind = getattr(geographic, "zone_kind", "catchment") if geographic is not None else "catchment"
     extent = _surface_extent(domain.surface_topo)
     km_origin = (extent[0], extent[2]) if extent is not None else None
 
@@ -536,9 +536,7 @@ def plot_domain_summary(
     finite_thick = np.isfinite(thick)
     top_mean = float(np.nanmean(top[finite_top])) if np.any(finite_top) else float("nan")
     bot_mean = float(np.nanmean(bot[finite_bot])) if np.any(finite_bot) else float("nan")
-    thick_mean = (
-        float(np.nanmean(thick[finite_thick])) if np.any(finite_thick) else float("nan")
-    )
+    thick_mean = float(np.nanmean(thick[finite_thick])) if np.any(finite_thick) else float("nan")
     zone_replace_suffix = (
         f" | zones_replace={replacement_panel}" if replacement_panel is not None else ""
     )
@@ -641,5 +639,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-

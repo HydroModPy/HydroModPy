@@ -20,8 +20,7 @@ class DrainageResolutionMixin:
         boundary_type = str(getattr(boundary, "type", "dirichlet")).strip().lower()
         if boundary_type != "dirichlet":
             raise ValueError(
-                "Boundary 'ocean' must be Dirichlet for the current "
-                "boussinesq backend slice."
+                "Boundary 'ocean' must be Dirichlet for the current boussinesq backend slice."
             )
         return self.boundary_value_series(boundary=boundary, bc_id="ocean", nper=nper)
 
@@ -63,12 +62,9 @@ class DrainageResolutionMixin:
             return tuple(np.zeros(self.mesh.n_cells, dtype=bool) for _ in range(int(nper)))
         series = np.asarray(ocean_series_m, dtype=float).reshape(-1)
         if series.size != int(nper):
-            raise ValueError(
-                "ocean_series_m length must match nper when building support masks."
-            )
+            raise ValueError("ocean_series_m length must match nper when building support masks.")
         return tuple(
-            self.ocean_supported_cell_mask(float(head_value))
-            for head_value in series.tolist()
+            self.ocean_supported_cell_mask(float(head_value)) for head_value in series.tolist()
         )
 
     def resolve_drainage_conductance_series(self, nper: int) -> np.ndarray:

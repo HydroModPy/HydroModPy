@@ -7,7 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data.variables.intermittency.cases.run_intermittency_case import run_intermittency_case_from_toml
+from hydromodpy.data.variables.intermittency.cases.run_intermittency_case import (
+    run_intermittency_case_from_toml,
+)
 
 
 GOLDEN_FILE = Path(__file__).resolve().parent / "golden" / "run_intermittency_case_golden.json"

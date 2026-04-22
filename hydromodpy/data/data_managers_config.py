@@ -79,8 +79,7 @@ class DataManagersConfig(HydroModelBase):
             "Ordered list of data-manager types explicitly requested in [data]. "
             "The launcher may append inferred types deduced from other sections "
             "(for example domain.zone_ids, flow.active_bc). "
-            "Allowed values: "
-            + ", ".join(f"'{t}'" for t in SUPPORTED_DATA_MANAGER_TYPES) + "."
+            "Allowed values: " + ", ".join(f"'{t}'" for t in SUPPORTED_DATA_MANAGER_TYPES) + "."
         ),
     )
     inference_mode: Annotated[Literal["warn", "strict"], Profile.DEV] = Field(
@@ -115,9 +114,7 @@ class DataManagersConfig(HydroModelBase):
     )
     oceanic: Annotated[OceanicConfig | None, Profile.USER] = Field(
         default=None,
-        description=(
-            "Oceanic configuration used when 'oceanic' is listed in data.types."
-        ),
+        description=("Oceanic configuration used when 'oceanic' is listed in data.types."),
     )
     piezometry: Annotated["PiezometryConfig | None", Profile.USER] = Field(
         default=None,
@@ -186,9 +183,7 @@ class DataManagersConfig(HydroModelBase):
                 raise ValueError("data.types cannot contain empty values")
             if type_name not in SUPPORTED_DATA_MANAGER_TYPES:
                 allowed = ", ".join(SUPPORTED_DATA_MANAGER_TYPES)
-                raise ValueError(
-                    f"Unsupported data type '{type_name}'. Allowed values: {allowed}"
-                )
+                raise ValueError(f"Unsupported data type '{type_name}'. Allowed values: {allowed}")
             if type_name in seen:
                 continue
             seen.add(type_name)
@@ -240,9 +235,7 @@ class DataManagersConfig(HydroModelBase):
         can continue reading ``cfg.data`` only, without carrying a separate
         unresolved/partial variant.
         """
-        normalized_types = self._normalize_types(
-            self._validate_types_list(list(resolved_types))
-        )
+        normalized_types = self._normalize_types(self._validate_types_list(list(resolved_types)))
         payload = self.model_dump(mode="python")
         payload["types"] = normalized_types
         # Keep geology behavior symmetrical with declarative path: if geology is

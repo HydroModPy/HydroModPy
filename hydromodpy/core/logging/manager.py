@@ -1,6 +1,7 @@
 import logging
 import os
 
+
 class LogManager:
     """
     Manage logging for HydroModPy.
@@ -58,7 +59,9 @@ class LogManager:
 
         # Remove console handlers, keep file handlers
         for handler in self.logger.handlers[:]:
-            if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+            if isinstance(handler, logging.StreamHandler) and not isinstance(
+                handler, logging.FileHandler
+            ):
                 self.logger.removeHandler(handler)
 
         # Set the base logger level
@@ -107,7 +110,7 @@ class LogManager:
         if log_dir_path:
             os.makedirs(log_dir_path, exist_ok=True)
 
-        file_mode = 'w' if self.overwrite else 'a'
+        file_mode = "w" if self.overwrite else "a"
         file_formatter = logging.Formatter(
             "%(asctime)s [%(levelname)s] [%(name)s] [%(module)s:%(lineno)d] %(message)s"
         )
@@ -116,7 +119,7 @@ class LogManager:
         level_map = {"dev": logging.DEBUG, "verbose": logging.INFO, "quiet": logging.WARNING}
         file_level = level_map.get(self.mode, logging.INFO)
 
-        user_handler = logging.FileHandler(log_file, mode=file_mode, encoding='utf-8')
+        user_handler = logging.FileHandler(log_file, mode=file_mode, encoding="utf-8")
         user_handler.setLevel(file_level)
         user_handler.setFormatter(file_formatter)
         user_handler.set_name("user_log")  # Mark this handler
@@ -127,7 +130,7 @@ class LogManager:
         Check if user log handler already exists.
         """
         for handler in self.logger.handlers:
-            if hasattr(handler, 'get_name') and handler.get_name() == "user_log":
+            if hasattr(handler, "get_name") and handler.get_name() == "user_log":
                 return True
         return False
 
@@ -154,9 +157,8 @@ class LogManager:
                 is_simulation_handler = True
             if getattr(handler, "_hydromodpy_simulation_log", False):
                 is_simulation_handler = True
-            if (
-                isinstance(handler, logging.FileHandler)
-                and handler.baseFilename == os.path.abspath(self.simulation_log_path)
+            if isinstance(handler, logging.FileHandler) and handler.baseFilename == os.path.abspath(
+                self.simulation_log_path
             ):
                 is_simulation_handler = True
             if is_simulation_handler:
@@ -173,7 +175,7 @@ class LogManager:
         ]
         for candidate_path in candidate_paths:
             try:
-                sim_handler = logging.FileHandler(candidate_path, mode='a', encoding='utf-8')
+                sim_handler = logging.FileHandler(candidate_path, mode="a", encoding="utf-8")
             except PermissionError:
                 continue
             self.simulation_log_path = candidate_path

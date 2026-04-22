@@ -27,12 +27,14 @@ class TestResultsConfigDefaults:
         assert cfg.export.csv_timeseries is True
 
     def test_from_dict(self):
-        cfg = ResultsConfig.model_validate({
-            "store": True,
-            "keep_solver_files": True,
-            "derived": {"watertable_depth": False},
-            "export": {"netcdf": True, "csv_timeseries": True},
-        })
+        cfg = ResultsConfig.model_validate(
+            {
+                "store": True,
+                "keep_solver_files": True,
+                "derived": {"watertable_depth": False},
+                "export": {"netcdf": True, "csv_timeseries": True},
+            }
+        )
         assert cfg.keep_solver_files is True
         assert cfg.derived.watertable_depth is False
         assert cfg.derived.watertable_elevation is True
@@ -81,8 +83,11 @@ class TestExportConfig:
 
     def test_variables_nothing_active(self):
         cfg = ExportVariablesConfig(
-            head=False, concentration=False, budget=False,
-            pathlines=False, derived=False,
+            head=False,
+            concentration=False,
+            budget=False,
+            pathlines=False,
+            derived=False,
         )
         assert cfg.active_names() == []
 
@@ -95,14 +100,16 @@ class TestIntegrationWithSimulationConfig:
     def test_results_in_simulation_config(self):
         from hydromodpy.simulation.planning.config import SimulationConfig
 
-        cfg = SimulationConfig.model_validate({
-            "results": {
-                "store": True,
-                "keep_solver_files": True,
-                "derived": {"seepage_areas": False},
-                "export": {"netcdf": True},
-            },
-        })
+        cfg = SimulationConfig.model_validate(
+            {
+                "results": {
+                    "store": True,
+                    "keep_solver_files": True,
+                    "derived": {"seepage_areas": False},
+                    "export": {"netcdf": True},
+                },
+            }
+        )
         assert cfg.results.store is True
         assert cfg.results.keep_solver_files is True
         assert cfg.results.derived.seepage_areas is False

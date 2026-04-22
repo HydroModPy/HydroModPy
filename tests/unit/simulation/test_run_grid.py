@@ -65,17 +65,27 @@ def _register_sim(
         dem = _make_dem(nrow, ncol)
         transform = (dem_res, 0.0, xmin, 0.0, -dem_res, ymax)
         catalog.write_geographic_raster(
-            sid, "watershed_dem", dem,
-            transform=transform, crs="+proj=lcc", nodata=-9999.0,
+            sid,
+            "watershed_dem",
+            dem,
+            transform=transform,
+            crs="+proj=lcc",
+            nodata=-9999.0,
         )
     return sid
 
 
 class TestGrid:
     def test_grid_scalar_metadata(self, catalog):
-        sid = _register_sim(catalog, dem_res=50.0, nrow=5, ncol=4,
-                            xmin=300_000.0, ymax=6_800_000.0,
-                            catch_area_km2=12.5)
+        sid = _register_sim(
+            catalog,
+            dem_res=50.0,
+            nrow=5,
+            ncol=4,
+            xmin=300_000.0,
+            ymax=6_800_000.0,
+            catch_area_km2=12.5,
+        )
         run = Run(sid, catalog)
         grid = run.grid
 
@@ -85,8 +95,7 @@ class TestGrid:
         assert grid.catchment_area_m2 == 12.5 * 1e6
 
     def test_grid_extent_matches_dem_transform(self, catalog):
-        sid = _register_sim(catalog, dem_res=50.0, nrow=5, ncol=4,
-                            xmin=300_000.0, ymax=6_800_000.0)
+        sid = _register_sim(catalog, dem_res=50.0, nrow=5, ncol=4, xmin=300_000.0, ymax=6_800_000.0)
         run = Run(sid, catalog)
         xmin, xmax, ymin, ymax = run.grid.extent
 
@@ -133,7 +142,7 @@ class TestCatchmentMask:
     def test_mask_area_consistency(self, catalog):
         sid = _register_sim(catalog, dem_res=50.0, nrow=5, ncol=4)
         run = Run(sid, catalog)
-        mask_area = int(run.catchment_mask.sum()) * run.grid.cell_size ** 2
+        mask_area = int(run.catchment_mask.sum()) * run.grid.cell_size**2
         assert mask_area == (3 * 2) * 2500.0
 
 
@@ -167,16 +176,27 @@ class TestDem:
 
 class TestFields:
     def _register_with_fields(
-        self, catalog, *, nrow=5, ncol=4, n_timesteps=3, variable="head",
+        self,
+        catalog,
+        *,
+        nrow=5,
+        ncol=4,
+        n_timesteps=3,
+        variable="head",
     ):
         sid = _register_sim(
-            catalog, nrow=nrow, ncol=ncol, n_timesteps=n_timesteps,
+            catalog,
+            nrow=nrow,
+            ncol=ncol,
+            n_timesteps=n_timesteps,
         )
         sz = catalog.open_zarr(sid)
         n_cells = nrow * ncol
         for t in range(n_timesteps):
             values = np.arange(
-                t * n_cells, (t + 1) * n_cells, dtype="float64",
+                t * n_cells,
+                (t + 1) * n_cells,
+                dtype="float64",
             )
             sz.write_field(variable, t, values, n_timesteps=n_timesteps)
         return sid
@@ -205,8 +225,10 @@ class TestFields:
 class TestTimeIndex:
     def test_time_index_basic(self, catalog):
         sid = _register_sim(
-            catalog, n_timesteps=36,
-            period_start="2000-01-01", period_end="2002-12-31",
+            catalog,
+            n_timesteps=36,
+            period_start="2000-01-01",
+            period_end="2002-12-31",
         )
         run = Run(sid, catalog)
         idx = run.time_index
@@ -217,8 +239,10 @@ class TestTimeIndex:
 
     def test_time_index_is_cached(self, catalog):
         sid = _register_sim(
-            catalog, n_timesteps=5,
-            period_start="2000-01-01", period_end="2000-01-05",
+            catalog,
+            n_timesteps=5,
+            period_start="2000-01-01",
+            period_end="2000-01-05",
         )
         run = Run(sid, catalog)
         assert run.time_index is run.time_index
@@ -259,7 +283,8 @@ class TestOutlet:
     def test_outlet_returns_xy(self, catalog):
         sid = _register_sim(catalog)
         catalog.write_geographic_metadata(
-            sid, {"x_outlet": "300500.0", "y_outlet": "6795000.0"},
+            sid,
+            {"x_outlet": "300500.0", "y_outlet": "6795000.0"},
         )
         run = Run(sid, catalog)
         assert run.outlet == (300500.0, 6795000.0)

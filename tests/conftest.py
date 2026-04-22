@@ -149,9 +149,7 @@ def _redirect_repo_root_cwd_for_gmsh_grid_tests(
     ):
         return
 
-    scratch_cwd = (
-        hydromodpy_test_scratch_root / "cwd" / "gmsh_grid" / test_path.stem
-    )
+    scratch_cwd = hydromodpy_test_scratch_root / "cwd" / "gmsh_grid" / test_path.stem
     scratch_cwd.mkdir(parents=True, exist_ok=True)
     monkeypatch.chdir(scratch_cwd)
 
@@ -174,12 +172,8 @@ def pytest_collection_modifyitems(config, items):
             if layer in parts:
                 if layer not in item.keywords:
                     item.add_marker(getattr(pytest.mark, layer))
-                if not any(
-                    mark.name == "timeout" for mark in item.iter_markers()
-                ):
-                    item.add_marker(
-                        pytest.mark.timeout(_LAYER_TIMEOUTS_SECONDS[layer])
-                    )
+                if not any(mark.name == "timeout" for mark in item.iter_markers()):
+                    item.add_marker(pytest.mark.timeout(_LAYER_TIMEOUTS_SECONDS[layer]))
                 break
 
         # 2) Regression tier default markers (fast vs extensive).
@@ -206,4 +200,3 @@ def pytest_sessionfinish(session, exitstatus):
     scratch = _TEST_SCRATCH_ROOT
     if scratch.exists():
         shutil.rmtree(scratch, ignore_errors=True)
-

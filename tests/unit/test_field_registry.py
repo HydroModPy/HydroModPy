@@ -47,9 +47,7 @@ class TestRegistryContents:
 
     def test_public_name_matches_key(self):
         for key, desc in FIELD_REGISTRY.items():
-            assert desc.public_name == key, (
-                f"Public name mismatch for {key}: {desc.public_name!r}"
-            )
+            assert desc.public_name == key, f"Public name mismatch for {key}: {desc.public_name!r}"
 
     def test_zarr_paths_are_unique(self):
         paths = [d.zarr_path for d in FIELD_REGISTRY.values()]
@@ -99,8 +97,12 @@ class TestPublicAPI:
     def test_cf_attrs_returns_expected_keys(self):
         attrs = cf_attrs("head")
         expected = {
-            "standard_name", "long_name", "units",
-            "cell_methods", "grid_mapping", "coordinates",
+            "standard_name",
+            "long_name",
+            "units",
+            "cell_methods",
+            "grid_mapping",
+            "coordinates",
         }
         assert set(attrs) == expected
         assert attrs["standard_name"] == "groundwater_head_above_reference_level"

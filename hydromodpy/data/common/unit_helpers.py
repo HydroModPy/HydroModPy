@@ -38,6 +38,7 @@ class _ResolvedUnit:
 # Resolution via support.units modules (multiplicative families)
 # ------------------------------------------------------------------
 
+
 def _resolve_via_support_units(unit: str) -> _ResolvedUnit | None:
     resolvers: tuple[
         tuple[str, Callable[[str], str], Callable[[str], float]],
@@ -108,12 +109,12 @@ _CONCENTRATION_UNITS: dict[str, tuple[str, float]] = {
 
 # CF-convention remapping — common NetCDF unit strings.
 _CF_REMAP: dict[str, str] = {
-    "kgm-2s-1": "mm/s",       # precipitation mass flux → mm/s
+    "kgm-2s-1": "mm/s",  # precipitation mass flux → mm/s
     "kg.m-2.s-1": "mm/s",
     "kg/m2/s": "mm/s",
     "kg/m^2/s": "mm/s",
     "kg/m²/s": "mm/s",
-    "kgkg-1": "fraction",     # specific humidity
+    "kgkg-1": "fraction",  # specific humidity
     "kg/kg": "fraction",
 }
 
@@ -150,6 +151,7 @@ def _resolve_manual_unit(unit: str) -> _ResolvedUnit | None:
 # Main resolution chain
 # ------------------------------------------------------------------
 
+
 def _resolve_unit(unit: str) -> _ResolvedUnit:
     resolved = _resolve_via_support_units(unit)
     if resolved is not None:
@@ -173,6 +175,7 @@ def _resolve_unit(unit: str) -> _ResolvedUnit:
 # Public API
 # ------------------------------------------------------------------
 
+
 def convert_value(value: float, from_unit: str, to_unit: str) -> float:
     """Convert a scalar value between compatible units.
 
@@ -185,7 +188,9 @@ def convert_value(value: float, from_unit: str, to_unit: str) -> float:
     target = _resolve_unit(to_unit)
 
     if source.family != target.family:
-        raise ValueError(f"Incompatible units: '{from_unit}' ({source.family}) -> '{to_unit}' ({target.family})")
+        raise ValueError(
+            f"Incompatible units: '{from_unit}' ({source.family}) -> '{to_unit}' ({target.family})"
+        )
 
     # Affine: value_base = value * factor + offset
     base_value = value * source.factor_to_base + source.offset_to_base
@@ -205,7 +210,9 @@ def convert_array(data, from_unit: str, to_unit: str):
     target = _resolve_unit(to_unit)
 
     if source.family != target.family:
-        raise ValueError(f"Incompatible units: '{from_unit}' ({source.family}) -> '{to_unit}' ({target.family})")
+        raise ValueError(
+            f"Incompatible units: '{from_unit}' ({source.family}) -> '{to_unit}' ({target.family})"
+        )
 
     result = data * source.factor_to_base + source.offset_to_base
     if target.offset_to_base != 0.0 or target.factor_to_base != 1.0:
@@ -226,7 +233,9 @@ def get_conversion_factor(from_unit: str, to_unit: str) -> float:
     target = _resolve_unit(to_unit)
 
     if source.family != target.family:
-        raise ValueError(f"Incompatible units: '{from_unit}' ({source.family}) -> '{to_unit}' ({target.family})")
+        raise ValueError(
+            f"Incompatible units: '{from_unit}' ({source.family}) -> '{to_unit}' ({target.family})"
+        )
 
     if source.has_offset or target.has_offset:
         raise TypeError(

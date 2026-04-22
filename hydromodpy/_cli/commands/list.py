@@ -16,11 +16,13 @@ HELP = "List projects or runs in a workspace"
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument(
-        "project", nargs="?",
+        "project",
+        nargs="?",
         help="Project name to list runs for (omit for project listing)",
     )
     parser.add_argument(
-        "--workspace", default=None,
+        "--workspace",
+        default=None,
         help="Workspace root (default: ~/hydromodpy/)",
     )
     parser.set_defaults(_handler=run)
@@ -52,6 +54,7 @@ def run(args: argparse.Namespace) -> None:
                 SimulationCatalog,
                 short_id,
             )
+
             catalog = SimulationCatalog(workspace_root)
             sims = catalog.list_simulations(project=args.project)
             if sims.empty:

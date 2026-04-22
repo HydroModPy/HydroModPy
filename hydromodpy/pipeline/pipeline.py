@@ -77,7 +77,8 @@ class Pipeline:
                 state = cp_store.restore(last_saved)
                 logger.info(
                     "pipeline.resume: restored run_id=%s from step %d",
-                    state.run_id, last_saved,
+                    state.run_id,
+                    last_saved,
                 )
 
         for index, step in enumerate(self.steps):
@@ -141,7 +142,10 @@ class Pipeline:
             cp_store.persist(out)
         if ledger is not None:
             ledger.finish(
-                state.run_id, index, status="completed", elapsed_ms=elapsed_ms,
+                state.run_id,
+                index,
+                status="completed",
+                elapsed_ms=elapsed_ms,
             )
         return out
 

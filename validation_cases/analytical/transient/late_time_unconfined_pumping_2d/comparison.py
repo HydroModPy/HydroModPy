@@ -1,4 +1,4 @@
-﻿"""Comparison workflow for the late-time unconfined pumping 2D validation case."""
+"""Comparison workflow for the late-time unconfined pumping 2D validation case."""
 
 from __future__ import annotations
 
@@ -158,6 +158,3 @@ def run_late_time_unconfined_pumping_comparison(
         metadata=preloaded_metadata,
         tolerances=preloaded_tolerances,
     )
-
-
-

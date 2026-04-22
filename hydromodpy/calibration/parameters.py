@@ -77,7 +77,7 @@ def _inverse(transform: str, y: float) -> float:
     if transform == "identity":
         return y
     if transform == "log":
-        return 10.0 ** y
+        return 10.0**y
     if transform == "logit":
         return 1.0 / (1.0 + math.exp(-y))
     raise ValueError(f"Unknown transform: {transform!r}")
@@ -147,9 +147,7 @@ class ParameterSpace:
 
     @property
     def transformed_bounds(self) -> dict[str, tuple[float, float]]:
-        return {
-            p.name: (p.lower_transformed, p.upper_transformed) for p in self._params
-        }
+        return {p.name: (p.lower_transformed, p.upper_transformed) for p in self._params}
 
     def physical_bounds(self) -> dict[str, tuple[float, float]]:
         return {p.name: (p.lower, p.upper) for p in self._params}
@@ -174,13 +172,9 @@ class ParameterSpace:
             if bounds is None and ann is not None:
                 bounds = ann.bounds
             if bounds is None:
-                raise ValueError(
-                    f"Parameter {name!r} has no bounds (TOML or annotation)"
-                )
+                raise ValueError(f"Parameter {name!r} has no bounds (TOML or annotation)")
             low, high = float(bounds[0]), float(bounds[1])
-            transform = decl.get(
-                "transform", ann.transform if ann else "identity"
-            )
+            transform = decl.get("transform", ann.transform if ann else "identity")
             prior = decl.get("prior", ann.prior if ann else "uniform")
             units = decl.get("units", ann.units if ann else None)
             path = decl.get("path")
@@ -214,12 +208,15 @@ def _iter_annotations(model_cls: type[BaseModel]) -> Iterable[tuple[str, Calibra
         if isinstance(hint, Calibrable):
             yield field_name, hint
         elif isinstance(hint, Mapping):
-            yield field_name, Calibrable(
-                bounds=tuple(hint["bounds"]) if hint.get("bounds") else None,
-                transform=hint.get("transform", "identity"),
-                prior=hint.get("prior", "uniform"),
-                units=hint.get("units"),
-                description=hint.get("description", ""),
+            yield (
+                field_name,
+                Calibrable(
+                    bounds=tuple(hint["bounds"]) if hint.get("bounds") else None,
+                    transform=hint.get("transform", "identity"),
+                    prior=hint.get("prior", "uniform"),
+                    units=hint.get("units"),
+                    description=hint.get("description", ""),
+                ),
             )
 
 

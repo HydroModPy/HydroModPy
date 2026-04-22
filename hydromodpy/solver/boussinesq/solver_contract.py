@@ -62,9 +62,9 @@ def resolve_surface_interaction_model(flow: object) -> str:
 def resolve_solver_contract(flow: object) -> BoussinesqSolverContract:
     """Return the explicit solver contract derived from the current `Flow`."""
     runtime_backend_requested = runtime_backend_name(flow)
-    surface_requested = str(
-        getattr(flow, "surface_interaction_model", "auto") or "auto"
-    ).strip().lower() or "auto"
+    surface_requested = (
+        str(getattr(flow, "surface_interaction_model", "auto") or "auto").strip().lower() or "auto"
+    )
     surface_resolved = resolve_surface_interaction_model_token(
         runtime_backend_name=runtime_backend_requested,
         surface_interaction_model=surface_requested,
@@ -98,12 +98,8 @@ def build_runtime_options(
     runtime_max_iterations = getattr(flow, "runtime_max_iterations", None)
     if runtime_max_iterations is not None:
         max_iterations = int(runtime_max_iterations)
-    tol_residual_inf = float(
-        getattr(flow, "runtime_tol_residual_inf", 1.0e-9) or 1.0e-9
-    )
-    tol_state_update_inf = float(
-        getattr(flow, "runtime_tol_state_update_inf", 1.0e-9) or 1.0e-9
-    )
+    tol_residual_inf = float(getattr(flow, "runtime_tol_residual_inf", 1.0e-9) or 1.0e-9)
+    tol_state_update_inf = float(getattr(flow, "runtime_tol_state_update_inf", 1.0e-9) or 1.0e-9)
     return NonlinearRuntimeOptions(
         regularization_radius=float(regularization_radius),
         max_iterations=int(max_iterations),
@@ -116,30 +112,22 @@ def assert_supported_runtime_subset(flow: object) -> None:
     """Fail fast when the requested problem exceeds the implemented slice."""
     active_bc = tuple(getattr(flow, "active_bc", ()) or ())
     active_sinks_sources = tuple(getattr(flow, "active_sinks_sources", ()) or ())
-    unsupported_bc = sorted(
-        str(item) for item in active_bc if str(item) not in _SUPPORTED_BC_IDS
-    )
+    unsupported_bc = sorted(str(item) for item in active_bc if str(item) not in _SUPPORTED_BC_IDS)
     unsupported_sinks_sources = sorted(
-        str(item)
-        for item in active_sinks_sources
-        if str(item) not in _SUPPORTED_SINK_SOURCE_IDS
+        str(item) for item in active_sinks_sources if str(item) not in _SUPPORTED_SINK_SOURCE_IDS
     )
     unsupported: list[str] = []
     if unsupported_bc:
         unsupported.append("active_bc=" + ",".join(unsupported_bc))
     if unsupported_sinks_sources:
-        unsupported.append(
-            "active_sinks_sources=" + ",".join(unsupported_sinks_sources)
-        )
+        unsupported.append("active_sinks_sources=" + ",".join(unsupported_sinks_sources))
 
     if unsupported:
         raise NotImplementedError(
             "The current boussinesq backend slice supports recharge, XY "
             "wells, side Dirichlet boundaries, stream, ocean, "
             "top drainage, and default no-flow on other outer edges. The "
-            "following runtime features are not implemented yet: "
-            + "; ".join(unsupported)
-            + "."
+            "following runtime features are not implemented yet: " + "; ".join(unsupported) + "."
         )
 
 

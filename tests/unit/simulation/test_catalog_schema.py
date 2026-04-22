@@ -15,8 +15,5 @@ from __future__ import annotations
 import pytest
 
 pytestmark = pytest.mark.skip(
-    reason=(
-        "Obsolete post-P02 schema refactor. "
-        "See tests/unit/test_storage_catalog.py."
-    ),
+    reason=("Obsolete post-P02 schema refactor. See tests/unit/test_storage_catalog.py."),
 )
