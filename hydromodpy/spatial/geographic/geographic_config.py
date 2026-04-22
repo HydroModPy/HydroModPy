@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.param_level import VisibleWhen
+from hydromodpy.core.tracking import InputFile
 from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
 from hydromodpy.core.units import parse_length_to_m
 from hydromodpy.core.config.base import HydroModelBase
@@ -177,6 +178,7 @@ class GeographicConfig(HydroModelBase):
         Path | None,
         Profile.USER,
         VisibleWhen("source_mode", "standard"),
+        InputFile(role="dem", category="data"),
     ] = Field(
         default=None,
         description=(
@@ -239,6 +241,7 @@ class GeographicConfig(HydroModelBase):
         Path | None,
         Profile.USER,
         VisibleWhen("catch_def", "from_polyg_shp"),
+        InputFile(role="watershed_polygon", category="geometry"),
     ] = Field(
         default=None,
         description="Path to the watershed polygon shapefile. Required for 'from_polyg_shp' mode.",
@@ -251,7 +254,11 @@ class GeographicConfig(HydroModelBase):
         default="breach",
         description="DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.",
     )
-    bottom_path: Annotated[Path | None, Profile.USER] = Field(
+    bottom_path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="aquifer_bottom", category="geometry"),
+    ] = Field(
         default=None,
         description="Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain.",
     )

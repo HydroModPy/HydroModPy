@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.data.base_config import BaseVariableConfig
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.tracking import InputFile
 
 
 class HumiditySourceConfig(HydroModelBase):
@@ -22,7 +23,11 @@ class HumiditySourceConfig(HydroModelBase):
     )
 
     # --- Custom source fields ---
-    path: Annotated[Path | None, Profile.USER] = Field(
+    path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="humidity", category="data"),
+    ] = Field(
         default=None, description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
     )
     source_unit: Annotated[str | None, Profile.USER] = Field(

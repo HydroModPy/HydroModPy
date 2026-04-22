@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.tracking import InputFile
 
 
 class HydrographySourceConfig(HydroModelBase):
@@ -21,7 +22,11 @@ class HydrographySourceConfig(HydroModelBase):
     ] = Field(..., description="Data provider.")
 
     # --- Custom source fields ---
-    path: Annotated[Path | None, Profile.USER] = Field(
+    path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="hydrography", category="data"),
+    ] = Field(
         default=None,
         description="Path to a vector file (SHP/GPKG/GeoJSON), raster (TIF/TIFF), or directory containing one.",
     )

@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.data.base_config import BaseVariableConfig
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.tracking import InputFile
 
 
 class PrecipitationSourceConfig(HydroModelBase):
@@ -29,7 +30,11 @@ class PrecipitationSourceConfig(HydroModelBase):
     )
 
     # --- Custom source fields ---
-    path: Annotated[Path | None, Profile.USER] = Field(default=None, description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.")
+    path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="precipitation", category="data"),
+    ] = Field(default=None, description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.")
     source_unit: Annotated[str | None, Profile.USER] = Field(default=None, description="Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.")
     col_id: Annotated[str, Profile.DEV] = Field(default="id", description="Column name for station identifier in location file.")
     col_x: Annotated[str, Profile.DEV] = Field(default="x", description="Column name for X coordinate in location CSV.")

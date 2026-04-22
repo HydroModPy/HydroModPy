@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.tracking import InputFile
 
 
 class GeologySourceConfig(HydroModelBase):
@@ -29,7 +30,11 @@ class GeologySourceConfig(HydroModelBase):
     )
 
     # --- Custom source fields ---
-    path: Annotated[Path | None, Profile.USER] = Field(
+    path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="geology", category="data"),
+    ] = Field(
         default=None,
         description="Path to custom geology file or directory (SHP, GPKG, TIF, CSV).",
     )

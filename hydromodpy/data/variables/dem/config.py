@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.tracking import InputFile
 
 
 class DemSourceConfig(HydroModelBase):
@@ -34,7 +35,11 @@ class DemSourceConfig(HydroModelBase):
     )
 
     # --- Custom source fields ---
-    path: Annotated[Path | None, Profile.USER] = Field(
+    path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="dem", category="data"),
+    ] = Field(
         default=None,
         description="Path to custom DEM file or directory (TIF, ASC, NC).",
     )
