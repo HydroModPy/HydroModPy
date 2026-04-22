@@ -188,8 +188,9 @@ class TestDeleteSimulation:
         catalog.write_field(sid, "head", 0, np.zeros((2, 4)), n_timesteps=1)
         catalog.finalize(sid, status="completed")
 
-        zarr_zip = catalog.workspace_path / "simulations" / f"{sid}.zarr.zip"
+        zarr_zip = catalog.zarr_path_for(sid)
         assert zarr_zip.exists()
+        assert zarr_zip.suffix == ".zip"
 
         catalog.delete(sid)
 

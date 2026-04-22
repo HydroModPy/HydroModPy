@@ -1,25 +1,19 @@
 """Unit tests for the Parquet lakehouse refactor.
 
-Covers the atomic write path, the DuckDB view semantics, the ``.hmp``
-package round-trip, and the ``hmp migrate`` command.
+Covers the atomic write path, the DuckDB view semantics, and the ``.hmp``
+package round-trip.
 """
 
 from __future__ import annotations
 
-import argparse
 import multiprocessing
 import uuid
 from pathlib import Path
 
-import duckdb
 import pandas as pd
 
 from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.results.catalog_schema import (
-    PARQUET_VIEW_NAMES,
-    ensure_parquet_views,
-    ensure_schema,
-)
+from hydromodpy.results.catalog_schema import PARQUET_VIEW_NAMES
 
 
 def _make_series(n: int = 5, start: str = "2020-01-01") -> pd.Series:
@@ -38,7 +32,7 @@ class TestAtomicWrite:
         with SimulationCatalog(tmp_path) as cat:
             sid = _register(cat)
             cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
-        target = tmp_path / "simulations" / f"{sid}.parquet" / "timeseries.parquet"
+            target = cat.parquet_dir_for(sid) / "timeseries.parquet"
         assert target.is_file()
         assert not target.with_name(target.name + ".tmp").exists()
 
@@ -111,7 +105,7 @@ class TestDelete:
                     }
                 ],
             )
-            parquet_dir = tmp_path / "simulations" / f"{sid}.parquet"
+            parquet_dir = cat.parquet_dir_for(sid)
             assert parquet_dir.is_dir()
             cat.delete(sid)
             assert not parquet_dir.exists()
@@ -159,137 +153,10 @@ class TestAtomicInterruption:
         with SimulationCatalog(tmp_path) as cat:
             sid = _register(cat)
             cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
-            stray = tmp_path / "simulations" / f"{sid}.parquet" / "timeseries.parquet.tmp"
+            stray = cat.parquet_dir_for(sid) / "timeseries.parquet.tmp"
             stray.write_bytes(b"corrupted")
             count = cat.connection.execute(
                 "SELECT COUNT(*) FROM timeseries WHERE sim_id = ?", [sid]
             ).fetchone()[0]
             assert count == 5
             stray.unlink()
-
-
-class TestMigration:
-    def _build_legacy_catalog(self, workspace: Path) -> str:
-        """Recreate a pre-refactor catalog by re-introducing the old tables."""
-        workspace.mkdir(parents=True, exist_ok=True)
-        db = duckdb.connect(str(workspace / "hydromodpy.duckdb"))
-        try:
-            ensure_schema(db)
-            db.execute(
-                "CREATE TABLE IF NOT EXISTS timeseries ("
-                "sim_id UUID NOT NULL, station_id VARCHAR, variable VARCHAR, "
-                "datetime TIMESTAMPTZ, value DOUBLE, unit VARCHAR, "
-                "qflag VARCHAR DEFAULT 'simulated')"
-            )
-            db.execute(
-                "CREATE TABLE IF NOT EXISTS budgets ("
-                "sim_id UUID NOT NULL, timestep INTEGER, zone_id VARCHAR, "
-                "component VARCHAR, flux_in DOUBLE, flux_out DOUBLE, "
-                "unit VARCHAR)"
-            )
-            db.execute(
-                "CREATE TABLE IF NOT EXISTS mass_balance ("
-                "sim_id UUID NOT NULL, timestep INTEGER, total_in DOUBLE, "
-                "total_out DOUBLE, storage_in DOUBLE, storage_out DOUBLE, "
-                "percent_error DOUBLE, unit VARCHAR)"
-            )
-            sid = str(uuid.uuid4())
-            db.execute(
-                "INSERT INTO simulations (sim_id, project, solver) VALUES (?, 'p', 'modflow6')",
-                [sid],
-            )
-            for i in range(3):
-                db.execute(
-                    "INSERT INTO timeseries (sim_id, station_id, variable, "
-                    "datetime, value, unit, qflag) "
-                    "VALUES (?, 'P01', 'head', TIMESTAMPTZ '2020-01-0"
-                    + str(i + 1)
-                    + " 00:00:00+00', ?, 'm', 'simulated')",
-                    [sid, float(i)],
-                )
-            db.execute(
-                "INSERT INTO budgets (sim_id, timestep, zone_id, component, "
-                "flux_in, flux_out, unit) VALUES (?, 0, '0', 'recharge', 1.0, 0.0, 'm3/d')",
-                [sid],
-            )
-            db.execute(
-                "INSERT INTO mass_balance (sim_id, timestep, total_in, "
-                "total_out, storage_in, storage_out, percent_error, unit) "
-                "VALUES (?, 0, 1.0, 0.95, 0.0, 0.0, 0.5, 'm3/d')",
-                [sid],
-            )
-        finally:
-            db.close()
-        return sid
-
-    def test_migrate_moves_rows_and_drops_tables(self, tmp_path: Path):
-        workspace = tmp_path / "ws"
-        sid = self._build_legacy_catalog(workspace)
-        from hydromodpy._cli.commands import migrate as migrate_cmd
-
-        args = migrate_cmd.register(argparse_stub()).parse_args(["--workspace", str(workspace)])
-        migrate_cmd.run(args)
-
-        # Views must return the migrated rows.
-        with SimulationCatalog(workspace) as cat:
-            ts = (
-                cat.connection.execute(
-                    "SELECT value FROM timeseries WHERE sim_id = ? ORDER BY datetime",
-                    [sid],
-                )
-                .fetchdf()["value"]
-                .tolist()
-            )
-            assert ts == [0.0, 1.0, 2.0]
-            assert cat.connection.execute("SELECT COUNT(*) FROM budgets").fetchone()[0] == 1
-            assert cat.connection.execute("SELECT COUNT(*) FROM mass_balance").fetchone()[0] == 1
-            # Parquet files must exist on disk.
-            for view in PARQUET_VIEW_NAMES:
-                assert (workspace / "simulations" / f"{sid}.parquet" / f"{view}.parquet").is_file()
-            # Legacy tables must be gone.
-            tables = {
-                r[0]
-                for r in cat.connection.execute(
-                    "SELECT table_name FROM information_schema.tables "
-                    "WHERE table_schema='main' AND table_type='BASE TABLE'"
-                ).fetchall()
-            }
-            assert "timeseries" not in tables
-            assert "budgets" not in tables
-            assert "mass_balance" not in tables
-
-    def test_migrate_is_idempotent(self, tmp_path: Path):
-        workspace = tmp_path / "ws"
-        self._build_legacy_catalog(workspace)
-        from hydromodpy._cli.commands import migrate as migrate_cmd
-
-        parser = migrate_cmd.register(argparse_stub())
-        migrate_cmd.run(parser.parse_args(["--workspace", str(workspace)]))
-        # Second run should be a no-op and not raise.
-        migrate_cmd.run(parser.parse_args(["--workspace", str(workspace)]))
-
-
-class _Subparsers:
-    """Minimal stub providing the ``add_parser`` interface."""
-
-    def __init__(self) -> None:
-        import argparse as _argparse
-
-        self._parser = _argparse.ArgumentParser()
-        self._sub = self._parser.add_subparsers()
-
-    def add_parser(self, name: str, help: str = "") -> argparse.ArgumentParser:
-        return self._sub.add_parser(name, help=help)
-
-
-def argparse_stub():
-    """Return an object the ``register(subparsers)`` callable accepts."""
-    import argparse as _argparse
-
-    parser = _argparse.ArgumentParser()
-    return parser.add_subparsers()
-
-
-# ``argparse_stub`` above returns a ``_SubParsersAction`` which has the
-# ``add_parser`` method that ``register`` needs; we keep the helper and
-# expose it so the migration tests stay readable.

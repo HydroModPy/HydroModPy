@@ -174,10 +174,12 @@ class TestImportSimulation:
 
         cat2 = SimulationCatalog(ws2)
         cat2.import_package(pkg)
-        zarr_path = cat2.connection.execute(
-            "SELECT zarr_path FROM simulations WHERE sim_id = ?", [sid]
-        ).fetchone()[0]
-        assert zarr_path == f"simulations/{sid}.zarr.zip"
+        zarr_path, basename = cat2.connection.execute(
+            "SELECT zarr_path, storage_basename FROM simulations WHERE sim_id = ?",
+            [sid],
+        ).fetchone()
+        assert basename  # non-null basename populated on import
+        assert zarr_path == f"simulations/{basename}.zarr.zip"
         assert (ws2 / zarr_path).exists()
         cat2.close()
 
