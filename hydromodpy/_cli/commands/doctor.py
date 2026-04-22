@@ -224,7 +224,7 @@ def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dic
     db = ws / "hydromodpy.duckdb"
     cache = ws / "data" / "cache.duckdb"
     sims = ws / "simulations"
-    return [
+    checks = [
         {
             "name": "workspace",
             "status": "OK",
@@ -236,6 +236,80 @@ def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dic
         _path_check("simulations_dir", sims),
         _path_check("data_cache", cache, required=False),
     ]
+    checks.extend(_probe_parquet_layout(ws))
+    return checks
+
+
+def _probe_parquet_layout(ws: Path) -> list[dict]:
+    """Report on the per-sim Parquet directories and flag inconsistencies."""
+    db = ws / "hydromodpy.duckdb"
+    if not db.is_file():
+        return []
+    try:
+        import duckdb as _duckdb
+    except ImportError:
+        return []
+    try:
+        conn = _duckdb.connect(str(db), read_only=True)
+    except _duckdb.IOException as exc:
+        return [
+            {
+                "name": "parquet:catalog",
+                "status": "WARN",
+                "detail": f"catalog busy: {exc}",
+                "hint": "Close other HydroModPy sessions and retry",
+            }
+        ]
+    try:
+        tables = {
+            r[0]
+            for r in conn.execute(
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_schema='main' AND table_type='BASE TABLE'"
+            ).fetchall()
+        }
+        registered = {
+            str(r[0])
+            for r in conn.execute("SELECT CAST(sim_id AS VARCHAR) FROM simulations").fetchall()
+        }
+    finally:
+        conn.close()
+
+    out: list[dict] = []
+    legacy = {"timeseries", "budgets", "mass_balance"} & tables
+    if legacy:
+        out.append(
+            {
+                "name": "parquet:layout",
+                "status": "WARN",
+                "detail": f"legacy tables present: {', '.join(sorted(legacy))}",
+                "hint": "Run `hmp migrate` to move rows to Parquet",
+            }
+        )
+    sims_dir = ws / "simulations"
+    if not sims_dir.is_dir():
+        return out
+    parquet_dirs = {p.name[: -len(".parquet")]: p for p in sims_dir.glob("*.parquet") if p.is_dir()}
+    orphan = sorted(set(parquet_dirs) - registered)
+    if orphan:
+        out.append(
+            {
+                "name": "parquet:orphan_dirs",
+                "status": "WARN",
+                "detail": f"{len(orphan)} parquet dir(s) without a catalog row",
+                "hint": f"first: {orphan[0]} (rm or re-register)",
+            }
+        )
+    else:
+        out.append(
+            {
+                "name": "parquet:layout",
+                "status": "OK",
+                "detail": f"{len(parquet_dirs)} per-sim Parquet dir(s)",
+                "hint": None,
+            }
+        )
+    return out
 
 
 def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[dict]:
