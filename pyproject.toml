@@ -29,7 +29,7 @@ keywords = [
     "catchment",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta", 
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
@@ -228,6 +228,16 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["hydromodpy", "hydromodpy_annex"]
+
+[tool.ruff.lint.flake8-type-checking]
+# Tell ruff that pydantic's BaseModel is inspected at runtime, so forward
+# references to annotated types (e.g. `"HydrographyConfig | None"`) inside
+# pydantic models must be resolvable — avoids a wave of false-positive F821s
+# when the real import sits under `if TYPE_CHECKING:`.
+runtime-evaluated-base-classes = [
+    "pydantic.BaseModel",
+    "pydantic_settings.BaseSettings",
+]
 
 [tool.ruff.format]
 # Mirrors black's defaults: double quotes, 4-space indent, trailing commas.
