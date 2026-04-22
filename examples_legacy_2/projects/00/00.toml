@@ -73,7 +73,7 @@ catch_def = "from_outlet_coord"
 # For 'dem' and 'txt' modes: defines the model domain directly.
 # For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis.
 # Type: path (optional) | Optional
-dem_init_path = "../../data/dem/regional_dem_aber.tif"
+dem_init_path = "../../../examples/data/dem/regional_dem_aber.tif"
 
 # Grid cell size in metres used to rasterise the XYZ point cloud.
 # Required for 'txt' mode.
@@ -274,7 +274,7 @@ date_end = "2017-12-31"
 
 [[data.recharge.sources]]
 source = "custom"
-path = "../../data/recharge"
+path = "../../../examples/data/recharge"
 
 
 # ----------------------------------------------------------------------
@@ -324,7 +324,7 @@ description = "Pumping Well 1"
 
 [flow.sinks_sources.wells.W1.forcing]
 mode = "csv"
-path_file = "../../data/wells/wells_custom_00_20170101_20171231_M.csv"
+path_file = "../../../examples/data/wells/wells_custom_00_20170101_20171231_M.csv"
 date_column = "date"
 value_column = "W1_m3_day"
 units = "m3/day"
@@ -335,7 +335,7 @@ description = "Pumping Well 2"
 
 [flow.sinks_sources.wells.W2.forcing]
 mode = "csv"
-path_file = "../../data/wells/wells_custom_00_20170101_20171231_M.csv"
+path_file = "../../../examples/data/wells/wells_custom_00_20170101_20171231_M.csv"
 date_column = "date"
 value_column = "W2_m3_day"
 units = "m3/day"
@@ -1043,4 +1043,3 @@ weekly = false
 # Compute daily intermittency indicators from accumulation flux.
 # Type: bool | Default: false
 daily = false
-

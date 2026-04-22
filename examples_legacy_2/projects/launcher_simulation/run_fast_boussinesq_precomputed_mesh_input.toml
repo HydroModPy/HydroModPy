@@ -11,7 +11,7 @@ project_root = "./results_reused_real_meshes/example12_fast"
 
 [geographic]
 catch_def = "from_outlet_coord"
-dem_init_path = "../../data/dem/regional_dem_naizin.tif"
+dem_init_path = "../../../examples/data/dem/regional_dem_naizin.tif"
 x_outlet = 265611.933
 y_outlet = 6784182.776
 snap_dist = "50 m"

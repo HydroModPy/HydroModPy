@@ -11,7 +11,7 @@ project_root = "./results_reused_real_meshes/headwater_100km2_outlet_2"
 
 [geographic]
 catch_def = "from_outlet_coord"
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+dem_init_path = "../../../examples/data/dem/DEM_armorican_massif.tif"
 x_outlet = 407925.0
 y_outlet = 6808275.0
 snap_dist = "50 m"
