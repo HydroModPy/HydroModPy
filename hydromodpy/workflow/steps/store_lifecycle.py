@@ -62,6 +62,26 @@ def _collect_registration_kwargs(ctx: WorkflowContext) -> dict:
     return kwargs
 
 
+def _register_tracked_input_files(ctx: WorkflowContext) -> None:
+    """Walk the config tree and persist every InputFile-marked path."""
+    from hydromodpy.core.tracking import collect_input_files
+
+    try:
+        entries = collect_input_files(ctx.cfg)
+    except Exception as exc:
+        logger.warning("Skipping tracked-file registration: %s", exc)
+        return
+
+    portable = [e for e in entries if e.portable]
+    if not portable:
+        return
+    written = ctx.store.register_tracked_files(ctx.sim_id, portable)
+    logger.info(
+        "Registered %d tracked input file(s) for simulation %s",
+        written, ctx.sim_id,
+    )
+
+
 def _write_flow_parameters(store, sim_id: str, flow, domain=None) -> None:
     """Write hydraulic parameters from a Flow object into the catalog.
 
@@ -145,6 +165,8 @@ def step_open_store(ctx: WorkflowContext) -> None:
     )
     if registration.name and registration.name != ctx.setup.run_id:
         ctx.setup.run_id = registration.name
+
+    _register_tracked_input_files(ctx)
 
     # Write hydraulic parameters
     if ctx.setup.flow is not None:

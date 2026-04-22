@@ -111,6 +111,15 @@ class RegistrationResult:
     replaced_sim_id: str | None
 
 
+def _sha256_streaming(path: Path, chunk_size: int = 65536) -> str:
+    """Compute SHA-256 of a file by reading it in fixed-size chunks."""
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(chunk_size), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def _next_available_version(
     db: duckdb.DuckDBPyConnection, project: str, base_name: str,
 ) -> str:
@@ -557,6 +566,62 @@ class SimulationCatalog:
                    VALUES (?, ?, ?, ?, ?, ?)""",
                 [sid, station_id, x, y, cell_id, layer],
             )
+
+    # -- Tracked input files --------------------------------------------------
+
+    def register_tracked_files(
+        self,
+        sim_id: str | UUID,
+        entries: "list[Any]",
+    ) -> int:
+        """Persist tracked-file records for a simulation.
+
+        Each entry must expose ``role``, ``category``, ``original_path``,
+        ``canonical_path``, and ``portable`` (as produced by
+        :func:`hydromodpy.core.tracking.collect_input_files`). The SHA-256
+        and size are computed here from the canonical path. Files that
+        disappeared between walker-resolution and this call are skipped
+        with a logger warning to keep the setup step non-fatal.
+        """
+        sid = str(sim_id)
+        written = 0
+        for entry in entries:
+            canonical = Path(entry.canonical_path)
+            if not canonical.is_file():
+                logger.warning(
+                    "Tracked input '%s' missing on disk, skipping: %s",
+                    entry.role, canonical,
+                )
+                continue
+            sha = _sha256_streaming(canonical)
+            size = canonical.stat().st_size
+            self._db.execute(
+                """INSERT OR REPLACE INTO tracked_files
+                   (sim_id, role, category, original_path, canonical_path,
+                    sha256, size_bytes, portable)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                [
+                    sid,
+                    entry.role,
+                    entry.category,
+                    entry.original_path,
+                    str(canonical),
+                    sha,
+                    int(size),
+                    bool(entry.portable),
+                ],
+            )
+            written += 1
+        return written
+
+    def list_tracked_files(self, sim_id: str | UUID) -> "pd.DataFrame":
+        return self._db.execute(
+            """SELECT role, category, original_path, canonical_path,
+                      sha256, size_bytes, portable
+               FROM tracked_files WHERE sim_id = ?
+               ORDER BY role, canonical_path""",
+            [str(sim_id)],
+        ).fetchdf()
 
     # -- Geographic features & metadata (sim-scoped in DuckDB) ----------------
 

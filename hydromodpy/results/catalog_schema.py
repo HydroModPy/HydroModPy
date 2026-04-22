@@ -366,6 +366,22 @@ CREATE TABLE IF NOT EXISTS geographic_metadata (
 );
 """
 
+_TRACKED_FILES_DDL = """
+CREATE TABLE IF NOT EXISTS tracked_files (
+    sim_id         UUID NOT NULL,
+    role           VARCHAR NOT NULL,
+    category       VARCHAR NOT NULL,
+    original_path  VARCHAR NOT NULL,
+    canonical_path VARCHAR NOT NULL,
+    sha256         VARCHAR NOT NULL,
+    size_bytes     BIGINT NOT NULL,
+    portable       BOOLEAN NOT NULL DEFAULT TRUE,
+    recorded_at    TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
+    PRIMARY KEY (sim_id, role, canonical_path)
+);
+CREATE INDEX IF NOT EXISTS ix_tracked_files_sha ON tracked_files(sha256);
+"""
+
 # ---------------------------------------------------------------------------
 #  Denormalized views (G05)
 # ---------------------------------------------------------------------------
@@ -484,6 +500,7 @@ TABLE_NAMES: tuple[str, ...] = (
     "tags",
     "stations",
     "observations",
+    "tracked_files",
 )
 
 PER_SIM_TABLE_NAMES: tuple[str, ...] = (
@@ -498,6 +515,7 @@ PER_SIM_TABLE_NAMES: tuple[str, ...] = (
     "geographic_metadata",
     "runs_environment",
     "tags",
+    "tracked_files",
 )
 
 _ALL_DDL: tuple[str, ...] = (
@@ -517,6 +535,7 @@ _ALL_DDL: tuple[str, ...] = (
     _TAGS_DDL,
     _STATIONS_DDL,
     _OBSERVATIONS_DDL,
+    _TRACKED_FILES_DDL,
 )
 
 
