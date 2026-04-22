@@ -1,4 +1,0 @@
-solver,solver_label,wall_time_seconds,results_dir
-modflownwt,MODFLOW-NWT,15.773719199933112,C:\codes\HydroModPy-GH\out\sih_transient_year_plus_dry_dt15_c1e4_20260413\validation\investigate_surfa_062b168c50\transient_modflownwt_abb2e083
-modflow6,MODFLOW 6,15.352421600022353,C:\codes\HydroModPy-GH\out\sih_transient_year_plus_dry_dt15_c1e4_20260413\validation\investigate_surfa_062b168c50\transient_modflow6_d7a0df6d
-boussinesq,Boussinesq,56.61173629993573,C:\codes\HydroModPy-GH\out\sih_transient_year_plus_dry_dt15_c1e4_20260413\validation\investigate_surfa_062b168c50\hillslope_surface_baba065f89_d00c9354

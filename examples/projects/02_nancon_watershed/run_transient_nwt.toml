@@ -15,7 +15,7 @@ workflow = "simulation"
 
 [simulation]
 name = "nancon_transient_nwt"
-description = "Bassin du Nançon — transitoire mensuel, MODFLOW-NWT."
+description = "Bassin du Nançon - transitoire mensuel, MODFLOW-NWT."
 
 [simulation.time]
 start_datetime = "2000-01-01"

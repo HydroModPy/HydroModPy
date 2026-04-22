@@ -1,9 +1,0 @@
-variant_id,reference_variant,observable,unit,n_pairs,bias,mae,rmse,max_abs_error,mean_relative_error
-boussinesq_petsc_mixed,boussinesq_scipy_sparse,head_outlet_point,m,1,1.263314999278009e-07,1.263314999278009e-07,1.263314999278009e-07,1.263314999278009e-07,1.3976011812043368e-09
-boussinesq_petsc_mixed,boussinesq_scipy_sparse,outlet_flux_series,m3/s,13,0.0,0.0,0.0,0.0,nan
-boussinesq_petsc_mixed,boussinesq_scipy_sparse,watertable_depth_map,m,4216,-0.2906526760530117,0.2906526760530117,0.8399522898581527,3.949766532958094,0.02486872414324975
-boussinesq_petsc_mixed,boussinesq_scipy_sparse,watertable_elevation_map,m,4216,0.29065267605301065,0.29065267605301065,0.8399522898581527,3.949766532958094,0.003755192080123415
-boussinesq_petsc_partition,boussinesq_scipy_sparse,head_outlet_point,m,1,-8.526512829121202e-14,8.526512829121202e-14,8.526512829121202e-14,8.526512829121202e-14,9.432852778874753e-16
-boussinesq_petsc_partition,boussinesq_scipy_sparse,outlet_flux_series,m3/s,13,0.0,0.0,0.0,0.0,nan
-boussinesq_petsc_partition,boussinesq_scipy_sparse,watertable_depth_map,m,4216,2.846624324259413e-05,2.8753681264490277e-05,0.001374760764443439,0.08715570866348799,1.962321298743343e-07
-boussinesq_petsc_partition,boussinesq_scipy_sparse,watertable_elevation_map,m,4216,-2.8466243242857044e-05,2.8753681264753192e-05,0.0013747607644431145,0.08715570866345956,3.1843091119298555e-07

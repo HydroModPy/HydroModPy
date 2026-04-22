@@ -1,4 +1,0 @@
-site_id = headwater_100km2_outlet_27
-source_bundle_dir = C:\Users\dreuzy\HydroModPy\mesh_gallery_headwater_100km2_outlet_27_rivers_only_outlet_27\mesh_catchment_outlet_27_bundle
-filled_z_top_centroid_from_mean = 6
-filled_z_bottom_centroid_from_mean = 0

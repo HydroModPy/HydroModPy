@@ -1,4 +1,0 @@
-2026-04-12 23:22:16,755 [INFO] [hydromodpy.data.common.progress] [progress:26] [data] recharge
-2026-04-12 23:22:16,855 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:219] Hydraulic conductivity mapped from flow.K using direct homogeneous mapping
-2026-04-12 23:22:16,855 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:219] Specific yield mapped from flow.Sy using direct homogeneous mapping
-2026-04-12 23:22:16,855 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:219] Specific storage mapped from flow.Ss using direct homogeneous mapping

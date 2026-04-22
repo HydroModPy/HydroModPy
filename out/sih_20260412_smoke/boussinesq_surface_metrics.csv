@@ -1,2 +1,0 @@
-scenario_id,scenario_label,surface_threshold_peak_total_m3_day,surface_threshold_final_total_m3_day,surface_threshold_peak_active_fraction,surface_threshold_peak_head_above_top_m,results_dir
-offset_25cm,Head offset 25 cm,1449.3339377980833,1449.3339377980833,0.4425,1.000302063403069e-10,C:\codes\HydroModPy-GH\out\sih_20260412_smoke\validation\investigate_surfa_413bd6031c\offset_25cm_boussinesq
