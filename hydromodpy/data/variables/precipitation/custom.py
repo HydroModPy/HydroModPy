@@ -7,7 +7,6 @@ from pathlib import Path
 
 from hydromodpy.data.common.custom_point_loader import load_custom_multiformat
 
-
 VARIABLE_NAME = "precipitation"
 
 

@@ -5,7 +5,6 @@ from typing import ClassVar, Literal, Protocol
 
 import numpy as np
 
-from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.domain.spatial_support_config import (
     CatchmentZonesSupportConfig,
     DomainSupportConfig,
@@ -18,6 +17,7 @@ from hydromodpy.spatial.field.core.field_spatial import Field
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.spatial.raster_support import RasterSupport
 
 
 def _sample_points_in_cell(cell, *, n_sub_per_axis: int):

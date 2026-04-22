@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------------
 # Copyright © PyHelp Project Contributors
 # https://github.com/cgq-qgc/pyhelp
@@ -11,9 +10,9 @@
 # ---- Standard Library Imports
 
 import csv
-import time
-import os.path as osp
 import multiprocessing as mp
+import os.path as osp
+import time
 
 from hydromodpy.core.logging import get_logger
 
@@ -58,8 +57,8 @@ def _format_d11_singlecell(row):
     # READ (11, 5050) IU11, CITY11
     # 5050 FORMAT (I2/A40)
 
-    d11dat.append(["{0:>2}".format(iu11)])
-    d11dat.append(["{0:<40}".format(city)])
+    d11dat.append([f"{iu11:>2}"])
+    d11dat.append([f"{city:<40}"])
 
     # READ (11, 5060) ULAT, IPL, IHV, ULAI, EDEPTH, WIND, HUM1, HUM2,
     #                 HUM3, HUM4
@@ -67,16 +66,16 @@ def _format_d11_singlecell(row):
 
     d11dat.append(
         [
-            "{0:<10.2f}".format(ulat)
-            + "{0:>4}".format(ipl)
-            + "{0:>4}".format(ihv)
-            + "{0:>7.2f}".format(ulai)
-            + "{0:>8.1f}".format(edepth)
-            + "{0:>5.1f}".format(wind)
-            + "{0:>5.1f}".format(hum1)
-            + "{0:>5.1f}".format(hum2)
-            + "{0:>5.1f}".format(hum3)
-            + "{0:>5.1f}".format(hum4)
+            f"{ulat:<10.2f}"
+            + f"{ipl:>4}"
+            + f"{ihv:>4}"
+            + f"{ulai:>7.2f}"
+            + f"{edepth:>8.1f}"
+            + f"{wind:>5.1f}"
+            + f"{hum1:>5.1f}"
+            + f"{hum2:>5.1f}"
+            + f"{hum3:>5.1f}"
+            + f"{hum4:>5.1f}"
         ]
     )
 
@@ -109,26 +108,26 @@ def _format_d10_singlecell(row):
     # READ (10, 5070) TITLE
     # 5070 FORMAT(A60)
 
-    d10dat.append(["{0:<60}".format(title)])
+    d10dat.append([f"{title:<60}"])
 
     # READ (10, 5080) IU10, IPRE, OSNO, AREA, FRUNOF, IRUN
     # 5080 FORMAT(I2,I2,2F10.0,F6.0,I2)
 
     d10dat.append(
         [
-            "{0:>2}".format(iu10)
-            + "{0:>2}".format(ipre)
-            + "{0:>10.0f}".format(osno)
-            + "{0:>10.0f}".format(area)
-            + "{0:>6.0f}".format(frunof)
-            + "{0:>2}".format(irun)
+            f"{iu10:>2}"
+            + f"{ipre:>2}"
+            + f"{osno:>10.0f}"
+            + f"{area:>10.0f}"
+            + f"{frunof:>6.0f}"
+            + f"{irun:>2}"
         ]
     )
 
     # IF (IRUN .EQ. 1) READ (10, 5090) CN2
     # 5090 FORMAT(F7.0)
 
-    d10dat.append(["{0:>7.0f}".format(runof)])
+    d10dat.append([f"{runof:>7.0f}"])
 
     # Format the layer properties.
     for i in range(nlayers):
@@ -155,14 +154,14 @@ def _format_d10_singlecell(row):
 
         d10dat.append(
             [
-                "{0:>2}".format(layer)
-                + "{0:>7.0f}".format(thick)
-                + "{0:>4}".format(isoil)
-                + "{0:>6.3f}".format(poro)
-                + "{0:>6.3f}".format(fc)
-                + "{0:>6.3f}".format(wp)
-                + "{0:>6}".format(sw)
-                + "{0:>16.14f}".format(rc)
+                f"{layer:>2}"
+                + f"{thick:>7.0f}"
+                + f"{isoil:>4}"
+                + f"{poro:>6.3f}"
+                + f"{fc:>6.3f}"
+                + f"{wp:>6.3f}"
+                + f"{sw:>6}"
+                + f"{rc:>16.14f}"
             ]
         )
 
@@ -175,15 +174,15 @@ def _format_d10_singlecell(row):
 
         d10dat.append(
             [
-                "{0:>7.0f}".format(xleng)
-                + "{0:>6.2f}".format(slope)
-                + "{0:>6}".format(recir)
-                + "{0:>3}".format(layr)
-                + "{0:>13}".format(subin)
-                + "{0:>7}".format(phole)
-                + "{0:>7}".format(defec)
-                + "{0:>2}".format(ipq)
-                + "{0:>14}".format(trans)
+                f"{xleng:>7.0f}"
+                + f"{slope:>6.2f}"
+                + f"{recir:>6}"
+                + f"{layr:>3}"
+                + f"{subin:>13}"
+                + f"{phole:>7}"
+                + f"{defec:>7}"
+                + f"{ipq:>2}"
+                + f"{trans:>14}"
             ]
         )
 

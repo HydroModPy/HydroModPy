@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import csv
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-
 
 StyleFn = Callable[[str], dict[str, Any]]
 

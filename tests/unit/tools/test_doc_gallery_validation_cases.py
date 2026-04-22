@@ -16,12 +16,13 @@ except ImportError as exc:
         allow_module_level=True,
     )
 
-from tools.doc_gallery.gallery_manifest import GalleryCaseSpec
-from tools.doc_gallery.gallery_manifest import build_gallery_specs
-from tools.doc_gallery.update_gallery import _build_category_page
-from tools.doc_gallery.update_gallery import _build_case_page, _generate_validation_case
+from tools.doc_gallery.gallery_manifest import GalleryCaseSpec, build_gallery_specs
+from tools.doc_gallery.update_gallery import (
+    _build_case_page,
+    _build_category_page,
+    _generate_validation_case,
+)
 from tools.doc_gallery.validation_case_registry import build_validation_case_records
-
 
 EXPECTED_VALIDATION_CASE_COUNT = 23
 

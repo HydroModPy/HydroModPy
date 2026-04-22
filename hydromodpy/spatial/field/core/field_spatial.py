@@ -9,9 +9,10 @@ Generic field interface and shared discretization structure.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 
@@ -60,13 +61,13 @@ class Field(ABC):
         """
 
     @classmethod
-    def from_dict(cls, config: Mapping[str, Any]) -> "Field":
+    def from_dict(cls, config: Mapping[str, Any]) -> Field:
         """Optional constructor hook for subclasses."""
         _ = config
         raise NotImplementedError(f"{cls.__name__}.from_dict is not implemented")
 
     @classmethod
-    def from_toml(cls, toml_path: str | Path, section: str = "field") -> "Field":
+    def from_toml(cls, toml_path: str | Path, section: str = "field") -> Field:
         """Optional TOML constructor hook for subclasses."""
         path = Path(toml_path).resolve()
         with path.open("rb") as stream:

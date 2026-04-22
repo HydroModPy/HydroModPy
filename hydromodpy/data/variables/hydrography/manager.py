@@ -10,14 +10,13 @@ import numpy as np
 import pandas as pd
 import rasterio
 
-from hydromodpy.spatial.delineation import get_whitebox_backend
 from hydromodpy.core.logging import get_logger
-
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
     HydrographySourceConfig,
 )
 from hydromodpy.data.variables.hydrography.result import HydrographyResult
+from hydromodpy.spatial.delineation import get_whitebox_backend
 
 logger = get_logger(__name__)
 
@@ -33,7 +32,7 @@ class HydrographyManager:
         config: HydrographyConfig,
         geographic: object,
         out_path: str | Path,
-        catalog: "DataCatalog | None" = None,
+        catalog: DataCatalog | None = None,
         data_dir: Path | None = None,
         stable_folder: str | Path | None = None,
     ) -> None:

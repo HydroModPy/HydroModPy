@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import textwrap
+from pathlib import Path
 
 import numpy as np
 
 from hydromodpy.data.variables.geology.cases import run_geology_property_case as demo
 from hydromodpy.spatial.field.geology.geology_mesh import GeologyStructuredMesh
-
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 GOLDEN_FILE = GOLDEN_DIR / "geology_property_demo_brittany_signature.json"

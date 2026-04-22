@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
-from functools import lru_cache
 import os
 import sys
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from functools import lru_cache
 from pathlib import Path
 
 import whitebox_workflows as wbw
-
 
 _VECTOR_EXTENSIONS = {
     ".shp",

@@ -21,17 +21,19 @@ yields a config equal to the original.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import tomlkit
-from tomlkit.items import Item
 from pydantic import BaseModel
+from tomlkit.items import Item
 
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.pydantic_introspect import (
     extract_profile as _field_level,
+)
+from hydromodpy.core.config.pydantic_introspect import (
     resolve_profile as _resolve_profile,
 )
 

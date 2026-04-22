@@ -5,18 +5,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import cast
 
-from .toml_loader import load_toml_config
-from ..reader import (
-    load_catchment_mesh_bundle as load_internal_catchment_mesh_bundle,
-)
 from ..bundle_contracts import (
     MeshBundleLike,
+)
+from ..reader import (
+    load_catchment_mesh_bundle as load_internal_catchment_mesh_bundle,
 )
 from ..schema import (
     DEFAULT_TOML_SECTION,
     MeshVisualizationData,
     VisualizationConfig,
 )
+from .toml_loader import load_toml_config
 
 
 def _resolve_bundle_dir(bundle_dir: Path) -> Path:

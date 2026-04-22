@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from shapely.geometry import Point
 from shapely.ops import nearest_points

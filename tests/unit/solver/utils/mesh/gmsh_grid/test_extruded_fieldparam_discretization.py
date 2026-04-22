@@ -3,13 +3,13 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
-from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.gmsh_grid import (
     ExtrudedPrismMesh3D,
     GmshPlanarMesh2D,
     discretize_fieldparam_on_extruded_mesh,
 )
+from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
+from hydromodpy.spatial.field.core.field_param import FieldParam
 
 
 def _build_planar_triangles() -> GmshPlanarMesh2D:

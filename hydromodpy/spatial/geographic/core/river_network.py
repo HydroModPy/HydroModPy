@@ -16,8 +16,8 @@ Executed after catchment/domain preprocessing when
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -27,8 +27,8 @@ import rasterio
 from shapely.geometry import LineString, MultiLineString
 
 from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
-from hydromodpy.spatial.geographic.geographic_config import RiverNetworkConfig
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
+from hydromodpy.spatial.geographic.geographic_config import RiverNetworkConfig
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry

@@ -23,17 +23,16 @@ if TYPE_CHECKING:
 
 
 def render_dem_map(
-    ax: "Axes",
+    ax: Axes,
     *,
     dem_path: str,
     watershed_shp: str | None = None,
     streams_gdf=None,
     station_points: list[dict] | None = None,
     title: str = "",
-) -> "Axes":
+) -> Axes:
     """Render a DEM raster with optional watershed outline and station markers."""
     import rasterio
-    from rasterio.plot import show as rio_show
 
     with rasterio.open(dem_path) as src:
         data = src.read(1, masked=True)
@@ -74,14 +73,14 @@ def render_dem_map(
 
 
 def render_hydrography_map(
-    ax: "Axes",
+    ax: Axes,
     *,
     dem_path: str,
     watershed_shp: str | None = None,
     streams_gdf=None,
     outlet_xy: tuple[float, float] | None = None,
     title: str = "",
-) -> "Axes":
+) -> Axes:
     """Render a hydrography map — hillshade background, streams, outlet."""
     import rasterio
 
@@ -145,13 +144,13 @@ def render_hydrography_map(
 
 
 def render_geology_map(
-    ax: "Axes",
+    ax: Axes,
     *,
     dem_path: str,
     watershed_shp: str | None = None,
     geology_gdf=None,
     title: str = "",
-) -> "Axes":
+) -> Axes:
     """Render a lithology map from a geology GeoDataFrame clipped to the bbox."""
     import rasterio
 
@@ -215,13 +214,13 @@ def render_geology_map(
 
 
 def render_timeseries_multi(
-    ax: "Axes",
+    ax: Axes,
     *,
     df,
     ylabel: str,
     title: str,
     unit: str = "",
-) -> "Axes":
+) -> Axes:
     """Render a multi-station time series panel (one line per column)."""
     if df is None or df.empty:
         ax.text(
@@ -267,12 +266,12 @@ def render_timeseries_multi(
 
 
 def render_climatic_summary(
-    ax: "Axes",
+    ax: Axes,
     *,
     monthly_precip,
     monthly_etp,
     title: str = "Monthly climatology",
-) -> "Axes":
+) -> Axes:
     """Render mean monthly precipitation and ETP bars side by side."""
     months = np.arange(1, 13)
     width = 0.4
@@ -326,7 +325,7 @@ def render_climatic_summary(
 # ---------------------------------------------------------------------------
 
 
-def render_stats_card(ax: "Axes", *, summary: "OverviewSummary") -> "Axes":
+def render_stats_card(ax: Axes, *, summary: OverviewSummary) -> Axes:
     """Render the key watershed metrics as a two-column table."""
     ax.set_axis_off()
 
@@ -371,7 +370,7 @@ def render_stats_card(ax: "Axes", *, summary: "OverviewSummary") -> "Axes":
     return ax
 
 
-def render_station_inventory(ax: "Axes", *, inventory: list[dict]) -> "Axes":
+def render_station_inventory(ax: Axes, *, inventory: list[dict]) -> Axes:
     """Render a flat table listing every station (type, id, coords, period)."""
     ax.set_axis_off()
 

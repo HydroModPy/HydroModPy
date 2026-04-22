@@ -14,7 +14,7 @@ to add a source.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -49,8 +49,8 @@ def register_source(source: Any | None = None) -> Any:
 
     def _register(target: Any) -> Any:
         try:
-            variable = getattr(target, "variable_type")
-            name = getattr(target, "source_name")
+            variable = target.variable_type
+            name = target.source_name
         except AttributeError as exc:  # pragma: no cover - defensive
             raise TypeError(
                 "register_source expected an object with 'variable_type' "

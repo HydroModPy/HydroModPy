@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
-
 from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 
@@ -30,10 +28,10 @@ class CalibrationPairplotFigure(BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         # render() is a no-op; the pairplot needs its own grid, so plot() is overridden.
         ax.set_axis_off()
         ax.text(
@@ -47,7 +45,7 @@ class CalibrationPairplotFigure(BaseFigure):
 
     def plot(
         self,
-        sim: "Run",
+        sim: Run,
         *,
         parameters: list[str] | None = None,
         objective: str = "objective",
@@ -55,7 +53,7 @@ class CalibrationPairplotFigure(BaseFigure):
         dpi: int = 150,
         save_path=None,
         **_,
-    ) -> "MplFigure":
+    ) -> MplFigure:
         import matplotlib.pyplot as plt
         import pandas as pd
 

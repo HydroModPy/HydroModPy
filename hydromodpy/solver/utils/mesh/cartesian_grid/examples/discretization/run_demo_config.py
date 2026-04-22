@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from pathlib import Path
 import sys
 import tomllib
+from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import ConfigDict, Field, ValidationError, field_validator
+
 from hydromodpy.core.config.base import HydroModelBase
 
 
@@ -25,14 +26,14 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from hydromodpy.data.variables.geology.config import validate_geology_config_data
+from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import (
+    validate_sgrid_config_data,
+)
 from hydromodpy.spatial.field.core.field_param_config import (
     resolve_field_param_config_payload,
     validate_resolved_field_param_data,
 )
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import (
-    validate_sgrid_config_data,
-)
-from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
 
 
 def _resolve_optional_mapping_path(
@@ -197,7 +198,7 @@ class SGridFieldParamDiscretizationConfig(HydroModelBase):
         config_path: str | Path,
         *,
         section: str = "case",
-    ) -> "SGridFieldParamDiscretizationConfig":
+    ) -> SGridFieldParamDiscretizationConfig:
         """Load one case section from TOML and resolve relative paths."""
         path = Path(config_path).expanduser().resolve()
         payload = tomllib.loads(path.read_text(encoding="utf-8-sig"))

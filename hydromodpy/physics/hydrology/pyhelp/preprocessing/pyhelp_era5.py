@@ -1,16 +1,18 @@
-from .pyhelp_csv_manager import PyhelpCsvManager
-from hydromodpy.core.io.vector_io import load_shapefile
+import os
+
+import pandas as pd
+import xarray as xr
+
 from hydromodpy.core.io.crs import (
-    select_nearest_point,
-    get_centroid_coordinates,
     convert_units,
+    get_centroid_coordinates,
+    select_nearest_point,
     select_within_polygon_points,
 )
-import xarray as xr
-import pandas as pd
-import os
-from typing import Optional
+from hydromodpy.core.io.vector_io import load_shapefile
 from hydromodpy.core.logging import get_logger
+
+from .pyhelp_csv_manager import PyhelpCsvManager
 
 logger = get_logger(__name__)
 
@@ -18,7 +20,7 @@ logger = get_logger(__name__)
 class PyhelpEra5(PyhelpCsvManager):
     """ERA5 climate data extraction and processing for PyHelp"""
 
-    def __init__(self, folder_path: str, shapefile_path: Optional[str] = None) -> None:
+    def __init__(self, folder_path: str, shapefile_path: str | None = None) -> None:
         """Initialize ERA5 data extraction"""
         self._folder_path = folder_path
         self._shapefile_path = shapefile_path
@@ -74,7 +76,7 @@ class PyhelpEra5(PyhelpCsvManager):
 
                 self._save_csv(dataframe, output_file)
 
-            except Exception as e:
+            except Exception:
                 logger.exception("Failed processing ERA5 %s dataset", folder)
 
     def _get_netcdf_files(self, year_folder: str) -> list:

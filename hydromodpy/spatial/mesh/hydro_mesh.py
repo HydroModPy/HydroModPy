@@ -144,7 +144,7 @@ class HydroMesh:
         maxs = tuple(float(np.nanmax(self.vertices[:, i])) for i in range(self.ndim))
         return mins + maxs
 
-    def with_cell_data(self, **fields: np.ndarray) -> "HydroMesh":
+    def with_cell_data(self, **fields: np.ndarray) -> HydroMesh:
         """Return a new mesh with validated per-cell arrays added.
 
         The method preserves immutability of the original mesh and therefore
@@ -167,7 +167,7 @@ class HydroMesh:
             structured_shape=self.structured_shape,
         )
 
-    def with_point_data(self, **fields: np.ndarray) -> "HydroMesh":
+    def with_point_data(self, **fields: np.ndarray) -> HydroMesh:
         """Return a new mesh with validated per-point arrays added."""
         merged = dict(self.point_data)
         for key, arr in fields.items():

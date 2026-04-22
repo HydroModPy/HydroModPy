@@ -5,9 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from ..bundle_contracts import MeshBundleLike
-from .geometry import build_edge_segments
 from ..schema import PlotConfig
-
+from .geometry import build_edge_segments
 
 OVERLAY_STYLES = (
     (

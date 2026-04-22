@@ -17,7 +17,6 @@ from validation_cases.shared import (
     rmse,
 )
 
-
 SECONDS_PER_DAY = 86400.0
 
 

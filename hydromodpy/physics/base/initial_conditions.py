@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Prototype Module: Generic Initial-Condition Model
 ================================================
@@ -16,10 +15,10 @@ conditions:
 
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
-from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.profile import Profile
 
 
 class InitialCondition(HydroModelBase):

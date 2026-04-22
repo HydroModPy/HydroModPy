@@ -13,7 +13,6 @@ from hydromodpy._cli.helpers import (
     resolve_workspace,
 )
 
-
 NAME = "lock"
 HELP = "Manage the reproducible data lockfile (hydromodpy.lock)"
 

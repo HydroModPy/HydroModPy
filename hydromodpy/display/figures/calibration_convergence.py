@@ -29,12 +29,12 @@ class CalibrationConvergenceFigure(BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         *,
         objective: str = "objective",
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         try:
             df = sim.timeseries(objective, station="_calibration")
         except (KeyError, AttributeError):

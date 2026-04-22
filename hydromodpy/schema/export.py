@@ -36,7 +36,6 @@ from hydromodpy.core.config.schema_export import (
     export_schema,
 )
 
-
 SCHEMA_FILE = "config.json"
 META_FILE = "config_meta.json"
 VALIDATORS_FILE = "field_validators.json"

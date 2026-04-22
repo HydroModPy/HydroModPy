@@ -7,7 +7,6 @@ from datetime import datetime
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
 
-
 SIM2_PARAMETER = "DRAINC_Q"
 VARIABLE_NAME = "recharge"
 INTERNAL_UNIT = "mm/day"

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units import parse_length_to_m
-from hydromodpy.core.config.base import HydroModelBase
 
 
 class DomainSupportBaseConfig(HydroModelBase):
@@ -56,7 +56,7 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
         return value
 
     @model_validator(mode="after")
-    def _normalize_and_validate(self) -> "GeneratedBandsSupportConfig":
+    def _normalize_and_validate(self) -> GeneratedBandsSupportConfig:
         normalized_breaks: list[float] = []
         for index, raw_break in enumerate(self.breaks):
             if self.coordinate_mode == "relative":
@@ -161,7 +161,7 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
         )
 
     @model_validator(mode="after")
-    def _normalize_and_validate_rings(self) -> "GeneratedRingsSupportConfig":
+    def _normalize_and_validate_rings(self) -> GeneratedRingsSupportConfig:
         normalized_radii: list[float] = []
         for index, raw_radius in enumerate(self.radii):
             if self.coordinate_mode == "relative":

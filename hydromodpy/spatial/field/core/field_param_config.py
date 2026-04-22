@@ -10,26 +10,27 @@ This module validates the structure used by `field_param_config.toml`:
 from __future__ import annotations
 
 import csv
-from pathlib import Path
 import math
 import tomllib
-from typing import Annotated, Any, Mapping
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Annotated, Any
 
 from pydantic import (
-    BaseModel,
     ConfigDict,
     Field,
     ValidationError,
     field_validator,
     model_validator,
 )
+
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units.hydraulic_conductivity import (
     M_PER_S_CANONICAL_UNITS,
     normalize_m_per_s_unit,
 )
 from hydromodpy.core.units.length import parse_length_to_m
-from hydromodpy.core.config.base import HydroModelBase
 
 SUPPORTED_FIELD_KINDS = ("homogeneous", "heterogeneous")
 SUPPORTED_HETEROGENEOUS_VALUE_SOURCES = ("inline", "csv")
@@ -475,7 +476,7 @@ class FieldParamConfig(HydroModelBase):
         return data
 
     @model_validator(mode="after")
-    def _enforce_physical_bounds(self) -> "FieldParamConfig":
+    def _enforce_physical_bounds(self) -> FieldParamConfig:
         """Validate homogeneous scalar values against ``PHYSICAL_BOUNDS``.
 
         Only numeric scalars are checked here; string payloads carry their

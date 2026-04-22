@@ -17,9 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
-
-from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicBoundaryFeatures,
@@ -38,12 +37,12 @@ from hydromodpy.spatial.geographic.core.river_network import (
     build_river_network_products,
 )
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
-from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.surface import Surface
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-    from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
     from hydromodpy.core.workspace.workspace import Workspace
+    from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
+    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 
 logger = get_logger(__name__)
@@ -97,7 +96,7 @@ class DomainGeographicContext:
     regional_dem_path: str | None = None
 
 
-def _should_retry_with_fill(*, config: "GeographicConfig", error: Exception) -> bool:
+def _should_retry_with_fill(*, config: GeographicConfig, error: Exception) -> bool:
     if str(getattr(config, "catch_def", "")).strip().lower() != "from_outlet_coord":
         return False
     if str(getattr(config, "dem_correc_type", "")).strip().lower() != "breach":

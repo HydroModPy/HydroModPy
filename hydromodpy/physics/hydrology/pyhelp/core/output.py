@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------------
 # Copyright © PyHELP Project Contributors
 # https://github.com/cgq-qgc/pyhelp
@@ -12,13 +11,14 @@ from __future__ import annotations
 # ---- Standard Library imports
 import os.path as osp
 
+import h5py
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from matplotlib import transforms
+
 # ---- Third party imports
 from matplotlib.figure import Figure
-from matplotlib import transforms
-import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
-import h5py
 from scipy.stats import linregress
 
 from hydromodpy.core.logging import get_logger
@@ -45,7 +45,7 @@ COLORS = {
 }
 
 
-class HelpOutput(object):
+class HelpOutput:
     """
     A container to read and post-process monthly water budget results produced
     with the :class:`~pyhelp.HelpManager` class.

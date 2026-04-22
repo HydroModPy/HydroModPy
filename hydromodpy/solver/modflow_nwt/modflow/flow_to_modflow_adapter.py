@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Intentional duplication with the MF6 flow_to_modflow_adapter: MODFLOW-NWT is
 # scheduled for removal after the Lake (LAK) module lands on the MF6 side — not
 # worth factoring the payload builders out. See docs/developers/nwt_sunset_plan.md.
@@ -99,9 +98,6 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.solver.modflow_common.grid_context import GridReference
-from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.core.units import (
     convert_payload_to_m,
     convert_payload_to_m_per_s,
@@ -112,10 +108,13 @@ from hydromodpy.core.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
 )
+from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.solver.modflow_common.grid_context import GridReference
+from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 
 from .property_mapping import (
-    resolve_required_flow_properties,
     resolve_flow_property_arrays,
+    resolve_required_flow_properties,
 )
 
 if TYPE_CHECKING:
@@ -250,7 +249,7 @@ class FlowToModflowAdapter:
         solver_mesh: SolverMesh,
         nper: int,
         grid: GridReference | None = None,
-        simulation_window: "ResolvedSimulationTimeWindow | None" = None,
+        simulation_window: ResolvedSimulationTimeWindow | None = None,
         sink_fill: bool,
         sink=None,
         flow_runtime_overrides: Mapping[str, object] | None = None,
@@ -352,7 +351,7 @@ class FlowToModflowAdapter:
             strt = np.ones((self.nlay, self.nrow, self.ncol), dtype=float) * self.bottom_layer
         elif initial_type == "custom":
             strt = np.ones((self.nlay, self.nrow, self.ncol), dtype=float) * float(
-                getattr(initial_condition, "value")
+                initial_condition.value
             )
         else:
             raise ValueError("flow.initial_conditions.h.type must be one of: top, bottom, custom")

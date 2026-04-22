@@ -20,9 +20,9 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
     ZoneConformalGeologyConfig,
     ZoneConformalRiversConfig,
     ZoneConformalWatershedBoundaryConfig,
+    ZoneConformalWatershedBoundarySmoothingConfig,
     ZoneConformalWatershedGeologyConformityConfig,
     ZoneConformalWatershedOutsideCoarseningConfig,
-    ZoneConformalWatershedBoundarySmoothingConfig,
     ZoneConformalZoneMeshingConfig,
 )
 

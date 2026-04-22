@@ -9,7 +9,6 @@ from validation_cases.shared.boussinesq_uniform_strip import (
     run_boussinesq_uniform_strip_case,
 )
 
-
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "boussinesq_sloping_substratum_constant_thickness_1d"
 NX = 40

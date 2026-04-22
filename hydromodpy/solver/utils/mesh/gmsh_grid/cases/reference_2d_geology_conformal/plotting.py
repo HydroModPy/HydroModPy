@@ -7,14 +7,18 @@ from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
-from matplotlib.collections import LineCollection
-from matplotlib import pyplot as plt
-from matplotlib.lines import Line2D
-from matplotlib.patches import Patch
 import numpy as np
 import rasterio
+from matplotlib import pyplot as plt
+from matplotlib.collections import LineCollection
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 from rasterio.enums import Resampling
 
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.plotting import (
+    disable_axis_offset,
+    show_figures_blocking,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalMeshingInputs,
 )
@@ -23,10 +27,6 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.scope_resolution import (
     _valid_geometry_mask,
-)
-from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.plotting import (
-    disable_axis_offset,
-    show_figures_blocking,
 )
 
 

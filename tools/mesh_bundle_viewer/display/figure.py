@@ -11,6 +11,7 @@ opening the more specialized helper modules.
 from __future__ import annotations
 
 from ..bundle_contracts import MeshBundleLike
+from ..schema import VisualizationConfig
 from .geometry import (
     build_node_xy_map,
     has_continuous_node_topography,
@@ -21,7 +22,6 @@ from .panels import (
     plot_continuous_topography_panel,
     plot_mesh_panel,
 )
-from ..schema import VisualizationConfig
 
 
 def build_visualization_figure(

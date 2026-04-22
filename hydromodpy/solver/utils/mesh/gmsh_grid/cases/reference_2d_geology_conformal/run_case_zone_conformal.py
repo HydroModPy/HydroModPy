@@ -9,9 +9,9 @@ introduced.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
-import json
 from pathlib import Path
 from typing import Any
 

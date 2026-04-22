@@ -20,8 +20,8 @@ from typing import TYPE_CHECKING
 
 import rasterio
 
+from hydromodpy.core.tools.filesystem import create_folder
 from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
-from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths, build_geographic_paths
 from hydromodpy.spatial.geographic.core.catchment_domain import (
     CatchmentDomainProducts,
     derive_catchment_domain,
@@ -31,7 +31,7 @@ from hydromodpy.spatial.geographic.core.catchment_from_point import (
     extract_catchment_from_point,
 )
 from hydromodpy.spatial.geographic.core.catchment_from_polygon import extract_catchment_from_polygon
-from hydromodpy.core.tools.filesystem import create_folder
+from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths, build_geographic_paths
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig

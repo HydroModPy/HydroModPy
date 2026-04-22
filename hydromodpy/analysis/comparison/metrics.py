@@ -11,7 +11,6 @@ from typing import Any
 
 import numpy as np
 
-
 SUMMARY_METRIC_FIELDS = [
     "variant_id",
     "reference_variant",

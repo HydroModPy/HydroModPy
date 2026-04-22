@@ -70,7 +70,7 @@ class CatchmentBundleGeologyExportConfig:
     def from_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "CatchmentBundleGeologyExportConfig":
+    ) -> CatchmentBundleGeologyExportConfig:
         normalized = validate_geology_config_data(dict(payload))
         source_raw = dict(normalized["source"])
         return cls(
@@ -128,7 +128,7 @@ class CatchmentBundleHydraulicPropertyConfig:
     def from_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "CatchmentBundleHydraulicPropertyConfig":
+    ) -> CatchmentBundleHydraulicPropertyConfig:
         return cls(
             values_source=str(payload.get("values_source", "inline")).strip().lower() or "inline",
             values=dict(payload.get("values") or {}),
@@ -151,7 +151,7 @@ class CatchmentBundleHydraulicPropertiesConfig:
     def from_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "CatchmentBundleHydraulicPropertiesConfig":
+    ) -> CatchmentBundleHydraulicPropertiesConfig:
         conductivity_raw = payload.get("conductivity")
         storage_raw = payload.get("storage_coefficient")
         return cls(
@@ -179,7 +179,7 @@ class CatchmentBundleSummaryReference:
     def from_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "CatchmentBundleSummaryReference":
+    ) -> CatchmentBundleSummaryReference:
         return cls(
             constraints_mode=_optional_text(payload.get("constraints_mode")),
             output_summary_json=_optional_text(payload.get("output_summary_json")),

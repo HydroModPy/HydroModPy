@@ -27,9 +27,12 @@ mixing generic orchestration with solver-specific API calls.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
+from hydromodpy.physics.flow import Flow
+from hydromodpy.physics.transport import Transport
 from hydromodpy.simulation.adapters import get_solver_adapter
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
@@ -37,10 +40,6 @@ from hydromodpy.simulation.planning.plan import (
     RunExecutionResult,
     SimulationPlan,
 )
-
-from hydromodpy.physics.flow import Flow
-from hydromodpy.physics.transport import Transport
-
 
 # ---------------------------------------------------------------------------
 # Process-context helpers (free functions, no factory class)

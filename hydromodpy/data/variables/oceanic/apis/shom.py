@@ -14,10 +14,10 @@ import numpy as np
 import pandas as pd
 import requests
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.progress import log_step
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

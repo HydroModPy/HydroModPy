@@ -7,9 +7,10 @@ runtime meshing algorithm from its reporting layer.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -109,7 +110,7 @@ class ZoneRiverTraceSummary:
         summary: ZoneLinearConstraintSummary | None,
         *,
         provided: bool,
-    ) -> "ZoneRiverTraceSummary":
+    ) -> ZoneRiverTraceSummary:
         if summary is None:
             return cls(
                 provided=provided,

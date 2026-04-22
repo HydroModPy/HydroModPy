@@ -23,17 +23,16 @@ import pandas as pd
 import pytest
 import xarray as xr
 
+from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_field_discretization import (
     discretize_fields_on_sgrid,
     discretize_points_on_sgrid,
     spatial_mean_from_fields,
 )
-
 
 # ---------------------------------------------------------------------------
 # Constants

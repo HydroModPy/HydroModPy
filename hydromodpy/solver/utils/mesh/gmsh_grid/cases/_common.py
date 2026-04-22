@@ -11,10 +11,10 @@ workflow while centralizing the repetitive plumbing used by many cases:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import json
-from pathlib import Path
 import tomllib
+from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 from hydromodpy.solver.utils._config_helpers import get_nested_section

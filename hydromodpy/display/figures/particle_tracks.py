@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-def _read_pathlines(sim: "Run") -> list[np.ndarray]:
+def _read_pathlines(sim: Run) -> list[np.ndarray]:
     """Return one (n_steps, 3) array per particle from the Zarr store.
 
     The Zarr layout follows ``simulations/<id>.zarr/pathlines/`` with one
@@ -47,13 +47,13 @@ class ParticleTracks(BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         *,
         color: str = "magma",
         lw: float = 0.6,
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         tracks = _read_pathlines(sim)
         if not tracks:
             ax.text(0.5, 0.5, "no pathlines", ha="center", va="center", transform=ax.transAxes)

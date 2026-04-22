@@ -19,8 +19,8 @@ A two-reservoir-in-series variant is exposed as ``TWO_RESERVOIR_CASE``.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Mapping
 
 import numpy as np
 
@@ -36,7 +36,6 @@ from hydromodpy.calibration import (
     build_optimizer,
 )
 from hydromodpy.calibration.objective import evaluate_objective
-
 
 # ---------------------------------------------------------------------------
 # Forward models

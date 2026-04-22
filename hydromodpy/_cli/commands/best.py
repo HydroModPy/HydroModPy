@@ -8,7 +8,6 @@ from pathlib import Path
 
 from hydromodpy._cli.helpers import EXIT_NOT_FOUND, find_workspace_root
 
-
 NAME = "best"
 HELP = "Show the top simulation for a project ranked by a metric"
 

@@ -8,7 +8,6 @@ from pathlib import Path
 
 from hydromodpy._cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, find_workspace_root
 
-
 NAME = "export"
 HELP = "Export geographic data or simulation results from the project store"
 

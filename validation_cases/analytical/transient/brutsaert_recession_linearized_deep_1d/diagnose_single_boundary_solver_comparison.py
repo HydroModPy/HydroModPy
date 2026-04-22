@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import copy
 import json
+import sys
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from types import SimpleNamespace
-import sys
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 from flopy.utils.binaryfile import CellBudgetFile, HeadFile
@@ -17,6 +18,7 @@ if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from hydromodpy.physics.flow import Flow
+from hydromodpy.project import Project
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow_nwt import (
     Modflow,
@@ -24,7 +26,6 @@ from hydromodpy.solver.modflow_nwt import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
-from hydromodpy.project import Project
 from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )
@@ -33,7 +34,6 @@ from validation_cases.shared.runtime import (
     remove_file_with_retry,
     resolve_validation_results_dir,
 )
-
 
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "brutsaert_recession_linearized_deep_1d"

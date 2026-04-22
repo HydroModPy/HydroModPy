@@ -7,9 +7,10 @@ clearer and lets ``conformal.py`` focus on workflow orchestration.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from shapely.geometry import LineString, MultiPolygon, Polygon
 from shapely.geometry.base import BaseGeometry
@@ -120,7 +121,7 @@ class ZoneLinearConstraint:
     def from_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "ZoneLinearConstraint":
+    ) -> ZoneLinearConstraint:
         """Build one constraint from the public mapping form."""
         name_text = str(payload.get("name", "")).strip()
         kind_text = str(payload.get("kind", "")).strip()

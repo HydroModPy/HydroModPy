@@ -1,12 +1,13 @@
-# -*- coding: utf-8 -*-
 """
 Created on Mon Feb 24 15:57:13 2025
 
 @author: mathi
 """
 
-import pandas as pd
 from abc import ABC, abstractmethod
+
+import pandas as pd
+
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -19,7 +20,7 @@ class PyhelpCsvManager(ABC):
         """Save the DataFrame to a CSV file."""
         try:
             data.to_csv(output_path, index=False)
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to save CSV to %s", output_path)
 
     @abstractmethod

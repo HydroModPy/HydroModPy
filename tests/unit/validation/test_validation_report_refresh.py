@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from validation_cases.update_reports import (
     DEFAULT_SOLVERS,

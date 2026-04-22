@@ -13,39 +13,35 @@ external scripts that do not want to import the full HydroModPy stack.
 from __future__ import annotations
 
 import csv
-from dataclasses import replace
 import json
-from pathlib import Path
 import shutil
+from dataclasses import replace
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 from shapely.geometry import LineString, Point
 from shapely.ops import unary_union
 
+from hydromodpy.core.units.hydraulic_conductivity import parse_to_m_per_s
 from hydromodpy.data.variables.geology.io import (
     load_geology_encoded_grid_on_raster_support,
     resolve_data_path,
 )
 from hydromodpy.data.variables.geology.processing import normalize_zone_key
-from hydromodpy.spatial.domain.depth_model_config import (
-    ConstantThicknessDepthModel,
-    FlatSubstratumDepthModel,
-)
-from hydromodpy.spatial.domain.domain import Domain
-from hydromodpy.spatial.field.geology.geology_field import GeologyField
-from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
-from hydromodpy.core.units.hydraulic_conductivity import parse_to_m_per_s
 from hydromodpy.solver.utils.mesh.gmsh_grid._bundle_export_contracts import (
-    CatchmentBundleMetadata,
     CatchmentBundleGeologyExportConfig,
     CatchmentBundleHydraulicPropertiesConfig,
     CatchmentBundleHydraulicPropertyConfig,
+    CatchmentBundleMetadata,
     CatchmentBundleSummaryReference,
     GeologyFractionRow,
     GeologyProjectionPayload,
     HydraulicPropertiesPayload,
     HydraulicPropertyPayload,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid._river_linework_matching import (
+    RiverLineworkMatcher,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
@@ -56,10 +52,13 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import 
     load_catchment_mesh_bundle,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.exchange_api import load_planar_mesh
-from hydromodpy.solver.utils.mesh.gmsh_grid._river_linework_matching import (
-    RiverLineworkMatcher,
+from hydromodpy.spatial.domain.depth_model_config import (
+    ConstantThicknessDepthModel,
+    FlatSubstratumDepthModel,
 )
-
+from hydromodpy.spatial.domain.domain import Domain
+from hydromodpy.spatial.field.geology.geology_field import GeologyField
+from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
 BUNDLE_SCHEMA_VERSION = "mesh_catchment_bundle_v1"
 _NODATA_SENTINEL = ""

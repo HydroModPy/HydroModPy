@@ -12,9 +12,8 @@ The module is idempotent: re-scanning an unchanged workspace is a no-op.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.adapters import (
@@ -36,7 +35,7 @@ class Artifact:
 
     variable: str
     provider: str
-    station_id: Optional[str]
+    station_id: str | None
     source_path: Path
     pivot_path: Path
     format: str
@@ -342,7 +341,7 @@ def scan_custom(
 
     report = ScanReport()
     blobs_dir = _workspace_blobs_dir(workspace)
-    stamp = now or datetime.now(tz=timezone.utc)
+    stamp = now or datetime.now(tz=UTC)
 
     try:
         for spec in VARIABLES:

@@ -18,10 +18,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from hydromodpy.spatial.field.meshes import StructuredFieldMesh
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_mesh_adapter import (
     build_field_mesh_from_sgrid,
 )
+from hydromodpy.spatial.field.meshes import StructuredFieldMesh
 
 
 @dataclass(frozen=True)
@@ -59,8 +59,8 @@ def _compute_layer_center_depths(sgrid) -> np.ndarray:
         top = np.asarray(sgrid.top_grid, dtype=float)
         botm = np.asarray(sgrid.botm_grid, dtype=float)
     else:
-        top = np.asarray(getattr(sgrid, "top"), dtype=float)
-        botm = np.asarray(getattr(sgrid, "botm"), dtype=float)
+        top = np.asarray(sgrid.top, dtype=float)
+        botm = np.asarray(sgrid.botm, dtype=float)
 
     if botm.ndim != 3:
         raise ValueError("sgrid.botm must be a 3D array shaped as (nlay, nrow, ncol)")
@@ -210,9 +210,9 @@ def discretize_fieldparam_on_sgrid(
     # - axis 0: vertical layers
     # - axis 1: rows
     # - axis 2: columns
-    nlay = int(getattr(sgrid, "nlay"))
-    nrow = int(getattr(sgrid, "nrow"))
-    ncol = int(getattr(sgrid, "ncol"))
+    nlay = int(sgrid.nlay)
+    nrow = int(sgrid.nrow)
+    ncol = int(sgrid.ncol)
 
     # 6) Build the planar reference map on the mesh support.
     # This output is useful for plan-view QA/plots and complements the 3D tensor.

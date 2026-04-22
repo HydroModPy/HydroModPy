@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Utilities used across hydromodpy.physics.hydrology.pyhelp.
 
 This file was missing in the provided sources. It contains small, explicit
@@ -9,10 +8,10 @@ Nothing in this module relies on environment variables or subprocesses.
 
 from __future__ import annotations
 
-from pathlib import Path
 import math
 import shutil
-from typing import Sequence
+from collections.abc import Sequence
+from pathlib import Path
 
 import h5py
 import numpy as np

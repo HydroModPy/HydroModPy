@@ -27,6 +27,16 @@ from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
     build_sparse_semianalytic_base_jacobian_triplets,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from hydromodpy.solver.boussinesq.runtime_contract import (
+    RuntimeSolveResult,
+    SteadySolveInputs,
+    TransientStepInputs,
+)
+from hydromodpy.solver.boussinesq.runtimes.execution_common import (
+    apply_residual_tolerance,
+    build_runtime_result,
+    residual_norm_inf,
+)
 from hydromodpy.solver.boussinesq.runtimes.petsc_common import (
     _configure_default_snes,
     _coo_to_csr,
@@ -42,16 +52,6 @@ from hydromodpy.solver.boussinesq.runtimes.petsc_mixed_common import (
     _prescribed_head_vector,
     _split_state,
     _stack_state,
-)
-from hydromodpy.solver.boussinesq.runtimes.execution_common import (
-    apply_residual_tolerance,
-    build_runtime_result,
-    residual_norm_inf,
-)
-from hydromodpy.solver.boussinesq.runtime_contract import (
-    RuntimeSolveResult,
-    SteadySolveInputs,
-    TransientStepInputs,
 )
 
 

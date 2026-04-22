@@ -22,7 +22,6 @@ from validation_cases.shared import (
 from .reference import expected_boussinesq_circular_island_piecewise_k_head
 from .runtime_boussinesq import run_boussinesq_circular_island_piecewise_k_case
 
-
 CASE_DIR = Path(__file__).resolve().parent
 
 

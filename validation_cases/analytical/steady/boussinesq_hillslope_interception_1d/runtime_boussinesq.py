@@ -25,7 +25,6 @@ from validation_cases.shared.runtime import (
 
 from .reference import expected_boussinesq_hillslope_profile_at_x
 
-
 CASE_ID = "boussinesq_hillslope_interception_1d"
 NX = 40
 NY = 3

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from validation_cases.run_cases import (
     ValidationCaseExecution,
+    build_execution_report,
     build_parser,
     build_run_command,
-    build_execution_report,
     discover_validation_cases,
     filter_validation_cases,
 )

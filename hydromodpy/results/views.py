@@ -42,7 +42,7 @@ __all__ = [
 # --------------------------------------------------------------------------
 
 
-def _time_index(sim: "Run", n: int) -> pd.DatetimeIndex:
+def _time_index(sim: Run, n: int) -> pd.DatetimeIndex:
     """Return a ``pd.DatetimeIndex`` aligned with the simulation timesteps."""
     row = sim._load_row()
     start, end = row.get("period_start"), row.get("period_end")
@@ -51,7 +51,7 @@ def _time_index(sim: "Run", n: int) -> pd.DatetimeIndex:
     return pd.date_range("2000-01-01", periods=n, freq="D")
 
 
-def _catchment_mask(sim: "Run") -> np.ndarray | None:
+def _catchment_mask(sim: Run) -> np.ndarray | None:
     """Boolean mask of active cells from ``mesh/surface_top``."""
     sz = sim._catalog.open_zarr(sim._sim_id)
     mesh = sz.root.get("mesh")
@@ -61,7 +61,7 @@ def _catchment_mask(sim: "Run") -> np.ndarray | None:
     return np.isfinite(top) & (top > -9000.0)
 
 
-def _stack_field(sim: "Run", variable: str) -> np.ndarray:
+def _stack_field(sim: Run, variable: str) -> np.ndarray:
     """Stack a per-timestep cell field into a ``(n_t, n_cells)`` array."""
     n = sim.n_timesteps or 1
     frames = [np.asarray(sim.field(variable, timestep=t)).ravel() for t in range(n)]
@@ -74,7 +74,7 @@ def _stack_field(sim: "Run", variable: str) -> np.ndarray:
 
 
 def saturated_fraction(
-    sim: "Run",
+    sim: Run,
     *,
     threshold: float = 0.0,
 ) -> pd.Series:
@@ -97,7 +97,7 @@ def saturated_fraction(
 
 
 def drainage_density(
-    sim: "Run",
+    sim: Run,
     *,
     threshold: float = 0.0,
 ) -> pd.Series:
@@ -123,7 +123,7 @@ def drainage_density(
 
 
 def persistence(
-    sim: "Run",
+    sim: Run,
     *,
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
@@ -147,7 +147,7 @@ def persistence(
 
 
 def catchment_mean(
-    sim: "Run",
+    sim: Run,
     variable: str,
     *,
     name: str | None = None,
@@ -168,7 +168,7 @@ def catchment_mean(
     return pd.Series(means, index=_time_index(sim, stack.shape[0]), name=name or variable)
 
 
-def recharge_forcing(sim: "Run") -> pd.Series:
+def recharge_forcing(sim: Run) -> pd.Series:
     """Input recharge rate per stress period (from ``budget/recharge``).
 
     Reads the first substep of each stress period from the MODFLOW

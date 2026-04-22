@@ -12,7 +12,6 @@ from hydromodpy._cli.helpers import (
     resolve_sim_id,
 )
 
-
 NAME = "compare"
 HELP = "Compare two simulations by sim_id, prefix, or name"
 

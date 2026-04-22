@@ -15,8 +15,8 @@ import importlib
 import sys
 import time
 import uuid
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from hydromodpy.calibration.cache import ParamsHashCache
 from hydromodpy.calibration.config import CalibrationConfig
@@ -113,8 +113,8 @@ def run_calibration_cli(
 
         full_cfg = HydroModPyConfig.from_toml(cfg_path)
         ws = full_cfg.workspace.workspace_root
-    from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.calibration.persistence import CalibrationPersistence
+    from hydromodpy.results.catalog import SimulationCatalog
 
     catalog = SimulationCatalog(ws)
     persistence = CalibrationPersistence(catalog)

@@ -123,7 +123,7 @@ def _copy_directory_tree(src: Path, dst: Path) -> None:
     shutil.copytree(src, dst)
 
 
-def _bundle_one_input(entry_row: "dict", staging_inputs: Path) -> "dict | None":
+def _bundle_one_input(entry_row: dict, staging_inputs: Path) -> dict | None:
     """Copy or pack one tracked file into the inputs staging area.
 
     Returns the manifest entry for this file, or ``None`` if the source is
@@ -270,7 +270,7 @@ def _dematerialise_geographic(
 
 
 def _dump_catalog_snapshot(
-    conn: "duckdb.DuckDBPyConnection",
+    conn: duckdb.DuckDBPyConnection,
     sim_id: str,
     dst: Path,
 ) -> None:
@@ -308,7 +308,7 @@ def _dump_catalog_snapshot(
 
 
 def _restore_catalog_snapshot(
-    conn: "duckdb.DuckDBPyConnection",
+    conn: duckdb.DuckDBPyConnection,
     snapshot_path: Path,
 ) -> str:
     """Import the rows from ``snapshot_path`` into the open catalog.

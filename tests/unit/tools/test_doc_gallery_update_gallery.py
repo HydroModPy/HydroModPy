@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from tools.doc_gallery.gallery_manifest import GalleryCaseSpec, GalleryImageAsset
 from tools.doc_gallery import update_gallery
+from tools.doc_gallery.gallery_manifest import GalleryCaseSpec, GalleryImageAsset
 
 
 def test_reset_generated_dirs_retries_transient_permission_error(

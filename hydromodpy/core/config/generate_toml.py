@@ -33,7 +33,6 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config.param_level import (
-    PROFILES,
     ParamLevel,
 )  # PROFILES re-exported for CLI back-compat
 from hydromodpy.core.config.profile import Profile
@@ -48,20 +47,20 @@ def _get_registry() -> dict[str, type[BaseModel]]:
     """Lazy-load the module registry to avoid circular imports."""
     global _MODULE_REGISTRY
     if _MODULE_REGISTRY is None:
+        from hydromodpy.core.workspace.config import WorkspaceConfig
         from hydromodpy.data.data_managers_config import DataManagersConfig
-        from hydromodpy.spatial.domain.domain_config import DomainConfig
-        from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+        from hydromodpy.display.config import DisplayConfig
         from hydromodpy.physics.flow.flow_config import FlowConfig
         from hydromodpy.physics.transport.transport_config import TransportConfig
+        from hydromodpy.results.postprocess_config import PostprocessConfig
+        from hydromodpy.simulation.planning.config import SimulationConfig
+        from hydromodpy.solver.base.solver_config import SolverConfig
         from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
         from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
-        from hydromodpy.solver.base.solver_config import SolverConfig
-        from hydromodpy.core.workspace.config import WorkspaceConfig
-        from hydromodpy.simulation.planning.config import SimulationConfig
-        from hydromodpy.display.config import DisplayConfig
-        from hydromodpy.results.postprocess_config import PostprocessConfig
-        from hydromodpy.workflow.pipelines.overview_config import OverviewSection
+        from hydromodpy.spatial.domain.domain_config import DomainConfig
+        from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
         from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+        from hydromodpy.workflow.pipelines.overview_config import OverviewSection
 
         _MODULE_REGISTRY = {
             "workspace": WorkspaceConfig,
@@ -155,7 +154,7 @@ def generate_toml(
 
 
 def generate_toml_from_instances(
-    instances: dict[str, "BaseModel"],
+    instances: dict[str, BaseModel],
     output_path: str | Path | None = None,
     profile: str = "user",
     *,
@@ -537,14 +536,14 @@ def _flow_dynamic_examples(threshold: int) -> list[str]:
     the canonical MODFLOW triplet K / Sy / Ss, the Cauchy drainage BC, and
     a recharge sinks-sources block.
     """
-    from hydromodpy.spatial.field.core.field_param_config import (
-        FieldBaseSection,
-        FieldHomogeneousSection,
-    )
     from hydromodpy.physics.flow.boundary_conditions import (
         FlowBoundaryConditionConfig,
     )
     from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
+    from hydromodpy.spatial.field.core.field_param_config import (
+        FieldBaseSection,
+        FieldHomogeneousSection,
+    )
 
     out: list[str] = []
     out.append("")

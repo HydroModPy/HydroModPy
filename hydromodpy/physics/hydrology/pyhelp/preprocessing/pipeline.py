@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """PyHELP preprocessing functions:
 
 1) build climate CSVs (or use ready ones)
@@ -10,10 +9,9 @@
 """
 
 from pathlib import Path
-from typing import List, Optional
 
-from .config import PyhelpPreprocessingConfig, PyhelpGridParams
-from .io import make_pyhelp_inputs, export_daily_outputs_to_netcdf
+from .config import PyhelpGridParams, PyhelpPreprocessingConfig
+from .io import export_daily_outputs_to_netcdf, make_pyhelp_inputs
 from .runner import run_help
 
 
@@ -72,12 +70,12 @@ def preprocessing_pyhelp(
     *,
     workdir: str,
     pyhelp_out_nc: str,
-    grid_ready: Optional[Path] = None,
-    grid_base: Optional[Path] = None,
-    dem: Optional[str] = None,
-    ready_climatic_csvs: Optional[List[str]] = None,
-    nc_folder: Optional[str] = None,
-    shapefile: Optional[str] = None,
+    grid_ready: Path | None = None,
+    grid_base: Path | None = None,
+    dem: str | None = None,
+    ready_climatic_csvs: list[str] | None = None,
+    nc_folder: str | None = None,
+    shapefile: str | None = None,
     grid_params=None,
     growth_start: int = 140,
     growth_end: int = 280,
@@ -99,8 +97,8 @@ def preprocessing_pyhelp(
     dist_dr1: float = 50,
     slope1: float = 35,
     # test pour compatibilité
-    main_py: Optional[str] = None,
-    help_cli: Optional[str] = None,
+    main_py: str | None = None,
+    help_cli: str | None = None,
     compress_level: int = 4,
 ):
 

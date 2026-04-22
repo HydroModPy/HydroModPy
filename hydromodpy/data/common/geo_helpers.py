@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import math
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from hydromodpy.data.contracts.location import StationLocation
 

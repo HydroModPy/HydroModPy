@@ -30,7 +30,6 @@ from .reference import (
 )
 from .runtime_boussinesq import run_boussinesq_sloping_substratum_uniform_recharge_case
 
-
 CASE_DIR = Path(__file__).resolve().parent
 
 

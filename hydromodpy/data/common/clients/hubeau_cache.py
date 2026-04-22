@@ -9,8 +9,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.contracts.timeseries import PointRecord
 
 if TYPE_CHECKING:
     from hydromodpy.data.base_manager import BaseVariableManager
@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 
 
 def fetch_with_smart_cache(
-    manager: "BaseVariableManager",
+    manager: BaseVariableManager,
     *,
     source_cfg,
     fetch_fn: Callable[..., list[PointRecord]],

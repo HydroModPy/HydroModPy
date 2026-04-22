@@ -24,7 +24,6 @@ from validation_cases.shared import (
 from .reference import expected_late_time_unconfined_pumping_drawdown
 from .runtime_boussinesq import run_boussinesq_late_time_unconfined_pumping_case
 
-
 CASE_DIR = Path(__file__).resolve().parent
 
 

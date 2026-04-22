@@ -11,6 +11,8 @@ from dataclasses import dataclass
 
 from hydromodpy.core.units import (
     canonical_unit_token as _canonical_unit_token,
+)
+from hydromodpy.core.units import (
     factor_to_m,
     factor_to_m3_per_s,
     factor_to_m_per_s,

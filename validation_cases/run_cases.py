@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 
 from validation_cases.shared.loaders import load_case_metadata
-
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 ANALYTICAL_ROOT = PACKAGE_ROOT / "analytical"
@@ -201,7 +200,7 @@ def build_execution_report(
     total_duration_seconds = float(sum(float(item.duration_seconds) for item in executions))
     return {
         "schema_version": "validation_batch_report_v1",
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "generated_at_utc": datetime.now(UTC).isoformat(),
         "solver": str(solver),
         "regime": str(regime),
         "show_plot": bool(show_plot),

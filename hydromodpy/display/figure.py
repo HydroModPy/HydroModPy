@@ -58,9 +58,9 @@ class Figure(Protocol):
 
     spec: FigureSpec
 
-    def render(self, sim: "Run", ax: "Axes", **opts) -> "Axes": ...
+    def render(self, sim: Run, ax: Axes, **opts) -> Axes: ...
 
-    def plot(self, sim: "Run", **opts) -> "MplFigure": ...
+    def plot(self, sim: Run, **opts) -> MplFigure: ...
 
 
 class BaseFigure(ABC):
@@ -69,18 +69,18 @@ class BaseFigure(ABC):
     spec: FigureSpec
 
     @abstractmethod
-    def render(self, sim: "Run", ax: "Axes", **opts) -> "Axes":
+    def render(self, sim: Run, ax: Axes, **opts) -> Axes:
         raise NotImplementedError
 
     def plot(
         self,
-        sim: "Run",
+        sim: Run,
         *,
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path: str | Path | None = None,
         **opts,
-    ) -> "MplFigure":
+    ) -> MplFigure:
         import matplotlib.pyplot as plt
 
         fig, ax = plt.subplots(
@@ -94,7 +94,7 @@ class BaseFigure(ABC):
         return fig
 
     @staticmethod
-    def _save(fig: "MplFigure", path: Path, *, dpi: int) -> None:
+    def _save(fig: MplFigure, path: Path, *, dpi: int) -> None:
         path = path.expanduser()
         path.parent.mkdir(parents=True, exist_ok=True)
         if path.suffix == "":

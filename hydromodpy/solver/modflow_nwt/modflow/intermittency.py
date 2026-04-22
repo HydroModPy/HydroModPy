@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 *
@@ -23,8 +22,8 @@ import os
 import numpy as np
 import rasterio
 
-from hydromodpy.core.logging import get_logger
 from hydromodpy.core.io.raster_io import export_tif
+from hydromodpy.core.logging import get_logger
 
 from .postprocess import NODATA
 

@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
-import matplotlib
 import geopandas as gpd
-from matplotlib.colors import ListedColormap
-from matplotlib.patches import Rectangle
+import matplotlib
 import matplotlib.ticker as mticker
 import numpy as np
+from matplotlib.colors import ListedColormap
+from matplotlib.patches import Rectangle
 from shapely.geometry import box
 
 
@@ -43,8 +43,6 @@ REPO_ROOT = _find_repo_root()
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.spatial.field.geology.geology_field import GeologyField
-from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.case_runner import (
     run_discretization_case,
 )
@@ -52,7 +50,8 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.run_dem
     SGridFieldParamDiscretizationConfig,
 )
 from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
-
+from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.geology.geology_field import GeologyField
 
 DEFAULT_CONFIG_FILE = "run_demo_config_2d.toml"
 DEFAULT_SECTION = "case"

@@ -7,12 +7,18 @@ import json
 import logging
 import math
 import numbers
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from hydromodpy.analysis.comparison.config import (
+    MethodComparisonConfig,
+    MethodComparisonObservable,
+    MethodComparisonVariant,
+)
 from hydromodpy.core.config.toml_loader import (
     load_toml_with_base_config,
     merge_toml_payloads,
@@ -20,12 +26,6 @@ from hydromodpy.core.config.toml_loader import (
 from hydromodpy.solver.boussinesq.history_contract import (
     snapshot_elapsed_seconds_from_payload,
     step_end_elapsed_seconds_from_payload,
-)
-
-from hydromodpy.analysis.comparison.config import (
-    MethodComparisonConfig,
-    MethodComparisonObservable,
-    MethodComparisonVariant,
 )
 
 if TYPE_CHECKING:

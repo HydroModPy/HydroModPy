@@ -30,14 +30,14 @@ class RecessionCurveFigure(BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         *,
         station: str = "_catchment",
         variable: str = "discharge",
         min_length: int = 5,
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         ts = sim.timeseries(variable, station=station)
         values = np.asarray(ts.values, dtype=float)
         n = values.size

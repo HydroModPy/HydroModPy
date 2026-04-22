@@ -8,10 +8,10 @@ before moving to the next case.
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-import sys
 from typing import Any
 
 # Ensure repository root is importable when script is launched directly.
@@ -23,7 +23,6 @@ from hydromodpy.spatial.domain.cases.run_domain_case import (
     plot_domain_summary,
     run_domain_case_from_toml,
 )
-
 
 CASES_DIR = Path(__file__).resolve().parent
 DEFAULT_OUTPUT_DIR = CASES_DIR / "outputs" / "review_cases"

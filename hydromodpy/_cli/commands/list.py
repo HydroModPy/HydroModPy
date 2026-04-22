@@ -8,7 +8,6 @@ from pathlib import Path
 
 from hydromodpy._cli.helpers import EXIT_NOT_FOUND, find_workspace_root
 
-
 NAME = "list"
 HELP = "List projects or runs in a workspace"
 

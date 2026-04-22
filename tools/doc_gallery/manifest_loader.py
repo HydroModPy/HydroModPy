@@ -16,7 +16,6 @@ from .gallery_schema import (
     _format_scientific,
 )
 
-
 _DEFAULT_MANIFESTS_DIR = Path(__file__).resolve().parent / "manifests"
 
 

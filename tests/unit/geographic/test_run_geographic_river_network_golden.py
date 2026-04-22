@@ -13,7 +13,6 @@ import rasterio
 from hydromodpy.spatial.geographic.cases import run_geographic_case_from_toml
 from tests._helpers.whitebox import configure_whitebox_single_thread
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 GOLDEN_FILE = (
     Path(__file__).resolve().parent / "golden" / "run_geographic_river_network_golden.json"

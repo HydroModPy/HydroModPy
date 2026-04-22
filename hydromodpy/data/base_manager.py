@@ -10,6 +10,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import pandas as pd
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.geo_helpers import bbox_hash
 from hydromodpy.data.common.io_helpers import safe_file_token
 from hydromodpy.data.common.validation import compute_completeness
@@ -21,7 +22,6 @@ from hydromodpy.data.registry.constants import (
     SENTINEL_CUSTOM,
     SENTINEL_EMPTY,
 )
-from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -115,8 +115,8 @@ class BaseVariableManager(ABC):
         """Get WGS84 bbox from mask or project extent (Hub'Eau expects lon/lat)."""
         if source_cfg.mask_path:
             from hydromodpy.data.common.geo_helpers import (
-                load_mask_geometry_wgs84,
                 geometry_to_bbox,
+                load_mask_geometry_wgs84,
             )
 
             geom = load_mask_geometry_wgs84(source_cfg.mask_path)
@@ -130,8 +130,8 @@ class BaseVariableManager(ABC):
         if not source_cfg.mask_path:
             return records
         from hydromodpy.data.common.geo_helpers import (
-            load_mask_geometry_wgs84,
             filter_locations_by_geometry,
+            load_mask_geometry_wgs84,
         )
 
         geom = load_mask_geometry_wgs84(source_cfg.mask_path)

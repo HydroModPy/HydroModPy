@@ -6,7 +6,6 @@ import math
 
 import numpy as np
 
-
 SECONDS_PER_DAY = 86400.0
 EULER_GAMMA = 0.5772156649015329
 

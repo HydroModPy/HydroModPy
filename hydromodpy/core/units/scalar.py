@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from numbers import Real
 
-
 _SCALAR_WITH_OPTIONAL_UNIT_PATTERN = re.compile(
     r"^\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*(.*?)\s*$"
 )

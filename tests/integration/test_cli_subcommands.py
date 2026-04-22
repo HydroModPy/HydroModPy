@@ -14,7 +14,6 @@ import pytest
 
 from hydromodpy._cli.main import main
 
-
 SUBCOMMANDS = (
     "init",
     "new",

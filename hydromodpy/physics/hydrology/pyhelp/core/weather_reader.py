@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------------
 # Copyright © PyHELP Project Contributors
 # https://github.com/cgq-qgc/pyhelp
@@ -9,8 +8,8 @@
 
 
 # ---- Standard Library imports
-import os.path as osp
 import calendar
+import os.path as osp
 
 # ---- Third Party imports
 import numpy as np
@@ -65,13 +64,13 @@ def format_weather_header_for_HELP(itype, iunits, city, lat=None):
     header is defined in the subroutine READIN of the HELP Fortran source code.
     """
     fheader = [
-        ["{0:>2}".format(itype)],  # 3: data was entered by the user.
-        ["{0:>2}".format(iunits)],  # 1 for IP and 2 for SI
-        ["{0:<40}".format(city[:40])],
+        [f"{itype:>2}"],  # 3: data was entered by the user.
+        [f"{iunits:>2}"],  # 1 for IP and 2 for SI
+        [f"{city[:40]:<40}"],
     ]
     if lat is not None:
         # Append the latitude if the data are solar radiation.
-        fheader.append(["{0:>6.2f}".format(lat)])
+        fheader.append([f"{lat:>6.2f}"])
     else:
         fheader.append([])
     return fheader

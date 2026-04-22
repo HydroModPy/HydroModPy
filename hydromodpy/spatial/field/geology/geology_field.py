@@ -31,9 +31,10 @@ This allows:
 
 from __future__ import annotations
 
-from functools import lru_cache
+from collections.abc import Mapping
+from functools import cache
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 from rasterio.transform import rowcol
@@ -45,7 +46,7 @@ from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import 
 )
 
 
-@lru_cache(maxsize=None)
+@cache
 def _quadrilateral_sample_weights(n_sub_per_axis: int) -> np.ndarray:
     n = max(2, int(n_sub_per_axis))
     u = (np.arange(n, dtype=float) + 0.5) / float(n)
@@ -61,7 +62,7 @@ def _quadrilateral_sample_weights(n_sub_per_axis: int) -> np.ndarray:
     )
 
 
-@lru_cache(maxsize=None)
+@cache
 def _triangle_sample_weights(n_sub_per_axis: int) -> np.ndarray:
     n = max(2, int(n_sub_per_axis))
     u = (np.arange(n, dtype=float) + 0.5) / float(n)
@@ -381,7 +382,7 @@ class GeologyField(Field):
         }
 
     @classmethod
-    def from_dict(cls, config: Mapping[str, Any]) -> "GeologyField":
+    def from_dict(cls, config: Mapping[str, Any]) -> GeologyField:
         """Build field from validated geology config mapping (standalone use)."""
         from hydromodpy.data.variables.geology.config import (
             validate_geology_config_data,
@@ -403,7 +404,7 @@ class GeologyField(Field):
         )
 
     @classmethod
-    def from_toml(cls, toml_path: str | Path, section: str = "geology") -> "GeologyField":
+    def from_toml(cls, toml_path: str | Path, section: str = "geology") -> GeologyField:
         """Build field directly from one TOML section (standalone use)."""
         from hydromodpy.data.variables.geology.config import (
             load_geology_toml,

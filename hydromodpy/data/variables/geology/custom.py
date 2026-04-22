@@ -186,9 +186,9 @@ def _load_custom_csv(
     import geopandas as gpd
     import numpy as np
     import pandas as pd
+    from shapely import MultiPoint
     from shapely.geometry import box
     from shapely.ops import voronoi_diagram
-    from shapely import MultiPoint
 
     df = pd.read_csv(str(path))
     for col in (col_x, col_y, col_code):

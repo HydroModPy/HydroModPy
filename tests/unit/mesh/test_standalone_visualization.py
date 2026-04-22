@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import replace
 import json
-from pathlib import Path
 import subprocess
 import sys
+from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
 from tools.mesh_bundle_viewer import (
-    CatchmentMeshBundle,
     VISUALIZATION_SUMMARY_SCHEMA_VERSION,
+    CatchmentMeshBundle,
     VisualizationSummary,
     build_visualization_summary_contract,
     load_toml_config,

@@ -11,16 +11,17 @@ Design choices
 
 from __future__ import annotations
 
-from math import isclose
-from pathlib import Path
 import tomllib
 import warnings
-from typing import Annotated, Any, Literal, Mapping
+from collections.abc import Mapping
+from math import isclose
+from pathlib import Path
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.profile import Profile
 
 
 def _require_positive_int(value, *, name: str) -> int:

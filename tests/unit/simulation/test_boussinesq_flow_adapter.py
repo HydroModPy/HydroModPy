@@ -23,9 +23,6 @@ _OBSOLETE_RUNTIME_API = pytest.mark.xfail(
 
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
-from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
-    WeightedAverageFieldDiscretization,
-)
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
@@ -36,6 +33,9 @@ from hydromodpy.simulation.planning.plan import (
     SimulationPlan,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid import GmshPlanarMesh2D
+from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
+    WeightedAverageFieldDiscretization,
+)
 
 
 def _write_csv(path: Path, header: str, rows: list[str]) -> None:

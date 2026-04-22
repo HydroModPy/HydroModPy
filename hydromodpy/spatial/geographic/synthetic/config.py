@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
+import tomllib
 from math import isclose
 from pathlib import Path
-import tomllib
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units import parse_length_to_m
-from hydromodpy.core.config.base import HydroModelBase
 
 
 class SyntheticGridConfig(HydroModelBase):
@@ -65,7 +65,7 @@ class SyntheticGridConfig(HydroModelBase):
         return length_m
 
     @model_validator(mode="after")
-    def _validate_grid_geometry(self) -> "SyntheticGridConfig":
+    def _validate_grid_geometry(self) -> SyntheticGridConfig:
         """Validate that the requested lengths map cleanly to one structured grid."""
         if not isclose(
             float(self.dx),
@@ -179,7 +179,7 @@ class SyntheticTopographyConfig(HydroModelBase):
         return float(parse_length_to_m(value, default_unit="m", label=label))
 
     @model_validator(mode="after")
-    def _validate_radial_island_payload(self) -> "SyntheticTopographyConfig":
+    def _validate_radial_island_payload(self) -> SyntheticTopographyConfig:
         """Validate radial-island specific parameters when that law is used."""
         if self.kind != "radial_island":
             return self
@@ -215,7 +215,7 @@ class SyntheticGeographicConfig(HydroModelBase):
     )
 
     @classmethod
-    def from_toml(cls, path: str | Path) -> "SyntheticGeographicConfig":
+    def from_toml(cls, path: str | Path) -> SyntheticGeographicConfig:
         """Load one config from a TOML file.
 
         Expected section layout:

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Example 01 — Canut catchment, steady-state with hmp.Simulation API.
 
 Runs MODFLOW-NWT in steady state and produces cross-section,
@@ -12,10 +11,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 

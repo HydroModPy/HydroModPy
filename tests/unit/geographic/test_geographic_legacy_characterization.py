@@ -19,12 +19,12 @@ from geopy.exc import GeocoderUnavailable
 from rasterio.errors import RasterioIOError
 from rasterio.features import geometry_mask, rasterize, shapes
 from rasterio.transform import from_origin
-from shapely.geometry import box, shape as shapely_shape
+from shapely.geometry import box
+from shapely.geometry import shape as shapely_shape
 
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.dem_metadata import _resolve_dep_code
-
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 GOLDEN_FILE = (
     Path(__file__).resolve().parent / "golden" / "geographic_legacy_characterization_golden.json"

@@ -6,15 +6,15 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import geopandas as gpd
-from matplotlib import pyplot as plt
-from matplotlib.colors import ListedColormap
 import matplotlib.ticker as mticker
 import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib.colors import ListedColormap
 from shapely.geometry import box
 
-from hydromodpy.spatial.field.geology.geology_field import GeologyField
 from hydromodpy.solver.utils.mesh.gmsh_grid import GmshPlanarMesh2D
 from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
+from hydromodpy.spatial.field.geology.geology_field import GeologyField
 
 from .reporting import dominant_zone_indices, normalize_zone_key
 

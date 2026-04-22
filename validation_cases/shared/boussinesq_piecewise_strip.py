@@ -18,7 +18,6 @@ from validation_cases.shared.runtime import (
     run_example_script,
 )
 
-
 PIECEWISE_STRIP_NX = 40
 PIECEWISE_STRIP_NY = 3
 PIECEWISE_STRIP_LENGTH_X_M = 400.0

@@ -8,7 +8,6 @@ from pathlib import Path
 
 from hydromodpy._cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, find_workspace_root
 
-
 NAME = "display"
 HELP = "Render figures for a simulation from the workspace catalog"
 
@@ -35,9 +34,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import tomllib
 
-    from hydromodpy.display import get as get_figure, names as figure_names
+    from hydromodpy.display import get as get_figure
+    from hydromodpy.display import names as figure_names
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.results.catalog import SimulationCatalog
 

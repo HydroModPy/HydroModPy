@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import geopandas as gpd
-import numpy as np
 from pathlib import Path
 from types import SimpleNamespace
+
+import geopandas as gpd
+import numpy as np
 import pytest
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 
@@ -12,20 +13,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid import (
     generate_zone_conformal_mesh_from_dataframe,
     load_zone_meshing_domain_payload,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.conformal import (
-    _select_partition_face_owner,
-    ZoneRegionalSizeField,
-)
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing import ZoneLinearConstraint
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
-    ZoneMeshingDomainConfig,
-)
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
-    ZoneMeshingRefinementFamilySettings,
-    ZoneMeshingRefinementGridSettings,
-    ZoneMeshingRefinementHotspotSettings,
-    ZoneMeshingRefinementPolicy,
-)
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
     CleanedZonePolygonRow,
     clean_zone_rows,
@@ -33,6 +21,19 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning impo
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._linework_matching import (
     SurfaceEmbeddingLocator,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
+    ZoneMeshingRefinementFamilySettings,
+    ZoneMeshingRefinementGridSettings,
+    ZoneMeshingRefinementHotspotSettings,
+    ZoneMeshingRefinementPolicy,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.conformal import (
+    ZoneRegionalSizeField,
+    _select_partition_face_owner,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
+    ZoneMeshingDomainConfig,
 )
 
 try:

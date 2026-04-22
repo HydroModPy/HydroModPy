@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any
 
 import pandas as pd
 import requests
@@ -16,8 +16,9 @@ from hydromodpy.core.io.http_client import get_default_client
 logger = logging.getLogger(__name__)
 
 try:
-    from ..common.base_station_set import BaseStationSet
     from hydromodpy.core.units import parse_length_to_m
+
+    from ..common.base_station_set import BaseStationSet
 except ImportError:
     import sys
 
@@ -27,6 +28,7 @@ except ImportError:
         if _path not in sys.path:
             sys.path.insert(0, _path)
     from common.base_station_set import BaseStationSet
+
     from hydromodpy.core.units import parse_length_to_m
 
 
@@ -46,7 +48,7 @@ STATUS_MESSAGES = {
 class StationDiscovery(BaseStationSet):
     """Encapsulate hydrometric station discovery outside ``StationSet``."""
 
-    def __init__(self, *, local_data_dir: Optional[Union[str, Path]] = None):
+    def __init__(self, *, local_data_dir: str | Path | None = None):
         self.local_data_dir = (
             Path(local_data_dir).expanduser().resolve() if local_data_dir else None
         )
@@ -62,7 +64,7 @@ class StationDiscovery(BaseStationSet):
             return mask_gdf.unary_union.centroid
 
     @staticmethod
-    def normalize_station_ids(id_values: Union[str, List[str]]) -> tuple[list[str], list[str]]:
+    def normalize_station_ids(id_values: str | list[str]) -> tuple[list[str], list[str]]:
         """Normalize station/site identifiers into parallel station/site lists."""
         if isinstance(id_values, str):
             id_values = [id_values]
@@ -90,15 +92,15 @@ class StationDiscovery(BaseStationSet):
     def discover_station_ids(
         cls,
         *,
-        bbox: Optional[tuple[float, float, float, float]] = None,
-        mask_path: Optional[Union[str, Path]] = None,
-        center_point: Optional[tuple[float, float]] = None,
-        fallback_search_radius_m: Optional[Any] = None,
-        fallback_search_radius_km: Optional[Any] = None,
+        bbox: tuple[float, float, float, float] | None = None,
+        mask_path: str | Path | None = None,
+        center_point: tuple[float, float] | None = None,
+        fallback_search_radius_m: Any | None = None,
+        fallback_search_radius_km: Any | None = None,
         require_observations: bool = False,
-        date_start: Optional[str] = None,
-        date_end: Optional[str] = None,
-        max_ids: Optional[int] = 20,
+        date_start: str | None = None,
+        date_end: str | None = None,
+        max_ids: int | None = 20,
         timeout: int = 30,
     ) -> list[str]:
         """Discover valid Hub'Eau hydrometric station identifiers in a geographic area."""
@@ -207,11 +209,11 @@ class StationDiscovery(BaseStationSet):
 
     def select_station_ids_from_mask(
         self,
-        mask_path: Union[str, Path],
+        mask_path: str | Path,
         *,
         source_mode: str,
-        fallback_search_radius_m: Optional[Any] = None,
-        fallback_search_radius_km: Optional[Any] = None,
+        fallback_search_radius_m: Any | None = None,
+        fallback_search_radius_km: Any | None = None,
     ) -> tuple[list[str], list[str]]:
         """Select station identifiers located inside a mask geometry."""
         logger.info("Loading geographic mask from: %s", mask_path)
@@ -255,7 +257,7 @@ class StationDiscovery(BaseStationSet):
         return 6_371_000.0 * 2 * asin(sqrt(a))
 
     @staticmethod
-    def _normalize_api_date(value: Optional[str], *, default: str) -> str:
+    def _normalize_api_date(value: str | None, *, default: str) -> str:
         """Normalize date string to API ``YYYY-MM-DD`` format."""
         if value is None:
             return default
@@ -302,9 +304,9 @@ class StationDiscovery(BaseStationSet):
         miny: float,
         maxx: float,
         maxy: float,
-        mask_gdf: Optional[Any] = None,
+        mask_gdf: Any | None = None,
         timeout: int = 30,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Search for hydrometric stations in a bounding box."""
         station_rows = self._request_station_rows_bbox(
             minx=minx,
@@ -349,7 +351,7 @@ class StationDiscovery(BaseStationSet):
                 pass
 
         seen = set()
-        candidate_data: List[dict] = []
+        candidate_data: list[dict] = []
         for row in station_rows:
             station_id = row.get("code_station")
             if station_id is None or station_id in seen:
@@ -372,10 +374,10 @@ class StationDiscovery(BaseStationSet):
     def _filter_by_observations(
         self,
         *,
-        candidate_ids: List[str],
-        date_start: Optional[str],
-        date_end: Optional[str],
-        max_ids: Optional[int],
+        candidate_ids: list[str],
+        date_start: str | None,
+        date_end: str | None,
+        max_ids: int | None,
         timeout: int,
     ) -> list[str]:
         """Filter station IDs by observation availability in a date range."""
@@ -560,12 +562,12 @@ def discover_station_ids(**kwargs) -> list[str]:
 
 
 def select_station_ids_from_mask(
-    mask_path: Union[str, Path],
+    mask_path: str | Path,
     *,
     source_mode: str,
-    local_data_dir: Optional[Union[str, Path]] = None,
-    fallback_search_radius_m: Optional[Any] = None,
-    fallback_search_radius_km: Optional[Any] = None,
+    local_data_dir: str | Path | None = None,
+    fallback_search_radius_m: Any | None = None,
+    fallback_search_radius_km: Any | None = None,
 ) -> tuple[list[str], list[str]]:
     """Module-level wrapper used by :class:`StationSet`."""
     helper = StationDiscovery(local_data_dir=local_data_dir)
@@ -577,6 +579,6 @@ def select_station_ids_from_mask(
     )
 
 
-def normalize_station_ids(id_values: Union[str, List[str]]) -> tuple[list[str], list[str]]:
+def normalize_station_ids(id_values: str | list[str]) -> tuple[list[str], list[str]]:
     """Module-level wrapper for explicit station-id normalization."""
     return StationDiscovery.normalize_station_ids(id_values)

@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 
 from hydromodpy.solver.modflow6 import Modflow6, Modflow6Transport
-from hydromodpy.solver.modflow_nwt.modflow import ModflowPostprocessOptions
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
+from hydromodpy.solver.modflow_nwt.modflow import ModflowPostprocessOptions
 from hydromodpy.solver.utils.mesh.gmsh_grid.runtime_support import GmshSupportMetadata
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 

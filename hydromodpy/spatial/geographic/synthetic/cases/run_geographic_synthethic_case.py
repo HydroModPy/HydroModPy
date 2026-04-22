@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import matplotlib.pyplot as plt
-from matplotlib.ticker import ScalarFormatter
 import numpy as np
+from matplotlib.ticker import ScalarFormatter
 
 # Support direct execution from file path and ensure local package precedence.
 repo_root = Path(__file__).resolve().parents[4]

@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import math
 
+from ..schema import MeshVisualizationData
+from ..visualization_summary import VisualizationSummary
 from .geometry import (
     has_continuous_node_topography,
 )
-from ..schema import MeshVisualizationData
-from ..visualization_summary import VisualizationSummary
 
 
 def _count_numeric_values(mesh, field_name: str) -> int:

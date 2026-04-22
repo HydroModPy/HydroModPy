@@ -9,15 +9,15 @@ from typing import Any
 from hydromodpy.data.variables.geology.config import (
     validate_geology_config_data,
 )
-from hydromodpy.spatial.field.core.field_param_config import (
-    resolve_field_param_config_payload,
-    validate_resolved_field_param_data,
-)
 from hydromodpy.solver.utils._config_helpers import resolve_path
 from hydromodpy.solver.utils.mesh.gmsh_grid import GmshPlanarMesh2D
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases._common import (
     load_case_section,
     resolve_case_config_path,
+)
+from hydromodpy.spatial.field.core.field_param_config import (
+    resolve_field_param_config_payload,
+    validate_resolved_field_param_data,
 )
 
 

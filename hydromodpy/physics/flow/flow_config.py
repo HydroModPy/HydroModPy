@@ -13,7 +13,9 @@ from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
 
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
+from hydromodpy.physics.base import ProcessSpatialConfig
 from hydromodpy.physics.flow.boundary_conditions import (
     DIRICHLET_BC_CANONICAL_DOMAINS,
     FlowBoundaryConditionConfig,
@@ -38,8 +40,6 @@ from hydromodpy.physics.flow.sinks_sources import (
 from hydromodpy.physics.flow.sinks_sources_config import (
     normalize_flow_sinks_sources,
 )
-from hydromodpy.core.config.base import HydroModelBase
-from hydromodpy.physics.base import ProcessSpatialConfig
 
 __all__ = [
     "FlowBoundaryConditionConfig",
@@ -463,7 +463,7 @@ class FlowConfig(ProcessSpatialConfig):
         flow_section: Mapping[str, object] | None,
         *,
         base_dir: Path,
-    ) -> "FlowConfig":
+    ) -> FlowConfig:
         """
         Build a validated `FlowConfig` from the `[flow]` TOML section.
 

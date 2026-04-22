@@ -64,7 +64,6 @@ from hydromodpy.data.variables.hydrography.config import (
 )
 from hydromodpy.data.variables.hydrography.result import HydrographyResult
 
-
 # =====================================================================
 # Helpers
 # =====================================================================
@@ -1291,7 +1290,7 @@ class TestDocumentedContracts:
         """Documented contract: all API fetch() functions return EPSG:4326."""
         # This is verified in the individual API tests above; here we just
         # verify the modules are importable and have a fetch function.
-        from hydromodpy.data.variables.hydrography.apis import osm, bdtopage, euhydro
+        from hydromodpy.data.variables.hydrography.apis import bdtopage, euhydro, osm
 
         assert callable(osm.fetch)
         assert callable(bdtopage.fetch)
@@ -1423,9 +1422,10 @@ class TestManagerTifPipeline:
     @patch("hydromodpy.data.variables.hydrography.manager.get_whitebox_backend")
     def test_tif_array_negative_to_nan(self, mock_backend_factory, tmp_path):
         """Negative values in the TIF should become NaN in streams_array."""
-        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
         import rasterio
         from rasterio.transform import from_bounds
+
+        from hydromodpy.data.variables.hydrography.manager import HydrographyManager
 
         backend = MagicMock()
         mock_backend_factory.return_value = backend

@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import sys
 
-
 NAME = "completion"
 HELP = "Emit a shell completion script for bash, zsh, or fish"
 

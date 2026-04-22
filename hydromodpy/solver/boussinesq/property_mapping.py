@@ -10,9 +10,9 @@ contract intentionally stays narrow:
 
 from __future__ import annotations
 
-from hydromodpy.core.logging import get_logger
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 _DEFAULT_CELL_SAMPLES_PER_AXIS = 8

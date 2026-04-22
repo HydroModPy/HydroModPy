@@ -9,9 +9,10 @@ storing raster products or file paths.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Literal
+from typing import Literal
 
 import geopandas as gpd
 from shapely.geometry import GeometryCollection, LineString, MultiLineString
@@ -92,7 +93,7 @@ class RiverMeshTrace:
         source_kind: RiverMeshTraceSourceKind,
         crs_wkt: str,
         geometries: Iterable[LineString | MultiLineString],
-    ) -> "RiverMeshTrace":
+    ) -> RiverMeshTrace:
         """Build one trace from raw line or multilinestring geometries."""
         return cls(
             source_kind=source_kind,

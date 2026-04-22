@@ -53,8 +53,8 @@ class TestFieldMeshAdapter:
         assert "base_index" in mesh.point_data
 
     def test_from_field_mesh_structured(self) -> None:
-        from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import from_field_mesh
         from hydromodpy.spatial.field.meshes import StructuredFieldMesh
+        from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import from_field_mesh
 
         x, y = np.meshgrid([0, 1, 2], [0, 1])
         fm = StructuredFieldMesh(x_plot=x, y_plot=y)

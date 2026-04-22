@@ -17,11 +17,11 @@ from hydromodpy.simulation.planning.plan import (
     RunContext,
     SimulationPlan,
 )
+from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
     ValidationRunResult,
     resolve_validation_results_dir,
 )
-from validation_cases.shared.loaders import merge_case_flow_section
 
 
 def _write_csv(path: Path, header: str, rows: list[str]) -> None:

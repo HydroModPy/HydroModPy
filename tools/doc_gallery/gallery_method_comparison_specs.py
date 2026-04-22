@@ -7,7 +7,6 @@ from typing import Any
 
 from .gallery_schema import GalleryCaseSpec, GalleryImageAsset
 
-
 _DEFAULT_METHOD_COMPARISON_NEXT_STEPS = (
     "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, method-comparison pages, and validation pages.",
     "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.",

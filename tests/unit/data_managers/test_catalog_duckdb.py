@@ -1,8 +1,8 @@
 """Tests for registry/catalog_duckdb (DataCatalogDuckDB — mirror of test_catalog.py)."""
 
+import sqlite3
 from datetime import datetime
 from pathlib import Path
-import sqlite3
 
 import pytest
 

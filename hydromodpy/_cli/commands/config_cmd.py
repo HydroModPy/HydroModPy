@@ -17,10 +17,8 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
 
 from hydromodpy._cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
-
 
 NAME = "config"
 HELP = "Generate a TOML template, validate a config, or export the JSON Schema"
@@ -111,7 +109,7 @@ def run(args: argparse.Namespace) -> None:
 
 
 def _cmd_config_template(args: argparse.Namespace) -> None:
-    from hydromodpy.core.config.generate_toml import generate_toml, available_modules
+    from hydromodpy.core.config.generate_toml import available_modules, generate_toml
 
     if getattr(args, "list_modules", False):
         for name in available_modules():
@@ -192,9 +190,9 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
 def _cmd_config_schema(args: argparse.Namespace) -> None:
     """Export the JSON Schema for the HydroModPy configuration."""
     from hydromodpy.core.config.schema_export import (
+        _ensure_root_sections,
         export_schema,
         write_schema,
-        _ensure_root_sections,
     )
 
     if getattr(args, "list_sections", False):

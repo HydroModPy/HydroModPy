@@ -7,7 +7,6 @@ from datetime import datetime
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.variables.soil_moisture.config import SoilMoistureSourceConfig
 
-
 SIM2_PARAMETER = "SWI_Q"
 VARIABLE_NAME = "soil_moisture_index"
 INTERNAL_UNIT = "%"

@@ -2,25 +2,24 @@
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-import shutil
 from types import SimpleNamespace
 from typing import Any
 
-from hydromodpy.spatial.geographic.core.derived_features import (
-    coerce_geographic_derived_features,
-    resolve_river_mesh_trace,
-)
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.solver.utils.mesh.gmsh_grid._bundle_export_contracts import (
     CatchmentBundleGeologyExportConfig,
     CatchmentBundleHydraulicPropertiesConfig,
     CatchmentBundleSummaryReference,
 )
+from hydromodpy.spatial.geographic.core.derived_features import (
+    coerce_geographic_derived_features,
+    resolve_river_mesh_trace,
+)
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
-
 
 _RIVER_TRACE_CONSTRAINT_MODES = {"rivers_only", "geology_rivers"}
 
@@ -270,7 +269,7 @@ def _prepare_runtime_environment(
 
     dedicated_flat_layout = section_cfg.output_layout == "flat" and workspace is None
     effective_output_layout = "flat" if dedicated_flat_layout else "standard"
-    final_project_root = Path(getattr(workspace_cfg, "project_root")).resolve()
+    final_project_root = Path(workspace_cfg.project_root).resolve()
     runtime_project_root: Path | None = None
     runtime_workspace_cfg = workspace_cfg
     if dedicated_flat_layout:

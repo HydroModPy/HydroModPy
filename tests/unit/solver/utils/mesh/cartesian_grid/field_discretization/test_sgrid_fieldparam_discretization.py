@@ -4,16 +4,14 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import textwrap
+from pathlib import Path
 
 import numpy as np
 import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-from hydromodpy.spatial.field.geology.geology_field import GeologyField
-from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.case_runner import (
     run_discretization_case_from_toml,
 )
@@ -24,7 +22,8 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
     build_sgrid_from_config,
 )
-
+from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.geology.geology_field import GeologyField
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 GOLDEN_FILE = GOLDEN_DIR / "sgrid_fieldparam_discretization_signatures.json"

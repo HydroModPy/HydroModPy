@@ -9,14 +9,14 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-from hydromodpy.spatial.geographic import GeographicConfig
-from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
-    build_geographic_derived_features,
-    build_domain_geographic_context,
-)
-from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.core.workspace.config import WorkspaceConfig
+from hydromodpy.spatial.geographic import GeographicConfig
+from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
+    build_domain_geographic_context,
+    build_geographic_derived_features,
+)
+from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 
 
 def _write_dem(path: Path) -> None:

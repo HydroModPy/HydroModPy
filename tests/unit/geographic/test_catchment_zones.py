@@ -7,8 +7,7 @@ import numpy as np
 import pytest
 import rasterio
 from rasterio.transform import from_origin
-from shapely.geometry import box
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, box
 
 from hydromodpy.spatial.geographic.core.catchment_domain import derive_catchment_domain
 from hydromodpy.spatial.geographic.core.catchment_zones import (

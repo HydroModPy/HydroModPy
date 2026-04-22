@@ -10,11 +10,11 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
+from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 from hydromodpy.spatial.mesh import runtime as mesh_runtime
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
 
 

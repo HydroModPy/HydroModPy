@@ -27,7 +27,6 @@ from validation_cases.shared import (
 from .reference import expected_sloping_substratum_constant_thickness_profile_at_x
 from .runtime_boussinesq import run_boussinesq_sloping_substratum_constant_thickness_case
 
-
 CASE_DIR = Path(__file__).resolve().parent
 
 

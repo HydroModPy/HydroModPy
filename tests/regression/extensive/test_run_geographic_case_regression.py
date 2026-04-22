@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.spatial.geographic.cases import run_geographic_cases_from_toml
-from tests.regression.golden_utils import REPO_ROOT, resolve_tiered_golden_file
 from tests._helpers.whitebox import configure_whitebox_single_thread
+from tests.regression.golden_utils import REPO_ROOT, resolve_tiered_golden_file
 
 METRICS_GOLDEN_REFERENCE_FILE = resolve_tiered_golden_file(
     test_file=__file__,

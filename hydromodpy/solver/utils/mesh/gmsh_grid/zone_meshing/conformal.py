@@ -9,8 +9,9 @@ The heavy lifting is delegated to:
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 from shapely.geometry.base import BaseGeometry
@@ -20,23 +21,9 @@ from hydromodpy.data.variables.geology.io import load_vector_geology_dataframe
 from hydromodpy.data.variables.geology.processing import normalize_zone_key
 from hydromodpy.solver.utils.mesh.gmsh_grid._deps import require_gmsh as _require_gmsh
 from hydromodpy.solver.utils.mesh.gmsh_grid._trace import trace_mesh_stage
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
-    as_metric_tolerance,
-    iter_line_parts,
-    segment_intersects_refinement_scope,
-    segment_matches_linework,
-    split_partition_with_constraint_lines,
-)
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._linework_matching import (
-    SurfaceEmbeddingLocator,
-)
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._build_context import (
     compute_effective_max_size,
     initialize_build_state,
-)
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._partition_builder import (
-    _select_partition_face_owner as _select_partition_face_owner_impl,
-    build_partition_from_dataframe_impl,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._curve_groups import (
     build_curve_tag_to_segment,
@@ -44,10 +31,12 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._curve_groups import (
     embed_constraint_curves,
     register_curve_physical_groups,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._input_normalization import (
-    normalize_interface_refinement_inputs,
-    normalize_linear_constraints,
-    normalize_regional_size_fields,
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
+    as_metric_tolerance,
+    iter_line_parts,
+    segment_intersects_refinement_scope,
+    segment_matches_linework,
+    split_partition_with_constraint_lines,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._gmsh_driver import (
     add_polyline_segments,
@@ -55,12 +44,26 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._gmsh_driver import (
     apply_family_refinement_fields,
     apply_interface_refinement_field,
     apply_mesh_options,
-    build_runtime_planar_mesh_from_gmsh,
     build_curve_group_name,
+    build_runtime_planar_mesh_from_gmsh,
     configure_gmsh_terminal_output,
     create_regional_structured_size_field,
     set_background_mesh_from_fields,
     write_repository_compatible_mesh,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._input_normalization import (
+    normalize_interface_refinement_inputs,
+    normalize_linear_constraints,
+    normalize_regional_size_fields,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._linework_matching import (
+    SurfaceEmbeddingLocator,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._partition_builder import (
+    _select_partition_face_owner as _select_partition_face_owner_impl,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._partition_builder import (
+    build_partition_from_dataframe_impl,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._refinement_policy import (
     apply_local_refinement_policy,
@@ -68,6 +71,9 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._refinement_policy impo
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._summary_sidecar import (
     build_zone_conformal_summary,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
+    ZoneMeshingRefinementPolicy,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.contracts import (
     ZoneConformalMeshResult,
@@ -77,10 +83,6 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.contracts import (
     ZonePartitionFace,
     ZoneRegionalSizeField,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
-    ZoneMeshingRefinementPolicy,
-)
-
 
 # ---------------------------------------------------------------------------
 # Partition builder

@@ -9,7 +9,6 @@ from validation_cases.analytical.transient.runtime_boussinesq_1d import (
 )
 from validation_cases.shared import load_case_metadata
 
-
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "lu_boundary_step_1d"
 NX = 40

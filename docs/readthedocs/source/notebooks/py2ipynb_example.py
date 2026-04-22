@@ -1,10 +1,10 @@
-# -*- coding: utf-8 -*-
-
-import nbformat as nbf
-import os, sys
+import json
+import os
 import re
 import subprocess
-import json
+import sys
+
+import nbformat as nbf
 from nbformat.validator import normalize
 
 
@@ -20,7 +20,7 @@ def _write_notebook(path, notebook):
 
 def py_to_ipynb(py_file_path, ipynb_file_path):
     # Lire le fichier .py
-    with open(py_file_path, "r") as py_file:
+    with open(py_file_path) as py_file:
         lines = py_file.readlines()
 
     # Créer une nouvelle cellule de code pour chaque ligne
@@ -77,7 +77,7 @@ def find_folders_starting_with_digit(directory_path):
 
 def replace_code_in_ipynb(file_path, old_code, new_code):
     # Charger le fichier .ipynb
-    with open(file_path, "r", encoding="utf-8") as file:
+    with open(file_path, encoding="utf-8") as file:
         notebook_data = json.load(file)
 
     # Modifier le code dans les cellules de type 'code'
@@ -92,7 +92,7 @@ def replace_code_in_ipynb(file_path, old_code, new_code):
 
 def clear_empty_cells(notebook_path):
     # Open the notebook file
-    with open(notebook_path, "r", encoding="utf-8") as file:
+    with open(notebook_path, encoding="utf-8") as file:
         notebook = json.load(file)
 
     # Filter out empty code cells
@@ -108,7 +108,7 @@ def clear_empty_cells(notebook_path):
 
 def remove_first_cell(notebook_path, output_path):
     # Open the notebook file
-    with open(notebook_path, "r", encoding="utf-8") as file:
+    with open(notebook_path, encoding="utf-8") as file:
         notebook = json.load(file)
 
     # Remove the first cell (index 0)
@@ -120,7 +120,7 @@ def remove_first_cell(notebook_path, output_path):
 
 def add_markdown_cell_at_start(notebook_path, markdown_text, output_path):
     # Open the notebook file
-    with open(notebook_path, "r", encoding="utf-8") as file:
+    with open(notebook_path, encoding="utf-8") as file:
         notebook = json.load(file)
 
     # Create a new markdown cell

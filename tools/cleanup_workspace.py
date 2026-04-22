@@ -3,12 +3,11 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import os
-from pathlib import Path
 import shutil
 import stat
 import subprocess
 import sys
-
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ROOT_TEMP_DIR_PATTERNS = (

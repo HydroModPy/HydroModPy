@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
 from pathlib import Path
-from typing import Optional
-
 
 from ..core.managers import HelpManager
 
@@ -19,7 +16,7 @@ def run_help(
     sf_ulai: float = 1.0,
     sf_cn: float = 1.0,
     build_help_input_files: bool = True,
-    path_to_hdf5: Optional[Path] = None,
+    path_to_hdf5: Path | None = None,
 ):
     """Run PyHELP process using HelpManager."""
     hm = HelpManager(

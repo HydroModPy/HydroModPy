@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Flow Sink/Source Models
 =======================
@@ -46,11 +45,11 @@ from numbers import Real
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
-from hydromodpy.core.config.base import HydroModelBase
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_common.grid_context import GridReference
@@ -117,7 +116,7 @@ class FlowWellConfig(HydroModelBase):
             "Negative = pumping, positive = injection."
         ),
     )
-    forcing: Annotated["FlowWellForcingConfig | None", Profile.DEV] = Field(
+    forcing: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional runtime forcing declaration. Supported modes: "
@@ -332,7 +331,7 @@ class FlowWellConfig(HydroModelBase):
 
         return self
 
-    def resolve_cell(self, grid: "GridReference") -> tuple[int, int, int]:
+    def resolve_cell(self, grid: GridReference) -> tuple[int, int, int]:
         """Resolve this well location against one solver grid."""
         if self.cell is not None:
             return self.cell

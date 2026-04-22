@@ -15,7 +15,7 @@ from textwrap import dedent
 import pytest
 
 from hydromodpy.calibration.cli import run_calibration_cli
-from hydromodpy.calibration.config import CalibrationConfig, CalibParameterDecl
+from hydromodpy.calibration.config import CalibParameterDecl, CalibrationConfig
 from hydromodpy.calibration.engine import CalibrationEngine
 from hydromodpy.calibration.optimizer import (
     EvaluationResult,

@@ -12,18 +12,18 @@ Actual geometry cleaning and Gmsh generation live elsewhere.
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Annotated, Any
 
 from pydantic import (
-    BaseModel,
     ConfigDict,
     Field,
     ValidationError,
     field_validator,
     model_validator,
 )
+
 from hydromodpy.core.config.base import HydroModelBase
-from typing import Annotated
 from hydromodpy.core.config.profile import Profile
 
 
@@ -464,7 +464,7 @@ class ZoneMeshingSettings(HydroModelBase):
         return self
 
     @classmethod
-    def from_mapping(cls, config_data: Mapping[str, Any]) -> "ZoneMeshingSettings":
+    def from_mapping(cls, config_data: Mapping[str, Any]) -> ZoneMeshingSettings:
         """Validate one raw mapping and return one typed settings contract."""
         if not isinstance(config_data, Mapping):
             raise ValueError("zone meshing configuration must be a mapping")

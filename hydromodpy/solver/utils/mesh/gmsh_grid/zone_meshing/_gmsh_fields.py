@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import os
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 from shapely.geometry import Point

@@ -3,28 +3,52 @@
 from __future__ import annotations
 
 import argparse
-import csv
-from datetime import datetime, timedelta
 import json
 import os
 import sys
 import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from hydromodpy.core.config.toml_loader import merge_toml_payloads
+from tools.surface_interaction_reporting import (
+    write_csv as reporting_write_csv,
+)
+from tools.surface_interaction_reporting import (
+    write_execution_times_figure as reporting_write_execution_times_figure,
+)
+from tools.surface_interaction_reporting import (
+    write_flux_budget_figure as reporting_write_flux_budget_figure,
+)
+from tools.surface_interaction_reporting import (
+    write_flux_figure as reporting_write_flux_figure,
+)
+from tools.surface_interaction_reporting import (
+    write_head_point_figure as reporting_write_head_point_figure,
+)
+from tools.surface_interaction_reporting import (
+    write_head_snapshots as reporting_write_head_snapshots,
+)
+from tools.surface_interaction_reporting import (
+    write_markdown_summary as reporting_write_markdown_summary,
+)
+from tools.surface_interaction_reporting import (
+    write_outflow_components_figure as reporting_write_outflow_components_figure,
+)
+from tools.surface_interaction_reporting import (
+    write_total_outflow_overlay_figure as reporting_write_total_outflow_overlay_figure,
+)
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
 from validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.reference import (
     build_linear_topography_values,
@@ -51,18 +75,6 @@ from validation_cases.shared.runtime import (
     resolve_validation_results_dir,
     run_example_script,
 )
-from tools.surface_interaction_reporting import (
-    write_csv as reporting_write_csv,
-    write_execution_times_figure as reporting_write_execution_times_figure,
-    write_flux_budget_figure as reporting_write_flux_budget_figure,
-    write_flux_figure as reporting_write_flux_figure,
-    write_head_point_figure as reporting_write_head_point_figure,
-    write_head_snapshots as reporting_write_head_snapshots,
-    write_markdown_summary as reporting_write_markdown_summary,
-    write_outflow_components_figure as reporting_write_outflow_components_figure,
-    write_total_outflow_overlay_figure as reporting_write_total_outflow_overlay_figure,
-)
-
 
 CASE_DIR = (
     REPO_ROOT

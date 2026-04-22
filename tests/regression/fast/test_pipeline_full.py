@@ -24,7 +24,6 @@ from hydromodpy.pipeline import Pipeline, PipelineState
 from hydromodpy.pipeline.checkpoint import CheckpointStore
 from hydromodpy.pipeline.ledger import StepsLedger
 
-
 # ---------------------------------------------------------------------------
 # Synthetic 11-step workflow mirroring the canonical names of the real
 # pipeline so regressions stay meaningful.

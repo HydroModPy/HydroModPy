@@ -13,18 +13,7 @@ from types import SimpleNamespace
 import numpy as np
 
 import tools.investigate_surface_interaction_hillslope_transient as base
-from hydromodpy.spatial.domain import Domain
-from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
-from hydromodpy.spatial.geographic.synthetic.synthetic_geographic import build_synthetic_geographic
-from hydromodpy.spatial.surface import Surface
 from hydromodpy.physics.flow import Flow
-from hydromodpy.solver.modflow6 import Modflow6
-from hydromodpy.solver.modflow_common import (
-    ModflowPostprocessOptions,
-    ModflowPreprocessOptions,
-    ModflowRunOptions,
-)
-from hydromodpy.solver.modflow_nwt import Modflow
 from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.solver.boussinesq.history_contract import (
@@ -32,6 +21,17 @@ from hydromodpy.solver.boussinesq.history_contract import (
     elapsed_seconds_for_time_keys,
     write_time_series_npy,
 )
+from hydromodpy.solver.modflow6 import Modflow6
+from hydromodpy.solver.modflow_common import (
+    ModflowPostprocessOptions,
+    ModflowPreprocessOptions,
+    ModflowRunOptions,
+)
+from hydromodpy.solver.modflow_nwt import Modflow
+from hydromodpy.spatial.domain import Domain
+from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
+from hydromodpy.spatial.geographic.synthetic.synthetic_geographic import build_synthetic_geographic
+from hydromodpy.spatial.surface import Surface
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
 from validation_cases.shared import ValidationRunResult, load_case_metadata
 from validation_cases.shared.boussinesq_uniform_strip import (
@@ -45,7 +45,6 @@ from validation_cases.shared.runtime import (
     resolve_validation_results_dir,
     run_example_script,
 )
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CASE_DIR = (

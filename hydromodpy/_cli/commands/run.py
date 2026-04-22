@@ -25,7 +25,6 @@ from hydromodpy._cli.helpers import (
     auto_scan_workspace,
 )
 
-
 NAME = "run"
 HELP = "Run a simulation (.toml) or a prototype script (.py)"
 

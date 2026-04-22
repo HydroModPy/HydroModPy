@@ -31,15 +31,15 @@ class SideBySideMapFigure(BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         *,
-        reference: "Run | None" = None,
+        reference: Run | None = None,
         field: str = "head",
         timestep: int | None = None,
         cmap: str = "viridis",
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         if reference is None:
             raise ValueError("side_by_side: 'reference' simulation required")
         ts = last_timestep(sim) if timestep is None else timestep
@@ -61,9 +61,9 @@ class SideBySideMapFigure(BaseFigure):
 
     def plot(
         self,
-        sim: "Run",
+        sim: Run,
         *,
-        reference: "Run | None" = None,
+        reference: Run | None = None,
         field: str = "head",
         timestep: int | None = None,
         cmap: str = "viridis",
@@ -71,7 +71,7 @@ class SideBySideMapFigure(BaseFigure):
         dpi: int = 150,
         save_path=None,
         **_,
-    ) -> "MplFigure":
+    ) -> MplFigure:
         import matplotlib.pyplot as plt
 
         if reference is None:

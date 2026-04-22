@@ -14,7 +14,6 @@ from hydromodpy._cli.helpers import (
     resolve_sim_id,
 )
 
-
 NAME = "delete"
 HELP = "Delete a simulation (DuckDB row + Zarr store)"
 

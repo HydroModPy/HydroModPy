@@ -295,7 +295,7 @@ class SolverMesh:
         *,
         zbot: np.ndarray,
         inactive_mask: np.ndarray,
-    ) -> "SolverMesh":
+    ) -> SolverMesh:
         """Build from a FloPy StructuredGrid.
 
         Parameters
@@ -310,7 +310,7 @@ class SolverMesh:
         from hydromodpy.spatial.mesh.adapters.flopy_adapter import from_flopy_structured
 
         planar_mesh = from_flopy_structured(sgrid)
-        top = np.asarray(getattr(sgrid, "top"), dtype=float).reshape(-1)
+        top = np.asarray(sgrid.top, dtype=float).reshape(-1)
         botm = np.asarray(zbot, dtype=float)
         if botm.ndim == 3:
             botm = botm.reshape(botm.shape[0], -1)
@@ -336,7 +336,7 @@ class SolverMesh:
         mesh_3d: object,
         *,
         inactive_mask: np.ndarray | None = None,
-    ) -> "SolverMesh":
+    ) -> SolverMesh:
         """Build from an ExtrudedPrismMesh3D.
 
         Parameters
@@ -386,7 +386,7 @@ class SolverMesh:
         xoff: float = 0.0,
         yoff: float = 0.0,
         inactive_mask: np.ndarray | None = None,
-    ) -> "SolverMesh":
+    ) -> SolverMesh:
         """Build a structured SolverMesh from elevation arrays.
 
         Parameters

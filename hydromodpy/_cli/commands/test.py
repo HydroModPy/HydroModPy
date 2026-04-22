@@ -14,7 +14,6 @@ from hydromodpy._cli.helpers import (
     pytest_addopts_declares_basetemp,
 )
 
-
 NAME = "test"
 HELP = "Run unit, regression, or validation tests"
 

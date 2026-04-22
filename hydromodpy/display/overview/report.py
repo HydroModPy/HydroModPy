@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from hydromodpy.workflow.pipelines.overview_config import DataOverviewState
 
 
-def generate_overview_report(state: "DataOverviewState") -> list[Path]:
+def generate_overview_report(state: DataOverviewState) -> list[Path]:
     """Generate one PNG per enabled panel and return their paths."""
     import matplotlib
 
@@ -175,7 +175,7 @@ def generate_overview_report(state: "DataOverviewState") -> list[Path]:
 # ---------------------------------------------------------------------------
 
 
-def _resolve_output_dir(state: "DataOverviewState") -> Path:
+def _resolve_output_dir(state: DataOverviewState) -> Path:
     """Return the overview figures output directory."""
     if state.workspace is not None and hasattr(state.workspace, "paths"):
         return state.workspace.paths.figures_folder / "overview"
@@ -375,7 +375,7 @@ def _build_station_points(ld) -> list[dict] | None:
     return points or None
 
 
-def _build_station_inventory(state: "DataOverviewState") -> list[dict[str, Any]]:
+def _build_station_inventory(state: DataOverviewState) -> list[dict[str, Any]]:
     """Build a flat list of station dicts for the inventory table.
 
     Stations are deduped by ``(type, station_id)`` so that variables like

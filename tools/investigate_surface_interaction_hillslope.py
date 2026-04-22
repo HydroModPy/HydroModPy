@@ -25,18 +25,17 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from hydromodpy.core.config.toml_loader import merge_toml_payloads
 from hydromodpy.physics.flow import Flow
 from hydromodpy.solver.boussinesq import Boussinesq
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
-from hydromodpy.core.config.toml_loader import merge_toml_payloads
 from validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.reference import (
     build_linear_topography_values,
 )
@@ -60,7 +59,6 @@ from validation_cases.shared.runtime import (
     resolve_validation_results_dir,
     run_example_script,
 )
-
 
 CASE_DIR = (
     REPO_ROOT

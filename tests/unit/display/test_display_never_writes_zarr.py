@@ -13,7 +13,6 @@ import inspect
 from hydromodpy.display import list_figures
 from hydromodpy.display.catalog import get as get_figure
 
-
 _WRITE_TOKENS = (
     "write_",
     "save_zarr",

@@ -11,10 +11,11 @@ is inspection, postprocessing, or export to formats such as `.npy` or `.vtu`.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 
@@ -340,7 +341,7 @@ class ExtrudedPrismMeshWithValues:
         value_name: str = "field_param_value",
         depth_name: str = "prism_center_depth",
         label: str | None = None,
-    ) -> "ExtrudedPrismMeshWithValues":
+    ) -> ExtrudedPrismMeshWithValues:
         """Build the valued mesh from a meshio object carrying cell-data arrays."""
         mesh_3d = ExtrudedPrismMesh3D.from_meshio(mesh)
         cell_data = getattr(mesh, "cell_data", {})
@@ -369,7 +370,7 @@ class ExtrudedPrismMeshWithValues:
         value_name: str = "field_param_value",
         depth_name: str = "prism_center_depth",
         label: str | None = None,
-    ) -> "ExtrudedPrismMeshWithValues":
+    ) -> ExtrudedPrismMeshWithValues:
         """Read a valued prism mesh from disk."""
         meshio = _require_meshio()
         path_obj = Path(path).resolve()

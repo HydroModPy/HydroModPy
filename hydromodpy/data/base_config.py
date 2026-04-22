@@ -8,13 +8,12 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.path_resolution import resolve_declared_path
 from hydromodpy.core.config.base import HydroModelBase
-from typing import Annotated
+from hydromodpy.core.config.path_resolution import resolve_declared_path
 from hydromodpy.core.config.profile import Profile
 
 

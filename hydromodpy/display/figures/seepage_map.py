@@ -34,13 +34,13 @@ class SeepageMap(BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         *,
         timestep: int | None = None,
         cmap: str = "Reds",
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         ts = last_timestep(sim) if timestep is None else timestep
         mask = np.asarray(sim.field("seepage_areas", timestep=ts), dtype=float)
         render_face_field(

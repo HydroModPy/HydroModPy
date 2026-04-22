@@ -12,16 +12,14 @@ it behave relative to the structured baseline on the same field data?".
 from __future__ import annotations
 
 import argparse
-from collections.abc import Mapping
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
+import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
-import numpy as np
 
-from hydromodpy.spatial.field.geology.geology_field import GeologyField
-from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.case_runner import (
     run_discretization_case,
 )
@@ -47,6 +45,8 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.plot
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_case_gmsh import (
     build_reference_case_state_from_toml,
 )
+from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.geology.geology_field import GeologyField
 
 plt.switch_backend("Agg")
 
@@ -210,8 +210,8 @@ def _build_comparison_summary(
 
 
 def _draw_structured_mesh_edges(ax, mesh, *, color: str, lw: float, alpha: float) -> None:
-    x = np.asarray(getattr(mesh, "x_plot"), dtype=float)
-    y = np.asarray(getattr(mesh, "y_plot"), dtype=float)
+    x = np.asarray(mesh.x_plot, dtype=float)
+    y = np.asarray(mesh.y_plot, dtype=float)
     for j in range(y.shape[0]):
         ax.plot(x[j, :], y[j, :], color=color, lw=lw, alpha=alpha)
     for i in range(x.shape[1]):

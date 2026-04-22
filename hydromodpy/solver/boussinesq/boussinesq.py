@@ -17,21 +17,27 @@ The easiest way to read the package is:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import json
+from collections.abc import Mapping
 from numbers import Real
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.units.volumetric_flow import (
+    convert_to_m3_per_s,
+    normalize_m3_per_s_unit,
+)
 from hydromodpy.physics.flow.boundary_conditions import SIDE_DIRICHLET_BC_IDS
 from hydromodpy.physics.flow.initial_conditions import FlowInitialConditions
+from hydromodpy.solver.base.solver import Solver
 from hydromodpy.solver.boussinesq.assembly import (
     internal_edge_flux_from_head,
     saturated_thickness_from_head,
 )
 from hydromodpy.solver.boussinesq.core.state import BoussinesqState
+from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.methods import (
     resolve_surface_interaction_model_token,
 )
@@ -40,12 +46,10 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
     SteadySolveInputs,
     TransientStepInputs,
 )
-from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.runtime_selection import (
     BoussinesqRuntimeBackend,
     resolve_runtime_backend,
 )
-from hydromodpy.solver.base.solver import Solver
 from hydromodpy.solver.utils.mesh.gmsh_grid import load_planar_mesh
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
@@ -53,10 +57,6 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import 
 from hydromodpy.solver.utils.mesh.gmsh_grid.planar_forcing_discretization import (
     discretize_fields_on_planar_mesh,
     discretize_points_on_planar_mesh,
-)
-from hydromodpy.core.units.volumetric_flow import (
-    convert_to_m3_per_s,
-    normalize_m3_per_s_unit,
 )
 
 _SUPPORTED_BC_IDS = frozenset(set(SIDE_DIRICHLET_BC_IDS) | {"stream", "ocean", "drainage"})
@@ -1295,11 +1295,11 @@ class Boussinesq(Solver):
             )
 
         if location_mode == "absolute_xy":
-            x_m = float(getattr(well_cfg, "x"))
-            y_m = float(getattr(well_cfg, "y"))
+            x_m = float(well_cfg.x)
+            y_m = float(well_cfg.y)
         elif location_mode == "relative_xy":
-            x_rel = float(getattr(well_cfg, "x_rel"))
-            y_rel = float(getattr(well_cfg, "y_rel"))
+            x_rel = float(well_cfg.x_rel)
+            y_rel = float(well_cfg.y_rel)
             x_m = self.mesh.x_min_m + x_rel * (self.mesh.x_max_m - self.mesh.x_min_m)
             y_m = self.mesh.y_min_m + y_rel * (self.mesh.y_max_m - self.mesh.y_min_m)
         else:

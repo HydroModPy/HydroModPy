@@ -3,14 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.core.config.profile import Profile
-from hydromodpy.core.config.param_level import VisibleWhen
-from hydromodpy.core.tracking import InputFile
-from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
-from hydromodpy.core.units import parse_length_to_m
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.param_level import VisibleWhen
+from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.tracking import InputFile
+from hydromodpy.core.units import parse_length_to_m
+from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
 
 
 class RiverNetworkConfig(HydroModelBase):
@@ -99,7 +99,7 @@ class RiverNetworkConfig(HydroModelBase):
         return length_m
 
     @model_validator(mode="after")
-    def _validate_threshold_payload(self) -> "RiverNetworkConfig":
+    def _validate_threshold_payload(self) -> RiverNetworkConfig:
         if not bool(self.enabled):
             return self
 
@@ -346,7 +346,7 @@ class GeographicConfig(HydroModelBase):
         return pct
 
     @model_validator(mode="after")
-    def _check_mode_requirements(self) -> "GeographicConfig":
+    def _check_mode_requirements(self) -> GeographicConfig:
         """
         Validates the configuration based on the selected catchment definition mode.
 

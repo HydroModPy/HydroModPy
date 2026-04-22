@@ -26,9 +26,10 @@ import random
 import threading
 import time
 from collections import defaultdict
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from email.utils import parsedate_to_datetime
-from typing import Any, Callable, Iterator
+from typing import Any
 from urllib.parse import urlparse
 
 import requests

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Visualization utilities for HydroModPy examples.
 
@@ -11,11 +10,11 @@ Provides generalized plotting functions for consistent visualization across exam
 
 import logging
 
+import matplotlib as mpl
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 import rasterio.plot
 
 logger = logging.getLogger(__name__)

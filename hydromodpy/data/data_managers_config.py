@@ -15,15 +15,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.data.variables.dem.config import DemConfig
 from hydromodpy.data.variables.geology.config import GeologyConfig
-from hydromodpy.core.config.base import HydroModelBase
-
 
 SUPPORTED_DATA_MANAGER_TYPES = (
     "dem",
@@ -100,15 +99,15 @@ class DataManagersConfig(HydroModelBase):
         default=None,
         description="Geology configuration used when 'geology' is listed in data.types.",
     )
-    hydrography: Annotated["HydrographyConfig | None", Profile.USER] = Field(
+    hydrography: Annotated[HydrographyConfig | None, Profile.USER] = Field(
         default=None,
         description="Hydrography configuration (stream network vector data).",
     )
-    hydrometry: Annotated["HydrometryConfig | None", Profile.USER] = Field(
+    hydrometry: Annotated[HydrometryConfig | None, Profile.USER] = Field(
         default=None,
         description="Hydrometry configuration (discharge time-series).",
     )
-    intermittency: Annotated["IntermittencyConfig | None", Profile.USER] = Field(
+    intermittency: Annotated[IntermittencyConfig | None, Profile.USER] = Field(
         default=None,
         description="Intermittency configuration (ONDE stream flow-state observations).",
     )
@@ -116,47 +115,47 @@ class DataManagersConfig(HydroModelBase):
         default=None,
         description=("Oceanic configuration used when 'oceanic' is listed in data.types."),
     )
-    piezometry: Annotated["PiezometryConfig | None", Profile.USER] = Field(
+    piezometry: Annotated[PiezometryConfig | None, Profile.USER] = Field(
         default=None,
         description="Piezometry configuration (groundwater level time-series).",
     )
-    water_quality: Annotated["WaterQualityConfig | None", Profile.USER] = Field(
+    water_quality: Annotated[WaterQualityConfig | None, Profile.USER] = Field(
         default=None,
         description="Water quality configuration (physico-chemical parameters).",
     )
-    recharge: Annotated["RechargeConfig | None", Profile.USER] = Field(
+    recharge: Annotated[RechargeConfig | None, Profile.USER] = Field(
         default=None,
         description="Recharge configuration (drainage / soil infiltration time series).",
     )
-    runoff: Annotated["RunoffConfig | None", Profile.USER] = Field(
+    runoff: Annotated[RunoffConfig | None, Profile.USER] = Field(
         default=None,
         description="Runoff configuration (surface runoff time series).",
     )
-    precipitation: Annotated["PrecipitationConfig | None", Profile.USER] = Field(
+    precipitation: Annotated[PrecipitationConfig | None, Profile.USER] = Field(
         default=None,
         description="Precipitation configuration (liquid and solid precipitation).",
     )
-    etp: Annotated["EtpConfig | None", Profile.USER] = Field(
+    etp: Annotated[EtpConfig | None, Profile.USER] = Field(
         default=None,
         description="ETP configuration (potential evapotranspiration).",
     )
-    temperature: Annotated["TemperatureConfig | None", Profile.USER] = Field(
+    temperature: Annotated[TemperatureConfig | None, Profile.USER] = Field(
         default=None,
         description="Temperature configuration (air temperature time series).",
     )
-    wind: Annotated["WindConfig | None", Profile.USER] = Field(
+    wind: Annotated[WindConfig | None, Profile.USER] = Field(
         default=None,
         description="Wind configuration (wind speed time series).",
     )
-    humidity: Annotated["HumidityConfig | None", Profile.USER] = Field(
+    humidity: Annotated[HumidityConfig | None, Profile.USER] = Field(
         default=None,
         description="Humidity configuration (relative humidity time series).",
     )
-    radiation: Annotated["RadiationConfig | None", Profile.USER] = Field(
+    radiation: Annotated[RadiationConfig | None, Profile.USER] = Field(
         default=None,
         description="Radiation configuration (atmospheric and visible radiation).",
     )
-    soil_moisture: Annotated["SoilMoistureConfig | None", Profile.USER] = Field(
+    soil_moisture: Annotated[SoilMoistureConfig | None, Profile.USER] = Field(
         default=None,
         description="Soil moisture configuration (soil moisture index).",
     )
@@ -205,7 +204,7 @@ class DataManagersConfig(HydroModelBase):
         return text
 
     @model_validator(mode="after")
-    def _validate_declared_sections(self) -> "DataManagersConfig":
+    def _validate_declared_sections(self) -> DataManagersConfig:
         # Post-validation coherence:
         # - active geology always has a typed config object (default if omitted),
         # - typed configs (oceanic, hydrometry, piezometry, water_quality) are
@@ -228,7 +227,7 @@ class DataManagersConfig(HydroModelBase):
     def with_resolved_types(
         self,
         resolved_types: Sequence[str],
-    ) -> "DataManagersConfig":
+    ) -> DataManagersConfig:
         """Return a validated copy using planner-resolved active types.
 
         This helper is used by the launcher after inference so downstream code
@@ -250,7 +249,7 @@ class DataManagersConfig(HydroModelBase):
         section_data: Any,
         *,
         base_dir: Path,
-    ) -> "DataManagersConfig":
+    ) -> DataManagersConfig:
         """
         Load one `[data]` TOML section and validate nested active sub-sections.
 
@@ -270,20 +269,20 @@ class DataManagersConfig(HydroModelBase):
         payload["types"] = normalized_types
 
         # Typed config models for data families that have dedicated schemas.
+        from hydromodpy.data.variables.etp.config import EtpConfig
+        from hydromodpy.data.variables.humidity.config import HumidityConfig
         from hydromodpy.data.variables.hydrography.config import HydrographyConfig
         from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
         from hydromodpy.data.variables.intermittency.config import IntermittencyConfig
         from hydromodpy.data.variables.piezometry.config import PiezometryConfig
-        from hydromodpy.data.variables.water_quality.config import WaterQualityConfig
+        from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
+        from hydromodpy.data.variables.radiation.config import RadiationConfig
         from hydromodpy.data.variables.recharge.config import RechargeConfig
         from hydromodpy.data.variables.runoff.config import RunoffConfig
-        from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
-        from hydromodpy.data.variables.etp.config import EtpConfig
-        from hydromodpy.data.variables.temperature.config import TemperatureConfig
-        from hydromodpy.data.variables.wind.config import WindConfig
-        from hydromodpy.data.variables.humidity.config import HumidityConfig
-        from hydromodpy.data.variables.radiation.config import RadiationConfig
         from hydromodpy.data.variables.soil_moisture.config import SoilMoistureConfig
+        from hydromodpy.data.variables.temperature.config import TemperatureConfig
+        from hydromodpy.data.variables.water_quality.config import WaterQualityConfig
+        from hydromodpy.data.variables.wind.config import WindConfig
 
         _TYPED_SECTIONS: dict[str, type[BaseModel]] = {
             "dem": DemConfig,
@@ -346,20 +345,20 @@ class DataManagersConfig(HydroModelBase):
 
 def _rebuild_forward_refs() -> None:
     """Resolve forward references for typed data-manager config fields."""
+    from hydromodpy.data.variables.etp.config import EtpConfig
+    from hydromodpy.data.variables.humidity.config import HumidityConfig
     from hydromodpy.data.variables.hydrography.config import HydrographyConfig
     from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
     from hydromodpy.data.variables.intermittency.config import IntermittencyConfig
     from hydromodpy.data.variables.piezometry.config import PiezometryConfig
-    from hydromodpy.data.variables.water_quality.config import WaterQualityConfig
+    from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
+    from hydromodpy.data.variables.radiation.config import RadiationConfig
     from hydromodpy.data.variables.recharge.config import RechargeConfig
     from hydromodpy.data.variables.runoff.config import RunoffConfig
-    from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
-    from hydromodpy.data.variables.etp.config import EtpConfig
-    from hydromodpy.data.variables.temperature.config import TemperatureConfig
-    from hydromodpy.data.variables.wind.config import WindConfig
-    from hydromodpy.data.variables.humidity.config import HumidityConfig
-    from hydromodpy.data.variables.radiation.config import RadiationConfig
     from hydromodpy.data.variables.soil_moisture.config import SoilMoistureConfig
+    from hydromodpy.data.variables.temperature.config import TemperatureConfig
+    from hydromodpy.data.variables.water_quality.config import WaterQualityConfig
+    from hydromodpy.data.variables.wind.config import WindConfig
 
     DataManagersConfig.model_rebuild(
         _types_namespace={

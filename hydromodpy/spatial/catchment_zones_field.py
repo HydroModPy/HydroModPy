@@ -7,8 +7,8 @@ intentionally does not duplicate georeferencing metadata already carried by
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 import numpy as np
 

@@ -41,12 +41,12 @@ class StiffDiagramFigure(BaseFigure):
 
     def render(
         self,
-        sim: "Run | Any",
-        ax: "Axes",
+        sim: Run | Any,
+        ax: Axes,
         *,
         sample: int = 0,
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         df = _to_dataframe(sim)
         row = df.iloc[sample]
         # Cations on the left (negative x), anions on the right (positive x).

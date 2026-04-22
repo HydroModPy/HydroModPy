@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
-from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-from hydromodpy.analysis.comparison.config import MethodComparisonConfig
 from examples_legacy_2.projects.launcher_simulation.realistic_campaign.run_campaign import (
     CampaignExecution,
     build_execution_report,
@@ -13,6 +10,9 @@ from examples_legacy_2.projects.launcher_simulation.realistic_campaign.run_campa
     filter_campaign_cases,
     load_campaign_manifest,
 )
+from hydromodpy.analysis.comparison.config import MethodComparisonConfig
+from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 
 def _write_campaign_manifest(tmp_path: Path) -> Path:

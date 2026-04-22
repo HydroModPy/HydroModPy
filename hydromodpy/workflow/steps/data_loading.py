@@ -10,13 +10,13 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hydromodpy.spatial.geographic.structure_binders import apply_geology_to_domain
+from hydromodpy.core.time import resolve_simulation_time_window
 from hydromodpy.physics.flow.structure_binders import (
     apply_oceanic_to_flow,
     apply_recharge_load_result_to_flow,
 )
 from hydromodpy.simulation import ensure_flow
-from hydromodpy.core.time import resolve_simulation_time_window
+from hydromodpy.spatial.geographic.structure_binders import apply_geology_to_domain
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext

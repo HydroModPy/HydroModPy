@@ -17,18 +17,17 @@ import pytest
 import xarray as xr
 
 from hydromodpy.data.base_manager import BaseFieldManager
-from hydromodpy.data.common.geo_helpers import bbox_hash as _bbox_hash
 from hydromodpy.data.common.custom_grid_loader import (
     _find_coord,
     _find_time_dim,
     load_custom_nc,
 )
+from hydromodpy.data.common.geo_helpers import bbox_hash as _bbox_hash
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
-
+from hydromodpy.data.variables.recharge.config import RechargeSourceConfig
 
 # ── helpers ──────────────────────────────────────────────────────────
 
@@ -768,8 +767,8 @@ class TestRechargeBridge:
         assert extract_homogeneous_series(result) is None
 
     def test_build_forcing_series_converts_units(self):
-        from hydromodpy.physics.forcing.forcing_bridge import build_forcing_series
         from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+        from hydromodpy.physics.forcing.forcing_bridge import build_forcing_series
 
         mm_day_to_m_s = factor_to_m_per_s("mm/day")
         rec = _make_point_record("A", n=3)
@@ -784,8 +783,8 @@ class TestRechargeBridge:
         assert series.iloc[1] == pytest.approx(1.0 * mm_day_to_m_s)
 
     def test_build_forcing_series_no_points_returns_none(self):
-        from hydromodpy.physics.forcing.forcing_bridge import build_forcing_series
         from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+        from hydromodpy.physics.forcing.forcing_bridge import build_forcing_series
 
         result = LoadResult(fields=[_make_field_record()])
         assert (
@@ -798,8 +797,8 @@ class TestRechargeBridge:
         )
 
     def test_build_forcing_series_runoff_converts_units(self):
-        from hydromodpy.physics.forcing.forcing_bridge import build_forcing_series
         from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+        from hydromodpy.physics.forcing.forcing_bridge import build_forcing_series
 
         mm_day_to_m_s = factor_to_m_per_s("mm/day")
         rec = _make_point_record("A", n=3)

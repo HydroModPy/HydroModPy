@@ -6,7 +6,6 @@ from pathlib import Path
 
 from validation_cases.shared import load_case_metadata
 
-
 CASE_DIR = Path(__file__).resolve().parent
 
 

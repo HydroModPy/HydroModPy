@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MESH_GALLERY_CASE_SCHEMA_VERSION = "mesh_gallery_case_v1"
 MESH_GALLERY_REQUIRED_BUNDLE_FILES = (

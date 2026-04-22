@@ -16,7 +16,6 @@ import rasterio
 from matplotlib.collections import LineCollection, PolyCollection
 from rasterio.plot import show as rio_show
 
-
 ROOT = Path(__file__).resolve().parent
 REPO_ROOT = ROOT.parents[3]
 if str(REPO_ROOT) not in sys.path:
@@ -25,7 +24,6 @@ if str(REPO_ROOT) not in sys.path:
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (  # noqa: E402
     load_catchment_mesh_bundle,
 )
-
 
 WEB_DIR = ROOT / "web"
 ASSETS_DIR = WEB_DIR / "assets"

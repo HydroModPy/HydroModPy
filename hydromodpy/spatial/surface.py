@@ -50,7 +50,7 @@ class Surface:
         *,
         support: RasterSupport | None = None,
         name: str = "surface_topo",
-    ) -> "Surface":
+    ) -> Surface:
         """
         Build one surface from explicit DEM values.
 
@@ -92,7 +92,7 @@ class Surface:
 
     def assert_same_geographic_domain(
         self,
-        other: "Surface",
+        other: Surface,
         *,
         atol: float = 1.0e-9,
     ) -> None:
@@ -120,7 +120,7 @@ class Surface:
         resampling: str = "bilinear",
         nodata: float | None = None,
         name: str | None = None,
-    ) -> "Surface":
+    ) -> Surface:
         """
         Return one new surface re-discretized to ``(nrows, ncols)``.
 
@@ -149,7 +149,7 @@ class Surface:
         offset: float,
         *,
         name: str = "substratum",
-    ) -> "Surface":
+    ) -> Surface:
         """
         Return a new surface shifted downward by one constant offset.
 
@@ -170,7 +170,7 @@ class Surface:
         value: float,
         *,
         name: str = "substratum",
-    ) -> "Surface":
+    ) -> Surface:
         """
         Return a flat surface with one constant value on the same support.
 
@@ -190,7 +190,7 @@ class Surface:
         surface.assert_strictly_below(self)
         return surface
 
-    def assert_strictly_below(self, upper_surface: "Surface") -> None:
+    def assert_strictly_below(self, upper_surface: Surface) -> None:
         """
         Validate that this surface is strictly lower than ``upper_surface``.
 
@@ -239,7 +239,7 @@ class Surface:
         resampling: str,
         nodata: float | None,
         name: str | None,
-    ) -> "Surface":
+    ) -> Surface:
         """
         Internal raster resampling helper on the same geographic domain.
 

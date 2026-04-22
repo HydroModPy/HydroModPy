@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import FancyArrowPatch, Rectangle
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ASSET_ROOT = REPO_ROOT / "examples" / "capability_gallery" / "code_comparison"
 

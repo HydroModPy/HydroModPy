@@ -5,31 +5,30 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
-from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
-from hydromodpy.physics.flow.sinks_sources import FlowSinksSourcesConfig
-from hydromodpy.physics.flow.time_forcing import (
-    resolve_period_values_from_forcing,
+from hydromodpy.core.time import (
+    ResolvedSimulationTimeWindow,
+    build_simulation_time_boundaries,
 )
 from hydromodpy.core.units import convert_payload_to_m, normalize_length_unit
 from hydromodpy.core.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
 )
-from hydromodpy.core.time import (
-    ResolvedSimulationTimeWindow,
-    build_simulation_time_boundaries,
+from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig, FlowSinksSourcesConfig
+from hydromodpy.physics.flow.time_forcing import (
+    resolve_period_values_from_forcing,
 )
 
 if TYPE_CHECKING:
+    from hydromodpy.core.time import ResolvedSimulationTimeWindow
     from hydromodpy.data.contracts.load_result import LoadResult
     from hydromodpy.physics.flow import Flow
-    from hydromodpy.core.time import ResolvedSimulationTimeWindow
 
 
 def apply_oceanic_to_flow(
     *,
-    flow: "Flow",
-    oceanic: "LoadResult | None",
+    flow: Flow,
+    oceanic: LoadResult | None,
 ) -> None:
     """Inject mean sea-level value into the active ocean boundary condition."""
     if oceanic is None:
@@ -54,9 +53,9 @@ def apply_oceanic_to_flow(
 
 def apply_recharge_load_result_to_flow(
     *,
-    flow: "Flow",
-    recharge_result: "LoadResult | None",
-    simulation_window: "ResolvedSimulationTimeWindow | None" = None,
+    flow: Flow,
+    recharge_result: LoadResult | None,
+    simulation_window: ResolvedSimulationTimeWindow | None = None,
 ) -> bool:
     """Inject recharge from a data-manager LoadResult into flow.
 
@@ -71,8 +70,8 @@ def apply_recharge_load_result_to_flow(
     if recharge_result is None:
         return False
 
-    from hydromodpy.physics.forcing.forcing_bridge import resolve_forcing
     from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+    from hydromodpy.physics.forcing.forcing_bridge import resolve_forcing
 
     sinks_sources = getattr(flow, "sinks_sources", {})
     recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, dict) else None
@@ -119,7 +118,7 @@ def apply_recharge_load_result_to_flow(
 
 def apply_simulation_time_to_flow_wells(
     *,
-    flow: "Flow",
+    flow: Flow,
     simulation_window: ResolvedSimulationTimeWindow | None,
 ) -> None:
     """Resolve flow well.forcing payloads to period-aligned well.flux values."""
@@ -176,7 +175,7 @@ def apply_simulation_time_to_flow_wells(
 
 def apply_simulation_time_to_flow_boundary_conditions(
     *,
-    flow: "Flow",
+    flow: Flow,
     simulation_window: ResolvedSimulationTimeWindow | None,
 ) -> None:
     """Resolve flow.bc.*.forcing payloads to period-aligned boundary.value series."""

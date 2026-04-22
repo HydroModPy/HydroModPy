@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pandas as pd
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.io_helpers import safe_file_token
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

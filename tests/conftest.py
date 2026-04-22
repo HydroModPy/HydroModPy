@@ -3,12 +3,11 @@
 import os
 import random
 import shutil
-from pathlib import Path
 import tempfile
+from pathlib import Path
 
 import numpy as np
 import pytest
-
 
 # Force single-thread BLAS / Rayon so golden signatures are reproducible
 # across CI runners (see tests/TOLERANCES.md §"Cross-platform determinism").

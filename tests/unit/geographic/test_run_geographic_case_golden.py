@@ -10,7 +10,6 @@ import pytest
 from hydromodpy.spatial.geographic.cases import run_geographic_cases_from_toml
 from tests._helpers.whitebox import configure_whitebox_single_thread
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 # Keep unit coverage focused on the largest basin only for runtime reasons.
 GOLDEN_FILE = (

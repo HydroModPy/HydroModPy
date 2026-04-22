@@ -6,7 +6,6 @@ import argparse
 
 from hydromodpy._cli.commands.best import _rank_and_print
 
-
 NAME = "worst"
 HELP = "Show the bottom simulation for a project ranked by a metric"
 

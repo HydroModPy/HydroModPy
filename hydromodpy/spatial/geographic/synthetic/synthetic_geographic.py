@@ -8,13 +8,11 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 import rasterio
+from pyproj import Transformer
 from rasterio.features import rasterize
 from rasterio.transform import from_origin
-from pyproj import Transformer
 from shapely.geometry import box
 
-from hydromodpy.spatial.raster_support import RasterSupport
-from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicBoundaryFeatures,
     GeographicDerivedFeatures,
@@ -23,6 +21,8 @@ from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import Domain
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
 from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
+from hydromodpy.spatial.raster_support import RasterSupport
+from hydromodpy.spatial.surface import Surface
 
 
 @dataclass(frozen=True)

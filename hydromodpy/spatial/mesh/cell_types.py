@@ -34,7 +34,7 @@ class CellType(Enum):
         return _MESHIO_NAMES[self]
 
     @classmethod
-    def from_string(cls, name: str) -> "CellType":
+    def from_string(cls, name: str) -> CellType:
         """Resolve a cell type from any common alias."""
         key = str(name).strip().lower()
         result = _ALIASES.get(key)

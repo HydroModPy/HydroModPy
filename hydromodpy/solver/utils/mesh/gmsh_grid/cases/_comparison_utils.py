@@ -10,14 +10,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from matplotlib import pyplot as plt
 import numpy as np
+from matplotlib import pyplot as plt
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.plotting_utils import (
     ensure_interactive_backend_for_show,
 )
 from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
-
 
 # ---------------------------------------------------------------------------
 # Path / IO helpers
@@ -187,7 +186,7 @@ def mesh_bounds_xy(mesh) -> list[float]:
     forms), falling back to ``x_plot`` / ``y_plot`` arrays.
     """
     if hasattr(mesh, "bounds"):
-        bounds = getattr(mesh, "bounds")
+        bounds = mesh.bounds
         if len(bounds) >= 4:
             if len(bounds) == 4:
                 return [round_float(v, ndigits=6) for v in bounds]
@@ -197,8 +196,8 @@ def mesh_bounds_xy(mesh) -> list[float]:
                 round_float(bounds[3], ndigits=6),
                 round_float(bounds[4], ndigits=6),
             ]
-    x = np.asarray(getattr(mesh, "x_plot"), dtype=float)
-    y = np.asarray(getattr(mesh, "y_plot"), dtype=float)
+    x = np.asarray(mesh.x_plot, dtype=float)
+    y = np.asarray(mesh.y_plot, dtype=float)
     return [
         round_float(np.nanmin(x), ndigits=6),
         round_float(np.nanmin(y), ndigits=6),

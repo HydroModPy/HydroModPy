@@ -10,7 +10,6 @@ from typing import Any
 import nbformat as nbf
 from nbformat.validator import normalize
 
-
 NOTEBOOK_DIR = Path(__file__).resolve().parent
 REPO_ROOT = NOTEBOOK_DIR.parents[3]
 

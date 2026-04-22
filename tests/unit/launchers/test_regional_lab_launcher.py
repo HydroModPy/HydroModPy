@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import csv
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 from hydromodpy.analysis.batch.bootstrap import build_site_catalog_from_outlet_table

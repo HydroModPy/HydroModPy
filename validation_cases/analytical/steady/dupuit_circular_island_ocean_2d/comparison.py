@@ -22,7 +22,6 @@ from validation_cases.shared import (
 from .reference import expected_dupuit_circular_island_head
 from .runtime_boussinesq import run_boussinesq_dupuit_circular_island_ocean_case
 
-
 CASE_DIR = Path(__file__).resolve().parent
 
 

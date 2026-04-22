@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy
 *
@@ -16,12 +15,13 @@
 import os
 
 import rasterio
-from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
+
+from hydromodpy.core.io.raster_io import export_tif
 
 # HydroModPy
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tools.filesystem import create_folder
-from hydromodpy.core.io.raster_io import export_tif
+from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
 
 logger = get_logger(__name__)
 

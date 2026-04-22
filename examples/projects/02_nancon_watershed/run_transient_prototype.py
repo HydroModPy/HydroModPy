@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Nançon — specific yield (Sy) sensitivity.
 
 Template showing how to drive HydroModPy from Python: sweep one
@@ -16,7 +15,6 @@ import pandas as pd
 from matplotlib.colors import ListedColormap
 
 import hydromodpy as hmp
-
 
 # ---------------------------------------------------------------------
 # Configuration — edit these to fit your project

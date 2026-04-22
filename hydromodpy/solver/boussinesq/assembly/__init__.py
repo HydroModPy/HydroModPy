@@ -25,11 +25,19 @@ from hydromodpy.solver.boussinesq.assembly.inputs import (
     resolve_boundary_head_inputs,
 )
 from hydromodpy.solver.boussinesq.assembly.residuals import (
-    assemble_steady_residual_generic as _assemble_steady_residual_generic,
-    assemble_steady_residual_with_saturation_excess_generic as _assemble_steady_residual_with_saturation_excess_generic,
-    assemble_transient_residual_generic as _assemble_transient_residual_generic,
-    assemble_transient_residual_with_saturation_excess_generic as _assemble_transient_residual_with_saturation_excess_generic,
     assemble_spatial_terms as _assemble_spatial_terms,
+)
+from hydromodpy.solver.boussinesq.assembly.residuals import (
+    assemble_steady_residual_generic as _assemble_steady_residual_generic,
+)
+from hydromodpy.solver.boussinesq.assembly.residuals import (
+    assemble_steady_residual_with_saturation_excess_generic as _assemble_steady_residual_with_saturation_excess_generic,
+)
+from hydromodpy.solver.boussinesq.assembly.residuals import (
+    assemble_transient_residual_generic as _assemble_transient_residual_generic,
+)
+from hydromodpy.solver.boussinesq.assembly.residuals import (
+    assemble_transient_residual_with_saturation_excess_generic as _assemble_transient_residual_with_saturation_excess_generic,
 )
 from hydromodpy.solver.boussinesq.assembly.surface import (
     regularized_partition_surface_rate_from_balance,

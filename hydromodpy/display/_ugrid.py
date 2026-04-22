@@ -21,15 +21,15 @@ if TYPE_CHECKING:
 
 
 def render_face_field(
-    ax: "Axes",
-    sim: "Run",
+    ax: Axes,
+    sim: Run,
     values: np.ndarray,
     *,
     cmap: str = "viridis",
     vmin: float | None = None,
     vmax: float | None = None,
     cbar_label: str | None = None,
-) -> "PolyCollection":
+) -> PolyCollection:
     """Draw ``values`` (one scalar per face) as colored polygons on ``ax``."""
     from matplotlib.collections import PolyCollection
 
@@ -63,7 +63,7 @@ def render_face_field(
     return coll
 
 
-def last_timestep(sim: "Run") -> int:
+def last_timestep(sim: Run) -> int:
     """Return the index of the last timestep, or 0 if not declared."""
     n_ts = sim.n_timesteps or 1
     return n_ts - 1

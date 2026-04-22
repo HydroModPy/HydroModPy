@@ -13,11 +13,11 @@ from hydromodpy.simulation.planning.plan import (
     SimulationPlan,
 )
 from validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.runtime_boussinesq import (
+    EAST_HEAD_M,
+    NX,
+    NY,
     _build_flow_config,
     _write_hillslope_strip_bundle,
-    EAST_HEAD_M,
-    NY,
-    NX,
 )
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
 from validation_cases.analytical.transient.runtime_boussinesq_1d import (
@@ -27,7 +27,6 @@ from validation_cases.shared.runtime import (
     ValidationRunResult,
     resolve_validation_results_dir,
 )
-
 
 CASE_ID = "boussinesq_hillslope_recharge_step_interception_1d"
 DT_DAYS = 10.0

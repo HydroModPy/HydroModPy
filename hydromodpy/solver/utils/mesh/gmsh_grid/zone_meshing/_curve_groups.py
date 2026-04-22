@@ -11,8 +11,9 @@ responsibilities around:
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any
 
 from shapely.geometry import LineString, Polygon
 from shapely.geometry.base import BaseGeometry

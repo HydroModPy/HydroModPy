@@ -18,12 +18,11 @@ from tools.doc_gallery.calibration_case_registry import build_calibration_case_r
 from tools.doc_gallery.gallery_manifest import build_gallery_specs
 from tools.doc_gallery.update_gallery import (
     _build_calibration_intercomparison_page,
-    _build_category_page,
-    _build_case_page,
     _build_calibration_intercomparison_rows,
+    _build_case_page,
+    _build_category_page,
     _with_parameter_docs,
 )
-
 
 pytestmark = pytest.mark.slow
 

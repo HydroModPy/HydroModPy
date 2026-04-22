@@ -18,14 +18,23 @@ import numpy as np
 from hydromodpy.solver.boussinesq.assembly import (
     BoussinesqAssembly,
 )
-from hydromodpy.solver.boussinesq.runtimes.head_only_common import (
-    build_steady_assembly_callback,
-    build_transient_assembly_callback,
-)
 from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
     build_sparse_semianalytic_regularized_partition_jacobian_triplets,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from hydromodpy.solver.boussinesq.runtime_contract import (
+    SteadySolveInputs,
+    TransientStepInputs,
+)
+from hydromodpy.solver.boussinesq.runtimes.execution_common import (
+    apply_residual_tolerance,
+    build_runtime_result,
+    residual_norm_inf,
+)
+from hydromodpy.solver.boussinesq.runtimes.head_only_common import (
+    build_steady_assembly_callback,
+    build_transient_assembly_callback,
+)
 from hydromodpy.solver.boussinesq.runtimes.partition_utils import (
     interiorize_regularized_partition_initial_guess,
     regularized_partition_jacobian_shift,
@@ -35,15 +44,6 @@ from hydromodpy.solver.boussinesq.runtimes.petsc_common import (
     _coo_to_csr,
     _require_petsc,
     _snes_reason_label,
-)
-from hydromodpy.solver.boussinesq.runtimes.execution_common import (
-    apply_residual_tolerance,
-    build_runtime_result,
-    residual_norm_inf,
-)
-from hydromodpy.solver.boussinesq.runtime_contract import (
-    SteadySolveInputs,
-    TransientStepInputs,
 )
 
 

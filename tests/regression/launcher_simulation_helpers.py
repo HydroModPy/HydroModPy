@@ -4,11 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
-from validation_cases.shared.boussinesq_piecewise_strip import (
-    write_piecewise_strip_bundle,
-    write_piecewise_strip_launcher_config,
-)
 from tests.regression.golden_utils import (
     REPO_ROOT,
     _open_result_store,
@@ -29,7 +24,11 @@ from tests.regression.golden_utils import (
     run_hmp_cli,
     update_or_assert_goldens,
 )
-
+from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
+from validation_cases.shared.boussinesq_piecewise_strip import (
+    write_piecewise_strip_bundle,
+    write_piecewise_strip_launcher_config,
+)
 
 LAUNCHER_SIMULATION_CONFIG_DIR = (
     REPO_ROOT / "examples_legacy_2" / "projects" / "launcher_simulation"

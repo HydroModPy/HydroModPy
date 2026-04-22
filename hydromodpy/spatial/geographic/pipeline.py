@@ -6,9 +6,9 @@ living in the canonical spatial package behind centralized compatibility aliases
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -23,16 +23,16 @@ from hydromodpy.spatial.geographic.core.flow_products import (
     FlowProducts,
     build_regional_flow_products,
 )
-from hydromodpy.spatial.geographic.core.river_network import (
-    RiverNetworkProducts,
-    _build_river_mesh_trace_from_network_gdf,
-)
 from hydromodpy.spatial.geographic.core.pipeline_steps import (
     build_standard_catchment,
     build_standard_domain_polygons,
     prepare_geographic_run,
 )
-from hydromodpy.spatial.geographic.core.river_network import build_river_network_products
+from hydromodpy.spatial.geographic.core.river_network import (
+    RiverNetworkProducts,
+    _build_river_mesh_trace_from_network_gdf,
+    build_river_network_products,
+)
 from hydromodpy.spatial.geographic.dem_metadata import (
     LegacyDemMetadata,
     read_legacy_dem_metadata,
@@ -43,7 +43,6 @@ from hydromodpy.spatial.geographic.domain_rasters import (
 )
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
-
 
 _GEOGRAPHIC_CACHE_SCHEMA_VERSION = "hydromodpy_geographic_cache_v1"
 

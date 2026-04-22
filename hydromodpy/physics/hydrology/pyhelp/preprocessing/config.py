@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
 """Configuration objects for PyHELP preprocessing."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Tuple
 
 
 class PyhelpGridParams:
@@ -68,7 +66,7 @@ class PyhelpPreprocessingConfig:
         dem: Path | None,
         shapefile: Path | None = None,
         # Climate inputs: either ready_csvs OR era5_folder
-        ready_climatic_csvs: Tuple[Path, Path, Path] | None = None,
+        ready_climatic_csvs: tuple[Path, Path, Path] | None = None,
         nc_folder: Path | None = None,
         # Parameters
         grid_params: PyhelpGridParams | None = None,

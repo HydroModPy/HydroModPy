@@ -16,7 +16,6 @@ from hydromodpy.display.animation import (
 
 from .comparison import HillslopeOverflowScenario
 
-
 PRIMARY_COLOR = "#0f4c5c"
 SECONDARY_COLOR = "#bc4b51"
 ACCENT_COLOR = "#d4a373"

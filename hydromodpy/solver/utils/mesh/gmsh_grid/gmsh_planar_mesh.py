@@ -16,7 +16,6 @@ from pathlib import Path
 import matplotlib.tri as mtri
 import numpy as np
 
-from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh, MeshCell
 from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_reader import (
     GmshCellBlock,
     GmshMeshData,
@@ -26,6 +25,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_reader import (
     read_gmsh_2d_mesh,
     write_gmsh_2d_mesh,
 )
+from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh, MeshCell
 
 
 class GmshPlanarMesh2D(BaseFieldMesh):
@@ -81,7 +81,7 @@ class GmshPlanarMesh2D(BaseFieldMesh):
             )
 
     @classmethod
-    def from_mesh_data(cls, mesh_data: GmshMeshData) -> "GmshPlanarMesh2D":
+    def from_mesh_data(cls, mesh_data: GmshMeshData) -> GmshPlanarMesh2D:
         """Build a planar mesh from the low-level normalized payload."""
         return cls(
             points_xy=mesh_data.points_xy,
@@ -92,15 +92,15 @@ class GmshPlanarMesh2D(BaseFieldMesh):
         )
 
     @classmethod
-    def from_meshio(cls, mesh, *, cell_type: str | None = None) -> "GmshPlanarMesh2D":
+    def from_meshio(cls, mesh, *, cell_type: str | None = None) -> GmshPlanarMesh2D:
         return cls.from_mesh_data(meshio_to_mesh_data(mesh, cell_type=cell_type))
 
     @classmethod
-    def from_file(cls, path: str | Path, *, cell_type: str | None = None) -> "GmshPlanarMesh2D":
+    def from_file(cls, path: str | Path, *, cell_type: str | None = None) -> GmshPlanarMesh2D:
         return cls.from_mesh_data(read_gmsh_2d_mesh(path, cell_type=cell_type))
 
     @classmethod
-    def from_hydro_mesh(cls, hydro_mesh) -> "GmshPlanarMesh2D":
+    def from_hydro_mesh(cls, hydro_mesh) -> GmshPlanarMesh2D:
         """Build a ``GmshPlanarMesh2D`` from a 2D ``HydroMesh``."""
         from hydromodpy.spatial.mesh.hydro_mesh import HydroMesh
 

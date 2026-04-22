@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 A script to compare simulated with observed river yearly total and base flow.
 """

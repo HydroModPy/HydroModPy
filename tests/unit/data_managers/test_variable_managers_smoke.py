@@ -16,32 +16,31 @@ import pytest
 # ── Config imports ────────────────────────────────────────────────────
 from hydromodpy.data.variables.dem.config import DemConfig, DemSourceConfig
 from hydromodpy.data.variables.etp.config import EtpConfig, EtpSourceConfig
+
+# ── Custom loader imports ─────────────────────────────────────────────
+from hydromodpy.data.variables.etp.custom import load_custom as load_etp
 from hydromodpy.data.variables.humidity.config import HumidityConfig, HumiditySourceConfig
+from hydromodpy.data.variables.humidity.custom import load_custom as load_humidity
 from hydromodpy.data.variables.precipitation.config import (
     PrecipitationConfig,
     PrecipitationSourceConfig,
 )
+from hydromodpy.data.variables.precipitation.custom import load_custom as load_precipitation
 from hydromodpy.data.variables.radiation.config import RadiationConfig, RadiationSourceConfig
+from hydromodpy.data.variables.radiation.custom import load_custom as load_radiation
 from hydromodpy.data.variables.recharge.config import RechargeConfig, RechargeSourceConfig
+from hydromodpy.data.variables.recharge.custom import load_custom as load_recharge
 from hydromodpy.data.variables.runoff.config import RunoffConfig, RunoffSourceConfig
+from hydromodpy.data.variables.runoff.custom import load_custom as load_runoff
 from hydromodpy.data.variables.soil_moisture.config import (
     SoilMoistureConfig,
     SoilMoistureSourceConfig,
 )
-from hydromodpy.data.variables.temperature.config import TemperatureConfig, TemperatureSourceConfig
-from hydromodpy.data.variables.wind.config import WindConfig, WindSourceConfig
-
-# ── Custom loader imports ─────────────────────────────────────────────
-from hydromodpy.data.variables.etp.custom import load_custom as load_etp
-from hydromodpy.data.variables.humidity.custom import load_custom as load_humidity
-from hydromodpy.data.variables.precipitation.custom import load_custom as load_precipitation
-from hydromodpy.data.variables.radiation.custom import load_custom as load_radiation
-from hydromodpy.data.variables.recharge.custom import load_custom as load_recharge
-from hydromodpy.data.variables.runoff.custom import load_custom as load_runoff
 from hydromodpy.data.variables.soil_moisture.custom import load_custom as load_soil_moisture
+from hydromodpy.data.variables.temperature.config import TemperatureConfig, TemperatureSourceConfig
 from hydromodpy.data.variables.temperature.custom import load_custom as load_temperature
+from hydromodpy.data.variables.wind.config import WindConfig, WindSourceConfig
 from hydromodpy.data.variables.wind.custom import load_custom as load_wind
-
 
 # ── Shared helpers ────────────────────────────────────────────────────
 

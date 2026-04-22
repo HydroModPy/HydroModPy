@@ -9,6 +9,11 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from ..schema import (
+    ALLOWED_COLOR_FIELDS,
+    ALLOWED_TOPOGRAPHY_FIELDS,
+    PlotConfig,
+)
 from .toml_docs import (
     MAIN_ALLOWED_KEYS,
     MAIN_LABEL,
@@ -29,12 +34,6 @@ from .toml_validation import (
     read_mapping_value,
     require_mapping,
 )
-from ..schema import (
-    ALLOWED_COLOR_FIELDS,
-    ALLOWED_TOPOGRAPHY_FIELDS,
-    PlotConfig,
-)
-
 
 PLOT_DEFAULTS = PlotConfig()
 
@@ -88,7 +87,7 @@ class VisualizationPlotTomlSchema:
     def from_mapping(
         cls,
         raw_value: object | None,
-    ) -> "VisualizationPlotTomlSchema":
+    ) -> VisualizationPlotTomlSchema:
         """Validate the optional plot block from raw TOML content."""
 
         raw_plot = {} if raw_value is None else require_mapping(raw_value, label=PLOT_LABEL)
@@ -229,7 +228,7 @@ class MeshVisualizationTomlSchema:
     plot: VisualizationPlotTomlSchema = field(default_factory=VisualizationPlotTomlSchema)
 
     @classmethod
-    def from_mapping(cls, raw_value: object) -> "MeshVisualizationTomlSchema":
+    def from_mapping(cls, raw_value: object) -> MeshVisualizationTomlSchema:
         """Validate the top-level public TOML block."""
 
         raw_main = require_mapping(raw_value, label=MAIN_LABEL)

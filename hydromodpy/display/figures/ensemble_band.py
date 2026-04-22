@@ -28,16 +28,16 @@ class EnsembleBandFigure(BaseFigure):
 
     def render(
         self,
-        sim: "Any",
-        ax: "Axes",
+        sim: Any,
+        ax: Axes,
         *,
         station: str = "_catchment",
         variable: str = "discharge",
-        observed: "Any | None" = None,
+        observed: Any | None = None,
         q_low: float = 0.1,
         q_high: float = 0.9,
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         import pandas as pd
 
         # ``sim`` is expected to be a SimulationGroup (iterable of Run).

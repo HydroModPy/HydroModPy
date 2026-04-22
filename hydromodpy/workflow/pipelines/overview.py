@@ -16,8 +16,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from hydromodpy.workflow.pipelines.overview_config import DataOverviewState
 from hydromodpy.core.config import HydroModPyConfig
+from hydromodpy.workflow.pipelines.overview_config import DataOverviewState
 
 
 class DataOverviewLauncher:
@@ -118,10 +118,10 @@ class DataOverviewLauncher:
 
     @staticmethod
     def _setup_geographic(state: DataOverviewState) -> None:
+        from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
         from hydromodpy.spatial.geographic.core.derived_features import (
             coerce_geographic_derived_features,
         )
-        from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 
         geographic = CatchmentDelineation(state.cfg.geographic, state.workspace)
         state.geographic = geographic
@@ -154,8 +154,8 @@ class DataOverviewLauncher:
         """
         from types import SimpleNamespace
 
-        from hydromodpy.data.plan import DataLoadPlan
         from hydromodpy.data.loader import DataManagersRuntimeLoader
+        from hydromodpy.data.plan import DataLoadPlan
 
         data_plan = DataLoadPlan(
             explicit_types=tuple(state.cfg.data.types),

@@ -13,7 +13,6 @@ from hydromodpy._cli.helpers import (
     resolve_sim_id,
 )
 
-
 NAME = "inspect"
 HELP = "Inspect a simulation (metadata, mesh, status, files)"
 

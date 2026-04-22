@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units.length import parse_length_to_m
-from hydromodpy.core.config.base import HydroModelBase
 
 
 class ConstantThicknessDepthModel(HydroModelBase):

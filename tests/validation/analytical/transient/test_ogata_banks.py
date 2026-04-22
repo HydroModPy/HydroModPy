@@ -37,7 +37,6 @@ from scipy.special import erfc
 
 from tests.regression.golden_utils import assert_required_executables
 
-
 COLUMN_LENGTH_M = 50.0
 N_CELLS = 500
 CELL_SIZE_M = COLUMN_LENGTH_M / N_CELLS

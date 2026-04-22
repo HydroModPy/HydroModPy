@@ -8,19 +8,19 @@ and discretization while still providing practical QA figures.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 import matplotlib
 
 matplotlib.use("Agg", force=True)
-from matplotlib import pyplot as plt
 import numpy as np
+from matplotlib import pyplot as plt
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_mesh_values import (
-    ExtrudedVerticalProfile,
     ExtrudedPrismMeshWithValues,
+    ExtrudedVerticalProfile,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.plotting_utils import (
     disable_axis_offset,
@@ -40,7 +40,7 @@ class SourceCellMarkerSpec:
     xy: tuple[float, float]
 
     @classmethod
-    def from_mapping(cls, payload: Mapping[str, Any]) -> "SourceCellMarkerSpec":
+    def from_mapping(cls, payload: Mapping[str, Any]) -> SourceCellMarkerSpec:
         return cls(
             label=str(payload["label"]),
             color=str(payload["color"]),

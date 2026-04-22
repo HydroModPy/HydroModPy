@@ -7,7 +7,6 @@ from datetime import datetime
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.variables.etp.config import EtpSourceConfig
 
-
 SIM2_PARAMETER = "ETP_Q"
 VARIABLE_NAME = "etp"
 INTERNAL_UNIT = "mm/day"

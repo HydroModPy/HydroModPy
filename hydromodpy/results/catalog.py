@@ -609,7 +609,7 @@ class SimulationCatalog:
     def register_tracked_files(
         self,
         sim_id: str | UUID,
-        entries: "list[Any]",
+        entries: list[Any],
     ) -> int:
         """Persist tracked-file records for a simulation.
 
@@ -652,7 +652,7 @@ class SimulationCatalog:
             written += 1
         return written
 
-    def list_tracked_files(self, sim_id: str | UUID) -> "pd.DataFrame":
+    def list_tracked_files(self, sim_id: str | UUID) -> pd.DataFrame:
         return self._db.execute(
             """SELECT role, category, original_path, canonical_path,
                       sha256, size_bytes, portable

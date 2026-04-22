@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.solver.base.solver_engine import SolverEngine
-from hydromodpy.core.config.base import HydroModelBase
 
 
 class SolverConfig(HydroModelBase):

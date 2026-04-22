@@ -15,7 +15,7 @@ the user-friendly variable naming used by the rest of the codebase.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from hydromodpy.core.logging import get_logger
 
@@ -97,7 +97,7 @@ def fetch_sim2_cube(
     variables: list[str],
     crs: str = "EPSG:2154",
     output_format: str = "Netcdf4",
-    save_dir: Optional[str | Path] = None,
+    save_dir: str | Path | None = None,
 ) -> Any:
     """Fetch a SIM2 (Meteo-France) data cube.
 

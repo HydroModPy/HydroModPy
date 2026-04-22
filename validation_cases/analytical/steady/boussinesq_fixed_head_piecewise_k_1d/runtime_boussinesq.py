@@ -13,11 +13,6 @@ from hydromodpy.simulation.planning.plan import (
     RunContext,
     SimulationPlan,
 )
-from validation_cases.shared.runtime import (
-    ValidationRunResult,
-    resolve_validation_results_dir,
-)
-from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.boussinesq_piecewise_strip import (
     PIECEWISE_STRIP_HYDRAULIC_CONDUCTIVITY_M_S_BY_ZONE,
     PIECEWISE_STRIP_LENGTH_X_M,
@@ -31,7 +26,11 @@ from validation_cases.shared.boussinesq_piecewise_strip import (
     aggregate_triangle_history_to_structured_grids,
     write_piecewise_strip_bundle,
 )
-
+from validation_cases.shared.loaders import merge_case_flow_section
+from validation_cases.shared.runtime import (
+    ValidationRunResult,
+    resolve_validation_results_dir,
+)
 
 CASE_ID = "boussinesq_fixed_head_piecewise_k_1d"
 NX = PIECEWISE_STRIP_NX

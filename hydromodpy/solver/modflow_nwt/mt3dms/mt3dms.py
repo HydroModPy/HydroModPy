@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Thu Apr  3 13:06:53 2025
 
@@ -21,29 +20,29 @@ Created on Thu Apr  3 13:06:53 2025
 
 # Python
 import os
+import shutil
 import sys
 from collections.abc import Mapping
+from os.path import abspath, dirname
+
 import flopy
-import numpy as np
-from os.path import dirname, abspath
-import rasterio
 import flopy.utils.binaryfile as bf
-import shutil
+import numpy as np
+import rasterio
 
 # Root
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.solver.modflow_common import masstransfer
-from hydromodpy.solver.modflow_common import ensure_platform_executable
+from hydromodpy.core.io.raster_io import export_tif
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.tools.display import plot_params
+from hydromodpy.core.tools.filesystem import create_folder
+from hydromodpy.solver.modflow_common import ensure_platform_executable, masstransfer
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
 )
-from hydromodpy.core.logging import get_logger
-from hydromodpy.core.tools.filesystem import create_folder
-from hydromodpy.core.io.raster_io import export_tif
-from hydromodpy.core.tools.display import plot_params
 
 fontprop = plot_params(8, 15, 18, 20)  # small, medium, interm, large
 MT3DMS_NORMAL_MESSAGES = ["normal termination", "program completed"]
@@ -108,7 +107,7 @@ class Mt3dms:
         self.model_name_mt = model_name + self.suffix_name
 
         if not os.path.isdir(self.full_path):
-            raise FileNotFoundError("Directory not found: {}".format(self.full_path))
+            raise FileNotFoundError(f"Directory not found: {self.full_path}")
         if (sys.platform == "win32") or (sys.platform == "win64"):
             self.exe = os.path.join(bin_path, "win", "mt3d-usgs_1.1.0_64.exe")
         if sys.platform == "linux":

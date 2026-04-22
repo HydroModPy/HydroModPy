@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Annotated, Any
 
 from pydantic import (
     BaseModel,
@@ -12,8 +13,8 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+
 from hydromodpy.core.config.base import HydroModelBase
-from typing import Annotated
 from hydromodpy.core.config.profile import Profile
 
 

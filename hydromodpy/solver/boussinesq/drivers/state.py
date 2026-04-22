@@ -7,10 +7,10 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from hydromodpy.solver.boussinesq.assembly import BoussinesqAssembly
-from hydromodpy.solver.boussinesq.core.state import BoussinesqState
 from hydromodpy.solver.boussinesq.assembly.boundary_flux_reconstruction import (
     rebuild_boundary_edge_flux,
 )
+from hydromodpy.solver.boussinesq.core.state import BoussinesqState
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
 
@@ -36,7 +36,7 @@ class TransientRuntimeHistory:
         mesh: BoussinesqMesh,
         head_m: np.ndarray,
         saturated_thickness_m: np.ndarray,
-    ) -> "TransientRuntimeHistory":
+    ) -> TransientRuntimeHistory:
         """Create one history starting from the accepted initial state."""
         return cls(
             head_history=[np.asarray(head_m, dtype=float).copy()],

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+import shutil
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-import shutil
-from typing import Any, Callable
+from typing import Any
 
 import geopandas as gpd
 import numpy as np
@@ -17,7 +18,7 @@ from shapely.geometry import Point
 from hydromodpy.spatial.delineation import get_whitebox_backend
 from hydromodpy.spatial.geographic.geographic_io import ensure_crs
 
-from .config import CatchmentIdentificationConfig, DEFAULT_SECTION
+from .config import DEFAULT_SECTION, CatchmentIdentificationConfig
 from .diagnostic_plots import export_diagnostic_figures
 
 

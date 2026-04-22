@@ -13,7 +13,6 @@ from hydromodpy._cli.helpers import (
     resolve_sim_id,
 )
 
-
 NAME = "show"
 HELP = "Show metadata, metrics, and parameters of a simulation"
 

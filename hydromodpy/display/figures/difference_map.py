@@ -33,15 +33,15 @@ class DifferenceMap(BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         *,
-        reference: "Run | None" = None,
+        reference: Run | None = None,
         field: str = "head",
         timestep: int | None = None,
         cmap: str = "RdBu_r",
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         if reference is None:
             raise ValueError("difference_map: 'reference' simulation required")
         ts = last_timestep(sim) if timestep is None else timestep

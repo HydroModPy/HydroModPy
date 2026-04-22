@@ -27,7 +27,6 @@ from validation_cases.shared.runtime import (
     resolve_validation_results_dir,
 )
 
-
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "boussinesq_hillslope_recharge_pulse_overflow_1d"
 DEFAULT_SOLVER = "petsc_partition"

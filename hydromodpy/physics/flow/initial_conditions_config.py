@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Flow Initial Condition Normalizers
 =================================
@@ -12,11 +11,12 @@ structure `FlowInitialConditions`.
 from __future__ import annotations
 
 from collections.abc import Mapping
+
+from hydromodpy.core.units import parse_to_canonical_magnitude
 from hydromodpy.physics.flow.initial_conditions import (
     FlowInitialCondition,
     FlowInitialConditions,
 )
-from hydromodpy.core.units import parse_to_canonical_magnitude
 
 
 def normalize_flow_initial_conditions(

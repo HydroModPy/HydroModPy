@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
-import sys
 
 import flopy
 import numpy as np
@@ -19,7 +19,6 @@ from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )
 from validation_cases.shared.runtime import resolve_validation_results_dir
-
 
 CASE_ID = "brutsaert_recession_linearized_deep_1d"
 SUMMARY_FILENAME = "raw_flopy_nwt_single_boundary_summary.json"

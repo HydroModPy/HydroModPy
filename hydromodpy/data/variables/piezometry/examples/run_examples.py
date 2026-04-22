@@ -18,9 +18,9 @@ import pandas as pd
 def example_custom_csv():
     """Load piezometry from custom CSV files."""
     print("\n=== Example: Piezometry Custom CSV ===")
-    from hydromodpy.data.variables.piezometry.config import PiezometrySourceConfig, PiezometryConfig
-    from hydromodpy.data.variables.piezometry.manager import PiezometryManager
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
+    from hydromodpy.data.variables.piezometry.config import PiezometryConfig, PiezometrySourceConfig
+    from hydromodpy.data.variables.piezometry.manager import PiezometryManager
 
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
@@ -65,9 +65,9 @@ def example_custom_csv():
 def example_custom_constant():
     """Load piezometry with a single-line CSV (constant value)."""
     print("\n=== Example: Piezometry Constant (single-line CSV) ===")
-    from hydromodpy.data.variables.piezometry.config import PiezometrySourceConfig, PiezometryConfig
-    from hydromodpy.data.variables.piezometry.manager import PiezometryManager
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
+    from hydromodpy.data.variables.piezometry.config import PiezometryConfig, PiezometrySourceConfig
+    from hydromodpy.data.variables.piezometry.manager import PiezometryManager
 
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
@@ -108,9 +108,9 @@ def example_hubeau_api():
     """
     print("\n=== Example: Piezometry Hub'Eau API ===")
     print("  (requires internet connection)")
-    from hydromodpy.data.variables.piezometry.config import PiezometrySourceConfig, PiezometryConfig
-    from hydromodpy.data.variables.piezometry.manager import PiezometryManager
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB as DataCatalog
+    from hydromodpy.data.variables.piezometry.config import PiezometryConfig, PiezometrySourceConfig
+    from hydromodpy.data.variables.piezometry.manager import PiezometryManager
 
     cfg = PiezometryConfig(
         sources=[

@@ -97,7 +97,7 @@ class CleanedZonePolygonRow:
 class ZoneGeometryGrouping:
     """Grouped per-zone geometries and priorities derived from cleaned rows."""
 
-    geometries: dict[str, "ZoneGeometry"]
+    geometries: dict[str, ZoneGeometry]
     priorities: dict[str, float] = field(default_factory=dict)
 
 

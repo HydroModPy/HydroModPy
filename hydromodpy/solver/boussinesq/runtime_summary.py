@@ -42,7 +42,7 @@ def history_or_current(
 
 
 def elapsed_days_for_snapshots(
-    state: "BoussinesqState | None",
+    state: BoussinesqState | None,
     *,
     n_snapshots: int,
 ) -> np.ndarray:
@@ -63,8 +63,8 @@ def elapsed_days_for_snapshots(
 
 
 def record_runtime_backend_summary(
-    solver: "Boussinesq",
-    contract: "BoussinesqSolverContract",
+    solver: Boussinesq,
+    contract: BoussinesqSolverContract,
 ) -> None:
     """Record which nonlinear strategy was used for this solve."""
     options = solver._runtime_options()
@@ -98,7 +98,7 @@ def record_runtime_backend_summary(
     solver.runtime_summary["runtime_method_description"] = runtime_backend.method.description
 
 
-def record_surface_threshold_summary(solver: "Boussinesq") -> None:
+def record_surface_threshold_summary(solver: Boussinesq) -> None:
     """Record compact diagnostics about surface-threshold activation."""
     if solver.state is None or solver.mesh is None:
         return

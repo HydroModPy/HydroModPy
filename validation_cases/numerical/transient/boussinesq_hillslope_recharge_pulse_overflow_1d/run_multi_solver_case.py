@@ -26,7 +26,6 @@ from .runtime_boussinesq import (
     run_boussinesq_hillslope_overflow_case,
 )
 
-
 DEFAULT_SOLVERS = ("boussinesq", "petsc_partition", "petsc")
 SOLVER_COLORS = {
     "boussinesq": "#2ca02c",

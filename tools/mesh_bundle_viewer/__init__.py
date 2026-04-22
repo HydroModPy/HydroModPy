@@ -16,12 +16,6 @@ Recommended public entry points:
   `mesh_bundle_viewer.build_visualization_figure(...)`
 """
 
-from .display import (
-    build_visualization_figure,
-    build_visualization_summary,
-    build_visualization_summary_contract,
-    has_continuous_node_topography,
-)
 from .bundle_contracts import (
     CatchmentMeshBundle,
     CatchmentMeshBundleCell,
@@ -29,12 +23,22 @@ from .bundle_contracts import (
     CatchmentMeshBundleGeologyFraction,
     CatchmentMeshBundleNode,
 )
+from .display import (
+    build_visualization_figure,
+    build_visualization_summary,
+    build_visualization_summary_contract,
+    has_continuous_node_topography,
+)
 from .loading import (
     MeshVisualizationTomlSchema,
     VisualizationPlotTomlSchema,
+    load_toml_config,
     load_visualization_data,
     load_visualization_data_from_toml,
-    load_toml_config,
+)
+from .runner import (
+    run_visualization,
+    run_visualization_from_toml,
 )
 from .schema import (
     ALLOWED_COLOR_FIELDS,
@@ -42,19 +46,15 @@ from .schema import (
     CATEGORICAL_COLOR_FIELDS,
     DEFAULT_CONFIG_FILENAME,
     DEFAULT_TOML_SECTION,
+    NUMERIC_COLOR_FIELDS,
     GeologyFractionLike,
     MeshBundleLike,
     MeshCellLike,
     MeshEdgeLike,
     MeshNodeLike,
     MeshVisualizationData,
-    NUMERIC_COLOR_FIELDS,
     PlotConfig,
     VisualizationConfig,
-)
-from .runner import (
-    run_visualization,
-    run_visualization_from_toml,
 )
 from .visualization_summary import (
     VISUALIZATION_SUMMARY_SCHEMA_VERSION,

@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import csv
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-import re
 from typing import Any
 
 import rasterio
-
 
 _VECTOR_TABLE_SUFFIXES = {".geojson", ".gpkg", ".json", ".shp"}
 

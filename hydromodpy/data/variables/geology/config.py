@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import tomllib
-from typing import Annotated, Any, Literal, Mapping
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.tracking import InputFile
 
 
@@ -87,7 +88,7 @@ class GeologySourceConfig(HydroModelBase):
     )
 
     @model_validator(mode="after")
-    def _check_source_requirements(self) -> "GeologySourceConfig":
+    def _check_source_requirements(self) -> GeologySourceConfig:
         if self.source == "custom":
             if self.path is None:
                 raise ValueError(

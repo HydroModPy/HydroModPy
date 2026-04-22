@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 * Author: T. Babey
 * Guidel field site simulation
@@ -13,50 +12,48 @@ import warnings
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-import pkg_resources  # Must be placed after DeprecationWarning as it is itself deprecated
 
 warnings.filterwarnings("ignore", message=".*pkg_resources.*")
 warnings.filterwarnings("ignore", message=".*declare_namespace.*")
 
 # Libraries installed by default
-import sys
 import os
-
-# Libraries need to be installed if not
-import numpy as np
-import pandas as pd
+import sys
 
 # Libraries added from 'conda install' procedure
 import geopandas as gpd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+
+# Libraries need to be installed if not
+import numpy as np
 import rasterio
 from IPython import get_ipython
 
 get_ipython().run_line_magic("matplotlib", "inline")
-import flopy
-import imageio
-
 # %% ROOT
+from os.path import abspath, dirname
 
-from os.path import dirname, abspath
+import imageio
 
 root_dir = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root_dir)
-print("Root path directory is: {0}".format(root_dir.upper()))
+print(f"Root path directory is: {root_dir.upper()}")
 
 # %% HYDROMODPY
 
-import src
 import importlib
+
+import src
 
 importlib.reload(src)
 
 # Import HydroModPy modules
+from src.display import visualization_results, visualization_watershed
+from src.tools import toolbox
+
 from hydromodpy.backends import get_whitebox_backend
 from hydromodpy.legacy.watershed import watershed_root_legacy
-from src.display import visualization_watershed, visualization_results, export_vtuvtk
-from src.tools import toolbox, folder_root
 
 wbt = get_whitebox_backend()
 fontprop = toolbox.plot_params(8, 15, 18, 20)  # small, medium, interm, large

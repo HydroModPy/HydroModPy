@@ -2,25 +2,25 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.spatial.field.geology.geology_field import GeologyField
-from hydromodpy.spatial.field.core.field_param import FieldParam
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
-    build_sgrid_from_config,
-)
 from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.run_demo_config import (
     SGridFieldParamDiscretizationConfig,
 )
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
     SGridFieldParamDiscretizationResult,
     discretize_fieldparam_on_sgrid,
 )
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
+    build_sgrid_from_config,
+)
+from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.geology.geology_field import GeologyField
 
 
 def _coerce_config(

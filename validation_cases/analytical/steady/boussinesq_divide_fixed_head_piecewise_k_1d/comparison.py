@@ -23,7 +23,6 @@ from validation_cases.shared import (
 from .reference import expected_boussinesq_divide_fixed_head_piecewise_profile
 from .runtime_boussinesq import run_boussinesq_divide_fixed_head_piecewise_k_case
 
-
 CASE_DIR = Path(__file__).resolve().parent
 
 
@@ -67,7 +66,6 @@ def _load_heads_for_comparison(
     expected_shape: tuple[int, ...] | None = None,
 ) -> tuple[int, np.ndarray]:
     """Load heads from the store, postprocess dir, or MODFLOW head file."""
-    from validation_cases.shared import load_field
 
     if result.store is not None and result.sim_id is not None:
         try:

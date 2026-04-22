@@ -9,21 +9,21 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.runtimes.head_only_common import (
-    build_steady_assembly_callback,
-    build_transient_assembly_callback,
-)
 from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
     build_dense_semianalytic_regularized_partition_jacobian,
+)
+from hydromodpy.solver.boussinesq.runtime_contract import (
+    SteadySolveInputs,
+    TransientStepInputs,
 )
 from hydromodpy.solver.boussinesq.runtimes.execution_common import (
     apply_residual_tolerance,
     build_runtime_result,
     residual_norm_inf,
 )
-from hydromodpy.solver.boussinesq.runtime_contract import (
-    SteadySolveInputs,
-    TransientStepInputs,
+from hydromodpy.solver.boussinesq.runtimes.head_only_common import (
+    build_steady_assembly_callback,
+    build_transient_assembly_callback,
 )
 
 

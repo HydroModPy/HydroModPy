@@ -21,13 +21,13 @@ def flow_grid_shape(flow_model: object) -> tuple[int, int, int]:
 
     if all(hasattr(flow_model, name) for name in ("nlay", "nrow", "ncol")):
         return (
-            int(getattr(flow_model, "nlay")),
-            int(getattr(flow_model, "nrow")),
-            int(getattr(flow_model, "ncol")),
+            int(flow_model.nlay),
+            int(flow_model.nrow),
+            int(flow_model.ncol),
         )
 
     if all(hasattr(flow_model, name) for name in ("nlay", "ncpl")):
-        return int(getattr(flow_model, "nlay")), 1, int(getattr(flow_model, "ncpl"))
+        return int(flow_model.nlay), 1, int(flow_model.ncpl)
 
     raise ValueError("Could not resolve flow grid shape from dependency model.")
 
@@ -37,7 +37,7 @@ def flow_stress_period_count(flow_model: object) -> int:
 
     if not hasattr(flow_model, "nper"):
         raise ValueError("Could not resolve stress-period count (nper) from flow model.")
-    return int(getattr(flow_model, "nper"))
+    return int(flow_model.nper)
 
 
 def _is_scalar_number(value: object) -> bool:
@@ -171,10 +171,10 @@ _FLOW_PROPERTY_SPECS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
 
 def _flow_surface_shape(solver_mesh) -> tuple[tuple[int, ...], int]:
     if bool(getattr(solver_mesh, "is_structured", False)):
-        nrow = int(getattr(solver_mesh, "nrow"))
-        ncol = int(getattr(solver_mesh, "ncol"))
+        nrow = int(solver_mesh.nrow)
+        ncol = int(solver_mesh.ncol)
         return (nrow, ncol), int(nrow * ncol)
-    n_cells = int(getattr(solver_mesh, "n_cells"))
+    n_cells = int(solver_mesh.n_cells)
     return (n_cells,), n_cells
 
 
@@ -190,7 +190,7 @@ def _coerce_flow_property_override(
     solver_mesh,
 ) -> tuple[np.ndarray, np.ndarray]:
     arr = np.asarray(value, dtype=float)
-    nlay = int(getattr(solver_mesh, "nlay"))
+    nlay = int(solver_mesh.nlay)
     surface_shape, surface_size = _flow_surface_shape(solver_mesh)
     full_shape = (nlay, *surface_shape)
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """PyHELP example workflow (in-process, no env vars required).
 
 This is kept as an example script. It uses HelpManager directly and produces:
@@ -13,10 +12,10 @@ import argparse
 import os.path as osp
 from pathlib import Path
 
-
-from .managers import HelpManager
-from .daily_output import calc_area_daily_avg
 from hydromodpy.core.logging import get_logger
+
+from .daily_output import calc_area_daily_avg
+from .managers import HelpManager
 
 logger = get_logger(__name__)
 

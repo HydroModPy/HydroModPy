@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 VISUALIZATION_SUMMARY_SCHEMA_VERSION = "mesh_distribution_v1"
 
 

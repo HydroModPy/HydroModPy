@@ -18,7 +18,6 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
     CatchmentMeshBundleCell,
@@ -30,6 +29,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.runtime_support import (
     GmshSupportMetadata,
     build_gmsh_support_metadata,
 )
+from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
 
 def _normalize_geom_type(raw_value: object) -> str:
@@ -289,7 +289,7 @@ class BoussinesqMesh:
         hydraulic_conductivity_m_s,
         storage_coefficient,
         river_trace: object | None = None,
-    ) -> "BoussinesqMesh":
+    ) -> BoussinesqMesh:
         """Build the solver mesh view directly from one runtime Gmsh mesh.
 
         This path keeps the solver in the same architectural shape as the
@@ -441,7 +441,7 @@ class BoussinesqMesh:
         )
 
     @classmethod
-    def from_bundle(cls, bundle: CatchmentMeshBundle) -> "BoussinesqMesh":
+    def from_bundle(cls, bundle: CatchmentMeshBundle) -> BoussinesqMesh:
         """Build the solver mesh view from one gmsh catchment bundle.
 
         This constructor is the main translation layer between the generic gmsh

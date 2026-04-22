@@ -1,9 +1,9 @@
 # hcdm.py
 
-import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import norm
+import numpy as np
 from quadprog import solve_qp
+from scipy.stats import norm
 
 
 def quantile_def(alpha, mu, sigma2):

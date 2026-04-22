@@ -13,13 +13,13 @@ without introspection.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class StepsLedger:
             self._conn.close()
             self._conn = None
 
-    def __enter__(self) -> "StepsLedger":
+    def __enter__(self) -> StepsLedger:
         return self
 
     def __exit__(self, *_exc: object) -> None:

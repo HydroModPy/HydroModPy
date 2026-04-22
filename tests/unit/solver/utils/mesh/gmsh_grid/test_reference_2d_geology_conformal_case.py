@@ -20,11 +20,11 @@ except (ImportError, OSError):
     _gmsh_available = False
 _skip_no_gmsh = pytest.mark.skipif(not _gmsh_available, reason="gmsh not available")
 
-import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal as conformal_case_module
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal as conformal_case_package
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning as conformal_planning_module
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.plotting as conformal_plotting_module
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.reporting as conformal_reporting_module
+import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal as conformal_case_module
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal import (
     run_reference_2d_zone_conformal_case_from_toml,
 )
@@ -35,8 +35,8 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalDomainConfig,
-    ZoneConformalGeometryPayload,
     ZoneConformalGeologyConfig,
+    ZoneConformalGeometryPayload,
     ZoneConformalRiversConfig,
     ZoneConformalZoneMeshingConfig,
 )

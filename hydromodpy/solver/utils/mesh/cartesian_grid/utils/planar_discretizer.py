@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Planar discretization and raster regridding utilities for structured grids.
 

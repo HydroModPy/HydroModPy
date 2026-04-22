@@ -3,20 +3,20 @@
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 import csv
 import gc
 import hashlib
 import importlib
 import json
 import os
+import shutil
 import stat
+import tempfile
 import time
 import tomllib
+from collections import Counter
 from dataclasses import replace
 from pathlib import Path
-import shutil
-import tempfile
 from typing import Any
 
 import numpy as np
@@ -26,17 +26,18 @@ from tools.mesh_bundle_viewer.runner.visualization_runner import (
     run_visualization,
 )
 
-from .mesh_case_registry import (
-    MESH_GALLERY_SCALE_ORDER,
-    MESH_GALLERY_VARIANT_SPECS,
-    scale_label as mesh_scale_label,
-)
 from .gallery_manifest import (
     CATEGORY_SPECS,
     GalleryCaseSpec,
     build_gallery_specs,
 )
-
+from .mesh_case_registry import (
+    MESH_GALLERY_SCALE_ORDER,
+    MESH_GALLERY_VARIANT_SPECS,
+)
+from .mesh_case_registry import (
+    scale_label as mesh_scale_label,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS_SOURCE_DIR = REPO_ROOT / "docs" / "readthedocs" / "source"
@@ -1417,11 +1418,11 @@ def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[
                 "tolerances": getattr(comparison, "tolerances", {}),
             }
             if hasattr(comparison, "solver"):
-                solver_metadata["comparison_solver"] = getattr(comparison, "solver")
+                solver_metadata["comparison_solver"] = comparison.solver
             if hasattr(comparison, "timestep"):
-                solver_metadata["timestep"] = getattr(comparison, "timestep")
+                solver_metadata["timestep"] = comparison.timestep
             if hasattr(comparison, "final_elapsed_days"):
-                solver_metadata["final_elapsed_days"] = getattr(comparison, "final_elapsed_days")
+                solver_metadata["final_elapsed_days"] = comparison.final_elapsed_days
             metric_lines = list(metric_builder(comparison))
         except Exception as exc:
             solver_metadata["generation_error"] = {
@@ -1999,7 +2000,6 @@ def _load_committed_method_comparison_payload(
 def _build_method_comparison_payload(
     config_path: Path,
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
-    from hydromodpy.core.config.toml_loader import load_toml_with_base_config
     from hydromodpy.analysis.comparison.config import MethodComparisonConfig
     from hydromodpy.analysis.comparison.metrics import build_comparison_metrics
     from hydromodpy.analysis.comparison.runtime import (
@@ -2008,6 +2008,7 @@ def _build_method_comparison_payload(
         read_json_file,
         read_variant_run_metadata,
     )
+    from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
     raw_toml = load_toml_with_base_config(config_path)
     cfg = MethodComparisonConfig.from_toml(raw_toml, config_path=config_path)
@@ -2813,6 +2814,7 @@ def _render_geology_bundle_variant(
 ) -> dict[str, Any]:
     plt = _import_pyplot()
     import matplotlib.tri as mtri
+
     from tools.mesh_bundle_viewer.reader import load_catchment_mesh_bundle
 
     bundle = load_catchment_mesh_bundle(bundle_path)

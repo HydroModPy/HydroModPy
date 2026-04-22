@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Flow Boundary Condition Models
 =============================
@@ -29,11 +28,11 @@ from numbers import Real
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units import canonical_unit_short_form, check_unit_compatible
-from hydromodpy.core.config.base import HydroModelBase
 
 ALLOWED_BC_APPLICATION_DOMAINS = {
     "top",

@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import argparse
 import importlib
-import os
 import platform
 import shutil
 import sys
 from pathlib import Path
-
 
 NAME = "doctor"
 HELP = "Diagnose the local environment (Python, deps, solvers, workspace)"
@@ -251,8 +249,8 @@ def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[d
             }
         ]
     try:
-        from hydromodpy.core.config.toml_loader import load_toml_with_base_config
         from hydromodpy.core.config.path_resolution import resolve_declared_path
+        from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
         raw = load_toml_with_base_config(toml_path)
         base_dir = toml_path.parent

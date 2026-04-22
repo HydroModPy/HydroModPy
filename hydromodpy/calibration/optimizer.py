@@ -7,9 +7,10 @@ results (``tell``). Adapters for scipy, optuna, grid-search are found under
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from importlib.metadata import entry_points
-from typing import Callable, Mapping, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,8 +89,10 @@ def _ensure_builtins_loaded() -> None:
     if _LOADED:
         return
     # Importing these modules triggers the @register_optimizer decorators.
-    from hydromodpy.calibration.adapters import grid_adapter  # noqa: F401
-    from hydromodpy.calibration.adapters import scipy_adapter  # noqa: F401
+    from hydromodpy.calibration.adapters import (
+        grid_adapter,  # noqa: F401
+        scipy_adapter,  # noqa: F401
+    )
 
     try:
         from hydromodpy.calibration.adapters import optuna_adapter  # noqa: F401

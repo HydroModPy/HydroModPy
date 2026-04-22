@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
+from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
 from hydromodpy.data.variables.hydrometry.custom import load_custom
 
 

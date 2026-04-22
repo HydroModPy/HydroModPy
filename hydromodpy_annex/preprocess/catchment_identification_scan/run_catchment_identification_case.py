@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Support direct execution from file path and ensure local package precedence.
 _repo_root = Path(__file__).resolve()

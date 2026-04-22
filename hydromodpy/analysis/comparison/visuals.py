@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import math
 import re
-from datetime import datetime
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 import matplotlib
 import numpy as np

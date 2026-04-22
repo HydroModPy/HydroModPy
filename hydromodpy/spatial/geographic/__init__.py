@@ -13,7 +13,6 @@ from hydromodpy.spatial.geographic.catchment_delineation import (
     CatchmentDelineation,
     DEM_correcflow_analysis,
 )
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig, RiverNetworkConfig
 from hydromodpy.spatial.geographic.dem_metadata import (
     LegacyDemMetadata,
     read_legacy_dem_metadata,
@@ -22,6 +21,7 @@ from hydromodpy.spatial.geographic.domain_rasters import (
     LegacyDomainRasterProducts,
     build_legacy_domain_rasters,
 )
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig, RiverNetworkConfig
 from hydromodpy.spatial.geographic.pipeline import (
     LegacyGeographicContext,
     build_legacy_geographic_context,

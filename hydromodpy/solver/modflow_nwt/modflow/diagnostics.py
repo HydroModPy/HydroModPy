@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 *

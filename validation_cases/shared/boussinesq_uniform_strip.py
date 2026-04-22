@@ -24,7 +24,6 @@ from validation_cases.shared.runtime import (
     resolve_validation_results_dir,
 )
 
-
 ScalarOrProfile = float | list[float] | tuple[float, ...] | np.ndarray | Callable[[float], float]
 
 

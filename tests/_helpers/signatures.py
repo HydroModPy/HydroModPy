@@ -37,7 +37,7 @@ class FieldSignature:
     dtype: str
 
     @classmethod
-    def from_array(cls, arr: np.ndarray) -> "FieldSignature":
+    def from_array(cls, arr: np.ndarray) -> FieldSignature:
         """Build a signature from a numeric array, ignoring non-finite entries."""
         arr = np.asarray(arr)
         finite = arr[np.isfinite(arr)] if arr.size else arr

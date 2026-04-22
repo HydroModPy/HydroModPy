@@ -15,13 +15,12 @@ from __future__ import annotations
 
 import csv
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable
 
 from hydromodpy.core.exceptions import DataContractViolation
-
 
 TIMESERIES_COLUMNS = ("datetime", "value")
 LOCATIONS_COLUMNS = ("id", "x", "y", "crs", "unit")

@@ -24,7 +24,6 @@ from validation_cases.shared.runtime import (
     resolve_validation_results_dir,
 )
 
-
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "dupuit_circular_island_ocean_2d"
 DUPUIT_ISLAND_N_SECTORS = 18

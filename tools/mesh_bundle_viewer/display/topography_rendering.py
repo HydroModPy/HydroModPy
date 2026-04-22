@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from ..bundle_contracts import MeshBundleLike
+from ..schema import PlotConfig
 from .geometry import (
     build_triangulation_inputs,
     format_axes,
@@ -12,7 +13,6 @@ from .geometry import (
 )
 from .overlay_rendering import plot_overlays
 from .rendering_common import plot_cell_annotations
-from ..schema import PlotConfig
 
 
 def plot_continuous_topography_panel(

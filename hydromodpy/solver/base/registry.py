@@ -15,8 +15,9 @@ live in ``solver/compatibility`` (class-based) and ``simulation/adapters``
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from importlib.metadata import entry_points
-from typing import Any, Iterable
+from typing import Any
 
 from hydromodpy.solver.base.protocol import SolverRunner
 

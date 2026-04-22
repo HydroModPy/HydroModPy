@@ -24,10 +24,10 @@ Design principles
 
 from __future__ import annotations
 
+import gc
 import json
 import os
 import platform
-import gc
 import shutil
 import stat
 import subprocess
@@ -40,8 +40,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
-from hydromodpy.solver.modflow_common import ensure_platform_executable
 
+from hydromodpy.solver.modflow_common import ensure_platform_executable
 
 # Repository root for every path assembled in the regression helpers.
 REPO_ROOT = Path(__file__).resolve().parents[2]

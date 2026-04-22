@@ -27,10 +27,10 @@ class WaterBudget(BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         df = sim.budget()
         if df.empty:
             ax.text(0.5, 0.5, "no budget data", ha="center", va="center", transform=ax.transAxes)

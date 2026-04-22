@@ -6,13 +6,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.units.length import parse_length_to_m
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
-from hydromodpy.core.units.length import parse_length_to_m
-from hydromodpy.core.config.base import HydroModelBase
 
 
 class ModflowRuntimeConfig(HydroModelBase):
@@ -226,7 +226,7 @@ class ModflowSpecifParams:
     def from_config(
         cls,
         config: ModflowConfig | Mapping[str, object] | None = None,
-    ) -> "ModflowSpecifParams":
+    ) -> ModflowSpecifParams:
         """Build runtime params from validated Pydantic config or raw mapping."""
         validated = _coerce_modflow_config(config)
         return cls(

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -21,7 +22,7 @@ class ZoneMeshingDomainConfig:
     def from_mapping(
         cls,
         config_data: Mapping[str, Any],
-    ) -> "ZoneMeshingDomainConfig":
+    ) -> ZoneMeshingDomainConfig:
         """Validate one raw mapping and return one typed domain contract."""
         from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._domain_schema import (
             validate_zone_meshing_domain_model,
@@ -34,7 +35,7 @@ class ZoneMeshingDomainConfig:
     def from_normalized_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "ZoneMeshingDomainConfig":
+    ) -> ZoneMeshingDomainConfig:
         """Build one typed domain contract from already normalized values."""
         bbox_raw = payload.get("bbox")
         coordinates_raw = payload.get("coordinates")
@@ -81,7 +82,7 @@ class ZoneMeshingDomainPayload:
     def from_mapping(
         cls,
         payload: Mapping[str, Any],
-    ) -> "ZoneMeshingDomainPayload":
+    ) -> ZoneMeshingDomainPayload:
         """Build one typed geometry payload from plain mapping form."""
         return cls(
             geometry=payload["geometry"],

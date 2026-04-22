@@ -46,13 +46,13 @@ class SeasonalBoxplotFigure(BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         *,
         station: str = "_catchment",
         variable: str = "discharge",
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         ts = sim.timeseries(variable, station=station)
         index = ts.index
         try:

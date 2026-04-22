@@ -20,8 +20,14 @@ import numpy as np
 
 from hydromodpy.solver.utils.mesh.gmsh_grid._constants import (
     CELL_LAYER_KEY as _CELL_LAYER_KEY,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid._constants import (
     CELL_SOURCE_KEY as _CELL_SOURCE_KEY,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid._constants import (
     POINT_BASE_KEY as _POINT_BASE_KEY,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid._constants import (
     POINT_LAYER_KEY as _POINT_LAYER_KEY,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid._deps import require_meshio as _require_meshio
@@ -507,7 +513,7 @@ class ExtrudedPrismMesh3D:
         planar_mesh: GmshPlanarMesh2D,
         *,
         z_interfaces,
-    ) -> "ExtrudedPrismMesh3D":
+    ) -> ExtrudedPrismMesh3D:
         """Build one extrusion directly from explicit vertical interfaces."""
         return cls(planar_mesh=planar_mesh, z_interfaces=z_interfaces)
 
@@ -518,7 +524,7 @@ class ExtrudedPrismMesh3D:
         *,
         top_z: float,
         layer_thicknesses,
-    ) -> "ExtrudedPrismMesh3D":
+    ) -> ExtrudedPrismMesh3D:
         """Build one extrusion from a top elevation and layer thicknesses."""
         z_interfaces = _resolve_z_interfaces(
             z_interfaces=None,
@@ -528,7 +534,7 @@ class ExtrudedPrismMesh3D:
         return cls(planar_mesh=planar_mesh, z_interfaces=z_interfaces)
 
     @classmethod
-    def from_mesh_data(cls, mesh_data: ExtrudedPrismMeshData) -> "ExtrudedPrismMesh3D":
+    def from_mesh_data(cls, mesh_data: ExtrudedPrismMeshData) -> ExtrudedPrismMesh3D:
         """Rebuild the high-level mesh object from the raw payload form."""
         planar_mesh = _build_planar_mesh_from_data(mesh_data)
         return cls(
@@ -544,12 +550,12 @@ class ExtrudedPrismMesh3D:
         )
 
     @classmethod
-    def from_meshio(cls, mesh) -> "ExtrudedPrismMesh3D":
+    def from_meshio(cls, mesh) -> ExtrudedPrismMesh3D:
         """Build one extrusion from a meshio mesh object."""
         return cls.from_mesh_data(meshio_to_extruded_mesh_data(mesh))
 
     @classmethod
-    def from_file(cls, path: str | Path) -> "ExtrudedPrismMesh3D":
+    def from_file(cls, path: str | Path) -> ExtrudedPrismMesh3D:
         """Read one persisted extrusion from disk."""
         return cls.from_mesh_data(read_extruded_prism_mesh(path))
 

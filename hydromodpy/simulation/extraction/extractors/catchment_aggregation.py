@@ -39,7 +39,7 @@ def aggregate_catchment_timeseries(
     sim_id: str,
     store: Any,
     *,
-    time_index: "pd.DatetimeIndex | None" = None,
+    time_index: pd.DatetimeIndex | None = None,
 ) -> None:
     """Read spatial fields from the store and write catchment-aggregated timeseries.
 

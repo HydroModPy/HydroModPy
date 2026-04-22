@@ -9,8 +9,6 @@ import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import LineString
 
-from hydromodpy.spatial.raster_support import RasterSupport
-from hydromodpy.spatial.surface import Surface
 import hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle as catchment_mesh_bundle_mod
 from hydromodpy.solver.utils.mesh.gmsh_grid._bundle_export_contracts import (
     CatchmentBundleGeologyExportConfig,
@@ -21,6 +19,8 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle import (
     export_catchment_mesh_bundle,
     load_catchment_mesh_bundle,
 )
+from hydromodpy.spatial.raster_support import RasterSupport
+from hydromodpy.spatial.surface import Surface
 
 
 def _write_raster(path: Path, values: np.ndarray) -> None:

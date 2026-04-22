@@ -5,8 +5,9 @@ from __future__ import annotations
 import csv
 import logging
 import math
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterable, Mapping
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 

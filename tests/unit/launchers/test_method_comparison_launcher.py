@@ -10,19 +10,19 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.analysis.comparison.config import MethodComparisonConfig
 from hydromodpy.analysis.comparison.exports import write_budget_exports
-from hydromodpy.analysis.comparison.orchestrator import MethodComparisonLauncher
 from hydromodpy.analysis.comparison.metrics import (
     build_comparison_metrics,
     build_unmatched_groups,
 )
+from hydromodpy.analysis.comparison.orchestrator import MethodComparisonLauncher
 from hydromodpy.analysis.comparison.runtime import (
     extract_observable_rows,
     load_variable_series,
     materialize_variant_config,
 )
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 OUTLET_CELL_AREA_M2 = 10.0
 

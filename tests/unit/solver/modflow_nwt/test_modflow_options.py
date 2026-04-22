@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import pytest
 
+from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
 from hydromodpy.solver.modflow_nwt.modflow import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
-from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
 
 
 def test_preprocess_options_defaults_are_stable():

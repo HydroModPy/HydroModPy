@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from hydromodpy.core.exceptions import StepError
 from hydromodpy.pipeline.state import PipelineState
@@ -96,8 +96,8 @@ class Pipeline:
         step: Step,
         state: PipelineState,
         index: int,
-        ledger: "StepsLedger | None",
-        cp_store: "CheckpointStore | None",
+        ledger: StepsLedger | None,
+        cp_store: CheckpointStore | None,
     ) -> PipelineState:
         name = getattr(step, "name", step.__class__.__name__)
         t0 = time.monotonic()

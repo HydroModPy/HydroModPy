@@ -50,8 +50,8 @@ def discretize_spatially_distributed_source(
                 simulation_window=simulation_window,
                 method=method,
             )
-        nrow = int(getattr(solver_mesh, "nrow"))
-        ncol = int(getattr(solver_mesh, "ncol"))
+        nrow = int(solver_mesh.nrow)
+        ncol = int(solver_mesh.ncol)
         return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(int(nper))}
 
     from hydromodpy.solver.utils.mesh.gmsh_grid.planar_forcing_discretization import (

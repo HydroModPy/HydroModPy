@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
-from matplotlib import pyplot as plt
-from matplotlib.ticker import ScalarFormatter
 import numpy as np
 import rasterio
+from matplotlib import pyplot as plt
+from matplotlib.ticker import ScalarFormatter
 
 # Allow direct script execution without requiring editable install.
 if __package__ in (None, ""):
@@ -20,12 +20,12 @@ if __package__ in (None, ""):
         sys.path.insert(0, str(_repo_root))
 
 from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.core.workspace import Workspace
 from hydromodpy.spatial.geographic.cases.plotting_utils import (
     ensure_interactive_backend_for_show,
     show_figures_blocking,
 )
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
-from hydromodpy.core.workspace import Workspace
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 KNOWN_CASE_IDS = ("base", "canut", "nancon", "aber")

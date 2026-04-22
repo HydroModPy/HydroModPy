@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from numbers import Real
-import re
 from typing import Any
 
 from hydromodpy.core.units.scalar import (
     canonical_unit_token as _canonical_unit_token,
+)
+from hydromodpy.core.units.scalar import (
     parse_scalar_and_unit,
 )
 

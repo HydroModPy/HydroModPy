@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import numpy as np
-
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -231,8 +230,9 @@ class ModflowNwtOutputAdapter:
     ) -> None:
         """Write surface_top array from DIS file for derived variable computation."""
         try:
-            import flopy
             import warnings
+
+            import flopy
 
             nam_path = solver_output_dir / f"{model_name}.nam"
             n_cells = nrow * ncol

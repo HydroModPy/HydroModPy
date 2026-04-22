@@ -8,13 +8,14 @@ one side assignment (`zone1_side`).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 
-from hydromodpy.spatial.field.core.field_spatial import Field, _get_nested_section
 from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
+from hydromodpy.spatial.field.core.field_spatial import Field, _get_nested_section
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
@@ -207,7 +208,7 @@ class FieldSquare(Field):
         }
 
     @classmethod
-    def from_dict(cls, config: Mapping[str, Any]) -> "FieldSquare":
+    def from_dict(cls, config: Mapping[str, Any]) -> FieldSquare:
         if not isinstance(config, Mapping):
             raise TypeError("config must be a mapping")
 
@@ -242,7 +243,7 @@ class FieldSquare(Field):
         )
 
     @classmethod
-    def from_toml(cls, toml_path: str | Path, section: str = "field") -> "FieldSquare":
+    def from_toml(cls, toml_path: str | Path, section: str = "field") -> FieldSquare:
         path = Path(toml_path).resolve()
         with path.open("rb") as stream:
             payload = tomllib.load(stream)

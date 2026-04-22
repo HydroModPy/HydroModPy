@@ -22,7 +22,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-
 _API_SOURCES = {"ign_bdalti"}
 _BOOTSTRAP_BUFFER_M = 30_000
 

@@ -10,15 +10,15 @@ from numbers import Real
 
 import numpy as np
 
-from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.core.units import convert_payload_to_m_per_s
-from hydromodpy.solver.modflow_common.forcing_discretization import (
-    discretize_spatially_distributed_source,
-    has_spatially_distributed_source,
-)
 from hydromodpy.core.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
+)
+from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.solver.modflow_common.forcing_discretization import (
+    discretize_spatially_distributed_source,
+    has_spatially_distributed_source,
 )
 
 

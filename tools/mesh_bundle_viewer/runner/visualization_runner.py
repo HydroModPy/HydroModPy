@@ -14,9 +14,9 @@ entry point.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import replace
-import json
 from pathlib import Path
 from typing import Any
 
@@ -24,8 +24,8 @@ from ..display.figure import (
     build_visualization_figure,
 )
 from ..display.summary import (
-    build_visualization_summary_contract,
     build_visualization_summary,
+    build_visualization_summary_contract,
 )
 from ..loading.bundle_loader import (
     load_visualization_data,

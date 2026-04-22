@@ -35,7 +35,7 @@ class PreparedSurfaceSampler:
     ncols: int | None
 
     @classmethod
-    def from_surface(cls, surface: object) -> "PreparedSurfaceSampler":
+    def from_surface(cls, surface: object) -> PreparedSurfaceSampler:
         """Build one sampler from a HydroModPy ``Surface``-like object."""
         if surface is None:
             raise ValueError("surface is required for georeferenced sampling")
@@ -43,7 +43,7 @@ class PreparedSurfaceSampler:
         if callable(as_array):
             values = np.asarray(as_array(), dtype=float)
         else:
-            values = np.asarray(getattr(surface, "values"), dtype=float)
+            values = np.asarray(surface.values, dtype=float)
         support = getattr(surface, "support", None)
         nodata = None if support is None else getattr(support, "nodata", None)
         if nodata is not None:

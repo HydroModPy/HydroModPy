@@ -5,8 +5,8 @@ from numbers import Real
 from pathlib import Path
 from types import SimpleNamespace
 
-from matplotlib.figure import Figure
 import numpy as np
+from matplotlib.figure import Figure
 
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases._comparison_utils as comparison_utils_module
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.comparison_cartesian_vs_gmsh_2d.run_compare as compare_2d_module

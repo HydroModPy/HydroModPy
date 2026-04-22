@@ -10,7 +10,6 @@ from typing import Any
 from .gallery_schema import CATEGORY_SPECS
 from .manifest_loader import load_json_gallery_case_specs
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFESTS_DIR = Path(__file__).resolve().parent / "manifests"
 

@@ -7,7 +7,6 @@ from datetime import datetime
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.variables.humidity.config import HumiditySourceConfig
 
-
 SIM2_PARAMETER = "HU_Q"
 VARIABLE_NAME = "humidity"
 INTERNAL_UNIT = "%"

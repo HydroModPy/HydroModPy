@@ -5,12 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
-from hydromodpy.core.config.profile import Profile
-from hydromodpy.data.base_config import BaseVariableConfig
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.tracking import InputFile
+from hydromodpy.data.base_config import BaseVariableConfig
 
 
 class PrecipitationSourceConfig(HydroModelBase):
@@ -84,7 +84,7 @@ class PrecipitationSourceConfig(HydroModelBase):
     )
 
     @model_validator(mode="after")
-    def _check_source_requirements(self) -> "PrecipitationSourceConfig":
+    def _check_source_requirements(self) -> PrecipitationSourceConfig:
         if self.source == "custom":
             if self.path is None:
                 raise ValueError(

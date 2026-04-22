@@ -23,10 +23,10 @@ import pandas as pd
 from hydromodpy.core.units import factor_to_m_per_s
 
 if TYPE_CHECKING:
+    from hydromodpy.core.time import ResolvedSimulationTimeWindow
     from hydromodpy.data.contracts.load_result import LoadResult
     from hydromodpy.data.contracts.spatial_field import FieldRecord
     from hydromodpy.data.contracts.timeseries import PointRecord
-    from hydromodpy.core.time import ResolvedSimulationTimeWindow
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +40,10 @@ InterpolationMethod = Literal["nearest", "linear", "idw"]
 
 def discretize_fields_on_sgrid(
     *,
-    load_result: "LoadResult",
+    load_result: LoadResult,
     sgrid: object,
     nper: int,
-    simulation_window: "ResolvedSimulationTimeWindow | None" = None,
+    simulation_window: ResolvedSimulationTimeWindow | None = None,
     method: InterpolationMethod = "nearest",
 ) -> dict[int, np.ndarray]:
     """Discretize gridded FieldRecords onto a structured MODFLOW grid.
@@ -69,8 +69,8 @@ def discretize_fields_on_sgrid(
         Mapping ``{kper: array(nrow, ncol)}`` with values in **m/s**
         (consistent with the homogeneous recharge bridge output).
     """
-    nrow = int(getattr(sgrid, "nrow"))
-    ncol = int(getattr(sgrid, "ncol"))
+    nrow = int(sgrid.nrow)
+    ncol = int(sgrid.ncol)
 
     if not load_result.has_fields:
         return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(nper)}
@@ -111,10 +111,10 @@ def discretize_fields_on_sgrid(
 
 def discretize_points_on_sgrid(
     *,
-    load_result: "LoadResult",
+    load_result: LoadResult,
     sgrid: object,
     nper: int,
-    simulation_window: "ResolvedSimulationTimeWindow | None" = None,
+    simulation_window: ResolvedSimulationTimeWindow | None = None,
     method: InterpolationMethod = "nearest",
     source_unit: str = "mm/day",
 ) -> dict[int, np.ndarray]:
@@ -139,8 +139,8 @@ def discretize_points_on_sgrid(
         interpolate_points_to_grid,
     )
 
-    nrow = int(getattr(sgrid, "nrow"))
-    ncol = int(getattr(sgrid, "ncol"))
+    nrow = int(sgrid.nrow)
+    ncol = int(sgrid.ncol)
 
     located_points = _extract_located_points(load_result)
     if not located_points:
@@ -191,9 +191,9 @@ def discretize_points_on_sgrid(
 
 
 def spatial_mean_from_fields(
-    load_result: "LoadResult",
+    load_result: LoadResult,
     *,
-    simulation_window: "ResolvedSimulationTimeWindow | None" = None,
+    simulation_window: ResolvedSimulationTimeWindow | None = None,
 ) -> pd.Series | None:
     """Compute the spatial mean of FieldRecords to produce a homogeneous series.
 
@@ -248,8 +248,8 @@ def _cell_centers_from_sgrid(
         pass
 
     # Fallback: compute from delr/delc + offsets.
-    delr = np.asarray(getattr(sgrid, "delr"), dtype=float).reshape(-1)
-    delc = np.asarray(getattr(sgrid, "delc"), dtype=float).reshape(-1)
+    delr = np.asarray(sgrid.delr, dtype=float).reshape(-1)
+    delc = np.asarray(sgrid.delc, dtype=float).reshape(-1)
     xoff = float(getattr(sgrid, "xoffset", getattr(sgrid, "xoff", 0.0)))
     yoff = float(getattr(sgrid, "yoffset", getattr(sgrid, "yoff", 0.0)))
 
@@ -264,7 +264,7 @@ def _cell_centers_from_sgrid(
 
 def _stress_period_bounds(
     nper: int,
-    simulation_window: "ResolvedSimulationTimeWindow | None",
+    simulation_window: ResolvedSimulationTimeWindow | None,
 ) -> list[tuple[pd.Timestamp, pd.Timestamp]] | None:
     """Return (start, end) bounds for each stress period, or None."""
     if simulation_window is None:
@@ -288,7 +288,7 @@ def _stress_period_bounds(
 
 
 def _discretize_one_field_record(
-    field_rec: "FieldRecord",
+    field_rec: FieldRecord,
     *,
     x_centers: np.ndarray,
     y_centers: np.ndarray,
@@ -389,7 +389,7 @@ def _interp_2d(
 
 
 def _discretize_from_xarray(
-    ds: "xr.Dataset",
+    ds: xr.Dataset,
     *,
     x_centers: np.ndarray,
     y_centers: np.ndarray,
@@ -602,7 +602,7 @@ def _discretize_geotiff(
 # ------------------------------------------------------------------
 
 
-def _spatial_mean_one_field(field_rec: "FieldRecord") -> pd.Series | None:
+def _spatial_mean_one_field(field_rec: FieldRecord) -> pd.Series | None:
     """Compute the spatial mean of a single FieldRecord.
 
     Returns a pd.Series indexed by datetime (mm/day) or None.
@@ -623,7 +623,7 @@ def _spatial_mean_one_field(field_rec: "FieldRecord") -> pd.Series | None:
     return None
 
 
-def _spatial_mean_from_xarray(ds: "xr.Dataset") -> pd.Series | None:
+def _spatial_mean_from_xarray(ds: xr.Dataset) -> pd.Series | None:
     """Spatial mean of an xarray Dataset → pd.Series."""
     data_vars = list(ds.data_vars)
     if not data_vars:
@@ -674,7 +674,7 @@ def _spatial_mean_from_file(path: Path) -> pd.Series | None:
 # ------------------------------------------------------------------
 
 
-def _extract_located_points(load_result: "LoadResult") -> list["PointRecord"]:
+def _extract_located_points(load_result: LoadResult) -> list[PointRecord]:
     """Return PointRecords that have a valid location with coordinates."""
     result = []
     for rec in load_result.points:

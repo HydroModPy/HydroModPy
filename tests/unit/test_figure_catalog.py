@@ -13,7 +13,6 @@ from hydromodpy.display import (
     names,
 )
 
-
 EXPECTED_FIGURES = {
     "concentration_map",
     "cross_section",

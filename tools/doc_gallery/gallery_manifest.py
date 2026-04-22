@@ -10,7 +10,6 @@ from .gallery_hydraulic_property_specs import build_hydraulic_property_specs
 from .gallery_mesh_specs import MESH_GALLERY_METRIC_SPECS, build_mesh_static_specs
 from .gallery_method_comparison_specs import build_method_comparison_specs
 from .gallery_regional_lab_specs import build_regional_lab_specs
-from .gallery_simulation_specs import build_simulation_specs
 from .gallery_schema import (
     CATEGORY_SPECS,
     GalleryCaseSpec,
@@ -18,8 +17,11 @@ from .gallery_schema import (
     GalleryImageAsset,
     GalleryMetricSpec,
 )
+from .gallery_simulation_specs import build_simulation_specs
 from .manifest_loader import (
     load_json_gallery_case_specs as _load_json_gallery_case_specs_from_module,
+)
+from .manifest_loader import (
     validate_gallery_specs as _validate_gallery_specs_from_module,
 )
 from .mesh_case_registry import (

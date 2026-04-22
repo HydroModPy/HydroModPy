@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------------
 # Copyright © PyHelp Project Contributors
 # https://github.com/cgq-qgc/pyhelp
@@ -8,9 +7,9 @@
 # -----------------------------------------------------------------------------
 
 import os
-import sys
-import shutil
 import platform
+import shutil
+import sys
 import warnings
 from pathlib import Path
 
@@ -76,9 +75,9 @@ def _get_binary_filename():
 
 def _download_help3o_binary():
     """Download HELP3O binary from GitHub releases"""
-    import urllib.request
     import json
     import tarfile
+    import urllib.request
     import zipfile
 
     binary_filename = _get_binary_filename()
@@ -209,8 +208,8 @@ def _download_help3o_binary():
 
 def _load_help3o_from_path(binary_path):
     """Load HELP3O module from a specific path"""
-    import importlib.util
     import ctypes
+    import importlib.util
 
     binary_path = Path(binary_path)
     dll_token = None

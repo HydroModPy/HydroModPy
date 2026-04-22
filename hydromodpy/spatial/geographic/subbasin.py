@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 *
@@ -13,18 +12,20 @@
 # %% LIBRAIRIES
 
 # Python
-import sys
-import os
-from pathlib import Path
-import numpy as np
-import pandas as pd
-import geopandas as gpd
 import glob
+import os
 import shutil
-from hydromodpy.spatial.delineation import get_whitebox_backend
+import sys
 
 # Root
-from os.path import dirname, abspath
+from os.path import abspath, dirname
+from pathlib import Path
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+
+from hydromodpy.spatial.delineation import get_whitebox_backend
 
 root_dir = dirname(dirname(abspath(__file__)))
 sys.path.append(root_dir)

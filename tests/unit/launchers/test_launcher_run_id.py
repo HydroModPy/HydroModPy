@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import shutil
 import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from hydromodpy.core.state.run_state import WorkflowContext
-from hydromodpy.workflow.steps.setup import step_setup
 from hydromodpy.workflow.steps.mesh import step_mesh_input
+from hydromodpy.workflow.steps.setup import step_setup
 
 
 def _make_launcher_test_workspace_root(

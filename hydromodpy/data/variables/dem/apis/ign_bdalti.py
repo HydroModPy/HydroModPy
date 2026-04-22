@@ -18,8 +18,8 @@ import subprocess
 import urllib.request
 from pathlib import Path
 
-from hydromodpy.data.common.progress import iter_progress, log_step
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.common.progress import iter_progress, log_step
 
 logger = get_logger(__name__)
 

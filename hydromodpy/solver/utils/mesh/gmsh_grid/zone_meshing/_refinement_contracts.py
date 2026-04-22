@@ -8,8 +8,9 @@ logic so the pairwise and grid-based algorithms can share the same payloads.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 from shapely.geometry import LineString, Point
 

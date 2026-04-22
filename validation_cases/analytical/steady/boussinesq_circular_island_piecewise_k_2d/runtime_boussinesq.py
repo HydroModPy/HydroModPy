@@ -8,8 +8,6 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.spatial.geographic.synthetic import SyntheticGridConfig, SyntheticTopographyConfig
-from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
 from hydromodpy.physics.flow import Flow
 from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import (
@@ -17,6 +15,8 @@ from hydromodpy.simulation.planning.plan import (
     RunContext,
     SimulationPlan,
 )
+from hydromodpy.spatial.geographic.synthetic import SyntheticGridConfig, SyntheticTopographyConfig
+from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
 from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.runtime_boussinesq import (
     _build_flow_config,
 )
@@ -25,7 +25,6 @@ from validation_cases.shared.runtime import (
     ValidationRunResult,
     resolve_validation_results_dir,
 )
-
 
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "boussinesq_circular_island_piecewise_k_2d"

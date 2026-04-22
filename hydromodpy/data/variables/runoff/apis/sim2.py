@@ -7,7 +7,6 @@ from datetime import datetime
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.variables.runoff.config import RunoffSourceConfig
 
-
 SIM2_PARAMETER = "RUNC_Q"
 VARIABLE_NAME = "runoff"
 INTERNAL_UNIT = "mm/day"

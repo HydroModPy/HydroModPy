@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import importlib
+from dataclasses import dataclass
 from typing import Any
-
 
 CALIBRATION_BENCHMARK_FAMILIES: dict[str, dict[str, Any]] = {
     "data_rich_no_uncertainty": {

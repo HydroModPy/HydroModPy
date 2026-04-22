@@ -8,7 +8,8 @@ level orchestration.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping
+from collections.abc import Callable, Mapping
+from typing import Any
 
 import numpy as np
 from shapely.geometry.base import BaseGeometry

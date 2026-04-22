@@ -59,7 +59,7 @@ class RasterSupport:
         *,
         shape: tuple[int, int] | None = None,
         nodata: float | None = None,
-    ) -> "RasterSupport":
+    ) -> RasterSupport:
         """
         Build one raster support from an explicit georeferencing mapping.
 
@@ -123,7 +123,7 @@ class RasterSupport:
 
     def assert_same_geographic_domain(
         self,
-        other: "RasterSupport",
+        other: RasterSupport,
         *,
         atol: float = 1.0e-9,
     ) -> None:

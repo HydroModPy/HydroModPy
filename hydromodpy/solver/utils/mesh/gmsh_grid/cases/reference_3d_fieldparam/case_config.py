@@ -6,12 +6,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils._config_helpers import resolve_path
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases._common import (
     load_case_section,
     resolve_case_config_path,
 )
+from hydromodpy.spatial.field.core.field_param import FieldParam
 
 
 def resolve_reference_3d_fieldparam_config_path(raw_config: str | Path) -> Path:

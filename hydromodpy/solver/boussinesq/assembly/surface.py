@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly.inputs import as_cell_vector
 from hydromodpy.solver.boussinesq.assembly.fluxes import saturated_thickness_from_head
+from hydromodpy.solver.boussinesq.assembly.inputs import as_cell_vector
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
 

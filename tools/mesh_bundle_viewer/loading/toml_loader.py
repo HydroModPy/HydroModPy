@@ -6,19 +6,19 @@ runtime ``VisualizationConfig`` used by the rest of the package.
 
 from __future__ import annotations
 
-from pathlib import Path
 import re
 import tomllib
+from pathlib import Path
 
+from ..schema import (
+    DEFAULT_TOML_SECTION,
+    VisualizationConfig,
+)
 from .toml_contracts import (
     MeshVisualizationTomlSchema,
 )
 from .toml_validation import (
     ValidationError,
-)
-from ..schema import (
-    DEFAULT_TOML_SECTION,
-    VisualizationConfig,
 )
 
 

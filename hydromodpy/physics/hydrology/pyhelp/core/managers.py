@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------------
 # Copyright © PyHELP Project Contributors
 # https://github.com/cgq-qgc/pyhelp
@@ -11,32 +10,33 @@ from __future__ import annotations
 
 # ---- Standard Library Imports
 import calendar
+import csv
 import itertools
 import json
 import os
 import os.path as osp
-import csv
 import time
 
 # ---- Third Party imports
 import numpy as np
 import pandas as pd
 
-# ---- Local Libraries Imports
-from .preprocessing import write_d10d11_allcells, format_d10d11_inputs
-from .processing import run_help_allcells
-from .utils import savedata_to_hdf5, calc_dist_from_coord, delete_folder_recursively
-from .weather_reader import save_precip_to_HELP, save_airtemp_to_HELP, save_solrad_to_HELP
-from .output import HelpOutput
 from hydromodpy.core.logging import get_logger
 
+from .output import HelpOutput
+
+# ---- Local Libraries Imports
+from .preprocessing import format_d10d11_inputs, write_d10d11_allcells
+from .processing import run_help_allcells
+from .utils import calc_dist_from_coord, delete_folder_recursively, savedata_to_hdf5
+from .weather_reader import save_airtemp_to_HELP, save_precip_to_HELP, save_solrad_to_HELP
 
 FNAME_CONN_TABLES = "connect_table.json"
 
 logger = get_logger(__name__)
 
 
-class HelpManager(object):
+class HelpManager:
     """
     The :class:`~pyhelp.HelpManager` is a class whose main purpose
     is to evaluate the component of the hydrologic water budget at the
@@ -119,7 +119,7 @@ class HelpManager(object):
     def _load_connect_tables(self):
         """Load the connect tables from the json file."""
         if osp.exists(self.path_connect_tables):
-            with open(self.path_connect_tables, "r") as jsonfile:
+            with open(self.path_connect_tables) as jsonfile:
                 self.connect_tables = json.load(jsonfile)
         else:
             self.connect_tables = {}
@@ -200,9 +200,7 @@ class HelpManager(object):
                 ndays = np.sum(years == year)
                 if ndays != (366 if calendar.isleap(year) else 365):
                     raise ValueError(
-                        (
-                            "{} data for year {} only have {} daily values and is not complete"
-                        ).format(name, year, ndays)
+                        f"{name} data for year {year} only have {ndays} daily values and is not complete"
                     )
 
         # Check that the datasets are synchroneous.
@@ -218,18 +216,14 @@ class HelpManager(object):
             # Check that the length of the datasets matches.
             if len(x1) != len(x2):
                 raise ValueError(
-                    ("The lenght of the {} and {} data does not match: {} != {}.").format(
-                        name1.lower(), name2.lower(), len(x1), len(x2)
-                    )
+                    f"The lenght of the {name1.lower()} and {name2.lower()} data does not match: {len(x1)} != {len(x2)}."
                 )
 
             # Check that the datetimes of the datasets match.
             match = x1 == x2
             if not match.all():
                 raise ValueError(
-                    ("{} and {} data does not match: {} != {}.").format(
-                        name1, name2.lower(), x1[~match][0], x2[~match][0]
-                    )
+                    f"{name1} and {name2.lower()} data does not match: {x1[~match][0]} != {x2[~match][0]}."
                 )
         logger.info("Weather input datasets loaded successfully")
 
@@ -352,7 +346,7 @@ class HelpManager(object):
                 lon = data_lon[argmin]
                 help_input_fname = osp.join(help_inputdir, fformat.format(lat, lon, fext))
                 if not osp.exists(help_input_fname):
-                    city = "{} at {:3.1f} ; {:3.1f}".format(var, lat, lon)
+                    city = f"{var} at {lat:3.1f} ; {lon:3.1f}"
                     if var in ("precip", "airtemp"):
                         to_help_func(
                             help_input_fname, data.index.year.values, data.values[:, argmin], city
@@ -640,7 +634,7 @@ def load_grid_from_csv(path_togrid):
     req_keys = ["cid", "lat_dd", "lon_dd", "run", "context"]
     for key in req_keys:
         if key not in grid.keys():
-            raise KeyError("No attribute '{}' found in {}".format(key, fname))
+            raise KeyError(f"No attribute '{key}' found in {fname}")
 
     # Set 'cid' as the index of the dataframe.
     grid.set_index(["cid"], drop=False, inplace=True)
@@ -657,7 +651,7 @@ def load_weather_from_csv(filename: str) -> pd.DataFrame:
     to the dates and the columns to latitudes and longitudes of each
     data series.
     """
-    with open(filename, "r") as csvfile:
+    with open(filename) as csvfile:
         reader = list(csv.reader(csvfile, delimiter=","))
 
     # Get the latitudes and longitudes and the number of lines that

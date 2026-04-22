@@ -9,7 +9,6 @@ import xarray as xr
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.variables.precipitation.config import PrecipitationSourceConfig
 
-
 VARIABLE_NAME = "precipitation"
 INTERNAL_UNIT = "mm/day"
 

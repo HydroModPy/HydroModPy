@@ -6,8 +6,6 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from hydromodpy.spatial.surface import Surface
-from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 from hydromodpy.solver.modflow_common.grid_context import GridReference, SolverGridContext
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import (
@@ -16,6 +14,8 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import (
     VerticalGridConfig,
 )
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
+from hydromodpy.spatial.surface import Surface
+from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
 
 def resolve_domain_surfaces(

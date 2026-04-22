@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
-
 from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.geo import GeoFigureMixin
@@ -34,10 +32,10 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         ax.set_axis_off()
         ax.text(
             0.5,
@@ -50,13 +48,13 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
 
     def plot(
         self,
-        sim: "Run",
+        sim: Run,
         *,
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path=None,
         **_,
-    ) -> "MplFigure":
+    ) -> MplFigure:
         import matplotlib.pyplot as plt
         from matplotlib.gridspec import GridSpec
 

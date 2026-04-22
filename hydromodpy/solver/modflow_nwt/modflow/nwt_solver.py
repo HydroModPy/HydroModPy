@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 *
@@ -10,12 +9,13 @@
 * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
+import os
+import sys
 from collections.abc import Mapping
+
 import flopy
 import numpy as np
-import os
 import rasterio
-import sys
 from tqdm import tqdm
 
 from hydromodpy.solver.modflow_common.binary_reader import (
@@ -34,14 +34,15 @@ _ITMUNI_TO_SECONDS: dict[int, float] = {
     5: 31557600.0,  # years (365.25 days)
 }
 
+from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tools.filesystem import create_folder
-from hydromodpy.core.io.raster_io import export_tif
+from hydromodpy.solver.contracts import Solver
 from hydromodpy.solver.modflow_common import (
-    ensure_platform_executable,
     SolverGridContext,
     SolverRoutingContext,
     build_solver_routing_context,
+    ensure_platform_executable,
     masstransfer,
     write_grid_array_to_raster,
 )
@@ -52,8 +53,8 @@ from hydromodpy.solver.modflow_common.discretization_spatial import (
 from hydromodpy.solver.modflow_common.discretization_temporal import (
     build_temporal_discretization_from_time_grid,
 )
-from hydromodpy.solver.contracts import Solver
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
+
 from .diagnostics import check_water_flow_connectivity
 from .flow_to_modflow_adapter import FlowToModflowAdapter
 from .intermittency import export_intermittency
@@ -70,8 +71,8 @@ from .postprocess import (
     NODATA,
     compute_groundwater_flux,
     compute_groundwater_storage,
-    compute_outlet_discharge_east_side_m3_s,
     compute_outflow_drain,
+    compute_outlet_discharge_east_side_m3_s,
     compute_seepage_areas,
     compute_watertable_depth,
     compute_watertable_elevation,

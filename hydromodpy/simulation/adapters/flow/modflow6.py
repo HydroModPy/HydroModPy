@@ -29,7 +29,7 @@ class Modflow6FlowAdapter:
         if isinstance(cache, dict):
             return cache
         cache = {}
-        setattr(state.setup, "_flow_solver_runtime_cache", cache)
+        state.setup._flow_solver_runtime_cache = cache
         return cache
 
     @staticmethod

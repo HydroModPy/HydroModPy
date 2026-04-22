@@ -18,7 +18,7 @@ branch on ``kind`` for dispatch.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 from pydantic import Field
 
@@ -94,7 +94,7 @@ class SyntheticForcing(HydroModelBase):
 
 
 Forcing = Annotated[
-    Union[ConstantForcing, CsvForcing, SyntheticForcing],
+    ConstantForcing | CsvForcing | SyntheticForcing,
     Field(discriminator="kind"),
 ]
 """Discriminated union of flow-forcing payloads."""

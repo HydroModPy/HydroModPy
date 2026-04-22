@@ -15,7 +15,6 @@ from hydromodpy.calibration.optimizer import (
 )
 from hydromodpy.calibration.parameters import ParameterSpace
 
-
 _SAMPLERS = {
     "tpe": optuna.samplers.TPESampler,
     "random": optuna.samplers.RandomSampler,

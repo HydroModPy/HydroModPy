@@ -25,19 +25,18 @@ from __future__ import annotations
 
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.fields import FieldInfo
 
-from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.core.config.path_resolution import resolve_declared_path
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 from hydromodpy.core.config.base import HydroModelBase
-from typing import Annotated
+from hydromodpy.core.config.path_resolution import resolve_declared_path
 from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.core.workspace.config import WorkspaceConfig
 
 # ``core`` is a leaf of the import DAG: non-core sibling configs are referenced
 # via forward references below and resolved through a deferred ``model_rebuild``
@@ -208,7 +207,7 @@ class HydroModPyConfig(HydroModelBase):
     )
 
     @model_validator(mode="after")
-    def _check_cross_section_coherence(self) -> "HydroModPyConfig":
+    def _check_cross_section_coherence(self) -> HydroModPyConfig:
         """Cross-section coherence checks run after sub-configs validate.
 
         Currently enforced invariants (architecture spec
@@ -254,7 +253,7 @@ class HydroModPyConfig(HydroModelBase):
         return self
 
     @classmethod
-    def from_toml(cls, toml_path: "Path | str") -> "HydroModPyConfig":
+    def from_toml(cls, toml_path: Path | str) -> HydroModPyConfig:
         """
         Load and validate configuration from a TOML file.
 
@@ -375,7 +374,7 @@ class HydroModPyConfig(HydroModelBase):
         cls,
         snapshot: dict,
         **overrides,
-    ) -> "HydroModPyConfig":
+    ) -> HydroModPyConfig:
         """Reconstruct a config from a stored JSON snapshot.
 
         Parameters

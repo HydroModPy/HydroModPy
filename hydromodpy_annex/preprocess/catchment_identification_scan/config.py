@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -93,7 +93,7 @@ class CatchmentIdentificationConfig:
         config_toml: str | Path,
         *,
         section: str = DEFAULT_SECTION,
-    ) -> "CatchmentIdentificationConfig":
+    ) -> CatchmentIdentificationConfig:
         config_path = Path(config_toml).expanduser().resolve()
         payload = load_toml_with_base_config(config_path)
 

@@ -10,12 +10,12 @@ import rasterio
 from rasterio.transform import from_origin
 
 from hydromodpy.data.variables.geology.config_cases import validate_geology_config_data
-from hydromodpy.spatial.field.geology import GeologyField
 from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
+from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
-from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.geology import GeologyField
 
 
 def _write_test_raster(path: Path):

@@ -39,14 +39,13 @@ from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config.generate_toml import (
+    _UNDEFINED,
     _default_value,
     _get_registry,
-    _UNDEFINED,
 )
 from hydromodpy.core.config.param_level import VisibleWhen
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.pydantic_introspect import extract_profile
-
 
 # ── Type introspection helpers ───────────────────────────────────────────
 
@@ -299,7 +298,7 @@ def render_model(
 
         new_items = [it for idx, it in enumerate(new_items) if idx not in to_remove]
 
-        if st.button(f"+ Ajouter", key=f"add_{sub_section}"):
+        if st.button("+ Ajouter", key=f"add_{sub_section}"):
             new_items.append({})
 
         result[name] = new_items

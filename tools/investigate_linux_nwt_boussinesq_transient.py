@@ -12,13 +12,11 @@ from typing import Any
 
 import numpy as np
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import tools.investigate_surface_interaction_hillslope_transient as base
-from validation_cases.shared import load_case_metadata
 from validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.diagnostics import (
     build_hillslope_overflow_diagnostics,
 )
@@ -26,7 +24,7 @@ from validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_ov
     LINUX_NWT_BOUSS_RAMP_CONTEXT_PRESET,
     run_boussinesq_hillslope_overflow_case,
 )
-
+from validation_cases.shared import load_case_metadata
 
 SOLVER_ORDER = ("modflownwt", "petsc_partition", "petsc")
 SOLVER_LABELS = {
@@ -141,7 +139,7 @@ def _bouss_diagnostics_to_result(
         getattr(
             diagnostics,
             "storage_change_m3_day",
-            getattr(diagnostics, "storage_balance_m3_day"),
+            diagnostics.storage_balance_m3_day,
         ),
         dtype=float,
     )

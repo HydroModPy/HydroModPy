@@ -8,16 +8,16 @@ shared ``api_helpers`` module and converts raw JSON to the standard contract.
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 from datetime import datetime, timedelta
-from typing import Sequence
 
 import pandas as pd
 import requests
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_helpers import get_json
 from hydromodpy.data.common.progress import iter_progress, log_step
 from hydromodpy.data.contracts.location import StationLocation
-from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 from hydromodpy.data.contracts.timeseries import PointRecord

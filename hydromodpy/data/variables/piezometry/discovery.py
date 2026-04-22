@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
-from typing import Any, List, Mapping, Optional, Union
+from typing import Any
 
 import pandas as pd
 import requests
@@ -16,8 +17,9 @@ from hydromodpy.core.io.http_client import get_default_client
 logger = logging.getLogger(__name__)
 
 try:
-    from ..common.base_station_set import BaseStationSet
     from hydromodpy.core.units import parse_length_to_m
+
+    from ..common.base_station_set import BaseStationSet
 except ImportError:
     import sys
 
@@ -27,6 +29,7 @@ except ImportError:
         if _path not in sys.path:
             sys.path.insert(0, _path)
     from common.base_station_set import BaseStationSet
+
     from hydromodpy.core.units import parse_length_to_m
 
 
@@ -46,13 +49,13 @@ STATUS_MESSAGES = {
 class PiezometerDiscovery(BaseStationSet):
     """Encapsulate piezometer discovery outside ``PiezometerSet``."""
 
-    def __init__(self, *, local_data_dir: Optional[Union[str, Path]] = None):
+    def __init__(self, *, local_data_dir: str | Path | None = None):
         self.local_data_dir = (
             Path(local_data_dir).expanduser().resolve() if local_data_dir else None
         )
 
     @staticmethod
-    def normalize_piezometer_ids(id_values: Union[str, List[str]]) -> list[str]:
+    def normalize_piezometer_ids(id_values: str | list[str]) -> list[str]:
         """Normalize piezometer identifiers into a list of strings."""
         if isinstance(id_values, str):
             id_values = [id_values]
@@ -65,15 +68,15 @@ class PiezometerDiscovery(BaseStationSet):
     def discover_piezometer_ids(
         cls,
         *,
-        bbox: Optional[tuple[float, float, float, float]] = None,
-        mask_path: Optional[Union[str, Path]] = None,
-        center_point: Optional[tuple[float, float]] = None,
-        fallback_search_radius_m: Optional[Any] = None,
-        fallback_search_radius_km: Optional[Any] = None,
+        bbox: tuple[float, float, float, float] | None = None,
+        mask_path: str | Path | None = None,
+        center_point: tuple[float, float] | None = None,
+        fallback_search_radius_m: Any | None = None,
+        fallback_search_radius_km: Any | None = None,
         require_observations: bool = False,
-        date_start: Optional[str] = None,
-        date_end: Optional[str] = None,
-        max_ids: Optional[int] = 20,
+        date_start: str | None = None,
+        date_end: str | None = None,
+        max_ids: int | None = 20,
         timeout: int = 30,
     ) -> list[str]:
         """Discover valid Hub'Eau piezometer identifiers in a geographic area."""
@@ -190,11 +193,11 @@ class PiezometerDiscovery(BaseStationSet):
 
     def select_piezometer_ids_from_mask(
         self,
-        mask_path: Union[str, Path],
+        mask_path: str | Path,
         *,
         source_mode: str,
-        fallback_search_radius_m: Optional[Any] = None,
-        fallback_search_radius_km: Optional[Any] = None,
+        fallback_search_radius_m: Any | None = None,
+        fallback_search_radius_km: Any | None = None,
     ) -> list[str]:
         """Select piezometer identifiers located inside a mask geometry."""
         logger.info("Loading geographic mask from: %s", mask_path)
@@ -229,7 +232,7 @@ class PiezometerDiscovery(BaseStationSet):
         raise ValueError(f"Unsupported source_mode: {source_mode}")
 
     @staticmethod
-    def _normalize_api_date(value: Optional[str], *, default: str) -> str:
+    def _normalize_api_date(value: str | None, *, default: str) -> str:
         """Normalize date string to API ``YYYY-MM-DD`` format."""
         if value is None:
             return default
@@ -239,7 +242,7 @@ class PiezometerDiscovery(BaseStationSet):
         return parsed.strftime("%Y-%m-%d")
 
     @staticmethod
-    def _extract_wgs84_coordinates(row: Mapping[str, Any]) -> Optional[tuple[float, float]]:
+    def _extract_wgs84_coordinates(row: Mapping[str, Any]) -> tuple[float, float] | None:
         """Extract WGS84 coordinates from a station payload."""
         x = row.get("longitude_station")
         y = row.get("latitude_station")
@@ -313,10 +316,10 @@ class PiezometerDiscovery(BaseStationSet):
         miny: float,
         maxx: float,
         maxy: float,
-        mask_gdf: Optional[Any] = None,
+        mask_gdf: Any | None = None,
         timeout: int = 30,
         fail_silently: bool = True,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Search for piezometers in a bounding box."""
         station_rows = self._request_station_rows_bbox(
             minx=minx,
@@ -351,7 +354,7 @@ class PiezometerDiscovery(BaseStationSet):
                 station_rows = []
 
         seen = set()
-        candidate_data: List[dict] = []
+        candidate_data: list[dict] = []
         for row in station_rows:
             station_id = str(row.get("code_bss", "")).strip()
             if station_id and station_id not in seen:
@@ -369,10 +372,10 @@ class PiezometerDiscovery(BaseStationSet):
     def _filter_by_observations(
         self,
         *,
-        candidate_ids: List[str],
-        date_start: Optional[str],
-        date_end: Optional[str],
-        max_ids: Optional[int],
+        candidate_ids: list[str],
+        date_start: str | None,
+        date_end: str | None,
+        max_ids: int | None,
         timeout: int,
     ) -> list[str]:
         """Filter piezometer IDs by chronicle availability in a date range."""
@@ -553,12 +556,12 @@ def discover_piezometer_ids(**kwargs) -> list[str]:
 
 
 def select_piezometer_ids_from_mask(
-    mask_path: Union[str, Path],
+    mask_path: str | Path,
     *,
     source_mode: str,
-    local_data_dir: Optional[Union[str, Path]] = None,
-    fallback_search_radius_m: Optional[Any] = None,
-    fallback_search_radius_km: Optional[Any] = None,
+    local_data_dir: str | Path | None = None,
+    fallback_search_radius_m: Any | None = None,
+    fallback_search_radius_km: Any | None = None,
 ) -> list[str]:
     """Module-level wrapper used by :class:`PiezometerSet`."""
     helper = PiezometerDiscovery(local_data_dir=local_data_dir)
@@ -570,6 +573,6 @@ def select_piezometer_ids_from_mask(
     )
 
 
-def normalize_piezometer_ids(id_values: Union[str, List[str]]) -> list[str]:
+def normalize_piezometer_ids(id_values: str | list[str]) -> list[str]:
     """Module-level wrapper for explicit piezometer-id normalization."""
     return PiezometerDiscovery.normalize_piezometer_ids(id_values)

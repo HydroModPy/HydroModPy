@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
 REQUIRED_UI_KEYS = {
     "widget_type",
     "unit",
@@ -43,8 +42,8 @@ def test_flow_physical_properties_annotations_survive_export() -> None:
 
 
 def test_widget_types_are_recognized() -> None:
-    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
     from hydromodpy.core.config.schema_export import export_schema
+    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
 
     allowed = {"slider", "input", "select", "checkbox", "file"}
     schema = export_schema(FlowPhysicalProperties)
@@ -54,8 +53,8 @@ def test_widget_types_are_recognized() -> None:
 
 
 def test_display_bounds_are_numeric() -> None:
-    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
     from hydromodpy.core.config.schema_export import export_schema
+    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
 
     schema = export_schema(FlowPhysicalProperties)
     for field_name, entry in schema["properties"].items():
@@ -89,8 +88,8 @@ def test_exported_config_preserves_widget_metadata(tmp_path: Path) -> None:
 
 def test_help_text_fr_is_french_when_present() -> None:
     """Soft sanity check: any field carrying help_text_fr has non-empty content."""
-    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
     from hydromodpy.core.config.schema_export import export_schema
+    from hydromodpy.physics.flow.physical_properties import FlowPhysicalProperties
 
     schema = export_schema(FlowPhysicalProperties)
     for field_name, entry in schema["properties"].items():

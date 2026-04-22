@@ -18,7 +18,6 @@ from .runtime_boussinesq import (
     run_boussinesq_brutsaert_recession_boussinesq_thin_case,
 )
 
-
 CASE_DIR = Path(__file__).resolve().parent
 
 

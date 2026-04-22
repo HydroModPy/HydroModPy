@@ -23,7 +23,6 @@ from validation_cases.shared.runtime import (
     resolve_validation_results_dir,
 )
 
-
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "late_time_unconfined_pumping_2d"
 MESH_NX = 31

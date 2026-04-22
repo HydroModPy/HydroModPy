@@ -30,7 +30,6 @@ from hydromodpy.spatial.delineation import (
     WhiteboxWorkflowsBackend,
     get_whitebox_backend,
 )
-
 from hydromodpy.spatial.geographic.geographic_io import ensure_crs
 
 

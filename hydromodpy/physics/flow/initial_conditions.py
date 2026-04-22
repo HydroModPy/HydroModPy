@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Flow Initial Condition Models
 =============================
@@ -20,15 +19,14 @@ Raw `[flow.ic]` configuration payloads are normalized separately in
 
 from __future__ import annotations
 
-from typing import ClassVar, Literal
+from typing import Annotated, ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
-from hydromodpy.physics.base import InitialCondition as BaseInitialCondition
-from hydromodpy.core.units import check_unit_compatible
 from hydromodpy.core.config.base import HydroModelBase
-from typing import Annotated
 from hydromodpy.core.config.profile import Profile
+from hydromodpy.core.units import check_unit_compatible
+from hydromodpy.physics.base import InitialCondition as BaseInitialCondition
 
 
 class FlowInitialCondition(BaseInitialCondition):
@@ -62,7 +60,7 @@ class FlowInitialCondition(BaseInitialCondition):
     )
 
     @model_validator(mode="after")
-    def _validate_custom_value(self) -> "FlowInitialCondition":
+    def _validate_custom_value(self) -> FlowInitialCondition:
         """Require `value` whenever `type='custom'`."""
         if self.type == "custom" and self.value is None:
             raise ValueError("flow.ic.value is required when flow.ic.type='custom'")

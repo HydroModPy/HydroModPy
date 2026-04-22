@@ -44,10 +44,10 @@ class SchoellerDiagramFigure(BaseFigure):
 
     def render(
         self,
-        sim: "Run | Any",
-        ax: "Axes",
+        sim: Run | Any,
+        ax: Axes,
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         df = _to_dataframe(sim)
         missing = [c for c in _IONS if c not in df.columns]
         if missing:

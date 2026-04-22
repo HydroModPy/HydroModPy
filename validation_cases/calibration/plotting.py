@@ -25,7 +25,6 @@ from validation_cases.calibration.shared.definitions import (
     TwinMethodBenchmarkResult,
 )
 
-
 SUITE_TITLE_FONTSIZE = 10.0
 CASE_TITLE_FONTSIZE = 9.4
 CASE_SUPTITLE_FONTSIZE = 11.8

@@ -14,7 +14,6 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._gmsh_export import (
     write_repository_compatible_mesh,
 )
 
-
 ScalarOrProfile = float | list[float] | tuple[float, ...] | np.ndarray | Callable[[float], float]
 
 

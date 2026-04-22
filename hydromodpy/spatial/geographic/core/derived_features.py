@@ -15,8 +15,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
+from hydromodpy.spatial.surface import Surface
 
 
 @dataclass(frozen=True)
@@ -77,17 +77,17 @@ class GeographicDerivedFeatures:
     def from_domain_geographic_context(
         cls,
         context: object,
-    ) -> "GeographicDerivedFeatures":
+    ) -> GeographicDerivedFeatures:
         """Lift one historical domain-geographic payload into the new bundle."""
         river_mesh_trace = getattr(context, "river_mesh_trace", None)
         return cls(
-            surface_topo=getattr(context, "surface_topo"),
+            surface_topo=context.surface_topo,
             boundaries=GeographicBoundaryFeatures(
                 watershed_shp=str(getattr(context, "watershed_shp", "")),
                 watershed_box_shp=(
                     None
                     if getattr(context, "watershed_box_shp", None) in (None, "")
-                    else str(getattr(context, "watershed_box_shp"))
+                    else str(context.watershed_box_shp)
                 ),
                 box_buff_shp=str(getattr(context, "box_buff_shp", "")),
             ),
@@ -104,7 +104,7 @@ class GeographicDerivedFeatures:
             regional_dem_path=(
                 None
                 if getattr(context, "regional_dem_path", None) in (None, "")
-                else str(getattr(context, "regional_dem_path"))
+                else str(context.regional_dem_path)
             ),
         )
 

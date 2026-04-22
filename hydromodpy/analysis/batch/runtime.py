@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 import csv
-from dataclasses import dataclass, replace
-from datetime import datetime, timezone
 import json
 import math
 import platform
-from pathlib import Path
 import subprocess
 import sys
 import time
-from typing import Any, Mapping, Sequence
+from collections import defaultdict
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 from hydromodpy.analysis.batch.config import (
     RegionalLabCatalogConfig,
@@ -22,7 +23,6 @@ from hydromodpy.analysis.batch.config import (
     RegionalLabRecipeConfig,
     RegionalLabSelectionConfig,
 )
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -956,8 +956,8 @@ def _extract_simulation_child_artifacts(config_path: Path) -> dict[str, Any]:
 
 def _extract_method_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
     """Extract compact method-comparison artifacts from one child launcher config."""
-    from hydromodpy.core.config.toml_loader import load_toml_with_base_config
     from hydromodpy.analysis.comparison.config import MethodComparisonConfig
+    from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
     artifacts: dict[str, Any] = {
         "child_artifact_kind": "method_comparison",
@@ -1059,7 +1059,7 @@ def _build_plan_payload(
     """Build one JSON-serializable execution plan."""
     return {
         "schema_version": "regional_lab_plan_v2",
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "generated_at_utc": datetime.now(UTC).isoformat(),
         "lab_id": cfg.lab_id,
         "config_path": str(cfg.config_path),
         "site_catalog_path": str(cfg.catalog.path),
@@ -1668,7 +1668,7 @@ def _build_report_payload(
 
     return {
         "schema_version": "regional_lab_report_v2",
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "generated_at_utc": datetime.now(UTC).isoformat(),
         "lab_id": cfg.lab_id,
         "config_path": str(cfg.config_path),
         "site_catalog_path": str(cfg.catalog.path),

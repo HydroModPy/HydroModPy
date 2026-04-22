@@ -22,7 +22,6 @@ import inspect
 import sys
 from pathlib import Path
 
-import hydromodpy  # triggers registration of all sub-configs
 from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.core.config.profile import Profile

@@ -10,12 +10,11 @@ simplified to 500 m tolerance.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 import geopandas as gpd
 from shapely.geometry import box
-
 
 _BUNDLED_GPKG = Path(__file__).parent / "departement.gpkg"
 

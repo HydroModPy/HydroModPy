@@ -14,8 +14,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.data.variables.geology.config import GeologyConfigBlock
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
@@ -24,13 +25,11 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
     ZoneMeshingDomainBBox,
     ZoneMeshingDomainGeographicBoxBuffer,
-    ZoneMeshingDomainGeographicWatershedBox,
     ZoneMeshingDomainGeographicWatershed,
+    ZoneMeshingDomainGeographicWatershedBox,
     ZoneMeshingDomainPolygon,
     ZoneMeshingDomainVector,
 )
-from hydromodpy.core.config.base import HydroModelBase
-
 
 ZoneMeshingDomainSchema = (
     ZoneMeshingDomainBBox
@@ -114,7 +113,7 @@ class MeshCatchmentRiversConfig(HydroModelBase):
         return text
 
     @model_validator(mode="after")
-    def _validate_file_mode(self) -> "MeshCatchmentRiversConfig":
+    def _validate_file_mode(self) -> MeshCatchmentRiversConfig:
         if self.source == "file" and self.path is None:
             raise ValueError("rivers.path is required when rivers.source='file'.")
         return self
@@ -393,7 +392,7 @@ class MeshCatchmentHydraulicPropertyMapping(HydroModelBase):
         return _validate_hydraulic_scalar(value, label="default_value")
 
     @model_validator(mode="after")
-    def _validate_mapping_payload(self) -> "MeshCatchmentHydraulicPropertyMapping":
+    def _validate_mapping_payload(self) -> MeshCatchmentHydraulicPropertyMapping:
         if self.values_source == "inline":
             if self.values is None and self.default_value is None:
                 raise ValueError("values or default_value is required when values_source='inline'.")
@@ -455,7 +454,7 @@ class MeshCatchmentHydraulicPropertiesConfig(HydroModelBase):
     @model_validator(mode="after")
     def _validate_at_least_one_property(
         self,
-    ) -> "MeshCatchmentHydraulicPropertiesConfig":
+    ) -> MeshCatchmentHydraulicPropertiesConfig:
         if self.conductivity is None and self.storage_coefficient is None:
             raise ValueError(
                 "hydraulic_properties must define conductivity and/or storage_coefficient."
@@ -666,7 +665,7 @@ class MeshCatchmentConfig(HydroModelBase):
         return text
 
     @model_validator(mode="after")
-    def _validate_required_subsections(self) -> "MeshCatchmentConfig":
+    def _validate_required_subsections(self) -> MeshCatchmentConfig:
         if self.constraints_mode in {"geology_only", "geology_rivers"} and self.geology is None:
             raise ValueError("geology section is required when constraints_mode includes geology.")
         if (
@@ -824,7 +823,7 @@ class MeshCatchmentBatchSection(HydroModelBase):
         return [str(item).strip() for item in value if str(item).strip() != ""]
 
     @model_validator(mode="after")
-    def _validate_enabled_contract(self) -> "MeshCatchmentBatchSection":
+    def _validate_enabled_contract(self) -> MeshCatchmentBatchSection:
         if not self.enabled:
             return self
         if self.outlets_table_path is None:

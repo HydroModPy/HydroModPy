@@ -17,8 +17,8 @@ import argparse
 import json
 from pathlib import Path
 
-from matplotlib import pyplot as plt
 import numpy as np
+from matplotlib import pyplot as plt
 
 from hydromodpy.solver.utils.mesh.gmsh_grid import (
     attach_extruded_values,

@@ -29,7 +29,6 @@ from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.workspace.exceptions import WorkspaceError
 
-
 ResolutionSource = Literal["explicit", "env", "scaffold"]
 
 
@@ -109,7 +108,7 @@ class WorkspaceConfig(HydroModelBase):
     )
 
     @model_validator(mode="after")
-    def _resolve(self) -> "WorkspaceConfig":
+    def _resolve(self) -> WorkspaceConfig:
         """Resolve to absolute paths using the strict binary contract."""
         project_root = Path(self.project_root).expanduser().resolve()
         object.__setattr__(self, "project_root", project_root)

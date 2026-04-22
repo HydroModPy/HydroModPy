@@ -26,7 +26,7 @@ class OceanicManager(BaseFieldManager):
         project_period: tuple[datetime, datetime] | None = None,
         project_extent: tuple | None = None,
         geographic: object | None = None,
-        data_dir: "Path | None" = None,
+        data_dir: Path | None = None,
     ) -> None:
         super().__init__(
             config=config,

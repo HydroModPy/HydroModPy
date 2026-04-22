@@ -11,7 +11,7 @@ from hydromodpy.results.spatial_index import point_in_cell
 
 
 class TestPointInCellTriangles:
-    """Simple triangular mesh:
+    r"""Simple triangular mesh:
 
     3---4
     |\ /|

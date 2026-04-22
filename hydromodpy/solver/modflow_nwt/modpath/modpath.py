@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 *
@@ -15,35 +14,35 @@
 # Python
 import io
 import os
-from pathlib import Path
+import pickle
+import random
 import sys
+import warnings
+from collections.abc import Mapping
 from contextlib import redirect_stdout
+from os.path import abspath, dirname
+from pathlib import Path
 
 import flopy
 import flopy.utils.binaryfile as fpu
-import numpy as np
-from os.path import dirname, abspath
-import random
-import warnings
-import pickle
-from collections.abc import Mapping
-import geopandas as gpd
-import rasterio
 import flopy.utils.postprocessing as pp
-from scipy.optimize import curve_fit
+import geopandas as gpd
 import matplotlib.pyplot as plt
+import numpy as np
+import rasterio
+from scipy.optimize import curve_fit
 
 # Root
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.spatial.delineation import get_whitebox_backend
-from hydromodpy.solver.modflow_common import ensure_platform_executable
-from hydromodpy.core.logging import get_logger
-from hydromodpy.core.tools.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.tools.display import plot_params
+from hydromodpy.core.tools.filesystem import create_folder
+from hydromodpy.solver.modflow_common import ensure_platform_executable
+from hydromodpy.spatial.delineation import get_whitebox_backend
 
 logger = get_logger(__name__)
 fontprop = plot_params(8, 15, 18, 20)  # small, medium, interm, large
@@ -137,7 +136,7 @@ class Modpath(Solver):
         self.full_path = os.path.join(model_folder, model_name)
 
         if not os.path.isdir(self.full_path):
-            raise FileNotFoundError("Directory not found: {}".format(self.full_path))
+            raise FileNotFoundError(f"Directory not found: {self.full_path}")
         if (sys.platform == "win32") or (sys.platform == "win64"):
             self.exe = os.path.join(bin_path, "win", "mp6.exe")
         if sys.platform == "linux":
@@ -381,11 +380,11 @@ class Modpath(Solver):
         # Load and import
         prefix = os.path.join(self.full_path, self.model_name)
         nam_file = self._ensure_modflow_name_file()
-        dis_file = "{}.dis".format(prefix)
-        head_file = "{}.hds".format(prefix)
-        bud_file = "{}.cbc".format(prefix)
-        bas_file = "{}.bas".format(prefix)
-        lpf_file = "{}.upw".format(prefix)
+        dis_file = f"{prefix}.dis"
+        head_file = f"{prefix}.hds"
+        bud_file = f"{prefix}.cbc"
+        bas_file = f"{prefix}.bas"
+        lpf_file = f"{prefix}.upw"
 
         self.mf = flopy.modflow.Modflow.load(
             nam_file,

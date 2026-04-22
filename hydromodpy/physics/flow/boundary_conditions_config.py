@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Flow Boundary Condition Normalizers
 ==================================
@@ -16,16 +15,16 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import cast
 
+from hydromodpy.core.units import (
+    canonical_unit_short_form,
+    parse_to_canonical_magnitude,
+)
 from hydromodpy.physics.flow.boundary_conditions import (
     ALLOWED_BC_APPLICATION_DOMAINS,
     DIRICHLET_BC_CANONICAL_DOMAINS,
     SIDE_DIRICHLET_BC_IDS,
-    FlowBoundaryForcingConfig,
     FlowBoundaryConditionConfig,
-)
-from hydromodpy.core.units import (
-    canonical_unit_short_form,
-    parse_to_canonical_magnitude,
+    FlowBoundaryForcingConfig,
 )
 
 

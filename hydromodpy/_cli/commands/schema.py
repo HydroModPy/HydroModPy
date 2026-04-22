@@ -10,7 +10,6 @@ from typing import Any
 
 from hydromodpy._cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
 
-
 NAME = "schema"
 HELP = "Export the JSON Schema and companion files for frontend hooks"
 

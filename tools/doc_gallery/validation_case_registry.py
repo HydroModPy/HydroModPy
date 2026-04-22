@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import importlib
-from pathlib import Path
 import re
 import tomllib
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VALIDATION_SOLVER_ORDER = ("modflownwt", "modflow6", "modflow6_irregular_tri", "boussinesq")
@@ -475,7 +474,7 @@ def _discover_run_case_metadata(case_dir: Path, *, repo_root: Path) -> dict[str,
         "comparison_function_name": run_functions[0],
         "plotting_function_name": plot_functions[0],
         "metric_builder_name": "_build_metric_lines",
-        "default_figure_name": getattr(module, "DEFAULT_FIGURE_NAME"),
+        "default_figure_name": module.DEFAULT_FIGURE_NAME,
         "run_description": getattr(module, "RUN_DESCRIPTION", ""),
     }
 

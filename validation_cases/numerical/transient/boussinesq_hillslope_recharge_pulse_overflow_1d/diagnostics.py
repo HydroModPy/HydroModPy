@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -22,7 +22,6 @@ from validation_cases.shared.boussinesq_budget import (
 )
 
 from .runtime_boussinesq import CASE_DIR, resolve_solver_variant
-
 
 SECONDS_PER_DAY = 86_400.0
 MM_DAY_PER_M_S = 86_400.0 * 1_000.0

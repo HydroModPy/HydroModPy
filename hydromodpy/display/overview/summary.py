@@ -25,7 +25,7 @@ class OverviewSummary:
     date_end: str
 
 
-def compute_overview_summary(state: "DataOverviewState") -> OverviewSummary:
+def compute_overview_summary(state: DataOverviewState) -> OverviewSummary:
     """Compute the summary metrics from ``state``."""
     ld = state.loaded_data
     dg = state.domain_geographic

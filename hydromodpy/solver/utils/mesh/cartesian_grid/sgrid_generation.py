@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Surface-driven structured-grid generation for FloPy.
 
@@ -33,6 +32,7 @@ import numpy as np
 from flopy.discretization import StructuredGrid
 
 from hydromodpy.spatial.surface import Surface
+
 from .sgrid_config import VerticalGridConfig
 
 

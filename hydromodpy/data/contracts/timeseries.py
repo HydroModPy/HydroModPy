@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
@@ -30,11 +29,11 @@ class PointRecord:
     data: pd.DataFrame
     date_start: datetime
     date_end: datetime
-    location: Optional[StationLocation] = None
+    location: StationLocation | None = None
     is_constant: bool = False
-    file_path: Optional[Path] = None
-    source_unit: Optional[str] = None
-    quality: Optional[dict] = None
+    file_path: Path | None = None
+    source_unit: str | None = None
+    quality: dict | None = None
 
     def __post_init__(self):
         missing = [c for c in REQUIRED_COLUMNS if c not in self.data.columns]
@@ -68,7 +67,7 @@ class PointRecord:
     def has_data(self) -> bool:
         return not self.data.empty
 
-    def filter_by_period(self, start: datetime, end: datetime) -> "PointRecord":
+    def filter_by_period(self, start: datetime, end: datetime) -> PointRecord:
         """Return a new PointRecord filtered to [start, end]."""
         mask = (self.data["datetime"] >= pd.Timestamp(start)) & (
             self.data["datetime"] <= pd.Timestamp(end)

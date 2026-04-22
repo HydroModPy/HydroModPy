@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Wed Feb 18 17:22:04 2026
 
@@ -13,7 +12,6 @@ os.getcwd()
 
 import numpy as np
 import pandas as pd
-
 from hcdm import run_hcdm
 
 # Load your data

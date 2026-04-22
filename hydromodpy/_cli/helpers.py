@@ -8,7 +8,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-
 # ---------------------------------------------------------------------------
 # Standardised exit codes (architecture_cible/10_ux_cli_api.md §5.1).
 # ---------------------------------------------------------------------------

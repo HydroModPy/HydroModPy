@@ -13,7 +13,6 @@ from hydromodpy._cli.helpers import (
     resolve_workspace,
 )
 
-
 NAME = "data"
 HELP = "Inspect and manage custom data artefacts in the workspace"
 

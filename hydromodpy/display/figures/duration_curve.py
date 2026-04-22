@@ -30,14 +30,14 @@ class DurationCurveFigure(BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         *,
         station: str = "_catchment",
         variable: str = "discharge",
         log_y: bool = True,
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         ts = sim.timeseries(variable, station=station)
         values = np.asarray(ts.values, dtype=float)
         values = values[~np.isnan(values)]

@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     DepthModelConfig,
 )
 from hydromodpy.spatial.domain.spatial_support_config import DomainSupportConfig
-from hydromodpy.core.config.base import HydroModelBase
 
 
 class DomainConfig(HydroModelBase):

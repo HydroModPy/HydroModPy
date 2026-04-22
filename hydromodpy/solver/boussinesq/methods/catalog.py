@@ -12,9 +12,9 @@ from hydromodpy.solver.boussinesq.discretization import (
     resolve_time_scheme,
 )
 from hydromodpy.solver.boussinesq.formulations import (
-    BoussinesqFormulationSpec,
     HEAD_ONLY_REGULARIZED_PARTITION,
     MIXED_COMPLEMENTARITY,
+    BoussinesqFormulationSpec,
 )
 
 

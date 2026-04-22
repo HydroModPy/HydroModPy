@@ -8,9 +8,10 @@ backends stay lazy-imported so importing this module never pulls in
 
 from __future__ import annotations
 
-from functools import lru_cache
+from collections.abc import Callable
+from functools import cache
 from importlib import import_module
-from typing import Any, Callable
+from typing import Any
 
 _BACKEND_LOADERS: dict[str, Callable[[], type]] = {}
 
@@ -62,7 +63,7 @@ def _normalize(name: str | None) -> str:
     return aliases[normalized]
 
 
-@lru_cache(maxsize=None)
+@cache
 def _get_cached_backend(name: str) -> Any:
     loader = _BACKEND_LOADERS.get(name)
     if loader is None:

@@ -8,8 +8,8 @@ Public exports for the flow process layer:
 - typed payload models (IC, BC, sinks/sources).
 """
 
-from .flow import Flow
 from .boundary_conditions import FlowBoundaryConditionConfig
+from .flow import Flow
 from .flow_config import FlowConfig
 from .initial_conditions import FlowInitialCondition, FlowInitialConditions
 from .physical_properties import FlowPhysicalProperties

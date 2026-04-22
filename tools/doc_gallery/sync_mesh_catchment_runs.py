@@ -15,7 +15,6 @@ from typing import Any
 from .import_mesh_bundle import import_mesh_bundle_case
 from .mesh_case_registry import MESH_GALLERY_VARIANT_SPECS, REPO_ROOT, mesh_gallery_root
 
-
 DEFAULT_RESULTS_ROOT = Path("C:/results/Hydromodpy/mesh_catchment_runs")
 
 

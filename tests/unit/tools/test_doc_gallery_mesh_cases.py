@@ -9,13 +9,12 @@ from pathlib import Path
 import tools.doc_gallery.update_gallery as update_gallery_module
 from tools.doc_gallery.gallery_manifest import build_repo_mesh_gallery_case_specs
 from tools.doc_gallery.import_mesh_bundle import import_mesh_bundle_case
-from tools.doc_gallery.update_gallery import _build_category_page, _generate_mesh_viewer_case
 from tools.doc_gallery.mesh_case_registry import (
     MESH_GALLERY_CASE_SCHEMA_VERSION,
     MESH_GALLERY_REQUIRED_BUNDLE_FILES,
     REPO_ROOT,
 )
-
+from tools.doc_gallery.update_gallery import _build_category_page, _generate_mesh_viewer_case
 
 SAMPLE_BUNDLE = REPO_ROOT / "examples" / "projects" / "08_mesh_viewer" / "sample_bundle"
 

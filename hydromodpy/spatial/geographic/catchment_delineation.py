@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy
 *
@@ -14,10 +13,8 @@ from __future__ import annotations
 
 from geopy.geocoders import Nominatim
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.delineation import WhiteboxBackend, get_whitebox_backend
-from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.geographic.dem_metadata import read_legacy_dem_metadata
-from hydromodpy.spatial.geographic.pipeline import build_legacy_geographic_context
 from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicBoundaryFeatures,
     GeographicDerivedFeatures,
@@ -26,7 +23,9 @@ from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import Domain
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
-from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.geographic.dem_metadata import read_legacy_dem_metadata
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+from hydromodpy.spatial.geographic.pipeline import build_legacy_geographic_context
 
 logger = get_logger(__name__)
 

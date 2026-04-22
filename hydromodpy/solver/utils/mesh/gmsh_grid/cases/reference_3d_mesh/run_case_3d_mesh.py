@@ -21,7 +21,6 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_mesh.case_config 
     resolve_reference_3d_mesh_config_path,
 )
 
-
 DEFAULT_CONFIG_FILE = "case_config_3d_mesh.toml"
 DEFAULT_SECTION = "case"
 

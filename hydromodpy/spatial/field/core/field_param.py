@@ -22,17 +22,19 @@ A field can be described in two ways:
 from __future__ import annotations
 
 import csv
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
+
 from hydromodpy.core.units.hydraulic_conductivity import (
     M_PER_S_CANONICAL_UNITS,
     factor_to_m_per_s,
     normalize_m_per_s_unit,
 )
-from hydromodpy.core.units.scalar import parse_scalar_and_unit
 from hydromodpy.core.units.length import parse_length_to_m
+from hydromodpy.core.units.scalar import parse_scalar_and_unit
 
 try:
     from hydromodpy.spatial.field.core.field_param_config import (
@@ -796,7 +798,7 @@ class FieldParam:
     def from_dict(
         cls,
         config: Mapping[str, Any],
-    ) -> "FieldParam":
+    ) -> FieldParam:
         """
         Build `FieldParam` from a plain mapping.
 
@@ -852,7 +854,7 @@ class FieldParam:
         )
 
     @classmethod
-    def from_toml(cls, toml_path: str | Path, section: str = "field") -> "FieldParam":
+    def from_toml(cls, toml_path: str | Path, section: str = "field") -> FieldParam:
         """
         Build `FieldParam` from TOML section.
 

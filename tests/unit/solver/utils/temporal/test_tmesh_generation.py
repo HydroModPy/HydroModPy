@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import importlib.util
 import sys
 import uuid
+from pathlib import Path
 
 import numpy as np
 import pandas as pd

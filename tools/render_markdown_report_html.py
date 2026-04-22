@@ -20,7 +20,6 @@ from pathlib import Path
 
 import mistune
 
-
 HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.*)$")
 HTML_HEADING_PATTERN = re.compile(r"<h([1-6])>(.*?)</h\1>", re.DOTALL)
 TAG_PATTERN = re.compile(r"<[^>]+>")

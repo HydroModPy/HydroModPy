@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 *
@@ -11,18 +10,19 @@
 """
 
 # ---- Standard Library Imports
-import os
-import multiprocessing as mp
-import time
-import csv
 import calendar
+import csv
+import multiprocessing as mp
+import os
+import time
 
 # ---- Third Party imports
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
+
 # ---- Local Libraries Imports
 from . import ensure_help3o_loaded
-from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -100,7 +100,7 @@ def read_monthly_help_output(filename):
     numpy arrays stored in a dictionary. Support the output format that was
     modified from HELP 3.07 (see PR#2).
     """
-    with open(filename, "r") as csvfile:
+    with open(filename) as csvfile:
         csvread = list(csv.reader(csvfile))
 
     arr_years = []
@@ -185,7 +185,7 @@ def read_daily_help_output(filename):
     Read the daily output from .OUT HELP file and return the data as
     numpy arrays stored in a dictionary.
     """
-    with open(filename, "r") as csvfile:
+    with open(filename) as csvfile:
         csvread = list(csv.reader(csvfile))
 
     nlay = None

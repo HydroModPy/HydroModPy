@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
-from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.tracking import InputFile
 
 
@@ -68,7 +68,7 @@ class HydrographySourceConfig(HydroModelBase):
     )
 
     @model_validator(mode="after")
-    def _check_custom_requires_path(self) -> "HydrographySourceConfig":
+    def _check_custom_requires_path(self) -> HydrographySourceConfig:
         if self.source == "custom" and self.path is None:
             raise ValueError("Custom source requires 'path'.")
         return self

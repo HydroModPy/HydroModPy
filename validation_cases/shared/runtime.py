@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import gc
 import hashlib
-import os
 import json
+import os
 import shutil
 import stat
 import subprocess
@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import Any
 
 from validation_cases.shared.loaders import load_case_metadata
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -334,7 +333,7 @@ def resolve_validation_results_dir(*, test_file: str | Path, run_name: str) -> P
     out_dir = parent_dir / safe_run_name
     if out_dir.exists():
         unique_suffix = hashlib.sha1(
-            f"{safe_run_name}-{os.getpid()}-{time.time_ns()}".encode("utf-8")
+            f"{safe_run_name}-{os.getpid()}-{time.time_ns()}".encode()
         ).hexdigest()[:8]
         out_dir = parent_dir / f"{safe_run_name}_{unique_suffix}"
     parent_dir.mkdir(parents=True, exist_ok=True)

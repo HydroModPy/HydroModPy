@@ -19,19 +19,16 @@ import geopandas as gpd
 from shapely.ops import unary_union
 
 from hydromodpy.data.variables.geology.io import load_vector_geology_dataframe
-from hydromodpy.spatial.geographic.core.river_mesh_trace import (
-    build_river_mesh_trace_from_vector,
-)
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalCaseConfig,
     ZoneConformalConstraintFamilies,
     ZoneConformalGeometryPayload,
     ZoneConformalMeshingDiagnostics,
     ZoneConformalMeshingInputs,
-    ZoneRegionalSizeField,
     ZoneConformalRiversConfig,
     ZoneConformalSourcePayload,
     ZoneConformalWatershedBoundaryConfig,
+    ZoneRegionalSizeField,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.scope_resolution import (
     _load_domain_payload,
@@ -49,6 +46,9 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_utils import 
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
     ZoneMeshingRefinementPolicySchema,
     ZoneMeshingSettings,
+)
+from hydromodpy.spatial.geographic.core.river_mesh_trace import (
+    build_river_mesh_trace_from_vector,
 )
 
 

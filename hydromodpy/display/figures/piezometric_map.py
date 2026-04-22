@@ -28,15 +28,15 @@ class PiezometricMap(BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         *,
         timestep: int | None = None,
         cmap: str = "viridis",
         vmin: float | None = None,
         vmax: float | None = None,
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         ts = last_timestep(sim) if timestep is None else timestep
         head = sim.field("watertable_elevation", timestep=ts)
         render_face_field(

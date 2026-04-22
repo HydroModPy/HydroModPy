@@ -19,8 +19,8 @@ validation errors intended to be user-facing.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import warnings
+from dataclasses import dataclass
 from typing import Any, Literal
 
 import pandas as pd
@@ -30,7 +30,6 @@ from hydromodpy.core.units import (
     parse_scalar_and_unit,
     timedelta_to_seconds,
 )
-
 
 _VALID_POLICIES = {"error", "warn", "ignore"}
 _VALID_MODES = {"explicit"}
@@ -171,7 +170,7 @@ def _normalize_step_unit(raw_step_unit: Any) -> Literal["hour", "day", "month", 
         return "month"
     try:
         canonical = normalize_time_unit(token)
-    except ValueError as exc:
+    except ValueError:
         raise ValueError("simulation.time.step_unit must be one of: hour, day, month, year.")
     token_map = {
         "hours": "hour",

@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import textwrap
+from pathlib import Path
 
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.field.core.field_spatial import Field, FieldDiscretization
-from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
 from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
+from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
 from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.core.field_spatial import Field, FieldDiscretization
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )

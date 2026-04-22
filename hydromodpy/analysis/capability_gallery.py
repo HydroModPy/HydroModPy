@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import shutil
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
-from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.base import HydroModelBase
-
+from hydromodpy.core.config.profile import Profile
 
 DEFAULT_FLOW_GALLERY_ASSETS: tuple[str, ...] = (
     "flow_state_triptych.png",
@@ -114,7 +113,7 @@ def publish_run_to_capability_gallery(
         "schema_version": "hydromodpy_capability_gallery_publication_v1",
         "case_slug": str(config.case_slug),
         "run_id": str(run_id),
-        "published_at_utc": datetime.now(timezone.utc).isoformat(),
+        "published_at_utc": datetime.now(UTC).isoformat(),
         "source_run_folder": _relative_to_cwd(Path(run_folder)),
         "solvers": [str(solver) for solver in solvers],
         "assets": copied_assets,

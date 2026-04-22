@@ -24,7 +24,6 @@ from .reference import (
     expected_linearized_unconfined_hillslope_drainage_profile_at_x,
 )
 
-
 CASE_DIR = Path(__file__).resolve().parent
 
 

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 
 
-def run_steady_runtime(solver: "Boussinesq") -> bool:
+def run_steady_runtime(solver: Boussinesq) -> bool:
     """Solve one steady nonlinear balance on the selected backend."""
     if solver.mesh is None:
         raise RuntimeError("Mesh must be built before running the runtime.")

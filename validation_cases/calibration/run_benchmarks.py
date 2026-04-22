@@ -25,7 +25,6 @@ from validation_cases.calibration.twin.transient.linearized_unconfined_recharge_
     TRANSIENT_RECHARGE_STEP_TWIN_CASE,
 )
 
-
 _CASE_REGISTRY = {
     STEADY_DUPUIT_TWIN_CASE.case_id: STEADY_DUPUIT_TWIN_CASE,
     STEADY_DUPUIT_POSTERIOR_TWIN_CASE.case_id: STEADY_DUPUIT_POSTERIOR_TWIN_CASE,

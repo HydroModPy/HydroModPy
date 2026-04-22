@@ -7,7 +7,6 @@ from datetime import datetime
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.variables.wind.config import WindSourceConfig
 
-
 SIM2_PARAMETER = "FF_Q"
 VARIABLE_NAME = "wind"
 INTERNAL_UNIT = "m/s"

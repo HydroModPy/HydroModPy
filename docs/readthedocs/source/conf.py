@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Configuration file for the Sphinx documentation builder.
 #
@@ -71,7 +70,6 @@ if _vendor_graphviz_dot is not None:
 sys.path.insert(0, str(package_path))
 sys.path.insert(0, str(package_path / "hydromodpy"))
 
-import importlib
 
 try:
     import shapely  # noqa: F401

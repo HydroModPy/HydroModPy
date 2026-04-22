@@ -22,7 +22,6 @@ from validation_cases.shared import (
 from .reference import expected_dupuit_divide_river_profile
 from .runtime_boussinesq import run_boussinesq_dupuit_divide_river_case
 
-
 CASE_DIR = Path(__file__).resolve().parent
 
 

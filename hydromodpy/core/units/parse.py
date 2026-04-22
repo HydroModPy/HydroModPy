@@ -16,7 +16,6 @@ import pint
 from hydromodpy.core.units.registry import UREG
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
 
-
 _POWER_SHORTHAND_RE = re.compile(r"(?P<base>[A-Za-z]+)(?P<power>[2-9])(?![A-Za-z0-9])")
 
 

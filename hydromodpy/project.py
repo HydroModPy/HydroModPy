@@ -24,11 +24,9 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Any
 from uuid import uuid4
 
 import numpy as np
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -96,16 +94,16 @@ class Project:
         from hydromodpy.workflow.pipelines.simulation import (
             prepare_simulation_runtime,
         )
+        from hydromodpy.workflow.steps.data_loading import log_data_plan
+        from hydromodpy.workflow.steps.mesh import (
+            resolve_optional_mesh_input,
+            resolve_optional_mesh_section,
+        )
         from hydromodpy.workflow.steps.setup import (
             collect_requested_support_ids,
-            support_provider_names,
             resolve_support_configs,
+            support_provider_names,
         )
-        from hydromodpy.workflow.steps.mesh import (
-            resolve_optional_mesh_section,
-            resolve_optional_mesh_input,
-        )
-        from hydromodpy.workflow.steps.data_loading import log_data_plan
 
         self._config_path = Path(config_path).resolve()
 
@@ -243,7 +241,7 @@ class Project:
 
     # -- Run ---------------------------------------------------------------
 
-    def run(self, *, name: str | None = None, **overrides) -> "Run":
+    def run(self, *, name: str | None = None, **overrides) -> Run:
         """Execute one simulation with optional parameter overrides.
 
         Without overrides, runs the TOML configuration as-is using the full
@@ -268,6 +266,12 @@ class Project:
             lazy catchment metrics (``saturated_fraction``,
             ``drainage_density`` …), and ``plot``.
         """
+        from hydromodpy.results.config import (
+            BudgetConfig,
+            DerivedConfig,
+            ExportConfig,
+            ResultsConfig,
+        )
         from hydromodpy.simulation.execution.runner import (
             ProcessCallbacks,
             SimulationRunner,
@@ -275,12 +279,6 @@ class Project:
         from hydromodpy.simulation.extraction.post_run import post_run_results
         from hydromodpy.spatial.geographic.store_ingestion import (
             persist_geographic_to_store,
-        )
-        from hydromodpy.results.config import (
-            BudgetConfig,
-            DerivedConfig,
-            ExportConfig,
-            ResultsConfig,
         )
 
         self._run_counter += 1

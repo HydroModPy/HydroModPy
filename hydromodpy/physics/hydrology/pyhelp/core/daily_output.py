@@ -1,15 +1,15 @@
-# -*- coding: utf-8 -*-
 """
 Created on Sun Mar 23 11:45:06 2025
 
 @author: mathi
 """
 
-import re
-import pandas as pd
-import numpy as np
 import os.path as osp
+import re
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 from hydromodpy.core.logging import get_logger
 
@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 
 
 def read_daily_help_output(filepath):
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         lines = f.readlines()
 
     results = {

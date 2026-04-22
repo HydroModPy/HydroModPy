@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import matplotlib
 import matplotlib.colors as mcolors
-from matplotlib.ticker import ScalarFormatter
 import numpy as np
+from matplotlib.ticker import ScalarFormatter
 
 
 def _configure_matplotlib_backend_from_argv(argv: list[str]) -> None:
@@ -45,7 +45,6 @@ REPO_ROOT = _find_repo_root()
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.case_runner import (
     run_discretization_case,
 )
@@ -53,14 +52,14 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.run_dem
     SGridFieldParamDiscretizationConfig,
 )
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
+    _compute_layer_center_depths,
+)
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
     build_sgrid_from_config,
 )
 from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
-    _compute_layer_center_depths,
-)
-
+from hydromodpy.spatial.field.core.field_param import FieldParam
 
 DEFAULT_CONFIG_FILE = "run_demo_3d_config.toml"
 DEFAULT_SECTION = "case"
@@ -177,12 +176,12 @@ def _ensure_gui_backend_for_blocking_show() -> None:
 
 def _extract_xy_from_sgrid(sgrid) -> tuple[np.ndarray, np.ndarray]:
     """Return 2D center coordinates for SGrid cells."""
-    nrow = int(getattr(sgrid, "nrow"))
-    ncol = int(getattr(sgrid, "ncol"))
+    nrow = int(sgrid.nrow)
+    ncol = int(sgrid.ncol)
 
     if hasattr(sgrid, "xcellcenters") and hasattr(sgrid, "ycellcenters"):
-        x = np.asarray(getattr(sgrid, "xcellcenters"), dtype=float)
-        y = np.asarray(getattr(sgrid, "ycellcenters"), dtype=float)
+        x = np.asarray(sgrid.xcellcenters, dtype=float)
+        y = np.asarray(sgrid.ycellcenters, dtype=float)
         if x.ndim == 2 and y.ndim == 2 and x.shape == (nrow, ncol) and y.shape == (nrow, ncol):
             return x, y
         if x.ndim == 1 and y.ndim == 1 and x.size == ncol and y.size == nrow:
@@ -213,8 +212,8 @@ def _centers_to_edges_1d(centers: np.ndarray) -> np.ndarray:
 
 def _layer_interfaces_elevation_for_row(sgrid, *, row_idx: int) -> np.ndarray:
     """Return layer-interface elevations at one row as (nlay+1, ncol)."""
-    top = np.asarray(getattr(sgrid, "top"), dtype=float)
-    botm = np.asarray(getattr(sgrid, "botm"), dtype=float)
+    top = np.asarray(sgrid.top, dtype=float)
+    botm = np.asarray(sgrid.botm, dtype=float)
     nlay = int(botm.shape[0])
     ncol = int(top.shape[1])
 
@@ -226,8 +225,8 @@ def _layer_interfaces_elevation_for_row(sgrid, *, row_idx: int) -> np.ndarray:
 
 
 def _compute_layer_center_elevations(sgrid) -> np.ndarray:
-    top = np.asarray(getattr(sgrid, "top"), dtype=float)
-    botm = np.asarray(getattr(sgrid, "botm"), dtype=float)
+    top = np.asarray(sgrid.top, dtype=float)
+    botm = np.asarray(sgrid.botm, dtype=float)
     if botm.ndim != 3:
         raise ValueError("sgrid.botm must be 3D")
     ztop = np.empty_like(botm, dtype=float)
@@ -537,9 +536,9 @@ def _build_projected_field_on_sgrid_3d(
     1) evaluate `FieldParam` at depth=0 on the planar SGrid support,
     2) extrude this planar map uniformly across all layers.
     """
-    nrow = int(getattr(sgrid, "nrow"))
-    ncol = int(getattr(sgrid, "ncol"))
-    nlay = int(getattr(sgrid, "nlay"))
+    nrow = int(sgrid.nrow)
+    ncol = int(sgrid.ncol)
+    nlay = int(sgrid.nlay)
     projected_surface = field_param.to_mesh_field(field_discretization, depth=0.0)
     surface_2d = _reshape_to_sgrid_2d(projected_surface.cell_values, nrow=nrow, ncol=ncol)
     return np.repeat(surface_2d[None, :, :], nlay, axis=0)

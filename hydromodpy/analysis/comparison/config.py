@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal, Mapping
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from pydantic import ConfigDict, Field, field_validator, model_validator
+
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 
 def _clean_optional_text(value: object) -> str | None:
@@ -145,7 +147,7 @@ class MethodComparisonObservable(HydroModelBase):
         return cleaned
 
     @model_validator(mode="after")
-    def _validate_support_specific_fields(self) -> "MethodComparisonObservable":
+    def _validate_support_specific_fields(self) -> MethodComparisonObservable:
         if self.time is not None and self.time_window is not None:
             raise ValueError(
                 "method_comparison.observable cannot declare both time and time_window"
@@ -204,7 +206,7 @@ class MethodComparisonSection(HydroModelBase):
     run_variants: bool = True
     continue_on_error: bool = False
     reference_variant: str | None = None
-    fine_raster: "MethodComparisonFineRaster | None" = None
+    fine_raster: MethodComparisonFineRaster | None = None
     variant: list[MethodComparisonVariant] = Field(default_factory=list)
     observable: list[MethodComparisonObservable] = Field(default_factory=list)
 
@@ -220,7 +222,7 @@ class MethodComparisonSection(HydroModelBase):
         return _clean_optional_text(value)
 
     @model_validator(mode="after")
-    def _validate_non_empty_lists(self) -> "MethodComparisonSection":
+    def _validate_non_empty_lists(self) -> MethodComparisonSection:
         if not self.variant:
             raise ValueError("method_comparison.variant must contain at least one item")
         if not self.observable:
@@ -268,7 +270,7 @@ class MethodComparisonFineRaster(HydroModelBase):
         return resolution
 
     @model_validator(mode="after")
-    def _validate_when_enabled(self) -> "MethodComparisonFineRaster":
+    def _validate_when_enabled(self) -> MethodComparisonFineRaster:
         if self.enabled and self.resolution is None:
             raise ValueError(
                 "method_comparison.fine_raster.resolution is required when fine_raster.enabled=true"
@@ -295,7 +297,7 @@ class MethodComparisonConfig(HydroModelBase):
         raw_toml: Mapping[str, Any],
         *,
         config_path: str | Path,
-    ) -> "MethodComparisonConfig":
+    ) -> MethodComparisonConfig:
         """Validate one raw TOML payload and resolve launcher-owned paths."""
         if not isinstance(raw_toml, Mapping):
             raise ValueError("configuration must be a mapping")

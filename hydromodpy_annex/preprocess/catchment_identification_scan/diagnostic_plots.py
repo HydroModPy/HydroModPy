@@ -5,11 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import geopandas as gpd
-from matplotlib import colormaps
-from matplotlib import colors
-from matplotlib import pyplot as plt
 import numpy as np
 import rasterio
+from matplotlib import colormaps, colors
+from matplotlib import pyplot as plt
 
 
 def _read_raster_for_plot(path: Path) -> tuple[np.ndarray, tuple[float, float, float, float]]:

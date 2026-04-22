@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Mon Feb 24 19:03:21 2025
 
@@ -6,11 +5,12 @@ Created on Mon Feb 24 19:03:21 2025
 """
 
 import pandas as pd
-from .pyhelp_csv_manager import PyhelpCsvManager
-from hydromodpy.core.tools.filesystem import load_csv
-from hydromodpy.core.io.crs import transform_coordinates, filter_coordinates_by_shape
-from typing import Optional
+
+from hydromodpy.core.io.crs import filter_coordinates_by_shape, transform_coordinates
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.tools.filesystem import load_csv
+
+from .pyhelp_csv_manager import PyhelpCsvManager
 
 logger = get_logger(__name__)
 
@@ -27,7 +27,7 @@ class PyhelpGrid(PyhelpCsvManager):
         base_file_path: str,
         output_file_path: str,
         dem_file_path: str,
-        shapefile_path: Optional[str] = None,
+        shapefile_path: str | None = None,
     ) -> None:
         """
         :param base_file_path: Path to the single-row CSV (e.g., input_grid_base1.csv).

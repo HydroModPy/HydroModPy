@@ -25,7 +25,6 @@ import pytest
 
 from .conftest import l2_error, run_mms_convergence
 
-
 D = 1.0  # diffusion coefficient (unit strength keeps numbers O(1))
 T_FINAL = 0.1  # final time — several e-folding times for D = 1
 LAMBDA = (np.pi**2) * D

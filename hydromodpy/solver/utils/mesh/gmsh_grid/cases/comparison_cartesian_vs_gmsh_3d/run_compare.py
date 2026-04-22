@@ -9,21 +9,19 @@ and extruded prism meshes.
 from __future__ import annotations
 
 import argparse
-from collections.abc import Mapping
 import json
-from pathlib import Path
 import warnings
+from collections.abc import Mapping
+from pathlib import Path
 
-from matplotlib import pyplot as plt
 import numpy as np
+from matplotlib import pyplot as plt
 
 try:
     from pyparsing import PyparsingDeprecationWarning
 except Exception:  # pragma: no cover - optional import guard
     PyparsingDeprecationWarning = None
 
-from hydromodpy.spatial.field.geology.geology_field import GeologyField
-from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.case_runner import (
     run_discretization_case,
 )
@@ -31,6 +29,9 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.run_dem
     SGridFieldParamDiscretizationConfig,
 )
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
+    _compute_layer_center_depths as _compute_cartesian_layer_center_depths,
+)
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
     build_sgrid_from_config,
 )
@@ -60,9 +61,8 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_mesh_visualization import (
 from hydromodpy.solver.utils.mesh.gmsh_grid.plotting_utils import (
     maybe_scientific_colorbar,
 )
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
-    _compute_layer_center_depths as _compute_cartesian_layer_center_depths,
-)
+from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.geology.geology_field import GeologyField
 
 if PyparsingDeprecationWarning is not None:  # pragma: no branch
     warnings.filterwarnings("ignore", category=PyparsingDeprecationWarning)

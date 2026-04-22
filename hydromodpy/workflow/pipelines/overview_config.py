@@ -3,24 +3,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Annotated, TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.state.data import LoadedDataContext
-from hydromodpy.core.config.base import HydroModelBase
 
 if TYPE_CHECKING:
     from hydromodpy.core.config import HydroModPyConfig
     from hydromodpy.core.workspace.workspace import Workspace
+    from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
     from hydromodpy.spatial.geographic.core.derived_features import (
         GeographicDerivedFeatures,
     )
     from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
         DomainGeographicContext,
     )
-    from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 
 
 class OverviewPanelsConfig(HydroModelBase):
@@ -72,9 +72,9 @@ class OverviewSection(HydroModelBase):
 class DataOverviewState:
     """Runtime state threaded through the overview pipeline phases."""
 
-    cfg: "HydroModPyConfig"
-    workspace: "Workspace | None" = None
-    geographic: "CatchmentDelineation | None" = None
-    geographic_features: "GeographicDerivedFeatures | None" = None
-    domain_geographic: "DomainGeographicContext | None" = None
+    cfg: HydroModPyConfig
+    workspace: Workspace | None = None
+    geographic: CatchmentDelineation | None = None
+    geographic_features: GeographicDerivedFeatures | None = None
+    domain_geographic: DomainGeographicContext | None = None
     loaded_data: LoadedDataContext = field(default_factory=LoadedDataContext)

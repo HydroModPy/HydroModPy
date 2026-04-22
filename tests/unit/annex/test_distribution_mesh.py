@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -13,13 +13,13 @@ from tools.mesh_bundle_viewer.loading import (
     load_toml_config,
 )
 from tools.mesh_bundle_viewer.loading.toml_loader import _looks_like_windows_absolute_path
+from tools.mesh_bundle_viewer.runner import run_visualization_from_toml
 from tools.mesh_bundle_viewer.runner.visualization_runner import (
     run_visualization_from_toml as run_root_mesh_visualization_from_toml,
 )
 from tools.mesh_bundle_viewer.schema import (
     DEFAULT_CONFIG_FILENAME as MESH_DEFAULT_CONFIG_FILENAME,
 )
-from tools.mesh_bundle_viewer.runner import run_visualization_from_toml
 
 
 def _ecrire_csv_bundle(path: Path, header: str, rows: list[str]) -> None:

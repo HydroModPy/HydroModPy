@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 
 
-def run_transient_runtime(solver: "Boussinesq") -> bool:
+def run_transient_runtime(solver: Boussinesq) -> bool:
     """Advance the head state over all launcher stress periods."""
     if solver.mesh is None:
         raise RuntimeError("Mesh must be built before running the runtime.")

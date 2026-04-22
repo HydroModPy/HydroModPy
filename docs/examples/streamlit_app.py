@@ -23,7 +23,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 DEFAULT_SCHEMA_DIR = Path("schema")
 
 

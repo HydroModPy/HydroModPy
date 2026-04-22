@@ -8,11 +8,13 @@ later process runs.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 import hydromodpy as hmp
 from hydromodpy.core.workspace.path_registry import LEGACY_STABLE_DIR
+from hydromodpy.simulation import ensure_flow, ensure_transport
 from hydromodpy.spatial.domain import Domain
 from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
 from hydromodpy.spatial.geographic.core.derived_features import (
@@ -20,7 +22,6 @@ from hydromodpy.spatial.geographic.core.derived_features import (
 )
 from hydromodpy.spatial.geographic.structure_binders import apply_catchment_zones_to_domain
 from hydromodpy.spatial.geographic.synthetic import build_synthetic_geographic
-from hydromodpy.simulation import ensure_flow, ensure_transport
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -181,10 +182,10 @@ def augment_runtime_zone_ids(
     zone_ids = getattr(domain_cfg, "zone_ids", None)
     if zone_ids is None:
         zone_ids = []
-        setattr(domain_cfg, "zone_ids", zone_ids)
+        domain_cfg.zone_ids = zone_ids
     if not isinstance(zone_ids, list):
         zone_ids = list(zone_ids)
-        setattr(domain_cfg, "zone_ids", zone_ids)
+        domain_cfg.zone_ids = zone_ids
 
     normalized_zone_ids = {str(item).strip().lower() for item in zone_ids}
     if "catchment" not in normalized_zone_ids:

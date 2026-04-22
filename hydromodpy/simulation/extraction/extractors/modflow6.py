@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import numpy as np
-
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -269,8 +268,8 @@ class Modflow6OutputAdapter:
                     from flopy.utils import MfGrdFile
 
                 grd = MfGrdFile(str(grb_files[0]))
-                top_raw = getattr(grd, "top1d", None) or getattr(grd, "top")
-                bot_raw = getattr(grd, "bot1d", None) or getattr(grd, "bot")
+                top_raw = getattr(grd, "top1d", None) or grd.top
+                bot_raw = getattr(grd, "bot1d", None) or grd.bot
                 top = np.asarray(top_raw, dtype="float64").ravel()[:n_cells]
                 botm = np.asarray(bot_raw, dtype="float64")
                 botm_per_layer = (

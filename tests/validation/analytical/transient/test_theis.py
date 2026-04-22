@@ -38,7 +38,6 @@ from scipy.special import exp1
 
 from tests.regression.golden_utils import assert_required_executables
 
-
 PUMPING_RATE_M3_PER_DAY = 100.0
 TRANSMISSIVITY_M2_PER_DAY = 100.0
 STORATIVITY = 1.0e-4

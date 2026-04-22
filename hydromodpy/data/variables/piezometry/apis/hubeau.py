@@ -5,16 +5,16 @@ Produces ``PointRecord`` instances from the Hub'Eau v1 niveaux_nappes endpoints.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Sequence
 
 import pandas as pd
 import requests
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.api_helpers import get_json
 from hydromodpy.data.common.io_helpers import parse_datetime_column
 from hydromodpy.data.common.progress import iter_progress, log_step
-from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 from hydromodpy.data.contracts.location import StationLocation

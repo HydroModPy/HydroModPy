@@ -8,7 +8,6 @@ from pathlib import Path
 
 from hydromodpy._cli.helpers import EXIT_NOT_FOUND
 
-
 NAME = "new"
 HELP = "Create a new project inside the workspace"
 
@@ -29,7 +28,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.data.scaffold import create_project, DEFAULT_ROOT
+    from hydromodpy.data.scaffold import DEFAULT_ROOT, create_project
 
     workspace_root = Path(args.workspace or DEFAULT_ROOT).expanduser().resolve()
     catalog_ok = (workspace_root / "hydromodpy.duckdb").exists()

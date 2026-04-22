@@ -7,7 +7,6 @@ from datetime import datetime
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.variables.temperature.config import TemperatureSourceConfig
 
-
 SIM2_PARAMETER = "T_Q"
 VARIABLE_NAME = "temperature"
 INTERNAL_UNIT = "degC"

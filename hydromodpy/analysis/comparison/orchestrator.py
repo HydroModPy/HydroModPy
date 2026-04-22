@@ -12,9 +12,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.core.config.toml_loader import load_toml_with_base_config
-
 from hydromodpy.analysis.comparison.config import MethodComparisonConfig
 from hydromodpy.analysis.comparison.exports import (
     write_budget_exports,
@@ -40,6 +37,8 @@ from hydromodpy.analysis.comparison.runtime import (
     write_observables_csv,
 )
 from hydromodpy.analysis.comparison.visuals import generate_comparison_figures
+from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
 
 class MethodComparisonLauncher:

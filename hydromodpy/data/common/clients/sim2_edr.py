@@ -123,7 +123,7 @@ class Sim2EDRClient:
         cov_json: dict,
         *,
         parameter: str,
-    ) -> "pd.Series":
+    ) -> pd.Series:
         """Extract a 1D time series from a CoverageJSON point response.
 
         Returns a pandas Series indexed by datetime.

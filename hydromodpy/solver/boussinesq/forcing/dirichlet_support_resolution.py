@@ -140,7 +140,7 @@ class DirichletSupportResolutionMixin:
         return cell_values
 
     def resolved_dirichlet_supports_by_period(
-        self: "BoussinesqForcingResolver",
+        self: BoussinesqForcingResolver,
         nper: int,
         *,
         ocean_series_m: np.ndarray | None = None,

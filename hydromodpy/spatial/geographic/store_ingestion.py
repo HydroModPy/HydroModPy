@@ -234,6 +234,7 @@ def dump_cached_rasters_to_disk(geographic: Any) -> None:
 
 def cleanup_stable_folder(geographic: Any) -> None:
     import shutil
+
     from hydromodpy.spatial.delineation import get_whitebox_backend
 
     get_whitebox_backend().clear_raster_cache()

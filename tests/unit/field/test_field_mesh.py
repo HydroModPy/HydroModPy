@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import textwrap
+from pathlib import Path
 
 import matplotlib
 import numpy as np
@@ -11,12 +11,12 @@ import numpy as np
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 
+from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
 from hydromodpy.spatial.field.meshes import (
     StructuredFieldMesh,
     TriangularStructuredFieldMesh,
     TriangularUnstructuredFieldMesh,
 )
-from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
 
 
 def test_structured_mesh_geometry_and_cells():

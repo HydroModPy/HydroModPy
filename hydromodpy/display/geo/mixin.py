@@ -26,7 +26,7 @@ class GeoFigureMixin:
 
     def add_scale_bar(
         self,
-        ax: "Axes",
+        ax: Axes,
         *,
         length_m: float | None = None,
         location: tuple[float, float] = (0.05, 0.05),
@@ -63,7 +63,7 @@ class GeoFigureMixin:
 
     def add_north_arrow(
         self,
-        ax: "Axes",
+        ax: Axes,
         *,
         location: tuple[float, float] = (0.95, 0.95),
         size: float = 0.05,
@@ -81,7 +81,7 @@ class GeoFigureMixin:
             arrowprops={"facecolor": "black", "width": 2, "headwidth": 8},
         )
 
-    def add_basemap(self, ax: "Axes", *, crs: str | None = None, source: str | None = None) -> None:
+    def add_basemap(self, ax: Axes, *, crs: str | None = None, source: str | None = None) -> None:
         from hydromodpy.display.geo import basemaps
 
         basemaps.add_basemap(ax, crs=crs or self.crs, source=source)

@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import numpy as np
-
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -400,8 +399,10 @@ def _accumulation_flux_routed(
     works even when the MODFLOW grid is resampled to a different shape.
     """
     import tempfile
-    import rasterio
     from pathlib import Path
+
+    import rasterio
+
     from hydromodpy.spatial.delineation import get_whitebox_backend
 
     # Read surface_top from mesh (solver resolution) and infer 2D shape.

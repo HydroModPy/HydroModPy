@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Property mapping helpers for MODFLOW solvers (NWT and MF6 interoperability).
 

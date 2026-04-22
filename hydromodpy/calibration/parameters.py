@@ -9,11 +9,11 @@ A Pydantic field becomes calibrable by attaching a ``Calibrable`` instance via
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 from pydantic import BaseModel
-
 
 # ---------------------------------------------------------------------------
 # Annotation
@@ -158,7 +158,7 @@ class ParameterSpace:
         declarations: Mapping[str, Mapping[str, Any]],
         *,
         annotations: Mapping[str, Calibrable] | None = None,
-    ) -> "ParameterSpace":
+    ) -> ParameterSpace:
         """Build a space from ``[calibration.parameters]`` TOML section.
 
         ``annotations`` may provide defaults harvested from Pydantic
@@ -246,8 +246,8 @@ def discover_calibrable(
 
 
 def _resolve_submodel(annotation: Any) -> type[BaseModel] | None:
-    from typing import get_args, get_origin
     import types
+    from typing import get_args, get_origin
 
     if isinstance(annotation, type) and issubclass(annotation, BaseModel):
         return annotation

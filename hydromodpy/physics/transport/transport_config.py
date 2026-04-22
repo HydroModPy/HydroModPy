@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.physics.base import ProcessSpatialConfig
-from hydromodpy.core.config.base import HydroModelBase
 
 
 class ModpathParametersConfig(HydroModelBase):

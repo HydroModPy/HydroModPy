@@ -16,7 +16,6 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
-from hydromodpy.spatial.geographic.core.derived_features import resolve_river_mesh_trace
 from hydromodpy.solver.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.property_mapping import (
@@ -28,6 +27,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import 
     CatchmentMeshBundle,
     load_catchment_mesh_bundle,
 )
+from hydromodpy.spatial.geographic.core.derived_features import resolve_river_mesh_trace
 
 
 def _resolve_planar_mesh(setup_state: object):
@@ -41,7 +41,7 @@ def _resolve_planar_mesh(setup_state: object):
         mesh_path = str(mesh_summary.get("output_mesh", "")).strip()
         if mesh_path != "":
             mesh = load_planar_mesh(Path(mesh_path).expanduser())
-            setattr(setup_state, "mesh_planar", mesh)
+            setup_state.mesh_planar = mesh
             return mesh
     return None
 
@@ -57,7 +57,7 @@ def _resolve_mesh_bundle(setup_state: object) -> CatchmentMeshBundle:
         bundle_dir = str(mesh_summary.get("output_exchange_bundle_dir", "")).strip()
         if bundle_dir != "":
             bundle = load_catchment_mesh_bundle(bundle_dir)
-            setattr(setup_state, "mesh_bundle", bundle)
+            setup_state.mesh_bundle = bundle
             return bundle
 
     raise ValueError(
@@ -311,9 +311,7 @@ class BoussinesqFlowAdapter:
             )
         workspace = getattr(state.setup, "workspace", None)
         model_folder = (
-            Path(getattr(workspace, "solver_scratch_folder"))
-            if workspace is not None
-            else Path.cwd()
+            Path(workspace.solver_scratch_folder) if workspace is not None else Path.cwd()
         )
         model_name = ctx.run.id.replace("::", "__")
 

@@ -21,7 +21,6 @@ from validation_cases.shared import (
 
 from .reference import expected_linearized_unconfined_drainage_profile
 
-
 CASE_DIR = Path(__file__).resolve().parent
 
 

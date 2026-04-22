@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import queue
 import threading
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 

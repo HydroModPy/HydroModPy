@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Prototype Module: Generic Boundary-Condition Model
 =================================================
@@ -9,10 +8,10 @@ that need typed boundary-condition payloads.
 
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
-from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.profile import Profile
 
 
 class BoundaryCondition(HydroModelBase):

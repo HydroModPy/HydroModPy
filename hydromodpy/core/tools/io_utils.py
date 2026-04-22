@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 I/O utilities for HydroModPy examples.
 
@@ -15,11 +14,11 @@ Provides generalized functions for loading and saving data across examples:
 import logging
 import os
 
+import geopandas as gpd
+import imageio.v2 as imageio
 import numpy as np
 import pandas as pd
 import rasterio
-import geopandas as gpd
-import imageio.v2 as imageio
 
 logger = logging.getLogger(__name__)
 
