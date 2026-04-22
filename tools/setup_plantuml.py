@@ -6,10 +6,9 @@ import argparse
 import hashlib
 import os
 import shutil
+import zipfile
 from pathlib import Path
 from urllib.request import urlretrieve
-import zipfile
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 VENDOR_DIR = REPO_ROOT / "tools" / "vendor"

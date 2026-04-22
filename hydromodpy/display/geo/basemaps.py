@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 def add_basemap(
-    ax: "Axes",
+    ax: Axes,
     *,
     crs: str | None = None,
     source: str | None = None,

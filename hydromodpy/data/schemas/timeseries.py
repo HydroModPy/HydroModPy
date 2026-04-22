@@ -9,7 +9,6 @@ import pandera.pandas as pa
 
 from hydromodpy.core.exceptions import DataContractViolation
 
-
 TimeSeriesSchema = pa.DataFrameSchema(
     columns={
         "date": pa.Column(

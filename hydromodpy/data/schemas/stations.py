@@ -8,7 +8,6 @@ import pandera.pandas as pa
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.data.schemas.timeseries import _format_failures
 
-
 StationCollectionSchema = pa.DataFrameSchema(
     columns={
         "station_id": pa.Column(

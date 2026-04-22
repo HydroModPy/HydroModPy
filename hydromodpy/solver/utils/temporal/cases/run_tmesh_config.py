@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
+import tomllib
 from collections.abc import Mapping
 from pathlib import Path
-import tomllib
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
-from hydromodpy.core.config.base import HydroModelBase
 
 
 class TMeshCaseScenarioConfig(TMeshConfigModel):
@@ -70,7 +70,7 @@ class TMeshCasesConfig(HydroModelBase):
         config_path: str | Path,
         *,
         section: str = "case",
-    ) -> "TMeshCasesConfig":
+    ) -> TMeshCasesConfig:
         path = Path(config_path).expanduser().resolve()
         payload = tomllib.loads(path.read_text(encoding="utf-8-sig"))
         section_cfg = dict(get_nested_section(payload, section))

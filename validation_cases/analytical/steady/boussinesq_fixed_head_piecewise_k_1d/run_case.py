@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import sys
-
+from pathlib import Path
 
 if __package__ is None or __package__ == "":
     # Allow `python path/to/run_case.py` by exposing the repository root.
@@ -17,7 +16,6 @@ from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.plo
     plot_boussinesq_fixed_head_piecewise_k_comparison,
 )
 from validation_cases.shared.cli import run_case_main
-
 
 DEFAULT_FIGURE_NAME = "boussinesq_fixed_head_piecewise_k_1d_validation.png"
 RUN_DESCRIPTION = "Run the fixed-head piecewise-K validation case and plot the result."

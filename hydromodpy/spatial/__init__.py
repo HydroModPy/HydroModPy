@@ -10,13 +10,13 @@ This package groups the spatial core of the library:
 """
 
 from hydromodpy.spatial.catchment_zones_field import CatchmentZonesField
-from hydromodpy.spatial.raster_support import RasterSupport
-from hydromodpy.spatial.surface import Surface
-from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial.field import FieldParam
 from hydromodpy.spatial.geographic import CatchmentDelineation, GeographicConfig
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.raster_support import RasterSupport
+from hydromodpy.spatial.surface import Surface
+from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
 __all__ = [
     "CatchmentZonesField",

@@ -34,13 +34,13 @@ class CrossSection(BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         *,
         timestep: int | None = None,
         face_index: int | None = None,
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         ts = last_timestep(sim) if timestep is None else timestep
         head = np.asarray(sim.field("head", timestep=ts))
         if head.ndim == 1:

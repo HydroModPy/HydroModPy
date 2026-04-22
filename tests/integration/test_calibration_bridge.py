@@ -8,11 +8,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.simulation.extraction.calibration_bridge import (
     make_hot_simulator,
     persist_calibration_result,
 )
-from hydromodpy.results.catalog import SimulationCatalog
 
 
 @pytest.fixture

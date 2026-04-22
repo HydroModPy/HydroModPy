@@ -6,19 +6,12 @@ from .binary_reader import (
     open_head_file,
 )
 from .boundary_packages import (
+    PACKAGE_ATTRS,
     BoundaryCell,
     DisvBoundaryCell,
-    PACKAGE_ATTRS,
     PackageKind,
     package_attr_names,
     validate_attrs,
-)
-from .flow_translator import (
-    BoundaryKind,
-    MF6_PACKAGES,
-    NWT_PACKAGES,
-    resolve_package,
-    resolve_packages,
 )
 from .discretization_spatial import (
     build_spatial_discretization,
@@ -31,6 +24,13 @@ from .discretization_temporal import (
     build_temporal_discretization_from_time_grid,
 )
 from .executables import ensure_platform_executable
+from .flow_translator import (
+    MF6_PACKAGES,
+    NWT_PACKAGES,
+    BoundaryKind,
+    resolve_package,
+    resolve_packages,
+)
 from .forcing_discretization import (
     broadcast_to_stress_periods,
     discretize_spatially_distributed_source,

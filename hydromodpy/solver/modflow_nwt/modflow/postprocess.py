@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
 *
@@ -12,8 +11,8 @@
 
 """Per-timestep post-processing computations for MODFLOW-NWT outputs."""
 
-import numpy as np
 import flopy.utils.postprocessing as pp
+import numpy as np
 
 #: Sentinel value used for inactive / out-of-domain cells.
 NODATA: int = -9999

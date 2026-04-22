@@ -27,7 +27,7 @@ class WorkspacePathRegistry:
     output_root: Path | None = None
 
     @classmethod
-    def from_config(cls, config: "WorkspaceConfig") -> "WorkspacePathRegistry":
+    def from_config(cls, config: WorkspaceConfig) -> WorkspacePathRegistry:
         """Build a registry from a fully resolved workspace config."""
         return cls(
             project_root=Path(config.project_root),

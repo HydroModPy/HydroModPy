@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 
-
 SECONDS_PER_DAY = 86400.0
 
 

@@ -10,7 +10,6 @@ from validation_cases.analytical.transient.runtime_boussinesq_brutsaert_1d impor
 
 from .reference import load_case_parameters
 
-
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "brutsaert_recession_boussinesq_thin_1d"
 

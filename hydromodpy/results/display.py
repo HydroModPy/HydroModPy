@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 def render_figure(
     figure_name: str,
-    sim: "Run",
+    sim: Run,
     *,
     save: str | Path | None = None,
 ) -> None:

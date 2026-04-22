@@ -6,7 +6,7 @@ registry is consumed by ``hmp display`` and by the comparison helpers.
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 

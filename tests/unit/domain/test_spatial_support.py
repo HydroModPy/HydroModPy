@@ -5,13 +5,13 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.spatial import CatchmentZonesField, RasterSupport, Surface
 from hydromodpy.spatial.domain import (
     Domain,
     DomainConfig,
     SupportBuildContext,
     build_default_spatial_support_provider_registry,
 )
-from hydromodpy.spatial import CatchmentZonesField, RasterSupport, Surface
 from hydromodpy.spatial.domain.spatial_support_config import (
     CatchmentZonesSupportConfig,
     GeneratedBandsSupportConfig,

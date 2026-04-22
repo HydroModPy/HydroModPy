@@ -23,7 +23,7 @@ class BackendManager:
         self.dpi = dpi
         self._previous_backend: str | None = None
 
-    def __enter__(self) -> "BackendManager":
+    def __enter__(self) -> BackendManager:
         import matplotlib
 
         self._previous_backend = matplotlib.get_backend()
@@ -48,7 +48,7 @@ class BackendManager:
 
 
 def save_figure(
-    fig: "MplFigure",
+    fig: MplFigure,
     path: str | Path,
     *,
     dpi: int = 150,

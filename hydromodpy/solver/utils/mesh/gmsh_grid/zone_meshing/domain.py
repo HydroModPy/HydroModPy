@@ -14,8 +14,9 @@ meshing stack.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._domain_contracts import (
     ZoneMeshingDomainConfig,
@@ -27,8 +28,8 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._domain_loaders import 
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._domain_schema import (
     ZoneMeshingDomainBBox,
     ZoneMeshingDomainGeographicBoxBuffer,
-    ZoneMeshingDomainGeographicWatershedBox,
     ZoneMeshingDomainGeographicWatershed,
+    ZoneMeshingDomainGeographicWatershedBox,
     ZoneMeshingDomainPolygon,
     ZoneMeshingDomainVector,
 )

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import numpy as np
-import pytest
 from types import SimpleNamespace
 
-from hydromodpy.spatial.domain import Domain, DomainConfig
-from hydromodpy.spatial import RasterSupport, Surface
+import numpy as np
+import pytest
+
 from hydromodpy.solver.modflow_nwt.modflow import Modflow
 from hydromodpy.solver.modflow_nwt.modflow.discretization import (
     build_spatial_discretization,
@@ -15,6 +14,8 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import (
     SolverSGridConfig,
     VerticalGridConfig,
 )
+from hydromodpy.spatial import RasterSupport, Surface
+from hydromodpy.spatial.domain import Domain, DomainConfig
 
 
 class _DummyGeographic:

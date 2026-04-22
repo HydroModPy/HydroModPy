@@ -27,14 +27,14 @@ class Hydrograph(BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         *,
         station: str = "_catchment",
         variable: str = "discharge",
         log_y: bool = False,
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         try:
             ts = sim.timeseries(variable, station=station)
         except KeyError as exc:

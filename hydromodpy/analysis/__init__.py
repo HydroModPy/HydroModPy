@@ -18,7 +18,6 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-
 _SUBMODULES = {
     "comparison": "hydromodpy.analysis.comparison",
     "batch": "hydromodpy.analysis.batch",

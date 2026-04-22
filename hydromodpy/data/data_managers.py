@@ -24,11 +24,11 @@ class DataManagers:
     types: list[str]
 
     @classmethod
-    def from_config(cls, config: DataManagersConfig) -> "DataManagers":
+    def from_config(cls, config: DataManagersConfig) -> DataManagers:
         """Build runtime container from validated declarative config."""
         return cls(types=list(config.types))
 
     @classmethod
-    def from_plan(cls, plan: DataLoadPlan) -> "DataManagers":
+    def from_plan(cls, plan: DataLoadPlan) -> DataManagers:
         """Build runtime container from resolved explicit+inferred plan."""
         return cls(types=list(plan.types))

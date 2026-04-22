@@ -32,7 +32,6 @@ from hydromodpy.simulation.adapters.transport import (
 )
 from hydromodpy.solver.base import registry as _canonical
 
-
 _BUILTIN_ADAPTERS: tuple[tuple[str, str, type], ...] = (
     ("flow", "modflownwt", ModflowNwtFlowAdapter),
     ("flow", "modflow6", Modflow6FlowAdapter),

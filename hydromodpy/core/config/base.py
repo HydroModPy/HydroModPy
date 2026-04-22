@@ -49,7 +49,7 @@ class HydroModelBase(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _check_visible_when_targets(self) -> "HydroModelBase":
+    def _check_visible_when_targets(self) -> HydroModelBase:
         own_fields = set(type(self).model_fields)
         for field_name, info in type(self).model_fields.items():
             for meta in info.metadata:

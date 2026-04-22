@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VALIDATION_CASES_ROOT = REPO_ROOT / "validation_cases"
 

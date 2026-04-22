@@ -35,7 +35,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 
 @lru_cache(maxsize=1)
-def get_registry() -> "UnitRegistry":
+def get_registry() -> UnitRegistry:
     """Return the shared pint :class:`UnitRegistry`.
 
     The registry is instantiated on first call and cached for the lifetime of

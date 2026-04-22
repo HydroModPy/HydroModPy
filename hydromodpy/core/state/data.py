@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from hydromodpy.data.contracts.load_result import LoadResult
-    from hydromodpy.spatial.field.geology.geology_field import GeologyField
     from hydromodpy.data.variables.hydrography.result import HydrographyResult
+    from hydromodpy.spatial.field.geology.geology_field import GeologyField
 
 
 @dataclass

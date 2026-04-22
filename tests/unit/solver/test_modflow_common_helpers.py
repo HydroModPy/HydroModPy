@@ -13,9 +13,9 @@ from hydromodpy.solver.modflow_common.boundary_packages import (
     validate_attrs,
 )
 from hydromodpy.solver.modflow_common.flow_translator import (
-    BoundaryKind,
     MF6_PACKAGES,
     NWT_PACKAGES,
+    BoundaryKind,
     resolve_package,
     resolve_packages,
 )

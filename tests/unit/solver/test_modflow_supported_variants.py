@@ -12,9 +12,9 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.solver.modflow_common.flow_translator import (
-    BoundaryKind,
     MF6_PACKAGES,
     NWT_PACKAGES,
+    BoundaryKind,
     resolve_package,
     resolve_packages,
 )

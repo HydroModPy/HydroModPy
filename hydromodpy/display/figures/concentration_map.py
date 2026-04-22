@@ -30,14 +30,14 @@ class ConcentrationMap(BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         *,
         timestep: int | None = None,
         layer: int | None = None,
         cmap: str = "plasma",
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         ts = last_timestep(sim) if timestep is None else timestep
         c = np.asarray(sim.field("concentration", timestep=ts, layer=layer))
         if c.ndim == 2:

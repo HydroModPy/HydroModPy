@@ -17,7 +17,6 @@ from hydromodpy.analysis.calibration.engine.session import (  # noqa: E402
     actualize_candidate,
     select_candidate_outputs,
 )
-
 from hydromodpy.project import Project
 from tests.regression.golden_utils import assert_required_executables
 from validation_cases.shared.runtime import (
@@ -25,7 +24,6 @@ from validation_cases.shared.runtime import (
     _merge_toml_payloads,
     _read_toml,
 )
-
 
 CASE_DIR = (
     Path(__file__).resolve().parents[4]

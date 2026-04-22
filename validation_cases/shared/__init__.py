@@ -6,6 +6,13 @@ It deliberately stays independent from ``tests/`` so analytical cases can be
 imported and executed without depending on the test package layout.
 """
 
+from validation_cases.shared.cli import (
+    apply_output_root_override,
+    build_run_case_parser,
+    print_run_case_summary,
+    resolve_output_png,
+    run_case_main,
+)
 from validation_cases.shared.loaders import (
     load_case_config,
     load_case_metadata,
@@ -16,13 +23,6 @@ from validation_cases.shared.loaders import (
     load_npy_time_series_arrays,
     load_time_series_fields,
     merge_case_flow_section,
-)
-from validation_cases.shared.cli import (
-    apply_output_root_override,
-    build_run_case_parser,
-    print_run_case_summary,
-    resolve_output_png,
-    run_case_main,
 )
 from validation_cases.shared.metrics import (
     max_abs_error,

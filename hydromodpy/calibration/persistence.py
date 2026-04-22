@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from hydromodpy.calibration.optimizer import EvaluationResult, ParamSuggestion
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 class CalibrationPersistence:
     """Idempotent writer for calibration rows."""
 
-    def __init__(self, catalog: "SimulationCatalog"):
+    def __init__(self, catalog: SimulationCatalog):
         self._conn = catalog.connection
 
     def start_session(
@@ -46,7 +46,7 @@ class CalibrationPersistence:
                 method,
                 objective_name,
                 json.dumps(config, default=str),
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
             ],
         )
 
@@ -133,7 +133,7 @@ class CalibrationPersistence:
                 n_iterations,
                 best_sim_uuid,
                 best.objective_value if best else None,
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
                 duration_s,
                 status,
                 sid,

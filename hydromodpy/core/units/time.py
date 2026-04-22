@@ -6,7 +6,6 @@ from numbers import Real
 
 from hydromodpy.core.units.scalar import canonical_unit_token as _canonical_unit_token
 
-
 TIME_CANONICAL_UNITS: tuple[str, ...] = (
     "seconds",
     "minutes",

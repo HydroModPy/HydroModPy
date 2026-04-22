@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import textwrap
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -11,19 +11,19 @@ import rasterio
 from rasterio.enums import Resampling
 from rasterio.transform import from_origin
 
-from hydromodpy.spatial.raster_support import RasterSupport
-from hydromodpy.spatial.surface import Surface
-from hydromodpy.solver.utils.mesh.cartesian_grid.utils.planar_discretizer import (
-    PlanarDiscretizer,
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
+    build_sgrid_from_config,
 )
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import (
     StructuredGridBuilder,
     VerticalGridConfig,
 )
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
-    build_sgrid_from_config,
+from hydromodpy.solver.utils.mesh.cartesian_grid.utils.planar_discretizer import (
+    PlanarDiscretizer,
 )
+from hydromodpy.spatial.raster_support import RasterSupport
+from hydromodpy.spatial.surface import Surface
 
 
 def _write_tif(path: Path, arr: np.ndarray) -> None:

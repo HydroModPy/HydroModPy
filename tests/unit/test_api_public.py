@@ -13,7 +13,6 @@ import pytest
 
 import hydromodpy as hmp
 
-
 EXPECTED_TOP_LEVEL = [
     # Entry points
     "open",

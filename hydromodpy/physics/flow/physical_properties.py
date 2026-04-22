@@ -32,15 +32,15 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
+from hydromodpy.core.config.base import HydroModelBase
 from hydromodpy.core.config.profile import Profile
 from hydromodpy.core.units import (
     HydraulicConductivity,
     SpecificStorage,
     SpecificYield,
 )
-from hydromodpy.core.config.base import HydroModelBase
 
 
 class FlowPhysicalProperties(HydroModelBase):

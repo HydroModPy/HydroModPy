@@ -8,7 +8,6 @@ import pandera.pandas as pa
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.data.schemas.timeseries import _format_failures
 
-
 LithologyTableSchema = pa.DataFrameSchema(
     columns={
         "zone_id": pa.Column(

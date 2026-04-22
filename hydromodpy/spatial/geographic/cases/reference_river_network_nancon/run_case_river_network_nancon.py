@@ -4,27 +4,27 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
+import numpy as np
+import rasterio
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.ticker import ScalarFormatter
-import numpy as np
-import rasterio
 
 # Support direct execution from file path and ensure local package precedence.
 repo_root = Path(__file__).resolve().parents[5]
 if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
+from hydromodpy.spatial.geographic.cases import run_geographic_case_from_toml
 from hydromodpy.spatial.geographic.cases.plotting_utils import (
     ensure_interactive_backend_for_show,
     show_figures_blocking,
 )
-from hydromodpy.spatial.geographic.cases import run_geographic_case_from_toml
 
 
 def _read_json(path: str | Path) -> dict[str, Any]:

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Base Module: ProcessSpatial Runtime Base
 ========================================
@@ -34,12 +33,11 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
 from typing import Generic, TypeVar
 
-from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.physics.base.boundary_conditions import BoundaryCondition
 from hydromodpy.physics.base.initial_conditions import InitialCondition
 from hydromodpy.physics.base.process_spatial_config import ProcessSpatialConfig
 from hydromodpy.physics.base.sinks_sources import SinkSource
-
+from hydromodpy.spatial.field.core.field_param import FieldParam
 
 TInitialConditions = TypeVar("TInitialConditions")
 

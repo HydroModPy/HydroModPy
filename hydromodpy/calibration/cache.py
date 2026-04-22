@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from typing import Mapping
+from collections.abc import Mapping
 
 
 def canonical_json(values: Mapping[str, float], *, precision: int = 12) -> str:

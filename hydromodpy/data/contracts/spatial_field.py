@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
 
 try:
     import xarray as xr
@@ -23,13 +22,13 @@ class FieldRecord:
     variable: str
     source: str
     unit: str
-    data: Union["xr.Dataset", Path]
+    data: xr.Dataset | Path
     bbox: tuple
     crs: str
-    date_start: Optional[datetime] = None
-    date_end: Optional[datetime] = None
-    frequency: Optional[str] = None
-    source_unit: Optional[str] = None
+    date_start: datetime | None = None
+    date_end: datetime | None = None
+    frequency: str | None = None
+    source_unit: str | None = None
 
     @property
     def is_static(self) -> bool:
@@ -40,7 +39,7 @@ class FieldRecord:
         return isinstance(self.data, (str, Path))
 
     @property
-    def dataset(self) -> "xr.Dataset":
+    def dataset(self) -> xr.Dataset:
         """Return the xarray Dataset, loading from disk if needed."""
         if isinstance(self.data, (str, Path)):
             if xr is None:

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Flow Runtime Process
 ====================
@@ -75,8 +74,14 @@ Non-goals
 - no temporal stress-period formatting in this module.
 """
 
-from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.core.units import convert_payload_to_m_per_s, normalize_m_per_s_unit
+from hydromodpy.core.units.volumetric_flow import (
+    convert_to_m3_per_s,
+    normalize_m3_per_s_unit,
+)
+from hydromodpy.physics.base import BoundaryCondition, ProcessSpatial, SinkSource
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
+from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.flow.initial_conditions import (
     FlowInitialCondition,
     FlowInitialConditions,
@@ -85,12 +90,6 @@ from hydromodpy.physics.flow.initial_conditions_config import (
     normalize_flow_initial_conditions,
 )
 from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig, FlowSinksSourcesConfig
-from hydromodpy.physics.base import BoundaryCondition, ProcessSpatial, SinkSource
-from hydromodpy.core.units import convert_payload_to_m_per_s, normalize_m_per_s_unit
-from hydromodpy.core.units.volumetric_flow import (
-    convert_to_m3_per_s,
-    normalize_m3_per_s_unit,
-)
 
 
 class Flow(ProcessSpatial):

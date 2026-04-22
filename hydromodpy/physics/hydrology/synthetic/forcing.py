@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Shared hydrological forcing utilities reusable across workflows."""
 
 from __future__ import annotations

@@ -33,9 +33,10 @@ inheritance chain so a step that consumes ``ResolvedState`` will also accept a
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Mapping, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 if TYPE_CHECKING:
     from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
@@ -68,7 +69,7 @@ class PipelineState(Generic[T]):
         elapsed_ms: float = 0.0,
         data: T | None = None,
         **extra: Any,
-    ) -> "PipelineState[T]":
+    ) -> PipelineState[T]:
         """Return a successor state for the next step.
 
         For the legacy ``Mapping[str, Any]`` payload, ``extra`` keyword
@@ -110,7 +111,7 @@ class PipelineState(Generic[T]):
             return self.data.get(key, default)
         return getattr(self.data, key, default)
 
-    def with_data(self, **updates: Any) -> "PipelineState[T]":
+    def with_data(self, **updates: Any) -> PipelineState[T]:
         """Return a copy of the state with ``data`` merged with ``updates``."""
         if not isinstance(self.data, Mapping):
             raise TypeError(
@@ -131,7 +132,7 @@ class PipelineState(Generic[T]):
 class ValidatedState:
     """Payload after step 00 (validate)."""
 
-    config: "HydroModPyConfig"
+    config: HydroModPyConfig
     workspace: Path | None = None
     config_path: Path | None = None
 
@@ -140,8 +141,8 @@ class ValidatedState:
 class ResolvedState(ValidatedState):
     """Payload after step 01 (resolve)."""
 
-    data_plan: "DataLoadPlan | None" = None
-    sim_plan: "SimulationPlan | None" = None
+    data_plan: DataLoadPlan | None = None
+    sim_plan: SimulationPlan | None = None
     raw_toml: dict[str, Any] | None = None
 
 
@@ -149,7 +150,7 @@ class ResolvedState(ValidatedState):
 class LoadedState(ResolvedState):
     """Payload after step 02 (load_data)."""
 
-    loaded_context: "LoadedDataContext | None" = None
+    loaded_context: LoadedDataContext | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,21 +164,21 @@ class MeshedState(LoadedState):
 class SetupState(MeshedState):
     """Payload after step 05 (setup_process)."""
 
-    setup_context: "SetupContext | None" = None
+    setup_context: SetupContext | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class OpenStoreState(SetupState):
     """Payload after step 06 (prepare_solver)."""
 
-    sim_zarr: "SimulationZarr | None" = None
+    sim_zarr: SimulationZarr | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class SolverRanState(OpenStoreState):
     """Payload after step 07 (run_solver)."""
 
-    solver_result: "RunResult | None" = None
+    solver_result: RunResult | None = None
     wall_seconds: float | None = None
 
 

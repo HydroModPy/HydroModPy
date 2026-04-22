@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 def _align_series_to_simulation_window(
     series: pd.Series,
     *,
-    simulation_window: "ResolvedSimulationTimeWindow",
+    simulation_window: ResolvedSimulationTimeWindow,
     label: str,
 ) -> pd.Series:
     """Aggregate one datetime-indexed series to simulation stress periods.
@@ -63,7 +63,7 @@ def _align_series_to_simulation_window(
 def align_forcing_series_to_simulation_window(
     series: pd.Series,
     *,
-    simulation_window: "ResolvedSimulationTimeWindow",
+    simulation_window: ResolvedSimulationTimeWindow,
     label: str = "forcing",
 ) -> pd.Series:
     """Public wrapper for period aggregation on simulation-time boundaries."""

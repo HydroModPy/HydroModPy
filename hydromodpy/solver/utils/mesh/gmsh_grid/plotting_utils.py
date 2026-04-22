@@ -9,9 +9,9 @@ mixing them into the mesh and discretization core.
 from __future__ import annotations
 
 import matplotlib
+import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.ticker import ScalarFormatter
-import numpy as np
 
 from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
 

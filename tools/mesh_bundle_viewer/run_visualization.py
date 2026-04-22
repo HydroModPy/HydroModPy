@@ -11,8 +11,8 @@ the viewer.
 
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # When this file is executed directly, Python adds ``mesh_bundle_viewer/`` to
 # ``sys.path`` but not necessarily the parent folder. Insert the parent so the
@@ -22,7 +22,6 @@ if str(_package_root) not in sys.path:
     sys.path.insert(0, str(_package_root))
 
 from mesh_bundle_viewer.cli import main  # noqa: E402
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

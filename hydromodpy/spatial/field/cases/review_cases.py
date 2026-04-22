@@ -14,10 +14,10 @@ launcher lightweight while still giving a quick visual tour of the current
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-import sys
 from typing import Any
 
 # Ensure repository root is importable when the script is launched directly.

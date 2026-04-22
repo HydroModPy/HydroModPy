@@ -1,12 +1,12 @@
 """Domain module for HydroModPy."""
 
-from hydromodpy.spatial.domain.domain import Domain
-from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     DepthModelConfig,
     FlatSubstratumDepthModel,
 )
+from hydromodpy.spatial.domain.domain import Domain
+from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.domain.spatial_support import (
     GeneratedBandsSupportField,
     GeneratedRingsSupportField,

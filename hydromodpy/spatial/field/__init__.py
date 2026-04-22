@@ -1,5 +1,9 @@
 """Field utilities (homogeneous/heterogeneous parameter handling)."""
 
+from hydromodpy.spatial.field.cases.square import (
+    FieldMeshSquare,
+    FieldSquare,
+)
 from hydromodpy.spatial.field.core import (
     BaseFieldMesh,
     Field,
@@ -10,18 +14,14 @@ from hydromodpy.spatial.field.core import (
     MeshWithValues,
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.spatial.field.geology import (
+    GeologyField,
+    GeologyStructuredMesh,
+)
 from hydromodpy.spatial.field.meshes import (
     StructuredFieldMesh,
     TriangularStructuredFieldMesh,
     TriangularUnstructuredFieldMesh,
-)
-from hydromodpy.spatial.field.cases.square import (
-    FieldMeshSquare,
-    FieldSquare,
-)
-from hydromodpy.spatial.field.geology import (
-    GeologyField,
-    GeologyStructuredMesh,
 )
 
 __all__ = (

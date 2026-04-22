@@ -10,7 +10,6 @@ from validation_cases.shared.boussinesq_piecewise_strip import (
 )
 from validation_cases.shared.runtime import ValidationRunResult
 
-
 CASE_ID = "boussinesq_divide_fixed_head_piecewise_k_1d"
 EAST_HEAD_M = 5.0
 RECHARGE_MM_DAY = 1.0

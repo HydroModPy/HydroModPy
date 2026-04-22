@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from hydromodpy.core.config.toml_loader import load_toml_with_base_config
 
@@ -215,7 +216,7 @@ class RegionalLabConfig:
         raw_toml: Mapping[str, Any],
         *,
         config_path: str | Path,
-    ) -> "RegionalLabConfig":
+    ) -> RegionalLabConfig:
         """Validate one raw TOML payload."""
         if not isinstance(raw_toml, Mapping):
             raise ValueError("configuration must be a mapping")
@@ -428,7 +429,7 @@ class RegionalLabConfig:
         )
 
     @classmethod
-    def from_file(cls, config_path: str | Path) -> "RegionalLabConfig":
+    def from_file(cls, config_path: str | Path) -> RegionalLabConfig:
         """Load and validate one TOML configuration file."""
         resolved_config_path = Path(config_path).expanduser().resolve()
         payload = load_toml_with_base_config(resolved_config_path)

@@ -34,13 +34,13 @@ class RechargeMap(BaseFigure):
 
     def render(
         self,
-        sim: "Run",
-        ax: "Axes",
+        sim: Run,
+        ax: Axes,
         *,
         timestep: int | None = None,
         cmap: str = "YlGnBu",
         **_,
-    ) -> "Axes":
+    ) -> Axes:
         ts = last_timestep(sim) if timestep is None else timestep
         rch = np.asarray(sim.field("recharge", timestep=ts))
         if rch.ndim == 2:

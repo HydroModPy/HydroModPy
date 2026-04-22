@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.data.plan import DataLoadPlan
 from hydromodpy.data.loader import DataManagersRuntimeLoader
+from hydromodpy.data.plan import DataLoadPlan
 
 
 def _build_loader(tmp_path: Path) -> DataManagersRuntimeLoader:

@@ -20,8 +20,8 @@ point of the file is to exercise the new ``hydromodpy.calibration`` API
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Mapping
 
 import numpy as np
 
@@ -37,7 +37,6 @@ from hydromodpy.calibration import (
     build_optimizer,
 )
 from hydromodpy.calibration.objective import evaluate_objective
-
 
 # ---------------------------------------------------------------------------
 # Forward model

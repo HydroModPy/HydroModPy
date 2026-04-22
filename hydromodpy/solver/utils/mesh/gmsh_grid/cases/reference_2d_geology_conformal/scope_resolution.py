@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
-    load_zone_meshing_domain_payload,
-)
+
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalDomainConfig,
     ZoneConformalGeometryPayload,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
+    load_zone_meshing_domain_payload,
 )
 
 

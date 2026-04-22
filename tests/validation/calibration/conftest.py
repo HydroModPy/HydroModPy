@@ -9,5 +9,4 @@ recession / reservoir cases built on the new engine) are collected normally.
 
 from __future__ import annotations
 
-
 collect_ignore_glob = ["test_twin_*.py"]

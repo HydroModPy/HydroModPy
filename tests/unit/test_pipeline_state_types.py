@@ -20,7 +20,6 @@ from hydromodpy.pipeline import (
     ValidatedState,
 )
 
-
 # ---------------------------------------------------------------------------
 # Inheritance chain
 # ---------------------------------------------------------------------------
@@ -162,5 +161,5 @@ def test_each_step_class_declares_tin_tout() -> None:
         (ExportStep, DerivedState, ExportedState),
     ]
     for cls, tin, tout in expected:
-        assert getattr(cls, "tin") is tin, f"{cls.__name__}.tin"
-        assert getattr(cls, "tout") is tout, f"{cls.__name__}.tout"
+        assert cls.tin is tin, f"{cls.__name__}.tin"
+        assert cls.tout is tout, f"{cls.__name__}.tout"

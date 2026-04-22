@@ -87,13 +87,12 @@ def test_validate_field_context_accepted_but_ignored() -> None:
 
 def test_validate_field_nested_path() -> None:
     """Dotted paths into nested models resolve correctly."""
-    from hydromodpy.schema import validate_field
-
     # FlowPhysicalProperties is not a direct child of HydroModPyConfig
     # (it is nested under flow_physical_properties via another module),
     # so a path like 'flow.flow_regime' stays the stable smoke test.
     # This case walks a nested BaseModel one level deep.
     from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.schema import validate_field
 
     # Pick any nested BaseModel child to confirm traversal works.
     for field_name, info in HydroModPyConfig.model_fields.items():

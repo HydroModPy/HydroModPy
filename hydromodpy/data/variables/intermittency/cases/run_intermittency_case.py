@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import sys
 import tomllib
+from pathlib import Path
 from typing import Any
 
 repo_root = Path(__file__).resolve().parents[5]

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import sys
-
+from pathlib import Path
 
 if __package__ is None or __package__ == "":
     # Allow `python path/to/run_case.py` by exposing the repository root.
@@ -17,7 +16,6 @@ from validation_cases.analytical.steady.dupuit_fixed_head_1d.plotting import (
     plot_dupuit_fixed_head_comparison,
 )
 from validation_cases.shared.cli import run_case_main
-
 
 DEFAULT_FIGURE_NAME = "dupuit_fixed_head_1d_validation.png"
 RUN_DESCRIPTION = "Run the Dupuit fixed-head validation case and plot the result."

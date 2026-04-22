@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Protocol
+from typing import Protocol
 
 from hydromodpy.calibration.cache import ParamsHashCache, params_hash
 from hydromodpy.calibration.optimizer import (
@@ -27,7 +28,6 @@ from hydromodpy.calibration.optimizer import (
     build_optimizer,
 )
 from hydromodpy.calibration.parameters import ParameterSpace
-
 
 EvaluatorFn = Callable[[ParamSuggestion], EvaluationResult]
 

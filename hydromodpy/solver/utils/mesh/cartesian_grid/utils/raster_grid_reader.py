@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Raster reading utilities for cartesian structured grids.
 

@@ -8,9 +8,10 @@ state at step 2 and execute step 3 onwards exactly once.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from hydromodpy.pipeline.pipeline import Pipeline
 from hydromodpy.pipeline.state import PipelineState

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Backward-compatible accessors for shared MODFLOW discretization helpers.
 
 This legacy NWT import path is kept so existing callers and tests can keep

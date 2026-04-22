@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Base Module: Boundary-Condition Normalization Helpers
 =====================================================

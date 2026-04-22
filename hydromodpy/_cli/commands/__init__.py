@@ -21,7 +21,6 @@ from hydromodpy._cli.commands import (
     import_cmd,
     init,
     inspect,
-    list as list_cmd,
     lock,
     new,
     run,
@@ -29,6 +28,9 @@ from hydromodpy._cli.commands import (
     show,
     test,
     worst,
+)
+from hydromodpy._cli.commands import (
+    list as list_cmd,
 )
 
 ALL_COMMANDS = (

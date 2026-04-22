@@ -1,18 +1,16 @@
-# -*- coding: utf-8 -*-
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
+from hydromodpy.core.config.base import HydroModelBase
+from hydromodpy.core.config.profile import Profile
 from hydromodpy.physics.base import ProcessSpatial
 from hydromodpy.physics.transport.transport_config import TransportConfig
-from hydromodpy.core.config.base import HydroModelBase
-from typing import Annotated
-from hydromodpy.core.config.profile import Profile
 
 
 @dataclass
