@@ -25,6 +25,7 @@ from hydromodpy.results.catalog_schema import (
 )
 from hydromodpy.results.provenance import fingerprint
 from hydromodpy.results.spatial_index import point_in_cell
+from hydromodpy.results.storage_naming import build_storage_basename
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:
@@ -201,16 +202,50 @@ class SimulationCatalog:
 
         self._simulations_dir = self._workspace / "simulations"
         self._simulations_dir.mkdir(exist_ok=True)
+        self._basename_cache: dict[str, str] = {}
 
         ensure_schema(self._db, self._workspace)
 
+    def _storage_basename_for(self, sim_id: str | UUID) -> str:
+        """Return the on-disk basename for ``sim_id``.
+
+        Reads ``simulations.storage_basename`` and falls back to the raw
+        ``sim_id`` string when the column is ``NULL`` — the case for rows
+        written before human-readable storage names were introduced.
+        Such workspaces continue to work via the UUID fallback; new
+        registrations populate the column going forward.
+        """
+        sid = str(sim_id)
+        cached = self._basename_cache.get(sid)
+        if cached is not None:
+            return cached
+        row = self._db.execute(
+            "SELECT storage_basename FROM simulations WHERE sim_id = ?",
+            [sid],
+        ).fetchone()
+        basename = (row[0] if row else None) or sid
+        self._basename_cache[sid] = basename
+        return basename
+
     def _parquet_dir_for(self, sim_id: str | UUID) -> Path:
         """Return the per-simulation Parquet directory (may not yet exist)."""
-        return self._simulations_dir / f"{sim_id}.parquet"
+        return self._simulations_dir / f"{self._storage_basename_for(sim_id)}.parquet"
 
     def _parquet_path_for(self, sim_id: str | UUID, view_name: str) -> Path:
         """Return the Parquet file path for ``view_name`` under ``sim_id``."""
         return self._parquet_dir_for(sim_id) / f"{view_name}.parquet"
+
+    def zarr_path_for(self, sim_id: str | UUID) -> Path:
+        """Return the Zarr artefact path on disk (``.zarr.zip`` if packed)."""
+        basename = self._storage_basename_for(sim_id)
+        zipped = self._simulations_dir / f"{basename}.zarr.zip"
+        if zipped.exists():
+            return zipped
+        return self._simulations_dir / f"{basename}.zarr"
+
+    def parquet_dir_for(self, sim_id: str | UUID) -> Path:
+        """Return the per-simulation Parquet directory (public accessor)."""
+        return self._parquet_dir_for(sim_id)
 
     def _refresh_parquet_view(self, view_name: str) -> None:
         """Refresh a Parquet-backed view DDL after files change on disk.
@@ -377,9 +412,11 @@ class SimulationCatalog:
         p_start = _coerce_timestamp(period_start)
         p_end = _coerce_timestamp(period_end)
 
-        zarr_path = f"simulations/{sid}.zarr"
+        storage_basename = build_storage_basename(project, final_name, sid)
+        zarr_path = f"simulations/{storage_basename}.zarr"
         parent_sid = str(parent_sim_id) if parent_sim_id else None
         config_source_str = str(config_source) if config_source is not None else None
+        self._basename_cache[sid] = storage_basename
 
         self._db.execute(
             """INSERT INTO simulations
@@ -389,10 +426,10 @@ class SimulationCatalog:
                 crs_wkt, crs_epsg,
                 period_start, period_end, time_unit,
                 config_toml, config_snapshot, config_hash, config_source,
-                zarr_path, parent_sim_id, mesh_hash, mesh_topology,
+                zarr_path, storage_basename, parent_sim_id, mesh_hash, mesh_topology,
                 geographic_fingerprint, tags, notes)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
                 sid,
                 final_name,
@@ -417,6 +454,7 @@ class SimulationCatalog:
                 config_hash,
                 config_source_str,
                 zarr_path,
+                storage_basename,
                 parent_sid,
                 mesh_hash,
                 topology,
@@ -912,11 +950,11 @@ class SimulationCatalog:
     # -- Zarr access ---------------------------------------------------------
 
     def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
-        zarr_dir = self._simulations_dir / f"{sim_id}.zarr"
-        zarr_zip = self._simulations_dir / f"{sim_id}.zarr.zip"
+        basename = self._storage_basename_for(sim_id)
+        zarr_zip = self._simulations_dir / f"{basename}.zarr.zip"
         if zarr_zip.exists():
             return SimulationZarr(zarr_zip)
-        return SimulationZarr(zarr_dir)
+        return SimulationZarr(self._simulations_dir / f"{basename}.zarr")
 
     def open_zarr_group(self, sim_id: str | UUID, *, mode: str = "r"):
         return self.open_zarr(sim_id).root
@@ -1389,7 +1427,8 @@ class SimulationCatalog:
         )
 
         if status == "completed":
-            zarr_dir = self._simulations_dir / f"{sid}.zarr"
+            basename = self._storage_basename_for(sid)
+            zarr_dir = self._simulations_dir / f"{basename}.zarr"
             if zarr_dir.is_dir():
                 try:
                     sz = SimulationZarr(zarr_dir)
@@ -1411,6 +1450,11 @@ class SimulationCatalog:
             "SELECT zarr_path FROM simulations WHERE sim_id = ?",
             [sid],
         ).fetchone()
+        # Resolve artefact paths while the row still exists so basename lookup
+        # works; clearing the cache and deleting the row first would push
+        # resolution onto the raw-UUID fallback and miss the real folder.
+        parquet_dir = self._parquet_dir_for(sid)
+        self._basename_cache.pop(sid, None)
 
         for table in PER_SIM_TABLE_NAMES:
             self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
@@ -1420,7 +1464,6 @@ class SimulationCatalog:
         )
         self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
 
-        parquet_dir = self._parquet_dir_for(sid)
         if parquet_dir.is_dir():
             shutil.rmtree(parquet_dir, ignore_errors=True)
             # Refresh views so a workspace whose last per-sim Parquet file

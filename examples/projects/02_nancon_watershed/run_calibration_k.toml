@@ -1,0 +1,81 @@
+# ======================================================================
+# Nançon — calibration de K sur le débit observé
+# ----------------------------------------------------------------------
+# Overlay qui hérite de `project.toml`. Optimise log10(K) par Optuna
+# pour maximiser le NSE entre le débit simulé (outflow drain, cumulé
+# mensuel en mm/mois) et la chronique observée de la station Nançon.
+#
+# Sy, Ss et l'épaisseur d'aquifère sont gelés à leur valeur baseline.
+#
+# Lancement (seul point d'entrée — pas de `hmp calibrate` séparé) :
+#   uv run hmp run examples/projects/02_nancon_watershed/run_calibration_k.toml
+#
+# IMPORTANT (état actuel, à retirer après le refactor décrit dans
+# `docs/developers/calibration_sweep_refactor_prompt.md`) : le CLI
+# utilise aujourd'hui un évaluateur mock analytique (cf.
+# `hydromodpy/calibration/cli.py:66`), qui ne relance PAS de vraies
+# simulations. Après refactor, `hmp run` lancera le solveur déclaré
+# dans [solver] et persistera les itérations / le best_sim_id.
+# ======================================================================
+base_config = "project.toml"
+
+workflow = "calibration"
+
+[simulation]
+name = "nancon_calibration_k"
+description = "Calibration Optuna de K sur NSE(discharge), Sy/Ss fixés."
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+step_value = "1 month"
+coverage_policy = "warn"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflownwt"]
+
+# --- Paramètres gelés (non calibrés) ---------------------------------
+
+[domain.depth_model]
+thickness = 30.0
+
+[flow.param.Sy.field_homogeneous]
+value = 0.05
+
+[flow.param.Ss.field_homogeneous]
+value = 1e-5
+
+[flow.sinks_sources.recharge]
+first_clim = "first"
+
+# --- Calibration -----------------------------------------------------
+#
+# La présence de [calibration] (+ `workflow = "calibration"`) bascule
+# `hmp run` sur la boucle ask/tell — cf. `hydromodpy/_cli/workflows.py`.
+#
+# Chaque paramètre déclare :
+#   bounds     : [low, high] dans l'espace physique
+#   transform  : 'log' pour K (strictement positif, multi-ordres de
+#                magnitude — sampling uniforme en log10)
+#   path       : chemin dotté dans HydroModPyConfig injecté à chaque run
+#   units      : label informatif
+
+[calibration]
+method = "optuna"
+max_iter = 40
+batch_size = 1
+save_runs = "best_n"
+save_best_n = 5
+seed = 42
+objective = "nse"
+variable = "discharge"        # série observée dans [data.hydrometry]
+use_cache = true
+
+[calibration.parameters.K]
+bounds = [1e-6, 1e-3]
+transform = "log"
+prior = "log_uniform"
+path = "flow.param.K.field_homogeneous.value"
+units = "m/s"

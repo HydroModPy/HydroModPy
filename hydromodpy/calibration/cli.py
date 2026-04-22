@@ -87,7 +87,7 @@ def run_calibration_cli(
     workspace: Path | str | None = None,
     project: str = "calibration",
 ) -> dict:
-    """Entry point used by ``hmp calibrate``.
+    """Entry point dispatched from ``hmp run`` when ``workflow = "calibration"``.
 
     Parameters
     ----------

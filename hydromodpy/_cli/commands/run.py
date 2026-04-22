@@ -1,10 +1,9 @@
 """``hmp run`` — execute a workflow declared by the TOML.
 
-Requires the TOML to carry a top-level ``workflow = "..."`` field
-(one of ``simulation``, ``calibration``, ``batch``, ``overview``, ``mesh``).
-Absence raises ``WorkflowMissingError``. Use an explicit subcommand
-(``hmp simulate``, ``hmp mesh``, ``hmp overview``, ``hmp calibrate``,
-``hmp batch``) if you prefer CLI-side selection.
+Single CLI entry point. The TOML must carry a top-level
+``workflow = "..."`` field (one of ``simulation``, ``calibration``,
+``batch``, ``overview``, ``mesh``). Absence raises
+``WorkflowMissingError``.
 
 Also supports ``.py`` scripts, executed as-is in a subprocess for
 prototyping (no workflow involved).

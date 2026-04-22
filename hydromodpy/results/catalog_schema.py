@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS simulations (
     lineage_kind            VARCHAR,
     zarr_path               VARCHAR,
     zarr_packed             BOOLEAN NOT NULL DEFAULT FALSE,
+    storage_basename        VARCHAR,
     geographic_fingerprint  VARCHAR,
     duration_s              DOUBLE,
     started_at              TIMESTAMPTZ,
@@ -586,10 +587,9 @@ def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, workspace_path: Path) 
     view is installed so that ``SELECT * FROM <view>`` still succeeds with
     the right columns on a fresh workspace. On the next write that creates
     the first file, the catalog calls this function again to swap the view
-    over to ``read_parquet``. If a legacy DuckDB table with the same name
-    as a target view still exists (pre-migration state), view creation is
-    skipped so the caller can still query its rows; the migration command
-    drops the table before re-running this function.
+    over to ``read_parquet``. If a legacy DuckDB table with the same name as
+    a target view still exists, view creation is skipped so the caller can
+    still query its rows; legacy workspaces should be regenerated.
     """
     legacy_tables = {
         r[0]
@@ -601,8 +601,8 @@ def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, workspace_path: Path) 
     for view in PARQUET_VIEW_NAMES:
         if view in legacy_tables:
             logger.warning(
-                "Skipping view %r: a legacy table with the same name "
-                "still exists. Run `hmp migrate` to move rows to Parquet.",
+                "Skipping view %r: a legacy DuckDB table with that name still "
+                "exists. Regenerate the workspace to use the Parquet layout.",
                 view,
             )
             continue
@@ -618,7 +618,10 @@ def ensure_parquet_views(conn: duckdb.DuckDBPyConnection, workspace_path: Path) 
 # table already exists, so a new column added to the DDL never reaches a
 # pre-existing catalog. This lightweight list keeps dev-branch upgrades
 # painless without introducing a full versioned migration system.
-_SIMULATIONS_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (("config_source", "VARCHAR"),)
+_SIMULATIONS_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("config_source", "VARCHAR"),
+    ("storage_basename", "VARCHAR"),
+)
 
 
 def _apply_simulations_additive_columns(conn: duckdb.DuckDBPyConnection) -> None:
@@ -690,9 +693,8 @@ def _drop_legacy_parquet_tables(conn: duckdb.DuckDBPyConnection) -> None:
     A table and a view cannot share a name. When opening a pre-refactor
     catalog, the old tables must be dropped before the Parquet views can
     be created. This function is a no-op when the names are already bound
-    to views or are absent. ``hmp migrate`` is responsible for salvaging
-    the row data into Parquet before anything gets dropped; this helper
-    only runs when the tables are empty or when migration already happened.
+    to views or are absent. Non-empty legacy tables are left in place and
+    log a warning; the workspace must be regenerated.
     """
     rows = conn.execute(
         "SELECT table_name, table_type FROM information_schema.tables "
@@ -704,7 +706,7 @@ def _drop_legacy_parquet_tables(conn: duckdb.DuckDBPyConnection) -> None:
             if count:
                 logger.warning(
                     "Catalog still has %d rows in legacy table %r — "
-                    "run `hmp migrate` to move them to Parquet",
+                    "regenerate the workspace to migrate to the Parquet layout.",
                     count,
                     name,
                 )
