@@ -1,0 +1,32 @@
+# Pre-commit: runs ruff automatically at every `git commit`.
+#
+# One-time setup per clone:
+#   pip install -e ".[dev]"      # installs ruff + pre-commit
+#   pre-commit install           # wires the hook into .git/hooks/
+#
+# Manual run on the whole repo:
+#   pre-commit run --all-files
+#
+# Update hook versions periodically:
+#   pre-commit autoupdate
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.9
+    hooks:
+      # 1. Lint — auto-fix what can be fixed (imports, simple rewrites…).
+      - id: ruff-check
+        args: [--fix]
+      # 2. Format — apply ruff's formatter (black-compatible).
+      - id: ruff-format
+
+  # Small, uncontroversial hygiene hooks. Remove any you don't want.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=1000]
