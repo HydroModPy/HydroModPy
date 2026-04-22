@@ -14,10 +14,10 @@ import logging
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 from hydromodpy.core.config import HydroModPyConfig
 from hydromodpy.workflow.pipelines.overview_config import DataOverviewState
+
+logger = logging.getLogger(__name__)
 
 
 class DataOverviewLauncher:

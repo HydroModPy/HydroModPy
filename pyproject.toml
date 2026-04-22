@@ -189,12 +189,12 @@ line-length = 100
 extend-exclude = [
     "examples_legacy_2",
     "hydromodpy.egg-info",
-    "docs/_build",
-    "docs/readthedocs/_build",
+    "docs",              # Sphinx conf + doc examples aren't production code
     "bin",
     ".venv",
     "build",
     "dist",
+    "*.ipynb",           # skip notebooks (stray scratch files like Test_delete.ipynb)
 ]
 
 [tool.ruff.lint]
@@ -217,14 +217,24 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Package __init__ files commonly re-export symbols and set up paths.
 "__init__.py" = ["F401", "E402"]
-# Tests can use late imports, unused fixtures, magic values.
-"tests/**/*.py" = ["E402", "F401", "B011"]
+# Tests can use idiomatic pytest patterns: bare pytest.raises(Exception),
+# zip without strict=, kept assignments for readability, etc.
+"tests/**/*.py" = ["E402", "F401", "B011", "B017", "B905", "F841"]
+# tools/ scripts do `sys.path.insert(0, REPO_ROOT)` before imports — legit pattern.
+"tools/**" = ["E402", "F401", "B007", "B905", "F841"]
+# Annex: legacy/peripheral code, minimal linting.
+"hydromodpy_annex/**" = ["E402", "F401", "B006", "B007"]
 # Demo / validation scripts: lenient, they're not production code.
 "hydromodpy/**/cases/**" = ["E402", "F401", "B007"]
-"validation_cases/**" = ["E402", "F401", "B007"]
+"validation_cases/**" = ["E402", "F401", "B007", "B905"]
 "examples/**" = ["E402", "F401", "B007"]
 # CLI shells can do argparse-style late imports.
 "hydromodpy/_cli/**" = ["E402"]
+# Pydantic `model_rebuild(_types_namespace=...)` pattern: forward refs are
+# resolved at runtime via an explicit namespace dict, so ruff can't see them
+# with static analysis. Known-good, silencing F821 in these files.
+"hydromodpy/data/data_managers_config.py" = ["F821"]
+"hydromodpy/core/config/hydromodpy_config.py" = ["F821"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["hydromodpy", "hydromodpy_annex"]

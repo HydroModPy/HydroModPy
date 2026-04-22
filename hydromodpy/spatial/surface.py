@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Surface abstractions for domain topography and derived vertical supports.
 
@@ -12,6 +10,8 @@ This module intentionally keeps all surface-level operations in one place:
 The goal is to keep ``Domain`` focused on orchestration while all array-level
 transformations that conceptually belong to a surface remain implemented here.
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any

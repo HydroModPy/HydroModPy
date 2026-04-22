@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Raster support metadata used to place 2D surfaces in space.
 
@@ -10,6 +8,8 @@ This module separates spatial referencing from raster values:
 Keeping both concerns separate makes surface operations simpler and avoids
 passing larger objects such as ``CatchmentDelineation`` into low-level domain classes.
 """
+
+from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
